@@ -195,16 +195,13 @@ export async function loadOfMaterialsDiagnostic(numOf: string) {
         feasible: directVerdict.feasible,
         blockedCount: directVerdict.blockedCount,
         shorts: directVerdict.materials
-          .filter((m) => m.feasible === false)
+          .filter((m) => !m.feasible)
           .map((m) => ({
             article: m.article,
             remaining: m.remaining,
             available: m.available,
             missing: m.missing,
           })),
-        unknownStock: directVerdict.materials
-          .filter((m) => m.available === null)
-          .map((m) => m.article),
       },
     },
   }

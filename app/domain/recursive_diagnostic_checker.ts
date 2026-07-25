@@ -56,8 +56,8 @@ export interface ShortComponentNode {
   article: string
   description: string
   quantityNeeded: number
-  /** Stock disponible (strict uniquement, hors QC). null = inconnu. */
-  available: number | null
+  /** Stock disponible (strict uniquement, hors QC). */
+  available: number
   /** Stock sous contrôle qualité (non utilisable tant que le CQ n'est pas levé). */
   stockQc?: number
   quantityMissing: number
@@ -130,7 +130,7 @@ interface RawShort {
   article: string
   description: string
   quantityNeeded: number
-  available: number | null // strict uniquement (hors QC)
+  available: number // strict uniquement (hors QC)
   qcAvailable: number // stock sous CQ (non dispo immédiatement)
   qtyMissing: number
   earliestReception: string | null
@@ -353,7 +353,7 @@ export class RecursiveDiagnosticChecker {
         // Feuille / acheté :
         //  - stock strict insuffisant ET stock CQ couvre le besoin → qc_a_controler
         //  - sinon → rupture matière réelle
-        const strictAvailable = s.available ?? 0
+        const strictAvailable = s.available
         const coveredByQc = s.qcAvailable > 0 && strictAvailable + s.qcAvailable >= s.quantityNeeded
         const status: NodeStatus = coveredByQc ? 'qc_a_controler' : 'rupture_matiere'
         shorts.push({

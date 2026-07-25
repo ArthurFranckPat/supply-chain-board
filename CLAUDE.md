@@ -29,18 +29,36 @@ avant de pousser ».
 
 ## Tests
 
-**NEVER run the full test suite** (`node ace test` sans filtre, `--suite`, `jest`, etc.).
+**NEVER run the full test suite** en local (`node ace test` sans filtre, `jest`, etc.).
 
 - Gate rapide : `npm run typecheck`.
 - Tests ciblés uniquement : un seul fichier ou un grep précis.
-  - Ex. : `npx node ace test --files="recursive-diagnostic-checker"`.
-- Pas de `--suite="unit"` ni de run global, même pour vérifier une régression.
+  - Ex. : `npx node ace test --files="recursive_diagnostic_checker"` (noms de
+    fichiers en **snake_case**, convention AdonisJS).
+- Pas de run global en local, même pour vérifier une régression.
+- La suite `unit` complète tourne **en CI**, c'est son rôle. Au premier run elle
+  a d'ailleurs levé 2 tests périmés depuis des semaines.
+- Piège : `--suite=unit` **n'existe pas**. Les suites sont des arguments
+  positionnels (`node ace test unit`) ; écrit en flag il est ignoré en silence
+  et toutes les suites tournent, `functional` comprise.
 
-## Outils interdits (suite)
+## Build
 
-**JAMAIS `npm run build`** (ni `vite build`) pour valider du code — dev server déjà lancé, `npm run typecheck` suffit.
+`npm run typecheck` reste le gate par défaut : le dev server tourne déjà, et un
+build ne dit rien de plus dans la grande majorité des cas.
 
-- Règle non négociable, répétée = signal d'agacement utilisateur.
+Un build local est **autorisé quand il apporte ce que le typecheck ne voit pas**
+(assets Vite, `metaFiles`, résolution ESM au packaging) — à condition de
+**nettoyer derrière** :
+
+```bash
+npm run build && rm -rf build public/assets
+```
+
+- `node ace build` écrit dans `build/`, Vite dans `public/assets/` : les deux
+  sont gitignorés, mais les laisser traîner pollue le working tree et fausse le
+  dev server suivant.
+- Ne jamais lancer un build par réflexe « pour vérifier que ça compile ».
 
 ## Outils interdits
 

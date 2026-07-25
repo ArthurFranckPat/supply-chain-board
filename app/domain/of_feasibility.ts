@@ -49,11 +49,13 @@ export interface MaterialVerdict {
   description: string
   unit: string | null
   remaining: number
-  /** Stock disponible strict/qc ; null si l'article est absent du stock chargé. */
-  available: number | null
+  /**
+   * Stock disponible strict/qc. Jamais null : un article absent du stock chargé
+   * vaut 0, pas « inconnu » (cf. `evaluateMfgFeasibility`).
+   */
+  available: number
   allocated: number
-  /** null = stock inconnu (ni faisable, ni en rupture). */
-  feasible: boolean | null
+  feasible: boolean
   missing: number
 }
 
@@ -83,7 +85,7 @@ export function evaluateMfgFeasibility(
     // → non bloqué → verdict faisable à tort (bug « composants dispo, badge rupture »).
     const available = stockByArticle.get(m.article) ?? 0
     const feasible = isFirm ? true : available + m.allocated >= m.remaining
-    const missing = feasible === false ? Math.max(0, m.remaining - available) : 0
+    const missing = feasible ? 0 : Math.max(0, m.remaining - available)
     return {
       article: m.article,
       description: m.description ?? '',
@@ -98,9 +100,9 @@ export function evaluateMfgFeasibility(
 
   const missingComponents: Record<string, number> = {}
   for (const r of rows) {
-    if (r.feasible === false) missingComponents[r.article] = r.missing
+    if (!r.feasible) missingComponents[r.article] = r.missing
   }
-  const blockedCount = rows.filter((r) => r.feasible === false).length
+  const blockedCount = rows.filter((r) => !r.feasible).length
 
   return { materials: rows, feasible: blockedCount === 0, blockedCount, missingComponents }
 }

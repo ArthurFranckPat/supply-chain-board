@@ -30,7 +30,7 @@ export interface DiagShort {
   article: string
   description: string
   quantityNeeded: number
-  available: number | null
+  available: number
   stockQc?: number
   quantityMissing: number
   earliestReception: string | null

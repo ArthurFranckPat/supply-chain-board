@@ -118,7 +118,7 @@ function ShortRow({ short, depth }: ShortRowProps) {
           </span>
         )}
         <span className="font-mono text-[11px] text-muted-foreground">
-          besoin {short.quantityNeeded} · dispo {short.available ?? '?'}
+          besoin {short.quantityNeeded} · dispo {short.available}
           {short.stockQc !== undefined && (
             <>
               {' '}

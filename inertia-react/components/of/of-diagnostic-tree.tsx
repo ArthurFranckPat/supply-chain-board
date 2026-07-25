@@ -67,10 +67,10 @@ function DiagRow({ short }: { short: DiagShort }) {
       <span className="w-9 flex-none text-right font-mono text-[11px] text-muted-foreground">
         {short.stockQc ? (
           <span className="font-semibold text-warning" title={`dont ${short.stockQc} en CQ`}>
-            {short.available ?? 0}+{short.stockQc}
+            {short.available}+{short.stockQc}
           </span>
         ) : (
-          <>{short.available ?? '?'}</>
+          <>{short.available}</>
         )}
       </span>
       <span className="w-10 flex-none text-right font-mono text-[11px] font-bold text-destructive">
