@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto'
 
 import type { AgentSseEvent } from '#services/agent_service'
 import type { StoredChatMessage } from '#services/conversation_store'
+import { toStoredToolOutput } from '#services/agent/ui_message_stream'
 
 type Part = StoredChatMessage['parts'][number]
 
@@ -115,7 +116,10 @@ export class AgentMessageAssembler {
           part.errorText = toErrorText(event.result)
         } else {
           part.state = 'output-available'
-          part.output = event.result ?? null
+          // MÊME enveloppe que le stream (`toStoredToolOutput`) : sans elle, le
+          // lien vers l'app MCP n'est pas persisté et le graphe disparaît dès
+          // qu'on rouvre la conversation.
+          part.output = toStoredToolOutput(event)
         }
         return
       }

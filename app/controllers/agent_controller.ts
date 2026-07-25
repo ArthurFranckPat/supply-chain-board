@@ -25,7 +25,7 @@ import {
   UI_MESSAGE_STREAM_HEADERS,
 } from 'ai'
 
-import { AgentUIMessageMapper } from '#services/agent/ui_message_stream'
+import { AgentUIMessageMapper, rehydrateAppLinks } from '#services/agent/ui_message_stream'
 import { assertAgentProviderConfigured, runAgentTurn } from '#services/agent_service'
 import { ConversationStore } from '#services/conversation_store'
 import { compactHistory } from '#services/agent/history_compact'
@@ -218,7 +218,10 @@ export default class AgentController {
       .slice(0, 64)
     const row = await this.conversations.get(userId, conversationId)
     if (!row) return ctx.response.notFound({ error: 'Conversation introuvable.' })
-    return ctx.response.json(row)
+    // Les tours enregistrés sans enveloppe d'app (avant #89, ou avant le
+    // correctif de persistance) retrouvent ici leur lien vers l'app : la donnée
+    // est en base, seul le `resourceUri` manquait.
+    return ctx.response.json({ ...row, messages: rehydrateAppLinks(row.messages) })
   }
 
   /**

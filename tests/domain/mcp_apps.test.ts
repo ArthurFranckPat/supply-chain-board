@@ -26,7 +26,8 @@ import {
 } from '#services/agent/mcp_client'
 import { buildAgentTools } from '#services/agent/tools'
 import { MCP_APPS, mcpAppForTool, readMcpAppHtml } from '#services/agent/mcp_apps'
-import { AgentUIMessageMapper } from '#services/agent/ui_message_stream'
+import { AgentUIMessageMapper, rehydrateAppLinks } from '#services/agent/ui_message_stream'
+import { AgentMessageAssembler } from '#services/agent/message_assembler'
 
 test.group('mcp_schema — TypeBox → zod', () => {
   test('optionalité, description et types de base survivent', ({ assert }) => {
@@ -267,5 +268,115 @@ test.group('ui_message_stream — enveloppe d’app', () => {
         output: { __mcpUi: { resourceUri: 'ui://supply-board/charge' }, data: payload },
       },
     ])
+  })
+
+  test('le message persisté porte la MÊME enveloppe que le stream', ({ assert }) => {
+    const payload = { article: '11022900', projection: [1, 2, 3] }
+    const event = {
+      type: 'tool_end' as const,
+      toolName: 'projeterStock',
+      toolCallId: 'c3',
+      isError: false,
+      result: payload,
+      ui: { resourceUri: 'ui://supply-board/stock' },
+    }
+
+    const [chunk] = new AgentUIMessageMapper().map(event)
+    const assembler = new AgentMessageAssembler()
+    assembler.feed({
+      type: 'tool_start',
+      toolName: 'projeterStock',
+      toolCallId: 'c3',
+      args: { article: '11022900' },
+    })
+    assembler.feed(event)
+    const part = assembler.toMessage().parts.find((p) => p.type === 'tool-projeterStock')
+
+    // La divergence entre ces deux chemins faisait disparaître le graphe au
+    // rechargement de la conversation : affiché pendant le tour, absent après.
+    assert.deepEqual(
+      (part as { output?: unknown }).output,
+      (chunk as { output?: unknown }).output
+    )
+    assert.deepEqual((part as { output?: unknown }).output, {
+      __mcpUi: { resourceUri: 'ui://supply-board/stock' },
+      data: payload,
+    })
+  })
+
+  test('sans app, le message persisté garde le payload nu', ({ assert }) => {
+    const payload = { ofs: [1] }
+    const assembler = new AgentMessageAssembler()
+    assembler.feed({ type: 'tool_start', toolName: 'listerOF', toolCallId: 'c4', args: {} })
+    assembler.feed({
+      type: 'tool_end',
+      toolName: 'listerOF',
+      toolCallId: 'c4',
+      isError: false,
+      result: payload,
+    })
+    const part = assembler.toMessage().parts.find((p) => p.type === 'tool-listerOF')
+    assert.deepEqual((part as { output?: unknown }).output, payload)
+  })
+})
+
+test.group('rehydrateAppLinks — conversations relues', () => {
+  test('un tour enregistré sans enveloppe retrouve son app', ({ assert }) => {
+    const payload = { article: '11022900' }
+    const [message] = rehydrateAppLinks([
+      {
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'voici' },
+          {
+            type: 'tool-projeterStock',
+            toolCallId: 'c1',
+            state: 'output-available',
+            input: {},
+            output: payload,
+          },
+        ],
+      },
+    ])
+
+    assert.deepEqual(message.parts[1], {
+      type: 'tool-projeterStock',
+      toolCallId: 'c1',
+      state: 'output-available',
+      input: {},
+      output: { __mcpUi: { resourceUri: 'ui://supply-board/stock' }, data: payload },
+    })
+  })
+
+  test('un tool sans app et une enveloppe déjà posée sont laissés tels quels', ({ assert }) => {
+    const nu = { ofs: [1] }
+    const deja = { __mcpUi: { resourceUri: 'ui://supply-board/charge' }, data: { postes: [] } }
+    const [message] = rehydrateAppLinks([
+      {
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-listerOF',
+            toolCallId: 'c2',
+            state: 'output-available',
+            input: {},
+            output: nu,
+          },
+          {
+            type: 'tool-getCharge',
+            toolCallId: 'c3',
+            state: 'output-available',
+            input: {},
+            output: deja,
+          },
+          // Un appel encore en cours n'a pas d'output à envelopper.
+          { type: 'tool-getCharge', toolCallId: 'c4', state: 'input-available', input: {} },
+        ],
+      },
+    ])
+
+    assert.deepEqual((message.parts[0] as { output: unknown }).output, nu)
+    assert.deepEqual((message.parts[1] as { output: unknown }).output, deja)
+    assert.isUndefined((message.parts[2] as { output?: unknown }).output)
   })
 })

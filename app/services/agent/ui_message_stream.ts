@@ -27,6 +27,7 @@ import { randomUUID } from 'node:crypto'
 import type { UIMessageChunk } from 'ai'
 
 import type { AgentSseEvent } from '#services/agent_service'
+import { mcpAppForTool } from '#services/agent/mcp_apps'
 
 /** Metadata transportée sur le chunk `start` (remplace l'event `session`). */
 export interface AgentMessageMetadata {
@@ -42,6 +43,59 @@ function toErrorText(result: unknown): string {
   } catch {
     return 'Erreur outil inconnue'
   }
+}
+
+/**
+ * `output` d'un `tool-output-available`, enveloppé quand le tool porte une app.
+ *
+ * Le chunk est en `strictObject` côté client : impossible d'ajouter un champ
+ * frère pour l'app. `output` devient donc une enveloppe marquée, que le front
+ * sait défaire (`readToolOutput`). Sans app, `output` reste le payload nu —
+ * l'historique déjà persisté avant #89 continue de s'afficher.
+ *
+ * **Une seule implémentation, deux appelants** : ce mapper (le stream) et
+ * `AgentMessageAssembler` (la persistance). Quand ils divergeaient, l'app
+ * s'affichait pendant le tour puis disparaissait au rechargement de la
+ * conversation — le message stocké n'ayant plus que le payload nu.
+ */
+export function toStoredToolOutput(event: {
+  result?: unknown
+  ui?: { resourceUri: string }
+}): unknown {
+  return event.ui ? { __mcpUi: event.ui, data: event.result ?? null } : (event.result ?? null)
+}
+
+/**
+ * Ré-attache le lien vers l'app aux messages relus d'une conversation.
+ *
+ * Deux populations en ont besoin, pour la même raison — leur `output` a été
+ * écrit sans enveloppe : les tours enregistrés avant #89, et ceux enregistrés
+ * entre #89 et le correctif de persistance. La donnée, elle, est intacte : seul
+ * le `resourceUri` manque, et il se retrouve par le nom du tool.
+ *
+ * Dérivation volontairement limitée à la lecture : le stream reste la seule
+ * source d'enveloppe à l'écriture. Un tool dont l'app a été retirée depuis
+ * n'en regagne pas — `mcpAppForTool` fait foi au moment où on relit.
+ */
+export function rehydrateAppLinks<T extends { parts?: unknown[] }>(messages: T[]): T[] {
+  for (const message of messages) {
+    if (!Array.isArray(message.parts)) continue
+    for (const part of message.parts) {
+      if (!part || typeof part !== 'object') continue
+      const p = part as { type?: string; state?: string; output?: unknown }
+      if (typeof p.type !== 'string' || !p.type.startsWith('tool-')) continue
+      if (p.state !== 'output-available') continue
+      if (p.output && typeof p.output === 'object' && '__mcpUi' in p.output) continue
+
+      const app = mcpAppForTool(p.type.slice('tool-'.length))
+      if (!app) continue
+      p.output = toStoredToolOutput({
+        result: p.output,
+        ui: { resourceUri: app.resourceUri },
+      })
+    }
+  }
+  return messages
 }
 
 export class AgentUIMessageMapper {
@@ -110,14 +164,7 @@ export class AgentUIMessageMapper {
           {
             type: 'tool-output-available',
             toolCallId: event.toolCallId,
-            // Le chunk est en `strictObject` côté client : impossible d'ajouter un
-            // champ frère pour l'app. Quand le tool en déclare une, `output`
-            // devient donc une enveloppe marquée, que le front sait défaire
-            // (`readToolOutput`). Sans app, `output` reste le payload nu —
-            // l'historique déjà persisté avant #89 continue de s'afficher.
-            output: event.ui
-              ? { __mcpUi: event.ui, data: event.result ?? null }
-              : (event.result ?? null),
+            output: toStoredToolOutput(event),
           },
         ]
       }
