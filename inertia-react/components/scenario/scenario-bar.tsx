@@ -64,7 +64,24 @@ export function ScenarioBar({
   onShowDiff,
   onInjectDemand,
 }: ScenarioBarProps) {
-  const s = useScenarioStore()
+  // Sélecteurs fins, un par tranche affichée. `useScenarioStore()` sans sélecteur
+  // s'abonne à l'état ENTIER, dont l'identité change à chaque `set()` : l'effet de
+  // chargement de la liste se redéclenchait alors sur son propre `set({ listLoading })`,
+  // en rafale de GET /scenarios jusqu'à tuer le serveur de dev.
+  const nom = useScenarioStore((st) => st.current.nom)
+  const strategy = useScenarioStore((st) => st.current.strategy)
+  const statut = useScenarioStore((st) => st.current.statut)
+  const mutations = useScenarioStore((st) => st.current.mutations)
+  const diffLoading = useScenarioStore((st) => st.diffLoading)
+  const saving = useScenarioStore((st) => st.saving)
+  const list = useScenarioStore((st) => st.list)
+  // Actions : références stables posées à la création du store, jamais recréées.
+  const setNom = useScenarioStore((st) => st.setNom)
+  const setStrategy = useScenarioStore((st) => st.setStrategy)
+  const save = useScenarioStore((st) => st.save)
+  const remove = useScenarioStore((st) => st.remove)
+  const computeDiff = useScenarioStore((st) => st.computeDiff)
+
   const [listOpen, setListOpen] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   // #62 (lot 0) : « Jeter » détruit N mutations sans retour possible → confirmation
@@ -77,9 +94,9 @@ export function ScenarioBar({
   }, [])
 
   const requestDiscard = useCallback(() => {
-    if (s.current.mutations.length === 0) onDiscard()
+    if (mutations.length === 0) onDiscard()
     else setConfirmDiscardOpen(true)
-  }, [s, onDiscard])
+  }, [mutations, onDiscard])
 
   const confirmDiscard = useCallback(() => {
     setConfirmDiscardOpen(false)
@@ -92,10 +109,11 @@ export function ScenarioBar({
   const [date, setDate] = useState('')
   const [client, setClient] = useState('')
 
-  // Load list on mount
+  // Chargement de la liste au montage, une fois. Le bandeau ne monte qu'à l'entrée en
+  // mode scénario : y revenir la recharge, ce qui suffit.
   useEffect(() => {
-    s.loadList()
-  }, [s])
+    useScenarioStore.getState().loadList()
+  }, [])
 
   // CTP §6.1 — date au plus tôt (mode engageante) recalculée en arrière-plan
   // dès que (article, qté) est valide. Sert à pré-remplir le champ date laissé
@@ -181,11 +199,11 @@ export function ScenarioBar({
   )
 
   const openDiff = useCallback(() => {
-    s.computeDiff(windowFrom, windowTo)
+    computeDiff(windowFrom, windowTo)
     onShowDiff()
-  }, [s, windowFrom, windowTo, onShowDiff])
+  }, [computeDiff, windowFrom, windowTo, onShowDiff])
 
-  const mutationCount = s.current.mutations.length
+  const mutationCount = mutations.length
 
   return (
     <div className="flex flex-none flex-wrap items-center gap-3 border-b border-brand/40 bg-brand-soft px-7 py-2">
@@ -195,16 +213,16 @@ export function ScenarioBar({
       {/* Nom éditable */}
       <input
         type="text"
-        value={s.current.nom}
+        value={nom}
         placeholder="Nommer le scénario…"
-        onInput={(e) => s.setNom(e.currentTarget.value)}
+        onInput={(e) => setNom(e.currentTarget.value)}
         className="h-[28px] w-[200px] rounded-full border border-brand/30 bg-card px-3 text-[12px] font-semibold text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
       />
 
       {/* Règle d'allocation */}
       <select
-        value={s.current.strategy ?? 'date_besoin'}
-        onChange={(e) => s.setStrategy(e.currentTarget.value as any)}
+        value={strategy ?? 'date_besoin'}
+        onChange={(e) => setStrategy(e.currentTarget.value as any)}
         className="h-[28px] rounded-full border border-brand/30 bg-card px-3 text-[11px] font-semibold text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
       >
         <option value="date_besoin">Date de besoin (défaut)</option>
@@ -216,7 +234,7 @@ export function ScenarioBar({
         {mutationCount} mutation{mutationCount > 1 ? 's' : ''}
       </span>
 
-      {s.current.statut === 'applique' && (
+      {statut === 'applique' && (
         <span className="rounded-full bg-ferme/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ferme">
           Appliqué
         </span>
@@ -226,15 +244,15 @@ export function ScenarioBar({
         <Button
           size="sm"
           variant="outline"
-          disabled={mutationCount === 0 || s.diffLoading}
+          disabled={mutationCount === 0 || diffLoading}
           onClick={openDiff}
           className="gap-1.5"
         >
           <DynamicIcon
-            name={s.diffLoading ? 'progress_activity' : 'insights'}
+            name={diffLoading ? 'progress_activity' : 'insights'}
             size={15}
             strokeWidth={1.75}
-            className={cn(s.diffLoading && 'animate-spin')}
+            className={cn(diffLoading && 'animate-spin')}
           />
           Impacts
         </Button>
@@ -242,12 +260,12 @@ export function ScenarioBar({
         <Button
           size="sm"
           variant="outline"
-          disabled={s.saving}
-          onClick={() => s.save()}
+          disabled={saving}
+          onClick={() => save()}
           className="gap-1.5"
         >
           <Save size={15} strokeWidth={1.75} />
-          {s.saving ? 'Enregistrement…' : 'Enregistrer'}
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
 
         <Button
@@ -420,12 +438,12 @@ export function ScenarioBar({
                 onClick={() => setListOpen(false)}
               />
               <div className="absolute right-0 top-full z-50 mt-2 max-h-[60vh] w-[300px] overflow-y-auto rounded-lg border border-rule bg-card p-1 shadow-lg">
-                {s.list.length === 0 ? (
+                {list.length === 0 ? (
                   <div className="px-3 py-4 text-center text-[12px] italic text-muted-foreground">
                     Aucun scénario enregistré.
                   </div>
                 ) : (
-                  s.list.map((sc) => (
+                  list.map((sc) => (
                     <div
                       key={sc.id}
                       className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
@@ -466,7 +484,7 @@ export function ScenarioBar({
                         type="button"
                         title="Supprimer"
                         className="text-muted-foreground hover:text-destructive"
-                        onClick={() => s.remove(sc.id)}
+                        onClick={() => remove(sc.id)}
                       >
                         <Trash2 size={16} strokeWidth={1.75} />
                       </button>
