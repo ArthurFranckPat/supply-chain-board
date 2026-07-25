@@ -8,7 +8,13 @@ import {
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element'
 
 import { cn } from '@r/lib/utils'
-import { useBoardStore, cardMatches, lineVisible, feasOf, type BoardState } from '@r/lib/board/store'
+import {
+  useBoardStore,
+  cardMatches,
+  lineVisible,
+  feasOf,
+  type BoardState,
+} from '@r/lib/board/store'
 import type { Card, DayCol, LineRow } from '@r/lib/board/types'
 import { TYPO_META } from '@r/lib/board/types'
 import type { VirtualOrderVm } from '@r/lib/scenarios/types'
@@ -110,26 +116,31 @@ interface BoardGridProps {
 }
 
 export default function BoardGrid(props: BoardGridProps) {
-  const { store } = props
+  // Destructuré hors des hooks : lister `props.x` ne prouve pas à la règle
+  // exhaustive-deps que les accès sont exhaustifs, elle réclame alors l'objet
+  // `props` entier — qui change à CHAQUE rendu du parent et rejouerait donc
+  // l'abonnement drag&drop en boucle. Les valeurs sont les mêmes, les
+  // identités aussi : aucun changement de comportement.
+  const {
+    store,
+    contentRef: onContentRef,
+    onOfDragProgress,
+    onOfDropped,
+    onOfDragCancelled,
+    translateOfDateFin,
+  } = props
   const rootRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   usePrintFit(() => rootRef.current ?? undefined)
 
-  // Expose contentRef via callback if provided
+  // Expose contentRef au parent.
   useEffect(() => {
-    if (props.contentRef && contentRef.current) {
-      props.contentRef(contentRef.current)
+    if (onContentRef && contentRef.current) {
+      onContentRef(contentRef.current)
     }
-  }, [props.contentRef])
-
-  // Pass scrollRef to parent via callback
-  useEffect(() => {
-    if (props.contentRef && scrollRef.current) {
-      // The parent might expect the scroll container
-    }
-  }, [props.contentRef])
+  }, [onContentRef])
 
   const board = useBoardStore((s) => s.board)
   const cols = useBoardStore((s) => s.board.cols)
@@ -216,7 +227,12 @@ export default function BoardGrid(props: BoardGridProps) {
 
   // Throttle drag progress notifications (issue #23)
   const rafPendingRef = useRef(false)
-  const lastDragProgressRef = useRef<{ ofId: string; lineCode: string; col: number; iso: string } | null>(null)
+  const lastDragProgressRef = useRef<{
+    ofId: string
+    lineCode: string
+    col: number
+    iso: string
+  } | null>(null)
 
   // ── pragmatic-dnd monitor ──
   useEffect(() => {
@@ -227,7 +243,7 @@ export default function BoardGrid(props: BoardGridProps) {
       },
       onDropTargetChange: ({ source, location }) => {
         const target = location.current.dropTargets[0]
-        if (!target || !props.onOfDragProgress) return
+        if (!target || !onOfDragProgress) return
 
         const ofId = source.data.numOf as string
         const lineCode = target.data.lineCode as string
@@ -241,8 +257,8 @@ export default function BoardGrid(props: BoardGridProps) {
           requestAnimationFrame(() => {
             rafPendingRef.current = false
             const h = lastDragProgressRef.current
-            if (h && props.onOfDragProgress) {
-              props.onOfDragProgress(h.ofId, h.lineCode, h.col, h.iso)
+            if (h && onOfDragProgress) {
+              onOfDragProgress(h.ofId, h.lineCode, h.col, h.iso)
             }
           })
         }
@@ -258,12 +274,12 @@ export default function BoardGrid(props: BoardGridProps) {
           const col = target.data.col as number
           const iso = target.data.iso as string
 
-          const dateFin = props.translateOfDateFin?.(num, iso)
+          const dateFin = translateOfDateFin?.(num, iso)
           store.moveCard(num, lineCode, col, iso, dateFin ?? undefined)
-          props.onOfDropped?.(num, iso, dateFin ?? undefined)
+          onOfDropped?.(num, iso, dateFin ?? undefined)
         } else {
           // Drop hors grille (dropEffect === 'none')
-          props.onOfDragCancelled?.()
+          onOfDragCancelled?.()
         }
       },
     })
@@ -276,7 +292,7 @@ export default function BoardGrid(props: BoardGridProps) {
       cleanupMonitor()
       cleanupScroll?.()
     }
-  }, [store, props.onOfDragProgress, props.onOfDropped, props.onOfDragCancelled, props.translateOfDateFin])
+  }, [store, onOfDragProgress, onOfDropped, onOfDragCancelled, translateOfDateFin])
 
   const dayLoad = useMemo(() => computeDayLoad(store), [store])
 
@@ -352,9 +368,7 @@ export default function BoardGrid(props: BoardGridProps) {
           >
             <div className="sticky left-0 z-20 flex items-center gap-1.5 border-r border-rule bg-brand-soft/60 px-3.5 py-3">
               <FlaskConical size={15} strokeWidth={1.75} className="text-brand" />
-              <span className="font-mono text-2xs font-semibold text-brand">
-                Virtuelles
-              </span>
+              <span className="font-mono text-2xs font-semibold text-brand">Virtuelles</span>
             </div>
             {days.map((_day, ci) => (
               <VirtualCell
@@ -651,7 +665,11 @@ function CardView(props: CardViewProps) {
         <span
           className={cn(
             'absolute right-1 top-1 z-10 flex size-4 items-center justify-center rounded-full text-card',
-            batchItem.st === 'ok' ? 'bg-ferme' : batchItem.st === 'error' ? 'bg-destructive' : 'bg-brand'
+            batchItem.st === 'ok'
+              ? 'bg-ferme'
+              : batchItem.st === 'error'
+                ? 'bg-destructive'
+                : 'bg-brand'
           )}
           title={batchItem.msg}
         >
@@ -736,12 +754,8 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
                 />
               )}
             </span>
-            <span className="text-muted-foreground">
-              {TYPO_META[t.typo]?.label ?? t.typo}
-            </span>
-            <span className="tabular-nums text-foreground">
-              {t.sans + t.bouche}h
-            </span>
+            <span className="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
+            <span className="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
           </span>
         ))}
       </div>
@@ -923,7 +937,11 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
           ) : (
             <ul className="space-y-0.5">
               {ctpPath.map((n, i) => (
-                <li key={i} className="flex items-baseline gap-1 text-2xs" style={{ paddingLeft: `${i * 8}px` }}>
+                <li
+                  key={i}
+                  className="flex items-baseline gap-1 text-2xs"
+                  style={{ paddingLeft: `${i * 8}px` }}
+                >
                   <span className="font-mono font-bold text-foreground">{n.article}</span>
                   <span className="text-muted-foreground">{promiseReasonText(n.reason)}</span>
                   <span className="ml-auto font-fraunces tabular-nums text-secondary-foreground">

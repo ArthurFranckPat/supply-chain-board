@@ -45,8 +45,12 @@ export function PlanHealth(props: {
   nbSansLien: number
   onSelect: (cat: HealthCategory) => void
 }) {
+  // Destructuré hors du hook : lister `props.x` dans les deps ne prouve pas à
+  // la règle exhaustive-deps que les accès sont exhaustifs, elle réclame alors
+  // l'objet entier — qui change à chaque rendu du parent.
+  const { nbRetards, nbLimites, nbRuptures, rupturesAvailable, nbSansLien } = props
+
   const badges = useMemo<Badge[]>(() => {
-    const { nbRetards, nbLimites, nbRuptures, rupturesAvailable, nbSansLien } = props
     return [
       {
         key: 'retards',
@@ -81,7 +85,7 @@ export function PlanHealth(props: {
         clickable: nbSansLien > 0,
       },
     ]
-  }, [props.nbRetards, props.nbLimites, props.nbRuptures, props.rupturesAvailable, props.nbSansLien])
+  }, [nbRetards, nbLimites, nbRuptures, rupturesAvailable, nbSansLien])
 
   return (
     <>

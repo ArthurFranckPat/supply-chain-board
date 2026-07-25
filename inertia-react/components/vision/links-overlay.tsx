@@ -25,10 +25,11 @@ export function LinksOverlay(props: {
   /** Programme v2 : segment Liens (Aucun / Problèmes / Tous). Défaut 'problems'. */
   linkMode?: LinkMode
 }) {
+  const { paths, isActive } = props
   const mode = props.linkMode ?? 'problems'
 
   const pathsWithMeta = useMemo(() => {
-    return props.paths.map((p) => {
+    return paths.map((p) => {
       // #62 (lot 0) : largeur du badge dérivée du label (≈5.8 px/caractère en
       // mono 9.5 px + marges) — un « +12 j » ne déborde plus des 32 px fixes.
       const badgeLabel = deltaLabel(p.deltaJours)
@@ -44,20 +45,18 @@ export function LinksOverlay(props: {
         return mode === 'all' ? 0.25 : 0
       }
       const getOpacity = () => {
-        if (props.isActive(p)) return p.suggere ? 0.8 : 0.95
+        if (isActive(p)) return p.suggere ? 0.8 : 0.95
         return getBaseOpacity()
       }
       const stroke = p.verdict ? VERDICT_STROKE[p.verdict] : 'var(--color-brand)'
       // Badge visible pour retard (toujours), limite (si mode ≠ none), ok (si all)
       const badgeVisible =
         p.deltaJours !== null &&
-        (p.verdict === 'retard' ||
-          (p.verdict === 'limite' && mode !== 'none') ||
-          mode === 'all')
+        (p.verdict === 'retard' || (p.verdict === 'limite' && mode !== 'none') || mode === 'all')
 
       return { ...p, badgeW, getOpacity, stroke, badgeVisible, badgeLabel }
     })
-  }, [props.paths, props.isActive, mode])
+  }, [paths, isActive, mode])
 
   return (
     <svg

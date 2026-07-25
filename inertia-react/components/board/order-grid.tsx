@@ -89,7 +89,7 @@ function lineCharge(
 }
 
 export function OrderGrid(props: OrderGridProps) {
-  const { board } = props
+  const { board, dayLoadSplit, lineWeekLoads } = props
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropCol, setDropCol] = useState<string | null>(null)
   const rootEl = useRef<HTMLDivElement>(null)
@@ -108,67 +108,79 @@ export function OrderGrid(props: OrderGridProps) {
 
   /** Charge totale (heures) par semaine, toutes lignes visibles. */
   const weekTotals = useMemo(() => {
-    const dayLoadSplit = props.dayLoadSplit()
+    const split = dayLoadSplit()
     return weekRanges.map((wr) => {
       let s = 0
-      for (let c = wr.from; c < wr.to; c++) s += (dayLoadSplit.direct[c] ?? 0) + (dayLoadSplit.amont[c] ?? 0)
+      for (let c = wr.from; c < wr.to; c++) s += (split.direct[c] ?? 0) + (split.amont[c] ?? 0)
       return { week: wr.week, hours: Math.round(s * 100) / 100 }
     })
-  }, [weekRanges, props.dayLoadSplit])
+  }, [weekRanges, dayLoadSplit])
 
   /** Échelle commune des histogrammes (total hebdo max, toutes lignes). */
   const maxLineHours = useMemo(() => {
     let m = 0
     for (const line of board.lines) {
-      for (const cw of lineCharge(line, props.lineWeekLoads)) {
+      for (const cw of lineCharge(line, lineWeekLoads)) {
         const t = cw.ferme + cw.planifie + cw.suggere + cw.induit
         if (t > m) m = t
       }
     }
     return m || 1
-  }, [board.lines, props.lineWeekLoads])
+  }, [board.lines, lineWeekLoads])
 
   const gridTpl = `${LABEL_W}px repeat(${board.cols}, minmax(150px, 1fr))`
   const minWidth = `calc(${LABEL_W}px + ${board.cols * 160}px)`
 
   // Gestion du drop avec drag and drop HTML5 natif
-  const handleDragOver = useCallback((e: React.DragEvent, cellKey: string) => {
-    if (!draggedId) return
-    e.preventDefault()
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-    setDropCol(cellKey)
-  }, [draggedId])
-
-  const handleDrop = useCallback((e: React.DragEvent, cellKey: string, lineCode: string, iso: string) => {
-    const id = draggedId
-    setDropCol(null)
-    if (!id) return
-    e.preventDefault()
-    props.moveCard(id, lineCode, parseInt(cellKey.split(':')[1]), iso)
-  }, [draggedId, props])
-
-  const handleDragStart = useCallback((e: React.DragEvent, id: string, card: OrderCard, lineCode: string) => {
-    if (card.hasOverride || card.induit) {
+  const handleDragOver = useCallback(
+    (e: React.DragEvent, cellKey: string) => {
+      if (!draggedId) return
       e.preventDefault()
-      return
-    }
-    setDraggedId(id)
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData('text/plain', id)
-    }
-  }, [])
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+      setDropCol(cellKey)
+    },
+    [draggedId]
+  )
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent, cellKey: string, lineCode: string, iso: string) => {
+      const id = draggedId
+      setDropCol(null)
+      if (!id) return
+      e.preventDefault()
+      props.moveCard(id, lineCode, parseInt(cellKey.split(':')[1]), iso)
+    },
+    [draggedId, props]
+  )
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent, id: string, card: OrderCard, lineCode: string) => {
+      if (card.hasOverride || card.induit) {
+        e.preventDefault()
+        return
+      }
+      setDraggedId(id)
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', id)
+      }
+    },
+    []
+  )
 
   const handleDragEnd = useCallback(() => {
     setDraggedId(null)
     setDropCol(null)
   }, [])
 
-  const handleResetOverride = useCallback((e: React.MouseEvent, id: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    props.resetOverride(id)
-  }, [props])
+  const handleResetOverride = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      e.preventDefault()
+      e.stopPropagation()
+      props.resetOverride(id)
+    },
+    [props]
+  )
 
   return (
     <div ref={rootEl} data-board-root className="h-full overflow-auto bg-background">
@@ -307,7 +319,10 @@ export function OrderGrid(props: OrderGridProps) {
                   <span
                     className="size-2.5 rounded-[2px]"
                     style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
-                    {...(line.dot && { className: 'size-2.5 rounded-[2px]', style: { background: line.dot } })}
+                    {...(line.dot && {
+                      className: 'size-2.5 rounded-[2px]',
+                      style: { background: line.dot },
+                    })}
                   />
                   <span className="font-mono text-[13px] font-bold tracking-tight text-foreground">
                     {line.code}
@@ -356,16 +371,16 @@ export function OrderGrid(props: OrderGridProps) {
                             {t.bouche > 0 && (
                               <span
                                 className="size-[7px] rounded-[1px]"
-                                style={{ background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)' }}
+                                style={{
+                                  background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)',
+                                }}
                               />
                             )}
                           </span>
                           <span className="text-muted-foreground">
                             {TYPO_META[t.typo]?.label ?? t.typo}
                           </span>
-                          <span className="tabular-nums text-foreground">
-                            {t.sans + t.bouche}h
-                          </span>
+                          <span className="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
                         </span>
                       ))}
                     </div>
