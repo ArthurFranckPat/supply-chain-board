@@ -54,13 +54,6 @@ router
     // KPI #1 « charge en retard » (issue #38) ; coquille instantanée + fetch différé.
     router.get('/', '#controllers/dashboard_controller.index').as('dashboard')
 
-    // Design system « Papier » — showcase des vrais composants ui/* thémés.
-    router
-      .get('/design-system', async ({ inertia }) => {
-        return inertia.render('design_system', {})
-      })
-      .as('design_system')
-
     // Diagnostic récursif (issue #25) — page de TEST provisoire pour valider
     // l'endpoint /api/v1/planning/of-materials/:of/diagnostic avant intégration
     // au design. À retirer une fois intégré dans le panneau de détail OF.
@@ -70,24 +63,7 @@ router
       })
       .as('diagnostic_test')
 
-    // Laboratoire React (migration react-shadcn, phase 0) — page témoin du
-    // socle dual-runtime. À retirer en phase 6 (décommission Solid).
-    router
-      .get('/react-lab', async ({ inertia }) => {
-        return inertia.render('react_lab', {})
-      })
-      .as('react_lab')
-
-    // Laboratoire Astryx (spike Lot 0, issue #90) — comparaison side-by-side
-    // shadcn migré vs Astryx natif sous <Theme>. À retirer à la décision
-    // NO-GO ou au démarrage du Lot 1 (migration complète).
-    router
-      .get('/astryx-lab', async ({ inertia }) => {
-        return inertia.render('astryx_lab', {})
-      })
-      .as('astryx_lab')
-
-    // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
+    // Write-back X3 (issue #29)    // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
     // publiés du stub CAdxWebServiceXmlCC. Cible TEST (login env=test). À
     // verrouiller/retirer une fois le write-back fiabilisé.
     router

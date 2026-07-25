@@ -1,11 +1,5 @@
 import { useMemo } from 'react'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { Badge } from '@r/components/ui/badge'
 import { CircleHelp, Ruler, TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
@@ -104,11 +98,11 @@ export function CamionDetailSheet({
   }, [camion])
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-2xl">
+    <Sheet isOpen={open} onOpenChange={onOpenChange}>
+      
         {camion && (
           <>
-            <SheetHeader>
+            
               <div className="flex flex-wrap items-center gap-2 pr-8">
                 <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-wider text-muted-foreground">
                   {camion.debut}
@@ -138,11 +132,11 @@ export function CamionDetailSheet({
                   </Badge>
                 )}
               </div>
-              <SheetTitle>{camion.client || '—'}</SheetTitle>
-              <SheetDescription>
+              <span data-slot="sheet-title">{camion.client || '—'}</span>
+              <span data-slot="sheet-desc">
                 {camion.bprnum} · {camion.nbLignes} ligne{camion.nbLignes > 1 ? 's' : ''} ·{' '}
                 {camion.nbPalettes} palette{camion.nbPalettes > 1 ? 's' : ''} · {camion.qteUc} UC
-              </SheetDescription>
+              </span>
               {/* Métriques volumes (issue #44 affinage) : équivalent-palettes théorique,
                   taux de remplissage, et écart vs palettes comptées. -1 = N/A (pas de coef). */}
               {camion.palTheo >= 0 && (
@@ -179,7 +173,7 @@ export function CamionDetailSheet({
                   )}
                 </div>
               )}
-            </SheetHeader>
+            
 
             {/* ponytail: le Sheet React n'a pas de SheetBody (Base UI Dialog) — div scroll directe. */}
             <div className="flex-1 overflow-y-auto px-0 py-0">
@@ -257,7 +251,7 @@ export function CamionDetailSheet({
             </div>
           </>
         )}
-      </SheetContent>
+      
     </Sheet>
   )
 }

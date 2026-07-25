@@ -6,6 +6,13 @@ _Agent profile for this project._
 
 See `.planning/PROJECT.md` for project overview.
 
+## Création de worktree
+
+Après `git worktree add`, **toujours** :
+
+1. Copier depuis le worktree source : `.env` et `tmp/db.sqlite3` (gitignorés, indispensables).
+2. Lancer `npm ci` dans le nouveau worktree.
+
 ## Workflow obligatoire : code → commit → push
 
 **OBLIGATOIRE** : après chaque tâche terminée (feature, fix, refacto), tu DOIS :

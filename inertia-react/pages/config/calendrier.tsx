@@ -19,16 +19,7 @@ import {
   Plus,
   CalendarRange,
 } from 'lucide-react'
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxTrigger,
-  useComboboxAnchor,
-} from '@r/components/ui/combobox'
+import { MultiSelector } from '@astryxdesign/core/MultiSelector'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 
@@ -190,7 +181,7 @@ function ClosureForm({
   const [busy, setBusy] = useState(false)
   const [calOpen, setCalOpen] = useState(false)
 
-  const anchorRef = useComboboxAnchor()
+  const anchorRef = { current: null as HTMLDivElement | null }
 
   // Options du combobox selon la portée.
   const codeOptions = useMemo(
@@ -279,25 +270,13 @@ function ClosureForm({
 
           {scope !== 'global' && (
             <Field label={scope === 'wst' ? 'Postes' : 'Ateliers'}>
-              <div ref={anchorRef}>
-                <Combobox value={codes} onValueChange={setCodes} multiple>
-                  <ComboboxChips>
-                    <ComboboxChipsInput
-                      placeholder={scope === 'wst' ? 'Ajouter des postes…' : 'Ajouter des ateliers…'}
-                    />
-                  </ComboboxChips>
-                  <ComboboxTrigger />
-                  <ComboboxContent anchor={anchorRef}>
-                    <ComboboxList>
-                      {codeOptions.map((opt) => (
-                        <ComboboxItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </ComboboxItem>
-                      ))}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </div>
+              <MultiSelector
+                label={scope === 'wst' ? 'Postes' : 'Ateliers'}
+                options={codeOptions.map((opt) => ({ id: opt.value, value: opt.value, label: opt.label }))}
+                value={codes}
+                onChange={(next: string[]) => setCodes(next)}
+                placeholder={scope === 'wst' ? 'Ajouter des postes…' : 'Ajouter des ateliers…'}
+              />
             </Field>
           )}
         </>

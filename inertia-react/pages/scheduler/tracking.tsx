@@ -25,13 +25,7 @@ import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@r/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import {
   PILL,
   Segment,
@@ -466,19 +460,17 @@ export default function Tracking(props: SuiviPageProps) {
       </div>
 
         {/* Drawer diagnostic de ligne */}
-        <Sheet open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
+        <Sheet
+          isOpen={selectedRow !== null}
+          onOpenChange={(open) => !open && setSelectedRow(null)}
+          title="Diagnostic de la ligne"
+          subtitle="Détails opérationnels et goulets d'étranglement de la commande client."
+          className="no-scrollbar overflow-y-auto sm:max-w-xl"
+        >
           {selectedRow && (
-            <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
-              <SheetHeader>
-                <SheetTitle>Diagnostic de la ligne</SheetTitle>
-                <SheetDescription>
-                  Détails opérationnels et goulets d'étranglement de la commande client.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="px-4">
-                <SuiviDetailSheet type={selectedRow.type} row={selectedRow.row} />
-              </div>
-            </SheetContent>
+            <div className="px-4">
+              <SuiviDetailSheet type={selectedRow.type} row={selectedRow.row} />
+            </div>
           )}
         </Sheet>
 

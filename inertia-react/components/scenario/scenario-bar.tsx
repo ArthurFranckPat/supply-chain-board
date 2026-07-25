@@ -4,17 +4,7 @@ import { Button } from '@r/components/ui/button'
 import { router } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
 import { promiseReasonText } from '@r/lib/promesse/types'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogPortal,
-  AlertDialogTitle,
-} from '@r/components/ui/alert-dialog'
+import { AlertDialog } from '@astryxdesign/core/AlertDialog'
 import { useScenarioStore } from '@r/lib/scenario/store'
 import type { PlanMutation } from '@r/lib/scenarios/types'
 import { FlaskConical, Save, Trash2, CirclePlus, Zap, TriangleAlert, Plus, FolderOpen, ArrowLeftRight } from 'lucide-react'
@@ -254,25 +244,17 @@ export function ScenarioBar({
           Jeter
         </Button>
 
-        <AlertDialog open={confirmDiscardOpen} onOpenChange={setConfirmDiscardOpen}>
-          <AlertDialogPortal>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Jeter le scénario ?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {mutationCount} mutation{mutationCount > 1 ? 's' : ''} non appliquée
-                  {mutationCount > 1 ? 's' : ''} ser{mutationCount > 1 ? 'ont' : 'a'} perdue
-                  {mutationCount > 1 ? 's' : ''} et le board reviendra à l'état réel. Cette action est
-                  irréversible.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDiscard}>Jeter le scénario</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogPortal>
-        </AlertDialog>
+        <AlertDialog
+          isOpen={confirmDiscardOpen}
+          onOpenChange={setConfirmDiscardOpen}
+          title="Jeter le scénario ?"
+          description={`${mutationCount} mutation${mutationCount > 1 ? 's' : ''} non appliquée${mutationCount > 1 ? 's' : ''} ser${mutationCount > 1 ? 'ont' : 'a'} perdue${mutationCount > 1 ? 's' : ''} et le board reviendra à l'état réel. Cette action est irréversible.`}
+          actionLabel="Jeter le scénario"
+          cancelLabel="Annuler"
+          onAction={async () => {
+            await confirmDiscard()
+          }}
+        />
 
         {/* #58 — commande virtuelle (mutation inject_demand, what-if) */}
         <div className="relative">

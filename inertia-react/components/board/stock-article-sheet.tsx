@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarClock, CircleX, Package, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 
 /**
@@ -1191,15 +1191,16 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
   }, [detail, unit])
 
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      <SheetContent
-        side="bottom"
-        // Dimensions redéclarées en variantes `data-[side=bottom]:` : le
-        // primitive porte `data-[side=bottom]:h-auto` et
-        // `data-[side=bottom]:max-w-[640px]`, dont le sélecteur d'attribut bat
-        // toute classe utilitaire nue (même correctif que charge-period-sheet).
-        className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[85vh] data-[side=bottom]:max-w-none"
-      >
+    <Sheet
+      isOpen={props.open}
+      onOpenChange={props.onOpenChange}
+      side="bottom"
+      // Dimensions redéclarées en variantes `data-[side=bottom]:` : le
+      // primitive porte `data-[side=bottom]:h-auto` et
+      // `data-[side=bottom]:max-w-[640px]`, dont le sélecteur d'attribut bat
+      // toute classe utilitaire nue (même correctif que charge-period-sheet).
+      className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[85vh] data-[side=bottom]:max-w-none"
+    >
         {loading ? (
           <LoadingState
             title="Chargement du stock..."
@@ -1219,9 +1220,9 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                 <span className="font-mono text-[13px] font-bold text-brand">
                   {detail?.article ?? props.article}
                 </span>
-                <SheetTitle className="truncate font-fraunces text-[14px] font-medium italic text-muted-foreground">
+                <h2 className="truncate font-fraunces text-[14px] font-medium italic text-muted-foreground">
                   {detail?.designation || '—'}
-                </SheetTitle>
+                </h2>
               </div>
               {detail && (
                 <span className="rounded border border-rule bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
@@ -1319,7 +1320,6 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
             )}
           </>
         )}
-      </SheetContent>
     </Sheet>
   )
 }

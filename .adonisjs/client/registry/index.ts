@@ -48,29 +48,11 @@ const routes = {
     tokens: [{"old":"/","type":0,"val":"/","end":""}],
     types: placeholder as Registry['dashboard']['types'],
   },
-  'design_system': {
-    methods: ["GET","HEAD"],
-    pattern: '/design-system',
-    tokens: [{"old":"/design-system","type":0,"val":"design-system","end":""}],
-    types: placeholder as Registry['design_system']['types'],
-  },
   'diagnostic_test': {
     methods: ["GET","HEAD"],
     pattern: '/diagnostic-test',
     tokens: [{"old":"/diagnostic-test","type":0,"val":"diagnostic-test","end":""}],
     types: placeholder as Registry['diagnostic_test']['types'],
-  },
-  'react_lab': {
-    methods: ["GET","HEAD"],
-    pattern: '/react-lab',
-    tokens: [{"old":"/react-lab","type":0,"val":"react-lab","end":""}],
-    types: placeholder as Registry['react_lab']['types'],
-  },
-  'astryx_lab': {
-    methods: ["GET","HEAD"],
-    pattern: '/astryx-lab',
-    tokens: [{"old":"/astryx-lab","type":0,"val":"astryx-lab","end":""}],
-    types: placeholder as Registry['astryx_lab']['types'],
   },
   'x3_writeback_test': {
     methods: ["GET","HEAD"],

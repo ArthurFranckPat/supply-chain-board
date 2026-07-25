@@ -91,45 +91,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'design_system': {
-    methods: ["GET","HEAD"]
-    pattern: '/design-system'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'diagnostic_test': {
     methods: ["GET","HEAD"]
     pattern: '/diagnostic-test'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'react_lab': {
-    methods: ["GET","HEAD"]
-    pattern: '/react-lab'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'astryx_lab': {
-    methods: ["GET","HEAD"]
-    pattern: '/astryx-lab'
     types: {
       body: {}
       paramsTuple: []

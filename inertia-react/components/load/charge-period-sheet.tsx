@@ -1,16 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-  useComboboxAnchor,
-} from '@r/components/ui/combobox'
+import { Typeahead, createStaticSource, type SearchableItem } from '@astryxdesign/core/Typeahead'
 import { route } from '@r/lib/routes'
 import type { LoadPeriod, LoadView } from '@r/lib/load/types'
 import { type Gran, segKeys, segLabel } from '@r/lib/load/chart-math'
@@ -198,7 +191,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // brute dans le champ faute de libellé, et l'utilisateur lisait « __all__ ».
   const [articleFilter, setArticleFilter] = useState<string | null>(null)
   const [articleQuery, setArticleQuery] = useState('')
-  const anchorRef = useComboboxAnchor()
+  const anchorRef = { current: null as HTMLDivElement | null }
 
   // Le filtre porte sur un bucket donné : il n'a pas de sens d'un bucket à
   // l'autre, on le remet à zéro dès que la cible ou la vue change.
@@ -239,6 +232,30 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       `${o.code} ${o.designation ?? ''}`.toLowerCase().includes(q)
     )
   }, [articleOptions, articleQuery])
+
+  /** Item Typeahead — dérivé d'articleOptions. */
+  interface ArticleItem extends SearchableItem {
+    id: string
+    code: string
+    designation: string | null
+    hours: number
+  }
+  const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null)
+  const articleSource = useMemo(
+    () =>
+      createStaticSource(
+        articleOptions.map(
+          (o) =>
+            ({
+              id: o.code,
+              code: o.code,
+              designation: o.designation,
+              hours: o.hours,
+            }) as unknown as SearchableItem
+        )
+      ),
+    [articleOptions]
+  )
 
   const articleActive = articleFilter !== null
   const matchesArticle = (article: string) => !articleActive || article === articleFilter
@@ -301,18 +318,19 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'Qté', 'Heures']
 
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      <SheetContent
-        side="bottom"
-        // Les dimensions DOIVENT être redéclarées en variantes `data-[side=bottom]:`
-        // et pas en classes nues : le primitive porte `data-[side=bottom]:h-auto`
-        // et `data-[side=bottom]:max-w-[640px]`, dont le sélecteur d'attribut bat
-        // toute classe utilitaire quelle que soit sa position. Avec `h-auto`
-        // gagnant, le panneau n'a aucune hauteur bornée : il grandit avec le
-        // nombre de lignes jusqu'à recouvrir l'écran au lieu de faire défiler.
-        // Même correctif que of-detail-sheet.tsx, qui avait déjà buté dessus.
-        className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[78vh] data-[side=bottom]:max-w-none"
-      >
+    <Sheet
+      isOpen={props.open}
+      onOpenChange={props.onOpenChange}
+      side="bottom"
+      // Les dimensions DOIVENT être redéclarées en variantes `data-[side=bottom]:`
+      // et pas en classes nues : le primitive porte `data-[side=bottom]:h-auto`
+      // et `data-[side=bottom]:max-w-[640px]`, dont le sélecteur d'attribut bat
+      // toute classe utilitaire quelle que soit sa position. Avec `h-auto`
+      // gagnant, le panneau n'a aucune hauteur bornée : il grandit avec le
+      // nombre de lignes jusqu'à recouvrir l'écran au lieu de faire défiler.
+      // Même correctif que of-detail-sheet.tsx, qui avait déjà buté dessus.
+      className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[78vh] data-[side=bottom]:max-w-none"
+    >
         {loading ? (
           <LoadingState
             title="Chargement de la période..."
@@ -331,9 +349,9 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               <span className="font-mono text-[13px] font-bold text-foreground">
                 {data.poste.code}
               </span>
-              <SheetTitle className="text-[13px] font-medium text-muted-foreground">
+              <h2 className="text-[13px] font-medium text-muted-foreground">
                 {data.poste.label}
-              </SheetTitle>
+              </h2>
               <span className="font-mono text-[11px] font-semibold text-brand">
                 {data.bucket.label}
               </span>
@@ -392,52 +410,18 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                   Article
                 </span>
                 <div ref={anchorRef} className="w-[320px]">
-                  <Combobox
-                    value={articleFilter}
-                    onValueChange={(v) => setArticleFilter(v == null ? null : String(v))}
-                    onInputValueChange={(v) => setArticleQuery(v)}
-                  >
-                    {/* Focus standard du design system : c'est l'InputGroup qui
-                        le porte. Le cadre noir venait d'un oubli dans
-                        InputGroupInput, corrigé à la source. */}
-                    <ComboboxInput
-                      placeholder="Tous les articles — code ou désignation…"
-                      className="w-full"
-                    />
-                    {/* Au-dessus du panneau qui le contient (z-60), sous les
-                        dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le
-                        sheet : le défaut z-50 des popovers les place
-                        délibérément sous les sheets. */}
-                    <ComboboxContent anchor={anchorRef} layerClassName="z-[62]">
-                      <ComboboxList>
-                        <ComboboxItem value={null}>
-                          <span className="text-[12px] font-semibold">Tous les articles</span>
-                          <span className="text-muted-foreground text-[11px]">
-                            {articleOptions.length}
-                          </span>
-                        </ComboboxItem>
-                        {filteredOptions.length === 0 ? (
-                          <p className="px-2 py-3 text-center text-sm text-muted-foreground">
-                            Aucun article ne correspond à « {articleQuery} ».
-                          </p>
-                        ) : (
-                          filteredOptions.map((o) => (
-                            <ComboboxItem key={o.code} value={o.code}>
-                              <span className="font-mono text-[12px] font-semibold">{o.code}</span>
-                              <span className="min-w-0 flex-1 truncate text-muted-foreground text-[11px]">
-                                {o.designation || '—'}
-                              </span>
-                              {/* Le poids oriente le choix sans avoir à filtrer
-                                  pour le découvrir. */}
-                              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                                {fmtH(o.hours)} h
-                              </span>
-                            </ComboboxItem>
-                          ))
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
+                  <Typeahead
+                    label="Article"
+                    value={selectedArticle}
+                    onChange={(item: SearchableItem | null) => {
+                      setSelectedArticle(item as ArticleItem | null)
+                      setArticleFilter(item?.id == null ? null : String(item.id))
+                    }}
+                    searchSource={articleSource}
+                    placeholder="Tous les articles — code ou désignation…"
+                    onChangeQuery={(q: string) => setArticleQuery(q)}
+                    className="w-full"
+                  />
                 </div>
                 {articleActive && (
                   <button
@@ -516,7 +500,6 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
             )}
           </>
         )}
-      </SheetContent>
     </Sheet>
   )
 }

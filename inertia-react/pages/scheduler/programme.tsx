@@ -23,13 +23,7 @@ import { Search, TriangleAlert } from 'lucide-react'
 
 import Masthead from '@r/components/masthead'
 import { TextField, TextFieldInput } from '@r/components/ui/text-field'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@r/components/ui/select'
+import { Selector } from '@astryxdesign/core/Selector'
 
 import { useBoardStore, statusActive } from '@r/lib/board/store'
 import { useOrderBoardStore } from '@r/lib/orders/orders-store'
@@ -934,28 +928,18 @@ export default function Programme(props: VisionProps) {
                   }
                 />
               </div>
-              <Select
+              <Selector
+                label="Portée de la recherche"
                 value={mode === 'planification' ? orderStore.scope : boardStore.scope}
-                onValueChange={(v) => {
+                onChange={(v: string) => {
                   if (!v) return
                   if (mode === 'planification') orderStore.onScopeChange(v as OrderSearchScope)
                   else boardStore.onScopeChange(v as SearchScope)
                 }}
-              >
-                <SelectTrigger
-                  className={cn(PILL, 'w-[110px]')}
-                  aria-label="Portée de la recherche"
-                >
-                  <SelectValue placeholder="Portée" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scopeOptions().map((s) => (
-                    <SelectItem key={s.v} value={s.v}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Portée"
+                options={scopeOptions().map((s) => ({ id: s.v, value: s.v, label: s.label }))}
+                className={cn(PILL, 'w-[110px]')}
+              />
             </>
           }
         />

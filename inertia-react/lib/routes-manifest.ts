@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 103 routes nommées.
+ * 100 routes nommées.
  */
 
 export const MANIFEST = {
@@ -16,7 +16,6 @@ export const MANIFEST = {
   "agent.show": { method: "GET", pattern: "/copilote" },
   "assets.css": { method: "GET", pattern: "/css/app.css" },
   "assets.js": { method: "GET", pattern: "/js/app.js" },
-  "astryx_lab": { method: "GET", pattern: "/astryx-lab" },
   "auth.attempt": { method: "POST", pattern: "/login" },
   "auth.login": { method: "GET", pattern: "/login" },
   "auth.logout": { method: "POST", pattern: "/logout" },
@@ -35,7 +34,6 @@ export const MANIFEST = {
   "dashboard.stock_article_detail": { method: "GET", pattern: "/api/v1/dashboard/stock/article" },
   "dashboard.stock_valuation": { method: "GET", pattern: "/api/v1/dashboard/stock" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
-  "design_system": { method: "GET", pattern: "/design-system" },
   "diagnostic_test": { method: "GET", pattern: "/diagnostic-test" },
   "expeditions.index": { method: "GET", pattern: "/expeditions" },
   "expeditions.rows": { method: "GET", pattern: "/api/v1/expeditions/rows" },
@@ -72,7 +70,6 @@ export const MANIFEST = {
   "promesse.articles": { method: "GET", pattern: "/api/v1/promesse/articles" },
   "promesse.index": { method: "GET", pattern: "/api/v1/promesse" },
   "promesse.show": { method: "GET", pattern: "/promesse" },
-  "react_lab": { method: "GET", pattern: "/react-lab" },
   "receptions.criticite": { method: "GET", pattern: "/api/v1/receptions/criticite" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
   "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
@@ -128,7 +125,6 @@ export type RouteParams = {
   "agent.show": void,
   "assets.css": void,
   "assets.js": void,
-  "astryx_lab": void,
   "auth.attempt": void,
   "auth.login": void,
   "auth.logout": void,
@@ -147,7 +143,6 @@ export type RouteParams = {
   "dashboard.stock_article_detail": void,
   "dashboard.stock_valuation": void,
   "data.load": void,
-  "design_system": void,
   "diagnostic_test": void,
   "expeditions.index": void,
   "expeditions.rows": void,
@@ -184,7 +179,6 @@ export type RouteParams = {
   "promesse.articles": void,
   "promesse.index": void,
   "promesse.show": void,
-  "react_lab": void,
   "receptions.criticite": void,
   "receptions.index": void,
   "receptions.rows": void,

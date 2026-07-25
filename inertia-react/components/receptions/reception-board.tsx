@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { usePrintFit } from '@r/components/board/use-print-fit'
 import { chargeBg, chargeLabel, chargeText, chargeTier } from '@r/lib/receptions/charge'
 import type {
@@ -739,15 +739,19 @@ function ReceptionDetailSheet({
   const commandes = useMemo(() => groupByCommande(group?.rows ?? []), [group])
 
   return (
-    <Sheet open={group !== null} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="gap-0 p-0">
-        {group && (
+    <Sheet
+      isOpen={group !== null}
+      onOpenChange={(v) => !v && onClose()}
+      side="right"
+      className="gap-0 p-0"
+    >
+      {group && (
           <div className="flex h-full flex-col overflow-auto">
             {/* En-tête : le camion. */}
             <div className="border-b border-rule px-6 py-5">
-              <SheetTitle className="font-fraunces text-[19px] font-bold leading-tight tracking-tight text-foreground">
+              <h2 className="font-fraunces text-[19px] font-bold leading-tight tracking-tight text-foreground">
                 {group.fournisseurNom}
-              </SheetTitle>
+              </h2>
               <div className="mt-1 font-mono text-[11px] text-muted-foreground">
                 {group.fournisseur} · {group.dateFmt}
               </div>
@@ -949,7 +953,6 @@ function ReceptionDetailSheet({
             ))}
           </div>
         )}
-      </SheetContent>
     </Sheet>
   )
 }

@@ -7,16 +7,7 @@ import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
 import { Label } from '@r/components/ui/label'
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxGroup,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxLabel,
-  ComboboxList,
-  useComboboxAnchor,
-} from '@r/components/ui/combobox'
+import { Typeahead, createStaticSource, type SearchableItem } from '@astryxdesign/core/Typeahead'
 
 /**
  * Terrain de test de l'impression X3 (issue #85, lot 1).
@@ -127,28 +118,31 @@ export default function PrintTest(props: PageProps) {
   // souvent le nom de la file qu'on connaît, pas le code X3.
   const [destQuery, setDestQuery] = useState('')
 
-  // Groupées par nature (imprimante / fichier / mail / aperçu) : on choisit
-  // d'abord un EFFET, puis une destination dans cet effet.
-  const groupes = useMemo(() => {
-    const q = destQuery.trim().toLowerCase()
-    const actives = props.destinations.filter((x) => x.active)
-    const retenues = q
-      ? actives.filter((d) =>
-          `${d.code} ${d.label} ${d.kindLabel} ${d.queue}`.toLowerCase().includes(q)
-        )
-      : actives
+  // Source Typeahead : toutes les destinations à plat (le grouping par nature
+  // n'est plus rendu visuellement — Astryx Typeahead ne supporte pas les
+  // sections, on inclut la nature dans le label).
+  interface DestItem extends SearchableItem {
+    id: string
+    code: string
+    label: string
+    nature: string
+    queue?: string
+    sandbox: boolean
+  }
+  const [selectedDestItem, setSelectedDestItem] = useState<DestItem | null>(null)
+  const destSource = useMemo(() => {
+    const all: DestItem[] = (props.destinations ?? []).map((d) => ({
+      id: d.code,
+      code: d.code,
+      label: d.label || '(sans libellé)',
+      nature: d.kindLabel,
+      queue: d.queue,
+      sandbox: d.sandbox,
+    }))
+    return createStaticSource(all as unknown as SearchableItem[])
+  }, [props.destinations])
 
-    const par = new Map<string, Destination[]>()
-    for (const d of retenues) par.set(d.kindLabel, [...(par.get(d.kindLabel) ?? []), d])
-    // Les destinations sans papier d'abord : c'est par là qu'on commence un test.
-    return [...par.entries()].sort((a, b) => {
-      const pa = a[1][0].sandbox ? 0 : 1
-      const pb = b[1][0].sandbox ? 0 : 1
-      return pa - pb || a[0].localeCompare(b[0])
-    })
-  }, [props.destinations, destQuery])
-
-  const anchorRef = useComboboxAnchor()
+  const anchorRef = { current: null as HTMLDivElement | null }
 
   // PING d'abord — la sonde qui ne consomme rien — puis les documents
   // réellement configurés. Le champ reste libre pour un état hors dossier.
@@ -266,46 +260,18 @@ export default function PrintTest(props: PageProps) {
               </p>
             ) : (
               <div ref={anchorRef}>
-                <Combobox
-                  value={dest}
-                  onValueChange={(v) => setDest(String(v ?? ''))}
-                  onInputValueChange={(v) => setDestQuery(v)}
-                >
-                  <ComboboxInput
-                    id="dest"
-                    placeholder="Rechercher : code, libellé, file d’impression…"
-                    className="w-full"
-                  />
-                  <ComboboxContent anchor={anchorRef}>
-                    <ComboboxList>
-                      {groupes.length === 0 ? (
-                        <p className="text-muted-foreground px-2 py-3 text-center text-sm">
-                          Aucune destination ne correspond à « {destQuery} ».
-                        </p>
-                      ) : (
-                        groupes.map(([nature, list]) => (
-                          <ComboboxGroup key={nature}>
-                            <ComboboxLabel>
-                              {nature}
-                              {list[0].sandbox ? '' : ' — sort du papier'}
-                            </ComboboxLabel>
-                            {list.map((d) => (
-                              <ComboboxItem key={d.code} value={d.code}>
-                                <span className="font-mono text-[12px] font-semibold">
-                                  {d.code}
-                                </span>
-                                <span className="text-muted-foreground truncate">
-                                  {d.label || '(sans libellé)'}
-                                  {d.queue ? ` · ${d.queue}` : ''}
-                                </span>
-                              </ComboboxItem>
-                            ))}
-                          </ComboboxGroup>
-                        ))
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
+                <Typeahead
+                  label="Destination d'impression"
+                  value={selectedDestItem}
+                  onChange={(item: SearchableItem | null) => {
+                    setSelectedDestItem(item as unknown as DestItem | null)
+                    setDest(item?.id ?? '')
+                  }}
+                  searchSource={destSource}
+                  placeholder="Rechercher : code, libellé, file d'impression…"
+                  onChangeQuery={(q) => setDestQuery(q)}
+                  className="w-full"
+                />
               </div>
             )}
 

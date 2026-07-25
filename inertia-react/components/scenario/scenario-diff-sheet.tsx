@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { cn } from '@r/lib/utils'
 import type { PlanDiff, DiffSens } from '@r/lib/scenarios/types'
 
@@ -36,9 +36,12 @@ export function ScenarioDiffSheet({
     iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto bg-background text-foreground sm:max-w-2xl">
-        <SheetTitle className="font-fraunces text-[18px] font-bold">Étude d'impact</SheetTitle>
+    <Sheet
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      className="w-full overflow-y-auto bg-background text-foreground sm:max-w-2xl"
+    >
+      <h2 className="font-fraunces text-[18px] font-bold">Étude d'impact</h2>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           Évalué le {fmtStamp(evaluatedAt)} · sur données du {fmtStamp(dataAt)}
         </p>
@@ -148,7 +151,6 @@ export function ScenarioDiffSheet({
             </Section>
           </div>
         )}
-      </SheetContent>
     </Sheet>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { route } from '@r/lib/routes'
 
@@ -135,11 +135,12 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
     : null
 
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
-      >
+    <Sheet
+      isOpen={props.open}
+      onOpenChange={props.onOpenChange}
+      side="bottom"
+      className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
+    >
         {loading ? (
           <LoadingState
             title="Chargement du poste..."
@@ -159,9 +160,9 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                 <span className="font-mono text-[13px] font-bold text-foreground">
                   {data.poste.code}
                 </span>
-                <SheetTitle className="font-fraunces text-[14px] font-medium italic text-muted-foreground">
+                <h2 className="font-fraunces text-[14px] font-medium italic text-muted-foreground">
                   {data.poste.label}
-                </SheetTitle>
+                </h2>
               </div>
               <span className="flex-1" />
               {/* Métriques : OF count + heures + semaines engagées + jauge saturation. */}
@@ -371,7 +372,6 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
             )}
           </>
         )}
-      </SheetContent>
     </Sheet>
   )
 }

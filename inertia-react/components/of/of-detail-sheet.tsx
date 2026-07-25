@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { router } from '@inertiajs/react'
 
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
@@ -188,11 +188,12 @@ export function OfDetailSheet(props: {
   const d = detail
 
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:h-[72vh] data-[side=bottom]:max-w-none data-[side=bottom]:mx-0"
-      >
+    <Sheet
+      isOpen={props.open}
+      onOpenChange={props.onOpenChange}
+      side="bottom"
+      className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:h-[72vh] data-[side=bottom]:max-w-none data-[side=bottom]:mx-0"
+    >
         {!d ? (
           detailError ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-destructive">
@@ -213,9 +214,9 @@ export function OfDetailSheet(props: {
               {d.article && (
                 <span className="font-mono text-[12px] font-bold text-brand">{d.article}</span>
               )}
-              <SheetTitle className="text-[14px] font-medium italic text-muted-foreground">
+              <span className="text-[14px] font-medium italic text-muted-foreground">
                 {d.title}
-              </SheetTitle>
+              </span>
               <Badge variant={statusVariant(d.statusLabel)} className="ml-0.5">
                 {d.statusLabel}
               </Badge>
@@ -444,7 +445,6 @@ export function OfDetailSheet(props: {
             </div>
           </>
         )}
-      </SheetContent>
     </Sheet>
   )
 }

@@ -33,13 +33,7 @@ import {
   InputGroupInput,
   InputGroupButton,
 } from '@r/components/ui/input-group'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@r/components/ui/select'
+import { Selector } from '@astryxdesign/core/Selector'
 import { Switch } from '@r/components/ui/switch'
 
 /**
@@ -1417,22 +1411,17 @@ export default function Dashboard(props: DashboardProps) {
                               </InputGroupAddon>
                             )}
                           </InputGroup>
-                          <Select
+                          <Selector
+                            label="Catégorie de stock"
                             value={stockCatFilter || 'all'}
-                            onValueChange={(val) => setStockCatFilter(val === 'all' ? '' : (val ?? ''))}
-                          >
-                            <SelectTrigger size="sm" className="h-8 border-border bg-card font-mono text-[11px] font-semibold text-foreground">
-                              <SelectValue placeholder="Toutes cat." />
-                            </SelectTrigger>
-                            <SelectContent side="bottom">
-                              <SelectItem value="all">Toutes cat.</SelectItem>
-                              {stockCategories.map((c) => (
-                                <SelectItem key={c} value={c}>
-                                  {c}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onChange={(val: string) => setStockCatFilter(val === 'all' ? '' : (val ?? ''))}
+                            placeholder="Toutes cat."
+                            options={[
+                              { id: 'all', value: 'all', label: 'Toutes cat.' },
+                              ...stockCategories.map((c) => ({ id: c, value: c, label: c })),
+                            ]}
+                            className="h-8 border-border bg-card font-mono text-[11px] font-semibold text-foreground"
+                          />
                           <button
                             type="button"
                             onClick={() => setStockHideZero((v) => !v)}
