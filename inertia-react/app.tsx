@@ -5,6 +5,13 @@ import { createInertiaApp } from '@inertiajs/react'
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
 import { Toaster } from 'sonner'
 
+// Thème Astryx officiel « neutral » — posé au niveau racine React.
+// Le scope [data-astryx-theme='neutral'] couvre tout le sous-arbre,
+// y compris les portails (Toaster sonner, sheets/dialogs Base UI).
+// Lot 1 (issue #90) — refonte visuelle produit sur la grammaire Astryx.
+import { Theme } from '@astryxdesign/core/theme'
+import { neutralTheme } from '@astryxdesign/theme-neutral'
+
 const pages = import.meta.glob('./pages/**/*.tsx')
 
 // @adonisjs/inertia@4.2 rend le format v2 (<div id="app" data-page="…">) alors
@@ -42,7 +49,7 @@ createInertiaApp({
   },
   setup({ el, App, props }) {
     createRoot(el).render(
-      <>
+      <Theme theme={neutralTheme} mode="light">
         <App {...props} />
         {/* Grammaire overlays (airbnb-overlays.html §04) : pilule encre
             bas-centre, 4,2 s, couche toasts au-dessus de tout (sheets
@@ -65,7 +72,7 @@ createInertiaApp({
             },
           }}
         />
-      </>
+      </Theme>
     )
   },
 })

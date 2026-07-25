@@ -2,7 +2,9 @@
  * ════════════════════════════════════════════════════════════
  * Socle Astryx 0.1.8 — coexistence avec Tailwind v4 + shadcn/ui.
  *
- * Spike Lot 0 (issue #90) — Q1 : cascade + coexistence build Vite.
+ * Lot 1 (issue #90) — runtime React basculé sur theme-neutral officiel
+ * via <Theme theme={neutralTheme}> posé à la racine (app.tsx). Le scope
+ * [data-astryx-theme='neutral'] couvre tout le sous-arbre + portails.
  *
  * Footgun documenté Astryx (docs/migration#cascade-layer-safety) :
  * un @import non-layeré de reset legacy bat silencieusement toute
@@ -12,7 +14,7 @@
  *
  * Couches (ordre croissant de priorité) :
  *   reset         → reset Astryx (le plus bas)
- *   theme         → tokens theme-neutral + tokens métier airbnb
+ *   theme         → tokens theme-neutral + tokens métier supply chain
  *   astryx-base   → styles composants Astryx (auto-déclarés en interne)
  *   tw-base       → base Tailwind v4 (@layer base)
  *   tw-components → composants Tailwind
@@ -30,9 +32,9 @@
   @import '@astryxdesign/core/reset.css';
 }
 
-/* 3. Thème neutral (échelle grise par défaut, surchargée au runtime
- *    par <Theme theme={airbnbTheme}> côté React). Garde un fallback
- *    valide si le provider n'est pas monté (first paint, SSR). */
+/* 3. Thème neutral — thème par défaut posé au runtime par
+ *    <Theme theme={neutralTheme}>. Fallback valide si le provider
+ *    n'est pas monté (first paint, SSR). */
 @layer theme {
   @import '@astryxdesign/theme-neutral/theme.css';
 }
@@ -46,60 +48,25 @@
 @import '@astryxdesign/core/tailwind-theme.css';
 
 /* ════════════════════════════════════════════════════════════
- * Tokens métier Airbnb — non couverts par defineTheme() car
- * `tokens` est typé strict (Partial<Record<TokenName, TokenValue>>)
- * et n'accepte que les noms core/domain Astryx. Posés ici sur le
- * scope [data-astryx-theme="airbnb"] que le provider <Theme> pose
- * sur son sous-arbre (cf. node_modules/@astryxdesign/core/dist/
- * theme/Theme.js — data-astryx-theme attribute).
+ * Tokens métier supply chain — posés sous le scope neutralTheme
+ * (data-astryx-theme='neutral', posé par <Theme> à la racine).
  *
- * Parité avec inertia-react/styles/app.css bloc .theme-airbnb.
+ * Statuts OF : vocabulaire supply chain, conservé lors du passage
+ * au thème Astryx officiel (refonte visuelle produit — la sémantique
+ * métier reste). Brand book Airbnb (Rausch/Babu/Arches…) supprimé :
+ * ces tokens étaient liés à l'ancienne identité visuelle Airbnb.
+ *
+ * Les aliases shadcn (--primary/--background/…) restent définis dans
+ * app.css :root — ils survivent au passage neutral car ils vivent au
+ * niveau global, pas sous le scope Astryx.
  * ════════════════════════════════════════════════════════════ */
-[data-astryx-theme='airbnb'] {
+[data-astryx-theme='neutral'] {
   /* ── Statuts OF (métier supply chain) ── */
   --color-ferme: #008049;
   --color-planifie: #00a699;
   --color-suggere: #fc642d;
   --color-warning: #fc642d;
-  --color-brand: var(--color-accent);
-  --color-brand-soft: rgba(255, 56, 92, 0.1);
+  --color-brand-soft: color-mix(in srgb, var(--color-accent) 10%, transparent);
   --color-rule: var(--color-border);
-  --color-rule-soft: #ebebeb;
-
-  /* ── Brand book Airbnb (design/showcase/airbnb-grammar.html) ── */
-  --color-rausch: #ff385c;
-  --color-rausch-active: #e00b41;
-  --color-rausch-logo: #ff5a5f;
-  --color-rausch-disabled: #ffd1da;
-  --color-babu: #00a699;
-  --color-arches: #fc642d;
-  --color-hof: #484848;
-  --color-foggy: #767676;
-  --color-luxe: #460479;
-  --color-plus: #92174d;
-  --color-legal-link: #428bff;
-
-  /* ── Aliases shadcn (compat composants ui/* existants) ──
-   * Permet aux primitives shadcn de résoudre leurs var(--primary)
-   * etc. sous le scope Astryx. */
-  --primary: var(--color-accent);
-  --primary-foreground: var(--color-on-accent);
-  --background: var(--color-background-body);
-  --foreground: var(--color-text-primary);
-  --card: var(--color-background-card);
-  --card-foreground: var(--color-text-primary);
-  --popover: var(--color-background-popover);
-  --popover-foreground: var(--color-text-primary);
-  --secondary: var(--color-background-muted);
-  --secondary-foreground: var(--color-text-primary);
-  --muted: var(--color-background-muted);
-  --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-background-muted);
-  --accent-foreground: var(--color-text-primary);
-  --destructive: var(--color-error);
-  --destructive-foreground: var(--color-on-error);
-  --border: var(--color-border);
-  --input: var(--color-border-emphasized);
-  --ring: var(--color-text-primary);
-  --radius: 0.875rem;
+  --color-rule-soft: color-mix(in srgb, var(--color-border) 50%, transparent);
 }

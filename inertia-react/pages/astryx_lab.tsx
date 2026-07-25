@@ -1,24 +1,20 @@
 // inertia-react/pages/astryx_lab.tsx
 //
-// Laboratoire Astryx (spike Lot 0, issue #90).
+// Laboratoire Astryx (issue #90, Lot 1).
 //
-// Comparaison side-by-side shadcn/ui vs Astryx natif sous <Theme>, pour
-// valider visuellement la coexistence cascade (Q1) + parité thème Airbnb
-// (Q2) + comportement des portals Base UI sous le reset Astryx (Q4).
-//
-// Trois colonnes :
-//  1. shadcn actuel (référence avant migration).
-//  2. Astryx natif (Button + Card) sous <Theme theme={airbnbTheme}>.
+// Runtime React désormais sous <Theme theme={neutralTheme}> global (posé
+// dans app.tsx). Cette page compare côte à côte :
+//  1. shadcn/ui actuel (wrappers Astryx Button/Card via cva shadcn).
+//  2. Astryx natif (Button/Card directs — hérite du neutralTheme global).
 //  3. Tableau de parité tokens + trigger Sheet (portal body-level).
 //
-// À RETIRER à la décision NO-GO ou au démarrage du Lot 1.
+// Page témoin de la coexistence Astryx + shadcn — à retirer une fois la
+// migration complète terminée.
 
-import { Theme } from '@astryxdesign/core/theme'
 import { Button as AstryxButton } from '@astryxdesign/core/Button'
 import { Card as AstryxCard } from '@astryxdesign/core/Card'
 
 import AppLayout from '@r/layouts/app'
-import { airbnbTheme } from '@r/styles/astryx-airbnb-theme'
 import { Badge } from '@r/components/ui/badge'
 import { Button as ShadcnButton } from '@r/components/ui/button'
 import {
@@ -59,12 +55,12 @@ export default function AstryxLab() {
   return (
     <AppLayout
       active="dashboard"
-      subtitle="ASTRYX SPIKE LOT 0"
+      subtitle="ASTRYX LOT 1"
       title="Astryx Lab — issue #90"
     >
-      {/* Provider Astryx scopé à la page lab — n'affecte aucune page prod. */}
-      <Theme theme={airbnbTheme} mode="light">
-        <div className="grid gap-6 lg:grid-cols-[1fr_1fr_360px]">
+      {/* <Theme theme={neutralTheme}> posé globalement dans app.tsx —
+          cette page hérite du scope [data-astryx-theme='neutral']. */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr_360px]">
           {/* ── Colonne 1 : shadcn actuel (référence) ── */}
           <section className="space-y-4 rounded-lg border bg-card p-5">
             <header className="flex items-center justify-between">
@@ -155,7 +151,6 @@ export default function AstryxLab() {
             </Sheet>
           </section>
         </div>
-      </Theme>
     </AppLayout>
   )
 }
