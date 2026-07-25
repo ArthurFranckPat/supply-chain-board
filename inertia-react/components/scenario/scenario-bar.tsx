@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { cn } from '@r/lib/utils'
 import { Button } from '@r/components/ui/button'
 import { router } from '@inertiajs/react'
+import { toast } from 'sonner'
 import { route } from '@r/lib/routes'
 import { promiseReasonText } from '@r/lib/promesse/types'
 import {
@@ -199,8 +200,10 @@ export function ScenarioBar({
   )
 
   const openDiff = useCallback(() => {
-    computeDiff(windowFrom, windowTo)
     onShowDiff()
+    computeDiff(windowFrom, windowTo).catch((err: Error) => {
+      toast.error(`Impacts indisponibles : ${err.message}`)
+    })
   }, [computeDiff, windowFrom, windowTo, onShowDiff])
 
   const mutationCount = mutations.length

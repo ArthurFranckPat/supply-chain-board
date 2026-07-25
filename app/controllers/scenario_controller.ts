@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import logger from '@adonisjs/core/services/logger'
 import { ScenarioStore } from '#services/scenario_store'
 import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
 import type { PlanMutation } from '#app/domain/plan_diff'
@@ -118,11 +119,26 @@ export default class ScenarioController {
     const windowTo = new Date(to)
     windowTo.setHours(23, 59, 59, 999)
 
-    const result = await evaluateScenarioDiff(
-      normalizeMutations(mutations),
-      { from: windowFrom, to: windowTo },
-      strategy as AllocationStrategy | undefined
-    )
+    const normalized = normalizeMutations(mutations)
+    let result: Awaited<ReturnType<typeof evaluateScenarioDiff>>
+    try {
+      result = await evaluateScenarioDiff(
+        normalized,
+        { from: windowFrom, to: windowTo },
+        strategy as AllocationStrategy | undefined
+      )
+    } catch (error) {
+      // L'évaluation traverse tout le chargement X3 : sans trace explicite, l'échec
+      // ressortait en 500 nu, illisible côté navigateur comme côté terminal.
+      logger.error(
+        { err: error, from, to, mutations: normalized.length, strategy },
+        'scenarios/diff — évaluation échouée'
+      )
+      return ctx.response.status(502).json({
+        error: "Évaluation du scénario impossible : le plan n'a pas pu être chargé.",
+        cause: error instanceof Error ? error.message : String(error),
+      })
+    }
 
     if (id != null) {
       const numId = Number.parseInt(String(id), 10)

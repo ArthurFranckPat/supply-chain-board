@@ -709,7 +709,9 @@ export default function Programme(props: VisionProps) {
     (m: Extract<PlanMutation, { type: 'inject_demand' }>) => {
       const sc = useScenarioStore.getState()
       sc.upsertMutation(m)
-      sc.computeDiff(props.windowFrom, props.windowTo)
+      sc.computeDiff(props.windowFrom, props.windowTo).catch((err: Error) => {
+        toast.error(`Impacts indisponibles : ${err.message}`)
+      })
     },
     [props.windowFrom, props.windowTo]
   )
@@ -723,7 +725,9 @@ export default function Programme(props: VisionProps) {
       )
       if (!existing) return
       sc.upsertMutation({ ...existing, date: iso })
-      sc.computeDiff(props.windowFrom, props.windowTo)
+      sc.computeDiff(props.windowFrom, props.windowTo).catch((err: Error) => {
+        toast.error(`Impacts indisponibles : ${err.message}`)
+      })
     },
     [props.windowFrom, props.windowTo]
   )
@@ -732,7 +736,9 @@ export default function Programme(props: VisionProps) {
     (id: string) => {
       const sc = useScenarioStore.getState()
       sc.removeMutation(`inject:${id}`)
-      sc.computeDiff(props.windowFrom, props.windowTo)
+      sc.computeDiff(props.windowFrom, props.windowTo).catch((err: Error) => {
+        toast.error(`Impacts indisponibles : ${err.message}`)
+      })
     },
     [props.windowFrom, props.windowTo]
   )

@@ -240,7 +240,12 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
           strategy: current.strategy,
         }),
       })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      if (!r.ok) {
+        // Le serveur renvoie `cause` sur un échec d'évaluation (chargement X3). La
+        // remonter telle quelle : « HTTP 500 » n'a jamais aidé personne à diagnostiquer.
+        const body = (await r.json().catch(() => null)) as { cause?: string } | null
+        throw new Error(body?.cause ? body.cause : `HTTP ${r.status}`)
+      }
       const data = (await r.json()) as { diff: PlanDiff; evaluatedAt: string; dataAt: string }
       set({
         diff: data.diff,
