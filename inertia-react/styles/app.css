@@ -568,22 +568,49 @@
 .dashboard-grid-item {
   transition: left 180ms cubic-bezier(0.16, 1, 0.3, 1), top 180ms cubic-bezier(0.16, 1, 0.3, 1),
     width 180ms cubic-bezier(0.16, 1, 0.3, 1), height 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* La tuile est positionnée en absolu et dimensionnée explicitement : sa mise
+   * en page interne n'influence rien au dehors. Le dire au navigateur lui évite
+   * de remonter le reflow au document à chaque frame de redimensionnement.
+   * `layout` seul — `paint` clipperait la barre d'outils qui déborde en haut. */
+  contain: layout;
 }
 
 /* Pendant le geste, la tuile suit le pointeur au pixel : toute transition la
  * ferait traîner derrière le curseur. C'est précisément ce qui rendait le geste
- * inerte avec react-grid-layout (issue #87). */
+ * inerte avec react-grid-layout (issue #87).
+ * Pas de `will-change` ici : il n'accélère pas les propriétés de mise en page
+ * et ne ferait que réserver de la mémoire. */
 .dashboard-grid-item.is-active {
   transition: none;
   z-index: 50;
   cursor: grabbing;
-  will-change: left, top, width, height;
 }
 
-/* Les autres tuiles ne s'animent pas non plus pendant qu'on manipule : elles
- * se réorganisent, et l'animation brouillerait la lecture de l'aperçu. */
 .dashboard-grid.is-gesturing {
   user-select: none;
+}
+
+/* Le geste est piloté par des écouteurs sur window : pendant sa durée, aucune
+ * tuile n'a besoin de recevoir le pointeur. On économise le test de survol et
+ * les restyles `:hover` des cartes à chaque frame. Le curseur est donc porté par
+ * le conteneur, sinon il repasserait en flèche dès que le pointeur quitte la
+ * poignée. */
+.dashboard-grid.is-gesturing .dashboard-grid-item {
+  pointer-events: none;
+}
+.dashboard-grid[data-gesture='drag'] {
+  cursor: grabbing;
+}
+.dashboard-grid[data-gesture='n'],
+.dashboard-grid[data-gesture='s'] {
+  cursor: ns-resize;
+}
+.dashboard-grid[data-gesture='e'],
+.dashboard-grid[data-gesture='w'] {
+  cursor: ew-resize;
+}
+.dashboard-grid[data-gesture='se'] {
+  cursor: se-resize;
 }
 
 .dashboard-grid-placeholder {

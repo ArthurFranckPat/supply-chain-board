@@ -4,7 +4,8 @@
  * Remplace react-grid-layout (issue #87 : drag et resize inertes en v2, et la
  * v1 est incompatible React 19 — elle repose sur `ReactDOM.findDOMNode`).
  *
- * Modèle : 12 colonnes, hauteur de ligne fixe, compaction verticale. Les items
+ * Modèle : grille à N colonnes (24 sur le tableau de bord), hauteur de ligne
+ * fixe, compaction verticale. Les items
  * portent `x`/`y`/`w`/`h` en unités de grille — exactement le schéma déjà
  * persisté par le store et par `users.dashboard_layout`, donc aucune traduction.
  *
@@ -120,11 +121,13 @@ export function DashboardGrid({
   children,
   editMode,
   onChange,
-  cols = 12,
-  rowHeight = 65,
+  // Valeurs par défaut alignées sur celles du tableau de bord, pour qu'un
+  // oubli de prop ne produise pas une géométrie d'une autre échelle.
+  cols = 24,
+  rowHeight = 24.5,
   gap = 16,
-  minW = 3,
-  minH = 3,
+  minW = 6,
+  minH = 6,
   className,
 }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -132,10 +135,14 @@ export function DashboardGrid({
 
   const gestureRef = useRef<Gesture | null>(null)
   const detachRef = useRef<(() => void) | null>(null)
+  /** Dernier cran de grille appliqué — évite de recalculer un aperçu identique. */
+  const lastCandidateRef = useRef<DashboardGridItem | null>(null)
   const previewRef = useRef<DashboardGridItem[] | null>(null)
   const [preview, setPreview] = useState<DashboardGridItem[] | null>(null)
   const [ghost, setGhost] = useState<Box | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  /** 'drag' ou l'axe de resize — porte le curseur sur le conteneur pendant le geste. */
+  const [gestureCursor, setGestureCursor] = useState<string | null>(null)
 
   // ----- Largeur du conteneur -----
   useEffect(() => {
@@ -178,6 +185,7 @@ export function DashboardGrid({
     setPreview(null)
     setGhost(null)
     setActiveId(null)
+    setGestureCursor(null)
     // Compaction finale sans pin : l'item relâché remonte lui aussi.
     if (g?.dirty && next) onChange(compact(next, null))
   }, [onChange])
@@ -212,14 +220,16 @@ export function DashboardGrid({
         dirty: false,
       }
       previewRef.current = items
+      lastCandidateRef.current = origin
       setPreview(items)
       setGhost(toBox(origin))
       setActiveId(id)
+      setGestureCursor(axis ?? 'drag')
 
       // Les écouteurs sont posés ici, pas dans un effet : un effet ne s'exécute
       // qu'au rendu suivant, et un `pointermove` arrivé entre-temps serait perdu.
       // La géométrie est figée par fermeture pour la durée du geste.
-      const onMove = (ev: PointerEvent) => {
+      const apply = (ev: PointerEvent) => {
         const g = gestureRef.current
         if (!g || colWidth <= 0) return
         const dx = ev.clientX - g.pointerX
@@ -284,6 +294,22 @@ export function DashboardGrid({
         }
 
         g.dirty = true
+
+        // Le fantôme suit le pointeur au pixel, mais l'aperçu de compaction ne
+        // bouge qu'au franchissement d'un cran. Sans ce garde-fou on relance un
+        // rendu complet de la grille à chaque frame pour un layout identique.
+        const prev = lastCandidateRef.current
+        if (
+          prev &&
+          prev.x === candidate.x &&
+          prev.y === candidate.y &&
+          prev.w === candidate.w &&
+          prev.h === candidate.h
+        ) {
+          return
+        }
+        lastCandidateRef.current = candidate
+
         const next = compact(
           g.base.map((it) => (it.id === g.id ? candidate : it)),
           g.id
@@ -292,7 +318,23 @@ export function DashboardGrid({
         setPreview(next)
       }
 
+      // `pointermove` peut dépasser 60 Hz (souris haute fréquence, écran 120 Hz).
+      // On ne traite qu'un événement par frame : au-delà, le travail est jeté par
+      // le compositeur de toute façon.
+      let frame = 0
+      let pending: PointerEvent | null = null
+      const onMove = (ev: PointerEvent) => {
+        pending = ev
+        if (frame) return
+        frame = requestAnimationFrame(() => {
+          frame = 0
+          if (pending) apply(pending)
+        })
+      }
+
       const detach = () => {
+        if (frame) cancelAnimationFrame(frame)
+        frame = 0
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
         window.removeEventListener('pointercancel', onUp)
@@ -318,13 +360,48 @@ export function DashboardGrid({
   const byId = useMemo(() => new Map(layout.map((it) => [it.id, it])), [layout])
   const activeItem = activeId ? byId.get(activeId) : undefined
 
+  /**
+   * Enfants clonés une fois par changement de `children`, pas à chaque rendu.
+   *
+   * Le clonage sert à imposer `h-full w-full` (la boîte positionnée porte la
+   * hauteur, les cartes internes sont en `h-full`). Mais `cloneElement` produit
+   * un nouvel élément : le refaire à chaque frame de geste annule le
+   * court-circuit d'identité de React et re-rend l'intégralité des cartes KPI —
+   * tableaux et graphiques compris. Mémorisés ici, ces sous-arbres sont ignorés
+   * pendant tout le geste ; seules les `div` de positionnement se re-rendent.
+   */
+  const clonedChildren = useMemo(() => {
+    const map = new Map<string, React.ReactNode>()
+    React.Children.forEach(children, (child) => {
+      if (!React.isValidElement(child) || child.key == null) return
+      // React préfixe les keys des enfants d'un tableau ; on retombe sur l'id brut.
+      const id = String(child.key).replace(/^\.\$/, '')
+      const el = child as React.ReactElement<{ className?: string }>
+      map.set(id, React.cloneElement(el, { className: cn(el.props.className, 'h-full w-full') }))
+    })
+    return map
+  }, [children])
+
+  /** Poignées : identiques d'un rendu à l'autre tant que `editMode` ne change pas. */
+  const handles = useMemo(
+    () =>
+      editMode
+        ? RESIZE_AXES.map((axis) => (
+            <span
+              key={axis}
+              data-grid-resize={axis}
+              className={`dashboard-grid-resize dashboard-grid-resize-${axis} print:hidden`}
+              title={RESIZE_TITLES[axis]}
+            />
+          ))
+        : null,
+    [editMode]
+  )
+
   const tiles: React.ReactNode[] = []
-  React.Children.forEach(children, (child) => {
-    if (!React.isValidElement(child) || child.key == null) return
-    // React préfixe les keys des enfants d'un tableau ; on retombe sur l'id brut.
-    const id = String(child.key).replace(/^\.\$/, '')
+  for (const [id, child] of clonedChildren) {
     const item = byId.get(id)
-    if (!item) return
+    if (!item) continue
     const isActive = id === activeId
     const box = isActive && ghost ? ghost : toBox(item)
     tiles.push(
@@ -340,28 +417,17 @@ export function DashboardGrid({
           height: box.height,
         }}
       >
-        {/* L'enfant doit remplir la boîte positionnée : les cartes internes sont
-            en `h-full`, elles s'effondreraient sur un wrapper à hauteur auto. */}
-        {React.cloneElement(child as React.ReactElement<{ className?: string }>, {
-          className: cn((child.props as { className?: string }).className, 'h-full w-full'),
-        })}
-        {editMode &&
-          RESIZE_AXES.map((axis) => (
-            <span
-              key={axis}
-              data-grid-resize={axis}
-              className={`dashboard-grid-resize dashboard-grid-resize-${axis} print:hidden`}
-              title={RESIZE_TITLES[axis]}
-            />
-          ))}
+        {child}
+        {handles}
       </div>
     )
-  })
+  }
 
   return (
     <div
       ref={containerRef}
       className={cn('dashboard-grid', activeId && 'is-gesturing', className)}
+      data-gesture={gestureCursor ?? undefined}
       style={{ position: 'relative', height: Math.max(height, 0) }}
       onPointerDown={onPointerDown}
     >
