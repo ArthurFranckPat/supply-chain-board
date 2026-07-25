@@ -15,7 +15,17 @@ import {
 } from '@r/components/ui/alert-dialog'
 import { useScenarioStore } from '@r/lib/scenario/store'
 import type { PlanMutation } from '@r/lib/scenarios/types'
-import { FlaskConical, Save, Trash2, CirclePlus, Zap, TriangleAlert, Plus, FolderOpen, ArrowLeftRight } from 'lucide-react'
+import {
+  FlaskConical,
+  Save,
+  Trash2,
+  CirclePlus,
+  Zap,
+  TriangleAlert,
+  Plus,
+  FolderOpen,
+  ArrowLeftRight,
+} from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
@@ -69,7 +79,7 @@ export function ScenarioBar({
   const requestDiscard = useCallback(() => {
     if (s.current.mutations.length === 0) onDiscard()
     else setConfirmDiscardOpen(true)
-  }, [s.current.mutations.length, onDiscard])
+  }, [s, onDiscard])
 
   const confirmDiscard = useCallback(() => {
     setConfirmDiscardOpen(false)
@@ -94,31 +104,34 @@ export function ScenarioBar({
   const [earliestLoading, setEarliestLoading] = useState(false)
   const debounceIdRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const fetchEarliest = useCallback(async (art: string, qty: number): Promise<{ date: string; limiting: string } | null> => {
-    setEarliestLoading(true)
-    try {
-      const params = new URLSearchParams({ article: art, quantity: String(qty) })
-      const res = await fetch(`${route('promesse.index')}?${params}`)
-      if (!res.ok) return null
-      const data = await res.json()
-      if (data.engageante?.infeasible) {
-        const out = { date: '', limiting: 'infaisable (ni stock, ni flux, ni nomenclature)' }
+  const fetchEarliest = useCallback(
+    async (art: string, qty: number): Promise<{ date: string; limiting: string } | null> => {
+      setEarliestLoading(true)
+      try {
+        const params = new URLSearchParams({ article: art, quantity: String(qty) })
+        const res = await fetch(`${route('promesse.index')}?${params}`)
+        if (!res.ok) return null
+        const data = await res.json()
+        if (data.engageante?.infeasible) {
+          const out = { date: '', limiting: 'infaisable (ni stock, ni flux, ni nomenclature)' }
+          setEarliest(out)
+          return out
+        }
+        const lf = data.engageante.limitingFactor
+        const out = {
+          date: String(data.engageante.promiseDate).slice(0, 10),
+          limiting: lf ? `${lf.article} — ${promiseReasonText(lf.reason)}` : '',
+        }
         setEarliest(out)
         return out
+      } catch {
+        return null
+      } finally {
+        setEarliestLoading(false)
       }
-      const lf = data.engageante.limitingFactor
-      const out = {
-        date: String(data.engageante.promiseDate).slice(0, 10),
-        limiting: lf ? `${lf.article} — ${promiseReasonText(lf.reason)}` : '',
-      }
-      setEarliest(out)
-      return out
-    } catch {
-      return null
-    } finally {
-      setEarliestLoading(false)
-    }
-  }, [])
+    },
+    []
+  )
 
   useEffect(() => {
     const art = article.trim()
@@ -237,7 +250,12 @@ export function ScenarioBar({
           {s.saving ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
 
-        <Button size="sm" disabled={mutationCount === 0 || applying} onClick={onApply} className="gap-1.5">
+        <Button
+          size="sm"
+          disabled={mutationCount === 0 || applying}
+          onClick={onApply}
+          className="gap-1.5"
+        >
           <DynamicIcon
             name={applying ? 'progress_activity' : 'play_arrow'}
             size={15}
@@ -260,15 +278,20 @@ export function ScenarioBar({
                 <AlertDialogDescription>
                   {mutationCount} mutation{mutationCount > 1 ? 's' : ''} non appliquée
                   {mutationCount > 1 ? 's' : ''} ser{mutationCount > 1 ? 'ont' : 'a'} perdue
-                  {mutationCount > 1 ? 's' : ''} et le board reviendra à l'état réel. Cette action est
-                  irréversible.
+                  {mutationCount > 1 ? 's' : ''} et le board reviendra à l'état réel. Cette action
+                  est irréversible.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <Button size="sm" variant="outline" onClick={() => setConfirmDiscardOpen(false)}>
                   Annuler
                 </Button>
-                <Button size="sm" variant="destructive" onClick={confirmDiscard} className="gap-1.5">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={confirmDiscard}
+                  className="gap-1.5"
+                >
                   <Trash2 size={15} strokeWidth={1.75} />
                   Jeter le scénario
                 </Button>
@@ -279,7 +302,12 @@ export function ScenarioBar({
 
         {/* #58 — commande virtuelle (mutation inject_demand, what-if) */}
         <div className="relative">
-          <Button size="sm" variant="outline" onClick={() => setFormOpen((o) => !o)} className="gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setFormOpen((o) => !o)}
+            className="gap-1.5"
+          >
             <CirclePlus size={15} strokeWidth={1.75} />
             Commande virtuelle
           </Button>
@@ -296,7 +324,9 @@ export function ScenarioBar({
                 onSubmit={submitInject}
                 className="absolute right-0 top-full z-50 mt-2 w-[280px] space-y-2 rounded-lg border border-brand/40 bg-card p-3 shadow-lg"
               >
-                <p className="font-fraunces text-[12px] font-bold text-brand">+ Commande virtuelle</p>
+                <p className="font-fraunces text-[12px] font-bold text-brand">
+                  + Commande virtuelle
+                </p>
                 <input
                   list="scenario-article-options"
                   required
@@ -335,7 +365,8 @@ export function ScenarioBar({
                     {!earliestLoading ? (
                       earliest?.date ? (
                         <>
-                          Au plus tôt le <strong>{new Date(earliest.date).toLocaleDateString('fr-FR')}</strong>
+                          Au plus tôt le{' '}
+                          <strong>{new Date(earliest.date).toLocaleDateString('fr-FR')}</strong>
                           {earliest.limiting && <> — {earliest.limiting}</>}
                         </>
                       ) : (
@@ -370,7 +401,12 @@ export function ScenarioBar({
 
         {/* Liste des scénarios enregistrés */}
         <div className="relative">
-          <Button size="sm" variant="outline" onClick={() => setListOpen((o) => !o)} className="gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setListOpen((o) => !o)}
+            className="gap-1.5"
+          >
             <FolderOpen size={15} strokeWidth={1.75} />
             Ouvrir
           </Button>
@@ -390,7 +426,10 @@ export function ScenarioBar({
                   </div>
                 ) : (
                   s.list.map((sc) => (
-                    <div key={sc.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+                    <div
+                      key={sc.id}
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(sc.id)}
@@ -419,8 +458,8 @@ export function ScenarioBar({
                             ? 'passation'
                             : sc.strategy === 'priorite_previsions'
                               ? 'prévisions'
-                              : 'besoin'} ·{' '}
-                          {sc.auteur ?? '—'}
+                              : 'besoin'}{' '}
+                          · {sc.auteur ?? '—'}
                         </div>
                       </button>
                       <button

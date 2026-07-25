@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
@@ -62,8 +62,10 @@ export default function Load(props: LoadPageProps) {
   }
 
   const [net, setNet] = useState(false)
-  const viewNet = (l: LoadLine): LoadLine =>
-    net ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet } : l
+  const viewNet = useCallback(
+    (l: LoadLine): LoadLine => (net ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet } : l),
+    [net]
+  )
 
   // Filtre de segments — un jeu par vue : la vue OF filtre des STATUTS
   // (Ferme/Planifié/Suggéré), la vue Commande des NATURES (Commande/Prévision).
@@ -99,16 +101,18 @@ export default function Load(props: LoadPageProps) {
     const keep = segKeys(view, activeSegs)
     const base = (view === 'of' ? props.ofLines : props.cmdLines).map(viewNet)
     if (!segFiltered) return base
-    return base
-      .map((l) => ({
-        ...l,
-        monthly: l.monthly.map((p) => maskPeriod(p, keep)),
-        weekly: l.weekly.map((p) => maskPeriod(p, keep)),
-      }))
-      // Un poste sans charge restante n'a plus rien à montrer : on le sort du
-      // slider plutôt que d'afficher une carte plate à 0 h.
-      .filter((l) => l.monthly.some((p) => total(p) > 0))
-  }, [view, props.ofLines, props.cmdLines, net, activeSegs, segFiltered])
+    return (
+      base
+        .map((l) => ({
+          ...l,
+          monthly: l.monthly.map((p) => maskPeriod(p, keep)),
+          weekly: l.weekly.map((p) => maskPeriod(p, keep)),
+        }))
+        // Un poste sans charge restante n'a plus rien à montrer : on le sort du
+        // slider plutôt que d'afficher une carte plate à 0 h.
+        .filter((l) => l.monthly.some((p) => total(p) > 0))
+    )
+  }, [view, props.ofLines, props.cmdLines, activeSegs, segFiltered, viewNet])
 
   const filteredLines = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -465,7 +469,10 @@ export default function Load(props: LoadPageProps) {
                         backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
                       }}
                     >
-                      <DynamicIcon name={selSaturation.rate > 100 ? 'warning' : 'speed'} size={14} />
+                      <DynamicIcon
+                        name={selSaturation.rate > 100 ? 'warning' : 'speed'}
+                        size={14}
+                      />
                       Saturation {Math.round(selSaturation.rate)}%
                       <span className="font-sans font-medium opacity-70">
                         ({selSaturation.charge} / {selSaturation.cap} h)
@@ -478,9 +485,7 @@ export default function Load(props: LoadPageProps) {
                       onClick={() => setGran('month')}
                       className={cn(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
-                        gran === 'month'
-                          ? 'bg-card text-brand'
-                          : 'text-muted-foreground'
+                        gran === 'month' ? 'bg-card text-brand' : 'text-muted-foreground'
                       )}
                     >
                       Mois
@@ -490,9 +495,7 @@ export default function Load(props: LoadPageProps) {
                       onClick={() => setGran('week')}
                       className={cn(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
-                        gran === 'week'
-                          ? 'bg-card text-brand'
-                          : 'text-muted-foreground'
+                        gran === 'week' ? 'bg-card text-brand' : 'text-muted-foreground'
                       )}
                     >
                       Semaine

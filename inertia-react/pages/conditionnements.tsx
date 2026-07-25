@@ -1,5 +1,13 @@
-import { type Dispatch, type SetStateAction, useMemo, useState } from 'react'
-import { FilterX, Search, Lightbulb, LoaderCircle, TriangleAlert, CircleX, CircleCheck } from 'lucide-react'
+import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from 'react'
+import {
+  FilterX,
+  Search,
+  Lightbulb,
+  LoaderCircle,
+  TriangleAlert,
+  CircleX,
+  CircleCheck,
+} from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { SkeletonRow } from '@r/components/ui/skeleton'
@@ -15,6 +23,7 @@ import {
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
 import type {
+  ConditionnementDisplayRow,
   ConditionnementsRowsResponse,
   EstimationsFetchResponse,
 } from '@r/lib/conditionnements/types'
@@ -83,17 +92,13 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
     const href = viewData.estimationsHref
     if (!href || enrichTrigger === 0) return null
     // Restreint aux articles manquants visibles (filtre actif) pour limiter le calcul.
-    const manquants = viewData.rows
-      .filter((r) => r.etatCoef !== 'complet')
-      .map((r) => r.article)
+    const manquants = viewData.rows.filter((r) => r.etatCoef !== 'complet').map((r) => r.article)
     const params = new URLSearchParams()
     if (manquants.length > 0 && manquants.length < 500) {
       params.set('articles', manquants.join(','))
     }
     const queryString = params.toString()
-    return bust
-      ? `${href}?${queryString}&refresh=${bust}`
-      : `${href}?${queryString}`
+    return bust ? `${href}?${queryString}&refresh=${bust}` : `${href}?${queryString}`
   }, [viewData.estimationsHref, enrichTrigger, bust, viewData.rows])
 
   // On utilise un fetch simple pour les estimations (pas de useTimedFetch pour éviter le conflit)
@@ -128,7 +133,9 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
     }
   }, [estimationsUrl])
 
-  const enrichissements = enrichments?.enrichissements ?? {}
+  // `?? {}` rendait un objet NEUF à chaque rendu, ce qui faisait recalculer le
+  // useMemo consommateur à chaque fois — mémoïsation annulée en silence.
+  const enrichissements = useMemo(() => enrichments?.enrichissements ?? {}, [enrichments])
   const estimationsChargees = enrichTrigger > 0
 
   // ── Facettes ──
@@ -148,25 +155,31 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
     return viewData.rows.filter((r) => matchTexte(r, q))
   }, [query, viewData.rows])
 
-  const filtreCroise = (rows: typeof viewData.rows, s: Sel, exclude: keyof Sel) =>
-    rows.filter((r) => {
-      if (exclude !== 'cats' && s.cats.size && !s.cats.has(r.categorie || '—')) return false
-      if (exclude !== 'frns' && s.frns.size && !s.frns.has(r.nomFrnsr ?? '—')) return false
-      if (exclude !== 'etats' && s.etats.size && !s.etats.has(r.etatCoef)) return false
-      return true
-    })
+  const filtreCroise = useCallback(
+    (rows: ConditionnementDisplayRow[], s: Sel, exclude: keyof Sel) =>
+      rows.filter((r) => {
+        if (exclude !== 'cats' && s.cats.size && !s.cats.has(r.categorie || '—')) return false
+        if (exclude !== 'frns' && s.frns.size && !s.frns.has(r.nomFrnsr ?? '—')) return false
+        if (exclude !== 'etats' && s.etats.size && !s.etats.has(r.etatCoef)) return false
+        return true
+      }),
+    []
+  )
 
-  const compter = (
-    rows: typeof viewData.rows,
-    key: (r: (typeof rows)[0]) => string
-  ): Map<string, number> => {
-    const m = new Map<string, number>()
-    for (const r of rows) {
-      const v = key(r)
-      m.set(v, (m.get(v) ?? 0) + 1)
-    }
-    return m
-  }
+  const compter = useCallback(
+    (
+      rows: ConditionnementDisplayRow[],
+      key: (r: ConditionnementDisplayRow) => string
+    ): Map<string, number> => {
+      const m = new Map<string, number>()
+      for (const r of rows) {
+        const v = key(r)
+        m.set(v, (m.get(v) ?? 0) + 1)
+      }
+      return m
+    },
+    []
+  )
 
   const facettes = useMemo(() => {
     const base = rowsByTexte
@@ -197,12 +210,12 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
         true
       ),
     }
-  }, [rowsByTexte, selCategories, selFournisseurs, selEtats])
+  }, [rowsByTexte, selCategories, selFournisseurs, selEtats, compter, filtreCroise])
 
   const filteredRows = useMemo(() => {
     const s: Sel = { cats: selCategories, frns: selFournisseurs, etats: selEtats }
     return filtreCroise(rowsByTexte, s, '__aucune__' as keyof Sel)
-  }, [rowsByTexte, selCategories, selFournisseurs, selEtats])
+  }, [rowsByTexte, selCategories, selFournisseurs, selEtats, filtreCroise])
 
   /** Fusionne une ligne de base avec son enrichissement (si chargé). */
   const displayRows = useMemo<DisplayRow[]>(() => {
@@ -310,7 +323,9 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
             facettes={facettes.fournisseurs}
             selection={selFournisseurs}
             open={openDropdown === 'fournisseur'}
-            onToggleOpen={() => setOpenDropdown((o) => (o === 'fournisseur' ? null : 'fournisseur'))}
+            onToggleOpen={() =>
+              setOpenDropdown((o) => (o === 'fournisseur' ? null : 'fournisseur'))
+            }
             onToggle={(cle) => toggleFacette(setSelFournisseurs, cle)}
             onClear={() => setSelFournisseurs(new Set<string>())}
           />

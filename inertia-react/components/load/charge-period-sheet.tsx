@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
@@ -207,7 +207,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     setArticleQuery('')
   }, [poste, bucketKey, gran, view])
 
-  const cmdHours = (r: DetailCmdRow) => (net ? r.netHours : r.brutHours)
+  const cmdHours = useCallback((r: DetailCmdRow) => (net ? r.netHours : r.brutHours), [net])
 
   /**
    * Options du filtre article — construites APRÈS le masque de segments et
@@ -227,10 +227,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     if (data.view === 'of') {
       for (const r of data.ofRows) if (keep.has(r.field)) push(r.article, r.designation, r.hours)
     } else {
-      for (const r of data.cmdRows) if (keep.has(r.field)) push(r.article, r.designation, cmdHours(r))
+      for (const r of data.cmdRows)
+        if (keep.has(r.field)) push(r.article, r.designation, cmdHours(r))
     }
     return [...agg.values()].sort((a, b) => b.hours - a.hours)
-  }, [data, keep, net])
+  }, [data, keep, cmdHours])
 
   const filteredOptions = useMemo(() => {
     const q = articleQuery.trim().toLowerCase()
@@ -241,7 +242,10 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   }, [articleOptions, articleQuery])
 
   const articleActive = articleFilter !== null
-  const matchesArticle = (article: string) => !articleActive || article === articleFilter
+  const matchesArticle = useCallback(
+    (article: string) => !articleActive || article === articleFilter,
+    [articleActive, articleFilter]
+  )
 
   const ofGroups = useMemo(() => {
     if (data?.view !== 'of') return []
@@ -251,7 +255,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       (r) => r.field,
       (r) => r.hours
     )
-  }, [data, keep, articleFilter])
+  }, [data, keep, matchesArticle])
 
   const cmdGroups = useMemo(() => {
     if (data?.view !== 'commande') return []
@@ -261,17 +265,14 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       (r) => r.field,
       cmdHours
     )
-  }, [data, keep, net, articleFilter])
+  }, [data, keep, cmdHours, matchesArticle])
 
   const groups = view === 'of' ? ofGroups : cmdGroups
   const totalHours = useMemo(() => groups.reduce((a, g) => a + g.hours, 0), [groups])
   const rowCount = useMemo(() => groups.reduce((a, g) => a + g.rows.length, 0), [groups])
   // Référence de la barre de contribution : le jour le plus chargé (pas le
   // premier, puisque les groupes sont désormais triés par date et non par poids).
-  const maxGroupHours = useMemo(
-    () => groups.reduce((m, g) => Math.max(m, g.hours), 0),
-    [groups]
-  )
+  const maxGroupHours = useMemo(() => groups.reduce((m, g) => Math.max(m, g.hours), 0), [groups])
 
   // Part de la période tirée par des prévisions plutôt que par des commandes
   // fermes : c'est la charge la moins sûre, elle mérite d'être chiffrée avant
@@ -282,7 +283,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       (a, g) => a + g.rows.reduce((b, r) => b + (isForecastPulled(r.field) ? cmdHours(r) : 0), 0),
       0
     )
-  }, [data, cmdGroups, net])
+  }, [data, cmdGroups, cmdHours])
 
   // Grille UNIQUE (en-tête + lignes + total dans le même conteneur) : l'alignement
   // est structurel. Deux grilles distinctes se dimensionnaient indépendamment et
@@ -292,8 +293,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // sein de ce jour.
   // « Via » porte une chaîne d'articles (PF › SE › …), pas un code isolé :
   // elle a besoin d'une part élastique, pas d'une largeur fixe.
-  const cols =
-    view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 7rem 7rem'
+  const cols = view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 7rem 7rem'
 
   const heads =
     view === 'of'
@@ -679,7 +679,7 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
             title={
               r.depth === 0
                 ? 'Produit fini tiré par une prévision client, pas par une commande ferme'
-                : "Composant induit par un produit fini lui-même tiré par une prévision"
+                : 'Composant induit par un produit fini lui-même tiré par une prévision'
             }
           >
             prév.

@@ -70,7 +70,7 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
     })
     const capPath = capPts.map((pt, i) => `${i ? 'L' : 'M'}${pt.x} ${pt.y}`).join(' ')
     return { out, peakDots, overRects, capPath }
-  }, [line.monthly, totals, caps])
+  }, [line.monthly, totals, caps, peakIdx])
 
   return (
     <button
@@ -103,7 +103,15 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
         {showCapacity && (
           <>
             {bars.overRects.map((r, i) => (
-              <rect key={`over-${i}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.22" />
+              <rect
+                key={`over-${i}`}
+                x={r.x}
+                y={r.y}
+                width={r.w}
+                height={r.h}
+                fill={DANGER}
+                opacity="0.22"
+              />
             ))}
             <path
               d={bars.capPath}

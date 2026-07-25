@@ -197,8 +197,8 @@ function JobDetail({ j }: { j: Job }) {
           </pre>
         ) : (
           <p className="mt-1 italic text-muted-foreground">
-            Aucune trace enregistrée pour ce tirage. Les tirages antérieurs à la mise en place de
-            la trace n’en ont pas : relancer le tirage en produit une.
+            Aucune trace enregistrée pour ce tirage. Les tirages antérieurs à la mise en place de la
+            trace n’en ont pas : relancer le tirage en produit une.
           </p>
         )}
       </div>
@@ -245,8 +245,12 @@ export default function Impressions(props: PageProps) {
 
   // Rechargement à chaque changement de filtre. Le filtrage vit côté serveur :
   // le journal dépasse vite ce qu'on veut transporter.
+  // `load` dépend aussi de `search`, volontairement absent ici : la recherche
+  // filtre côté client, la relister referait un aller-retour réseau à chaque
+  // frappe. Omission assumée, pas un oubli.
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, failedOnly, stoloc])
 
   const counts = useMemo(() => {
@@ -323,8 +327,8 @@ export default function Impressions(props: PageProps) {
             Impressions
           </h1>
           <p className="text-[13px] text-muted-foreground">
-            Ce qui est parti, où, et ce qu’il en est advenu. « Remis à la file » est la limite
-            haute : un bac vide ou un bourrage ne remonte nulle part.
+            Ce qui est parti, où, et ce qu’il en est advenu. « Remis à la file » est la limite haute
+            : un bac vide ou un bourrage ne remonte nulle part.
             {props.autoPrintMode === 'off' && (
               <>
                 {' '}
@@ -423,9 +427,7 @@ export default function Impressions(props: PageProps) {
           </span>
         </div>
 
-        {note && (
-          <p className="rounded-md bg-muted px-3 py-2 text-[12.5px]">{note}</p>
-        )}
+        {note && <p className="rounded-md bg-muted px-3 py-2 text-[12.5px]">{note}</p>}
 
         {/* --- Journal ------------------------------------------------------ */}
         <section className="rounded-lg border border-rule bg-card">
@@ -450,87 +452,87 @@ export default function Impressions(props: PageProps) {
               <tbody>
                 {jobs.map((j) => (
                   <Fragment key={j.id}>
-                  <tr
-                    className={cn(
-                      'border-b border-rule/60',
-                      opened.has(j.id) && 'border-b-0',
-                      failed(j) && 'bg-red-50/40'
-                    )}
-                  >
-                    <td className="px-4 py-2 text-muted-foreground">{fmtStamp(j.createdAt)}</td>
-                    <td className="px-4 py-2 font-mono text-[12px] font-semibold">{j.ofNum}</td>
-                    <td className="px-4 py-2">
-                      {j.docLabel}
-                      {j.attempt > 1 && (
-                        <span className="ml-1.5 text-[11px] text-amber-700">
-                          réimpression #{j.attempt}
-                        </span>
+                    <tr
+                      className={cn(
+                        'border-b border-rule/60',
+                        opened.has(j.id) && 'border-b-0',
+                        failed(j) && 'bg-red-50/40'
                       )}
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">{j.atelierLabel || '—'}</td>
-                    <td className="px-4 py-2">
-                      <span className="font-mono text-[12px]">{j.destCode || '—'}</span>
-                      {j.sandbox && (
-                        <span className="ml-1.5 font-mono text-[10px] uppercase text-muted-foreground">
-                          sans papier
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <Verdict j={j} />
-                      {j.jobRank > 0 && (
-                        <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                          #{j.jobRank}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {ORIGINS[j.origin] ?? j.origin}
-                      {j.requestedBy ? ` · ${j.requestedBy}` : ''}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <span className="inline-flex items-center gap-1.5">
-                        {(j.error || j.x3Trace || j.jobDetail) && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggle(j.id)}
-                            title="Cause et trace X3"
-                          >
-                            {opened.has(j.id) ? (
-                              <ChevronDown size={13} />
-                            ) : (
-                              <ChevronRight size={13} />
-                            )}
-                            Détail
-                          </Button>
+                    >
+                      <td className="px-4 py-2 text-muted-foreground">{fmtStamp(j.createdAt)}</td>
+                      <td className="px-4 py-2 font-mono text-[12px] font-semibold">{j.ofNum}</td>
+                      <td className="px-4 py-2">
+                        {j.docLabel}
+                        {j.attempt > 1 && (
+                          <span className="ml-1.5 text-[11px] text-amber-700">
+                            réimpression #{j.attempt}
+                          </span>
                         )}
-                        {failed(j) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void relaunch(j)}
-                            disabled={relaunching === j.id}
-                            title="Relancer ce tirage"
-                          >
-                            {relaunching === j.id ? (
-                              <RefreshCw size={13} className="animate-spin" />
-                            ) : (
-                              <Printer size={13} />
-                            )}
-                            Relancer
-                          </Button>
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">{j.atelierLabel || '—'}</td>
+                      <td className="px-4 py-2">
+                        <span className="font-mono text-[12px]">{j.destCode || '—'}</span>
+                        {j.sandbox && (
+                          <span className="ml-1.5 font-mono text-[10px] uppercase text-muted-foreground">
+                            sans papier
+                          </span>
                         )}
-                      </span>
-                    </td>
-                  </tr>
-                  {opened.has(j.id) && (
-                    <tr className={cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}>
-                      <td colSpan={8} className="px-4 pb-3 pt-0">
-                        <JobDetail j={j} />
+                      </td>
+                      <td className="px-4 py-2">
+                        <Verdict j={j} />
+                        {j.jobRank > 0 && (
+                          <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                            #{j.jobRank}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {ORIGINS[j.origin] ?? j.origin}
+                        {j.requestedBy ? ` · ${j.requestedBy}` : ''}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <span className="inline-flex items-center gap-1.5">
+                          {(j.error || j.x3Trace || j.jobDetail) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => toggle(j.id)}
+                              title="Cause et trace X3"
+                            >
+                              {opened.has(j.id) ? (
+                                <ChevronDown size={13} />
+                              ) : (
+                                <ChevronRight size={13} />
+                              )}
+                              Détail
+                            </Button>
+                          )}
+                          {failed(j) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void relaunch(j)}
+                              disabled={relaunching === j.id}
+                              title="Relancer ce tirage"
+                            >
+                              {relaunching === j.id ? (
+                                <RefreshCw size={13} className="animate-spin" />
+                              ) : (
+                                <Printer size={13} />
+                              )}
+                              Relancer
+                            </Button>
+                          )}
+                        </span>
                       </td>
                     </tr>
-                  )}
+                    {opened.has(j.id) && (
+                      <tr className={cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}>
+                        <td colSpan={8} className="px-4 pb-3 pt-0">
+                          <JobDetail j={j} />
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 ))}
               </tbody>
