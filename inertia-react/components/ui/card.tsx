@@ -1,7 +1,11 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Card as AstryxCard } from "@astryxdesign/core/Card"
 
 import { cn } from "@r/lib/utils"
+
+/** Spacing scale Astryx (cf. @astryxdesign/core/utils/types SpacingStep). */
+type SpacingStep = 0 | 0.5 | 1 | 1.5 | 2 | 3 | 4 | 5 | 6 | 8 | 10
 
 // Card — alignée sur Airbnb DESIGN.md `property-card` / `reservation-card` /
 // `host-card`. Toutes les cartes de l'app utilisent les mêmes tokens :
@@ -10,9 +14,11 @@ import { cn } from "@r/lib/utils"
 // • 1px hairline border (border-border)
 // • l'unique shadow tier du DESIGN.md, optionnel (variant `raised`).
 //
-// L'app Solid utilisait `rounded-lg border-rule shadow-[0_1px_2px_...]` inline
-// à ~20 endroits. Centraliser ici permet de retargeter toutes les cards via
-// les tokens, sans toucher aux pages.
+// Spike Lot 0 (issue #90) — wrapper sur @astryxdesign/core/Card.
+// L'API shadcn (Card/CardHeader/CardTitle/CardDescription/CardContent/
+// CardFooter + cardVariants) est préservée pour ne pas casser les 44
+// fichiers consumers. Astryx Card gère surface/border/radius ; on injecte
+// le shadow tier via className utilitaire (token Tailwind shadow-float).
 
 const cardVariants = cva(
   "flex flex-col gap-2 rounded-lg border bg-card text-card-foreground transition-all duration-200 ease-out hover:border-border/90 hover:shadow-md",
@@ -21,8 +27,7 @@ const cardVariants = cva(
       // elevation — Airbnb a UN seul shadow tier.
       elevation: {
         flat: "",
-        raised:
-          "shadow-float",
+        raised: "shadow-float",
       },
       padding: {
         none: "",
@@ -38,16 +43,30 @@ const cardVariants = cva(
   }
 )
 
+/** Map padding shadcn → SpacingStep Astryx (0=0px, 2=8px, 4=16px, 6=24px). */
+const PADDING_TO_STEP: Record<NonNullable<VariantProps<typeof cardVariants>["padding"]>, SpacingStep> = {
+  none: 0,
+  sm: 2,
+  default: 4,
+  lg: 6,
+}
+
 function Card({
   className,
   elevation,
   padding,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof cardVariants>) {
+  // Astryx Card avec variant="default" (surface + border + radius).
+  // padding est délégué à Astryx quand présent (préserve l'inset border-aware
+  // d'Astryx), sinon la classe Tailwind p-* prend le relais via className.
+  const step = padding ? PADDING_TO_STEP[padding] : undefined
   return (
-    <div
+    <AstryxCard
       data-slot="card"
-      className={cn(cardVariants({ elevation, padding }), className)}
+      variant="default"
+      padding={step}
+      className={cn(cardVariants({ elevation, padding: undefined }), className)}
       {...props}
     />
   )
