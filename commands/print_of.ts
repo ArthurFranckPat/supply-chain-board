@@ -71,7 +71,9 @@ export default class PrintOf extends BaseCommand {
       config: getX3EnvConfig('test'),
     })
     const labels = await printService.docLabels()
-    this.logger.info(`Atelier : ${res.atelier.label || res.atelier.code || 'aucun (règle par défaut)'}`)
+    this.logger.info(
+      `Atelier : ${res.atelier.label || res.atelier.code || 'aucun (règle par défaut)'}`
+    )
     for (const d of res.documents) {
       const line = `${docLabel(labels, d.docType)} → ${d.destCode || '—'} · X3 ${d.status} · serveur ${d.serverVerdict}${d.jobRank ? ` (tâche ${d.jobRank})` : ''}`
       if (d.serverVerdict === 'error' || d.status === 'failed') {
@@ -121,9 +123,8 @@ export default class PrintOf extends BaseCommand {
         (routed.sandbox ? ' · sans effet physique' : ' · SORT DU PAPIER')
     )
 
-    const past = (await printService.jobsForOf(ofNum)).filter(
-      (j) => j.docType === docType && j.status === 'submitted'
-    )
+    const jobs = await printService.jobsForOf(ofNum)
+    const past = jobs.filter((j) => j.docType === docType && j.status === 'submitted')
     if (past.length > 0) {
       this.logger.info(`Déjà imprimé ${past.length}× (dernier tirage : rang ${past[0].attempt}).`)
     }
@@ -161,7 +162,9 @@ export default class PrintOf extends BaseCommand {
 
     // Second verdict. Un `submitted` avec `error` côté serveur d'édition est la
     // panne partielle de l'issue : X3 a dit oui, rien n'est sorti.
-    const rank = res.jobRank ? ` (tâche ${res.jobRank}` + (res.jobPhase ? `, ${res.jobPhase})` : ')') : ''
+    const rank = res.jobRank
+      ? ` (tâche ${res.jobRank}` + (res.jobPhase ? `, ${res.jobPhase})` : ')')
+      : ''
     if (res.serverVerdict === 'error') {
       this.logger.error(`Serveur d'édition : ÉCHEC${rank}. ${res.jobDetail}`)
       this.exitCode = 1

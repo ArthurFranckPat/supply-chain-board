@@ -3,7 +3,7 @@ import type { Flow } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { OfOverride } from '#app/domain/planning_board'
-import { evaluateOrderImpacts, netDemandsByAllocation } from '#app/domain/order-impacts'
+import { evaluateOrderImpacts, netDemandsByAllocation } from '#app/domain/order_impacts'
 
 const TODAY = new Date()
 TODAY.setHours(0, 0, 0, 0)
@@ -595,9 +595,7 @@ test.group('netDemandsByAllocation', () => {
       'sans MFGMAT : OF-A affiche un composant manquant fantôme (contention théorique)'
     )
 
-    const mfgMaterialsByOf = new Map([
-      ['OF-A', [{ article: 'C1', remaining: 60, allocated: 60 }]],
-    ])
+    const mfgMaterialsByOf = new Map([['OF-A', [{ article: 'C1', remaining: 60, allocated: 60 }]]])
     const withMfgmat = evaluateOrderImpacts(
       demands,
       supplyFlows,

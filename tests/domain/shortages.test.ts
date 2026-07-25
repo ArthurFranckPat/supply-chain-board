@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
-import type { ReceptionRecord } from '#app/domain/recursive-checker'
-import type { OrderImpactResult } from '#app/domain/order-impacts'
+import type { ReceptionRecord } from '#app/domain/recursive_checker'
+import type { OrderImpactResult } from '#app/domain/order_impacts'
 import {
   buildShortageRows,
   fabricationDaysFromHours,
@@ -28,7 +28,7 @@ function article(code: string, desc: string): Article {
 
 function reception(
   id: string,
-  article: string,
+  articleCode: string,
   supplier: string,
   qty: number,
   dayOffset: number
@@ -39,7 +39,7 @@ function reception(
   const d = new Date()
   d.setHours(12, 0, 0, 0)
   d.setDate(d.getDate() + dayOffset)
-  return { id, article, supplier, quantity: qty, date: d }
+  return { id, article: articleCode, supplier, quantity: qty, date: d }
 }
 
 function buildResult(

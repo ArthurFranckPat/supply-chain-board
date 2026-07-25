@@ -1,9 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { ScenarioStore } from '#services/scenario_store'
 import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
-import type { PlanMutation } from '#app/domain/plan-diff'
+import type { PlanMutation } from '#app/domain/plan_diff'
 import Scenario from '#models/scenario'
-import type { AllocationStrategy } from '#app/domain/of-conso'
+import type { AllocationStrategy } from '#app/domain/of_conso'
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -31,7 +31,12 @@ export default class ScenarioController {
   }
 
   async store_(ctx: HttpContext) {
-    const { nom, description, mutations, strategy } = ctx.request.only(['nom', 'description', 'mutations', 'strategy'])
+    const { nom, description, mutations, strategy } = ctx.request.only([
+      'nom',
+      'description',
+      'mutations',
+      'strategy',
+    ])
     if (!nom || typeof nom !== 'string') {
       return ctx.response.badRequest({ error: 'Nom requis.' })
     }
@@ -71,7 +76,13 @@ export default class ScenarioController {
    * `id` optionnel (query) → horodate le scénario persisté (« évalué le … »).
    */
   async diff(ctx: HttpContext) {
-    const { from, to, mutations, id, strategy } = ctx.request.only(['from', 'to', 'mutations', 'id', 'strategy'])
+    const { from, to, mutations, id, strategy } = ctx.request.only([
+      'from',
+      'to',
+      'mutations',
+      'id',
+      'strategy',
+    ])
     if (!from || !to || !ISO_RE.test(from) || !ISO_RE.test(to)) {
       return ctx.response.badRequest({ error: 'Fenêtre (from/to) requise au format ISO.' })
     }
@@ -100,7 +111,10 @@ export default class ScenarioController {
     if (!idsStr) {
       return ctx.response.redirect().toPath('/programme')
     }
-    const ids = idsStr.split(',').map((id) => Number.parseInt(id, 10)).filter((id) => !Number.isNaN(id))
+    const ids = idsStr
+      .split(',')
+      .map((id) => Number.parseInt(id, 10))
+      .filter((id) => !Number.isNaN(id))
     if (ids.length < 2) {
       return ctx.response.redirect().toPath('/programme')
     }

@@ -164,7 +164,7 @@ export const rechercherArticleTool = defineTool({
     quoi: 'Recherche dans le catalogue articles par code partiel ou fragment de libellé.',
     quand:
       "l'utilisateur donne un nom produit, un libellé ou un code approximatif au lieu d'un code " +
-      "article exact. Sert aussi à découvrir les familles et typologies existantes, que chaque " +
+      'article exact. Sert aussi à découvrir les familles et typologies existantes, que chaque ' +
       'ligne expose.',
     pasSi:
       'tu cherches un OF (→ listerOF), un poste de charge (→ getCharge) ou une commande ' +
@@ -172,7 +172,8 @@ export const rechercherArticleTool = defineTool({
     retour:
       'code, description, supplyType, famille, typologie, reorderDelay. ' +
       'PAS de stock, PAS de nomenclature, PAS de disponibilité.',
-    siVide: "le fragment ne matche ni code ni libellé ; raccourcis-le avant de conclure à l'inexistence.",
+    siVide:
+      "le fragment ne matche ni code ni libellé ; raccourcis-le avant de conclure à l'inexistence.",
   }),
   parameters: Type.Object({
     query: Type.String({ description: 'Code partiel ou fragment de libellé' }),
@@ -201,7 +202,8 @@ export const getVerdictTool = defineTool({
       'faisable, source des besoins, composants manquants directs et quantités. Fait autorité ' +
       'sur la disponibilité : un composant manquant ici est indisponible pour cet OF, y compris ' +
       'si un calcul isolé (getPromise) trouve du stock. PAS de date, PAS de réception attendue.',
-    siVide: "un OF introuvable dans le pool est un n° erroné ou hors périmètre board, pas un OF sain.",
+    siVide:
+      'un OF introuvable dans le pool est un n° erroné ou hors périmètre board, pas un OF sain.',
   }),
   parameters: Type.Object({
     numOf: Type.String({ description: "N° d'OF (ex. MFG-…)" }),
@@ -477,13 +479,13 @@ export const listerReceptionsTool = defineTool({
       "fournisseur, d'un pic de palettes ou d'un planning de déchargement. Seul tool qui rend la " +
       'fenêtre côté ARRIVÉES plutôt que côté manques.',
     pasSi:
-      "le point de départ est une rupture ou un composant manquant → listerRuptures, qui part du " +
+      'le point de départ est une rupture ou un composant manquant → listerRuptures, qui part du ' +
       "besoin et remonte à la réception couvrante. Ici on part de l'arrivée ; les deux ne " +
       'cadrent pas la même population et ne se substituent pas.',
     retour:
       'lignes (commande achat, article, fournisseur, quantité US, date, palettes) et charge par ' +
       'jour. Les réceptions sont ATTENDUES (commandes achat), pas réalisées : ce tool ne dit pas ' +
-      "ce qui a été reçu. `palettesFiabilite` qualifie chaque nombre de palettes — `coef_x3` " +
+      'ce qui a été reçu. `palettesFiabilite` qualifie chaque nombre de palettes — `coef_x3` ' +
       "(conditionnement renseigné), `estime` (déduit d'un historique, à annoncer comme estimation) " +
       'ou `non_calculable` (la ligne existe mais ne compte pas dans la charge : la charge palettes ' +
       'est alors un minorant). `statsFenetre` et `chargeParJourFenetre` portent sur toute la ' +
@@ -711,7 +713,9 @@ export const getChargeTool = defineTool({
       })
     ),
     vue: Type.Optional(
-      Type.String({ description: "'of' = OF réels du plan (défaut) | 'commandes' = besoin explosé" })
+      Type.String({
+        description: "'of' = OF réels du plan (défaut) | 'commandes' = besoin explosé",
+      })
     ),
   }),
   execute: async (_id, params) => {
@@ -752,7 +756,7 @@ export const getEngagementPosteTool = defineTool({
     pasSi:
       'la question porte sur la saturation ou les heures → getCharge. Ce tool ne couvre que les ' +
       'OF fermes lancés : il est aveugle aux OF planifiés et suggérés, donc inutile pour ' +
-      "raisonner sur ce qui reste à affermir (→ listerOF filtré sur ces statuts).",
+      'raisonner sur ce qui reste à affermir (→ listerOF filtré sur ces statuts).',
     retour:
       'par OF : article, heures, date de livraison, avancement, et commandes rattachées. ' +
       'Le rattachement vient de l’allocation moteur ou d’un repli sur contremarque : dans les ' +

@@ -1,6 +1,6 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import { getX3EnvConfig } from '#config/x3'
-import { callRunSubprog } from '#app/x3/run-client'
+import { callRunSubprog } from '#app/x3/run_client'
 import printService from '#services/print_service'
 import { fetchPrinters, resolvePrintServer, watchJob } from '#app/x3/print_server_client'
 
@@ -41,6 +41,8 @@ export default class PrintTestController {
       destinationsError = String(e)
     }
 
+    const documents = await printService.listDocuments()
+
     return ctx.inertia.render('print-test', {
       env: ctx.auth.user?.lastEnv ?? '',
       pool: cfg.pool,
@@ -50,7 +52,7 @@ export default class PrintTestController {
       // Les documents configurés, plutôt que des codes d'état écrits dans la
       // page : le couple dépend du dossier, et tester autre chose que ce qui
       // s'imprimera n'a pas d'intérêt.
-      documents: (await printService.listDocuments()).map((d) => ({
+      documents: documents.map((d) => ({
         code: d.code,
         label: d.label,
       })),

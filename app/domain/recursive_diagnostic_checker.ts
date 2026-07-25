@@ -18,7 +18,7 @@
  * `RecursiveCheckerLoader` (étendu de `getMfgmat`). Ne touche pas au chemin rapide
  * (`evaluateWindow`, `FeasibilityService.check`).
  */
-import type { MfgMaterialInput } from './of-feasibility.js'
+import type { MfgMaterialInput } from './of_feasibility.js'
 import {
   evaluateRuptures,
   resolveOfRequirements,
@@ -26,9 +26,9 @@ import {
   type RuptureDataset,
   type RuptureOfInput,
   type RuptureVerdict,
-} from './rupture-engine.js'
-import { isPhantom, isSubcontracted } from './recursive-checker.js'
-import type { OfRecord, StockRecord, ReceptionRecord } from './recursive-checker.js'
+} from './rupture_engine.js'
+import { isPhantom, isSubcontracted } from './recursive_checker.js'
+import type { OfRecord, StockRecord, ReceptionRecord } from './recursive_checker.js'
 import type { Article } from './models/article.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { ErpAllocation } from './allocation.js'
@@ -640,7 +640,8 @@ export class RecursiveDiagnosticChecker {
   }> {
     const floor = new Date(this.checkDate)
     floor.setDate(floor.getDate() - RECEPTION_GRACE_DAYS)
-    const candidates = (await this.loader.getReceptions(article))
+    const receptions = await this.loader.getReceptions(article)
+    const candidates = receptions
       .filter((r) => r.date >= floor)
       .sort((a, b) => a.date.getTime() - b.date.getTime())
     const r = candidates[0]

@@ -6,7 +6,7 @@ import {
   buildStocksMap,
   buildReceptionsMap,
   buildOfRecords,
-} from '#services/feasibility-loader-adapter'
+} from '#services/feasibility_loader_adapter'
 
 test.group('stockRecordFromFlows', () => {
   test('returns undefined for empty flows', ({ assert }) => {

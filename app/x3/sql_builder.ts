@@ -3,7 +3,7 @@
  * Ported from x3_sql.py: bind_params, build_concat_sql, escape_sql_for_syracuse.
  */
 
-import { splitUnion, stripTrailingOrder, topToRownum } from './sql-parser.js'
+import { splitUnion, stripTrailingOrder, topToRownum } from './sql_parser.js'
 
 const SEP = '|#|'
 

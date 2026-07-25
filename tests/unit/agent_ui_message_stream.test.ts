@@ -14,10 +14,7 @@ test.group('agent → UI message stream (mapper)', () => {
     })
     assert.lengthOf(chunks, 1)
     assert.equal(chunks[0].type, 'start')
-    const start = chunks[0] as Extract<
-      (typeof chunks)[number],
-      { type: 'start' }
-    >
+    const start = chunks[0] as Extract<(typeof chunks)[number], { type: 'start' }>
     assert.isString(start.messageId)
     assert.deepEqual(start.messageMetadata, {
       sessionId: 's-1',
@@ -39,10 +36,7 @@ test.group('agent → UI message stream (mapper)', () => {
       ['text-start', 'text-delta', 'text-delta', 'text-end', 'finish']
     )
     const deltas = chunks.filter((c) => c.type === 'text-delta')
-    assert.deepEqual(
-      deltas.map((d) => (d as { delta: string }).delta).join(''),
-      'Bonjour'
-    )
+    assert.deepEqual(deltas.map((d) => (d as { delta: string }).delta).join(''), 'Bonjour')
   })
 
   test('thinking → reasoning-start/delta/end', ({ assert }) => {
@@ -72,10 +66,7 @@ test.group('agent → UI message stream (mapper)', () => {
       chunks.map((c) => c.type),
       ['text-start', 'text-delta', 'text-end', 'tool-input-available']
     )
-    const input = chunks[3] as Extract<
-      (typeof chunks)[number],
-      { type: 'tool-input-available' }
-    >
+    const input = chunks[3] as Extract<(typeof chunks)[number], { type: 'tool-input-available' }>
     assert.equal(input.toolCallId, 'tc-1')
     assert.equal(input.toolName, 'getVerdict')
     assert.deepEqual(input.input, { numOf: 'MFG-1' })
@@ -160,7 +151,10 @@ test.group('unwrapToolResult', () => {
   test('details fait foi', ({ assert }) => {
     const payload = { _source: 'listerReceptions', lignes: [{ article: 'A' }] }
     assert.deepEqual(
-      unwrapToolResult({ content: [{ type: 'text', text: JSON.stringify(payload) }], details: payload }),
+      unwrapToolResult({
+        content: [{ type: 'text', text: JSON.stringify(payload) }],
+        details: payload,
+      }),
       payload
     )
   })
@@ -174,7 +168,10 @@ test.group('unwrapToolResult', () => {
   })
 
   test('content non-JSON reste du texte brut', ({ assert }) => {
-    assert.equal(unwrapToolResult({ content: [{ type: 'text', text: 'X3 injoignable' }] }), 'X3 injoignable')
+    assert.equal(
+      unwrapToolResult({ content: [{ type: 'text', text: 'X3 injoignable' }] }),
+      'X3 injoignable'
+    )
   })
 
   test('formes inconnues passent inchangées', ({ assert }) => {

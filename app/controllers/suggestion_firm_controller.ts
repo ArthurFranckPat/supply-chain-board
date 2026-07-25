@@ -1,7 +1,7 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig } from '#config/x3'
-import { callRunSubprog } from '#app/x3/run-client'
+import { callRunSubprog } from '#app/x3/run_client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
 import printService, { docLabel } from '#services/print_service'
 

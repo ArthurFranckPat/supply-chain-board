@@ -22,7 +22,7 @@ import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { explodeCharge, netCharge, type ChargeNeed } from '#app/domain/charge-explosion'
+import { explodeCharge, netCharge, type ChargeNeed } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
 
 /**

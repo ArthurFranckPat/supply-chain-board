@@ -12,15 +12,15 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
-import type { FeasibilityOptions } from './stock-state.js'
+import type { FeasibilityOptions } from './stock_state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import {
   evaluateOrderImpacts,
   type OrderImpactResult,
   type OrderImpactRow,
-} from './order-impacts.js'
+} from './order_impacts.js'
 import type { OfOverride } from './planning_board.js'
-import type { AllocationStrategy } from './of-conso.js'
+import type { AllocationStrategy } from './of_conso.js'
 
 // ---------------------------------------------------------------------------
 // Mutations (primitive de la vision §3)
@@ -479,7 +479,7 @@ function getOfDate(
   if (ov?.dateFin) {
     const d = new Date(ov.dateFin)
     d.setHours(0, 0, 0, 0)
-    return isNaN(d.getTime()) ? null : d
+    return Number.isNaN(d.getTime()) ? null : d
   }
   return baseDate
 }
@@ -561,7 +561,10 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
         }
       } else if (dateAfter.getTime() > dateBefore.getTime()) {
         const hasReception = inputs.supplyFlows.some(
-          (sf) => sf.direction === 'supply' && sf.origin.type === 'reception' && sf.article === compArticle
+          (sf) =>
+            sf.direction === 'supply' &&
+            sf.origin.type === 'reception' &&
+            sf.article === compArticle
         )
         if (hasReception) {
           verdicts.push({

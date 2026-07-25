@@ -50,7 +50,13 @@ test.group('AgentMessageAssembler (persistence historique)', () => {
     const asm = new AgentMessageAssembler()
     const seq: AgentSseEvent[] = [
       { type: 'tool_start', toolName: 'getVerdict', toolCallId: 'tc-1', args: { numOf: 'MFG-1' } },
-      { type: 'tool_end', toolName: 'getVerdict', toolCallId: 'tc-1', isError: false, result: { verdict: 'ok' } },
+      {
+        type: 'tool_end',
+        toolName: 'getVerdict',
+        toolCallId: 'tc-1',
+        isError: false,
+        result: { verdict: 'ok' },
+      },
       { type: 'done', sessionId: 's' },
     ]
     seq.forEach((e) => asm.feed(e))
@@ -66,7 +72,13 @@ test.group('AgentMessageAssembler (persistence historique)', () => {
   test('tool en erreur → state output-error + errorText', ({ assert }) => {
     const asm = new AgentMessageAssembler()
     asm.feed({ type: 'tool_start', toolName: 'getVerdict', toolCallId: 'tc-2', args: {} })
-    asm.feed({ type: 'tool_end', toolName: 'getVerdict', toolCallId: 'tc-2', isError: true, result: 'boom' })
+    asm.feed({
+      type: 'tool_end',
+      toolName: 'getVerdict',
+      toolCallId: 'tc-2',
+      isError: true,
+      result: 'boom',
+    })
     asm.feed({ type: 'done', sessionId: 's' })
     const part = plainParts(asm.toMessage())[0]
     assert.equal(part.state, 'output-error')
@@ -121,7 +133,13 @@ test.group('compactHistory (ré-hydratation contexte LLM)', () => {
       role: 'assistant',
       parts: [
         { type: 'reasoning', text: 'je réfléchis' },
-        { type: 'tool-getVerdict', toolCallId: 'tc', state: 'output-available', input: {}, output: {} },
+        {
+          type: 'tool-getVerdict',
+          toolCallId: 'tc',
+          state: 'output-available',
+          input: {},
+          output: {},
+        },
         { type: 'text', text: 'réponse finale' },
       ],
     } as unknown as StoredChatMessage

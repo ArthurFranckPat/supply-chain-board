@@ -3,7 +3,7 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
-import { buildStrictQcStock } from '#app/domain/of-feasibility'
+import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
@@ -13,15 +13,15 @@ import { loadShortageRows } from '#services/shortage_payload_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { buildNomenclatureMap } from '#services/feasibility-loader-adapter'
-import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order-impacts-assembly'
+import { buildNomenclatureMap } from '#services/feasibility_loader_adapter'
+import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order_impacts_assembly'
 import {
   evaluateRuptures,
   resolveOfRequirements,
   directMissing,
   type RuptureDataset,
   type RuptureOfInput,
-} from '#app/domain/rupture-engine'
+} from '#app/domain/rupture_engine'
 
 // ---------------------------------------------------------------------------
 

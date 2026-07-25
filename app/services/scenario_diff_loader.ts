@@ -9,9 +9,14 @@
  */
 
 import { loadOrderImpacts } from '#services/order_impacts_loader'
-import { evaluatePlanDiff, applyMutations, type PlanDiff, type PlanMutation } from '#app/domain/plan-diff'
-import type { AllocationStrategy } from '#app/domain/of-conso'
-import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
+import {
+  evaluatePlanDiff,
+  applyMutations,
+  type PlanDiff,
+  type PlanMutation,
+} from '#app/domain/plan_diff'
+import type { AllocationStrategy } from '#app/domain/of_conso'
+import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order_impacts'
 
 export interface ScenarioDiffResult {
   diff: PlanDiff

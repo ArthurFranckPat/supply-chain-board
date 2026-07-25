@@ -9,15 +9,15 @@
 import boardDataset from '#services/board_dataset'
 import { loadPromise } from '#services/promise_loader'
 import { loadOfMaterialsDiagnostic } from '#services/of_diagnostic_loader'
-import { buildNomenclatureMap } from '#services/feasibility-loader-adapter'
-import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order-impacts-assembly'
-import { buildStrictQcStock } from '#app/domain/of-feasibility'
+import { buildNomenclatureMap } from '#services/feasibility_loader_adapter'
+import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order_impacts_assembly'
+import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import {
   evaluateRuptures,
   directMissing,
   type RuptureOfInput,
   type RuptureDataset,
-} from '#app/domain/rupture-engine'
+} from '#app/domain/rupture_engine'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
@@ -102,11 +102,15 @@ export async function listerOF(params: ListerOfParams = {}) {
   const familleFilter = params.famille?.trim().toUpperCase() || null
 
   // Catalogue articles : famille/typologie (YFAMSTAT7_0 / TSICOD_4) par code.
+  const catalogArticles = familleFilter ? await boardDataset.getArticles().catch(() => []) : []
   const catalog = familleFilter
     ? new Map(
-        (await boardDataset.getArticles().catch(() => [])).map((a) => [
+        catalogArticles.map((a) => [
           a.code.toUpperCase(),
-          { famille: a.famille?.toUpperCase() ?? null, typologie: a.typologie?.toUpperCase() ?? null },
+          {
+            famille: a.famille?.toUpperCase() ?? null,
+            typologie: a.typologie?.toUpperCase() ?? null,
+          },
         ])
       )
     : null
@@ -397,12 +401,18 @@ function slimDiagNode(node: DiagNode): Record<string, unknown> {
       })),
       ...(s.covering.length > BOM_MAX_COVERING ? { coveringTruncated: s.covering.length } : {}),
     })),
-    ...(node.shorts.length > BOM_MAX_SHORTS_PER_NODE ? { shortsTruncated: node.shorts.length } : {}),
+    ...(node.shorts.length > BOM_MAX_SHORTS_PER_NODE
+      ? { shortsTruncated: node.shorts.length }
+      : {}),
   }
 }
 
 /** Feuilles réellement bloquantes de l'arbre (achats en manque, SE sans OF couvrant). */
-function collectBlockingLeaves(node: DiagNode, depth = 0, out: Array<Record<string, unknown>> = []) {
+function collectBlockingLeaves(
+  node: DiagNode,
+  depth = 0,
+  out: Array<Record<string, unknown>> = []
+) {
   for (const s of node.shorts) {
     const leaf = !s.fabricated || s.covering.length === 0
     if (leaf && s.quantityMissing > 0) {
@@ -462,11 +472,7 @@ export async function descendreBOM(numOf: string) {
  * Capable-to-Promise : date au plus tôt optimiste + engageante.
  * Point d'entrée loader : `loadPromise` (caches board).
  */
-export async function getPromise(params: {
-  article: string
-  quantity: number
-  from?: string
-}) {
+export async function getPromise(params: { article: string; quantity: number; from?: string }) {
   const article = params.article?.trim()
   const quantity = Number(params.quantity)
   if (!article) return { error: 'article requis', _source: 'getPromise' as const }

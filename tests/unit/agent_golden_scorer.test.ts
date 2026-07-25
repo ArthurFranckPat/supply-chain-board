@@ -16,20 +16,14 @@ const base: GoldenCase = {
 
 test.group('agent golden scorer', () => {
   test('pass si racine + tool', ({ assert }) => {
-    const r = scoreCase(
-      base,
-      'OF MFG-1001 en rupture sur ACH-VIS-M6 [getVerdict: rupture]',
-      ['getVerdict']
-    )
+    const r = scoreCase(base, 'OF MFG-1001 en rupture sur ACH-VIS-M6 [getVerdict: rupture]', [
+      'getVerdict',
+    ])
     assert.isTrue(r.pass)
   })
 
   test('fail si article racine inventé / absent', ({ assert }) => {
-    const r = scoreCase(
-      base,
-      'Je pense que c’est le stock global qui bloque',
-      ['getVerdict']
-    )
+    const r = scoreCase(base, 'Je pense que c’est le stock global qui bloque', ['getVerdict'])
     assert.isFalse(r.pass)
     assert.isTrue(r.details.some((d) => d.includes('ACH-VIS-M6')))
   })

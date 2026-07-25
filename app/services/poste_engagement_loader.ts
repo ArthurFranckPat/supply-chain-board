@@ -1,7 +1,7 @@
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
-import { CommandeOFMatcher } from '#app/domain/of-conso'
+import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { timeStage } from '#services/perf_metrics'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'

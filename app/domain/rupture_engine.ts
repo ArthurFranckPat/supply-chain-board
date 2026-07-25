@@ -35,7 +35,7 @@ import type { Article } from './models/article.js'
 import { isPhantom as isPhantomCategory } from './models/article.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
-import type { MfgMaterialInput } from './of-feasibility.js'
+import type { MfgMaterialInput } from './of_feasibility.js'
 import { isFirm } from './rules.js'
 
 /** Garde-fou anti-descente infinie sur fantômes imbriqués — LA valeur unique (étape 3 #73). */

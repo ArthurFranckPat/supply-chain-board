@@ -34,8 +34,22 @@ export default class extends BaseSchema {
     this.defer(async (db) => {
       const now = Math.floor(Date.now() / 1000)
       await db.table('print_documents').multiInsert([
-        { code: 'RECETTE', label: 'Bon de travail', position: 1, active: true, updated_at: now, updated_by: '' },
-        { code: 'BSM', label: 'Bon de sortie matière', position: 2, active: true, updated_at: now, updated_by: '' },
+        {
+          code: 'RECETTE',
+          label: 'Bon de travail',
+          position: 1,
+          active: true,
+          updated_at: now,
+          updated_by: '',
+        },
+        {
+          code: 'BSM',
+          label: 'Bon de sortie matière',
+          position: 2,
+          active: true,
+          updated_at: now,
+          updated_by: '',
+        },
       ])
     })
   }

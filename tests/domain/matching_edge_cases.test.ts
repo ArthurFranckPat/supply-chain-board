@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import type { Flow, FlowOrigin } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
-import { CommandeOFMatcher } from '#app/domain/of-conso'
+import { CommandeOFMatcher } from '#app/domain/of_conso'
 
 function makeOfFlow(
   id: string,

@@ -1,6 +1,6 @@
 import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig, type X3EnvConfig } from '#config/x3'
-import { callRunSubprog, type RunResult } from '#app/x3/run-client'
+import { callRunSubprog, type RunResult } from '#app/x3/run_client'
 import { X3Connection } from '#app/x3/connection'
 import PrintDestination from '#models/print_destination'
 import PrintDocument from '#models/print_document'
@@ -148,7 +148,8 @@ class PrintService {
 
   /** Codes des documents actifs — l'ordre du dossier d'OF. */
   async docTypes(): Promise<DocType[]> {
-    return (await this.listDocuments()).map((d) => d.code)
+    const documents = await this.listDocuments()
+    return documents.map((d) => d.code)
   }
 
   /**
@@ -206,7 +207,11 @@ class PrintService {
    * Réglages d'impression. Ligne unique créée à la volée, défaut `off` : un
    * environnement neuf n'imprime rien tant que personne ne l'a décidé.
    */
-  async getSettings(): Promise<{ autoPrintMode: AutoPrintMode; updatedAt: number; updatedBy: string }> {
+  async getSettings(): Promise<{
+    autoPrintMode: AutoPrintMode
+    updatedAt: number
+    updatedBy: string
+  }> {
     const row = await PrintSetting.firstOrCreate(
       { id: 1 },
       { id: 1, autoPrintMode: 'off', updatedAt: 0, updatedBy: '' }
@@ -460,9 +465,7 @@ class PrintService {
       printServer && params.watchTimeoutMs !== 0
         ? await fetchJobs(cfg, printServer, FAST_TIMEOUT_MS)
         : { error: 'relevé non pris (suivi désactivé ou serveur inconnu)' }
-    const knownRanks = new Set<number>(
-      Array.isArray(before) ? before.map((j) => j.rank) : []
-    )
+    const knownRanks = new Set<number>(Array.isArray(before) ? before.map((j) => j.rank) : [])
 
     // --- Appel X3 ------------------------------------------------------------
     const inputXml =
@@ -486,13 +489,13 @@ class PrintService {
     // Message X3 nommant l'état ET la destination : seul signal positif dont on
     // dispose (le 4ᵉ argument d'ETAT à 1 le fait remonter).
     const printMessage =
-      res.messages.find((m) => m.text.includes(docType) && m.text.includes(routed.destCode))?.text ??
-      ''
+      res.messages.find((m) => m.text.includes(docType) && m.text.includes(routed.destCode))
+        ?.text ?? ''
     const ok = res.ok && retCod === '0'
     /**
      * Tous les messages X3, dédupliqués, pour servir de cause en cas d'échec.
      *
-     * `run-client` ne renseigne `res.error` que si X3 n'a renvoyé AUCUN message —
+     * `run_client` ne renseigne `res.error` que si X3 n'a renvoyé AUCUN message —
      * un échec accompagné de messages retombait donc sur « Appel X3 sans
      * verdict », et la cause réelle (« WRETCOD : Incompatibilité de type ») ne
      * quittait jamais la réponse SOAP.
@@ -584,10 +587,12 @@ class PrintService {
       sandbox: routed.sandbox,
       attempt,
       message: printMessage || retErMsg,
-      error:
-        [ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict', journalError]
-          .filter(Boolean)
-          .join(' · '),
+      error: [
+        ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict',
+        journalError,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       jobId: job.id,
       previous: null,
       serverVerdict: watch.verdict,

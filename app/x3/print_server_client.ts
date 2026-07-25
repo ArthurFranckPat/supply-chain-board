@@ -251,7 +251,8 @@ export async function watchJob(
   const reportFile = `${params.report}.rpt`.toLowerCase()
 
   // Un rang connu d'avance vaut identification : on part avec.
-  let seenRank: number | null = params.expectedRank && params.expectedRank > 0 ? params.expectedRank : null
+  let seenRank: number | null =
+    params.expectedRank && params.expectedRank > 0 ? params.expectedRank : null
   const exact = seenRank !== null
   let lastPhase = ''
   let lastError = ''

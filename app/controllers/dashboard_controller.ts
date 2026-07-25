@@ -125,9 +125,10 @@ export default class DashboardController {
       const f = new Date(fromParam as string)
       const t = new Date(toParam as string)
       // Retombe sur la plage par défaut si les dates sont invalides.
-      const range = Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())
-        ? defaultStockRange(grain, safeRef)
-        : { from: f, to: t }
+      const range =
+        Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())
+          ? defaultStockRange(grain, safeRef)
+          : { from: f, to: t }
       from = range.from
       to = range.to
     } else {

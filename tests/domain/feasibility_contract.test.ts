@@ -1,20 +1,20 @@
 import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
-import type { MfgMaterialInput } from '#app/domain/of-feasibility'
-import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
-import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive-checker'
+import type { MfgMaterialInput } from '#app/domain/of_feasibility'
+import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of_feasibility'
+import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive_checker'
 import {
   RecursiveDiagnosticChecker,
   type DiagnosticLoader,
-} from '#app/domain/recursive-diagnostic-checker'
+} from '#app/domain/recursive_diagnostic_checker'
 import type { Flow } from '#app/domain/models/flow'
 import type { ErpAllocation } from '#app/domain/allocation'
 import {
   evaluateRuptures,
   type RuptureDataset,
   type RuptureOfInput,
-} from '#app/domain/rupture-engine'
+} from '#app/domain/rupture_engine'
 
 /**
  * Contrat d'unicité de la source de vérité faisabilité (#32 suivi) :

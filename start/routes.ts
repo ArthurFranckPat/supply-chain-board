@@ -239,17 +239,17 @@ router
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
     router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
     // Détail d'un article (sheet ouverte au clic d'une ligne du KPI stock).
-    router.get('/api/v1/dashboard/stock/article', '#controllers/dashboard_controller.stockArticleDetail')
+    router.get(
+      '/api/v1/dashboard/stock/article',
+      '#controllers/dashboard_controller.stockArticleDetail'
+    )
 
     // Layout KPI personnalisables (feature tableau de bord) — le contrôleur +
     // le validator existent déjà ; la route manquait, le PATCH front 404 à chaque
     // drag/resize (🟡 dead-code §2). Rattaché au scope « user » (layout persisté
     // sur le modèle User courant).
     router
-      .patch(
-        '/api/v1/user/dashboard-layout',
-        '#controllers/dashboard_layout_controller.update'
-      )
+      .patch('/api/v1/user/dashboard-layout', '#controllers/dashboard_layout_controller.update')
       .as('user.dashboard_layout.update')
 
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
@@ -321,7 +321,9 @@ router
 
     // Impression X3 (issue #85, lot 1) — ZSOAPPRINT sur un OF, terrain de test.
     // ⚠️ Une destination imprimante sort du papier : rester sur PDFFILE.
-    router.post('/api/v1/x3/print/test', '#controllers/print_test_controller.run').as('x3_print.test')
+    router
+      .post('/api/v1/x3/print/test', '#controllers/print_test_controller.run')
+      .as('x3_print.test')
 
     // Baseline perf (issue #33) — P50/P95 par route, collectés par timing_middleware.
     router.get('/api/v1/_perf', '#controllers/perf_controller.index').as('perf.index')

@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import type { X3Queryable } from '../types.js'
 import { X3Connection } from '../connection.js'
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- shim CJS : le nom marque l'emprunt à `require`
 const _require = createRequire(import.meta.url)
 const KnexClient = _require('knex/lib/client.js')
 

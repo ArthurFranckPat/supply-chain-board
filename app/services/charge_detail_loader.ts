@@ -149,9 +149,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         }
       }
 
-      const needs = (await computeChargeNeeds(inputs)).filter(
-        (n) => n.wst === poste && inBucket(n.date) && n.brutHours > 0
-      )
+      const allNeeds = await computeChargeNeeds(inputs)
+      const needs = allNeeds.filter((n) => n.wst === poste && inBucket(n.date) && n.brutHours > 0)
 
       // Désignations : référentiel articles LOCAL (SQLite), pas X3.
       const articles = await staticSync.readArticles().catch(() => [] as Article[])

@@ -137,9 +137,9 @@ function findCardPos(
 ): { line: number; col: number; idx: number; card: Card } | null {
   for (let li = 0; li < board.lines.length; li++) {
     const cells = board.lines[li].dayCells
-    for (let ci = 0; ci < cells.length; ci++) {
-      const idx = cells[ci].cards.findIndex((c) => c.id === numOf)
-      if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+    for (const [ci, cell] of cells.entries()) {
+      const idx = cell.cards.findIndex((c) => c.id === numOf)
+      if (idx !== -1) return { line: li, col: ci, idx, card: cell.cards[idx] }
     }
   }
   return null
@@ -194,7 +194,11 @@ let moveInterceptor: MoveIntercept | null = null
 // runSearch — closure sur set, debounce + race-guard
 // ---------------------------------------------------------------------------
 
-function runSearch(scope: SearchScope, rawQuery: string, set: (partial: Partial<BoardState>) => void) {
+function runSearch(
+  scope: SearchScope,
+  rawQuery: string,
+  set: (partial: Partial<BoardState>) => void
+) {
   const q = rawQuery.trim().toLowerCase()
   if (!q) {
     set({ matchSet: new Set<string>() })
@@ -345,7 +349,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           ...cell,
           cards: cell.cards.map((x) =>
             x.id === oldId
-              ? { ...x, id: newId, href: x.href.replace(oldId, newId), status: 'ferme' as Card['status'] }
+              ? {
+                  ...x,
+                  id: newId,
+                  href: x.href.replace(oldId, newId),
+                  status: 'ferme' as Card['status'],
+                }
               : x
           ),
         }
@@ -503,7 +512,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set({ batchRunning: false })
     // Affermissement et impression sont deux verdicts : un lot « tout affermi »
     // dont des dossiers ne sont pas partis ne doit pas s'annoncer comme un succès.
-    const firmText = nbErr === 0 ? `${nbOk} OF affermi(s)` : `${nbOk} affermi(s) · ${nbErr} échec(s)`
+    const firmText =
+      nbErr === 0 ? `${nbOk} OF affermi(s)` : `${nbOk} affermi(s) · ${nbErr} échec(s)`
     toast(nbPrintKo > 0 ? `${firmText} · ${nbPrintKo} dossier(s) non imprimé(s)` : firmText)
     set((s) => {
       const n = new Set(s.selected)

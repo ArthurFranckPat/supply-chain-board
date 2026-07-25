@@ -10,7 +10,13 @@
  */
 import { create } from 'zustand'
 import { route } from '@r/lib/routes'
-import { type PlanMutation, type PlanDiff, type ScenarioRow, type AllocationStrategy, mutationKey } from '@r/lib/scenarios/types'
+import {
+  type PlanMutation,
+  type PlanDiff,
+  type ScenarioRow,
+  type AllocationStrategy,
+  mutationKey,
+} from '@r/lib/scenarios/types'
 
 interface CurrentScenario {
   id: number | null

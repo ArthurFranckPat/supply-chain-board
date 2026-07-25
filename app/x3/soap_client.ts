@@ -10,8 +10,8 @@ import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 
 import type { SoapResponse } from './types.js'
-import { buildConcatSql } from './sql-builder.js'
-import { parseResponse } from './response-parser.js'
+import { buildConcatSql } from './sql_builder.js'
+import { parseResponse } from './response_parser.js'
 
 export interface X3SoapConfig {
   host: string

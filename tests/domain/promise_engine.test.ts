@@ -6,7 +6,7 @@ import {
   type PromiseDataset,
   type PromiseMode,
   type DatedSupply,
-} from '#app/domain/promise-engine'
+} from '#app/domain/promise_engine'
 
 const FROM = new Date('2026-07-15') // mercredi
 
@@ -383,9 +383,7 @@ test.group('promise-engine — ledger anti-double-promesse (§5.2)', () => {
 })
 
 test.group('promise-engine — couverture partielle visible dans l’arbre', () => {
-  test('achat partiellement couvert par stock → feuille stock à côté de l’appro', ({
-    assert,
-  }) => {
+  test('achat partiellement couvert par stock → feuille stock à côté de l’appro', ({ assert }) => {
     const articles = new Map([['X', mkArticle('X', '', 'ACHAT', 14)]])
     const stock = new Map([['X', 40]])
     const data = mkDataset(articles, new Map(), stock)

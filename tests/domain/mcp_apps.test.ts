@@ -294,10 +294,7 @@ test.group('ui_message_stream — enveloppe d’app', () => {
 
     // La divergence entre ces deux chemins faisait disparaître le graphe au
     // rechargement de la conversation : affiché pendant le tour, absent après.
-    assert.deepEqual(
-      (part as { output?: unknown }).output,
-      (chunk as { output?: unknown }).output
-    )
+    assert.deepEqual((part as { output?: unknown }).output, (chunk as { output?: unknown }).output)
     assert.deepEqual((part as { output?: unknown }).output, {
       __mcpUi: { resourceUri: 'ui://supply-board/stock' },
       data: payload,

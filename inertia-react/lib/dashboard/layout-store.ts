@@ -10,12 +10,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type {
-  DashboardLayout,
-  KpiId,
-  KpiLayoutItem,
-  KpiWidth,
-} from '@r/lib/dashboard/types'
+import type { DashboardLayout, KpiId, KpiLayoutItem, KpiWidth } from '@r/lib/dashboard/types'
 import {
   colsForWidth,
   DEFAULT_DASHBOARD_LAYOUT,
@@ -28,7 +23,9 @@ interface LayoutState extends DashboardLayout {
   setLayout: (layout: DashboardLayout) => void
   setVisible: (id: KpiId, visible: boolean) => void
   setWidth: (id: KpiId, width: KpiWidth) => void
-  updateGridItems: (gridItems: Array<{ i: string; x: number; y: number; w: number; h: number }>) => void
+  updateGridItems: (
+    gridItems: Array<{ i: string; x: number; y: number; w: number; h: number }>
+  ) => void
   moveItem: (draggedId: KpiId, targetId: KpiId) => void
   moveItemDir: (id: KpiId, dir: -1 | 1) => void
   movePrint: (id: KpiId, dir: -1 | 1) => void

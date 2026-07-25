@@ -1,7 +1,7 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import boardDataset from '#services/board_dataset'
-import { CommandeOFMatcher } from '#app/domain/of-conso'
+import { CommandeOFMatcher } from '#app/domain/of_conso'
 import type { Flow, OrderType } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
@@ -94,7 +94,7 @@ function toYYYYMMDD(d: Date): string {
 }
 
 function toNum(v: string | null | undefined): number {
-  return parseFloat(v ?? '0') || 0
+  return Number.parseFloat(v ?? '0') || 0
 }
 
 export class RetardRepository {
@@ -158,7 +158,13 @@ export class RetardRepository {
     // Détermine, ligne par ligne, la qté qui reste réellement à produire (après
     // allocation existante et stock dispo non alloué) — c'est CETTE qté qu'on soumet
     // au matcher, pas la qté restante brute X3 (RMNEXTQTY_0).
-    type PendingLine = { row: RawRow; article: string; qty: number; qteAProduire: number; ops: Array<{ workstation: string; label: string; rate: number }> }
+    type PendingLine = {
+      row: RawRow
+      article: string
+      qty: number
+      qteAProduire: number
+      ops: Array<{ workstation: string; label: string; rate: number }>
+    }
     const pending: PendingLine[] = []
     for (const row of rows) {
       const article = row.ARTICLE?.trim() ?? ''
@@ -201,7 +207,7 @@ export class RetardRepository {
         nature: 'COMMANDE',
         contremarque: p.row.CONTREMARQUE?.trim() || null,
         qteCommandee: p.qty,
-        qteAllouee: parseFloat(p.row.QTE_ALLOUEE ?? '0') || 0,
+        qteAllouee: Number.parseFloat(p.row.QTE_ALLOUEE ?? '0') || 0,
         ligne: p.row.LIGNE?.trim() ?? null,
       },
     }))
@@ -211,7 +217,7 @@ export class RetardRepository {
       supply,
       new Map<string, Article>(),
       new Map<string, Nomenclature>(),
-      MATCH_DATE_TOLERANCE_DAYS,
+      MATCH_DATE_TOLERANCE_DAYS
     )
     const results = matcher.matchCommandes(demandFlows)
     const resultByFlow = new Map(results.map((r) => [r.demandFlow, r]))
@@ -236,7 +242,7 @@ export class RetardRepository {
           for (const tr of timeRows) {
             const mfgnum = tr.MFGNUM?.trim()
             if (!mfgnum) continue
-            heuresByOf.set(mfgnum, Math.max(0, parseFloat(tr.HEURES_REALISEES ?? '0') || 0))
+            heuresByOf.set(mfgnum, Math.max(0, Number.parseFloat(tr.HEURES_REALISEES ?? '0') || 0))
           }
         }
       } finally {
@@ -247,8 +253,7 @@ export class RetardRepository {
     const posteAccum = new Map<string, { label: string; heures: number }>()
     const lignes: RetardLigne[] = []
 
-    for (let i = 0; i < pending.length; i += 1) {
-      const p = pending[i]
+    for (const [i, p] of pending.entries()) {
       const demandFlow = demandFlows[i]
       const row = p.row
 

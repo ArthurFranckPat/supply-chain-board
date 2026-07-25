@@ -46,7 +46,7 @@ test.group('PlanningBoardController', (group) => {
     assert.isTrue(result.modified)
   })
 
-  test('update rejette un numOf d\'OF invalide (H4)', async ({ assert }) => {
+  test("update rejette un numOf d'OF invalide (H4)", async ({ assert }) => {
     const ctrl = new PlanningBoardController()
     const ctx = mockContext({
       params: { of: 'OF 001; DROP--' },

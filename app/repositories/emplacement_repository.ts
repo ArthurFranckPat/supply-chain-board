@@ -57,7 +57,9 @@ export class X3EmplacementRepository {
       }
       // STOALL ne porte pas la date d'entrée en stock — on la récupère sur STOCK
       // via le chrono commun STOCOU_0 (même ligne physique).
-      const stoCous = [...new Set(rows.map((r) => r.chronoStock).filter((v): v is string => Boolean(v)))]
+      const stoCous = [
+        ...new Set(rows.map((r) => r.chronoStock).filter((v): v is string => Boolean(v))),
+      ]
       const entreeParStoCou = new Map<string, DateTime | null>()
       if (stoCous.length > 0) {
         try {

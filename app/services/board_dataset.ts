@@ -260,8 +260,8 @@ class BoardDataset {
       key: 'bom',
       ttl: REF_TTL,
       factory: async () => {
-        const entries = await staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[])
-        return { entries, at: Date.now() } satisfies BomCache
+        const rows = await staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[])
+        return { entries: rows, at: Date.now() } satisfies BomCache
       },
     })
     return entries

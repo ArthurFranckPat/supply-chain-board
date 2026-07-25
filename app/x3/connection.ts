@@ -4,10 +4,10 @@
  */
 
 import type { X3QueryResult } from './types.js'
-import { bindParams } from './sql-builder.js'
-import { extractColumns } from './sql-parser.js'
-import { callSoap, type X3SoapConfig } from './soap-client.js'
-import { formatResults } from './response-parser.js'
+import { bindParams } from './sql_builder.js'
+import { extractColumns } from './sql_parser.js'
+import { callSoap, type X3SoapConfig } from './soap_client.js'
+import { formatResults } from './response_parser.js'
 import { getX3EnvConfig } from '#config/x3'
 
 const TRANSIENT_ERRORS = [

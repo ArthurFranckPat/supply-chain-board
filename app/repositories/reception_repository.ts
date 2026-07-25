@@ -1,6 +1,6 @@
 import type { Flow } from '#app/domain/models/flow'
 import type { ReceptionInput } from '#app/domain/receptions'
-import type { ReceptionRecord } from '#app/domain/recursive-checker'
+import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import PurchaseOrderLine from '#models/x3/porderq'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 

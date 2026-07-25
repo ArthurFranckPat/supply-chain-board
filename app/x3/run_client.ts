@@ -19,8 +19,8 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 
-import type { X3SoapConfig } from './soap-client.js'
-import { parseObjectResponse, type ObjectMessage } from './object-client.js'
+import type { X3SoapConfig } from './soap_client.js'
+import { parseObjectResponse, type ObjectMessage } from './object_client.js'
 
 export interface RunResult {
   ok: boolean

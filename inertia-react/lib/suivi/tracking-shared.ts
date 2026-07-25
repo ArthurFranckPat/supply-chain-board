@@ -140,7 +140,7 @@ export function getRelativeDateLabel(
   try {
     const refDate = new Date(referenceDateStr + 'T00:00:00')
     const expDate = new Date(dateExpIso + 'T00:00:00')
-    if (isNaN(refDate.getTime()) || isNaN(expDate.getTime())) return null
+    if (Number.isNaN(refDate.getTime()) || Number.isNaN(expDate.getTime())) return null
     const diffTime = expDate.getTime() - refDate.getTime()
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
 

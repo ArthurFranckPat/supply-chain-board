@@ -5,10 +5,7 @@
  *      ou : npm run … (via dotenvx)
  */
 
-import {
-  assertAgentProviderConfigured,
-  runAgentTurn,
-} from '#services/agent_service'
+import { assertAgentProviderConfigured, runAgentTurn } from '#services/agent_service'
 
 async function main() {
   const info = assertAgentProviderConfigured()

@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { StockState } from '#app/domain/stock-state'
+import { StockState } from '#app/domain/stock_state'
 
 test.group('StockState', () => {
   test('getAvailable returns initial stock when nothing allocated', ({ assert }) => {

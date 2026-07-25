@@ -14,17 +14,17 @@ import {
   buildStocksMap,
   buildReceptionsMap,
   buildNomenclatureMap,
-} from '#services/feasibility-loader-adapter'
-import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive-checker'
+} from '#services/feasibility_loader_adapter'
+import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive_checker'
 import {
   evaluateMfgFeasibility,
   buildStrictQcStock,
   type MfgMaterialInput,
-} from '#app/domain/of-feasibility'
+} from '#app/domain/of_feasibility'
 import {
   RecursiveDiagnosticChecker,
   type DiagnosticLoader,
-} from '#app/domain/recursive-diagnostic-checker'
+} from '#app/domain/recursive_diagnostic_checker'
 import type { Flow } from '#app/domain/models/flow'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import type { Article } from '#app/domain/models/article'

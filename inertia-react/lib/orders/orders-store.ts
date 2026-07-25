@@ -85,9 +85,9 @@ function findCardPos(
 ): { line: number; col: number; idx: number; card: OrderCard } | null {
   for (let li = 0; li < board.lines.length; li++) {
     const cells = board.lines[li].dayCells
-    for (let ci = 0; ci < cells.length; ci++) {
-      const idx = cells[ci].cards.findIndex((c) => c.id === id)
-      if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+    for (const [ci, cell] of cells.entries()) {
+      const idx = cell.cards.findIndex((c) => c.id === id)
+      if (idx !== -1) return { line: li, col: ci, idx, card: cell.cards[idx] }
     }
   }
   return null

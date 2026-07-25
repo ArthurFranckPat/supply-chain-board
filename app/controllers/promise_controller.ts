@@ -43,9 +43,7 @@ export default class PromiseController {
    */
   async articles(ctx: HttpContext) {
     const articles = await boardDataset.getArticles()
-    return ctx.response.ok(
-      articles.map((a) => ({ code: a.code, description: a.description }))
-    )
+    return ctx.response.ok(articles.map((a) => ({ code: a.code, description: a.description })))
   }
 
   /** GET /promesse — page Inertia du simulateur CTP autonome. */

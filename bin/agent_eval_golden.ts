@@ -22,9 +22,7 @@ async function main() {
 
   for (const r of report.results) {
     const mark = r.pass ? 'PASS' : 'FAIL'
-    console.log(
-      `[${mark}] ${r.id}  ${r.score}/${r.max}  tools=${r.toolsCalled.join(',') || '—'}`
-    )
+    console.log(`[${mark}] ${r.id}  ${r.score}/${r.max}  tools=${r.toolsCalled.join(',') || '—'}`)
     if (!r.pass) {
       for (const d of r.details) console.log(`        - ${d}`)
       if (r.finalText) {

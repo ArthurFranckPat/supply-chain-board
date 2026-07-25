@@ -11,8 +11,8 @@ import {
   type OfCharge,
   type PlanDiffInputs,
   type PlanMutation,
-} from '#app/domain/plan-diff'
-import { evaluateOrderImpacts } from '#app/domain/order-impacts'
+} from '#app/domain/plan_diff'
+import { evaluateOrderImpacts } from '#app/domain/order_impacts'
 
 const TODAY = new Date()
 TODAY.setHours(0, 0, 0, 0)
@@ -491,10 +491,7 @@ test.group('diffCharge', () => {
 
     const inputs = makeInputs({
       demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
-      supplyFlows: [
-        makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)),
-        makeStockFlow('C1', 10),
-      ],
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 10)],
       nomenclatures,
       articles: new Map([
         ['PF1', makeArticle('PF1')],
@@ -566,11 +563,11 @@ test.group('diffCharge', () => {
       undefined,
       'date_besoin'
     )
-    const rowBDefault = resultDefault.orders.find(o => o.numCommande === 'CMD-B')!
+    const rowBDefault = resultDefault.orders.find((o) => o.numCommande === 'CMD-B')!
     assert.lengthOf(rowBDefault.ofs, 1)
     assert.equal(rowBDefault.ofs[0].numOf, 'OF-A')
 
-    const rowADefault = resultDefault.orders.find(o => o.numCommande === 'CMD-A')!
+    const rowADefault = resultDefault.orders.find((o) => o.numCommande === 'CMD-A')!
     assert.lengthOf(rowADefault.ofs, 0)
 
     const resultPassation = evaluateOrderImpacts(
@@ -585,11 +582,11 @@ test.group('diffCharge', () => {
       undefined,
       'date_passation'
     )
-    const rowAPassation = resultPassation.orders.find(o => o.numCommande === 'CMD-A')!
+    const rowAPassation = resultPassation.orders.find((o) => o.numCommande === 'CMD-A')!
     assert.lengthOf(rowAPassation.ofs, 1)
     assert.equal(rowAPassation.ofs[0].numOf, 'OF-A')
 
-    const rowBPassation = resultPassation.orders.find(o => o.numCommande === 'CMD-B')!
+    const rowBPassation = resultPassation.orders.find((o) => o.numCommande === 'CMD-B')!
     assert.lengthOf(rowBPassation.ofs, 0)
   })
 })

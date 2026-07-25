@@ -20,12 +20,12 @@ import {
   SUIVI_FORWARD_DAYS,
 } from '#services/suivi_service'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
-import type { OrderImpactResult } from '#app/domain/order-impacts'
+import type { OrderImpactResult } from '#app/domain/order_impacts'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
-import { evaluateRuptures, buildOfSupply } from '#app/domain/rupture-engine'
-import type { RuptureOfInput, RuptureDataset } from '#app/domain/rupture-engine'
+import { evaluateRuptures, buildOfSupply } from '#app/domain/rupture_engine'
+import type { RuptureOfInput, RuptureDataset } from '#app/domain/rupture_engine'
 import { isSubcontracted } from '#app/domain/rules'
 import {
   groupReceptionsByArticle,
@@ -33,7 +33,7 @@ import {
   RECEPTION_OVERDUE_MIN_QTY,
 } from '#repositories/reception_repository'
 import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/shortages'
-import type { ReceptionRecord } from '#app/domain/recursive-checker'
+import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
 import { workingDaysBetween } from '#app/domain/holidays'
@@ -280,7 +280,13 @@ export default class SuiviController {
         { result, articles, receptionFlows, nomenclatures, planInputs, fabricationHoursByOf },
         atelierByArticle,
       ] = await Promise.all([
-        loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive', force: forceRefresh }),
+        loadOrderImpacts({
+          from,
+          to,
+          mode: 'sequential',
+          pipeline: 'proactive',
+          force: forceRefresh,
+        }),
         buildAtelierByArticle(),
       ])
       // Réceptions à venir + retards de livraison (lookback RECEPTION_LOOKBACK_DAYS) — réutilise
@@ -672,7 +678,9 @@ export function buildSuiviDisplay(
           enZoneExpe: ZONE_EXPEDITION_PATTERN.test(e.nom),
           alreadyAllocated: e.alreadyAllocated ?? false,
           hum: e.hum || null,
-          dateMiseEnStock: fmtFrFull(e.dateMiseEnStock ? e.dateMiseEnStock.toISOString().slice(0, 10) : null),
+          dateMiseEnStock: fmtFrFull(
+            e.dateMiseEnStock ? e.dateMiseEnStock.toISOString().slice(0, 10) : null
+          ),
         })),
       enZoneExpe: enZoneExpedition(a.line),
       cause,

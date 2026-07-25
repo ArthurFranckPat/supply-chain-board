@@ -13,7 +13,7 @@ import type { Flow, FlowOrigin } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import { isPurchaseArticle } from './rules.js'
-import { StockState } from './stock-state.js'
+import { StockState } from './stock_state.js'
 
 type OfOrigin = Extract<FlowOrigin, { type: 'of' }>
 type OrderOrForecastOrigin = Extract<FlowOrigin, { type: 'order' } | { type: 'forecast' }>

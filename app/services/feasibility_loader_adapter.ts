@@ -7,9 +7,9 @@
 import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
-import type { StockRecord, ReceptionRecord, OfRecord } from '#app/domain/recursive-checker'
-import type { MfgMaterialInput } from '#app/domain/of-feasibility'
-import type { DiagnosticLoader } from '#app/domain/recursive-diagnostic-checker'
+import type { StockRecord, ReceptionRecord, OfRecord } from '#app/domain/recursive_checker'
+import type { MfgMaterialInput } from '#app/domain/of_feasibility'
+import type { DiagnosticLoader } from '#app/domain/recursive_diagnostic_checker'
 
 /**
  * Derive StockRecord from stock flows as used in the current X3 pipeline.

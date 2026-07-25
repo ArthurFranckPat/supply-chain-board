@@ -1,6 +1,6 @@
 import Scenario from '#models/scenario'
-import type { PlanMutation } from '#app/domain/plan-diff'
-import type { AllocationStrategy } from '#app/domain/of-conso'
+import type { PlanMutation } from '#app/domain/plan_diff'
+import type { AllocationStrategy } from '#app/domain/of_conso'
 
 /** Vue applicative d'un scénario : mutations désérialisées. */
 export interface ScenarioRow {

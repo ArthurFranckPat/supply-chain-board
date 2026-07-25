@@ -12,15 +12,15 @@
 
 import boardDataset from '#services/board_dataset'
 import capacityCalendarService from '#services/capacity_calendar_service'
-import { buildNomenclatureMap } from '#services/feasibility-loader-adapter'
-import { buildStrictQcStock } from '#app/domain/of-feasibility'
-import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order-impacts-assembly'
+import { buildNomenclatureMap } from '#services/feasibility_loader_adapter'
+import { buildStrictQcStock } from '#app/domain/of_feasibility'
+import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order_impacts_assembly'
 import {
   computePromiseDate,
   type PromiseDataset,
   type PromiseResult,
   type DatedSupply,
-} from '#app/domain/promise-engine'
+} from '#app/domain/promise_engine'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
@@ -81,9 +81,7 @@ export async function buildPromiseDataset(article: string): Promise<PromiseDatas
   // Suggestions CBN (statut 3) exclues : une suggestion jamais affermie n'est pas
   // une date engagée — promettre dessus = sur-promesse. Seuls les OF fermes (1)
   // et planifiés (2) comptent comme flux datés (« OF en cours », PRD §4).
-  const firmOfFlows = poolData.supply.filter(
-    (f) => f.origin.type === 'of' && f.origin.status !== 3
-  )
+  const firmOfFlows = poolData.supply.filter((f) => f.origin.type === 'of' && f.origin.status !== 3)
   const ofSupply = scopeToReachable(flowsToDatedSupplies(firmOfFlows, 'of'), reachable)
   return { articles, nomenclatures, stockNet, receptions, ofSupply, supplierLatency, closedDays }
 }

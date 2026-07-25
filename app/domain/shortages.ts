@@ -13,8 +13,8 @@
  * manquante (cumul des réceptions futures par date croissante).
  */
 
-import type { OrderImpactResult } from './order-impacts.js'
-import type { ReceptionRecord } from './recursive-checker.js'
+import type { OrderImpactResult } from './order_impacts.js'
+import type { ReceptionRecord } from './recursive_checker.js'
 import type { Article } from './models/article.js'
 
 export interface ShortageReception {

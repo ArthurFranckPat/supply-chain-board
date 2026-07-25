@@ -144,7 +144,14 @@ export default class PrintConfigController {
         updatedBy: ctx.auth.user?.username ?? '',
       }
     )
-    return { ok: true, rule: serializeRule(row, await printService.docLabels(), new Set(documents.map((d) => d.code))) }
+    return {
+      ok: true,
+      rule: serializeRule(
+        row,
+        await printService.docLabels(),
+        new Set(documents.map((d) => d.code))
+      ),
+    }
   }
 
   /**
@@ -156,7 +163,9 @@ export default class PrintConfigController {
    */
   async upsertDocument(ctx: HttpContext) {
     const r = ctx.request
-    const code = String(r.input('code') ?? '').trim().toUpperCase()
+    const code = String(r.input('code') ?? '')
+      .trim()
+      .toUpperCase()
     const label = String(r.input('label') ?? '').trim()
     const position = Number(r.input('position') ?? 0) || 0
 

@@ -12,18 +12,18 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
-import type { FeasibilityOptions } from './stock-state.js'
+import type { FeasibilityOptions } from './stock_state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
-import { CommandeOFMatcher, type AllocationStrategy } from './of-conso.js'
-import type { OfInput } from './stock-state.js'
-import type { MfgMaterialInput } from './of-feasibility.js'
+import { CommandeOFMatcher, type AllocationStrategy } from './of_conso.js'
+import type { OfInput } from './stock_state.js'
+import type { MfgMaterialInput } from './of_feasibility.js'
 import {
   evaluateRuptures,
   buildOfSupply,
   directMissing,
   type RuptureOfInput,
-} from './rupture-engine.js'
+} from './rupture_engine.js'
 
 export interface OrderImpactRow {
   numCommande: string
@@ -128,7 +128,7 @@ export function netDemandsByAllocation(demands: Flow[]): Flow[] {
 function safeDate(value: string | null | undefined): Date | null {
   if (!value) return null
   const d = new Date(value)
-  return isNaN(d.getTime()) ? null : d
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
 function effectiveDateFin(

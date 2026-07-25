@@ -4,7 +4,7 @@
  * Répond à la question inverse de l'ATP fixé (#58) : « quelle est la première date
  * à laquelle je peux promettre (article, quantité) ? » au lieu de « la date D tient-elle ? ».
  *
- * Domaine PUR, sans I/O (même discipline que rupture-engine.ts / plan-diff.ts).
+ * Domaine PUR, sans I/O (même discipline que rupture_engine.ts / plan_diff.ts).
  * Consomme des lookups injectés (Map ou adapter), testable sur fixtures sans X3.
  *
  * Réutilise la logique de descente BOM du moteur de rupture (#73) — règle AFANT
@@ -17,10 +17,10 @@ import { isPhantom } from './models/article.js'
 import type { NomenclatureEntry } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
 import { isSubcontracted } from './rules.js'
-import { PHANTOM_DEPTH_CAP, type ArticleLookup, type NomenclatureLookup } from './rupture-engine.js'
+import { PHANTOM_DEPTH_CAP, type ArticleLookup, type NomenclatureLookup } from './rupture_engine.js'
 
 // Re-export pour le loader (Lot 2) — single import surface.
-export type { ArticleLookup, NomenclatureLookup } from './rupture-engine.js'
+export type { ArticleLookup, NomenclatureLookup } from './rupture_engine.js'
 
 // ───────────────────────────── Types publics ─────────────────────────────
 
@@ -245,9 +245,7 @@ function dispoDate(
     const s = flux.supply
     const date = flux.date ?? from
     const reason: PromiseReason =
-      s.source === 'of'
-        ? { kind: 'of', ofId: s.id, date }
-        : { kind: 'reception', poId: s.id, date }
+      s.source === 'of' ? { kind: 'of', ofId: s.id, date } : { kind: 'reception', poId: s.id, date }
     coverLeaves.push(mkLeaf(article, flux.taken, date, reason, 0))
   }
   // La feuille flux la plus tardive — candidate au chemin critique si elle

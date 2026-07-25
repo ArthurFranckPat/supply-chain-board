@@ -7,7 +7,7 @@ import {
   directMissing,
   type RuptureDataset,
   type RuptureOfInput,
-} from '#app/domain/rupture-engine'
+} from '#app/domain/rupture_engine'
 
 const CHECK = new Date('2026-07-07T00:00:00')
 

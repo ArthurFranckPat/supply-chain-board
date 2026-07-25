@@ -16,17 +16,10 @@ export interface ScoreResult {
 }
 
 function norm(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
+  return s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
 }
 
-export function scoreCase(
-  gc: GoldenCase,
-  finalText: string,
-  toolsCalled: string[]
-): ScoreResult {
+export function scoreCase(gc: GoldenCase, finalText: string, toolsCalled: string[]): ScoreResult {
   const details: string[] = []
   let score = 0
   let max = 0
@@ -90,8 +83,7 @@ export function scoreCase(
       text.includes('pas de probleme') ||
       text.includes('ok')
     const falseNeg =
-      (text.includes('rupture') && !text.includes('pas de rupture')) ||
-      text.includes('bloque')
+      (text.includes('rupture') && !text.includes('pas de rupture')) || text.includes('bloque')
     if (neg && !falseNeg) {
       score += 2
     } else if (neg) {

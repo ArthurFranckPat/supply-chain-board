@@ -90,8 +90,8 @@ export function workingDaysBetween(fromIso: string, toIso: string): number {
   const end = new Date(toIso + 'T00:00:00Z')
   while (cur < end) {
     const day = cur.getUTCDay() // 0 = dimanche, 6 = samedi
-    const iso = cur.toISOString().slice(0, 10)
-    if (day !== 0 && day !== 6 && !closed.has(iso)) count++
+    const isoDay = cur.toISOString().slice(0, 10)
+    if (day !== 0 && day !== 6 && !closed.has(isoDay)) count++
     cur.setUTCDate(cur.getUTCDate() + 1)
   }
   return count

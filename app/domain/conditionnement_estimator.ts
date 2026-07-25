@@ -116,7 +116,9 @@ function observationsValides(obs: PaletteObservation[]): PaletteObservation[] {
  *
  * Retourne `{ valeur, occurrences }`, ou null si pas de consensus.
  */
-function valeurStock(stockage: PaletteObservation[]): { valeur: number; occurrences: number } | null {
+function valeurStock(
+  stockage: PaletteObservation[]
+): { valeur: number; occurrences: number } | null {
   const compte = new Map<number, number>()
   for (const o of stockage) compte.set(o.us, (compte.get(o.us) ?? 0) + 1)
 

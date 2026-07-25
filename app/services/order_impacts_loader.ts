@@ -18,17 +18,17 @@ import {
   evaluateOrderImpacts,
   netDemandsByAllocation,
   type OrderImpactResult,
-} from '#app/domain/order-impacts'
-import { computeAvancement } from '#app/domain/of-avancement'
+} from '#app/domain/order_impacts'
+import { computeAvancement } from '#app/domain/of_avancement'
 import { X3OperationRepository } from '#repositories/operation_repository'
-import { buildStrictQcStock } from '#app/domain/of-feasibility'
+import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
 import {
   remapDemandDates,
   expandArticleSetWithBom,
   buildArticleCatalog,
   precomputeMfgFeasibility,
-} from '#app/domain/order-impacts-assembly'
+} from '#app/domain/order_impacts_assembly'
 import type { OfCommandePeg } from '#repositories/order_line_repository'
 import type { OfOverrideRow } from '#app/domain/planning_board'
 import type { Article } from '#app/domain/models/article'

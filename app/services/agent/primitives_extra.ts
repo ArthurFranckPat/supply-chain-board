@@ -13,7 +13,7 @@ import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
 import { loadStockArticleDetail, StockDetailBadRequest } from '#services/stock_detail_loader'
 import { buildStockBreakdownMap } from '#services/suivi_service'
-import type { PlanMutation } from '#app/domain/plan-diff'
+import type { PlanMutation } from '#app/domain/plan_diff'
 
 function isoDay(d: Date): string {
   const y = d.getFullYear()
@@ -154,18 +154,20 @@ export async function enregistrerScenario(params: {
  * réception couvrante (n° PO, fournisseur, qté, date) ou son absence
  * (verdict sans_couverture) — pas d'inférence via getPromise.
  */
-export async function listerRuptures(params: {
-  /** Horizon jours (fenêtre STRDAT des OF, défaut 14, max 90). */
-  horizonDays?: number
-  /** Début fenêtre ISO (défaut aujourd'hui). */
-  from?: string
-  /** Filtre article composant exact (insensible à la casse). */
-  composant?: string
-  /** Filtre verdicts : couvert | a_risque | retard | sans_couverture | sous_ensemble. */
-  verdicts?: string[]
-  /** Max lignes (défaut 60, max 150). */
-  limit?: number
-} = {}) {
+export async function listerRuptures(
+  params: {
+    /** Horizon jours (fenêtre STRDAT des OF, défaut 14, max 90). */
+    horizonDays?: number
+    /** Début fenêtre ISO (défaut aujourd'hui). */
+    from?: string
+    /** Filtre article composant exact (insensible à la casse). */
+    composant?: string
+    /** Filtre verdicts : couvert | a_risque | retard | sans_couverture | sous_ensemble. */
+    verdicts?: string[]
+    /** Max lignes (défaut 60, max 150). */
+    limit?: number
+  } = {}
+) {
   const data = await loadShortageRowsData({
     start: params.from,
     days: params.horizonDays,
@@ -298,7 +300,7 @@ export async function projeterStock(params: { article: string }) {
       engine: 'stock_detail_loader',
       article,
       trouve: false,
-      note: "Article inconnu au stock (aucun mouvement STOJOU) — vérifier le code avec rechercherArticle.",
+      note: 'Article inconnu au stock (aucun mouvement STOJOU) — vérifier le code avec rechercherArticle.',
       x3Error: result.x3Error,
     }
   }
@@ -413,8 +415,10 @@ export async function listerReceptions(params: {
   }
 
   // Criticité indexée par (commande achat, article) — la clé du buildCriticiteIndex.
-  let criticiteIndex: Map<string, { niveau: string; joursMarge: number; overdue: boolean; ofs: unknown[] }> | null =
-    null
+  let criticiteIndex: Map<
+    string,
+    { niveau: string; joursMarge: number; overdue: boolean; ofs: unknown[] }
+  > | null = null
   let criticiteError: string | null = null
   if (params.criticite) {
     const crit = await loader.loadReceptionCriticite({ from, horizonDays })
@@ -486,20 +490,22 @@ export async function listerReceptions(params: {
  * Statuts des commandes clientes sur une fenêtre (moteur order-impacts,
  * pipeline /programme) : on_time | stock | retard | bloquee | sans_couverture.
  */
-export async function listerCommandesStatut(params: {
-  /** Horizon jours (défaut 14, max 90). */
-  horizonDays?: number
-  /** Début ISO (défaut aujourd'hui). */
-  from?: string
-  /** Filtre client (sous-chaîne, insensible à la casse). */
-  client?: string
-  /** Filtre statuts : on_time | stock | retard | bloquee | sans_couverture. */
-  statuts?: string[]
-  /** Filtre nature : 'commande' (ferme client SORDER) | 'prevision' (budget CBN). */
-  nature?: string[]
-  /** Max lignes (défaut 60, max 150). */
-  limit?: number
-} = {}) {
+export async function listerCommandesStatut(
+  params: {
+    /** Horizon jours (défaut 14, max 90). */
+    horizonDays?: number
+    /** Début ISO (défaut aujourd'hui). */
+    from?: string
+    /** Filtre client (sous-chaîne, insensible à la casse). */
+    client?: string
+    /** Filtre statuts : on_time | stock | retard | bloquee | sans_couverture. */
+    statuts?: string[]
+    /** Filtre nature : 'commande' (ferme client SORDER) | 'prevision' (budget CBN). */
+    nature?: string[]
+    /** Max lignes (défaut 60, max 150). */
+    limit?: number
+  } = {}
+) {
   const horizonRaw = params.horizonDays ?? 14
   const horizon =
     Number.isFinite(horizonRaw) && horizonRaw > 0 ? Math.min(Math.floor(horizonRaw), 90) : 14
@@ -632,16 +638,18 @@ export function fenetreSemaines(
  * Charge vs capacité par poste (payload /charge). Sans filtre : agrégats par poste.
  * Avec `poste` : détail hebdo (charge, capacité, saturation).
  */
-export async function getCharge(params: {
-  /** Filtre poste (sous-chaîne sur code ou libellé, insensible à la casse). */
-  poste?: string
-  /** Début horizon ISO (défaut mois courant ; horizon calculé sur 6 mois). */
-  start?: string
-  /** Nombre de semaines à partir de la semaine courante. Omis : les 6 mois entiers. */
-  semaines?: number
-  /** Vue : 'of' = OF réels du plan (défaut) ; 'commandes' = besoin commandes explosé. */
-  vue?: 'of' | 'commandes'
-} = {}) {
+export async function getCharge(
+  params: {
+    /** Filtre poste (sous-chaîne sur code ou libellé, insensible à la casse). */
+    poste?: string
+    /** Début horizon ISO (défaut mois courant ; horizon calculé sur 6 mois). */
+    start?: string
+    /** Nombre de semaines à partir de la semaine courante. Omis : les 6 mois entiers. */
+    semaines?: number
+    /** Vue : 'of' = OF réels du plan (défaut) ; 'commandes' = besoin commandes explosé. */
+    vue?: 'of' | 'commandes'
+  } = {}
+) {
   const payload = await loadChargePayloadData({ start: params.start })
   const vue = params.vue === 'commandes' ? 'commandes' : 'of'
   const lines = vue === 'commandes' ? payload.cmdLines : payload.ofLines
@@ -660,9 +668,9 @@ export async function getCharge(params: {
     const chargeParSemaine = l.weekly.map(periodTotal).slice(from, to)
     const capaciteParSemaine = l.capacity.weekly.slice(from, to)
     let semainesSaturees = 0
-    for (let i = 0; i < chargeParSemaine.length; i++) {
+    for (const [i, element] of chargeParSemaine.entries()) {
       const cap = capaciteParSemaine[i] ?? 0
-      if (cap > 0 && chargeParSemaine[i] > cap) semainesSaturees++
+      if (cap > 0 && element > cap) semainesSaturees++
     }
     return {
       poste: l.code,

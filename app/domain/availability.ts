@@ -1,5 +1,5 @@
 import type { Flow } from './models/flow.js'
-import { type DispoPolicy, includesReceptions } from './dispo-policy.js'
+import { type DispoPolicy, includesReceptions } from './dispo_policy.js'
 
 export function currentStock(flows: Flow[], article: string): number {
   return flows

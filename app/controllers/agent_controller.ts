@@ -19,11 +19,7 @@
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
-import {
-  createUIMessageStream,
-  JsonToSseTransformStream,
-  UI_MESSAGE_STREAM_HEADERS,
-} from 'ai'
+import { createUIMessageStream, JsonToSseTransformStream, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 
 import { AgentUIMessageMapper, rehydrateAppLinks } from '#services/agent/ui_message_stream'
 import { assertAgentProviderConfigured, runAgentTurn } from '#services/agent_service'
@@ -36,18 +32,11 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
-function asIdMap(
-  v: unknown
-): Record<string, string | number | null | undefined> | undefined {
+function asIdMap(v: unknown): Record<string, string | number | null | undefined> | undefined {
   if (!isPlainObject(v)) return undefined
   const out: Record<string, string | number | null | undefined> = {}
   for (const [k, val] of Object.entries(v)) {
-    if (
-      val === null ||
-      val === undefined ||
-      typeof val === 'string' ||
-      typeof val === 'number'
-    ) {
+    if (val === null || val === undefined || typeof val === 'string' || typeof val === 'number') {
       out[k] = val as string | number | null | undefined
     }
   }

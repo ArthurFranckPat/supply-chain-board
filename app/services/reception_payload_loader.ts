@@ -186,7 +186,9 @@ async function computePayload(from: string, to: string): Promise<ReceptionsPaylo
       // informatif (colisage) et son absence n'empêche pas de compter les palettes.
       const coefManquant = !(input.ucParPal && input.ucParPal > 0)
       const paire = coefManquant ? (estimator.get(input.article) ?? null) : null
-      const estimation: EstimationResult | null = paire ? (paire.stock ?? paire.stojou ?? null) : null
+      const estimation: EstimationResult | null = paire
+        ? (paire.stock ?? paire.stojou ?? null)
+        : null
       return { input, estimation }
     }
   )

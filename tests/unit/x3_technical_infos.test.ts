@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { parseTechnicalInfos, parseResponse } from '#app/x3/response-parser'
+import { parseTechnicalInfos, parseResponse } from '#app/x3/response_parser'
 
 // Enveloppe SOAP réaliste : bloc <technicalInfos> tel que renvoyé par Syracuse
 // (CAdxWebServiceXmlCC), durées en ms. Issue #39, WI-1.

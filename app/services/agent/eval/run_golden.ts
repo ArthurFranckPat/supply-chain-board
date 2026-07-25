@@ -8,7 +8,11 @@
 import { Type } from 'typebox'
 import { defineTool, type ToolDefinition } from '@earendil-works/pi-coding-agent'
 import { createAgentRuntime } from '#services/agent_service'
-import { GOLDEN_CASES, type GoldenCase, type GoldenToolName } from '#services/agent/eval/golden_cases'
+import {
+  GOLDEN_CASES,
+  type GoldenCase,
+  type GoldenToolName,
+} from '#services/agent/eval/golden_cases'
 import { scoreCase, type ScoreResult } from '#services/agent/eval/scorer'
 
 function resolveMock(
@@ -43,7 +47,11 @@ function resolveMock(
 }
 
 function buildMockTools(gc: GoldenCase): ToolDefinition[] {
-  const wrap = (name: GoldenToolName, description: string, parameters: ReturnType<typeof Type.Object>) =>
+  const wrap = (
+    name: GoldenToolName,
+    description: string,
+    parameters: ReturnType<typeof Type.Object>
+  ) =>
     defineTool({
       name,
       label: name,

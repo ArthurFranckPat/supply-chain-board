@@ -16,7 +16,7 @@ export interface SoapResponse {
   count: number
   error: string
   /** Diagnostic X3 par appel (issue #39, WI-1). Voir response-parser.TechnicalInfos. */
-  tech?: import('./response-parser.js').TechnicalInfos
+  tech?: import('./response_parser.js').TechnicalInfos
 }
 
 export interface X3Queryable {

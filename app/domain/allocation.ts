@@ -7,7 +7,7 @@
 
 import type { Nomenclature } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
-import type { StockState } from './stock-state.js'
+import type { StockState } from './stock_state.js'
 
 export interface CandidateOF {
   numOf: string

@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { explodeCharge, netCharge } from '#app/domain/charge-explosion'
+import { explodeCharge, netCharge } from '#app/domain/charge_explosion'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 

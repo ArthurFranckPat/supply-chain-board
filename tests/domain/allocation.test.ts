@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { StockState } from '#app/domain/stock-state'
+import { StockState } from '#app/domain/stock_state'
 import {
   reserveCandidateComponents,
   computeDirectComponentShortages,
@@ -10,8 +10,8 @@ import {
   type AllocationLoader,
   type ErpAllocation,
 } from '#app/domain/allocation'
-import type { StockRecord } from '#app/domain/recursive-checker'
-import { evaluateRuptures, type RuptureDataset } from '#app/domain/rupture-engine'
+import type { StockRecord } from '#app/domain/recursive_checker'
+import { evaluateRuptures, type RuptureDataset } from '#app/domain/rupture_engine'
 
 function makeArticle(
   code: string,

@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
 import { ScenarioStore } from '#services/scenario_store'
-import type { PlanMutation } from '#app/domain/plan-diff'
+import type { PlanMutation } from '#app/domain/plan_diff'
 
 const M: PlanMutation[] = [
   {

@@ -12,7 +12,9 @@ export default class X3DataController {
     // jamais être exposé en production — on renvoie 404 (et non 403) pour ne pas
     // révéler l'existence de la route. Conservation du code pour env test/dev.
     if (app.inProduction) {
-      return ctx.response.notFound({ message: 'Endpoint de debug disponible en environnement de test uniquement' })
+      return ctx.response.notFound({
+        message: 'Endpoint de debug disponible en environnement de test uniquement',
+      })
     }
 
     const { sql, params } = ctx.request.only(['sql', 'params'])

@@ -4,7 +4,7 @@ import {
   evaluateMfgFeasibility,
   buildStrictQcStock,
   type MfgMaterialInput,
-} from '#app/domain/of-feasibility'
+} from '#app/domain/of_feasibility'
 
 function stockFlow(article: string, quantity: number, subType: 'strict' | 'qc' | 'rejected'): Flow {
   return {

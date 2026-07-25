@@ -163,10 +163,7 @@ test.group('buildCriticiteIndex', () => {
       shortage({ verdict: 'sous_ensemble', component: 'COMP4' }),
       shortage({ verdict: 'sans_couverture', component: 'COMP5' }),
     ])
-    assert.deepEqual(
-      items.map((i) => i.article).sort(),
-      ['COMP1', 'COMP2']
-    )
+    assert.deepEqual(items.map((i) => i.article).sort(), ['COMP1', 'COMP2'])
   })
 
   test('ignore les lignes sans réception rattachée', ({ assert }) => {

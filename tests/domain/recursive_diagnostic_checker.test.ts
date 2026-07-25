@@ -7,13 +7,13 @@ import type {
   ConsumptionNature,
 } from '#app/domain/models/nomenclature'
 import type { ErpAllocation } from '#app/domain/allocation'
-import type { MfgMaterialInput } from '#app/domain/of-feasibility'
-import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive-checker'
+import type { MfgMaterialInput } from '#app/domain/of_feasibility'
+import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive_checker'
 import {
   RecursiveDiagnosticChecker,
   type DiagnosticLoader,
   type RecursiveDiagnosticResult,
-} from '#app/domain/recursive-diagnostic-checker'
+} from '#app/domain/recursive_diagnostic_checker'
 
 const DATE = new Date('2026-06-20')
 

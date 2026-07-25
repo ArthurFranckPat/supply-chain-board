@@ -27,6 +27,7 @@ export default class X3DatabaseProvider {
 
   /** Register X3Dialect in Lucid's dialect registry. */
   private async patchLucidDialects(): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- reproduit le global CJS absent en ESM
     const __dirname = fileURLToPath(new URL('.', import.meta.url))
     const dialectPath = resolve(
       __dirname,
@@ -50,6 +51,7 @@ export default class X3DatabaseProvider {
    * Same pattern Lucid uses internally for 'libsql'.
    */
   private async patchConnection(): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- reproduit le global CJS absent en ESM
     const __dirname = fileURLToPath(new URL('.', import.meta.url))
     const connPath = resolve(
       __dirname,

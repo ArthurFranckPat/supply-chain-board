@@ -32,10 +32,7 @@ import cache from '@adonisjs/cache/services/main'
 import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
-import {
-  isoWeekKey,
-  type StockArticleHistory,
-} from '#repositories/stock_valuation_repository'
+import { isoWeekKey, type StockArticleHistory } from '#repositories/stock_valuation_repository'
 
 /** Point hebdomadaire de la projection (seaux S+1 … S+52). */
 export interface StockFuturePoint {
@@ -171,8 +168,8 @@ function computeIndicateurs(
     Math.round((firstMonday.getTime() - refDate.getTime()) / 86_400_000)
   )
 
-  for (let i = 0; i < future.length; i++) {
-    const besoin = future[i].besoinQte
+  for (const [i, element] of future.entries()) {
+    const besoin = element.besoinQte
     if (besoin <= 0) continue
     if (restant >= besoin) {
       restant -= besoin
@@ -183,7 +180,7 @@ function computeIndicateurs(
     const fraction = besoin > 0 ? restant / besoin : 0
     const jourDansSeau = i * 7 + fraction * 7
     couvertureProspectiveJours = round2(joursAvantPremierSeau + jourDansSeau)
-    ruptureSemaine = future[i].periode
+    ruptureSemaine = element.periode
     const d = new Date(firstMonday.getTime() + jourDansSeau * 86_400_000)
     ruptureDateIso = isoDay(d)
     restant = 0

@@ -342,7 +342,9 @@ export class CombinedOrdersRepository {
     article: string,
     _fromIso: string,
     toIso: string
-  ): Promise<Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }>> {
+  ): Promise<
+    Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }>
+  > {
     const to = toIso.replace(/-/g, '')
     const itmr = article.replace(/'/g, "''")
     const db = new X3Database()
@@ -367,7 +369,11 @@ WHERE O.ITMREF_0 = '${itmr}'
       6: 'composant',
     }
 
-    const out: Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }> = []
+    const out: Array<{
+      kind: 'demande' | 'composant' | 'reception' | 'of'
+      date: Date | null
+      qty: number
+    }> = []
     for (const row of rows) {
       const kind = KIND_BY_WIPTYP[Number.parseInt(row.WIPTYP_0 ?? '0')]
       if (!kind) continue

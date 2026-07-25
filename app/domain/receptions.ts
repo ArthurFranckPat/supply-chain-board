@@ -222,8 +222,7 @@ export function buildCriticiteIndex(rows: ShortageRowLike[]): ReceptionCriticite
     }))
     .sort(
       (x, y) =>
-        Number(y.niveau === 'retard') - Number(x.niveau === 'retard') ||
-        x.joursMarge - y.joursMarge
+        Number(y.niveau === 'retard') - Number(x.niveau === 'retard') || x.joursMarge - y.joursMarge
     )
 }
 

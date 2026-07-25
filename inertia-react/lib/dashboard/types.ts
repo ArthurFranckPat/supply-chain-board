@@ -99,7 +99,12 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
     }
     for (const id of KPI_IDS) {
       if (!seen.has(id)) {
-        const def = DEFAULT_DASHBOARD_LAYOUT.items.find((d) => d.id === id) ?? { x: 0, y: 0, w: GRID_COLS / 3, h: 10 }
+        const def = DEFAULT_DASHBOARD_LAYOUT.items.find((d) => d.id === id) ?? {
+          x: 0,
+          y: 0,
+          w: GRID_COLS / 3,
+          h: 10,
+        }
         merged.push({ id, visible: true, width: 1, x: def.x, y: def.y, w: def.w, h: def.h })
       }
     }

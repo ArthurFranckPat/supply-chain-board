@@ -275,7 +275,11 @@ function buildRefPeriods(
     let cur = toMonday(from)
     const end = toMonday(to)
     while (cur.getTime() <= end.getTime()) {
-      periods.push({ key: periodKey(cur, 'semaine'), label: periodLabel(cur, 'semaine'), date: new Date(cur) })
+      periods.push({
+        key: periodKey(cur, 'semaine'),
+        label: periodLabel(cur, 'semaine'),
+        date: new Date(cur),
+      })
       cur = new Date(cur.getTime() + 7 * 86_400_000)
     }
   } else {
@@ -283,7 +287,11 @@ function buildRefPeriods(
     let cur = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1))
     const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1))
     while (cur.getTime() <= end.getTime()) {
-      periods.push({ key: periodKey(cur, 'mois'), label: periodLabel(cur, 'mois'), date: new Date(cur) })
+      periods.push({
+        key: periodKey(cur, 'mois'),
+        label: periodLabel(cur, 'mois'),
+        date: new Date(cur),
+      })
       cur = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1))
     }
   }
@@ -293,7 +301,9 @@ function buildRefPeriods(
 /** Défaut : 12 périodes glissantes jusqu'à `refDate`. Exporté pour que le
  *  contrôleur puisse résoudre la plage (clé de cache stable) avant l'appel. */
 export function defaultStockRange(grain: StockGrain, refDate: Date): { from: Date; to: Date } {
-  const to = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), refDate.getUTCDate()))
+  const to = new Date(
+    Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), refDate.getUTCDate())
+  )
   if (grain === 'semaine') {
     const from = new Date(to.getTime() - 11 * 7 * 86_400_000)
     return { from, to }
@@ -463,7 +473,9 @@ export class StockValuationRepository {
   ): Promise<StockArticleHistory | null> {
     // 52 semaines glissantes (12 mois) : buildRefPeriods aligne sur les lundis,
     // soit 53 points hebdomadaires entre `from` et `to`.
-    const to = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), refDate.getUTCDate()))
+    const to = new Date(
+      Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), refDate.getUTCDate())
+    )
     const from = new Date(to.getTime() - 52 * 7 * 86_400_000)
     const refPeriods = buildRefPeriods('semaine', from, to)
     const fromStr = toYYYYMMDD(from)

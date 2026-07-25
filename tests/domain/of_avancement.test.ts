@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import type { OperationRecord } from '#repositories/operation_repository'
-import { computeAvancement } from '#app/domain/of-avancement'
+import { computeAvancement } from '#app/domain/of_avancement'
 
 function op(
   mfgnum: string,

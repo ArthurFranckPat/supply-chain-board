@@ -127,7 +127,7 @@ FROM (
         const description = String(r.ITMDES1_0 ?? '').trim()
         const category = String(r.TCLCOD_0 ?? '').trim()
         const supplyType = String(r.MFGFLG_0 ?? '1') === '2' ? 'FABRICATION' : 'ACHAT'
-        
+
         let delay = 14
         if (supplyType === 'FABRICATION') {
           delay = Number(r.MFGLTI_0) || 10

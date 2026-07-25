@@ -64,12 +64,14 @@ export default class StockAudit extends BaseCommand {
       )
 
       // --- Cohérence globale : Σ journal (toute l'histoire) vs stock actuel ---
-      const hist = ((await db.raw(
-        `SELECT SUM(CASE WHEN QTYSTU_0 > 0 THEN QTYSTU_0 ELSE 0 END) AS TOTIN,
+      const hist = (
+        (await db.raw(
+          `SELECT SUM(CASE WHEN QTYSTU_0 > 0 THEN QTYSTU_0 ELSE 0 END) AS TOTIN,
                 SUM(CASE WHEN QTYSTU_0 < 0 THEN ABS(QTYSTU_0) ELSE 0 END) AS TOTOUT,
                 SUM(QTYSTU_0) AS NETALL
          FROM STOJOU WHERE STOFCY_0 = '${SITE}' AND ITMREF_0 = '${article}'`
-      )) as Record<string, string | null>[])[0]
+        )) as Record<string, string | null>[]
+      )[0]
       const netAll = num(hist?.NETALL)
       const ecart = netAll - stkNow
       // Entrées/sorties BRUTES ici (lignes du journal, sans nettage par
@@ -111,8 +113,7 @@ export default class StockAudit extends BaseCommand {
       // Un CBN équilibre l'offre sur la demande : deux totaux du même ordre de
       // grandeur sont la signature d'une lecture correcte d'ORDERS. Un écart
       // de plusieurs ordres trahit une nature manquante (issue #88).
-      const somme = (...kinds: string[]) =>
-        kinds.reduce((t, k) => t + (byKind.get(k)?.qty ?? 0), 0)
+      const somme = (...kinds: string[]) => kinds.reduce((t, k) => t + (byKind.get(k)?.qty ?? 0), 0)
       this.logger.info(
         `Projection — Σ besoins ${Math.round(somme('demande', 'composant'))} · Σ ressources ${Math.round(somme('reception', 'of'))}`
       )
@@ -141,9 +142,7 @@ export default class StockAudit extends BaseCommand {
             'Prospectif : aucune rupture sur l’horizon de projection, réceptions exclues.'
           )
         } else {
-          const dateFr = i.ruptureDateIso
-            ? i.ruptureDateIso.split('-').reverse().join('/')
-            : '—'
+          const dateFr = i.ruptureDateIso ? i.ruptureDateIso.split('-').reverse().join('/') : '—'
           this.logger.info(
             `Prospectif : rupture le ${dateFr} (${i.ruptureSemaine}), soit ${i.couvertureProspectiveJours} j — besoins réels déroulés, réceptions exclues.`
           )
@@ -151,10 +150,10 @@ export default class StockAudit extends BaseCommand {
             // L'écart entre les deux couvertures mesure la platitude de la
             // demande. Hors bande, la moyenne glissante ne décrit plus le
             // régime à venir et ne doit pas servir à décider.
-            const ecart = Math.round((i.couvertureProspectiveJours / i.couvertureJours) * 100)
-            const horsBande = ecart > 120 || ecart < 80
+            const ecartRegime = Math.round((i.couvertureProspectiveJours / i.couvertureJours) * 100)
+            const horsBande = ecartRegime > 120 || ecartRegime < 80
             this.logger.info(
-              `  Écart avec le régime moyen : ${ecart} %${horsBande ? ' — la demande n’est PAS plate, la CMJ historique ne décrit pas le régime à venir.' : ' — demande à peu près plate, les deux lectures concordent.'}`
+              `  Écart avec le régime moyen : ${ecartRegime} %${horsBande ? ' — la demande n’est PAS plate, la CMJ historique ne décrit pas le régime à venir.' : ' — demande à peu près plate, les deux lectures concordent.'}`
             )
           }
         }
@@ -175,7 +174,9 @@ export default class StockAudit extends BaseCommand {
              AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD') ORDER BY IPTDAT_0`
         )
       } catch {
-        this.logger.warning('Colonnes MVTDES_0/ORIGINNUM_0/USR_0 refusées — repli IPTDAT/QTYSTU/LOT/VCR')
+        this.logger.warning(
+          'Colonnes MVTDES_0/ORIGINNUM_0/USR_0 refusées — repli IPTDAT/QTYSTU/LOT/VCR'
+        )
         rows = await db.raw(
           `SELECT IPTDAT_0, QTYSTU_0, LOT_0, VCRTYP_0, VCRNUM_0
            FROM STOJOU WHERE STOFCY_0 = '${SITE}' AND ITMREF_0 = '${article}'
@@ -237,7 +238,9 @@ export default class StockAudit extends BaseCommand {
       let postRef = 0
       for (const [key, w] of weeks) if (key > toKey) postRef += w.net
       const anchor = stkNow - postRef
-      this.logger.info(`Mouvements postérieurs à la fenêtre : ${postRef} → ancre de départ ${anchor}`)
+      this.logger.info(
+        `Mouvements postérieurs à la fenêtre : ${postRef} → ancre de départ ${anchor}`
+      )
 
       const closes = new Map<string, number>()
       const negWeeks: string[] = []
@@ -275,7 +278,9 @@ export default class StockAudit extends BaseCommand {
           `── ${key} · stock_fin reconstruit ${Math.round((closes.get(key) ?? 0) * 100) / 100} ──`
         )
         if (!w) {
-          this.logger.info('  (aucun mouvement cette semaine — le négatif vient des semaines suivantes)')
+          this.logger.info(
+            '  (aucun mouvement cette semaine — le négatif vient des semaines suivantes)'
+          )
           continue
         }
         for (const l of w.lines) {

@@ -40,8 +40,7 @@ export interface GoldenCase {
   mocks: Partial<
     Record<
       GoldenToolName,
-      | unknown
-      | { byArgs: Array<{ match: Record<string, unknown>; result: unknown }> }
+      unknown | { byArgs: Array<{ match: Record<string, unknown>; result: unknown }> }
     >
   >
   /** Racines attendues — scorées par inclusion (case-insensitive). */
@@ -88,8 +87,7 @@ const promise = (over: Record<string, unknown>) => ({
 export const GOLDEN_CASES: GoldenCase[] = [
   {
     id: 'G01-rupture-feuille-directe',
-    question:
-      "Pourquoi l'OF MFG-1001 est en retard / bloqué ? Trouve la racine matière exacte.",
+    question: "Pourquoi l'OF MFG-1001 est en retard / bloqué ? Trouve la racine matière exacte.",
     mocks: {
       getVerdict: verdict({
         of: {
@@ -191,9 +189,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
         feasible: false,
         missingDirect: [{ article: 'SE-NIVEAU-1', qty: 20 }],
         missingCount: 1,
-        missingDetail: [
-          { article: 'SE-NIVEAU-1', shortage: 20, depth: 0, fabricated: true },
-        ],
+        missingDetail: [{ article: 'SE-NIVEAU-1', shortage: 20, depth: 0, fabricated: true }],
       }),
       descendreBOM: bom({
         numOf: 'MFG-3003',
@@ -339,8 +335,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G06-promesse-appro-sans-po',
-    question:
-      "Date au plus tôt engageante pour 500 PCS de FILTRE-Z si on n'a ni stock ni PO ?",
+    question: "Date au plus tôt engageante pour 500 PCS de FILTRE-Z si on n'a ni stock ni PO ?",
     mocks: {
       getPromise: promise({
         article: 'FILTRE-Z',
@@ -380,8 +375,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G07-liste-retards-horizon',
-    question:
-      'Quels retards clients sont prévus sur les 14 prochains jours ? Priorise le pire.',
+    question: 'Quels retards clients sont prévus sur les 14 prochains jours ? Priorise le pire.',
     mocks: {
       listerRetardsPrevus: {
         _source: 'listerRetardsPrevus',
@@ -444,7 +438,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   {
     id: 'G08-chaine-of-vers-promesse-feuille',
     question:
-      "OF MFG-5005 bloqué : trouve la racine puis donne la date engageante pour couvrir le manque de la feuille (qté manquante).",
+      'OF MFG-5005 bloqué : trouve la racine puis donne la date engageante pour couvrir le manque de la feuille (qté manquante).',
     mocks: {
       getVerdict: verdict({
         of: {
@@ -458,9 +452,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
         feasible: false,
         missingDirect: [{ article: 'ACH-STATOR', qty: 40 }],
         missingCount: 1,
-        missingDetail: [
-          { article: 'ACH-STATOR', shortage: 40, depth: 0, fabricated: false },
-        ],
+        missingDetail: [{ article: 'ACH-STATOR', shortage: 40, depth: 0, fabricated: false }],
       }),
       getPromise: {
         byArgs: [
@@ -506,8 +498,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G09-ne-pas-inventer-chiffre',
-    question:
-      "Combien d'unités manquent sur l'OF MFG-6006 et de quel article ?",
+    question: "Combien d'unités manquent sur l'OF MFG-6006 et de quel article ?",
     mocks: {
       getVerdict: verdict({
         of: {
@@ -540,8 +531,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G10-qc-a-controler',
-    question:
-      "Retour diagnostic OF MFG-7007 : que signifie le statut et quelle action ?",
+    question: 'Retour diagnostic OF MFG-7007 : que signifie le statut et quelle action ?',
     mocks: {
       descendreBOM: bom({
         numOf: 'MFG-7007',
@@ -574,8 +564,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G11-multi-manquants-prioriser',
-    question:
-      "OF MFG-8008 a plusieurs manques. Lequel traite-t-on d'abord (plus gros manque) ?",
+    question: "OF MFG-8008 a plusieurs manques. Lequel traite-t-on d'abord (plus gros manque) ?",
     mocks: {
       getVerdict: verdict({
         of: {
@@ -608,7 +597,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G12-retard-prevision-filtre-article',
-    question: 'Y a-t-il des retards prévus sur l\'article PF-OMEGA uniquement ?',
+    question: "Y a-t-il des retards prévus sur l'article PF-OMEGA uniquement ?",
     mocks: {
       listerRetardsPrevus: {
         _source: 'listerRetardsPrevus',
@@ -710,9 +699,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
   {
     id: 'G14-multi-tour-contexte',
     question: "Pourquoi l'OF MFG-7007 est bloqué ?",
-    turns: [
-      'Et quelle date engageante pour couvrir ce composant manquant (quantité manquante) ?',
-    ],
+    turns: ['Et quelle date engageante pour couvrir ce composant manquant (quantité manquante) ?'],
     mocks: {
       getVerdict: verdict({
         of: { numOf: 'MFG-7007', article: 'PF-EPSILON', quantity: 40, statutNum: 2 },
@@ -720,9 +707,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
         feasible: false,
         missingDirect: [{ article: 'ACH-CAPTEUR-12', qty: 60 }],
         missingCount: 1,
-        missingDetail: [
-          { article: 'ACH-CAPTEUR-12', shortage: 60, depth: 0, fabricated: false },
-        ],
+        missingDetail: [{ article: 'ACH-CAPTEUR-12', shortage: 60, depth: 0, fabricated: false }],
       }),
       getPromise: {
         byArgs: [
@@ -925,7 +910,8 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
   {
     id: 'G18-commandes-a-risque',
-    question: 'Quelles commandes clientes sont à risque ou en retard sur les 2 prochaines semaines ?',
+    question:
+      'Quelles commandes clientes sont à risque ou en retard sur les 2 prochaines semaines ?',
     mocks: {
       listerCommandesStatut: {
         _source: 'listerCommandesStatut',

@@ -22,7 +22,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 
-import type { X3SoapConfig } from './soap-client.js'
+import type { X3SoapConfig } from './soap_client.js'
 
 export type ObjectOperation = 'read' | 'save' | 'modify' | 'delete' | 'getDescription' | 'queryList'
 

@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import { buildProactiveDisplay } from '#controllers/suivi_controller'
-import type { OrderImpactResult } from '#app/domain/order-impacts'
+import type { OrderImpactResult } from '#app/domain/order_impacts'
 
 /**
  * Tests de la projection buildProactiveDisplay (vue proactive).

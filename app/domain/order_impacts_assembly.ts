@@ -7,8 +7,8 @@ import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { NomenclatureEntry } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
-import type { MfgMaterialInput } from './of-feasibility.js'
-import { evaluateRuptures, directMissing, type RuptureOfInput } from './rupture-engine.js'
+import type { MfgMaterialInput } from './of_feasibility.js'
+import { evaluateRuptures, directMissing, type RuptureOfInput } from './rupture_engine.js'
 
 /**
  * Applique les overrides de date de ligne de commande (clé `id#ligne`) aux demandes.

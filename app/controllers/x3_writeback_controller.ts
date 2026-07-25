@@ -5,8 +5,8 @@ import {
   callQueryList,
   type ObjectKeyValue,
   type ObjectOperation,
-} from '#app/x3/object-client'
-import { callRunSubprog } from '#app/x3/run-client'
+} from '#app/x3/object_client'
+import { callRunSubprog } from '#app/x3/run_client'
 
 /**
  * Contrôleur d'EXPÉRIMENTATION du write-back X3 (issue #29).

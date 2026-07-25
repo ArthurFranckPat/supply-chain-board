@@ -35,15 +35,16 @@ export default class PlanningBoardController {
   async update(ctx: HttpContext) {
     const numOf = String(ctx.params.of ?? '')
     if (!OF_RE.test(numOf)) {
-      return ctx.response.badRequest({ error: 'Numéro d\'OF invalide' })
+      return ctx.response.badRequest({ error: "Numéro d'OF invalide" })
     }
 
     // H4 — on valide le body avant de persister : status ∈ {1,2,3},
     // dates ISO, workstation texte non-vide, note plafonnée. Sans cela, un
     // payload arbitraire pouvait corrompre `precomputeMfgFeasibility` + le
     // matcher OF↔commande via une valeur hors domaine en SQLite.
-    const { dateDebut, dateFin, status, workstation, note } =
-      await ctx.request.validateUsing(planningBoardUpdateValidator)
+    const { dateDebut, dateFin, status, workstation, note } = await ctx.request.validateUsing(
+      planningBoardUpdateValidator
+    )
     await this.store.save(numOf, { dateDebut, dateFin, status, workstation, note })
 
     return {
@@ -69,7 +70,11 @@ export default class PlanningBoardController {
     windowFrom.setHours(0, 0, 0, 0)
     windowTo.setHours(23, 59, 59, 999)
 
-    if (isNaN(windowFrom.getTime()) || isNaN(windowTo.getTime()) || windowTo <= windowFrom) {
+    if (
+      Number.isNaN(windowFrom.getTime()) ||
+      Number.isNaN(windowTo.getTime()) ||
+      windowTo <= windowFrom
+    ) {
       return ctx.response.badRequest({ error: 'Dates invalides' })
     }
 
@@ -146,7 +151,8 @@ export default class PlanningBoardController {
     if (!q) return ctx.response.badRequest({ error: 'Paramètre "q" requis' })
     let gamme: GammeOperation[] = []
     try {
-      gamme = (await boardDataset.getReferential()).gamme
+      const referential = await boardDataset.getReferential()
+      gamme = referential.gamme
     } catch {
       /* référentiel indisponible → réponse vide */
     }
@@ -171,7 +177,8 @@ export default class PlanningBoardController {
     if (!q) return ctx.response.badRequest({ error: 'Paramètre "q" requis' })
     let mos: ManufacturingOrder[] = []
     try {
-      mos = (await boardDataset.getOrders()).mos
+      const orders = await boardDataset.getOrders()
+      mos = orders.mos
     } catch {
       /* ordres indisponibles → réponse vide */
     }
@@ -195,7 +202,8 @@ export default class PlanningBoardController {
     if (!q) return ctx.response.badRequest({ error: 'Paramètre "q" requis' })
     let mos: ManufacturingOrder[] = []
     try {
-      mos = (await boardDataset.getOrders()).mos
+      const orders = await boardDataset.getOrders()
+      mos = orders.mos
     } catch {
       /* ordres indisponibles → réponse vide */
     }
