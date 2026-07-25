@@ -1,6 +1,6 @@
 /*
 |--------------------------------------------------------------------------
-| MCP supply-board — serveur stdio autonome (issue #80, Lot 1)
+| MCP supply-board — point d'entrée stdio (issue #80 Lot 1, issue #89 Lot 1)
 |--------------------------------------------------------------------------
 |
 | Expose les 17 primitives agent de l'app (getVerdict, descendreBOM,
@@ -9,9 +9,13 @@
 | Claude Desktop, autres agents) — sur le modèle du MCP SageX3.
 |
 | Principe non négociable : c'est une **façade** sur le même code que le
-| copilote /copilote. Les 17 tools viennent de `buildAgentTools()` (source de
+| copilote /copilote. Les tools viennent de `buildAgentTools()` (source de
 | vérité unique), qui orchestre les moteurs uniques via boardDataset. Aucune
 | réimplémentation — parité structurelle app vs MCP.
+|
+| Depuis #89 le montage du serveur (tools + MCP Apps) vit dans
+| `app/services/agent/mcp_server.ts`, transport-agnostique. Ce fichier ne fait
+| plus que : booter Adonis, brancher stdio, garder stdout propre.
 |
 | Boot Adonis en mode **console** (Ignitor) : pas de serveur HTTP, mais
 | conteneur monté (cache @adonisjs/cache + Lucid + env + X3). Même séquence
@@ -37,13 +41,7 @@ await import('reflect-metadata')
 const { Ignitor, prettyPrintError } = await import('@adonisjs/core')
 // Imports profond via sous-chemins explicites (.js requis) : le export racine
 // "." du SDK pointe vers un index.js inexistant (bug connu du SDK 1.x).
-const { Server } = await import('@modelcontextprotocol/sdk/server/index.js')
 const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
-const {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} = await import('@modelcontextprotocol/sdk/types.js')
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 /**
  * Pendant le boot Adonis, `start/env.ts` importe `@dotenvx/dotenvx/config` qui
@@ -66,15 +64,6 @@ const IMPORTER = (filePath: string) => {
   }
   return import(filePath)
 }
-
-// Version lue depuis package.json : les payloads `_source` deviennent un
-// contrat public (issue #80) → la version exposée doit suivre le package,
-// pas une constante qu'on oublie de bumper.
-const { readFile } = await import('node:fs/promises')
-const PKG_VERSION: string = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
-  .version
-
-const SERVER_INFO = { name: 'supply-board', version: PKG_VERSION } as const
 
 async function main() {
   // ─── 1. Boot Adonis "console" (conteneur monté, pas de HTTP) ───
@@ -147,55 +136,16 @@ async function main() {
     // Tables absentes → le warning migration ci-dessus couvre déjà le diagnostic.
   }
 
-  // ─── 2. Construction des tools (source de vérité unique) ───
-  const { buildAgentTools } = await import('#services/agent/tools')
-  const { adaptPiToolsForMcp } = await import('#services/agent/mcp_adapter')
-  const tools = adaptPiToolsForMcp(buildAgentTools())
-  const byName = new Map(tools.map((t) => [t.name, t]))
-
-  if (tools.length === 0) {
-    console.error('[supply-board MCP] Aucun tool exposé — buildAgentTools() a retourné []')
-    process.exit(1)
-  }
-
-  // ─── 3. Serveur MCP low-level (accepte du JSON Schema brut → TypeBox direct) ───
-  // Low-level plutôt que McpServer.tool() : cette dernière exige du Zod
-  // (ZodRawShapeCompat), le low-level accepte le JSON Schema que TypeBox produit
-  // déjà — zéro traduction, zéro dépendance Zod.
-  const server = new Server(SERVER_INFO, {
-    capabilities: { tools: {} },
+  // ─── 2. Montage du serveur MCP (tools + apps, transport-agnostique) ───
+  // Tout est dans app/services/agent/mcp_server.ts : ce fichier n'est plus qu'un
+  // point d'entrée stdio. Le lot 2 de #89 branchera le même montage sur un
+  // InMemoryTransport pour que le backend copilote en soit client.
+  const { createSupplyMcpServer } = await import('#services/agent/mcp_server')
+  const { server, toolNames, appUris } = await createSupplyMcpServer({
+    log: (m) => console.error(m),
   })
 
-  server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: t.inputSchema,
-    })),
-  }))
-
-  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-    const name = request.params.name
-    const tool = byName.get(name)
-    if (!tool) {
-      return {
-        content: [{ type: 'text' as const, text: `Tool inconnu: ${name}` }],
-        isError: true,
-      } satisfies CallToolResult
-    }
-    // L'adapter retourne un payload compatible CallToolResult (content + isError).
-    // Le cast explicite documente la compatibilité de forme — pi `AgentToolResult.content`
-    // et MCP `CallToolResult.content` partagent le même contrat (TextContent|ImageContent).
-    // extra.signal : annulation côté client. Transmis jusqu'à execute(), mais
-    // les tools supply (tools.ts) ne consomment pas encore le signal — un appel
-    // X3 en cours ira au bout. Effectif le jour où les primitives le brancheront.
-    return (await tool.handler(
-      (request.params.arguments ?? {}) as Record<string, unknown>,
-      extra.signal
-    )) as CallToolResult
-  })
-
-  // ─── 4. Connexion stdio (bloquant jusqu'à déconnexion client) ───
+  // ─── 3. Connexion stdio (bloquant jusqu'à déconnexion client) ───
   // Restaure stdout : le boot est fini, la bannière dotenvx a été redirigée
   // vers stderr. Le transport MCP reprend la main sur stdout pour le JSON-RPC.
   process.stdout.write = realStdoutWrite
@@ -213,8 +163,9 @@ async function main() {
   await server.connect(transport)
 
   console.error(
-    `[supply-board MCP] ${tools.length} tools exposés sur stdio: ${tools.map((t) => t.name).join(', ')}`
+    `[supply-board MCP] ${toolNames.length} tools exposés sur stdio: ${toolNames.join(', ')}`
   )
+  console.error(`[supply-board MCP] apps MCP déclarées: ${appUris.join(', ') || 'aucune'}`)
 }
 
 main().catch((error) => {

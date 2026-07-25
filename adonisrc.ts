@@ -114,6 +114,9 @@ export default defineConfig({
   */
   metaFiles: [
     { pattern: 'resources/views/**/*.edge', reloadServer: false },
+    // Apps MCP (issue #89) : lues à l'exécution par mcp_apps.ts, jamais importées
+    // par le code — sans cette entrée, elles manqueraient dans un build compilé.
+    { pattern: 'resources/mcp-apps/**/*.html', reloadServer: false },
     { pattern: 'public/css/**/*.css', reloadServer: false },
     { pattern: 'public/js/**/*.js', reloadServer: false },
     {

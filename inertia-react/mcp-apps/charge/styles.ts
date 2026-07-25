@@ -1,0 +1,148 @@
+/**
+ * Feuille de style de l'app MCP « charge ».
+ *
+ * Exportée en chaîne et injectée par un `<style>` : pas de fichier CSS séparé, pas
+ * de Tailwind, pas de police distante — la CSP de la resource n'autorise aucun
+ * domaine et le bundle doit tenir dans un seul fichier HTML.
+ *
+ * Toutes les couleurs et polices passent par les variables de thème que l'hôte
+ * pousse (`useHostStyles` → `applyHostStyleVariables`), avec un repli neutre : dans
+ * Claude Desktop l'app doit se fondre dans le fil de discussion, dans /copilote dans
+ * le thème Papier. Une palette codée en dur jurerait dans au moins un des deux.
+ */
+
+export const APP_CSS = `
+:root {
+  color-scheme: light dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font-sans, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: var(--font-text-sm-size, 13px);
+  color: var(--color-text-primary, #1a1a1a);
+  background: transparent;
+}
+.app { padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+h1 { font-size: var(--font-heading-sm-size, 15px); margin: 0; font-weight: var(--font-weight-semibold, 600); }
+h2 { font-size: var(--font-text-md-size, 14px); margin: 0 0 2px; font-weight: var(--font-weight-semibold, 600); }
+p { margin: 0; }
+.muted { color: var(--color-text-secondary, #6b6b6b); font-weight: var(--font-weight-normal, 400); }
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.head p { margin-top: 2px; }
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: var(--color-background-secondary, rgba(0,0,0,.04));
+  border: var(--border-width-regular, 1px) solid var(--color-border-primary, rgba(0,0,0,.12));
+  border-radius: var(--border-radius-sm, 6px);
+  padding: 4px 9px;
+}
+button:hover:not(:disabled) { background: var(--color-background-tertiary, rgba(0,0,0,.07)); }
+button:disabled { opacity: .55; cursor: default; }
+button:focus-visible { outline: 2px solid var(--color-ring-primary, #3b82f6); outline-offset: 1px; }
+
+.err { color: var(--color-text-danger, #b42318); }
+.warn {
+  color: var(--color-text-warning, #92400e);
+  background: var(--color-background-warning, rgba(245,158,11,.12));
+  border-radius: var(--border-radius-sm, 6px);
+  padding: 6px 8px;
+}
+
+/* ── Annuaire ── */
+.postes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.poste {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) minmax(90px, 2fr) minmax(120px, auto);
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-sm, 6px);
+  padding: 6px 8px;
+}
+.poste:hover:not(:disabled) { background: var(--color-background-secondary, rgba(0,0,0,.04)); }
+.poste-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.poste-id span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poste-id strong { font-weight: var(--font-weight-medium, 500); }
+
+.jauge {
+  position: relative;
+  display: block;
+  height: 14px;
+  background: var(--color-background-secondary, rgba(0,0,0,.05));
+  border-radius: var(--border-radius-xs, 3px);
+  overflow: hidden;
+}
+.barre {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--color-background-info, #3b82f6);
+  border-radius: inherit;
+}
+.barre.sature { background: var(--color-background-danger, #dc2626); }
+/* Repère de capacité : un trait, pas une barre — il juge, il ne s'additionne pas. */
+.seuil {
+  position: absolute; top: -1px; bottom: -1px; width: 2px;
+  background: var(--color-text-primary, #1a1a1a);
+  opacity: .65;
+}
+.chiffres { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; white-space: nowrap; }
+.taux { font-variant-numeric: tabular-nums; font-weight: var(--font-weight-semibold, 600); }
+.badge {
+  font-size: var(--font-text-xs-size, 11px);
+  color: var(--color-text-danger, #b42318);
+  background: var(--color-background-danger, rgba(220,38,38,.12));
+  border-radius: var(--border-radius-full, 999px);
+  padding: 1px 7px;
+}
+
+/* ── Détail hebdo ── */
+.detail { display: flex; flex-direction: column; gap: 8px; }
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 190px;
+  padding-top: 4px;
+  overflow-x: auto;
+}
+.col { flex: 1 1 0; min-width: 26px; display: flex; flex-direction: column; gap: 4px; height: 100%; }
+.plot { position: relative; flex: 1; display: flex; align-items: flex-end; }
+.bar { width: 100%; background: var(--color-background-info, #3b82f6); border-radius: var(--border-radius-xs, 3px) var(--border-radius-xs, 3px) 0 0; }
+.bar.sature { background: var(--color-background-danger, #dc2626); }
+.cap { position: absolute; left: -1px; right: -1px; height: 2px; background: var(--color-text-primary, #1a1a1a); opacity: .6; }
+.xlabel {
+  font-size: var(--font-text-xs-size, 10px);
+  color: var(--color-text-tertiary, #8a8a8a);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tip {
+  position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -4px);
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 5px 8px;
+  white-space: nowrap;
+  z-index: 2;
+  font-size: var(--font-text-xs-size, 11px);
+  color: var(--color-text-inverse, #fff);
+  background: var(--color-background-inverse, #1a1a1a);
+  border-radius: var(--border-radius-sm, 6px);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0,0,0,.2));
+  pointer-events: none;
+}
+.tip-sature { color: var(--color-text-warning, #fbbf24); }
+
+.legend { display: flex; align-items: center; gap: 6px; color: var(--color-text-tertiary, #8a8a8a); font-size: var(--font-text-xs-size, 11px); }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 8px; }
+.legend .key:first-child { margin-left: 0; }
+.bar-key { background: var(--color-background-info, #3b82f6); }
+.cap-key { height: 2px; border-radius: 0; background: var(--color-text-primary, #1a1a1a); opacity: .6; }
+.sature-key { background: var(--color-background-danger, #dc2626); }
+`
