@@ -5,6 +5,7 @@ import { Boxes } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
 import { toolStatus, type AnyToolPart, type ToolStatus } from '@r/components/copilote/tool-tokens'
+import { ToolResultView } from '@r/components/copilote/tool-result-view'
 
 export interface ToolCallEntry {
   toolName: string
@@ -142,15 +143,13 @@ export function InspectorPanel(props: {
                   {entry.toolName}
                 </span>
               </div>
-              {/* Le panneau est étroit : sans wrap, une valeur longue (note, engine,
-                  libellé article) sortait du cadre et restait invisible — la barre de
-                  scroll horizontale d'un bloc de 300 px ne se trouve pas. On casse
-                  donc les lignes plutôt que de scroller. */}
-              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-secondary p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
-                {entry.status === 'error'
-                  ? entry.errorText
-                  : JSON.stringify(entry.output ?? entry.input, null, 2)}
-              </pre>
+              {entry.status === 'error' ? (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11.5px] text-destructive">
+                  {entry.errorText}
+                </div>
+              ) : (
+                <ToolResultView payload={entry.output} fallbackInput={entry.input} />
+              )}
             </div>
           ))
         )}
