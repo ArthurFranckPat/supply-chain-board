@@ -5,8 +5,8 @@
 import { cn } from '@r/lib/utils'
 import { Receipt, Factory, Package, BookmarkCheck, Truck, Clock, CalendarX, CornerDownRight, CircleCheck } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
-import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@/lib/suivi/tracking-shared'
-import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
+import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
+import type { SuiviDisplayRow, ProactiveDisplayRow } from '@r/lib/suivi/types'
 
 interface SuiviDetailSheetProps {
   type: 'reactif' | 'proactif'

@@ -5,7 +5,7 @@
  */
 import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
-import type { ProactiveDisplayRow } from '@/lib/suivi/types'
+import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import {
   OF_STATUT,
   VERDICT_TONE,
@@ -13,7 +13,7 @@ import {
   VERDICT_TEXT,
   LATE_TONE,
   getRelativeDateLabel,
-} from '@/lib/suivi/tracking-shared'
+} from '@r/lib/suivi/tracking-shared'
 import { CalendarX, CornerDownRight } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { Printer, RefreshCw } from 'lucide-react'
 
 import { Button } from '@r/components/ui/button'
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 
 /**
  * Verdict d'impression du dossier d'OF (issue #85, lot 3).

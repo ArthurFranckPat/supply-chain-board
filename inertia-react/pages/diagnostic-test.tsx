@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Head } from '@inertiajs/react'
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 
 import { Masthead } from '@r/components/masthead'

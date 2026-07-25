@@ -2,7 +2,7 @@
  * Contrat de disposition du tableau de bord (feature KPI personnalisables).
  *
  * Partagé entre le backend (modèle User, validator, controller) et le miroir
- * client `inertia/lib/dashboard/types.ts`. Toute évolution du registre des KPI
+ * client `inertia-react/lib/dashboard/types.ts`. Toute évolution du registre des KPI
  * se fait ici (ajout d'un KpiId + entrée dans DEFAULT_DASHBOARD_LAYOUT).
  *
  * Persistance : JSON sérialisé dans `users.dashboard_layout` (colonne TEXT

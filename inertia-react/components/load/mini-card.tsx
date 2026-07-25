@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { cn } from '@r/lib/utils'
-import type { LoadLine } from '@/lib/load/types'
-import { DANGER, FG, BRAND, rtop, satColor, satRate, segsOf, total } from '@/lib/load/chart-math'
+import type { LoadLine } from '@r/lib/load/types'
+import { DANGER, FG, BRAND, rtop, satColor, satRate, segsOf, total } from '@r/lib/load/chart-math'
 
 /**
  * Mini-graphe (carte poste) de la vue « Projection de charge » (issue #52 —

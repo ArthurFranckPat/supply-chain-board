@@ -1,32 +1,24 @@
 import { defineConfig } from '@adonisjs/inertia'
-import { REACT_ROUTES } from '../inertia/lib/react-routes.js'
 
 /**
  * Configuration Inertia.
  *
- * - `rootView` : shell Edge choisi par route — les routes migrées React
- *   (REACT_ROUTES) chargent le bundle inertia-react, les autres le bundle
- *   Solid. Migration progressive, cf. .planning/react-shadcn-migration-plan.md.
+ * - `rootView` : shell Edge unique — SolidJS retiré (#91), toutes les pages
+ *   sont servies par le bundle `inertia-react`.
  * - SSR désactivé (SPA) : SEO interne faible, on garde le setup simple.
  */
 export default defineConfig({
-  rootView: (ctx) => {
-    const pattern = ctx.route?.pattern ?? ''
-    const path = ctx.request.url().split('?')[0]
-    return REACT_ROUTES.has(pattern) || REACT_ROUTES.has(path)
-      ? 'inertia_layout_react'
-      : 'inertia_layout'
-  },
+  rootView: 'inertia_layout_react',
   ssr: { enabled: false },
 })
 
 /**
- * Registre typé des pages Inertia : contrat de props contrôleur ↔ page Solid.
+ * Registre typé des pages Inertia : contrat de props contrôleur ↔ page React.
  * Chaque page migrée déclare ici la forme de ses props.
  */
 declare module '@adonisjs/inertia/types' {
   /**
-   * Forme d'une ligne de charge /charge (miroir : inertia/lib/load/types.ts → LoadLine).
+   * Forme d'une ligne de charge /charge (miroir : inertia-react/lib/load/types.ts → LoadLine).
    */
   type LoadLineProp = {
     code: string
@@ -44,7 +36,7 @@ declare module '@adonisjs/inertia/types' {
 
   /**
    * Forme du payload `board` (cartes pré-stylées côté serveur).
-   * Le miroir client précis vit dans `inertia/lib/board/types.ts` (BoardData).
+   * Le miroir client précis vit dans `inertia-react/lib/board/types.ts` (BoardData).
    */
   type BoardProp = {
     cols: number
@@ -152,7 +144,7 @@ declare module '@adonisjs/inertia/types' {
       rangeLabel: string
       months: string[]
       weeks: string[]
-      // Miroir client précis : inertia/lib/load/types.ts (LoadLine).
+      // Miroir client précis : inertia-react/lib/load/types.ts (LoadLine).
       // ofLines = charge OF (Ferme/Planifié/Suggéré) ; cmdLines = charge demande (Commande/Prévision).
       // capacity (#35) = capacité nette par bucket ; atelier/category (#36) = rattachement atelier.
       ofLines: LoadLineProp[]
@@ -177,7 +169,7 @@ declare module '@adonisjs/inertia/types' {
       ateliers: { code: string; label: string }[]
     }
     // Journal d'exploitation des impressions (issue #85, lot 4).
-    impressions: {
+    'impressions': {
       jobs: {
         id: number
         ofNum: string

@@ -1,5 +1,5 @@
 import { type CamionDtl } from '@r/components/expeditions/camion-detail-sheet'
-import { chargeBgClass, chargeText, chargeTier } from '@/components/expeditions/palette-charge'
+import { chargeBgClass, chargeText, chargeTier } from '@r/components/expeditions/palette-charge'
 import { Clock, TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 

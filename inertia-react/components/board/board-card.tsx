@@ -1,6 +1,6 @@
 import { Pencil, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import { TYPO_META } from '@/lib/board/types'
+import { TYPO_META } from '@r/lib/board/types'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**

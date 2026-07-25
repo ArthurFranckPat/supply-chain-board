@@ -11,9 +11,9 @@ import {
   ComboboxList,
   useComboboxAnchor,
 } from '@r/components/ui/combobox'
-import { route } from '@/lib/routes'
-import type { LoadPeriod, LoadView } from '@/lib/load/types'
-import { type Gran, segKeys, segLabel } from '@/lib/load/chart-math'
+import { route } from '@r/lib/routes'
+import type { LoadPeriod, LoadView } from '@r/lib/load/types'
+import { type Gran, segKeys, segLabel } from '@r/lib/load/chart-math'
 
 /**
  * Détail d'une période de charge — ce qui compose UNE barre du graphe /charge.

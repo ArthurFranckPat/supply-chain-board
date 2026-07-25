@@ -8,7 +8,7 @@ import {
   pctOf,
   timeBounds,
   toMinutes,
-} from '@/components/expeditions/palette-charge'
+} from '@r/components/expeditions/palette-charge'
 import { TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 

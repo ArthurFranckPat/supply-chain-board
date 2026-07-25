@@ -3,7 +3,7 @@ import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 
 /**
  * Issue #46 — panneau « Engagement » d'un poste : TOUS les OF fermes de la ligne

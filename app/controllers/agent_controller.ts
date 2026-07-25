@@ -6,8 +6,8 @@
  *
  * Stream `text/event-stream` au **UI Message Stream Protocol** de l'AI SDK
  * v6 (`x-vercel-ai-ui-message-stream: v1`) — consommé par `useChat` +
- * `DefaultChatTransport` côté front (Solid via `@kodehort/ai-sdk-solid`,
- * puis React à #77). Le mapping `AgentSseEvent` → `UIMessageChunk` vit dans
+ * `DefaultChatTransport` côté front (React, `@ai-sdk/react`). Le mapping
+ * `AgentSseEvent` → `UIMessageChunk` vit dans
  * `agent/ui_message_stream.ts`.
  *
  * Session Pi in-memory, persistée par conversationId (mémoire multi-tour,

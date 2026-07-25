@@ -5,9 +5,8 @@
     "jsx": "react",
     "outDir": "./build",
     "paths": {
-      "@/*": ["./inertia/*"],
       "@r/*": ["./inertia-react/*"]
     }
   },
-  "exclude": ["resources/js/**", "inertia/**", "inertia-react/**", "node_modules/**", "build/**"]
+  "exclude": ["inertia-react/**", "node_modules/**", "build/**"]
 }

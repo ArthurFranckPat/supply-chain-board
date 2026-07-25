@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import type { DayChargeDisplay, ReceptionDisplayRow } from '@/lib/receptions/types'
+import type { DayChargeDisplay, ReceptionDisplayRow } from '@r/lib/receptions/types'
 import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { chargeBg, chargeText, chargeTier } from '@r/lib/receptions/charge'

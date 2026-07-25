@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@r/lib/utils'
-import type { LoadPeriod, LoadView } from '@/lib/load/types'
+import type { LoadPeriod, LoadView } from '@r/lib/load/types'
 import {
   CARD,
   DANGER,
@@ -17,7 +17,7 @@ import {
   segLabel,
   segsOf,
   total,
-} from '@/lib/load/chart-math'
+} from '@r/lib/load/chart-math'
 
 /**
  * Histogramme de détail (poste sélectionné) de la vue « Projection de charge »

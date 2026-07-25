@@ -19,9 +19,9 @@ import type {
   ProactiveRowsResponse,
   SuiviDisplayRow,
   ProactiveDisplayRow,
-} from '@/lib/suivi/types'
-import { toIso, startOfDay } from '@/lib/vision/date-utils'
-import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
+} from '@r/lib/suivi/types'
+import { toIso, startOfDay } from '@r/lib/vision/date-utils'
+import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@r/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'

@@ -17,7 +17,7 @@ import type {
   CriticiteNiveau,
   ReceptionCriticite,
   ReceptionDisplayRow,
-} from '@/lib/receptions/types'
+} from '@r/lib/receptions/types'
 
 /**
  * V3 · Board de planification de charge réception (issue #82, lot 1 — lecture seule).

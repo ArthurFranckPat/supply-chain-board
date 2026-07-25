@@ -35,21 +35,21 @@ import { useBoardStore, statusActive } from '@r/lib/board/store'
 import { useOrderBoardStore } from '@r/lib/orders/orders-store'
 import { useScenarioStore } from '@r/lib/scenario/store'
 
-import type { BoardData, SearchScope } from '@/lib/board/types'
-import type { OrderBoardData, OrderSearchScope } from '@/lib/orders/types'
-import type { VisionCommande, VisionLink } from '@/lib/vision/types'
-import type { PlanMutation } from '@/lib/scenarios/types'
+import type { BoardData, SearchScope } from '@r/lib/board/types'
+import type { OrderBoardData, OrderSearchScope } from '@r/lib/orders/types'
+import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
+import type { PlanMutation } from '@r/lib/scenarios/types'
 
-import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@/lib/vision/date-utils'
-import { buildLinkPath, pathMid, type PathSpec } from '@/lib/vision/link-overlay'
-import { buildCmdCells } from '@/lib/vision/cmd-cells'
+import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@r/lib/vision/date-utils'
+import { buildLinkPath, pathMid, type PathSpec } from '@r/lib/vision/link-overlay'
+import { buildCmdCells } from '@r/lib/vision/cmd-cells'
 import {
   computeImpacts,
   worstVerdict,
   deltaLabel,
   linkKey,
   type ImpactVerdict,
-} from '@/lib/vision/impact'
+} from '@r/lib/vision/impact'
 
 import { ProgrammeToolbar, type VisionMode } from '@r/components/vision/programme-toolbar'
 import { PILL } from '@r/components/vision/toolbar'
@@ -67,8 +67,8 @@ import PosteEngagementSheet from '@r/components/board/poste-engagement-sheet'
 
 import { useShortcuts } from '@r/lib/a11y/shortcuts'
 import { toast } from 'sonner'
-import { virtualOrdersFrom } from '@/lib/scenarios/types'
-import { route } from '@/lib/routes'
+import { virtualOrdersFrom } from '@r/lib/scenarios/types'
+import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 import type { DateRange } from '@r/components/vision/programme-toolbar'
 

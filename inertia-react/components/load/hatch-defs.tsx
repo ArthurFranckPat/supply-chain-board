@@ -1,4 +1,4 @@
-import { FERME, SUGGERE } from '@/lib/load/chart-math'
+import { FERME, SUGGERE } from '@r/lib/load/chart-math'
 
 /**
  * Motifs de hachure SVG partagés (document-global via url(#id)) : induit dans la

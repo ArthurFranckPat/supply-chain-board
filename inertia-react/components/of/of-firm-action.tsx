@@ -6,7 +6,7 @@
 import { Button } from '@r/components/ui/button'
 import { TriangleAlert } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
-import type { BomRow } from '@/lib/of/types'
+import type { BomRow } from '@r/lib/of/types'
 
 export interface OfFirmActionProps {
   firming: boolean

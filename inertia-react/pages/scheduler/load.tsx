@@ -3,7 +3,7 @@ import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
-import type { LoadPageProps, LoadLine, LoadView } from '@/lib/load/types'
+import type { LoadPageProps, LoadLine, LoadView } from '@r/lib/load/types'
 import {
   type Gran,
   maskPeriod,
@@ -12,7 +12,7 @@ import {
   segKeys,
   segOptions,
   total,
-} from '@/lib/load/chart-math'
+} from '@r/lib/load/chart-math'
 import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'

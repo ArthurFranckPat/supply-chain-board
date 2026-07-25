@@ -26,8 +26,8 @@ import { explodeCharge, netCharge, type ChargeNeed } from '#app/domain/charge-ex
 import type { Flow } from '#app/domain/models/flow'
 
 /**
- * Shapes émis vers la page Inertia. Miroir côté client : inertia/lib/load/types.ts
- * (même convention que SuiviController ↔ inertia/lib/suivi/types.ts).
+ * Shapes émis vers la page Inertia. Miroir côté client : inertia-react/lib/load/types.ts
+ * (même convention que SuiviController ↔ inertia-react/lib/suivi/types.ts).
  */
 interface LoadPeriod {
   f: number

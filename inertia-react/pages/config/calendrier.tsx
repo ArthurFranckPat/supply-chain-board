@@ -30,7 +30,7 @@ import {
   useComboboxAnchor,
 } from '@r/components/ui/combobox'
 import { cn } from '@r/lib/utils'
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 
 /**
  * Configuration du calendrier usine (issue #37) — port React du Solid

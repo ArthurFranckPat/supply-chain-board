@@ -18,7 +18,7 @@ import {
   STATUS_VARIANT,
   TREE_STATUS_LABEL,
   fmtDateFr,
-} from '@/lib/of/diagnostic-types'
+} from '@r/lib/of/diagnostic-types'
 
 /** En-tête de colonnes du tableau diagnostic. */
 function DiagColHeader() {

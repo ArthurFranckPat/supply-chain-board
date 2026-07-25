@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Génère `inertia/lib/routes-manifest.ts` depuis les routes Adonis nommées.
+ * Génère `inertia-react/lib/routes-manifest.ts` depuis les routes Adonis nommées.
  *
  * Source unique : `start/routes.ts` → on boote Adonis via `node ace list:routes --jsonl`
  * (chaque ligne = { method, pattern, name? }) et on en déduit un manifeste typé
- * consommé par le helper `inertia/lib/routes.ts`.
+ * consommé par le helper `inertia-react/lib/routes.ts`.
  *
  * Quand relancer : après TOUTE modification de `start/routes.ts` (ajout/retrait/renommage
  * de route, changement de paramètre de path). À exécuter via `npm run routes:gen`.
@@ -18,7 +18,7 @@ import { dirname, resolve } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
-const OUT = resolve(ROOT, 'inertia/lib/routes-manifest.ts')
+const OUT = resolve(ROOT, 'inertia-react/lib/routes-manifest.ts')
 
 const PARAM_RE = /:([A-Za-z_]\w*)/g
 

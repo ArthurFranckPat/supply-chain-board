@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import AppLayout from '@r/layouts/app'
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
-import type { PromiseResult, PromiseNode, PromiseReason } from '@/lib/promesse/types'
+import type { PromiseResult, PromiseNode, PromiseReason } from '@r/lib/promesse/types'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { Ban, Headset, Zap, TrendingUp, ChevronRight, TriangleAlert, ArrowRight } from 'lucide-react'
 

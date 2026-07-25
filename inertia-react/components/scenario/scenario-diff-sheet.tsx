@@ -1,7 +1,7 @@
 import React from 'react'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { cn } from '@r/lib/utils'
-import type { PlanDiff, DiffSens } from '@/lib/scenarios/types'
+import type { PlanDiff, DiffSens } from '@r/lib/scenarios/types'
 
 /**
  * Constat d'impact d'un scénario (issue #57, moteur étage 2). Trois axes signés :

@@ -17,7 +17,7 @@ import { cn } from '@r/lib/utils'
 import type {
   ConditionnementsRowsResponse,
   EstimationsFetchResponse,
-} from '@/lib/conditionnements/types'
+} from '@r/lib/conditionnements/types'
 
 /**
  * Page « Conditionnements » (port React) : vue complète des articles actifs avec

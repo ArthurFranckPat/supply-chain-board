@@ -25,9 +25,9 @@ import {
   CircleCheck,
   FlaskConical,
 } from 'lucide-react'
-import type { OfDetail } from '@/lib/of/types'
-import { type DiagResult } from '@/lib/of/diagnostic-types'
-import { route } from '@/lib/routes'
+import type { OfDetail } from '@r/lib/of/types'
+import { type DiagResult } from '@r/lib/of/diagnostic-types'
+import { route } from '@r/lib/routes'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
 import {

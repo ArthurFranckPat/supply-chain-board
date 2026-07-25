@@ -10,8 +10,8 @@ import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
-import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@/lib/suivi/types'
-import { sortRows, LATE_TONE } from '@/lib/suivi/tracking-shared'
+import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@r/lib/suivi/types'
+import { sortRows, LATE_TONE } from '@r/lib/suivi/tracking-shared'
 import { createProactiveColumns, createProactiveIndexCol } from '@r/lib/suivi/proactive-columns'
 
 export interface ProactiveViewProps {

@@ -26,7 +26,7 @@ import {
 import { useChat } from '@ai-sdk/react'
 import { Bot, Check, Copy, PanelLeft, PanelRight } from 'lucide-react'
 
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 
 import { Masthead } from '@r/components/masthead'

@@ -12,8 +12,8 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { router } from '@inertiajs/react'
-import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from '@/lib/board/types'
-import { route } from '@/lib/routes'
+import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from '@r/lib/board/types'
+import { route } from '@r/lib/routes'
 
 // ---------------------------------------------------------------------------
 // Config statique

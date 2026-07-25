@@ -19,7 +19,7 @@ import type {
   ReceptionsCriticiteResponse,
   ReceptionsRowsResponse,
   ReceptionViewKind,
-} from '@/lib/receptions/types'
+} from '@r/lib/receptions/types'
 
 /**
  * Page « Réceptions fournisseurs » (port React — structure iso du Solid

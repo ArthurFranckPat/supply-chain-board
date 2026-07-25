@@ -12,9 +12,9 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { router } from '@inertiajs/react'
-import type { OrderBoardData, OrderCard, OrderSearchScope } from '@/lib/orders/types'
-import type { FeasibilityMode, FeasStatus } from '@/lib/board/types'
-import { route } from '@/lib/routes'
+import type { OrderBoardData, OrderCard, OrderSearchScope } from '@r/lib/orders/types'
+import type { FeasibilityMode, FeasStatus } from '@r/lib/board/types'
+import { route } from '@r/lib/routes'
 
 const ALL_TYPES = ['MTS', 'MTO', 'NOR'] as const
 const ALL_NATURES = ['COMMANDE', 'PREVISION'] as const

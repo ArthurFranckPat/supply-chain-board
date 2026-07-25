@@ -15,13 +15,13 @@ import type {
   KpiId,
   KpiLayoutItem,
   KpiWidth,
-} from '@/lib/dashboard/types'
+} from '@r/lib/dashboard/types'
 import {
   colsForWidth,
   DEFAULT_DASHBOARD_LAYOUT,
   GRID_COLS,
   normalizeDashboardLayout,
-} from '@/lib/dashboard/types'
+} from '@r/lib/dashboard/types'
 
 interface LayoutState extends DashboardLayout {
   // Actions

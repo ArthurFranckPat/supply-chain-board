@@ -13,7 +13,7 @@
  *    prix d'un graphe d'imports à recoller. Une app = un chunk = une substitution.
  *  - L'artefact est **commité** (contrainte #80 : `npm run mcp:start` doit marcher
  *    sur un PC vierge, sans build front préalable). Même précédent que
- *    `inertia/lib/routes-manifest.ts` et son `routes:check`.
+ *    `inertia-react/lib/routes-manifest.ts` et son `routes:check`.
  */
 
 import { build } from 'vite'

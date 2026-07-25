@@ -7,7 +7,7 @@ import { Button } from '@r/components/ui/button'
 import Masthead from '@r/components/masthead'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
-import type { PlanDiff, AllocationStrategy } from '@/lib/scenarios/types'
+import type { PlanDiff, AllocationStrategy } from '@r/lib/scenarios/types'
 
 interface ScenarioCompareVm {
   id: number

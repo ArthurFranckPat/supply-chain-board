@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { cn } from '@r/lib/utils'
 import { Button } from '@r/components/ui/button'
 import { router } from '@inertiajs/react'
-import { route } from '@/lib/routes'
-import { promiseReasonText } from '@/lib/promesse/types'
+import { route } from '@r/lib/routes'
+import { promiseReasonText } from '@r/lib/promesse/types'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from '@r/components/ui/alert-dialog'
 import { useScenarioStore } from '@r/lib/scenario/store'
-import type { PlanMutation } from '@/lib/scenarios/types'
+import type { PlanMutation } from '@r/lib/scenarios/types'
 import { FlaskConical, Save, Trash2, CirclePlus, Zap, TriangleAlert, Plus, FolderOpen, ArrowLeftRight } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
 

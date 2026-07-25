@@ -13,7 +13,7 @@ import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
 import { cn } from '@r/lib/utils'
-import { route } from '@/lib/routes'
+import { route } from '@r/lib/routes'
 
 /**
  * Routage d'impression du dossier d'OF (issue #85, lot 2).

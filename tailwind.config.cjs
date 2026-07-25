@@ -5,7 +5,7 @@
  * lu que par le CLI, pas par le build Vite/@tailwindcss/vite.
  */
 module.exports = {
-  content: ['./inertia/**/*.{ts,tsx}', './resources/views/**/*.edge'],
+  content: ['./inertia-react/**/*.{ts,tsx}', './resources/views/**/*.edge'],
   theme: { extend: {} },
   plugins: [],
 }

@@ -5,8 +5,8 @@
  */
 import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
-import type { SuiviDisplayRow } from '@/lib/suivi/types'
-import { BADGE_TONE, BADGE_DOT, BADGE_TEXT, LATE_TONE, empKey, getRelativeDateLabel } from '@/lib/suivi/tracking-shared'
+import type { SuiviDisplayRow } from '@r/lib/suivi/types'
+import { BADGE_TONE, BADGE_DOT, BADGE_TEXT, LATE_TONE, empKey, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
 import { FlaskConical, Hourglass } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 

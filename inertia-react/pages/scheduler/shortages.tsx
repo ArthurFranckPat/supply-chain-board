@@ -26,9 +26,9 @@ import {
   ToolbarSpacer,
   FilterMenu,
 } from '@r/components/vision/toolbar'
-import { route } from '@/lib/routes'
-import { parseIso, toIso, startOfDay, DAY_MS } from '@/lib/vision/date-utils'
-import type { ShortageRowsResponse, ShortageVerdictKey } from '@/lib/shortages/types'
+import { route } from '@r/lib/routes'
+import { parseIso, toIso, startOfDay, DAY_MS } from '@r/lib/vision/date-utils'
+import type { ShortageRowsResponse, ShortageVerdictKey } from '@r/lib/shortages/types'
 
 const fold = (s: string): string =>
   s

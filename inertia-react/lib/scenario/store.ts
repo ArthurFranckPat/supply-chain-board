@@ -9,8 +9,8 @@
  * fraîches via `scenarios.diff`.
  */
 import { create } from 'zustand'
-import { route } from '@/lib/routes'
-import { type PlanMutation, type PlanDiff, type ScenarioRow, type AllocationStrategy, mutationKey } from '@/lib/scenarios/types'
+import { route } from '@r/lib/routes'
+import { type PlanMutation, type PlanDiff, type ScenarioRow, type AllocationStrategy, mutationKey } from '@r/lib/scenarios/types'
 
 interface CurrentScenario {
   id: number | null

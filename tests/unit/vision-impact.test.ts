@@ -11,7 +11,7 @@ import {
   linkKey,
   deltaLabel,
   type ImpactLink,
-} from '../../inertia/lib/vision/impact.ts'
+} from '../../inertia-react/lib/vision/impact.ts'
 
 const ISO = (d: string) => d // 'YYYY-MM-DD' lisible dans les fixtures
 

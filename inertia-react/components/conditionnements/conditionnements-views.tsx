@@ -5,7 +5,7 @@ import type {
   ArticleEnrichissement,
   ConditionnementDisplayRow,
   EstimationSourceDisplay,
-} from '@/lib/conditionnements/types'
+} from '@r/lib/conditionnements/types'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 // ─────────────────────────────────────────────────────────────────────────────

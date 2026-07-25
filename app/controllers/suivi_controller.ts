@@ -343,7 +343,7 @@ function serializeAssignments(assignments: StatusAssignment[]) {
 
 // ---------------------------------------------------------------------------
 // Présentation — lignes d'affichage du registre suivi (issue #19).
-// Mirroir côté client : inertia/lib/suivi/types.ts (SuiviDisplayRow).
+// Mirroir côté client : inertia-react/lib/suivi/types.ts (SuiviDisplayRow).
 // ---------------------------------------------------------------------------
 
 export type SuiviStatusKey = 'exp' | 'alc' | 'ret' | 'ras'

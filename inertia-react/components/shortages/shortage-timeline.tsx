@@ -8,9 +8,9 @@
  * `Marker` est un helper privé à la frise (pastille + libellé).
  */
 import { useMemo, type ReactNode } from 'react'
-import type { ShortageDisplayRow } from '@/lib/shortages/types'
+import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { cn } from '@r/lib/utils'
-import { isAtRisk, isLate, offsetPct } from '@/lib/shortages/shortage-math'
+import { isAtRisk, isLate, offsetPct } from '@r/lib/shortages/shortage-math'
 
 export function ShortageTimeline({
   rows,

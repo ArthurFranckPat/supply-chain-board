@@ -7,7 +7,7 @@
  * shortage-math.ts) ; cette vue se contente du rendu table agrégée.
  */
 import { useMemo, type ReactNode } from 'react'
-import type { ShortageDisplayRow } from '@/lib/shortages/types'
+import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { cn } from '@r/lib/utils'
 import {
   VERDICT_BADGE,
@@ -15,7 +15,7 @@ import {
   TH,
   TH_R,
   TD,
-} from '@/lib/shortages/shortage-math'
+} from '@r/lib/shortages/shortage-math'
 
 export function ShortageComposants({
   rows,

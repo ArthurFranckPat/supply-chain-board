@@ -1,8 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { Link, usePage } from '@inertiajs/react'
 
-import { route } from '@/lib/routes'
-import { isReactRoute } from '@/lib/react-routes'
+import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 import UserMenu from '@r/components/user-menu'
 
@@ -18,9 +17,8 @@ import UserMenu from '@r/components/user-menu'
  *                 actif souligné par une underline ink 2px (pas Rausch), texte
  *                 inactif en muted-foreground #6a6a6a.
  *
- * Navigation inter-runtimes : chaque onglet passe par `isReactRoute` — page
- * React → <Link> Inertia (XHR), page Solid → <a> natif (hard visit). Règle
- * §4.4 du plan de migration.
+ * Navigation : SolidJS retiré (#91), toutes les pages vivent dans le bundle
+ * React — chaque onglet est un <Link> Inertia (visite XHR).
  */
 
 export type MastheadTab =
@@ -139,17 +137,11 @@ export function Masthead(props: {
 
         {/* Nav centrée — DESIGN.md top-nav : onglets au milieu. */}
         <nav className="flex flex-1 items-center justify-center gap-0">
-          {TABS.map((t) =>
-            isReactRoute(t.href) ? (
-              <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
-                {t.label}
-              </Link>
-            ) : (
-              <a key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
-                {t.label}
-              </a>
-            )
-          )}
+          {TABS.map((t) => (
+            <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
+              {t.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Bloc droit : meta (optionnel) + actions + UserMenu. */}
@@ -208,17 +200,11 @@ export function Masthead(props: {
       </div>
 
       <nav className="flex min-h-[44px] items-center gap-1 border-t px-7">
-        {TABS.map((t) =>
-          isReactRoute(t.href) ? (
-            <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
-              {t.label}
-            </Link>
-          ) : (
-            <a key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
-              {t.label}
-            </a>
-          )
-        )}
+        {TABS.map((t) => (
+          <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
+            {t.label}
+          </Link>
+        ))}
         <div className="ml-auto flex items-center gap-2 py-1.5">
           {props.actions}
           <UserMenu />

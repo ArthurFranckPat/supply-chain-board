@@ -3,7 +3,7 @@
  *
  * Le contrôleur SSE émet ces chunks via `createUIMessageStream` +
  * `JsonToSseTransformStream` ; le front les consomme avec `useChat`
- * (`@kodehort/ai-sdk-solid`) + `DefaultChatTransport`.
+ * (`@ai-sdk/react`) + `DefaultChatTransport`.
  *
  * Stateful : le mapper suit les blocs texte / reasoning ouverts pour émettre
  * les `text-end` / `reasoning-end` au bon moment (un bloc se ferme quand

@@ -4,7 +4,6 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["../inertia/*"],
       "@r/*": ["./*"]
     },
     "lib": ["es2022", "dom", "dom.iterable"],

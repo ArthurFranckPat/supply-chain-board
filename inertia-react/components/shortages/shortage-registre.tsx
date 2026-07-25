@@ -7,9 +7,9 @@
  */
 import { useState, type ReactNode } from 'react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-import type { ShortageDisplayRow } from '@/lib/shortages/types'
+import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { cn } from '@r/lib/utils'
-import { isLate, TH, TH_R, TD } from '@/lib/shortages/shortage-math'
+import { isLate, TH, TH_R, TD } from '@r/lib/shortages/shortage-math'
 
 export function ShortageRegistre({
   rows,

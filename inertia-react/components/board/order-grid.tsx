@@ -2,8 +2,8 @@ import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { Undo2 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
-import { TYPO_META } from '@/lib/board/types'
-import type { OrderCard, OrderLineRow } from '@/lib/orders/types'
+import { TYPO_META } from '@r/lib/board/types'
+import type { OrderCard, OrderLineRow } from '@r/lib/orders/types'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
@@ -37,7 +37,7 @@ interface OrderGridProps {
     induit: number
     hours: number
   }>
-  feasOf: (id: string) => import('@/lib/board/types').FeasStatus | undefined
+  feasOf: (id: string) => import('@r/lib/board/types').FeasStatus | undefined
   moveCard: (id: string, fromLineCode: string, toCol: number, toIso: string) => void
   resetOverride: (id: string) => void
 }

@@ -17,7 +17,7 @@ import {
   type DashboardLayout,
   type KpiId,
   type KpiWidth,
-} from '@/lib/dashboard/types'
+} from '@r/lib/dashboard/types'
 import { useLayoutStore } from '@r/lib/dashboard/layout-store'
 import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight, ChevronLeft, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'

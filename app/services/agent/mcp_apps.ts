@@ -13,7 +13,7 @@
  * ── Artefact HTML ──
  * Le HTML est un fichier **construit** (`npm run mcp:apps`, cf. vite.mcp-apps.config.ts)
  * et **commité** dans `resources/mcp-apps/`. Commiter un artefact généré est assumé,
- * même précédent que `inertia/lib/routes-manifest.ts` : la contrainte #80 est que
+ * même précédent que `inertia-react/lib/routes-manifest.ts` : la contrainte #80 est que
  * `npm run mcp:start` marche sur un PC vierge, sans build front préalable.
  * `npm run mcp:apps:check` échoue si l'artefact commité ne correspond plus aux sources.
  *
