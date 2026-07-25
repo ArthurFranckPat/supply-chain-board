@@ -33,8 +33,31 @@ interface Box {
   height: number
 }
 
+/**
+ * Bords redimensionnables. `n` et `w` déplacent l'arête tirée en gardant l'arête
+ * opposée fixe (donc `y`/`x` bougent aussi) ; `s`, `e` et le coin `se` ne
+ * touchent qu'à la taille.
+ */
+export type ResizeAxis = 'n' | 's' | 'e' | 'w' | 'se'
+
+const RESIZE_AXES: ResizeAxis[] = ['n', 's', 'e', 'w', 'se']
+
+const RESIZE_TITLES: Record<ResizeAxis, string> = {
+  n: 'Glisser pour redimensionner par le haut',
+  s: 'Glisser pour redimensionner par le bas',
+  e: 'Glisser pour redimensionner par la droite',
+  w: 'Glisser pour redimensionner par la gauche',
+  se: 'Glisser pour redimensionner en largeur et en hauteur',
+}
+
+function isResizeAxis(v: string | null): v is ResizeAxis {
+  return v !== null && (RESIZE_AXES as string[]).includes(v)
+}
+
 type Gesture = {
   kind: 'drag' | 'resize'
+  /** Renseigné pour un resize seulement. */
+  axis: ResizeAxis | null
   id: string
   pointerX: number
   pointerY: number
@@ -167,6 +190,9 @@ export function DashboardGrid({
       const resizeHandle = target.closest('[data-grid-resize]')
       const dragHandle = resizeHandle ? null : target.closest('[data-grid-drag]')
       if (!resizeHandle && !dragHandle) return
+      const rawAxis = resizeHandle?.getAttribute('data-grid-resize') ?? null
+      const axis = isResizeAxis(rawAxis) ? rawAxis : null
+      if (resizeHandle && !axis) return
       const host = target.closest<HTMLElement>('[data-grid-id]')
       const id = host?.dataset.gridId
       if (!id) return
@@ -177,6 +203,7 @@ export function DashboardGrid({
       e.preventDefault()
       gestureRef.current = {
         kind: resizeHandle ? 'resize' : 'drag',
+        axis,
         id,
         pointerX: e.clientX,
         pointerY: e.clientY,
@@ -210,14 +237,50 @@ export function DashboardGrid({
             y: Math.max(0, Math.round(top / rowStep)),
           }
         } else {
-          const wPx = Math.max(colWidth, box.width + dx)
-          const hPx = Math.max(rowHeight, box.height + dy)
-          setGhost({ ...box, width: wPx, height: hPx })
-          candidate = {
-            ...g.origin,
-            w: clamp(Math.round((wPx + gap) / colStep), minW, cols - g.origin.x),
-            h: Math.max(minH, Math.round((hPx + gap) / rowStep)),
+          const axis = g.axis ?? 'se'
+          const pullsW = axis === 'w'
+          const pullsN = axis === 'n'
+          const widens = axis === 'e' || axis === 'se'
+          const heightens = axis === 's' || axis === 'se'
+
+          // Bornes en pixels des arêtes mobiles, pour que l'aperçu ne sorte
+          // jamais de la grille ni ne passe sous les tailles minimales.
+          const minWPx = minW * colWidth + (minW - 1) * gap
+          const minHPx = minH * rowHeight + (minH - 1) * gap
+          const maxWPx =
+            (cols - g.origin.x) * colWidth + (cols - g.origin.x - 1) * gap
+
+          const next = { ...g.origin }
+          const ghostBox = { ...box }
+
+          if (pullsW) {
+            // L'arête droite reste fixe : on borne le décalage du bord gauche.
+            const shift = clamp(dx, -box.left, box.width - minWPx)
+            ghostBox.left = box.left + shift
+            ghostBox.width = box.width - shift
+            const right = g.origin.x + g.origin.w
+            next.x = clamp(Math.round(ghostBox.left / colStep), 0, right - minW)
+            next.w = right - next.x
+          } else if (widens) {
+            ghostBox.width = clamp(box.width + dx, minWPx, maxWPx)
+            next.w = clamp(Math.round((ghostBox.width + gap) / colStep), minW, cols - g.origin.x)
           }
+
+          if (pullsN) {
+            // Idem verticalement : l'arête basse reste fixe.
+            const shift = clamp(dy, -box.top, box.height - minHPx)
+            ghostBox.top = box.top + shift
+            ghostBox.height = box.height - shift
+            const bottom = g.origin.y + g.origin.h
+            next.y = clamp(Math.round(ghostBox.top / rowStep), 0, bottom - minH)
+            next.h = bottom - next.y
+          } else if (heightens) {
+            ghostBox.height = Math.max(minHPx, box.height + dy)
+            next.h = Math.max(minH, Math.round((ghostBox.height + gap) / rowStep))
+          }
+
+          setGhost(ghostBox)
+          candidate = next
         }
 
         g.dirty = true
@@ -282,13 +345,15 @@ export function DashboardGrid({
         {React.cloneElement(child as React.ReactElement<{ className?: string }>, {
           className: cn((child.props as { className?: string }).className, 'h-full w-full'),
         })}
-        {editMode && (
-          <span
-            data-grid-resize
-            className="dashboard-grid-resize print:hidden"
-            title="Glisser pour redimensionner"
-          />
-        )}
+        {editMode &&
+          RESIZE_AXES.map((axis) => (
+            <span
+              key={axis}
+              data-grid-resize={axis}
+              className={`dashboard-grid-resize dashboard-grid-resize-${axis} print:hidden`}
+              title={RESIZE_TITLES[axis]}
+            />
+          ))}
       </div>
     )
   })

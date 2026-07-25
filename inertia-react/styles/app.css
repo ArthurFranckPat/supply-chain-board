@@ -595,15 +595,11 @@
   transition: left 120ms ease, top 120ms ease, width 120ms ease, height 120ms ease;
 }
 
-/* Poignée de redimensionnement, coin bas-droit. `touch-action: none` est requis
- * pour que le geste tactile ne parte pas en scroll. */
+/* Poignées de redimensionnement : les 4 bords plus le coin bas-droit (2 axes).
+ * `touch-action: none` est requis pour que le geste tactile ne parte pas en
+ * scroll. Le coin est déclaré après les bords et les recouvre à l'angle. */
 .dashboard-grid-resize {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 22px;
-  height: 22px;
-  cursor: se-resize;
   touch-action: none;
   opacity: 0;
   transition: opacity 150ms ease;
@@ -613,7 +609,76 @@
 .dashboard-grid-item.is-active .dashboard-grid-resize {
   opacity: 1;
 }
-.dashboard-grid-resize::after {
+
+/* Bords horizontaux (hauteur) — la zone de saisie déborde de 3px vers
+ * l'extérieur pour rester attrapable au ras de la carte. */
+.dashboard-grid-resize-n,
+.dashboard-grid-resize-s {
+  left: 12px;
+  right: 12px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.dashboard-grid-resize-n {
+  top: -3px;
+}
+.dashboard-grid-resize-s {
+  bottom: -3px;
+}
+
+/* Bords verticaux (largeur). */
+.dashboard-grid-resize-e,
+.dashboard-grid-resize-w {
+  top: 12px;
+  bottom: 12px;
+  width: 10px;
+  cursor: ew-resize;
+}
+.dashboard-grid-resize-e {
+  right: -3px;
+}
+.dashboard-grid-resize-w {
+  left: -3px;
+}
+
+/* Trait d'accroche centré sur chaque bord. */
+.dashboard-grid-resize-n::after,
+.dashboard-grid-resize-s::after,
+.dashboard-grid-resize-e::after,
+.dashboard-grid-resize-w::after {
+  content: '';
+  position: absolute;
+  background: var(--brand);
+  border-radius: 999px;
+  opacity: 0.55;
+}
+.dashboard-grid-resize-n::after,
+.dashboard-grid-resize-s::after {
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+}
+.dashboard-grid-resize-e::after,
+.dashboard-grid-resize-w::after {
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+}
+
+/* Coin bas-droit : redimensionne les deux axes à la fois. */
+.dashboard-grid-resize-se {
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  cursor: se-resize;
+  z-index: 41;
+}
+.dashboard-grid-resize-se::after {
   content: '';
   position: absolute;
   right: 5px;

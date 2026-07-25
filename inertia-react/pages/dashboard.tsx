@@ -373,9 +373,11 @@ function Tile({
 }) {
   return (
     <div className="h-full w-full relative flex flex-col group">
-      {/* Barre d'outils édition */}
+      {/* Barre d'outils édition. z-[45] : elle chevauche la poignée de resize du
+          bord haut (z-40). Elle-même est `pointer-events-none`, donc seuls ses
+          boutons captent le pointeur — ailleurs le geste de resize passe. */}
       {editMode && (
-        <div className="pointer-events-none absolute -top-3 left-3 z-30 flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
+        <div className="pointer-events-none absolute -top-3 left-3 z-[45] flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
           <span
             data-grid-drag
             className="pointer-events-auto cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-brand"
