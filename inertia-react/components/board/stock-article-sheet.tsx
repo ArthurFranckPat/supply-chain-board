@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CircleX, Package, TriangleAlert } from 'lucide-react'
+import { CalendarClock, CircleX, Package, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
@@ -788,30 +788,13 @@ function HistoryChart({
 /** Entrée du bandeau logistique : label mono uppercase puis valeur. Rendue
  *  seulement si la donnée existe — un paramètre non renseigné dans X3 ne doit
  *  pas occuper une case pour y afficher « — ». */
-function LogItem({
-  label,
-  value,
-  title,
-  alert,
-}: {
-  label: string
-  value: string
-  title?: string
-  /** Met la valeur en évidence — réservé au cas où le chiffre appelle une
-   *  décision, pas à la simple mise en forme. */
-  alert?: boolean
-}) {
+function LogItem({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
     <div className="flex items-baseline gap-1.5" title={title}>
       <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </span>
-      <span
-        className={cn(
-          'font-mono text-[11px] font-semibold tabular-nums',
-          alert ? 'text-destructive' : 'text-secondary-foreground'
-        )}
-      >
+      <span className="font-mono text-[11px] font-semibold tabular-nums text-secondary-foreground">
         {value}
       </span>
     </div>
@@ -825,22 +808,137 @@ const fmtJours = (v: number): string => `${fmtQty.format(Math.round(v))} j`
 const fmtDateFr = (iso: string): string => iso.split('-').reverse().join('/')
 
 /**
- * Bandeau des paramètres de pilotage : fournisseur, délai de réappro, lots,
- * stock de sécurité, répartition A/Q. Ce sont eux qui expliquent la forme de la
- * courbe — un délai de 140 jours et un lot économique de 7 392 donnent des
- * entrées massives et espacées, pas un flux continu.
+ * Verdict d'approvisionnement — l'élément le plus visible de la sheet.
  *
- * Le stock de sécurité s'affiche même à 0 : c'est un paramétrage explicite,
- * pas une absence de donnée (le repository ne le rend `null` que si la fiche
- * site elle-même manque).
+ * C'est le seul chiffre qui appelle une décision : jusqu'à quand le stock
+ * tient face au délai de réapprovisionnement. Il était noyé parmi une douzaine
+ * d'items de poids visuel identique ; il a désormais sa propre bande, son icône
+ * et sa couleur de statut.
+ *
+ * Les totaux de l'horizon (besoins / ressources) l'accompagnent : ils portent
+ * sur la même fenêtre à venir et donnent l'ordre de grandeur que l'échelle du
+ * graphe ne permet pas de lire.
  */
-function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
-  const l = detail.logistique
-  const fournisseur = l.fournisseurNom ?? l.fournisseurCode
-  const items: ReactNode[] = []
+function VerdictBar({
+  detail,
+  unit,
+  totaux,
+}: {
+  detail: StockArticleDetail
+  unit: Unit
+  totaux: { besoin: number; ressource: number } | null
+}) {
+  const ind = detail.indicateurs
+  const delai = detail.logistique.delaiReapproJours
+  const sousDelai = ind.ratioProspectifDelai !== null && ind.ratioProspectifDelai < 1
 
+  // Sans projection, il n'y a pas de verdict à rendre. « Couvert au-delà de 52
+  // semaines » signifierait « aucun besoin à venir », alors qu'ici la donnée
+  // manque — deux choses très différentes pour qui décide.
+  if (detail.future.length === 0) return null
+
+  // Trois états : rupture avant le délai (on ne peut plus réapprovisionner à
+  // temps), rupture datée mais joignable, ou aucune rupture sur l'horizon.
+  let Icon = ShieldCheck
+  let titre: string
+  let detailTexte: string
+
+  if (ind.couvertureProspectiveJours === null) {
+    titre = 'Couvert au-delà de 52 semaines'
+    detailTexte = 'Aucune rupture sur l’horizon, réceptions à venir exclues.'
+  } else {
+    const date = ind.ruptureDateIso ? fmtDateFr(ind.ruptureDateIso) : '—'
+    titre = `Tient jusqu’au ${date}`
+    const couv = fmtJours(ind.couvertureProspectiveJours)
+    if (delai !== null && delai > 0) {
+      Icon = sousDelai ? TriangleAlert : ShieldCheck
+      detailTexte = sousDelai
+        ? `${couv} de couverture pour ${fmtJours(delai)} de délai — commander maintenant n’arrive plus à temps.`
+        : `${couv} de couverture pour ${fmtJours(delai)} de délai — commander maintenant arrive encore à temps.`
+    } else {
+      Icon = CalendarClock
+      detailTexte = `${couv} de couverture. Aucun délai de réapprovisionnement paramétré.`
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex flex-none flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-5 py-2.5',
+        sousDelai ? 'border-destructive/30 bg-destructive/10' : 'border-rule bg-secondary'
+      )}
+    >
+      <Icon
+        size={17}
+        strokeWidth={1.9}
+        className={cn('shrink-0', sousDelai ? 'text-destructive' : 'text-brand')}
+      />
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+        <span
+          className={cn(
+            'font-mono text-[13px] font-bold tabular-nums',
+            sousDelai ? 'text-destructive' : 'text-foreground'
+          )}
+        >
+          {titre}
+        </span>
+        <span className="text-[11.5px] text-secondary-foreground">{detailTexte}</span>
+      </div>
+      <span className="flex-1" />
+      {totaux && (
+        <div
+          className="flex items-baseline gap-3"
+          title="Totaux sur l'horizon de projection — les barres du graphe ont une échelle par moitié, ces deux nombres donnent les ordres de grandeur réels."
+        >
+          <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            52 sem.
+          </span>
+          <span className="font-mono text-[11px] font-semibold tabular-nums" style={{ color: COL_SORTIE }}>
+            {fmtVal(totaux.besoin, unit)}
+          </span>
+          <span className="font-mono text-[11px] font-semibold tabular-nums" style={{ color: COL_ENTREE }}>
+            {fmtVal(totaux.ressource, unit)}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Groupe nommé du pied de sheet : un intitulé discret puis ses items. */
+function ParamGroup({ titre, children }: { titre: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
+      <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-brand">
+        {titre}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Pied de sheet : ce qui explique la courbe, sous la courbe.
+ *
+ * Deux groupes nommés plutôt qu'une bande unique de douze items — les
+ * paramètres se règlent (fiche article), les indicateurs se constatent
+ * (historique). Un délai de 140 jours et un lot économique de 7 392 expliquent
+ * des entrées massives et espacées ; les mettre à plat à côté d'une rotation
+ * empêchait de faire la différence.
+ *
+ * La couverture au régime moyen passé n'y figure pas : elle contredit la
+ * couverture prospective du verdict dès que la demande n'est pas plate. Elle
+ * reste dans le payload pour `stock:audit`.
+ */
+function ParamsBar({ detail }: { detail: StockArticleDetail }) {
+  const l = detail.logistique
+  const ind = detail.indicateurs
+  const fournisseur = l.fournisseurNom ?? l.fournisseurCode
+  const anneeGlissante = `sur ${fmtQty.format(ind.joursFenetre)} jours glissants`
+
+  const appro: ReactNode[] = []
   if (fournisseur)
-    items.push(
+    appro.push(
       <LogItem
         key="four"
         label="Fournisseur"
@@ -849,16 +947,16 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
       />
     )
   if (l.delaiReapproJours !== null)
-    items.push(
+    appro.push(
       <LogItem
         key="delai"
-        label="Délai réappro"
-        value={`${fmtQty.format(l.delaiReapproJours)} j`}
+        label="Délai"
+        value={fmtJours(l.delaiReapproJours)}
         title="Délai de réapprovisionnement paramétré sur la fiche site (ITMFACILIT.OFS)"
       />
     )
   if (l.lotEconomique !== null)
-    items.push(
+    appro.push(
       <LogItem
         key="lotEco"
         label="Lot éco."
@@ -867,7 +965,7 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
       />
     )
   if (l.lotTechnique !== null)
-    items.push(
+    appro.push(
       <LogItem
         key="lotTech"
         label="Lot techn."
@@ -876,7 +974,7 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
       />
     )
   if (l.stockSecurite !== null)
-    items.push(
+    appro.push(
       <LogItem
         key="secu"
         label="Stock sécu."
@@ -884,80 +982,30 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
         title="Stock de sécurité paramétré (ITMFACILIT.SAFSTO)"
       />
     )
-  if (detail.stockQ > 0)
-    items.push(
-      <LogItem
-        key="aq"
-        label="Statut A / Q"
-        value={`${fmtQty.format(detail.stockA)} / ${fmtQty.format(detail.stockQ)}`}
-        title="Répartition du stock : A disponible, Q en contrôle réception. Le Q est compté dans le stock disponible par la faisabilité — contacter le contrôle réception s'il bloque."
-      />
-    )
   if (l.famille)
-    items.push(<LogItem key="fam" label="Famille" value={l.famille} title="Famille d'usage (YFAMSTAT7)" />)
+    appro.push(<LogItem key="fam" label="Famille" value={l.famille} title="Famille d'usage (YFAMSTAT7)" />)
 
-  // --- Indicateurs dérivés, séparés des paramètres : les premiers se
-  //     constatent, les seconds se paramètrent. ---
-  const ind = detail.indicateurs
-  const calc: ReactNode[] = []
-  const anneeGlissante = `sur ${fmtQty.format(ind.joursFenetre)} jours glissants`
-
+  const conso: ReactNode[] = []
   if (ind.sorties12m > 0)
-    calc.push(
+    conso.push(
       <LogItem
         key="sorties"
-        label="Sorties 12 m"
+        label="Sorties"
         value={fmtQty.format(ind.sorties12m)}
         title={`Total des sorties physiques nettes ${anneeGlissante} — consommation de fabrication, ventes, retours et rebuts confondus. C'est par là que le stock s'écoule.`}
       />
     )
   if (ind.cmj !== null)
-    calc.push(
+    conso.push(
       <LogItem
         key="cmj"
         label="CMJ"
         value={fmtQtyDec.format(ind.cmj)}
-        title={`Consommation moyenne par jour CALENDAIRE (sorties ÷ ${ind.joursFenetre} jours). Diviser par les seuls jours de mouvement doublerait ce chiffre et diviserait la couverture par deux.`}
+        title={`Consommation moyenne par jour CALENDAIRE (sorties ÷ ${ind.joursFenetre} jours). Descriptif du régime passé — la couverture affichée en haut vient, elle, de la demande réelle à venir.`}
       />
     )
-  // Couverture PROSPECTIVE, jamais celle du régime moyen passé. Les deux se
-  // contredisent dès que la demande n'est pas plate — sur 11022900, 35 j contre
-  // 17,6 j, parce que la fermeture d'été ne consomme rien et qu'une CMJ moyenne
-  // ne sait pas la voir. Les afficher ensemble ne ferait qu'égarer.
-  if (ind.couvertureProspectiveJours !== null) {
-    const sousDelai = ind.ratioProspectifDelai !== null && ind.ratioProspectifDelai < 1
-    const date = ind.ruptureDateIso ? fmtDateFr(ind.ruptureDateIso) : null
-    calc.push(
-      <LogItem
-        key="couv"
-        label="Tient jusqu'au"
-        value={[
-          date,
-          `${fmtJours(ind.couvertureProspectiveJours)}`,
-          sousDelai ? `${fmtPct(ind.ratioProspectifDelai!)} du délai` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
-        alert={sousDelai}
-        title={
-          l.delaiReapproJours !== null
-            ? `Besoins réels déroulés depuis le stock actuel, réceptions à venir exclues. Délai de réapprovisionnement ${fmtJours(l.delaiReapproJours)}${sousDelai ? ' — commander maintenant n\'arrive plus à temps.' : ' — commander maintenant arrive encore à temps.'}`
-            : 'Besoins réels déroulés depuis le stock actuel, réceptions à venir exclues.'
-        }
-      />
-    )
-  } else if (ind.sorties12m > 0) {
-    calc.push(
-      <LogItem
-        key="couv"
-        label="Tient jusqu'au"
-        value="au-delà de 52 sem."
-        title="Aucune rupture sur l'horizon de projection, réceptions à venir exclues."
-      />
-    )
-  }
   if (ind.stockMoyen > 0)
-    calc.push(
+    conso.push(
       <LogItem
         key="stkmoy"
         label="Stock moyen"
@@ -966,7 +1014,7 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
       />
     )
   if (ind.rotation !== null)
-    calc.push(
+    conso.push(
       <LogItem
         key="rota"
         label="Rotation"
@@ -975,13 +1023,12 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
       />
     )
 
-  if (items.length === 0 && calc.length === 0) return null
+  if (appro.length === 0 && conso.length === 0) return null
 
   return (
-    <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-rule bg-card px-5 py-2">
-      {items}
-      {items.length > 0 && calc.length > 0 && <span className="h-4 w-px bg-border" />}
-      {calc}
+    <div className="flex flex-none flex-wrap items-baseline gap-x-8 gap-y-2 border-t border-rule bg-card px-5 py-2.5">
+      {appro.length > 0 && <ParamGroup titre="Approvisionnement">{appro}</ParamGroup>}
+      {conso.length > 0 && <ParamGroup titre="Consommation 12 m">{conso}</ParamGroup>}
     </div>
   )
 }
@@ -1105,7 +1152,22 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
               <span className="flex-1" />
               {detail && (
                 <div className="flex items-center gap-3">
-                  <Metric label="Stock" value={fmtQtyDec.format(detail.stock)} />
+                  {/* Stock, et sa part en contrôle réception quand il y en a :
+                      un stock à moitié bloqué en Q ne se pilote pas comme un
+                      stock entièrement disponible. */}
+                  <Metric
+                    label="Stock"
+                    value={
+                      detail.stockQ > 0
+                        ? `${fmtQtyDec.format(detail.stock)} · Q ${fmtQty.format(detail.stockQ)}`
+                        : fmtQtyDec.format(detail.stock)
+                    }
+                    title={
+                      detail.stockQ > 0
+                        ? `${fmtQty.format(detail.stockA)} en statut A (disponible), ${fmtQty.format(detail.stockQ)} en statut Q (contrôle réception). Le Q est compté disponible par la faisabilité — contacter le contrôle réception s'il bloque.`
+                        : undefined
+                    }
+                  />
                   <span className="h-6 w-px bg-border" />
                   <Metric label="PMP" value={fmtPmp.format(detail.pmp)} title="Prix moyen pondéré (€ / unité)" />
                   <span className="h-6 w-px bg-border" />
@@ -1116,24 +1178,8 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                     value={delta === null ? '—' : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))}`}
                     title="Variation du stock entre la première semaine non nulle et la dernière semaine affichée"
                   />
-                  {totauxFuturs && (
-                    <>
-                      <span className="h-6 w-px bg-border" />
-                      {/* Totaux, pas des variations : pas de signe. Le libellé
-                          dit déjà le sens du flux. */}
-                      <Metric
-                        label="Besoins 52 s."
-                        value={fmtVal(totauxFuturs.besoin, unit)}
-                        title="Total des besoins sur l'horizon de projection : demande client à livrer + matière consommée par la fabrication (ORDERS WIPTYP 1 et 6)"
-                      />
-                      <span className="h-6 w-px bg-border" />
-                      <Metric
-                        label="Ressources 52 s."
-                        value={fmtVal(totauxFuturs.ressource, unit)}
-                        title="Total des ressources sur l'horizon de projection : réceptions achat attendues + production des OF (ORDERS WIPTYP 2 et 5)"
-                      />
-                    </>
-                  )}
+                  {/* Les totaux 52 semaines ont rejoint le verdict : ils
+                      portent sur la fenêtre à venir, pas sur l'état actuel. */}
                 </div>
               )}
               {/* Bascule qté/€ */}
@@ -1159,7 +1205,9 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
               </div>
             </div>
 
-            {detail && <LogistiqueBar detail={detail} />}
+            {/* Verdict d'appro juste sous l'identité : c'est la première
+                question du planificateur, elle passe avant la courbe. */}
+            {detail && <VerdictBar detail={detail} unit={unit} totaux={totauxFuturs} />}
 
             {data.x3Error && (
               <div className="flex flex-none items-start gap-2 border-b border-brand/30 bg-brand-soft px-5 py-2 text-[12px] text-foreground">
@@ -1176,9 +1224,14 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                 </span>
               </div>
             ) : (
-              <div className="min-h-0 flex-1 px-5 pb-4 pt-2">
-                <HistoryChart series={detail.series} future={detail.future ?? []} unit={unit} />
-              </div>
+              <>
+                <div className="min-h-0 flex-1 px-5 pb-3 pt-2">
+                  <HistoryChart series={detail.series} future={detail.future ?? []} unit={unit} />
+                </div>
+                {/* Ce qui explique la courbe, sous la courbe : on ne le lit
+                    qu'après avoir vu la forme, et jamais avant le verdict. */}
+                <ParamsBar detail={detail} />
+              </>
             )}
           </>
         )}
