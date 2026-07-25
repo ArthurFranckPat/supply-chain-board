@@ -342,6 +342,11 @@ router
         router
           .delete('/conversations/:id', '#controllers/agent_controller.conversationsDestroy')
           .as('agent.conversationsDestroy')
+        // MCP Apps (issue #89) : l'hôte du navigateur lit les resources `ui://`
+        // et proxifie les `tools/call` des apps — toujours via le client MCP,
+        // jamais en tapant les fichiers ou les primitives en direct.
+        router.get('/mcp/app', '#controllers/agent_mcp_controller.app').as('agent.mcp.app')
+        router.post('/mcp/call', '#controllers/agent_mcp_controller.call').as('agent.mcp.call')
       })
       .prefix('/api/v1/agent')
   })

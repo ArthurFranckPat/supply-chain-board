@@ -3,6 +3,7 @@ import { ChevronRight, Wrench } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
+import { readToolOutput } from '@r/lib/copilote/tool-output'
 
 export type AnyToolPart = ToolUIPart | DynamicToolUIPart
 export type ToolStatus = 'running' | 'done' | 'error'
@@ -84,7 +85,7 @@ export function ToolTokens(props: { parts: AnyToolPart[] }) {
                       <span className="font-semibold text-foreground">résultat</span>{' '}
                       {status === 'error'
                         ? part.errorText
-                        : JSON.stringify(part.output, null, 2)}
+                        : JSON.stringify(readToolOutput(part.output).payload, null, 2)}
                     </>
                   )}
                 </pre>

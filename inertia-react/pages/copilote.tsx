@@ -36,6 +36,7 @@ import { CopiloteSidebar, type ConversationSummary } from '@r/components/copilot
 import { InspectorPanel, deriveInspectorContext } from '@r/components/copilote/inspector'
 import { Composer } from '@r/components/copilote/composer'
 import { ToolTokens } from '@r/components/copilote/tool-tokens'
+import { McpAppParts } from '@r/components/copilote/mcp-app-frame'
 import { CopiloteMarkdown } from '@r/components/copilote/markdown'
 
 /** Metadata émise par le backend sur le chunk `start` (ex-event `session`). */
@@ -306,6 +307,10 @@ export default function Copilote() {
                         </div>
 
                         <ToolTokens parts={m.parts.filter(isToolUIPart)} />
+
+                        {/* Apps MCP (issue #89) : graphes rendus par le protocole,
+                            au-dessus de la réponse rédigée. */}
+                        <McpAppParts parts={m.parts.filter(isToolUIPart)} />
 
                         <div className="group/answer">
                           {m.parts.map((part, idx) => {

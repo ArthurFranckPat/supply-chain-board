@@ -606,6 +606,18 @@ const routes = {
     tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['agent.conversationsDestroy']['types'],
   },
+  'agent.mcp.app': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/agent/mcp/app',
+    tokens: [{"old":"/api/v1/agent/mcp/app","type":0,"val":"api","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"mcp","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"app","end":""}],
+    types: placeholder as Registry['agent.mcp.app']['types'],
+  },
+  'agent.mcp.call': {
+    methods: ["POST"],
+    pattern: '/api/v1/agent/mcp/call',
+    tokens: [{"old":"/api/v1/agent/mcp/call","type":0,"val":"api","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"mcp","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"call","end":""}],
+    types: placeholder as Registry['agent.mcp.call']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

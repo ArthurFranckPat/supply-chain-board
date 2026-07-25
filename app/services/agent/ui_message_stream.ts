@@ -110,7 +110,14 @@ export class AgentUIMessageMapper {
           {
             type: 'tool-output-available',
             toolCallId: event.toolCallId,
-            output: event.result ?? null,
+            // Le chunk est en `strictObject` côté client : impossible d'ajouter un
+            // champ frère pour l'app. Quand le tool en déclare une, `output`
+            // devient donc une enveloppe marquée, que le front sait défaire
+            // (`readToolOutput`). Sans app, `output` reste le payload nu —
+            // l'historique déjà persisté avant #89 continue de s'afficher.
+            output: event.ui
+              ? { __mcpUi: event.ui, data: event.result ?? null }
+              : (event.result ?? null),
           },
         ]
       }

@@ -131,7 +131,9 @@ export async function createSupplyMcpServer(
     // une capacité qu'il n'a pas. `update` émet un `tools/list_changed`, que les
     // clients savent ignorer s'ils ne suivent pas les listes dynamiques.
     for (const tool of appTools) tool.update({ _meta: {} })
-    log("[supply-board MCP] client sans MCP Apps — apps désactivées (texte seul, comportement d'avant #89)")
+    log(
+      "[supply-board MCP] client sans MCP Apps — apps désactivées (texte seul, comportement d'avant #89)"
+    )
   }
 
   return {
@@ -152,7 +154,8 @@ function registerToolForMcp(
     // Gate de capacité, versant données : pas d'app affichable → pas de payload
     // structuré. Le client retrouve exactement la réponse d'avant #89.
     if (!uiEnabled() && result.structuredContent) {
-      const { structuredContent: _dropped, ...textOnly } = result
+      const textOnly = { ...result }
+      delete textOnly.structuredContent
       return textOnly
     }
     return result

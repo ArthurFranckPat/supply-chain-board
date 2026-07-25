@@ -6,6 +6,7 @@ import { cn } from '@r/lib/utils'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
 import { toolStatus, type AnyToolPart, type ToolStatus } from '@r/components/copilote/tool-tokens'
 import { ToolResultView } from '@r/components/copilote/tool-result-view'
+import { readToolOutput } from '@r/lib/copilote/tool-output'
 
 export interface ToolCallEntry {
   toolName: string
@@ -17,7 +18,14 @@ export interface ToolCallEntry {
 
 /** Champs d'entrée tool qui identifient « de quoi on parle » — sert à
  * peupler l'en-tête contextuel (badge « auto · déduit »). */
-const SUBJECT_FIELDS = ['article', 'articles', 'numOf', 'numCommande', 'composant', 'poste'] as const
+const SUBJECT_FIELDS = [
+  'article',
+  'articles',
+  'numOf',
+  'numCommande',
+  'composant',
+  'poste',
+] as const
 
 /** Déduit les appels tools à afficher (dernier appel par nom, plus récent
  * en tête) et le « sujet » courant depuis l'historique de la conversation. */
@@ -45,7 +53,9 @@ export function deriveInspectorContext(messages: UIMessage[]): {
         toolName: name,
         status,
         input: p.input,
-        output: status === 'done' ? p.output : undefined,
+        // L'inspecteur montre la donnée, pas le transport : l'enveloppe d'app
+        // (issue #89) est défaite ici, l'app elle-même est rendue dans le fil.
+        output: status === 'done' ? readToolOutput(p.output).payload : undefined,
         errorText: status === 'error' ? p.errorText : undefined,
       })
 
@@ -126,7 +136,8 @@ export function InspectorPanel(props: {
               className={cn(
                 'rounded-xl border-t border-border/60 py-3.5 transition-shadow duration-150 first:border-none',
                 idx === 0 && 'bg-planifie/[0.06]',
-                flashingTool === entry.toolName && 'shadow-[0_0_0_4px_var(--brand-soft,rgba(255,56,92,0.22))]'
+                flashingTool === entry.toolName &&
+                  'shadow-[0_0_0_4px_var(--brand-soft,rgba(255,56,92,0.22))]'
               )}
             >
               <div className="mb-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground">

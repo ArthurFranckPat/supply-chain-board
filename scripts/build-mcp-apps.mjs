@@ -60,7 +60,9 @@ function inlineSingleFile(appName) {
           const code = file.code.replace(/<\/script/gi, '<\\/script')
           const tag = new RegExp(`<script[^>]*src="[^"]*${escapeRe(file.fileName)}"[^>]*></script>`)
           if (!tag.test(html))
-            throw new Error(`[mcp:apps] ${appName} : chunk ${file.fileName} non référencé par le HTML`)
+            throw new Error(
+              `[mcp:apps] ${appName} : chunk ${file.fileName} non référencé par le HTML`
+            )
           html = html.replace(tag, placeholder(`<script type="module">${code}</script>`))
           delete bundle[key]
           continue
@@ -70,7 +72,9 @@ function inlineSingleFile(appName) {
           const css = String(file.source)
           const tag = new RegExp(`<link[^>]*href="[^"]*${escapeRe(file.fileName)}"[^>]*>`)
           if (!tag.test(html))
-            throw new Error(`[mcp:apps] ${appName} : CSS ${file.fileName} non référencé par le HTML`)
+            throw new Error(
+              `[mcp:apps] ${appName} : CSS ${file.fileName} non référencé par le HTML`
+            )
           html = html.replace(tag, placeholder(`<style>${css}</style>`))
           delete bundle[key]
           continue

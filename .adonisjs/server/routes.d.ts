@@ -104,6 +104,8 @@ export type ScannedRoutes = {
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'agent.conversationsDestroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'agent.mcp.app': { paramsTuple?: []; params?: {} }
+    'agent.mcp.call': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -170,6 +172,7 @@ export type ScannedRoutes = {
     'agent.health': { paramsTuple?: []; params?: {} }
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'agent.mcp.app': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -236,6 +239,7 @@ export type ScannedRoutes = {
     'agent.health': { paramsTuple?: []; params?: {} }
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'agent.mcp.app': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'auth.attempt': { paramsTuple?: []; params?: {} }
@@ -263,6 +267,7 @@ export type ScannedRoutes = {
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
     'x3_print.test': { paramsTuple?: []; params?: {} }
     'agent.chat': { paramsTuple?: []; params?: {} }
+    'agent.mcp.call': { paramsTuple?: []; params?: {} }
   }
   PATCH: {
     'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

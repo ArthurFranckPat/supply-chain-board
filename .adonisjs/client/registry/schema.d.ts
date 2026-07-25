@@ -1207,4 +1207,28 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'agent.mcp.app': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/agent/mcp/app'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.mcp.call': {
+    methods: ["POST"]
+    pattern: '/api/v1/agent/mcp/call'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
 }

@@ -28,7 +28,8 @@ import {
 } from '@earendil-works/pi-coding-agent'
 
 import { buildAgentSystemPrompt } from '#services/agent/system_prompt'
-import { agentToolNames, buildAgentTools } from '#services/agent/tools'
+import { agentToolNames } from '#services/agent/tools'
+import { buildMcpBackedTools, takeToolUi, type AgentToolUi } from '#services/agent/mcp_client'
 import {
   getStoredSession,
   storeSession,
@@ -62,6 +63,12 @@ export type AgentSseEvent =
       isError: boolean
       /** Payload métier seul — le wrapper pi est retiré (cf. unwrapToolResult). */
       result?: unknown
+      /**
+       * App MCP (SEP-1865) déclarée par le tool côté serveur, quand il en a une.
+       * Le front en fait un iframe hôte ; absente, il affiche le résultat comme
+       * avant. Cf. `mcp_client.ts` (issue #89).
+       */
+      ui?: AgentToolUi
     }
   | { type: 'error'; message: string }
   | { type: 'done'; sessionId: string }
@@ -87,7 +94,7 @@ export interface RunAgentOptions {
     selection?: Record<string, string | number | null | undefined>
     filters?: Record<string, string | number | null | undefined>
   }
-  /** Override tools (tests). Défaut = buildAgentTools(). */
+  /** Override tools (tests). Défaut = les tools servis par le client MCP. */
   tools?: ToolDefinition[]
   /** Abort HTTP client disconnect. */
   signal?: AbortSignal
@@ -190,7 +197,10 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
           args: event.args,
         },
       ]
-    case 'tool_execution_end':
+    case 'tool_execution_end': {
+      // Le lien vers l'app a été posé par le tool MCP au moment de l'appel,
+      // indexé sur ce même toolCallId (cf. mcp_client.ts). Consommé une fois.
+      const ui = takeToolUi(event.toolCallId)
       return [
         {
           type: 'tool_end',
@@ -198,8 +208,10 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
           toolCallId: event.toolCallId,
           isError: Boolean(event.isError),
           result: unwrapToolResult(event.result),
+          ...(ui ? { ui } : {}),
         },
       ]
+    }
     default:
       return []
   }
@@ -210,7 +222,7 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
  * modèle manquent (gate Q12 — prouver le provider dès le boot du chat).
  */
 export async function createAgentRuntime(
-  tools: ToolDefinition[] = buildAgentTools(),
+  toolsOverride?: ToolDefinition[],
   historySeed?: string
 ): Promise<{
   session: AgentSession
@@ -219,6 +231,10 @@ export async function createAgentRuntime(
   toolNames: string[]
   sessionId: string
 }> {
+  // Défaut : les tools servis par le protocole MCP (issue #89 lot 2). Un override
+  // explicite reste possible (smoke, golden eval) et court-circuite le protocole.
+  const tools = toolsOverride ?? (await buildMcpBackedTools())
+
   const apiKey = env.get('ZAI_API_KEY')
   if (!apiKey) {
     throw new Error(
@@ -319,10 +335,13 @@ export async function createAgentRuntime(
  * ou jetable (pas d'id — smoke/tests).
  */
 async function resolveTurnSession(options: RunAgentOptions): Promise<{
-  runtime: Pick<StoredAgentSession, 'session' | 'dispose' | 'modelLabel' | 'toolNames' | 'sessionId'>
+  runtime: Pick<
+    StoredAgentSession,
+    'session' | 'dispose' | 'modelLabel' | 'toolNames' | 'sessionId'
+  >
   persistent: boolean
 }> {
-  const tools = options.tools ?? buildAgentTools()
+  const tools = options.tools
   const convId = options.conversationId?.trim()
   if (!convId) {
     return { runtime: await createAgentRuntime(tools), persistent: false }
@@ -333,9 +352,7 @@ async function resolveTurnSession(options: RunAgentOptions): Promise<{
   // un conversationId récupère la session Pi d'autrui.
   const userId = options.userId
   if (userId === undefined) {
-    throw new Error(
-      'userId requis avec conversationId (K5 : namespace anti-IDOR obligatoire).'
-    )
+    throw new Error('userId requis avec conversationId (K5 : namespace anti-IDOR obligatoire).')
   }
 
   const existing = getStoredSession(userId, convId)

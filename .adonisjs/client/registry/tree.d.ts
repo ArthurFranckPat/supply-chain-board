@@ -84,6 +84,10 @@ export interface ApiDefinition {
     conversations: typeof routes['agent.conversations']
     conversation: typeof routes['agent.conversation']
     conversationsDestroy: typeof routes['agent.conversationsDestroy']
+    mcp: {
+      app: typeof routes['agent.mcp.app']
+      call: typeof routes['agent.mcp.call']
+    }
   }
   calendarConfig: {
     index: typeof routes['calendar_config.index']

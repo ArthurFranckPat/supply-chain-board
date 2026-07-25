@@ -53,7 +53,9 @@ function taux(charge: number, capacite: number): number | null {
 }
 
 function isChargePayload(value: unknown): value is ChargePayload {
-  return typeof value === 'object' && value !== null && Array.isArray((value as ChargePayload).postes)
+  return (
+    typeof value === 'object' && value !== null && Array.isArray((value as ChargePayload).postes)
+  )
 }
 
 export function ChargeApp() {
@@ -122,9 +124,24 @@ export function ChargeApp() {
     }
   }, [app, payload?.vue])
 
-  if (error) return <Shell><p className="err">Connexion à l’hôte impossible : {error.message}</p></Shell>
-  if (!isConnected) return <Shell><p className="muted">Connexion…</p></Shell>
-  if (!payload) return <Shell><p className="muted">En attente du résultat de getCharge…</p></Shell>
+  if (error)
+    return (
+      <Shell>
+        <p className="err">Connexion à l’hôte impossible : {error.message}</p>
+      </Shell>
+    )
+  if (!isConnected)
+    return (
+      <Shell>
+        <p className="muted">Connexion…</p>
+      </Shell>
+    )
+  if (!payload)
+    return (
+      <Shell>
+        <p className="muted">En attente du résultat de getCharge…</p>
+      </Shell>
+    )
 
   const postes = payload.postes ?? []
   const detail = postes.length === 1 && Array.isArray(postes[0]?.semaines)
@@ -212,7 +229,11 @@ function Annuaire({
                 </span>
               </span>
 
-              <span className="jauge" role="img" aria-label={`${fmtH(p.totalHeures)} sur ${fmtH(p.totalCapacite)}`}>
+              <span
+                className="jauge"
+                role="img"
+                aria-label={`${fmtH(p.totalHeures)} sur ${fmtH(p.totalCapacite)}`}
+              >
                 <span
                   className={t !== null && t > 1 ? 'barre sature' : 'barre'}
                   style={{ width: `${(p.totalHeures / max) * 100}%` }}
@@ -260,8 +281,8 @@ function DetailPoste({ poste }: { poste: PosteCharge }) {
       </h2>
       <p className="muted">
         {fmtH(totalCharge)} de charge pour {fmtH(totalCapacite)} de capacité
-        {t !== null ? ` (${Math.round(t * 100)} %)` : ''} ·{' '}
-        {poste.semainesSaturees} semaine{poste.semainesSaturees > 1 ? 's' : ''} saturée
+        {t !== null ? ` (${Math.round(t * 100)} %)` : ''} · {poste.semainesSaturees} semaine
+        {poste.semainesSaturees > 1 ? 's' : ''} saturée
         {poste.semainesSaturees > 1 ? 's' : ''}
       </p>
 
