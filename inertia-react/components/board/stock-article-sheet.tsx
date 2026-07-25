@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CircleX, Package, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
@@ -36,13 +36,28 @@ interface StockFuturePoint {
   stockVal: number
 }
 
+/** Paramètres de pilotage — tous optionnels côté X3 (fiche site ou fournisseur
+ *  par défaut absents). `null` = donnée non renseignée, distinct d'un vrai 0. */
+interface StockArticleLogistique {
+  famille: string | null
+  delaiReapproJours: number | null
+  lotTechnique: number | null
+  lotEconomique: number | null
+  stockSecurite: number | null
+  fournisseurCode: string | null
+  fournisseurNom: string | null
+}
+
 interface StockArticleDetail {
   article: string
   designation: string
   categorie: string
   stock: number
+  stockA: number
+  stockQ: number
   pmp: number
   valeur: number
+  logistique: StockArticleLogistique
   grain: 'semaine'
   series: StockHistoryPoint[]
   future: StockFuturePoint[]
@@ -80,8 +95,11 @@ const fmtEuro = new Intl.NumberFormat('fr-FR', {
   currency: 'EUR',
   maximumFractionDigits: 0,
 })
-/** PMP : 4 décimales, virgule décimale (toFixed donnerait un point). */
+/** PMP : prix unitaire en euros, 4 décimales (un composant à 0,01 € doit rester
+ *  distinguable d'un composant à 0,0099 €). */
 const fmtPmp = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
   minimumFractionDigits: 4,
   maximumFractionDigits: 4,
 })
@@ -751,6 +769,103 @@ function HistoryChart({
   )
 }
 
+/** Entrée du bandeau logistique : label mono uppercase puis valeur. Rendue
+ *  seulement si la donnée existe — un paramètre non renseigné dans X3 ne doit
+ *  pas occuper une case pour y afficher « — ». */
+function LogItem({ label, value, title }: { label: string; value: string; title?: string }) {
+  return (
+    <div className="flex items-baseline gap-1.5" title={title}>
+      <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="font-mono text-[11px] font-semibold tabular-nums text-secondary-foreground">
+        {value}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Bandeau des paramètres de pilotage : fournisseur, délai de réappro, lots,
+ * stock de sécurité, répartition A/Q. Ce sont eux qui expliquent la forme de la
+ * courbe — un délai de 140 jours et un lot économique de 7 392 donnent des
+ * entrées massives et espacées, pas un flux continu.
+ *
+ * Le stock de sécurité s'affiche même à 0 : c'est un paramétrage explicite,
+ * pas une absence de donnée (le repository ne le rend `null` que si la fiche
+ * site elle-même manque).
+ */
+function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
+  const l = detail.logistique
+  const fournisseur = l.fournisseurNom ?? l.fournisseurCode
+  const items: ReactNode[] = []
+
+  if (fournisseur)
+    items.push(
+      <LogItem
+        key="four"
+        label="Fournisseur"
+        value={fournisseur}
+        title={l.fournisseurCode ? `Code fournisseur ${l.fournisseurCode}` : undefined}
+      />
+    )
+  if (l.delaiReapproJours !== null)
+    items.push(
+      <LogItem
+        key="delai"
+        label="Délai réappro"
+        value={`${fmtQty.format(l.delaiReapproJours)} j`}
+        title="Délai de réapprovisionnement paramétré sur la fiche site (ITMFACILIT.OFS)"
+      />
+    )
+  if (l.lotEconomique !== null)
+    items.push(
+      <LogItem
+        key="lotEco"
+        label="Lot éco."
+        value={fmtQty.format(l.lotEconomique)}
+        title="Quantité minimale de réapprovisionnement (ITMFACILIT.REOMINQTY)"
+      />
+    )
+  if (l.lotTechnique !== null)
+    items.push(
+      <LogItem
+        key="lotTech"
+        label="Lot techn."
+        value={fmtQty.format(l.lotTechnique)}
+        title="Lot technique de fabrication (ITMFACILIT.MFGLOTQTY)"
+      />
+    )
+  if (l.stockSecurite !== null)
+    items.push(
+      <LogItem
+        key="secu"
+        label="Stock sécu."
+        value={fmtQty.format(l.stockSecurite)}
+        title="Stock de sécurité paramétré (ITMFACILIT.SAFSTO)"
+      />
+    )
+  if (detail.stockQ > 0)
+    items.push(
+      <LogItem
+        key="aq"
+        label="Statut A / Q"
+        value={`${fmtQty.format(detail.stockA)} / ${fmtQty.format(detail.stockQ)}`}
+        title="Répartition du stock : A disponible, Q en contrôle réception. Le Q est compté dans le stock disponible par la faisabilité — contacter le contrôle réception s'il bloque."
+      />
+    )
+  if (l.famille)
+    items.push(<LogItem key="fam" label="Famille" value={l.famille} title="Famille d'usage (YFAMSTAT7)" />)
+
+  if (items.length === 0) return null
+
+  return (
+    <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-rule bg-card px-5 py-2">
+      {items}
+    </div>
+  )
+}
+
 /** Bloc métrique d'en-tête : label mono uppercase + valeur tabular. */
 function Metric({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
@@ -884,16 +999,18 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                   {totauxFuturs && (
                     <>
                       <span className="h-6 w-px bg-border" />
+                      {/* Totaux, pas des variations : pas de signe. Le libellé
+                          dit déjà le sens du flux. */}
                       <Metric
                         label="Besoins 52 s."
-                        value={`− ${fmtVal(totauxFuturs.besoin, unit)}`}
-                        title="Total des besoins sur l'horizon de projection : demande client à livrer (fermes + prévisions) + matière consommée par les OF ouverts"
+                        value={fmtVal(totauxFuturs.besoin, unit)}
+                        title="Total des besoins sur l'horizon de projection : demande client à livrer + matière consommée par la fabrication (ORDERS WIPTYP 1 et 6)"
                       />
                       <span className="h-6 w-px bg-border" />
                       <Metric
                         label="Ressources 52 s."
-                        value={`+ ${fmtVal(totauxFuturs.ressource, unit)}`}
-                        title="Total des ressources sur l'horizon de projection : réceptions achat attendues + production des OF ouverts"
+                        value={fmtVal(totauxFuturs.ressource, unit)}
+                        title="Total des ressources sur l'horizon de projection : réceptions achat attendues + production des OF (ORDERS WIPTYP 2 et 5)"
                       />
                     </>
                   )}
@@ -921,6 +1038,8 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                 ))}
               </div>
             </div>
+
+            {detail && <LogistiqueBar detail={detail} />}
 
             {data.x3Error && (
               <div className="flex flex-none items-start gap-2 border-b border-brand/30 bg-brand-soft px-5 py-2 text-[12px] text-foreground">

@@ -46,18 +46,40 @@ WHERE M.ITMSTA_0 = 1
                            AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD')))
 `
 
-/** Base d'UN article : stock + PMP actuels sur AE1 + identité (désignation,
- *  catégorie). Pas de filtre ITMSTA/TCLCOD : la sheet de détail doit répondre
- *  pour tout article cliqué dans le KPI, même sorti du référentiel actif. */
+/** Base d'UN article : stock + PMP actuels sur AE1, identité (désignation,
+ *  catégorie, famille d'usage) et paramètres logistiques — délai de réappro,
+ *  lots, stock de sécurité, fournisseur par défaut.
+ *
+ *  `ITMFACILIT` porte les paramètres de réappro **par site** : la jointure doit
+ *  être scopée sur `STOFCY_0`, sinon un article multi-site remonte le délai
+ *  d'un autre site. `ITMBPS.DEFBPSFLG_0 = 2` désigne le fournisseur par défaut
+ *  (les autres lignes sont des fournisseurs alternatifs).
+ *
+ *  Les trois jointures sont des LEFT JOIN : un article fabriqué n'a pas de
+ *  fournisseur, et une fiche sans paramètres de réappro reste consultable.
+ *  Pas de filtre ITMSTA/TCLCOD : la sheet de détail doit répondre pour tout
+ *  article cliqué dans le KPI, même sorti du référentiel actif. */
 const buildArticleBaseSql = (article: string) => `
 SELECT
   M.ITMREF_0    AS ARTICLE,
   M.ITMDES1_0   AS DESIGNATION,
   M.TCLCOD_0    AS CATEGORIE,
+  M.YFAMSTAT7_0 AS FAMILLE,
+  V.PHYSTO_0    AS STK_A,
+  V.CTLSTO_0    AS STK_Q,
   (V.PHYSTO_0 + V.CTLSTO_0) AS STK,
-  V.AVC_0       AS PMP
+  V.AVC_0       AS PMP,
+  F.OFS_0       AS DELAI,
+  F.MFGLOTQTY_0 AS LOT_TECH,
+  F.REOMINQTY_0 AS LOT_ECO,
+  F.SAFSTO_0    AS STK_SECU,
+  P.BPSNUM_0    AS FOURNISSEUR_CODE,
+  S.BPSNAM_0    AS FOURNISSEUR_NOM
 FROM ITMMASTER M
 INNER JOIN ITMMVT V ON V.ITMREF_0 = M.ITMREF_0 AND V.STOFCY_0 = '${SITE}'
+LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = M.ITMREF_0 AND F.STOFCY_0 = '${SITE}'
+LEFT JOIN ITMBPS P ON P.ITMREF_0 = M.ITMREF_0 AND P.DEFBPSFLG_0 = 2
+LEFT JOIN BPSUPPLIER S ON S.BPSNUM_0 = P.BPSNUM_0
 WHERE M.ITMREF_0 = '${article.replace(/'/g, "''")}'
 `
 
@@ -166,13 +188,30 @@ export interface StockArticleHistoryPoint {
   sortieVal: number
 }
 
+/** Paramètres de pilotage de l'article. Tous optionnels : ils viennent de
+ *  jointures LEFT (fiche site, fournisseur par défaut) qui peuvent manquer. */
+export interface StockArticleLogistique {
+  famille: string | null // YFAMSTAT7_0 — famille d'usage
+  delaiReapproJours: number | null // ITMFACILIT.OFS_0
+  lotTechnique: number | null // ITMFACILIT.MFGLOTQTY_0
+  lotEconomique: number | null // ITMFACILIT.REOMINQTY_0
+  stockSecurite: number | null // ITMFACILIT.SAFSTO_0
+  fournisseurCode: string | null // ITMBPS.BPSNUM_0 (DEFBPSFLG_0 = 2)
+  fournisseurNom: string | null // BPSUPPLIER.BPSNAM_0
+}
+
 export interface StockArticleHistory {
   article: string
   designation: string
   categorie: string
   stock: number // stock actuel (ancré à refDate)
+  // Répartition par statut, lue telle quelle dans ITMMVT — donc NON rembobinée :
+  // elle ne vaut que pour refDate = aujourd'hui, le seul cas de la sheet.
+  stockA: number // PHYSTO — statut A (disponible)
+  stockQ: number // CTLSTO — statut Q (contrôle réception)
   pmp: number
   valeur: number // stock × pmp (€)
+  logistique: StockArticleLogistique
   grain: 'semaine'
   series: StockArticleHistoryPoint[] // du plus ancien au plus récent
 }
@@ -504,13 +543,37 @@ export class StockValuationRepository {
       if (f) runningQtySub += f.net
     }
 
+    // Paramètres logistiques : `null` quand la donnée est absente, jamais 0.
+    // Un délai de réappro inconnu et un délai nul ne se pilotent pas pareil —
+    // l'UI affiche « — » dans le premier cas. Le stock de sécurité fait
+    // exception : X3 y écrit un vrai 0 (pas de stock de sécurité paramétré),
+    // qui est une information, donc seule une ligne ITMFACILIT absente le rend
+    // nul.
+    const text = (v: string | null | undefined): string | null => v?.trim() || null
+    const optNum = (v: string | null | undefined): number | null => {
+      if (v === null || v === undefined || v.trim() === '') return null
+      const n = Number.parseFloat(v)
+      return Number.isFinite(n) ? n : null
+    }
+
     return {
       article: article.trim(),
       designation: row.DESIGNATION?.trim() ?? '',
       categorie: (row.CATEGORIE?.trim() || '(sans cat.)').toUpperCase(),
       stock: round2(stkAnchor),
+      stockA: round2(num(row.STK_A)),
+      stockQ: round2(num(row.STK_Q)),
       pmp: Math.round(pmp * 1_000_000) / 1_000_000,
       valeur: round2(stkAnchor * pmp),
+      logistique: {
+        famille: text(row.FAMILLE),
+        delaiReapproJours: optNum(row.DELAI),
+        lotTechnique: optNum(row.LOT_TECH),
+        lotEconomique: optNum(row.LOT_ECO),
+        stockSecurite: optNum(row.STK_SECU),
+        fournisseurCode: text(row.FOURNISSEUR_CODE),
+        fournisseurNom: text(row.FOURNISSEUR_NOM),
+      },
       grain: 'semaine',
       series,
     }
