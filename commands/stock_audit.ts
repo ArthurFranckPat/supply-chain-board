@@ -3,6 +3,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import { CombinedOrdersRepository } from '#app/repositories/combined_orders_repository'
+import { loadStockArticleDetail } from '#services/stock_detail_loader'
 import { getX3EnvConfig } from '#config/x3'
 
 /**
@@ -115,6 +116,30 @@ export default class StockAudit extends BaseCommand {
       this.logger.info(
         `Projection — Σ besoins ${Math.round(somme('demande', 'composant'))} · Σ ressources ${Math.round(somme('reception', 'of'))}`
       )
+
+      // --- Paramètres et indicateurs tels que la sheet les affiche ---
+      // Passe par le vrai loader : ce bloc vérifie le chemin de code servi à
+      // l'UI, pas une reconstitution parallèle qui pourrait diverger.
+      const { detail } = await loadStockArticleDetail({ article: this.article.trim() })
+      if (detail) {
+        const l = detail.logistique
+        const i = detail.indicateurs
+        const opt = (v: number | null, suffixe = '') =>
+          v === null ? '—' : `${Math.round(v * 100) / 100}${suffixe}`
+        this.logger.info('')
+        this.logger.info(
+          `Logistique : fournisseur ${l.fournisseurNom ?? '—'} (${l.fournisseurCode ?? '—'}) · délai ${opt(l.delaiReapproJours, ' j')} · lot éco ${opt(l.lotEconomique)} · lot techn. ${opt(l.lotTechnique)} · stock sécu ${opt(l.stockSecurite)}`
+        )
+        this.logger.info(
+          `Indicateurs : sorties 12 m ${Math.round(i.sorties12m)} sur ${i.joursFenetre} j · CMJ ${opt(i.cmj)} · couverture ${opt(i.couvertureJours, ' j')} · stock moyen ${Math.round(i.stockMoyen)} · rotation ${opt(i.rotation, ' ×')}`
+        )
+        if (i.ratioCouvertureDelai !== null) {
+          const pct = Math.round(i.ratioCouvertureDelai * 100)
+          this.logger[i.ratioCouvertureDelai < 1 ? 'warning' : 'info'](
+            `Couverture vs délai de réappro : ${pct} % — ${i.ratioCouvertureDelai < 1 ? 'le stock ne tient PAS jusqu’à la prochaine livraison possible.' : 'le stock tient jusqu’à la prochaine livraison possible.'}`
+          )
+        }
+      }
 
       // --- Lignes brutes du journal sur la fenêtre 52 semaines ---
       let rows: Record<string, string | null>[]

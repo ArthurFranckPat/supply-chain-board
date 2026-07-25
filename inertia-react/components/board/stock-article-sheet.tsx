@@ -48,6 +48,18 @@ interface StockArticleLogistique {
   fournisseurNom: string | null
 }
 
+/** Indicateurs dérivés de l'historique (calculés par stock_detail_loader).
+ *  `null` = calcul sans objet (diviseur nul), pas « zéro ». */
+interface StockArticleIndicateurs {
+  sorties12m: number
+  joursFenetre: number
+  cmj: number | null
+  couvertureJours: number | null
+  stockMoyen: number
+  rotation: number | null
+  ratioCouvertureDelai: number | null
+}
+
 interface StockArticleDetail {
   article: string
   designation: string
@@ -58,6 +70,7 @@ interface StockArticleDetail {
   pmp: number
   valeur: number
   logistique: StockArticleLogistique
+  indicateurs: StockArticleIndicateurs
   grain: 'semaine'
   series: StockHistoryPoint[]
   future: StockFuturePoint[]
@@ -772,18 +785,38 @@ function HistoryChart({
 /** Entrée du bandeau logistique : label mono uppercase puis valeur. Rendue
  *  seulement si la donnée existe — un paramètre non renseigné dans X3 ne doit
  *  pas occuper une case pour y afficher « — ». */
-function LogItem({ label, value, title }: { label: string; value: string; title?: string }) {
+function LogItem({
+  label,
+  value,
+  title,
+  alert,
+}: {
+  label: string
+  value: string
+  title?: string
+  /** Met la valeur en évidence — réservé au cas où le chiffre appelle une
+   *  décision, pas à la simple mise en forme. */
+  alert?: boolean
+}) {
   return (
     <div className="flex items-baseline gap-1.5" title={title}>
       <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </span>
-      <span className="font-mono text-[11px] font-semibold tabular-nums text-secondary-foreground">
+      <span
+        className={cn(
+          'font-mono text-[11px] font-semibold tabular-nums',
+          alert ? 'text-destructive' : 'text-secondary-foreground'
+        )}
+      >
         {value}
       </span>
     </div>
   )
 }
+
+/** Jours entiers — « 140 j ». */
+const fmtJours = (v: number): string => `${fmtQty.format(Math.round(v))} j`
 
 /**
  * Bandeau des paramètres de pilotage : fournisseur, délai de réappro, lots,
@@ -857,11 +890,79 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
   if (l.famille)
     items.push(<LogItem key="fam" label="Famille" value={l.famille} title="Famille d'usage (YFAMSTAT7)" />)
 
-  if (items.length === 0) return null
+  // --- Indicateurs dérivés, séparés des paramètres : les premiers se
+  //     constatent, les seconds se paramètrent. ---
+  const ind = detail.indicateurs
+  const calc: ReactNode[] = []
+  const anneeGlissante = `sur ${fmtQty.format(ind.joursFenetre)} jours glissants`
+
+  if (ind.sorties12m > 0)
+    calc.push(
+      <LogItem
+        key="sorties"
+        label="Sorties 12 m"
+        value={fmtQty.format(ind.sorties12m)}
+        title={`Total des sorties physiques nettes ${anneeGlissante} — consommation de fabrication, ventes, retours et rebuts confondus. C'est par là que le stock s'écoule.`}
+      />
+    )
+  if (ind.cmj !== null)
+    calc.push(
+      <LogItem
+        key="cmj"
+        label="CMJ"
+        value={fmtQtyDec.format(ind.cmj)}
+        title={`Consommation moyenne par jour CALENDAIRE (sorties ÷ ${ind.joursFenetre} jours). Diviser par les seuls jours de mouvement doublerait ce chiffre et diviserait la couverture par deux.`}
+      />
+    )
+  if (ind.couvertureJours !== null) {
+    // Alerte quand le stock ne tient pas jusqu'à la prochaine livraison
+    // possible : une couverture confortable dans l'absolu peut être une rupture
+    // certaine face à un délai de réappro long.
+    const sousDelai = ind.ratioCouvertureDelai !== null && ind.ratioCouvertureDelai < 1
+    calc.push(
+      <LogItem
+        key="couv"
+        label="Couverture"
+        value={
+          sousDelai
+            ? `${fmtJours(ind.couvertureJours)} · ${fmtPct(ind.ratioCouvertureDelai!)} du délai`
+            : fmtJours(ind.couvertureJours)
+        }
+        alert={sousDelai}
+        title={
+          l.delaiReapproJours !== null
+            ? `Stock actuel ÷ CMJ calendaire. Délai de réapprovisionnement : ${fmtJours(l.delaiReapproJours)}${sousDelai ? ' — le stock ne tient pas jusqu\'à la prochaine livraison possible.' : '.'}`
+            : 'Stock actuel ÷ CMJ calendaire.'
+        }
+      />
+    )
+  }
+  if (ind.stockMoyen > 0)
+    calc.push(
+      <LogItem
+        key="stkmoy"
+        label="Stock moyen"
+        value={fmtQty.format(ind.stockMoyen)}
+        title={`Moyenne du stock de fin de semaine ${anneeGlissante}.`}
+      />
+    )
+  if (ind.rotation !== null)
+    calc.push(
+      <LogItem
+        key="rota"
+        label="Rotation"
+        value={`${fmtQtyDec.format(ind.rotation)} ×`}
+        title={`Sorties ÷ stock moyen ${anneeGlissante} — nombre de fois où le stock s'est renouvelé.`}
+      />
+    )
+
+  if (items.length === 0 && calc.length === 0) return null
 
   return (
     <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-rule bg-card px-5 py-2">
       {items}
+      {items.length > 0 && calc.length > 0 && <span className="h-4 w-px bg-border" />}
+      {calc}
     </div>
   )
 }
