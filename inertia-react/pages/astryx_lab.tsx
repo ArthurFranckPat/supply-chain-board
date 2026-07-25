@@ -53,6 +53,12 @@ import {
   AlertDialogCancel,
 } from '@r/components/ui/alert-dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectRender } from '@r/components/ui/select'
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+} from '@r/components/ui/combobox'
 
 /** Tokens à inspecter pour la parité thème (Q2). */
 const TOKEN_PROBE: Array<{ key: string; expected: string; source: string }> = [
@@ -182,6 +188,16 @@ export default function AstryxLab() {
               </SelectContent>
               <SelectRender />
             </Select>
+
+            {/* Démo Combobox migré (Typeahead Astryx + context). */}
+            <Combobox>
+              <ComboboxInput placeholder="Rechercher…" aria-label="Articles" />
+              <ComboboxContent>
+                <ComboboxItem value="art-1">Article A</ComboboxItem>
+                <ComboboxItem value="art-2">Article B</ComboboxItem>
+                <ComboboxItem value="art-3">Article C</ComboboxItem>
+              </ComboboxContent>
+            </Combobox>
           </section>
 
           {/* ── Colonne 3 : parité tokens + portal Base UI ── */}
