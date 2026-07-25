@@ -343,14 +343,14 @@ function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode:
   )
 }
 
-// react-grid-layout v2 : WidthProvider (v1) est remplacé par le hook
-// useContainerWidth — la largeur mesurée est passée au composant.
-import { ResponsiveGridLayout, useContainerWidth, type Layout } from 'react-grid-layout'
-import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
+// Grille maison (issue #87) : react-grid-layout v2 laissait drag et resize
+// inertes, et sa v1 est incompatible React 19 (`ReactDOM.findDOMNode`).
+import { DashboardGrid, type DashboardGridItem } from '@r/components/dashboard/grid'
 
 /**
- * Conteneur de KPI pilotant la disposition react-grid-layout.
+ * Conteneur de KPI. Le placement est porté par `DashboardGrid` ; ici on ne
+ * rend que le chrome de la carte (poignée de déplacement, largeurs rapides,
+ * ordre d'impression, masquage).
  */
 function Tile({
   id,
@@ -377,7 +377,8 @@ function Tile({
       {editMode && (
         <div className="pointer-events-none absolute -top-3 left-3 z-30 flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
           <span
-            className="grid-drag-handle pointer-events-auto cursor-grab active:cursor-grabbing text-muted-foreground hover:text-brand"
+            data-grid-drag
+            className="pointer-events-auto cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-brand"
             title="Cliquer et glisser cette poignée pour réordonner la carte"
           >
             <GripVertical size={14} />
@@ -530,37 +531,19 @@ export default function Dashboard(props: DashboardProps) {
   // Déclaré avant les mémos qui en dépendent (gridLayout, handleLayoutChange).
   const [editMode, setEditMode] = useState(false)
 
-  // Largeur mesurée du conteneur de la grille (react-grid-layout v2). Le gate
-  // `mounted` est requis (doc) : la page est rendue SSR par Inertia, et un
-  // premier montage à width=0 dégénère (breakpoint xxs à 2 colonnes avec des
-  // items minW=3) — la géométrie cassée neutralise drag et resize.
-  const { width: gridWidth, containerRef: gridContainerRef, mounted: gridMounted } =
-    useContainerWidth()
-
-  const gridLayout = useMemo(
+  const gridLayout = useMemo<DashboardGridItem[]>(
     () =>
       items
         .filter((it) => it.visible)
-        .map((it) => ({
-          i: it.id,
-          x: it.x,
-          y: it.y,
-          w: it.w,
-          h: it.h,
-          minW: 3,
-          minH: 3,
-          isDraggable: editMode,
-          isResizable: editMode,
-        })),
-    [items, editMode]
+        .map((it) => ({ id: it.id, x: it.x, y: it.y, w: it.w, h: it.h })),
+    [items]
   )
 
   const handleLayoutChange = useCallback(
-    (currentLayout: Layout) => {
-      if (!editMode) return
-      setStoreUpdateGridItems(currentLayout.map((l) => ({ i: l.i, x: l.x, y: l.y, w: l.w, h: l.h })))
+    (next: DashboardGridItem[]) => {
+      setStoreUpdateGridItems(next.map((l) => ({ i: l.id, x: l.x, y: l.y, w: l.w, h: l.h })))
     },
-    [editMode, setStoreUpdateGridItems]
+    [setStoreUpdateGridItems]
   )
 
   // ----- Local state -----
@@ -779,19 +762,16 @@ export default function Dashboard(props: DashboardProps) {
             </div>
           </div>
 
-          <div ref={gridContainerRef}>
-            {gridMounted && (
-            <ResponsiveGridLayout
-              className="layout"
-              width={gridWidth}
-              layouts={{ lg: gridLayout, md: gridLayout, sm: gridLayout }}
-              breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-              cols={{ lg: 12, md: 12, sm: 6, xs: 4, xxs: 2 }}
-              rowHeight={65}
-              dragConfig={{ enabled: editMode, handle: '.grid-drag-handle' }}
-              resizeConfig={{ enabled: editMode, handles: ['se'] }}
-              onLayoutChange={handleLayoutChange}
-            >
+          <DashboardGrid
+            items={gridLayout}
+            editMode={editMode}
+            onChange={handleLayoutChange}
+            cols={12}
+            rowHeight={65}
+            gap={16}
+            minW={3}
+            minH={3}
+          >
             {/* ═════ KPI #1 — Charge en retard par poste ═════ */}
             {isVisible('charge') && (
               <div key="charge">
@@ -1560,9 +1540,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Tile>
               </div>
             )}
-            </ResponsiveGridLayout>
-            )}
-          </div>
+          </DashboardGrid>
 
           {/* Section cartes masquées en mode édition */}
           {editMode && items.some((it) => !it.visible) && (
