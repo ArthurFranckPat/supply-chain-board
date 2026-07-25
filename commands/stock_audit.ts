@@ -71,8 +71,12 @@ export default class StockAudit extends BaseCommand {
       )) as Record<string, string | null>[])[0]
       const netAll = num(hist?.NETALL)
       const ecart = netAll - stkNow
+      // Entrées/sorties BRUTES ici (lignes du journal, sans nettage par
+      // document) : ce contrôle porte sur le net, seul invariant qui doit
+      // réconcilier avec ITMMVT. Les totaux bruts sont très supérieurs aux flux
+      // physiques — la table hebdo plus bas, elle, est nettée.
       this.logger.info(
-        `Σ journal historique : entrées ${num(hist?.TOTIN)} · sorties ${num(hist?.TOTOUT)} · net ${netAll}`
+        `Σ journal historique (brut) : entrées ${num(hist?.TOTIN)} · sorties ${num(hist?.TOTOUT)} · net ${netAll}`
       )
       this.logger.info(
         ecart > 0
@@ -116,14 +120,14 @@ export default class StockAudit extends BaseCommand {
       let rows: Record<string, string | null>[]
       try {
         rows = await db.raw(
-          `SELECT IPTDAT_0, QTYSTU_0, LOT_0, MVTDES_0, ORIGINNUM_0, USR_0
+          `SELECT IPTDAT_0, QTYSTU_0, LOT_0, VCRTYP_0, VCRNUM_0, MVTDES_0, ORIGINNUM_0, USR_0
            FROM STOJOU WHERE STOFCY_0 = '${SITE}' AND ITMREF_0 = '${article}'
              AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD') ORDER BY IPTDAT_0`
         )
       } catch {
-        this.logger.warning('Colonnes MVTDES_0/ORIGINNUM_0/USR_0 refusées — repli IPTDAT/QTYSTU/LOT')
+        this.logger.warning('Colonnes MVTDES_0/ORIGINNUM_0/USR_0 refusées — repli IPTDAT/QTYSTU/LOT/VCR')
         rows = await db.raw(
-          `SELECT IPTDAT_0, QTYSTU_0, LOT_0
+          `SELECT IPTDAT_0, QTYSTU_0, LOT_0, VCRTYP_0, VCRNUM_0
            FROM STOJOU WHERE STOFCY_0 = '${SITE}' AND ITMREF_0 = '${article}'
              AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD') ORDER BY IPTDAT_0`
         )
@@ -131,19 +135,37 @@ export default class StockAudit extends BaseCommand {
       this.logger.info(`${rows.length} lignes de journal depuis le ${fromStr}`)
 
       // --- Agrégation par semaine ISO ---
+      // Entrées/sorties nettées PAR DOCUMENT avant d'être ventilées, même
+      // règle que buildFluxSql : STOJOU est un journal d'écritures, une même
+      // opération y laisse des lignes qui se compensent (reclassements TRSTYP
+      // 7/8/9 en paires ±X, contrepassations intra-réception). Sommer les
+      // lignes positives compterait des entrées qui n'ont jamais eu lieu.
+      // `net` reste la somme brute — il est insensible au nettage, et c'est lui
+      // qui porte la reconstruction du stock.
       type Week = { inn: number; out: number; net: number; lines: typeof rows }
       const weeks = new Map<string, Week>()
+      const docNet = new Map<string, Map<string, number>>()
       for (const r of rows) {
         const d = parseX3Date(r.IPTDAT_0)
         if (!d) continue
         const key = periodKey(d)
         const w = weeks.get(key) ?? { inn: 0, out: 0, net: 0, lines: [] }
         const q = num(r.QTYSTU_0)
-        if (q > 0) w.inn += q
-        else w.out += -q
         w.net += q
         w.lines.push(r)
         weeks.set(key, w)
+
+        const doc = `${r.VCRTYP_0 ?? ''}|${r.VCRNUM_0 ?? ''}`
+        let perDoc = docNet.get(key)
+        if (!perDoc) docNet.set(key, (perDoc = new Map()))
+        perDoc.set(doc, (perDoc.get(doc) ?? 0) + q)
+      }
+      for (const [key, perDoc] of docNet) {
+        const w = weeks.get(key)!
+        for (const net of perDoc.values()) {
+          if (net > 0) w.inn += net
+          else w.out += -net
+        }
       }
 
       // --- Périodes de référence (lundis, 53 semaines) ---

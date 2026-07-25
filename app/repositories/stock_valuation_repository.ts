@@ -61,22 +61,64 @@ INNER JOIN ITMMVT V ON V.ITMREF_0 = M.ITMREF_0 AND V.STOFCY_0 = '${SITE}'
 WHERE M.ITMREF_0 = '${article.replace(/'/g, "''")}'
 `
 
-/** Flux agrégé par article × période (entrées, sorties, net qté).
- *  Filtré par liste d'articles (chunk) — le flux complet dépasse le seuil de
- *  lignes du web service SOAP Syracuse (resultXml is nil). */
-const buildFluxSql = (fromStr: string, articles: string[], grain: StockGrain) => `
+/**
+ * Flux agrégé par article × période (entrées, sorties, net qté).
+ *
+ * **Agrégation en deux temps : d'abord le net par document, ensuite la
+ * période.** STOJOU est un journal d'écritures, pas d'événements physiques :
+ * une même opération y laisse plusieurs lignes qui se compensent. Sommer les
+ * `QTYSTU_0 > 0` compte donc des entrées qui n'ont jamais eu lieu.
+ *
+ * Deux cas mesurés sur `11022900` (composant chinois, livré toutes les 2
+ * semaines) :
+ *  - **Reclassements internes.** TRSTYP 7 (emplacement), 8 (statut qualité
+ *    Q→A), 9, 21, 35 s'écrivent toujours en paires ±X, même document, même
+ *    jour. Sur le site AE1 en 12 mois, ils pèsent 96 M + 47 M + 3,7 M de
+ *    fausses entrées pour un net rigoureusement nul, contre 69 M d'entrées
+ *    réelles en TRSTYP 1.
+ *  - **Contrepassations intra-document.** Même à l'intérieur d'une réception :
+ *    `REC2510AE100093` porte +3528, −3528, +3528 le même jour, même lot, même
+ *    statut. Livraison réelle 3528, journal brut 7056 en entrée et 3528 en
+ *    sortie. Un filtre sur TRSTYP ne l'aurait pas rattrapé.
+ *
+ * Le net par (article, période, document) traite les deux d'un coup : une paire
+ * qui se compense disparaît, une contrepassation se replie sur sa quantité
+ * réelle. Résultat sur `11022900` : 28 semaines d'entrées au lieu de 43, en
+ * multiples de 3528 (le conditionnement), une semaine sur deux — le rythme
+ * réel de l'approvisionnement.
+ *
+ * `NETQ` est mathématiquement inchangé (somme de sommes), donc la
+ * reconstruction du stock l'est aussi : ce correctif ne touche que les barres
+ * de flux. Vérifié semaine à semaine (issue #88).
+ *
+ * Filtré par liste d'articles (chunk) — le flux complet dépasse le seuil de
+ * lignes du web service SOAP Syracuse (resultXml is nil). Le GROUP BY interne
+ * reste côté Oracle : le nombre de lignes rendues au SOAP est identique, donc
+ * le coût ZSOAPSQL aussi.
+ */
+const buildFluxSql = (fromStr: string, articles: string[], grain: StockGrain) => {
+  const trunc = grain === 'semaine' ? "'IW'" : "'MM'"
+  return `
 SELECT
-  ITMREF_0 AS ARTICLE,
-  TRUNC(IPTDAT_0,${grain === 'semaine' ? "'IW'" : "'MM'"}) AS PERIODE,
-  SUM(CASE WHEN QTYSTU_0 > 0 THEN QTYSTU_0 ELSE 0 END) AS ENTREE,
-  SUM(CASE WHEN QTYSTU_0 < 0 THEN ABS(QTYSTU_0) ELSE 0 END) AS SORTIE,
-  SUM(QTYSTU_0) AS NETQ
-FROM STOJOU
-WHERE STOFCY_0 = '${SITE}'
-  AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD')
-  AND ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')})
-GROUP BY ITMREF_0, TRUNC(IPTDAT_0,${grain === 'semaine' ? "'IW'" : "'MM'"})
+  ARTICLE,
+  PERIODE,
+  SUM(CASE WHEN NET_DOC > 0 THEN NET_DOC ELSE 0 END) AS ENTREE,
+  SUM(CASE WHEN NET_DOC < 0 THEN ABS(NET_DOC) ELSE 0 END) AS SORTIE,
+  SUM(NET_DOC) AS NETQ
+FROM (
+  SELECT
+    ITMREF_0 AS ARTICLE,
+    TRUNC(IPTDAT_0,${trunc}) AS PERIODE,
+    SUM(QTYSTU_0) AS NET_DOC
+  FROM STOJOU
+  WHERE STOFCY_0 = '${SITE}'
+    AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD')
+    AND ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')})
+  GROUP BY ITMREF_0, TRUNC(IPTDAT_0,${trunc}), VCRTYP_0, VCRNUM_0
+)
+GROUP BY ARTICLE, PERIODE
 `
+}
 
 export interface StockValuationPoint {
   periode: string // clé : YYYY-MM (mois) ou YYYY-Www (semaine ISO)
