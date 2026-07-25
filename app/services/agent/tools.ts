@@ -622,10 +622,13 @@ export const getChargeTool = defineTool({
   label: 'Charge vs capacité',
   description: toolDoc({
     quoi:
-      'Charge face à la capacité par poste de charge, sur 6 mois et selon le calendrier usine. ' +
+      'Charge face à la capacité par poste de charge, selon le calendrier usine — 6 mois par ' +
+      'défaut, ou les N prochaines semaines avec `semaines`. ' +
       'Sans filtre, rend tous les postes triés par saturation ; avec un filtre, le détail hebdomadaire.',
     quand:
       "l'utilisateur nomme un poste, une ligne ou un atelier, ou demande si une capacité tient. " +
+      'Dès qu’il borne son horizon (« les 2 prochaines semaines », « ce mois-ci »), passe `semaines` : ' +
+      'sinon les totaux couvrent 6 mois et ne répondent pas à la question posée. ' +
       'Appelé sans filtre, il fait office d’annuaire des postes : c’est là qu’on retrouve le code ' +
       'exact quand un identifiant ne matche pas ailleurs.',
     pasSi:
@@ -647,6 +650,13 @@ export const getChargeTool = defineTool({
       })
     ),
     start: Type.Optional(Type.String({ description: 'Début ISO (défaut mois courant)' })),
+    semaines: Type.Optional(
+      Type.Integer({
+        description:
+          'Nombre de semaines couvertes, à partir de la semaine courante (ou de celle de `start`). ' +
+          'Omis : les 6 mois entiers. Totaux et détail hebdo portent sur cette fenêtre, pas plus.',
+      })
+    ),
     vue: Type.Optional(
       Type.String({ description: "'of' = OF réels du plan (défaut) | 'commandes' = besoin explosé" })
     ),
@@ -657,6 +667,7 @@ export const getChargeTool = defineTool({
       await e.getCharge({
         poste: params.poste,
         start: params.start,
+        semaines: params.semaines,
         vue: params.vue === 'commandes' ? 'commandes' : 'of',
       })
     )

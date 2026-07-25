@@ -14,7 +14,7 @@
  * qu'en mode filtré, par budget de contexte.
  */
 
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react'
 import { APP_CSS } from './styles'
 
@@ -38,6 +38,8 @@ interface PosteCharge {
 interface ChargePayload {
   vue?: 'of' | 'commandes'
   horizon?: string
+  /** Fenêtre bornée, en semaines — à renvoyer pour tout rappel du tool. */
+  semainesCount?: number | null
   postesCount?: number
   x3Error?: string | null
   postes?: PosteCharge[]
@@ -62,6 +64,8 @@ export function ChargeApp() {
   const [payload, setPayload] = useState<ChargePayload | null>(null)
   const [pending, setPending] = useState<string | null>(null)
   const [callError, setCallError] = useState<string | null>(null)
+  /** Mode d'affichage accordé par l'hôte : en plein écran, le graphe prend la place. */
+  const [plein, setPlein] = useState(false)
 
   const { app, isConnected, error } = useApp({
     appInfo: { name: 'supply-board-charge', version: '1.0.0' },
@@ -77,10 +81,23 @@ export function ChargeApp() {
           setCallError(null)
         }
       })
+      // Les params SONT le contexte (mise à jour partielle), pas `{ hostContext }`.
+      created.addEventListener('hostcontextchanged', (params) => {
+        if (params.displayMode) setPlein(params.displayMode === 'fullscreen')
+      })
     },
   })
 
   useHostStyles(app)
+
+  // Mode initial : l'hôte peut déjà être en plein écran au moment du handshake.
+  useEffect(() => {
+    if (app) setPlein(app.getHostContext()?.displayMode === 'fullscreen')
+  }, [app])
+
+  // Fenêtre en cours, rejouée sur chaque rappel du tool : sans elle, ouvrir un
+  // poste depuis une vue « 2 semaines » ramènerait un détail sur 6 mois.
+  const semaines = payload?.semainesCount ?? null
 
   const ouvrirPoste = useCallback(
     async (code: string) => {
@@ -90,7 +107,11 @@ export function ChargeApp() {
       try {
         const result = await app.callServerTool({
           name: 'getCharge',
-          arguments: { poste: code, vue: payload?.vue ?? 'of' },
+          arguments: {
+            poste: code,
+            vue: payload?.vue ?? 'of',
+            ...(semaines ? { semaines } : {}),
+          },
         })
         if (isChargePayload(result.structuredContent)) {
           setPayload(result.structuredContent as ChargePayload)
@@ -103,7 +124,7 @@ export function ChargeApp() {
         setPending(null)
       }
     },
-    [app, payload?.vue]
+    [app, payload?.vue, semaines]
   )
 
   // Retour à l'annuaire : même tool, sans filtre.
@@ -114,7 +135,7 @@ export function ChargeApp() {
     try {
       const result = await app.callServerTool({
         name: 'getCharge',
-        arguments: { vue: payload?.vue ?? 'of' },
+        arguments: { vue: payload?.vue ?? 'of', ...(semaines ? { semaines } : {}) },
       })
       if (isChargePayload(result.structuredContent)) setPayload(result.structuredContent)
     } catch (err) {
@@ -122,23 +143,23 @@ export function ChargeApp() {
     } finally {
       setPending(null)
     }
-  }, [app, payload?.vue])
+  }, [app, payload?.vue, semaines])
 
   if (error)
     return (
-      <Shell>
+      <Shell plein={plein}>
         <p className="err">Connexion à l’hôte impossible : {error.message}</p>
       </Shell>
     )
   if (!isConnected)
     return (
-      <Shell>
+      <Shell plein={plein}>
         <p className="muted">Connexion…</p>
       </Shell>
     )
   if (!payload)
     return (
-      <Shell>
+      <Shell plein={plein}>
         <p className="muted">En attente du résultat de getCharge…</p>
       </Shell>
     )
@@ -147,7 +168,7 @@ export function ChargeApp() {
   const detail = postes.length === 1 && Array.isArray(postes[0]?.semaines)
 
   return (
-    <Shell>
+    <Shell plein={plein}>
       <header className="head">
         <div>
           <h1>Charge vs capacité</h1>
@@ -177,11 +198,13 @@ export function ChargeApp() {
   )
 }
 
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ children, plein }: { children: ReactNode; plein?: boolean }) {
   return (
     <>
       <style>{APP_CSS}</style>
-      <main className="app">{children}</main>
+      {/* `plein` = l'hôte a accordé le plein écran : le graphe prend la hauteur
+          disponible au lieu de rester sur ses 190 px de vignette. */}
+      <main className={plein ? 'app plein' : 'app'}>{children}</main>
     </>
   )
 }

@@ -29,10 +29,12 @@ import {
   type McpAppResource,
 } from '@r/lib/copilote/mcp-host'
 
-/** Bornes de hauteur : l'app pilote sa taille, l'hôte garde la main sur le fil. */
+/**
+ * Bornes de hauteur en ligne : l'app pilote sa taille, l'hôte garde la main sur
+ * le fil. En plein écran il n'y a plus de borne — le cadre prend le viewport.
+ */
 const MIN_HEIGHT = 180
 const MAX_HEIGHT_INLINE = 460
-const MAX_HEIGHT_FULL = 820
 
 export interface McpAppFrameProps {
   /** Resource `ui://…` déclarée par le tool. */
@@ -91,7 +93,13 @@ export function McpAppFrame(props: McpAppFrameProps) {
 
   const [resource, setResource] = useState<McpAppResource | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [height, setHeight] = useState(MIN_HEIGHT)
+  /**
+   * Hauteur BRUTE annoncée par l'app, non bornée : le clamp se fait au rendu,
+   * selon le mode. La stocker déjà bornée rendait le bouton « agrandir » inerte
+   * — l'app ne renvoie pas de nouvelle taille quand le mode change, donc la
+   * valeur écrêtée à 460 restait écrêtée en plein écran.
+   */
+  const [reportedHeight, setReportedHeight] = useState(MIN_HEIGHT)
   const [fullscreen, setFullscreen] = useState(false)
   const [ready, setReady] = useState(false)
 
@@ -185,10 +193,7 @@ export function McpAppFrame(props: McpAppFrameProps) {
     }
 
     bridge.onsizechange = ({ height: h }) => {
-      if (typeof h === 'number' && h > 0) {
-        const max = fullscreenRef.current ? MAX_HEIGHT_FULL : MAX_HEIGHT_INLINE
-        setHeight(Math.min(Math.max(h, MIN_HEIGHT), max))
-      }
+      if (typeof h === 'number' && h > 0) setReportedHeight(h)
     }
 
     bridge.onrequestdisplaymode = async ({ mode }) => {
@@ -260,12 +265,28 @@ export function McpAppFrame(props: McpAppFrameProps) {
   useEffect(() => {
     const bridge = bridgeRef.current
     if (!bridge || !ready) return
+    // `sendHostContextChange` prend le contexte LUI-MÊME, pas un objet
+    // `{ hostContext }` (c'est la forme du constructeur d'`AppBridge`) : enveloppé,
+    // le champ n'atteignait jamais l'app.
     void Promise.resolve(
-      bridge.sendHostContextChange({
-        hostContext: { displayMode: fullscreen ? 'fullscreen' : 'inline' },
-      })
+      bridge.sendHostContextChange({ displayMode: fullscreen ? 'fullscreen' : 'inline' })
     ).catch(() => {})
   }, [fullscreen, ready])
+
+  // Échap sort du plein écran, et le fil derrière ne défile pas sous l'overlay.
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [fullscreen])
 
   if (error) {
     return (
@@ -279,16 +300,23 @@ export function McpAppFrame(props: McpAppFrameProps) {
   }
 
   const bordered = resource?.meta?.ui?.prefersBorder !== false
+  // En ligne : la hauteur annoncée par l'app, bornée. En plein écran : le cadre
+  // occupe l'espace disponible et l'iframe s'étire (flex), plus de hauteur fixe.
+  const inlineHeight = Math.min(Math.max(reportedHeight, MIN_HEIGHT), MAX_HEIGHT_INLINE)
 
   return (
-    <figure className="my-1.5">
+    // Le conteneur passe en `fixed` SANS changer la structure JSX : déplacer
+    // l'iframe dans un portail la remonterait, ce qui tuerait le pont et
+    // rechargerait l'app à chaque agrandissement.
+    <figure className={cn('my-1.5', fullscreen && 'fixed inset-3 z-50 m-0 sm:inset-6')}>
       <div
         className={cn(
           'relative overflow-hidden rounded-xl bg-card',
-          bordered && 'border border-border/60'
+          bordered && 'border border-border/60',
+          fullscreen && 'flex h-full flex-col border shadow-2xl'
         )}
       >
-        <figcaption className="flex items-center justify-between gap-2 border-b border-border/50 px-2.5 py-1.5 text-[10.5px] text-muted-foreground">
+        <figcaption className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-2.5 py-1.5 text-[10.5px] text-muted-foreground">
           <span className="truncate font-mono">{toolName}</span>
           <button
             type="button"
@@ -308,8 +336,11 @@ export function McpAppFrame(props: McpAppFrameProps) {
           // Origine opaque : pas d'`allow-same-origin`, donc aucun accès au
           // DOM, aux cookies ni au stockage de l'hôte (cf. mcp-host.ts).
           sandbox="allow-scripts"
-          style={{ height }}
-          className="block w-full border-0 bg-transparent transition-[height] duration-200"
+          style={fullscreen ? undefined : { height: inlineHeight }}
+          className={cn(
+            'block w-full border-0 bg-transparent',
+            fullscreen ? 'min-h-0 flex-1' : 'transition-[height] duration-200'
+          )}
         />
         {!ready && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[12px] text-muted-foreground">
@@ -317,6 +348,15 @@ export function McpAppFrame(props: McpAppFrameProps) {
           </div>
         )}
       </div>
+      {/* Voile, rendu APRÈS le cadre pour ne décaler aucun enfant précédent :
+          une insertion en tête ferait glisser l'iframe d'un cran et React la
+          remonterait. Il est sous le cadre par z-index, pas par ordre DOM. */}
+      {fullscreen && (
+        <div
+          className="fixed inset-0 -z-10 bg-background/80 backdrop-blur-sm"
+          onClick={() => setFullscreen(false)}
+        />
+      )}
     </figure>
   )
 }

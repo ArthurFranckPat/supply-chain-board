@@ -24,6 +24,13 @@ body {
   background: transparent;
 }
 .app { padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Plein écran : l'app remplit le cadre que l'hôte lui a donné, sinon le graphe
+   resterait une vignette de 190 px au milieu d'une page vide. */
+html, body { height: 100%; }
+.app.plein { min-height: 100vh; }
+.app.plein .detail { flex: 1; min-height: 0; }
+.app.plein .chart { height: auto; flex: 1; min-height: 240px; }
 h1 { font-size: var(--font-heading-sm-size, 15px); margin: 0; font-weight: var(--font-weight-semibold, 600); }
 h2 { font-size: var(--font-text-md-size, 14px); margin: 0 0 2px; font-weight: var(--font-weight-semibold, 600); }
 p { margin: 0; }

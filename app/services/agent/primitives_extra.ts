@@ -505,6 +505,39 @@ function periodTotal(p: { f: number; p: number; s: number; fi: number; si: numbe
   return p.f + p.p + p.s + p.fi + p.si
 }
 
+/** Lundi (00:00) de la semaine contenant `d`. */
+function mondayOf(d: Date): Date {
+  const m = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const shift = (m.getDay() + 6) % 7
+  m.setDate(m.getDate() - shift)
+  return m
+}
+
+/**
+ * Fenêtre de semaines réellement demandée.
+ *
+ * Le loader rend TOUJOURS 6 mois pleins à partir du 1er du mois (buckets partagés
+ * avec la page /charge et son cache) : les premières semaines sont donc déjà
+ * passées. Quand l'appelant demande « les 2 prochaines semaines », on ne recalcule
+ * rien — on découpe : ancrage sur la semaine courante (ou celle de `start`), puis
+ * `semaines` buckets. Sans `semaines`, la fenêtre reste l'horizon complet, comme
+ * avant.
+ */
+export function fenetreSemaines(
+  weekKeys: string[],
+  params: { start?: string; semaines?: number }
+): { from: number; to: number; borne: boolean } {
+  if (!params.semaines || !Number.isFinite(params.semaines) || params.semaines <= 0) {
+    return { from: 0, to: weekKeys.length, borne: false }
+  }
+  const ancre = params.start ? new Date(params.start) : new Date()
+  const ancreIso = isoDay(mondayOf(Number.isNaN(ancre.getTime()) ? new Date() : ancre))
+  const trouve = weekKeys.findIndex((k) => k >= ancreIso)
+  const from = trouve < 0 ? 0 : trouve
+  const to = Math.min(weekKeys.length, from + Math.floor(params.semaines))
+  return { from, to: Math.max(to, from + 1), borne: true }
+}
+
 /**
  * Charge vs capacité par poste (payload /charge). Sans filtre : agrégats par poste.
  * Avec `poste` : détail hebdo (charge, capacité, saturation).
@@ -512,8 +545,10 @@ function periodTotal(p: { f: number; p: number; s: number; fi: number; si: numbe
 export async function getCharge(params: {
   /** Filtre poste (sous-chaîne sur code ou libellé, insensible à la casse). */
   poste?: string
-  /** Début horizon ISO (défaut mois courant ; horizon fixe 6 mois). */
+  /** Début horizon ISO (défaut mois courant ; horizon calculé sur 6 mois). */
   start?: string
+  /** Nombre de semaines à partir de la semaine courante. Omis : les 6 mois entiers. */
+  semaines?: number
   /** Vue : 'of' = OF réels du plan (défaut) ; 'commandes' = besoin commandes explosé. */
   vue?: 'of' | 'commandes'
 } = {}) {
@@ -521,6 +556,8 @@ export async function getCharge(params: {
   const vue = params.vue === 'commandes' ? 'commandes' : 'of'
   const lines = vue === 'commandes' ? payload.cmdLines : payload.ofLines
   const posteFilter = params.poste?.trim().toLowerCase() || null
+  const { from, to, borne } = fenetreSemaines(payload.weekKeys, params)
+  const weekLabels = payload.weeks.slice(from, to)
 
   const matching = posteFilter
     ? lines.filter(
@@ -530,8 +567,8 @@ export async function getCharge(params: {
     : lines
 
   const summary = matching.map((l) => {
-    const chargeParSemaine = l.weekly.map(periodTotal)
-    const capaciteParSemaine = l.capacity.weekly
+    const chargeParSemaine = l.weekly.map(periodTotal).slice(from, to)
+    const capaciteParSemaine = l.capacity.weekly.slice(from, to)
     let semainesSaturees = 0
     for (let i = 0; i < chargeParSemaine.length; i++) {
       const cap = capaciteParSemaine[i] ?? 0
@@ -547,7 +584,7 @@ export async function getCharge(params: {
       // Détail hebdo seulement en mode filtré (budget contexte).
       ...(posteFilter
         ? {
-            semaines: payload.weeks.map((w: string, i: number) => ({
+            semaines: weekLabels.map((w: string, i: number) => ({
               semaine: w.replace('\n', ' '),
               charge: Math.round(chargeParSemaine[i] ?? 0),
               capacite: Math.round(capaciteParSemaine[i] ?? 0),
@@ -566,7 +603,16 @@ export async function getCharge(params: {
     _source: 'getCharge' as const,
     engine: 'load_payload_loader (charge vs capacité WORKSTATIO × calendrier)',
     vue,
-    horizon: payload.rangeLabel,
+    // Ce que le chiffre couvre RÉELLEMENT : un total de 6 mois annoncé comme
+    // « 2 semaines » est le pire des deux mondes.
+    horizon: borne
+      ? `${weekLabels[0]?.replace('\n', ' ')} → ${weekLabels[weekLabels.length - 1]?.replace('\n', ' ')} · ${weekLabels.length} semaine${weekLabels.length > 1 ? 's' : ''}`
+      : payload.rangeLabel,
+    // Renseigné UNIQUEMENT si l'horizon a été borné : l'app le renvoie tel quel
+    // quand elle rappelle le tool, pour que le détail d'un poste couvre la même
+    // fenêtre. Sur l'horizon complet il reste nul — le rejouer décalerait la
+    // fenêtre (l'horizon par défaut démarre au 1er du mois, pas cette semaine).
+    semainesCount: borne ? weekLabels.length : null,
     postesCount: matching.length,
     x3Error: payload.x3Error,
     postes: summary.slice(0, posteFilter ? 10 : 40),
