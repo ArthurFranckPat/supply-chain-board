@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { format, resolveConfig } from 'prettier'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -89,5 +90,13 @@ ${paramEntries}
 }
 `
 
-writeFileSync(OUT, body)
+// Passe prettier obligatoire : sans elle, `routes:gen` et `lint` se contredisent
+// en boucle. Le corps ci-dessus sort de `JSON.stringify` donc en guillemets
+// DOUBLES, que la règle prettier/prettier refuse — un `eslint --fix` les repasse
+// en simples, ce que `routes:check` voit alors comme un manifeste périmé, et
+// ainsi de suite. Formater ici rend la sortie du générateur stable pour les deux.
+const prettierConfig = await resolveConfig(OUT)
+const formatted = await format(body, { ...prettierConfig, filepath: OUT })
+
+writeFileSync(OUT, formatted)
 console.log(`✓ ${routes.length} routes → ${OUT.replace(ROOT + '/', '')}`)

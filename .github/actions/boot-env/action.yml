@@ -1,0 +1,36 @@
+name: Env de boot
+description: >
+  Écrit le .env minimal que réclame la validation `start/env.ts` pour booter
+  Adonis en CI (list:routes, test, build).
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      # Le .env n'est PAS repris de `.env.example` : ce fichier est gitignoré
+      # (règle `.env.*`) donc absent du runner, et il lui manque de toute façon
+      # REDIS_HOST / REDIS_PORT, que `start/env.ts` exige.
+      #
+      # Seules les variables non-optionnelles du schéma figurent ici. Les
+      # valeurs X3 sont des leurres assumés : X3 est on-premise, aucun runner
+      # GitHub ne l'atteindra — la validation d'env veut une chaîne bien formée,
+      # pas un hôte joignable.
+      #
+      # APP_KEY est tiré à chaque run : rien de secret ne traîne dans le dépôt.
+      run: |
+        cat > .env <<'ENVEOF'
+        NODE_ENV=development
+        HOST=0.0.0.0
+        PORT=3333
+        LOG_LEVEL=silent
+        APP_URL=http://localhost:3333
+        SESSION_DRIVER=memory
+        CACHE_STORE=memory
+        REDIS_HOST=127.0.0.1
+        REDIS_PORT=6379
+        X3_ENV=test
+        X3_TEST_HOST=127.0.0.1
+        X3_TEST_PORT=8124
+        X3_TEST_POOL=CI
+        ENVEOF
+        echo "APP_KEY=$(openssl rand -base64 32)" >> .env

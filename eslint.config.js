@@ -3,9 +3,17 @@ import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
   {
-    // `tmp/` est un bac à sable gitignoré (scripts de sonde X3 jetables) :
-    // le linter n'a rien à y dire.
-    ignores: ['tmp/**'],
+    ignores: [
+      // Bac à sable gitignoré (scripts de sonde X3 jetables).
+      'tmp/**',
+      // Outillage d'agents, pas du code applicatif : hooks, skills et plans
+      // déposés par Claude Code / pi. Les laisser dans le périmètre rendait
+      // `npm run lint` rouge en local alors que la CI, qui ne voit que les
+      // fichiers suivis, restait verte — deux verdicts pour la même commande.
+      '.claude/**',
+      '.pi/**',
+      '.zcode/**',
+    ],
   },
   ...configApp(),
   {
