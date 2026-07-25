@@ -47,3 +47,14 @@ jobs:
             --body-file /tmp/review.md
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Signaler un échec de la revue
+        if: failure()
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body "## 🤖 Revue IA — échec
+
+          La revue GLM 5.2 n'a pas pu aboutir (API injoignable, timeout, clé manquante…).
+          Consulter les [logs du run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+        env:
+          GH_TOKEN: ${{ github.token }}

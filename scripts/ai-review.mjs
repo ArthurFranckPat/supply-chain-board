@@ -13,6 +13,9 @@
 const BASE_URL = 'https://open.bigmodel.cn/api/coding/paas/v4'
 const MODEL = 'glm-5.2'
 const MAX_DIFF_CHARS = 120_000
+const FETCH_TIMEOUT_MS = 60_000
+
+const IGNORED_PATHS = /package-lock\.json|bun\.lock|pnpm-lock\.yaml|yarn\.lock|\.min\.(js|css)$/
 
 const SYSTEM_PROMPT = `Tu es un relecteur de code senior sur un projet AdonisJS 7 + React 19 (Inertia) pour la supply chain (ERP Sage X3).
 
@@ -23,6 +26,7 @@ Règles du projet :
 - Les outils agent sont définis via TypeBox (defineTool) et exposés en MCP.
 - Les graphes utilisent des tooltips HTML custom, jamais le <title> natif SVG.
 - Les semaines sont toujours datées avec l'année ISO (« S26 2025 »).
+- Le projet tourne sur Node 26 et le modèle glm-5.2 (provider zai) — ce sont des choix validés, ne pas les signaler.
 
 Ta revue doit être :
 - En français.
@@ -49,10 +53,30 @@ async function main() {
     return
   }
 
+  // Filtrer les fichiers générés / lockfiles (bruit pour la revue).
+  diff = diff
+    .split(/^diff --git /m)
+    .filter((chunk) => {
+      const file = chunk.match(/^[ab]\/(\S+)/)?.[1]
+      return file && !IGNORED_PATHS.test(file)
+    })
+    .map((chunk) => `diff --git ${chunk}`)
+    .join('')
+    .trim()
+
+  if (!diff) {
+    console.log('✅ LGTM — diff ne contenant que des lockfiles / fichiers générés.')
+    return
+  }
+
   const truncated = diff.length > MAX_DIFF_CHARS
   if (truncated) diff = diff.slice(0, MAX_DIFF_CHARS) + '\n\n[… diff tronqué …]'
 
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
   const res = await fetch(`${BASE_URL}/chat/completions`, {
+    signal: controller.signal,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -71,6 +95,8 @@ async function main() {
       max_tokens: 4096,
     }),
   })
+
+  clearTimeout(timer)
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
