@@ -59,6 +59,7 @@ import {
   ComboboxContent,
   ComboboxItem,
 } from '@r/components/ui/combobox'
+import { Calendar } from '@r/components/ui/calendar'
 
 /** Tokens à inspecter pour la parité thème (Q2). */
 const TOKEN_PROBE: Array<{ key: string; expected: string; source: string }> = [
@@ -198,6 +199,12 @@ export default function AstryxLab() {
                 <ComboboxItem value="art-3">Article C</ComboboxItem>
               </ComboboxContent>
             </Combobox>
+
+            {/* Démo Calendar migré (Astryx Calendar). */}
+            <Calendar
+              mode="single"
+              onSelect={(date: unknown) => console.log('Calendar select', date)}
+            />
           </section>
 
           {/* ── Colonne 3 : parité tokens + portal Base UI ── */}
