@@ -32,6 +32,26 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@r/components/ui/sheet'
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@r/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@r/components/ui/alert-dialog'
 
 /** Tokens à inspecter pour la parité thème (Q2). */
 const TOKEN_PROBE: Array<{ key: string; expected: string; source: string }> = [
@@ -105,6 +125,49 @@ export default function AstryxLab() {
                 </p>
               </div>
             </AstryxCard>
+
+            {/* Démo Dialog migré (context local + AstryxDialog monolithique). */}
+            <Dialog>
+              <DialogTrigger render={<AstryxButton label="Ouvrir Dialog" variant="primary" />}>
+                Ouvrir Dialog
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Dialog migré Astryx</DialogTitle>
+                  <DialogDescription>
+                    Wrapper context local + AstryxDialog monolithique sous le capot.
+                  </DialogDescription>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  API shadcn composée préservée, primitive Astryx Dialog en interne.
+                </p>
+                <DialogFooter>
+                  <ShadcnButton variant="outline" onClick={() => {}}>
+                    Annuler
+                  </ShadcnButton>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Démo AlertDialog migré (même pattern context + AstryxAlertDialog). */}
+            <AlertDialog>
+              <AlertDialogTrigger render={<AstryxButton label="Ouvrir Alert" variant="destructive" />}>
+                Ouvrir Alert
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Jeter le scénario ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    AlertDialog monolithique Astryx — title/description requis, boutons
+                    d'action via AlertDialogAction/AlertDialogCancel (API déclarative).
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => {}}>Confirmer</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </section>
 
           {/* ── Colonne 3 : parité tokens + portal Base UI ── */}

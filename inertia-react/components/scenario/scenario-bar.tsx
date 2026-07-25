@@ -6,6 +6,8 @@ import { route } from '@r/lib/routes'
 import { promiseReasonText } from '@r/lib/promesse/types'
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -265,13 +267,8 @@ export function ScenarioBar({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDiscardOpen(false)}>
-                  Annuler
-                </Button>
-                <Button size="sm" variant="destructive" onClick={confirmDiscard} className="gap-1.5">
-                  <Trash2 size={15} strokeWidth={1.75} />
-                  Jeter le scénario
-                </Button>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDiscard}>Jeter le scénario</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialogPortal>

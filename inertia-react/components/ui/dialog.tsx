@@ -1,153 +1,237 @@
 "use client"
 
 import * as React from "react"
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { Dialog as AstryxDialog, DialogHeader as AstryxDialogHeader } from "@astryxdesign/core/Dialog"
 
 import { cn } from "@r/lib/utils"
 import { Button } from "@r/components/ui/button"
-import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+// Dialog — Lot 3 (issue #90). Base UI Dialog composé → Astryx Dialog
+// monolithique. L'API shadcn composée (Dialog/DialogTrigger/DialogContent/
+// DialogHeader/DialogTitle/DialogDescription/DialogFooter/DialogClose/
+// DialogOverlay/DialogPortal) est préservée via un context local qui
+// collecte title/description/footer et pilote isOpen/onOpenChange.
+//
+// Astryx Dialog est monolithique : <Dialog isOpen onOpenChange>{children}</Dialog>
+// avec DialogHeader(title, subtitle). Le wrapper traduit la composition
+// shadcn vers ce modèle.
+
+interface DialogContextValue {
+  isOpen: boolean
+  setIsOpen: (next: boolean) => void
+  title: string
+  registerTitle: (title: string) => () => void
+  description: string
+  registerDescription: (desc: string) => () => void
+  footer: React.ReactNode
+  registerFooter: (node: React.ReactNode) => () => void
 }
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+const DialogContext = React.createContext<DialogContextValue | null>(null)
+
+function useDialogContext() {
+  const ctx = React.useContext(DialogContext)
+  if (!ctx) throw new Error("Dialog.* doit être utilisé dans <Dialog>")
+  return ctx
 }
 
-function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+type DialogProps = {
+  open?: boolean
+  defaultOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+  children: React.ReactNode
 }
 
-function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+function Dialog({ open, defaultOpen = false, onOpenChange, children }: DialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
+  const isControlled = open !== undefined
+  const isOpen = isControlled ? open! : internalOpen
+  const setIsOpen = React.useCallback(
+    (next: boolean) => {
+      if (!isControlled) setInternalOpen(next)
+      onOpenChange?.(next)
+    },
+    [isControlled, onOpenChange]
+  )
+
+  // État collecté via registration par les sous-composants.
+  const [title, setTitle] = React.useState("")
+  const [description, setDescription] = React.useState("")
+  const [footer, setFooter] = React.useState<React.ReactNode>(null)
+
+  // Registres — chaque sous-composant enregistre sa valeur et se désenregistre
+  // au démontage. Dernier inscrit gagne (cas d'usage typique : un seul de chaque).
+  const registerTitle = React.useCallback((t: string) => {
+    setTitle(t)
+    return () => setTitle("")
+  }, [])
+  const registerDescription = React.useCallback((d: string) => {
+    setDescription(d)
+    return () => setDescription("")
+  }, [])
+  const registerFooter = React.useCallback((node: React.ReactNode) => {
+    setFooter(node)
+    return () => setFooter(null)
+  }, [])
+
+  const value = React.useMemo<DialogContextValue>(
+    () => ({ isOpen, setIsOpen, title, registerTitle, description, registerDescription, footer, registerFooter }),
+    [isOpen, setIsOpen, title, registerTitle, description, registerDescription, footer, registerFooter]
+  )
+
+  return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>
 }
 
-function DialogOverlay({
-  className,
-  ...props
-}: DialogPrimitive.Backdrop.Props) {
+type DialogTriggerProps = React.ComponentProps<"button"> & {
+  /** Pattern Base UI `render` — remplacer l'élément trigger. */
+  render?: React.ReactElement
+}
+
+function DialogTrigger({ onClick, children, render, ...props }: DialogTriggerProps) {
+  const { setIsOpen } = useDialogContext()
+  const handleOpen = (e: React.MouseEvent) => {
+    setIsOpen(true)
+    ;(onClick as ((e: React.MouseEvent) => void) | undefined)?.(e)
+  }
+  if (render) {
+    const renderProps = render.props as Record<string, unknown>
+    return React.cloneElement(render, {
+      "data-slot": "dialog-trigger",
+      onClick: (e: React.MouseEvent) => {
+        handleOpen(e)
+        ;(renderProps.onClick as ((e: React.MouseEvent) => void) | undefined)?.(e)
+      },
+      ...props,
+    } as Record<string, unknown>)
+  }
   return (
-    <DialogPrimitive.Backdrop
-      data-slot="dialog-overlay"
-      className={cn(
-        // Grammaire overlays : scrim encre 45 % sans blur, z-65 — passe
-        // AU-DESSUS des sheets (z-60) pour la chaîne scénario → alert.
-        "fixed inset-0 isolate z-[65] bg-[#222222]/45 duration-[240ms] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
-      )}
-      {...props}
-    />
+    <button data-slot="dialog-trigger" onClick={handleOpen} {...props}>
+      {children}
+    </button>
   )
 }
 
-function DialogContent({
+// Compat anciens consumers — no-op, Astryx Dialog gère portal + backdrop.
+function DialogPortal({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>
+}
+function DialogOverlay({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>
+}
+
+function DialogClose({
+  onClick,
+  children,
+  render,
+  ...props
+}: React.ComponentProps<"button"> & { render?: React.ReactElement }) {
+  const { setIsOpen } = useDialogContext()
+  if (render) {
+    const renderProps = render.props as Record<string, unknown>
+    return React.cloneElement(render, {
+      "data-slot": "dialog-close",
+      onClick: (e: React.MouseEvent) => {
+        setIsOpen(false)
+        ;(renderProps.onClick as ((e: React.MouseEvent) => void) | undefined)?.(e)
+      },
+      ...props,
+    } as Record<string, unknown>)
+  }
+  return (
+    <button
+      data-slot="dialog-close"
+      onClick={(e) => {
+        setIsOpen(false)
+        onClick?.(e)
+      }}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
+
+interface DialogContentProps {
+  className?: string
+  children?: React.ReactNode
+  showCloseButton?: boolean
+}
+
+function DialogContent({ className, children, showCloseButton = true }: DialogContentProps) {
+  const { isOpen, setIsOpen, title, description, footer } = useDialogContext()
+
+  return (
+    <AstryxDialog isOpen={isOpen} onOpenChange={setIsOpen} className={cn("sm:max-w-[440px]", className)}>
+      {title && (
+        <AstryxDialogHeader
+          title={title}
+          subtitle={description || undefined}
+          onOpenChange={showCloseButton ? setIsOpen : undefined}
+        />
+      )}
+      {children}
+      {footer}
+    </AstryxDialog>
+  )
+}
+
+function DialogHeader({ className, children, ...props }: React.ComponentProps<"div">) {
+  // Header container — les enfants (DialogTitle/DialogDescription) s'y
+  // enregistrent dans le context. Le rendu visuel est porté par Astryx
+  // DialogHeader via DialogContent, ici c'est juste un passe-plat.
+  return (
+    <div data-slot="dialog-header" className={cn("contents", className)} {...props}>
+      {children}
+    </div>
+  )
+}
+
+function DialogTitle({ children }: { children?: React.ReactNode }) {
+  const { registerTitle } = useDialogContext()
+  const text = typeof children === "string" ? children : ""
+  React.useEffect(() => {
+    if (text) return registerTitle(text)
+  }, [text, registerTitle])
+  return null
+}
+
+function DialogDescription({ children }: { children?: React.ReactNode }) {
+  const { registerDescription } = useDialogContext()
+  const text = typeof children === "string" ? children : ""
+  React.useEffect(() => {
+    if (text) return registerDescription(text)
+  }, [text, registerDescription])
+  return null
+}
+
+function DialogFooter({
   className,
   children,
-  showCloseButton = true,
+  showCloseButton = false,
   ...props
-}: DialogPrimitive.Popup.Props & {
-  showCloseButton?: boolean
-}) {
-  return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Popup
-        data-slot="dialog-content"
+}: React.ComponentProps<"div"> & { showCloseButton?: boolean }) {
+  const { registerFooter, setIsOpen } = useDialogContext()
+  React.useEffect(() => {
+    const node = (
+      <div
+        data-slot="dialog-footer"
         className={cn(
-          // Grammaire overlays : z-70, 440 px, rayon 14 (cartes), ombre
-          // overlay, scale 0,96 → 1 en 240 ms. Un seul choix primaire.
-          "fixed top-1/2 left-1/2 z-[70] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[14px] bg-popover p-4 text-sm text-popover-foreground shadow-overlay duration-[240ms] outline-none sm:max-w-[440px] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-[14px] border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
           className
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon
-            />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+          <Button variant="outline" onClick={() => setIsOpen(false)}>
+            Close
+          </Button>
         )}
-      </DialogPrimitive.Popup>
-    </DialogPortal>
-  )
-}
-
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
-      {...props}
-    />
-  )
-}
-
-function DialogFooter({
-  className,
-  showCloseButton = false,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean
-}) {
-  return (
-    <div
-      data-slot="dialog-footer"
-      className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-[14px] border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
-          Close
-        </DialogPrimitive.Close>
-      )}
-    </div>
-  )
-}
-
-function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
-  return (
-    <DialogPrimitive.Title
-      data-slot="dialog-title"
-      className={cn(
-        "font-heading text-base leading-none font-medium",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-function DialogDescription({
-  className,
-  ...props
-}: DialogPrimitive.Description.Props) {
-  return (
-    <DialogPrimitive.Description
-      data-slot="dialog-description"
-      className={cn(
-        "text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
-        className
-      )}
-      {...props}
-    />
-  )
+      </div>
+    )
+    return registerFooter(node)
+  }, [children, showCloseButton, className, registerFooter, setIsOpen, props])
+  return null
 }
 
 export {

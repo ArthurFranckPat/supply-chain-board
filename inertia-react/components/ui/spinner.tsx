@@ -1,7 +1,12 @@
 import * as React from "react"
-import { LoaderCircle } from "lucide-react"
+import { Spinner as AstryxSpinner } from "@astryxdesign/core/Spinner"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@r/lib/utils"
+
+// Spinner — Lot 2 (issue #90). lucide LoaderCircle → Astryx Spinner.
+// cva conservée pour variants shadcn (brand/muted/white/current) — Astryx
+// expose `shade` (default/onMedia/subtle/inherit) mais pas de variant
+// text-primary direct. Le wrapper traduit.
 
 const spinnerVariants = cva(
   "animate-spin shrink-0 transition-opacity",
@@ -29,8 +34,11 @@ const spinnerVariants = cva(
   }
 )
 
+/** Map size shadcn → size Astryx (sm/md/lg). */
+const SIZE_TO_ASTRYX = { xs: "sm", sm: "sm", md: "md", lg: "lg", xl: "lg" } as const
+
 export interface SpinnerProps
-  extends React.ComponentPropsWithoutRef<"svg">,
+  extends React.ComponentPropsWithoutRef<"span">,
     VariantProps<typeof spinnerVariants> {
   strokeWidth?: number
 }
@@ -40,12 +48,14 @@ export function Spinner({
   variant,
   size,
   strokeWidth = 2,
+  "aria-label": ariaLabel,
   ...props
 }: SpinnerProps) {
   return (
-    <LoaderCircle
+    <AstryxSpinner
       data-slot="spinner"
-      strokeWidth={strokeWidth}
+      label={ariaLabel ?? "Chargement"}
+      size={size ? SIZE_TO_ASTRYX[size] : "md"}
       className={cn(spinnerVariants({ variant, size }), className)}
       {...props}
     />
