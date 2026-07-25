@@ -167,6 +167,29 @@ export default function Programme(props: VisionProps) {
   const orderStore = useOrderBoardStore()
   const scenarioStore = useScenarioStore()
 
+  const measureScheduled = useRef(false)
+  /**
+   * Pointe toujours sur le `measure` du rendu courant.
+   *
+   * `requestMeasure` DOIT rester stable (`[]`) : quatre callbacks définis plus
+   * haut l'appellent, et le relister partout le recréerait à chaque changement
+   * de `contentEl` / `impacts` / `props.links`. Mais un `useCallback([])` qui
+   * appelle `measure()` directement fige le `measure` du PREMIER rendu, celui où
+   * `contentEl` vaut encore null — il sortait donc immédiatement sur son garde
+   * `if (!content) return`. Résultat : l'effet de redessin (board, cmdMoved,
+   * ofShift) ne faisait rien, et l'overlay de liens ne se remettait à jour qu'au
+   * redimensionnement de la fenêtre, seul chemin qui passe par `measure` direct.
+   */
+  const measureRef = useRef<() => void>(() => {})
+  const requestMeasure = useCallback(() => {
+    if (measureScheduled.current) return
+    measureScheduled.current = true
+    requestAnimationFrame(() => {
+      measureScheduled.current = false
+      measureRef.current()
+    })
+  }, [])
+
   // ── Issue #57 — mode scénario ──
   const [diffOpen, setDiffOpen] = useState(false)
   const [applying, setApplying] = useState(false)
@@ -181,32 +204,35 @@ export default function Programme(props: VisionProps) {
   }, [page.props.windowFrom]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Switch de mode → toggle local + URL (replaceState)
-  const switchMode = useCallback((newMode: VisionMode) => {
-    if (newMode === mode) return
-    // Les modes OF/Combiné lisent le boardStore, le mode Cmdes l'orderStore : sans report
-    // explicite, franchir cette frontière vidait la recherche en cours. On reporte la
-    // requête et on traduit la portée (vocabulaires distincts) ; scope d'abord, query
-    // ensuite — l'inverse relancerait une recherche avec l'ancienne portée.
-    const wasOrderMode = mode === 'planification'
-    const willBeOrderMode = newMode === 'planification'
-    if (wasOrderMode !== willBeOrderMode) {
-      if (willBeOrderMode) {
-        orderStore.onScopeChange(OF_TO_ORDER_SCOPE[boardStore.scope])
-        orderStore.onQueryInput(boardStore.query)
-      } else {
-        boardStore.onScopeChange(ORDER_TO_OF_SCOPE[orderStore.scope])
-        boardStore.onQueryInput(orderStore.query)
+  const switchMode = useCallback(
+    (newMode: VisionMode) => {
+      if (newMode === mode) return
+      // Les modes OF/Combiné lisent le boardStore, le mode Cmdes l'orderStore : sans report
+      // explicite, franchir cette frontière vidait la recherche en cours. On reporte la
+      // requête et on traduit la portée (vocabulaires distincts) ; scope d'abord, query
+      // ensuite — l'inverse relancerait une recherche avec l'ancienne portée.
+      const wasOrderMode = mode === 'planification'
+      const willBeOrderMode = newMode === 'planification'
+      if (wasOrderMode !== willBeOrderMode) {
+        if (willBeOrderMode) {
+          orderStore.onScopeChange(OF_TO_ORDER_SCOPE[boardStore.scope])
+          orderStore.onQueryInput(boardStore.query)
+        } else {
+          boardStore.onScopeChange(ORDER_TO_OF_SCOPE[orderStore.scope])
+          boardStore.onQueryInput(orderStore.query)
+        }
       }
-    }
-    setMode(newMode)
-    const url = new URL(window.location.href)
-    if (newMode === 'combined') {
-      url.searchParams.delete('mode')
-    } else {
-      url.searchParams.set('mode', newMode)
-    }
-    window.history.replaceState({}, '', url)
-  }, [mode, boardStore.query, boardStore.scope, orderStore.query, orderStore.scope])
+      setMode(newMode)
+      const url = new URL(window.location.href)
+      if (newMode === 'combined') {
+        url.searchParams.delete('mode')
+      } else {
+        url.searchParams.set('mode', newMode)
+      }
+      window.history.replaceState({}, '', url)
+    },
+    [mode, boardStore.query, boardStore.scope, orderStore.query, orderStore.scope]
+  )
 
   // Store « actif » selon le mode
   const isOrderMode = mode === 'planification'
@@ -220,13 +246,16 @@ export default function Programme(props: VisionProps) {
     }
   }, [isOrderMode, props.windowFrom, props.windowTo])
   const feasMode = () => (isOrderMode ? orderStore.mode : boardStore.mode)
-  const setFeasMode = useCallback((m: 'immediate' | 'sequential') => {
-    if (isOrderMode) {
-      orderStore.setMode(m)
-    } else {
-      boardStore.setMode(m)
-    }
-  }, [isOrderMode])
+  const setFeasMode = useCallback(
+    (m: 'immediate' | 'sequential') => {
+      if (isOrderMode) {
+        orderStore.setMode(m)
+      } else {
+        boardStore.setMode(m)
+      }
+    },
+    [isOrderMode]
+  )
 
   // Drawer détail OF
   const [selectedOf, setSelectedOf] = useState<string | null>(null)
@@ -245,26 +274,32 @@ export default function Programme(props: VisionProps) {
   }, [])
 
   // Résolution commande → OF (contremarque)
-  const findOrderCard = useCallback((cardId: string) => {
-    for (const line of orderStore.board.lines) {
-      for (const dc of line.dayCells) {
-        const c = dc.cards.find((x) => x.id === cardId)
-        if (c) return c
+  const findOrderCard = useCallback(
+    (cardId: string) => {
+      for (const line of orderStore.board.lines) {
+        for (const dc of line.dayCells) {
+          const c = dc.cards.find((x) => x.id === cardId)
+          if (c) return c
+        }
       }
-    }
-    return undefined
-  }, [orderStore.board.lines])
+      return undefined
+    },
+    [orderStore.board.lines]
+  )
 
-  const onSelectOrderLine = useCallback((key: string) => {
-    const card = findOrderCard(key)
-    const ofNum = card?.contremarque?.trim() || null
-    if (ofNum) {
-      setSelectedOf(ofNum)
-      setDetailOpen(true)
-    } else {
-      toast.error('Aucun OF rattaché à cette ligne de commande.')
-    }
-  }, [findOrderCard])
+  const onSelectOrderLine = useCallback(
+    (key: string) => {
+      const card = findOrderCard(key)
+      const ofNum = card?.contremarque?.trim() || null
+      if (ofNum) {
+        setSelectedOf(ofNum)
+        setDetailOpen(true)
+      } else {
+        toast.error('Aucun OF rattaché à cette ligne de commande.')
+      }
+    },
+    [findOrderCard]
+  )
 
   // ── Refresh ──
   const [refreshing, setRefreshing] = useState(false)
@@ -303,7 +338,16 @@ export default function Programme(props: VisionProps) {
       },
       onFinish: () => setRefreshing(false),
     })
-  }, [refreshing, props.windowFrom, props.horizon, mode, boardStore, orderStore, page.props])
+  }, [
+    refreshing,
+    props.windowFrom,
+    props.horizon,
+    mode,
+    boardStore,
+    orderStore,
+    page.props,
+    requestMeasure,
+  ])
 
   // ── Calendrier ──
   const [calOpen, setCalOpen] = useState(false)
@@ -312,25 +356,35 @@ export default function Programme(props: VisionProps) {
     to: parseIso(props.windowTo) ?? undefined,
   }))
 
-  const applyRange = useCallback((r: DateRange) => {
-    setRange(r)
-    if (r.from && r.to) {
-      setCalOpen(false)
-      const days = Math.round((startOfDay(r.to).getTime() - startOfDay(r.from).getTime()) / DAY_MS) + 1
-      router.visit(route('scheduler.programme'), {
-        data: {
-          start: toIso(r.from),
-          days: String(days),
-          ...(mode !== 'combined' && { mode: mode }),
-        },
-        preserveScroll: true,
-      })
-    }
-  }, [mode])
+  const applyRange = useCallback(
+    (r: DateRange) => {
+      setRange(r)
+      if (r.from && r.to) {
+        setCalOpen(false)
+        const days =
+          Math.round((startOfDay(r.to).getTime() - startOfDay(r.from).getTime()) / DAY_MS) + 1
+        router.visit(route('scheduler.programme'), {
+          data: {
+            start: toIso(r.from),
+            days: String(days),
+            ...(mode !== 'combined' && { mode: mode }),
+          },
+          preserveScroll: true,
+        })
+      }
+    },
+    [mode]
+  )
 
   // ── Overrides drag ──
-  const cmdCol = useCallback((l: VisionLink) => cmdMoved.get(l.commandeId)?.col ?? l.cmdCol, [cmdMoved])
-  const cmdIso = useCallback((cmd: VisionCommande) => cmdMoved.get(cmd.id)?.iso ?? cmd.dateExpeditionIso, [cmdMoved])
+  const cmdCol = useCallback(
+    (l: VisionLink) => cmdMoved.get(l.commandeId)?.col ?? l.cmdCol,
+    [cmdMoved]
+  )
+  const cmdIso = useCallback(
+    (cmd: VisionCommande) => cmdMoved.get(cmd.id)?.iso ?? cmd.dateExpeditionIso,
+    [cmdMoved]
+  )
 
   const cmdBesoinOverride = useCallback(() => {
     const m = new Map<string, string>()
@@ -396,7 +450,10 @@ export default function Programme(props: VisionProps) {
     return m
   }, [impacts])
 
-  const retardJoursOf = useCallback((ofId: string): number | null => retardByOf.get(ofId) ?? null, [retardByOf])
+  const retardJoursOf = useCallback(
+    (ofId: string): number | null => retardByOf.get(ofId) ?? null,
+    [retardByOf]
+  )
 
   const nbCmdRetard = useMemo(() => {
     let n = 0
@@ -450,80 +507,100 @@ export default function Programme(props: VisionProps) {
     return m
   }, [boardStore.board.lines])
 
-  const ofColOrigine = useCallback((ofId: string): number | null => {
-    return ofPositions.get(ofId) ?? linksByOf.get(ofId)?.ofCol ?? null
-  }, [ofPositions, linksByOf])
+  const ofColOrigine = useCallback(
+    (ofId: string): number | null => {
+      return ofPositions.get(ofId) ?? linksByOf.get(ofId)?.ofCol ?? null
+    },
+    [ofPositions, linksByOf]
+  )
 
-  const dayShiftFor = useCallback((ofId: string, targetIso: string): number | null => {
-    const origine = ofColOrigine(ofId)
-    if (origine === null) return null
-    const fromIso = boardStore.board.lines[0]?.dayCells[origine]?.iso
-    if (!fromIso) return null
-    const fromD = parseIso(fromIso)
-    const toD = parseIso(targetIso)
-    if (!fromD || !toD) return null
-    return Math.round((toD.getTime() - fromD.getTime()) / DAY_MS)
-  }, [ofColOrigine, boardStore.board.lines])
+  const dayShiftFor = useCallback(
+    (ofId: string, targetIso: string): number | null => {
+      const origine = ofColOrigine(ofId)
+      if (origine === null) return null
+      const fromIso = boardStore.board.lines[0]?.dayCells[origine]?.iso
+      if (!fromIso) return null
+      const fromD = parseIso(fromIso)
+      const toD = parseIso(targetIso)
+      if (!fromD || !toD) return null
+      return Math.round((toD.getTime() - fromD.getTime()) / DAY_MS)
+    },
+    [ofColOrigine, boardStore.board.lines]
+  )
 
   // ── Tooltip drag OF ──
   const [dragTooltip, setDragTooltip] = useState<string | null>(null)
 
-  const updateDragTooltip = useCallback((ofId: string) => {
-    const v = verdictByOf.get(ofId)
-    const finOrigine = ofDateFinOverride.get(ofId) ?? linksByOf.get(ofId)?.ofDateFinIso ?? null
-    const finD = finOrigine ? parseIso(finOrigine) : null
+  const updateDragTooltip = useCallback(
+    (ofId: string) => {
+      const v = verdictByOf.get(ofId)
+      const finOrigine = ofDateFinOverride.get(ofId) ?? linksByOf.get(ofId)?.ofDateFinIso ?? null
+      const finD = finOrigine ? parseIso(finOrigine) : null
 
-    if (v === 'retard' && finD) {
-      const shift = ofShift.get(ofId) ?? 0
-      const shifted = new Date(finD)
-      shifted.setDate(shifted.getDate() + shift)
-      const delta = retardJoursOf(ofId)
-      setDragTooltip(`Dispo estimée le ${fmtDay(toIso(shifted))} · ${delta ? deltaLabel(delta) : 'en retard'}`)
-    } else if (v === 'retard') {
-      setDragTooltip('OF en retard sur sa commande')
-    } else if (v === 'limite') {
-      setDragTooltip('OF limite (J)')
-    } else if (v === 'ok') {
-      setDragTooltip("OF à l'heure")
-    } else {
-      setDragTooltip(null)
-    }
-  }, [verdictByOf, ofDateFinOverride, linksByOf, ofShift, retardJoursOf])
-
-  const onOfDragProgress = useCallback((ofId: string, _toLineCode: string, _toCol: number, targetIso: string) => {
-    const shift = dayShiftFor(ofId, targetIso)
-    if (shift === null) return
-    setOfShift((m) => {
-      if (shift === 0) {
-        if (!m.has(ofId)) return m
-        const n = new Map(m)
-        n.delete(ofId)
-        return n
+      if (v === 'retard' && finD) {
+        const shift = ofShift.get(ofId) ?? 0
+        const shifted = new Date(finD)
+        shifted.setDate(shifted.getDate() + shift)
+        const delta = retardJoursOf(ofId)
+        setDragTooltip(
+          `Dispo estimée le ${fmtDay(toIso(shifted))} · ${delta ? deltaLabel(delta) : 'en retard'}`
+        )
+      } else if (v === 'retard') {
+        setDragTooltip('OF en retard sur sa commande')
+      } else if (v === 'limite') {
+        setDragTooltip('OF limite (J)')
+      } else if (v === 'ok') {
+        setDragTooltip("OF à l'heure")
+      } else {
+        setDragTooltip(null)
       }
-      if (m.get(ofId) === shift) return m
-      return new Map(m).set(ofId, shift)
-    })
-    updateDragTooltip(ofId)
-  }, [dayShiftFor, updateDragTooltip])
+    },
+    [verdictByOf, ofDateFinOverride, linksByOf, ofShift, retardJoursOf]
+  )
+
+  const onOfDragProgress = useCallback(
+    (ofId: string, _toLineCode: string, _toCol: number, targetIso: string) => {
+      const shift = dayShiftFor(ofId, targetIso)
+      if (shift === null) return
+      setOfShift((m) => {
+        if (shift === 0) {
+          if (!m.has(ofId)) return m
+          const n = new Map(m)
+          n.delete(ofId)
+          return n
+        }
+        if (m.get(ofId) === shift) return m
+        return new Map(m).set(ofId, shift)
+      })
+      updateDragTooltip(ofId)
+    },
+    [dayShiftFor, updateDragTooltip]
+  )
 
   const onOfDragCancelled = useCallback(() => {
     setOfShift(new Map())
     setDragTooltip(null)
   }, [])
 
-  const ofDateFinOrigine = useCallback((ofId: string): string | null => {
-    return ofDateFinOverride.get(ofId) ?? linksByOf.get(ofId)?.ofDateFinIso ?? null
-  }, [ofDateFinOverride, linksByOf])
+  const ofDateFinOrigine = useCallback(
+    (ofId: string): string | null => {
+      return ofDateFinOverride.get(ofId) ?? linksByOf.get(ofId)?.ofDateFinIso ?? null
+    },
+    [ofDateFinOverride, linksByOf]
+  )
 
-  const translateOfDateFin = useCallback((ofId: string, targetIso: string): string | null => {
-    const finOrigine = ofDateFinOrigine(ofId)
-    const finD = finOrigine ? parseIso(finOrigine) : null
-    const shift = dayShiftFor(ofId, targetIso)
-    if (!finD || shift === null) return null
-    const shifted = new Date(finD)
-    shifted.setDate(shifted.getDate() + shift)
-    return toIso(shifted)
-  }, [ofDateFinOrigine, dayShiftFor])
+  const translateOfDateFin = useCallback(
+    (ofId: string, targetIso: string): string | null => {
+      const finOrigine = ofDateFinOrigine(ofId)
+      const finD = finOrigine ? parseIso(finOrigine) : null
+      const shift = dayShiftFor(ofId, targetIso)
+      if (!finD || shift === null) return null
+      const shifted = new Date(finD)
+      shifted.setDate(shifted.getDate() + shift)
+      return toIso(shifted)
+    },
+    [ofDateFinOrigine, dayShiftFor]
+  )
 
   const onOfDropped = useCallback((ofId: string, _toIso: string, dateFinIso?: string) => {
     if (dateFinIso) {
@@ -551,9 +628,12 @@ export default function Programme(props: VisionProps) {
   }, [scenarioStore.active, boardStore, scenarioStore])
 
   // ── Colonne du board par ISO ──
-  const colOfIso = useCallback((iso: string): number => {
-    return boardStore.board.lines[0]?.dayCells.findIndex((dc) => dc.iso === iso) ?? -1
-  }, [boardStore.board.lines])
+  const colOfIso = useCallback(
+    (iso: string): number => {
+      return boardStore.board.lines[0]?.dayCells.findIndex((dc) => dc.iso === iso) ?? -1
+    },
+    [boardStore.board.lines]
+  )
 
   // ── Articles connus (#58) ──
   const articleOptions = useMemo(() => {
@@ -583,25 +663,34 @@ export default function Programme(props: VisionProps) {
     return map
   }, [virtualOrders, colOfIso])
 
-  const injectVirtualOrder = useCallback((m: Extract<PlanMutation, { type: 'inject_demand' }>) => {
-    scenarioStore.upsertMutation(m)
-    scenarioStore.computeDiff(props.windowFrom, props.windowTo)
-  }, [scenarioStore, props.windowFrom, props.windowTo])
+  const injectVirtualOrder = useCallback(
+    (m: Extract<PlanMutation, { type: 'inject_demand' }>) => {
+      scenarioStore.upsertMutation(m)
+      scenarioStore.computeDiff(props.windowFrom, props.windowTo)
+    },
+    [scenarioStore, props.windowFrom, props.windowTo]
+  )
 
-  const moveVirtualOrder = useCallback((id: string, _col: number, iso: string) => {
-    const existing = scenarioStore.current.mutations.find(
-      (m): m is Extract<PlanMutation, { type: 'inject_demand' }> =>
-        m.type === 'inject_demand' && m.id === id
-    )
-    if (!existing) return
-    scenarioStore.upsertMutation({ ...existing, date: iso })
-    scenarioStore.computeDiff(props.windowFrom, props.windowTo)
-  }, [scenarioStore.current.mutations, props.windowFrom, props.windowTo])
+  const moveVirtualOrder = useCallback(
+    (id: string, _col: number, iso: string) => {
+      const existing = scenarioStore.current.mutations.find(
+        (m): m is Extract<PlanMutation, { type: 'inject_demand' }> =>
+          m.type === 'inject_demand' && m.id === id
+      )
+      if (!existing) return
+      scenarioStore.upsertMutation({ ...existing, date: iso })
+      scenarioStore.computeDiff(props.windowFrom, props.windowTo)
+    },
+    [scenarioStore.current.mutations, props.windowFrom, props.windowTo]
+  )
 
-  const removeVirtualOrder = useCallback((id: string) => {
-    scenarioStore.removeMutation(`inject:${id}`)
-    scenarioStore.computeDiff(props.windowFrom, props.windowTo)
-  }, [scenarioStore, props.windowFrom, props.windowTo])
+  const removeVirtualOrder = useCallback(
+    (id: string) => {
+      scenarioStore.removeMutation(`inject:${id}`)
+      scenarioStore.computeDiff(props.windowFrom, props.windowTo)
+    },
+    [scenarioStore, props.windowFrom, props.windowTo]
+  )
 
   // ── Scénario (#57) ──
   const toggleScenario = useCallback(() => {
@@ -665,28 +754,31 @@ export default function Programme(props: VisionProps) {
     scenarioStore.reset()
     scenarioStore.setActive(false)
     requestMeasure()
-  }, [boardStore, orderStore, scenarioStore, page.props])
+  }, [boardStore, orderStore, scenarioStore, page.props, requestMeasure])
 
-  const openScenario = useCallback(async (id: number) => {
-    scenarioStore.setActive(true)
-    const mutations = await scenarioStore.open(id)
-    for (const m of mutations) {
-      if (m.type === 'shift_of' && m.dateDebut && m.poste) {
-        boardStore.moveCardToIso(m.numOf, m.poste, m.dateDebut)
-        if (m.dateFin) {
-          setOfDateFinOverride((mm) => new Map(mm).set(m.numOf, m.dateFin!))
-        }
-      } else if (m.type === 'shift_demand') {
-        const col = colOfIso(m.date)
-        if (col !== -1) {
-          setCmdMoved((mm) =>
-            new Map(mm).set(`${m.numCommande}#${m.ligne ?? ''}`, { col, iso: m.date })
-          )
+  const openScenario = useCallback(
+    async (id: number) => {
+      scenarioStore.setActive(true)
+      const mutations = await scenarioStore.open(id)
+      for (const m of mutations) {
+        if (m.type === 'shift_of' && m.dateDebut && m.poste) {
+          boardStore.moveCardToIso(m.numOf, m.poste, m.dateDebut)
+          if (m.dateFin) {
+            setOfDateFinOverride((mm) => new Map(mm).set(m.numOf, m.dateFin!))
+          }
+        } else if (m.type === 'shift_demand') {
+          const col = colOfIso(m.date)
+          if (col !== -1) {
+            setCmdMoved((mm) =>
+              new Map(mm).set(`${m.numCommande}#${m.ligne ?? ''}`, { col, iso: m.date })
+            )
+          }
         }
       }
-    }
-    requestMeasure()
-  }, [scenarioStore, boardStore, colOfIso])
+      requestMeasure()
+    },
+    [scenarioStore, boardStore, colOfIso, requestMeasure]
+  )
 
   // ── Commandes regroupées par poste × colonne ──
   const cmdCells = useMemo(() => {
@@ -694,69 +786,65 @@ export default function Programme(props: VisionProps) {
   }, [props.commandes, props.links, cmdCol])
 
   // ── Drop commande ──
-  const onCommandeDrop = useCallback((_lineCode: string, col: number, iso: string, e: DragEvent) => {
-    const raw = e.dataTransfer?.getData('application/x-cmd')
-    if (!raw) return
-    let parsed: { id: string; numCommande: string; ligne: string | null }
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      return
-    }
-    if (!parsed.ligne) return
+  const onCommandeDrop = useCallback(
+    (_lineCode: string, col: number, iso: string, e: DragEvent) => {
+      const raw = e.dataTransfer?.getData('application/x-cmd')
+      if (!raw) return
+      let parsed: { id: string; numCommande: string; ligne: string | null }
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        return
+      }
+      if (!parsed.ligne) return
 
-    setCmdMoved((m) => new Map(m).set(parsed.id, { col, iso }))
-    requestMeasure()
+      setCmdMoved((m) => new Map(m).set(parsed.id, { col, iso }))
+      requestMeasure()
 
-    // #57 — mode scénario
-    if (scenarioStore.active) {
-      scenarioStore.upsertMutation({
-        type: 'shift_demand',
-        numCommande: parsed.numCommande,
-        ligne: parsed.ligne,
-        date: iso,
-      })
-      return
-    }
-
-    fetch(route('order_planning.update', { order: parsed.numCommande, line: parsed.ligne }), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateLivraison: iso }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      })
-      .catch((err) => {
-        setCmdMoved((m) => {
-          const n = new Map(m)
-          n.delete(parsed.id)
-          return n
+      // #57 — mode scénario
+      if (scenarioStore.active) {
+        scenarioStore.upsertMutation({
+          type: 'shift_demand',
+          numCommande: parsed.numCommande,
+          ligne: parsed.ligne,
+          date: iso,
         })
-        requestMeasure()
-        toast.error(`Déplacement commande échoué : ${err.message}`)
+        return
+      }
+
+      fetch(route('order_planning.update', { order: parsed.numCommande, line: parsed.ligne }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateLivraison: iso }),
       })
-  }, [scenarioStore])
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        })
+        .catch((err) => {
+          setCmdMoved((m) => {
+            const n = new Map(m)
+            n.delete(parsed.id)
+            return n
+          })
+          requestMeasure()
+          toast.error(`Déplacement commande échoué : ${err.message}`)
+        })
+    },
+    [scenarioStore, requestMeasure]
+  )
 
   // ── Overlay liens ──
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null)
   const [paths, setPaths] = useState<PathSpec[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
 
-  const isActive = useCallback((p: PathSpec) => {
-    const id = activeId
-    return id !== null && (p.ofId === id || p.commandeId === id)
-  }, [activeId])
-
-  const measureScheduled = useRef(false)
-  const requestMeasure = useCallback(() => {
-    if (measureScheduled.current) return
-    measureScheduled.current = true
-    requestAnimationFrame(() => {
-      measureScheduled.current = false
-      measure()
-    })
-  }, [])
+  const isActive = useCallback(
+    (p: PathSpec) => {
+      const id = activeId
+      return id !== null && (p.ofId === id || p.commandeId === id)
+    },
+    [activeId]
+  )
 
   const measure = useCallback(() => {
     const content = contentEl
@@ -785,6 +873,13 @@ export default function Programme(props: VisionProps) {
     }
     setPaths(out)
   }, [contentEl, impacts, props.links])
+
+  // Déclaré AVANT l'effet de montage ci-dessous : les effets s'exécutent dans
+  // l'ordre de déclaration, donc la ref est à jour quand le premier
+  // `requestMeasure()` part.
+  useEffect(() => {
+    measureRef.current = measure
+  }, [measure])
 
   // ── ResizeObserver ──
   useEffect(() => {
@@ -838,7 +933,7 @@ export default function Programme(props: VisionProps) {
       ro?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [measure, openScenario, scenarioStore, injectVirtualOrder])
+  }, [measure, contentEl, openScenario, scenarioStore, injectVirtualOrder])
 
   useEffect(() => {
     requestMeasure()
@@ -919,9 +1014,7 @@ export default function Programme(props: VisionProps) {
                 <input
                   className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0 outline-none"
                   placeholder={
-                    mode === 'planification'
-                      ? 'Commande, article, client…'
-                      : 'OF, article, poste…'
+                    mode === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
                   }
                   aria-label="Rechercher"
                   type="text"
