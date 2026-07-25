@@ -57,7 +57,10 @@ jobs:
   test:
     name: Tests unitaires
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Court exprès : la suite tourne en ~3 s. `forceExit` est à false dans
+    # adonisrc, donc une fuite de handle fait traîner le process jusqu'au
+    # timeout — autant le constater vite.
+    timeout-minutes: 6
 
     steps:
       - uses: actions/checkout@v5
@@ -72,14 +75,23 @@ jobs:
       - name: Env de boot
         uses: ./.github/actions/boot-env
 
+      - name: Base SQLite
+        # `tests/domain/scenario_store.test.ts` écrit dans la table `scenarios` :
+        # sans migration, il échoue en `SQLITE_CANTOPEN`. La base vit dans
+        # `tmp/db.sqlite3` (config/database.ts) et se reconstruit à chaque run.
+        run: |
+          mkdir -p tmp
+          node ace migration:run --force
+
       - name: Suite unit
-        # Suite `unit` = tests/unit/** + tests/domain/** (adonisrc.ts), tout du
-        # domaine pur : ni X3 ni base de données.
+        # `unit` est un ARGUMENT POSITIONNEL, pas un flag : `node ace test unit`.
+        # Écrit `--suite=unit`, il est ignoré en silence et TOUTES les suites
+        # tournent, functional comprise — c'est ce qui avait produit 25 échecs
+        # « Identifiants X3 absents » au run 30173606998.
         #
-        # La suite `functional` est volontairement absente : 3 de ses 6 fichiers
-        # tapent X3, injoignable depuis un runner GitHub. La lancer ici ne
-        # produirait qu'un rouge permanent sans rapport avec le code.
-        run: npm test -- --suite=unit
+        # La suite `functional` reste volontairement hors CI : 3 de ses 6
+        # fichiers tapent X3, injoignable depuis un runner GitHub.
+        run: npm test -- unit
 
   build:
     name: Build
