@@ -49,6 +49,15 @@ export const MCP_APPS: readonly McpAppDefinition[] = [
     toolName: 'getCharge',
     resourceUri: 'ui://supply-board/charge',
   },
+  {
+    name: 'stock',
+    title: 'Trajectoire de stock',
+    description:
+      "Courbe de stock d'un article : 52 semaines d'historique et 52 de projection, " +
+      'besoins face aux ressources, stock de sécurité et semaine de rupture prévue.',
+    toolName: 'projeterStock',
+    resourceUri: 'ui://supply-board/stock',
+  },
 ]
 
 /** L'app rattachée à un tool, s'il en a une. */

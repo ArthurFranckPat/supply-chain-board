@@ -12,8 +12,22 @@ import { defineTool, type ToolDefinition } from '@earendil-works/pi-coding-agent
 /** Budget contexte : au-delà, le JSON est tronqué (le modèle doit affiner ses filtres). */
 const MAX_TOOL_JSON_CHARS = 24_000
 
-function toolResult(payload: unknown) {
-  let text = JSON.stringify(payload)
+/**
+ * @param horsTexte champs retirés du texte destiné au MODÈLE, conservés dans
+ *   `details` — donc dans le `structuredContent` que l'hôte pousse à l'app MCP
+ *   (issue #89). Pour les séries longues : une courbe de 104 points est lisible
+ *   par l'app et illisible par le modèle, qui la paierait à chaque tour. À
+ *   n'utiliser que si le payload porte par ailleurs un résumé chiffré.
+ */
+function toolResult(payload: unknown, horsTexte: string[] = []) {
+  let pourLeModele = payload
+  if (horsTexte.length > 0 && payload && typeof payload === 'object') {
+    const copie = { ...(payload as Record<string, unknown>) }
+    for (const champ of horsTexte) delete copie[champ]
+    pourLeModele = copie
+  }
+
+  let text = JSON.stringify(pourLeModele)
   if (text.length > MAX_TOOL_JSON_CHARS) {
     text =
       text.slice(0, MAX_TOOL_JSON_CHARS) +
@@ -538,6 +552,45 @@ export const getStockTool = defineTool({
   },
 })
 
+export const projeterStockTool = defineTool({
+  name: 'projeterStock',
+  label: 'Trajectoire de stock',
+  description: toolDoc({
+    quoi:
+      'Trajectoire de stock d’UN article : 52 semaines d’historique, 52 semaines de projection ' +
+      '(besoins client + matière face aux réceptions et OF), date de rupture prévue, couverture ' +
+      'prospective, ratio couverture ÷ délai de réappro, paramètres logistiques (stock de ' +
+      'sécurité, lot, fournisseur par défaut).',
+    quand:
+      "l'utilisateur demande où va le stock d'un article, quand il tombera en rupture, s'il faut " +
+      'commander, ou si le stock de sécurité tient. Un seul article par appel.',
+    pasSi:
+      'la question est « combien en stock » sur un ou plusieurs articles à l’instant t → getStock. ' +
+      'Elle porte sur ce qui reste disponible POUR un OF (allocations) → getVerdict. Elle porte ' +
+      'sur les ruptures de tout le plan → listerRuptures.',
+    retour:
+      'les deux couvertures ne se remplacent pas : `couvertureJours` décrit le régime moyen passé ' +
+      '(CMJ), `couvertureProspectiveJours` déroule les besoins réels RÉCEPTIONS EXCLUES et est la ' +
+      'seule à porter une décision. `ratioProspectifDelai` < 1 = commander maintenant n’arrive ' +
+      'plus à temps. `null` = calcul sans objet (pas de sortie, pas de rupture sur l’horizon), ' +
+      'jamais 0. Les séries hebdomadaires entières vont à l’app, pas au texte.',
+    siVide:
+      'article inconnu au stock = aucun mouvement STOJOU ; vérifier le code avec rechercherArticle.',
+  }),
+  parameters: Type.Object({
+    article: Type.String({ description: 'Code article exact (ITMREF)' }),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    // `historique`/`projection` = 104 points : à l'app par `structuredContent`,
+    // jamais au modèle, qui lit `resume` et `indicateurs`.
+    return toolResult(await e.projeterStock({ article: params.article }), [
+      'historique',
+      'projection',
+    ])
+  },
+})
+
 export const listerCommandesStatutTool = defineTool({
   name: 'listerCommandesStatut',
   label: 'Statuts commandes',
@@ -729,6 +782,7 @@ export function buildAgentTools(): ToolDefinition[] {
     listerCommandesStatutTool,
     getDetailCommandeTool,
     getStockTool,
+    projeterStockTool,
     getChargeTool,
     simulerDecalageTool,
     enregistrerScenarioTool,

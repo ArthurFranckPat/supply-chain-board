@@ -5,8 +5,10 @@
  *  - la conversion TypeBox → zod, seul chemin possible vers le `McpServer`
  *    high-level, ne perd ni l'optionalité ni les descriptions, et **lève** au lieu
  *    de dégrader un schéma qu'elle ne sait pas traduire ;
- *  - les 18 tools réels passent tous cette conversion (une régression y casserait
+ *  - tous les tools réels passent cette conversion (une régression y casserait
  *    le boot du serveur MCP, pas un appel isolé) ;
+ *  - chaque app déclarée a bien son artefact HTML commité — sans ce contrôle,
+ *    l'oubli de `npm run mcp:apps` ne se voit qu'à l'exécution, en iframe vide ;
  *  - `structuredContent` n'est émis que par les tools qui ont une app — c'est ce
  *    qui garantit qu'un tool sans UI répond exactement comme avant #89.
  */
@@ -23,7 +25,7 @@ import {
   type SupplyMcpConnection,
 } from '#services/agent/mcp_client'
 import { buildAgentTools } from '#services/agent/tools'
-import { MCP_APPS, mcpAppForTool } from '#services/agent/mcp_apps'
+import { MCP_APPS, mcpAppForTool, readMcpAppHtml } from '#services/agent/mcp_apps'
 import { AgentUIMessageMapper } from '#services/agent/ui_message_stream'
 
 test.group('mcp_schema — TypeBox → zod', () => {
@@ -60,7 +62,7 @@ test.group('mcp_schema — TypeBox → zod', () => {
 })
 
 test.group('mcp_adapter — façade sur buildAgentTools', () => {
-  test('les 18 tools réels se convertissent tous', ({ assert }) => {
+  test('tous les tools réels se convertissent', ({ assert }) => {
     const registrations = adaptPiToolsForMcp(buildAgentTools())
     assert.isAbove(registrations.length, 0)
     for (const reg of registrations) {
@@ -75,6 +77,20 @@ test.group('mcp_adapter — façade sur buildAgentTools', () => {
     for (const app of MCP_APPS) {
       assert.isTrue(names.has(app.toolName), `app ${app.name} → tool ${app.toolName} inconnu`)
       assert.match(app.resourceUri, /^ui:\/\//)
+    }
+  })
+
+  test('chaque app déclarée a son artefact HTML construit et commité', async ({ assert }) => {
+    for (const app of MCP_APPS) {
+      const html = await readMcpAppHtml(app)
+      assert.match(html, /<html/i, `app ${app.name} : artefact vide ou non HTML`)
+      // Autonomie : la CSP de la resource n'autorise aucun domaine, donc aucune
+      // référence de fichier externe ne doit subsister après l'inlining.
+      assert.notMatch(
+        html,
+        /(?:src|href)="(?!data:)[^"]*\.(?:js|css|woff2?|png|svg|jpe?g)"/i,
+        `app ${app.name} : référence un fichier externe — relancer npm run mcp:apps`
+      )
     }
   })
 

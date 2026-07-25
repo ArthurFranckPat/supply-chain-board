@@ -11,6 +11,7 @@ import { loadShortageRowsData } from '#services/shortage_payload_loader'
 import { loadChargePayloadData } from '#services/load_payload_loader'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
+import { loadStockArticleDetail, StockDetailBadRequest } from '#services/stock_detail_loader'
 import { buildStockBreakdownMap } from '#services/suivi_service'
 import type { PlanMutation } from '#app/domain/plan-diff'
 
@@ -255,6 +256,95 @@ export async function getStock(params: { articles: string[] }) {
         inconnu: !b,
       }
     }),
+  }
+}
+
+/**
+ * Trajectoire de stock d'un article — 52 semaines passées + 52 projetées.
+ *
+ * Même moteur que la sheet du KPI stock (`stock_detail_loader`) : historique
+ * rembobiné depuis STOJOU, projection ORDERS (besoins WIPTYP 1+6, ressources
+ * 2+5, WIPSTA 1/2/3), indicateurs déduits sans requête supplémentaire.
+ *
+ * **Deux lecteurs, deux volumes** (issue #89) : le modèle reçoit le résumé rendu
+ * ici sous `resume`, l'app MCP reçoit `historique`/`projection` entiers par
+ * `structuredContent`. 104 points hebdomadaires dans le contexte du modèle
+ * seraient payés à chaque tour pour une courbe qu'il ne peut pas lire.
+ *
+ * **Deux couvertures, jamais côte à côte** : `cmj`/`couvertureJours` décrivent
+ * le régime moyen passé ; `couvertureProspectiveJours` déroule les besoins
+ * réels, réceptions exclues — c'est la seule qui porte une décision, et la
+ * seule comparable au délai de réappro (`ratioProspectifDelai` < 1 = commander
+ * maintenant n'arrive plus à temps).
+ */
+export async function projeterStock(params: { article: string }) {
+  const article = String(params.article ?? '').trim()
+  if (!article) return { error: 'article requis', _source: 'projeterStock' as const }
+
+  let result: Awaited<ReturnType<typeof loadStockArticleDetail>>
+  try {
+    result = await loadStockArticleDetail({ article })
+  } catch (err) {
+    if (err instanceof StockDetailBadRequest) {
+      return { error: err.message, _source: 'projeterStock' as const }
+    }
+    throw err
+  }
+
+  const d = result.detail
+  if (!d) {
+    return {
+      _source: 'projeterStock' as const,
+      engine: 'stock_detail_loader',
+      article,
+      trouve: false,
+      note: "Article inconnu au stock (aucun mouvement STOJOU) — vérifier le code avec rechercherArticle.",
+      x3Error: result.x3Error,
+    }
+  }
+
+  const i = d.indicateurs
+  // Plus gros besoin à venir : le pic que la courbe rend évident et qu'une
+  // liste de 52 nombres noierait.
+  const picBesoin = d.future.reduce(
+    (max, p) => (p.besoinQte > (max?.besoinQte ?? 0) ? p : max),
+    null as (typeof d.future)[number] | null
+  )
+  const prochaineReception = d.future.find((p) => p.ressourceQte > 0) ?? null
+
+  return {
+    _source: 'projeterStock' as const,
+    engine: 'stock_detail_loader (historique STOJOU + projection ORDERS)',
+    article: d.article,
+    designation: d.designation,
+    categorie: d.categorie,
+    trouve: true,
+    stock: { total: d.stock, statutA: d.stockA, statutQ: d.stockQ, pmp: d.pmp, valeur: d.valeur },
+    logistique: d.logistique,
+    indicateurs: i,
+    // Ce que lit le modèle : les chiffres qui portent une phrase, pas la série.
+    resume: {
+      stock: d.stock,
+      statutQ: d.stockQ,
+      valeur: d.valeur,
+      couvertureProspectiveJours: i.couvertureProspectiveJours,
+      ruptureSemaine: i.ruptureSemaine,
+      ruptureDateIso: i.ruptureDateIso,
+      delaiReapproJours: d.logistique.delaiReapproJours,
+      ratioProspectifDelai: i.ratioProspectifDelai,
+      stockSecurite: d.logistique.stockSecurite,
+      fournisseur: d.logistique.fournisseurNom ?? d.logistique.fournisseurCode,
+      cmj: i.cmj,
+      rotation: i.rotation,
+      picBesoin: picBesoin ? { semaine: picBesoin.periode, quantite: picBesoin.besoinQte } : null,
+      prochaineReception: prochaineReception
+        ? { semaine: prochaineReception.periode, quantite: prochaineReception.ressourceQte }
+        : null,
+    },
+    // Séries entières : destinées à l'app, pas au modèle.
+    historique: d.series,
+    projection: d.future,
+    x3Error: result.x3Error,
   }
 }
 
