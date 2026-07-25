@@ -1,5 +1,6 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
+import { Button as AstryxButton } from "@astryxdesign/core/Button"
 import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react"
 
 import { cn } from "@r/lib/utils"
 
@@ -11,6 +12,14 @@ import { cn } from "@r/lib/utils"
 // • xs = 32px, pour les micro-actions compactes
 // Les variantes (default/outline/secondary/ghost/destructive/link) suivent le
 // token primary/secondary/background du thème posé (.theme-airbnb ou stock).
+//
+// Spike Lot 0 (issue #90) — primitive sous-jacente Base UI → Astryx.
+// buttonVariants (cva) est CONSERVÉ TEL QUEL car calendar.tsx l'importe
+// (lignes 10/61/66) pour ses day-picker buttons. Les classes cva restent
+// appliquées via className — c'est elles qui portent la grammaire Airbnb
+// (hover Rausch, sizes, focus ring). AstryxButton apporte en sus :
+// accessibilité (label obligatoire → aria-label), href/as (polymorphie),
+// isLoading/isInterruptible, tooltip natif.
 
 const buttonVariants = cva(
   // Grammaire : bouton = rayon 8 px (airbnb-grammar.html — cards 14, pills 9999).
@@ -52,19 +61,84 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+/** Map variant shadcn → variant Astryx (quand équivalence). */
+const VARIANT_TO_ASTRYX: Record<NonNullable<VariantProps<typeof buttonVariants>["variant"]>, "primary" | "secondary" | "ghost" | "destructive"> = {
+  default: "primary",
+  secondary: "secondary",
+  ghost: "ghost",
+  destructive: "destructive",
+  // Pas d'équivalent Astryx — cva porte le style, Astryx reste sur primary.
+  outline: "primary",
+  link: "primary",
+}
+
+/** Map size shadcn → size Astryx (sm/md/lg). */
+const SIZE_TO_ASTRYX: Record<NonNullable<VariantProps<typeof buttonVariants>["size"]>, "sm" | "md" | "lg"> = {
+  default: "md",
+  lg: "lg",
+  sm: "sm",
+  xs: "sm",
+  icon: "md",
+  "icon-xs": "sm",
+  "icon-sm": "sm",
+  "icon-lg": "lg",
+}
+
+/** Extrait un label accessible (string) depuis les children shadcn. */
+function deriveLabel(children: unknown): string {
+  if (typeof children === "string") return children
+  if (Array.isArray(children)) {
+    const text = children.map((c) => (typeof c === "string" ? c : "")).join(" ").trim()
+    if (text) return text
+  }
+  // Icônes seules, JSX, fragments : consumer doit passer aria-label.
+  return "Bouton"
+}
+
+type ButtonProps = Omit<React.ComponentProps<"button">, "size"> &
+  VariantProps<typeof buttonVariants> & {
+    /**
+     * Pattern Base UI `render` — remplacer l'élément racine par un autre
+     * composant. Conservé pour compat consumers (InputGroupButton, Combobox).
+     * AstryxButton expose `as` pour la polymorphie ; on clone le render
+     * element en lui injectant les classes cva + data-slot quand présent.
+     */
+    render?: React.ReactElement
+    /** Label accessible — requis par AstryxButton. Si absent, dérivé des children. */
+    "aria-label"?: string
+  }
+
+function Button({ className, variant, size, children, render, ...props }: ButtonProps) {
+  const label = props["aria-label"] ?? deriveLabel(children)
+  const astryxVariant = variant ? VARIANT_TO_ASTRYX[variant] : "primary"
+  const astryxSize = size ? SIZE_TO_ASTRYX[size] : "md"
+  const composedClassName = cn(buttonVariants({ variant, size }), className)
+
+  // Pattern Base UI `render` : on clone l'élément fourni en lui injectant
+  // les classes + data-slot, sans passer par AstryxButton (le consumer
+  // pilote la racine). Préserve Combobox/InputGroup sans toucher leur code.
+  if (render) {
+    const renderProps = render.props as Record<string, unknown>
+    return React.cloneElement(render, {
+      "data-slot": "button",
+      className: cn(composedClassName, (renderProps.className as string | undefined) ?? ""),
+      ...props,
+    } as Record<string, unknown>)
+  }
+
   return (
-    <ButtonPrimitive
+    <AstryxButton
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      label={label}
+      variant={astryxVariant}
+      size={astryxSize}
+      className={composedClassName}
       {...props}
-    />
+    >
+      {children}
+    </AstryxButton>
   )
 }
 
 export { Button, buttonVariants }
+export type { ButtonProps }
