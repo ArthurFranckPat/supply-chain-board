@@ -66,6 +66,12 @@ const routes = {
     tokens: [{"old":"/react-lab","type":0,"val":"react-lab","end":""}],
     types: placeholder as Registry['react_lab']['types'],
   },
+  'astryx_lab': {
+    methods: ["GET","HEAD"],
+    pattern: '/astryx-lab',
+    tokens: [{"old":"/astryx-lab","type":0,"val":"astryx-lab","end":""}],
+    types: placeholder as Registry['astryx_lab']['types'],
+  },
   'x3_writeback_test': {
     methods: ["GET","HEAD"],
     pattern: '/writeback-test',

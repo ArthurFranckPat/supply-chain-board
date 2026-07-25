@@ -23,6 +23,7 @@ export interface ApiDefinition {
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
   reactLab: typeof routes['react_lab']
+  astryxLab: typeof routes['astryx_lab']
   x3WritebackTest: typeof routes['x3_writeback_test']
   x3PrintTest: typeof routes['x3_print_test']
   scheduling: typeof routes['scheduling']
