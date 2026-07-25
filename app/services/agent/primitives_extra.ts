@@ -259,6 +259,140 @@ export async function getStock(params: { articles: string[] }) {
 }
 
 /**
+ * Réceptions fournisseurs attendues sur une fenêtre + charge palettes par jour,
+ * et — sur demande — la criticité de chacune (quels OF elle débloque).
+ *
+ * Source = `reception_payload_loader`, le même calcul que la page /receptions :
+ * PORDERQ (attendu, pas le réalisé), date confirmée fournisseur ZDATCOF
+ * privilégiée sur EXTRCPDAT, palettes = ceil(qté US / PCUSTUCOE_1) avec repli
+ * sur coef estimé (STOCK/STOJOU) quand ITMMASTER est muet.
+ *
+ * La criticité est OPTIONNELLE parce qu'elle déclenche le pipeline ruptures
+ * (lourd à froid) : par défaut on rend le planning seul.
+ */
+export async function listerReceptions(params: {
+  /** Horizon jours à partir de `from` (défaut 14, max 90). */
+  horizonDays?: number
+  /** Début ISO YYYY-MM-DD (défaut aujourd'hui). */
+  from?: string
+  /** Filtre fournisseur : sous-chaîne testée sur le code ET le nom. */
+  fournisseur?: string
+  /** Filtre article attendu exact. */
+  article?: string
+  /** Joint la criticité (OF débloqués, marge) — coûteux. Défaut false. */
+  criticite?: boolean
+  /** Max lignes (défaut 60, max 150). */
+  limit?: number
+}) {
+  const start = params.from ? new Date(params.from) : new Date()
+  if (Number.isNaN(start.getTime())) {
+    return { error: 'from invalide (YYYY-MM-DD attendu)', _source: 'listerReceptions' as const }
+  }
+  start.setHours(0, 0, 0, 0)
+
+  const hRaw = params.horizonDays === undefined ? 14 : Math.floor(Number(params.horizonDays))
+  const horizonDays = Number.isFinite(hRaw) && hRaw > 0 ? Math.min(hRaw, 90) : 14
+  const end = new Date(start)
+  end.setDate(end.getDate() + horizonDays)
+
+  const from = isoDay(start)
+  const to = isoDay(end)
+
+  const limitRaw = params.limit === undefined ? 60 : Math.floor(Number(params.limit))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 150) : 60
+
+  const loader = await import('#services/reception_payload_loader')
+  const payload = await loader.loadReceptionPayloadSafe({ from, to })
+  if (payload.x3Error) {
+    return { error: payload.x3Error, _source: 'listerReceptions' as const }
+  }
+
+  const fournisseurFilter = params.fournisseur?.trim().toUpperCase() || null
+  const articleFilter = params.article?.trim().toUpperCase() || null
+
+  let rows = payload.rows
+  if (fournisseurFilter) {
+    rows = rows.filter(
+      (r) =>
+        r.fournisseur.toUpperCase().includes(fournisseurFilter) ||
+        r.fournisseurNom.toUpperCase().includes(fournisseurFilter)
+    )
+  }
+  if (articleFilter) {
+    rows = rows.filter((r) => r.article.toUpperCase() === articleFilter)
+  }
+
+  // Criticité indexée par (commande achat, article) — la clé du buildCriticiteIndex.
+  let criticiteIndex: Map<string, { niveau: string; joursMarge: number; overdue: boolean; ofs: unknown[] }> | null =
+    null
+  let criticiteError: string | null = null
+  if (params.criticite) {
+    const crit = await loader.loadReceptionCriticite({ from, horizonDays })
+    criticiteError = crit.x3Error
+    criticiteIndex = new Map(
+      crit.items.map((c) => [
+        `${c.noCommande}|${c.article}`,
+        { niveau: c.niveau, joursMarge: c.joursMarge, overdue: c.overdue, ofs: c.ofs },
+      ])
+    )
+  }
+
+  const lignes = rows.slice(0, limit).map((r) => {
+    const crit = criticiteIndex?.get(`${r.noCommande}|${r.article}`) ?? null
+    return {
+      noCommande: r.noCommande,
+      article: r.article,
+      designation: r.designation,
+      fournisseur: r.fournisseur,
+      fournisseurNom: r.fournisseurNom,
+      qteUs: r.qteUs,
+      date: r.date,
+      nbPalettes: r.nbPalettes,
+      // Transparence sur la qualité du chiffre palette : un coef estimé ou absent
+      // n'a pas la même valeur qu'un coef ITMMASTER renseigné.
+      palettesFiabilite: r.coefManquant ? 'non_calculable' : r.coefEstime ? 'estime' : 'coef_x3',
+      coefSource: r.coefSource,
+      criticite: crit
+        ? {
+            niveau: crit.niveau,
+            joursMarge: crit.joursMarge,
+            overdue: crit.overdue,
+            ofs: crit.ofs,
+          }
+        : null,
+    }
+  })
+
+  return {
+    _source: 'listerReceptions' as const,
+    engine: 'reception_payload_loader (PORDERQ attendu + calcul palette)',
+    note: 'Réceptions ATTENDUES (PORDERQ). Le réalisé (STOJOU/PINVD) est hors périmètre.',
+    filtres: {
+      from,
+      to,
+      horizonDays,
+      fournisseur: fournisseurFilter,
+      article: articleFilter,
+      criticite: Boolean(params.criticite),
+    },
+    totalMatching: rows.length,
+    truncated: rows.length > limit,
+    criticiteError,
+    // Agrégats de la FENÊTRE ENTIÈRE : ils ignorent les filtres fournisseur/article,
+    // qui ne portent que sur `lignes`. Ne pas les présenter comme le total d'un
+    // fournisseur filtré.
+    statsFenetre: payload.stats,
+    chargeParJourFenetre: payload.chargeByDay.map((c) => ({
+      jour: c.day,
+      palettes: c.palettes,
+      lignes: c.lignes,
+      fournisseurs: c.fournisseurs,
+    })),
+    lignes,
+  }
+}
+
+/**
  * Statuts des commandes clientes sur une fenêtre (moteur order-impacts,
  * pipeline /programme) : on_time | stock | retard | bloquee | sans_couverture.
  */

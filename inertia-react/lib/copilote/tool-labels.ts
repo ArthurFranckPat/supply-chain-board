@@ -12,6 +12,7 @@ export const TOOL_LABELS: Record<string, string> = {
   simulerDecalage: 'Simuler scénario',
   enregistrerScenario: 'Enregistrer scénario',
   listerRuptures: 'Ruptures + réceptions',
+  listerReceptions: 'Réceptions fournisseurs',
   getStock: 'Stock articles',
   listerCommandesStatut: 'Statuts commandes',
   getDetailCommande: 'Détail ligne commande',

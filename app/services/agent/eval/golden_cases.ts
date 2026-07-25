@@ -15,6 +15,7 @@ export type GoldenToolName =
   | 'getPromise'
   | 'listerRetardsPrevus'
   | 'listerRuptures'
+  | 'listerReceptions'
   | 'listerCommandesStatut'
   | 'getDetailCommande'
   | 'getStock'

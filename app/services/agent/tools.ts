@@ -450,6 +450,72 @@ export const listerRupturesTool = defineTool({
   },
 })
 
+export const listerReceptionsTool = defineTool({
+  name: 'listerReceptions',
+  label: 'Réceptions fournisseurs',
+  description: toolDoc({
+    quoi:
+      'Planning des réceptions fournisseurs attendues sur une fenêtre : ligne par commande ' +
+      'achat et article, avec fournisseur, quantité, date retenue et nombre de palettes, plus ' +
+      'la charge palettes agrégée par jour.',
+    quand:
+      "l'utilisateur parle du quai, de ce qui arrive, de la charge du service réception, d'un " +
+      "fournisseur, d'un pic de palettes ou d'un planning de déchargement. Seul tool qui rend la " +
+      'fenêtre côté ARRIVÉES plutôt que côté manques.',
+    pasSi:
+      "le point de départ est une rupture ou un composant manquant → listerRuptures, qui part du " +
+      "besoin et remonte à la réception couvrante. Ici on part de l'arrivée ; les deux ne " +
+      'cadrent pas la même population et ne se substituent pas.',
+    retour:
+      'lignes (commande achat, article, fournisseur, quantité US, date, palettes) et charge par ' +
+      'jour. Les réceptions sont ATTENDUES (commandes achat), pas réalisées : ce tool ne dit pas ' +
+      "ce qui a été reçu. `palettesFiabilite` qualifie chaque nombre de palettes — `coef_x3` " +
+      "(conditionnement renseigné), `estime` (déduit d'un historique, à annoncer comme estimation) " +
+      'ou `non_calculable` (la ligne existe mais ne compte pas dans la charge : la charge palettes ' +
+      'est alors un minorant). `statsFenetre` et `chargeParJourFenetre` portent sur toute la ' +
+      'fenêtre et IGNORENT les filtres fournisseur/article — ne les attribue pas à un fournisseur ' +
+      'filtré. Avec `criticite`, chaque ligne porte en plus les OF qu’elle débloque et la marge.',
+    siVide:
+      "aucune réception attendue sur la fenêtre interrogée. Une fenêtre courte n'exclut pas une " +
+      'arrivée juste après ; élargis avant de conclure à une absence de couverture.',
+  }),
+  parameters: Type.Object({
+    horizonDays: Type.Optional(
+      Type.Number({ description: 'Fenêtre jours à partir de `from` (défaut 14, max 90)' })
+    ),
+    from: Type.Optional(Type.String({ description: 'Début ISO YYYY-MM-DD (défaut auj.)' })),
+    fournisseur: Type.Optional(
+      Type.String({
+        description:
+          'Sous-chaîne testée sur le code ET le nom du fournisseur, insensible à la casse. ' +
+          'Omis : tous les fournisseurs.',
+      })
+    ),
+    article: Type.Optional(Type.String({ description: 'Filtre article attendu exact' })),
+    criticite: Type.Optional(
+      Type.Boolean({
+        description:
+          'Joint les OF débloqués et la marge par réception. Déclenche le pipeline ruptures ' +
+          '(coûteux) : ne l’activer que si la question porte sur l’urgence ou l’impact client.',
+      })
+    ),
+    limit: Type.Optional(Type.Number({ description: 'Max lignes (défaut 60, max 150)' })),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.listerReceptions({
+        horizonDays: params.horizonDays,
+        from: params.from,
+        fournisseur: params.fournisseur,
+        article: params.article,
+        criticite: params.criticite,
+        limit: params.limit,
+      })
+    )
+  },
+})
+
 export const getStockTool = defineTool({
   name: 'getStock',
   label: 'Stock articles',
@@ -648,6 +714,7 @@ export function buildAgentTools(): ToolDefinition[] {
     getPromiseTool,
     listerRetardsPrevusTool,
     listerRupturesTool,
+    listerReceptionsTool,
     listerCommandesStatutTool,
     getDetailCommandeTool,
     getStockTool,
