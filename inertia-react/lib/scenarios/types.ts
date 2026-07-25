@@ -37,6 +37,8 @@ export interface ApproVerdictEntry {
   dateApres: string
   quantite: number
   reorderDelay: number
+  /** Manquant constaté par le moteur sur cet OF (0 pour un `dormant`). */
+  manquant: number
 }
 
 export type DiffSens = 'degradation' | 'amelioration'

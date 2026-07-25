@@ -25,7 +25,7 @@ const MODE_LABELS: Record<VisionMode, string> = {
 }
 
 const MODE_TITLES: Record<VisionMode, string> = {
-  ordonnancement: "Mode Ordonnancement — OF seuls",
+  ordonnancement: 'Mode Ordonnancement — OF seuls',
   combined: 'Mode Combiné — OF + liens commandes + impacts',
   planification: 'Mode Commandes — planification par ligne de commande',
 }
@@ -210,9 +210,7 @@ function ActionsMenu(props: {
       >
         <SlidersHorizontal size={14} strokeWidth={1.75} className="text-muted-foreground" />
         Actions
-        {hasActive && (
-          <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
-        )}
+        {hasActive && <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />}
         <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
       </summary>
 
@@ -229,14 +227,17 @@ function ActionsMenu(props: {
             }}
             className={cn(
               'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors',
-              props.mode !== 'combined'
-                ? 'cursor-not-allowed opacity-40'
-                : 'hover:bg-muted',
+              props.mode !== 'combined' ? 'cursor-not-allowed opacity-40' : 'hover:bg-muted',
               props.scenarioActive && 'text-brand'
             )}
           >
             <FlaskConical size={14} strokeWidth={1.75} className="text-muted-foreground" />
             <span className="flex-1">Scénario</span>
+            {props.mode === 'combined' && !props.scenarioActive && (
+              <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                S
+              </span>
+            )}
             {props.scenarioActive && (
               <span className="font-mono text-3xs uppercase tracking-wider">ON</span>
             )}
@@ -264,9 +265,7 @@ function ActionsMenu(props: {
             strokeWidth={1.75}
             className={cn('text-muted-foreground', props.feasLoading && 'animate-spin')}
           />
-          <span className="flex-1">
-            {props.feasLoading ? 'Calcul en cours…' : 'Faisabilité'}
-          </span>
+          <span className="flex-1">{props.feasLoading ? 'Calcul en cours…' : 'Faisabilité'}</span>
         </button>
 
         {/* Sélection — OF / Combiné uniquement */}
@@ -286,9 +285,7 @@ function ActionsMenu(props: {
           >
             <ClipboardList size={14} strokeWidth={1.75} className="text-muted-foreground" />
             <span className="flex-1">Sélection</span>
-            {selectMode && (
-              <span className="font-mono text-3xs uppercase tracking-wider">ON</span>
-            )}
+            {selectMode && <span className="font-mono text-3xs uppercase tracking-wider">ON</span>}
           </button>
         )}
       </div>

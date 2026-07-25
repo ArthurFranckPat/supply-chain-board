@@ -229,6 +229,21 @@ export default function Programme(props: VisionProps) {
           b.onQueryInput(o.query)
         }
       }
+      // Le mode scénario est une capacité du board combiné (bandeau, rangée virtuelle,
+      // intercepteur). Quitter Combiné le suspend explicitement plutôt que de le laisser
+      // actif sans aucune UI. Les mutations restent en mémoire : revenir en Combiné et
+      // rouvrir le mode les retrouve — mais le board, lui, est repassé à l'état réel,
+      // donc on le dit.
+      if (newMode !== 'combined' && useScenarioStore.getState().active) {
+        useScenarioStore.getState().setActive(false)
+        const pending = useScenarioStore.getState().current.mutations.length
+        toast.info(
+          pending > 0
+            ? `Mode scénario suspendu — ${pending} mutation${pending > 1 ? 's' : ''} conservée${pending > 1 ? 's' : ''}, repassez en Combiné pour reprendre.`
+            : 'Mode scénario suspendu — disponible en vue Combiné.'
+        )
+      }
+
       setMode(newMode)
       const url = new URL(window.location.href)
       if (newMode === 'combined') {
@@ -618,8 +633,12 @@ export default function Programme(props: VisionProps) {
   }, [])
 
   // ── Intercepteur PATCH OF (#57) ──
+  // Gate sur `mode` autant que sur `active` : le bandeau scénario n'est rendu qu'en mode
+  // Combiné, mais l'intercepteur, lui, restait posé après un changement de mode — les
+  // drags partaient alors en mutations invisibles, sans bandeau ni PATCH. Silencieux.
+  // Le démontage de la page relâche aussi l'intercepteur (store module-level, il survit).
   useEffect(() => {
-    if (scenarioStore.active) {
+    if (scenarioStore.active && mode === 'combined') {
       boardStore.setMoveInterceptor(({ numOf, toLineCode, toIso, dateFinIso }) => {
         scenarioStore.upsertMutation({
           type: 'shift_of',
@@ -632,7 +651,8 @@ export default function Programme(props: VisionProps) {
     } else {
       boardStore.setMoveInterceptor(null)
     }
-  }, [scenarioStore.active, boardStore, scenarioStore])
+    return () => boardStore.setMoveInterceptor(null)
+  }, [scenarioStore.active, mode, boardStore, scenarioStore])
 
   // ── Colonne du board par ISO ──
   const colOfIso = useCallback(
@@ -718,6 +738,7 @@ export default function Programme(props: VisionProps) {
     try {
       let total = 0
       let failed = 0
+      let horsPerimetre = 0
       for (const m of scenarioStore.current.mutations) {
         let r: Response | null = null
         if (m.type === 'shift_of') {
@@ -739,14 +760,31 @@ export default function Programme(props: VisionProps) {
             body: JSON.stringify({ dateLivraison: m.date }),
           }).catch(() => null)
         } else {
+          // inject_demand / suspend_supply : what-if pur, jamais écrit (une commande
+          // client s'enregistre dans X3, pas ici). Compté pour ne pas annoncer
+          // « appliqué » sur un scénario qui n'en contient que.
+          horsPerimetre++
           continue
         }
         if (!r?.ok) failed++
       }
-      if (failed > 0) {
-        toast.warning(
-          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`
+
+      if (total === 0) {
+        toast.info(
+          horsPerimetre > 0
+            ? 'Rien à appliquer : commandes virtuelles et ruptures simulées restent dans le scénario.'
+            : 'Rien à appliquer.'
         )
+        return
+      }
+
+      if (failed > 0) {
+        // Pas de rollback : les PATCHs réussis sont déjà partis. Le dire explicitement
+        // plutôt que de laisser croire que le scénario est resté sans effet.
+        toast.warning(
+          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} déjà appliquée${total - failed > 1 ? 's' : ''} en base — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé, à rejouer sur les seules mutations restantes.`
+        )
+        router.reload()
         return
       }
       await scenarioStore.markApplied()

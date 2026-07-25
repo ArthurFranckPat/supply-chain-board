@@ -13,6 +13,7 @@
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { FeasibilityOptions } from './stock_state.js'
+import type { MfgMaterialInput } from './of_feasibility.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import {
   evaluateOrderImpacts,
@@ -120,6 +121,12 @@ export interface ApproVerdictEntry {
   dateApres: string
   quantite: number
   reorderDelay: number
+  /**
+   * Manquant du composant dans le plan muté (0 pour un `dormant`, qui n'est pas une
+   * rupture). Sert à rappeler que le verdict repose sur un manque CONSTATÉ par le
+   * moteur, pas sur la seule arithmétique date + délai.
+   */
+  manquant: number
 }
 
 export interface PlanDiff {
@@ -458,6 +465,29 @@ export function diffCharge(
 // Orchestrateur : évaluer(plan) vs évaluer(plan + mutations)
 // ---------------------------------------------------------------------------
 
+/**
+ * Passe-plat vers `evaluateOrderImpacts` : les entrées « métier » que le board réel
+ * fournit déjà (`order_impacts_loader`) et sans lesquelles le diff n'évaluerait PAS
+ * le même plan que celui affiché — faisabilité MFGMAT réelle, avancement atelier,
+ * charge gamme pour le calcul de retard.
+ *
+ * Absent (fixtures, tests) → repli théorique : BOM complet, 1 jour de fabrication
+ * par OF. C'est le comportement historique, correct pour un test, faux pour l'écran.
+ */
+export interface PlanDiffEngineInputs {
+  precomputedFeasibility?: Map<
+    string,
+    {
+      feasible: boolean | null
+      missingComponents: Record<string, number>
+      qcComponents?: Record<string, number>
+    }
+  >
+  avancementByOf?: Map<string, { estDebuté: boolean; qtyRealisee?: number }>
+  mfgMaterialsByOf?: Map<string, MfgMaterialInput[]>
+  fabricationDaysByOf?: Map<string, number>
+}
+
 export interface PlanDiffInputs extends PlanInputs {
   nomenclatures: Map<string, Nomenclature>
   articles: Map<string, Article>
@@ -468,6 +498,21 @@ export interface PlanDiffInputs extends PlanInputs {
   /** Capacités par `${poste}|${semaine}` pour le Δ % de l'axe charge. */
   capacites?: Map<string, number>
   strategy?: AllocationStrategy
+  /** Entrées moteur du pipeline appelant — cf. `PlanDiffEngineInputs`. */
+  engine?: PlanDiffEngineInputs
+  /**
+   * Baseline DÉJÀ évaluée par l'appelant (`ctx.result` du loader). Fournie, elle évite
+   * de recalculer le plan actuel — et garantit surtout que le « avant » du diff est
+   * exactement le plan que l'utilisateur a sous les yeux, pas une seconde évaluation
+   * aux paramètres approchants.
+   */
+  before?: OrderImpactResult
+}
+
+export interface PlanDiffEvaluation {
+  diff: PlanDiff
+  before: OrderImpactResult
+  after: OrderImpactResult
 }
 
 function getOfDate(
@@ -484,19 +529,128 @@ function getOfDate(
   return baseDate
 }
 
+/**
+ * Verdicts de calage appro (issue #59) — CONSTAT sur les composants d'un OF déplacé.
+ *
+ * Règle de recevabilité : un besoin qui avance ne devient un verdict QUE si le moteur
+ * constate un manquant sur ce composant dans le plan muté. Sans ce nettage, tout OF
+ * avancé sortait « rupture inévitable » sur l'intégralité de sa nomenclature, stock
+ * plein compris — le panneau devenait illisible et faux.
+ *
+ * Caveat délai : `reorderDelay` vient d'ITMMASTER (PRPLTI/MFGLTI). Ces champs sont
+ * très majoritairement vides côté X3 → la valeur est le plus souvent le repli de
+ * `static_sync_service` (14 j achat / 10 j fabrication). La frontière inevitable ↔
+ * recalable est donc indicative tant que le référentiel n'est pas rempli.
+ */
+function approVerdicts(
+  inputs: PlanDiffInputs,
+  mutatedOverrides: Map<string, OfOverride>,
+  after: OrderImpactResult
+): ApproVerdictEntry[] {
+  const verdicts: ApproVerdictEntry[] = []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const missingAfter = missingByComponent(after)
+
+  // Index réceptions par article — l'ancien `.some()` sur tout `supplyFlows` était
+  // dans la double boucle OF × composants.
+  const receptionsByArticle = new Map<string, Date[]>()
+  for (const sf of inputs.supplyFlows) {
+    if (sf.direction !== 'supply' || sf.origin.type !== 'reception' || !sf.date) continue
+    const arr = receptionsByArticle.get(sf.article) ?? []
+    arr.push(sf.date)
+    receptionsByArticle.set(sf.article, arr)
+  }
+
+  for (const f of inputs.supplyFlows) {
+    if (f.direction !== 'supply' || f.origin.type !== 'of') continue
+    const ofId = (f.origin as { id?: string }).id ?? ''
+    const dateBefore = getOfDate(ofId, inputs.overrides, f.date)
+    const dateAfter = getOfDate(ofId, mutatedOverrides, f.date)
+    if (!dateBefore || !dateAfter || dateBefore.getTime() === dateAfter.getTime()) continue
+
+    const nom = inputs.nomenclatures.get(f.article)
+    if (!nom) continue
+
+    const avance = dateAfter.getTime() < dateBefore.getTime()
+
+    for (const comp of nom.components) {
+      const compArticle = comp.componentArticle
+      const leadTime = inputs.articles.get(compArticle)?.reorderDelay ?? 14
+      const quantite = comp.linkQuantity * f.quantity
+      const base = {
+        composant: compArticle,
+        numOf: ofId,
+        dateAvant: toIsoDay(dateBefore),
+        dateApres: toIsoDay(dateAfter),
+        quantite,
+        reorderDelay: leadTime,
+      }
+
+      if (avance) {
+        // Besoin avancé : verdict seulement si le composant manque réellement après
+        // mutation. Couvert par le stock/les réceptions → rien à re-caler, rien à dire.
+        const manquant = missingAfter.get(compArticle)?.ofs.get(ofId) ?? 0
+        if (manquant <= 0) continue
+        const limite = new Date(today.getTime() + leadTime * 86400000)
+        verdicts.push({
+          ...base,
+          verdict: dateAfter.getTime() < limite.getTime() ? 'inevitable' : 'recalable',
+          manquant,
+        })
+      } else {
+        // Besoin repoussé : une réception déjà attendue AVANT la nouvelle date de
+        // besoin arrive pour rien à sa date. Une réception postérieure, elle, reste
+        // à sa place — la signaler serait du bruit.
+        const dormante = (receptionsByArticle.get(compArticle) ?? []).some(
+          (d) => d.getTime() >= today.getTime() && d.getTime() < dateAfter.getTime()
+        )
+        if (!dormante) continue
+        verdicts.push({ ...base, verdict: 'dormant', manquant: 0 })
+      }
+    }
+  }
+  return verdicts
+}
+
+function toIsoDay(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
 export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation[]): PlanDiff {
-  const before = evaluateOrderImpacts(
-    inputs.demands,
-    inputs.supplyFlows,
-    inputs.nomenclatures,
-    inputs.articles,
-    inputs.overrides,
-    inputs.window,
-    inputs.mode,
-    undefined,
-    undefined,
-    'date_besoin'
-  )
+  return evaluatePlanDiffDetailed(inputs, mutations).diff
+}
+
+/**
+ * Même diff, mais rend aussi les deux évaluations — l'appelant qui a besoin de
+ * statistiques agrégées (bilan de scénario, comparateur) n'a plus à relancer le
+ * moteur pour les obtenir.
+ */
+export function evaluatePlanDiffDetailed(
+  inputs: PlanDiffInputs,
+  mutations: PlanMutation[]
+): PlanDiffEvaluation {
+  const engine = inputs.engine ?? {}
+  const before =
+    inputs.before ??
+    evaluateOrderImpacts(
+      inputs.demands,
+      inputs.supplyFlows,
+      inputs.nomenclatures,
+      inputs.articles,
+      inputs.overrides,
+      inputs.window,
+      inputs.mode,
+      engine.precomputedFeasibility,
+      engine.avancementByOf,
+      'date_besoin',
+      engine.mfgMaterialsByOf,
+      engine.fabricationDaysByOf
+    )
   const mutated = applyMutations(inputs, mutations)
   const after = evaluateOrderImpacts(
     mutated.demands,
@@ -506,80 +660,14 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     mutated.overrides,
     inputs.window,
     inputs.mode,
-    undefined,
-    undefined,
-    inputs.strategy ?? 'date_besoin'
+    engine.precomputedFeasibility,
+    engine.avancementByOf,
+    inputs.strategy ?? 'date_besoin',
+    engine.mfgMaterialsByOf,
+    engine.fabricationDaysByOf
   )
 
-  const verdicts: ApproVerdictEntry[] = []
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const ofFlows = inputs.supplyFlows.filter(
-    (f) => f.direction === 'supply' && f.origin.type === 'of'
-  )
-
-  for (const f of ofFlows) {
-    const ofId = (f.origin as any).id ?? ''
-    const dateBefore = getOfDate(ofId, inputs.overrides, f.date)
-    const dateAfter = getOfDate(ofId, mutated.overrides, f.date)
-
-    if (!dateBefore || !dateAfter || dateBefore.getTime() === dateAfter.getTime()) continue
-
-    const nom = inputs.nomenclatures.get(f.article)
-    if (!nom) continue
-
-    for (const comp of nom.components) {
-      const compArticle = comp.componentArticle
-      const articleDetail = inputs.articles.get(compArticle)
-      const leadTime = articleDetail?.reorderDelay ?? 14
-
-      const qty = comp.linkQuantity * f.quantity
-
-      if (dateAfter.getTime() < dateBefore.getTime()) {
-        const limitDate = new Date(today.getTime() + leadTime * 86400000)
-        if (dateAfter.getTime() < limitDate.getTime()) {
-          verdicts.push({
-            composant: compArticle,
-            numOf: ofId,
-            verdict: 'inevitable',
-            dateAvant: dateBefore.toISOString().slice(0, 10),
-            dateApres: dateAfter.toISOString().slice(0, 10),
-            quantite: qty,
-            reorderDelay: leadTime,
-          })
-        } else {
-          verdicts.push({
-            composant: compArticle,
-            numOf: ofId,
-            verdict: 'recalable',
-            dateAvant: dateBefore.toISOString().slice(0, 10),
-            dateApres: dateAfter.toISOString().slice(0, 10),
-            quantite: qty,
-            reorderDelay: leadTime,
-          })
-        }
-      } else if (dateAfter.getTime() > dateBefore.getTime()) {
-        const hasReception = inputs.supplyFlows.some(
-          (sf) =>
-            sf.direction === 'supply' &&
-            sf.origin.type === 'reception' &&
-            sf.article === compArticle
-        )
-        if (hasReception) {
-          verdicts.push({
-            composant: compArticle,
-            numOf: ofId,
-            verdict: 'dormant',
-            dateAvant: dateBefore.toISOString().slice(0, 10),
-            dateApres: dateAfter.toISOString().slice(0, 10),
-            quantite: qty,
-            reorderDelay: leadTime,
-          })
-        }
-      }
-    }
-  }
+  const verdicts = approVerdicts(inputs, mutated.overrides, after)
 
   const diff: PlanDiff = {
     client: diffClient(before, after),
@@ -601,5 +689,5 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     }
   }
 
-  return diff
+  return { diff, before, after }
 }

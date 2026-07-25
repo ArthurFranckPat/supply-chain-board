@@ -489,9 +489,11 @@ test.group('diffCharge', () => {
     const c1Article = makeArticle('C1', 'ACHAT')
     c1Article.reorderDelay = 10
 
+    // Composant réellement manquant (stock 4 pour un besoin de 10) — sans manque
+    // constaté, un besoin avancé n'est PAS un problème d'appro (cf. test suivant).
     const inputs = makeInputs({
       demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
-      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 10)],
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 4)],
       nomenclatures,
       articles: new Map([
         ['PF1', makeArticle('PF1')],
@@ -505,6 +507,7 @@ test.group('diffCharge', () => {
     assert.lengthOf(diffInevitable.approVerdicts, 1)
     assert.equal(diffInevitable.approVerdicts[0].verdict, 'inevitable')
     assert.equal(diffInevitable.approVerdicts[0].composant, 'C1')
+    assert.equal(diffInevitable.approVerdicts[0].manquant, 6)
 
     const diffRecalable = evaluatePlanDiff(inputs, [
       { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(12) },
@@ -536,6 +539,100 @@ test.group('diffCharge', () => {
     ])
     assert.lengthOf(diffDormant.approVerdicts, 1)
     assert.equal(diffDormant.approVerdicts[0].verdict, 'dormant')
+  })
+
+  // Garde anti-faux-positif : la version initiale émettait un verdict par composant de
+  // la nomenclature dès qu'un OF bougeait, stock plein compris — le panneau appro
+  // annonçait des « ruptures inévitables » sur des composants couverts.
+  test('Axe Appro verdicts : composant couvert par le stock → aucun verdict', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+
+    const inputs = makeInputs({
+      demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
+      // Stock 100 pour un besoin de 10 : avancer l'OF ne casse aucune couverture.
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 100)],
+      nomenclatures,
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', makeArticle('C1', 'ACHAT')],
+      ]),
+    })
+
+    const diff = evaluatePlanDiff(inputs, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(2) },
+    ])
+    assert.lengthOf(diff.approVerdicts, 0)
+  })
+
+  test('Axe Appro verdicts : réception postérieure au nouveau besoin → pas de dormant', ({
+    assert,
+  }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+
+    const inputs = makeInputs({
+      demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
+      supplyFlows: [
+        makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)),
+        // Réception APRÈS la nouvelle date de besoin : elle n'arrive pas « pour rien ».
+        {
+          article: 'C1',
+          quantity: 10,
+          direction: 'supply',
+          date: daysFromNow(30),
+          origin: { type: 'reception', id: 'R1' } as any,
+        },
+      ],
+      nomenclatures,
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', makeArticle('C1', 'ACHAT')],
+      ]),
+    })
+
+    const diff = evaluatePlanDiff(inputs, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(25) },
+    ])
+    assert.lengthOf(diff.approVerdicts, 0)
   })
 
   test('Allocation strategies: date_passation prioritizes oldest order date', ({ assert }) => {

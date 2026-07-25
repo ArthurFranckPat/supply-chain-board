@@ -2,10 +2,15 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { ScenarioStore } from '#services/scenario_store'
 import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
 import type { PlanMutation } from '#app/domain/plan_diff'
-import Scenario from '#models/scenario'
 import type { AllocationStrategy } from '#app/domain/of_conso'
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Chaque comparaison ré-évalue un plan complet. Sans borne, une URL bricolée avec
+ * cinquante ids enchaînait autant d'évaluations avant la première ligne de HTML.
+ */
+const MAX_COMPARE = 6
 
 /**
  * CRUD + diff des scénarios de plan (issue #57, vision étage 3).
@@ -19,18 +24,33 @@ const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 export default class ScenarioController {
   private store = new ScenarioStore()
 
+  /**
+   * Propriétaire de la requête. Les routes sont derrière `middleware.auth()` : l'absence
+   * d'utilisateur est une anomalie de câblage, pas un cas fonctionnel — on refuse plutôt
+   * que de retomber sur un scénario partagé par défaut.
+   */
+  private ownerOf(ctx: HttpContext): number | null {
+    return ctx.auth?.user?.id ?? null
+  }
+
   async index(ctx: HttpContext) {
-    return ctx.response.json({ scenarios: await this.store.list() })
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
+    return ctx.response.json({ scenarios: await this.store.list(userId) })
   }
 
   async show(ctx: HttpContext) {
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
     const id = Number.parseInt(ctx.params.id, 10)
-    const row = await this.store.get(id)
+    const row = await this.store.get(id, userId)
     if (!row) return ctx.response.notFound({ error: 'Scénario introuvable.' })
     return ctx.response.json(row)
   }
 
   async store_(ctx: HttpContext) {
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
     const { nom, description, mutations, strategy } = ctx.request.only([
       'nom',
       'description',
@@ -44,6 +64,7 @@ export default class ScenarioController {
       nom: nom.trim(),
       description: description ?? null,
       auteur: ctx.auth?.user?.username ?? null,
+      userId,
       mutations: normalizeMutations(mutations),
       strategy: strategy as AllocationStrategy | undefined,
     })
@@ -51,22 +72,26 @@ export default class ScenarioController {
   }
 
   async update(ctx: HttpContext) {
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
     const id = Number.parseInt(ctx.params.id, 10)
     const body = ctx.request.only(['nom', 'description', 'mutations', 'statut', 'strategy'])
-    const patch: Parameters<ScenarioStore['update']>[1] = {}
+    const patch: Parameters<ScenarioStore['update']>[2] = {}
     if (body.nom !== undefined) patch.nom = String(body.nom).trim()
     if (body.description !== undefined) patch.description = body.description
     if (body.mutations !== undefined) patch.mutations = normalizeMutations(body.mutations)
     if (body.statut === 'applique' || body.statut === 'brouillon') patch.statut = body.statut
     if (body.strategy !== undefined) patch.strategy = body.strategy as AllocationStrategy
-    const row = await this.store.update(id, patch)
+    const row = await this.store.update(id, userId, patch)
     if (!row) return ctx.response.notFound({ error: 'Scénario introuvable.' })
     return ctx.response.json(row)
   }
 
   async destroy(ctx: HttpContext) {
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
     const id = Number.parseInt(ctx.params.id, 10)
-    const ok = await this.store.delete(id)
+    const ok = await this.store.delete(id, userId)
     if (!ok) return ctx.response.notFound({ error: 'Scénario introuvable.' })
     return ctx.response.json({ ok: true })
   }
@@ -76,6 +101,8 @@ export default class ScenarioController {
    * `id` optionnel (query) → horodate le scénario persisté (« évalué le … »).
    */
   async diff(ctx: HttpContext) {
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
     const { from, to, mutations, id, strategy } = ctx.request.only([
       'from',
       'to',
@@ -100,24 +127,33 @@ export default class ScenarioController {
     if (id != null) {
       const numId = Number.parseInt(String(id), 10)
       if (!Number.isNaN(numId)) {
-        await this.store.markEvaluated(numId, result.evaluatedAt, result.dataAt)
+        await this.store.markEvaluated(numId, userId, result.evaluatedAt, result.dataAt)
       }
     }
     return ctx.response.json(result)
   }
 
+  /**
+   * Comparaison multi-scénarios (issue #61) : une colonne par scénario, plan actuel en
+   * référence. Chaque scénario est ré-évalué sur données fraîches — décision actée, on
+   * stocke les mutations, pas les résultats.
+   */
   async comparePage(ctx: HttpContext) {
+    const userId = this.ownerOf(ctx)
+    if (!userId) return ctx.response.unauthorized({ error: 'Authentification requise.' })
+
     const idsStr = ctx.request.input('ids') as string | undefined
-    if (!idsStr) {
-      return ctx.response.redirect().toPath('/programme')
-    }
-    const ids = idsStr
-      .split(',')
-      .map((id) => Number.parseInt(id, 10))
-      .filter((id) => !Number.isNaN(id))
-    if (ids.length < 2) {
-      return ctx.response.redirect().toPath('/programme')
-    }
+    if (!idsStr) return ctx.response.redirect().toPath('/programme')
+
+    const ids = [
+      ...new Set(
+        idsStr
+          .split(',')
+          .map((id) => Number.parseInt(id, 10))
+          .filter((id) => !Number.isNaN(id))
+      ),
+    ].slice(0, MAX_COMPARE)
+    if (ids.length < 2) return ctx.response.redirect().toPath('/programme')
 
     const startParam = ctx.request.input('start') as string | undefined
     const daysParam = Number.parseInt(ctx.request.input('days', '30'), 10)
@@ -127,62 +163,55 @@ export default class ScenarioController {
     windowStart.setHours(0, 0, 0, 0)
     const windowEnd = new Date(windowStart.getTime() + horizon * 86400000)
     windowEnd.setHours(23, 59, 59, 999)
+    const window = { from: windowStart, to: windowEnd }
 
-    const dbScenarios = await Scenario.query().whereIn('id', ids)
-    const comparisonRows: any[] = []
+    const scenarios = await this.store.getMany(ids, userId)
+    if (scenarios.length < 2) return ctx.response.redirect().toPath('/programme')
 
-    for (const id of ids) {
-      const dbScenario = dbScenarios.find((s) => s.id === id)
-      if (!dbScenario) continue
+    const comparisonRows = []
+    // Le plan actuel est le `beforeStats` de n'importe laquelle des évaluations : le
+    // baseline ne dépend pas des mutations. Une évaluation « à vide » de plus n'apportait
+    // rien qu'un plan complet supplémentaire à charger.
+    let planActuelStats: { delayedOrders: number; inducedShortages: number } | null = null
+    let dataAt = new Date().toISOString()
 
-      let mutations: any[] = []
-      try {
-        mutations = JSON.parse(dbScenario.mutations)
-      } catch {}
-
-      const result = await evaluateScenarioDiff(
-        mutations,
-        { from: windowStart, to: windowEnd },
-        dbScenario.strategy as any
-      )
-
+    for (const scenario of scenarios) {
+      const result = await evaluateScenarioDiff(scenario.mutations, window, scenario.strategy)
+      planActuelStats ??= result.beforeStats
+      dataAt = result.dataAt
       comparisonRows.push({
-        id: dbScenario.id,
-        nom: dbScenario.nom,
-        description: dbScenario.description,
-        auteur: dbScenario.auteur,
-        statut: dbScenario.statut,
-        strategy: dbScenario.strategy,
-        mutationsCount: mutations.length,
+        id: scenario.id,
+        nom: scenario.nom,
+        description: scenario.description,
+        auteur: scenario.auteur,
+        statut: scenario.statut,
+        strategy: scenario.strategy,
+        mutationsCount: scenario.mutations.length,
         diff: result.diff,
         stats: result.afterStats,
       })
     }
 
-    const resultActuel = await evaluateScenarioDiff(
-      [],
-      { from: windowStart, to: windowEnd },
-      'date_besoin'
-    )
-
-    const planActuel = {
-      nom: 'Plan Actuel',
-      diff: resultActuel.diff,
-      stats: resultActuel.beforeStats,
-    }
-
-    const evaluatedAt = new Date().toISOString()
-    const dataAt = windowEnd.toISOString()
-
     return ctx.inertia.render('scheduler/comparer', {
       scenarios: comparisonRows,
-      planActuel,
-      windowFrom: windowStart.toISOString().slice(0, 10),
-      windowTo: windowEnd.toISOString().slice(0, 10),
-      evaluatedAt,
+      planActuel: {
+        nom: 'Plan Actuel',
+        stats: planActuelStats ?? { delayedOrders: 0, inducedShortages: 0 },
+      },
+      windowFrom: isoDay(windowStart),
+      windowTo: isoDay(windowEnd),
+      evaluatedAt: new Date().toISOString(),
       dataAt,
     })
   }
+}
+
+/** ISO jour sur les composantes locales — `toISOString` recule d'un jour à minuit en UTC+n. */
+function isoDay(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 /** Garde-fou : ne conserver que des objets porteurs d'un `type` de mutation connu. */

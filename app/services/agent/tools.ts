@@ -399,7 +399,10 @@ export const enregistrerScenarioTool = defineTool({
       "l'utilisateur demande explicitement de sauvegarder ou conserver un scénario. " +
       'Seul tool de ce jeu qui écrit — ne l’appelle jamais de ta propre initiative.',
     pasSi: "l'utilisateur veut seulement voir l'effet d'une hypothèse → simulerDecalage.",
-    retour: 'identifiant du scénario créé.',
+    retour:
+      'identifiant du scénario créé — ou un refus : un scénario appartient à son auteur et ' +
+      "le copilote ne transporte pas encore l'identité de l'utilisateur. Dans ce cas, " +
+      'renvoyer vers /programme en mode scénario, sans réessayer.',
   }),
   parameters: Type.Object({
     nom: Type.String(),

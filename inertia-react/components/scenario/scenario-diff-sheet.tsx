@@ -4,9 +4,9 @@ import { cn } from '@r/lib/utils'
 import type { PlanDiff, DiffSens } from '@r/lib/scenarios/types'
 
 /**
- * Constat d'impact d'un scénario (issue #57, moteur étage 2). Trois axes signés :
- * client (promesses) / appro (couvertures composants) / allocation (re-matching).
- * L'axe charge reste sur le board (histogrammes déjà réactifs aux positions).
+ * Constat d'impact d'un scénario (issue #57, moteur étage 2). Quatre axes signés :
+ * client (promesses) / appro (couvertures + verdicts de calage) / allocation
+ * (re-matching) / charge (poste × semaine).
  *
  * Principe acté (vision §5) : CONSTAT, pas prescription — on liste, l'humain décide.
  */
@@ -14,6 +14,12 @@ import type { PlanDiff, DiffSens } from '@r/lib/scenarios/types'
 const sensClass = (s: DiffSens) => (s === 'degradation' ? 'text-destructive' : 'text-ferme')
 
 const fmtDelta = (n: number, unit: string) => `${n > 0 ? '+' : ''}${n}${unit}`
+
+/** jj/mm/aaaa — jamais d'ISO brut à l'écran. */
+const fmtJour = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR')
+}
 
 interface ScenarioDiffSheetProps {
   diff: PlanDiff | null
@@ -120,8 +126,9 @@ export function ScenarioDiffSheet({
                         </span>
                       </div>
                       <span className="text-[10px] text-muted-foreground">
-                        Sur {v.numOf} · Besoin {v.dateAvant} → {v.dateApres} · Qté {v.quantite} u (Délai{' '}
-                        {v.reorderDelay}j)
+                        Sur {v.numOf} · Besoin {fmtJour(v.dateAvant)} → {fmtJour(v.dateApres)} · Qté{' '}
+                        {v.quantite} u{v.manquant > 0 && <> · manque {v.manquant} u</>} (délai{' '}
+                        {v.reorderDelay} j)
                       </span>
                     </div>
                   </Row>
@@ -142,6 +149,25 @@ export function ScenarioDiffSheet({
                     {e.perd.length > 0 && <>perd {e.perd.join(', ')} </>}
                     {e.gagne.length > 0 && <>· gagne {e.gagne.join(', ')} </>}
                     {e.deltaReliquat !== 0 && <> ({fmtDelta(e.deltaReliquat, ' u')})</>}
+                  </span>
+                </Row>
+              ))}
+            </Section>
+
+            {/* Axe charge — poste × semaine */}
+            <Section title="Charge — poste × semaine" count={diff.charge.length}>
+              {diff.charge.map((e, i) => (
+                <Row key={`charge-${i}`} sens={e.deltaHeures > 0 ? 'degradation' : 'amelioration'}>
+                  <span className="font-mono text-[11px]">{e.poste}</span>
+                  <span className="text-muted-foreground">semaine du {fmtJour(e.semaine)}</span>
+                  <span
+                    className={cn(
+                      'ml-auto font-bold',
+                      sensClass(e.deltaHeures > 0 ? 'degradation' : 'amelioration')
+                    )}
+                  >
+                    {fmtDelta(Math.round(e.deltaHeures * 10) / 10, ' h')}
+                    {e.deltaPct !== null && <> ({fmtDelta(e.deltaPct, ' %')})</>}
                   </span>
                 </Row>
               ))}
@@ -168,7 +194,11 @@ function Section({ title, count, children }: SectionProps) {
           {count}
         </span>
       </h3>
-      {count > 0 ? <div className="space-y-1">{children}</div> : <p className="text-[12px] italic text-muted-foreground">Aucun changement.</p>}
+      {count > 0 ? (
+        <div className="space-y-1">{children}</div>
+      ) : (
+        <p className="text-[12px] italic text-muted-foreground">Aucun changement.</p>
+      )}
     </div>
   )
 }

@@ -20,6 +20,10 @@ export default class Scenario extends BaseModel {
   @column()
   declare auteur: string | null
 
+  /** Propriétaire. Null = scénario orphelin (antérieur au cloisonnement) → non listé. */
+  @column()
+  declare userId: number | null
+
   @column()
   declare statut: string
 
