@@ -14,7 +14,7 @@
  * référence visuelle. Backend inchangé.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Head, usePage } from '@inertiajs/react'
 import {
   DefaultChatTransport,
@@ -32,7 +32,7 @@ import { cn } from '@r/lib/utils'
 import { Masthead } from '@r/components/masthead'
 import { Bubble, BubbleContent } from '@r/components/ui/bubble'
 import { AppShell } from '@r/components/copilote/app-shell'
-import { CopiloteSidebar } from '@r/components/copilote/sidebar'
+import { CopiloteSidebar, type ConversationSummary } from '@r/components/copilote/sidebar'
 import { InspectorPanel, deriveInspectorContext } from '@r/components/copilote/inspector'
 import { Composer } from '@r/components/copilote/composer'
 import { ToolTokens } from '@r/components/copilote/tool-tokens'
@@ -67,6 +67,7 @@ export default function Copilote() {
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
   const [flash, setFlash] = useState<{ tool: string; nonce: number } | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [conversations, setConversations] = useState<ConversationSummary[]>([])
 
   const chat = useChat<AgentUIMessage>({
     transport: useMemo(
@@ -110,6 +111,68 @@ export default function Copilote() {
     void chat.sendMessage({ text })
   }, [input, busy, chat])
 
+  /** Recharge la liste des conversations (sidebar) depuis le serveur. */
+  const refreshConversations = useCallback(async () => {
+    try {
+      const res = await fetch(route('agent.conversations'))
+      if (!res.ok) return
+      const data = (await res.json()) as { conversations?: ConversationSummary[] }
+      setConversations(Array.isArray(data.conversations) ? data.conversations : [])
+    } catch {
+      /* best-effort */
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshConversations()
+  }, [refreshConversations])
+
+  // Refetch la liste à la fin d'un tour : la conversation courante (nouvelle ou
+  // mise à jour) apparaît / remonte dans l'historique de la sidebar.
+  const wasBusyRef = useRef(false)
+  useEffect(() => {
+    if (wasBusyRef.current && !busy) void refreshConversations()
+    wasBusyRef.current = busy
+  }, [busy, refreshConversations])
+
+  /** Ouvre une conversation persistée : relit ses messages côté serveur. */
+  const openConversation = useCallback(
+    async (id: string) => {
+      if (busy || id === conversationIdRef.current) return
+      try {
+        const res = await fetch(route('agent.conversation', { id }))
+        if (!res.ok) return
+        const data = (await res.json()) as { messages?: AgentUIMessage[] }
+        chat.setMessages(Array.isArray(data.messages) ? data.messages : [])
+        chat.clearError()
+        setConversationId(id)
+        setInput('')
+      } catch {
+        /* best-effort */
+      }
+    },
+    [busy, chat]
+  )
+
+  const deleteConversation = useCallback(
+    async (id: string) => {
+      if (busy && id === conversationIdRef.current) return
+      try {
+        await fetch(route('agent.conversationsDestroy', { id }), { method: 'DELETE' })
+      } catch {
+        /* best-effort */
+      }
+      if (id === conversationIdRef.current) {
+        chat.setMessages([])
+        chat.clearError()
+        setConversationId(newConversationId())
+        setInput('')
+      }
+      void refreshConversations()
+    },
+    [busy, chat, refreshConversations]
+  )
+
   const flashTool = useCallback((tool: string) => {
     setInspectorCollapsed(false)
     setFlash({ tool, nonce: Date.now() })
@@ -135,15 +198,6 @@ export default function Copilote() {
     [chat.messages]
   )
 
-  const firstUserText = useMemo(() => {
-    for (const m of chat.messages) {
-      if (m.role !== 'user') continue
-      const text = m.parts.filter(isTextUIPart).map((p) => p.text).join(' ')
-      if (text) return text.length > 42 ? `${text.slice(0, 42)}…` : text
-    }
-    return null
-  }, [chat.messages])
-
   return (
     <>
       <Head title="Copilote" />
@@ -165,10 +219,12 @@ export default function Copilote() {
           inspectorCollapsed={inspectorCollapsed}
           sidebar={
             <CopiloteSidebar
-              currentTitle={firstUserText}
+              conversations={conversations}
+              currentId={conversationId}
               busy={busy}
               onNewChat={resetConversation}
-              disabled={busy || chat.messages.length === 0}
+              onSelect={(id) => void openConversation(id)}
+              onDelete={(id) => void deleteConversation(id)}
               username={authUser?.username ?? '—'}
               env={authUser?.env ?? 'prod'}
             />

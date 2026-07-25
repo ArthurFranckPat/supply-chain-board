@@ -332,6 +332,16 @@ router
       .group(() => {
         router.get('/health', '#controllers/agent_controller.health').as('agent.health')
         router.post('/chat', '#controllers/agent_controller.chat').as('agent.chat')
+        // Historique des conversations (sidebar : liste, rechargement, suppression).
+        router
+          .get('/conversations', '#controllers/agent_controller.conversationsIndex')
+          .as('agent.conversations')
+        router
+          .get('/conversations/:id', '#controllers/agent_controller.conversationsShow')
+          .as('agent.conversation')
+        router
+          .delete('/conversations/:id', '#controllers/agent_controller.conversationsDestroy')
+          .as('agent.conversationsDestroy')
       })
       .prefix('/api/v1/agent')
   })

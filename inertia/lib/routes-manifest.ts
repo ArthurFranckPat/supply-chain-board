@@ -2,11 +2,14 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 96 routes nommées.
+ * 100 routes nommées.
  */
 
 export const MANIFEST = {
   "agent.chat": { method: "POST", pattern: "/api/v1/agent/chat" },
+  "agent.conversation": { method: "GET", pattern: "/api/v1/agent/conversations/:id" },
+  "agent.conversations": { method: "GET", pattern: "/api/v1/agent/conversations" },
+  "agent.conversationsDestroy": { method: "DELETE", pattern: "/api/v1/agent/conversations/:id" },
   "agent.health": { method: "GET", pattern: "/api/v1/agent/health" },
   "agent.show": { method: "GET", pattern: "/copilote" },
   "assets.css": { method: "GET", pattern: "/css/app.css" },
@@ -26,6 +29,7 @@ export const MANIFEST = {
   "dashboard": { method: "GET", pattern: "/" },
   "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
   "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
+  "dashboard.stock_article_detail": { method: "GET", pattern: "/api/v1/dashboard/stock/article" },
   "dashboard.stock_valuation": { method: "GET", pattern: "/api/v1/dashboard/stock" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
@@ -112,6 +116,9 @@ export type RouteName = keyof typeof MANIFEST
  */
 export type RouteParams = {
   "agent.chat": void,
+  "agent.conversation": { "id": string | number },
+  "agent.conversations": void,
+  "agent.conversationsDestroy": { "id": string | number },
   "agent.health": void,
   "agent.show": void,
   "assets.css": void,
@@ -131,6 +138,7 @@ export type RouteParams = {
   "dashboard": void,
   "dashboard.kpis": void,
   "dashboard.otd": void,
+  "dashboard.stock_article_detail": void,
   "dashboard.stock_valuation": void,
   "data.load": void,
   "design_system": void,

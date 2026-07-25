@@ -73,6 +73,16 @@ export function getStoredSession(
   return entry
 }
 
+/**
+ * Présence d'une session Pi vivante pour la conversation — sans effet de bord
+ * (ne touche pas `lastUsedAt`, contrairement à `getStoredSession`). Sert au
+ * contrôleur pour décider s'il faut ré-hydrater le contexte depuis l'historique
+ * persisté (session évictée) ou non (session vivante = contexte déjà en mémoire).
+ */
+export function hasStoredSession(userId: string | number, conversationId: string): boolean {
+  return sessions.has(sessionKey(userId, conversationId))
+}
+
 export function storeSession(
   userId: string | number,
   conversationId: string,

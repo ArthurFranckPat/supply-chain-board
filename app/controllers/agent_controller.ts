@@ -27,6 +27,10 @@ import {
 
 import { AgentUIMessageMapper } from '#services/agent/ui_message_stream'
 import { assertAgentProviderConfigured, runAgentTurn } from '#services/agent_service'
+import { ConversationStore } from '#services/conversation_store'
+import { compactHistory } from '#services/agent/history_compact'
+import { AgentMessageAssembler, makeUserMessage } from '#services/agent/message_assembler'
+import { hasStoredSession } from '#services/agent/session_store'
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -51,6 +55,8 @@ function asIdMap(
 }
 
 export default class AgentController {
+  private conversations = new ConversationStore()
+
   /** GET /copilote — page chat Solid (jetable à #77). */
   async show(ctx: HttpContext) {
     return ctx.inertia.render('copilote', {})
@@ -104,16 +110,36 @@ export default class AgentController {
     const onClose = () => abort.abort()
     ctx.request.request.on('close', onClose)
 
+    // Ré-hydratation du contexte : si la session Pi n'est plus vivante
+    // (TTL 30 min / redémarrage) mais qu'un historique persisté existe pour la
+    // conversation, on le compacte pour le réinjecter dans le system prompt de
+    // la session recréée. Session vivante = contexte déjà en mémoire, rien à faire.
+    let historySeed: string | undefined
+    if (rawConversationId && userId !== undefined) {
+      if (!hasStoredSession(userId, rawConversationId)) {
+        const existing = await this.conversations.get(userId, rawConversationId)
+        if (existing && existing.messages.length > 0) {
+          historySeed = compactHistory(existing.messages) || undefined
+        }
+      }
+    }
+
+    // Titre de la conversation (1er message user tronqué, comme le front).
+    const title = message.length > 42 ? `${message.slice(0, 42)}…` : message
+
     // Mapping événements agent → UI message stream (AI SDK v6). Les erreurs
     // fatales du tour deviennent un chunk `error` (onError) — plus besoin
-    // d'écrire de frames à la main.
+    // d'écrire de frames à la main. L'assembleur reconstruit en parallèle le
+    // UIMessage assistant pour la persistence de l'historique.
     const mapper = new AgentUIMessageMapper()
+    const assembler = new AgentMessageAssembler()
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         for await (const event of runAgentTurn({
           message,
           conversationId: rawConversationId,
           userId,
+          historySeed,
           screenContext: {
             page: typeof body.page === 'string' ? body.page : undefined,
             selection: asIdMap(body.selection),
@@ -121,8 +147,25 @@ export default class AgentController {
           },
           signal: abort.signal,
         })) {
+          assembler.feed(event)
           for (const chunk of mapper.map(event)) {
             writer.write(chunk)
+          }
+        }
+
+        // Persistence du tour (user + assistant). Best-effort : un échec
+        // d'écriture ne doit pas casser le stream déjà envoyé au client.
+        if (rawConversationId && userId !== undefined) {
+          try {
+            await this.conversations.appendTurn(
+              userId,
+              rawConversationId,
+              title,
+              makeUserMessage(message),
+              assembler.toMessage()
+            )
+          } catch {
+            /* best-effort */
           }
         }
       },
@@ -149,5 +192,48 @@ export default class AgentController {
 
     // Empêche Adonis de re-sérialiser un body (stream déjà terminé).
     return ctx.response
+  }
+
+  /**
+   * GET /api/v1/agent/conversations — liste de l'historique de l'user (sidebar).
+   */
+  async conversationsIndex(ctx: HttpContext) {
+    const userId = ctx.auth.user?.id
+    if (userId === undefined) {
+      return ctx.response.unauthorized({ error: 'Authentification requise.' })
+    }
+    return ctx.response.json({ conversations: await this.conversations.list(userId) })
+  }
+
+  /**
+   * GET /api/v1/agent/conversations/:id — messages d'une conversation (rechargement).
+   */
+  async conversationsShow(ctx: HttpContext) {
+    const userId = ctx.auth.user?.id
+    if (userId === undefined) {
+      return ctx.response.unauthorized({ error: 'Authentification requise.' })
+    }
+    const conversationId = String(ctx.params.id ?? '')
+      .trim()
+      .slice(0, 64)
+    const row = await this.conversations.get(userId, conversationId)
+    if (!row) return ctx.response.notFound({ error: 'Conversation introuvable.' })
+    return ctx.response.json(row)
+  }
+
+  /**
+   * DELETE /api/v1/agent/conversations/:id — supprime une conversation.
+   */
+  async conversationsDestroy(ctx: HttpContext) {
+    const userId = ctx.auth.user?.id
+    if (userId === undefined) {
+      return ctx.response.unauthorized({ error: 'Authentification requise.' })
+    }
+    const conversationId = String(ctx.params.id ?? '')
+      .trim()
+      .slice(0, 64)
+    const ok = await this.conversations.delete(userId, conversationId)
+    if (!ok) return ctx.response.notFound({ error: 'Conversation introuvable.' })
+    return ctx.response.json({ ok: true })
   }
 }

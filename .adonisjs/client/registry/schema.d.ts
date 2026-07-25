@@ -1171,4 +1171,40 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'agent.conversations': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/agent/conversations'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.conversation': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/agent/conversations/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.conversationsDestroy': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/agent/conversations/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
 }

@@ -588,6 +588,24 @@ const routes = {
     tokens: [{"old":"/api/v1/agent/chat","type":0,"val":"api","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"chat","end":""}],
     types: placeholder as Registry['agent.chat']['types'],
   },
+  'agent.conversations': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/agent/conversations',
+    tokens: [{"old":"/api/v1/agent/conversations","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations","type":0,"val":"conversations","end":""}],
+    types: placeholder as Registry['agent.conversations']['types'],
+  },
+  'agent.conversation': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/agent/conversations/:id',
+    tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['agent.conversation']['types'],
+  },
+  'agent.conversationsDestroy': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/agent/conversations/:id',
+    tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['agent.conversationsDestroy']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

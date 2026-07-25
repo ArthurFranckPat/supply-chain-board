@@ -91,6 +91,13 @@ export interface RunAgentOptions {
   tools?: ToolDefinition[]
   /** Abort HTTP client disconnect. */
   signal?: AbortSignal
+  /**
+   * Historique compacté à réinjecter dans le system prompt quand la session Pi
+   * doit être recréée (évictée / redémarrage) pour une conversation qui a déjà
+   * un historique persisté. Ignoré si une session vivante existe (contexte déjà
+   * en mémoire). Calculé par le contrôleur via `compactHistory`.
+   */
+  historySeed?: string
 }
 
 type PiEvent = Parameters<Parameters<AgentSession['subscribe']>[0]>[0]
@@ -202,7 +209,10 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
  * Résout modèle + posture d'auth. Lance une erreur explicite si la clé ou le
  * modèle manquent (gate Q12 — prouver le provider dès le boot du chat).
  */
-export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentTools()): Promise<{
+export async function createAgentRuntime(
+  tools: ToolDefinition[] = buildAgentTools(),
+  historySeed?: string
+): Promise<{
   session: AgentSession
   dispose: () => void
   modelLabel: string
@@ -242,7 +252,12 @@ export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentToo
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,
-    systemPromptOverride: () => buildAgentSystemPrompt(new Date()),
+    // Ré-hydratation : l'historique compacté (session Pi recréée après éviction)
+    // est ajouté au system prompt pour que le modèle retrouve le fil.
+    systemPromptOverride: () =>
+      historySeed
+        ? `${buildAgentSystemPrompt(new Date())}\n\n${historySeed}`
+        : buildAgentSystemPrompt(new Date()),
     appendSystemPromptOverride: () => [],
   })
   await loader.reload()
@@ -333,7 +348,9 @@ async function resolveTurnSession(options: RunAgentOptions): Promise<{
     return { runtime: existing, persistent: true }
   }
 
-  const created = await createAgentRuntime(tools)
+  // Session Pi recréée pour une conversation existante : on ré-hydrate le
+  // contexte depuis l'historique compacté (calculé côté contrôleur).
+  const created = await createAgentRuntime(tools, options.historySeed)
   storeSession(userId, convId, created)
   return { runtime: created, persistent: true }
 }

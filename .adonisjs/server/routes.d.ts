@@ -101,6 +101,9 @@ export type ScannedRoutes = {
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
     'agent.chat': { paramsTuple?: []; params?: {} }
+    'agent.conversations': { paramsTuple?: []; params?: {} }
+    'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'agent.conversationsDestroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -165,6 +168,8 @@ export type ScannedRoutes = {
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
+    'agent.conversations': { paramsTuple?: []; params?: {} }
+    'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   HEAD: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -229,6 +234,8 @@ export type ScannedRoutes = {
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
+    'agent.conversations': { paramsTuple?: []; params?: {} }
+    'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
     'auth.attempt': { paramsTuple?: []; params?: {} }
@@ -270,6 +277,7 @@ export type ScannedRoutes = {
     'print_config.delete_document': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'scenarios.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'agent.conversationsDestroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

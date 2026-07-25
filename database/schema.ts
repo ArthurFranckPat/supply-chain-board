@@ -39,6 +39,25 @@ export class CapacityHolidayOverrideSchema extends BaseModel {
   declare id: number
 }
 
+export class ConversationSchema extends BaseModel {
+  static $columns = ['conversationId', 'createdAt', 'id', 'messages', 'title', 'updatedAt', 'userId'] as const
+  $columns = ConversationSchema.$columns
+  @column()
+  declare conversationId: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare messages: string
+  @column()
+  declare title: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class LocalMenuSchema extends BaseModel {
   static $columns = ['chapter', 'label', 'name', 'value'] as const
   $columns = LocalMenuSchema.$columns
