@@ -1,16 +1,22 @@
 "use client"
 
-import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
+import { Divider as AstryxDivider } from "@astryxdesign/core/Divider"
 
 import { cn } from "@r/lib/utils"
+
+// Separator — Lot 2 (issue #90). Wrap Astryx Divider au lieu de Base UI
+// Separator. Conserve l'API shadcn (orientation + className + data-slot)
+// pour ne pas casser les consumers existants.
 
 function Separator({
   className,
   orientation = "horizontal",
   ...props
-}: SeparatorPrimitive.Props) {
+}: React.ComponentProps<"div"> & {
+  orientation?: "horizontal" | "vertical"
+}) {
   return (
-    <SeparatorPrimitive
+    <AstryxDivider
       data-slot="separator"
       orientation={orientation}
       className={cn(
