@@ -4,7 +4,6 @@ import {
 } from "@astryxdesign/core/Calendar"
 
 import { cx } from "@r/lib/cx"
-import { buttonVariants } from "@r/components/ui/button"
 
 // Calendar — Lot 3 (issue #90). react-day-picker DayPicker → Astryx Calendar.
 //
@@ -120,4 +119,4 @@ function CalendarDayButton() {
   return null
 }
 
-export { Calendar, CalendarDayButton, buttonVariants }
+export { Calendar, CalendarDayButton }

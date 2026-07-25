@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Link } from '@inertiajs/react'
-import { Popover } from '@base-ui/react/popover'
+import { Popover as AstryxPopover } from '@astryxdesign/core/Popover'
 import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { cx } from '@r/lib/cx'
 import { Calendar } from '@r/components/ui/calendar'
@@ -134,45 +134,39 @@ export function DateWindowPill(props: {
     onCommit: props.onSelect,
   })
   return (
-    <Popover.Root open={props.open} onOpenChange={props.onOpenChange}>
-      <div data-print-keep className="relative">
-        <Popover.Trigger
-          aria-label={`Fenêtre : ${label}${props.open ? ' — fermer' : ' — ouvrir'}`}
-          title={props.title}
-          className={PILL}
+    <AstryxPopover
+      isOpen={props.open}
+      onOpenChange={props.onOpenChange}
+      label={`Fenêtre : ${label}`}
+      placement="below"
+      alignment={align === 'right' ? 'end' : 'start'}
+      content={
+        <div
+          data-slot="popover-content"
+          className="max-w-(--available-width) overflow-x-auto rounded-lg border border-rule bg-popover shadow-float"
         >
-          <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
-          <span className="whitespace-nowrap font-mono tabular-nums">{label}</span>
-          <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
-        </Popover.Trigger>
-        {/* Positioner base-ui = évitement de collision natif : le panneau ne sort
-            plus du viewport (l'ancien `absolute right-0` rognait le 1er mois sur
-            écran étroit). `--available-width` + overflow = filet de sécurité. */}
-        <Popover.Portal>
-          <Popover.Positioner
-            side="bottom"
-            align={align === 'right' ? 'end' : 'start'}
-            sideOffset={8}
-            collisionPadding={8}
-            className="z-50"
-          >
-            <Popover.Popup
-              data-slot="popover-content"
-              className="max-w-(--available-width) overflow-x-auto rounded-lg border border-rule bg-popover shadow-float"
-            >
-              <Calendar
-                mode="range"
-                locale={fr}
-                numberOfMonths={props.numberOfMonths ?? 2}
-                selected={selected}
-                onSelect={onSelect}
-                disabled={props.disabled}
-              />
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
-      </div>
-    </Popover.Root>
+          <Calendar
+            mode="range"
+            locale={fr}
+            numberOfMonths={props.numberOfMonths ?? 2}
+            selected={selected}
+            onSelect={onSelect}
+            disabled={props.disabled}
+          />
+        </div>
+      }
+    >
+      <button
+        data-print-keep
+        aria-label={`Fenêtre : ${label}${props.open ? ' — fermer' : ' — ouvrir'}`}
+        title={props.title}
+        className={PILL}
+      >
+        <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
+        <span className="whitespace-nowrap font-mono tabular-nums">{label}</span>
+        <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
+      </button>
+    </AstryxPopover>
   )
 }
 
