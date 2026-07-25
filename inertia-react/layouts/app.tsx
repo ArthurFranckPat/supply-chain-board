@@ -72,12 +72,6 @@ interface AppLayoutProps {
   children: React.ReactNode
 }
 
-const THEME_SCOPE: Record<ThemeVariant, string> = {
-  airbnb: 'theme-airbnb',
-  stock: '',
-  navy: 'theme-navy',
-}
-
 export function AppLayout({
   active,
   subtitle,
@@ -86,21 +80,18 @@ export function AppLayout({
   toolbar,
   footer,
   hideFooter = false,
-  theme = 'airbnb',
+  theme: _theme = 'airbnb',
   dense = false,
   scrollable = true,
   maxWidth = '7xl',
   title,
   children,
 }: AppLayoutProps) {
-  const mastheadVariant = theme === 'airbnb' ? 'airbnb' : 'stock'
-
   return (
     <div
       data-app-layout="b"
       className={cx(
         'flex h-screen flex-col overflow-hidden bg-background text-foreground',
-        THEME_SCOPE[theme],
         dense && 'print:h-auto print:overflow-visible'
       )}
     >
@@ -109,7 +100,6 @@ export function AppLayout({
       <Masthead
         subtitle={subtitle}
         active={active}
-        variant={mastheadVariant}
         meta={meta}
         actions={mastheadActions}
       />
