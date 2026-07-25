@@ -1,0 +1,49 @@
+name: Revue IA
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Revue GLM 5.2
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: Récupérer le diff
+        id: diff
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" > /tmp/pr.diff
+          echo "size=$(wc -c < /tmp/pr.diff)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Revue GLM 5.2
+        if: steps.diff.outputs.size != '0'
+        id: review
+        run: |
+          node scripts/ai-review.mjs < /tmp/pr.diff > /tmp/review.md
+        env:
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+
+      - name: Poster la revue
+        if: steps.diff.outputs.size != '0'
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file /tmp/review.md
+        env:
+          GH_TOKEN: ${{ github.token }}
