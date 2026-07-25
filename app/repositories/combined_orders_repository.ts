@@ -304,74 +304,76 @@ export class CombinedOrdersRepository {
   }
 
   /** Flux futurs d'UN article — projection de stock de la sheet détail du KPI
-   *  stock (stock_detail_loader). Quatre natures :
-   *   - `demande` : lignes client à livrer (WIPTYP 1, fermes WIPSTA 1 +
-   *     prévisions WIPSTA 3, ENDDAT ∈ [from, to]) — les articles vendus.
-   *   - `composant` : besoin matière des OF ouverts (MFGMAT restant à sortir,
-   *     OF fermes/planifiés démarrant ≤ to, datés STRDAT) — la demande réelle
-   *     des articles achetés/semi-finis, absente de WIPTYP 1.
-   *   - `reception` : réceptions attendues (WIPTYP 2, WIPSTA 1/2, ENDDAT ≤ to).
-   *   - `of` : production attendue des OF ouverts (WIPTYP 5, WIPSTA 1/2,
-   *     ENDDAT ∈ [from, to]).
+   *  stock (stock_detail_loader). Quatre natures, toutes lues sur ORDERS, qui
+   *  est le carnet complet des besoins ET des ressources :
+   *   - `demande`   : WIPTYP 1 — lignes client à livrer.
+   *   - `composant` : WIPTYP 6 — **besoin matière**, la nature native d'ORDERS
+   *     pour la matière consommée par la fabrication.
+   *   - `reception` : WIPTYP 2 — réceptions achat attendues.
+   *   - `of`        : WIPTYP 5 — production attendue.
    *
-   *  Même sémantique de fenêtre que buildOrdersSql, mais scopée à l'article :
-   *  le fetch global toutes fenêtres confondues dépasse le seuil de lignes du
-   *  SOAP Syracuse (resultXml is nil) sur un horizon 12 mois — ici chaque
-   *  résultat tient toujours en une poignée de lignes. */
+   *  **WIPTYP 6 remplace l'ancien passage par MFGMAT** (issue #88). Les deux
+   *  disent la même chose pour les OF fermes — vérifié ligne à ligne sur
+   *  `11022900` : MFGMAT `F426-28058` RETQTY 320 − USEQTY 198 = 122, et ORDERS
+   *  WIPTYP 6 WIPSTA 1 `F426-28058` RMNEXTQTY = 122 — mais MFGMAT s'arrête aux
+   *  OF matérialisés. Le besoin matière des **suggestions CBN** (WIPSTA 3)
+   *  n'existe que dans ORDERS, et c'est l'essentiel du volume : sur
+   *  `11022900`, 531 en ferme contre 183 820 en suggéré sur l'horizon. Passer
+   *  par MFGMAT amputait donc la projection de ~99 % de ses besoins.
+   *
+   *  **Statuts (WIPSTA) : 1 Ferme + 2 Planifié + 3 Suggéré, seul 4 Clos est
+   *  exclu — et ce uniformément sur les quatre natures.** Le site tourne à
+   *  100 % CBN : les suggestions SONT le plan. Les compter d'un côté et pas de
+   *  l'autre déséquilibre la projection par construction. Avec la règle
+   *  uniforme, `11022900` sort 186 401 de besoins face à 184 800 de
+   *  ressources — l'équilibre attendu d'un CBN, et la signature d'une lecture
+   *  correcte de la table.
+   *
+   *  **Dates : borne haute seule.** Un flux en retard (ENDDAT passée,
+   *  RMNEXTQTY toujours > 0) reste à passer : le loader le clampe dans son
+   *  premier seau. Une borne basse le ferait disparaître de la projection tout
+   *  en le laissant peser sur le stock réel.
+   *
+   *  Une seule requête, scopée à l'article : le fetch global toutes fenêtres
+   *  confondues dépasse le seuil de lignes du SOAP Syracuse (resultXml is nil)
+   *  sur un horizon 12 mois. ZSOAPSQL étant O(n²) sur les lignes ET les
+   *  colonnes, ne jamais élargir cette projection au-delà de ses 3 colonnes. */
   async fetchArticleFutureFlows(
     article: string,
-    fromIso: string,
+    _fromIso: string,
     toIso: string
   ): Promise<Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }>> {
-    const from = fromIso.replace(/-/g, '')
     const to = toIso.replace(/-/g, '')
     const itmr = article.replace(/'/g, "''")
     const db = new X3Database()
     let rows: RawRow[] = []
-    let matRows: RawRow[] = []
     try {
       rows = await db.raw(`
 SELECT O.WIPTYP_0, O.ENDDAT_0, O.RMNEXTQTY_0
 FROM ORDERS O
 WHERE O.ITMREF_0 = '${itmr}'
   AND O.RMNEXTQTY_0 > 0
-  AND (
-    (O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
-      AND O.ENDDAT_0 >= TO_DATE('${from}','YYYYMMDD')
-      AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
-    OR (O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
-      AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
-    OR (O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2)
-      AND O.ENDDAT_0 >= TO_DATE('${from}','YYYYMMDD')
-      AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
-  )`)
-      // Besoin composant : pas de borne basse sur STRDAT — un OF démarré avant
-      // la fenêtre dont la matière n'est pas encore sortie reste un besoin à
-      // venir (le loader le clampe dans son premier seau, comme les retards).
-      matRows = await db.raw(`
-SELECT O.STRDAT_0 AS STRDAT, (M.RETQTY_0 - M.USEQTY_0) AS QTY
-FROM MFGMAT M
-INNER JOIN ORDERS O ON O.VCRNUM_0 = M.MFGNUM_0 AND O.WIPTYP_0 = 5
-WHERE M.ITMREF_0 = '${itmr}'
-  AND (M.RETQTY_0 - M.USEQTY_0) > 0
-  AND O.WIPSTA_0 IN (1, 2)
-  AND O.STRDAT_0 <= TO_DATE('${to}','YYYYMMDD')`)
+  AND O.WIPTYP_0 IN (1, 2, 5, 6)
+  AND O.WIPSTA_0 IN (1, 2, 3)
+  AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD')`)
     } finally {
       await db.destroy()
     }
 
+    const KIND_BY_WIPTYP: Record<number, 'demande' | 'composant' | 'reception' | 'of'> = {
+      1: 'demande',
+      2: 'reception',
+      5: 'of',
+      6: 'composant',
+    }
+
     const out: Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }> = []
     for (const row of rows) {
-      const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
+      const kind = KIND_BY_WIPTYP[Number.parseInt(row.WIPTYP_0 ?? '0')]
+      if (!kind) continue
       const qty = Number.parseFloat(row.RMNEXTQTY_0 ?? '0') || 0
       if (qty <= 0) continue
-      const kind = wiptyp === 1 ? 'demande' : wiptyp === 2 ? 'reception' : 'of'
       out.push({ kind, date: parseX3Date(row.ENDDAT_0), qty })
-    }
-    for (const row of matRows) {
-      const qty = Number.parseFloat(row.QTY ?? '0') || 0
-      if (qty <= 0) continue
-      out.push({ kind: 'composant', date: parseX3Date(row.STRDAT), qty })
     }
     return out
   }

@@ -99,10 +99,18 @@ export default class StockAudit extends BaseCommand {
         const x = byKind.get(k)
         return x ? `${x.n} lignes, Σ ${Math.round(x.qty * 100) / 100}` : '0 lignes'
       }
-      this.logger.info(`Projection — demande client : ${fmtKind('demande')}`)
-      this.logger.info(`Projection — besoin composant OF (MFGMAT) : ${fmtKind('composant')}`)
-      this.logger.info(`Projection — réceptions attendues : ${fmtKind('reception')}`)
-      this.logger.info(`Projection — production OF : ${fmtKind('of')}`)
+      this.logger.info(`Projection — demande client (WIPTYP 1) : ${fmtKind('demande')}`)
+      this.logger.info(`Projection — besoin matière (WIPTYP 6) : ${fmtKind('composant')}`)
+      this.logger.info(`Projection — réceptions achat (WIPTYP 2) : ${fmtKind('reception')}`)
+      this.logger.info(`Projection — production OF (WIPTYP 5) : ${fmtKind('of')}`)
+      // Un CBN équilibre l'offre sur la demande : deux totaux du même ordre de
+      // grandeur sont la signature d'une lecture correcte d'ORDERS. Un écart
+      // de plusieurs ordres trahit une nature manquante (issue #88).
+      const somme = (...kinds: string[]) =>
+        kinds.reduce((t, k) => t + (byKind.get(k)?.qty ?? 0), 0)
+      this.logger.info(
+        `Projection — Σ besoins ${Math.round(somme('demande', 'composant'))} · Σ ressources ${Math.round(somme('reception', 'of'))}`
+      )
 
       // --- Lignes brutes du journal sur la fenêtre 52 semaines ---
       let rows: Record<string, string | null>[]

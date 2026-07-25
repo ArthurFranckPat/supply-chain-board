@@ -11,12 +11,15 @@
  * cache 2 min avec le détail.
  *
  * Conventions de projection :
- *  - Besoins : demande client à livrer (fermes WIPSTA 1 + prévisions WIPSTA 3)
- *    + besoin matière des OF ouverts (MFGMAT restant à sortir) — sans ce
- *    dernier, les articles achetés/semi-finis n'ont aucun besoin (ils ne sont
- *    pas vendus directement).
- *  - Ressources : réceptions attendues (achats) + OF ouverts fermes/planifiés
- *    (suggérés exclus — trop de bruit pour une projection stock).
+ *  - Besoins : demande client à livrer (ORDERS WIPTYP 1) + besoin matière
+ *    (WIPTYP 6). Sans ce dernier, les articles achetés/semi-finis n'ont aucun
+ *    besoin — ils ne sont pas vendus directement.
+ *  - Ressources : réceptions achat attendues (WIPTYP 2) + production des OF
+ *    (WIPTYP 5).
+ *  - Statuts : Ferme + Planifié + Suggéré (WIPSTA 1/2/3), Clos exclu, la même
+ *    règle des deux côtés. Le site tourne à 100 % CBN, les suggestions sont le
+ *    plan ; les compter d'un seul côté déséquilibrerait la projection par
+ *    construction (issue #88).
  *  - Seaux : S+1 … S+52 (lundis ISO) ; les flux datés avant S+1 (retards)
  *    sont clampés en S+1 — ils restent à passer et joueront sous peu.
  *  - stockProjeté(S+k) = stockActuel + Σ_{j≤k} (ressources − besoins), borné
