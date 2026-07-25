@@ -1,12 +1,17 @@
 import * as React from "react"
+import { Skeleton as AstryxSkeleton } from "@astryxdesign/core/Skeleton"
 import { cn } from "@r/lib/utils"
+
+// Skeleton — Lot 2 (issue #90). Base wrap sur Astryx Skeleton (était <div>
+// natif avec animate-pulse). Les composés (SkeletonCard/Row/Badge/Chart)
+// restent des layouts maison qui consomment ce Skeleton.
 
 function Skeleton({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <div
+    <AstryxSkeleton
       data-slot="skeleton"
       className={cn(
         "animate-pulse rounded-md bg-muted/70 dark:bg-muted/40",
