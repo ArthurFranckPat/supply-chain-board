@@ -1,33 +1,24 @@
 /* ════════════════════════════════════════════════════════════
-   Feuille de style du runtime React — shadcn/ui + Base UI,
-   thème Airbnb ACTIVÉ par défaut (bascule 2026-07-21).
+   Feuille de style du runtime React — Astryx only (lot 4, issue #90).
    ────────────────────────────────────────────────────────────
-   Le jugement « rendu stock shadcn pour juger avant tout
-   réhabillage » (19/07/2026) est clos : la grammaire Airbnb est
-   le thème produit, validée par les showcases design/showcase/
-   (airbnb-grammar, airbnb-composants, airbnb-overlays) et les
-   ports board-card (variante A) + data-viz dashboard.
+   Plus de thème shadcn/Airbnb : le runtime est sous <Theme theme={neutralTheme}>
+   (posé dans app.tsx). Les imports Astryx + alias Tailwind vivent dans
+   astryx.css, importé ci-dessous.
 
-   Les tokens :root sont retargetés (mêmes noms sémantiques) pour
-   que les primitives Base UI PORTALES au niveau <body> (sheets,
-   dialogs, popovers) héritent du thème — un scope .theme-airbnb
-   posé sur un div ne cascade pas dans les portals. Le bloc
-   .theme-airbnb (20/07/2026) reste en place : compat des pages
-   qui posent le scope explicitement, valeurs identiques.
-
-   BACKUP — le thème maison (Papier/Aldes) reste intact dans
-   `resources/css/app.css`, consommé par le runtime Solid. Pour y
-   revenir côté React : remplacer les valeurs :root/.dark
-   ci-dessous (mêmes noms sémantiques).
+   Les alias @theme inline ci-dessous redirigent les classes Tailwind
+   sémantiques historiques (bg-background, text-foreground, border-border…)
+   vers les tokens Astryx — sans cela, 1600+ classes utilisées dans les
+   pages casseraient. Au fur et à mesure que les pages sont réécrites
+   avec des classes Astryx natives, ces alias deviendront inutiles.
    ════════════════════════════════════════════════════════════ */
 
 @import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
-/* Astryx 0.1.8 — socle coexistence (spike Lot 0, issue #90).
-   Ordre @layer + reset wrappé + composants Astryx + interop Tailwind.
-   Doit venir APRÈS shadcn pour que ce dernier reste gagnant par défaut. */
+
+/* Socle Astryx 0.1.8 — coexistence cascade + reset + theme-neutral.
+   Ordre @layer déclaré dans astryx.css lui-même. */
 @import './astryx.css';
+
+/* Polices — Plus Jakarta Sans Variable (substitut Cereal VF, choix 20/07). */
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
@@ -35,688 +26,69 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* ── Typo — Plus Jakarta Sans Variable (substitut de Cereal VF,
-     validé 20/07/2026). Déclarée ici pour que l'utilitaire font-sans
-     suive, y compris hors scope .theme-airbnb (portals). mono = Jakarta
-     avec tabular-nums pour l'alignement OF/dates (choix du 20/07). ── */
+  /* ── Typo ── */
   --font-heading: var(--font-sans);
   --font-sans: 'Plus Jakarta Sans Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
   --font-mono: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+  --font-fraunces: var(--font-sans); /* neutralisé : Airbnb n'utilisait pas de serif */
 
-  /* ── Échelle typographique micro (port depuis resources/css/app.css) ──
-     Tailwind v4 n'expose pas text-2xs/text-3xs par défaut. Sans ces tokens,
-     les badges « font-mono text-2xs uppercase » du board retombent à 16px
-     et l'uppercase devient agressif (effet « police trop haute » signalé
-     sur /programme). Valeurs identiques au runtime Solid pour parité. */
+  /* ── Échelle typographique micro (badges board) ── */
   --text-2xs: 0.625rem;            /* 10px */
   --text-2xs--line-height: 1.2;
   --text-3xs: 0.5625rem;           /* 9px — décoratif uniquement */
   --text-3xs--line-height: 1.1;
 
-  /* ── Fraunces — NEUTRALISÉ sous le runtime React (thème Airbnb). ──
-     Airbnb = jamais de serif. La webfont Fraunces n'est de toute façon pas
-     chargée par le layout React (elle tombait sur Georgia, un serif empâté
-     qui cassait le côté épuré). On résout donc `font-fraunces` sur la
-     sans-serif du thème (Inter) : les ~130 occurrences `font-fraunces`
-     rendent désormais en Inter (poids/italique/tabular-nums conservés).
-     Si un thème Papier React devait réactiver un display serif, redéfinir
-     cette variable sous son propre scope `.theme-*`. */
-  --font-fraunces: var(--font-sans);
+  /* ── Alias Tailwind sémantiques → tokens Astryx ──
+     Redirige les classes bg-background/text-foreground/border-border/etc.
+     utilisées partout dans les pages vers les tokens du theme-neutral. */
+  --color-background: var(--color-background-body);
+  --color-foreground: var(--color-text-primary);
+  --color-card: var(--color-background-card);
+  --color-card-foreground: var(--color-text-primary);
+  --color-popover: var(--color-background-popover);
+  --color-popover-foreground: var(--color-text-primary);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-on-accent);
+  --color-secondary: var(--color-background-muted);
+  --color-secondary-foreground: var(--color-text-primary);
+  --color-muted: var(--color-background-muted);
+  --color-muted-foreground: var(--color-text-secondary);
+  --color-accent: var(--color-background-muted);
+  --color-accent-foreground: var(--color-text-primary);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-on-error);
+  --color-border: var(--color-border);
+  --color-input: var(--color-border-emphasized);
+  --color-ring: var(--color-text-primary);
+  --color-chart-1: var(--color-accent);
+  --color-chart-2: var(--color-success);
+  --color-chart-3: var(--color-warning);
+  --color-chart-4: var(--color-text-secondary);
+  --color-chart-5: var(--color-text-primary);
+  --color-sidebar: var(--color-background-surface);
+  --color-sidebar-foreground: var(--color-text-primary);
+  --color-sidebar-primary: var(--color-accent);
+  --color-sidebar-primary-foreground: var(--color-on-accent);
+  --color-sidebar-accent: var(--color-background-muted);
+  --color-sidebar-accent-foreground: var(--color-text-primary);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-ring: var(--color-text-primary);
 
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
-  /* ── Couche de compatibilité tokens métier (portage Solid → React) ──
-     Les pages portées utilisent la grammaire brand/rule/ferme/planifie/
-     suggere/warn. Valeurs = grammaire Airbnb figée (design/showcase/
-     airbnb-grammar.html) : le swap des oklch stock vers les hex métier
-     a été fait le 21/07/2026 — ne pas revenir aux oklch. */
-  --color-brand: var(--primary);
-  --color-brand-soft: rgba(255, 56, 92, 0.10); /* Rausch soft */
-  --color-rule: var(--border);
-  --color-rule-soft: #ebebeb;                  /* hairline-soft */
-  --color-ferme: #008049;                      /* green-700 (statut OF ferme) */
-  --color-planifie: #00a699;                   /* Babu teal (statut planifié) */
-  --color-suggere: #fc642d;                    /* Arches orange (statut suggéré) */
-  --color-warning: #fc642d;
+  /* ── Tokens métier supply chain → couleurs sémantiques Astryx ──
+     Statuts OF mappés sur la palette sémantique (success/warning/error). */
+  --color-brand: var(--color-accent);
+  --color-brand-soft: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  --color-rule: var(--color-border);
+  --color-rule-soft: color-mix(in srgb, var(--color-border) 50%, transparent);
+  --color-ferme: var(--color-success);
+  --color-planifie: var(--color-accent);
+  --color-suggere: var(--color-warning);
+  --color-warning: var(--color-warning);
 }
 
 @theme {
-  /* ── Ombres globales (déclarées ici, pas sous .theme-airbnb) : les
-     primitives Base UI sont portales au niveau <body>, hors du scope.
-     Grammaire figée par design/showcase/airbnb-overlays.html.
-     • --shadow-float  : menus/popups (select, combobox) — « hover float ».
-     • --shadow-overlay: LA seule élévation hors page, réservée aux
-       overlays (sheets, dialogs).
-     Directive : ne pas créer de 3e niveau d'ombre globale. ── */
-  --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
-  --shadow-overlay: 0 18px 50px rgb(0 0 0 / 0.24);
-}
-
-:root {
-  /* ── Grammaire Airbnb (valeurs identiques au bloc .theme-airbnb) ── */
-  --background: #ffffff;
-  --foreground: #222222;             /* ink — jamais de noir pur */
-  --card: #ffffff;
-  --card-foreground: #222222;
-  --popover: #ffffff;
-  --popover-foreground: #222222;
-  --primary: #ff385c;                /* Rausch — CTA marque */
-  --primary-foreground: #ffffff;
-  --secondary: #f7f7f7;              /* surface-soft */
-  --secondary-foreground: #222222;
-  --muted: #f2f2f2;                  /* surface-strong */
-  --muted-foreground: #6a6a6a;
-  --accent: #f7f7f7;
-  --accent-foreground: #222222;
-  --destructive: #c13515;            /* error ≠ Rausch (grammaire overlays) */
-  --destructive-foreground: #ffffff;
-  --border: #dddddd;                 /* hairline */
-  --input: #c1c1c1;                  /* border-strong */
-  --ring: #222222;                   /* focus = ink, pas brand */
-  --chart-1: #ff385c;                /* Rausch */
-  --chart-2: #00a699;                /* Babu teal */
-  --chart-3: #fc642d;                /* Arches orange */
-  --chart-4: #6a6a6a;
-  --chart-5: #222222;
-  --radius: 0.875rem;                /* 14px — cards/dialogs (boutons = sm) */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #222222;
-  --sidebar-primary: #ff385c;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
-  --sidebar-accent-foreground: #222222;
-  --sidebar-border: #dddddd;
-  --sidebar-ring: #222222;
-
-  /* ── Tokens métier (statuts OF) — portails inclus. ── */
-  --brand: var(--primary);
-  --brand-soft: rgba(255, 56, 92, 0.10);
-  --rule: var(--border);
-  --rule-soft: #ebebeb;
-  --ferme: #008049;
-  --planifie: #00a699;
-  --suggere: #fc642d;
-  --warning: #fc642d;
-}
-
-.dark {
-  /* Pas de dark mode Airbnb (DESIGN.md light-only) — miroir exact du
-     light pour qu'un `.dark` accidentel ne casse pas la grammaire. */
-  --background: #ffffff;
-  --foreground: #222222;
-  --card: #ffffff;
-  --card-foreground: #222222;
-  --popover: #ffffff;
-  --popover-foreground: #222222;
-  --primary: #ff385c;
-  --primary-foreground: #ffffff;
-  --secondary: #f7f7f7;
-  --secondary-foreground: #222222;
-  --muted: #f2f2f2;
-  --muted-foreground: #6a6a6a;
-  --accent: #f7f7f7;
-  --accent-foreground: #222222;
-  --destructive: #c13515;
-  --destructive-foreground: #ffffff;
-  --border: #dddddd;
-  --input: #c1c1c1;
-  --ring: #222222;
-  --chart-1: #ff385c;
-  --chart-2: #00a699;
-  --chart-3: #fc642d;
-  --chart-4: #6a6a6a;
-  --chart-5: #222222;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #222222;
-  --sidebar-primary: #ff385c;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
-  --sidebar-accent-foreground: #222222;
-  --sidebar-border: #dddddd;
-  --sidebar-ring: #222222;
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
-  }
-}
-
-/* Conteneur scrollable SANS barre visible (parité Solid). */
-.no-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-/* KPI personnalisables : à l'écran les tiles suivent --screen-order (ordre
-   d'affichage), à l'impression elles basculent sur --print-order (ordre
-   d'impression indépendant). Déclaratif → indépendant du cycle réactif JS.
-   Porté depuis resources/css/app.css (runtime Solid). */
-.kpi-tile {
-  order: var(--screen-order, 0);
-  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
-  will-change: transform, opacity;
-}
-
-@media print {
-  .kpi-tile {
-    order: var(--print-order, 0) !important;
-  }
-}
-
-/* Animation fluide FLIP (View Transitions API) pour l'agrandissement, le rétrécissement
-   et le réordonnancement des cartes KPI du dashboard */
-::view-transition-group(kpi-tile-charge),
-::view-transition-group(kpi-tile-otd),
-::view-transition-group(kpi-tile-stock),
-::view-transition-group(kpi-tile-lignes),
-::view-transition-group(kpi-tile-stockTable) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-::view-transition-old(kpi-tile-charge),
-::view-transition-old(kpi-tile-otd),
-::view-transition-old(kpi-tile-stock),
-::view-transition-old(kpi-tile-lignes),
-::view-transition-old(kpi-tile-stockTable),
-::view-transition-new(kpi-tile-charge),
-::view-transition-new(kpi-tile-otd),
-::view-transition-new(kpi-tile-stock),
-::view-transition-new(kpi-tile-lignes),
-::view-transition-new(kpi-tile-stockTable) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-/* ────────────────────────────────────────────────────────────
-   Icônes : Material Symbols retiré (Lot A redesign Airbnb, 2026-07-20).
-   Toute l'UI React utilise désormais lucide-react (trait fin, strokeWidth
-   1.75). Les icônes pilotées par la donnée passent par <DynamicIcon>
-   (components/ui/dynamic-icon.tsx). La police Material Symbols et son
-   lien Google Fonts ont été retirés de inertia_layout_react.edge.
-   ──────────────────────────────────────────────────────────── */
-
-/* ════════════════════════════════════════════════════════════
-   Thème « Airbnb » (v0.2, 2026-07-19).
-
-   Identité visuelle calquée sur Airbnb DESIGN.md (voltagent/awesome-
-   design-md, lastUpdated 2026-05-12) + couleurs du brand book officiel
-   Airbnb (usbrandcolors, airbnb.design — palette Rausch/Babu/Arches/
-   Hof/Foggy) vérifiées le 19/07/2026.
-
-   Sources vérifiées :
-   • DESIGN.md fourni (identique à VoltAgent/awesome-design-md/airbnb).
-   • Mobbin (scan apps réelles 2026) : primary UI = #ff385c.
-   • usbrandcolors (brand book) : Rausch logo = #ff5a5f (old marketing).
-   • r/typographie (283 votes) : Figtree ≈ Cereal, Inter proche.
-   Choix : #ff385c (production actuelle, ce que dit le DESIGN.md).
-
-   Principes calqués sur DESIGN.md :
-   • un seul voltage marque — Rausch #ff385c (CTA, search orb, heart) ;
-   • canvas blanc pur, ink #222 (pas de noir), hairline #dddddd ;
-   • typo Inter Variable (substitut ouvert d'Airbnb Cereal VF, recommandé
-     par DESIGN.md « Font Substitutes » — ajuster line-height -2% si besoin) ;
-   • radius soft : 8 (boutons) / 14 (cards) / 32 (pills) / 9999 (full) ;
-   • une seule ombre (card hover float) — pas de tiers progressifs ;
-   • pas de dark mode (le DESIGN.md est light-only).
-
-   Couleurs du brand book officiel (tokennisées mais pas câblées
-   sémantiquement — le DESIGN.md dit qu'elles ne sont pas utilisées
-   dans le mainline marketing. On les expose pour un usage ponctuel
-   volontaire) :
-   • Rausch #ff385c — marque principale (UI réelle)
-   • Rausch (logo) #ff5a5f — variante historique brand book
-   • Babu       #00a699 — teal (info / accent secondaire)
-   • Arches     #fc642d — orange (énergie / alerte chaude)
-   • Hof        #484848 — ink marketing (légèrement plus clair que le #222)
-   • Foggy      #767676 — muted marketing
-
-   Implementation : retargeting in-place des tokens shadcn existants
-   (--background, --primary, --border…) sous le scope .theme-airbnb.
-   Les primitives ui/* shadcn suivent automatiquement, pas de portage
-   composant par composant. Poser le scope sur la racine de la page
-   (ex. <div class="theme-airbnb">) active le thème.
-   ──────────────────────────────────────────────────────────── */
-.theme-airbnb {
-  /* ── Brand voltage — Rausch (production 2026) ── */
-  --primary: #ff385c;
-  --primary-foreground: #ffffff;
-  --ring: #222222; /* focus = ink, pas brand (Airbnb) */
-
-  /* ── Couleurs du brand book officiel (tokennisées, pas câblées) ──
-     Exposées pour usage ponctuel volontaire. Le DESIGN.md précise que
-     Babu/Arches ne sont pas en mainline marketing — on ne les câble à
-     aucun token sémantique pour ne pas inonder l'UI. */
-  --color-rausch: #ff385c;       /* marque principale (UI réelle) */
-  --color-rausch-logo: #ff5a5f;  /* variante logo marketing */
-  --color-rausch-active: #e00b41;/* press state (DESIGN.md) */
-  --color-rausch-disabled: #ffd1da;
-  --color-babu: #00a699;         /* teal — info / CTA secondaire */
-  --color-arches: #fc642d;       /* orange — énergie / alerte chaude */
-  --color-hof: #484848;          /* ink marketing */
-  --color-foggy: #767676;        /* muted marketing */
-  --color-luxe: #460479;         /* sub-brand Luxe (DESIGN.md) */
-  --color-plus: #92174d;         /* sub-brand Plus (DESIGN.md) */
-  --color-legal-link: #428bff;   /* liens légaux uniquement (DESIGN.md) */
-
-  /* ── Surfaces — blanc clinique ── */
-  --background: #ffffff;
-  --foreground: #222222;
-  --card: #ffffff;
-  --card-foreground: #222222;
-  --popover: #ffffff;
-  --popover-foreground: #222222;
-
-  /* ── Neutres — surfaces douces ── */
-  --secondary: #f7f7f7;          /* surface-soft (DESIGN.md) */
-  --secondary-foreground: #222222;
-  --muted: #f2f2f2;              /* surface-strong (DESIGN.md) */
-  --muted-foreground: #6a6a6a;   /* muted (DESIGN.md) */
-  --accent: #f7f7f7;
-  --accent-foreground: #222222;
-
-  /* ── Hairlines & bordures ── */
-  --border: #dddddd;             /* hairline (DESIGN.md) */
-  --input: #c1c1c1;              /* border-strong sur focus (DESIGN.md) */
-
-  /* ── Sémantique — error ≠ Rausch (Airbnb utilise un rouge plus sombre) ── */
-  --destructive: #c13515;        /* primary-error-text (DESIGN.md) */
-  --destructive-foreground: #ffffff;
-
-  /* ── Pas de dark mode Airbnb — on pointe vers le light pour sécurité ── */
-
-  /* ── Radius — l'échelle signature ── */
-  --radius: 0.875rem;            /* 14px — cards (rounded.md Airbnb) */
-  /* Les dérivés (sm/md/lg/xl/2xl/3xl/4xl) sont calculés dans @theme inline */
-
-  /* ── Une seule ombre — card hover float (DESIGN.md Elevation) ──
-     Surcharge des --shadow-* utilisés par shadcn. On écrase les niveaux
-     par la même définition : aucun cas de l'app n'a besoin de tiers
-     progressifs, et le DESIGN.md est explicite (« one shadow tier »). */
-  --shadow-xs: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
-  --shadow-sm: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
-
-  /* ── Typo — Plus Jakarta Sans Variable, substitut de Cereal VF ──
-     Choix utilisateur (2026-07-20) : Plus Jakarta Sans est le substitut
-     open-source le plus proche du tempérament de Cereal (géométrique,
-     légèrement rond, forte personnalité) — plus près qu'Inter, resté le
-     fallback système. line-height display resserré (~2%) plus bas pour
-     matcher le cap-height un peu plus haut. tabular-nums (tnum) porté par
-     la variable font pour l'alignement OF/dates. */
-  --font-sans: 'Plus Jakarta Sans Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
-  --font-heading: 'Plus Jakarta Sans Variable', sans-serif;
-  --font-mono: 'Plus Jakarta Sans Variable', system-ui, sans-serif; /* tabular-nums pour OF/dates */
-
-  /* ── Sidebar — neutre, alignée sur le canvas ── */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #222222;
-  --sidebar-primary: #ff385c;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
-  --sidebar-accent-foreground: #222222;
-  --sidebar-border: #dddddd;
-  --sidebar-ring: #222222;
-
-  /* ── Charts — Rausch + palette brand ── */
-  --chart-1: #ff385c;            /* Rausch */
-  --chart-2: #00a699;            /* Babu teal */
-  --chart-3: #fc642d;            /* Arches orange */
-  --chart-4: #6a6a6a;            /* muted */
-  --chart-5: #222222;            /* ink */
-
-  /* ── Tokens métier (portés depuis .theme-navy Solid) ──
-     Les pages migrées utilisent la grammaire brand/rule/ferme/planifie/suggere.
-     On les retarget sous .theme-airbnb : la marque devient Rausch, les statuts
-     restent sémantiques (sens métier — Airbnb lui-même préserve des couleurs
-     sémantiques au-delà du Rausch). */
-  --brand: var(--primary);
-  --brand-soft: rgba(255, 56, 92, 0.10);
-  --rule: var(--border);
-  --rule-soft: #ebebeb;          /* hairline-soft (DESIGN.md) */
-  --ferme: #008049;              /* green-700 — lisible sur blanc */
-  --planifie: var(--color-babu); /* Babu teal — info, aligné sur le brand book */
-  --suggere: var(--color-arches);/* Arches orange — warning chaud, brand book */
-  --warning: var(--color-arches);
-
-  color: var(--foreground);
-  background-color: var(--background);
-  font-family: var(--font-sans);
-}
-
-.theme-airbnb ::selection {
-  background: var(--brand-soft);
-}
-
-/* Ajustement line-height Cereal-like (DESIGN.md note) — titres display.
-   Plus Jakarta Sans a une cap-height légèrement plus haute que Cereal ; on
-   resserre de ~2% sur les gros weights pour matcher l'allure. */
-.theme-airbnb h1,
-.theme-airbnb h2,
-.theme-airbnb h3 {
-  line-height: 1.2;
-}
-
-/* Distinction test/prod — fidèle à la palette Airbnb.
-   En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
-   est porté par le bandeau Arches orange (#fc642d, couleur du brand book)
-   en haut du Masthead, plus un suffixe [TEST] dans le wordmark. Voir
-   masthead.tsx côté React. Aucune override de tokens : le thème Airbnb
-   reste strictement identique en test et en prod. */
-
-/* ────────────────────────────────────────────────────────────
-   Toasts sonner — pilule encre bas-centre (grammaire figée par
-   design/showcase/airbnb-overlays.html §04). Le style principal
-   (fond, rayon, padding) est posé en INLINE via toastOptions dans
-   app.tsx — il gagne sur les styles internes de sonner. Ici : les
-   détails hérités que l'inline ne couvre pas.
-   ──────────────────────────────────────────────────────────── */
-[data-sonner-toast] [data-description] {
-  color: rgba(255, 255, 255, 0.72);
-}
-[data-sonner-toast] [data-button] {
-  background: transparent;
-  color: #ffffff;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  box-shadow: none;
-  height: auto;
-  padding: 0;
-}
-
-/* ════════════════════════════════════════════════════════════
-   Impression — A3 paysage (runtime React).
-   ────────────────────────────────────────────────────────────
-   Le pendant de ce bloc existait uniquement dans `resources/css/app.css`
-   (runtime Solid) et y est scopé `.theme-papier` : les pages React, qui
-   portent `.theme-airbnb`, n'en héritaient pas. Résultat, `usePrintFit` /
-   `usePrintFitPage` calculaient un zoom pour une zone A3 (396 mm) que le
-   navigateur imprimait ensuite en A4 portrait, sur un contenu par ailleurs
-   clippé par les conteneurs plein écran d'AppLayout.
-
-   Trois choses à faire, et rien d'autre :
-     1. déclarer le format (`@page`) — sans quoi tout le calcul JS est faux ;
-     2. dérouler ce que l'écran clippe (`h-screen`, `overflow-hidden`) et
-        neutraliser les positionnements collants, qui se superposeraient aux
-        sauts de page ;
-     3. restituer les fonds porteurs d'information.
-
-   Sur le point 3, la version Solid passe `*` en `economy` (fonds strippés,
-   papier seul). Ce compromis ne tient pas pour un board de charge : les
-   barres de palier SONT l'information, une feuille sans elles ne dit plus
-   rien des pics. D'où l'opt-in explicite `[data-print-ink]`, à poser sur
-   les seuls éléments dont la couleur porte du sens.
-   ──────────────────────────────────────────────────────────── */
-@media print {
-  @page {
-    size: A3 landscape;
-    margin: 10mm 12mm;
-  }
-
-  html,
-  body {
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Déroulage : AppLayout est un h-screen/overflow-hidden, sa zone
-     principale un overflow-hidden en mode dense, et les pages y empilent
-     leurs propres coquilles flex. Tout doit rendre sa hauteur naturelle. */
-  [data-app-layout],
-  [data-app-layout] > main,
-  [data-app-layout] > main > *,
-  [data-print-page],
-  [data-print-page] > *,
-  [data-print-unclip],
-  [data-print-unclip] > * {
-    height: auto !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-  }
-
-  /* En-têtes et colonnes collants → statiques : en pagination verticale ils
-     se figeraient par-dessus le contenu à chaque saut de page. */
-  [data-print-unclip] .sticky {
-    position: static !important;
-  }
-
-  /* Barre d'outils : on ne garde que ce qui est explicitement marqué
-     (convention partagée avec le runtime Solid). */
-  [data-print-toolbar] > *:not([data-print-keep]) {
-    display: none !important;
-  }
-
-  /* Fonds porteurs de sens (barres de charge, pastilles de palier). */
-  [data-print-ink],
-  [data-print-ink] * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Une rangée ne se coupe pas entre deux pages. */
-  [data-print-row] {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  /* Bandeau de rappel répété en pied de chaque page (`fixed` en contexte
-     paginé = une occurrence par page). Masqué à l'écran. Le `fixed` étant
-     hors flux, la zone imprimée doit lui réserver sa hauteur — sinon la
-     dernière rangée de chaque page passe dessous. */
-  [data-print-footer] {
-    display: flex !important;
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
-  [data-print-page]:has([data-print-footer]) {
-    padding-bottom: 8mm !important;
-  }
-}
-
-/* ── Grille du tableau de bord (composant maison, cf. inertia-react/components/dashboard/grid.tsx) ──
- * Le placement est calculé en JS et posé en `left/top/width/height` inline.
- * Le CSS ne fait que l'animation d'atterrissage, le rendu du geste en cours et
- * la poignée de redimensionnement. */
-.dashboard-grid-item {
-  transition: left 180ms cubic-bezier(0.16, 1, 0.3, 1), top 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    width 180ms cubic-bezier(0.16, 1, 0.3, 1), height 180ms cubic-bezier(0.16, 1, 0.3, 1);
-  /* La tuile est positionnée en absolu et dimensionnée explicitement : sa mise
-   * en page interne n'influence rien au dehors. Le dire au navigateur lui évite
-   * de remonter le reflow au document à chaque frame de redimensionnement.
-   * `layout` seul — `paint` clipperait la barre d'outils qui déborde en haut. */
-  contain: layout;
-}
-
-/* Pendant le geste, la tuile suit le pointeur au pixel : toute transition la
- * ferait traîner derrière le curseur. C'est précisément ce qui rendait le geste
- * inerte avec react-grid-layout (issue #87).
- * Pas de `will-change` ici : il n'accélère pas les propriétés de mise en page
- * et ne ferait que réserver de la mémoire. */
-.dashboard-grid-item.is-active {
-  transition: none;
-  z-index: 50;
-  cursor: grabbing;
-}
-
-.dashboard-grid.is-gesturing {
-  user-select: none;
-}
-
-/* Le geste est piloté par des écouteurs sur window : pendant sa durée, aucune
- * tuile n'a besoin de recevoir le pointeur. On économise le test de survol et
- * les restyles `:hover` des cartes à chaque frame. Le curseur est donc porté par
- * le conteneur, sinon il repasserait en flèche dès que le pointeur quitte la
- * poignée. */
-.dashboard-grid.is-gesturing .dashboard-grid-item {
-  pointer-events: none;
-}
-.dashboard-grid[data-gesture='drag'] {
-  cursor: grabbing;
-}
-.dashboard-grid[data-gesture='n'],
-.dashboard-grid[data-gesture='s'] {
-  cursor: ns-resize;
-}
-.dashboard-grid[data-gesture='e'],
-.dashboard-grid[data-gesture='w'] {
-  cursor: ew-resize;
-}
-.dashboard-grid[data-gesture='se'] {
-  cursor: se-resize;
-}
-
-.dashboard-grid-placeholder {
-  background: color-mix(in oklab, var(--brand) 12%, transparent);
-  border: 2px dashed var(--brand);
-  border-radius: 0.75rem;
-  z-index: 1;
-  pointer-events: none;
-  transition: left 120ms ease, top 120ms ease, width 120ms ease, height 120ms ease;
-}
-
-/* Poignées de redimensionnement : les 4 bords plus le coin bas-droit (2 axes).
- * `touch-action: none` est requis pour que le geste tactile ne parte pas en
- * scroll. Le coin est déclaré après les bords et les recouvre à l'angle. */
-.dashboard-grid-resize {
-  position: absolute;
-  touch-action: none;
-  opacity: 0;
-  transition: opacity 150ms ease;
-  z-index: 40;
-}
-.dashboard-grid-item:hover .dashboard-grid-resize,
-.dashboard-grid-item.is-active .dashboard-grid-resize {
-  opacity: 1;
-}
-
-/* Bords horizontaux (hauteur) — la zone de saisie déborde de 3px vers
- * l'extérieur pour rester attrapable au ras de la carte. */
-.dashboard-grid-resize-n,
-.dashboard-grid-resize-s {
-  left: 12px;
-  right: 12px;
-  height: 10px;
-  cursor: ns-resize;
-}
-.dashboard-grid-resize-n {
-  top: -3px;
-}
-.dashboard-grid-resize-s {
-  bottom: -3px;
-}
-
-/* Bords verticaux (largeur). */
-.dashboard-grid-resize-e,
-.dashboard-grid-resize-w {
-  top: 12px;
-  bottom: 12px;
-  width: 10px;
-  cursor: ew-resize;
-}
-.dashboard-grid-resize-e {
-  right: -3px;
-}
-.dashboard-grid-resize-w {
-  left: -3px;
-}
-
-/* Trait d'accroche centré sur chaque bord. */
-.dashboard-grid-resize-n::after,
-.dashboard-grid-resize-s::after,
-.dashboard-grid-resize-e::after,
-.dashboard-grid-resize-w::after {
-  content: '';
-  position: absolute;
-  background: var(--brand);
-  border-radius: 999px;
-  opacity: 0.55;
-}
-.dashboard-grid-resize-n::after,
-.dashboard-grid-resize-s::after {
-  left: 50%;
-  top: 50%;
-  width: 28px;
-  height: 3px;
-  transform: translate(-50%, -50%);
-}
-.dashboard-grid-resize-e::after,
-.dashboard-grid-resize-w::after {
-  top: 50%;
-  left: 50%;
-  width: 3px;
-  height: 28px;
-  transform: translate(-50%, -50%);
-}
-
-/* Coin bas-droit : redimensionne les deux axes à la fois. */
-.dashboard-grid-resize-se {
-  right: 0;
-  bottom: 0;
-  width: 22px;
-  height: 22px;
-  cursor: se-resize;
-  z-index: 41;
-}
-.dashboard-grid-resize-se::after {
-  content: '';
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  width: 8px;
-  height: 8px;
-  border-right: 2.5px solid var(--brand);
-  border-bottom: 2.5px solid var(--brand);
-  border-radius: 1px;
+  /* ── Shadows ── conservés pour les portails body-level.
+     2 tiers uniquement, directive historique. */
+  --shadow-float: var(--shadow-low);
+  --shadow-overlay: var(--shadow-med);
 }

@@ -14,17 +14,17 @@
  *
  * Couches (ordre croissant de priorité) :
  *   reset         → reset Astryx (le plus bas)
- *   theme         → tokens theme-neutral + tokens métier supply chain
+ *   theme         → tokens theme-neutral
  *   astryx-base   → styles composants Astryx (auto-déclarés en interne)
  *   tw-base       → base Tailwind v4 (@layer base)
  *   tw-components → composants Tailwind
- *   shadcn        → primitives shadcn (shadcn/tailwind.css importé plus
- *                   haut dans app.css)
  *   utilities     → utilitaires Tailwind (gagnent par défaut)
+ *
+ * Plus de couche shadcn depuis le lot 4 (issue #90) — shadcn supprimé.
  * ════════════════════════════════════════════════════════════ */
 
 /* 1. Ordre des couches — AVANT tout @import. */
-@layer reset, theme, astryx-base, tw-base, tw-components, shadcn, utilities;
+@layer reset, theme, astryx-base, tw-base, tw-components, utilities;
 
 /* 2. Reset Astryx — wrappé explicitement. Sans ce wrapper, l'@import
  *    serait non-layeré et gagnerait sur tous les utilitaires Tailwind. */
