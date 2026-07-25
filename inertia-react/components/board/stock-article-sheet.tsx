@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
+import { CircleX, Package, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
@@ -67,6 +67,11 @@ interface StockArticleSheetProps {
 const COL_STOCK = 'var(--color-foreground)'
 const COL_ENTREE = '#00a699'
 const COL_SORTIE = '#ff385c'
+
+/** Plancher de hauteur des barres de flux, en px : un flux non nul reste
+ *  visible même quand il pèse une fraction de pourcent du maximum de sa
+ *  moitié. */
+const MIN_BAR = 1.75
 
 const fmtQty = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 const fmtQtyDec = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
@@ -272,13 +277,28 @@ function HistoryChart({
     [points]
   )
   const lineMax = useMemo(() => Math.max(1, ...targets.map((t) => t[0])) * 1.08, [targets])
-  const flowMax = useMemo(
-    () => Math.max(1, ...targets.map((t) => Math.max(t[1], t[2]))),
-    [targets]
+  // Deux échelles de flux, une par moitié. Le journal de stock (mouvements
+  // hebdomadaires réels : réceptions, sorties de production) et le carnet à
+  // venir (demande client, besoin matière, réceptions attendues) sont deux
+  // populations d'ordres de grandeur très différents — typiquement 30 000
+  // pièces brassées par semaine côté passé face à 200 pièces de besoin
+  // composant côté futur. Avec une échelle unique, la projection tombe sous le
+  // pixel et se lit « besoins à 0 » alors que la donnée existe.
+  const flowMaxHist = useMemo(
+    () => Math.max(1, ...targets.slice(0, histLen).map((t) => Math.max(t[1], t[2]))),
+    [targets, histLen]
+  )
+  const flowMaxFut = useMemo(
+    () => Math.max(1, ...targets.slice(histLen).map((t) => Math.max(t[1], t[2]))),
+    [targets, histLen]
   )
   const targetFracs = useMemo(
-    () => targets.map((t) => [t[0] / lineMax, t[1] / flowMax, t[2] / flowMax]),
-    [targets, lineMax, flowMax]
+    () =>
+      targets.map((t, i) => {
+        const fm = i < histLen ? flowMaxHist : flowMaxFut
+        return [t[0] / lineMax, t[1] / fm, t[2] / fm]
+      }),
+    [targets, lineMax, flowMaxHist, flowMaxFut, histLen]
   )
   const fracs = useAnimatedFracs(targetFracs)
 
@@ -373,9 +393,10 @@ function HistoryChart({
 
   // Valeurs affichées dans le tooltip = fractions animées × échelles : les
   // chiffres « montent » avec la courbe à l'arrivée.
+  const hFlowMax = hi < histLen ? flowMaxHist : flowMaxFut
   const hLineVal = hFrac[0] * lineMax
-  const hInVal = hFrac[1] * flowMax
-  const hOutVal = hFrac[2] * flowMax
+  const hInVal = hFrac[1] * hFlowMax
+  const hOutVal = hFrac[2] * hFlowMax
 
   // Point « maintenant » (dernier point réel) — ancre du pulse et de la
   // charnière passé/futur.
@@ -449,6 +470,7 @@ function HistoryChart({
               opacity={0.75}
             >
               {fmtWeekAxis(points[0])} → {fmtWeekAxis(points[lastIdx])}
+              {hasFuture && ' · flux : une échelle par moitié'}
             </text>
           )}
         </g>
@@ -496,13 +518,19 @@ function HistoryChart({
             animées — elles poussent depuis l'axe à l'arrivée. */}
         {points.map((p, i) => {
           const f = fracs[i] ?? [0, 0, 0]
-          const hIn = (f[1] ?? 0) * geom.flowAmp
-          const hOut = (f[2] ?? 0) * geom.flowAmp
+          // Présence décidée sur la valeur CIBLE, hauteur lue sur la valeur
+          // animée : un flux non nul garde un plancher visible (MIN_BAR) au
+          // lieu de disparaître sous l'antialiasing quand il est petit face au
+          // maximum de sa moitié. Une barre absente signifie donc « zéro », pas
+          // « trop petit pour être tracé ».
+          const t = targetFracs[i] ?? [0, 0, 0]
+          const hIn = t[1] > 0 ? Math.max(MIN_BAR, (f[1] ?? 0) * geom.flowAmp) : 0
+          const hOut = t[2] > 0 ? Math.max(MIN_BAR, (f[2] ?? 0) * geom.flowAmp) : 0
           const bx = geom.x(i) - geom.barW / 2
           const op = hover === null || hover === i ? 0.85 : 0.4
           return (
             <g key={p.periode}>
-              {hIn > 0.25 && (
+              {hIn > 0 && (
                 <rect
                   x={bx}
                   y={geom.flowAxis - hIn}
@@ -514,7 +542,7 @@ function HistoryChart({
                   style={{ transition: 'opacity 160ms ease-out' }}
                 />
               )}
-              {hOut > 0.25 && (
+              {hOut > 0 && (
                 <rect
                   x={bx}
                   y={geom.flowAxis}
@@ -785,6 +813,22 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
     return (last - base) / base
   }, [detail, unit])
 
+  // Totaux de la projection sur l'horizon. Le graphe trace deux moitiés à des
+  // échelles différentes : ces deux chiffres donnent les ordres de grandeur
+  // réels du carnet à venir, indépendamment de la lecture visuelle.
+  const totauxFuturs = useMemo(() => {
+    const fut = detail?.future ?? []
+    if (fut.length === 0) return null
+    let besoin = 0
+    let ressource = 0
+    for (const p of fut) {
+      besoin += unit === 'qte' ? p.besoinQte : p.besoinVal
+      ressource += unit === 'qte' ? p.ressourceQte : p.ressourceVal
+    }
+    if (besoin === 0 && ressource === 0) return null
+    return { besoin, ressource }
+  }, [detail, unit])
+
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
@@ -837,6 +881,22 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                     value={delta === null ? '—' : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))}`}
                     title="Variation du stock entre la première semaine non nulle et la dernière semaine affichée"
                   />
+                  {totauxFuturs && (
+                    <>
+                      <span className="h-6 w-px bg-border" />
+                      <Metric
+                        label="Besoins 52 s."
+                        value={`− ${fmtVal(totauxFuturs.besoin, unit)}`}
+                        title="Total des besoins sur l'horizon de projection : demande client à livrer (fermes + prévisions) + matière consommée par les OF ouverts"
+                      />
+                      <span className="h-6 w-px bg-border" />
+                      <Metric
+                        label="Ressources 52 s."
+                        value={`+ ${fmtVal(totauxFuturs.ressource, unit)}`}
+                        title="Total des ressources sur l'horizon de projection : réceptions achat attendues + production des OF ouverts"
+                      />
+                    </>
+                  )}
                 </div>
               )}
               {/* Bascule qté/€ */}
