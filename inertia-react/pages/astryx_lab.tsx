@@ -13,6 +13,7 @@
 
 import { Button as AstryxButton } from '@astryxdesign/core/Button'
 import { Card as AstryxCard } from '@astryxdesign/core/Card'
+import { useState } from 'react'
 
 import AppLayout from '@r/layouts/app'
 import { Badge } from '@r/components/ui/badge'
@@ -60,6 +61,7 @@ import {
   ComboboxItem,
 } from '@r/components/ui/combobox'
 import { Calendar } from '@r/components/ui/calendar'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /** Tokens à inspecter pour la parité thème (Q2). */
 const TOKEN_PROBE: Array<{ key: string; expected: string; source: string }> = [
@@ -205,6 +207,9 @@ export default function AstryxLab() {
               mode="single"
               onSelect={(date: unknown) => console.log('Calendar select', date)}
             />
+
+            {/* Démo DataTable migré (Astryx Table + virtualisation TanStack). */}
+            <DataTableDemo />
           </section>
 
           {/* ── Colonne 3 : parité tokens + portal Base UI ── */}
@@ -252,5 +257,31 @@ export default function AstryxLab() {
           </section>
         </div>
     </AppLayout>
+  )
+}
+
+/** Démo DataTable migré — Astryx Table + virtualisation TanStack. */
+function DataTableDemo() {
+  const [sorting, setSorting] = useState<SortingState[]>([])
+  const columns: ColumnDef<{ id: number; label: string; qty: number }>[] = [
+    { accessorKey: 'label', header: 'Article' },
+    { accessorKey: 'qty', header: 'Quantité' },
+  ]
+  const rows = Array.from({ length: 200 }, (_, i) => ({
+    id: i + 1,
+    label: `Article ${String.fromCharCode(65 + (i % 26))}${i + 1}`,
+    qty: Math.floor(Math.random() * 100),
+  }))
+  return (
+    <div className="h-64">
+      <DataTable
+        columns={columns}
+        rows={rows}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        getRowKey={(r) => String(r.id)}
+        emptyState={<p className="p-4 text-sm text-muted-foreground">Vide</p>}
+      />
+    </div>
   )
 }

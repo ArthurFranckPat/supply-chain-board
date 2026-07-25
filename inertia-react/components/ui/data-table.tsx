@@ -1,6 +1,14 @@
 import { useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
+import {
+  Table as AstryxTable,
+  TableHeader as AstryxTableHeader,
+  TableBody as AstryxTableBody,
+  TableRow as AstryxTableRow,
+  TableHeaderCell as AstryxTableHeaderCell,
+  TableCell as AstryxTableCell,
+} from '@astryxdesign/core/Table'
 
 import { cn } from '@r/lib/utils'
 
@@ -153,18 +161,18 @@ export function DataTable<TRow>({
   return (
     <div className={cn(DEFAULT_SCROLL_CLASS, scrollContainerClass)} ref={scrollRef}>
       {rows.length > 0 ? (
-        <table className={cn('w-full border-collapse text-left text-sm', tableClass)}>
-          <thead className="sticky top-0 z-10 bg-card">
-            <tr className={cn('border-b', theadRowClass)}>
+        <AstryxTable className={cn('w-full border-collapse text-left text-sm', tableClass)}>
+          <AstryxTableHeader className="sticky top-0 z-10 bg-card">
+            <AstryxTableRow className={cn('border-b', theadRowClass)}>
               {indexColumn && (
-                <th
+                <AstryxTableHeaderCell
                   className={cn(
                     'px-3 py-2 text-xs font-medium text-muted-foreground',
                     indexColumn.thClass
                   )}
                 >
                   {indexColumn.headerLabel}
-                </th>
+                </AstryxTableHeaderCell>
               )}
               {columns.map((col) => {
                 const columnId = colId(col)
@@ -172,7 +180,7 @@ export function DataTable<TRow>({
                 const canSort = col.enableSorting !== false
 
                 return (
-                  <th
+                  <AstryxTableHeaderCell
                     key={columnId}
                     tabIndex={canSort ? 0 : undefined}
                     role={canSort ? 'button' : undefined}
@@ -201,16 +209,16 @@ export function DataTable<TRow>({
                       <span>{renderHeader(col)}</span>
                       {sortIndicator(col)}
                     </span>
-                  </th>
+                  </AstryxTableHeaderCell>
                 )
               })}
-            </tr>
-          </thead>
-          <tbody>
+            </AstryxTableRow>
+          </AstryxTableHeader>
+          <AstryxTableBody>
             {topPad > 0 && (
-              <tr>
-                <td style={{ height: `${topPad}px` }} colSpan={colCount} />
-              </tr>
+              <AstryxTableRow>
+                <AstryxTableCell style={{ height: `${topPad}px` }} colSpan={colCount} />
+              </AstryxTableRow>
             )}
 
             {virtualItems.map((virtualRow) => {
@@ -225,7 +233,7 @@ export function DataTable<TRow>({
                 : undefined
 
               return (
-                <tr
+                <AstryxTableRow
                   key={rowKey}
                   ref={rowVirtualizer.measureElement}
                   data-index={virtualRow.index}
@@ -238,16 +246,16 @@ export function DataTable<TRow>({
                   style={rowStyle}
                 >
                   {indexColumn && (
-                    <td className={cn('px-3 py-2', indexColumn.tdClass(row, virtualRow.index))}>
+                    <AstryxTableCell className={cn('px-3 py-2', indexColumn.tdClass(row, virtualRow.index))}>
                       {String(virtualRow.index + 1).padStart(2, '0')}
-                    </td>
+                    </AstryxTableCell>
                   )}
                   {columns.map((col) => {
                     const columnId = colId(col)
                     const val = getValue(row, col)
 
                     return (
-                      <td key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
+                      <AstryxTableCell key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
                         {col.cell
                           ? col.cell({
                               row: { original: row },
@@ -255,20 +263,20 @@ export function DataTable<TRow>({
                               column: { columnDef: col },
                             })
                           : (val as ReactNode)}
-                      </td>
+                      </AstryxTableCell>
                     )
                   })}
-                </tr>
+                </AstryxTableRow>
               )
             })}
 
             {bottomPad > 0 && (
-              <tr>
-                <td style={{ height: `${bottomPad}px` }} colSpan={colCount} />
-              </tr>
+              <AstryxTableRow>
+                <AstryxTableCell style={{ height: `${bottomPad}px` }} colSpan={colCount} />
+              </AstryxTableRow>
             )}
-          </tbody>
-        </table>
+          </AstryxTableBody>
+        </AstryxTable>
       ) : (
         emptyState
       )}
