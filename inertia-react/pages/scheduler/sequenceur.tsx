@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Head, router } from '@inertiajs/react'
-import { Package, Search, TriangleAlert } from 'lucide-react'
+import { Info, Package, Search, TriangleAlert } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -398,7 +398,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
             <span className="font-fraunces text-[13px] italic">Aucun OF pour ces filtres.</span>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto">
+          <>
+            {!props.detail && (
+              <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
+                <Info size={14} strokeWidth={1.75} />
+                <span>Sélectionnez un poste pour afficher les commandes et les dates de livraison.</span>
+              </div>
+            )}
+            <div className="flex-1 overflow-auto">
             <div
               className={cn(
                 'sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-secondary px-7 py-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground',
@@ -538,6 +545,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
               )
             })}
           </div>
+          </>
         )}
       </div>
     </AppLayout>
