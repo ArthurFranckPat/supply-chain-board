@@ -278,7 +278,10 @@ declare module '@adonisjs/inertia/types' {
         count: number
         totalHours: number
         weeklyCapacityHours: number | null
+        atelier: string
+        atelierLabel: string
       }[]
+      ateliers: { code: string; label: string }[]
       rows: any[]
       selectedPoste: string | null
       /** true = commandes/livraison chargées (poste unique, matching scopé) ;

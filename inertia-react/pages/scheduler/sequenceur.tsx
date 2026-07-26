@@ -42,12 +42,15 @@ interface PosteSummary {
   count: number
   totalHours: number
   weeklyCapacityHours: number | null
+  atelier: string
+  atelierLabel: string
 }
 
 type SequenceurRow = EngagementRow & { posteCode: string; posteLabel: string }
 
 interface SequenceurPageProps {
   postes: PosteSummary[]
+  ateliers: { code: string; label: string }[]
   rows: SequenceurRow[]
   selectedPoste: string | null
   /** true = commandes/livraison chargées (poste unique) ; false = vue "tous les
@@ -68,6 +71,20 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [posteQuery, setPosteQuery] = useState('')
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>('all')
   const [query, setQuery] = useState('')
+  // Filtre atelier (#36) — même rattachement STOLOC que /charge.
+  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
+  const toggleAtelier = (code: string) => {
+    setAtelierFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
+  const posteAtelier = useMemo(
+    () => new Map(props.postes.map((p) => [p.code, p.atelier])),
+    [props.postes]
+  )
 
   // Filtre poste : appliqué IMMÉDIATEMENT côté client sur `props.rows` déjà
   // chargées (fonctionne même avant/sans que la navigation serveur n'ait
@@ -88,16 +105,16 @@ export default function Sequenceur(props: SequenceurPageProps) {
 
   const filteredPostes = useMemo(() => {
     const q = posteQuery.trim().toLowerCase()
-    if (!q) return props.postes
-    return props.postes.filter(
-      (p) => p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
-    )
-  }, [props.postes, posteQuery])
+    return props.postes
+      .filter((p) => atelierFilter.size === 0 || atelierFilter.has(p.atelier))
+      .filter((p) => !q || p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q))
+  }, [props.postes, posteQuery, atelierFilter])
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return props.rows
       .filter((r) => !posteFilter || r.posteCode === posteFilter)
+      .filter((r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
       .filter((r) => !props.detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter)
       .filter((r) => {
         if (!q) return true
@@ -112,7 +129,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
           .toLowerCase()
         return haystack.includes(q)
       })
-  }, [props.rows, props.detail, posteFilter, urgencyFilter, query])
+  }, [props.rows, props.detail, posteFilter, atelierFilter, posteAtelier, urgencyFilter, query])
 
   const showPosteCol = !posteFilter
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
@@ -175,6 +192,22 @@ export default function Sequenceur(props: SequenceurPageProps) {
             </Combobox>
           </div>
 
+          {/* Filtre atelier (#36) — même rattachement STOLOC que /charge. */}
+          {props.ateliers.length > 0 && (
+            <Segment className="flex-wrap">
+              {props.ateliers.map((a) => (
+                <SegmentButton
+                  key={a.code}
+                  active={atelierFilter.has(a.code)}
+                  onClick={() => toggleAtelier(a.code)}
+                  title={a.code}
+                >
+                  {a.label}
+                </SegmentButton>
+              ))}
+            </Segment>
+          )}
+
           {props.detail ? (
             <Segment role="radiogroup" ariaLabel="Urgence">
               {(
@@ -219,7 +252,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
         {/* Bandeau postes — sert aussi de liste de postes (n'existe nulle part
             ailleurs dans l'app), cliquable pour naviguer vers le détail. */}
         <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
-          {props.postes.map((p) => {
+          {filteredPostes.map((p) => {
             const s = saturation(p.totalHours, p.weeklyCapacityHours)
             const active = posteFilter === p.code
             return (

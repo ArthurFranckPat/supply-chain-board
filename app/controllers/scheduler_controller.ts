@@ -383,12 +383,20 @@ export default class SchedulerController {
       count: p.count,
       totalHours: p.totalHours,
       weeklyCapacityHours: p.weeklyCapacityHours,
+      atelier: p.atelier,
+      atelierLabel: p.atelierLabel,
     }))
+    // Filtre atelier (#36, même rattachement que /charge) : liste distincte des
+    // ateliers réellement présents parmi les postes affichés.
+    const ateliers = [...new Map(postes.filter((p) => p.atelier).map((p) => [p.atelier, p.atelierLabel])).entries()]
+      .map(([code, label]) => ({ code, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
 
     if (poste) {
       const detail = await loadPosteEngagement(poste, force)
       return ctx.inertia.render('scheduler/sequenceur', {
         postes,
+        ateliers,
         rows: detail.rows.map((r) => ({
           ...r,
           posteCode: detail.poste.code,
@@ -402,6 +410,7 @@ export default class SchedulerController {
 
     return ctx.inertia.render('scheduler/sequenceur', {
       postes,
+      ateliers,
       rows: summaries.postes.flatMap((p) =>
         p.rows.map((r) => ({
           ...r,

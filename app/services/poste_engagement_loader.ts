@@ -7,6 +7,7 @@ import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
 import type { ManufacturingOrder } from '#repositories/of_repository'
+import { atelierLabel as resolveAtelierLabel } from '#app/domain/atelier'
 import cache from '@adonisjs/cache/services/main'
 
 /**
@@ -88,6 +89,10 @@ export interface PosteSummary {
   totalHours: number
   weeklyCapacityHours: number | null
   rows: SummaryRow[]
+  /** Atelier de rattachement (STOLOC du poste) — filtre atelier (#36), même
+   *  rattachement que /charge. Vide si poste hors référentiel. */
+  atelier: string
+  atelierLabel: string
 }
 
 export interface EngagementSummaryDataset {
@@ -202,12 +207,15 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
               (a.dateDebutIso ?? '9999').localeCompare(b.dateDebutIso ?? '9999') ||
               a.numOf.localeCompare(b.numOf)
           )
+        const stoloc = ref.workstations.find((w) => w.code === code)?.stockLocation ?? ''
         return {
           poste: { code, label: labelOf(code) },
           count: rows.length,
           totalHours: Math.round(rows.reduce((s, r) => s + r.hours, 0) * 100) / 100,
           weeklyCapacityHours: weeklyCapacityOf(code, ref.workstations),
           rows,
+          atelier: stoloc,
+          atelierLabel: resolveAtelierLabel(stoloc),
         }
       })
 
