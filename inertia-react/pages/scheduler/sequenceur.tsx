@@ -24,6 +24,7 @@ import {
 import {
   type EngagementRow,
   type Urgency,
+  URGENCY_RANK,
   fmtDateFr,
   fmtH,
   fmtJ,
@@ -168,10 +169,23 @@ export default function Sequenceur(props: SequenceurPageProps) {
         return haystack.includes(q)
       })
     return [...rows].sort((a, b) => {
-      const ra = posteRank.get(a.posteCode) ?? Infinity
-      const rb = posteRank.get(b.posteCode) ?? Infinity
-      if (ra !== rb) return ra - rb
-      return a.numOf.localeCompare(b.numOf)
+      if (showPosteCol) {
+        const ra = posteRank.get(a.posteCode) ?? Infinity
+        const rb = posteRank.get(b.posteCode) ?? Infinity
+        if (ra !== rb) return ra - rb
+      }
+      // En mode détail, ordre métier : en retard, cette semaine, à venir, puis
+      // les OF sans commande liée en dernier (pas "À venir").
+      const aNoCmd = props.detail && a.commandes.length === 0
+      const bNoCmd = props.detail && b.commandes.length === 0
+      if (aNoCmd !== bNoCmd) return aNoCmd ? 1 : -1
+      const ua = urgencyOf(a.livraisonIso)
+      const ub = urgencyOf(b.livraisonIso)
+      if (URGENCY_RANK[ua] !== URGENCY_RANK[ub]) return URGENCY_RANK[ua] - URGENCY_RANK[ub]
+      if (!a.livraisonIso && !b.livraisonIso) return a.numOf.localeCompare(b.numOf)
+      if (!a.livraisonIso) return 1
+      if (!b.livraisonIso) return -1
+      return a.livraisonIso.localeCompare(b.livraisonIso) || a.numOf.localeCompare(b.numOf)
     })
   }, [
     props.rows,
@@ -460,14 +474,22 @@ export default function Sequenceur(props: SequenceurPageProps) {
                     )}
                     {group.rows.map((r, i) => {
                       const u = urgencyOf(r.livraisonIso)
-                      const prevU = i > 0 ? urgencyOf(group.rows[i - 1].livraisonIso) : null
-                      const showSep = props.detail && (prevU === null || prevU !== u)
+                      const bucket = props.detail && r.commandes.length === 0 ? 'none' : u
+                      const prevBucket =
+                        i > 0
+                          ? props.detail && group.rows[i - 1].commandes.length === 0
+                            ? 'none'
+                            : urgencyOf(group.rows[i - 1].livraisonIso)
+                          : null
+                      const showSep = props.detail && (prevBucket === null || prevBucket !== bucket)
                       const sepLabel =
-                        u === 'overdue'
-                          ? '⚠ En retard'
-                          : u === 'week'
-                            ? '◐ Cette semaine'
-                            : '○ À venir'
+                        bucket === 'none'
+                          ? '⊘ Sans commande'
+                          : bucket === 'overdue'
+                            ? '⚠ En retard'
+                            : bucket === 'week'
+                              ? '◐ Cette semaine'
+                              : '○ À venir'
                       const avancement =
                         r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
                       return (
@@ -476,17 +498,19 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             <div
                               className={cn(
                                 'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-wider',
-                                u === 'overdue' && 'text-danger',
-                                u === 'week' && 'text-brand',
-                                u === 'later' && 'text-muted-foreground'
+                                bucket === 'none' && 'text-muted-foreground',
+                                bucket === 'overdue' && 'text-danger',
+                                bucket === 'week' && 'text-brand',
+                                bucket === 'later' && 'text-muted-foreground'
                               )}
                             >
                               <span
                                 className={cn(
                                   'inline-block h-px flex-none w-4',
-                                  u === 'overdue' && 'bg-danger',
-                                  u === 'week' && 'bg-brand',
-                                  u === 'later' && 'bg-rule'
+                                  bucket === 'none' && 'bg-rule',
+                                  bucket === 'overdue' && 'bg-danger',
+                                  bucket === 'week' && 'bg-brand',
+                                  bucket === 'later' && 'bg-rule'
                                 )}
                               />
                               {sepLabel}
