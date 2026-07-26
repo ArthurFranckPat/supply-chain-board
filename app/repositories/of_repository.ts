@@ -71,10 +71,7 @@ WHERE WIPTYP_0 = 5
   AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
 `
 
-/** ENDDAT in [from,to] — fenêtre courte → ZSOAPSQL O(n²) ×N+ plus rapide que lookback 90j.
- * Filtre sur ENDDAT (pas STRDAT) : un OF démarré avant la fenêtre mais toujours en cours
- * (RMNEXTQTY>0) doit rester visible tant qu'il finit dans la fenêtre. Filtrer sur STRDAT
- * le faisait disparaître du board dès que son début sortait de la fenêtre courante. */
+/** STRDAT in [from,to] — fenêtre courte → ZSOAPSQL O(n²) ×N+ plus rapide que lookback 90j ENDDAT. */
 const buildWindowSql = (fromStr: string, toStr: string) => `
 SELECT
   VCRNUM_0    AS NUM,
@@ -89,8 +86,8 @@ FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
-  AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
-  AND ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
+  AND STRDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+  AND STRDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
 `
 
 function toNum(v: string | null | undefined): number {
