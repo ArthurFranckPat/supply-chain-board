@@ -185,7 +185,12 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
       for (const g of ref.gamme) if (g.workstation && POSTE_PP_RE.test(g.workstation)) posteCodes.add(g.workstation)
       for (const o of overrides) if (o.workstation && POSTE_PP_RE.test(o.workstation)) posteCodes.add(o.workstation)
 
-      const postes: PosteSummary[] = [...posteCodes].map((code) => {
+      // Tri croissant sur le numéro (PP_2 avant PP_10) — un tri alpha nu
+      // mettrait PP_10 avant PP_2.
+      const posteNum = (code: string) => Number.parseInt(POSTE_PP_RE.exec(code)?.[0].slice(3) ?? '0', 10)
+      const sortedPosteCodes = [...posteCodes].sort((a, b) => posteNum(a) - posteNum(b))
+
+      const postes: PosteSummary[] = sortedPosteCodes.map((code) => {
         const rows: SummaryRow[] = (fermesByPoste.get(code) ?? [])
           .map((mo) => {
             const ov = overrideMap.get(mo.numOf)
