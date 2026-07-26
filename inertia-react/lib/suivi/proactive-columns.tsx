@@ -336,7 +336,18 @@ export function createProactiveColumns({
             {comps.slice(0, 4).map((c) => (
               <div key={c.art} className="flex flex-col gap-px">
                 <div className="flex items-center gap-1.5">
-                  <span className="shrink-0 font-mono text-[10.5px] font-bold text-foreground">
+                  {/* Sous-ensemble fabriqué (descente BOM ou couvert par production) en teal :
+                      il se traite à l'atelier, pas aux achats — la distinction doit sauter aux
+                      yeux dans une colonne qui mélange les deux. */}
+                  <span
+                    className={cn(
+                      'shrink-0 font-mono text-[10.5px] font-bold',
+                      c.descente || c.couvertParOf ? 'text-planifie' : 'text-foreground'
+                    )}
+                    title={
+                      c.descente || c.couvertParOf ? 'Sous-ensemble fabriqué' : undefined
+                    }
+                  >
                     {c.art}
                   </span>
                   {c.desc && (

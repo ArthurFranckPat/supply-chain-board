@@ -67,6 +67,9 @@ const DEFAULT_RANGE_END = (() => {
   return d
 })()
 
+/** Types de commande cochés au chargement — SOURCE UNIQUE (état initial + réinitialisation). */
+const DEFAULT_TYPES = ['MTS', 'MTO', 'NOR'] as const
+
 interface DateRange {
   start: Date | null
   end: Date | null
@@ -90,7 +93,8 @@ export default function Tracking(props: SuiviPageProps) {
   const view = data ?? EMPTY
 
   // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
-  const [mode, setMode] = useState<'reactif' | 'proactif'>('reactif')
+  // Vue par défaut : c'est celle qui porte la réalisabilité, donc l'usage quotidien.
+  const [mode, setMode] = useState<'reactif' | 'proactif'>('proactif')
   const {
     data: proData,
     loading: proLoading,
@@ -123,10 +127,10 @@ export default function Tracking(props: SuiviPageProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<SuiviStatusKey | 'all'>('all')
   const [verdictFilter, setVerdictFilter] = useState<ProactiveVerdictKey | 'all'>('all')
-  // Vue proactif : inclure les sous-ensembles (semi-finis) en rupture dans la colonne
-  // « Composants en rupture ». Défaut OFF — seuls les composants achetés sont affichés.
-  const [showSubAssemblies, setShowSubAssemblies] = useState(false)
-  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(['MTS', 'MTO']))
+  // Vue proactif : inclure les sous-ensembles (semi-finis) dans la colonne « Composants en
+  // rupture ». Défaut ON — un SE suspendu à un OF bloque la commande autant qu'un acheté.
+  const [showSubAssemblies, setShowSubAssemblies] = useState(true)
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(DEFAULT_TYPES))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
 
@@ -252,12 +256,13 @@ export default function Tracking(props: SuiviPageProps) {
 
   // Filtres secondaires uniquement (hors recherche, qui reste toujours
   // visible dans la rangée) — pilote la pastille du déclencheur FilterMenu.
+  // Un filtre est « actif » quand il s'ÉCARTE du défaut — pas quand il est simplement coché.
+  // Sous-ensembles et NOR étant activés au chargement, c'est leur décochage qui compte.
   const filtersActive =
     (mode === 'reactif' && statusFilter !== 'all') ||
     (mode === 'proactif' && verdictFilter !== 'all') ||
-    (mode === 'proactif' && showSubAssemblies) ||
-    !typeFilter.has('MTS') ||
-    !typeFilter.has('MTO') ||
+    (mode === 'proactif' && !showSubAssemblies) ||
+    DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ||
     atelierFilter.size > 0
   const isFiltered = !!query.trim() || filtersActive
   const filteredCount = mode === 'reactif' ? reactiveFilteredRows.length : proFilteredRows.length
@@ -267,8 +272,8 @@ export default function Tracking(props: SuiviPageProps) {
     setQuery('')
     setStatusFilter('all')
     setVerdictFilter('all')
-    setShowSubAssemblies(false)
-    setTypeFilter(new Set(['MTS', 'MTO']))
+    setShowSubAssemblies(true)
+    setTypeFilter(new Set(DEFAULT_TYPES))
     setAtelierFilter(new Set())
   }
 
@@ -377,7 +382,7 @@ export default function Tracking(props: SuiviPageProps) {
             )}
             <FilterMenuSectionLabel>Type</FilterMenuSectionLabel>
             <Segment className="w-full justify-between">
-              {['MTS', 'MTO', 'NOR'].map((t) => (
+              {DEFAULT_TYPES.map((t) => (
                 <SegmentButton key={t} active={typeFilter.has(t)} onClick={() => toggleType(t)}>
                   {t}
                 </SegmentButton>
