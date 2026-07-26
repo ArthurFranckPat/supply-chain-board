@@ -37,3 +37,6 @@ excalidraw.log
 *.sqlite
 # Local backup files
 *.bak
+
+.hallmark/
+.qwen/
