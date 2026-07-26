@@ -173,10 +173,13 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
         fermesByPoste.set(poste, list)
       }
 
-      const labelOf = (poste: string): string =>
-        ref.workstations.find((w) => w.code === poste)?.description ??
-        ref.gamme.find((g) => g.workstation === poste)?.workstationLabel ??
-        poste
+      // Même source que le board /programme (board_payload_loader.wstLabels) :
+      // libellé de gamme, PAS la description du référentiel workstation — deux
+      // sources différentes qui peuvent diverger, le séquenceur doit afficher
+      // le même nom de ligne que le board.
+      const wstLabels = new Map<string, string>()
+      for (const g of ref.gamme) if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+      const labelOf = (poste: string): string => wstLabels.get(poste) ?? poste
 
       // Séquenceur : uniquement les postes PP_XXX (lignes de production) — écarte
       // les codes hors nomenclature (stocks, ateliers annexes, codes d'override
@@ -369,9 +372,11 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
             a.numOf.localeCompare(b.numOf)
         )
 
-      const wst = ref.workstations.find((w) => w.code === poste)
-      const label =
-        wst?.description ?? ref.gamme.find((g) => g.workstation === poste)?.workstationLabel ?? poste
+      // Même source que /programme (board_payload_loader.wstLabels, dernière
+      // gamme du poste qui gagne) : libellé de gamme, pas la description du
+      // référentiel workstation.
+      let label = poste
+      for (const g of ref.gamme) if (g.workstation === poste) label = g.workstationLabel || g.workstation
 
       return {
         poste: { code: poste, label },
