@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Head, router } from '@inertiajs/react'
 import { Package, Search, TriangleAlert } from 'lucide-react'
 
@@ -69,9 +69,22 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>('all')
   const [query, setQuery] = useState('')
 
-  const activePoste = props.selectedPoste
-    ? props.postes.find((p) => p.code === props.selectedPoste)
-    : null
+  // Filtre poste : appliqué IMMÉDIATEMENT côté client sur `props.rows` déjà
+  // chargées (fonctionne même avant/sans que la navigation serveur n'ait
+  // fini). `gotoPoste` navigue EN PLUS vers /sequenceur/:poste pour charger
+  // le détail complet (commandes/livraison, matching scopé, cf. loader) —
+  // mais le filtrage visible ne dépend jamais de cette navigation.
+  const [posteFilter, setPosteFilter] = useState<string | null>(props.selectedPoste)
+  useEffect(() => {
+    setPosteFilter(props.selectedPoste)
+  }, [props.selectedPoste])
+
+  function selectPoste(poste: string | null) {
+    setPosteFilter(poste)
+    gotoPoste(poste)
+  }
+
+  const activePoste = posteFilter ? props.postes.find((p) => p.code === posteFilter) : null
 
   const filteredPostes = useMemo(() => {
     const q = posteQuery.trim().toLowerCase()
@@ -84,6 +97,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return props.rows
+      .filter((r) => !posteFilter || r.posteCode === posteFilter)
       .filter((r) => !props.detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter)
       .filter((r) => {
         if (!q) return true
@@ -98,9 +112,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
           .toLowerCase()
         return haystack.includes(q)
       })
-  }, [props.rows, props.detail, urgencyFilter, query])
+  }, [props.rows, props.detail, posteFilter, urgencyFilter, query])
 
-  const showPosteCol = !props.selectedPoste
+  const showPosteCol = !posteFilter
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
   const sat = activePoste ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours) : null
   const weeksEngaged =
@@ -139,8 +153,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
         <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
           <div ref={anchorRef}>
             <Combobox
-              value={props.selectedPoste ?? ''}
-              onValueChange={(v) => gotoPoste(v ? String(v) : null)}
+              value={posteFilter ?? ''}
+              onValueChange={(v) => selectPoste(v ? String(v) : null)}
               onInputValueChange={setPosteQuery}
             >
               <ComboboxInput placeholder="Tous les postes" className="w-[220px]" showClear />
@@ -207,12 +221,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
         <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
           {props.postes.map((p) => {
             const s = saturation(p.totalHours, p.weeklyCapacityHours)
-            const active = props.selectedPoste === p.code
+            const active = posteFilter === p.code
             return (
               <button
                 key={p.code}
                 type="button"
-                onClick={() => gotoPoste(active ? null : p.code)}
+                onClick={() => selectPoste(active ? null : p.code)}
                 className={cn(
                   'flex flex-none items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[11px] transition-colors',
                   active
