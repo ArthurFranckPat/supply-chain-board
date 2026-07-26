@@ -89,7 +89,12 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
   const toIso = isoDay(to)
 
   const engagementCache = () => cache.namespace('engagement')
-  const cacheKey = `poste:${poste}:${isoDay(today)}`
+  // Clé STABLE (pas de rotation quotidienne) : avec le SWR bentocache (timeout 0
+  // par défaut), une valeur en grâce (12 h) est servie INSTANTANÉMENT pendant le
+  // recalcul en arrière-plan. Une clé datée changeait à minuit → aucune grâce
+  // servable au 1er hit du jour → recalcul synchrone (jusqu'à ~20 s si
+  // board:orders était aussi froid — mur froid mesuré : 22,5 s sur /sequenceur).
+  const cacheKey = `poste:${poste}`
   if (force) await engagementCache().delete({ key: cacheKey })
 
   return engagementCache().getOrSet({
