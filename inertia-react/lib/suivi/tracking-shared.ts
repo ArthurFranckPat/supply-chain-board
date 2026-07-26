@@ -10,6 +10,23 @@ import type {
   SuiviDisplayRow,
 } from '@r/lib/suivi/types'
 
+/**
+ * Clé d'identité d'une ligne de Suivi — SOURCE UNIQUE.
+ *
+ * Sert à la fois de clé React (DataTable) et de cible du surlignage de sélection : les deux
+ * DOIVENT être calculées ici. Historiquement les vues construisaient 3 segments et la page n'en
+ * comparait que 2 (`numCommande::article`), donc `getRowKey(row) === selectedRowKey` n'était
+ * jamais vrai et la ligne cliquée ne s'allumait jamais.
+ */
+export function suiviRowKey(row: {
+  numCommande: string
+  article: string
+  dateExpIso: string | null
+  dateExp: string
+}): string {
+  return `${row.numCommande}::${row.article}::${row.dateExpIso ?? row.dateExp}`
+}
+
 export const EMPTY: SuiviRowsResponse = {
   total: 0,
   statusCounts: { A_EXPEDIER: 0, ALLOCATION_A_FAIRE: 0, RETARD_PROD: 0, RAS: 0 },

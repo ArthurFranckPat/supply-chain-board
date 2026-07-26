@@ -205,16 +205,20 @@ export function createProactiveColumns({
                     >
                       {of.numOf}
                     </button>
+                    {/* `relative` OBLIGATOIRE sur le conteneur du halo : `animate-ping` est en
+                        `absolute` et se cale sur le premier ancêtre positionné. Sans lui il
+                        s'échappait de la cellule et se peignait par-dessus des lignes sans
+                        rapport — d'où des « OF en cours » fantômes dans un tableau virtualisé. */}
                     {of.estDebuté && (
                       <span
-                        className="flex size-1.5 shrink-0"
+                        className="relative flex size-1.5 shrink-0"
                         title={
                           of.piecesFaites != null && of.piecesTotalOf
                             ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
                             : 'OF démarré — pointage atelier en cours'
                         }
                       >
-                        <span className="absolute inline-flex size-1.5 animate-ping rounded-full bg-ferme opacity-75" />
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ferme opacity-75" />
                         <span className="relative inline-flex size-1.5 rounded-full bg-ferme" />
                       </span>
                     )}

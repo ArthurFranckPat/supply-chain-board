@@ -11,7 +11,7 @@ import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { SuiviRowsResponse, SuiviDisplayRow } from '@r/lib/suivi/types'
-import { sortRows, LATE_TONE } from '@r/lib/suivi/tracking-shared'
+import { sortRows, LATE_TONE, suiviRowKey } from '@r/lib/suivi/tracking-shared'
 import { createReactiveColumns, createReactiveIndexCol } from '@r/lib/suivi/reactive-columns'
 
 export interface ReactiveViewProps {
@@ -83,7 +83,7 @@ export function ReactiveView(props: ReactiveViewProps) {
             theadRowClass="sticky top-0 z-10 bg-secondary"
             onRowClick={props.onRowClick}
             selectedRowKey={props.selectedRowKey}
-            getRowKey={(row: SuiviDisplayRow) => `${row.numCommande}::${row.article}::${row.dateExpIso ?? row.dateExp}`}
+            getRowKey={suiviRowKey}
             emptyState={
               <div className="flex flex-1 items-center justify-center p-12 text-center">
                 <div className="flex flex-col items-center">

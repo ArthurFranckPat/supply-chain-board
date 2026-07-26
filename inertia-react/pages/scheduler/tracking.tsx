@@ -21,7 +21,7 @@ import type {
   ProactiveDisplayRow,
 } from '@r/lib/suivi/types'
 import { toIso, startOfDay } from '@r/lib/vision/date-utils'
-import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@r/lib/suivi/tracking-shared'
+import { EMPTY, PROACTIVE_EMPTY, fmtMs, suiviRowKey } from '@r/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -223,9 +223,7 @@ export default function Tracking(props: SuiviPageProps) {
     if (next.start && next.end) setDateOpen(false)
   }
 
-  const selectedRowKey = selectedRow
-    ? `${selectedRow.row.numCommande}::${selectedRow.row.article}`
-    : null
+  const selectedRowKey = selectedRow ? suiviRowKey(selectedRow.row) : null
 
   const loading = mode === 'reactif' ? rowsLoading : proLoading
   const lastMs = mode === 'reactif' ? rowsMs : proMs
