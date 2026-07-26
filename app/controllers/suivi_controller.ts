@@ -549,6 +549,28 @@ const CAUSE_LABEL: Record<CauseType, string> = {
   INCONNUE: 'Cause indéterminée',
 }
 
+/**
+ * OF réellement nécessaires pour couvrir `manque` : cumul par date croissante, on s'arrête dès
+ * que la quantité est atteinte. Même lentille que `resolveCoveringReception` côté achats —
+ * lister les OF suivants serait FAUX, ils ne couvrent pas ce manque-là. Vérifié sur EBH1257AL /
+ * F426-42920 : manque 50 sur EH6139 → SGAE…102 (35) puis SGAE…103 (3744) suffisent, SGAE…104
+ * n'a rien à voir avec cette commande.
+ * `ofs` DOIT être trié par date croissante (l'appelant s'en charge une fois par article).
+ */
+export function coveringOfs(
+  ofs: { numOf: string; dateFin: string | null; qty: number }[],
+  manque: number
+): { numOf: string; dateFin: string | null }[] {
+  const out: { numOf: string; dateFin: string | null }[] = []
+  let cumul = 0
+  for (const of of ofs) {
+    out.push({ numOf: of.numOf, dateFin: of.dateFin })
+    cumul += of.qty
+    if (cumul >= manque) break
+  }
+  return out
+}
+
 /** Formate une date ISO (YYYY-MM-DD) en JJ/MM — '' si absente. */
 function fmtFrDay(iso: string | null | undefined): string {
   if (!iso) return ''
@@ -780,18 +802,25 @@ export function buildProactiveDisplay(
 
   // Index des OF producteurs par article (fenêtre courante), le plus tôt d'abord — sert à
   // nommer l'OF dont dépend un SE couvert par production (`couvertParOf`).
-  const ofsByProducedArticle = new Map<string, { numOf: string; dateFin: string | null }[]>()
+  const ofsByProducedArticle = new Map<
+    string,
+    { numOf: string; dateFin: string | null; qty: number }[]
+  >()
   for (const f of bomContext?.supplyFlows ?? []) {
     if (f.direction !== 'supply' || f.origin.type !== 'of' || f.quantity <= 0) continue
     const numOf = ((f.origin as { id?: string }).id ?? '').trim()
     if (!numOf) continue
     const arr = ofsByProducedArticle.get(f.article) ?? []
-    arr.push({ numOf, dateFin: f.date ? isoLocalDay(f.date) : null })
+    arr.push({ numOf, dateFin: f.date ? isoLocalDay(f.date) : null, qty: f.quantity })
     ofsByProducedArticle.set(f.article, arr)
   }
   for (const arr of ofsByProducedArticle.values()) {
-    arr.sort((a, b) => (a.dateFin ?? '9999').localeCompare(b.dateFin ?? '9999'))
+    arr.sort((a, b) => {
+      const d = (a.dateFin ?? '9999').localeCompare(b.dateFin ?? '9999')
+      return d !== 0 ? d : a.numOf.localeCompare(b.numOf)
+    })
   }
+
 
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
@@ -899,7 +928,7 @@ export function buildProactiveDisplay(
           descente: null,
           couvertParOf: {
             manque: Math.round(manque * 100) / 100,
-            ofs: (ofsByProducedArticle.get(art) ?? []).slice(0, 3).map((of) => ({
+            ofs: coveringOfs(ofsByProducedArticle.get(art) ?? [], manque).map((of) => ({
               numOf: of.numOf,
               dateFin: of.dateFin ? fmtFrDay(of.dateFin) : null,
             })),
