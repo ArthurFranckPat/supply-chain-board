@@ -133,6 +133,27 @@
     border-radius: var(--r-pill); padding: 5px 12px; font-size: 11px; font-weight: 600; color: var(--muted);
   }
 
+  /* ── Dropdown « + Mutation » — la commande virtuelle n'est qu'une option ── */
+  .panel { position: relative; }
+  .panel-pop {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; width: 268px;
+    background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px;
+    box-shadow: var(--shadow-float); padding: 6px; display: none;
+  }
+  .panel.open .panel-pop { display: block; }
+  .pop-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 6px 10px 7px; }
+  .menu-item {
+    display: flex; align-items: flex-start; gap: 10px; width: 100%; border: 0; background: transparent;
+    cursor: pointer; text-align: left; border-radius: 8px; padding: 8px 10px; transition: background .12s;
+  }
+  .menu-item:hover { background: var(--surface-soft); }
+  .menu-item svg { color: var(--muted); margin-top: 2px; transition: color .12s; }
+  .menu-item:hover svg { color: var(--rausch); }
+  .menu-item b { display: block; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .menu-item i { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .btn .chev { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; color: var(--muted); transition: transform .15s; }
+  .panel.open .chev { transform: rotate(180deg); }
+
   /* ── V1 · Capsule — parenthèse assumée ── */
   .sc-band.v1 { background: var(--rausch-soft); position: relative; padding-left: 26px; }
   .sc-band.v1 .sc-rail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--rausch); }
@@ -248,7 +269,7 @@
     <div class="version-head">
       <div class="kicker">Parenthèse assumée</div>
       <h2>Le mode what-if se voit : rail Rausch, fond teinté, compteur-phrase</h2>
-      <p>Le bandeau n'est plus une seconde toolbar mais une <em>capsule de mode</em> en trois zones de poids croissant : identité (rail + « Scénario » + nom + le compteur devenu phrase « 3 mutations en attente »), outils (commande virtuelle, ouvrir, stratégie — en outline de second niveau), décision à droite — <b>Appliquer est le seul bouton solid Rausch</b>, Jeter est repoussé derrière un séparateur vertical, en ghost qui ne rougit qu'au survol. La séparation « écrit en X3 / détruit tout » est visible <em>avant</em> le clic, plus seulement dans l'AlertDialog.</p>
+      <p>Le bandeau n'est plus une seconde toolbar mais une <em>capsule de mode</em> en trois zones de poids croissant : identité (rail + « Scénario » + nom + le compteur devenu phrase « 3 mutations en attente »), outils en outline de second niveau — <b>+ Mutation est un dropdown</b> (la commande virtuelle n'y est qu'une option parmi décaler un OF, décaler une demande, suspendre un appro) + Ouvrir + stratégie — et décision à droite : <b>Appliquer est le seul bouton solid Rausch</b>, Jeter est repoussé derrière un séparateur vertical, en ghost qui ne rougit qu'au survol. La séparation « écrit en X3 / détruit tout » est visible <em>avant</em> le clic, plus seulement dans l'AlertDialog.</p>
       <div class="tradeoff"><b>Gain :</b> mode lisible au premier coup d'œil (c'est l'info n°1), hiérarchie de décision nette. <b>Coût :</b> bandeau plus présent que l'actuel (teinte permanente), nom éditable toujours exposé.</div>
     </div>
 
@@ -274,7 +295,16 @@
           <span class="sc-count num"><span class="dot"></span>3 mutations en attente</span>
         </div>
         <div class="sc-tools">
-          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Commande virtuelle</button>
+          <div class="panel open">
+            <button class="btn outline" data-panel aria-expanded="true"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Mutation<svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="panel-pop">
+              <p class="pop-lbl">Ajouter une mutation</p>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg><span><b>Commande virtuelle</b><i>Injecter une demande client what-if</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span><b>Décaler un OF</b><i>Re-dater son lancement ou sa fin</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg><span><b>Décaler une demande</b><i>Re-dater une ligne de commande</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 10v4"/><path d="M15 10v4"/></svg><span><b>Suspendre un appro</b><i>Geler une réception prévue</i></span></button>
+            </div>
+          </div>
           <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Ouvrir</button>
           <select class="sc-strat" aria-label="Règle d'allocation">
             <option>Date de besoin</option>
@@ -291,7 +321,7 @@
         </div>
       </div>
 
-      <div class="fake-board h64">board (contexte)</div>
+      <div class="fake-board h220">board (contexte)</div>
     </div></div>
   </section>
 
@@ -300,7 +330,7 @@
     <div class="version-head">
       <div class="kicker">Discrétion outil</div>
       <h2>Un liseré Rausch porte le mode, tout le reste reste sage</h2>
-      <p>Empreinte minimale : fond blanc, un <b>liseré Rausch 2px</b> en haut du bandeau + une pastille devant « Scénario » — c'est tout le marquage de mode. La hiérarchie passe par la taille et le poids : identité compacte à gauche, outils en petits outline, décision à droite avec Appliquer seul solid et <b>Jeter réduit à l'icône</b> (tooltip « Jeter le scénario »), séparé par un filet. Le compteur redevient un badge court (« 3 mut. »).</p>
+      <p>Empreinte minimale : fond blanc, un <b>liseré Rausch 2px</b> en haut du bandeau + une pastille devant « Scénario » — c'est tout le marquage de mode. La hiérarchie passe par la taille et le poids : identité compacte à gauche, outils en petits outline (<b>+ Mutation en dropdown</b> : commande virtuelle, décaler un OF / une demande, suspendre un appro), décision à droite avec Appliquer seul solid et <b>Jeter réduit à l'icône</b> (tooltip « Jeter le scénario »), séparé par un filet. Le compteur redevient un badge court (« 3 mut. »).</p>
       <div class="tradeoff"><b>Gain :</b> très proche de la toolbar actuelle, sobre, prend peu de hauteur. <b>Coût :</b> parenthèse what-if peu lisible (risque de re-lire « seconde toolbar »), Jeter en icône seule est moins explicite — l'AlertDialog de confirmation reste indispensable.</div>
     </div>
 
@@ -328,7 +358,16 @@
           <option>Priorité prévisions</option>
         </select>
         <div class="sc-tools">
-          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Cde virtuelle</button>
+          <div class="panel">
+            <button class="btn outline" data-panel aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Mutation<svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="panel-pop">
+              <p class="pop-lbl">Ajouter une mutation</p>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg><span><b>Commande virtuelle</b><i>Injecter une demande client what-if</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span><b>Décaler un OF</b><i>Re-dater son lancement ou sa fin</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg><span><b>Décaler une demande</b><i>Re-dater une ligne de commande</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 10v4"/><path d="M15 10v4"/></svg><span><b>Suspendre un appro</b><i>Geler une réception prévue</i></span></button>
+            </div>
+          </div>
           <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Ouvrir</button>
         </div>
         <div class="sc-decide">
@@ -349,7 +388,7 @@
     <div class="version-head">
       <div class="kicker">Radical — « modifications non enregistrées »</div>
       <h2>Le bandeau devient identité, la décision descend en barre flottante</h2>
-      <p>En haut : une barre purement <em>identitaire</em> (Scénario + nom + compteur + outils), sans teinte. La décision migre dans une <b>barre flottante encre</b> posée sur le board — même grammaire que les toasts sonner (pilule encre bas-centre) — qui porte Impacts / Enregistrer / Appliquer / Jeter et le compteur de mutations. Mental model « changements en attente » : tant qu'il reste des mutations, la décision suit le regard, même en scrollant le board.</p>
+      <p>En haut : une barre purement <em>identitaire</em> (Scénario + nom + compteur + outils, dont le dropdown <b>+ Mutation</b> — commande virtuelle, décaler un OF / une demande, suspendre un appro), sans teinte. La décision migre dans une <b>barre flottante encre</b> posée sur le board — même grammaire que les toasts sonner (pilule encre bas-centre) — qui porte Impacts / Enregistrer / Appliquer / Jeter et le compteur de mutations. Mental model « changements en attente » : tant qu'il reste des mutations, la décision suit le regard, même en scrollant le board.</p>
       <div class="tradeoff"><b>Gain :</b> décision toujours visible, bandeau haut allégé, très fort rappel « rien n'est écrit en X3 ». <b>Coût :</b> overlay sur le board (masque une rangée en bas), un état de plus à gérer (barre visible ⇔ mutations &gt; 0), rupture avec la position actuelle sous la toolbar.</div>
     </div>
 
@@ -372,7 +411,16 @@
         <input class="sc-name" value="Urgence client Dupont" aria-label="Nom du scénario" />
         <span class="sc-count num"><span class="dot"></span>3 mutations en attente</span>
         <div class="sc-tools">
-          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Commande virtuelle</button>
+          <div class="panel">
+            <button class="btn outline" data-panel aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Mutation<svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="panel-pop">
+              <p class="pop-lbl">Ajouter une mutation</p>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg><span><b>Commande virtuelle</b><i>Injecter une demande client what-if</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span><b>Décaler un OF</b><i>Re-dater son lancement ou sa fin</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg><span><b>Décaler une demande</b><i>Re-dater une ligne de commande</i></span></button>
+              <button class="menu-item"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 10v4"/><path d="M15 10v4"/></svg><span><b>Suspendre un appro</b><i>Geler une réception prévue</i></span></button>
+            </div>
+          </div>
           <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Ouvrir</button>
           <select class="sc-strat" aria-label="Règle d'allocation">
             <option>Date de besoin</option>
@@ -479,6 +527,26 @@
       document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
       document.querySelectorAll('.version').forEach((v) => v.classList.toggle('active', v.id === t.dataset.v));
     })
+  );
+
+  // Dropdown « + Mutation » — ouverture au clic, fermeture ailleurs / sur item.
+  document.querySelectorAll('[data-panel]').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const p = b.closest('.panel');
+      const wasOpen = p.classList.contains('open');
+      document.querySelectorAll('.panel.open').forEach((x) => x.classList.remove('open'));
+      if (!wasOpen) p.classList.add('open');
+      b.setAttribute('aria-expanded', String(!wasOpen));
+    })
+  );
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.panel')) {
+      document.querySelectorAll('.panel.open').forEach((x) => x.classList.remove('open'));
+    }
+  });
+  document.querySelectorAll('.menu-item').forEach((m) =>
+    m.addEventListener('click', () => m.closest('.panel').classList.remove('open'))
   );
 </script>
 </body>
