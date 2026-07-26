@@ -66,18 +66,43 @@ function gotoPoste(poste: string | null) {
   router.visit(poste ? route('sequenceur.show', { poste }) : route('sequenceur.index'))
 }
 
+// Persisté en sessionStorage (survit à une navigation/remount de page, contrairement
+// à un simple useState) — le filtre atelier se réinitialisait à chaque clic sur un
+// poste (navigation Inertia vers /sequenceur/:poste = nouveau rendu de page).
+const ATELIER_STORAGE_KEY = 'sequenceur:ateliers'
+
+function readStoredAteliers(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(ATELIER_STORAGE_KEY)
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function writeStoredAteliers(codes: Set<string>) {
+  try {
+    sessionStorage.setItem(ATELIER_STORAGE_KEY, JSON.stringify([...codes]))
+  } catch {
+    // sessionStorage indisponible (navigation privée stricte…) — le filtre
+    // reste fonctionnel pour la session en cours, juste non persisté.
+  }
+}
+
 export default function Sequenceur(props: SequenceurPageProps) {
   const anchorRef = useComboboxAnchor()
   const [posteQuery, setPosteQuery] = useState('')
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>('all')
   const [query, setQuery] = useState('')
-  // Filtre atelier (#36) — même rattachement STOLOC que /charge.
-  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
+  // Filtre atelier (#36) — même rattachement STOLOC que /charge. Persisté en
+  // sessionStorage, cf. commentaire au-dessus de readStoredAteliers.
+  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(readStoredAteliers)
   const toggleAtelier = (code: string) => {
     setAtelierFilter((prev) => {
       const next = new Set(prev)
       if (next.has(code)) next.delete(code)
       else next.add(code)
+      writeStoredAteliers(next)
       return next
     })
   }
