@@ -17,12 +17,23 @@
    l'un sur l'autre écrase l'accent Astryx → primary/brand/planifie deviennent
    du gris muted quasi invisible (segments actifs, Semaine N, wordmark…).
    Pour une surface de hover : bg-muted / bg-background-muted.
+
+   FOOTGUN (fix 2026-07-26) — ordre des @layer :
+   `@import 'tailwindcss'` déclare `theme, base, components, utilities`.
+   Si le reset Astryx est déclaré APRÈS, `reset` et `astryx-base` sont
+   appendus APRÈS `utilities` → le `button { padding: 0 }` du reset bat
+   tous les `px-*`/`py-*`/`gap-*` Tailwind. Conséquence : toolbar
+   écrasée (OFCombinéCmdes collés, pills sans padding, chrome déformé).
+   L'ordre DOIT être posé ICI, avant tout @import. Cf. astryx docs
+   migration § cascade-layer-safety + README core (split imports).
    ════════════════════════════════════════════════════════════ */
+
+/* AVANT tout @import — utilities doit rester le layer le plus haut. */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
 
 @import 'tailwindcss';
 
-/* Socle Astryx 0.1.8 — coexistence cascade + reset + theme-neutral.
-   Ordre @layer déclaré dans astryx.css lui-même. */
+/* Socle Astryx 0.1.8 — coexistence cascade + reset + theme-neutral. */
 @import './astryx.css';
 
 /* Polices — Plus Jakarta Sans Variable (substitut Cereal VF, choix 20/07). */

@@ -12,19 +12,24 @@
  * l'ordre explicite @layer AVANT tout @import, puis wrapper le reset
  * Astryx dans @layer reset pour le promouvoir en bas de la cascade.
  *
- * Couches (ordre croissant de priorité) :
+ * Couches (ordre croissant de priorité) — DOIT coller à app.css :
  *   reset         → reset Astryx (le plus bas)
- *   theme         → tokens theme-neutral
- *   astryx-base   → styles composants Astryx (auto-déclarés en interne)
- *   tw-base       → base Tailwind v4 (@layer base)
- *   tw-components → composants Tailwind
- *   utilities     → utilitaires Tailwind (gagnent par défaut)
+ *   theme         → tokens theme-neutral + @theme Tailwind
+ *   base          → preflight Tailwind
+ *   astryx-base   → styles composants Astryx
+ *   astryx-theme  → overrides thème Astryx
+ *   components    → composants Tailwind
+ *   utilities     → utilitaires Tailwind (DOIT rester le plus haut)
  *
  * Plus de couche shadcn depuis le lot 4 (issue #90) — shadcn supprimé.
  * ════════════════════════════════════════════════════════════ */
 
-/* 1. Ordre des couches — AVANT tout @import. */
-@layer reset, theme, astryx-base, tw-base, tw-components, utilities;
+/* 1. Ordre des couches — AVANT tout @import de CE fichier.
+ *    Doit coller à app.css (déclaré en amont, avant @import 'tailwindcss').
+ *    NE PAS inventer de layers (tw-base/tw-components) absents de Tailwind :
+ *    un nom nouveau déclaré après utilities s'appende APRÈS et bat les
+ *    utilitaires (bug chrome programme 2026-07-26). */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
 
 /* 2. Reset Astryx — wrappé explicitement. Sans ce wrapper, l'@import
  *    serait non-layeré et gagnerait sur tous les utilitaires Tailwind. */
