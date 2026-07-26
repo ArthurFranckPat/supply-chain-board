@@ -8,6 +8,20 @@ See `.planning/PROJECT.md` for project overview.
 
 ## Création de worktree
 
+**JAMAIS de worktree à l'intérieur du repo** (donc jamais sous `.claude/worktrees/`).
+Les worktrees vivent dans le dossier frère :
+
+```bash
+git worktree add ../supply-chain-board-worktrees/<branche> <branche>
+```
+
+Pourquoi : le watcher du dev server (`node ace serve --hmr`) parcourt tout l'arbre
+depuis la racine et n'honore aucune exclusion — l'`ignored` de l'assembler répond
+« ne pas ignorer » quand chokidar l'appelle sans `stats`, y compris pour
+`node_modules`. Deux worktrees dans le repo = 16 576 dossiers en plus, le watcher
+sature `kern.maxfilesperproc` et meurt en `EMFILE: too many open files, watch`.
+Hors du repo : 577 watchers au lieu de 30 579.
+
 Après `git worktree add`, **toujours** :
 
 1. Copier depuis le worktree source : `.env` et `tmp/db.sqlite3` (gitignorés, indispensables).
