@@ -3,26 +3,38 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Séquenceur — 3 layouts Airbnb</title>
+    <title>Séquenceur — maquettes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="_airbnb.css" />
     <style>
+      :root {
+        --rausch: #ff385c;
+        --ink: #222;
+        --muted: #6a6a6a;
+        --hairline: #ddd;
+        --surface: #f7f7f7;
+        --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
       body {
-        overflow: auto;
-        display: block;
-      }
-
-      .wrap {
-        max-width: 720px;
-        margin: 0 auto;
+        font-family: var(--font);
+        color: var(--ink);
+        background: #fff;
         padding: 48px 24px 80px;
+        -webkit-font-smoothing: antialiased;
       }
-
+      .wrap {
+        max-width: 640px;
+        margin: 0 auto;
+      }
       .eyebrow {
         font-size: 11px;
         font-weight: 700;
@@ -31,132 +43,97 @@
         color: var(--rausch);
         margin-bottom: 8px;
       }
-
       h1 {
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 800;
         letter-spacing: -0.03em;
-        line-height: 1.15;
       }
-
       .lede {
         margin-top: 10px;
         color: var(--muted);
         font-size: 14px;
         font-weight: 500;
-        max-width: 52ch;
         line-height: 1.5;
+        max-width: 48ch;
       }
-
-      .note {
-        margin-top: 16px;
-        padding: 12px 14px;
-        border: 1px solid var(--hairline);
-        border-radius: var(--r-btn);
-        background: var(--surface);
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--body);
-        line-height: 1.5;
-      }
-
-      .note code {
-        font-family: inherit;
-        font-weight: 700;
-        color: var(--ink);
-      }
-
-      ul {
-        list-style: none;
-        margin-top: 28px;
-        display: grid;
-        gap: 12px;
-      }
-
       a.card {
         display: block;
+        margin-top: 28px;
+        padding: 20px 22px;
+        border: 1px solid var(--hairline);
+        border-radius: 14px;
         text-decoration: none;
         color: inherit;
-        border: 1px solid var(--hairline);
-        border-radius: var(--r-card);
-        padding: 18px 20px;
-        background: var(--canvas);
-        transition: border-color 0.15s, box-shadow 0.15s;
+        transition: border-color 0.15s;
       }
-
       a.card:hover {
         border-color: var(--ink);
-        box-shadow: var(--shadow-float);
       }
-
-      .tag {
+      a.card .tag {
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--rausch);
       }
-
       a.card h2 {
         margin-top: 6px;
         font-size: 17px;
         font-weight: 800;
-        letter-spacing: -0.02em;
       }
-
       a.card p {
         margin-top: 6px;
         font-size: 13px;
-        font-weight: 500;
         color: var(--muted);
         line-height: 1.45;
+      }
+      .archive {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid var(--hairline);
+      }
+      .archive h3 {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      .archive a {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        text-decoration: none;
+        padding: 4px 0;
+      }
+      .archive a:hover {
+        color: var(--ink);
       }
     </style>
   </head>
   <body>
     <div class="wrap">
       <div class="eyebrow">Séquenceur · theme-airbnb</div>
-      <h1>Trois layouts, une grammaire</h1>
+      <h1>Maquette retenue</h1>
       <p class="lede">
-        Même contenu (PP_830 · Easy Home), mêmes tokens que l’app
-        (<code>theme="airbnb"</code>. Différence = structure d’interaction, pas de costume.
+        Même layout que la page prod. Cinq tweaks de lecture — pas de nouvelle structure.
       </p>
-      <div class="note">
-        Remplace les maquettes Hallmark (terminal / newsprint / cobalt). Tokens :
-        <code>_airbnb.css</code> aligné sur <code>inertia-react/styles/app.css</code>.
+      <a class="card" href="polish.html">
+        <div class="tag">Polish</div>
+        <h2>UI actuelle améliorée</h2>
+        <p>
+          Mode détail sans chips postes · livraison par urgence · article ink · séparateurs +
+          compteurs · typo Jakarta.
+        </p>
+      </a>
+      <div class="archive">
+        <h3>Archives (layouts exploratoires)</h3>
+        <a href="a-master-detail.html">A · Master-detail</a>
+        <a href="b-frise.html">B · Frise</a>
+        <a href="c-triage.html">C · Triage</a>
       </div>
-      <ul>
-        <li>
-          <a class="card" href="a-master-detail.html">
-            <div class="tag">A · Master-detail</div>
-            <h2>Rail postes + file OF</h2>
-            <p>
-              Browse par poste. Charge et saturation dans le rail. Table urgence à droite — proche
-              de la page actuelle, verticalisée.
-            </p>
-          </a>
-        </li>
-        <li>
-          <a class="card" href="b-frise.html">
-            <div class="tag">B · Frise</div>
-            <h2>Charge dans le temps</h2>
-            <p>
-              Une piste par poste, blocs OF sur 10 jours. Capacité en bande, surcharge visible.
-              Même chrome Programme.
-            </p>
-          </a>
-        </li>
-        <li>
-          <a class="card" href="c-triage.html">
-            <div class="tag">C · Triage</div>
-            <h2>À traiter | Suite</h2>
-            <p>
-              Session matin : vider la pile retard + semaine. Droite = à venir et sans commande.
-              Zéro KPI card.
-            </p>
-          </a>
-        </li>
-      </ul>
     </div>
   </body>
 </html>
