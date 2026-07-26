@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Séquenceur C — Triage matin · Airbnb</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="_airbnb.css" />
+    <style>
+      .poste-strip {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 10px 28px;
+        border-bottom: 1px solid var(--hairline);
+        background: var(--surface);
+      }
+
+      .poste-chip {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border: 1px solid var(--hairline);
+        border-radius: 8px;
+        background: var(--canvas);
+        font-size: 11px;
+        font-weight: 600;
+        transition: border-color 0.15s, background 0.15s, color 0.15s;
+      }
+
+      .poste-chip:hover {
+        border-color: rgba(255, 56, 92, 0.5);
+      }
+
+      .poste-chip.on {
+        border-color: var(--rausch);
+        background: var(--rausch-soft);
+        color: var(--rausch);
+      }
+
+      .poste-chip .code {
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .poste-chip .n {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .poste-chip.on .n {
+        color: var(--rausch);
+        opacity: 0.8;
+      }
+
+      .split {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .col {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--hairline);
+      }
+
+      .col:last-child {
+        border-right: none;
+      }
+
+      .col-head {
+        flex: none;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 14px 20px 12px;
+        border-bottom: 1px solid var(--hairline);
+        background: var(--canvas);
+      }
+
+      .col-head h2 {
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .col-head .count {
+        font-size: 12px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+      }
+
+      .col-head.urgent h2 {
+        color: var(--danger);
+      }
+
+      .col-head .hours {
+        margin-left: auto;
+        font-size: 12px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .col-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .item {
+        display: grid;
+        grid-template-columns: 7rem 1fr auto;
+        gap: 4px 12px;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--hairline-soft);
+        text-align: left;
+        transition: background 0.12s;
+      }
+
+      .item:hover {
+        background: var(--surface);
+      }
+
+      .item .of {
+        font-size: 12px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .item .art {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--rausch);
+        font-variant-numeric: tabular-nums;
+        justify-self: end;
+      }
+
+      .item .des {
+        grid-column: 1 / 3;
+        font-size: 12px;
+        color: var(--body);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .item .meta {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .item .hrs {
+        margin-left: auto;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+
+      .bucket {
+        padding: 10px 20px 4px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .bucket.retard {
+        color: var(--danger);
+      }
+
+      .bucket.week {
+        color: var(--rausch);
+      }
+
+      .empty {
+        padding: 32px 20px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--muted);
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="wordmark">Supply <b>Chain</b></div>
+      <nav class="nav">
+        <a href="#">Programme</a>
+        <a href="#">Charge</a>
+        <a class="active" href="#">Séquenceur</a>
+        <a href="#">Suivi</a>
+      </nav>
+      <div class="mast-meta"><b>4</b> à traiter · <b>3</b> en suite · PP_830</div>
+    </header>
+
+    <div class="toolbar">
+      <div class="seg" aria-label="Atelier">
+        <button type="button" class="on">Easy Home</button>
+        <button type="button">VMC</button>
+        <button type="button">Injection</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="pill">
+        <span style="color: var(--muted)">⌕</span>
+        <input type="search" placeholder="OF, article, commande…" />
+      </div>
+    </div>
+
+    <div class="poste-strip" aria-label="Postes">
+      <button type="button" class="poste-chip on"><span class="code">PP_830</span><span class="n">14</span></button>
+      <button type="button" class="poste-chip"><span class="code">PP_820</span><span class="n">9</span></button>
+      <button type="button" class="poste-chip"><span class="code">PP_810</span><span class="n">6</span></button>
+      <button type="button" class="poste-chip"><span class="code">PP_840</span><span class="n">4</span></button>
+      <button type="button" class="poste-chip"><span class="code">PP_850</span><span class="n">2</span></button>
+    </div>
+
+    <div class="split">
+      <section class="col" aria-label="À traiter">
+        <div class="col-head urgent">
+          <h2>À traiter</h2>
+          <span class="count">4 OF</span>
+          <span class="hours">35,5 h</span>
+        </div>
+        <div class="col-scroll">
+          <div class="bucket retard">En retard</div>
+          <button type="button" class="item">
+            <span class="of">OF2601842</span>
+            <span class="art">VMC-EH42</span>
+            <span class="des">Caisson Easy Home 42</span>
+            <div class="meta">
+              <span class="chip chip-retard"><i class="dot"></i>22 juil.</span>
+              <span>BC-88421 · Aldes</span>
+              <span class="hrs">12,0 h</span>
+            </div>
+          </button>
+          <button type="button" class="item">
+            <span class="of">OF2601799</span>
+            <span class="art">VMC-EH28</span>
+            <span class="des">Caisson Easy Home 28</span>
+            <div class="meta">
+              <span class="chip chip-retard"><i class="dot"></i>24 juil.</span>
+              <span>BC-88301 · Bouygues</span>
+              <span class="hrs">8,5 h</span>
+            </div>
+          </button>
+
+          <div class="bucket week">Cette semaine</div>
+          <button type="button" class="item">
+            <span class="of">OF2601901</span>
+            <span class="art">VMC-EH42</span>
+            <span class="des">Caisson Easy Home 42</span>
+            <div class="meta">
+              <span class="chip chip-week"><i class="dot"></i>29 juil.</span>
+              <span>BC-88550 · Vinci</span>
+              <span class="hrs">12,0 h</span>
+            </div>
+          </button>
+          <button type="button" class="item">
+            <span class="of">OF2601912</span>
+            <span class="art">FILT-G4</span>
+            <span class="des">Filtre G4 pack 10</span>
+            <div class="meta">
+              <span class="chip chip-week"><i class="dot"></i>31 juil.</span>
+              <span>BC-88561 · Aldes</span>
+              <span class="hrs">3,0 h</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <section class="col" aria-label="Suite">
+        <div class="col-head">
+          <h2>Suite</h2>
+          <span class="count">3 OF</span>
+          <span class="hours">35,0 h</span>
+        </div>
+        <div class="col-scroll">
+          <div class="bucket">À venir</div>
+          <button type="button" class="item">
+            <span class="of">OF2601955</span>
+            <span class="art">VMC-EH55</span>
+            <span class="des">Caisson Easy Home 55</span>
+            <div class="meta">
+              <span class="chip chip-later"><i class="dot"></i>12 août</span>
+              <span>BC-88602 · Eiffage</span>
+              <span class="hrs">14,5 h</span>
+            </div>
+          </button>
+          <button type="button" class="item">
+            <span class="of">OF2601960</span>
+            <span class="art">VMC-EH28</span>
+            <span class="des">Caisson Easy Home 28</span>
+            <div class="meta">
+              <span class="chip chip-later"><i class="dot"></i>18 août</span>
+              <span>BC-88610 · SPIE</span>
+              <span class="hrs">8,5 h</span>
+            </div>
+          </button>
+
+          <div class="bucket">Sans commande</div>
+          <button type="button" class="item" style="opacity: 0.7">
+            <span class="of">OF2601701</span>
+            <span class="art">VMC-EH42</span>
+            <span class="des">Caisson Easy Home 42</span>
+            <div class="meta">
+              <span class="chip chip-none">⊘ aucune</span>
+              <span>Stock / anticipé</span>
+              <span class="hrs">12,0 h</span>
+            </div>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <a class="back-index" href="index.html">← Index maquettes</a>
+  </body>
+</html>

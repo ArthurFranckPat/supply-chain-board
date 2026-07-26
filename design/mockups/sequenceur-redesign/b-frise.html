@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Séquenceur B — Frise de charge · Airbnb</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="_airbnb.css" />
+    <style>
+      .hint {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 28px;
+        border-bottom: 1px solid var(--hairline);
+        background: var(--surface);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      .board {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        grid-auto-rows: min-content;
+      }
+
+      .corner,
+      .dayhead {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: var(--surface);
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .corner {
+        left: 0;
+        z-index: 4;
+        border-right: 1px solid var(--hairline);
+        padding: 10px 16px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .days {
+        display: grid;
+        grid-template-columns: repeat(10, minmax(88px, 1fr));
+        min-width: 880px;
+      }
+
+      .dayhead {
+        padding: 8px 6px;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        border-left: 1px solid var(--hairline-soft);
+      }
+
+      .dayhead .d {
+        display: block;
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .dayhead.today {
+        background: var(--rausch-soft);
+      }
+
+      .dayhead.today .d {
+        color: var(--rausch);
+      }
+
+      .dayhead.weekend {
+        background: var(--surface-strong);
+      }
+
+      .lane-label {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: var(--canvas);
+        border-right: 1px solid var(--hairline);
+        border-bottom: 1px solid var(--hairline-soft);
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-height: 72px;
+        justify-content: center;
+      }
+
+      .lane-label.on {
+        box-shadow: inset 3px 0 0 var(--rausch);
+      }
+
+      .lane-label .code {
+        font-size: 12px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .lane-label.on .code {
+        color: var(--rausch);
+      }
+
+      .lane-label .sub {
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .lane-label .bar {
+        margin-top: 4px;
+      }
+
+      .lane {
+        position: relative;
+        min-height: 72px;
+        border-bottom: 1px solid var(--hairline-soft);
+        background:
+          repeating-linear-gradient(
+            90deg,
+            transparent 0,
+            transparent calc(10% - 1px),
+            var(--hairline-soft) calc(10% - 1px),
+            var(--hairline-soft) 10%
+          );
+        min-width: 880px;
+      }
+
+      .cap {
+        position: absolute;
+        inset: 8px 0 auto 0;
+        height: 28px;
+        background: rgba(0, 128, 73, 0.06);
+        border-top: 1px dashed rgba(0, 128, 73, 0.25);
+        border-bottom: 1px dashed rgba(0, 128, 73, 0.25);
+        pointer-events: none;
+      }
+
+      .block {
+        position: absolute;
+        top: 10px;
+        height: 48px;
+        border-radius: var(--r-btn);
+        border: 1px solid var(--hairline);
+        background: var(--canvas);
+        padding: 6px 8px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+      }
+
+      .block:hover {
+        box-shadow: var(--shadow-float);
+        border-color: var(--ink);
+        z-index: 1;
+      }
+
+      .block:active {
+        transform: scale(0.98);
+      }
+
+      .block .of {
+        font-size: 11px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      .block .art {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .block.retard {
+        border-color: rgba(193, 53, 21, 0.45);
+        background: rgba(193, 53, 21, 0.06);
+      }
+
+      .block.retard .of {
+        color: var(--danger);
+      }
+
+      .block.week {
+        border-color: rgba(255, 56, 92, 0.4);
+        background: var(--rausch-soft);
+      }
+
+      .block.week .of {
+        color: var(--rausch);
+      }
+
+      .block.later {
+        border-color: var(--hairline);
+        background: var(--surface);
+      }
+
+      .block.over {
+        outline: 2px solid var(--danger);
+        outline-offset: 1px;
+      }
+
+      .legend {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        padding: 10px 28px;
+        border-top: 1px solid var(--hairline);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .legend i {
+        display: inline-block;
+        width: 14px;
+        height: 10px;
+        border-radius: 3px;
+        border: 1px solid var(--hairline);
+        vertical-align: -1px;
+        margin-right: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="wordmark">Supply <b>Chain</b></div>
+      <nav class="nav">
+        <a href="#">Programme</a>
+        <a href="#">Charge</a>
+        <a class="active" href="#">Séquenceur</a>
+        <a href="#">Suivi</a>
+      </nav>
+      <div class="mast-meta">Semaine 31 · <b>5</b> postes · Easy Home</div>
+    </header>
+
+    <div class="toolbar">
+      <div class="seg" aria-label="Atelier">
+        <button type="button" class="on">Easy Home</button>
+        <button type="button">VMC</button>
+        <button type="button">Injection</button>
+      </div>
+      <div class="seg" aria-label="Horizon">
+        <button type="button">7 j</button>
+        <button type="button" class="on">10 j</button>
+        <button type="button">4 sem</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="pill">
+        <span style="color: var(--muted)">⌕</span>
+        <input type="search" placeholder="OF, article…" />
+      </div>
+    </div>
+
+    <div class="hint">
+      Bande verte pointillée = capacité semaine. Bloc qui déborde = surcharge. Clic = détail OF
+      (sheet).
+    </div>
+
+    <div class="board">
+      <div class="corner">Poste</div>
+      <div class="days">
+        <div class="dayhead weekend"><span class="d">25</span>sam</div>
+        <div class="dayhead weekend"><span class="d">26</span>dim</div>
+        <div class="dayhead today"><span class="d">27</span>lun</div>
+        <div class="dayhead"><span class="d">28</span>mar</div>
+        <div class="dayhead"><span class="d">29</span>mer</div>
+        <div class="dayhead"><span class="d">30</span>jeu</div>
+        <div class="dayhead"><span class="d">31</span>ven</div>
+        <div class="dayhead weekend"><span class="d">1</span>sam</div>
+        <div class="dayhead weekend"><span class="d">2</span>dim</div>
+        <div class="dayhead"><span class="d">3</span>lun</div>
+      </div>
+
+      <!-- PP_830 -->
+      <div class="lane-label on">
+        <span class="code">PP_830</span>
+        <span class="sub">14 OF · 142%</span>
+        <div class="bar bar-crit"><i style="width: 100%"></i></div>
+      </div>
+      <div class="lane">
+        <div class="cap"></div>
+        <div class="block retard over" style="left: 2%; width: 18%" title="OF2601842 · retard">
+          <span class="of">OF2601842</span>
+          <span class="art">VMC-EH42 · 12 h</span>
+        </div>
+        <div class="block retard" style="left: 12%; width: 14%" title="OF2601799 · retard">
+          <span class="of">OF2601799</span>
+          <span class="art">VMC-EH28 · 8,5 h</span>
+        </div>
+        <div class="block week" style="left: 28%; width: 18%" title="OF2601901">
+          <span class="of">OF2601901</span>
+          <span class="art">VMC-EH42 · 12 h</span>
+        </div>
+        <div class="block week" style="left: 48%; width: 10%" title="OF2601912">
+          <span class="of">OF2601912</span>
+          <span class="art">FILT-G4 · 3 h</span>
+        </div>
+        <div class="block later" style="left: 62%; width: 22%" title="OF2601955">
+          <span class="of">OF2601955</span>
+          <span class="art">VMC-EH55 · 14,5 h</span>
+        </div>
+      </div>
+
+      <!-- PP_820 -->
+      <div class="lane-label">
+        <span class="code">PP_820</span>
+        <span class="sub">9 OF · 98%</span>
+        <div class="bar bar-high"><i style="width: 98%"></i></div>
+      </div>
+      <div class="lane">
+        <div class="cap"></div>
+        <div class="block week" style="left: 20%; width: 16%">
+          <span class="of">OF2601888</span>
+          <span class="art">KIT-EH · 6 h</span>
+        </div>
+        <div class="block later" style="left: 40%; width: 20%">
+          <span class="of">OF2601920</span>
+          <span class="art">KIT-EH · 7 h</span>
+        </div>
+        <div class="block later" style="left: 68%; width: 14%">
+          <span class="of">OF2601977</span>
+          <span class="art">KIT-MINI · 4 h</span>
+        </div>
+      </div>
+
+      <!-- PP_810 -->
+      <div class="lane-label">
+        <span class="code">PP_810</span>
+        <span class="sub">6 OF · 64%</span>
+        <div class="bar bar-ok"><i style="width: 64%"></i></div>
+      </div>
+      <div class="lane">
+        <div class="cap"></div>
+        <div class="block week" style="left: 30%; width: 12%">
+          <span class="of">OF2601915</span>
+          <span class="art">CTRL · 2 h</span>
+        </div>
+        <div class="block later" style="left: 55%; width: 18%">
+          <span class="of">OF2601944</span>
+          <span class="art">CTRL · 3,5 h</span>
+        </div>
+      </div>
+
+      <!-- PP_840 -->
+      <div class="lane-label">
+        <span class="code">PP_840</span>
+        <span class="sub">4 OF · 41%</span>
+        <div class="bar bar-ok"><i style="width: 41%"></i></div>
+      </div>
+      <div class="lane">
+        <div class="cap"></div>
+        <div class="block later" style="left: 45%; width: 14%">
+          <span class="of">OF2601933</span>
+          <span class="art">EMB · 2 h</span>
+        </div>
+      </div>
+
+      <!-- PP_850 -->
+      <div class="lane-label">
+        <span class="code">PP_850</span>
+        <span class="sub">2 OF · 22%</span>
+        <div class="bar bar-ok"><i style="width: 22%"></i></div>
+      </div>
+      <div class="lane">
+        <div class="cap"></div>
+        <div class="block later" style="left: 70%; width: 12%">
+          <span class="of">OF2601980</span>
+          <span class="art">RET · 1,5 h</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background: rgba(193, 53, 21, 0.12); border-color: rgba(193, 53, 21, 0.45)"></i>Retard</span>
+      <span><i style="background: var(--rausch-soft); border-color: rgba(255, 56, 92, 0.4)"></i>Cette semaine</span>
+      <span><i style="background: var(--surface)"></i>À venir</span>
+      <span><i style="background: rgba(0, 128, 73, 0.08); border-style: dashed; border-color: var(--ferme)"></i>Capacité</span>
+    </div>
+
+    <a class="back-index" href="index.html">← Index maquettes</a>
+  </body>
+</html>
