@@ -148,7 +148,11 @@ const weeklyCapacityOf = (
 /** Page /sequenceur (tous les postes) — sources déjà cachées (SWR board:*),
  *  aucun matching commande. Coût borné, indépendant du nombre d'OF fermes. */
 export async function loadPosteSummaries(force = false): Promise<EngagementSummaryDataset> {
-  const cacheKey = `summaries:${isoDay(new Date())}`
+  // Clé STABLE, même raison que loadPosteEngagement : une clé datée change à
+  // minuit, donc plus aucune valeur en grâce (12 h) n'est servable au 1er hit du
+  // jour → recalcul synchrone au lieu du SWR. Et rien ici ne dépend de la date
+  // du jour : les dates rendues viennent des OF, la capacité est statique.
+  const cacheKey = 'summaries'
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
