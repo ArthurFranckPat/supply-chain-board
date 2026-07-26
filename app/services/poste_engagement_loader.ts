@@ -98,6 +98,9 @@ export interface EngagementSummaryDataset {
 // fermes (lookback 30 j pour l'overdue, 120 j devant). Au-delà, le repli peg
 // (indépendant de toute fenêtre) prend le relais. Bornage nécessaire : la vue
 // ORDERS passe par ZSOAPSQL O(n²) — une fenêtre illimitée exploserait le SOAP.
+/** Postes affichés au séquenceur : lignes de production PP_XXX seulement. */
+const POSTE_PP_RE = /^PP_\d+$/
+
 const DEMAND_LOOKBACK_DAYS = 30
 const DEMAND_HORIZON_DAYS = 120
 const ENGAGEMENT_TTL = 2 * 60 * 1000
@@ -170,9 +173,12 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
         ref.gamme.find((g) => g.workstation === poste)?.workstationLabel ??
         poste
 
+      // Séquenceur : uniquement les postes PP_XXX (lignes de production) — écarte
+      // les codes hors nomenclature (stocks, ateliers annexes, codes d'override
+      // libres…) qui n'ont pas leur place dans cette vue.
       const posteCodes = new Set<string>()
-      for (const g of ref.gamme) if (g.workstation) posteCodes.add(g.workstation)
-      for (const o of overrides) if (o.workstation) posteCodes.add(o.workstation)
+      for (const g of ref.gamme) if (g.workstation && POSTE_PP_RE.test(g.workstation)) posteCodes.add(g.workstation)
+      for (const o of overrides) if (o.workstation && POSTE_PP_RE.test(o.workstation)) posteCodes.add(o.workstation)
 
       const postes: PosteSummary[] = [...posteCodes].map((code) => {
         const rows: SummaryRow[] = (fermesByPoste.get(code) ?? [])
