@@ -37,3 +37,6 @@ excalidraw.log
 *.sqlite
 # Local backup files
 *.bak
+
+# Worktrees d'agents (git worktree) — jamais versionnés
+.claude/worktrees/

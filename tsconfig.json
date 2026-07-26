@@ -8,5 +8,11 @@
       "@r/*": ["./inertia-react/*"]
     }
   },
-  "exclude": ["inertia-react/**", "node_modules/**", "build/**"]
+  "exclude": [
+    "inertia-react/**",
+    "node_modules/**",
+    "build/**",
+    "tmp/**",
+    ".claude/**"
+  ]
 }

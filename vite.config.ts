@@ -29,6 +29,14 @@ export default defineConfig({
       reload: ['resources/views/**/*.edge', 'inertia-react/pages/**/*.tsx'],
     }),
   ],
+  server: {
+    watch: {
+      // Les worktrees d'agents vivent sous .claude/worktrees/ (~174k fichiers,
+      // node_modules compris). Sans exclusion le watcher dépasse
+      // kern.maxfilesperproc et le dev server meurt en EMFILE.
+      ignored: ['**/.claude/**', '**/tmp/**', '**/build/**'],
+    },
+  },
   resolve: {
     alias: [
       { find: '@r', replacement: fileURLToPath(new URL('./inertia-react', import.meta.url)) },
