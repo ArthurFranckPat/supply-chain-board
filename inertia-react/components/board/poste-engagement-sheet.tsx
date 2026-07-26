@@ -154,7 +154,13 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
+        // Dimensions redéclarées en variantes `data-[side=bottom]:` : le primitive
+        // porte `data-[side=bottom]:h-auto` et `data-[side=bottom]:max-w-[640px]`,
+        // dont le sélecteur d'attribut bat toute classe utilitaire nue quelle que
+        // soit sa position. Avec `h-auto` gagnant, le panneau n'est plus borné et
+        // grandit avec le nombre d'OF au lieu de faire défiler — il déborde alors
+        // du viewport. Même correctif que of-detail / charge-period / stock-article.
+        className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[72vh] data-[side=bottom]:max-w-none"
       >
         {loading ? (
           <LoadingState
