@@ -331,43 +331,39 @@ export default function Sequenceur(props: SequenceurPageProps) {
           </div>
         </ToolbarRow>
 
-        {/* Bandeau postes — sert aussi de liste de postes (n'existe nulle part
-            ailleurs dans l'app), cliquable pour naviguer vers le détail. */}
-        <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
-          {filteredPostes.map((p) => {
-            const s = saturation(p.totalHours, p.weeklyCapacityHours)
-            const active = posteFilter === p.code
-            return (
-              <button
-                key={p.code}
-                type="button"
-                onClick={() => selectPoste(active ? null : p.code)}
-                className={cn(
-                  'flex flex-none items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[11px] transition-colors',
-                  active
-                    ? 'border-brand bg-brand-soft text-brand'
-                    : 'border-rule bg-card text-foreground hover:border-brand/50'
-                )}
-                title={p.label}
-              >
-                <span className="font-bold">{p.code}</span>
-                <span className="text-muted-foreground">{p.count} OF</span>
-                {s.pct !== null && (
-                  <span
-                    className={cn(
-                      'font-bold',
-                      s.level === 'ok' && 'text-ferme',
-                      s.level === 'high' && 'text-suggere',
-                      s.level === 'crit' && 'text-danger'
-                    )}
-                  >
-                    {s.pct}%
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+        {/* Bandeau postes — vue « tous postes » seulement. En détail, le
+            combobox + bandeau identité suffisent (évite poste ×3). */}
+        {!posteFilter && (
+          <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
+            {filteredPostes.map((p) => {
+              const s = saturation(p.totalHours, p.weeklyCapacityHours)
+              return (
+                <button
+                  key={p.code}
+                  type="button"
+                  onClick={() => selectPoste(p.code)}
+                  className="flex flex-none items-center gap-2 rounded-lg border border-rule bg-card px-3 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:border-brand/50"
+                  title={p.label}
+                >
+                  <span className="font-bold">{p.code}</span>
+                  <span className="text-muted-foreground">{p.count} OF</span>
+                  {s.pct !== null && (
+                    <span
+                      className={cn(
+                        'font-bold',
+                        s.level === 'ok' && 'text-ferme',
+                        s.level === 'high' && 'text-suggere',
+                        s.level === 'crit' && 'text-danger'
+                      )}
+                    >
+                      {s.pct}%
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Identité poste + saturation — uniquement en mode détail. */}
         {activePoste && (
@@ -377,14 +373,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
               <span className="font-mono text-[13px] font-bold text-foreground">
                 {activePoste.code}
               </span>
-              <span className="font-fraunces text-[14px] font-medium italic text-muted-foreground">
+              <span className="text-[13px] font-medium text-muted-foreground">
                 {activePoste.label}
               </span>
             </div>
             <span className="flex-1" />
             <div className="flex items-center gap-3">
               <div className="flex items-baseline gap-1">
-                <span className="font-fraunces text-[17px] font-bold tabular-nums text-foreground">
+                <span className="text-[17px] font-bold tabular-nums text-foreground">
                   {fmtH(activePoste.totalHours)}
                 </span>
                 <span className="font-mono text-[10px] font-semibold text-muted-foreground">h</span>
@@ -427,7 +423,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
         {filteredRows.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
             <Package size={26} strokeWidth={1.75} />
-            <span className="font-fraunces text-[13px] italic">Aucun OF pour ces filtres.</span>
+            <span className="text-[13px] font-medium">Aucun OF pour ces filtres.</span>
           </div>
         ) : (
           <>
@@ -482,14 +478,26 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             : urgencyOf(group.rows[i - 1].livraisonIso)
                           : null
                       const showSep = props.detail && (prevBucket === null || prevBucket !== bucket)
+                      let bucketCount = 0
+                      if (showSep) {
+                        for (let j = i; j < group.rows.length; j++) {
+                          const rj = group.rows[j]
+                          const bj =
+                            props.detail && rj.commandes.length === 0
+                              ? 'none'
+                              : urgencyOf(rj.livraisonIso)
+                          if (bj !== bucket) break
+                          bucketCount++
+                        }
+                      }
                       const sepLabel =
                         bucket === 'none'
-                          ? '⊘ Sans commande'
+                          ? 'Sans commande'
                           : bucket === 'overdue'
-                            ? '⚠ En retard'
+                            ? 'En retard'
                             : bucket === 'week'
-                              ? '◐ Cette semaine'
-                              : '○ À venir'
+                              ? 'Cette semaine'
+                              : 'À venir'
                       const avancement =
                         r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
                       return (
@@ -497,7 +505,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                           {showSep && (
                             <div
                               className={cn(
-                                'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-wider',
+                                'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider',
                                 bucket === 'none' && 'text-muted-foreground',
                                 bucket === 'overdue' && 'text-danger',
                                 bucket === 'week' && 'text-brand',
@@ -506,7 +514,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             >
                               <span
                                 className={cn(
-                                  'inline-block h-px flex-none w-4',
+                                  'inline-block h-0.5 flex-none w-4 rounded-full',
                                   bucket === 'none' && 'bg-rule',
                                   bucket === 'overdue' && 'bg-danger',
                                   bucket === 'week' && 'bg-brand',
@@ -514,12 +522,16 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                 )}
                               />
                               {sepLabel}
+                              <span className="ml-auto font-semibold normal-case tracking-normal text-muted-foreground tabular-nums">
+                                {bucketCount}
+                              </span>
                             </div>
                           )}
                           <div
                             className={cn(
                               'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors hover:bg-secondary/50',
-                              showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
+                              showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE,
+                              props.detail && r.commandes.length === 0 && 'opacity-60'
                             )}
                           >
                             {showPosteCol && (
@@ -530,7 +542,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             <span className="truncate font-mono text-[12px] font-bold text-foreground">
                               {r.numOf}
                             </span>
-                            <span className="truncate font-mono text-[11px] font-bold text-brand">
+                            <span className="truncate font-mono text-[11px] font-bold text-foreground">
                               {r.article}
                             </span>
                             <span
@@ -578,7 +590,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                       )}
                                     </div>
                                     {c.client && (
-                                      <div className="truncate font-fraunces text-[10px] italic leading-tight text-muted-foreground">
+                                      <div className="truncate text-[10px] font-medium leading-tight text-muted-foreground">
                                         {c.client}
                                       </div>
                                     )}

@@ -72,9 +72,11 @@ export const urgencyOf = (livraisonIso: string | null): Urgency => {
   return livraisonIso <= `${y}-${m}-${da}` ? 'week' : 'later'
 }
 
-/** Couleur de la date de livraison selon l'urgence. */
+/** Couleur de la date de livraison selon l'urgence.
+ *  Retard = danger, semaine = suggéré (Arches), plus tard = muted.
+ *  Pas de Rausch ici : réservé filtres/CTA (sinon tout crie pareil). */
 export const urgencyColor = (u: Urgency): string =>
-  u === 'overdue' ? 'text-danger' : u === 'week' ? 'text-brand' : 'text-muted-foreground'
+  u === 'overdue' ? 'text-danger' : u === 'week' ? 'text-suggere' : 'text-muted-foreground'
 
 /** Saturation charge/capacité — renvoie % et sévérité visuelle pour la jauge. */
 export const saturation = (
