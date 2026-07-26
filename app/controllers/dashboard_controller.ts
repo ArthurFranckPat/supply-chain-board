@@ -1,6 +1,5 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
-import { RetardRepository } from '#repositories/retard_repository'
 import type { RetardChargeKpi } from '#repositories/retard_repository'
 import { OtdRepository, resolveOtdPeriods } from '#repositories/otd_repository'
 import type { OtdKpi, OtdMode } from '#repositories/otd_repository'
@@ -42,16 +41,22 @@ export default class DashboardController {
     })
   }
 
-  /** GET /api/v1/dashboard/kpis — charge en retard (1 SQL ORDERS + gamme SQLite). */
+  /** GET /api/v1/dashboard/kpis — charge en retard (ORDERS + ITMMVT + MFGOPE).
+   *  Cache SWR global via boardDataset : 3 appels SOAP séquentiels (~23 s à froid)
+   *  → servis depuis la grâce, le refresh part en arrière-plan. */
   async kpis(ctx: HttpContext) {
     const referenceDate = ctx.request.input('referenceDate')
-    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    const parsed = referenceDate ? new Date(referenceDate as string) : new Date()
+    // Une date invalide retomberait sur `Invalid Date`, dont le toISOString()
+    // utilisé plus bas (et dans la clé de cache) lève.
+    const pinned = Boolean(referenceDate) && !Number.isNaN(parsed.getTime())
+    const refDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed
 
     let retardCharge: RetardChargeKpi = { totalHeures: 0, nbLignes: 0, postes: [], lignes: [] }
     let x3Error: string | null = null
 
     try {
-      retardCharge = await new RetardRepository().getRetardKpi(refDate, RETARD_LOOKBACK_DAYS)
+      retardCharge = await boardDataset.getRetardKpi(refDate, RETARD_LOOKBACK_DAYS, pinned)
     } catch (e) {
       logger.error({ err: e }, '[dashboard] kpis — échec chargement retard X3')
       x3Error = 'Données X3 indisponibles — KPI momentanément incalculable.'
@@ -119,16 +124,20 @@ export default class DashboardController {
     const toParam = ctx.request.input('stockTo')
     // Résout la plage concrète (défaut = 12 périodes glissantes) pour que la clé
     // de cache soit stable, même si l'utilisateur n'a pas fourni de plage.
+    // `pinned` distingue les deux cas côté cache : une plage / une référence
+    // explicite est portée telle quelle dans la clé, la plage glissante par
+    // défaut est réduite à ses buckets de période (sinon la clé tourne à minuit
+    // et le 1er hit du jour repaie le mur froid X3).
     let from: Date
     let to: Date
+    let pinned = Boolean(referenceDate) && !Number.isNaN(refDate.getTime())
     if (fromParam && toParam) {
       const f = new Date(fromParam as string)
       const t = new Date(toParam as string)
       // Retombe sur la plage par défaut si les dates sont invalides.
-      const range =
-        Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())
-          ? defaultStockRange(grain, safeRef)
-          : { from: f, to: t }
+      const valid = !Number.isNaN(f.getTime()) && !Number.isNaN(t.getTime())
+      const range = valid ? { from: f, to: t } : defaultStockRange(grain, safeRef)
+      if (valid) pinned = true
       from = range.from
       to = range.to
     } else {
@@ -150,7 +159,7 @@ export default class DashboardController {
     let x3Error: string | null = null
 
     try {
-      stockValuation = await boardDataset.getStockValuation(grain, from, to, safeRef)
+      stockValuation = await boardDataset.getStockValuation(grain, from, to, safeRef, pinned)
     } catch (e) {
       logger.error({ err: e }, '[dashboard] stock — échec chargement valorisation X3')
       x3Error = 'Données X3 indisponibles — valorisation momentanément incalculable.'

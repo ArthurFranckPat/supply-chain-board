@@ -17,10 +17,15 @@ import { CombinedOrdersRepository } from '#repositories/combined_orders_reposito
 import { computeSupplierLatency } from '#repositories/supplier_latency_repository'
 import {
   StockValuationRepository,
+  isoWeekKey,
   type StockValuationKpi,
   type StockArticleHistory,
   type StockGrain,
 } from '#repositories/stock_valuation_repository'
+// Type-only : retard_repository importe CE module (getReferential/getOrders).
+// Un import de valeur ferait un cycle — la classe est chargée dynamiquement
+// dans la factory de getRetardKpi().
+import type { RetardChargeKpi } from '#repositories/retard_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
@@ -45,6 +50,7 @@ const ORDERS_TTL = 5 * 60 * 1000 // 5 min — OF
 const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
 const STOCK_TTL = 2 * 60 * 1000 // 2 min — stock (vivant mais acceptable pour planning)
 const MFGMAT_TTL = 2 * 60 * 1000 // 2 min — matières OF (consommation lente en planning)
+const RETARD_TTL = 5 * 60 * 1000 // 5 min — charge en retard (même fraîcheur que les OF)
 const PEG_TTL = 5 * 60 * 1000 // 5 min — peg OF→commande (liens stables)
 // SWR (issue #33) : timeout 0 = vrai stale-while-revalidate de bentocache. Si une valeur en grace
 // existe, elle est servie INSTANTANÉMENT et le refresh X3 part en arrière-plan (isBackground → les
@@ -66,6 +72,19 @@ type Live = { demand: Flow[]; reception: Flow[]; supply: Flow[]; at: number }
  * donnée renvoyée → aucun risque de cloisonnement.
  */
 const board = () => cache.namespace('board')
+
+/**
+ * Bucket de période d'une date : `YYYY-MM` (mois) ou `YYYY-Www` (semaine ISO).
+ *
+ * Sert à construire des clés de cache STABLES pour les plages « glissantes »
+ * calculées depuis aujourd'hui. Une clé qui embarque le jour courant tourne à
+ * minuit : au 1er hit du lendemain il n'existe aucune valeur en grâce, le SWR
+ * ne peut rien servir et l'utilisateur paie le recalcul X3 synchrone (mur
+ * mesuré : 9 s sur la valorisation du stock). Même piège que 350396b
+ * (engagement poste) et 84112b2 (loadPosteSummaries).
+ */
+const periodBucket = (grain: StockGrain, d: Date): string =>
+  grain === 'semaine' ? isoWeekKey(d) : d.toISOString().slice(0, 7)
 
 class BoardDataset {
   // Horodatages du dernier peuplement (in-memory, pour status() / affichage UI).
@@ -366,16 +385,62 @@ class BoardDataset {
     from: Date,
     to: Date,
     refDate: Date,
+    pinned = false,
     force = false
   ): Promise<StockValuationKpi> {
     const isoL = (d: Date) => d.toISOString().slice(0, 10)
-    const key = `stock-valuation:${grain}:${isoL(from)}:${isoL(to)}:${isoL(refDate)}`
+    // `pinned` = l'appelant a fourni une plage / une date de référence explicite :
+    // ces valeurs ne tournent pas toutes seules, la clé peut les porter telles
+    // quelles (et deux plages distinctes ne doivent pas se télescoper).
+    // Sinon (cas par défaut du dashboard), la plage est glissante depuis
+    // aujourd'hui : on la réduit à ses buckets de période pour que la clé reste
+    // stable d'un jour sur l'autre. `refDate` sort de la clé — il ne fait
+    // qu'ancrer le calcul, et la factory reçoit toujours la date du jour.
+    const key = pinned
+      ? `stock-valuation:${grain}:${isoL(from)}:${isoL(to)}:${isoL(refDate)}`
+      : `stock-valuation:${grain}:${periodBucket(grain, from)}:${periodBucket(grain, to)}`
     if (force) await board().delete({ key })
     return board().getOrSet({
       key,
       ttl: STOCK_TTL,
       timeout: SWR_TIMEOUT,
       factory: () => new StockValuationRepository().getStockValuationKpi(refDate, grain, from, to),
+    })
+  }
+
+  /**
+   * KPI charge en retard (dashboard) — cache SWR GLOBAL.
+   *
+   * Sans cache, chaque affichage du dashboard rejouait 3 requêtes SOAP
+   * SÉQUENTIELLES (ORDERS 90 j + 4 jointures, puis ITMMVT par chunks, puis
+   * MFGOPE par chunks) : 23 s mesurées, pour chaque utilisateur, à chaque F5.
+   * C'était le seul endpoint du dashboard à ne pas passer par ce loader.
+   *
+   * Clé stable sans date pour la référence « aujourd'hui » (cf. periodBucket) ;
+   * une référence explicitement pinnée par l'appelant garde sa propre clé.
+   *
+   * Donnée usine (identique pour tous les users) → clé globale, comme orders.
+   */
+  async getRetardKpi(
+    refDate: Date,
+    lookbackDays: number,
+    pinned = false,
+    force = false
+  ): Promise<RetardChargeKpi> {
+    const key = pinned
+      ? `retard-kpi:${lookbackDays}:${refDate.toISOString().slice(0, 10)}`
+      : `retard-kpi:${lookbackDays}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: RETARD_TTL,
+      timeout: SWR_TIMEOUT,
+      // Import dynamique : retard_repository importe ce module (getReferential /
+      // getOrders). Un import statique en tête de fichier ferait un cycle.
+      factory: async () => {
+        const { RetardRepository } = await import('#repositories/retard_repository')
+        return new RetardRepository().getRetardKpi(refDate, lookbackDays)
+      },
     })
   }
 
