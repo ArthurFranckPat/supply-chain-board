@@ -218,6 +218,7 @@ FROM (
   INNER JOIN ITMMASTER IC ON IC.ITMREF_0 = D.CPNITMREF_0 AND IC.ITMSTA_0 = 1
   WHERE B.BOMALT_0 = 1
     AND SUBSTR(IP.TCLCOD_0, 1, 1) <> 'Z'
+    AND SUBSTR(IC.TCLCOD_0, 1, 1) <> 'Z'
     ${keysetClause}
   ORDER BY B.ITMREF_0, D.BOMSEQ_0
 ) WHERE ROWNUM <= ${PAGE_SIZE_BOM}`
@@ -315,19 +316,32 @@ FROM (
     return new Set(rows.map((r: { parent_article: string }) => r.parent_article))
   }
 
-  /** Lecture locale nomenclatures (SQLite) */
+  /**
+   * Lecture locale nomenclatures (SQLite).
+   *
+   * Les articles de catégorie `Z*` (ITMMASTER.TCLCOD_0) sont retirés du lien de
+   * nomenclature — ce ne sont pas des composants réels à approvisionner. Le filtre est
+   * posé ICI en plus de la requête de sync : il s'applique sans attendre un `sync:x3`,
+   * y compris aux lignes déjà en base.
+   */
   async readNomenclatures(): Promise<NomenclatureEntry[]> {
-    const rows = await StaticNomenclature.all()
-    return rows.map((r) => ({
-      parentArticle: r.parentArticle,
-      parentDescription: r.parentDescription,
-      level: r.level,
-      componentArticle: r.componentArticle,
-      componentDescription: r.componentDescription,
-      linkQuantity: r.linkQuantity,
-      componentType: r.componentType as 'ACHETE' | 'FABRIQUE',
-      consumptionNature: r.consumptionNature as 'PROPORTIONNEL' | 'FORFAIT',
-    }))
+    const [rows, zArticles] = await Promise.all([
+      StaticNomenclature.all(),
+      StaticArticle.query().where('category', 'like', 'Z%').select('code'),
+    ])
+    const exclus = new Set(zArticles.map((a) => a.code))
+    return rows
+      .filter((r) => !exclus.has(r.componentArticle) && !exclus.has(r.parentArticle))
+      .map((r) => ({
+        parentArticle: r.parentArticle,
+        parentDescription: r.parentDescription,
+        level: r.level,
+        componentArticle: r.componentArticle,
+        componentDescription: r.componentDescription,
+        linkQuantity: r.linkQuantity,
+        componentType: r.componentType as 'ACHETE' | 'FABRIQUE',
+        consumptionNature: r.consumptionNature as 'PROPORTIONNEL' | 'FORFAIT',
+      }))
   }
 
   /** Lecture locale articles (SQLite) */
