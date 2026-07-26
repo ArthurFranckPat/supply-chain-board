@@ -431,7 +431,7 @@ export default function Tracking(props: SuiviPageProps) {
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
             <input
               className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="Commande, article, client…"
+              placeholder="Commande, article, client, composant…"
               type="text"
               autoComplete="off"
               value={query}

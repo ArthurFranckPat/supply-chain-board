@@ -1005,7 +1005,16 @@ export function buildProactiveDisplay(
             : (of.piecesFaites ?? null),
         piecesTotalOf: of.piecesTotalOf ?? null,
       }))
-      const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
+      // Index de recherche des composants. Couvre les TROIS niveaux visibles dans la colonne :
+      // le composant direct, les sous-ensembles couverts par production, et les feuilles
+      // achetées qui bloquent un SE (descente BOM) — chercher « l'article qui bloque » doit
+      // remonter la commande même quand il n'apparaît qu'au 2e niveau.
+      const compsTxt = [
+        ...comps.map((c) => `${c.art} -${c.qty}`),
+        ...comps.flatMap((c) => (c.descente?.par ?? []).map((p) => p.art)),
+        ...seComps.map((c) => `${c.art} -${c.qty}`),
+        ...seComps.flatMap((c) => (c.couvertParOf?.ofs ?? []).map((of) => of.numOf)),
+      ].join(' ')
       // Mode de couverture : Stock (stock_complete) | OF contremarque/cumulatif (n° OF) |
       // Achat (purchase_supply) | — (none). Affiche QUEL OF couvre la commande.
       const ofsNum = ofsFinal.map((f) => f.numOf)

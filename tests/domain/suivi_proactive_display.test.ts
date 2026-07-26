@@ -318,3 +318,58 @@ test.group('buildProactiveDisplay — rattachement poste de charge', () => {
     assert.equal(rows[0].posteLabel, '')
   })
 })
+
+/**
+ * Index de recherche (`filter`) : la barre de recherche de /suivi filtre sur cette chaîne.
+ * Elle doit couvrir les composants tels qu'ils sont VISIBLES dans la colonne, y compris les
+ * sous-ensembles couverts par production — sinon on cherche un article affiché à l'écran et
+ * la ligne disparaît.
+ */
+test.group('buildProactiveDisplay — recherche par composant', () => {
+  test('les composants manquants sont indexés', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(
+      result({
+        statut: 'bloquee',
+        ofs: [
+          {
+            numOf: 'F426-33313',
+            article: '11033025',
+            qteAllouee: 28,
+            dateFin: new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10),
+            feasible: false,
+            missingComponents: { A4581E01: 2300 },
+            modified: false,
+            statutNum: 1,
+          },
+        ],
+      })
+    )
+    assert.include(rows[0].filter, 'a4581e01')
+  })
+
+  test('les sous-ensembles couverts par production sont indexés', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(
+      result({
+        ofs: [
+          {
+            numOf: 'F426-42920',
+            article: '11033025',
+            qteAllouee: 28,
+            dateFin: new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10),
+            feasible: true,
+            missingComponents: {},
+            seComponents: { EH6139: 35 },
+            modified: false,
+            statutNum: 1,
+          },
+        ],
+      })
+    )
+    assert.deepEqual(
+      rows[0].composants.map((c) => c.art),
+      ['EH6139'],
+      'le SE doit être dans la colonne…'
+    )
+    assert.include(rows[0].filter, 'eh6139', '…et donc cherchable')
+  })
+})
