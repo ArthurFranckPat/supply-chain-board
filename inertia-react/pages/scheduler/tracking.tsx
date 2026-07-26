@@ -123,6 +123,9 @@ export default function Tracking(props: SuiviPageProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<SuiviStatusKey | 'all'>('all')
   const [verdictFilter, setVerdictFilter] = useState<ProactiveVerdictKey | 'all'>('all')
+  // Vue proactif : inclure les sous-ensembles (semi-finis) en rupture dans la colonne
+  // « Composants en rupture ». Défaut OFF — seuls les composants achetés sont affichés.
+  const [showSubAssemblies, setShowSubAssemblies] = useState(false)
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(['MTS', 'MTO']))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
@@ -252,6 +255,7 @@ export default function Tracking(props: SuiviPageProps) {
   const filtersActive =
     (mode === 'reactif' && statusFilter !== 'all') ||
     (mode === 'proactif' && verdictFilter !== 'all') ||
+    (mode === 'proactif' && showSubAssemblies) ||
     !typeFilter.has('MTS') ||
     !typeFilter.has('MTO') ||
     atelierFilter.size > 0
@@ -263,6 +267,7 @@ export default function Tracking(props: SuiviPageProps) {
     setQuery('')
     setStatusFilter('all')
     setVerdictFilter('all')
+    setShowSubAssemblies(false)
     setTypeFilter(new Set(['MTS', 'MTO']))
     setAtelierFilter(new Set())
   }
@@ -355,6 +360,17 @@ export default function Tracking(props: SuiviPageProps) {
                   {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
                   {verdictChip('late', 'Retard', proView.verdictCounts.late)}
                   {verdictChip('risk', 'À risque', proView.verdictCounts.risk)}
+                </Segment>
+                <div className="my-2.5 border-t border-rule-soft" />
+                <FilterMenuSectionLabel>Composants en rupture</FilterMenuSectionLabel>
+                <Segment className="w-full">
+                  <SegmentButton
+                    active={showSubAssemblies}
+                    onClick={() => setShowSubAssemblies((v) => !v)}
+                    title="Inclure les sous-ensembles (semi-finis) fabriqués en rupture, en plus des composants achetés"
+                  >
+                    Sous-ensembles
+                  </SegmentButton>
                 </Segment>
                 <div className="my-2.5 border-t border-rule-soft" />
               </>
@@ -461,6 +477,7 @@ export default function Tracking(props: SuiviPageProps) {
             onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
             selectedRowKey={selectedRowKey}
             onSelectOf={onSelectOf}
+            showSubAssemblies={showSubAssemblies}
           />
         )}
       </div>

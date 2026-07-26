@@ -24,6 +24,8 @@ export interface ProactiveViewProps {
   selectedRowKey?: string | null
   /** Clic sur un n° d'OF (colonne Couverture) → détail OF (faisabilité), comme /programme. */
   onSelectOf?: (numOf: string) => void
+  /** Inclure les sous-ensembles (semi-finis) en rupture dans la colonne « Composants en rupture ». */
+  showSubAssemblies?: boolean
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
@@ -34,6 +36,7 @@ export function ProactiveView(props: ProactiveViewProps) {
   const columns = createProactiveColumns({
     referenceDate: props.view.referenceDate,
     onSelectOf: props.onSelectOf,
+    showSubAssemblies: props.showSubAssemblies,
   })
   const indexCol = createProactiveIndexCol()
 

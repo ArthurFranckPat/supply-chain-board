@@ -21,11 +21,18 @@ export interface ProactiveColumnsDeps {
   referenceDate: string
   /** Clic sur un n° d'OF (colonne Couverture) → ouvre le détail (faisabilité), comme /programme. */
   onSelectOf?: (numOf: string) => void
+  /**
+   * Inclure les sous-ensembles (semi-finis) en rupture dans la colonne « Composants
+   * en rupture ». Défaut `false` : seuls les composants achetés (`descente === null`)
+   * sont affichés. Les SE fabriqués sont identifiés par `descente !== null`.
+   */
+  showSubAssemblies?: boolean
 }
 
 export function createProactiveColumns({
   referenceDate,
   onSelectOf,
+  showSubAssemblies = false,
 }: ProactiveColumnsDeps): ColumnDef<ProactiveDisplayRow>[] {
   return [
     {
@@ -309,9 +316,12 @@ export function createProactiveColumns({
     {
       id: 'composants',
       enableSorting: false,
-      header: 'Goulots',
+      header: 'Composants en rupture',
       cell: ({ row }) => {
-        const comps = row.original.composants
+        // Par défaut, seuls les composants ACHETÉS (descente === null) sont affichés.
+        // Les sous-ensembles (semi-finis) fabriqués sont inclus via le filtre dédié.
+        const all = row.original.composants
+        const comps = showSubAssemblies ? all : all.filter((c) => !c.descente)
         if (comps.length === 0)
           return (
             <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">

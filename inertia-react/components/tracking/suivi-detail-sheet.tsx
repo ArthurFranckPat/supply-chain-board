@@ -412,11 +412,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         </div>
       </div>
 
-      {/* 6. Goulots & Approvisionnements (BOM) */}
+      {/* 6. Composants en rupture & Approvisionnements (BOM) */}
       {!isReactif && proactiveRow.composants.length > 0 && (
         <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
-            Goulots d'Approvisionnement
+            Composants en rupture
           </h4>
           <div className="flex flex-col gap-4">
             {proactiveRow.composants.map((c) => (
