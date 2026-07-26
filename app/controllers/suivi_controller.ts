@@ -269,6 +269,7 @@ export default class SuiviController {
       risk: 0,
     }
     let ateliers: AtelierOption[] = []
+    let bomIndex: Record<string, string> = {}
     let x3Error: string | null = null
 
     try {
@@ -305,6 +306,7 @@ export default class SuiviController {
       )
       rows = built.rows
       verdictCounts = built.verdictCounts
+      bomIndex = built.bomIndex
       ateliers = distinctAteliers(rows)
     } catch (e) {
       logger.error({ err: e }, '[suivi] proactiveRows — échec chargement X3')
@@ -316,6 +318,7 @@ export default class SuiviController {
       verdictCounts,
       ateliers,
       rows,
+      bomIndex,
       x3Error,
       referenceDate: refDate.toISOString().slice(0, 10),
     }
@@ -557,6 +560,37 @@ const CAUSE_LABEL: Record<CauseType, string> = {
 }
 
 /**
+ * Profondeur max d'explosion pour l'index de recherche. La nomenclature Aldes ne dépasse pas
+ * ~5 niveaux ; la marge absorbe un maillon inattendu. Le `visited` protège déjà des cycles,
+ * ce plafond ne sert qu'à borner le coût sur une BOM pathologique.
+ */
+const BOM_SEARCH_DEPTH_CAP = 12
+
+/**
+ * Tous les composants d'un article, tous niveaux, à plat — index de RECHERCHE seulement
+ * (aucune quantité, aucune sémantique MRP : ni fantômes, ni sous-traitance, ni allocation).
+ * Sert à répondre à « quelles commandes embarquent cet article ? », pas à un calcul de besoin.
+ */
+export function explodeBomForSearch(
+  article: string,
+  nomenclatures: Map<string, Nomenclature>
+): string[] {
+  const seen = new Set<string>()
+  const stack: { art: string; depth: number }[] = [{ art: article, depth: 0 }]
+  while (stack.length > 0) {
+    const { art, depth } = stack.pop()!
+    if (depth > BOM_SEARCH_DEPTH_CAP) continue
+    for (const entry of nomenclatures.get(art)?.components ?? []) {
+      const c = entry.componentArticle
+      if (!c || seen.has(c)) continue
+      seen.add(c)
+      stack.push({ art: c, depth: depth + 1 })
+    }
+  }
+  return [...seen]
+}
+
+/**
  * OF réellement nécessaires pour couvrir `manque` : cumul par date croissante, on s'arrête dès
  * que la quantité est atteinte. Même lentille que `resolveCoveringReception` côté achats —
  * lister les OF suivants serait FAUX, ils ne couvrent pas ce manque-là. Vérifié sur EBH1257AL /
@@ -767,6 +801,12 @@ export function buildProactiveDisplay(
 ): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
+  /**
+   * Index de recherche nomenclature : article fini → ses composants tous niveaux, à plat et en
+   * minuscules. Alimente la recherche « contient ce composant » (chip Nomenclature complète),
+   * distincte de la recherche par défaut qui porte sur les composants EN RUPTURE.
+   */
+  bomIndex: Record<string, string>
 } {
   // Horizon d'affichage : borné à la fenêtre de chargement (today + SUIVI_FORWARD_DAYS) — au-delà,
   // pas de données de toute façon. Le filtrage fin (plage choisie + rétention des retards) est un
@@ -1074,5 +1114,18 @@ export function buildProactiveDisplay(
   }
   for (const r of rows) verdictCounts[r.verdictKey]++
 
-  return { rows, verdictCounts }
+  // Index de recherche nomenclature : article fini → tous ses composants, à plat, minuscules.
+  // Clé par ARTICLE et non par ligne — 428 lignes pour 261 articles distincts, la déduplication
+  // divise le poids par ~1,7 (mesuré : 67 KB brut, 8,8 KB gzip, soit +25 % du payload gzip).
+  // Zéro requête ajoutée : `nomenclatures` vient de static_nomenclatures (SQLite local, cache
+  // 2 h), déjà chargé en mémoire ici pour la lentille descente.
+  const bomIndex: Record<string, string> = {}
+  if (bomContext) {
+    for (const article of new Set(rows.map((r) => r.article))) {
+      const comps = explodeBomForSearch(article, bomContext.nomenclatures)
+      if (comps.length > 0) bomIndex[article] = comps.join(' ').toLowerCase()
+    }
+  }
+
+  return { rows, verdictCounts, bomIndex }
 }

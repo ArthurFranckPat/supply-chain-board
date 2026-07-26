@@ -25,6 +25,7 @@ export const PROACTIVE_EMPTY: ProactiveRowsResponse = {
   verdictCounts: { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0, risk: 0 },
   ateliers: [],
   rows: [],
+  bomIndex: {},
   x3Error: null,
   referenceDate: '',
 }

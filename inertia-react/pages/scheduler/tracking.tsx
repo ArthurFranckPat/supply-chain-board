@@ -130,6 +130,10 @@ export default function Tracking(props: SuiviPageProps) {
   // Vue proactif : inclure les sous-ensembles (semi-finis) dans la colonne « Composants en
   // rupture ». Défaut ON — un SE suspendu à un OF bloque la commande autant qu'un acheté.
   const [showSubAssemblies, setShowSubAssemblies] = useState(true)
+  // Étend la recherche à TOUTE la nomenclature de l'article (« quelles commandes embarquent ce
+  // composant ? »). Défaut OFF : sans lui, un résultat veut dire « ce composant bloque cette
+  // commande » — fondre les deux rendrait la réponse ambiguë.
+  const [searchBom, setSearchBom] = useState(false)
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(DEFAULT_TYPES))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
@@ -193,11 +197,16 @@ export default function Tracking(props: SuiviPageProps) {
     )
     if (q) {
       const terms = q.split(/\s+/)
-      r = r.filter((row) => terms.every((t) => row.filter.includes(t)))
+      // Chip Nomenclature complète : un terme peut matcher soit l'index de la ligne (dont les
+      // composants EN RUPTURE), soit la nomenclature complète de l'article.
+      r = r.filter((row) => {
+        const bom = searchBom ? (proView.bomIndex[row.article] ?? '') : ''
+        return terms.every((t) => row.filter.includes(t) || bom.includes(t))
+      })
     }
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proView.rows, query, verdictFilter, typeFilter, atelierFilter, dateRange])
+  }, [proView.rows, proView.bomIndex, query, verdictFilter, typeFilter, atelierFilter, dateRange, searchBom])
 
   // Toujours "aujourd'hui" réel (verdicts/statuts calculés par rapport à maintenant).
   const refLabel = TODAY.toLocaleDateString('fr-FR', {
@@ -262,6 +271,7 @@ export default function Tracking(props: SuiviPageProps) {
     (mode === 'reactif' && statusFilter !== 'all') ||
     (mode === 'proactif' && verdictFilter !== 'all') ||
     (mode === 'proactif' && !showSubAssemblies) ||
+    (mode === 'proactif' && searchBom) ||
     DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ||
     atelierFilter.size > 0
   const isFiltered = !!query.trim() || filtersActive
@@ -273,6 +283,7 @@ export default function Tracking(props: SuiviPageProps) {
     setStatusFilter('all')
     setVerdictFilter('all')
     setShowSubAssemblies(true)
+    setSearchBom(false)
     setTypeFilter(new Set(DEFAULT_TYPES))
     setAtelierFilter(new Set())
   }
@@ -368,13 +379,20 @@ export default function Tracking(props: SuiviPageProps) {
                 </Segment>
                 <div className="my-2.5 border-t border-rule-soft" />
                 <FilterMenuSectionLabel>Composants en rupture</FilterMenuSectionLabel>
-                <Segment className="w-full">
+                <Segment className="w-full flex-wrap">
                   <SegmentButton
                     active={showSubAssemblies}
                     onClick={() => setShowSubAssemblies((v) => !v)}
                     title="Inclure les sous-ensembles (semi-finis) fabriqués en rupture, en plus des composants achetés"
                   >
                     Sous-ensembles
+                  </SegmentButton>
+                  <SegmentButton
+                    active={searchBom}
+                    onClick={() => setSearchBom((v) => !v)}
+                    title="Étendre la recherche à toute la nomenclature de l'article : remonte les commandes qui EMBARQUENT le composant cherché, même s'il n'est pas en rupture"
+                  >
+                    Nomenclature complète
                   </SegmentButton>
                 </Segment>
                 <div className="my-2.5 border-t border-rule-soft" />

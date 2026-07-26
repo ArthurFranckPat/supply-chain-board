@@ -255,6 +255,13 @@ export interface ProactiveRowsResponse {
   /** Ateliers distincts présents (chips de filtre, issue #36). */
   ateliers: AtelierOption[]
   rows: ProactiveDisplayRow[]
+  /**
+   * Index de recherche nomenclature : article fini → ses composants tous niveaux, à plat et en
+   * minuscules. Alimente le chip « Nomenclature complète » (« quelles commandes embarquent cet
+   * article ? »), distinct de la recherche par défaut qui porte sur les composants EN RUPTURE.
+   * Clé par article et non par ligne : la déduplication divise le poids par ~1,7.
+   */
+  bomIndex: Record<string, string>
   x3Error: string | null
   referenceDate: string
 }
