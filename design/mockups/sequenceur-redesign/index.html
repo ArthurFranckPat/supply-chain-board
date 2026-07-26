@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Séquenceur — 3 pistes de redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: oklch(98.5% 0.003 250);
+  --card: oklch(100% 0 0);
+  --ink: oklch(24% 0.02 260);
+  --muted: oklch(52% 0.015 260);
+  --rule: oklch(90% 0.008 250);
+  --accent: oklch(52% 0.19 260);
+  --font-s: 'Inter', system-ui, sans-serif;
+  --font-m: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow-x: clip; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-s); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.sub { font-family: var(--font-m); font-size: 11px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+.lede { color: var(--muted); margin-top: 8px; max-width: 60ch; }
+ul { list-style: none; margin-top: 32px; display: grid; gap: 14px; }
+a.card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--card); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 20px 22px;
+  transition: border-color 160ms cubic-bezier(0.22,1,0.36,1);
+}
+a.card:hover { border-color: var(--accent); }
+.card .tag { font-family: var(--font-m); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.card h2 { font-size: 18px; font-weight: 700; margin-top: 6px; letter-spacing: -0.01em; }
+.card p { color: var(--muted); font-size: 13.5px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sub">Séquenceur · engagement OF par poste</div>
+  <h1>Trois pistes de redesign</h1>
+  <p class="lede">Même contenu (PP_830 · Ligne Easy Home), trois structures différentes. Données fictives mais réalistes — cliquez pour ouvrir chaque maquette.</p>
+  <ul>
+    <li><a class="card" href="v1-workbench-terminal.html">
+      <div class="tag">V1 · Workbench / Terminal</div>
+      <h2>Console dense, tout en mono</h2>
+      <p>Sombre, JetBrains Mono partout, bandes d'urgence pleine largeur avec totaux. Pour les ordonnanceurs qui vivent dans l'outil.</p>
+    </a></li>
+    <li><a class="card" href="v2-catalogue-newsprint.html">
+      <div class="tag">V2 · Catalogue / Newsprint</div>
+      <h2>Registre de production</h2>
+      <p>Papier crème, Fraunces, sommaire des postes à pointillés, sections numérotées I–IV. Lecture posée, presque imprimable.</p>
+    </a></li>
+    <li><a class="card" href="v3-stat-led-cobalt.html">
+      <div class="tag">V3 · Stat-Led / Cobalt</div>
+      <h2>Les chiffres d'abord</h2>
+      <p>Quatre indicateurs en tête (heures, retards, OF, saturation), onglets d'urgence, table épurée. Style SaaS moderne.</p>
+    </a></li>
+  </ul>
+</div>
+</body>
+</html>
