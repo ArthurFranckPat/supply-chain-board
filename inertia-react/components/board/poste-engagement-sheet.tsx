@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
@@ -107,27 +107,43 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch au mount + quand posteCode/open change
-  useState(() => {
-    if (props.open && props.posteCode) {
-      setLoading(true)
-      setError(null)
-      fetch(route('scheduler.poste_engagement', { poste: props.posteCode }))
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          return res.json() as Promise<EngagementPayload>
-        })
-        .then((payload) => {
-          setData(payload)
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Échec du chargement')
-        })
-        .finally(() => {
-          setLoading(false)
-        })
+  /** Dernier poste effectivement chargé — mémo : rouvrir le même poste ne refetch pas. */
+  const loadedPoste = useRef<string | null>(null)
+
+  // Fetch à l'ouverture et à chaque changement de poste. C'était un `useState(fn)` :
+  // l'initialiseur ne tourne qu'au MONTAGE, et le panneau est monté en permanence par
+  // /programme avec open=false / posteCode=null → il ne fetchait jamais, `data` restait
+  // nul et le panneau s'ouvrait vide (aucun message, le rendu retourne null sans data).
+  useEffect(() => {
+    if (!props.open || !props.posteCode) return
+    if (loadedPoste.current === props.posteCode) return
+    const poste = props.posteCode
+    // Garde anti-course : deux postes ouverts coup sur coup, la réponse la plus lente
+    // ne doit pas écraser l'affichage du poste réellement demandé.
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    setData(null)
+    fetch(route('scheduler.poste_engagement', { poste }))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json() as Promise<EngagementPayload>
+      })
+      .then((payload) => {
+        if (cancelled) return
+        loadedPoste.current = poste
+        setData(payload)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Échec du chargement')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  })
+  }, [props.open, props.posteCode])
 
   const sat = data ? saturation(data.totalHours, data.weeklyCapacityHours) : null
   const weeksEngaged = data && data.weeklyCapacityHours
