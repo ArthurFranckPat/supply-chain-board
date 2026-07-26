@@ -318,10 +318,13 @@ export function createProactiveColumns({
       enableSorting: false,
       header: 'Composants en rupture',
       cell: ({ row }) => {
-        // Par défaut, seuls les composants ACHETÉS (descente === null) sont affichés.
-        // Les sous-ensembles (semi-finis) fabriqués sont inclus via le filtre dédié.
+        // Par défaut, seuls les composants ACHETÉS sont affichés. Un sous-ensemble fabriqué
+        // se reconnaît soit à sa descente BOM (SE réellement manquant), soit à `couvertParOf`
+        // (SE dont la couverture ne tient que grâce à un OF producteur).
         const all = row.original.composants
-        const comps = showSubAssemblies ? all : all.filter((c) => !c.descente)
+        const comps = showSubAssemblies
+          ? all
+          : all.filter((c) => !c.descente && !c.couvertParOf)
         if (comps.length === 0)
           return (
             <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
@@ -344,15 +347,36 @@ export function createProactiveColumns({
                       {c.desc}
                     </span>
                   )}
+                  {/* Un SE couvert par production n'est PAS en manque : pas de signe « − »,
+                      qui se lirait comme une rupture. */}
                   <span className="ml-auto shrink-0 rounded bg-secondary px-1 font-mono text-[10px] font-semibold text-muted-foreground tabular-nums">
-                    −{c.qty}
+                    {c.couvertParOf ? c.qty : `−${c.qty}`}
                   </span>
                 </div>
                 {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
                     soit les feuilles réellement bloquantes avec leur réception. La lentille
                     réception directe ne s'affiche que pour les composants SANS descente
                     (achetés) — pour un SE elle serait du bruit (pas d'achat sur un fabriqué). */}
-                {c.descente ? (
+                {c.couvertParOf ? (
+                  <div className="mt-0.5 flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground">
+                    {c.couvertParOf.ofs.length === 0 ? (
+                      <div className="flex items-center gap-1">
+                        <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                        <span>Pas en stock — aucun OF producteur</span>
+                      </div>
+                    ) : (
+                      c.couvertParOf.ofs.map((of) => (
+                        <div key={of.numOf} className="flex items-center gap-1">
+                          <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                          <span>
+                            Couvert par <span className="font-bold text-foreground">{of.numOf}</span>
+                            {of.dateFin && <span className="text-muted-foreground"> (fin {of.dateFin})</span>}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : c.descente ? (
                   c.descente.statut === 'bloque' ? (
                     <div className="mt-0.5 flex flex-col gap-px border-l border-rule-soft pl-2">
                       {c.descente.par.slice(0, 3).map((p) => (

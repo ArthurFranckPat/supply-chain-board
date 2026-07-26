@@ -618,3 +618,141 @@ test.group('netDemandsByAllocation', () => {
     )
   })
 })
+
+/**
+ * Sous-ensembles couverts par production (issue #94).
+ *
+ * Cas réel prod, article EAR206PO / OF F126-48960 : le SE EH4276 a un stock net de 0
+ * (PHYSTO 1259 entièrement GLOALL) et un besoin net de 1129, couvert par le seul OF
+ * producteur non soldé (F126-49049, 1700). Le moteur le déclare disponible (règle
+ * « dispo fabriqué = stock + OF producteurs ») — il n'apparaissait donc NULLE PART,
+ * alors que la commande dépend entièrement du passage de cet OF.
+ */
+test.group('evaluateOrderImpacts — SE couverts par production (#94)', () => {
+  const bomPfVersSe = (): Map<string, Nomenclature> =>
+    new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+      [
+        'SE1',
+        {
+          article: 'SE1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'SE1',
+              parentDescription: '',
+              level: 2,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+
+  const articles = () =>
+    new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+      ['C1', makeArticle('C1', 'ACHAT')],
+    ])
+
+  const window = { from: daysFromNow(-7), to: daysFromNow(42) }
+
+  test('SE sans stock mais couvert par un OF producteur → seComponents, PAS missingComponents', ({
+    assert,
+  }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 1129, daysFromNow(8)),
+      // L'OF producteur du SE couvre le besoin (1700 ≥ 1129).
+      makeOfFlow('OF-SE', 'SE1', 1, 1700, daysFromNow(6)),
+      makeStockFlow('C1', 99999),
+      // Stock SE volontairement absent → net 0, comme EH4276 en prod.
+    ]
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 1129, daysFromNow(10))]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      bomPfVersSe(),
+      articles(),
+      new Map<string, OfOverride>(),
+      window
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(of.missingComponents, {}, 'le SE est couvert : aucun manque')
+    assert.isTrue(of.feasible, 'verdict inchangé')
+    assert.deepEqual(
+      of.seComponents,
+      { SE1: 1129 },
+      'la dépendance à la production doit être exposée'
+    )
+  })
+
+  test('SE réellement manquant (aucun OF producteur) → missingComponents, seComponents vide', ({
+    assert,
+  }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 1129, daysFromNow(8)),
+      makeStockFlow('C1', 99999),
+    ]
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 1129, daysFromNow(10))]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      bomPfVersSe(),
+      articles(),
+      new Map<string, OfOverride>(),
+      window
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(of.missingComponents, { SE1: 1129 }, 'vrai manque, pas une dépendance')
+    assert.deepEqual(of.seComponents, {}, 'rien à créditer à la production')
+  })
+
+  test('SE couvert par du STOCK → ni manque ni dépendance', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 1129, daysFromNow(8)),
+      makeStockFlow('SE1', 5000),
+      makeStockFlow('C1', 99999),
+    ]
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 1129, daysFromNow(10))]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      bomPfVersSe(),
+      articles(),
+      new Map<string, OfOverride>(),
+      window
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(of.missingComponents, {})
+    assert.deepEqual(of.seComponents, {}, 'le stock physique suffit : aucune dépendance à un OF')
+  })
+})

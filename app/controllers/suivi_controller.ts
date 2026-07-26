@@ -509,6 +509,17 @@ export interface ProactiveDisplayRow {
         } | null
       }[]
     } | null
+    /**
+     * Sous-ensemble fabriqué dont la couverture ne tient QUE grâce à un OF producteur : le
+     * stock physique net ne suffit pas, `manque` est la quantité qui manquerait sans cette
+     * production, `ofs` les OF qui la fournissent. Ce n'est PAS une rupture (le verdict de la
+     * ligne est inchangé) — c'est une dépendance à rendre visible : si l'OF producteur glisse,
+     * la commande tombe. `null` = composant réellement manquant, ou couvert par du stock.
+     */
+    couvertParOf: {
+      manque: number
+      ofs: { numOf: string; dateFin: string | null }[]
+    } | null
   }[]
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
@@ -767,6 +778,21 @@ export function buildProactiveDisplay(
     }
   }
 
+  // Index des OF producteurs par article (fenêtre courante), le plus tôt d'abord — sert à
+  // nommer l'OF dont dépend un SE couvert par production (`couvertParOf`).
+  const ofsByProducedArticle = new Map<string, { numOf: string; dateFin: string | null }[]>()
+  for (const f of bomContext?.supplyFlows ?? []) {
+    if (f.direction !== 'supply' || f.origin.type !== 'of' || f.quantity <= 0) continue
+    const numOf = ((f.origin as { id?: string }).id ?? '').trim()
+    if (!numOf) continue
+    const arr = ofsByProducedArticle.get(f.article) ?? []
+    arr.push({ numOf, dateFin: f.date ? isoLocalDay(f.date) : null })
+    ofsByProducedArticle.set(f.article, arr)
+  }
+  for (const arr of ofsByProducedArticle.values()) {
+    arr.sort((a, b) => (a.dateFin ?? '9999').localeCompare(b.dateFin ?? '9999'))
+  }
+
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
     .filter((o) => !o.dateExpedition || o.dateExpedition <= horizonIso.toISOString().slice(0, 10))
@@ -775,6 +801,19 @@ export function buildProactiveDisplay(
       for (const of of o.ofs) {
         for (const [art, qty] of Object.entries(of.missingComponents)) {
           if (qty > 0) composants.set(art, (composants.get(art) ?? 0) + qty)
+        }
+      }
+      // SE couverts uniquement par un OF producteur : jamais dans `missingComponents` (le
+      // moteur les considère disponibles, règle « dispo fabriqué = stock + OF producteurs »),
+      // donc invisibles sans ça — alors que c'est exactement ce que le filtre « Sous-ensembles »
+      // doit montrer. Un composant déjà réellement manquant garde sa qté de manque : le manque
+      // prime sur la dépendance.
+      const seCouverts = new Map<string, number>()
+      for (const of of o.ofs) {
+        for (const [art, qty] of Object.entries(of.seComponents ?? {})) {
+          if (qty > 0 && !composants.has(art)) {
+            seCouverts.set(art, (seCouverts.get(art) ?? 0) + qty)
+          }
         }
       }
       // Lentille réception partagée composant/descente : 1ère réception d'achat dont le
@@ -844,8 +883,28 @@ export function buildProactiveDisplay(
             qty: qtyR,
             reception: coveringReception(art, qtyR),
             descente,
+            couvertParOf: null,
           }
         })
+
+      // SE couverts par production : même forme, mais `couvertParOf` renseigné et pas de
+      // lentille réception (un fabriqué ne s'achète pas). Triés à la suite des vrais manques.
+      const seComps = [...seCouverts.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([art, manque]) => ({
+          art,
+          desc: articles.get(art)?.description ?? '',
+          qty: Math.round(manque * 100) / 100,
+          reception: null,
+          descente: null,
+          couvertParOf: {
+            manque: Math.round(manque * 100) / 100,
+            ofs: (ofsByProducedArticle.get(art) ?? []).slice(0, 3).map((of) => ({
+              numOf: of.numOf,
+              dateFin: of.dateFin ? fmtFrDay(of.dateFin) : null,
+            })),
+          },
+        }))
 
       // La demande est déjà nettoyée de l'allocation ERP côté loader (proactif) : qteRestante
       // = reste à RÉALISER (reste à livrer − alloué). Le verdict moteur porte donc sur la part
@@ -932,7 +991,7 @@ export function buildProactiveDisplay(
             : null,
         couverture,
         joursRetard: o.joursRetard,
-        composants: comps,
+        composants: [...comps, ...seComps],
         ofs: ofsFinal,
         atelier: atelier.code,
         atelierLabel: atelier.label,

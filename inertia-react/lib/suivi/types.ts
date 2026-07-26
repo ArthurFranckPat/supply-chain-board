@@ -215,6 +215,15 @@ export interface ProactiveDisplayRow {
         } | null
       }[]
     } | null
+    /**
+     * SE fabriqué dont la couverture ne tient QUE grâce à un OF producteur (stock physique
+     * insuffisant). Pas une rupture : une dépendance. `manque` = qté qui manquerait sans cette
+     * production. `null` = composant manquant, ou couvert par du stock.
+     */
+    couvertParOf: {
+      manque: number
+      ofs: { numOf: string; dateFin: string | null }[]
+    } | null
   }[]
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */

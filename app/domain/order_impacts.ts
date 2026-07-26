@@ -64,6 +64,14 @@ export interface OrderImpactRow {
      * Optionnel dans le TYPE seulement (fixtures de tests) — toujours produit par le moteur.
      */
     qcComponents?: Record<string, number>
+    /**
+     * Sous-ensembles FABRIQUÉS dont la couverture ne tient que grâce à un OF producteur :
+     * article → quantité qui manquerait sans cette production. Stock physique net insuffisant,
+     * donc le SE est suspendu à un OF qui doit tourner. Ne compte PAS comme un manque (absent
+     * de `missingComponents`, `feasible` inchangé) — c'est une lentille de dépendance.
+     * Optionnel dans le TYPE seulement (fixtures de tests) — toujours produit par le moteur.
+     */
+    seComponents?: Record<string, number>
     modified: boolean
     statutNum: number
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
@@ -91,6 +99,8 @@ export interface OrderImpactResult {
     missingComponents: Record<string, number>
     /** Composants couverts uniquement grâce au stock sous CQ (cf. `orders[].ofs[].qcComponents`). */
     qcComponents?: Record<string, number>
+    /** SE couverts uniquement par un OF producteur (cf. `orders[].ofs[].seComponents`). */
+    seComponents?: Record<string, number>
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
     estDebuté?: boolean
   }>
@@ -254,9 +264,10 @@ export function evaluateOrderImpacts(
     }
   })
   const engineMode = mode === 'sequential' ? 'contention' : 'photo'
+  const ofSupply = buildOfSupply(engineOfs)
   const verdicts = evaluateRuptures(
     engineOfs,
-    { articles, nomenclatures, stockNet, ofSupply: buildOfSupply(engineOfs) },
+    { articles, nomenclatures, stockNet, ofSupply },
     engineMode
   )
   // 2e passe SANS le CQ — uniquement si du stock Q existe dans le périmètre (sinon aucun
@@ -268,11 +279,43 @@ export function evaluateOrderImpacts(
           articles,
           nomenclatures,
           stockNet: stockNetStrict,
-          ofSupply: buildOfSupply(engineOfs),
+          ofSupply,
         },
         engineMode
       )
     : undefined
+  // 3e passe SANS la production OF — révèle les sous-ensembles fabriqués dont la couverture
+  // ne tient QUE grâce à un OF producteur (stock physique net insuffisant). Le verdict rendu
+  // reste celui de `verdicts` (règle « dispo fabriqué = stock + OF producteurs » inchangée) ;
+  // l'écart rend la dépendance EXPLICITE — sans lui un SE couvert par un OF est indiscernable
+  // d'un SE réellement en stock, et n'apparaît nulle part dans les vues.
+  // Même coût qu'une passe CQ (pur mémoire), sautée si aucun OF ne produit quoi que ce soit.
+  const verdictsNoOfSupply =
+    ofSupply.size > 0
+      ? evaluateRuptures(engineOfs, { articles, nomenclatures, stockNet }, engineMode)
+      : undefined
+
+  /**
+   * Écart de manquants entre la passe « sans production OF » et la passe retenue, restreint aux
+   * SOUS-ENSEMBLES FABRIQUÉS directs → « ce SE n'est pas en stock, il dépend d'un OF qui doit
+   * tourner ». Restreint à `fabricated && depth === 0` volontairement : la dispo d'un composant
+   * ACHETÉ ne dépend pas d'`ofSupply`, tout écart le concernant serait un artefact de la
+   * consommation virtuelle (un OF bloqué en plus dans la passe sans-supply ne consomme rien et
+   * libère du stock pour les suivants).
+   */
+  const seDelta = (ofId: string): Record<string, number> => {
+    const noSupply = verdictsNoOfSupply?.get(ofId)
+    if (!noSupply) return {}
+    const withSupply = verdicts.get(ofId)
+    const missWithSupply = withSupply ? directMissing(withSupply) : {}
+    const out: Record<string, number> = {}
+    for (const m of noSupply.missingDetail) {
+      if (m.depth !== 0 || !m.fabricated) continue
+      const covered = m.shortage - (missWithSupply[m.article] ?? 0)
+      if (covered > 0) out[m.article] = (out[m.article] ?? 0) + covered
+    }
+    return out
+  }
 
   /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
   const qcDelta = (ofId: string): Record<string, number> => {
@@ -296,13 +339,17 @@ export function evaluateOrderImpacts(
     feasible: boolean | null
     missingComponents: Record<string, number>
     qcComponents: Record<string, number>
+    seComponents: Record<string, number>
   } => {
     const pre = precomputedFeasibility?.get(ofId)
     if (pre) {
+      // Chemin MFGMAT (engagement réel, sans ofSupply) : la notion « couvert par un OF » n'a
+      // pas de sens ici, le verdict ne crédite aucune production.
       return {
         feasible: pre.feasible,
         missingComponents: pre.missingComponents,
         qcComponents: pre.qcComponents ?? {},
+        seComponents: {},
       }
     }
     const verdict = verdicts.get(ofId)
@@ -310,6 +357,7 @@ export function evaluateOrderImpacts(
       feasible: verdict?.feasible ?? null,
       missingComponents: verdict ? directMissing(verdict) : {},
       qcComponents: qcDelta(ofId),
+      seComponents: seDelta(ofId),
     }
   }
 
@@ -379,6 +427,7 @@ export function evaluateOrderImpacts(
         feasible: ofFeasible,
         missingComponents: resolved.missingComponents,
         qcComponents: resolved.qcComponents,
+        seComponents: resolved.seComponents,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
@@ -459,6 +508,7 @@ export function evaluateOrderImpacts(
         statutNum: o.statutNum,
         missingComponents: resolved.missingComponents,
         qcComponents: resolved.qcComponents,
+        seComponents: resolved.seComponents,
         estDebuté: avancementByOf?.get(o.numOf)?.estDebuté,
       }
     }),
