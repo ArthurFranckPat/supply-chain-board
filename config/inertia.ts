@@ -281,6 +281,9 @@ declare module '@adonisjs/inertia/types' {
       }[]
       rows: any[]
       selectedPoste: string | null
+      /** true = commandes/livraison chargées (poste unique, matching scopé) ;
+       *  false = vue "tous les postes", sans matching commande (perf, cf. loader). */
+      detail: boolean
       x3Error: string | null
     }
     'scheduler/programme': {

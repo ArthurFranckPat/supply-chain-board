@@ -1,10 +1,20 @@
 import { useMemo, useState } from 'react'
-import { Head } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import { Package, Search, TriangleAlert } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
+import { route } from '@r/lib/routes'
 import { PILL, Segment, SegmentButton, ToolbarRow, ToolbarSpacer } from '@r/components/vision/toolbar'
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  useComboboxAnchor,
+} from '@r/components/ui/combobox'
 import {
   type EngagementRow,
   type Urgency,
@@ -18,10 +28,12 @@ import {
 
 /**
  * Page « Séquenceur » — vue transverse de l'engagement OF par poste (issue #46,
- * lot page dédiée). Même dataset que le panneau `PosteEngagementSheet` (board
- * /programme), calculé une seule fois côté serveur (`loadAllPostesEngagement`)
- * pour tous les postes ; filtrage poste/urgence/recherche fait ici côté client
- * (pas de rechargement serveur au changement de filtre).
+ * lot page dédiée). `/sequenceur` (aucun poste) : dataset léger, tous postes,
+ * SANS matching commande — coût O(n²) ZSOAPSQL sinon corrélé au nombre total
+ * d'OF de l'usine (mesuré : 26 s). `/sequenceur/:poste` : matching commande
+ * scopé à ce poste (petite liste, comme le panneau `PosteEngagementSheet`).
+ * Changer de poste (combobox ou bandeau) navigue vers l'autre route — pas de
+ * fetch caché côté client, le coût du matching reste toujours scopé à 1 poste.
  */
 
 interface PosteSummary {
@@ -38,24 +50,41 @@ interface SequenceurPageProps {
   postes: PosteSummary[]
   rows: SequenceurRow[]
   selectedPoste: string | null
+  /** true = commandes/livraison chargées (poste unique) ; false = vue "tous les
+   *  postes" sans matching commande. */
+  detail: boolean
   x3Error: string | null
 }
 
 const ROW_GRID_ALL = 'grid-cols-[6rem_7rem_6.5rem_1.5fr_6rem_1.3fr_5.5rem_4rem_4rem]'
 const ROW_GRID_ONE = 'grid-cols-[7rem_6.5rem_1.5fr_6rem_1.3fr_5.5rem_4rem_4rem]'
 
+function gotoPoste(poste: string | null) {
+  router.visit(poste ? route('sequenceur.show', { poste }) : route('sequenceur.index'))
+}
+
 export default function Sequenceur(props: SequenceurPageProps) {
-  const [posteFilter, setPosteFilter] = useState<string | null>(props.selectedPoste)
+  const anchorRef = useComboboxAnchor()
+  const [posteQuery, setPosteQuery] = useState('')
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>('all')
   const [query, setQuery] = useState('')
 
-  const activePoste = posteFilter ? props.postes.find((p) => p.code === posteFilter) : null
+  const activePoste = props.selectedPoste
+    ? props.postes.find((p) => p.code === props.selectedPoste)
+    : null
+
+  const filteredPostes = useMemo(() => {
+    const q = posteQuery.trim().toLowerCase()
+    if (!q) return props.postes
+    return props.postes.filter(
+      (p) => p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+    )
+  }, [props.postes, posteQuery])
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return props.rows
-      .filter((r) => !posteFilter || r.posteCode === posteFilter)
-      .filter((r) => urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter)
+      .filter((r) => !props.detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter)
       .filter((r) => {
         if (!q) return true
         const haystack = [
@@ -69,15 +98,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
           .toLowerCase()
         return haystack.includes(q)
       })
-      .sort(
-        (a, b) =>
-          (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999') ||
-          (a.dateDebutIso ?? '9999').localeCompare(b.dateDebutIso ?? '9999') ||
-          a.numOf.localeCompare(b.numOf)
-      )
-  }, [props.rows, posteFilter, urgencyFilter, query])
+  }, [props.rows, props.detail, urgencyFilter, query])
 
-  const showPosteCol = !posteFilter
+  const showPosteCol = !props.selectedPoste
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
   const sat = activePoste ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours) : null
   const weeksEngaged =
@@ -110,40 +133,59 @@ export default function Sequenceur(props: SequenceurPageProps) {
           </div>
         )}
 
-        {/* Toolbar : poste, urgence, recherche. */}
+        {/* Toolbar : poste (navigue vers /sequenceur/:poste, matching scopé),
+            urgence (uniquement en mode détail — sans poste, pas de livraison
+            connue), recherche (toujours côté client). */}
         <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-          <select
-            value={posteFilter ?? ''}
-            onChange={(e) => setPosteFilter(e.currentTarget.value || null)}
-            className="h-[30px] rounded-full border border-rule bg-card px-3 text-xs font-semibold text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
-          >
-            <option value="">Tous les postes</option>
-            {props.postes.map((p) => (
-              <option key={p.code} value={p.code}>
-                {p.code} — {p.label}
-              </option>
-            ))}
-          </select>
+          <div ref={anchorRef}>
+            <Combobox
+              value={props.selectedPoste ?? ''}
+              onValueChange={(v) => gotoPoste(v ? String(v) : null)}
+              onInputValueChange={setPosteQuery}
+            >
+              <ComboboxInput placeholder="Tous les postes" className="w-[220px]" showClear />
+              <ComboboxContent anchor={anchorRef}>
+                <ComboboxList>
+                  {filteredPostes.length === 0 ? (
+                    <ComboboxEmpty>Aucun poste ne correspond.</ComboboxEmpty>
+                  ) : (
+                    filteredPostes.map((p) => (
+                      <ComboboxItem key={p.code} value={p.code}>
+                        <span className="font-mono text-[12px] font-semibold">{p.code}</span>
+                        <span className="truncate text-muted-foreground">{p.label}</span>
+                      </ComboboxItem>
+                    ))
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          </div>
 
-          <Segment role="radiogroup" ariaLabel="Urgence">
-            {(
-              [
-                ['all', 'Toutes'],
-                ['overdue', 'En retard'],
-                ['week', 'Cette semaine'],
-                ['later', 'À venir'],
-              ] as const
-            ).map(([id, label]) => (
-              <SegmentButton
-                key={id}
-                role="radio"
-                active={urgencyFilter === id}
-                onClick={() => setUrgencyFilter(id)}
-              >
-                {label}
-              </SegmentButton>
-            ))}
-          </Segment>
+          {props.detail ? (
+            <Segment role="radiogroup" ariaLabel="Urgence">
+              {(
+                [
+                  ['all', 'Toutes'],
+                  ['overdue', 'En retard'],
+                  ['week', 'Cette semaine'],
+                  ['later', 'À venir'],
+                ] as const
+              ).map(([id, label]) => (
+                <SegmentButton
+                  key={id}
+                  role="radio"
+                  active={urgencyFilter === id}
+                  onClick={() => setUrgencyFilter(id)}
+                >
+                  {label}
+                </SegmentButton>
+              ))}
+            </Segment>
+          ) : (
+            <span className="font-mono text-2xs italic text-muted-foreground">
+              Sélectionnez un poste pour filtrer par urgence de livraison
+            </span>
+          )}
 
           <ToolbarSpacer />
 
@@ -161,16 +203,16 @@ export default function Sequenceur(props: SequenceurPageProps) {
         </ToolbarRow>
 
         {/* Bandeau postes — sert aussi de liste de postes (n'existe nulle part
-            ailleurs dans l'app), cliquable pour filtrer. */}
+            ailleurs dans l'app), cliquable pour naviguer vers le détail. */}
         <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
           {props.postes.map((p) => {
             const s = saturation(p.totalHours, p.weeklyCapacityHours)
-            const active = posteFilter === p.code
+            const active = props.selectedPoste === p.code
             return (
               <button
                 key={p.code}
                 type="button"
-                onClick={() => setPosteFilter(active ? null : p.code)}
+                onClick={() => gotoPoste(active ? null : p.code)}
                 className={cn(
                   'flex flex-none items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[11px] transition-colors',
                   active
@@ -198,7 +240,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
           })}
         </div>
 
-        {/* Identité poste + saturation — uniquement quand un seul poste est filtré. */}
+        {/* Identité poste + saturation — uniquement en mode détail. */}
         {activePoste && (
           <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-7 py-3">
             <Package size={18} strokeWidth={1.75} className="text-brand" />
@@ -278,7 +320,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
             {filteredRows.map((r, i) => {
               const u = urgencyOf(r.livraisonIso)
               const prevU = i > 0 ? urgencyOf(filteredRows[i - 1].livraisonIso) : null
-              const showSep = prevU === null || prevU !== u
+              const showSep = props.detail && (prevU === null || prevU !== u)
               const sepLabel =
                 u === 'overdue' ? '⚠ En retard' : u === 'week' ? '◐ Cette semaine' : '○ À venir'
               const avancement = r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
@@ -366,7 +408,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                       )}
                     </div>
                     <span className={cn('font-mono text-[11px] font-bold tabular-nums', urgencyColor(u))}>
-                      {fmtDateFr(r.livraisonIso)}
+                      {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
                     </span>
                     <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
                       {fmtH(r.hours)}
