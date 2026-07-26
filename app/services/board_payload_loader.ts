@@ -356,8 +356,12 @@ export async function loadBoardData(
 
     const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
     if (!start) continue
-    const startIso = isoDay(start)
-    const idx = colIdx.get(startIso)
+    let idx = colIdx.get(isoDay(start))
+    // OF démarré avant la fenêtre mais toujours en cours (ramené par le filtre ENDDAT côté
+    // SQL) : le placer sur la 1re colonne visible au lieu de le faire disparaître du board.
+    if (idx === undefined && colDates.length > 0 && atMidnight(start) < colDates[0]) {
+      idx = 0
+    }
     if (idx === undefined) continue
 
     const rate = gammeMap.get(mo.article)?.rate ?? 0
