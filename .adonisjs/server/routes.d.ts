@@ -22,6 +22,8 @@ export type ScannedRoutes = {
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
+    'sequenceur.index': { paramsTuple?: []; params?: {} }
+    'sequenceur.show': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -124,6 +126,8 @@ export type ScannedRoutes = {
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
+    'sequenceur.index': { paramsTuple?: []; params?: {} }
+    'sequenceur.show': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -191,6 +195,8 @@ export type ScannedRoutes = {
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
+    'sequenceur.index': { paramsTuple?: []; params?: {} }
+    'sequenceur.show': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }

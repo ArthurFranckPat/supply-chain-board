@@ -7,7 +7,7 @@ import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
-import { loadPosteEngagement } from '#services/poste_engagement_loader'
+import { loadPosteEngagement, loadAllPostesEngagement } from '#services/poste_engagement_loader'
 import { loadBoardData } from '#services/board_payload_loader'
 import { loadShortageRows } from '#services/shortage_payload_loader'
 import { timeStage } from '#services/perf_metrics'
@@ -360,6 +360,32 @@ export default class SchedulerController {
     const poste = (ctx.params.poste as string).trim()
     const force = !!ctx.request.input('refresh')
     return ctx.response.send(await loadPosteEngagement(poste, force))
+  }
+
+  /**
+   * GET /sequenceur, /sequenceur/:poste — page dédiée engagement OF par poste (#46).
+   * Même dataset que `posteEngagement` (loadAllPostesEngagement), scopé côté client
+   * au poste de l'URL quand présent — pas de rechargement serveur au changement de
+   * filtre poste dans l'UI.
+   */
+  async sequenceur(ctx: HttpContext) {
+    const poste = (ctx.params.poste as string | undefined)?.trim() || null
+    const force = !!ctx.request.input('refresh')
+    const dataset = await loadAllPostesEngagement(force)
+    return ctx.inertia.render('scheduler/sequenceur', {
+      postes: dataset.postes.map((p) => ({
+        code: p.poste.code,
+        label: p.poste.label,
+        count: p.count,
+        totalHours: p.totalHours,
+        weeklyCapacityHours: p.weeklyCapacityHours,
+      })),
+      rows: dataset.postes.flatMap((p) =>
+        p.rows.map((r) => ({ ...r, posteCode: p.poste.code, posteLabel: p.poste.label }))
+      ),
+      selectedPoste: poste,
+      x3Error: dataset.postes.find((p) => p.x3Error)?.x3Error ?? null,
+    })
   }
 
   /**

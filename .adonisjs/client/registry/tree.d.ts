@@ -55,6 +55,10 @@ export interface ApiDefinition {
     update: typeof routes['scenarios.update']
     destroy: typeof routes['scenarios.destroy']
   }
+  sequenceur: {
+    index: typeof routes['sequenceur.index']
+    show: typeof routes['sequenceur.show']
+  }
   load: {
     index: typeof routes['load.index']
   }

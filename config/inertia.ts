@@ -269,6 +269,20 @@ declare module '@adonisjs/inertia/types' {
       evaluatedAt: string
       dataAt: string
     }
+    // Séquenceur (#46) : engagement OF par poste, tous postes ou scopé (miroir :
+    // inertia-react/lib/board/engagement-format.ts → EngagementRow).
+    'scheduler/sequenceur': {
+      postes: {
+        code: string
+        label: string
+        count: number
+        totalHours: number
+        weeklyCapacityHours: number | null
+      }[]
+      rows: any[]
+      selectedPoste: string | null
+      x3Error: string | null
+    }
     'scheduler/programme': {
       mode: 'combined' | 'ordonnancement' | 'planification'
       // OF board — null en mode planification
