@@ -20,14 +20,17 @@ import { useRangeCalendar } from '@r/lib/use-range-calendar'
  *  actions optionnelles. */
 
 export const SEG = 'inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5'
+/* Actif = encre Astryx pleine (bg-accent / text on-accent). brand-soft à 12 %
+   d'encre était quasi invisible sur fond card — le segment actif se confondait
+   avec les inactifs (bug lot 4, collision accent + soft trop faible). */
 export const SEG_BTN_ON =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold bg-brand-soft text-brand transition-all duration-150 ease-out active:scale-95'
+  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold bg-accent text-accent-foreground transition-all duration-150 ease-out active:scale-95'
 export const SEG_BTN_OFF =
   'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 ease-out active:scale-95'
 export const SEG_LBL =
   'px-1.5 font-mono text-3xs font-semibold text-muted-foreground'
 export const PILL =
-  'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-all duration-150 ease-out hover:border-brand active:scale-[0.97]'
+  'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-all duration-150 ease-out hover:border-foreground active:scale-[0.97]'
 
 export function ToolbarRow(props: { children: ReactNode; className?: string; noWrap?: boolean }) {
   return (

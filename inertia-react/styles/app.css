@@ -10,6 +10,13 @@
    vers les tokens Astryx — sans cela, 1600+ classes utilisées dans les
    pages casseraient. Au fur et à mesure que les pages sont réécrites
    avec des classes Astryx natives, ces alias deviendront inutiles.
+
+   FOOTGUN (fix 2026-07-26) : ne JAMAIS redéfinir `--color-accent` ici.
+   Chez Astryx, `--color-accent` = encre CTA (#262626 en neutral). Le token
+   shadcn du même nom voulait dire « surface de hover » (muted). Les aliaser
+   l'un sur l'autre écrase l'accent Astryx → primary/brand/planifie deviennent
+   du gris muted quasi invisible (segments actifs, Semaine N, wordmark…).
+   Pour une surface de hover : bg-muted / bg-background-muted.
    ════════════════════════════════════════════════════════════ */
 
 @import 'tailwindcss';
@@ -30,7 +37,7 @@
   --font-heading: var(--font-sans);
   --font-sans: 'Plus Jakarta Sans Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
   --font-mono: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
-  --font-fraunces: var(--font-sans); /* neutralisé : Airbnb n'utilisait pas de serif */
+  --font-fraunces: var(--font-sans); /* neutralisé : plus de serif display */
 
   /* ── Échelle typographique micro (badges board) ── */
   --text-2xs: 0.625rem;            /* 10px */
@@ -40,7 +47,11 @@
 
   /* ── Alias Tailwind sémantiques → tokens Astryx ──
      Redirige les classes bg-background/text-foreground/border-border/etc.
-     utilisées partout dans les pages vers les tokens du theme-neutral. */
+     utilisées partout dans les pages vers les tokens du theme-neutral.
+
+     `--color-accent` n'est PAS aliasé : il reste le token Astryx natif
+     (encre CTA). Les anciens `bg-accent` shadcn (surface hover) doivent
+     utiliser `bg-muted`. */
   --color-background: var(--color-background-body);
   --color-foreground: var(--color-text-primary);
   --color-card: var(--color-background-card);
@@ -53,8 +64,8 @@
   --color-secondary-foreground: var(--color-text-primary);
   --color-muted: var(--color-background-muted);
   --color-muted-foreground: var(--color-text-secondary);
-  --color-accent: var(--color-background-muted);
-  --color-accent-foreground: var(--color-text-primary);
+  /* accent-foreground = texte sur surface accent Astryx (encre) */
+  --color-accent-foreground: var(--color-on-accent);
   --color-destructive: var(--color-error);
   --color-destructive-foreground: var(--color-on-error);
   --color-border: var(--color-border);
@@ -74,21 +85,199 @@
   --color-sidebar-border: var(--color-border);
   --color-sidebar-ring: var(--color-text-primary);
 
-  /* ── Tokens métier supply chain → couleurs sémantiques Astryx ──
-     Statuts OF mappés sur la palette sémantique (success/warning/error). */
+  /* ── Tokens métier supply chain ──
+     Valeurs figées (pas de renvoi à --color-accent / --color-warning) :
+     1. évite toute collision si un jour un alias réécrit ces tokens ;
+     2. parité avec astryx.css [data-astryx-theme='neutral'] ;
+     3. brand = encre Astryx (CTA) — chrome UI (Semaine N, segments actifs).
+        Les statuts OF gardent leur sémantique métier indépendante. */
   --color-brand: var(--color-accent);
-  --color-brand-soft: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  --color-brand-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
   --color-rule: var(--color-border);
   --color-rule-soft: color-mix(in srgb, var(--color-border) 50%, transparent);
-  --color-ferme: var(--color-success);
-  --color-planifie: var(--color-accent);
-  --color-suggere: var(--color-warning);
-  --color-warning: var(--color-warning);
+  --color-ferme: #008049;
+  --color-planifie: #00a699;
+  --color-suggere: #fc642d;
+  --color-warning: #fc642d;
 }
 
 @theme {
-  /* ── Shadows ── conservés pour les portails body-level.
-     2 tiers uniquement, directive historique. */
+  /* ── Shadows ── alias vers les ombres Astryx (portails body-level).
+     2 tiers uniquement. */
   --shadow-float: var(--shadow-low);
   --shadow-overlay: var(--shadow-med);
+}
+
+/* ────────────────────────────────────────────────────────────
+   Base — body hérite déjà via <Theme> ; on ancre juste la typo
+   et le fond pour le first paint hors scope Astryx.
+   ──────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-family: var(--font-sans);
+  }
+  body {
+    background: var(--color-background-body, #f1f1f1);
+    color: var(--color-text-primary, #171717);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/* Conteneur scrollable SANS barre visible (scroll molette → horizontal en JS). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* KPI personnalisables : à l'écran les tiles suivent --screen-order,
+   à l'impression elles basculent sur --print-order. */
+.kpi-tile {
+  order: var(--screen-order, 0);
+  transition:
+    transform 250ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+  will-change: transform, opacity;
+}
+
+@media print {
+  .kpi-tile {
+    order: var(--print-order, 0) !important;
+  }
+}
+
+/* Animation fluide FLIP (View Transitions API) — cartes KPI dashboard. */
+::view-transition-group(kpi-tile-charge),
+::view-transition-group(kpi-tile-otd),
+::view-transition-group(kpi-tile-stock),
+::view-transition-group(kpi-tile-lignes),
+::view-transition-group(kpi-tile-stockTable) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(kpi-tile-charge),
+::view-transition-old(kpi-tile-otd),
+::view-transition-old(kpi-tile-stock),
+::view-transition-old(kpi-tile-lignes),
+::view-transition-old(kpi-tile-stockTable),
+::view-transition-new(kpi-tile-charge),
+::view-transition-new(kpi-tile-otd),
+::view-transition-new(kpi-tile-stock),
+::view-transition-new(kpi-tile-lignes),
+::view-transition-new(kpi-tile-stockTable) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Toasts sonner — pilule encre bas-centre (grammaire overlays).
+   Style principal en inline via toastOptions (app.tsx) ; ici les
+   détails hérités que l'inline ne couvre pas.
+   ──────────────────────────────────────────────────────────── */
+[data-sonner-toast] [data-description] {
+  color: rgba(255, 255, 255, 0.72);
+}
+[data-sonner-toast] [data-button] {
+  background: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  box-shadow: none;
+  height: auto;
+  padding: 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Impression — A3 paysage (runtime React).
+   ────────────────────────────────────────────────────────────
+   1. déclarer le format (`@page`) — sans quoi le calcul JS de fit est faux ;
+   2. dérouler ce que l'écran clippe (`h-screen`, `overflow-hidden`) et
+      neutraliser les positionnements collants ;
+   3. restituer les fonds porteurs d'information via `[data-print-ink]`.
+   ════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A3 landscape;
+    margin: 10mm 12mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Déroulage : AppLayout h-screen/overflow-hidden + coquilles flex pages. */
+  [data-app-layout],
+  [data-app-layout] > main,
+  [data-app-layout] > main > *,
+  [data-print-page],
+  [data-print-page] > *,
+  [data-print-unclip],
+  [data-print-unclip] > * {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* En-têtes/colonnes collants → statiques (sinon chevauchement inter-pages). */
+  [data-print-unclip] .sticky {
+    position: static !important;
+  }
+
+  /* Barre d'outils : on ne garde que ce qui est explicitement marqué. */
+  [data-print-toolbar] > *:not([data-print-keep]) {
+    display: none !important;
+  }
+
+  /* Fonds porteurs de sens (barres de charge, pastilles de palier). */
+  [data-print-ink],
+  [data-print-ink] * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Une rangée ne se coupe pas entre deux pages. */
+  [data-print-row] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Bandeau de rappel répété en pied de chaque page. */
+  [data-print-footer] {
+    display: flex !important;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+  [data-print-page]:has([data-print-footer]) {
+    padding-bottom: 8mm !important;
+  }
+}
+
+/* ── Grille du tableau de bord (cf. components/dashboard/grid.tsx) ──
+ * Placement calculé en JS (`left/top/width/height` inline).
+ * Le CSS ne fait que l'animation d'atterrissage. */
+.dashboard-grid-item {
+  transition:
+    left 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    top 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Tuile abs + dimensionnée explicitement : sa mise en page interne
+   * n'influence rien au dehors. `layout` seul — `paint` clipperait la
+   * barre d'outils qui déborde en haut. */
+  contain: layout;
 }

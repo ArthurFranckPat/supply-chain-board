@@ -61,12 +61,17 @@
  * niveau global, pas sous le scope Astryx.
  * ════════════════════════════════════════════════════════════ */
 [data-astryx-theme='neutral'] {
-  /* ── Statuts OF (métier supply chain) ── */
+  /* ── Statuts OF (métier supply chain) ──
+     Valeurs figées — ne pas renvoyer vers --color-accent (CTA encre) :
+     planifie a sa propre teinte teal, distincte de la marque. */
   --color-ferme: #008049;
   --color-planifie: #00a699;
   --color-suggere: #fc642d;
   --color-warning: #fc642d;
-  --color-brand-soft: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  /* brand = accent Astryx (encre CTA). soft à 12 % pour un état actif
+     de segment lisible sur fond blanc (10 % était trop fantôme). */
+  --color-brand: var(--color-accent);
+  --color-brand-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
   --color-rule: var(--color-border);
   --color-rule-soft: color-mix(in srgb, var(--color-border) 50%, transparent);
 }

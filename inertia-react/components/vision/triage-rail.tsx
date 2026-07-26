@@ -163,7 +163,7 @@ export function TriageRail(props: {
                 props.onSelect(item)
               }}
               className={cx(
-                'block w-full border-b border-rule-soft px-3.5 py-2.5 text-left transition-colors hover:bg-accent',
+                'block w-full border-b border-rule-soft px-3.5 py-2.5 text-left transition-colors hover:bg-muted',
                 selectedId === item.commandeId && 'bg-brand-soft'
               )}
             >

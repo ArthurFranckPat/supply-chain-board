@@ -930,6 +930,7 @@ export default function Programme(props: VisionProps) {
               </div>
               <Selector
                 label="Portée de la recherche"
+                isLabelHidden
                 value={mode === 'planification' ? orderStore.scope : boardStore.scope}
                 onChange={(v: string) => {
                   if (!v) return
