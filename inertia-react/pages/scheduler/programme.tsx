@@ -868,7 +868,11 @@ export default function Programme(props: VisionProps) {
   return (
     <>
       <Head title="Programme" />
-      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* min-h-0 obligatoire sur la colonne flex : sans lui, les enfants
+          flex-1 refusent de rétrécir sous la hauteur du contenu (min-height:auto)
+          → overflow-hidden clippe le board sans jamais activer son scroll interne.
+          Devenu flagrant quand le padding toolbar a été restauré (fix @layer). */}
+      <div className="theme-airbnb flex h-screen min-h-0 flex-col overflow-hidden bg-background text-foreground">
         <Masthead
           subtitle="Programme · Flux OF ↔ commandes"
           active="programme"
@@ -971,7 +975,7 @@ export default function Programme(props: VisionProps) {
         {/* ═══ Board ═══ */}
         {mode === 'planification' ? (
           orderStore.board.lines.length > 0 ? (
-            <div className="flex-1 overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <OrderGrid
                 board={orderStore.board}
                 onSelectCard={onSelectOrderLine}
@@ -985,13 +989,13 @@ export default function Programme(props: VisionProps) {
               />
             </div>
           ) : (
-            <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
+            <div className="flex min-h-0 flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
               Aucune ligne de commande dans l'horizon.
             </div>
           )
         ) : props.lineCount > 0 ? (
-          <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <BoardGrid
                 store={boardStore}
                 onSelectOf={onSelectOf}
@@ -1063,7 +1067,7 @@ export default function Programme(props: VisionProps) {
             )}
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
+          <div className="flex min-h-0 flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
             Aucun OF dans l'horizon.
           </div>
         )}
