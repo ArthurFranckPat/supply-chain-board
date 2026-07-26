@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 102 routes nommées.
+ * 104 routes nommées.
  */
 
 export const MANIFEST = {
@@ -118,6 +118,8 @@ export const MANIFEST = {
   'scheduler.shortage_rows': { method: 'GET', pattern: '/api/v1/planning/shortages/rows' },
   'scheduler.shortage_tracker': { method: 'GET', pattern: '/ruptures' },
   'scheduling': { method: 'GET', pattern: '/ordonnancement' },
+  'sequenceur.index': { method: 'GET', pattern: '/sequenceur' },
+  'sequenceur.show': { method: 'GET', pattern: '/sequenceur/:poste' },
   'static_sync.status': { method: 'GET', pattern: '/api/v1/static/status' },
   'static_sync.sync': { method: 'POST', pattern: '/api/v1/static/sync' },
   'suivi.assign': { method: 'POST', pattern: '/api/v1/status/assign' },
@@ -229,6 +231,8 @@ export type RouteParams = {
   'scheduler.shortage_rows': void
   'scheduler.shortage_tracker': void
   'scheduling': void
+  'sequenceur.index': void
+  'sequenceur.show': { poste: string | number }
   'static_sync.status': void
   'static_sync.sync': void
   'suivi.assign': void

@@ -24,6 +24,7 @@ import UserMenu from '@r/components/user-menu'
 export type MastheadTab =
   | 'dashboard'
   | 'programme'
+  | 'sequenceur'
   | 'load'
   | 'ruptures'
   | 'tracking'
@@ -38,6 +39,7 @@ export type MastheadTab =
 const TABS: { key: MastheadTab; label: string; href: string }[] = [
   { key: 'dashboard', label: 'Tableau', href: route('dashboard') },
   { key: 'programme', label: 'Programme', href: route('scheduler.programme') },
+  { key: 'sequenceur', label: 'Séquenceur', href: route('sequenceur.index') },
   { key: 'load', label: 'Charge', href: route('load.index') },
   { key: 'ruptures', label: 'Ruptures', href: route('scheduler.shortage_tracker') },
   { key: 'tracking', label: 'Suivi', href: route('suivi.board') },

@@ -111,6 +111,12 @@ router
     router
       .get('/programme/scenarios/comparer', '#controllers/scenario_controller.comparePage')
       .as('scenarios.compare')
+    // Séquenceur (#46) : engagement OF par poste, vue transverse (tous postes,
+    // filtres) ou scopée à un poste — même controller, même loader partagé.
+    router.get('/sequenceur', '#controllers/scheduler_controller.sequenceur').as('sequenceur.index')
+    router
+      .get('/sequenceur/:poste', '#controllers/scheduler_controller.sequenceur')
+      .as('sequenceur.show')
     router.get('/charge', '#controllers/load_controller.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')

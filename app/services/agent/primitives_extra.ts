@@ -117,17 +117,35 @@ export async function simulerDecalage(params: {
   }
 }
 
-/** Persistance explicite d'un scénario (scenario_store). */
+/**
+ * Persistance explicite d'un scénario (scenario_store).
+ *
+ * Un scénario appartient à un utilisateur (cf. `ScenarioStore`). Le copilote passe
+ * aujourd'hui par une connexion MCP in-process partagée : aucun `userId` ne traverse
+ * cette frontière. Écrire quand même produirait une ligne orpheline, invisible dans
+ * /programme — donc on refuse explicitement plutôt que de faire semblant. Lever la
+ * limite = faire descendre le propriétaire du tour jusqu'aux tools MCP.
+ */
 export async function enregistrerScenario(params: {
   nom: string
   description?: string
   mutations: PlanMutation[]
   auteur?: string
+  userId?: number | null
 }) {
   const nom = params.nom?.trim()
   if (!nom) return { error: 'nom requis', _source: 'enregistrerScenario' as const }
   if (!Array.isArray(params.mutations) || params.mutations.length === 0) {
     return { error: 'mutations[] requis', _source: 'enregistrerScenario' as const }
+  }
+  if (params.userId == null) {
+    return {
+      error:
+        'Enregistrement indisponible depuis le copilote : un scénario est rattaché à son ' +
+        'auteur, et le copilote ne transporte pas encore cette information. ' +
+        'Rejouer les mutations sur /programme en mode scénario pour le conserver.',
+      _source: 'enregistrerScenario' as const,
+    }
   }
 
   const store = new ScenarioStore()
@@ -135,6 +153,7 @@ export async function enregistrerScenario(params: {
     nom,
     description: params.description ?? null,
     auteur: params.auteur ?? 'agent',
+    userId: params.userId,
     mutations: params.mutations,
   })
   return {
@@ -717,10 +736,25 @@ export async function getCharge(
   }
 }
 
-/** Scénarios persistés (scenario_store). */
-export async function listerScenarios() {
+/**
+ * Scénarios persistés (scenario_store) — ceux de l'utilisateur, uniquement.
+ * Même limite que `enregistrerScenario` : sans propriétaire, on rend une liste vide
+ * assortie du motif, plutôt que les scénarios de tout le monde.
+ */
+export async function listerScenarios(userId?: number | null) {
+  if (userId == null) {
+    return {
+      _source: 'listerScenarios' as const,
+      engine: 'ScenarioStore.list',
+      count: 0,
+      scenarios: [],
+      note:
+        'Les scénarios sont personnels et le copilote ne transporte pas encore ' +
+        "l'identité de l'utilisateur — liste consultable sur /programme.",
+    }
+  }
   const store = new ScenarioStore()
-  const rows = await store.list()
+  const rows = await store.list(userId)
   return {
     _source: 'listerScenarios' as const,
     engine: 'ScenarioStore.list',

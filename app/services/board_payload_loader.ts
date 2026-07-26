@@ -317,6 +317,28 @@ export async function loadBoardData(
   const colIdx = new Map<string, number>()
   colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
 
+  // Résout la colonne d'une carte dont la date de début calculée (STRDAT ou override)
+  // ne tombe pas sur un jour ouvré de la grille — `colDates` exclut samedi/dimanche,
+  // donc un lookup exact sur une date de week-end ne matchait jamais rien et la carte
+  // disparaissait silencieusement du board. On la reporte sur le prochain jour ouvré ;
+  // si la date est antérieure à la fenêtre, on la borne sur la 1re colonne visible.
+  const resolveColIdx = (start: Date): number | undefined => {
+    const direct = colIdx.get(isoDay(start))
+    if (direct !== undefined) return direct
+    if (colDates.length === 0) return undefined
+    const s = atMidnight(start)
+    if (s < colDates[0]) return 0
+    const last = colDates[colDates.length - 1]
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(s)
+      d.setDate(d.getDate() + i)
+      if (d > last) break
+      const idx = colIdx.get(isoDay(d))
+      if (idx !== undefined) return idx
+    }
+    return undefined
+  }
+
   const dayHours = new Array<number>(colDates.length).fill(0)
   const now = atMidnight(new Date())
 
@@ -356,8 +378,7 @@ export async function loadBoardData(
 
     const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
     if (!start) continue
-    const startIso = isoDay(start)
-    const idx = colIdx.get(startIso)
+    const idx = resolveColIdx(start)
     if (idx === undefined) continue
 
     const rate = gammeMap.get(mo.article)?.rate ?? 0

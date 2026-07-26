@@ -13,7 +13,9 @@
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { FeasibilityOptions } from './stock_state.js'
+import type { MfgMaterialInput } from './of_feasibility.js'
 import type { Nomenclature } from './models/nomenclature.js'
+import { requiredQuantity } from './models/nomenclature.js'
 import {
   evaluateOrderImpacts,
   type OrderImpactResult,
@@ -21,6 +23,12 @@ import {
 } from './order_impacts.js'
 import type { OfOverride } from './planning_board.js'
 import type { AllocationStrategy } from './of_conso.js'
+import { isPurchaseArticle } from './rules.js'
+import {
+  DEFAULT_HOURS_PER_DAY,
+  DEFAULT_LOGISTICS_BUFFER_DAYS,
+  fabricationDaysFromHours,
+} from './shortages.js'
 
 // ---------------------------------------------------------------------------
 // Mutations (primitive de la vision §3)
@@ -69,11 +77,26 @@ export interface ClientDiffEntry {
   joursRetardApres: number
   /** joursRetardApres − joursRetardAvant */
   deltaJours: number
-  /** true si la commande n'existe que dans le plan muté (inject_demand). */
-  nouvelle: boolean
   /** true si la commande sort du plan muté (shift_demand hors fenêtre). */
   disparue: boolean
   sens: DiffSens
+}
+
+/** Demande injectée (inject_demand) — l'hypothèse testée. Son verdict CTP est un
+ *  constat neutre (réponse à la demande), pas un impact signé : exclu du bilan. */
+export interface SujetEntry {
+  numCommande: string
+  ligne: string | null
+  article: string
+  client: string
+  /** Verdict de servabilité évalué dans le plan muté (CTP). */
+  statut: OrderImpactRow['statut']
+  /** Retard de couverture vs la date de besoin testée. */
+  joursRetard: number
+  /** Date de besoin testée (ISO), null si non retrouvée dans les mutations. */
+  date: string | null
+  /** Quantité testée, null si non retrouvée dans les mutations. */
+  quantite: number | null
 }
 
 export interface ApproDiffEntry {
@@ -112,6 +135,44 @@ export interface ChargeDiffEntry {
   deltaPct: number | null
 }
 
+/**
+ * Réaction d'offre synthétisée pour une demande injectée (issue #58, réouverture).
+ *
+ * Une commande client ne consomme rien en direct : elle DÉCLENCHE un ordre. Sans cet
+ * ordre virtuel, `inject_demand` ne posait qu'une demande nue → aucune empreinte
+ * composants, axes appro/allocation/charge structurellement à 0, et un CTP tautologique
+ * (« la commande qu'on vient de créer n'a pas de couverture »).
+ *
+ * v1 actée : nomenclature 1 niveau (la descente des sous-ensembles fabriqués reste celle
+ * du moteur de rupture), lot économique ignoré (qté OF = qté demandée), poste = gamme de
+ * l'article.
+ */
+export interface VirtualSupplyEntry {
+  /** Id du flux virtuel — `VOF-<id demande>` pour un OF, `VPO-<id demande>` pour un achat. */
+  id: string
+  /** Demande injectée à l'origine de cette réaction. */
+  demandeId: string
+  ligne: string | null
+  article: string
+  quantite: number
+  /** 'of' = fabriqué (consomme la nomenclature) ; 'achat' = réappro (le manque = le produit). */
+  type: 'of' | 'achat'
+  /** Date à laquelle l'ordre doit être LANCÉ / la commande d'achat PASSÉE (ISO). */
+  dateDebut: string
+  /** Date de mise à disposition retenue (ISO) — besoin moins le buffer logistique. */
+  dateFin: string
+  /** Délai retenu, en jours : charge gamme convertie (fabriqué) ou réappro article (achat). */
+  delai: number
+  /** true si la date de lancement/passation est déjà passée → l'ordre ne tient plus. */
+  lancementDepasse: boolean
+  /** Poste de charge (fabriqué, gamme connue) — null sinon. */
+  poste: string | null
+  /** Heures de charge ajoutées sur ce poste (fabriqué, gamme connue) — null sinon. */
+  heures: number | null
+  /** Besoins composants niveau 1 de l'ordre virtuel + manquant constaté dans le plan muté. */
+  composants: Array<{ article: string; besoin: number; manquant: number }>
+}
+
 export interface ApproVerdictEntry {
   composant: string
   numOf: string
@@ -120,10 +181,22 @@ export interface ApproVerdictEntry {
   dateApres: string
   quantite: number
   reorderDelay: number
+  /** true si le besoin n'existait pas avant (composant d'un ordre virtuel, #58). */
+  nouveau?: boolean
+  /**
+   * Manquant du composant dans le plan muté (0 pour un `dormant`, qui n'est pas une
+   * rupture). Sert à rappeler que le verdict repose sur un manque CONSTATÉ par le
+   * moteur, pas sur la seule arithmétique date + délai.
+   */
+  manquant: number
 }
 
 export interface PlanDiff {
   client: ClientDiffEntry[]
+  /** Hypothèses injectées (inject_demand) + verdict CTP : constat neutre, hors bilan. */
+  sujet: SujetEntry[]
+  /** Ordres virtuels déclenchés par les demandes injectées — la réaction d'offre (#58). */
+  offreVirtuelle: VirtualSupplyEntry[]
   appro: ApproDiffEntry[]
   approVerdicts: ApproVerdictEntry[]
   allocation: AllocationDiffEntry[]
@@ -157,12 +230,197 @@ function parseIso(value: string): Date {
   return d
 }
 
+// ---------------------------------------------------------------------------
+// Réaction d'offre virtuelle (issue #58) — besoin → OF / réappro
+// ---------------------------------------------------------------------------
+
+/** Gamme condensée d'un article : où ça charge, et combien d'heures par unité. */
+export interface ArticleRouting {
+  poste: string
+  heuresParUnite: number
+}
+
+export interface VirtualSupplyContext {
+  articles: Map<string, Article>
+  nomenclatures: Map<string, Nomenclature>
+  /** Gammes par article — sans elles, pas de poste ni d'axe charge sur l'ordre virtuel. */
+  routings?: Map<string, ArticleRouting>
+  hoursPerDay?: number
+  /** Injectable pour les tests ; défaut = aujourd'hui minuit. */
+  today?: Date
+}
+
+export interface VirtualSupplyPlan {
+  entries: VirtualSupplyEntry[]
+  /** Flows d'offre à ajouter au plan muté (OF virtuels uniquement). */
+  flows: Flow[]
+  /** `${demandeId}#${ligne ?? ''}` → n° d'OF virtuel, posé en contremarque sur la demande. */
+  pegByDemand: Map<string, string>
+  /** Jours de fabrication des OF virtuels — même rôle que `engine.fabricationDaysByOf`. */
+  fabricationDays: Map<string, number>
+  /** Charge des OF virtuels, pour l'axe charge du diff. */
+  charges: OfCharge[]
+}
+
+const EMPTY_VIRTUAL_SUPPLY: VirtualSupplyPlan = {
+  entries: [],
+  flows: [],
+  pegByDemand: new Map(),
+  fabricationDays: new Map(),
+  charges: [],
+}
+
+function addDays(d: Date, days: number): Date {
+  return new Date(d.getTime() + days * 86_400_000)
+}
+
+/**
+ * Synthétise, pour chaque `inject_demand`, l'ordre que cette commande DÉCLENCHERAIT.
+ *
+ *  - article fabriqué → OF virtuel (statut planifié) posé dans les flows d'offre : c'est
+ *    lui qui consomme la nomenclature, donc lui qui allume les axes appro (nouveaux
+ *    manques), allocation et charge, et qui rend le CTP significatif ;
+ *  - article acheté → PAS de flux d'offre. Injecter une réception virtuelle masquerait
+ *    justement le signal recherché (le matcher compte les réceptions comme du stock, sans
+ *    regarder leur date) : la demande resterait « servie » alors que le manque EST le
+ *    produit. L'entrée `type: 'achat'` porte le délai de réappro et la date de passation
+ *    requise ; la demande, elle, ressort non couverte — ce qui est le constat juste.
+ */
+export function synthesizeVirtualSupply(
+  mutations: PlanMutation[],
+  ctx: VirtualSupplyContext
+): VirtualSupplyPlan {
+  const injections = mutations.filter(
+    (m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand'
+  )
+  if (injections.length === 0) return EMPTY_VIRTUAL_SUPPLY
+
+  const today = ctx.today ?? (() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })()
+  const hoursPerDay = ctx.hoursPerDay ?? DEFAULT_HOURS_PER_DAY
+
+  const plan: VirtualSupplyPlan = {
+    entries: [],
+    flows: [],
+    pegByDemand: new Map(),
+    fabricationDays: new Map(),
+    charges: [],
+  }
+
+  for (const m of injections) {
+    const article = ctx.articles.get(m.article) ?? null
+    const bom = ctx.nomenclatures.get(m.article)
+    // Achat = pas d'OF à lancer, la couverture passe par un réappro. Tout le reste
+    // (fabriqué, article inconnu) déclenche un OF — sans nomenclature, il produit sans
+    // rien consommer, ce qui reste plus juste que de le faire disparaître.
+    const besoin = parseIso(m.date)
+
+    if (isPurchaseArticle(article)) {
+      const delai = article?.reorderDelay ?? 14
+      const passation = addDays(besoin, -delai)
+      plan.entries.push({
+        id: `VPO-${m.id}`,
+        demandeId: m.id,
+        ligne: m.ligne ?? null,
+        article: m.article,
+        quantite: m.quantity,
+        type: 'achat',
+        dateDebut: toIsoDay(passation),
+        dateFin: toIsoDay(besoin),
+        delai,
+        lancementDepasse: passation.getTime() < today.getTime(),
+        poste: null,
+        heures: null,
+        composants: [],
+      })
+      continue
+    }
+
+    const routing = ctx.routings?.get(m.article) ?? null
+    const heures = routing ? Math.round(routing.heuresParUnite * m.quantity * 10) / 10 : null
+    const fabDays =
+      heures !== null
+        ? fabricationDaysFromHours(heures, hoursPerDay)
+        : Math.max(1, article?.reorderDelay ?? 1)
+
+    // L'OF doit être TERMINÉ avant l'expédition : même buffer logistique que le calcul de
+    // retard d'`evaluateOrderImpacts`, sinon un OF calé pile sur le besoin sortirait en
+    // retard systématique.
+    const dateFin = addDays(besoin, -DEFAULT_LOGISTICS_BUFFER_DAYS)
+    const dateDebut = addDays(dateFin, -fabDays)
+    const numOf = `VOF-${m.id}`
+
+    plan.pegByDemand.set(`${m.id}#${m.ligne ?? ''}`, numOf)
+    plan.flows.push({
+      article: m.article,
+      quantity: m.quantity,
+      direction: 'supply',
+      date: dateFin,
+      origin: {
+        type: 'of',
+        id: numOf,
+        status: 2,
+        statutLabel: 'Virtuel',
+        typeOf: null,
+        typeOfLabel: null,
+        designation: article?.description ?? null,
+        launched: m.quantity,
+        reservePour: m.id,
+      },
+    })
+    plan.fabricationDays.set(numOf, fabDays)
+    if (routing && heures) {
+      plan.charges.push({ numOf, poste: routing.poste, dateFin: toIsoDay(dateFin), heures })
+    }
+
+    const composants = new Map<string, number>()
+    for (const entry of bom?.components ?? []) {
+      const qty = requiredQuantity(entry, m.quantity)
+      if (qty <= 0) continue
+      composants.set(entry.componentArticle, (composants.get(entry.componentArticle) ?? 0) + qty)
+    }
+
+    plan.entries.push({
+      id: numOf,
+      demandeId: m.id,
+      ligne: m.ligne ?? null,
+      article: m.article,
+      quantite: m.quantity,
+      type: 'of',
+      dateDebut: toIsoDay(dateDebut),
+      dateFin: toIsoDay(dateFin),
+      delai: fabDays,
+      lancementDepasse: dateDebut.getTime() < today.getTime(),
+      poste: routing?.poste ?? null,
+      heures,
+      composants: [...composants].map(([a, besoinQty]) => ({
+        article: a,
+        besoin: besoinQty,
+        manquant: 0,
+      })),
+    })
+  }
+
+  return plan
+}
+
 /**
  * Applique N mutations à un plan. Composable : chaque mutation opère sur la
  * sortie de la précédente. shift_of réutilise le mécanisme OfOverride (le
  * moteur d'impact lit déjà les overrides pour les dates effectives).
+ *
+ * `virtual` (issue #58) : réaction d'offre pré-synthétisée. Ses OF virtuels sont ajoutés
+ * à l'offre et pointés en contremarque depuis leur demande injectée — hard peg, pour que
+ * la virtuelle ne se fasse pas voler son propre OF par une commande réelle du même article.
  */
-export function applyMutations(inputs: PlanInputs, mutations: PlanMutation[]): PlanInputs {
+export function applyMutations(
+  inputs: PlanInputs,
+  mutations: PlanMutation[],
+  virtual: VirtualSupplyPlan = EMPTY_VIRTUAL_SUPPLY
+): PlanInputs {
   let demands = [...inputs.demands]
   let supplyFlows = [...inputs.supplyFlows]
   const overrides = new Map(inputs.overrides)
@@ -206,7 +464,7 @@ export function applyMutations(inputs: PlanInputs, mutations: PlanMutation[]): P
               pays: null,
               orderType: 'NOR',
               nature: 'COMMANDE',
-              contremarque: null,
+              contremarque: virtual.pegByDemand.get(`${m.id}#${m.ligne ?? ''}`) ?? null,
               qteCommandee: m.quantity,
               qteAllouee: 0,
               ligne: m.ligne ?? null,
@@ -228,7 +486,7 @@ export function applyMutations(inputs: PlanInputs, mutations: PlanMutation[]): P
     }
   }
 
-  return { demands, supplyFlows, overrides }
+  return { demands, supplyFlows: [...supplyFlows, ...virtual.flows], overrides }
 }
 
 // ---------------------------------------------------------------------------
@@ -255,35 +513,50 @@ function signClient(entry: Omit<ClientDiffEntry, 'sens'>): DiffSens {
   return entry.deltaJours > 0 ? 'degradation' : 'amelioration'
 }
 
-function diffClient(before: OrderImpactResult, after: OrderImpactResult): ClientDiffEntry[] {
+function diffClient(
+  before: OrderImpactResult,
+  after: OrderImpactResult
+): { client: ClientDiffEntry[]; sujet: Array<Omit<SujetEntry, 'date' | 'quantite'>> } {
   const beforeByKey = new Map(before.orders.map((r) => [orderKey(r), r]))
   const afterByKey = new Map(after.orders.map((r) => [orderKey(r), r]))
   const keys = new Set([...beforeByKey.keys(), ...afterByKey.keys()])
 
-  const entries: ClientDiffEntry[] = []
+  const client: ClientDiffEntry[] = []
+  // Hypothèse injectée (inject_demand) : son verdict CTP est la RÉPONSE à la demande
+  // testée, pas un impact signé sur le plan → monte en `sujet`, hors bilan (flux ADV).
+  const sujet: Array<Omit<SujetEntry, 'date' | 'quantite'>> = []
   for (const key of keys) {
     const b = beforeByKey.get(key)
     const a = afterByKey.get(key)
-    const ref = (a ?? b)!
-    const changed = !b || !a || b.statut !== a.statut || b.joursRetard !== a.joursRetard
+    if (!b) {
+      sujet.push({
+        numCommande: a!.numCommande,
+        ligne: a!.ligne ?? null,
+        article: a!.article,
+        client: a!.client,
+        statut: a!.statut,
+        joursRetard: a!.joursRetard,
+      })
+      continue
+    }
+    const changed = !a || b.statut !== a.statut || b.joursRetard !== a.joursRetard
     if (!changed) continue
 
     const base = {
-      numCommande: ref.numCommande,
-      ligne: ref.ligne ?? null,
-      article: ref.article,
-      client: ref.client,
-      statutAvant: b?.statut ?? null,
+      numCommande: b.numCommande,
+      ligne: b.ligne ?? null,
+      article: b.article,
+      client: b.client,
+      statutAvant: b.statut,
       statutApres: a?.statut ?? null,
-      joursRetardAvant: b?.joursRetard ?? 0,
+      joursRetardAvant: b.joursRetard,
       joursRetardApres: a?.joursRetard ?? 0,
-      deltaJours: (a?.joursRetard ?? 0) - (b?.joursRetard ?? 0),
-      nouvelle: !b,
+      deltaJours: (a?.joursRetard ?? 0) - b.joursRetard,
       disparue: !a,
     }
-    entries.push({ ...base, sens: signClient(base) })
+    client.push({ ...base, sens: signClient(base) })
   }
-  return entries
+  return { client, sujet }
 }
 
 /** Manquants agrégés par composant sur tous les OFs évalués. */
@@ -406,11 +679,15 @@ export function mondayOf(iso: string): string {
  * Δ charge par poste-semaine induit par les mutations shift_of : chaque OF
  * déplacé retire ses heures de son bucket d'origine et les ajoute au bucket
  * cible. `capacites` (heures par poste-semaine) optionnel pour le Δ %.
+ *
+ * `virtualCharges` (issue #58) : charge des OF virtuels — de la charge NETTE ajoutée,
+ * sans bucket d'origine à décharger.
  */
 export function diffCharge(
   ofCharges: OfCharge[],
   mutations: PlanMutation[],
-  capacites?: Map<string, number>
+  capacites?: Map<string, number>,
+  virtualCharges: OfCharge[] = []
 ): ChargeDiffEntry[] {
   const chargeByOf = new Map(ofCharges.map((c) => [c.numOf, c]))
   const deltas = new Map<string, number>() // `${poste}|${semaine}` → Δ heures
@@ -437,6 +714,11 @@ export function diffCharge(
     deltas.set(to, (deltas.get(to) ?? 0) + base.heures)
   }
 
+  for (const c of virtualCharges) {
+    const key = `${c.poste}|${mondayOf(c.dateFin)}`
+    deltas.set(key, (deltas.get(key) ?? 0) + c.heures)
+  }
+
   const entries: ChargeDiffEntry[] = []
   for (const [key, deltaHeures] of deltas) {
     if (deltaHeures === 0) continue
@@ -458,6 +740,29 @@ export function diffCharge(
 // Orchestrateur : évaluer(plan) vs évaluer(plan + mutations)
 // ---------------------------------------------------------------------------
 
+/**
+ * Passe-plat vers `evaluateOrderImpacts` : les entrées « métier » que le board réel
+ * fournit déjà (`order_impacts_loader`) et sans lesquelles le diff n'évaluerait PAS
+ * le même plan que celui affiché — faisabilité MFGMAT réelle, avancement atelier,
+ * charge gamme pour le calcul de retard.
+ *
+ * Absent (fixtures, tests) → repli théorique : BOM complet, 1 jour de fabrication
+ * par OF. C'est le comportement historique, correct pour un test, faux pour l'écran.
+ */
+export interface PlanDiffEngineInputs {
+  precomputedFeasibility?: Map<
+    string,
+    {
+      feasible: boolean | null
+      missingComponents: Record<string, number>
+      qcComponents?: Record<string, number>
+    }
+  >
+  avancementByOf?: Map<string, { estDebuté: boolean; qtyRealisee?: number }>
+  mfgMaterialsByOf?: Map<string, MfgMaterialInput[]>
+  fabricationDaysByOf?: Map<string, number>
+}
+
 export interface PlanDiffInputs extends PlanInputs {
   nomenclatures: Map<string, Nomenclature>
   articles: Map<string, Article>
@@ -467,7 +772,30 @@ export interface PlanDiffInputs extends PlanInputs {
   ofCharges?: OfCharge[]
   /** Capacités par `${poste}|${semaine}` pour le Δ % de l'axe charge. */
   capacites?: Map<string, number>
+  /**
+   * Gammes condensées par article (#58) — poste + heures/unité. Sans elles, un OF virtuel
+   * reste sans poste : pas d'axe charge, et son délai de fabrication retombe sur le délai
+   * article. Fournies par `order_impacts_loader` (référentiel gamme déjà chargé).
+   */
+  routings?: Map<string, ArticleRouting>
+  /** Heures ouvrées par jour pour convertir la charge gamme en jours de fabrication. */
+  hoursPerDay?: number
   strategy?: AllocationStrategy
+  /** Entrées moteur du pipeline appelant — cf. `PlanDiffEngineInputs`. */
+  engine?: PlanDiffEngineInputs
+  /**
+   * Baseline DÉJÀ évaluée par l'appelant (`ctx.result` du loader). Fournie, elle évite
+   * de recalculer le plan actuel — et garantit surtout que le « avant » du diff est
+   * exactement le plan que l'utilisateur a sous les yeux, pas une seconde évaluation
+   * aux paramètres approchants.
+   */
+  before?: OrderImpactResult
+}
+
+export interface PlanDiffEvaluation {
+  diff: PlanDiff
+  before: OrderImpactResult
+  after: OrderImpactResult
 }
 
 function getOfDate(
@@ -484,20 +812,171 @@ function getOfDate(
   return baseDate
 }
 
+/**
+ * Verdicts de calage appro (issue #59) — CONSTAT sur les composants d'un OF déplacé.
+ *
+ * Règle de recevabilité : un besoin qui avance ne devient un verdict QUE si le moteur
+ * constate un manquant sur ce composant dans le plan muté. Sans ce nettage, tout OF
+ * avancé sortait « rupture inévitable » sur l'intégralité de sa nomenclature, stock
+ * plein compris — le panneau devenait illisible et faux.
+ *
+ * Caveat délai : `reorderDelay` vient d'ITMMASTER (PRPLTI/MFGLTI). Ces champs sont
+ * très majoritairement vides côté X3 → la valeur est le plus souvent le repli de
+ * `static_sync_service` (14 j achat / 10 j fabrication). La frontière inevitable ↔
+ * recalable est donc indicative tant que le référentiel n'est pas rempli.
+ */
+function approVerdicts(
+  inputs: PlanDiffInputs,
+  mutatedOverrides: Map<string, OfOverride>,
+  after: OrderImpactResult,
+  virtual: VirtualSupplyPlan
+): ApproVerdictEntry[] {
+  const verdicts: ApproVerdictEntry[] = []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const missingAfter = missingByComponent(after)
+
+  // Ordres virtuels (#58) : leurs besoins composants sont NEUFS — ils passent par la même
+  // machinerie de verdicts (#59) qu'un besoin avancé, la date de référence étant le
+  // lancement de l'OF virtuel (c'est là que les matières doivent être là).
+  for (const entry of virtual.entries) {
+    if (entry.type !== 'of') continue
+    const lancement = parseIso(entry.dateDebut)
+    for (const comp of entry.composants) {
+      const manquant = missingAfter.get(comp.article)?.ofs.get(entry.id) ?? 0
+      if (manquant <= 0) continue
+      const leadTime = inputs.articles.get(comp.article)?.reorderDelay ?? 14
+      const limite = addDays(today, leadTime)
+      verdicts.push({
+        composant: comp.article,
+        numOf: entry.id,
+        verdict: lancement.getTime() < limite.getTime() ? 'inevitable' : 'recalable',
+        dateAvant: entry.dateDebut,
+        dateApres: entry.dateDebut,
+        quantite: comp.besoin,
+        reorderDelay: leadTime,
+        manquant,
+        nouveau: true,
+      })
+    }
+  }
+
+  // Index réceptions par article — l'ancien `.some()` sur tout `supplyFlows` était
+  // dans la double boucle OF × composants.
+  const receptionsByArticle = new Map<string, Date[]>()
+  for (const sf of inputs.supplyFlows) {
+    if (sf.direction !== 'supply' || sf.origin.type !== 'reception' || !sf.date) continue
+    const arr = receptionsByArticle.get(sf.article) ?? []
+    arr.push(sf.date)
+    receptionsByArticle.set(sf.article, arr)
+  }
+
+  for (const f of inputs.supplyFlows) {
+    if (f.direction !== 'supply' || f.origin.type !== 'of') continue
+    const ofId = (f.origin as { id?: string }).id ?? ''
+    const dateBefore = getOfDate(ofId, inputs.overrides, f.date)
+    const dateAfter = getOfDate(ofId, mutatedOverrides, f.date)
+    if (!dateBefore || !dateAfter || dateBefore.getTime() === dateAfter.getTime()) continue
+
+    const nom = inputs.nomenclatures.get(f.article)
+    if (!nom) continue
+
+    const avance = dateAfter.getTime() < dateBefore.getTime()
+
+    for (const comp of nom.components) {
+      const compArticle = comp.componentArticle
+      const leadTime = inputs.articles.get(compArticle)?.reorderDelay ?? 14
+      const quantite = comp.linkQuantity * f.quantity
+      const base = {
+        composant: compArticle,
+        numOf: ofId,
+        dateAvant: toIsoDay(dateBefore),
+        dateApres: toIsoDay(dateAfter),
+        quantite,
+        reorderDelay: leadTime,
+      }
+
+      if (avance) {
+        // Besoin avancé : verdict seulement si le composant manque réellement après
+        // mutation. Couvert par le stock/les réceptions → rien à re-caler, rien à dire.
+        const manquant = missingAfter.get(compArticle)?.ofs.get(ofId) ?? 0
+        if (manquant <= 0) continue
+        const limite = new Date(today.getTime() + leadTime * 86400000)
+        verdicts.push({
+          ...base,
+          verdict: dateAfter.getTime() < limite.getTime() ? 'inevitable' : 'recalable',
+          manquant,
+        })
+      } else {
+        // Besoin repoussé : une réception déjà attendue AVANT la nouvelle date de
+        // besoin arrive pour rien à sa date. Une réception postérieure, elle, reste
+        // à sa place — la signaler serait du bruit.
+        const dormante = (receptionsByArticle.get(compArticle) ?? []).some(
+          (d) => d.getTime() >= today.getTime() && d.getTime() < dateAfter.getTime()
+        )
+        if (!dormante) continue
+        verdicts.push({ ...base, verdict: 'dormant', manquant: 0 })
+      }
+    }
+  }
+  return verdicts
+}
+
+function toIsoDay(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
 export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation[]): PlanDiff {
-  const before = evaluateOrderImpacts(
-    inputs.demands,
-    inputs.supplyFlows,
-    inputs.nomenclatures,
-    inputs.articles,
-    inputs.overrides,
-    inputs.window,
-    inputs.mode,
-    undefined,
-    undefined,
-    'date_besoin'
-  )
-  const mutated = applyMutations(inputs, mutations)
+  return evaluatePlanDiffDetailed(inputs, mutations).diff
+}
+
+/**
+ * Même diff, mais rend aussi les deux évaluations — l'appelant qui a besoin de
+ * statistiques agrégées (bilan de scénario, comparateur) n'a plus à relancer le
+ * moteur pour les obtenir.
+ */
+export function evaluatePlanDiffDetailed(
+  inputs: PlanDiffInputs,
+  mutations: PlanMutation[]
+): PlanDiffEvaluation {
+  const engine = inputs.engine ?? {}
+  const before =
+    inputs.before ??
+    evaluateOrderImpacts(
+      inputs.demands,
+      inputs.supplyFlows,
+      inputs.nomenclatures,
+      inputs.articles,
+      inputs.overrides,
+      inputs.window,
+      inputs.mode,
+      engine.precomputedFeasibility,
+      engine.avancementByOf,
+      'date_besoin',
+      engine.mfgMaterialsByOf,
+      engine.fabricationDaysByOf
+    )
+  // Réaction d'offre des demandes injectées (#58) : l'OF (ou la commande d'achat) que
+  // la commande virtuelle déclencherait. Sans elle, le diff est aveugle sur le geste ADV.
+  const virtual = synthesizeVirtualSupply(mutations, {
+    articles: inputs.articles,
+    nomenclatures: inputs.nomenclatures,
+    routings: inputs.routings,
+    hoursPerDay: inputs.hoursPerDay,
+  })
+
+  const mutated = applyMutations(inputs, mutations, virtual)
+  // Jours de fabrication des OF virtuels ajoutés aux entrées moteur — mais seulement si
+  // l'appelant en fournit déjà : la map absente est un CONTRAT (repli `effFin` dans le
+  // calcul de retard), la remplir à moitié changerait de mode de calcul en douce.
+  const afterFabricationDays =
+    engine.fabricationDaysByOf && virtual.fabricationDays.size > 0
+      ? new Map([...engine.fabricationDaysByOf, ...virtual.fabricationDays])
+      : engine.fabricationDaysByOf
   const after = evaluateOrderImpacts(
     mutated.demands,
     mutated.supplyFlows,
@@ -506,87 +985,48 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     mutated.overrides,
     inputs.window,
     inputs.mode,
-    undefined,
-    undefined,
-    inputs.strategy ?? 'date_besoin'
+    engine.precomputedFeasibility,
+    engine.avancementByOf,
+    inputs.strategy ?? 'date_besoin',
+    engine.mfgMaterialsByOf,
+    afterFabricationDays
   )
 
-  const verdicts: ApproVerdictEntry[] = []
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const ofFlows = inputs.supplyFlows.filter(
-    (f) => f.direction === 'supply' && f.origin.type === 'of'
-  )
-
-  for (const f of ofFlows) {
-    const ofId = (f.origin as any).id ?? ''
-    const dateBefore = getOfDate(ofId, inputs.overrides, f.date)
-    const dateAfter = getOfDate(ofId, mutated.overrides, f.date)
-
-    if (!dateBefore || !dateAfter || dateBefore.getTime() === dateAfter.getTime()) continue
-
-    const nom = inputs.nomenclatures.get(f.article)
-    if (!nom) continue
-
-    for (const comp of nom.components) {
-      const compArticle = comp.componentArticle
-      const articleDetail = inputs.articles.get(compArticle)
-      const leadTime = articleDetail?.reorderDelay ?? 14
-
-      const qty = comp.linkQuantity * f.quantity
-
-      if (dateAfter.getTime() < dateBefore.getTime()) {
-        const limitDate = new Date(today.getTime() + leadTime * 86400000)
-        if (dateAfter.getTime() < limitDate.getTime()) {
-          verdicts.push({
-            composant: compArticle,
-            numOf: ofId,
-            verdict: 'inevitable',
-            dateAvant: dateBefore.toISOString().slice(0, 10),
-            dateApres: dateAfter.toISOString().slice(0, 10),
-            quantite: qty,
-            reorderDelay: leadTime,
-          })
-        } else {
-          verdicts.push({
-            composant: compArticle,
-            numOf: ofId,
-            verdict: 'recalable',
-            dateAvant: dateBefore.toISOString().slice(0, 10),
-            dateApres: dateAfter.toISOString().slice(0, 10),
-            quantite: qty,
-            reorderDelay: leadTime,
-          })
-        }
-      } else if (dateAfter.getTime() > dateBefore.getTime()) {
-        const hasReception = inputs.supplyFlows.some(
-          (sf) =>
-            sf.direction === 'supply' &&
-            sf.origin.type === 'reception' &&
-            sf.article === compArticle
-        )
-        if (hasReception) {
-          verdicts.push({
-            composant: compArticle,
-            numOf: ofId,
-            verdict: 'dormant',
-            dateAvant: dateBefore.toISOString().slice(0, 10),
-            dateApres: dateAfter.toISOString().slice(0, 10),
-            quantite: qty,
-            reorderDelay: leadTime,
-          })
-        }
-      }
+  // Manquants constatés sur chaque ordre virtuel — le « quels composants sont captés ».
+  const missingAfter = missingByComponent(after)
+  for (const entry of virtual.entries) {
+    for (const comp of entry.composants) {
+      comp.manquant = missingAfter.get(comp.article)?.ofs.get(entry.id) ?? 0
     }
   }
 
+  const verdicts = approVerdicts(inputs, mutated.overrides, after, virtual)
+
+  const { client, sujet: sujetRaw } = diffClient(before, after)
+
+  // Identité des hypothèses injectées : date/quantité testées (en-tête CTP) + retrait de
+  // la virtuelle de l'axe allocation (sa ligne « gagne » est le pendant tautologique du
+  // « perd » constaté sur la commande réelle lésée — ce dernier reste, lui, signé).
+  const virtualIds = new Set<string>()
+  const injectInfo = new Map<string, { date: string; quantity: number }>()
+  for (const m of mutations) {
+    if (m.type !== 'inject_demand') continue
+    virtualIds.add(m.id)
+    injectInfo.set(`${m.id}#${m.ligne ?? ''}`, { date: m.date, quantity: m.quantity })
+  }
+  const sujet: SujetEntry[] = sujetRaw.map((s) => {
+    const info = injectInfo.get(`${s.numCommande}#${s.ligne ?? ''}`)
+    return { ...s, date: info?.date ?? null, quantite: info?.quantity ?? null }
+  })
+
   const diff: PlanDiff = {
-    client: diffClient(before, after),
+    client,
+    sujet,
+    offreVirtuelle: virtual.entries,
     appro: diffAppro(before, after),
     approVerdicts: verdicts,
-    allocation: diffAllocation(before, after),
-    charge: diffCharge(inputs.ofCharges ?? [], mutations, inputs.capacites),
+    allocation: diffAllocation(before, after).filter((e) => !virtualIds.has(e.numCommande)),
+    charge: diffCharge(inputs.ofCharges ?? [], mutations, inputs.capacites, virtual.charges),
     stats: { degradations: 0, ameliorations: 0 },
   }
 
@@ -601,5 +1041,5 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     }
   }
 
-  return diff
+  return { diff, before, after }
 }

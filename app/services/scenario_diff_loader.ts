@@ -2,27 +2,29 @@
  * Évaluation du diff d'un scénario (issue #57, pivot vision étage 2/3).
  *
  * Charge le plan réel (mêmes données X3 que le board /programme via `loadOrderImpacts`),
- * puis exécute le moteur de diff pur (`evaluatePlanDiff`) : évaluer(plan) vs
- * évaluer(plan + mutations). La sortie est un CONSTAT signé sur 3 axes
- * (client / appro / allocation) — l'axe charge reste côté client (histogrammes
- * `lineWeekLoads`, déjà réactifs aux positions des cartes).
+ * puis exécute le moteur de diff pur (`evaluatePlanDiffDetailed`) : évaluer(plan) vs
+ * évaluer(plan + mutations). La sortie est un CONSTAT signé sur 4 axes
+ * (client / appro / allocation / charge).
+ *
+ * Deux règles à ne pas défaire :
+ *  1. le « avant » du diff est `ctx.result` — l'évaluation que le board affiche déjà.
+ *     Le recalculer donnait deux chiffres de retard contradictoires à l'écran ;
+ *  2. le plan muté est évalué avec LES MÊMES entrées moteur que le board
+ *     (`ctx.engine` : faisabilité MFGMAT, avancement, charge gamme). Sans elles, le
+ *     « après » retombait sur le BOM théorique et 1 jour de fabrication par OF.
+ * Résultat : une seule évaluation supplémentaire par diff, au lieu de quatre.
  */
 
 import { loadOrderImpacts } from '#services/order_impacts_loader'
-import {
-  evaluatePlanDiff,
-  applyMutations,
-  type PlanDiff,
-  type PlanMutation,
-} from '#app/domain/plan_diff'
+import { evaluatePlanDiffDetailed, type PlanDiff, type PlanMutation } from '#app/domain/plan_diff'
 import type { AllocationStrategy } from '#app/domain/of_conso'
-import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order_impacts'
+import type { OrderImpactResult } from '#app/domain/order_impacts'
 
 export interface ScenarioDiffResult {
   diff: PlanDiff
   /** Horodatage de l'évaluation (« évalué le … »). */
   evaluatedAt: string
-  /** Borne haute des données chargées (« sur données du … ») = fin de fenêtre. */
+  /** Instant d'assemblage des données du plan (« sur données du … »). */
   dataAt: string
   beforeStats: {
     delayedOrders: number
@@ -31,6 +33,24 @@ export interface ScenarioDiffResult {
   afterStats: {
     delayedOrders: number
     inducedShortages: number
+  }
+}
+
+/** Composants en manque sur au moins un OF de l'évaluation. */
+function shortageCount(result: OrderImpactResult): number {
+  const composants = new Set<string>()
+  for (const of of result.ofs) {
+    for (const [composant, qty] of Object.entries(of.missingComponents)) {
+      if (qty > 0) composants.add(composant)
+    }
+  }
+  return composants.size
+}
+
+function statsOf(result: OrderImpactResult) {
+  return {
+    delayedOrders: result.orders.filter((o) => o.statut === 'retard').length,
+    inducedShortages: shortageCount(result),
   }
 }
 
@@ -45,34 +65,7 @@ export async function evaluateScenarioDiff(
     pipeline: 'programme',
   })
 
-  const before = evaluateOrderImpacts(
-    ctx.planInputs.demands,
-    ctx.planInputs.supplyFlows,
-    ctx.nomenclatures,
-    ctx.articles,
-    ctx.planInputs.overrides,
-    window,
-    undefined,
-    undefined,
-    undefined,
-    'date_besoin'
-  )
-
-  const mutated = applyMutations(ctx.planInputs, mutations)
-  const after = evaluateOrderImpacts(
-    mutated.demands,
-    mutated.supplyFlows,
-    ctx.nomenclatures,
-    ctx.articles,
-    mutated.overrides,
-    window,
-    undefined,
-    undefined,
-    undefined,
-    strategy ?? 'date_besoin'
-  )
-
-  const diff = evaluatePlanDiff(
+  const { diff, before, after } = evaluatePlanDiffDetailed(
     {
       demands: ctx.planInputs.demands,
       supplyFlows: ctx.planInputs.supplyFlows,
@@ -81,40 +74,19 @@ export async function evaluateScenarioDiff(
       articles: ctx.articles,
       window,
       strategy,
+      before: ctx.result,
+      engine: ctx.engine,
+      ofCharges: ctx.ofCharges,
+      routings: ctx.routingByArticle,
     },
     mutations
   )
 
-  const beforeDelayed = before.orders.filter((o) => o.statut === 'retard').length
-  const afterDelayed = after.orders.filter((o) => o.statut === 'retard').length
-
-  const getShortageCount = (impactResult: OrderImpactResult) => {
-    const componentsWithShortage = new Set<string>()
-    for (const ofInfo of impactResult.ofs) {
-      for (const [comp, qty] of Object.entries(ofInfo.missingComponents)) {
-        if (qty > 0) {
-          componentsWithShortage.add(comp)
-        }
-      }
-    }
-    return componentsWithShortage.size
-  }
-
-  const beforeShortages = getShortageCount(before)
-  const afterShortages = getShortageCount(after)
-
-  const now = new Date().toISOString()
   return {
     diff,
-    evaluatedAt: now,
-    dataAt: window.to.toISOString(),
-    beforeStats: {
-      delayedOrders: beforeDelayed,
-      inducedShortages: beforeShortages,
-    },
-    afterStats: {
-      delayedOrders: afterDelayed,
-      inducedShortages: afterShortages,
-    },
+    evaluatedAt: new Date().toISOString(),
+    dataAt: ctx.dataAt.toISOString(),
+    beforeStats: statsOf(before),
+    afterStats: statsOf(after),
   }
 }

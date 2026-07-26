@@ -40,3 +40,6 @@ excalidraw.log
 
 # Worktrees d'agents (git worktree) — jamais versionnés
 .claude/worktrees/
+
+.hallmark/
+.qwen/

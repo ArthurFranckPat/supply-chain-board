@@ -114,6 +114,18 @@ const routes = {
     tokens: [{"old":"/programme/scenarios/comparer","type":0,"val":"programme","end":""},{"old":"/programme/scenarios/comparer","type":0,"val":"scenarios","end":""},{"old":"/programme/scenarios/comparer","type":0,"val":"comparer","end":""}],
     types: placeholder as Registry['scenarios.compare']['types'],
   },
+  'sequenceur.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/sequenceur',
+    tokens: [{"old":"/sequenceur","type":0,"val":"sequenceur","end":""}],
+    types: placeholder as Registry['sequenceur.index']['types'],
+  },
+  'sequenceur.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/sequenceur/:poste',
+    tokens: [{"old":"/sequenceur/:poste","type":0,"val":"sequenceur","end":""},{"old":"/sequenceur/:poste","type":1,"val":"poste","end":""}],
+    types: placeholder as Registry['sequenceur.show']['types'],
+  },
   'load.index': {
     methods: ["GET","HEAD"],
     pattern: '/charge',

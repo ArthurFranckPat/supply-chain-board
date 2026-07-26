@@ -26,7 +26,6 @@ interface ScenarioCompareVm {
 
 interface PlanActuelVm {
   nom: string
-  diff: PlanDiff
   stats: {
     delayedOrders: number
     inducedShortages: number
@@ -46,20 +45,31 @@ export default function Comparer(props: ComparerPageProps) {
   const pageRef = useRef<HTMLDivElement>(null)
   usePrintFitPage(() => pageRef.current)
 
-  // Calcule les surcharges (poste-semaine où deltaHeures > 0)
+  // Poste-semaines dont la charge AUGMENTE vs plan actuel. L'axe charge du diff est
+  // déjà relatif au plan actuel : celui-ci est donc à 0 par construction, il ne se
+  // compare pas à lui-même.
   const getSurchargeStats = (diff: PlanDiff) => {
     const surchargedWeeks = diff.charge.filter((c) => c.deltaHeures > 0)
-    const totalExtraHours = surchargedWeeks.reduce((acc, c) => acc + c.deltaHeures, 0)
-    // Regroupe par poste
     const extraByPoste: Record<string, number> = {}
     for (const c of surchargedWeeks) {
       extraByPoste[c.poste] = (extraByPoste[c.poste] || 0) + c.deltaHeures
     }
     return {
       count: surchargedWeeks.length,
-      hours: totalExtraHours,
+      hours: Math.round(surchargedWeeks.reduce((acc, c) => acc + c.deltaHeures, 0) * 10) / 10,
       byPoste: extraByPoste,
     }
+  }
+
+  const fmtJour = (iso: string) => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR')
+  }
+  const fmtStamp = (iso: string) => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime())
+      ? iso
+      : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
   }
 
   const formatStrategy = (s: AllocationStrategy) => {
@@ -79,13 +89,13 @@ export default function Comparer(props: ComparerPageProps) {
     window.print()
   }
 
-  const baselineCharge = getSurchargeStats(props.planActuel.diff)
-
   return (
     <>
       <Head title="Comparaison des scénarios" />
       <div
         ref={pageRef}
+        data-print-page
+        data-print-unclip
         className="theme-airbnb min-h-screen bg-background px-4 py-3 font-sans print:p-0 print:bg-white"
       >
         <Masthead subtitle="Programme · Scénarios" active="programme" variant="airbnb" />
@@ -97,8 +107,8 @@ export default function Comparer(props: ComparerPageProps) {
               Comparaison des Scénarios de Planification
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Évalué le {new Date(props.evaluatedAt).toLocaleString()} sur données fraîches du{' '}
-              {new Date(props.dataAt).toLocaleDateString()} · Horizon {props.windowFrom} au {props.windowTo}
+              Évalué le {fmtStamp(props.evaluatedAt)} sur données du {fmtStamp(props.dataAt)} ·
+              Horizon du {fmtJour(props.windowFrom)} au {fmtJour(props.windowTo)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -121,12 +131,11 @@ export default function Comparer(props: ComparerPageProps) {
                 Comparaison des Scénarios de Planification
               </h1>
               <p className="text-[10px] text-foreground/80">
-                Horizon : {props.windowFrom} au {props.windowTo}
+                Horizon : du {fmtJour(props.windowFrom)} au {fmtJour(props.windowTo)}
               </p>
             </div>
             <p className="text-[9px] text-muted-foreground text-right">
-              Évalué le {new Date(props.evaluatedAt).toLocaleString()} sur données du{' '}
-              {new Date(props.dataAt).toLocaleDateString()}
+              Évalué le {fmtStamp(props.evaluatedAt)} sur données du {fmtStamp(props.dataAt)}
             </p>
           </div>
         </div>
@@ -208,7 +217,9 @@ export default function Comparer(props: ComparerPageProps) {
             {/* Client */}
             <div className="rounded-lg border border-border bg-card p-4 h-24 flex flex-col justify-between text-sm font-semibold">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-lg font-bold text-foreground">{props.planActuel.stats.delayedOrders}</span>
+                <span className="text-lg font-bold text-foreground">
+                  {props.planActuel.stats.delayedOrders}
+                </span>
                 <span className="text-[10px] font-normal text-muted-foreground">commandes</span>
               </div>
               <div className="text-xs font-normal text-muted-foreground">Référence</div>
@@ -217,39 +228,44 @@ export default function Comparer(props: ComparerPageProps) {
             {/* Appro */}
             <div className="rounded-lg border border-border bg-card p-4 h-32 flex flex-col justify-between text-sm font-semibold">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-lg font-bold text-foreground">{props.planActuel.stats.inducedShortages}</span>
+                <span className="text-lg font-bold text-foreground">
+                  {props.planActuel.stats.inducedShortages}
+                </span>
                 <span className="text-[10px] font-normal text-muted-foreground">composants</span>
               </div>
               <div className="text-xs font-normal text-muted-foreground">0</div>
               <div className="text-xs font-normal text-muted-foreground">0</div>
             </div>
 
-            {/* Charge */}
+            {/* Charge — le plan actuel EST la référence : Δ nul par construction. */}
             <div className="rounded-lg border border-border bg-card p-4 h-32 flex flex-col justify-between text-xs">
-              <div className="font-bold text-foreground text-sm">{baselineCharge.count} poste-semaines</div>
-              <div className="text-muted-foreground">{baselineCharge.hours} h</div>
-              <div className="truncate text-[10px] text-muted-foreground">
-                {Object.keys(baselineCharge.byPoste).join(', ') || 'Aucun'}
-              </div>
+              <div className="font-bold text-foreground text-sm">Référence</div>
+              <div className="text-muted-foreground">0 h</div>
+              <div className="truncate text-[10px] text-muted-foreground">—</div>
             </div>
           </div>
 
           {/* Scenarios Columns */}
           {props.scenarios.map((sc) => {
             const clientDelta = sc.stats.delayedOrders - props.planActuel.stats.delayedOrders
-            const shortageDelta = sc.stats.inducedShortages - props.planActuel.stats.inducedShortages
+            const shortageDelta =
+              sc.stats.inducedShortages - props.planActuel.stats.inducedShortages
 
-            const inevitableCount = sc.diff.approVerdicts?.filter((v) => v.verdict === 'inevitable').length ?? 0
-            const recalableCount = sc.diff.approVerdicts?.filter((v) => v.verdict === 'recalable').length ?? 0
+            const inevitableCount =
+              sc.diff.approVerdicts?.filter((v) => v.verdict === 'inevitable').length ?? 0
+            const recalableCount =
+              sc.diff.approVerdicts?.filter((v) => v.verdict === 'recalable').length ?? 0
 
             const charge = getSurchargeStats(sc.diff)
-            const hoursDelta = charge.hours - baselineCharge.hours
 
             return (
               <div key={sc.id} className="flex flex-col gap-4">
                 <div className="h-[150px] border border-border bg-card rounded-lg p-4 flex flex-col justify-between relative group hover:border-brand/40 transition">
                   <div>
-                    <h2 className="font-fraunces text-base font-bold text-brand truncate" title={sc.nom}>
+                    <h2
+                      className="font-fraunces text-base font-bold text-brand truncate"
+                      title={sc.nom}
+                    >
                       {sc.nom}
                     </h2>
                     <span
@@ -264,7 +280,10 @@ export default function Comparer(props: ComparerPageProps) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-2">
-                    <span className="text-[10px] text-muted-foreground truncate" title={sc.description ?? ''}>
+                    <span
+                      className="text-[10px] text-muted-foreground truncate"
+                      title={sc.description ?? ''}
+                    >
                       {sc.description || 'Aucune description'}
                     </span>
                     <Button
@@ -290,7 +309,9 @@ export default function Comparer(props: ComparerPageProps) {
                 {/* Client retards */}
                 <div className="rounded-lg border border-border bg-card p-4 h-24 flex flex-col justify-between text-sm font-semibold">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-lg font-bold text-foreground">{sc.stats.delayedOrders}</span>
+                    <span className="text-lg font-bold text-foreground">
+                      {sc.stats.delayedOrders}
+                    </span>
                     <span className="text-[10px] font-normal text-muted-foreground">commandes</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -304,17 +325,27 @@ export default function Comparer(props: ComparerPageProps) {
                             : 'text-muted-foreground'
                       )}
                     >
-                      {clientDelta > 0 ? `+${clientDelta}` : clientDelta < 0 ? `${clientDelta}` : '0'}
+                      {clientDelta > 0
+                        ? `+${clientDelta}`
+                        : clientDelta < 0
+                          ? `${clientDelta}`
+                          : '0'}
                     </span>
-                    <span className="text-[10px] font-normal text-muted-foreground">vs plan actuel</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      vs plan actuel
+                    </span>
                   </div>
                 </div>
 
                 {/* Appro shortages */}
                 <div className="rounded-lg border border-border bg-card p-4 h-32 flex flex-col justify-between text-sm font-semibold">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-lg font-bold text-foreground">{sc.stats.inducedShortages}</span>
-                    <span className="text-[10px] font-normal text-muted-foreground">composants</span>
+                    <span className="text-lg font-bold text-foreground">
+                      {sc.stats.inducedShortages}
+                    </span>
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      composants
+                    </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span
@@ -327,9 +358,15 @@ export default function Comparer(props: ComparerPageProps) {
                             : 'text-muted-foreground'
                       )}
                     >
-                      {shortageDelta > 0 ? `+${shortageDelta}` : shortageDelta < 0 ? `${shortageDelta}` : '0'}
+                      {shortageDelta > 0
+                        ? `+${shortageDelta}`
+                        : shortageDelta < 0
+                          ? `${shortageDelta}`
+                          : '0'}
                     </span>
-                    <span className="text-[10px] font-normal text-muted-foreground">vs plan actuel</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      vs plan actuel
+                    </span>
                   </div>
                   <div className="text-xs font-normal text-destructive flex justify-between">
                     <span>Inévitables</span>
@@ -343,20 +380,18 @@ export default function Comparer(props: ComparerPageProps) {
 
                 {/* Charge */}
                 <div className="rounded-lg border border-border bg-card p-4 h-32 flex flex-col justify-between text-xs">
-                  <div className="font-bold text-foreground text-sm">{charge.count} poste-semaines</div>
+                  <div className="font-bold text-foreground text-sm">
+                    {charge.count} poste-semaines
+                  </div>
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-muted-foreground">{charge.hours} h total</span>
+                    <span className="font-semibold text-muted-foreground">en surcharge</span>
                     <span
                       className={cn(
                         'font-bold',
-                        hoursDelta > 0
-                          ? 'text-destructive'
-                          : hoursDelta < 0
-                            ? 'text-ferme'
-                            : 'text-muted-foreground'
+                        charge.hours > 0 ? 'text-destructive' : 'text-muted-foreground'
                       )}
                     >
-                      {hoursDelta > 0 ? `+${hoursDelta}h` : hoursDelta < 0 ? `${hoursDelta}h` : '0h'}
+                      {charge.hours > 0 ? `+${charge.hours} h` : '0 h'}
                     </span>
                   </div>
                   <div

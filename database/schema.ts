@@ -295,6 +295,7 @@ export class ScenarioSchema extends BaseModel {
     'statut',
     'strategy',
     'updatedAt',
+    'userId',
   ] as const
   $columns = ScenarioSchema.$columns
   @column()
@@ -319,6 +320,8 @@ export class ScenarioSchema extends BaseModel {
   declare strategy: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
 }
 
 export class StaticArticleSchema extends BaseModel {

@@ -96,6 +96,23 @@ function makeArticle(code: string, supplyType: 'ACHAT' | 'FABRICATION' = 'FABRIC
   }
 }
 
+function makeBom(parent: string, components: Array<[string, number]>): Nomenclature {
+  return {
+    article: parent,
+    description: '',
+    components: components.map(([componentArticle, linkQuantity]) => ({
+      parentArticle: parent,
+      parentDescription: '',
+      level: 5,
+      componentArticle,
+      componentDescription: '',
+      linkQuantity,
+      componentType: 'ACHETE' as const,
+      consumptionNature: 'PROPORTIONNEL' as const,
+    })),
+  }
+}
+
 function makeInputs(partial: Partial<PlanDiffInputs>): PlanDiffInputs {
   return {
     demands: [],
@@ -226,12 +243,20 @@ test.group('evaluatePlanDiff', () => {
     assert.equal(diff.client[0].deltaJours, 12)
   })
 
-  test('inject_demand : commande virtuelle capte la couverture (axes client + allocation)', ({
+  test("inject_demand sur un fabriqué : OF virtuel, composants captés, charge sur le poste", ({
     assert,
   }) => {
+    // Le geste fondateur de #58 : une commande client sur un fabriqué ne consomme rien en
+    // direct — elle DÉCLENCHE un OF, et c'est cet OF qui capte les composants.
     const inputs = makeInputs({
       demands: [makeDemand('CMD-1', 'PF1', 60, daysFromNow(10))],
-      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8))],
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)), makeStockFlow('C1', 60)],
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', makeArticle('C1', 'ACHAT')],
+      ]),
+      nomenclatures: new Map([['PF1', makeBom('PF1', [['C1', 1]])]]),
+      routings: new Map([['PF1', { poste: 'PP_830', heuresParUnite: 0.5 }]]),
     })
 
     const diff = evaluatePlanDiff(inputs, [
@@ -239,31 +264,109 @@ test.group('evaluatePlanDiff', () => {
         type: 'inject_demand',
         id: 'VIRT-1',
         article: 'PF1',
-        quantity: 60,
-        date: isoDaysFromNow(5),
+        quantity: 100,
+        date: isoDaysFromNow(15),
         client: 'PROSPECT',
       },
     ])
 
-    // La virtuelle apparaît, marquée nouvelle ; CMD-1 perd sa couverture.
-    const virt = diff.client.find((e) => e.numCommande === 'VIRT-1')
+    // Réaction d'offre : l'OF virtuel, calé pour être fini 2 j avant l'expé (buffer
+    // logistique), lancé 7 j plus tôt (50 h de charge / 7,5 h par jour).
+    assert.lengthOf(diff.offreVirtuelle, 1)
+    const vof = diff.offreVirtuelle[0]
+    assert.equal(vof.id, 'VOF-VIRT-1')
+    assert.equal(vof.type, 'of')
+    assert.equal(vof.quantite, 100)
+    assert.equal(vof.dateFin, isoDaysFromNow(13))
+    assert.equal(vof.delai, 7)
+    assert.equal(vof.dateDebut, isoDaysFromNow(6))
+    assert.equal(vof.poste, 'PP_830')
+    assert.equal(vof.heures, 50)
+    assert.deepEqual(vof.composants, [{ article: 'C1', besoin: 100, manquant: 40 }])
+
+    // Axe appro : le composant capté par l'OF virtuel (60 en stock pour 100 requis).
+    const appro = diff.appro.find((e) => e.composant === 'C1')
+    assert.exists(appro)
+    assert.equal(appro!.manquantAvant, 0)
+    assert.equal(appro!.manquantApres, 40)
+    assert.deepEqual(appro!.ofs, ['VOF-VIRT-1'])
+    assert.equal(appro!.sens, 'degradation')
+
+    // Axe charge : charge NETTE ajoutée sur le poste de la gamme.
+    const charge = diff.charge.find((e) => e.poste === 'PP_830')
+    assert.exists(charge)
+    assert.equal(charge!.semaine, mondayOf(isoDaysFromNow(13)))
+    assert.equal(charge!.deltaHeures, 50)
+
+    // CTP : la virtuelle n'est plus « sans couverture » par tautologie — elle est bloquée
+    // par la faisabilité de SON OF. Et elle ne vole pas l'OF de CMD-1 (hard peg).
+    const virt = diff.sujet.find((e) => e.numCommande === 'VIRT-1')
     assert.exists(virt)
-    assert.isTrue(virt!.nouvelle)
-    assert.isNull(virt!.statutAvant)
-    assert.equal(virt!.statutApres, 'retard') // OF à J+8, besoin à J+5
+    assert.equal(virt!.statut, 'bloquee')
+    assert.isUndefined(diff.client.find((e) => e.numCommande === 'CMD-1'))
+  })
 
-    const cmd1 = diff.client.find((e) => e.numCommande === 'CMD-1')
-    assert.exists(cmd1)
-    assert.equal(cmd1!.statutAvant, 'on_time')
-    assert.equal(cmd1!.statutApres, 'sans_couverture')
-    assert.equal(cmd1!.sens, 'degradation')
+  test('inject_demand sur un acheté : pas d’OF, le manque est le produit lui-même', ({
+    assert,
+  }) => {
+    // Côté offre, un acheté ne déclenche pas d'OF mais un réappro. On n'injecte PAS de
+    // réception virtuelle : le matcher compte les réceptions comme du stock sans regarder
+    // leur date — la demande ressortirait « servie » alors que le produit manque.
+    const inputs = makeInputs({
+      articles: new Map([['ACH1', { ...makeArticle('ACH1', 'ACHAT'), reorderDelay: 20 }]]),
+    })
 
-    // Allocation : CMD-1 perd OF-A au profit de VIRT-1
-    const alloc = diff.allocation.find((e) => e.numCommande === 'CMD-1')
-    assert.exists(alloc)
-    assert.deepEqual(alloc!.perd, ['OF-A'])
-    assert.deepEqual(alloc!.beneficiaires, [{ numOf: 'OF-A', commandes: ['VIRT-1'] }])
-    assert.equal(alloc!.sens, 'degradation')
+    const diff = evaluatePlanDiff(inputs, [
+      {
+        type: 'inject_demand',
+        id: 'VIRT-1',
+        article: 'ACH1',
+        quantity: 10,
+        date: isoDaysFromNow(10),
+        client: 'PROSPECT',
+      },
+    ])
+
+    assert.lengthOf(diff.offreVirtuelle, 1)
+    const vpo = diff.offreVirtuelle[0]
+    assert.equal(vpo.id, 'VPO-VIRT-1')
+    assert.equal(vpo.type, 'achat')
+    assert.equal(vpo.delai, 20)
+    assert.equal(vpo.dateDebut, isoDaysFromNow(-10))
+    // Passation requise il y a 10 j → intenable, et la demande reste non couverte.
+    assert.isTrue(vpo.lancementDepasse)
+    assert.lengthOf(vpo.composants, 0)
+    assert.equal(diff.sujet.find((e) => e.numCommande === 'VIRT-1')!.statut, 'sans_couverture')
+  })
+
+  test('inject_demand isolé : 0 impact signé, la virtuelle reste en sujet (flux ADV)', ({
+    assert,
+  }) => {
+    // Aucune demande en place, aucune offre : l'ADV teste une nouvelle demande client.
+    // Son OF virtuel la sert (fabriqué sans nomenclature → rien à consommer) et rien
+    // d'existant n'est dégradé → bilan neutre.
+    const inputs = makeInputs({ demands: [], supplyFlows: [] })
+
+    const diff = evaluatePlanDiff(inputs, [
+      {
+        type: 'inject_demand',
+        id: 'VIRT-1',
+        article: 'PF1',
+        quantity: 10,
+        date: isoDaysFromNow(10),
+        client: 'PROSPECT',
+      },
+    ])
+
+    assert.lengthOf(diff.client, 0)
+    assert.lengthOf(diff.allocation, 0)
+    assert.deepEqual(diff.stats, { degradations: 0, ameliorations: 0 })
+
+    const virt = diff.sujet.find((e) => e.numCommande === 'VIRT-1')
+    assert.exists(virt)
+    assert.equal(virt!.statut, 'on_time')
+    assert.equal(virt!.quantite, 10)
+    assert.equal(virt!.date, isoDaysFromNow(10))
   })
 
   test("shift_demand : la demande avancée capte l'OF de l'autre (bénéficiaire identifié)", ({
@@ -316,7 +419,7 @@ test.group('evaluatePlanDiff', () => {
 
     // Les deux mutations produisent chacune leur effet dans le même diff.
     assert.exists(diff.client.find((e) => e.numCommande === 'CMD-1'))
-    assert.exists(diff.client.find((e) => e.numCommande === 'VIRT-1' && e.nouvelle))
+    assert.exists(diff.sujet.find((e) => e.numCommande === 'VIRT-1'))
   })
 })
 
@@ -489,9 +592,11 @@ test.group('diffCharge', () => {
     const c1Article = makeArticle('C1', 'ACHAT')
     c1Article.reorderDelay = 10
 
+    // Composant réellement manquant (stock 4 pour un besoin de 10) — sans manque
+    // constaté, un besoin avancé n'est PAS un problème d'appro (cf. test suivant).
     const inputs = makeInputs({
       demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
-      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 10)],
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 4)],
       nomenclatures,
       articles: new Map([
         ['PF1', makeArticle('PF1')],
@@ -505,6 +610,7 @@ test.group('diffCharge', () => {
     assert.lengthOf(diffInevitable.approVerdicts, 1)
     assert.equal(diffInevitable.approVerdicts[0].verdict, 'inevitable')
     assert.equal(diffInevitable.approVerdicts[0].composant, 'C1')
+    assert.equal(diffInevitable.approVerdicts[0].manquant, 6)
 
     const diffRecalable = evaluatePlanDiff(inputs, [
       { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(12) },
@@ -536,6 +642,100 @@ test.group('diffCharge', () => {
     ])
     assert.lengthOf(diffDormant.approVerdicts, 1)
     assert.equal(diffDormant.approVerdicts[0].verdict, 'dormant')
+  })
+
+  // Garde anti-faux-positif : la version initiale émettait un verdict par composant de
+  // la nomenclature dès qu'un OF bougeait, stock plein compris — le panneau appro
+  // annonçait des « ruptures inévitables » sur des composants couverts.
+  test('Axe Appro verdicts : composant couvert par le stock → aucun verdict', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+
+    const inputs = makeInputs({
+      demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
+      // Stock 100 pour un besoin de 10 : avancer l'OF ne casse aucune couverture.
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)), makeStockFlow('C1', 100)],
+      nomenclatures,
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', makeArticle('C1', 'ACHAT')],
+      ]),
+    })
+
+    const diff = evaluatePlanDiff(inputs, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(2) },
+    ])
+    assert.lengthOf(diff.approVerdicts, 0)
+  })
+
+  test('Axe Appro verdicts : réception postérieure au nouveau besoin → pas de dormant', ({
+    assert,
+  }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+
+    const inputs = makeInputs({
+      demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
+      supplyFlows: [
+        makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)),
+        // Réception APRÈS la nouvelle date de besoin : elle n'arrive pas « pour rien ».
+        {
+          article: 'C1',
+          quantity: 10,
+          direction: 'supply',
+          date: daysFromNow(30),
+          origin: { type: 'reception', id: 'R1' } as any,
+        },
+      ],
+      nomenclatures,
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', makeArticle('C1', 'ACHAT')],
+      ]),
+    })
+
+    const diff = evaluatePlanDiff(inputs, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(25) },
+    ])
+    assert.lengthOf(diff.approVerdicts, 0)
   })
 
   test('Allocation strategies: date_passation prioritizes oldest order date', ({ assert }) => {

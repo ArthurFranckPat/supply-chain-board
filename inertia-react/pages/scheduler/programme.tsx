@@ -165,7 +165,17 @@ export default function Programme(props: VisionProps) {
   // Stores
   const boardStore = useBoardStore()
   const orderStore = useOrderBoardStore()
-  const scenarioStore = useScenarioStore()
+
+  // Scénario : sélecteurs fins pour ce qui se rend, `getState()` dans les handlers.
+  // S'abonner à l'état entier (`useScenarioStore()`) donnait une identité neuve à
+  // chaque `set()` : tous les callbacks qui le listaient en dépendance se recréaient,
+  // et l'effet de montage — qui rejoue le deep-link `?open_scenario_id` — repartait
+  // en boucle sur le `set()` de sa propre ouverture.
+  const scenarioActive = useScenarioStore((st) => st.active)
+  const scenarioDiff = useScenarioStore((st) => st.diff)
+  const scenarioDiffLoading = useScenarioStore((st) => st.diffLoading)
+  const scenarioEvaluatedAt = useScenarioStore((st) => st.current.evaluatedAt)
+  const scenarioDataAt = useScenarioStore((st) => st.current.dataAt)
 
   const measureScheduled = useRef(false)
   /**
@@ -229,6 +239,21 @@ export default function Programme(props: VisionProps) {
           b.onQueryInput(o.query)
         }
       }
+      // Le mode scénario est une capacité du board combiné (bandeau, rangée virtuelle,
+      // intercepteur). Quitter Combiné le suspend explicitement plutôt que de le laisser
+      // actif sans aucune UI. Les mutations restent en mémoire : revenir en Combiné et
+      // rouvrir le mode les retrouve — mais le board, lui, est repassé à l'état réel,
+      // donc on le dit.
+      if (newMode !== 'combined' && useScenarioStore.getState().active) {
+        useScenarioStore.getState().setActive(false)
+        const pending = useScenarioStore.getState().current.mutations.length
+        toast.info(
+          pending > 0
+            ? `Mode scénario suspendu — ${pending} mutation${pending > 1 ? 's' : ''} conservée${pending > 1 ? 's' : ''}, repassez en Combiné pour reprendre.`
+            : 'Mode scénario suspendu — disponible en vue Combiné.'
+        )
+      }
+
       setMode(newMode)
       const url = new URL(window.location.href)
       if (newMode === 'combined') {
@@ -618,10 +643,14 @@ export default function Programme(props: VisionProps) {
   }, [])
 
   // ── Intercepteur PATCH OF (#57) ──
+  // Gate sur `mode` autant que sur `active` : le bandeau scénario n'est rendu qu'en mode
+  // Combiné, mais l'intercepteur, lui, restait posé après un changement de mode — les
+  // drags partaient alors en mutations invisibles, sans bandeau ni PATCH. Silencieux.
+  // Le démontage de la page relâche aussi l'intercepteur (store module-level, il survit).
   useEffect(() => {
-    if (scenarioStore.active) {
+    if (scenarioActive && mode === 'combined') {
       boardStore.setMoveInterceptor(({ numOf, toLineCode, toIso, dateFinIso }) => {
-        scenarioStore.upsertMutation({
+        useScenarioStore.getState().upsertMutation({
           type: 'shift_of',
           numOf,
           dateDebut: toIso,
@@ -632,7 +661,8 @@ export default function Programme(props: VisionProps) {
     } else {
       boardStore.setMoveInterceptor(null)
     }
-  }, [scenarioStore.active, boardStore, scenarioStore])
+    return () => boardStore.setMoveInterceptor(null)
+  }, [scenarioActive, mode, boardStore])
 
   // ── Colonne du board par ISO ──
   const colOfIso = useCallback(
@@ -658,7 +688,6 @@ export default function Programme(props: VisionProps) {
   // qui doit provoquer un rendu quand elle change. Un sélecteur n'abonne qu'à
   // sa tranche et donne une dépendance que la règle sait suivre.
   const scenarioMutations = useScenarioStore((st) => st.current.mutations)
-  const scenarioDiff = useScenarioStore((st) => st.diff)
 
   const virtualOrders = useMemo(() => {
     return virtualOrdersFrom(scenarioMutations, scenarioDiff)
@@ -678,10 +707,13 @@ export default function Programme(props: VisionProps) {
 
   const injectVirtualOrder = useCallback(
     (m: Extract<PlanMutation, { type: 'inject_demand' }>) => {
-      scenarioStore.upsertMutation(m)
-      scenarioStore.computeDiff(props.windowFrom, props.windowTo)
+      const sc = useScenarioStore.getState()
+      sc.upsertMutation(m)
+      sc.computeDiff(props.windowFrom, props.windowTo).catch((err: Error) => {
+        toast.error(`Impacts indisponibles : ${err.message}`)
+      })
     },
-    [scenarioStore, props.windowFrom, props.windowTo]
+    [props.windowFrom, props.windowTo]
   )
 
   const moveVirtualOrder = useCallback(
@@ -693,17 +725,22 @@ export default function Programme(props: VisionProps) {
       )
       if (!existing) return
       sc.upsertMutation({ ...existing, date: iso })
-      sc.computeDiff(props.windowFrom, props.windowTo)
+      sc.computeDiff(props.windowFrom, props.windowTo).catch((err: Error) => {
+        toast.error(`Impacts indisponibles : ${err.message}`)
+      })
     },
     [props.windowFrom, props.windowTo]
   )
 
   const removeVirtualOrder = useCallback(
     (id: string) => {
-      scenarioStore.removeMutation(`inject:${id}`)
-      scenarioStore.computeDiff(props.windowFrom, props.windowTo)
+      const sc = useScenarioStore.getState()
+      sc.removeMutation(`inject:${id}`)
+      sc.computeDiff(props.windowFrom, props.windowTo).catch((err: Error) => {
+        toast.error(`Impacts indisponibles : ${err.message}`)
+      })
     },
-    [scenarioStore, props.windowFrom, props.windowTo]
+    [props.windowFrom, props.windowTo]
   )
 
   // ── Scénario (#57) ──
@@ -718,7 +755,8 @@ export default function Programme(props: VisionProps) {
     try {
       let total = 0
       let failed = 0
-      for (const m of scenarioStore.current.mutations) {
+      let horsPerimetre = 0
+      for (const m of useScenarioStore.getState().current.mutations) {
         let r: Response | null = null
         if (m.type === 'shift_of') {
           total++
@@ -739,18 +777,35 @@ export default function Programme(props: VisionProps) {
             body: JSON.stringify({ dateLivraison: m.date }),
           }).catch(() => null)
         } else {
+          // inject_demand / suspend_supply : what-if pur, jamais écrit (une commande
+          // client s'enregistre dans X3, pas ici). Compté pour ne pas annoncer
+          // « appliqué » sur un scénario qui n'en contient que.
+          horsPerimetre++
           continue
         }
         if (!r?.ok) failed++
       }
-      if (failed > 0) {
-        toast.warning(
-          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`
+
+      if (total === 0) {
+        toast.info(
+          horsPerimetre > 0
+            ? 'Rien à appliquer : commandes virtuelles et ruptures simulées restent dans le scénario.'
+            : 'Rien à appliquer.'
         )
         return
       }
-      await scenarioStore.markApplied()
-      scenarioStore.setActive(false)
+
+      if (failed > 0) {
+        // Pas de rollback : les PATCHs réussis sont déjà partis. Le dire explicitement
+        // plutôt que de laisser croire que le scénario est resté sans effet.
+        toast.warning(
+          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} déjà appliquée${total - failed > 1 ? 's' : ''} en base — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé, à rejouer sur les seules mutations restantes.`
+        )
+        router.reload()
+        return
+      }
+      await useScenarioStore.getState().markApplied()
+      useScenarioStore.getState().setActive(false)
       toast.success('Scénario appliqué.')
       router.reload()
     } catch (err) {
@@ -758,7 +813,7 @@ export default function Programme(props: VisionProps) {
     } finally {
       setApplying(false)
     }
-  }, [applying, scenarioStore])
+  }, [applying])
 
   const discardScenario = useCallback(() => {
     boardStore.updateData(page.props.board ?? EMPTY_BOARD)
@@ -766,15 +821,17 @@ export default function Programme(props: VisionProps) {
     setCmdMoved(new Map())
     setOfShift(new Map())
     setOfDateFinOverride(new Map())
-    scenarioStore.reset()
-    scenarioStore.setActive(false)
+    const sc = useScenarioStore.getState()
+    sc.reset()
+    sc.setActive(false)
     requestMeasure()
-  }, [boardStore, orderStore, scenarioStore, page.props, requestMeasure])
+  }, [boardStore, orderStore, page.props, requestMeasure])
 
   const openScenario = useCallback(
     async (id: number) => {
-      scenarioStore.setActive(true)
-      const mutations = await scenarioStore.open(id)
+      const sc = useScenarioStore.getState()
+      sc.setActive(true)
+      const mutations = await sc.open(id)
       for (const m of mutations) {
         if (m.type === 'shift_of' && m.dateDebut && m.poste) {
           boardStore.moveCardToIso(m.numOf, m.poste, m.dateDebut)
@@ -792,7 +849,7 @@ export default function Programme(props: VisionProps) {
       }
       requestMeasure()
     },
-    [scenarioStore, boardStore, colOfIso, requestMeasure]
+    [boardStore, colOfIso, requestMeasure]
   )
 
   // ── Commandes regroupées par poste × colonne ──
@@ -817,8 +874,8 @@ export default function Programme(props: VisionProps) {
       requestMeasure()
 
       // #57 — mode scénario
-      if (scenarioStore.active) {
-        scenarioStore.upsertMutation({
+      if (useScenarioStore.getState().active) {
+        useScenarioStore.getState().upsertMutation({
           type: 'shift_demand',
           numCommande: parsed.numCommande,
           ligne: parsed.ligne,
@@ -845,7 +902,7 @@ export default function Programme(props: VisionProps) {
           toast.error(`Déplacement commande échoué : ${err.message}`)
         })
     },
-    [scenarioStore, requestMeasure]
+    [requestMeasure]
   )
 
   // ── Overlay liens ──
@@ -910,45 +967,50 @@ export default function Programme(props: VisionProps) {
       document.fonts.ready.then(measure).catch(() => {})
     }
 
-    // #57 — deep-link ?open_scenario_id=N
-    const params = new URLSearchParams(window.location.search)
-    const openId = params.get('open_scenario_id')
-    if (openId) {
-      const numId = Number.parseInt(openId, 10)
-      if (!Number.isNaN(numId)) {
-        openScenario(numId)
-      }
-    }
-
-    // #58/CTP — pont depuis /promesse
-    const bridge = sessionStorage.getItem('promesse:bridge')
-    if (bridge) {
-      sessionStorage.removeItem('promesse:bridge')
-      try {
-        const { article, quantity, date } = JSON.parse(bridge) as {
-          article: string
-          quantity: number
-          date: string
-        }
-        scenarioStore.setActive(true)
-        injectVirtualOrder({
-          type: 'inject_demand',
-          id: `CTP-${Date.now().toString(36)}`,
-          article,
-          quantity,
-          date: date.slice(0, 10),
-          earliest: true,
-        })
-      } catch {
-        /* payload corrompu — silencieux */
-      }
-    }
-
     return () => {
       ro?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [measure, contentEl, openScenario, scenarioStore, injectVirtualOrder])
+  }, [measure, contentEl])
+
+  // ── Amorçages one-shot : deep-link scénario (#57) + pont /promesse (#58/CTP) ──
+  // Séparés de l'effet ResizeObserver ci-dessus : celui-ci se réexécute à chaque
+  // changement de `measure` (donc à chaque recalcul d'impacts), et rejouait alors
+  // l'ouverture du scénario en boucle — chaque ouverture modifiant le store, qui
+  // redéclenchait l'effet. Ici : au montage, une fois, garde explicite.
+  const bootstrapped = useRef(false)
+  useEffect(() => {
+    if (bootstrapped.current) return
+    bootstrapped.current = true
+
+    const openId = new URLSearchParams(window.location.search).get('open_scenario_id')
+    if (openId) {
+      const numId = Number.parseInt(openId, 10)
+      if (!Number.isNaN(numId)) openScenario(numId)
+    }
+
+    const bridge = sessionStorage.getItem('promesse:bridge')
+    if (!bridge) return
+    sessionStorage.removeItem('promesse:bridge')
+    try {
+      const { article, quantity, date } = JSON.parse(bridge) as {
+        article: string
+        quantity: number
+        date: string
+      }
+      useScenarioStore.getState().setActive(true)
+      injectVirtualOrder({
+        type: 'inject_demand',
+        id: `CTP-${Date.now().toString(36)}`,
+        article,
+        quantity,
+        date: date.slice(0, 10),
+        earliest: true,
+      })
+    } catch {
+      /* payload corrompu — silencieux */
+    }
+  }, [openScenario, injectVirtualOrder])
 
   useEffect(() => {
     requestMeasure()
@@ -1015,7 +1077,7 @@ export default function Programme(props: VisionProps) {
           setCalOpen={setCalOpen}
           range={range}
           applyRange={applyRange}
-          scenarioActive={scenarioStore.active}
+          scenarioActive={scenarioActive}
           onToggleScenario={toggleScenario}
           search={
             <>
@@ -1069,7 +1131,7 @@ export default function Programme(props: VisionProps) {
         />
 
         {/* #57 — bandeau du mode scénario */}
-        {mode === 'combined' && scenarioStore.active && (
+        {mode === 'combined' && scenarioActive && (
           <ScenarioBar
             windowFrom={props.windowFrom}
             windowTo={props.windowTo}
@@ -1128,7 +1190,7 @@ export default function Programme(props: VisionProps) {
                 onOfDragCancelled={mode === 'combined' ? onOfDragCancelled : undefined}
                 translateOfDateFin={mode === 'combined' ? translateOfDateFin : undefined}
                 virtualOrdersByCol={
-                  mode === 'combined' && scenarioStore.active ? virtualOrdersByCol : undefined
+                  mode === 'combined' && scenarioActive ? virtualOrdersByCol : undefined
                 }
                 onVirtualDrop={moveVirtualOrder}
                 onVirtualRemove={removeVirtualOrder}
@@ -1218,12 +1280,12 @@ export default function Programme(props: VisionProps) {
 
         {/* ScenarioDiffSheet */}
         <ScenarioDiffSheet
-          diff={scenarioStore.diff}
+          diff={scenarioDiff}
           open={diffOpen}
           onOpenChange={setDiffOpen}
-          loading={scenarioStore.diffLoading}
-          evaluatedAt={scenarioStore.current.evaluatedAt}
-          dataAt={scenarioStore.current.dataAt}
+          loading={scenarioDiffLoading}
+          evaluatedAt={scenarioEvaluatedAt}
+          dataAt={scenarioDataAt}
         />
       </div>
     </>

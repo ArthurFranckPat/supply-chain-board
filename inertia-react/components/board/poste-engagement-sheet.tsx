@@ -1,9 +1,19 @@
-import { useState } from 'react'
-import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { CircleX, Package, SquareArrowOutUpRight, TriangleAlert } from 'lucide-react'
+import { Link } from '@inertiajs/react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { route } from '@r/lib/routes'
+import {
+  type EngagementPayload,
+  fmtDateFr,
+  fmtH,
+  fmtJ,
+  saturation,
+  urgencyColor,
+  urgencyOf,
+} from '@r/lib/board/engagement-format'
 
 /**
  * Issue #46 — panneau « Engagement » d'un poste : TOUS les OF fermes de la ligne
@@ -13,36 +23,6 @@ import { route } from '@r/lib/routes'
  * de fenêtre board), fetchée à l'ouverture puis memoïsée par poste.
  */
 
-interface EngagementCmd {
-  numCommande: string
-  ligne: string | null
-  client: string | null
-  livraisonIso: string | null
-  /** 'matcher' = chaîne board ; 'peg' = repli contremarque (commande hors fenêtre). */
-  method: 'matcher' | 'peg'
-}
-
-interface EngagementRow {
-  numOf: string
-  article: string
-  designation: string | null
-  done: number
-  launched: number
-  dateDebutIso: string | null
-  hours: number
-  commandes: EngagementCmd[]
-  livraisonIso: string | null
-}
-
-interface EngagementPayload {
-  poste: { code: string; label: string }
-  count: number
-  totalHours: number
-  weeklyCapacityHours: number | null
-  rows: EngagementRow[]
-  x3Error: string | null
-}
-
 interface PosteEngagementSheetProps {
   /** Code du poste ouvert (null = fermé). */
   posteCode: string | null
@@ -50,84 +30,48 @@ interface PosteEngagementSheetProps {
   onOpenChange: (v: boolean) => void
 }
 
-/** ISO YYYY-MM-DD → JJ/MM/AA — '—' si absente. */
-const fmtDateFr = (iso: string | null): string => {
-  if (!iso) return '—'
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  return m ? `${m[3]}/${m[2]}/${m[1].slice(2)}` : iso
-}
-
-const fmtH = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
-/** Convention métier : 1 jour = 7 heures. */
-const fmtJ = (h: number) => (Math.round((h / 7) * 10) / 10).toFixed(1).replace('.', ',')
-
-/** Seuil d'urgence d'une livraison, pour la couleur + le regroupement visuel.
- *  - 'overdue' : livraison avant aujourd'hui (matériel non livré = alerte).
- *  - 'week'    : livraison dans les 7 prochains jours.
- *  - 'later'   : au-delà, ou sans date. */
-type Urgency = 'overdue' | 'week' | 'later'
-const URGENCY_RANK: Record<Urgency, number> = { overdue: 0, week: 1, later: 2 }
-
-const todayIso = (): string => {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
-
-const urgencyOf = (livraisonIso: string | null): Urgency => {
-  if (!livraisonIso) return 'later'
-  const today = todayIso()
-  if (livraisonIso < today) return 'overdue'
-  const weekLater = new Date()
-  weekLater.setDate(weekLater.getDate() + 7)
-  const y = weekLater.getFullYear()
-  const m = String(weekLater.getMonth() + 1).padStart(2, '0')
-  const da = String(weekLater.getDate()).padStart(2, '0')
-  return livraisonIso <= `${y}-${m}-${da}` ? 'week' : 'later'
-}
-
-/** Couleur de la date de livraison selon l'urgence. */
-const urgencyColor = (u: Urgency): string =>
-  u === 'overdue' ? 'text-danger' : u === 'week' ? 'text-brand' : 'text-muted-foreground'
-
-/** Saturation charge/capacité — renvoie % et sévérité visuelle pour la jauge. */
-const saturation = (
-  totalHours: number,
-  capacity: number | null
-): { pct: number | null; level: 'ok' | 'high' | 'crit' } => {
-  if (!capacity || capacity <= 0) return { pct: null, level: 'ok' }
-  const pct = (totalHours / capacity) * 100
-  return { pct: Math.round(pct), level: pct > 100 ? 'crit' : pct > 85 ? 'high' : 'ok' }
-}
-
 export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
   const [data, setData] = useState<EngagementPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch au mount + quand posteCode/open change
-  useState(() => {
-    if (props.open && props.posteCode) {
-      setLoading(true)
-      setError(null)
-      fetch(route('scheduler.poste_engagement', { poste: props.posteCode }))
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          return res.json() as Promise<EngagementPayload>
-        })
-        .then((payload) => {
-          setData(payload)
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Échec du chargement')
-        })
-        .finally(() => {
-          setLoading(false)
-        })
+  /** Dernier poste effectivement chargé — mémo : rouvrir le même poste ne refetch pas. */
+  const loadedPoste = useRef<string | null>(null)
+
+  // Fetch à l'ouverture et à chaque changement de poste. C'était un `useState(fn)` :
+  // l'initialiseur ne tourne qu'au MONTAGE, et le panneau est monté en permanence par
+  // /programme avec open=false / posteCode=null → il ne fetchait jamais, `data` restait
+  // nul et le panneau s'ouvrait vide (aucun message, le rendu retourne null sans data).
+  useEffect(() => {
+    if (!props.open || !props.posteCode) return
+    if (loadedPoste.current === props.posteCode) return
+    const poste = props.posteCode
+    // Garde anti-course : deux postes ouverts coup sur coup, la réponse la plus lente
+    // ne doit pas écraser l'affichage du poste réellement demandé.
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    setData(null)
+    fetch(route('scheduler.poste_engagement', { poste }))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json() as Promise<EngagementPayload>
+      })
+      .then((payload) => {
+        if (cancelled) return
+        loadedPoste.current = poste
+        setData(payload)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Échec du chargement')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  })
+  }, [props.open, props.posteCode])
 
   const sat = data ? saturation(data.totalHours, data.weeklyCapacityHours) : null
   const weeksEngaged = data && data.weeklyCapacityHours
@@ -138,7 +82,13 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
+        // Dimensions redéclarées en variantes `data-[side=bottom]:` : le primitive
+        // porte `data-[side=bottom]:h-auto` et `data-[side=bottom]:max-w-[640px]`,
+        // dont le sélecteur d'attribut bat toute classe utilitaire nue quelle que
+        // soit sa position. Avec `h-auto` gagnant, le panneau n'est plus borné et
+        // grandit avec le nombre d'OF au lieu de faire défiler — il déborde alors
+        // du viewport. Même correctif que of-detail / charge-period / stock-article.
+        className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[72vh] data-[side=bottom]:max-w-none"
       >
         {loading ? (
           <LoadingState
@@ -163,6 +113,13 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                   {data.poste.label}
                 </SheetTitle>
               </div>
+              <Link
+                href={route('sequenceur.show', { poste: data.poste.code })}
+                className="flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-brand hover:underline"
+              >
+                <SquareArrowOutUpRight size={12} strokeWidth={2} />
+                Voir en page complète
+              </Link>
               <span className="flex-1" />
               {/* Métriques : OF count + heures + semaines engagées + jauge saturation. */}
               <div className="flex items-center gap-3">

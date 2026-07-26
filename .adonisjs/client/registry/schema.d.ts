@@ -223,6 +223,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'sequenceur.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/sequenceur'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'sequenceur.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/sequenceur/:poste'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { poste: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'load.index': {
     methods: ["GET","HEAD"]
     pattern: '/charge'
