@@ -510,14 +510,21 @@ export interface ProactiveDisplayRow {
       }[]
     } | null
     /**
-     * Sous-ensemble fabriqué dont la couverture ne tient QUE grâce à un OF producteur : le
-     * stock physique net ne suffit pas, `manque` est la quantité qui manquerait sans cette
-     * production, `ofs` les OF qui la fournissent. Ce n'est PAS une rupture (le verdict de la
-     * ligne est inchangé) — c'est une dépendance à rendre visible : si l'OF producteur glisse,
-     * la commande tombe. `null` = composant réellement manquant, ou couvert par du stock.
+     * Quantité qui manquerait sans le stock sous contrôle qualité (statut Q). Le verdict compte
+     * le Q comme disponible (décision métier assumée) — ce champ rend la dépendance explicite
+     * pour déclencher le contrôle réception. 0 = aucune dépendance au Q.
+     */
+    qc: number
+    /**
+     * Sous-ensemble fabriqué dont la couverture ne tient QUE grâce à un OF producteur. Ce n'est
+     * PAS une rupture (le verdict de la ligne est inchangé) — c'est une dépendance à rendre
+     * visible : si l'OF producteur glisse, la commande tombe.
+     * `qty` du composant = manque total vs stock STRICT, qui se décompose en `qc` (couvert par
+     * du statut Q) + `parOf` (couvert par production). Ex. EH6139 : 50 = 15 Q + 35 OF.
+     * `null` = composant réellement manquant, ou couvert par du stock disponible.
      */
     couvertParOf: {
-      manque: number
+      parOf: number
       ofs: { numOf: string; dateFin: string | null }[]
     } | null
   }[]
@@ -845,6 +852,15 @@ export function buildProactiveDisplay(
           }
         }
       }
+      // Dette envers le contrôle qualité : part qui ne tient que grâce au stock statut Q.
+      // Vaut pour les composants achetés comme pour les SE — sur un SE elle complète la part
+      // couverte par production (EH6139 : 50 manquants = 15 Q + 35 OF).
+      const qcParArticle = new Map<string, number>()
+      for (const of of o.ofs) {
+        for (const [art, qty] of Object.entries(of.qcComponents ?? {})) {
+          if (qty > 0) qcParArticle.set(art, (qcParArticle.get(art) ?? 0) + qty)
+        }
+      }
       // Lentille réception partagée composant/descente : 1ère réception d'achat dont le
       // cumul atteint la qté manquante → ETA + n° commande d'achat. Overdue = attendue
       // dans le passé (retard de livraison) → lateness = today − attendue.
@@ -912,6 +928,7 @@ export function buildProactiveDisplay(
             qty: qtyR,
             reception: coveringReception(art, qtyR),
             descente,
+            qc: Math.round((qcParArticle.get(art) ?? 0) * 100) / 100,
             couvertParOf: null,
           }
         })
@@ -920,20 +937,27 @@ export function buildProactiveDisplay(
       // lentille réception (un fabriqué ne s'achète pas). Triés à la suite des vrais manques.
       const seComps = [...seCouverts.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([art, manque]) => ({
-          art,
-          desc: articles.get(art)?.description ?? '',
-          qty: Math.round(manque * 100) / 100,
-          reception: null,
-          descente: null,
-          couvertParOf: {
-            manque: Math.round(manque * 100) / 100,
-            ofs: coveringOfs(ofsByProducedArticle.get(art) ?? [], manque).map((of) => ({
-              numOf: of.numOf,
-              dateFin: of.dateFin ? fmtFrDay(of.dateFin) : null,
-            })),
-          },
-        }))
+        .map(([art, parOf]) => {
+          const qc = qcParArticle.get(art) ?? 0
+          return {
+            art,
+            desc: articles.get(art)?.description ?? '',
+            // Manque total vs stock STRICT = part Q + part production.
+            qty: Math.round((parOf + qc) * 100) / 100,
+            reception: null,
+            descente: null,
+            qc: Math.round(qc * 100) / 100,
+            couvertParOf: {
+              parOf: Math.round(parOf * 100) / 100,
+              // Cumul sur `parOf` SEUL : la part couverte par le Q n'est pas à couvrir par
+              // un OF, l'inclure ferait remonter des OF qui ne servent pas ce manque.
+              ofs: coveringOfs(ofsByProducedArticle.get(art) ?? [], parOf).map((of) => ({
+                numOf: of.numOf,
+                dateFin: of.dateFin ? fmtFrDay(of.dateFin) : null,
+              })),
+            },
+          }
+        })
 
       // La demande est déjà nettoyée de l'allocation ERP côté loader (proactif) : qteRestante
       // = reste à RÉALISER (reste à livrer − alloué). Le verdict moteur porte donc sur la part

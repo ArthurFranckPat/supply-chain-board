@@ -359,22 +359,43 @@ export function createProactiveColumns({
                     (achetés) — pour un SE elle serait du bruit (pas d'achat sur un fabriqué). */}
                 {c.couvertParOf ? (
                   <div className="mt-0.5 flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground">
-                    {c.couvertParOf.ofs.length === 0 ? (
+                    {/* Part couverte par du stock sous contrôle qualité — à débloquer par le
+                        contrôle réception, pas par la production. */}
+                    {c.qc > 0 && (
                       <div className="flex items-center gap-1">
                         <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
-                        <span>Pas en stock — aucun OF producteur</span>
+                        <span>
+                          <span className="font-bold text-foreground">{c.qc}</span> en statut Q
+                          (contrôle réception)
+                        </span>
                       </div>
-                    ) : (
-                      c.couvertParOf.ofs.map((of) => (
-                        <div key={of.numOf} className="flex items-center gap-1">
-                          <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
-                          <span>
-                            Couvert par <span className="font-bold text-foreground">{of.numOf}</span>
-                            {of.dateFin && <span className="text-muted-foreground"> (fin {of.dateFin})</span>}
-                          </span>
-                        </div>
-                      ))
                     )}
+                    {c.couvertParOf.ofs.length === 0
+                      ? c.couvertParOf.parOf > 0 && (
+                          <div className="flex items-center gap-1">
+                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <span>
+                              <span className="font-bold text-foreground">
+                                {c.couvertParOf.parOf}
+                              </span>{' '}
+                              sans OF producteur
+                            </span>
+                          </div>
+                        )
+                      : c.couvertParOf.ofs.map((of) => (
+                          <div key={of.numOf} className="flex items-center gap-1">
+                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <span>
+                              <span className="font-bold text-foreground">
+                                {c.couvertParOf!.parOf}
+                              </span>{' '}
+                              par <span className="font-bold text-foreground">{of.numOf}</span>
+                              {of.dateFin && (
+                                <span className="text-muted-foreground"> (fin {of.dateFin})</span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
                   </div>
                 ) : c.descente ? (
                   c.descente.statut === 'bloque' ? (
@@ -450,6 +471,17 @@ export function createProactiveColumns({
                   <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground/60">
                     <CalendarX size={11} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
                     Aucune couverture prévue
+                  </div>
+                )}
+                {/* Dette envers le contrôle qualité sur un composant acheté — la ligne SE
+                    porte déjà la sienne dans son bloc `couvertParOf`. */}
+                {!c.couvertParOf && c.qc > 0 && (
+                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground">
+                    <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                    <span>
+                      dont <span className="font-bold text-foreground">{c.qc}</span> en statut Q
+                      (contrôle réception)
+                    </span>
                   </div>
                 )}
               </div>

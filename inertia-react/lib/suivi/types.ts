@@ -215,13 +215,16 @@ export interface ProactiveDisplayRow {
         } | null
       }[]
     } | null
+    /** Qté qui manquerait sans le stock sous contrôle qualité (statut Q). 0 = pas de dépendance. */
+    qc: number
     /**
      * SE fabriqué dont la couverture ne tient QUE grâce à un OF producteur (stock physique
-     * insuffisant). Pas une rupture : une dépendance. `manque` = qté qui manquerait sans cette
-     * production. `null` = composant manquant, ou couvert par du stock.
+     * insuffisant). Pas une rupture : une dépendance. `qty` = manque total vs stock strict,
+     * décomposé en `qc` (statut Q) + `parOf` (production). Ex. EH6139 : 50 = 15 Q + 35 OF.
+     * `null` = composant manquant, ou couvert par du stock disponible.
      */
     couvertParOf: {
-      manque: number
+      parOf: number
       ofs: { numOf: string; dateFin: string | null }[]
     } | null
   }[]

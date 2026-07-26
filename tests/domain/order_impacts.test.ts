@@ -756,3 +756,74 @@ test.group('evaluateOrderImpacts — SE couverts par production (#94)', () => {
     assert.deepEqual(of.seComponents, {}, 'le stock physique suffit : aucune dépendance à un OF')
   })
 })
+
+/**
+ * Décomposition du manque d'un SE entre stock sous contrôle qualité et production.
+ *
+ * Cas réel prod EBH1257AL / OF F426-42920 (2016 pcs) : le SE EH6139 a 2638 en statut A dont
+ * 672 alloués (net strict 1966) + 15 en statut Q. Manque vs stock strict = 50, dont 15
+ * couverts par le Q et 35 par le WOS SGAE10654257102. Les deux dépendances se traitent
+ * différemment — l'une par le contrôle réception, l'autre par l'atelier — donc les deux
+ * doivent remonter séparément.
+ */
+test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () => {
+  test('manque de 50 = 15 en statut Q + 35 par OF producteur', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+    ])
+
+    const qcStock: Flow = {
+      article: 'SE1',
+      quantity: 15,
+      direction: 'supply',
+      date: null,
+      origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+    }
+
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 2016, daysFromNow(8)),
+      makeOfFlow('WOS-102', 'SE1', 3, 35, daysFromNow(1)),
+      makeStockFlow('SE1', 1966),
+      qcStock,
+    ]
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 2016, daysFromNow(10))]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(of.missingComponents, {}, 'Q + production couvrent tout : aucun manque')
+    assert.deepEqual(of.seComponents, { SE1: 35 }, 'part à couvrir par la production')
+    assert.deepEqual(of.qcComponents, { SE1: 15 }, 'part qui ne tient que grâce au statut Q')
+    // Les deux parts se somment bien au manque vs stock strict (2016 − 1966).
+    assert.equal(of.seComponents!.SE1 + of.qcComponents!.SE1, 50)
+  })
+})
