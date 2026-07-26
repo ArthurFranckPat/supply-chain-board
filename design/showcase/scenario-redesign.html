@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scénario · 3 directions bandeau + étude d'impact</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /* Hallmark · macrostructure: Workbench · tone: modern-minimal (grammaire Airbnb verrouillée)
+   * anchor hue: Rausch ~350° · scope: app-component showcase (bandeau scénario + feuille d'impact)
+   * pre-emit critique: P4 H5 E4 S4 R5 V4 */
+
+  :root {
+    --rausch: #ff385c;
+    --rausch-active: #e00b41;
+    --rausch-soft: rgba(255, 56, 92, 0.10);
+    --ink: #222222;
+    --muted: #6a6a6a;
+    --canvas: #ffffff;
+    --surface-soft: #f7f7f7;
+    --surface-strong: #f2f2f2;
+    --hairline: #dddddd;
+    --hairline-soft: #ebebeb;
+    --border-strong: #c1c1c1;
+    --destructive: #c13515;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --r-btn: 8px;
+    --r-card: 14px;
+    --r-pill: 9999px;
+    --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
+    --font: 'Plus Jakarta Sans', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body { font-family: var(--font); color: var(--ink); background: var(--surface-strong); font-size: 14px; line-height: 1.45; padding: 40px 24px 100px; }
+  .num { font-variant-numeric: tabular-nums; }
+  button { font-family: var(--font); }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .page-head { margin-bottom: 28px; }
+  .page-head h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 6px; }
+  .page-head p { font-size: 13px; color: var(--muted); max-width: 720px; }
+  .page-head code { background: var(--surface-soft); border: 1px solid var(--hairline-soft); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-soft); border-radius: var(--r-btn); width: fit-content; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+    color: var(--muted); padding: 9px 16px; border-radius: 6px; transition: all .15s;
+  }
+  .tab.active { background: var(--canvas); color: var(--ink); box-shadow: var(--shadow-float); }
+  .tab:hover:not(.active) { color: var(--ink); }
+
+  .version { display: none; }
+  .version.active { display: block; }
+
+  .version-head { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-card); padding: 18px 22px; margin-bottom: 16px; }
+  .version-head .kicker { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--rausch); margin-bottom: 6px; }
+  .version-head h2 { font-size: 17px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.2px; }
+  .version-head p { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .version-head .tradeoff { font-size: 12px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--hairline); }
+  .version-head .tradeoff b { color: var(--ink); font-weight: 700; }
+
+  /* ── Resizable demo frame ── */
+  .frame-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .frame {
+    resize: horizontal; overflow: auto; min-width: 420px; max-width: 100%;
+    width: 1040px; border: 1px dashed var(--border-strong); border-radius: var(--r-card);
+    background: var(--canvas); margin-bottom: 36px;
+  }
+  .frame-inner { min-width: 420px; }
+  .fake-board {
+    background: repeating-linear-gradient(45deg, var(--surface-soft), var(--surface-soft) 10px, var(--canvas) 10px, var(--canvas) 20px);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted);
+  }
+  .fake-board.h64 { height: 64px; border-radius: 0 0 var(--r-card) var(--r-card); }
+  .fake-board.h220 { height: 220px; }
+
+  /* ── Toolbar existante (contexte, pas le sujet) ── */
+  .toolbar-row { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--hairline); padding: 8px 20px; min-height: 48px; flex-wrap: wrap; }
+  .ctx-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--border-strong); }
+  .seg { display: inline-flex; align-items: center; gap: 2px; border-radius: var(--r-btn); border: 1px solid var(--hairline); background: var(--canvas); padding: 2px; }
+  .seg-btn { appearance: none; border: 0; cursor: pointer; min-height: 26px; border-radius: 6px; padding: 4px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: transparent; white-space: nowrap; }
+  .seg-btn.on { background: var(--rausch-soft); color: var(--rausch); }
+  .ctx-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; border-radius: var(--r-pill); border: 1px solid var(--hairline); padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .spacer { flex: 1; }
+
+  svg.i { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* ══════════════ Boutons — grammaire Airbnb ══════════════ */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 30px;
+    border-radius: var(--r-btn); border: 1px solid transparent; cursor: pointer;
+    padding: 5px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn.solid { background: var(--rausch); color: #fff; }
+  .btn.solid:hover { background: var(--rausch-active); }
+  .btn.outline { background: var(--canvas); border-color: var(--hairline); color: var(--ink); }
+  .btn.outline:hover { background: var(--surface-soft); border-color: var(--border-strong); }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn.ghost:hover { background: var(--surface-soft); }
+  .btn.ghost-d { background: transparent; color: var(--muted); }
+  .btn.ghost-d:hover { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 7%, transparent); }
+
+  /* ══════════════ BANDEAU SCÉNARIO — base commune ══════════════ */
+  .sc-band { display: flex; align-items: center; gap: 12px; padding: 8px 20px; min-height: 48px; border-bottom: 1px solid var(--hairline); flex-wrap: wrap; }
+  .sc-id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sc-title { font-size: 13px; font-weight: 800; letter-spacing: -0.1px; }
+  .sc-tools { display: flex; align-items: center; gap: 6px; }
+  .sc-decide { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .sc-sep { width: 1px; height: 20px; background: var(--hairline); margin: 0 4px; }
+  .sc-name {
+    border: 0; border-bottom: 1px dashed var(--border-strong); background: transparent; outline: none;
+    font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--ink);
+    width: 170px; padding: 3px 2px; transition: border-color .15s;
+  }
+  .sc-name:focus { border-bottom: 1px solid var(--rausch); }
+  .sc-count {
+    display: inline-flex; align-items: center; gap: 7px; background: var(--canvas);
+    border: 1px solid var(--hairline); border-radius: var(--r-pill);
+    padding: 4px 11px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .sc-count .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rausch); flex: none; }
+  .sc-strat {
+    appearance: none; border: 1px solid var(--hairline); background: var(--canvas); cursor: pointer;
+    border-radius: var(--r-pill); padding: 5px 12px; font-size: 11px; font-weight: 600; color: var(--muted);
+  }
+
+  /* ── V1 · Capsule — parenthèse assumée ── */
+  .sc-band.v1 { background: var(--rausch-soft); position: relative; padding-left: 26px; }
+  .sc-band.v1 .sc-rail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--rausch); }
+  .sc-band.v1 .sc-title { color: var(--rausch); }
+  .sc-band.v1 .sc-tools { margin-left: 8px; }
+
+  /* ── V2 · Liseré — discrétion outil ── */
+  .sc-band.v2 { background: var(--canvas); border-top: 2px solid var(--rausch); min-height: 44px; gap: 10px; }
+  .sc-band.v2 .sc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rausch); flex: none; }
+  .sc-band.v2 .sc-name { width: 140px; }
+  .sc-band.v2 .sc-count { padding: 3px 9px; font-size: 10px; }
+  .sc-band.v2 .btn { min-height: 28px; padding: 4px 10px; font-size: 11px; }
+
+  /* ── V3 · Décision flottante ── */
+  .sc-band.v3 { background: var(--canvas); gap: 10px; }
+  .sc-floatbar {
+    position: sticky; bottom: 12px; z-index: 20; width: fit-content; max-width: calc(100% - 40px);
+    margin: 0 auto; transform: translateY(-14px);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--ink); color: #fff; border-radius: var(--r-pill);
+    padding: 8px 10px 8px 18px; box-shadow: var(--shadow-float);
+  }
+  .sc-floatbar .fb-count { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .85); margin-right: 6px; white-space: nowrap; }
+  .sc-floatbar .fb-count b { color: #fff; font-weight: 800; }
+  .sc-floatbar .fb-sep { width: 1px; height: 18px; background: rgba(255, 255, 255, .22); }
+  .sc-floatbar .btn { min-height: 30px; }
+  .sc-floatbar .btn.on-dark { background: transparent; border-color: rgba(255, 255, 255, .28); color: #fff; }
+  .sc-floatbar .btn.on-dark:hover { background: rgba(255, 255, 255, .14); }
+  .sc-floatbar .btn.ghost-d.on-dark { border-color: transparent; color: rgba(255, 255, 255, .65); }
+  .sc-floatbar .btn.ghost-d.on-dark:hover { color: #ffb4a3; background: rgba(255, 255, 255, .10); }
+
+  /* ══════════════ ÉTUDE D'IMPACT — feuille verdict-d'abord ══════════════ */
+  .sheet-frame { display: flex; }
+  .sheet-board { flex: 1; min-width: 120px; }
+  .sheet {
+    flex: none; width: 560px; border-left: 1px solid var(--hairline); padding: 22px 26px 30px;
+    background: var(--canvas); border-radius: 0 var(--r-card) var(--r-card) 0;
+  }
+  .sheet h2 { font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
+  .sheet .stamps { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 4px; }
+
+  .verdict { display: flex; align-items: center; gap: 28px; background: var(--surface-soft); border-radius: var(--r-card); padding: 14px 20px; margin: 16px 0 4px; }
+  .vstat .n { font-size: 28px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .vstat .l { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 4px; }
+  .vstat.deg .n { color: var(--destructive); }
+  .vstat.amel .n { color: var(--ferme); }
+  .vmeta { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--hairline); background: var(--canvas); border-radius: var(--r-pill); padding: 5px 12px; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+
+  .sujet { border: 1px dashed var(--border-strong); background: color-mix(in srgb, var(--surface-soft) 60%, transparent); border-radius: 10px; padding: 12px 14px; margin-top: 14px; }
+  .sujet-lbl { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px; }
+  .srow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; padding: 4px 0; }
+  .srow + .srow { border-top: 1px solid var(--hairline-soft); }
+  .srow .ref { font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .srow .det { color: var(--muted); }
+  .srow .ans { margin-left: auto; font-weight: 800; white-space: nowrap; }
+  .srow .ans.late { color: var(--destructive); }
+  .srow .ans.ok { color: var(--ferme); }
+
+  .sec { margin-top: 20px; }
+  .sec-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .sec-h h3 { font-size: 14px; font-weight: 800; letter-spacing: -0.1px; }
+  .sec-h .cnt { border-radius: var(--r-pill); background: var(--surface-strong); padding: 2px 9px; font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    border: 1px solid var(--hairline); border-left-width: 2px; border-radius: var(--r-btn);
+    background: var(--canvas); padding: 8px 12px; font-size: 12px; margin-top: 6px;
+  }
+  .row.deg { border-left-color: var(--destructive); }
+  .row.amel { border-left-color: var(--ferme); }
+  .row .ref { font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .row .det { color: var(--muted); }
+  .row .delta { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .row .delta.deg { color: var(--destructive); }
+  .row .delta.amel { color: var(--ferme); }
+
+  .row.vcard { flex-direction: column; align-items: stretch; gap: 5px; }
+  .vline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .vline .sub { font-size: 11px; color: var(--muted); }
+  .badge { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 4px; padding: 2px 7px; }
+  .badge.inev { background: color-mix(in srgb, var(--destructive) 10%, transparent); color: var(--destructive); }
+  .badge.recal { background: color-mix(in srgb, var(--suggere) 13%, transparent); color: color-mix(in srgb, var(--suggere) 80%, #7a2e0e); }
+
+  .collapsed { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--hairline-soft); font-size: 12px; color: var(--muted); }
+  .collapsed b { color: var(--ink); font-weight: 700; }
+
+  footer { max-width: 1180px; margin: 40px auto 0; font-size: 12px; color: var(--muted); border-top: 1px solid var(--hairline); padding-top: 16px; }
+
+  @media (max-width: 720px) {
+    body { padding: 24px 12px 60px; }
+    .frame { min-width: 340px; width: 100%; }
+    .frame-inner { min-width: 340px; }
+    .sheet { width: 420px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-head">
+    <h1>Mode scénario — bandeau &amp; étude d'impact</h1>
+    <p>Le geste métier : <b>hypothèse → constat → décision</b>. Le planificateur ouvre une parenthèse what-if (mutations non écrites en X3), mesure le collatéral sur les promesses existantes, puis tranche — appliquer (écriture X3) ou jeter (retour au réel). Trois directions pour le bandeau <code>scenario-bar.tsx</code> + une pour la feuille <code>scenario-diff-sheet.tsx</code>. Redimensionne chaque cadre (poignée en bas à droite) pour juger le comportement à l'étroit.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-v="v1">V1 · Capsule</button>
+    <button class="tab" data-v="v2">V2 · Liseré</button>
+    <button class="tab" data-v="v3">V3 · Décision flottante</button>
+    <button class="tab" data-v="v4">Étude d'impact</button>
+  </div>
+
+  <!-- ══════════════ V1 · CAPSULE ══════════════ -->
+  <section class="version active" id="v1">
+    <div class="version-head">
+      <div class="kicker">Parenthèse assumée</div>
+      <h2>Le mode what-if se voit : rail Rausch, fond teinté, compteur-phrase</h2>
+      <p>Le bandeau n'est plus une seconde toolbar mais une <em>capsule de mode</em> en trois zones de poids croissant : identité (rail + « Scénario » + nom + le compteur devenu phrase « 3 mutations en attente »), outils (commande virtuelle, ouvrir, stratégie — en outline de second niveau), décision à droite — <b>Appliquer est le seul bouton solid Rausch</b>, Jeter est repoussé derrière un séparateur vertical, en ghost qui ne rougit qu'au survol. La séparation « écrit en X3 / détruit tout » est visible <em>avant</em> le clic, plus seulement dans l'AlertDialog.</p>
+      <div class="tradeoff"><b>Gain :</b> mode lisible au premier coup d'œil (c'est l'info n°1), hiérarchie de décision nette. <b>Coût :</b> bandeau plus présent que l'actuel (teinte permanente), nom éditable toujours exposé.</div>
+    </div>
+
+    <div class="frame-label">↓ redimensionne le cadre</div>
+    <div class="frame"><div class="frame-inner">
+      <div class="toolbar-row">
+        <span class="ctx-lbl">toolbar existante</span>
+        <div class="seg">
+          <button class="seg-btn">Planification</button>
+          <button class="seg-btn on">Combinaison</button>
+        </div>
+        <span class="ctx-pill num">Sem. 30 → 34</span>
+        <span class="spacer"></span>
+        <span class="ctx-pill">Filtres…</span>
+      </div>
+
+      <div class="sc-band v1">
+        <div class="sc-rail"></div>
+        <div class="sc-id">
+          <svg class="i" viewBox="0 0 24 24" style="color: var(--rausch)"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+          <span class="sc-title">Scénario</span>
+          <input class="sc-name" value="Urgence client Dupont" aria-label="Nom du scénario" />
+          <span class="sc-count num"><span class="dot"></span>3 mutations en attente</span>
+        </div>
+        <div class="sc-tools">
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Commande virtuelle</button>
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Ouvrir</button>
+          <select class="sc-strat" aria-label="Règle d'allocation">
+            <option>Date de besoin</option>
+            <option>Date de passation</option>
+            <option>Priorité prévisions</option>
+          </select>
+        </div>
+        <div class="sc-decide">
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Impacts</button>
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Enregistrer</button>
+          <span class="sc-sep"></span>
+          <button class="btn solid"><svg class="i" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9V3z"/></svg>Appliquer</button>
+          <button class="btn ghost-d"><svg class="i" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Jeter</button>
+        </div>
+      </div>
+
+      <div class="fake-board h64">board (contexte)</div>
+    </div></div>
+  </section>
+
+  <!-- ══════════════ V2 · LISERÉ ══════════════ -->
+  <section class="version" id="v2">
+    <div class="version-head">
+      <div class="kicker">Discrétion outil</div>
+      <h2>Un liseré Rausch porte le mode, tout le reste reste sage</h2>
+      <p>Empreinte minimale : fond blanc, un <b>liseré Rausch 2px</b> en haut du bandeau + une pastille devant « Scénario » — c'est tout le marquage de mode. La hiérarchie passe par la taille et le poids : identité compacte à gauche, outils en petits outline, décision à droite avec Appliquer seul solid et <b>Jeter réduit à l'icône</b> (tooltip « Jeter le scénario »), séparé par un filet. Le compteur redevient un badge court (« 3 mut. »).</p>
+      <div class="tradeoff"><b>Gain :</b> très proche de la toolbar actuelle, sobre, prend peu de hauteur. <b>Coût :</b> parenthèse what-if peu lisible (risque de re-lire « seconde toolbar »), Jeter en icône seule est moins explicite — l'AlertDialog de confirmation reste indispensable.</div>
+    </div>
+
+    <div class="frame-label">↓ redimensionne le cadre</div>
+    <div class="frame"><div class="frame-inner">
+      <div class="toolbar-row">
+        <span class="ctx-lbl">toolbar existante</span>
+        <div class="seg">
+          <button class="seg-btn">Planification</button>
+          <button class="seg-btn on">Combinaison</button>
+        </div>
+        <span class="ctx-pill num">Sem. 30 → 34</span>
+        <span class="spacer"></span>
+        <span class="ctx-pill">Filtres…</span>
+      </div>
+
+      <div class="sc-band v2">
+        <span class="sc-dot"></span>
+        <span class="sc-title">Scénario</span>
+        <input class="sc-name" value="Urgence client Dupont" aria-label="Nom du scénario" />
+        <span class="sc-count num">3 mut.</span>
+        <select class="sc-strat" aria-label="Règle d'allocation">
+          <option>Date de besoin</option>
+          <option>Date de passation</option>
+          <option>Priorité prévisions</option>
+        </select>
+        <div class="sc-tools">
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Cde virtuelle</button>
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Ouvrir</button>
+        </div>
+        <div class="sc-decide">
+          <button class="btn outline">Impacts</button>
+          <button class="btn outline">Enregistrer</button>
+          <button class="btn solid"><svg class="i" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9V3z"/></svg>Appliquer</button>
+          <span class="sc-sep"></span>
+          <button class="btn ghost-d" title="Jeter le scénario" aria-label="Jeter le scénario"><svg class="i" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+        </div>
+      </div>
+
+      <div class="fake-board h64">board (contexte)</div>
+    </div></div>
+  </section>
+
+  <!-- ══════════════ V3 · DÉCISION FLOTTANTE ══════════════ -->
+  <section class="version" id="v3">
+    <div class="version-head">
+      <div class="kicker">Radical — « modifications non enregistrées »</div>
+      <h2>Le bandeau devient identité, la décision descend en barre flottante</h2>
+      <p>En haut : une barre purement <em>identitaire</em> (Scénario + nom + compteur + outils), sans teinte. La décision migre dans une <b>barre flottante encre</b> posée sur le board — même grammaire que les toasts sonner (pilule encre bas-centre) — qui porte Impacts / Enregistrer / Appliquer / Jeter et le compteur de mutations. Mental model « changements en attente » : tant qu'il reste des mutations, la décision suit le regard, même en scrollant le board.</p>
+      <div class="tradeoff"><b>Gain :</b> décision toujours visible, bandeau haut allégé, très fort rappel « rien n'est écrit en X3 ». <b>Coût :</b> overlay sur le board (masque une rangée en bas), un état de plus à gérer (barre visible ⇔ mutations &gt; 0), rupture avec la position actuelle sous la toolbar.</div>
+    </div>
+
+    <div class="frame-label">↓ redimensionne le cadre</div>
+    <div class="frame"><div class="frame-inner">
+      <div class="toolbar-row">
+        <span class="ctx-lbl">toolbar existante</span>
+        <div class="seg">
+          <button class="seg-btn">Planification</button>
+          <button class="seg-btn on">Combinaison</button>
+        </div>
+        <span class="ctx-pill num">Sem. 30 → 34</span>
+        <span class="spacer"></span>
+        <span class="ctx-pill">Filtres…</span>
+      </div>
+
+      <div class="sc-band v3">
+        <svg class="i" viewBox="0 0 24 24" style="color: var(--rausch)"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+        <span class="sc-title">Scénario</span>
+        <input class="sc-name" value="Urgence client Dupont" aria-label="Nom du scénario" />
+        <span class="sc-count num"><span class="dot"></span>3 mutations en attente</span>
+        <div class="sc-tools">
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Commande virtuelle</button>
+          <button class="btn outline"><svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Ouvrir</button>
+          <select class="sc-strat" aria-label="Règle d'allocation">
+            <option>Date de besoin</option>
+            <option>Date de passation</option>
+            <option>Priorité prévisions</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="fake-board h220">board (contexte — la décision flotte par-dessus)</div>
+
+      <div class="sc-floatbar">
+        <span class="fb-count num"><b>3</b> mutations en attente</span>
+        <span class="fb-sep"></span>
+        <button class="btn on-dark"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Impacts</button>
+        <button class="btn on-dark"><svg class="i" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Enregistrer</button>
+        <button class="btn solid"><svg class="i" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9V3z"/></svg>Appliquer</button>
+        <button class="btn ghost-d on-dark"><svg class="i" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Jeter</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ══════════════ ÉTUDE D'IMPACT ══════════════ -->
+  <section class="version" id="v4">
+    <div class="version-head">
+      <div class="kicker">Constat verdict-d'abord</div>
+      <h2>Les nombres d'abord, le plein déplié, le vide replié</h2>
+      <p>Principe <em>constat, pas prescription</em> conservé — on liste, l'humain décide. Mais la lecture change : le bilan devient une <b>bande verdict</b> (deux grands chiffres tabulaires, teinte portée par le sens), posée au-dessus de l'hypothèse testée (bloc neutre « hors bilan » — c'est la question posée, pas un impact). Les sections pleines sont dépliées, les verdicts de calage gardent leur carte enrichie (badge + deux lignes), et <b>les sections vides tiennent en une ligne</b> de pied — le constat se concentre sur ce qui bouge.</p>
+      <div class="tradeoff"><b>Gain :</b> « est-ce que je peux appliquer ? » lisible en 3 secondes, mur de rangées cassé. <b>Coût :</b> ~70px de bande verdict en tête ; le repli masque le détail des axes calmes (volontaire — un toggle « tout déplier » peut le rendre).</div>
+    </div>
+
+    <div class="frame"><div class="frame-inner sheet-frame">
+      <div class="fake-board sheet-board">board (contexte)</div>
+
+      <div class="sheet">
+        <h2>Étude d'impact</h2>
+        <p class="stamps num">Évalué le 26/07/2026 14:32 · sur données du 26/07/2026 14:00</p>
+
+        <div class="verdict">
+          <div class="vstat deg"><div class="n num">2</div><div class="l">Dégradations</div></div>
+          <div class="vstat amel"><div class="n num">1</div><div class="l">Amélioration</div></div>
+          <span class="vmeta num">5 axes évalués</span>
+        </div>
+
+        <div class="sujet">
+          <p class="sujet-lbl">Hypothèse testée · réponse CTP (hors bilan)</p>
+          <div class="srow">
+            <span class="ref num">VIRT-KZ82</span>
+            <span class="det">VIS M8×40 · Dupont · 5 000 u · besoin 12/08/2026</span>
+            <span class="ans late num">→ Retard (+3 j)</span>
+          </div>
+          <div class="srow">
+            <span class="ref num">SOH-2417#2</span>
+            <span class="det">POIGNÉE ALU · Sogerma · 800 u · besoin 05/08/2026</span>
+            <span class="ans ok">→ À l'heure</span>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h"><h3>Client — promesses</h3><span class="cnt num">2</span></div>
+          <div class="row deg">
+            <span class="ref num">SOH-2411#1</span>
+            <span class="det">VIS M8×40 · Dupont</span>
+            <span class="delta deg num">À l'heure → Retard (+3 j)</span>
+          </div>
+          <div class="row amel">
+            <span class="ref num">SOH-2398#4</span>
+            <span class="det">POIGNÉE ALU · Sogerma</span>
+            <span class="delta amel num">Retard → À l'heure (−2 j)</span>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h"><h3>Appro — verdicts de calage</h3><span class="cnt num">2</span></div>
+          <div class="row deg vcard">
+            <div class="vline">
+              <span class="ref num">ACIER S235</span>
+              <span class="badge inev">Rupture inévitable</span>
+            </div>
+            <span class="sub num">Sur OF-8841 · Besoin 28/07/2026 → 04/08/2026 · Qté 1 200 u · manque 340 u (délai 21 j)</span>
+          </div>
+          <div class="row amel vcard">
+            <div class="vline">
+              <span class="ref num">JOINT TORIQUE 40</span>
+              <span class="badge recal">Appro à re-caler</span>
+            </div>
+            <span class="sub num">Sur OF-8836 · Besoin 02/08/2026 → 30/07/2026 · Qté 5 000 u (délai 7 j)</span>
+          </div>
+        </div>
+
+        <p class="collapsed"><b>Appro couvertures · Allocation · Charge</b> — aucun changement.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <footer>
+    Showcase Hallmark · grammaire Airbnb verrouillée (<code>inertia-react/styles/app.css</code>) · Plus Jakarta Sans · icônes lucide (trait 1.75) · données d'exemple — à porter dans <code>scenario-bar.tsx</code> / <code>scenario-diff-sheet.tsx</code> à props inchangées.
+  </footer>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach((t) =>
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+      document.querySelectorAll('.version').forEach((v) => v.classList.toggle('active', v.id === t.dataset.v));
+    })
+  );
+</script>
+</body>
+</html>

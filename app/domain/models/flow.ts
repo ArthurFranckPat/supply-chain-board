@@ -40,6 +40,13 @@ export type FlowOrigin =
        * Optionnel : absent → repli sur `quantity` chez le consommateur.
        */
       launched?: number
+      /**
+       * Ordre virtuel réservé à UNE demande (issue #58) : il n'existe que parce que cette
+       * demande a été injectée. Le matcher ne le propose à aucune autre — sans ça, une
+       * commande réelle plus urgente du même article se sert la première et la virtuelle
+       * ressort « sans couverture » alors que son propre OF vient d'être créé pour elle.
+       */
+      reservePour?: string
     }
   | {
       type: 'order'

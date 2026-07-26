@@ -57,6 +57,85 @@ export function ScenarioDiffSheet({
           </div>
         ) : (
           <div className="mt-4 space-y-6">
+            {/* Sujet de l'étude : hypothèse(s) injectée(s) + réponse CTP. Constat neutre,
+                hors bilan signé (flux ADV : c'est la question posée, pas un impact). */}
+            {diff.sujet && diff.sujet.length > 0 && (
+              <div className="space-y-1 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Demande testée · réponse CTP (hors bilan)
+                </p>
+                {diff.sujet.map((s, i) => (
+                  <div key={`sujet-${i}`} className="flex flex-wrap items-center gap-2 text-[12px]">
+                    <span className="font-mono text-[11px]">
+                      {s.numCommande}
+                      {s.ligne ? `#${s.ligne}` : ''}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {s.article}
+                      {s.client ? ` · ${s.client}` : ''}
+                      {s.quantite != null ? ` · ${s.quantite} u` : ''}
+                      {s.date ? ` · besoin ${fmtJour(s.date)}` : ''}
+                    </span>
+                    <span className="ml-auto font-bold text-foreground">
+                      → {s.statut}
+                      {s.joursRetard > 0 ? ` (+${s.joursRetard} j)` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Réaction d'offre : l'OF (ou la commande d'achat) que la demande testée
+                déclencherait. C'est LUI qui consomme la nomenclature — donc lui qui
+                alimente les axes appro / allocation / charge ci-dessous. */}
+            {diff.offreVirtuelle && diff.offreVirtuelle.length > 0 && (
+              <div className="space-y-2 rounded-md border border-dashed border-muted-foreground/40 px-3 py-2">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Ordre déclenché (virtuel) · consomme la nomenclature
+                </p>
+                {diff.offreVirtuelle.map((o) => (
+                  <div key={o.id} className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider">
+                        {o.type === 'of' ? 'OF' : 'Achat'}
+                      </span>
+                      <span className="font-mono text-[11px]">{o.id}</span>
+                      <span className="text-muted-foreground">
+                        {o.article} · {o.quantite} u ·{' '}
+                        {o.type === 'of' ? 'lancer le' : 'commander le'} {fmtJour(o.dateDebut)} →{' '}
+                        dispo {fmtJour(o.dateFin)} ({o.delai} j)
+                        {o.poste ? ` · ${o.poste}` : ''}
+                        {o.heures ? ` · ${o.heures} h` : ''}
+                      </span>
+                      {o.lancementDepasse && (
+                        <span className="ml-auto rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-destructive">
+                          Lancement dépassé
+                        </span>
+                      )}
+                    </div>
+                    {o.composants.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pl-1 text-[11px]">
+                        {o.composants.map((c) => (
+                          <span
+                            key={`${o.id}-${c.article}`}
+                            className={cn(
+                              'rounded border px-1.5 py-0.5 font-mono text-[10px]',
+                              c.manquant > 0
+                                ? 'border-destructive/40 text-destructive'
+                                : 'border-border text-muted-foreground'
+                            )}
+                          >
+                            {c.article} · {c.besoin} u
+                            {c.manquant > 0 ? ` · manque ${c.manquant}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Bilan */}
             <div className="flex gap-4 text-[12px] font-bold">
               <span className="text-destructive">{diff.stats.degradations} dégradation(s)</span>
@@ -75,7 +154,6 @@ export function ScenarioDiffSheet({
                     {e.article} · {e.client}
                   </span>
                   <span className={cn('ml-auto font-bold', sensClass(e.sens))}>
-                    {e.nouvelle && <>nouvelle · </>}
                     {e.disparue && <>hors plan · </>}
                     {e.statutAvant ?? '—'} → {e.statutApres ?? '—'}
                     {e.deltaJours !== 0 && <> ({fmtDelta(e.deltaJours, ' j')})</>}
@@ -126,8 +204,15 @@ export function ScenarioDiffSheet({
                         </span>
                       </div>
                       <span className="text-[10px] text-muted-foreground">
-                        Sur {v.numOf} · Besoin {fmtJour(v.dateAvant)} → {fmtJour(v.dateApres)} · Qté{' '}
-                        {v.quantite} u{v.manquant > 0 && <> · manque {v.manquant} u</>} (délai{' '}
+                        Sur {v.numOf} ·{' '}
+                        {v.nouveau ? (
+                          <>Besoin créé le {fmtJour(v.dateApres)}</>
+                        ) : (
+                          <>
+                            Besoin {fmtJour(v.dateAvant)} → {fmtJour(v.dateApres)}
+                          </>
+                        )}{' '}
+                        · Qté {v.quantite} u{v.manquant > 0 && <> · manque {v.manquant} u</>} (délai{' '}
                         {v.reorderDelay} j)
                       </span>
                     </div>

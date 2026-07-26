@@ -51,6 +51,11 @@ export class OFConso {
     return this.ofFlow.article
   }
 
+  /** Demande à laquelle cet OF est réservé (ordre virtuel, #58) — null si servable à tous. */
+  get reservePour(): string | null {
+    return isOfOrigin(this.ofFlow.origin) ? (this.ofFlow.origin.reservePour ?? null) : null
+  }
+
   estDisponible(qteBesoin: number): boolean {
     return this.qteDisponible >= qteBesoin
   }
@@ -237,6 +242,9 @@ export class CommandeOFMatcher {
     const linkedOfs = this.supplyFlows.filter((f) => {
       if (f.direction !== 'supply' || f.origin.type !== 'of') return false
       if (f.article !== demand.article || f.quantity <= 0) return false
+      // Ordre virtuel réservé à une autre demande (#58) : invisible ici.
+      const reserve = (f.origin as OfOrigin).reservePour ?? null
+      if (reserve !== null && reserve !== numCommande) return false
       const status = getOfStatus(f.origin)
       return status >= 1 && status <= 3
     })
@@ -345,11 +353,14 @@ export class CommandeOFMatcher {
 
   private iterOfCandidates(demand: Flow, isForecast: boolean = false): OFConso[] {
     const demandDate = demand.date?.getTime() ?? Date.now()
+    const numCommande = isOrderOrForecastOrigin(demand.origin) ? demand.origin.id : ''
     const candidates: Array<[number, number, number, OFConso]> = []
 
     for (const conso of this.ofConso.values()) {
       if (conso.article !== demand.article) continue
       if (conso.qteDisponible <= 0) continue
+      // Ordre virtuel réservé à une autre demande (#58) : invisible ici.
+      if (conso.reservePour !== null && conso.reservePour !== numCommande) continue
 
       // Python: forecasts do not consume firm (1) or planned (2) OFs.
       if (isForecast && (conso.statutNum === 1 || conso.statutNum === 2)) continue

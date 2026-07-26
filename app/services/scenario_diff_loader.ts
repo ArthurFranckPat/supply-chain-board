@@ -77,6 +77,7 @@ export async function evaluateScenarioDiff(
       before: ctx.result,
       engine: ctx.engine,
       ofCharges: ctx.ofCharges,
+      routings: ctx.routingByArticle,
     },
     mutations
   )

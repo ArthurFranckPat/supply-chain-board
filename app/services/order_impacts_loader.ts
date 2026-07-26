@@ -31,7 +31,7 @@ import {
 } from '#app/domain/order_impacts_assembly'
 import type { OfCommandePeg } from '#repositories/order_line_repository'
 import type { OfOverrideRow } from '#app/domain/planning_board'
-import type { OfCharge, PlanDiffEngineInputs } from '#app/domain/plan_diff'
+import type { ArticleRouting, OfCharge, PlanDiffEngineInputs } from '#app/domain/plan_diff'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
@@ -110,6 +110,11 @@ export interface OrderImpactsContext {
    * de scénario. Sans ça l'axe restait structurellement vide.
    */
   ofCharges: OfCharge[]
+  /**
+   * Gamme condensée par article (poste + heures/unité) — alimente la réaction d'offre
+   * virtuelle du diff de scénario (#58) : sans elle, un OF virtuel n'a ni poste ni charge.
+   */
+  routingByArticle: Map<string, ArticleRouting>
   /** Instant où les données du plan ont été assemblées (« sur données du … »). */
   dataAt: Date
 }
@@ -337,6 +342,19 @@ export async function loadOrderImpacts(
     arr.push(g)
     opsByArticle.set(g.article, arr)
   }
+  // Gamme condensée par article : heures/unité (Σ 1/cadence) + poste. Même source que la
+  // charge par OF ci-dessous, mais indexée par ARTICLE — un ordre virtuel (#58) n'existe
+  // dans aucun OF, il ne peut être chargé que depuis la gamme de son article.
+  const routingByArticle = new Map<string, ArticleRouting>()
+  for (const [article, ops] of opsByArticle) {
+    const poste = wstByArticle.get(article)
+    if (!poste) continue
+    let heuresParUnite = 0
+    for (const op of ops) heuresParUnite += 1 / op.rate
+    if (heuresParUnite <= 0) continue
+    routingByArticle.set(article, { poste, heuresParUnite })
+  }
+
   const fabricationDaysByOf = new Map<string, number>()
   const fabricationHoursByOf = new Map<string, number>()
   for (const f of finalOfFlows) {
@@ -410,6 +428,7 @@ export async function loadOrderImpacts(
       fabricationDaysByOf,
     },
     ofCharges,
+    routingByArticle,
     dataAt: new Date(),
   }
 }

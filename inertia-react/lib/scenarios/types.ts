@@ -39,6 +39,25 @@ export interface ApproVerdictEntry {
   reorderDelay: number
   /** Manquant constaté par le moteur sur cet OF (0 pour un `dormant`). */
   manquant: number
+  /** true si le besoin n'existait pas avant : composant d'un ordre virtuel (#58). */
+  nouveau?: boolean
+}
+
+/** Ordre déclenché par une demande injectée — la réaction d'offre virtuelle (#58). */
+export interface VirtualSupplyEntry {
+  id: string
+  demandeId: string
+  ligne: string | null
+  article: string
+  quantite: number
+  type: 'of' | 'achat'
+  dateDebut: string
+  dateFin: string
+  delai: number
+  lancementDepasse: boolean
+  poste: string | null
+  heures: number | null
+  composants: Array<{ article: string; besoin: number; manquant: number }>
 }
 
 export type DiffSens = 'degradation' | 'amelioration'
@@ -53,9 +72,20 @@ export interface ClientDiffEntry {
   joursRetardAvant: number
   joursRetardApres: number
   deltaJours: number
-  nouvelle: boolean
   disparue: boolean
   sens: DiffSens
+}
+
+/** Demande injectée (inject_demand) — hypothèse testée, verdict CTP neutre (hors bilan). */
+export interface SujetEntry {
+  numCommande: string
+  ligne: string | null
+  article: string
+  client: string
+  statut: string
+  joursRetard: number
+  date: string | null
+  quantite: number | null
 }
 
 export interface ApproDiffEntry {
@@ -87,6 +117,10 @@ export interface ChargeDiffEntry {
 
 export interface PlanDiff {
   client: ClientDiffEntry[]
+  /** Hypothèses injectées + verdict CTP : constat neutre, hors bilan signé. */
+  sujet?: SujetEntry[]
+  /** Ordres virtuels déclenchés par les demandes injectées (#58). */
+  offreVirtuelle?: VirtualSupplyEntry[]
   appro: ApproDiffEntry[]
   approVerdicts?: ApproVerdictEntry[]
   allocation: AllocationDiffEntry[]
@@ -142,25 +176,23 @@ export function virtualOrdersFrom(
   mutations: PlanMutation[],
   diff: PlanDiff | null
 ): VirtualOrderVm[] {
-  const clientByKey = new Map(
-    (diff?.client ?? [])
-      .filter((e) => e.nouvelle)
-      .map((e) => [`${e.numCommande}#${e.ligne ?? ''}`, e])
+  const sujetByKey = new Map(
+    (diff?.sujet ?? []).map((e) => [`${e.numCommande}#${e.ligne ?? ''}`, e])
   )
   return mutations
     .filter(
       (m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand'
     )
     .map((m) => {
-      const entry = clientByKey.get(`${m.id}#${m.ligne ?? ''}`)
+      const entry = sujetByKey.get(`${m.id}#${m.ligne ?? ''}`)
       return {
         id: m.id,
         article: m.article,
         quantity: m.quantity,
         client: m.client ?? null,
         date: m.date,
-        statut: entry?.statutApres ?? null,
-        joursRetard: entry?.joursRetardApres ?? null,
+        statut: entry?.statut ?? null,
+        joursRetard: entry?.joursRetard ?? null,
         earliest: m.earliest === true,
       }
     })
