@@ -342,7 +342,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   key={p.code}
                   type="button"
                   onClick={() => selectPoste(p.code)}
-                  className="flex flex-none items-center gap-2 rounded-lg border border-rule bg-card px-3 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:border-brand/50"
+                  className="flex flex-none items-center gap-2 rounded-lg border border-rule bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:border-brand/50"
                   title={p.label}
                 >
                   <span className="font-bold">{p.code}</span>
