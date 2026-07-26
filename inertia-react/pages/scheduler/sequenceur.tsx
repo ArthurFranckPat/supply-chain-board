@@ -5,7 +5,13 @@ import { Info, Package, Search, TriangleAlert } from 'lucide-react'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
-import { PILL, Segment, SegmentButton, ToolbarRow, ToolbarSpacer } from '@r/components/vision/toolbar'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  ToolbarRow,
+  ToolbarSpacer,
+} from '@r/components/vision/toolbar'
 import {
   Combobox,
   ComboboxContent,
@@ -110,14 +116,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
     () => new Map(props.postes.map((p) => [p.code, p.atelier])),
     [props.postes]
   )
-  const posteByCode = useMemo(
-    () => new Map(props.postes.map((p) => [p.code, p])),
-    [props.postes]
-  )
-  const posteRank = useMemo(
-    () => new Map(props.postes.map((p, i) => [p.code, i])),
-    [props.postes]
-  )
+  const posteByCode = useMemo(() => new Map(props.postes.map((p) => [p.code, p])), [props.postes])
+  const posteRank = useMemo(() => new Map(props.postes.map((p, i) => [p.code, i])), [props.postes])
 
   // Filtre poste : appliqué IMMÉDIATEMENT côté client sur `props.rows` déjà
   // chargées (fonctionne même avant/sans que la navigation serveur n'ait
@@ -147,8 +147,13 @@ export default function Sequenceur(props: SequenceurPageProps) {
     const q = query.trim().toLowerCase()
     const rows = props.rows
       .filter((r) => !posteFilter || r.posteCode === posteFilter)
-      .filter((r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
-      .filter((r) => !props.detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter)
+      .filter(
+        (r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? '')
+      )
+      .filter(
+        (r) =>
+          !props.detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
+      )
       .filter((r) => {
         if (!q) return true
         const haystack = [
@@ -168,7 +173,16 @@ export default function Sequenceur(props: SequenceurPageProps) {
       if (ra !== rb) return ra - rb
       return a.numOf.localeCompare(b.numOf)
     })
-  }, [props.rows, props.detail, posteFilter, atelierFilter, posteAtelier, urgencyFilter, query, posteRank])
+  }, [
+    props.rows,
+    props.detail,
+    posteFilter,
+    atelierFilter,
+    posteAtelier,
+    urgencyFilter,
+    query,
+    posteRank,
+  ])
 
   const showPosteCol = !posteFilter
   const rowGroups = useMemo(() => {
@@ -185,7 +199,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
     return groups
   }, [filteredRows, showPosteCol])
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
-  const sat = activePoste ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours) : null
+  const sat = activePoste
+    ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours)
+    : null
   const weeksEngaged =
     activePoste && activePoste.weeklyCapacityHours
       ? Math.round((activePoste.totalHours / activePoste.weeklyCapacityHours) * 10) / 10
@@ -344,7 +360,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
           <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-7 py-3">
             <Package size={18} strokeWidth={1.75} className="text-brand" />
             <div className="flex items-baseline gap-2">
-              <span className="font-mono text-[13px] font-bold text-foreground">{activePoste.code}</span>
+              <span className="font-mono text-[13px] font-bold text-foreground">
+                {activePoste.code}
+              </span>
               <span className="font-fraunces text-[14px] font-medium italic text-muted-foreground">
                 {activePoste.label}
               </span>
@@ -402,149 +420,170 @@ export default function Sequenceur(props: SequenceurPageProps) {
             {!props.detail && (
               <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
                 <Info size={14} strokeWidth={1.75} />
-                <span>Sélectionnez un poste pour afficher les commandes et les dates de livraison.</span>
+                <span>
+                  Sélectionnez un poste pour afficher les commandes et les dates de livraison.
+                </span>
               </div>
             )}
             <div className="flex-1 overflow-auto">
-            <div
-              className={cn(
-                'sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-secondary px-7 py-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground',
-                showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
-              )}
-            >
-              {showPosteCol && <span>POSTE</span>}
-              <span>OF</span>
-              <span>ARTICLE</span>
-              <span>DÉSIGNATION</span>
-              <span className="text-right">AVANCEMENT</span>
-              <span>COMMANDE(S)</span>
-              <span>LIVRAISON</span>
-              <span className="text-right">HEURES</span>
-              <span className="text-right">JOURS</span>
-            </div>
+              <div
+                className={cn(
+                  'sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-secondary px-7 py-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground',
+                  showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
+                )}
+              >
+                {showPosteCol && <span>POSTE</span>}
+                <span>OF</span>
+                <span>ARTICLE</span>
+                <span>DÉSIGNATION</span>
+                <span className="text-right">AVANCEMENT</span>
+                <span>COMMANDE(S)</span>
+                <span>LIVRAISON</span>
+                <span className="text-right">HEURES</span>
+                <span className="text-right">JOURS</span>
+              </div>
 
-            {rowGroups.map((group) => {
-              const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
-              const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
-              return (
-                <div key={group.posteCode ?? 'all'}>
-                  {showPosteCol && poste && (
-                    <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
-                      <span className="text-brand">{poste.code}</span>
-                      <span className="truncate text-muted-foreground">{poste.label}</span>
-                      <span className="ml-auto flex items-center gap-2 text-muted-foreground">
-                        <span>{group.rows.length} OF</span>
-                        <span>{fmtH(groupHours)} h</span>
-                      </span>
-                    </div>
-                  )}
-                  {group.rows.map((r, i) => {
-                    const u = urgencyOf(r.livraisonIso)
-                    const prevU = i > 0 ? urgencyOf(group.rows[i - 1].livraisonIso) : null
-                    const showSep = props.detail && (prevU === null || prevU !== u)
-                    const sepLabel =
-                      u === 'overdue' ? '⚠ En retard' : u === 'week' ? '◐ Cette semaine' : '○ À venir'
-                    const avancement = r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
-                    return (
-                      <div key={`${r.posteCode}-${r.numOf}`}>
-                        {showSep && (
+              {rowGroups.map((group) => {
+                const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
+                const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
+                return (
+                  <div key={group.posteCode ?? 'all'}>
+                    {showPosteCol && poste && (
+                      <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
+                        <span className="text-brand">{poste.code}</span>
+                        <span className="truncate text-muted-foreground">{poste.label}</span>
+                        <span className="ml-auto flex items-center gap-2 text-muted-foreground">
+                          <span>{group.rows.length} OF</span>
+                          <span>{fmtH(groupHours)} h</span>
+                        </span>
+                      </div>
+                    )}
+                    {group.rows.map((r, i) => {
+                      const u = urgencyOf(r.livraisonIso)
+                      const prevU = i > 0 ? urgencyOf(group.rows[i - 1].livraisonIso) : null
+                      const showSep = props.detail && (prevU === null || prevU !== u)
+                      const sepLabel =
+                        u === 'overdue'
+                          ? '⚠ En retard'
+                          : u === 'week'
+                            ? '◐ Cette semaine'
+                            : '○ À venir'
+                      const avancement =
+                        r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
+                      return (
+                        <div key={`${r.posteCode}-${r.numOf}`}>
+                          {showSep && (
+                            <div
+                              className={cn(
+                                'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-wider',
+                                u === 'overdue' && 'text-danger',
+                                u === 'week' && 'text-brand',
+                                u === 'later' && 'text-muted-foreground'
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'inline-block h-px flex-none w-4',
+                                  u === 'overdue' && 'bg-danger',
+                                  u === 'week' && 'bg-brand',
+                                  u === 'later' && 'bg-rule'
+                                )}
+                              />
+                              {sepLabel}
+                            </div>
+                          )}
                           <div
                             className={cn(
-                              'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-wider',
-                              u === 'overdue' && 'text-danger',
-                              u === 'week' && 'text-brand',
-                              u === 'later' && 'text-muted-foreground'
+                              'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors hover:bg-secondary/50',
+                              showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
                             )}
                           >
+                            {showPosteCol && (
+                              <span className="truncate font-mono text-[11px] font-bold text-foreground">
+                                {r.posteCode}
+                              </span>
+                            )}
+                            <span className="truncate font-mono text-[12px] font-bold text-foreground">
+                              {r.numOf}
+                            </span>
+                            <span className="truncate font-mono text-[11px] font-bold text-brand">
+                              {r.article}
+                            </span>
                             <span
-                              className={cn(
-                                'inline-block h-px flex-none w-4',
-                                u === 'overdue' && 'bg-danger',
-                                u === 'week' && 'bg-brand',
-                                u === 'later' && 'bg-rule'
-                              )}
-                            />
-                            {sepLabel}
-                          </div>
-                        )}
-                        <div
-                          className={cn(
-                            'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors hover:bg-secondary/50',
-                            showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
-                          )}
-                        >
-                          {showPosteCol && (
-                            <span className="truncate font-mono text-[11px] font-bold text-foreground">
-                              {r.posteCode}
+                              className="truncate text-[12px] text-foreground/80"
+                              title={r.designation ?? undefined}
+                            >
+                              {r.designation ?? '—'}
                             </span>
-                          )}
-                          <span className="truncate font-mono text-[12px] font-bold text-foreground">{r.numOf}</span>
-                          <span className="truncate font-mono text-[11px] font-bold text-brand">{r.article}</span>
-                          <span className="truncate text-[12px] text-foreground/80" title={r.designation ?? undefined}>
-                            {r.designation ?? '—'}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <div className="relative h-2.5 w-full">
-                              <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
-                                <div
-                                  className={cn(
-                                    'absolute inset-y-0 left-0 rounded-full',
-                                    avancement >= 100 && 'bg-ferme',
-                                    avancement > 0 && avancement < 100 && 'bg-planifie'
-                                  )}
-                                  style={{ width: `${avancement}%` }}
-                                />
-                              </div>
-                            </div>
-                            <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
-                              {r.done}/{r.launched}
-                            </span>
-                          </div>
-                          <div className="min-w-0">
-                            {r.commandes.length === 0 ? (
-                              <span className="font-mono text-[11px] text-muted-foreground">—</span>
-                            ) : (
-                              r.commandes.map((c) => (
-                                <div key={c.numCommande + (c.ligne ?? '')} className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="relative h-2.5 w-full">
+                                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
                                   <div
-                                    className="flex items-center gap-1.5 overflow-hidden"
-                                    title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
-                                  >
-                                    <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground">
-                                      {c.numCommande}
-                                    </span>
-                                    {c.ligne && (
-                                      <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
-                                        ·L{c.ligne}
+                                    className={cn(
+                                      'absolute inset-y-0 left-0 rounded-full',
+                                      avancement >= 100 && 'bg-ferme',
+                                      avancement > 0 && avancement < 100 && 'bg-planifie'
+                                    )}
+                                    style={{ width: `${avancement}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
+                                {r.done}/{r.launched}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              {r.commandes.length === 0 ? (
+                                <span className="font-mono text-[11px] text-muted-foreground">
+                                  —
+                                </span>
+                              ) : (
+                                r.commandes.map((c) => (
+                                  <div key={c.numCommande + (c.ligne ?? '')} className="min-w-0">
+                                    <div
+                                      className="flex items-center gap-1.5 overflow-hidden"
+                                      title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
+                                    >
+                                      <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground">
+                                        {c.numCommande}
                                       </span>
+                                      {c.ligne && (
+                                        <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
+                                          ·L{c.ligne}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {c.client && (
+                                      <div className="truncate font-fraunces text-[10px] italic leading-tight text-muted-foreground">
+                                        {c.client}
+                                      </div>
                                     )}
                                   </div>
-                                  {c.client && (
-                                    <div className="truncate font-fraunces text-[10px] italic leading-tight text-muted-foreground">
-                                      {c.client}
-                                    </div>
-                                  )}
-                                </div>
-                              ))
-                            )}
+                                ))
+                              )}
+                            </div>
+                            <span
+                              className={cn(
+                                'font-mono text-[11px] font-bold tabular-nums',
+                                urgencyColor(u)
+                              )}
+                            >
+                              {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
+                            </span>
+                            <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
+                              {fmtH(r.hours)}
+                            </span>
+                            <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                              {fmtJ(r.hours)}
+                            </span>
                           </div>
-                          <span className={cn('font-mono text-[11px] font-bold tabular-nums', urgencyColor(u))}>
-                            {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
-                          </span>
-                          <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
-                            {fmtH(r.hours)}
-                          </span>
-                          <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                            {fmtJ(r.hours)}
-                          </span>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
           </>
         )}
       </div>
