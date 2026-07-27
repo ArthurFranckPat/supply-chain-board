@@ -19,6 +19,13 @@ import cache from '@adonisjs/cache/services/main'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import type { Article } from '#app/domain/models/article'
+import { hoursForQuantity } from '#app/domain/models/gamme'
+import {
+  chargeSegment,
+  ofSegment,
+  type ChargeOfSeg,
+  type ChargeSeg,
+} from '#app/domain/charge_explosion'
 import {
   chargeBucketRange,
   chargeHorizon,
@@ -30,7 +37,7 @@ export type ChargeGran = 'month' | 'week'
 export type ChargeDetailView = 'of' | 'commande'
 
 /** Segment de la barre auquel la ligne contribue — miroir de `LoadPeriod`. */
-export type ChargeSegField = 'f' | 'p' | 's' | 'fi' | 'si'
+export type ChargeSegField = ChargeSeg
 
 /** Ligne de détail en vue OF : un ordre de fabrication. */
 export interface ChargeDetailOfRow {
@@ -40,7 +47,7 @@ export interface ChargeDetailOfRow {
   statutLabel: string | null
   quantite: number
   dateIso: string
-  field: Extract<ChargeSegField, 'f' | 'p' | 's'>
+  field: ChargeOfSeg
   hours: number
 }
 
@@ -124,8 +131,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           const gamme = inputs.gammeMap.get(mo.article)
           if (gamme?.workstation !== poste) continue
           if (!inBucket(mo.startDate)) continue
-          const rate = gamme.rate ?? 0
-          const hours = rate > 0 ? mo.quantity / rate : 0
+          const hours = hoursForQuantity(gamme, mo.quantity)
           if (hours <= 0) continue
           ofRows.push({
             numOf: mo.numOf,
@@ -134,7 +140,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
             statutLabel: mo.statutLabel,
             quantite: mo.quantity,
             dateIso: isoDay(mo.startDate!),
-            field: mo.status === 1 ? 'f' : mo.status === 2 ? 'p' : 's',
+            field: ofSegment(mo.status),
             hours,
           })
         }
@@ -179,14 +185,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           // Prévision : X3 ne porte pas de client, on laisse null (l'UI le dit).
           client: code ? (clientNames.get(code) ?? code) : null,
           dateIso: isoDay(n.date),
-          field:
-            n.depth === 0
-              ? n.nature === 'prevision'
-                ? 's'
-                : 'f'
-              : n.nature === 'prevision'
-                ? 'si'
-                : 'fi',
+          field: chargeSegment(n.depth, n.nature),
           brutQty: n.brutQty,
           netQty: n.netQty,
           brutHours: n.brutHours,

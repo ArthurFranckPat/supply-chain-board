@@ -5,7 +5,7 @@ import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
-import type { GammeOperation } from '#app/domain/models/gamme'
+import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadPosteEngagement, loadPosteSummaries } from '#services/poste_engagement_loader'
 import { loadBoardData } from '#services/board_payload_loader'
@@ -498,8 +498,8 @@ export default class SchedulerController {
       mo?.statutLabel ??
       (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
 
-    const rate = mo ? (gammeMap.get(mo.article)?.rate ?? 0) : 0
-    const hours = mo && rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
+    // Arrondi au dixième conservé ici (affichage drawer OF) — cf. hoursForQuantity.
+    const hours = mo ? Math.round(hoursForQuantity(gammeMap.get(mo.article), mo.quantity) * 10) / 10 : 0
 
     const qtyLaunched = mo?.quantityLaunched ?? 0
     const qtyDone = mo?.quantityDone ?? 0

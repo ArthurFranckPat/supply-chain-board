@@ -26,7 +26,7 @@ export async function loadOrderLineDetail(num: string, ligne: string) {
   const op = ref.gamme.find((g) => g.article === line.article)
   const workstation = op?.workstation ?? null
   const workstationLabel = op?.workstationLabel || workstation
-  const hours = op ? hoursForQuantity(op, line.quantite) : 0
+  const hours = hoursForQuantity(op, line.quantite)
 
   // Override local (date X3 surchargée).
   const overrideMap = await new OrderLineOverrideStore().getMap()

@@ -12,6 +12,7 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
+import { resteAFabriquer } from './models/orders_qty.js'
 import type { FeasibilityOptions } from './stock_state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
@@ -130,7 +131,7 @@ export function netDemandsByAllocation(demands: Flow[]): Flow[] {
   return demands
     .map((f) => {
       const alloc = (f.origin as { qteAllouee?: number }).qteAllouee ?? 0
-      return alloc > 0 ? { ...f, quantity: Math.max(0, f.quantity - alloc) } : f
+      return alloc > 0 ? { ...f, quantity: resteAFabriquer(f.quantity, alloc) } : f
     })
     .filter((f) => f.quantity > 0)
 }

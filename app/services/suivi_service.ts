@@ -35,7 +35,7 @@ import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility_loader_adapter'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
-import type { GammeOperation } from '#app/domain/models/gamme'
+import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
 import type { OfRecord, StockRecord } from '#app/domain/recursive_checker'
 import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture_engine'
@@ -239,8 +239,10 @@ class GammeChargeCalculator implements ChargeCalculatorPort {
   calculateDirectCharge(article: string, quantity: number): Record<string, number> {
     const out: Record<string, number> = {}
     for (const op of this.opsByArticle.get(article) ?? []) {
+      // Garde `rate > 0` maintenue : sans elle un poste sans cadence entrerait
+      // dans `out` avec 0 h au lieu d'en être absent (les appelants itèrent les clés).
       if (op.rate > 0 && op.workstation) {
-        out[op.workstation] = (out[op.workstation] ?? 0) + quantity / op.rate
+        out[op.workstation] = (out[op.workstation] ?? 0) + hoursForQuantity(op, quantity)
       }
     }
     return out

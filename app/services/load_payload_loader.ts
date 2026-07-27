@@ -15,14 +15,20 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad } from '#repositories/order_line_repository'
-import type { GammeOperation } from '#app/domain/models/gamme'
+import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
 import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { explodeCharge, netCharge, type ChargeNeed } from '#app/domain/charge_explosion'
+import {
+  chargeSegment,
+  explodeCharge,
+  netCharge,
+  ofSegment,
+  type ChargeNeed,
+} from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
 
 /**
@@ -438,8 +444,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         mos.flatMap((mo) => {
           const gamme = gammeMap.get(mo.article)
           if (!gamme?.workstation || !mo.startDate) return []
-          const rate = gamme.rate ?? 0
-          const hours = rate > 0 ? mo.quantity / rate : 0
+          const hours = hoursForQuantity(gamme, mo.quantity)
           // OF réels : déjà nets via le CBN → brut = net (pas de toggle sur la vue OF).
           return [
             {
@@ -447,7 +452,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
               date: atMidnight(mo.startDate),
               brutHours: hours,
               netHours: hours,
-              field: (mo.status === 1 ? 'f' : mo.status === 2 ? 'p' : 's') as keyof LoadPeriod,
+              field: ofSegment(mo.status) as keyof LoadPeriod,
               article: `${mo.article} ${mo.designation ?? ''}`.trim(),
             },
           ]
@@ -461,13 +466,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
           date: n.date,
           brutHours: n.brutHours,
           netHours: n.netHours,
-          field: (n.depth === 0
-            ? n.nature === 'prevision'
-              ? 's'
-              : 'f'
-            : n.nature === 'prevision'
-              ? 'si'
-              : 'fi') as keyof LoadPeriod,
+          field: chargeSegment(n.depth, n.nature) as keyof LoadPeriod,
           article: n.article,
         }))
       )

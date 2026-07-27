@@ -1,5 +1,6 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+import { SQL_RESTE_A_FABRIQUER } from '#app/domain/models/orders_qty'
 import type { OrderType, NeedNature } from '#app/domain/models/flow'
 
 /**
@@ -26,7 +27,7 @@ SELECT
   O.WIPSTA_0  AS WIPSTA,
   CASE WHEN O.WIPSTA_0 = 1 THEN H_CUR.SOHTYP_0 ELSE NULL END AS SOHTYP,
   CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END AS ECHEANCE,
-  (O.RMNEXTQTY_0 - O.ALLQTY_0) AS RESTE_LIVRER,
+  ${SQL_RESTE_A_FABRIQUER} AS RESTE_LIVRER,
   I.STU_0     AS UNITE
 FROM ORDERS O
 JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
@@ -35,7 +36,7 @@ LEFT JOIN SORDER H_CUR ON H_CUR.SOHNUM_0 = O.VCRNUM_0
 LEFT JOIN SORDERQ Q ON Q.SOHNUM_0 = O.VCRNUM_0 AND Q.SOPLIN_0 = O.VCRLIN_0
 WHERE O.WIPTYP_0 = 1
   AND I.ITMSTA_0 = 1
-  AND (O.RMNEXTQTY_0 - O.ALLQTY_0) > 0
+  AND ${SQL_RESTE_A_FABRIQUER} > 0
 `
 
 type RawRow = Record<string, string | null>
@@ -204,13 +205,8 @@ export class X3OrderLineRepository {
    * retirée pour la perf (#39), sur la totalité de l'horizon alors que seul le
    * bucket cliqué en a besoin. Cf. `resolveClientNames`.
    *
-   * RESTE_LIVRER = RMNEXTQTY_0 − ALLQTY_0, comme la const `SQL` ci-dessus : la
-   * quantité déjà ALLOUÉE n'est plus à fabriquer. Sans cette soustraction la
-   * charge subissait une double peine — l'alloué comptait comme besoin ici,
-   * pendant que le stock qui le couvre était retiré du pool côté offre
-   * (`stock_repository`: strict = physique − allouePhys − alloueGlob). Une ligne
-   * allouée traversait donc `brut` ET `net` intacte, alors que le netting est
-   * précisément censé la faire disparaître.
+   * RESTE_LIVRER passe par `SQL_RESTE_A_FABRIQUER` comme la const `SQL`
+   * ci-dessus — cf. l'invariant ORDERS dans `domain/models/orders_qty.ts`.
    */
   async getOrderLinesForLoad(fromStr: string, toStr: string): Promise<OrderLineForLoad[]> {
     const sql = `
@@ -219,7 +215,7 @@ SELECT
   I.ITMDES1_0   AS DESIGNATION,
   O.WIPSTA_0    AS WIPSTA,
   O.ENDDAT_0    AS ECHEANCE,
-  (O.RMNEXTQTY_0 - O.ALLQTY_0) AS RESTE_LIVRER,
+  ${SQL_RESTE_A_FABRIQUER} AS RESTE_LIVRER,
   O.VCRNUM_0    AS NO_DOCUMENT,
   O.VCRLIN_0    AS LIGNE,
   O.BPRNUM_0    AS CODE_CLIENT
@@ -227,7 +223,7 @@ FROM ORDERS O
 JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 WHERE O.WIPTYP_0 = 1
   AND I.ITMSTA_0 = 1
-  AND (O.RMNEXTQTY_0 - O.ALLQTY_0) > 0
+  AND ${SQL_RESTE_A_FABRIQUER} > 0
   AND O.WIPSTA_0 IN (1, 3)
   AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
   AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')

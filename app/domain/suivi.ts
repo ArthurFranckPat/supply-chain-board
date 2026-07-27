@@ -21,6 +21,8 @@
  * et alimente le board. Les deux axes coexistent volontairement.
  */
 
+import { resteAFabriquer } from './models/orders_qty.js'
+
 // ---------------------------------------------------------------------------
 // Modèles
 // ---------------------------------------------------------------------------
@@ -377,7 +379,7 @@ export interface PaletteInfoProvider {
 export const ZONE_EXPEDITION_PATTERN = /QUAI|^(?:SM(?!LQ))|EXP|S9C|S3C/i
 
 export function besoinNet(line: OrderLine): number {
-  return Math.max(0, line.qteRestante - line.qteAllouee)
+  return resteAFabriquer(line.qteRestante, line.qteAllouee)
 }
 
 /**

@@ -14,9 +14,37 @@
  * Objectif : une charge nette actionnable, pas une régénération MRP.
  */
 import { requiredQuantity, type NomenclatureEntry } from './models/nomenclature.js'
-import type { GammeOperation } from './models/gamme.js'
+import { hoursForQuantity, type GammeOperation } from './models/gamme.js'
 
 export type ChargeNature = 'ferme' | 'prevision'
+
+/** Segment d'une barre de charge en vue OF : Ferme / Planifié / Suggéré. */
+export type ChargeOfSeg = 'f' | 'p' | 's'
+/** Segment en vue commande : les 3 ci-dessus + les deux induits (fi/si). */
+export type ChargeSeg = ChargeOfSeg | 'fi' | 'si'
+
+/**
+ * Statut X3 d'un OF (WIPSTA) → segment de barre.
+ *
+ * Défaut prudent à « Suggéré » comme `mapOfRow` (combined_orders_repository) :
+ * un statut inattendu ne doit pas gonfler le ferme.
+ */
+export function ofSegment(status: number): ChargeOfSeg {
+  return status === 1 ? 'f' : status === 2 ? 'p' : 's'
+}
+
+/**
+ * Besoin de la vue commande → segment de barre : le PF (depth 0) charge en
+ * direct (f/s), un composant induit va dans son propre segment (fi/si).
+ *
+ * Partagé par l'agrégat (`load_payload_loader`) et le détail d'un bucket
+ * (`charge_detail_loader`). Le détail promet de ne jamais diverger de la barre
+ * qu'il explique — c'est ici que ça se joue, donc ça ne se duplique pas.
+ */
+export function chargeSegment(depth: number, nature: ChargeNature): ChargeSeg {
+  if (depth === 0) return nature === 'prevision' ? 's' : 'f'
+  return nature === 'prevision' ? 'si' : 'fi'
+}
 
 /**
  * Provenance d'un besoin : la ligne de demande qui l'a déclenché. Portée telle
@@ -175,8 +203,8 @@ export function netCharge(raws: ChargeRaw[], stockByArticle: Map<string, number>
         article: r.article,
         nature: r.nature,
         depth: r.depth,
-        brutHours: r.qty / r.rate,
-        netHours: netQty / r.rate,
+        brutHours: hoursForQuantity(r, r.qty),
+        netHours: hoursForQuantity(r, netQty),
         brutQty: r.qty,
         netQty,
         path: r.path,

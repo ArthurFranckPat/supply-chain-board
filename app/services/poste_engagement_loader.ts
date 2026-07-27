@@ -4,6 +4,7 @@ import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { timeStage } from '#services/perf_metrics'
 import type { Article } from '#app/domain/models/article'
+import { hoursForQuantity } from '#app/domain/models/gamme'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
 import type { ManufacturingOrder } from '#repositories/of_repository'
@@ -201,8 +202,8 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
         const rows: SummaryRow[] = (fermesByPoste.get(code) ?? [])
           .map((mo) => {
             const ov = overrideMap.get(mo.numOf)
-            const rate = gammeMap.get(mo.article)?.rate ?? 0
-            const hours = rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
+            // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
+            const hours = Math.round(hoursForQuantity(gammeMap.get(mo.article), mo.quantity) * 10) / 10
             const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
             return {
               numOf: mo.numOf,
@@ -356,8 +357,8 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
       const rows: EngagementRow[] = fermes
         .map((mo) => {
           const ov = overrideMap.get(mo.numOf)
-          const rate = gammeMap.get(mo.article)?.rate ?? 0
-          const hours = rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
+          // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
+          const hours = Math.round(hoursForQuantity(gammeMap.get(mo.article), mo.quantity) * 10) / 10
           const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
           const commandes = (byOf.get(mo.numOf) ?? []).sort((a, b) =>
             (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')

@@ -14,7 +14,7 @@ import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import { OverrideStore } from '#services/override_store'
 import { timeStage } from '#services/perf_metrics'
-import type { GammeOperation } from '#app/domain/models/gamme'
+import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 
@@ -206,7 +206,8 @@ function moToCard(
   typologieByArticle: Map<string, string>
 ): Card {
   const status = moStatusToCard(mo.status)
-  const hours = rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
+  // Arrondi au dixième conservé ici (affichage carte) — cf. hoursForQuantity.
+  const hours = Math.round(hoursForQuantity({ rate }, mo.quantity) * 10) / 10
   const progress =
     mo.quantityLaunched > 0
       ? Math.min(100, Math.round((mo.quantityDone / mo.quantityLaunched) * 100))
@@ -382,7 +383,7 @@ export async function loadBoardData(
     if (idx === undefined) continue
 
     const rate = gammeMap.get(mo.article)?.rate ?? 0
-    const hours = rate > 0 ? mo.quantity / rate : 0
+    const hours = hoursForQuantity({ rate }, mo.quantity)
     dayHours[idx] += hours
 
     const wstLabel = wstLabels.get(wst) ?? wst

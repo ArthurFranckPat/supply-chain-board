@@ -3,7 +3,7 @@ import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
-import type { GammeOperation } from '#app/domain/models/gamme'
+import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import {
   isManufactured,
@@ -11,6 +11,7 @@ import {
   type NomenclatureEntry,
 } from '#app/domain/models/nomenclature'
 import type { Workstation } from '#app/domain/models/workstation'
+import { resteAFabriquer } from '#app/domain/models/orders_qty'
 import { atelierLabel } from '#app/domain/atelier'
 
 // ---------------------------------------------------------------------------
@@ -375,7 +376,7 @@ export async function loadOrderBoardData(
         // entièrement allouée (besoinNet = 0) est A_EXPEDIER — plus rien à fabriquer →
         // elle n'a pas sa place sur le board planification (qui montre la charge à
         // produire). On calcule donc la quantité réellement à fabriquer ici.
-        const besoinNet = Math.max(0, f.quantity - o.qteAllouee)
+        const besoinNet = resteAFabriquer(f.quantity, o.qteAllouee)
         return {
           numCommande: o.id,
           ligne: isOrder ? ((o as { ligne?: string | null }).ligne ?? '') : '',
@@ -455,8 +456,7 @@ export async function loadOrderBoardData(
     if (!workstation) continue
     if (!wstLabels.has(workstation)) wstLabels.set(workstation, workstation)
 
-    const rate = op?.rate ?? 0
-    const hours = rate > 0 ? line.quantite / rate : 0
+    const hours = hoursForQuantity(op, line.quantite)
     const overrideKey = `${line.numCommande}#${line.ligne}`
     const dateStr = overrideMap.get(overrideKey) ?? isoDay(line.dateLivraison)
     const idx = colIdx.get(dateStr)
@@ -504,9 +504,8 @@ export async function loadOrderBoardData(
         const compGamme = gammeMap.get(entry.componentArticle)
         const compPoste = compGamme?.workstation
         if (!compPoste) continue // composant non routé sur un poste → ignoré
-        const compRate = compGamme!.rate ?? 0
         const compQty = requiredQuantity(entry, line.quantite)
-        const compHours = compRate > 0 ? compQty / compRate : 0
+        const compHours = hoursForQuantity(compGamme, compQty)
         if (compHours <= 0) continue
         if (!wstLabels.has(compPoste)) {
           wstLabels.set(compPoste, compGamme!.workstationLabel || compPoste)
