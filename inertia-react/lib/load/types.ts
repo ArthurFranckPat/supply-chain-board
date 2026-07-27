@@ -42,9 +42,12 @@ export interface LoadLine {
   monthly: LoadPeriod[]
   /** Charge par semaine ISO (longueur = `weeks`). */
   weekly: LoadPeriod[]
-  /** Charge NETTE (besoin − stock strict/CQ), parallèle à monthly/weekly — toggle brut/net. */
+  /** Charge NETTE (besoin − stock strict/CQ), parallèle à monthly/weekly. */
   monthlyNet: LoadPeriod[]
   weeklyNet: LoadPeriod[]
+  /** RESTE À PRODUIRE (net − en-cours de fabrication non déclaré) — cran par défaut. */
+  monthlyReste: LoadPeriod[]
+  weeklyReste: LoadPeriod[]
   /** Capacité nette (heures), mêmes mailles que `monthly` / `weekly`. */
   capacity: LoadCapacity
   /** Atelier (STOLOC) du poste. */
@@ -66,6 +69,16 @@ export interface AtelierOption {
 
 /** Vue de charge : OF (ordres) ou Commande (demande). */
 export type LoadView = 'of' | 'commande'
+
+/**
+ * Cran de la bascule de quantité (vue commande) :
+ *  - `brut`  : besoin explosé depuis les commandes ;
+ *  - `net`   : brut − stock disponible (strict + CQ) ;
+ *  - `reste` : net − en-cours de fabrication déjà produit non déclaré. Défaut,
+ *              parce que c'est le seul des trois qui répond à « qu'est-ce qu'il
+ *              reste à faire ? ».
+ */
+export type LoadQtyMode = 'brut' | 'net' | 'reste'
 
 export interface LoadPageProps {
   /** Libellé d'en-tête : « Juillet → Décembre 2026 · 6 mois ». */

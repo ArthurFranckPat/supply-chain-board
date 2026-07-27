@@ -100,7 +100,17 @@ export interface ChargeRaw {
   source: ChargeSource | null
 }
 
-/** Besoin net (après déduction stock) prêt à être ventilé en heures. */
+/**
+ * Besoin après déductions, prêt à être ventilé en heures.
+ *
+ * Trois niveaux, volontairement conservés côte à côte plutôt que fondus dans une
+ * seule valeur — un besoin qui baisse parce qu'il y a du stock et un besoin qui
+ * baisse parce que l'atelier a déjà produit n'appellent pas la même décision :
+ *
+ *   brut   besoin explosé depuis la commande
+ *   net    brut − stock disponible (strict + CQ)        ← sens historique, inchangé
+ *   reste  net − en-cours déjà produit non déclaré      ← ce qu'il reste vraiment à faire
+ */
 export interface ChargeNeed {
   wst: string
   date: Date
@@ -109,9 +119,19 @@ export interface ChargeNeed {
   depth: number
   brutHours: number
   netHours: number
+  /** Heures après déduction de l'en-cours — le chiffre actionnable. */
+  resteHours: number
   /** Quantités correspondantes — la table de détail les affiche à côté des heures. */
   brutQty: number
   netQty: number
+  resteQty: number
+  /**
+   * Part du besoin absorbée par des pièces déjà produites et pas encore déclarées
+   * (`netQty − resteQty`). Portée explicitement pour que le détail puisse dire
+   * POURQUOI la ligne a baissé, au lieu d'afficher un chiffre plus petit sans
+   * justification.
+   */
+  encoursQty: number
   /** Chemin BOM du produit fini au parent immédiat (vide au depth 0). */
   path: string[]
   source: ChargeSource | null
@@ -179,10 +199,28 @@ export function explodeCharge(
 }
 
 /**
- * Netting FIFO par article : le stock (physique + CQ) est consommé depuis le
- * besoin à la date la plus tôt. Résidu = besoin net. `brutHours` inchangé.
+ * Netting FIFO par article, en DEUX passes séquentielles depuis le besoin à la
+ * date la plus tôt :
+ *
+ *  1. le stock (physique + CQ) est consommé sur le besoin brut → `netQty` ;
+ *  2. l'en-cours (pièces produites mais pas encore déclarées) est consommé sur
+ *     ce résidu → `resteQty`.
+ *
+ * L'ordre n'est pas neutre : il préserve la définition historique de `netQty`
+ * (« besoin − stock »), que la bascule Brut/Net affiche depuis toujours. Fondre
+ * l'en-cours dedans aurait changé silencieusement le sens d'un chiffre déjà lu
+ * en réunion.
+ *
+ * `encoursByArticle` porte UNIQUEMENT l'en-cours invisible du stock : dès qu'un
+ * OF déclare sa production, les pièces basculent en stock et sont comptées par
+ * la passe 1. Cf. la construction de ce pool dans `computeChargeNeeds` — c'est
+ * le même garde `EXTQTY === RMNEXTQTY` qui évite le double-compte des deux côtés.
  */
-export function netCharge(raws: ChargeRaw[], stockByArticle: Map<string, number>): ChargeNeed[] {
+export function netCharge(
+  raws: ChargeRaw[],
+  stockByArticle: Map<string, number>,
+  encoursByArticle: Map<string, number> = new Map()
+): ChargeNeed[] {
   const byArticle = new Map<string, ChargeRaw[]>()
   for (const r of raws) {
     const arr = byArticle.get(r.article)
@@ -193,10 +231,13 @@ export function netCharge(raws: ChargeRaw[], stockByArticle: Map<string, number>
   const out: ChargeNeed[] = []
   for (const arr of byArticle.values()) {
     arr.sort((a, b) => a.date.getTime() - b.date.getTime())
-    let pool = stockByArticle.get(arr[0].article) ?? 0
+    let stockPool = stockByArticle.get(arr[0].article) ?? 0
+    let encoursPool = encoursByArticle.get(arr[0].article) ?? 0
     for (const r of arr) {
-      const netQty = pool >= r.qty ? 0 : r.qty - pool
-      pool = Math.max(0, pool - r.qty)
+      const netQty = stockPool >= r.qty ? 0 : r.qty - stockPool
+      stockPool = Math.max(0, stockPool - r.qty)
+      const resteQty = encoursPool >= netQty ? 0 : netQty - encoursPool
+      encoursPool = Math.max(0, encoursPool - netQty)
       out.push({
         wst: r.wst,
         date: r.date,
@@ -205,8 +246,11 @@ export function netCharge(raws: ChargeRaw[], stockByArticle: Map<string, number>
         depth: r.depth,
         brutHours: hoursForQuantity(r, r.qty),
         netHours: hoursForQuantity(r, netQty),
+        resteHours: hoursForQuantity(r, resteQty),
         brutQty: r.qty,
         netQty,
+        resteQty,
+        encoursQty: netQty - resteQty,
         path: r.path,
         source: r.source,
       })

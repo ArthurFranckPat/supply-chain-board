@@ -159,3 +159,67 @@ test('sans source fournie, la provenance reste nulle (pas de valeur inventée)',
   )
   assert.isTrue(raws.every((r) => r.source === null))
 })
+
+test.group('netCharge — passe en-cours', () => {
+  const raw = (article: string, qty: number, date: Date, rate = 1) => ({
+    article,
+    wst: 'PP_128',
+    date,
+    nature: 'ferme' as const,
+    depth: 0,
+    qty,
+    rate,
+    path: [],
+    source: null,
+  })
+
+  test('en-cours non declare deduit apres le stock — cas F326-02020', ({ assert }) => {
+    // AR2602603 L1000 : 640 demandes, 0 stock, 390 deja produites sur l'OF.
+    const out = netCharge(
+      [raw('11011516', 640, new Date('2026-07-28'))],
+      new Map(),
+      new Map([['11011516', 390]])
+    )
+    assert.equal(out[0].brutQty, 640)
+    assert.equal(out[0].netQty, 640) // sens historique preserve : besoin - stock
+    assert.equal(out[0].encoursQty, 390)
+    assert.equal(out[0].resteQty, 250) // = ce qu'affiche deja la vue OF
+  })
+
+  test('stock consomme AVANT l en-cours', ({ assert }) => {
+    const out = netCharge(
+      [raw('A', 100, new Date('2026-07-28'))],
+      new Map([['A', 40]]),
+      new Map([['A', 30]])
+    )
+    assert.equal(out[0].netQty, 60) // 100 - 40 de stock
+    assert.equal(out[0].resteQty, 30) // 60 - 30 d en-cours
+    assert.equal(out[0].encoursQty, 30)
+  })
+
+  test('en-cours superieur au besoin → reste plancher a 0', ({ assert }) => {
+    const out = netCharge([raw('A', 50, new Date('2026-07-28'))], new Map(), new Map([['A', 200]]))
+    assert.equal(out[0].resteQty, 0)
+    assert.equal(out[0].encoursQty, 50)
+  })
+
+  test('pool en-cours consomme FIFO sur plusieurs besoins', ({ assert }) => {
+    const out = netCharge(
+      [
+        raw('A', 100, new Date('2026-07-28')),
+        raw('A', 100, new Date('2026-08-15')),
+      ],
+      new Map(),
+      new Map([['A', 150]])
+    )
+    assert.equal(out[0].resteQty, 0) // 100 absorbees
+    assert.equal(out[1].resteQty, 50) // reste 50 d en-cours sur le 2e
+  })
+
+  test('sans pool en-cours, reste === net (retro-compatibilite)', ({ assert }) => {
+    const out = netCharge([raw('A', 100, new Date('2026-07-28'))], new Map([['A', 30]]))
+    assert.equal(out[0].netQty, 70)
+    assert.equal(out[0].resteQty, 70)
+    assert.equal(out[0].encoursQty, 0)
+  })
+})

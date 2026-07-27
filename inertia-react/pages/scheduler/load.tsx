@@ -3,7 +3,7 @@ import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
-import type { LoadPageProps, LoadLine, LoadView } from '@r/lib/load/types'
+import type { LoadPageProps, LoadLine, LoadQtyMode, LoadView } from '@r/lib/load/types'
 import {
   type Gran,
   maskPeriod,
@@ -40,6 +40,26 @@ import {
  * dans lib/load/chart-math.ts et components/load/*.tsx (issue #52).
  */
 
+/**
+ * Les trois crans de quantité, dans l'ordre de la chaîne de déduction :
+ * brut → net → reste. Les libellés d'aide sont volontairement explicites : sans
+ * eux, « Net » et « Reste » se ressemblent trop pour qu'on devine ce qui a été
+ * retiré, et un chiffre plus petit sans justification est pire qu'un chiffre faux.
+ */
+const QTY_MODES: { id: LoadQtyMode; label: string; hint: string }[] = [
+  { id: 'brut', label: 'Brut', hint: 'Besoin explosé depuis les commandes, avant toute déduction' },
+  {
+    id: 'net',
+    label: 'Net',
+    hint: "Brut − stock disponible (physique + CQ), consommé FIFO sur l'horizon",
+  },
+  {
+    id: 'reste',
+    label: 'Reste à produire',
+    hint: 'Net − pièces déjà produites sur les OF en cours et pas encore déclarées',
+  },
+]
+
 export default function Load(props: LoadPageProps) {
   const [view, setView] = useState<LoadView>('of')
   const [selected, setSelected] = useState(props.ofLines[0]?.code ?? '')
@@ -61,10 +81,19 @@ export default function Load(props: LoadPageProps) {
     })
   }
 
-  const [net, setNet] = useState(false)
+  // Défaut « reste » : un planificateur ouvre la page pour savoir ce qu'il reste à
+  // faire, pas ce que les commandes demandaient avant déduction. Les deux autres
+  // crans restent accessibles — le brut sert à voir la demande nue, le net à
+  // isoler ce que le stock absorbe.
+  const [qtyMode, setQtyMode] = useState<LoadQtyMode>('reste')
   const viewNet = useCallback(
-    (l: LoadLine): LoadLine => (net ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet } : l),
-    [net]
+    (l: LoadLine): LoadLine =>
+      qtyMode === 'net'
+        ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet }
+        : qtyMode === 'reste'
+          ? { ...l, monthly: l.monthlyReste, weekly: l.weeklyReste }
+          : l,
+    [qtyMode]
   )
 
   // Filtre de segments — un jeu par vue : la vue OF filtre des STATUTS
@@ -263,18 +292,18 @@ export default function Load(props: LoadPageProps) {
               </SegmentButton>
             ))}
           </Segment>
-          {/* Bascule Brut ↔ Net (vue commande) */}
+          {/* Bascule Brut / Net / Reste à produire (vue commande) */}
           {view === 'commande' && (
-            <Segment role="radiogroup" ariaLabel="Brut ou net">
-              {(['brut', 'net'] as const).map((m) => (
+            <Segment role="radiogroup" ariaLabel="Quantité affichée">
+              {QTY_MODES.map((m) => (
                 <SegmentButton
-                  key={m}
+                  key={m.id}
                   role="radio"
-                  active={(net ? 'net' : 'brut') === m}
-                  title="Net = besoin − stock disponible (physique + CQ), consommé FIFO sur l'horizon"
-                  onClick={() => setNet(m === 'net')}
+                  active={qtyMode === m.id}
+                  title={m.hint}
+                  onClick={() => setQtyMode(m.id)}
                 >
-                  {m === 'brut' ? 'Brut' : 'Net'}
+                  {m.label}
                 </SegmentButton>
               ))}
             </Segment>
@@ -517,10 +546,10 @@ export default function Load(props: LoadPageProps) {
         )}
       </div>
 
-      {/* Détail de la période cliquée. `activeSegs`/`net` sont passés tels
-          quels : la table applique le MÊME masque que le graphe, donc son
-          total suit la hauteur de la barre sans re-fetch au changement de
-          filtre. */}
+      {/* Détail de la période cliquée. `activeSegs`/`qtyMode` sont passés tels
+          quels : la table applique le MÊME masque et le MÊME cran que le graphe,
+          donc son total suit la hauteur de la barre sans re-fetch au changement
+          de filtre. */}
       <ChargePeriodSheet
         open={!!periodTarget}
         onOpenChange={(v) => !v && setPeriodTarget(null)}
@@ -528,7 +557,7 @@ export default function Load(props: LoadPageProps) {
         view={view}
         start={props.startIso}
         activeSegs={activeSegs}
-        net={net}
+        qtyMode={qtyMode}
       />
     </AppLayout>
   )

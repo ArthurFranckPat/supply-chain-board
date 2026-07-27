@@ -70,8 +70,13 @@ export interface ChargeDetailCmdRow {
   field: ChargeSegField
   brutQty: number
   netQty: number
+  /** Reste à produire = net − en-cours (3e cran de la bascule). */
+  resteQty: number
+  /** Part absorbée par des pièces déjà produites non déclarées — explique la baisse. */
+  encoursQty: number
   brutHours: number
   netHours: number
+  resteHours: number
 }
 
 export interface ChargeDetail {
@@ -191,8 +196,11 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           field: chargeSegment(n.depth, n.nature),
           brutQty: n.brutQty,
           netQty: n.netQty,
+          resteQty: n.resteQty,
+          encoursQty: n.encoursQty,
           brutHours: n.brutHours,
           netHours: n.netHours,
+          resteHours: n.resteHours,
         }
       })
       cmdRows.sort((a, b) => b.brutHours - a.brutHours)

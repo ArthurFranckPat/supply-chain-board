@@ -53,9 +53,12 @@ interface LoadLine {
   articles: string[]
   monthly: LoadPeriod[]
   weekly: LoadPeriod[]
-  /** Charge NETTE (besoin − stock strict/CQ), parallèle à monthly/weekly — toggle brut/net. */
+  /** Charge NETTE (besoin − stock strict/CQ), parallèle à monthly/weekly. */
   monthlyNet: LoadPeriod[]
   weeklyNet: LoadPeriod[]
+  /** RESTE À PRODUIRE (net − en-cours non déclaré) — 3e cran de la bascule, défaut. */
+  monthlyReste: LoadPeriod[]
+  weeklyReste: LoadPeriod[]
   /** Capacité nette (heures) par bucket, alignée sur monthly/weekly (issue #35). */
   capacity: { monthly: number[]; weekly: number[] }
   /** Atelier (STOLOC) du poste + métadonnées de filtre (issue #36). */
@@ -345,7 +348,32 @@ export async function computeChargeNeeds(inputs: ChargeInputs): Promise<ChargeNe
       }
     }
   }
-  return netCharge(chargeRaws, stockByArticle)
+  return netCharge(chargeRaws, stockByArticle, buildEncoursByArticle(inputs))
+}
+
+/**
+ * En-cours de fabrication INVISIBLE du stock, par article : les pièces déjà
+ * produites sur un OF démarré mais pas encore déclarées en stock.
+ *
+ * Ces pièces n'existent nulle part pour le calcul : ni en stock (pas déclarées),
+ * ni dans aucun flux que le netting regarde. La vue commande annonçait donc
+ * comme « à produire » du travail physiquement fait — cas AR2602603 L1000 :
+ * 640 demandés alors que 390 étaient sorties de l'opération 10 de F326-02020.
+ *
+ * `mo.quantity − resteAProduire(...)` et non `qtyRealisee` brut : c'est le même
+ * garde `EXTQTY === RMNEXTQTY` que la vue OF. Dès qu'un OF déclare, X3 nette
+ * RMNEXTQTY et les pièces entrent en stock — la différence retombe alors à 0 et
+ * la passe stock les compte, sans double déduction. Vérifié sur les deux
+ * branches : F326-02020 → 640−250 = 390 (non déclaré, à déduire ici) ;
+ * F326-02036 → 1236−1236 = 0 (480 déclarées, déjà dans le pool stock).
+ */
+function buildEncoursByArticle(inputs: ChargeInputs): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const mo of inputs.mos) {
+    const encours = mo.quantity - ofResteAProduire(mo, inputs.avancementByOf)
+    if (encours > 0) out.set(mo.article, (out.get(mo.article) ?? 0) + encours)
+  }
+  return out
 }
 
 /**
@@ -431,14 +459,17 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         date: Date
         brutHours: number
         netHours: number
+        resteHours: number
         field: keyof LoadPeriod
         article: string
       }
       type Acc = {
         monthly: LoadPeriod[]
         monthlyNet: LoadPeriod[]
+        monthlyReste: LoadPeriod[]
         weekly: LoadPeriod[]
         weeklyNet: LoadPeriod[]
+        weeklyReste: LoadPeriod[]
         articles: Set<string>
       }
 
@@ -454,17 +485,21 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
             acc = {
               monthly: monthBuckets.map(emptyPeriod),
               monthlyNet: monthBuckets.map(emptyPeriod),
+              monthlyReste: monthBuckets.map(emptyPeriod),
               weekly: weekBuckets.map(emptyPeriod),
               weeklyNet: weekBuckets.map(emptyPeriod),
+              weeklyReste: weekBuckets.map(emptyPeriod),
               articles: new Set(),
             }
             byLine.set(r.wst, acc)
           }
           acc.monthly[mi][r.field] += r.brutHours
           acc.monthlyNet[mi][r.field] += r.netHours
+          acc.monthlyReste[mi][r.field] += r.resteHours
           if (wi !== undefined) {
             acc.weekly[wi][r.field] += r.brutHours
             acc.weeklyNet[wi][r.field] += r.netHours
+            acc.weeklyReste[wi][r.field] += r.resteHours
           }
           if (r.article) acc.articles.add(r.article)
         }
@@ -482,6 +517,8 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
               weekly: acc.weekly.map(round),
               monthlyNet: acc.monthlyNet.map(round),
               weeklyNet: acc.weeklyNet.map(round),
+              monthlyReste: acc.monthlyReste.map(round),
+              weeklyReste: acc.weeklyReste.map(round),
               capacity: capacityByWst.get(code) ?? emptyCap(),
               atelier: stoloc,
               atelierLabel: atelierLabel(stoloc),
@@ -506,6 +543,9 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
               date: atMidnight(mo.startDate),
               brutHours: hours,
               netHours: hours,
+              // Vue OF : ofChargeHours a DÉJÀ déduit les pièces pointées. Les trois
+              // séries coïncident donc — la bascule reste sans effet ici, comme avant.
+              resteHours: hours,
               field: ofSegment(mo.status) as keyof LoadPeriod,
               article: `${mo.article} ${mo.designation ?? ''}`.trim(),
             },
@@ -520,6 +560,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
           date: n.date,
           brutHours: n.brutHours,
           netHours: n.netHours,
+          resteHours: n.resteHours,
           field: chargeSegment(n.depth, n.nature) as keyof LoadPeriod,
           article: n.article,
         }))

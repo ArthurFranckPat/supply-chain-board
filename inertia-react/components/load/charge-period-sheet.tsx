@@ -12,7 +12,7 @@ import {
   useComboboxAnchor,
 } from '@r/components/ui/combobox'
 import { route } from '@r/lib/routes'
-import type { LoadPeriod, LoadView } from '@r/lib/load/types'
+import type { LoadPeriod, LoadQtyMode, LoadView } from '@r/lib/load/types'
 import { type Gran, segKeys, segLabel } from '@r/lib/load/chart-math'
 
 /**
@@ -59,8 +59,11 @@ interface DetailCmdRow {
   field: SegField
   brutQty: number
   netQty: number
+  resteQty: number
+  encoursQty: number
   brutHours: number
   netHours: number
+  resteHours: number
 }
 
 interface DetailPayload {
@@ -82,8 +85,8 @@ export interface ChargePeriodSheetProps {
   start?: string
   /** Segments actifs (ids d'option), miroir du filtre de la toolbar. */
   activeSegs: ReadonlySet<string>
-  /** Bascule brut/net de la vue commande. */
-  net: boolean
+  /** Cran de quantité de la vue commande (brut / net / reste à produire). */
+  qtyMode: LoadQtyMode
 }
 
 /** ISO YYYY-MM-DD → JJ/MM/AAAA (jamais d'ISO brut à l'écran). */
@@ -157,7 +160,7 @@ function groupByDay<R>(
 }
 
 export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
-  const { target, view, start, activeSegs, net } = props
+  const { target, view, start, activeSegs, qtyMode } = props
   const [data, setData] = useState<DetailPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -207,7 +210,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     setArticleQuery('')
   }, [poste, bucketKey, gran, view])
 
-  const cmdHours = useCallback((r: DetailCmdRow) => (net ? r.netHours : r.brutHours), [net])
+  const cmdHours = useCallback(
+    (r: DetailCmdRow) =>
+      qtyMode === 'reste' ? r.resteHours : qtyMode === 'net' ? r.netHours : r.brutHours,
+    [qtyMode]
+  )
 
   /**
    * Options du filtre article — construites APRÈS le masque de segments et
@@ -293,7 +300,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // sein de ce jour.
   // « Via » porte une chaîne d'articles (PF › SE › …), pas un code isolé :
   // elle a besoin d'une part élastique, pas d'une largeur fixe.
-  const cols = view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 7rem 7rem'
+  const cols = view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 9rem 7rem'
 
   const heads =
     view === 'of'
@@ -355,7 +362,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               )}
               {view === 'commande' && (
                 <span className="font-mono text-[10px] text-muted-foreground">
-                  {net ? 'net' : 'brut'}
+                  {qtyMode === 'reste' ? 'reste à produire' : qtyMode}
                 </span>
               )}
               {view === 'commande' && forecastHours > 0 && (
@@ -484,7 +491,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       key={g.dateIso}
                       group={g}
                       view={view}
-                      net={net}
+                      qtyMode={qtyMode}
                       maxHours={maxGroupHours}
                       totalHours={totalHours}
                     />
@@ -537,11 +544,11 @@ const weekdayOf = (iso: string): string => {
 function DayBlock(props: {
   group: Group<DetailOfRow | DetailCmdRow>
   view: LoadView
-  net: boolean
+  qtyMode: LoadQtyMode
   maxHours: number
   totalHours: number
 }) {
-  const { group: g, view, net, maxHours, totalHours } = props
+  const { group: g, view, qtyMode, maxHours, totalHours } = props
   const share = totalHours > 0 ? (g.hours / totalHours) * 100 : 0
   const barPct = maxHours > 0 ? (g.hours / maxHours) * 100 : 0
   const dayForecastHours =
@@ -549,7 +556,9 @@ function DayBlock(props: {
       ? g.rows.reduce((a, r) => {
           if (!isForecastPulled(r.field)) return a
           const c = r as DetailCmdRow
-          return a + (net ? c.netHours : c.brutHours)
+          return (
+            a + (qtyMode === 'reste' ? c.resteHours : qtyMode === 'net' ? c.netHours : c.brutHours)
+          )
         }, 0)
       : 0
 
@@ -612,7 +621,7 @@ function DayBlock(props: {
           <CmdRow
             key={`${(r as DetailCmdRow).numCommande ?? ''}-${(r as DetailCmdRow).ligne ?? ''}-${(r as DetailCmdRow).article}-${i}`}
             row={r as DetailCmdRow}
-            net={net}
+            qtyMode={qtyMode}
           />
         )
       )}
@@ -643,7 +652,7 @@ function OfRow({ row: r }: { row: DetailOfRow }) {
   )
 }
 
-function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
+function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }) {
   const forecast = isForecastPulled(r.field)
   return (
     <>
@@ -713,11 +722,22 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
       <div className={cn(CELL, 'truncate text-muted-foreground')}>
         {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
       </div>
+      {/* En cran « reste », la part absorbée par l'en-cours est annoncée À CÔTÉ du
+          chiffre. Sans elle la ligne affiche une quantité plus petite que la
+          commande sans dire pourquoi — un chiffre inexpliqué se lit comme un bug. */}
       <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
-        {fmtQ(net ? r.netQty : r.brutQty)}
+        {qtyMode === 'reste' && r.encoursQty > 0 && (
+          <span
+            className="mr-1.5 text-[9px] font-semibold text-muted-foreground"
+            title={`${fmtQ(r.encoursQty)} déjà produites sur un OF en cours, pas encore déclarées en stock (net ${fmtQ(r.netQty)} − en-cours ${fmtQ(r.encoursQty)})`}
+          >
+            −{fmtQ(r.encoursQty)}
+          </span>
+        )}
+        {fmtQ(qtyMode === 'reste' ? r.resteQty : qtyMode === 'net' ? r.netQty : r.brutQty)}
       </div>
       <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
-        {fmtH(net ? r.netHours : r.brutHours)}
+        {fmtH(qtyMode === 'reste' ? r.resteHours : qtyMode === 'net' ? r.netHours : r.brutHours)}
       </div>
     </>
   )
