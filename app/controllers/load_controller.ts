@@ -29,6 +29,7 @@ export default class LoadController {
         view: view as ChargeDetailView,
         gran: gran as ChargeGran,
         bucket: String(request.input('bucket') ?? ''),
+        refresh: !!request.input('refresh'),
       })
       return response.json(detail)
     } catch (error) {

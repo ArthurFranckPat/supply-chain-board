@@ -176,6 +176,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     setError(null)
     const qs = new URLSearchParams({ poste, bucket: bucketKey, gran, view })
     if (start) qs.set('start', start)
+    // Relaie le `?refresh=1` de la page : sans lui le graphe se rafraîchissait
+    // mais pas cette table, qui a son propre cache. Tant que l'URL porte le
+    // paramètre, chaque ouverture repart de X3 — c'est coûteux, mais c'est
+    // exactement ce que l'utilisateur a demandé en le mettant.
+    if (new URLSearchParams(window.location.search).has('refresh')) qs.set('refresh', '1')
     fetch(`${route('charge.detail')}?${qs.toString()}`, { signal: ctrl.signal })
       .then(async (res) => {
         if (!res.ok) {

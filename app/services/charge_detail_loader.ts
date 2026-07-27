@@ -94,6 +94,17 @@ export interface ChargeDetailParams {
   view: ChargeDetailView
   gran: ChargeGran
   bucket: string
+  /**
+   * Purge le cache du détail ET celui des entrées X3 sous-jacentes.
+   *
+   * Sans ça, le `?refresh=1` de la page rafraîchissait le GRAPHE mais pas le
+   * panneau : celui-ci a sa propre clé, que rien n'invalidait. Avec un TTL de
+   * 2 min mais un `grace` de 12 h et un vrai SWR (`timeout: 0`), la valeur
+   * périmée était servie telle quelle et le rafraîchissement partait en arrière-
+   * plan — donc le premier clic après un changement de données montrait encore
+   * l'ancienne table, sans aucun moyen de forcer.
+   */
+  refresh?: boolean
 }
 
 const isoDay = (d: Date): string =>
@@ -112,12 +123,17 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   const { monthStart, horizonEnd } = chargeHorizon(params.start)
 
   const cacheKey = `detail:charge:${isoDay(monthStart)}:${params.view}:${poste}:${params.gran}:${params.bucket}`
+  const force = !!params.refresh
+  if (force) await cache.namespace('charge').delete({ key: cacheKey })
   return cache.namespace('charge').getOrSet({
     key: cacheKey,
     ttl: 2 * 60 * 1000,
     timeout: 0,
     factory: async (): Promise<ChargeDetail> => {
-      const inputs = await fetchChargeInputs(monthStart, horizonEnd)
+      // `force` propagé : purger la seule clé du détail ne servirait à rien si les
+      // entrées X3 (OF, lignes de commande, pointages) restaient servies périmées
+      // par les caches SWR de boardDataset.
+      const inputs = await fetchChargeInputs(monthStart, horizonEnd, force)
 
       const inBucket = (d: Date | null): boolean =>
         !!d && d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime()
