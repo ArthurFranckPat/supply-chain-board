@@ -203,6 +203,14 @@ export class X3OrderLineRepository {
    * est délibérément NON résolu ici — rejoindre BPARTNER remettrait la jointure
    * retirée pour la perf (#39), sur la totalité de l'horizon alors que seul le
    * bucket cliqué en a besoin. Cf. `resolveClientNames`.
+   *
+   * RESTE_LIVRER = RMNEXTQTY_0 − ALLQTY_0, comme la const `SQL` ci-dessus : la
+   * quantité déjà ALLOUÉE n'est plus à fabriquer. Sans cette soustraction la
+   * charge subissait une double peine — l'alloué comptait comme besoin ici,
+   * pendant que le stock qui le couvre était retiré du pool côté offre
+   * (`stock_repository`: strict = physique − allouePhys − alloueGlob). Une ligne
+   * allouée traversait donc `brut` ET `net` intacte, alors que le netting est
+   * précisément censé la faire disparaître.
    */
   async getOrderLinesForLoad(fromStr: string, toStr: string): Promise<OrderLineForLoad[]> {
     const sql = `
@@ -211,7 +219,7 @@ SELECT
   I.ITMDES1_0   AS DESIGNATION,
   O.WIPSTA_0    AS WIPSTA,
   O.ENDDAT_0    AS ECHEANCE,
-  O.RMNEXTQTY_0 AS RESTE_LIVRER,
+  (O.RMNEXTQTY_0 - O.ALLQTY_0) AS RESTE_LIVRER,
   O.VCRNUM_0    AS NO_DOCUMENT,
   O.VCRLIN_0    AS LIGNE,
   O.BPRNUM_0    AS CODE_CLIENT
@@ -219,7 +227,7 @@ FROM ORDERS O
 JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 WHERE O.WIPTYP_0 = 1
   AND I.ITMSTA_0 = 1
-  AND O.RMNEXTQTY_0 > 0
+  AND (O.RMNEXTQTY_0 - O.ALLQTY_0) > 0
   AND O.WIPSTA_0 IN (1, 3)
   AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
   AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
