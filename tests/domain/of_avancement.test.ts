@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import type { OperationRecord } from '#repositories/operation_repository'
-import { computeAvancement } from '#app/domain/of_avancement'
+import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
 
 function op(
   mfgnum: string,
@@ -108,5 +108,35 @@ test.group('computeAvancement', () => {
     const a = computeAvancement(records).get('OF-7')!
     assert.equal(a.derniereOpPointée, 10)
     assert.equal(a.qtyRealisee, 350)
+  })
+})
+
+test.group('resteAProduire', () => {
+  test('EXTQTY === RMNEXTQTY → X3 n\'a rien netté, on déduit les pièces pointées', ({
+    assert,
+  }) => {
+    // Cas réel F426-39752 : 67 lancées, 67 restantes, 38 pointées → 29 restent.
+    assert.equal(resteAProduire(67, 67, 38), 29)
+  })
+
+  test('EXTQTY > RMNEXTQTY → X3 a déjà netté, ne pas déduire une 2e fois', ({ assert }) => {
+    // Cas réel F426-39527 : 480 lancées, 120 restantes, 360 pointées. Déduire
+    // donnerait 0 h de charge alors que 120 pièces restent réellement à produire.
+    assert.equal(resteAProduire(120, 480, 360), 120)
+  })
+
+  test('launched inconnu → repli sans déduction (surestimer plutôt que taire du travail)', ({
+    assert,
+  }) => {
+    assert.equal(resteAProduire(67, null, 38), 67)
+    assert.equal(resteAProduire(67, undefined, 38), 67)
+  })
+
+  test('OF non pointé → reste inchangé', ({ assert }) => {
+    assert.equal(resteAProduire(67, 67, 0), 67)
+  })
+
+  test('pointage supérieur au reste → planché à 0, jamais de charge négative', ({ assert }) => {
+    assert.equal(resteAProduire(67, 67, 100), 0)
   })
 })

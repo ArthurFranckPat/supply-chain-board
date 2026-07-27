@@ -19,8 +19,7 @@ import {
   netDemandsByAllocation,
   type OrderImpactResult,
 } from '#app/domain/order_impacts'
-import { computeAvancement } from '#app/domain/of_avancement'
-import { X3OperationRepository } from '#repositories/operation_repository'
+import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
 import {
@@ -326,7 +325,7 @@ export async function loadOrderImpacts(
   // Avancement des OFs via pointages MFGOPE (issue #41) : détermine si chaque OF
   // est réellement débuté en atelier (opérations intermédiaires pointées).
   const operations = await timeStage('loadOrderImpacts.operations', () =>
-    new X3OperationRepository().getOperations(windowNumOfs)
+    boardDataset.getOperations(windowNumOfs)
   )
   const avancementByOf = computeAvancement(operations)
 
@@ -361,18 +360,15 @@ export async function loadOrderImpacts(
     const id = (f.origin as { id?: string }).id?.trim() ?? ''
     const ops = opsByArticle.get(f.article)
     if (!id || !ops || !f.quantity) continue
-    // Déduit les pièces déjà réalisées (poste le plus avancé pointé, cf of-avancement.ts) —
-    // MAIS seulement si RMNEXTQTY n'a encore RIEN netté (EXTQTY === RMNEXTQTY). Vérifié sur 2 OF
-    // réels au comportement différent : certains OF nettent RMNEXTQTY au fil des pointages
-    // (EXTQTY 480 / RMNEXTQTY déjà descendu à 120 pour 360 pointés — déduire encore double-
-    // compterait, chargerait 0h à tort sur du travail qui reste), d'autres ne nettent qu'à la
-    // déclaration finale de stock (EXTQTY === RMNEXTQTY malgré des pointages en cours — sans
-    // déduction la charge resterait pleine). `launched` (EXTQTY) absent → repli prudent (pas de
-    // déduction, comme si déjà netté) plutôt que de risquer un double-compte silencieux.
+    // Déduit les pièces déjà pointées (cf. `resteAProduire` — c'est lui qui porte le
+    // discriminant EXTQTY et les deux cas X3 vérifiés). La vue charge applique
+    // exactement la même règle via le même helper.
     const launched = (f.origin as { launched?: number }).launched
-    const notYetNetted = launched != null && launched === f.quantity
-    const qtyRealisee = notYetNetted ? (avancementByOf.get(id)?.qtyRealisee ?? 0) : 0
-    const qtyRestante = Math.max(0, f.quantity - qtyRealisee)
+    const qtyRestante = resteAProduire(
+      f.quantity,
+      launched,
+      avancementByOf.get(id)?.qtyRealisee ?? 0
+    )
     if (qtyRestante <= 0) {
       fabricationDaysByOf.set(id, 0)
       fabricationHoursByOf.set(id, 0)

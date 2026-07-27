@@ -34,6 +34,36 @@ export interface OfAvancement {
 }
 
 /**
+ * Reste RÉELLEMENT à produire sur un OF, pièces déjà pointées déduites.
+ *
+ * X3 nette `RMNEXTQTY` de façon INCOHÉRENTE d'un OF à l'autre — vérifié sur deux
+ * OF réels au comportement opposé :
+ *  - `F426-39752` : EXTQTY = RMNEXTQTY = 67 malgré 38 pointés → X3 ne nette qu'à
+ *    la déclaration finale de stock. Sans déduction, la charge reste pleine sur
+ *    du travail déjà fait.
+ *  - `F426-39527` : EXTQTY = 480, RMNEXTQTY = 120, 360 pointés → X3 a déjà netté
+ *    au fil des pointages. Déduire une 2e fois donnait 0 h de charge alors que
+ *    120 pièces restent réellement à produire.
+ *
+ * Indistinguable depuis `RMNEXTQTY` seul : le discriminant est `EXTQTY`, que X3
+ * ne nette jamais.
+ *  - EXTQTY === RMNEXTQTY → rien netté → déduire les pièces faites est sûr ;
+ *  - EXTQTY  >  RMNEXTQTY → déjà netté → RMNEXTQTY EST le reste, ne pas déduire.
+ *
+ * `launched` inconnu (producteurs de flow hors `of_repository`) → repli SANS
+ * déduction : mieux vaut une charge légèrement surestimée qu'un 0 h silencieux
+ * sur du travail réel.
+ */
+export function resteAProduire(
+  quantity: number,
+  launched: number | null | undefined,
+  qtyRealisee: number
+): number {
+  const notYetNetted = launched != null && launched === quantity
+  return Math.max(0, quantity - (notYetNetted ? qtyRealisee : 0))
+}
+
+/**
  * Calcule l'avancement de chaque OF à partir des enregistrements MFGOPE.
  *
  * @param records - Toutes les opérations de tous les OFs (fetch plat)

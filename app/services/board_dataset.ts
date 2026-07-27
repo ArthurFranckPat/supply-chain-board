@@ -7,6 +7,7 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import { X3MfgmatRepository, type OfMaterial } from '#repositories/mfgmat_repository'
 import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { X3OperationRepository, type OperationRecord } from '#repositories/operation_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import {
   estimerDepuisStock,
@@ -320,6 +321,32 @@ class BoardDataset {
       },
     })
     return new Map(entries)
+  }
+
+  /**
+   * Avancement atelier des OF (pointages MFGOPE). SWR 5 min — même fraîcheur que
+   * les OF eux-mêmes ; un pointage de plus ne déplace pas une décision de planning.
+   *
+   * Passé par le cache partagé parce que DEUX vues en ont désormais besoin (suivi
+   * proactif et projection de charge) : sans clé commune, chacune repayait la
+   * requête MFGOPE. La clé est le hash de la liste d'OF, comme `getStock` /
+   * `getOfPegs` — deux appelants qui visent le même périmètre partagent l'entrée.
+   *
+   * Aux appelants de RESTREINDRE `numOfs` aux OF réellement pointables (fermes et
+   * démarrés) : un OF suggéré n'a pas de pointage, l'envoyer ne fait que gonfler
+   * la requête et fragmenter le cache.
+   */
+  async getOperations(numOfs: string[]): Promise<OperationRecord[]> {
+    if (!numOfs.length) return []
+    const key = `operations:${createHash('md5')
+      .update([...numOfs].sort().join(','))
+      .digest('hex')}`
+    return board().getOrSet({
+      key,
+      ttl: ORDERS_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new X3OperationRepository().getOperations(numOfs),
+    })
   }
 
   /** Reverse peg OF→commandes (N-N, triées par urgence). SWR 5min.

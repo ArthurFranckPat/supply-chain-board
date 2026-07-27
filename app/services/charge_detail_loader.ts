@@ -19,7 +19,6 @@ import cache from '@adonisjs/cache/services/main'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import type { Article } from '#app/domain/models/article'
-import { hoursForQuantity } from '#app/domain/models/gamme'
 import {
   chargeSegment,
   ofSegment,
@@ -31,6 +30,8 @@ import {
   chargeHorizon,
   computeChargeNeeds,
   fetchChargeInputs,
+  ofChargeHours,
+  ofResteAProduire,
 } from '#services/load_payload_loader'
 
 export type ChargeGran = 'month' | 'week'
@@ -131,14 +132,16 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           const gamme = inputs.gammeMap.get(mo.article)
           if (gamme?.workstation !== poste) continue
           if (!inBucket(mo.startDate)) continue
-          const hours = hoursForQuantity(gamme, mo.quantity)
+          const hours = ofChargeHours(mo, gamme, inputs.avancementByOf)
           if (hours <= 0) continue
           ofRows.push({
             numOf: mo.numOf,
             article: mo.article,
             designation: mo.designation,
             statutLabel: mo.statutLabel,
-            quantite: mo.quantity,
+            // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
+            // les heures de la ligne sont issues, sinon la table s'explique mal.
+            quantite: ofResteAProduire(mo, inputs.avancementByOf),
             dateIso: isoDay(mo.startDate!),
             field: ofSegment(mo.status),
             hours,

@@ -16,6 +16,7 @@ import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad } from '#repositories/order_line_repository'
 import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
 import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
@@ -178,7 +179,46 @@ export interface ChargeInputs {
   workstations: Workstation[]
   wstLabels: Map<string, string>
   bomByParent: Map<string, NomenclatureEntry[]>
+  /**
+   * Avancement atelier des OF démarrés (pointages MFGOPE). Vit ICI et pas dans
+   * chaque loader : l'agrégat et le détail doivent déduire les mêmes pièces, sinon
+   * le total de la table cesse de retomber sur la hauteur de la barre.
+   */
+  avancementByOf: Map<string, OfAvancement>
   x3Error: string | null
+}
+
+/**
+ * Heures de charge d'un OF, pièces déjà pointées déduites.
+ *
+ * Le commentaire historique de la vue OF (« déjà nets via le CBN → brut = net »)
+ * était faux : X3 ne nette `RMNEXTQTY` qu'à la déclaration finale de stock sur une
+ * large part des OF (mesuré en prod : 1313 OF fermes démarrés sur 1405 ont encore
+ * EXTQTY === RMNEXTQTY). Sans déduction, un poste est facturé du travail qu'il a
+ * déjà physiquement produit — sur le bucket courant et le retard, pas sur l'horizon
+ * lointain (un OF démarré est à sa date de début ou en retard).
+ *
+ * Ce n'est PAS du netting par stock : la correction porte sur la quantité restante,
+ * donc elle vaut pour `brut` comme pour `net` — la vue OF garde brut = net et n'a
+ * toujours pas de bascule.
+ */
+export function ofResteAProduire(
+  mo: ManufacturingOrder,
+  avancementByOf: Map<string, OfAvancement>
+): number {
+  return resteAProduire(
+    mo.quantity,
+    mo.quantityLaunched,
+    avancementByOf.get(mo.numOf)?.qtyRealisee ?? 0
+  )
+}
+
+export function ofChargeHours(
+  mo: ManufacturingOrder,
+  gamme: GammeOperation | undefined,
+  avancementByOf: Map<string, OfAvancement>
+): number {
+  return hoursForQuantity(gamme, ofResteAProduire(mo, avancementByOf))
 }
 
 /**
@@ -247,6 +287,19 @@ export async function fetchChargeInputs(
     if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
   }
 
+  // Pointages atelier — restreints aux OF qui PEUVENT en avoir : fermes et dont la
+  // date de début est passée. Un OF planifié/suggéré, ou qui démarre dans 3 mois,
+  // n'a aucun pointage : l'inclure ne ferait que gonfler la requête MFGOPE sur tout
+  // l'horizon 6 mois et fragmenter la clé de cache pour rien.
+  const today = atMidnight(new Date())
+  const startedOfs = mos
+    .filter((mo) => mo.status === 1 && mo.startDate && atMidnight(mo.startDate) <= today)
+    .map((mo) => mo.numOf)
+  // Un échec MFGOPE ne doit pas vider la page : sans avancement on retombe sur le
+  // comportement d'avant (charge pleine), pas sur une charge nulle.
+  const operations = await boardDataset.getOperations(startedOfs).catch(() => [])
+  const avancementByOf = computeAvancement(operations)
+
   return {
     mos,
     orderLines,
@@ -254,6 +307,7 @@ export async function fetchChargeInputs(
     workstations,
     wstLabels,
     bomByParent,
+    avancementByOf,
     x3Error,
   }
 }
@@ -444,8 +498,8 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         mos.flatMap((mo) => {
           const gamme = gammeMap.get(mo.article)
           if (!gamme?.workstation || !mo.startDate) return []
-          const hours = hoursForQuantity(gamme, mo.quantity)
-          // OF réels : déjà nets via le CBN → brut = net (pas de toggle sur la vue OF).
+          const hours = ofChargeHours(mo, gamme, inputs.avancementByOf)
+          // Pièces déjà pointées déduites (cf. ofChargeHours) ; brut = net sur la vue OF.
           return [
             {
               wst: gamme.workstation,
