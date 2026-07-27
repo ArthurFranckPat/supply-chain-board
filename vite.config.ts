@@ -29,6 +29,16 @@ export default defineConfig({
       reload: ['resources/views/**/*.edge', 'inertia-react/pages/**/*.tsx'],
     }),
   ],
+  optimizeDeps: {
+    // `app.tsx` charge les pages via `import.meta.glob` lazy. Le scanner de
+    // deps (esbuild) ne suit pas les globs : sans ces entrées il ne voit que
+    // `app.tsx` et rate toute dep qui n'existe que dans une page (react-table,
+    // pragmatic-drag-and-drop, react-markdown, luxon…). Elle est alors
+    // découverte à la première navigation → re-optimize à chaud → nouveau
+    // hash `?v=` → les chunks déjà chargés répondent
+    // « 504 (Outdated Optimize Dep) ». On force la découverte au démarrage.
+    entries: ['inertia-react/app.tsx', 'inertia-react/pages/**/*.tsx'],
+  },
   server: {
     watch: {
       // Les worktrees d'agents vivent sous .claude/worktrees/ (~174k fichiers,

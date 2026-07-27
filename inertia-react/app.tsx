@@ -18,26 +18,34 @@ const initialPage = appEl?.dataset.page ? JSON.parse(appEl.dataset.page) : undef
 createInertiaApp({
   page: initialPage,
   resolve: async (name: string) => {
-    // Filet inter-runtimes : composant absent du bundle React (visite XHR
-    // venue d'une page Solid, ou layout servi par un process périmé) → hard
-    // reload pour laisser le serveur servir le bon layout. `await` dans le
+    // Le chargement d'une page peut échouer sans que la page soit en cause :
+    // en dev, une re-optimisation de deps Vite invalide les chunks déjà
+    // chargés (504 « Outdated Optimize Dep ») et fait rejeter l'import
+    // dynamique. Un hard reload repart sur le nouveau hash. `await` dans le
     // try : resolvePageComponent REJETTE en async (un throw sync ne couvre
-    // pas le cas). La navigation normale passe par des <a> natifs (§4.4).
+    // pas le cas).
     try {
       // resolvePageComponent est typé Promise<unknown> (helper agnostique).
       return (await resolvePageComponent(`./pages/${name}.tsx`, pages)) as any
     } catch (error) {
-      console.warn(`Page [${name}] absente du bundle React — hard reload`, error)
       // Garde anti-boucle : un seul reload par URL par fenêtre de 10s.
       const key = `runtime-reload:${window.location.pathname}`
       const last = Number(sessionStorage.getItem(key) ?? 0)
       if (Date.now() - last > 10_000) {
+        console.warn(`Chargement de [${name}] échoué — hard reload`, error)
         sessionStorage.setItem(key, String(Date.now()))
         window.location.reload()
-      } else {
-        console.error(`Boucle de reload évitée pour [${name}] — layout serveur incohérent ?`)
+        // Le reload est asynchrone : on gèle la résolution le temps qu'il parte.
+        return new Promise(() => {})
       }
-      return new Promise(() => {})
+      // Deuxième échec d'affilée : le reload n'y changera rien. On laisse
+      // remonter plutôt que de figer l'app sur une page blanche muette.
+      console.error(
+        `Chargement de [${name}] échoué deux fois — cache Vite ou page réellement absente. ` +
+          `Si le serveur de dev tourne : arrêter, supprimer node_modules/.vite, relancer.`,
+        error
+      )
+      throw error
     }
   },
   setup({ el, App, props }) {
