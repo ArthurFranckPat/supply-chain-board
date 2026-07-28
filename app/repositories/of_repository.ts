@@ -90,6 +90,43 @@ WHERE WIPTYP_0 = 5
   AND STRDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
 `
 
+/**
+ * OFs qui peuvent encore SERVIR une demande de la fenêtre sans y DÉMARRER (issue #99) :
+ * démarrés avant `from`, encore ouverts, fin ≤ `to`. Sans eux, un OF ferme déjà lancé
+ * (ex. F126-48851, début 25/07, fin 28/07) sort du pool de matching et sa commande est
+ * ré-allouée à une suggestion d'août — alors que X3 nette le stock prévisionnel sur les FINS.
+ *
+ * Borné aux articles ayant de la demande dans la fenêtre : sans ce filtre le delta pèse
+ * ~1 340 lignes (tout le backlog usine), avec il en pèse ~14 (mesuré en PROD le 28/07/2026).
+ * Sous-select plutôt qu'IN-list d'articles : rien à expédier dans le CLOB ZSOAPSQL.
+ */
+const buildMatchingDeltaSql = (fromStr: string, toStr: string) => `
+SELECT
+  VCRNUM_0    AS NUM,
+  ITMREF_0    AS ARTICLE,
+  WIPSTA_0    AS STA,
+  EXTQTY_0    AS LAUNCHED,
+  CPLQTY_0    AS DONE,
+  RMNEXTQTY_0 AS REMAIN,
+  STRDAT_0    AS STRDAT,
+  ENDDAT_0    AS ENDDAT
+FROM ORDERS
+WHERE WIPTYP_0 = 5
+  AND WIPSTA_0 IN (1, 2, 3)
+  AND RMNEXTQTY_0 > 0
+  AND NOT (STRDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+           AND STRDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
+  AND ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
+  AND ITMREF_0 IN (
+    SELECT ITMREF_0
+    FROM ORDERS
+    WHERE WIPTYP_0 = 1
+      AND RMNEXTQTY_0 > 0
+      AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+      AND ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
+  )
+`
+
 function toNum(v: string | null | undefined): number {
   return Number.parseFloat(v ?? '0') || 0
 }
@@ -244,12 +281,10 @@ WHERE WIPTYP_0 = 5
     }
   }
 
-  /** OFs dont le STRDAT est dans [from, to] — fenêtre courte, ~25× moins de lignes que getManufacturingOrders(). */
-  async getManufacturingOrdersForWindow(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+  /** Exécute un SQL liste ORDERS et hydrate (libellé statut + désignation locale). */
+  private async fetchOrders(sql: string): Promise<ManufacturingOrder[]> {
     const [rows, menuRows, articles] = await Promise.all([
-      new X3Database().raw(
-        buildWindowSql(toLocalYYYYMMDD(from), toLocalYYYYMMDD(to))
-      ) as unknown as RawRow[],
+      new X3Database().raw(sql) as unknown as RawRow[],
       LocalMenu.query().whereIn('chapter', [317]),
       staticSync.readArticles().catch(() => []),
     ])
@@ -276,5 +311,21 @@ WHERE WIPTYP_0 = 5
         endDate: parseX3Date(row.ENDDAT),
       }
     })
+  }
+
+  /** OFs dont le STRDAT est dans [from, to] — fenêtre courte, ~25× moins de lignes que getManufacturingOrders(). */
+  async getManufacturingOrdersForWindow(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+    return this.fetchOrders(buildWindowSql(toLocalYYYYMMDD(from), toLocalYYYYMMDD(to)))
+  }
+
+  /**
+   * Complément de `getManufacturingOrdersForWindow` réservé au MATCHING commande↔OF (#99) :
+   * OFs démarrés avant la fenêtre dont la production sert encore une demande de la fenêtre.
+   * À n'injecter QUE dans le matcher — les faire entrer dans le pool de faisabilité créerait
+   * des lignes /ruptures hors fenêtre et multiplierait les appels MFGMAT/MFGOPE (dimensionnés
+   * par le nombre d'OF).
+   */
+  async getManufacturingOrdersForMatching(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+    return this.fetchOrders(buildMatchingDeltaSql(toLocalYYYYMMDD(from), toLocalYYYYMMDD(to)))
   }
 }

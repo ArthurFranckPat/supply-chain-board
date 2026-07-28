@@ -393,3 +393,77 @@ test.group('CommandeOFMatcher', () => {
     assert.isAbove(result.alerts.length, 0)
   })
 })
+
+/**
+ * Scénario réel EHP187MGM du 28/07/2026 (issue #99). X3 nette le stock prévisionnel sur les
+ * dates de FIN : stock 1080 + OF ferme F126 (fin 28/07, 1080) couvrent les deux commandes du
+ * 29/07 ; la suggestion SGAE (fin 17/08, 2160) ne sert que les échéances d'août. Le board
+ * affichait `AR2603276` (expé demain) sur `SGAE` — l'OF ferme, démarré le 25/07, était sorti
+ * du pool de matching (fenêtre STRDAT) et la suggestion restait le seul candidat.
+ */
+test.group('CommandeOFMatcher — #99 commande déjà couverte par un OF ferme', () => {
+  const F126 = () => makeOfFlow('F126-48851', 'EHP187MGM', 1, 1080, new Date('2026-07-28'))
+  const SGAE = () => makeOfFlow('SGAE10654696101', 'EHP187MGM', 3, 2160, new Date('2026-08-17'))
+  const stock = (qty: number): Flow => ({
+    article: 'EHP187MGM',
+    quantity: qty,
+    direction: 'supply',
+    date: null,
+    origin: { type: 'stock', pmp: null },
+  })
+  const articles = () => new Map([['EHP187MGM', makeArticle('EHP187MGM')]])
+  const demandes = (orderType?: string) => [
+    makeDemandFlow('AR2602935', 'EHP187MGM', 1080, new Date('2026-07-29'), orderType),
+    makeDemandFlow('AR2603276', 'EHP187MGM', 1080, new Date('2026-07-29'), orderType),
+    makeDemandFlow('AR2603146', 'EHP187MGM', 1080, new Date('2026-08-19'), orderType),
+    makeDemandFlow('AR2602935-2', 'EHP187MGM', 1080, new Date('2026-08-19'), orderType),
+  ]
+  const ofsDe = (r: { ofAllocations: { ofFlow: Flow; qteAllouee: number }[] }) =>
+    r.ofAllocations
+      .filter((a) => a.qteAllouee > 0)
+      .map((a) => (a.ofFlow.origin as Extract<FlowOrigin, { type: 'of' }>).id)
+
+  test('NOR: AR2603276 va sur F126, la suggestion ne prend que les échéances août', ({
+    assert,
+  }) => {
+    const matcher = new CommandeOFMatcher(
+      [F126(), SGAE(), stock(1080)],
+      articles(),
+      new Map(),
+      30
+    )
+    const [juil1, juil2, aout1, aout2] = matcher.matchCommandes(demandes())
+
+    // Stock d'abord (règle X3), puis l'OF ferme — jamais la suggestion pour du 29/07.
+    assert.equal(juil1.stockAllocation!.qteAllouee, 1080)
+    assert.deepEqual(ofsDe(juil1), [])
+    assert.deepEqual(ofsDe(juil2), ['F126-48851'])
+    assert.equal(juil2.remainingUncoveredQty, 0)
+    // La suggestion sert les deux échéances d'août, et elles seulement.
+    assert.deepEqual(ofsDe(aout1), ['SGAE10654696101'])
+    assert.deepEqual(ofsDe(aout2), ['SGAE10654696101'])
+  })
+
+  test('MTS: idem — un OF épuisé ne reste pas collé à la commande suivante', ({ assert }) => {
+    const matcher = new CommandeOFMatcher([F126(), SGAE()], articles(), new Map(), 30)
+    const [juil1, juil2, aout1] = matcher.matchCommandes(demandes('MTS'))
+
+    // F126 (ferme) couvre la 1ʳᵉ ; épuisé, il n'est plus candidat pour la 2ᵉ, qui bascule
+    // sur la suggestion — et non plus « F126 avec 0 alloué » comme avant #99.
+    assert.deepEqual(ofsDe(juil1), ['F126-48851'])
+    assert.deepEqual(ofsDe(juil2), ['SGAE10654696101'])
+    assert.equal(juil2.ofAllocations.length, 1)
+    assert.deepEqual(ofsDe(aout1), ['SGAE10654696101'])
+  })
+
+  test('MTS: OF ferme hors pool → la commande de juillet retombe sur la suggestion (bug #99)', ({
+    assert,
+  }) => {
+    // Reproduit l'état d'AVANT le fix côté données : sans F126 dans le supply, rien ne peut
+    // empêcher l'attribution à la suggestion. Verrouille le fait que le correctif tient au
+    // SCOPE du supply (delta matching), pas seulement à l'heuristique.
+    const matcher = new CommandeOFMatcher([SGAE()], articles(), new Map(), 30)
+    const [juil1] = matcher.matchCommandes(demandes('MTS'))
+    assert.deepEqual(ofsDe(juil1), ['SGAE10654696101'])
+  })
+})

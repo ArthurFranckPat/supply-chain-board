@@ -9,7 +9,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
-import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { loadOrderImpacts, type PhantomOf } from '#services/order_impacts_loader'
 import {
   buildShortageRows,
   fabricationDaysFromHours,
@@ -97,6 +97,8 @@ export async function loadShortageRowsData(params: {
 }): Promise<{
   rows: ShortageRow[]
   stats: { nbRuptures: number; nbCouvertes: number; nbSansCouverture: number }
+  /** OF écartés de l'offre car pointés à 100 % et jamais soldés — à signaler, pas à masquer. */
+  phantomOfs: PhantomOf[]
   x3Error: string | null
   windowFrom: Date
   horizon: number
@@ -124,6 +126,7 @@ export async function loadShortageRowsData(params: {
   // Factory qui throw → bentocache sert le stale s'il existe, sinon l'erreur remonte ici.
   let rows: ShortageRow[] = []
   let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
+  let phantomOfs: PhantomOf[] = []
   let x3Error: string | null = null
   try {
     const cached = await ruptCache().getOrSet({
@@ -138,7 +141,7 @@ export async function loadShortageRowsData(params: {
         // trop tard). En bonus : fenêtre STRDAT courte (~25× moins de lignes que le
         // lookback ENDDAT) + getDemandAndReception sans WIPTYP=5 (cf. /programme).
         //
-        const { result, articles, ofPegs, receptionFlows } = await loadOrderImpacts({
+        const { result, articles, ofPegs, receptionFlows, phantomOfs } = await loadOrderImpacts({
           from: windowFrom,
           to: windowTo,
           force,
@@ -202,22 +205,26 @@ export async function loadShortageRowsData(params: {
           // Référentiel injoignable → tous les OF au plancher 1 j de fabrication.
         }
 
-        return buildShortageRows(result, receptionsByArticle, articles, pegsIso, {
+        const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso, {
           overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
           // Date de besoin = expédition − logistique (2 j) − fabrication (charge gamme).
           // Jalonnement OF (STRDAT/ENDDAT) jamais consulté : jugé non fiable (métier).
           logisticsBufferDays: Number(process.env.RUPTURES_LOGISTICS_BUFFER_DAYS) || undefined,
           fabricationDaysByOf,
         })
+        // OF fantômes retirés de l'offre : remontés tels quels pour être signalés au
+        // planificateur (« OF à solder »), pas noyés dans le calcul.
+        return { ...built, phantomOfs }
       },
     })
     rows = cached.rows
     stats = cached.stats
+    phantomOfs = cached.phantomOfs ?? []
   } catch (e) {
     x3Error = (e as Error).message
   }
 
-  return { rows, stats, x3Error, windowFrom, horizon }
+  return { rows, stats, phantomOfs, x3Error, windowFrom, horizon }
 }
 
 /**
@@ -227,7 +234,7 @@ export async function loadShortageRowsData(params: {
  */
 export async function loadShortageRows(ctx: HttpContext) {
   const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-  const { rows, stats, x3Error } = await loadShortageRowsData({
+  const { rows, stats, phantomOfs, x3Error } = await loadShortageRowsData({
     start: ctx.request.input('start') as string | undefined,
     days: daysParam,
     force: !!ctx.request.input('refresh'),
@@ -301,5 +308,5 @@ export async function loadShortageRows(ctx: HttpContext) {
     }
   })
 
-  return { rows: displayRows, stats, x3Error }
+  return { rows: displayRows, stats, phantomOfs, x3Error }
 }

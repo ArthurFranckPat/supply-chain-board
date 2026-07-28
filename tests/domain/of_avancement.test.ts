@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import type { OperationRecord } from '#repositories/operation_repository'
-import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
+import { computeAvancement, estOfFantome, resteAProduire } from '#app/domain/of_avancement'
 
 function op(
   mfgnum: string,
@@ -138,5 +138,58 @@ test.group('resteAProduire', () => {
 
   test('pointage supérieur au reste → planché à 0, jamais de charge négative', ({ assert }) => {
     assert.equal(resteAProduire(67, 67, 100), 0)
+  })
+})
+
+/**
+ * OF fantôme : gamme pointée à 100 %, mais ORDERS annonce encore un reste. Les trois cas
+ * ci-dessous sont les OF réels de `VAM813GM` relevés en PROD le 29/07/2026 — `F126-44429`
+ * a été soldé à la main dans la foulée, sans aucune entrée en stock : les 7 pièces qu'il
+ * promettait n'existaient pas.
+ */
+test.group('estOfFantome', () => {
+  const avancementDe = (records: OperationRecord[], numOf: string) =>
+    computeAvancement(records).get(numOf)
+
+  test('F126-44429 (op. 5 pointée 84/84, ORDERS reste 7) → fantôme', ({ assert }) => {
+    const a = avancementDe(
+      [op('F126-44429', 5, 84, '4', 84), op('F126-44429', 10, 84, '4', 84)],
+      'F126-44429'
+    )
+    assert.equal(a!.qtyRealisee, 84)
+    assert.equal(a!.qtyPrevueOp, 84)
+    assert.isTrue(estOfFantome(a, 7))
+  })
+
+  test('F126-48957 (op. 5 pointée 28/46, ORDERS reste 18 = 46 − 28) → sain', ({ assert }) => {
+    const a = avancementDe(
+      [op('F126-48957', 5, 28, '4', 46), op('F126-48957', 10, 28, '4', 46)],
+      'F126-48957'
+    )
+    assert.isFalse(estOfFantome(a, 18))
+  })
+
+  test('F126-49177 (rien de pointé) → pas fantôme, juste pas démarré', ({ assert }) => {
+    const a = avancementDe(
+      [op('F126-49177', 10, 0, '1', 1080), op('F126-49177', 20, 0, '1', 1080)],
+      'F126-49177'
+    )
+    assert.isFalse(estOfFantome(a, 1080))
+  })
+
+  test('OF soldé (reste 0) → jamais fantôme', ({ assert }) => {
+    const a = avancementDe([op('OF-X', 5, 84, '4', 84), op('OF-X', 10, 84, '4', 84)], 'OF-X')
+    assert.isFalse(estOfFantome(a, 0))
+  })
+
+  test('gamme mono-opération ou OF inconnu → on ne conclut pas', ({ assert }) => {
+    const a = avancementDe([op('OF-MONO', 10, 50, '4', 50)], 'OF-MONO')
+    assert.isFalse(estOfFantome(a, 10))
+    assert.isFalse(estOfFantome(undefined, 10))
+  })
+
+  test('sur-pointage (105/100) compte comme gamme soldée', ({ assert }) => {
+    const a = avancementDe([op('OF-Y', 5, 105, '4', 100), op('OF-Y', 10, 0, '4', 100)], 'OF-Y')
+    assert.isTrue(estOfFantome(a, 5))
   })
 })

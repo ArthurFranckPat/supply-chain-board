@@ -204,7 +204,15 @@ export function evaluateOrderImpacts(
    * cf. `fabricationDaysFromHours`) — utilisé pour le calcul du retard (règle "charge réelle",
    * indépendante du jalonnement CBN STRDAT/ENDDAT). Absent → repli 1 jour par OF.
    */
-  fabricationDaysByOf?: Map<string, number>
+  fabricationDaysByOf?: Map<string, number>,
+  /**
+   * Supply visible du MATCHEUR SEUL (issue #99) : OFs qui servent encore une demande de la
+   * fenêtre sans y démarrer. Ils consomment de la demande — donc empêchent qu'une commande
+   * déjà couverte par un OF ferme lancé soit ré-attribuée à une suggestion ultérieure — mais
+   * n'entrent NI dans les verdicts de faisabilité (`ofInputs`), NI dans `result.ofs`, NI dans
+   * le stock net. Sinon : lignes /ruptures hors fenêtre + MFGMAT/MFGOPE dimensionnés dessus.
+   */
+  matchingOnlySupply?: Flow[]
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -214,7 +222,13 @@ export function evaluateOrderImpacts(
   })
 
   // 2. Matching commande→OF
-  const matcher = new CommandeOFMatcher(supplyFlows, articles, nomenclatures, 30, strategy)
+  const matcher = new CommandeOFMatcher(
+    matchingOnlySupply?.length ? [...supplyFlows, ...matchingOnlySupply] : supplyFlows,
+    articles,
+    nomenclatures,
+    30,
+    strategy
+  )
   const matchingResults = matcher.matchCommandes(windowDemands)
 
   // 3. Build effective OFs with overrides → evaluate feasibility

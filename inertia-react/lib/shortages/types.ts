@@ -73,8 +73,22 @@ export interface ShortageStats {
   nbSansCouverture: number
 }
 
+/**
+ * OF pointé à 100 % en atelier mais jamais soldé : ORDERS annonce encore un reste qui
+ * n'existe pas. Écarté de l'offre côté serveur (il couvrait faussement des commandes),
+ * remonté ici pour être signalé — c'est une action de gestion, pas un détail technique.
+ */
+export interface PhantomOfDisplay {
+  numOf: string
+  article: string
+  qteRestante: number
+  qtyRealisee: number
+  qtyPrevueOp: number
+}
+
 export interface ShortageRowsResponse {
   rows: ShortageDisplayRow[]
   stats: ShortageStats
+  phantomOfs?: PhantomOfDisplay[]
   x3Error: string | null
 }

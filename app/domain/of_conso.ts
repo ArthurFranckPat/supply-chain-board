@@ -292,39 +292,66 @@ export class CommandeOFMatcher {
       }
     }
 
-    const sorted = [...linkedOfs].sort((a, b) => {
-      const pa = statutPriority(getOfStatus(a.origin))
-      const pb = statutPriority(getOfStatus(b.origin))
-      if (pa !== pb) return pa - pb
-      const dateA = a.date?.getTime() ?? Infinity
-      const dateB = b.date?.getTime() ?? Infinity
-      const demandDate = demand.date?.getTime() ?? Infinity
-      return Math.abs(dateA - demandDate) - Math.abs(dateB - demandDate)
-    })
+    // Capacité RESTANTE, pas quantité d'origine (issue #99). Avant, la sélection se faisait
+    // sur `flow.quantity` : un OF déjà entièrement consommé par une commande plus urgente
+    // restait sélectionnable, l'allocation valait 0 mais la commande continuait de pointer
+    // dessus — d'où des commandes affichées sur un OF qui ne leur donne rien.
+    if (demand.article && !this.ofConso.size) {
+      this.initOfConso(new Set([demand.article]))
+    }
+    const demandDate = demand.date?.getTime() ?? Infinity
+    const candidates = [...this.ofConso.values()]
+      .filter((c) => {
+        if (c.article !== demand.article || c.qteDisponible <= 0) return false
+        return c.reservePour === null || c.reservePour === numCommande
+      })
+      .sort((a, b) => {
+        const pa = statutPriority(a.statutNum)
+        const pb = statutPriority(b.statutNum)
+        if (pa !== pb) return pa - pb
+        const dateA = a.ofFlow.date?.getTime() ?? Infinity
+        const dateB = b.ofFlow.date?.getTime() ?? Infinity
+        return Math.abs(dateA - demandDate) - Math.abs(dateB - demandDate)
+      })
 
-    const selected = sorted[0]
-    const allocation = this.consumeOfQuantity(
-      selected,
-      Math.min(demand.quantity, selected.quantity),
-      numCommande,
-      'MTS hard pegging'
-    )
-    const remaining = Math.max(demand.quantity - allocation.qteAllouee, 0)
+    // Couverture CUMULATIVE (comme matchNorMto) : un OF ne couvrant qu'une partie du besoin
+    // laissait le reste « non couvert » alors qu'un second OF du même article pouvait servir.
+    // Pas de `dateToleranceDays` ici, contrairement à `iterOfCandidates` : le MTS n'en a jamais
+    // eu, l'introduire basculerait en « sans couverture » toute commande dont l'OF est à plus
+    // de 30 j — changement de verdict massif, hors périmètre de ce fix.
+    let remaining = demand.quantity
+    const ofAllocations: OFMatchAllocation[] = []
+    for (const conso of candidates) {
+      if (remaining <= 0) break
+      const alloc = this.consumeOfQuantity(
+        conso.ofFlow,
+        remaining,
+        numCommande,
+        'MTS couverture cumulative'
+      )
+      if (alloc.qteAllouee <= 0) continue
+      ofAllocations.push(alloc)
+      remaining -= alloc.qteAllouee
+    }
+
+    // Ambiguïté : plusieurs OF du même article restaient servables. L'allocation est une
+    // heuristique statut+date, pas un peg X3 — l'alerte le dit (cf. golden G20).
     const alerts: string[] = []
-    if (linkedOfs.length > 1) {
-      alerts.push(`MTS: ${linkedOfs.length} OF lies, selectionne ${getOfId(selected.origin)}`)
+    if (candidates.length > 1) {
+      const retenus = ofAllocations.map((a) => getOfId(a.ofFlow.origin)).join(', ') || 'aucun'
+      alerts.push(`MTS: ${candidates.length} OF candidats, alloue sur ${retenus}`)
     }
     if (remaining > 0) {
-      alerts.push(`MTS: couverture partielle (${allocation.qteAllouee}/${demand.quantity})`)
+      alerts.push(`MTS: couverture partielle (${demand.quantity - remaining}/${demand.quantity})`)
     }
 
     return {
       demandFlow: demand,
-      of: selected,
+      of: ofAllocations[0]?.ofFlow ?? null,
       matchingMethod: 'mts_hard_pegging',
       alerts,
       stockAllocation: null,
-      ofAllocations: [allocation],
+      ofAllocations,
       remainingUncoveredQty: remaining,
     }
   }
