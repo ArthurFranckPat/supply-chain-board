@@ -13,6 +13,7 @@ import {
 import type { Workstation } from '#app/domain/models/workstation'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
 import { atelierLabel } from '#app/domain/atelier'
+import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
 
 // ---------------------------------------------------------------------------
 // Issue #10 — Mode planification (lignes de commande ouvertes).
@@ -21,7 +22,6 @@ import { atelierLabel } from '#app/domain/atelier'
 // Override local SQLite (lecture seule X3). Horizon en jours, nav via Unpoly.
 // ---------------------------------------------------------------------------
 
-const DAY_MS = 86_400_000
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 
 interface Card {
@@ -99,29 +99,6 @@ interface OrderBoardData {
   prevHref: string
   nextHref: string
   todayHref: string
-}
-
-// --- Date helpers (mirror scheduler_controller) ---
-
-const atMidnight = (d: Date) => {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
-const isoDay = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
-
-const isoWeek = (d: Date) => {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const dow = t.getUTCDay() || 7
-  t.setUTCDate(t.getUTCDate() + 4 - dow)
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7)
 }
 
 // --- Card factory ---

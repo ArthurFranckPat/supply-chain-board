@@ -21,13 +21,7 @@ import {
   RECEPTION_LOOKBACK_DAYS,
   RECEPTION_OVERDUE_MIN_QTY,
 } from '#repositories/reception_repository'
-
-const isoDay = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
+import { isoDay } from '#app/utils/dates'
 
 /** Formatte une qté : entier si rond, sinon 2 décimales. */
 function fmtQty(n: number): string {

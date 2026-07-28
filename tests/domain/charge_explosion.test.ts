@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import { explodeCharge, netCharge } from '#app/domain/charge_explosion'
-import type { GammeOperation } from '#app/domain/models/gamme'
+import { groupGammeByArticle, type GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 /**
@@ -28,13 +28,19 @@ const entry = (
   consumptionNature: 'PROPORTIONNEL',
 })
 
-const op = (article: string, wst: string, rate: number): [string, GammeOperation] => [
+const op = (article: string, wst: string, rate: number): GammeOperation => ({
   article,
-  { article, workstation: wst, workstationLabel: wst, rate },
-]
+  workstation: wst,
+  workstationLabel: wst,
+  rate,
+})
 
 // PF1 → C1 (×2) → S1 (×1). PF1 sur WST_A, C1 sur WST_B, S1 sur WST_C.
-const gammeMap = new Map([op('PF1', 'WST_A', 10), op('C1', 'WST_B', 5), op('S1', 'WST_C', 2)])
+const gammeMap = groupGammeByArticle([
+  op('PF1', 'WST_A', 10),
+  op('C1', 'WST_B', 5),
+  op('S1', 'WST_C', 2),
+])
 const bomByParent = new Map<string, NomenclatureEntry[]>([
   ['PF1', [entry('PF1', 'C1', 2)]],
   ['C1', [entry('C1', 'S1', 1)]],
@@ -72,7 +78,7 @@ test('garde anti-cycle : A→B→A ne boucle pas', ({ assert }) => {
     ['A', [entry('A', 'B', 1)]],
     ['B', [entry('B', 'A', 1)]],
   ])
-  const cycGamme = new Map([op('A', 'W', 1), op('B', 'W', 1)])
+  const cycGamme = groupGammeByArticle([op('A', 'W', 1), op('B', 'W', 1)])
   const raws = explodeCharge(
     [{ article: 'A', quantite: 1, date: D1, nature: 'ferme' }],
     cycBom,
@@ -158,6 +164,23 @@ test('sans source fournie, la provenance reste nulle (pas de valeur inventée)',
     gammeMap
   )
   assert.isTrue(raws.every((r) => r.source === null))
+})
+
+test('article multi-poste : une ligne de charge par poste', ({ assert }) => {
+  const multi = groupGammeByArticle([
+    op('MULTI', 'WST_A', 10),
+    op('MULTI', 'WST_B', 5),
+  ])
+  const raws = explodeCharge(
+    [{ article: 'MULTI', quantite: 10, date: D1, nature: 'ferme' }],
+    new Map(),
+    multi
+  )
+  assert.equal(raws.length, 2)
+  assert.equal(raws.find((r) => r.wst === 'WST_A')!.qty, 10)
+  assert.equal(raws.find((r) => r.wst === 'WST_B')!.qty, 10)
+  assert.equal(raws.find((r) => r.wst === 'WST_A')!.rate, 10)
+  assert.equal(raws.find((r) => r.wst === 'WST_B')!.rate, 5)
 })
 
 test.group('netCharge — passe en-cours', () => {

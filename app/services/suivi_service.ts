@@ -35,7 +35,7 @@ import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility_loader_adapter'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
-import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { groupGammeByArticle, hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
 import type { OfRecord, StockRecord } from '#app/domain/recursive_checker'
 import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture_engine'
@@ -265,12 +265,9 @@ class GammeChargeCalculator implements ChargeCalculatorPort {
 async function buildGammeChargeCalculator(): Promise<ChargeCalculatorPort> {
   try {
     const ref = await boardDataset.getReferential()
-    const opsByArticle = new Map<string, GammeOperation[]>()
+    const opsByArticle = groupGammeByArticle(ref.gamme)
     const labels = new Map<string, string>()
     for (const g of ref.gamme) {
-      const arr = opsByArticle.get(g.article) ?? []
-      arr.push(g)
-      opsByArticle.set(g.article, arr)
       if (g.workstation && !labels.has(g.workstation)) {
         labels.set(g.workstation, g.workstationLabel || g.workstation)
       }

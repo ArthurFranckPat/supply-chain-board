@@ -17,6 +17,7 @@ import { timeStage } from '#services/perf_metrics'
 import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
+import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
 
 // ---------------------------------------------------------------------------
 // Display types
@@ -147,33 +148,6 @@ function makeCard(p: {
     typologie: p.typologie,
     kitGpe: p.kitGpe,
   }
-}
-
-// ---------------------------------------------------------------------------
-// Date helpers
-// ---------------------------------------------------------------------------
-
-const DAY_MS = 86_400_000
-
-const isoDay = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
-
-const atMidnight = (d: Date) => {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
-const isoWeek = (d: Date) => {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const dow = t.getUTCDay() || 7
-  t.setUTCDate(t.getUTCDate() + 4 - dow)
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7)
 }
 
 /** Map OF planning status (1=Ferme, 2=Planifié, 3=Suggéré) → scheduler CardStatus. */

@@ -38,3 +38,31 @@ export function hoursForQuantity(
   if (rate <= 0) return 0
   return qty / rate
 }
+
+/** Regroupe les opérations par article (ordre de lecture conservé). */
+export function groupGammeByArticle(gamme: GammeOperation[]): Map<string, GammeOperation[]> {
+  const map = new Map<string, GammeOperation[]>()
+  for (const g of gamme) {
+    const arr = map.get(g.article) ?? []
+    arr.push(g)
+    map.set(g.article, arr)
+  }
+  return map
+}
+
+/** L'article a-t-il au moins une opération chargeable (poste + cadence) ? */
+export function hasChargeRoute(ops: GammeOperation[] | undefined): boolean {
+  return (ops ?? []).some((op) => !!op.workstation && op.rate > 0)
+}
+
+/** Heures de charge cumulées sur toutes les opérations d'un article. */
+export function chargeHoursForArticle(
+  ops: GammeOperation[] | undefined,
+  qty: number
+): number {
+  let total = 0
+  for (const op of ops ?? []) {
+    total += hoursForQuantity(op, qty)
+  }
+  return total
+}

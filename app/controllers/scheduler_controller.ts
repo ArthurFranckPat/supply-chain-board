@@ -12,6 +12,7 @@ import { loadBoardData } from '#services/board_payload_loader'
 import { loadShortageRows } from '#services/shortage_payload_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
+import { isoDay } from '#app/utils/dates'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import { buildNomenclatureMap } from '#services/feasibility_loader_adapter'
 import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order_impacts_assembly'
@@ -71,17 +72,6 @@ interface DetailPayload {
 // ---------------------------------------------------------------------------
 // Presentation presets (status → CSS classes)
 // ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Date helpers (mirrors PlanningBoardController logic)
-// ---------------------------------------------------------------------------
-
-const isoDay = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
 
 /** Formatte une date ISO (YYYY-MM-DD) en JJ/MM/AA — '' si absente. */
 function fmtFrShort(iso: string | null | undefined): string {

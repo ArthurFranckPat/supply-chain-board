@@ -10,6 +10,7 @@ import type { Flow } from '#app/domain/models/flow'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import { atelierLabel as resolveAtelierLabel } from '#app/domain/atelier'
 import cache from '@adonisjs/cache/services/main'
+import { isoDay } from '#app/utils/dates'
 
 /**
  * Issue #46 — engagement par poste : TOUS les OF fermes d'un poste, indépendamment
@@ -110,13 +111,6 @@ const POSTE_PP_RE = /^PP_\d+$/
 const DEMAND_LOOKBACK_DAYS = 30
 const DEMAND_HORIZON_DAYS = 120
 const ENGAGEMENT_TTL = 2 * 60 * 1000
-
-const isoDay = (d: Date): string => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
 
 const engagementCache = () => cache.namespace('engagement')
 

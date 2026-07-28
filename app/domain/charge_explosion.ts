@@ -14,7 +14,7 @@
  * Objectif : une charge nette actionnable, pas une régénération MRP.
  */
 import { requiredQuantity, type NomenclatureEntry } from './models/nomenclature.js'
-import { hoursForQuantity, type GammeOperation } from './models/gamme.js'
+import { hoursForQuantity, hasChargeRoute, type GammeOperation } from './models/gamme.js'
 
 export type ChargeNature = 'ferme' | 'prevision'
 
@@ -149,7 +149,7 @@ const DEFAULT_MAX_DEPTH = 4
 export function explodeCharge(
   orderLines: ChargeOrderLine[],
   bomByParent: Map<string, NomenclatureEntry[]>,
-  gammeMap: Map<string, GammeOperation>,
+  gammeMap: Map<string, GammeOperation[]>,
   maxDepth: number = DEFAULT_MAX_DEPTH
 ): ChargeRaw[] {
   const raws: ChargeRaw[] = []
@@ -165,10 +165,11 @@ export function explodeCharge(
     source: ChargeSource | null
   ): void => {
     if (ancestors.has(article)) return // garde anti-cycle
-    const gamme = gammeMap.get(article)
-    const rate = gamme?.rate ?? 0
-    if (gamme?.workstation && rate > 0) {
-      raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate, path, source })
+    for (const gamme of gammeMap.get(article) ?? []) {
+      const rate = gamme.rate ?? 0
+      if (gamme.workstation && rate > 0) {
+        raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate, path, source })
+      }
     }
     if (depth >= maxDepth) return
     const bom = bomByParent.get(article)
@@ -192,7 +193,7 @@ export function explodeCharge(
 
   for (const l of orderLines) {
     // PF sans gamme → ligne ignorée (consistance depth-1 : pas de route = pas planifiable).
-    if (!gammeMap.get(l.article)?.workstation) continue
+    if (!hasChargeRoute(gammeMap.get(l.article))) continue
     explode(l.article, l.quantite, l.nature, l.date, 0, new Set(), [], l.source ?? null)
   }
   return raws

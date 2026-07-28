@@ -33,6 +33,7 @@ import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { isoWeekKey, type StockArticleHistory } from '#repositories/stock_valuation_repository'
+import { isoDay } from '#app/utils/dates'
 
 /** Point hebdomadaire de la projection (seaux S+1 … S+52). */
 export interface StockFuturePoint {
@@ -99,9 +100,6 @@ export interface StockArticleDetailParams {
 export class StockDetailBadRequest extends Error {}
 
 const WEEKS = 52
-
-const isoDay = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 /** Recule `d` au lundi de sa semaine (UTC). */
 const toMonday = (d: Date): Date => {

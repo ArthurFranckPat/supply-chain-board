@@ -15,7 +15,8 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad } from '#repositories/order_line_repository'
-import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { hoursForQuantity, groupGammeByArticle, type GammeOperation } from '#app/domain/models/gamme'
+import { atMidnight, DAY_MS, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
@@ -68,33 +69,7 @@ interface LoadLine {
   category: AtelierCategory
 }
 
-const DAY_MS = 86_400_000
-
-const atMidnight = (d: Date): Date => {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
-const isoDay = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-/** Numéro de semaine ISO. */
-const isoWeek = (d: Date): number => {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const dow = t.getUTCDay() || 7
-  t.setUTCDate(t.getUTCDate() + 4 - dow)
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7)
-}
-
-/** Lundi de la semaine contenant `d`. */
-const mondayOf = (d: Date): Date => {
-  const x = atMidnight(d)
-  const dow = (x.getDay() + 6) % 7 // 0 = lundi
-  x.setDate(x.getDate() - dow)
-  return x
-}
+const NB_MONTHS = 6
 
 /** Libellé mensuel court capitalisé sans point : « Juil », « Août ». */
 const monthLabel = (d: Date): string => {
@@ -115,8 +90,6 @@ const PALETTE = [
   '#3f7d7a',
   '#9a3320',
 ]
-
-const NB_MONTHS = 6
 
 /**
  * Horizon canonique de la vue charge : N mois pleins depuis le 1er du mois de
@@ -178,7 +151,7 @@ const round = (p: LoadPeriod): LoadPeriod => ({
 export interface ChargeInputs {
   mos: ManufacturingOrder[]
   orderLines: OrderLineForLoad[]
-  gammeMap: Map<string, GammeOperation>
+  gammeMap: Map<string, GammeOperation[]>
   workstations: Workstation[]
   wstLabels: Map<string, string>
   bomByParent: Map<string, NomenclatureEntry[]>
@@ -306,7 +279,7 @@ export async function fetchChargeInputs(
   return {
     mos,
     orderLines,
-    gammeMap: new Map(gammeOps.map((g) => [g.article, g])),
+    gammeMap: groupGammeByArticle(gammeOps),
     workstations,
     wstLabels,
     bomByParent,
@@ -533,23 +506,24 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
 
       const ofLines = buildLines(
         mos.flatMap((mo) => {
-          const gamme = gammeMap.get(mo.article)
-          if (!gamme?.workstation || !mo.startDate) return []
-          const hours = ofChargeHours(mo, gamme, inputs.avancementByOf)
-          // Pièces déjà pointées déduites (cf. ofChargeHours) ; brut = net sur la vue OF.
-          return [
-            {
-              wst: gamme.workstation,
-              date: atMidnight(mo.startDate),
-              brutHours: hours,
-              netHours: hours,
-              // Vue OF : ofChargeHours a DÉJÀ déduit les pièces pointées. Les trois
-              // séries coïncident donc — la bascule reste sans effet ici, comme avant.
-              resteHours: hours,
-              field: ofSegment(mo.status) as keyof LoadPeriod,
-              article: `${mo.article} ${mo.designation ?? ''}`.trim(),
-            },
-          ]
+          const ops = gammeMap.get(mo.article) ?? []
+          if (!mo.startDate) return []
+          const qty = ofResteAProduire(mo, inputs.avancementByOf)
+          return ops
+            .filter((gamme) => gamme.workstation && gamme.rate > 0)
+            .map((gamme) => {
+              const hours = hoursForQuantity(gamme, qty)
+              return {
+                wst: gamme.workstation,
+                date: atMidnight(mo.startDate!),
+                brutHours: hours,
+                netHours: hours,
+                // Vue OF : qty déjà déduite des pointages — les trois séries coïncident.
+                resteHours: hours,
+                field: ofSegment(mo.status) as keyof LoadPeriod,
+                article: `${mo.article} ${mo.designation ?? ''}`.trim(),
+              }
+            })
         })
       )
 

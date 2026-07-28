@@ -156,7 +156,7 @@ FROM (
   }
 
   private async syncGammes(): Promise<number> {
-    const entries: GammeOperation[] = await new X3GammeRepository().getFirstOperations()
+    const entries: GammeOperation[] = await new X3GammeRepository().getChargeOperations()
     const now = Date.now()
     const data = entries
       .map((g) => ({

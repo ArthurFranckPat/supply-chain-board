@@ -25,12 +25,13 @@ import {
   type ChargeOfSeg,
   type ChargeSeg,
 } from '#app/domain/charge_explosion'
+import { hoursForQuantity } from '#app/domain/models/gamme'
+import { isoDay } from '#app/utils/dates'
 import {
   chargeBucketRange,
   chargeHorizon,
   computeChargeNeeds,
   fetchChargeInputs,
-  ofChargeHours,
   ofResteAProduire,
 } from '#services/load_payload_loader'
 
@@ -107,9 +108,6 @@ export interface ChargeDetailParams {
   refresh?: boolean
 }
 
-const isoDay = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
 /** Erreur de paramètre — le contrôleur la traduit en 400. */
 export class ChargeDetailBadRequest extends Error {}
 
@@ -150,23 +148,26 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
       if (params.view === 'of') {
         const ofRows: ChargeDetailOfRow[] = []
         for (const mo of inputs.mos) {
-          const gamme = inputs.gammeMap.get(mo.article)
-          if (gamme?.workstation !== poste) continue
+          const ops = inputs.gammeMap.get(mo.article) ?? []
           if (!inBucket(mo.startDate)) continue
-          const hours = ofChargeHours(mo, gamme, inputs.avancementByOf)
-          if (hours <= 0) continue
-          ofRows.push({
-            numOf: mo.numOf,
-            article: mo.article,
-            designation: mo.designation,
-            statutLabel: mo.statutLabel,
-            // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
-            // les heures de la ligne sont issues, sinon la table s'explique mal.
-            quantite: ofResteAProduire(mo, inputs.avancementByOf),
-            dateIso: isoDay(mo.startDate!),
-            field: ofSegment(mo.status),
-            hours,
-          })
+          const qty = ofResteAProduire(mo, inputs.avancementByOf)
+          for (const gamme of ops) {
+            if (gamme.workstation !== poste) continue
+            const hours = hoursForQuantity(gamme, qty)
+            if (hours <= 0) continue
+            ofRows.push({
+              numOf: mo.numOf,
+              article: mo.article,
+              designation: mo.designation,
+              statutLabel: mo.statutLabel,
+              // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
+              // les heures de la ligne sont issues, sinon la table s'explique mal.
+              quantite: qty,
+              dateIso: isoDay(mo.startDate!),
+              field: ofSegment(mo.status),
+              hours,
+            })
+          }
         }
         ofRows.sort((a, b) => b.hours - a.hours)
         return {
