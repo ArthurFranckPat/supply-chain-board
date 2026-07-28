@@ -141,7 +141,13 @@ export async function loadShortageRowsData(params: {
         // trop tard). En bonus : fenêtre STRDAT courte (~25× moins de lignes que le
         // lookback ENDDAT) + getDemandAndReception sans WIPTYP=5 (cf. /programme).
         //
-        const { result, articles, ofPegs, receptionFlows, phantomOfs } = await loadOrderImpacts({
+        const {
+          result,
+          articles,
+          ofPegs,
+          receptionFlows,
+          phantomOfs: fantomes,
+        } = await loadOrderImpacts({
           from: windowFrom,
           to: windowTo,
           force,
@@ -214,7 +220,7 @@ export async function loadShortageRowsData(params: {
         })
         // OF fantômes retirés de l'offre : remontés tels quels pour être signalés au
         // planificateur (« OF à solder »), pas noyés dans le calcul.
-        return { ...built, phantomOfs }
+        return { ...built, phantomOfs: fantomes }
       },
     })
     rows = cached.rows

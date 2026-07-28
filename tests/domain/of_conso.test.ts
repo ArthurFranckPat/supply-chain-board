@@ -426,12 +426,7 @@ test.group('CommandeOFMatcher — #99 commande déjà couverte par un OF ferme',
   test('NOR: AR2603276 va sur F126, la suggestion ne prend que les échéances août', ({
     assert,
   }) => {
-    const matcher = new CommandeOFMatcher(
-      [F126(), SGAE(), stock(1080)],
-      articles(),
-      new Map(),
-      30
-    )
+    const matcher = new CommandeOFMatcher([F126(), SGAE(), stock(1080)], articles(), new Map(), 30)
     const [juil1, juil2, aout1, aout2] = matcher.matchCommandes(demandes())
 
     // Stock d'abord (règle X3), puis l'OF ferme — jamais la suggestion pour du 29/07.

@@ -112,9 +112,7 @@ test.group('computeAvancement', () => {
 })
 
 test.group('resteAProduire', () => {
-  test('EXTQTY === RMNEXTQTY → X3 n\'a rien netté, on déduit les pièces pointées', ({
-    assert,
-  }) => {
+  test("EXTQTY === RMNEXTQTY → X3 n'a rien netté, on déduit les pièces pointées", ({ assert }) => {
     // Cas réel F426-39752 : 67 lancées, 67 restantes, 38 pointées → 29 restent.
     assert.equal(resteAProduire(67, 67, 38), 29)
   })

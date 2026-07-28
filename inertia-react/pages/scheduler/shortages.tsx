@@ -85,9 +85,12 @@ export default function Shortages(props: ShortagesProps) {
     setRange(next)
     if (!next.start || !next.end) return
     setCalOpen(false)
-    const span = Math.round((startOfDay(next.end).getTime() - startOfDay(next.start).getTime()) / DAY_MS)
+    const span = Math.round(
+      (startOfDay(next.end).getTime() - startOfDay(next.start).getTime()) / DAY_MS
+    )
     const days = Math.min(MAX_HORIZON, Math.max(MIN_HORIZON, span))
-    window.location.href = route('scheduler.shortage_tracker') + `?start=${toIso(next.start)}&days=${days}`
+    window.location.href =
+      route('scheduler.shortage_tracker') + `?start=${toIso(next.start)}&days=${days}`
   }
 
   // Fetch des données
@@ -128,7 +131,11 @@ export default function Shortages(props: ShortagesProps) {
   const emptyState = (
     <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
       <div className="flex flex-col items-center gap-2">
-        <DynamicIcon name={viewData.x3Error ? 'cloud_off' : 'task_alt'} size={32} className="text-muted-foreground/50" />
+        <DynamicIcon
+          name={viewData.x3Error ? 'cloud_off' : 'task_alt'}
+          size={32}
+          className="text-muted-foreground/50"
+        />
         {viewData.x3Error
           ? 'Données indisponibles (X3 injoignable).'
           : 'Aucune rupture détectée dans la fenêtre.'}
@@ -148,25 +155,25 @@ export default function Shortages(props: ShortagesProps) {
   }
 
   return (
-      <AppLayout
-        title="Ruptures"
-        active="ruptures"
-        subtitle="Ruptures · Couverture composants"
-        theme="airbnb"
-        dense
-        scrollable={false}
-        meta={
-          <>
-            <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-              {props.dateRange}
-            </div>
-            <div>
-              <b className="font-bold text-foreground">{viewData.stats.nbRuptures}</b> ruptures · horizon{' '}
-              <b className="font-bold text-foreground">+{props.horizon} j</b>
-            </div>
-          </>
-        }
-      >
+    <AppLayout
+      title="Ruptures"
+      active="ruptures"
+      subtitle="Ruptures · Couverture composants"
+      theme="airbnb"
+      dense
+      scrollable={false}
+      meta={
+        <>
+          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+            {props.dateRange}
+          </div>
+          <div>
+            <b className="font-bold text-foreground">{viewData.stats.nbRuptures}</b> ruptures ·
+            horizon <b className="font-bold text-foreground">+{props.horizon} j</b>
+          </div>
+        </>
+      }
+    >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
           la toolbar et de la vue en dessous ne se dimensionnent contre rien
@@ -179,15 +186,25 @@ export default function Shortages(props: ShortagesProps) {
             {(
               [
                 ['registre', 'Registre', 'Table éditoriale : une ligne par composant × OF bloqué'],
-                ['composants', 'Par composant', 'Agrégation : quel composant bloque le plus d\'OF ?'],
+                [
+                  'composants',
+                  'Par composant',
+                  "Agrégation : quel composant bloque le plus d'OF ?",
+                ],
                 [
                   'couverture',
                   'Couverture',
-                  'Frise temporelle : réception couvrante ↔ date d\'expédition',
+                  "Frise temporelle : réception couvrante ↔ date d'expédition",
                 ],
               ] as const
             ).map(([key, label, title]) => (
-              <SegmentButton key={key} role="radio" active={mode === key} title={title} onClick={() => setMode(key)}>
+              <SegmentButton
+                key={key}
+                role="radio"
+                active={mode === key}
+                title={title}
+                onClick={() => setMode(key)}
+              >
                 {label}
               </SegmentButton>
             ))}
@@ -255,9 +272,7 @@ export default function Shortages(props: ShortagesProps) {
           <div className="flex flex-none items-start gap-2 border-b border-suggere/30 bg-suggere/10 px-7 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-suggere" />
             <div className="min-w-0">
-              <span className="font-bold">
-                {viewData.phantomOfs!.length} OF à solder
-              </span>{' '}
+              <span className="font-bold">{viewData.phantomOfs!.length} OF à solder</span>{' '}
               <span className="text-muted-foreground">
                 — gamme pointée en totalité, reste annoncé non produit. Écartés de la couverture.
               </span>
@@ -312,7 +327,7 @@ export default function Shortages(props: ShortagesProps) {
         )}
       </div>
 
-        <OfDetailSheet num={selectedOf} open={detailOpen} onOpenChange={setDetailOpen} />
+      <OfDetailSheet num={selectedOf} open={detailOpen} onOpenChange={setDetailOpen} />
     </AppLayout>
   )
 }

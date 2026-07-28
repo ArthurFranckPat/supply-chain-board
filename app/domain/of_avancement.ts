@@ -58,10 +58,7 @@ export interface OfAvancement {
  * Conservateur par construction : sans opération intermédiaire pointée (gamme à une seule
  * opération, OF non démarré, suggestion non éclatée), on ne conclut jamais.
  */
-export function estOfFantome(
-  avancement: OfAvancement | undefined,
-  qteRestante: number
-): boolean {
+export function estOfFantome(avancement: OfAvancement | undefined, qteRestante: number): boolean {
   if (!avancement || qteRestante <= 0) return false
   if (!avancement.estDebuté || avancement.qtyPrevueOp <= 0) return false
   return avancement.qtyRealisee >= avancement.qtyPrevueOp
