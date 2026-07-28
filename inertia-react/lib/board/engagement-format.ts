@@ -23,6 +23,9 @@ export interface EngagementRow {
   hours: number
   commandes: EngagementCmd[]
   livraisonIso: string | null
+  /** WIPSTA — présent sur /sequenceur (#100) ; optionnel côté panneau legacy. */
+  status?: number
+  statusLabel?: string
 }
 
 export interface EngagementPayload {

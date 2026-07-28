@@ -17,6 +17,9 @@ import { isoDay } from '#app/utils/dates'
  * de la fenêtre board sélectionnée par l'utilisateur. Un poste peut avoir des OF
  * affermis hors fenêtre board : la vue sert justement à les révéler.
  *
+ * Issue #100 — mode « À lancer » : mêmes loaders, filtrés sur planifiés/suggérés
+ * (WIPSTA 2/3) — candidats à l'affermissement, pas encore fermes.
+ *
  * Source supply : getOrders() = tous les OF ouverts (lookback ~90 j ENDDAT, déjà
  * borné côté X3, tous statuts). Volontairement NON remplacé par getOrdersForWindow() :
  * ce dernier scoperait par STRDAT ∈ [fenêtre board] et raterait les OF hors fenêtre,
@@ -39,6 +42,17 @@ import { isoDay } from '#app/utils/dates'
  * fermes de l'usine faisait passer /sequenceur de <1s à 26s (mesuré, revert).
  */
 
+/** Kind de dataset : fermes (engagement) vs candidats à affermir (#100). */
+export type EngagementKind = 'ferme' | 'lancer'
+
+const KIND_STATUSES: Record<EngagementKind, ReadonlySet<number>> = {
+  ferme: new Set([1]),
+  lancer: new Set([2, 3]),
+}
+
+const statusLabelOf = (status: number): string =>
+  status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : `Statut ${status}`
+
 export interface EngagementCommande {
   numCommande: string
   ligne: string | null
@@ -59,6 +73,9 @@ export interface EngagementRow {
   commandes: EngagementCommande[]
   /** Livraison la plus proche parmi les commandes liées — clé de tri urgence. */
   livraisonIso: string | null
+  /** WIPSTA X3 — 1 ferme / 2 planifié / 3 suggéré (#100). */
+  status: number
+  statusLabel: string
 }
 
 export interface PosteEngagement {
@@ -83,6 +100,8 @@ export interface SummaryRow {
   launched: number
   dateDebutIso: string | null
   hours: number
+  status: number
+  statusLabel: string
 }
 
 export interface PosteSummary {
@@ -148,17 +167,22 @@ const weeklyCapacityOf = (
 
 /** Page /sequenceur (tous les postes) — sources déjà cachées (SWR board:*),
  *  aucun matching commande. Coût borné, indépendant du nombre d'OF fermes. */
-export async function loadPosteSummaries(force = false): Promise<EngagementSummaryDataset> {
+export async function loadPosteSummaries(
+  force = false,
+  kind: EngagementKind = 'ferme'
+): Promise<EngagementSummaryDataset> {
   // Clé STABLE, même raison que loadPosteEngagement : une clé datée change à
   // minuit, donc plus aucune valeur en grâce (12 h) n'est servable au 1er hit du
   // jour → recalcul synchrone au lieu du SWR. Et rien ici ne dépend de la date
   // du jour : les dates rendues viennent des OF, la capacité est statique.
-  const cacheKey = 'summaries'
+  // Suffixe kind : ferme vs lancer (#100) ne partagent pas le même dataset.
+  const cacheKey = kind === 'ferme' ? 'summaries' : `summaries:${kind}`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
     factory: async (): Promise<EngagementSummaryDataset> => {
+      const statuses = KIND_STATUSES[kind]
       const [ord, ref, overrides] = await Promise.all([
         timeStage('engagement.summaries.orders', () => boardDataset.getOrders(force)),
         boardDataset.getReferential(force),
@@ -168,14 +192,14 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
       const opsByArticle = groupGammeByArticle(ref.gamme)
       const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
-      const fermesByPoste = new Map<string, ManufacturingOrder[]>()
+      const mosByPoste = new Map<string, ManufacturingOrder[]>()
       for (const mo of ord.mos) {
-        if (mo.status !== 1) continue
+        if (!statuses.has(mo.status)) continue
         const poste = resolvePoste(mo, overrideMap, opsByArticle)
         if (!poste) continue
-        const list = fermesByPoste.get(poste) ?? []
+        const list = mosByPoste.get(poste) ?? []
         list.push(mo)
-        fermesByPoste.set(poste, list)
+        mosByPoste.set(poste, list)
       }
 
       // Même source que le board /programme (board_payload_loader.wstLabels) :
@@ -203,7 +227,7 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
       const sortedPosteCodes = [...posteCodes].sort((a, b) => posteNum(a) - posteNum(b))
 
       const postes: PosteSummary[] = sortedPosteCodes.map((code) => {
-        const rows: SummaryRow[] = (fermesByPoste.get(code) ?? [])
+        const rows: SummaryRow[] = (mosByPoste.get(code) ?? [])
           .map((mo) => {
             const ov = overrideMap.get(mo.numOf)
             // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
@@ -218,6 +242,8 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
               launched: mo.quantityLaunched,
               dateDebutIso: start ? isoDay(start) : null,
               hours,
+              status: mo.status,
+              statusLabel: statusLabelOf(mo.status),
             }
           })
           .sort(
@@ -244,19 +270,25 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
 
 /** GET /api/v1/planning/postes/:poste/engagement — panneau « Engagement » (#46).
  *  Matching commande SCOPÉ à ce poste (petite liste d'OF) — ne jamais élargir à
- *  l'ensemble de l'usine, cf. commentaire de tête de fichier (ZSOAPSQL O(n²)). */
-export async function loadPosteEngagement(poste: string, force = false): Promise<PosteEngagement> {
+ *  l'ensemble de l'usine, cf. commentaire de tête de fichier (ZSOAPSQL O(n²)).
+ *  `kind=lancer` (#100) : planifiés/suggérés du poste, même matching. */
+export async function loadPosteEngagement(
+  poste: string,
+  force = false,
+  kind: EngagementKind = 'ferme'
+): Promise<PosteEngagement> {
   // Clé STABLE (pas de rotation quotidienne) : avec le SWR bentocache (timeout 0
   // par défaut), une valeur en grâce (12 h) est servie INSTANTANÉMENT pendant le
   // recalcul en arrière-plan. Une clé datée changeait à minuit → aucune grâce
   // servable au 1er hit du jour → recalcul synchrone (jusqu'à ~20 s si
   // board:orders était aussi froid — mur froid mesuré : 22,5 s sur /sequenceur).
-  const cacheKey = `poste:${poste}`
+  const cacheKey = kind === 'ferme' ? `poste:${poste}` : `poste:${poste}:${kind}`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
     factory: async (): Promise<PosteEngagement> => {
+      const statuses = KIND_STATUSES[kind]
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const from = new Date(today)
@@ -279,10 +311,10 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
       const opsByArticle = groupGammeByArticle(ref.gamme)
       const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
-      const fermes = ord.mos.filter(
-        (mo) => mo.status === 1 && resolvePoste(mo, overrideMap, opsByArticle) === poste
+      const scoped = ord.mos.filter(
+        (mo) => statuses.has(mo.status) && resolvePoste(mo, overrideMap, opsByArticle) === poste
       )
-      const fermeNums = new Set(fermes.map((m) => m.numOf))
+      const scopedNums = new Set(scoped.map((m) => m.numOf))
 
       const byOf = new Map<string, EngagementCommande[]>()
       try {
@@ -320,7 +352,7 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
         for (const r of results) {
           for (const alloc of r.ofAllocations) {
             const ofId = ((alloc.ofFlow.origin as { id?: string }).id ?? '').trim()
-            if (!fermeNums.has(ofId)) continue
+            if (!scopedNums.has(ofId)) continue
             const o = r.demandFlow.origin as {
               id?: string
               ligne?: string | null
@@ -347,9 +379,9 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
       }
 
       try {
-        const pegs = await boardDataset.getOfPegsAll([...fermeNums])
+        const pegs = await boardDataset.getOfPegsAll([...scopedNums])
         for (const [ofNum, list] of pegs) {
-          if (!fermeNums.has(ofNum)) continue
+          if (!scopedNums.has(ofNum)) continue
           const existing = byOf.get(ofNum) ?? []
           for (const p of list) {
             if (existing.some((c) => c.numCommande === p.numCommande)) continue
@@ -367,7 +399,7 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
         errors.push(`peg: ${(e as Error).message}`)
       }
 
-      const rows: EngagementRow[] = fermes
+      const rows: EngagementRow[] = scoped
         .map((mo) => {
           const ov = overrideMap.get(mo.numOf)
           // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
@@ -387,6 +419,8 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
             hours,
             commandes,
             livraisonIso: commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null,
+            status: mo.status,
+            statusLabel: statusLabelOf(mo.status),
           }
         })
         .sort(

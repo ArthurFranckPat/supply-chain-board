@@ -271,6 +271,7 @@ declare module '@adonisjs/inertia/types' {
     }
     // Séquenceur (#46) : engagement OF par poste, tous postes ou scopé (miroir :
     // inertia-react/lib/board/engagement-format.ts → EngagementRow).
+    // `vue=lancer` (#100) : candidats planifiés/suggérés + faisabilité.
     'scheduler/sequenceur': {
       postes: {
         code: string
@@ -287,6 +288,8 @@ declare module '@adonisjs/inertia/types' {
       /** true = commandes/livraison chargées (poste unique, matching scopé) ;
        *  false = vue "tous les postes", sans matching commande (perf, cf. loader). */
       detail: boolean
+      /** 'engagement' = OF fermes ; 'lancer' = planifiés/suggérés (#100). */
+      vue: 'engagement' | 'lancer'
       x3Error: string | null
     }
     'scheduler/programme': {

@@ -365,12 +365,19 @@ export default class SchedulerController {
    * `/sequenceur/:poste` : en plus, `loadPosteEngagement` pour CE poste — matching
    * commande scopé (petite liste d'OF, comme le panneau). Changer de poste dans
    * l'UI navigue vers l'autre route (Inertia visit), pas de fetch caché côté client.
+   *
+   * Query `vue=lancer` (#100) : dataset planifiés/suggérés (candidats à affermir)
+   * au lieu des fermes. Même routes, même matching scopé.
    */
   async sequenceur(ctx: HttpContext) {
     const poste = (ctx.params.poste as string | undefined)?.trim() || null
     const force = !!ctx.request.input('refresh')
+    const vueRaw = String(ctx.request.input('vue') ?? '')
+      .trim()
+      .toLowerCase()
+    const kind = vueRaw === 'lancer' ? ('lancer' as const) : ('ferme' as const)
 
-    const summaries = await loadPosteSummaries(force)
+    const summaries = await loadPosteSummaries(force, kind)
     const postes = summaries.postes.map((p) => ({
       code: p.poste.code,
       label: p.poste.label,
@@ -389,7 +396,7 @@ export default class SchedulerController {
       .sort((a, b) => a.label.localeCompare(b.label))
 
     if (poste) {
-      const detail = await loadPosteEngagement(poste, force)
+      const detail = await loadPosteEngagement(poste, force, kind)
       return ctx.inertia.render('scheduler/sequenceur', {
         postes,
         ateliers,
@@ -400,6 +407,7 @@ export default class SchedulerController {
         })),
         selectedPoste: poste,
         detail: true,
+        vue: kind === 'lancer' ? 'lancer' : 'engagement',
         x3Error: detail.x3Error,
       })
     }
@@ -418,6 +426,7 @@ export default class SchedulerController {
       ),
       selectedPoste: null,
       detail: false,
+      vue: kind === 'lancer' ? 'lancer' : 'engagement',
       x3Error: null,
     })
   }
