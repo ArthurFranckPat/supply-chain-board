@@ -65,17 +65,11 @@ export interface RetardLigne {
   type: string
   dateExp: string
   dateExpIso: string | null
-  /** Reste à produire après avancement atelier (base charge). */
+  /** Reste à produire (Σ resteAProduire, prorata alloc + non couvert). */
   qteRestante: number
-  /**
-   * Pièces déjà pointées sur les OF de couverture (CPLQTY ops intermédiaires) —
-   * même signal que /suivi (`piecesFaites`). 0 si aucun OF / pas débuté.
-   */
+  /** Déjà fait = launched − resteAProduire (OF couverture). */
   qteFaite: number
-  /**
-   * Total OF de référence (EXTQTY lancée) — même dénominateur que /suivi
-   * (`piecesTotalOf`). Repli : qté à produire commande si pas d'OF.
-   */
+  /** Total lancé OF (EXTQTY) — dénominateur ; repli qté commande si pas d'OF. */
   qteAProduire: number
   heures: number
   postes: string[]
@@ -239,13 +233,10 @@ export class RetardRepository {
       const row = p.row
       const result = resultByFlow.get(demandFlow)
 
-      // Charge restante = portion OF encore à produire (resteAProduire, prorata alloc)
-      // + part commande non couverte par OF (pleine — pas d'avancement atelier).
+      // Charge + affichage qté : uniquement computeAvancement + resteAProduire.
+      // faite = launched − reste ; totale = launched (repli qté commande si pas d'OF).
       let qteCharge = 0
       let qteCouverte = 0
-      // Affichage avancement = signal OF brut (qtyRealisee / EXTQTY), PAS le delta
-      // commande−reste : dès que X3 a netté RMNEXTQTY, ce delta est 0 alors que
-      // l'atelier a bien pointé (cas F426-39527 vérifié dans of_avancement.ts).
       let qteFaite = 0
       let qteTotaleOf = 0
       if (result) {
@@ -254,20 +245,21 @@ export class RetardRepository {
           const ofId = origin.id?.trim()
           if (!ofId || alloc.ofFlow.quantity <= 0 || alloc.qteAllouee <= 0) continue
           qteCouverte += alloc.qteAllouee
+          const ofReste = resteAProduire(
+            alloc.ofFlow.quantity,
+            origin.launched,
+            avancementByOf.get(ofId)?.qtyRealisee ?? 0
+          )
           const launched = origin.launched ?? alloc.ofFlow.quantity
-          const qtyRealisee = avancementByOf.get(ofId)?.qtyRealisee ?? 0
-          qteFaite += Math.min(qtyRealisee, launched)
+          qteFaite += Math.max(0, launched - ofReste)
           qteTotaleOf += Math.round(launched)
-          const ofReste = resteAProduire(alloc.ofFlow.quantity, origin.launched, qtyRealisee)
-          const fracRestante = ofReste / alloc.ofFlow.quantity
-          qteCharge += alloc.qteAllouee * fracRestante
+          qteCharge += alloc.qteAllouee * (ofReste / alloc.ofFlow.quantity)
         }
       }
       qteCharge += Math.max(0, p.qteAProduire - qteCouverte)
       if (Math.round(qteCharge * 10) / 10 <= 0) continue
 
       const qteRestante = Math.round(qteCharge)
-      // Dénominateur affichage : EXTQTY des OF couvrant ; sinon qté commande à produire.
       const qteAProduire = qteTotaleOf > 0 ? qteTotaleOf : Math.round(p.qteAProduire)
       qteFaite = Math.round(qteFaite)
 
