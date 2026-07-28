@@ -69,6 +69,18 @@ const TYPE_META: Record<string, { background: string; color: string }> = {
   NOR: { background: 'var(--planifie, #00a699)', color: '#ffffff' },
 }
 
+/** Pastille statut OF alloué (même alphabet que filtre OF / bandeau Listing). */
+const OF_STATUS_DOT: Record<'ferme' | 'planifie' | 'suggere', string> = {
+  ferme: 'bg-ferme',
+  planifie: 'bg-planifie',
+  suggere: 'bg-suggere',
+}
+const OF_STATUS_LABEL: Record<'ferme' | 'planifie' | 'suggere', string> = {
+  ferme: 'ferme',
+  planifie: 'planifié',
+  suggere: 'suggéré',
+}
+
 type Common = {
   status: CardStatus
   /** En-tête mono (numOf ou code article). */
@@ -107,6 +119,11 @@ export type CommandeCardProps = Common & {
   induit?: boolean
   /** Alerte rupture (composants manquants des OF rattachés, agrégés côté store). */
   alert?: string
+  /**
+   * Statut de l'OF alloué par le matcher (pastille). Distinct du liseré haut
+   * (nature COMMANDE/PRÉVISION) et du peg contremarque.
+   */
+  ofStatus?: 'ferme' | 'planifie' | 'suggere' | null
 }
 
 export type OfCardProps = Common & {
@@ -194,6 +211,7 @@ function CommandeCard(props: CommandeCardProps) {
         qty={props.qty}
         induit={props.induit}
         alert={props.alert}
+        ofStatus={props.ofStatus}
       />
     </div>
   )
@@ -213,6 +231,7 @@ interface CommandeBodyProps {
   qty?: number
   induit?: boolean
   alert?: string
+  ofStatus?: 'ferme' | 'planifie' | 'suggere' | null
 }
 
 function CommandeBody(p: CommandeBodyProps) {
@@ -225,7 +244,7 @@ function CommandeBody(p: CommandeBodyProps) {
 
   return (
     <>
-      {/* Type (MTS/MTO/NOR) à gauche + n° commande en gras + ligne plus claire.
+      {/* Type (MTS/MTO/NOR) à gauche + pastille statut OF alloué + n° commande.
           Pleine largeur (le tampon BDH est sur la ligne de l'article, pas ici). */}
       <div className="flex items-center gap-1.5 overflow-hidden" title={p.article}>
         {p.type && (
@@ -240,6 +259,13 @@ function CommandeBody(p: CommandeBodyProps) {
           >
             {p.type}
           </span>
+        )}
+        {p.ofStatus && (
+          <span
+            className={cn('size-1.5 shrink-0 rounded-full', OF_STATUS_DOT[p.ofStatus])}
+            title={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
+            aria-label={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
+          />
         )}
         <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
           {cmd}

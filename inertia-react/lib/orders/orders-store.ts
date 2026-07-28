@@ -309,12 +309,15 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
               feasible?: boolean | null
               missingComponents?: Record<string, number>
               qcComponents?: Record<string, number>
+              /** WIPSTA 1/2/3 — statut OF alloué (pastille card). */
+              statutNum?: number
             }>
           }>
         }>
       })
       .then((data) => {
         const map: Record<string, FeasStatus> = {}
+        const ofStatusByCard = new Map<string, 'ferme' | 'planifie' | 'suggere' | null>()
         let nbOk = 0
         let nbBlocked = 0
         let nbQc = 0
@@ -322,6 +325,12 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
           if (!o.ligne) continue
           const cardId = `${o.numCommande}#${o.ligne}`
           const ofs = o.ofs ?? []
+          // Pastille : statut du 1er OF alloué (même primaire que le matcher).
+          const primary = ofs[0]
+          if (primary?.statutNum === 1) ofStatusByCard.set(cardId, 'ferme')
+          else if (primary?.statutNum === 2) ofStatusByCard.set(cardId, 'planifie')
+          else if (primary?.statutNum === 3) ofStatusByCard.set(cardId, 'suggere')
+          else ofStatusByCard.set(cardId, null)
           const blockedOfs = ofs.filter((of) => of.feasible === false)
           // Dépendance CQ agrégée sur la ligne : un seul OF tributaire suffit à la signaler.
           const qcComponents: Record<string, number> = {}
@@ -350,7 +359,20 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
             nbOk++
           }
         }
-        set({ feasibility: map })
+        // Rafraîchit la pastille OF (matcher stock-aware + overrides) sur les cards.
+        const board = get().board
+        const lines = board.lines.map((line) => ({
+          ...line,
+          dayCells: line.dayCells.map((dc) => ({
+            ...dc,
+            cards: dc.cards.map((card) =>
+              ofStatusByCard.has(card.id)
+                ? { ...card, ofStatus: ofStatusByCard.get(card.id) ?? null }
+                : card
+            ),
+          })),
+        }))
+        set({ feasibility: map, board: { ...board, lines } })
         const parts = [
           nbBlocked > 0 ? `${nbBlocked} bloquée(s)` : null,
           nbQc > 0 ? `${nbQc} sous CQ` : null,

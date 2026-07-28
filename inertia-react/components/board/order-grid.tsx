@@ -16,7 +16,8 @@ import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
  *
  * Spécificités planification : drag **en temps seul** (poste figé par la gamme),
  * override de date (liseré terra + bouton réinitialiser), filtres type/nature.
- * Ton de carte dérivé de la nature : COMMANDE → ferme, PRÉVISION → suggéré.
+ * Ton liseré haut = nature : COMMANDE → ferme, PRÉVISION → suggéré.
+ * Pastille = statut de l'OF alloué (matcher), distinct du peg contremarque.
  */
 
 interface OrderGridProps {
@@ -505,6 +506,7 @@ function CardView(props: CardViewProps) {
         typologie={card.typologie}
         qty={card.qty}
         induit={ghost}
+        ofStatus={ghost ? null : (card.ofStatus ?? null)}
         feas={props.feas}
         feasQcComponents={props.feasQcComponents}
         alert={props.alert}

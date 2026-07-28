@@ -2,8 +2,10 @@ import type { HttpContext } from '@adonisjs/core/http'
 import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
+import { OverrideStore } from '#services/override_store'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
 import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
 import {
   isManufactured,
@@ -13,7 +15,26 @@ import {
 import type { Workstation } from '#app/domain/models/workstation'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
 import { atelierLabel } from '#app/domain/atelier'
+import { CommandeOFMatcher } from '#app/domain/of_conso'
+import { remapDemandDates } from '#app/domain/order_impacts_assembly'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
+
+/** Statut OF (WIPSTA) → ton carte. Source = OF alloué par le matcher, pas la contremarque. */
+type OfCardStatus = 'ferme' | 'planifie' | 'suggere'
+
+function ofStatusFromNum(n: number | null | undefined): OfCardStatus {
+  if (n === 1) return 'ferme'
+  if (n === 2) return 'planifie'
+  return 'suggere'
+}
+
+/** Clé carte planification (`numCommande#ligne`) depuis un flow demande. */
+function demandCardId(f: Flow): string | null {
+  const o = f.origin
+  if (o.type === 'order') return `${o.id}#${o.ligne ?? ''}`
+  if (o.type === 'forecast') return `${o.id}#`
+  return null
+}
 
 // ---------------------------------------------------------------------------
 // Issue #10 — Mode planification (lignes de commande ouvertes).
@@ -47,8 +68,13 @@ interface Card {
   qty?: number
   /** Carte induite (besoin brut depth-1) : ghost, non-draggable, hors filtres. */
   induit?: boolean
-  /** Contremarque X3 (FMINUM_0 = n° OF rattaché) — ouvre le drawer OF au clic carte. */
+  /** Contremarque X3 (FMINUM_0 = peg officiel) — distinct de l'OF alloué par le matcher. */
   contremarque?: string | null
+  /**
+   * Statut de l'OF alloué (CommandeOFMatcher), pas le peg contremarque.
+   * null = aucun OF alloué (stock / achat / sans couverture).
+   */
+  ofStatus?: OfCardStatus | null
 }
 
 interface DayCol {
@@ -117,6 +143,7 @@ function makeOrderCard(p: {
   consommeBouche: boolean
   typologie?: string
   contremarque?: string | null
+  ofStatus?: OfCardStatus | null
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
   const fields = [
@@ -141,6 +168,7 @@ function makeOrderCard(p: {
     typologie: p.typologie,
     qty: p.quantite,
     contremarque: p.contremarque ?? null,
+    ofStatus: p.ofStatus ?? null,
   }
 }
 
@@ -309,19 +337,32 @@ export async function loadOrderBoardData(
   // BOM depth-1 (composants FABRIQUÉS uniquement) pour la charge induite.
   // Les composants ACHETÉS n'ont pas de gamme/poste → pas de charge induite.
   let bomByParent = new Map<string, NomenclatureEntry[]>()
+  // Entrées matcher commande→OF (statut pastille) — hoistés hors try pour matching post-override.
+  let matchDemand: Flow[] = []
+  let matchSupply: Flow[] = []
+  let matchArticles = new Map<string, Article>()
 
   try {
-    const [ref, demandRecep, bdh, articlesList, bouchesHygro, nomEntries] = await Promise.all([
-      boardDataset.getReferential(force),
-      boardDataset.getDemandAndReception(isoDay(windowStart), isoDay(windowEnd), force),
-      staticSync.readBdhParents().catch(() => new Set<string>()),
-      boardDataset.getArticles(),
-      staticSync.readBouchesHygroSet().catch(() => new Set<string>()),
-      staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
-    ])
+    const [ref, demandRecep, bdh, articlesList, bouchesHygro, nomEntries, ordWindow] =
+      await Promise.all([
+        boardDataset.getReferential(force),
+        boardDataset.getDemandAndReception(isoDay(windowStart), isoDay(windowEnd), force),
+        staticSync.readBdhParents().catch(() => new Set<string>()),
+        boardDataset.getArticles(),
+        staticSync.readBouchesHygroSet().catch(() => new Set<string>()),
+        staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
+        // OFs fenêtre (STRDAT) — même scope que board-feasibility / programme OF.
+        // Échec soft : pastille absente, board commandes reste utilisable.
+        boardDataset
+          .getOrdersForWindow(windowStart, windowEnd, force)
+          .catch(() => ({ mos: [], supply: [] as Flow[], at: 0 })),
+      ])
     gammeOps = ref.gamme
     workstations = ref.workstations
     bdhParents = bdh
+    matchDemand = demandRecep.demand
+    matchSupply = ordWindow.supply
+    matchArticles = new Map(articlesList.map((a) => [a.code, a]))
     for (const e of nomEntries) {
       if (!isManufactured(e)) continue // acheté → pas de poste, pas de charge induite
       const arr = bomByParent.get(e.parentArticle)
@@ -381,6 +422,23 @@ export async function loadOrderBoardData(
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
     if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+  }
+
+  // Statut OF alloué par ligne (matcher — pas contremarque). Pastille card commande.
+  const ofStatusByLine = new Map<string, OfCardStatus>()
+  if (matchDemand.length > 0 && matchSupply.length > 0) {
+    const remapped = remapDemandDates(matchDemand, overrideMap)
+    const matcher = new CommandeOFMatcher(matchSupply, matchArticles, new Map())
+    const ofOverrideRows = await new OverrideStore().getAll()
+    const ofOverrideByNum = new Map(ofOverrideRows.map((o) => [o.numOf, o]))
+    for (const r of matcher.matchCommandes(remapped)) {
+      const primary = r.ofAllocations[0]
+      if (!primary || primary.ofFlow.origin.type !== 'of') continue
+      const ofId = primary.ofFlow.origin.id
+      const statutNum = ofOverrideByNum.get(ofId)?.status ?? primary.ofFlow.origin.status
+      const cardId = demandCardId(r.demandFlow)
+      if (cardId) ofStatusByLine.set(cardId, ofStatusFromNum(statutNum))
+    }
   }
 
   // --- Colonne → ISO week + jours ouvrés par semaine (pour capacité hebdo). ---
@@ -453,6 +511,7 @@ export async function loadOrderBoardData(
       consommeBouche: bdhParents.has(line.article),
       typologie: typologieByArticle.get(line.article),
       contremarque: line.contremarque,
+      ofStatus: ofStatusByLine.get(overrideKey) ?? null,
     })
 
     if (!buckets.has(workstation)) buckets.set(workstation, newBucket())
