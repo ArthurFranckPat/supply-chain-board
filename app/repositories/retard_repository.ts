@@ -65,7 +65,12 @@ export interface RetardLigne {
   type: string
   dateExp: string
   dateExpIso: string | null
+  /** Reste à produire après avancement atelier (qteAProduire − qteFaite). */
   qteRestante: number
+  /** Pièces déjà pointées sur les OF de couverture (prorata alloc), même signal que /suivi. */
+  qteFaite: number
+  /** Qté encore à produire pour la ligne (après alloué + stock FIFO), avant avancement OF. */
+  qteAProduire: number
   heures: number
   postes: string[]
 }
@@ -79,10 +84,6 @@ export interface RetardChargeKpi {
 
 function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
-}
-
-function toNum(v: string | null | undefined): number {
-  return Number.parseFloat(v ?? '0') || 0
 }
 
 export class RetardRepository {
@@ -254,6 +255,10 @@ export class RetardRepository {
       qteCharge += Math.max(0, p.qteAProduire - qteCouverte)
       if (Math.round(qteCharge * 10) / 10 <= 0) continue
 
+      const qteAProduire = Math.round(p.qteAProduire)
+      const qteRestante = Math.round(qteCharge)
+      const qteFaite = Math.max(0, qteAProduire - qteRestante)
+
       const byPoste: Record<string, number> = {}
       for (const op of p.ops) {
         byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qteCharge / op.rate
@@ -281,7 +286,9 @@ export class RetardRepository {
         type: 'SOH',
         dateExp: iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '',
         dateExpIso: iso,
-        qteRestante: Math.round(toNum(row.QTE_RESTANTE)),
+        qteRestante,
+        qteFaite,
+        qteAProduire,
         heures: lineHeures,
         postes: linePostes,
       })
