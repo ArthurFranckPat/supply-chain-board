@@ -19,7 +19,7 @@ import {
   netDemandsByAllocation,
   type OrderImpactResult,
 } from '#app/domain/order_impacts'
-import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
+import { computeAvancement, estOfFantome, resteAProduire } from '#app/domain/of_avancement'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
 import {
@@ -80,8 +80,25 @@ export interface LoadOrderImpactsOptions {
   pipeline: OrderImpactsPipeline
 }
 
+/**
+ * OF écarté de l'offre parce que sa gamme est pointée à 100 % alors qu'ORDERS annonce encore
+ * un reste (cf. `estOfFantome`). Remonté pour être SIGNALÉ : « OF à solder », action de
+ * gestion — et non simplement retranché en silence.
+ */
+export interface PhantomOf {
+  numOf: string
+  article: string
+  /** Reste à produire annoncé par ORDERS (RMNEXTQTY) — la quantité fictive. */
+  qteRestante: number
+  /** Pointage constaté à l'opération la plus avancée, et qté prévue sur cette opération. */
+  qtyRealisee: number
+  qtyPrevueOp: number
+}
+
 export interface OrderImpactsContext {
   result: OrderImpactResult
+  /** OF fantômes écartés de l'offre (gamme soldée, reste ORDERS non nul). */
+  phantomOfs: PhantomOf[]
   /** Catalogue article (PF + composants), avec descriptions issues de la BOM. */
   articles: Map<string, Article>
   nomenclatures: Map<string, Nomenclature>
@@ -210,12 +227,13 @@ export async function loadOrderImpacts(
     const wst = wstByArticle.get(f.article) ?? ''
     return wst.toLowerCase().includes(workstationFilter)
   }
-  const finalOfFlows = workstationFilter
+  // `let` : ces deux pools sont encore purgés de leurs OF fantômes plus bas, une fois MFGOPE lu.
+  let finalOfFlows = workstationFilter
     ? filteredOfFlows.filter(matchesWorkstation)
     : filteredOfFlows
   // Même filtre sur le delta matching : un OF hors périmètre du poste ne doit pas consommer
   // la demande affichée quand la vue est restreinte à un poste.
-  const matchingOnlySupply = workstationFilter
+  let matchingOnlySupply = workstationFilter
     ? matchingOnlyOfFlows.filter(matchesWorkstation)
     : matchingOnlyOfFlows
 
@@ -245,9 +263,12 @@ export async function loadOrderImpacts(
   for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
   for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
 
-  const windowNumOfs = finalOfFlows
-    .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
-    .filter(Boolean)
+  const numOfDe = (f: Flow) => (f.origin as { id?: string }).id?.trim() ?? ''
+  const windowNumOfs = finalOfFlows.map(numOfDe).filter(Boolean)
+  // Le delta matching entre dans le fetch MFGOPE : sans ses pointages, un OF fantôme du delta
+  // (cas `F126-44429`) resterait indétectable — or c'est précisément là qu'ils se cachent, les
+  // OF lancés il y a des mois et jamais soldés.
+  const operationNumOfs = [...windowNumOfs, ...matchingOnlySupply.map(numOfDe).filter(Boolean)]
 
   // Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé) → sauté hors
   // board/ruptures. MFGMAT en revanche est chargé pour TOUTES les vues (issue conso séquentielle
@@ -256,20 +277,54 @@ export async function loadOrderImpacts(
   let ofPegs = new Map<string, OfCommandePeg>()
   let mfgByOf: Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>
 
+  // Avancement (MFGOPE) remonté ICI et plus après le calcul de faisabilité : il sert à écarter
+  // les OF fantômes de l'offre AVANT que quoi que ce soit ne s'appuie dessus.
+  let operations: import('#repositories/operation_repository').OperationRecord[]
+
   if (!preferEngineFeasibility) {
-    const [pegs, mfg] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
+    const [pegs, mfg, ops] = await timeStage('loadOrderImpacts.pegs+mfg+ope', () =>
       Promise.all([
         boardDataset.getOfPegs(windowNumOfs),
         boardDataset.getMfgMaterials(windowNumOfs),
+        boardDataset.getOperations(operationNumOfs),
       ])
     )
     ofPegs = pegs
     mfgByOf = mfg
+    operations = ops
   } else {
-    mfgByOf = await timeStage('loadOrderImpacts.mfg', () =>
-      boardDataset.getMfgMaterials(windowNumOfs)
+    const [mfg, ops] = await timeStage('loadOrderImpacts.mfg+ope', () =>
+      Promise.all([
+        boardDataset.getMfgMaterials(windowNumOfs),
+        boardDataset.getOperations(operationNumOfs),
+      ])
     )
+    mfgByOf = mfg
+    operations = ops
   }
+
+  const avancementByOf = computeAvancement(operations)
+
+  // OF FANTÔMES : gamme pointée à 100 % mais ORDERS annonce encore un reste (cf. estOfFantome).
+  // Leur « production restante » n'existe pas — la compter couvre faussement des commandes,
+  // gonfle le stock prévisionnel et charge l'atelier pour du travail déjà fait. On les sort donc
+  // de l'offre, et on les REMONTE à l'appelant : un OF non soldé est une action de gestion, pas
+  // un détail à masquer.
+  const phantomOfs: PhantomOf[] = []
+  const estFantome = (f: Flow) => {
+    const id = numOfDe(f)
+    if (!id || !estOfFantome(avancementByOf.get(id), f.quantity)) return false
+    phantomOfs.push({
+      numOf: id,
+      article: f.article,
+      qteRestante: f.quantity,
+      qtyRealisee: avancementByOf.get(id)?.qtyRealisee ?? 0,
+      qtyPrevueOp: avancementByOf.get(id)?.qtyPrevueOp ?? 0,
+    })
+    return true
+  }
+  finalOfFlows = finalOfFlows.filter((f) => !estFantome(f))
+  matchingOnlySupply = matchingOnlySupply.filter((f) => !estFantome(f))
   for (const materials of mfgByOf.values()) {
     for (const m of materials) if (m.article) articleSet.add(m.article)
   }
@@ -335,13 +390,6 @@ export async function loadOrderImpacts(
         overrideMap,
         stockStrictByArticle
       )
-
-  // Avancement des OFs via pointages MFGOPE (issue #41) : détermine si chaque OF
-  // est réellement débuté en atelier (opérations intermédiaires pointées).
-  const operations = await timeStage('loadOrderImpacts.operations', () =>
-    boardDataset.getOperations(windowNumOfs)
-  )
-  const avancementByOf = computeAvancement(operations)
 
   // Charge réelle par OF (cadence gamme × reste à produire) pour le calcul de retard —
   // volontairement indépendant du jalonnement CBN (STRDAT/ENDDAT). Même formule que
@@ -426,6 +474,7 @@ export async function loadOrderImpacts(
 
   return {
     result,
+    phantomOfs,
     articles,
     nomenclatures,
     ofPegs,

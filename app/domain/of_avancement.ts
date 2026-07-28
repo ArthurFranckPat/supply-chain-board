@@ -31,6 +31,40 @@ export interface OfAvancement {
    * traitée). 0 si non débuté.
    */
   qtyRealisee: number
+  /**
+   * Qté PRÉVUE à l'opération la plus avancée pointée (EXTQTY de cette op). Avec `qtyRealisee`,
+   * dit si la gamme est intégralement pointée — le discriminant de l'OF fantôme ci-dessous.
+   * 0 si non débuté.
+   */
+  qtyPrevueOp: number
+}
+
+/**
+ * OF FANTÔME : gamme intégralement pointée en atelier, mais ORDERS annonce encore un reste
+ * à produire. Signature d'un OF terminé (ou abandonné) jamais soldé administrativement — les
+ * pièces annoncées n'existent pas et n'arriveront jamais.
+ *
+ * Cas de référence, relevés en PROD le 29/07/2026 sur `VAM813GM` :
+ *  - `F126-44429` : op. 5 pointée 84/84, ORDERS reste 7, dernier pointage 07/04/2026 →
+ *    FANTÔME. Soldé à la main le jour même : aucune entrée en stock, les 7 pièces
+ *    n'existaient pas.
+ *  - `F126-48957` : op. 5 pointée 28/46, ORDERS reste 18 (= 46 − 28) → cohérent, vivant.
+ *  - `F126-49177` : rien de pointé, reste = qté lancée → pas démarré, surtout pas fantôme.
+ *
+ * Volontairement basé sur MFGOPE (déjà chargé) et pas sur la date du dernier pointage
+ * (MFGOPETRK, requête X3 supplémentaire) : la date CORROBORE le diagnostic, elle ne le fonde
+ * pas. Un OF pointé à 100 % et non soldé est fantôme, qu'il date d'avril ou d'hier.
+ *
+ * Conservateur par construction : sans opération intermédiaire pointée (gamme à une seule
+ * opération, OF non démarré, suggestion non éclatée), on ne conclut jamais.
+ */
+export function estOfFantome(
+  avancement: OfAvancement | undefined,
+  qteRestante: number
+): boolean {
+  if (!avancement || qteRestante <= 0) return false
+  if (!avancement.estDebuté || avancement.qtyPrevueOp <= 0) return false
+  return avancement.qtyRealisee >= avancement.qtyPrevueOp
 }
 
 /**
@@ -95,12 +129,10 @@ export function computeAvancement(records: OperationRecord[]): Map<string, OfAva
     const pointees = intermediaires.filter((op) => op.cplqty > 0)
     const derniereOpPointée =
       pointees.length > 0 ? Math.max(...pointees.map((o) => o.openum)) : null
-    const qtyRealisee =
-      derniereOpPointée !== null
-        ? pointees
-            .filter((op) => op.openum === derniereOpPointée)
-            .reduce((sum, op) => sum + op.cplqty, 0)
-        : 0
+    const opsAvancees =
+      derniereOpPointée !== null ? pointees.filter((op) => op.openum === derniereOpPointée) : []
+    const qtyRealisee = opsAvancees.reduce((sum, op) => sum + op.cplqty, 0)
+    const qtyPrevueOp = opsAvancees.reduce((sum, op) => sum + op.extqty, 0)
 
     result.set(numOf, {
       numOf,
@@ -110,6 +142,7 @@ export function computeAvancement(records: OperationRecord[]): Map<string, OfAva
       nbOperations: intermediaires.length,
       nbOperationsPointées: pointees.length,
       qtyRealisee,
+      qtyPrevueOp,
     })
   }
 

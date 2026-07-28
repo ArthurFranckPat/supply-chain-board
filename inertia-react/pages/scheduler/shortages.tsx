@@ -250,6 +250,28 @@ export default function Shortages(props: ShortagesProps) {
           </div>
         )}
 
+        {/* ═══ OF à solder (offre fantôme écartée du calcul) ═══ */}
+        {(viewData.phantomOfs?.length ?? 0) > 0 && (
+          <div className="flex flex-none items-start gap-2 border-b border-suggere/30 bg-suggere/10 px-7 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-suggere" />
+            <div className="min-w-0">
+              <span className="font-bold">
+                {viewData.phantomOfs!.length} OF à solder
+              </span>{' '}
+              <span className="text-muted-foreground">
+                — gamme pointée en totalité, reste annoncé non produit. Écartés de la couverture.
+              </span>
+              <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                {viewData
+                  .phantomOfs!.slice(0, 8)
+                  .map((p) => `${p.numOf} (${p.article}, reste ${p.qteRestante})`)
+                  .join(' · ')}
+                {viewData.phantomOfs!.length > 8 && ` · +${viewData.phantomOfs!.length - 8}`}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ═══ Vue active ═══ */}
         {loading && !data ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
