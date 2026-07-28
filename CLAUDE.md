@@ -31,8 +31,42 @@ Après `git worktree add`, **toujours** :
 
 **OBLIGATOIRE** : après chaque tâche terminée (feature, fix, refacto), tu DOIS :
 
-1. **Commiter** avec un message clair (français, préfixe `feat(scope):` / `fix(scope):`).
+1. **Commiter** avec un message clair (français, préfixe `feat(scope):` / `fix(scope):`),
+   terminé par le trailer `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+   Non négociable : sans lui, le travail d'un agent est attribué en totalité à
+   l'utilisateur dans `git log`, `git blame` et sur GitHub. L'agent Cursor pose déjà
+   son `Co-authored-by`.
 2. **Pousser** immédiatement (`git push`).
+3. **Surveiller le run CI jusqu'à son terme** — voir ci-dessous.
+
+### Après le push : surveiller, puis corriger
+
+Le push sur master ne passe par aucune PR : les checks requis de la protection de
+branche ne s'appliquent donc pas (`enforce_admins` est à `false`). La CI tourne
+**après** le push. Un push n'est pas une tâche terminée.
+
+Donc, systématiquement après un `git push` :
+
+1. `gh run watch` (ou `gh run list --branch master --limit 1`) jusqu'à conclusion.
+2. Si un job échoue : `gh run view <id> --log-failed`, corriger, repousser.
+3. **Ne jamais annoncer « poussé » comme un aboutissement tant que le run n'est pas
+   vert.** Annoncer l'état réel : « poussé, CI en cours » puis le résultat.
+4. Ne corriger que les erreurs issues de ses propres fichiers. Une CI déjà rouge
+   avant son push appartient à un autre chantier — le dire, ne pas le reprendre.
+
+Corollaire : **vérifier l'état de la CI AVANT de merger dans master**. Merger dans une
+branche déjà rouge rend indémêlable ce qu'on vient de casser.
+
+Le hook `pre-push` (`scripts/hooks/pre-push`) rejoue localement les jobs bloquants
+(typecheck + lint) et refuse le push s'ils échouent. Il n'est pas versionné par git —
+l'installer dans chaque clone/worktree :
+
+```bash
+cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
+Il ne couvre pas les tests (suite complète interdite en local) : le job
+« Tests unitaires » reste à surveiller après le push.
 
 Ne JAMAIS accumuler du travail non commité. Le working tree doit rester propre
 entre les tâches. Si l'utilisateur demande une nouvelle feature, le travail

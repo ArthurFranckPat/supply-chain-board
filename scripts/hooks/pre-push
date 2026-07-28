@@ -1,0 +1,32 @@
+#!/bin/sh
+# pre-push — reproduit EN LOCAL les jobs bloquants de la CI.
+#
+# On pousse directement sur master : la protection de branche GitHub ne sert alors à
+# rien (les checks requis ne gouvernent que les PR, et `enforce_admins` est à false).
+# Le seul endroit où un push cassé peut encore être refusé, c'est ici.
+#
+# Miroir des jobs CI « Quality » et « Build » — voir .github/workflows. Les tests ne
+# tournent PAS ici : la suite complète est interdite en local (cf. CLAUDE.md), c'est
+# le job « Tests unitaires » qui les porte. Surveiller le run après le push reste donc
+# obligatoire.
+#
+# Installation (hook non versionné par git) :
+#   cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#
+# Contournement d'urgence : git push --no-verify (à n'utiliser qu'en connaissance
+# de cause — le run CI, lui, ne se contourne pas).
+
+set -e
+
+echo "🔍 Pré-push : contrôles bloquants"
+
+echo "  → typecheck (app + inertia-react)"
+npm run --silent typecheck
+
+echo "  → lint (eslint + prettier)"
+npm run --silent lint
+
+echo ""
+echo "✅ Contrôles OK. Push en cours…"
+echo "   ⚠️  Surveiller le run CI ensuite : gh run watch"
+exit 0
