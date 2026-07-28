@@ -56,10 +56,7 @@ export function hasChargeRoute(ops: GammeOperation[] | undefined): boolean {
 }
 
 /** Heures de charge cumulées sur toutes les opérations d'un article. */
-export function chargeHoursForArticle(
-  ops: GammeOperation[] | undefined,
-  qty: number
-): number {
+export function chargeHoursForArticle(ops: GammeOperation[] | undefined, qty: number): number {
   let total = 0
   for (const op of ops ?? []) {
     total += hoursForQuantity(op, qty)

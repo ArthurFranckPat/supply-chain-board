@@ -295,11 +295,13 @@ export function synthesizeVirtualSupply(
   )
   if (injections.length === 0) return EMPTY_VIRTUAL_SUPPLY
 
-  const today = ctx.today ?? (() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  })()
+  const today =
+    ctx.today ??
+    (() => {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      return d
+    })()
   const hoursPerDay = ctx.hoursPerDay ?? DEFAULT_HOURS_PER_DAY
 
   const plan: VirtualSupplyPlan = {

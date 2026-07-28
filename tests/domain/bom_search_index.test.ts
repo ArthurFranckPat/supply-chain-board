@@ -58,6 +58,9 @@ test.group('explodeBomForSearch — index de recherche nomenclature', () => {
       bom('SE2', ['VIS']),
     ])
     const out = explodeBomForSearch('PF', nomenclatures)
-    assert.lengthOf(out.filter((c) => c === 'VIS'), 1)
+    assert.lengthOf(
+      out.filter((c) => c === 'VIS'),
+      1
+    )
   })
 })

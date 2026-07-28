@@ -869,7 +869,6 @@ export function buildProactiveDisplay(
     })
   }
 
-
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
     .filter((o) => !o.dateExpedition || o.dateExpedition <= horizonIso.toISOString().slice(0, 10))

@@ -14,7 +14,11 @@ import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import { OverrideStore } from '#services/override_store'
 import { timeStage } from '#services/perf_metrics'
-import { groupGammeByArticle, hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import {
+  groupGammeByArticle,
+  hoursForQuantity,
+  type GammeOperation,
+} from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'

@@ -136,6 +136,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
   }
 
   const activePoste = posteFilter ? props.postes.find((p) => p.code === posteFilter) : null
+  const showPosteCol = !posteFilter
 
   const filteredPostes = useMemo(() => {
     const q = posteQuery.trim().toLowerCase()
@@ -196,9 +197,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
     urgencyFilter,
     query,
     posteRank,
+    showPosteCol,
   ])
 
-  const showPosteCol = !posteFilter
   const rowGroups = useMemo(() => {
     if (!showPosteCol) return [{ posteCode: null as string | null, rows: filteredRows }]
     const groups: { posteCode: string; rows: SequenceurRow[] }[] = []

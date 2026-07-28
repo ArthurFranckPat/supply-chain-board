@@ -17,8 +17,6 @@ export default class extends BaseSchema {
 
   async down() {
     this.schema.raw('DROP INDEX IF EXISTS static_gammes_article_workstation_unique')
-    this.schema.raw(
-      'CREATE UNIQUE INDEX static_gammes_article_unique ON static_gammes (article)'
-    )
+    this.schema.raw('CREATE UNIQUE INDEX static_gammes_article_unique ON static_gammes (article)')
   }
 }

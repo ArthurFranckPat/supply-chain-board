@@ -125,7 +125,13 @@ const resolvePoste = (
 
 const weeklyCapacityOf = (
   poste: string,
-  workstations: { code: string; dailyCapacity: number[]; parallelUnits: number; efficiency: number; utilization: number }[]
+  workstations: {
+    code: string
+    dailyCapacity: number[]
+    parallelUnits: number
+    efficiency: number
+    utilization: number
+  }[]
 ): number | null => {
   const wst = workstations.find((w) => w.code === poste)
   if (!wst || !wst.dailyCapacity.some((c) => c > 0)) return null
@@ -177,19 +183,23 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
       // sources différentes qui peuvent diverger, le séquenceur doit afficher
       // le même nom de ligne que le board.
       const wstLabels = new Map<string, string>()
-      for (const g of ref.gamme) if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+      for (const g of ref.gamme)
+        if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
       const labelOf = (poste: string): string => wstLabels.get(poste) ?? poste
 
       // Séquenceur : uniquement les postes PP_XXX (lignes de production) — écarte
       // les codes hors nomenclature (stocks, ateliers annexes, codes d'override
       // libres…) qui n'ont pas leur place dans cette vue.
       const posteCodes = new Set<string>()
-      for (const g of ref.gamme) if (g.workstation && POSTE_PP_RE.test(g.workstation)) posteCodes.add(g.workstation)
-      for (const o of overrides) if (o.workstation && POSTE_PP_RE.test(o.workstation)) posteCodes.add(o.workstation)
+      for (const g of ref.gamme)
+        if (g.workstation && POSTE_PP_RE.test(g.workstation)) posteCodes.add(g.workstation)
+      for (const o of overrides)
+        if (o.workstation && POSTE_PP_RE.test(o.workstation)) posteCodes.add(o.workstation)
 
       // Tri croissant sur le numéro (PP_2 avant PP_10) — un tri alpha nu
       // mettrait PP_10 avant PP_2.
-      const posteNum = (code: string) => Number.parseInt(POSTE_PP_RE.exec(code)?.[0].slice(3) ?? '0', 10)
+      const posteNum = (code: string) =>
+        Number.parseInt(POSTE_PP_RE.exec(code)?.[0].slice(3) ?? '0', 10)
       const sortedPosteCodes = [...posteCodes].sort((a, b) => posteNum(a) - posteNum(b))
 
       const postes: PosteSummary[] = sortedPosteCodes.map((code) => {
@@ -197,9 +207,8 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
           .map((mo) => {
             const ov = overrideMap.get(mo.numOf)
             // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
-            const hours = Math.round(
-              hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10
-            ) / 10
+            const hours =
+              Math.round(hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10) / 10
             const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
             return {
               numOf: mo.numOf,
@@ -278,7 +287,9 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
       const byOf = new Map<string, EngagementCommande[]>()
       try {
         const [{ demand }, lineDateOverrides] = await Promise.all([
-          timeStage('engagement.demand', () => boardDataset.getDemandAndReception(fromIso, toIso, force)),
+          timeStage('engagement.demand', () =>
+            boardDataset.getDemandAndReception(fromIso, toIso, force)
+          ),
           new OrderLineOverrideStore().getMap(),
         ])
 
@@ -293,7 +304,9 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
                 return { ...f, date: new Date(ov) }
               })
 
-        const windowDemands = remapped.filter((f) => f.direction === 'demand' && f.quantity > 0 && !!f.date)
+        const windowDemands = remapped.filter(
+          (f) => f.direction === 'demand' && f.quantity > 0 && !!f.date
+        )
 
         const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
         const matcher = new CommandeOFMatcher(
@@ -308,7 +321,11 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
           for (const alloc of r.ofAllocations) {
             const ofId = ((alloc.ofFlow.origin as { id?: string }).id ?? '').trim()
             if (!fermeNums.has(ofId)) continue
-            const o = r.demandFlow.origin as { id?: string; ligne?: string | null; customer?: string | null }
+            const o = r.demandFlow.origin as {
+              id?: string
+              ligne?: string | null
+              customer?: string | null
+            }
             const numCommande = o.id ?? ''
             if (!numCommande) continue
             const list = byOf.get(ofId) ?? []
@@ -354,9 +371,8 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
         .map((mo) => {
           const ov = overrideMap.get(mo.numOf)
           // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
-          const hours = Math.round(
-            hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10
-          ) / 10
+          const hours =
+            Math.round(hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10) / 10
           const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
           const commandes = (byOf.get(mo.numOf) ?? []).sort((a, b) =>
             (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')
@@ -384,7 +400,8 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
       // gamme du poste qui gagne) : libellé de gamme, pas la description du
       // référentiel workstation.
       let label = poste
-      for (const g of ref.gamme) if (g.workstation === poste) label = g.workstationLabel || g.workstation
+      for (const g of ref.gamme)
+        if (g.workstation === poste) label = g.workstationLabel || g.workstation
 
       return {
         poste: { code: poste, label },

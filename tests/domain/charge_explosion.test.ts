@@ -167,10 +167,7 @@ test('sans source fournie, la provenance reste nulle (pas de valeur inventée)',
 })
 
 test('article multi-poste : une ligne de charge par poste', ({ assert }) => {
-  const multi = groupGammeByArticle([
-    op('MULTI', 'WST_A', 10),
-    op('MULTI', 'WST_B', 5),
-  ])
+  const multi = groupGammeByArticle([op('MULTI', 'WST_A', 10), op('MULTI', 'WST_B', 5)])
   const raws = explodeCharge(
     [{ article: 'MULTI', quantite: 10, date: D1, nature: 'ferme' }],
     new Map(),
@@ -228,10 +225,7 @@ test.group('netCharge — passe en-cours', () => {
 
   test('pool en-cours consomme FIFO sur plusieurs besoins', ({ assert }) => {
     const out = netCharge(
-      [
-        raw('A', 100, new Date('2026-07-28')),
-        raw('A', 100, new Date('2026-08-15')),
-      ],
+      [raw('A', 100, new Date('2026-07-28')), raw('A', 100, new Date('2026-08-15'))],
       new Map(),
       new Map([['A', 150]])
     )

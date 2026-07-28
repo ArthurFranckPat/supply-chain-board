@@ -586,10 +586,7 @@ export async function loadOrderBoardData(
     g.totalQty += r.qty
     g.totalHours += hours
     if (r.source?.numCommande != null) {
-      g.parents.set(
-        `${r.source.numCommande}#${r.source.ligne ?? ''}`,
-        r.source.pfArticle
-      )
+      g.parents.set(`${r.source.numCommande}#${r.source.ligne ?? ''}`, r.source.pfArticle)
     }
   }
 

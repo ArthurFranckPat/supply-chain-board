@@ -243,7 +243,7 @@ test.group('evaluatePlanDiff', () => {
     assert.equal(diff.client[0].deltaJours, 12)
   })
 
-  test("inject_demand sur un fabriqué : OF virtuel, composants captés, charge sur le poste", ({
+  test('inject_demand sur un fabriqué : OF virtuel, composants captés, charge sur le poste', ({
     assert,
   }) => {
     // Le geste fondateur de #58 : une commande client sur un fabriqué ne consomme rien en

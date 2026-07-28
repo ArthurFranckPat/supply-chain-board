@@ -5,7 +5,11 @@ import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
-import { groupGammeByArticle, hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import {
+  groupGammeByArticle,
+  hoursForQuantity,
+  type GammeOperation,
+} from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadPosteEngagement, loadPosteSummaries } from '#services/poste_engagement_loader'
 import { loadBoardData } from '#services/board_payload_loader'
@@ -378,7 +382,9 @@ export default class SchedulerController {
     }))
     // Filtre atelier (#36, même rattachement que /charge) : liste distincte des
     // ateliers réellement présents parmi les postes affichés.
-    const ateliers = [...new Map(postes.filter((p) => p.atelier).map((p) => [p.atelier, p.atelierLabel])).entries()]
+    const ateliers = [
+      ...new Map(postes.filter((p) => p.atelier).map((p) => [p.atelier, p.atelierLabel])).entries(),
+    ]
       .map(([code, label]) => ({ code, label }))
       .sort((a, b) => a.label.localeCompare(b.label))
 

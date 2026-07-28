@@ -15,7 +15,11 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad } from '#repositories/order_line_repository'
-import { hoursForQuantity, groupGammeByArticle, type GammeOperation } from '#app/domain/models/gamme'
+import {
+  hoursForQuantity,
+  groupGammeByArticle,
+  type GammeOperation,
+} from '#app/domain/models/gamme'
 import { atMidnight, DAY_MS, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'

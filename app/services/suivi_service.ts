@@ -35,7 +35,11 @@ import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility_loader_adapter'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
-import { groupGammeByArticle, hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import {
+  groupGammeByArticle,
+  hoursForQuantity,
+  type GammeOperation,
+} from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
 import type { OfRecord, StockRecord } from '#app/domain/recursive_checker'
 import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture_engine'
