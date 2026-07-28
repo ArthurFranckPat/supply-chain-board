@@ -152,9 +152,10 @@ export async function loadOrderImpacts(
   // scopées à l'horizon, stock scopé aux articles concernés.
   // useWindowOfs=true (/programme) : OFs via STRDAT (fenêtre courte, ~25× moins de lignes) +
   // demande/réceptions sans OFs (WIPTYP=1+2). getOrdersForWindow coalescé avec loadBoardData.
-  const [rawLive, { gamme }, nomenclatureEntries, articlesList] = await timeStage(
-    'loadOrderImpacts.datasets',
-    () =>
+  // Delta matching (#99) : OFs démarrés avant la fenêtre qui servent encore une demande de
+  // la fenêtre. Uniquement pour les pipelines scopés STRDAT — `getLive` borne déjà sur ENDDAT.
+  const [rawLive, { gamme }, nomenclatureEntries, articlesList, matchingOnlyOfFlows] =
+    await timeStage('loadOrderImpacts.datasets', () =>
       Promise.all([
         useWindowOfs
           ? Promise.all([
@@ -169,8 +170,15 @@ export async function loadOrderImpacts(
         boardDataset.getReferential(force),
         boardDataset.getNomenclature(force),
         boardDataset.getArticles(),
+        useWindowOfs
+          ? boardDataset
+              .getOrdersForMatchingDelta(windowFrom, windowTo, force)
+              // Delta non bloquant : sans lui on retombe sur le comportement d'avant #99
+              // (matching dégradé), pas sur une page en erreur.
+              .catch(() => [] as Flow[])
+          : Promise.resolve([] as Flow[]),
       ])
-  )
+    )
   const demandFlows = rawLive.demand
   const receptionFlows = rawLive.reception ?? []
   const ofFlows = rawLive.supply ?? []
@@ -197,13 +205,19 @@ export async function loadOrderImpacts(
   }
 
   // Filtrer par workstation si demandé
-  let finalOfFlows = filteredOfFlows
-  if (workstationFilter) {
-    finalOfFlows = filteredOfFlows.filter((f) => {
-      const wst = wstByArticle.get(f.article) ?? ''
-      return wst.toLowerCase().includes(workstationFilter)
-    })
+  const matchesWorkstation = (f: Flow) => {
+    if (!workstationFilter) return true
+    const wst = wstByArticle.get(f.article) ?? ''
+    return wst.toLowerCase().includes(workstationFilter)
   }
+  const finalOfFlows = workstationFilter
+    ? filteredOfFlows.filter(matchesWorkstation)
+    : filteredOfFlows
+  // Même filtre sur le delta matching : un OF hors périmètre du poste ne doit pas consommer
+  // la demande affichée quand la vue est restreinte à un poste.
+  const matchingOnlySupply = workstationFilter
+    ? matchingOnlyOfFlows.filter(matchesWorkstation)
+    : matchingOnlyOfFlows
 
   // Overrides de date de commande (issue #10 /planification, désormais partagés) :
   // une ligne re-datée à la main décale sa demande → repositionne la commande
@@ -392,7 +406,8 @@ export async function loadOrderImpacts(
     avancementByOf,
     undefined,
     mfgByOf,
-    fabricationDaysByOf
+    fabricationDaysByOf,
+    matchingOnlySupply
   )
 
   // Charge par OF pour l'axe charge du diff (poste gamme + heures + date de fin effective).

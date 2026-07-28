@@ -826,4 +826,53 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
     // Les deux parts se somment bien au manque vs stock strict (2016 − 1966).
     assert.equal(of.seComponents!.SE1 + of.qcComponents!.SE1, 50)
   })
+
+  test("#99 : le supply de matching seul alloue la commande sans entrer dans le pool d'OF", ({
+    assert,
+  }) => {
+    // OF ferme démarré avant la fenêtre board (invisible du scope STRDAT) mais qui finit à
+    // temps : il doit rafler la commande, à la place de la suggestion, SANS produire de ligne
+    // OF (pas de MFGMAT chargé pour lui, pas de rupture à afficher).
+    const suggestion = makeOfFlow('SGAE-1', 'PF1', 3, 100, daysFromNow(25))
+    const fermeHorsFenetre = makeOfFlow('F126-1', 'PF1', 1, 100, daysFromNow(1))
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 100, daysFromNow(3))]
+    const nomenclatures = new Map<string, Nomenclature>()
+    const articles = new Map([['PF1', makeArticle('PF1')]])
+    const window = { from: daysFromNow(-7), to: daysFromNow(42) }
+
+    const sansDelta = evaluateOrderImpacts(
+      demands,
+      [suggestion],
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      window
+    )
+    assert.equal(sansDelta.orders[0].ofs[0].numOf, 'SGAE-1', 'avant #99 : collée à la suggestion')
+
+    const avecDelta = evaluateOrderImpacts(
+      demands,
+      [suggestion],
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      window,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [fermeHorsFenetre]
+    )
+
+    assert.equal(avecDelta.orders[0].ofs[0].numOf, 'F126-1')
+    assert.equal(avecDelta.orders[0].ofs.length, 1)
+    // Le delta reste invisible du pool de faisabilité : aucune ligne OF, donc aucune ligne
+    // /ruptures et aucun appel MFGMAT/MFGOPE dimensionné dessus.
+    assert.deepEqual(
+      avecDelta.ofs.map((o) => o.numOf),
+      ['SGAE-1']
+    )
+  })
 })

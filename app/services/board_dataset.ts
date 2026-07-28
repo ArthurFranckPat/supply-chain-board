@@ -186,6 +186,48 @@ class BoardDataset {
     })
   }
 
+  /**
+   * Delta MATCHING (#99) : OFs démarrés AVANT la fenêtre qui servent encore une demande de
+   * la fenêtre — invisibles de `getOrdersForWindow` (scopé STRDAT) alors que X3 nette le
+   * stock prévisionnel sur les dates de FIN. ~14 lignes mesurées en PROD, cache dédié pour
+   * ne jamais les mélanger au pool board (elles ne doivent pas s'afficher, juste consommer
+   * de la demande dans le matcher).
+   */
+  async getOrdersForMatchingDelta(from: Date, to: Date, force = false): Promise<Flow[]> {
+    const isoL = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const da = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${da}`
+    }
+    const key = `orders-matching-delta:${isoL(from)}:${isoL(to)}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: ORDERS_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => {
+        const mos = await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
+        return mos.map((mo) => ({
+          article: mo.article,
+          quantity: mo.quantity,
+          direction: 'supply' as const,
+          date: mo.endDate,
+          origin: {
+            type: 'of' as const,
+            id: mo.numOf,
+            status: mo.status,
+            statutLabel: mo.statutLabel,
+            typeOf: null,
+            typeOfLabel: mo.typeOfLabel,
+            designation: mo.designation,
+            launched: mo.quantityLaunched,
+          },
+        }))
+      },
+    })
+  }
+
   /** Demande (WIPTYP=1) + réceptions (WIPTYP=2) scopées à [from, to], sans OFs.
    * Remplace getLive() quand les OFs sont fournis par getOrdersForWindow().
    * ZSOAPSQL O(n²) ~2-3× moins de lignes → requête ~4-9× plus rapide. */
