@@ -287,6 +287,29 @@ export default function Shortages(props: ShortagesProps) {
           </div>
         )}
 
+        {/* ═══ Sur-déclaration PF vs pointage (issue #95) ═══ */}
+        {(viewData.ecartDeclarations?.length ?? 0) > 0 && (
+          <div className="flex flex-none items-start gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-destructive" />
+            <div className="min-w-0">
+              <span className="font-bold">
+                {viewData.ecartDeclarations!.length} OF sur-déclarés
+              </span>{' '}
+              <span className="text-muted-foreground">
+                — PF en stock au-delà du pointage atelier (conso matière potentiellement fantôme).
+              </span>
+              <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                {viewData
+                  .ecartDeclarations!.slice(0, 8)
+                  .map((e) => `${e.numOf} (${e.article}, +${e.ecart})`)
+                  .join(' · ')}
+                {viewData.ecartDeclarations!.length > 8 &&
+                  ` · +${viewData.ecartDeclarations!.length - 8}`}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ═══ Vue active ═══ */}
         {loading && !data ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">

@@ -65,6 +65,34 @@ export function estOfFantome(avancement: OfAvancement | undefined, qteRestante: 
 }
 
 /**
+ * ÉCART DE DÉCLARATION (issue #95) : PF déclaré en stock (ORDERS/MFGITM CPLQTY) au-delà
+ * du pointage de la dernière opération intermédiaire. Les pièces entrées sans conso/pointage
+ * aligné consomment du stock composant fantôme et sous-évaluent la charge (X3 nette
+ * RMNEXTQTY sur la déclaration, pas sur le pointage atelier).
+ *
+ * Cas de référence PROD 27/07/2026 — `F326-02036` (article 11016310) : déclaré 480,
+ * pointé ops 10/20 = 370, op 999 (déclaration) = 0 → 110 pièces en stock sans conso.
+ *
+ * Conservateur : sans opération intermédiaire (gamme mono-op, non démarré), on ne conclut
+ * jamais — indistingable d'une déclaration globale volontaire.
+ */
+export function ecartDeclarationQty(
+  avancement: OfAvancement | undefined,
+  quantityDone: number
+): number {
+  if (!avancement || quantityDone <= 0) return 0
+  if (!avancement.estDebuté || avancement.nbOperations <= 0) return 0
+  return Math.max(0, quantityDone - avancement.qtyRealisee)
+}
+
+export function estEcartDeclaration(
+  avancement: OfAvancement | undefined,
+  quantityDone: number
+): boolean {
+  return ecartDeclarationQty(avancement, quantityDone) > 0
+}
+
+/**
  * Reste RÉELLEMENT à produire sur un OF, pièces déjà pointées déduites.
  *
  * X3 nette `RMNEXTQTY` de façon INCOHÉRENTE d'un OF à l'autre — vérifié sur deux

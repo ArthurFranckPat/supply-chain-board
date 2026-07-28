@@ -1,6 +1,12 @@
 import { test } from '@japa/runner'
 import type { OperationRecord } from '#repositories/operation_repository'
-import { computeAvancement, estOfFantome, resteAProduire } from '#app/domain/of_avancement'
+import {
+  computeAvancement,
+  ecartDeclarationQty,
+  estEcartDeclaration,
+  estOfFantome,
+  resteAProduire,
+} from '#app/domain/of_avancement'
 
 function op(
   mfgnum: string,
@@ -189,5 +195,52 @@ test.group('estOfFantome', () => {
   test('sur-pointage (105/100) compte comme gamme soldée', ({ assert }) => {
     const a = avancementDe([op('OF-Y', 5, 105, '4', 100), op('OF-Y', 10, 0, '4', 100)], 'OF-Y')
     assert.isTrue(estOfFantome(a, 5))
+  })
+})
+
+/**
+ * Écart déclaration PF vs pointage (issue #95) : DONE > qtyRealisee sur ops intermédiaires.
+ * Cas de référence `F326-02036` — déclaré 480, pointé 370.
+ */
+test.group('estEcartDeclaration', () => {
+  const avancementDe = (records: OperationRecord[], numOf: string) =>
+    computeAvancement(records).get(numOf)
+
+  test('F326-02036-like (déclaré 480, pointé 370) → écart 110', ({ assert }) => {
+    const a = avancementDe(
+      [
+        op('F326-02036', 10, 370, '4', 1716),
+        op('F326-02036', 20, 370, '4', 1716),
+        op('F326-02036', 999, 0, '2', 1716),
+      ],
+      'F326-02036'
+    )
+    assert.equal(a!.qtyRealisee, 370)
+    assert.equal(ecartDeclarationQty(a, 480), 110)
+    assert.isTrue(estEcartDeclaration(a, 480))
+  })
+
+  test('DONE aligné sur pointage → pas d’écart', ({ assert }) => {
+    const a = avancementDe([op('OF-OK', 10, 200, '4', 500), op('OF-OK', 999, 0, '2', 500)], 'OF-OK')
+    assert.equal(ecartDeclarationQty(a, 200), 0)
+    assert.isFalse(estEcartDeclaration(a, 200))
+  })
+
+  test('gamme mono-opération → indécidable, pas d’écart', ({ assert }) => {
+    const a = avancementDe([op('OF-MONO', 10, 50, '4', 100)], 'OF-MONO')
+    assert.isFalse(estEcartDeclaration(a, 80))
+    assert.equal(ecartDeclarationQty(a, 80), 0)
+  })
+
+  test('OF non débuté (rien pointé) → pas d’écart même si DONE > 0', ({ assert }) => {
+    const a = avancementDe([op('OF-ND', 10, 0, '1', 100), op('OF-ND', 999, 0, '1', 100)], 'OF-ND')
+    assert.isFalse(estEcartDeclaration(a, 50))
+  })
+
+  test('avancement undefined ou DONE ≤ 0 → pas d’écart', ({ assert }) => {
+    assert.isFalse(estEcartDeclaration(undefined, 100))
+    assert.equal(ecartDeclarationQty(undefined, 100), 0)
+    const a = avancementDe([op('OF-Z', 10, 50, '4', 100), op('OF-Z', 999, 0, '2', 100)], 'OF-Z')
+    assert.isFalse(estEcartDeclaration(a, 0))
   })
 })

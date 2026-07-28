@@ -19,7 +19,13 @@ import {
   netDemandsByAllocation,
   type OrderImpactResult,
 } from '#app/domain/order_impacts'
-import { computeAvancement, estOfFantome, resteAProduire } from '#app/domain/of_avancement'
+import {
+  computeAvancement,
+  ecartDeclarationQty,
+  estEcartDeclaration,
+  estOfFantome,
+  resteAProduire,
+} from '#app/domain/of_avancement'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
 import {
@@ -95,10 +101,24 @@ export interface PhantomOf {
   qtyPrevueOp: number
 }
 
+/**
+ * OF dont la déclaration PF (ORDERS CPLQTY ≈ launched − remain) dépasse le pointage
+ * de la dernière op intermédiaire (issue #95). Signalé, pas retiré de l'offre.
+ */
+export interface EcartDeclarationOf {
+  numOf: string
+  article: string
+  qtyDeclaree: number
+  qtyPointee: number
+  ecart: number
+}
+
 export interface OrderImpactsContext {
   result: OrderImpactResult
   /** OF fantômes écartés de l'offre (gamme soldée, reste ORDERS non nul). */
   phantomOfs: PhantomOf[]
+  /** OF sur-déclarés PF vs pointage atelier (issue #95). */
+  ecartDeclarations: EcartDeclarationOf[]
   /** Catalogue article (PF + composants), avec descriptions issues de la BOM. */
   articles: Map<string, Article>
   nomenclatures: Map<string, Nomenclature>
@@ -325,6 +345,32 @@ export async function loadOrderImpacts(
   }
   finalOfFlows = finalOfFlows.filter((f) => !estFantome(f))
   matchingOnlySupply = matchingOnlySupply.filter((f) => !estFantome(f))
+
+  // ÉCARTS DÉCLARATION (issue #95) : DONE > pointage intermédiaire. DONE dérivé de
+  // launched − remain (invariant ORDERS EXTQTY = CPLQTY + RMNEXTQTY). Signalés sans
+  // retirer l'OF de l'offre — contrairement aux fantômes.
+  const ecartSeen = new Set<string>()
+  const ecartDeclarations: EcartDeclarationOf[] = []
+  const collectEcart = (f: Flow) => {
+    const id = numOfDe(f)
+    if (!id || ecartSeen.has(id)) return
+    const launched = (f.origin as { launched?: number }).launched
+    if (launched == null) return
+    const qtyDeclaree = Math.max(0, launched - f.quantity)
+    const av = avancementByOf.get(id)
+    if (!estEcartDeclaration(av, qtyDeclaree)) return
+    ecartSeen.add(id)
+    ecartDeclarations.push({
+      numOf: id,
+      article: f.article,
+      qtyDeclaree,
+      qtyPointee: av?.qtyRealisee ?? 0,
+      ecart: ecartDeclarationQty(av, qtyDeclaree),
+    })
+  }
+  for (const f of finalOfFlows) collectEcart(f)
+  for (const f of matchingOnlySupply) collectEcart(f)
+  ecartDeclarations.sort((a, b) => b.ecart - a.ecart)
   for (const materials of mfgByOf.values()) {
     for (const m of materials) if (m.article) articleSet.add(m.article)
   }
@@ -475,6 +521,7 @@ export async function loadOrderImpacts(
   return {
     result,
     phantomOfs,
+    ecartDeclarations,
     articles,
     nomenclatures,
     ofPegs,
