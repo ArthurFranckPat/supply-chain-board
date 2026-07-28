@@ -45,7 +45,15 @@ avant de pousser ».
 
 **NEVER run the full test suite** en local (`node ace test` sans filtre, `jest`, etc.).
 
-- Gate rapide : `npm run typecheck`.
+- Gate rapide : `npm run typecheck` **ET** `npm run lint`.
+  - Les deux, systématiquement, avant tout commit. Le typecheck ne voit ni le
+    formatage prettier ni les règles ESLint (`no-shadow`, etc.) : la CI a un job
+    `Lint` séparé qui bloque sur ces erreurs-là.
+  - Lint ciblé quand le diff est petit : `npx eslint <fichiers touchés>`.
+  - Corriger le formatage : `npx prettier --write <fichiers touchés>` — jamais
+    `npm run format` (réécrit tout le repo, y compris le travail des autres).
+  - Ne corriger QUE ses propres fichiers. Une erreur de lint préexistante dans un
+    fichier qu'on ne touche pas appartient à un autre chantier.
 - Tests ciblés uniquement : un seul fichier ou un grep précis.
   - Ex. : `npx node ace test --files="recursive_diagnostic_checker"` (noms de
     fichiers en **snake_case**, convention AdonisJS).
@@ -58,8 +66,8 @@ avant de pousser ».
 
 ## Build
 
-`npm run typecheck` reste le gate par défaut : le dev server tourne déjà, et un
-build ne dit rien de plus dans la grande majorité des cas.
+`npm run typecheck` + `npm run lint` restent le gate par défaut : le dev server
+tourne déjà, et un build ne dit rien de plus dans la grande majorité des cas.
 
 Un build local est **autorisé quand il apporte ce que le typecheck ne voit pas**
 (assets Vite, `metaFiles`, résolution ESM au packaging) — à condition de
