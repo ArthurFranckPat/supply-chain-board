@@ -14,13 +14,7 @@ import { loadOrderLineDetail } from '#services/order_line_detail_loader'
 import { loadStockArticleDetail, StockDetailBadRequest } from '#services/stock_detail_loader'
 import { buildStockBreakdownMap } from '#services/suivi_service'
 import type { PlanMutation } from '#app/domain/plan_diff'
-
-function isoDay(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
+import { isoDay, mondayOf } from '#app/utils/dates'
 
 /** Invalide caches board (live X3 au prochain accès). */
 export async function rafraichir(article?: string) {
@@ -618,14 +612,6 @@ export async function getDetailCommande(params: { numCommande: string; ligne: st
 /** Somme des heures d'une période de charge (fermes+planifiés+suggérés+induits). */
 function periodTotal(p: { f: number; p: number; s: number; fi: number; si: number }): number {
   return p.f + p.p + p.s + p.fi + p.si
-}
-
-/** Lundi (00:00) de la semaine contenant `d`. */
-function mondayOf(d: Date): Date {
-  const m = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const shift = (m.getDay() + 6) % 7
-  m.setDate(m.getDate() - shift)
-  return m
 }
 
 /**

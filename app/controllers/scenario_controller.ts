@@ -4,6 +4,7 @@ import { ScenarioStore } from '#services/scenario_store'
 import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
 import type { PlanMutation } from '#app/domain/plan_diff'
 import type { AllocationStrategy } from '#app/domain/of_conso'
+import { isoDay } from '#app/utils/dates'
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -220,14 +221,6 @@ export default class ScenarioController {
       dataAt,
     })
   }
-}
-
-/** ISO jour sur les composantes locales — `toISOString` recule d'un jour à minuit en UTC+n. */
-function isoDay(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 /** Garde-fou : ne conserver que des objets porteurs d'un `type` de mutation connu. */

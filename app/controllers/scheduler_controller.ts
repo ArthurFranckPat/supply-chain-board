@@ -5,7 +5,7 @@ import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
-import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { groupGammeByArticle, hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadPosteEngagement, loadPosteSummaries } from '#services/poste_engagement_loader'
 import { loadBoardData } from '#services/board_payload_loader'
@@ -476,9 +476,10 @@ export default class SchedulerController {
       // serve empty detail
     }
 
-    const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+    const opsByArticle = groupGammeByArticle(gammeOps)
     const ov = overrides.find((o) => o.numOf === num) ?? null
-    const wst = ov?.workstation ?? (mo ? (gammeMap.get(mo.article)?.workstation ?? null) : null)
+    const primary = mo ? opsByArticle.get(mo.article)?.[0] : undefined
+    const wst = ov?.workstation ?? primary?.workstation ?? null
     const wstLabel = wst
       ? (gammeOps.find((g) => g.workstation === wst)?.workstationLabel ?? wst)
       : null
@@ -489,7 +490,8 @@ export default class SchedulerController {
       (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
 
     // Arrondi au dixième conservé ici (affichage drawer OF) — cf. hoursForQuantity.
-    const hours = mo ? Math.round(hoursForQuantity(gammeMap.get(mo.article), mo.quantity) * 10) / 10 : 0
+    // Poste + heures = 1ʳᵉ op (même règle que le board), pas last-wins.
+    const hours = mo ? Math.round(hoursForQuantity(primary, mo.quantity) * 10) / 10 : 0
 
     const qtyLaunched = mo?.quantityLaunched ?? 0
     const qtyDone = mo?.quantityDone ?? 0

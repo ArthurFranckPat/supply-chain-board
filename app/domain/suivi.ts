@@ -22,6 +22,7 @@
  */
 
 import { resteAFabriquer } from './models/orders_qty.js'
+import { atMidnight, isoDay } from '#app/utils/dates'
 
 // ---------------------------------------------------------------------------
 // Modèles
@@ -770,20 +771,6 @@ export interface PaletteSummary {
 function computeCamions(palettesStd: number, palettesEh: number): number {
   const equiv = palettesStd + palettesEh * EH_TO_EUROP_RATIO
   return Math.ceil(equiv / EUROP_PER_CAMION)
-}
-
-/** Tronque une date à minuit local (comparaisons jour à jour). */
-function atMidnight(d: Date): Date {
-  const c = new Date(d)
-  c.setHours(0, 0, 0, 0)
-  return c
-}
-
-function isoDay(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 function ddmm(d: Date): string {

@@ -37,6 +37,7 @@ import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
 import { workingDaysBetween } from '#app/domain/holidays'
+import { groupGammeByArticle } from '#app/domain/models/gamme'
 
 /** Seuil de tolérance (jours ouvrés) pour le badge « retard récent ». */
 export const LATE_TOLERANCE_DAYS = 1
@@ -53,7 +54,7 @@ export interface AtelierOption {
 }
 
 /**
- * Rattachement d'un article à son poste de gamme (dernière opération gagne) :
+ * Rattachement d'un article à son poste de gamme (1ʳᵉ op OPENUM) :
  * atelier (STOLOC du poste) + poste de charge (code WST_0 + libellé WSTDES_0).
  */
 export interface ArticleGammeRef extends AtelierOption {
@@ -65,8 +66,8 @@ export interface ArticleGammeRef extends AtelierOption {
 
 /**
  * Map article → rattachement gamme (atelier + poste de charge), via le référentiel
- * partagé (boardDataset, cache SWR commun avec /charge). Miroir exact de load_controller :
- * un article a un poste de gamme (dernière opération gagne), dont le STOLOC est l'atelier.
+ * partagé (boardDataset, cache SWR commun avec /charge). 1ʳᵉ opération (OPENUM),
+ * pas last-wins — issue #96.
  * Dégrade en map vide si le référentiel est indisponible → pas de filtre atelier, page OK.
  */
 async function buildAtelierByArticle(): Promise<Map<string, ArticleGammeRef>> {
@@ -74,9 +75,9 @@ async function buildAtelierByArticle(): Promise<Map<string, ArticleGammeRef>> {
   try {
     const ref = await boardDataset.getReferential()
     const wstByCode = new Map((ref.workstations ?? []).map((w) => [w.code, w]))
-    const gammeByArticle = new Map(ref.gamme.map((g) => [g.article, g]))
-    for (const [article, g] of gammeByArticle) {
-      if (!article || !g.workstation) continue
+    for (const [article, ops] of groupGammeByArticle(ref.gamme)) {
+      const g = ops[0]
+      if (!article || !g?.workstation) continue
       const wst = wstByCode.get(g.workstation)
       const stoloc = (wst?.stockLocation ?? '').trim()
       out.set(article, {

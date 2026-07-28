@@ -4,7 +4,7 @@ import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { timeStage } from '#services/perf_metrics'
 import type { Article } from '#app/domain/models/article'
-import { hoursForQuantity } from '#app/domain/models/gamme'
+import { groupGammeByArticle, hoursForQuantity } from '#app/domain/models/gamme'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
 import type { ManufacturingOrder } from '#repositories/of_repository'
@@ -117,10 +117,10 @@ const engagementCache = () => cache.namespace('engagement')
 const resolvePoste = (
   mo: ManufacturingOrder,
   overrideMap: Map<string, { workstation: string | null }>,
-  gammeMap: Map<string, { workstation: string | null }>
+  opsByArticle: Map<string, { workstation: string | null }[]>
 ): string | null => {
   const ov = overrideMap.get(mo.numOf)
-  return ov?.workstation ?? gammeMap.get(mo.article)?.workstation ?? null
+  return ov?.workstation ?? opsByArticle.get(mo.article)?.[0]?.workstation ?? null
 }
 
 const weeklyCapacityOf = (
@@ -159,13 +159,13 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
         new OverrideStore().getAll(),
       ])
 
-      const gammeMap = new Map(ref.gamme.map((g) => [g.article, g]))
+      const opsByArticle = groupGammeByArticle(ref.gamme)
       const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
       const fermesByPoste = new Map<string, ManufacturingOrder[]>()
       for (const mo of ord.mos) {
         if (mo.status !== 1) continue
-        const poste = resolvePoste(mo, overrideMap, gammeMap)
+        const poste = resolvePoste(mo, overrideMap, opsByArticle)
         if (!poste) continue
         const list = fermesByPoste.get(poste) ?? []
         list.push(mo)
@@ -197,7 +197,9 @@ export async function loadPosteSummaries(force = false): Promise<EngagementSumma
           .map((mo) => {
             const ov = overrideMap.get(mo.numOf)
             // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
-            const hours = Math.round(hoursForQuantity(gammeMap.get(mo.article), mo.quantity) * 10) / 10
+            const hours = Math.round(
+              hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10
+            ) / 10
             const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
             return {
               numOf: mo.numOf,
@@ -265,11 +267,11 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
         new OverrideStore().getAll(),
       ])
 
-      const gammeMap = new Map(ref.gamme.map((g) => [g.article, g]))
+      const opsByArticle = groupGammeByArticle(ref.gamme)
       const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
       const fermes = ord.mos.filter(
-        (mo) => mo.status === 1 && resolvePoste(mo, overrideMap, gammeMap) === poste
+        (mo) => mo.status === 1 && resolvePoste(mo, overrideMap, opsByArticle) === poste
       )
       const fermeNums = new Set(fermes.map((m) => m.numOf))
 
@@ -352,7 +354,9 @@ export async function loadPosteEngagement(poste: string, force = false): Promise
         .map((mo) => {
           const ov = overrideMap.get(mo.numOf)
           // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
-          const hours = Math.round(hoursForQuantity(gammeMap.get(mo.article), mo.quantity) * 10) / 10
+          const hours = Math.round(
+            hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10
+          ) / 10
           const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
           const commandes = (byOf.get(mo.numOf) ?? []).sort((a, b) =>
             (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')

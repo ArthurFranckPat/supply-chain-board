@@ -14,7 +14,7 @@ import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import { OverrideStore } from '#services/override_store'
 import { timeStage } from '#services/perf_metrics'
-import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { groupGammeByArticle, hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
@@ -273,7 +273,7 @@ export async function loadBoardData(
 
   const overrides = await new OverrideStore().getAll()
   const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
-  const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+  const opsByArticle = groupGammeByArticle(gammeOps)
 
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
@@ -347,7 +347,9 @@ export async function loadBoardData(
 
   for (const mo of mos) {
     const ov = overrideMap.get(mo.numOf) ?? null
-    const wst = ov?.workstation ?? gammeMap.get(mo.article)?.workstation ?? null
+    // 1ʳᵉ op (OPENUM) = poste d'affichage board — pas last-wins (issue #96).
+    const primary = opsByArticle.get(mo.article)?.[0]
+    const wst = ov?.workstation ?? primary?.workstation ?? null
     if (!wst) continue
     if (!wstLabels.has(wst)) wstLabels.set(wst, wst)
 
@@ -356,7 +358,7 @@ export async function loadBoardData(
     const idx = resolveColIdx(start)
     if (idx === undefined) continue
 
-    const rate = gammeMap.get(mo.article)?.rate ?? 0
+    const rate = primary?.rate ?? 0
     const hours = hoursForQuantity({ rate }, mo.quantity)
     dayHours[idx] += hours
 

@@ -227,8 +227,9 @@ class StubChargeCalculator implements ChargeCalculatorPort {
  * par poste de charge (workstation), source = référentiel partagé `boardDataset` (cache SWR,
  * même source que /charge). Remplace le stub pour le KPI « charge en retard ».
  *
- * v1 : `calculateRecursiveCharge` = `calculateDirectCharge` — seule la charge du PF (gamme
- * directe) est comptée ; les sous-ensembles fabriqués ne sont PAS encore sommés (à itérer).
+ * `calculateRecursiveCharge` = charge directe du PF : choix v1 assumé (issue #96), pas un
+ * stub inachevé. Brancher `explodeCharge` gonflerait le KPI des sous-ensembles — arbitrage
+ * métier avant.
  */
 class GammeChargeCalculator implements ChargeCalculatorPort {
   constructor(
@@ -247,6 +248,7 @@ class GammeChargeCalculator implements ChargeCalculatorPort {
     }
     return out
   }
+  /** Volontairement = directe (PF seul). Voir doc de classe. */
   calculateRecursiveCharge(article: string, quantity: number): Record<string, number> {
     return this.calculateDirectCharge(article, quantity)
   }

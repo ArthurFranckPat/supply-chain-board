@@ -4,20 +4,26 @@ import staticSync from '#services/static_sync_service'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { OverrideStore } from '#services/override_store'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
-import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { explodeCharge } from '#app/domain/charge_explosion'
+import {
+  groupGammeByArticle,
+  hoursForQuantity,
+  type GammeOperation,
+} from '#app/domain/models/gamme'
 import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
-import {
-  isManufactured,
-  requiredQuantity,
-  type NomenclatureEntry,
-} from '#app/domain/models/nomenclature'
+import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Workstation } from '#app/domain/models/workstation'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
 import { atelierLabel } from '#app/domain/atelier'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { remapDemandDates } from '#app/domain/order_impacts_assembly'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
+
+/** Opération « porteuse » pour placer une carte PF : 1ʳᵉ op (OPENUM), pas last-wins. */
+function primaryOp(ops: GammeOperation[] | undefined): GammeOperation | undefined {
+  return ops?.[0]
+}
 
 /** Statut OF (WIPSTA) → ton carte. Source = OF alloué par le matcher, pas la contremarque. */
 type OfCardStatus = 'ferme' | 'planifie' | 'suggere'
@@ -173,10 +179,10 @@ function makeOrderCard(p: {
 }
 
 /**
- * Carte induite (ghost) — besoin brut depth-1, REGROUPÉE par poste × jour ×
- * composant : un composant FABRIQUÉ (ex. BDH) à produire sur son poste, agrégeant
- * tous les besoins induits par les commandes du jour. Non-draggable, toujours
- * visible (exclue des filtres via le flag `induit`).
+ * Carte induite (ghost) — besoin brut depth-1 via `explodeCharge`, REGROUPÉE
+ * par poste × jour × composant : un composant FABRIQUÉ (ex. BDH) à produire sur
+ * son poste, agrégeant tous les besoins induits par les commandes du jour.
+ * Non-draggable, toujours visible (exclue des filtres via le flag `induit`).
  *
  * • header (card.article, via CardView) = code composant (le BDH à produire).
  * • customer = libellé de source : « pour {PF} » (1 parent) ou « pour N commandes ».
@@ -334,9 +340,10 @@ export async function loadOrderBoardData(
   let bdhParents: Set<string> = new Set()
   let typologieByArticle = new Map<string, string>()
   let stockBouchesHygro: number | null = null
-  // BOM depth-1 (composants FABRIQUÉS uniquement) pour la charge induite.
-  // Les composants ACHETÉS n'ont pas de gamme/poste → pas de charge induite.
+  // BOM (composants FABRIQUÉS) pour explodeCharge — achetés exclus (pas de poste).
   let bomByParent = new Map<string, NomenclatureEntry[]>()
+  /** Libellé composant pour cartes induites (absent de ChargeRaw). */
+  const componentDesc = new Map<string, string>()
   // Entrées matcher commande→OF (statut pastille) — hoistés hors try pour matching post-override.
   let matchDemand: Flow[] = []
   let matchSupply: Flow[] = []
@@ -368,6 +375,7 @@ export async function loadOrderBoardData(
       const arr = bomByParent.get(e.parentArticle)
       if (arr) arr.push(e)
       else bomByParent.set(e.parentArticle, [e])
+      if (e.componentDescription) componentDesc.set(e.componentArticle, e.componentDescription)
     }
     for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
     // Stock des bouches hygro (strict+qc) pour le header PP_830 (issue #42).
@@ -417,7 +425,7 @@ export async function loadOrderBoardData(
   }
 
   const overrideMap = await new OrderLineOverrideStore().getMap()
-  const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+  const opsByArticle = groupGammeByArticle(gammeOps)
   const wstByCode = new Map(workstations.map((w) => [w.code, w]))
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
@@ -486,7 +494,7 @@ export async function loadOrderBoardData(
   const induitGroups = new Map<string, InduitGroup>()
 
   for (const line of ordreLignes) {
-    const op = gammeMap.get(line.article)
+    const op = primaryOp(opsByArticle.get(line.article))
     const workstation = op?.workstation ?? null
     if (!workstation) continue
     if (!wstLabels.has(workstation)) wstLabels.set(workstation, workstation)
@@ -528,42 +536,60 @@ export async function loadOrderBoardData(
       else cur.sans += hours
       b.byTypo.set(typo, cur)
     }
+  }
 
-    // ── Charge induite (besoin brut depth-1, issue #42) ──
-    // Pour chaque composant FABRIQUÉ du PF : on calcule la charge sur le poste
-    // DU COMPOSANT (ex. BDH → PP_153), à la même date que la commande parente.
-    // On accumule par (poste, jour, composant) — les cartes fusionnées sont
-    // émises après la boucle. Brut : ni netting (stock/OF) ni offset de lead time.
-    const bom = bomByParent.get(line.article)
-    if (bom) {
-      for (const entry of bom) {
-        const compGamme = gammeMap.get(entry.componentArticle)
-        const compPoste = compGamme?.workstation
-        if (!compPoste) continue // composant non routé sur un poste → ignoré
-        const compQty = requiredQuantity(entry, line.quantite)
-        const compHours = hoursForQuantity(compGamme, compQty)
-        if (compHours <= 0) continue
-        if (!wstLabels.has(compPoste)) {
-          wstLabels.set(compPoste, compGamme!.workstationLabel || compPoste)
-        }
-        const key = `${compPoste}|${idx}|${entry.componentArticle}`
-        let g = induitGroups.get(key)
-        if (!g) {
-          g = {
-            poste: compPoste,
-            idx,
-            componentArticle: entry.componentArticle,
-            componentDesignation: entry.componentDescription ?? null,
-            totalQty: 0,
-            totalHours: 0,
-            parents: new Map(),
-          }
-          induitGroups.set(key, g)
-        }
-        g.totalQty += compQty
-        g.totalHours += compHours
-        g.parents.set(`${line.numCommande}#${line.ligne}`, line.article)
+  // ── Charge induite via explodeCharge (maxDepth=1, issue #96) ──
+  // Même moteur que /charge ; profondeur 1 = comportement historique du board
+  // (cartes ghost composants FABRIQUÉS uniquement). Brut : ni netting ni lead time.
+  const induitRaws = explodeCharge(
+    ordreLignes.map((line) => {
+      const overrideKey = `${line.numCommande}#${line.ligne}`
+      const dateStr = overrideMap.get(overrideKey) ?? isoDay(line.dateLivraison)
+      return {
+        article: line.article,
+        quantite: line.quantite,
+        date: atMidnight(new Date(dateStr)),
+        nature: (line.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
+        source: {
+          numCommande: line.numCommande,
+          ligne: line.ligne,
+          client: line.client,
+          pfArticle: line.article,
+        },
       }
+    }),
+    bomByParent,
+    opsByArticle,
+    1
+  )
+  for (const r of induitRaws) {
+    if (r.depth === 0) continue
+    const idx = colIdx.get(isoDay(r.date))
+    if (idx === undefined) continue
+    const hours = hoursForQuantity(r, r.qty)
+    if (hours <= 0) continue
+    if (!wstLabels.has(r.wst)) wstLabels.set(r.wst, r.wst)
+    const key = `${r.wst}|${idx}|${r.article}`
+    let g = induitGroups.get(key)
+    if (!g) {
+      g = {
+        poste: r.wst,
+        idx,
+        componentArticle: r.article,
+        componentDesignation: componentDesc.get(r.article) ?? null,
+        totalQty: 0,
+        totalHours: 0,
+        parents: new Map(),
+      }
+      induitGroups.set(key, g)
+    }
+    g.totalQty += r.qty
+    g.totalHours += hours
+    if (r.source?.numCommande != null) {
+      g.parents.set(
+        `${r.source.numCommande}#${r.source.ligne ?? ''}`,
+        r.source.pfArticle
+      )
     }
   }
 
