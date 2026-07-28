@@ -58,6 +58,42 @@ export const MCP_APPS: readonly McpAppDefinition[] = [
     toolName: 'projeterStock',
     resourceUri: 'ui://supply-board/stock',
   },
+  {
+    name: 'receptions',
+    title: 'Réceptions fournisseurs',
+    description:
+      'Charge palettes attendues par jour sur la fenêtre : histogramme du quai, ' +
+      'pic de déchargement, et détail commande par commande en plein écran.',
+    toolName: 'listerReceptions',
+    resourceUri: 'ui://supply-board/receptions',
+  },
+  {
+    name: 'ruptures',
+    title: 'Ruptures composants',
+    description:
+      'Composants manquants classés par criticité : barres par quantité et verdict ' +
+      '(sans couverture à escalader), réception couvrante, OF et commande impactés.',
+    toolName: 'listerRuptures',
+    resourceUri: 'ui://supply-board/ruptures',
+  },
+  {
+    name: 'retards',
+    title: 'Retards prévus',
+    description:
+      'Demandes dont la promesse dépasse la date besoin sur l’horizon : ' +
+      'retard par demande, causes limitantes, demandes irréalisables isolées.',
+    toolName: 'listerRetardsPrevus',
+    resourceUri: 'ui://supply-board/retards',
+  },
+  {
+    name: 'promesse',
+    title: 'Date promesse (CTP)',
+    description:
+      'Date au plus tôt (Capable-to-Promise) pour un couple article/quantité : ' +
+      'frise du chemin critique, facteur limitant, dates optimiste et engageante.',
+    toolName: 'getPromise',
+    resourceUri: 'ui://supply-board/promesse',
+  },
 ]
 
 /** L'app rattachée à un tool, s'il en a une. */
