@@ -2,6 +2,7 @@ import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import boardDataset from '#services/board_dataset'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
+import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
 import type { Flow, OrderType } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
@@ -48,19 +49,6 @@ SELECT
 FROM ITMMVT
 WHERE ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')})
 GROUP BY ITMREF_0
-`
-
-// Temps opératoire réellement déclaré par OF (réglage + opératoire, en heures — TIMUOMCOD_0
-// "Heures" sur ce site). Se met à jour à chaque déclaration d'opération, contrairement à
-// CPLQTY_0 (ORDERS/OF) qui n'avance qu'à la déclaration finale (entrée stock) — capte
-// l'avancement réel des OF longs avant leur clôture.
-const buildOpTimeSql = (mfgnums: string[]) => `
-SELECT
-  MFGNUM_0 AS MFGNUM,
-  SUM(CPLOPETIM_0 + CPLSETTIM_0) AS HEURES_REALISEES
-FROM MFGOPE
-WHERE MFGNUM_0 IN (${mfgnums.map((n) => `'${n.replace(/'/g, "''")}'`).join(',')})
-GROUP BY MFGNUM_0
 `
 
 // Tolérance de date du matcher OF↔commande — même valeur que poste_engagement_loader.ts
@@ -222,8 +210,9 @@ export class RetardRepository {
     const results = matcher.matchCommandes(demandFlows)
     const resultByFlow = new Map(results.map((r) => [r.demandFlow, r]))
 
-    // Heures déjà réalisées (MFGOPE) pour les OF que le matcher a retenus — évite de
-    // requêter tous les OF ouverts, seulement ceux effectivement assignés à une ligne.
+    // Avancement pièces (MFGOPE CPLQTY ops intermédiaires) — même helper que /suivi
+    // proactif et /charge (`computeAvancement` + `resteAProduire`). Remplace l'ancien
+    // crédit heures CPLOPETIM/CPLSETTIM qui divergait du reste de l'app.
     const assignedOfNums = new Set<string>()
     for (const r of results) {
       for (const alloc of r.ofAllocations) {
@@ -231,24 +220,9 @@ export class RetardRepository {
         if (id) assignedOfNums.add(id)
       }
     }
-    const heuresByOf = new Map<string, number>()
-    if (assignedOfNums.size > 0) {
-      const mfgnums = [...assignedOfNums]
-      const opDb = new X3Database()
-      try {
-        for (let i = 0; i < mfgnums.length; i += 1000) {
-          const chunk = mfgnums.slice(i, i + 1000)
-          const timeRows: RawRow[] = await opDb.raw(buildOpTimeSql(chunk))
-          for (const tr of timeRows) {
-            const mfgnum = tr.MFGNUM?.trim()
-            if (!mfgnum) continue
-            heuresByOf.set(mfgnum, Math.max(0, Number.parseFloat(tr.HEURES_REALISEES ?? '0') || 0))
-          }
-        }
-      } finally {
-        await opDb.destroy()
-      }
-    }
+    const operations =
+      assignedOfNums.size > 0 ? await boardDataset.getOperations([...assignedOfNums]) : []
+    const avancementByOf = computeAvancement(operations)
 
     const posteAccum = new Map<string, { label: string; heures: number }>()
     const lignes: RetardLigne[] = []
@@ -256,37 +230,34 @@ export class RetardRepository {
     for (const [i, p] of pending.entries()) {
       const demandFlow = demandFlows[i]
       const row = p.row
+      const result = resultByFlow.get(demandFlow)
+
+      // Charge restante = portion OF encore à produire (resteAProduire, prorata alloc)
+      // + part commande non couverte par OF (pleine — pas d'avancement atelier).
+      let qteCharge = 0
+      let qteCouverte = 0
+      if (result) {
+        for (const alloc of result.ofAllocations) {
+          const origin = alloc.ofFlow.origin as { id?: string; launched?: number }
+          const ofId = origin.id?.trim()
+          if (!ofId || alloc.ofFlow.quantity <= 0 || alloc.qteAllouee <= 0) continue
+          qteCouverte += alloc.qteAllouee
+          const ofReste = resteAProduire(
+            alloc.ofFlow.quantity,
+            origin.launched,
+            avancementByOf.get(ofId)?.qtyRealisee ?? 0
+          )
+          const fracRestante = ofReste / alloc.ofFlow.quantity
+          qteCharge += alloc.qteAllouee * fracRestante
+        }
+      }
+      qteCharge += Math.max(0, p.qteAProduire - qteCouverte)
+      if (Math.round(qteCharge * 10) / 10 <= 0) continue
 
       const byPoste: Record<string, number> = {}
       for (const op of p.ops) {
-        byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + p.qteAProduire / op.rate
+        byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qteCharge / op.rate
       }
-
-      // Crédite l'avancement réel des OF assignés par le matcher (heures déjà
-      // réalisées, MFGOPE), au prorata de la part de l'OF allouée à CETTE ligne
-      // (qteAllouee / quantité totale de l'OF) — un OF peut servir plusieurs lignes.
-      const result = resultByFlow.get(demandFlow)
-      let creditDispo = 0
-      if (result) {
-        for (const alloc of result.ofAllocations) {
-          const ofId = (alloc.ofFlow.origin as { id?: string }).id?.trim()
-          if (!ofId || alloc.ofFlow.quantity <= 0) continue
-          const heures = heuresByOf.get(ofId) ?? 0
-          creditDispo += heures * (alloc.qteAllouee / alloc.ofFlow.quantity)
-        }
-      }
-
-      if (creditDispo > 0) {
-        const totalLigne = Object.values(byPoste).reduce((s, h) => s + h, 0)
-        if (totalLigne > 0) {
-          const creditUse = Math.min(creditDispo, totalLigne)
-          const ratio = creditUse / totalLigne
-          for (const ws of Object.keys(byPoste)) byPoste[ws] *= 1 - ratio
-        }
-      }
-
-      const totalLigneApresCredit = Object.values(byPoste).reduce((s, h) => s + h, 0)
-      if (Math.round(totalLigneApresCredit * 10) / 10 <= 0) continue
 
       for (const [ws, h] of Object.entries(byPoste)) {
         const label = p.ops.find((o) => o.workstation === ws)?.label ?? ws
