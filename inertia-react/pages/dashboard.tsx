@@ -1354,7 +1354,7 @@ export default function Dashboard(props: DashboardProps) {
                                   className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground"
                                   title={
                                     l.qteAProduire > 0
-                                      ? `${l.qteFaite} réalisées / ${l.qteAProduire} à produire (reste ${l.qteRestante})`
+                                      ? `${l.qteFaite} pointées / ${l.qteAProduire} lancées OF — reste charge ${l.qteRestante}`
                                       : undefined
                                   }
                                 >
