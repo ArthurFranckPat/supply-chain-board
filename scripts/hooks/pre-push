@@ -1,32 +1,81 @@
 #!/bin/sh
-# pre-push — reproduit EN LOCAL les jobs bloquants de la CI.
+# pre-push — rejoue EN LOCAL les jobs bloquants de la CI, en quelques secondes.
 #
 # On pousse directement sur master : la protection de branche GitHub ne sert alors à
 # rien (les checks requis ne gouvernent que les PR, et `enforce_admins` est à false).
 # Le seul endroit où un push cassé peut encore être refusé, c'est ici.
 #
-# Miroir des jobs CI « Quality » et « Build » — voir .github/workflows. Les tests ne
-# tournent PAS ici : la suite complète est interdite en local (cf. CLAUDE.md), c'est
-# le job « Tests unitaires » qui les porte. Surveiller le run après le push reste donc
-# obligatoire.
+# Budget : ~3 s à chaud. Trois leviers, parce qu'un gate qu'on subit finit contourné :
+#   - typecheck INCRÉMENTAL (cache dans node_modules/.cache/tsc) : 1,7 s au lieu de 10,7 s ;
+#   - lint sur les SEULS fichiers modifiés vs origin/master : 1,4 s au lieu de 6,3 s ;
+#   - les deux EN PARALLÈLE.
+# Premier push après un `npm ci` (cache froid) : ~10 s, une fois.
+#
+# Les tests ne tournent PAS ici : la suite complète est interdite en local (cf. CLAUDE.md),
+# c'est le job CI « Tests unitaires » qui les porte. Surveiller le run après le push reste
+# donc obligatoire.
 #
 # Installation (hook non versionné par git) :
 #   cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 #
-# Contournement d'urgence : git push --no-verify (à n'utiliser qu'en connaissance
-# de cause — le run CI, lui, ne se contourne pas).
+# Contournement : git push --no-verify (le run CI, lui, ne se contourne pas).
 
-set -e
+CACHE=node_modules/.cache/tsc
+mkdir -p "$CACHE"
+
+BIN=node_modules/.bin
+
+# Fichiers TS/TSX à pousser, vs origin/master.
+#  - base trouvée + fichiers TS   → lint ciblé (~1 s) ;
+#  - base trouvée + aucun TS      → lint SAUTÉ (commit de doc, de conf…) ;
+#  - base introuvable (remote absent, 1er push) → périmètre complet, lent mais pas borgne.
+BASE=$(git merge-base origin/master HEAD 2>/dev/null)
+if [ -n "$BASE" ]; then
+  FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- '*.ts' '*.tsx' | tr '\n' ' ')
+  LINT_SCOPE=cible
+else
+  FILES=""
+  LINT_SCOPE=complet
+fi
 
 echo "🔍 Pré-push : contrôles bloquants"
 
-echo "  → typecheck (app + inertia-react)"
-npm run --silent typecheck
+(
+  "$BIN/tsc" --noEmit --incremental --tsBuildInfoFile "$CACHE/app.tsbuildinfo" &&
+    "$BIN/tsc" -p inertia-react/tsconfig.json --noEmit --incremental \
+      --tsBuildInfoFile "$CACHE/inertia.tsbuildinfo"
+) >/tmp/prepush-tsc.log 2>&1 &
+TSC_PID=$!
 
-echo "  → lint (eslint + prettier)"
-npm run --silent lint
+if [ "$LINT_SCOPE" = complet ]; then
+  "$BIN/eslint" . >/tmp/prepush-lint.log 2>&1 &
+elif [ -n "$FILES" ]; then
+  # shellcheck disable=SC2086
+  "$BIN/eslint" $FILES >/tmp/prepush-lint.log 2>&1 &
+else
+  true &
+fi
+LINT_PID=$!
 
-echo ""
-echo "✅ Contrôles OK. Push en cours…"
+wait $TSC_PID
+TSC=$?
+wait $LINT_PID
+LINT=$?
+
+if [ $TSC -ne 0 ]; then
+  echo "❌ typecheck"
+  cat /tmp/prepush-tsc.log
+fi
+if [ $LINT -ne 0 ]; then
+  echo "❌ lint"
+  cat /tmp/prepush-lint.log
+fi
+if [ $TSC -ne 0 ] || [ $LINT -ne 0 ]; then
+  echo ""
+  echo "Push refusé. Corriger, ou forcer avec --no-verify en connaissance de cause."
+  exit 1
+fi
+
+echo "✅ typecheck + lint OK. Push en cours…"
 echo "   ⚠️  Surveiller le run CI ensuite : gh run watch"
 exit 0

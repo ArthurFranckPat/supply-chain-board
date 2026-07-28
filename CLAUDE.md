@@ -58,8 +58,12 @@ Corollaire : **vérifier l'état de la CI AVANT de merger dans master**. Merger 
 branche déjà rouge rend indémêlable ce qu'on vient de casser.
 
 Le hook `pre-push` (`scripts/hooks/pre-push`) rejoue localement les jobs bloquants
-(typecheck + lint) et refuse le push s'ils échouent. Il n'est pas versionné par git —
-l'installer dans chaque clone/worktree :
+(typecheck + lint) et refuse le push s'ils échouent. **~3 s** : typecheck incrémental
+(cache `node_modules/.cache/tsc`), lint sur les seuls fichiers modifiés vs
+`origin/master`, les deux en parallèle. Premier push après un `npm ci` : ~8 s, une fois.
+Échappatoire assumée : `git push --no-verify` (le run CI, lui, ne se contourne pas).
+
+Il n'est pas versionné par git — l'installer dans chaque clone/worktree :
 
 ```bash
 cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
