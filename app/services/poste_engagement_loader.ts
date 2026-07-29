@@ -296,8 +296,7 @@ export async function loadPosteSummaries(
                   livraisonIso: peg.dateExpedition ? isoDay(peg.dateExpedition) : null,
                   method: 'peg' as const,
                 }))
-                r.livraisonIso =
-                  r.commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null
+                r.livraisonIso = r.commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null
               }
             }
           } catch {
