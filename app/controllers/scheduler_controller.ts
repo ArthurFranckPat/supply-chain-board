@@ -395,6 +395,8 @@ export default class SchedulerController {
       .map(([code, label]) => ({ code, label }))
       .sort((a, b) => a.label.localeCompare(b.label))
 
+    const feasibilityWindow = kind === 'lancer' ? summaries.window : null
+
     if (poste) {
       const detail = await loadPosteEngagement(poste, force, kind)
       return ctx.inertia.render('scheduler/sequenceur', {
@@ -408,6 +410,7 @@ export default class SchedulerController {
         selectedPoste: poste,
         detail: true,
         vue: kind === 'lancer' ? 'lancer' : 'engagement',
+        feasibilityWindow,
         x3Error: detail.x3Error,
       })
     }
@@ -420,7 +423,7 @@ export default class SchedulerController {
           ...r,
           posteCode: p.poste.code,
           posteLabel: p.poste.label,
-          // Pegs déjà résolus en kind=lancer ; engagement → tableaux vides.
+          // Matching loadOrderImpacts en kind=lancer ; engagement → tableaux vides.
           commandes: r.commandes ?? [],
           livraisonIso: r.livraisonIso ?? null,
         }))
@@ -428,6 +431,7 @@ export default class SchedulerController {
       selectedPoste: null,
       detail: false,
       vue: kind === 'lancer' ? 'lancer' : 'engagement',
+      feasibilityWindow,
       x3Error: null,
     })
   }

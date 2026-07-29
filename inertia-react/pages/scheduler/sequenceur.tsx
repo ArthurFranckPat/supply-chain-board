@@ -43,7 +43,7 @@ import {
   urgencyOf,
 } from '@r/lib/board/engagement-format'
 import type { FeasStatus } from '@r/lib/board/types'
-import { feasibilityWindowFromDates, fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
+import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 
@@ -83,6 +83,8 @@ interface SequenceurPageProps {
   /** true = commandes/livraison chargées (poste unique). */
   detail: boolean
   vue: VueMode
+  /** Fenêtre matching/faisabilité (vue lancer) — alignée loadOrderImpacts /programme. */
+  feasibilityWindow: { from: string; to: string } | null
   x3Error: string | null
 }
 
@@ -213,8 +215,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
   }, [props.postes, posteQuery, atelierFilter])
 
   const runFeasibility = useCallback(async () => {
-    if (feasLoading || props.rows.length === 0) return
-    const { from, to } = feasibilityWindowFromDates(props.rows.map((r) => r.dateDebutIso))
+    if (feasLoading || props.rows.length === 0 || !props.feasibilityWindow) return
+    const { from, to } = props.feasibilityWindow
     setFeasLoading(true)
     try {
       const { map } = await fetchBoardFeasibility({
@@ -250,7 +252,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     } finally {
       setFeasLoading(false)
     }
-  }, [feasLoading, props.rows, posteFilter])
+  }, [feasLoading, props.rows, props.feasibilityWindow, posteFilter])
 
   // Auto-calcul à l'entrée du mode « À lancer » (une fois le dataset prêt).
   useEffect(() => {

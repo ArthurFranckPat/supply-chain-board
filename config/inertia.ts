@@ -293,6 +293,8 @@ declare module '@adonisjs/inertia/types' {
       detail: boolean
       /** 'engagement' = OF fermes ; 'lancer' = planifiés/suggérés (#100). */
       vue: 'engagement' | 'lancer'
+      /** Fenêtre [from,to] matching/faisabilité (vue lancer) — null en engagement. */
+      feasibilityWindow: { from: string; to: string } | null
       x3Error: string | null
     }
     'scheduler/programme': {
