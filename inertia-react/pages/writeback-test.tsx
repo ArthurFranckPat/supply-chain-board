@@ -80,8 +80,8 @@ const DEFAULT_XML = `<PARAM>
   </TAB>
 </PARAM>`
 
-// Payload par défaut pour l'op `run` (affermissement FIRMSUGG / FUNMAUTR, #31).
-const FIRMSUGG_XML = `<PARAM>
+// Payload par défaut pour l'op `run` (affermissement FIRMSUGG/ZSOAPFIRM · FUNMAUTR, #31).
+const FIRM_XML = `<PARAM>
   <GRP ID="GRP1">
     <FLD NAME="WSUGNUM">SGAE10645869666</FLD>
     <FLD NAME="WSTOFCY">AE1</FLD>
@@ -146,11 +146,11 @@ async function execOp(
   return (await res.json()) as OpResult
 }
 
-export default function WritebackTest() {
-  const [object, setObject] = useState('ZSOAPFIRM')
+export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) {
+  const [object, setObject] = useState(firmSubprog)
   const [op, setOp] = useState<Op>('run')
   const [keys, setKeys] = useState('')
-  const [objectXml, setObjectXml] = useState(FIRMSUGG_XML)
+  const [objectXml, setObjectXml] = useState(FIRM_XML)
   const [queryXml, setQueryXml] = useState('<PARAM/>')
   const [listSize, setListSize] = useState(50)
   const [loading, setLoading] = useState(false)

@@ -19,6 +19,8 @@ export interface X3EnvConfig {
    * `APRINTER` ne déclare pas de `PRTSRV` (issue #85).
    */
   printServer: string
+  /** Sous-programme SOAP d'affermissement (issue #31) — `run` sur FUNMAUTR. */
+  firmSubprog: string
 }
 
 /** Identifiants X3 d'une session authentifiée (env choisi + creds utilisateur). */
@@ -40,6 +42,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     grpRes: 'GRP2',
     grpCount: 'GRP3',
     printServer: env.get('X3_TEST_PRINT_SERVER', ''),
+    firmSubprog: 'FIRMSUGG',
   }),
   prod: () => ({
     host: env.get('X3_PROD_HOST', ''),
@@ -52,6 +55,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     grpRes: 'GRP2',
     grpCount: 'GRP3',
     printServer: env.get('X3_PROD_PRINT_SERVER', ''),
+    firmSubprog: 'ZSOAPFIRM',
   }),
 }
 

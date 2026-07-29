@@ -1,7 +1,9 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Printer, RefreshCw } from 'lucide-react'
 
 import { Button } from '@r/components/ui/button'
+import { Label } from '@r/components/ui/label'
+import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 
 /**
@@ -113,22 +115,65 @@ export function OfPrintVerdict({ report }: { report: PrintReport }) {
   )
 }
 
+interface FolderDocument {
+  code: string
+  label: string
+}
+
 /**
- * Bouton de réimpression explicite. Toujours `force` : l'utilisateur qui clique
- * ici demande sciemment un nouveau tirage, et le journal l'enregistre comme tel.
+ * Impression manuelle du dossier depuis le détail OF.
+ *
+ * L'utilisateur choisit les états (bon de travail, bon de sortie matière…) via des
+ * cases cochées par défaut. Toujours `force` : chaque clic est un tirage explicite,
+ * journalisé comme réimpression.
  */
 export function OfReprintButton({ ofNum }: { ofNum: string }) {
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState<PrintReport | null>(null)
+  const [documents, setDocuments] = useState<FolderDocument[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [loadErr, setLoadErr] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(route('print.documents'))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json() as Promise<{ documents?: FolderDocument[] }>
+      })
+      .then((data) => {
+        if (cancelled) return
+        const docs = data.documents ?? []
+        setDocuments(docs)
+        setSelected(new Set(docs.map((d) => d.code)))
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setLoadErr(e.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const toggleDoc = (code: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
 
   const run = useCallback(async () => {
+    const docTypes = documents.filter((d) => selected.has(d.code)).map((d) => d.code)
+    if (docTypes.length === 0) return
     setBusy(true)
     setReport(null)
     try {
       const res = await fetch(route('print.print', { orderNum: ofNum }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({ force: true, docTypes }),
       })
       const data = (await res.json()) as PrintReport & { error?: string }
       setReport({ ...data, documents: data.documents ?? [] })
@@ -137,17 +182,52 @@ export function OfReprintButton({ ofNum }: { ofNum: string }) {
     } finally {
       setBusy(false)
     }
-  }, [ofNum])
+  }, [ofNum, documents, selected])
+
+  const canPrint = documents.length > 0 && selected.size > 0 && !busy
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button size="sm" variant="outline" className="gap-1.5" onClick={run} disabled={busy}>
+    <div className="flex flex-col items-end gap-1.5">
+      {documents.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          {documents.map((d) => (
+            <Label
+              key={d.code}
+              className={cn(
+                'cursor-pointer gap-1.5 font-mono text-[10px] font-medium text-muted-foreground',
+                busy && 'pointer-events-none opacity-60'
+              )}
+            >
+              <input
+                type="checkbox"
+                className="size-3.5 accent-brand"
+                checked={selected.has(d.code)}
+                disabled={busy}
+                onChange={() => toggleDoc(d.code)}
+              />
+              {d.label}
+            </Label>
+          ))}
+        </div>
+      )}
+      {loadErr && (
+        <span className="font-mono text-[10px] text-destructive">
+          Documents indisponibles : {loadErr}
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        onClick={() => void run()}
+        disabled={!canPrint}
+      >
         {busy ? (
           <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
         ) : (
           <Printer size={14} strokeWidth={1.75} />
         )}
-        {busy ? 'Impression…' : 'Réimprimer le dossier'}
+        {busy ? 'Impression…' : 'Imprimer le dossier'}
       </Button>
       {report && <OfPrintVerdict report={report} />}
     </div>

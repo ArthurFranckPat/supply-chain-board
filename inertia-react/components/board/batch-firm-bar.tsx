@@ -7,7 +7,8 @@ import { Button } from '@r/components/ui/button'
  * Barre d'actions flottante — affermissement en batch (issue #34).
  *
  * Visible dès qu'on entre en mode sélection (store.selectMode). Affermit la
- * sélection en série (file côté store, ZSOAPFIRM non thread-safe), feedback par
+ * sélection en série (file côté store, sous-programme d'affermissement non
+ * thread-safe), feedback par
  * OF via badges sur les cartes + récap de progression ici. Un OF en rupture
  * (faisabilité bloquée) déclenche un seul warning groupé avant exécution.
  */

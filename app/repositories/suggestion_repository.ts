@@ -6,7 +6,8 @@ import { X3Database } from '#app/x3/client/x3_database'
  * Depuis #32, les suggestions (WIPSTA=3) comme les OF fermes/planifiés (1/2) sont
  * lus dans la vue planning temps réel **ORDERS** (cf. `X3OfRepository`). Ce repo ne
  * garde qu'un point-lookup : retrouver le site d'un ordre depuis son numéro avant
- * l'appel au sous-programme `ZSOAPFIRM` (FUNMAUTR). Le sous-programme auto-détecte
+ * l'appel au sous-programme d'affermissement (`FIRMSUGG` test · `ZSOAPFIRM` prod,
+ * FUNMAUTR). Le sous-programme auto-détecte
  * le statut source ; le board n'a besoin que du site.
  *
  * L'ancienne source CBNDET (snapshot, drift post-affermissement) et la blacklist

@@ -33,7 +33,8 @@ async function bustBoardCaches() {
  * Affermissement d'un ordre X3 en OF ferme (issue #31).
  *
  * `POST /api/v1/planning/orders/:orderNum/firm` appelle le sous-programme publié
- * `ZSOAPFIRM`, qui pilote la fonction standard X3 **FUNMAUTR** (« Lancement
+ * de l'environnement (`FIRMSUGG` test · `ZSOAPFIRM` prod), qui pilote la fonction
+ * standard X3 **FUNMAUTR** (« Lancement
  * automatique ») scopée sur un ordre, headless.
  *
  * Fonctionne pour les DEUX statuts sources (le sous-programme X3 auto-détecte) :
@@ -84,7 +85,7 @@ export default class SuggestionFirmController {
       `</GRP>` +
       `</PARAM>`
 
-    const result = await callRunSubprog('ZSOAPFIRM', config, inputXml)
+    const result = await callRunSubprog(config.firmSubprog, config, inputXml)
 
     // Verdict : WMFGNUM rempli = succès ; WRETERMSG = message d'erreur sinon.
     const mfgNum = (result.fields.WMFGNUM ?? '').trim()

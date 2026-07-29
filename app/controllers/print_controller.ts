@@ -17,6 +17,18 @@ import PrintJob from '#models/print_job'
  * établissement.
  */
 export default class PrintController {
+  /** GET /api/v1/planning/print/documents — états actifs du dossier d'OF. */
+  async documents(ctx: HttpContext) {
+    const rows = await printService.listDocuments()
+    return {
+      ok: true,
+      documents: rows.map((d) => ({
+        code: d.code,
+        label: d.label || d.code,
+      })),
+    }
+  }
+
   /** POST /api/v1/planning/orders/:orderNum/print — imprime (ou réimprime) le dossier. */
   async print(ctx: HttpContext) {
     const ofNum = String(ctx.params.orderNum ?? '').trim()
