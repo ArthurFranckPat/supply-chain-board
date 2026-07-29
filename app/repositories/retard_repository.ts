@@ -51,9 +51,12 @@ WHERE ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')
 GROUP BY ITMREF_0
 `
 
-// Tolérance de date du matcher OF↔commande — même valeur que poste_engagement_loader.ts
-// (panneau engagement) et le board, pour un matching cohérent partout dans l'appli.
-const MATCH_DATE_TOLERANCE_DAYS = 30
+// KPI « charge en retard » : les commandes sont DÉJÀ en retard — leur OF de couverture
+// est souvent planifié hors des ±30 j du board/engagement. Avec 30 j, NOR/MTO ne
+// matchait pas → ofAllocations vide → charge brute sans MFGOPE, alors que /suivi
+// (fenêtre large, sans ce filtre sur le même besoin) voyait les pointages OP.
+// ~10 ans = de facto illimité ; le partage OFConso du matcher reste actif.
+const MATCH_DATE_TOLERANCE_DAYS = 3650
 
 type RawRow = Record<string, string | null>
 
@@ -67,9 +70,9 @@ export interface RetardLigne {
   dateExpIso: string | null
   /** Reste à produire (Σ resteAProduire, prorata alloc + non couvert). */
   qteRestante: number
-  /** Déjà fait = launched − resteAProduire (OF couverture). */
+  /** Pièces déjà pointées OP (CPLQTY) — même signal que /suivi `piecesFaites`. */
   qteFaite: number
-  /** Total lancé OF (EXTQTY) — dénominateur ; repli qté commande si pas d'OF. */
+  /** Total lancé OF (EXTQTY) — même dénominateur que /suivi `piecesTotalOf`. */
   qteAProduire: number
   heures: number
   postes: string[]
@@ -211,10 +214,17 @@ export class RetardRepository {
     const results = matcher.matchCommandes(demandFlows)
     const resultByFlow = new Map(results.map((r) => [r.demandFlow, r]))
 
-    // Avancement pièces (MFGOPE CPLQTY ops intermédiaires) — même helper que /suivi
-    // proactif et /charge (`computeAvancement` + `resteAProduire`). Remplace l'ancien
-    // crédit heures CPLOPETIM/CPLSETTIM qui divergait du reste de l'app.
+    // MFGOPE : tous les OF ouverts des articles en retard (comme /suivi charge
+    // les OF de fenêtre avant matching), pas seulement ceux déjà matchés — sinon
+    // un OF hors tolérance date restait invisible au calcul d'avancement.
+    const pendingArticles = new Set(pending.map((p) => p.article))
     const assignedOfNums = new Set<string>()
+    for (const f of supply) {
+      if (f.direction !== 'supply' || f.origin.type !== 'of' || f.quantity <= 0) continue
+      if (!pendingArticles.has(f.article)) continue
+      const id = (f.origin as { id?: string }).id?.trim()
+      if (id) assignedOfNums.add(id)
+    }
     for (const r of results) {
       for (const alloc of r.ofAllocations) {
         const id = (alloc.ofFlow.origin as { id?: string }).id?.trim()
@@ -233,8 +243,12 @@ export class RetardRepository {
       const row = p.row
       const result = resultByFlow.get(demandFlow)
 
-      // Charge + affichage qté : uniquement computeAvancement + resteAProduire.
-      // faite = launched − reste ; totale = launched (repli qté commande si pas d'OF).
+      // Contremarque vers OF clôturé / stock complet : rien à produire en atelier.
+      if (result && result.ofAllocations.length === 0 && result.remainingUncoveredQty <= 0) {
+        continue
+      }
+
+      // Charge + affichage qté : computeAvancement + resteAProduire (comme /suivi).
       let qteCharge = 0
       let qteCouverte = 0
       let qteFaite = 0
@@ -248,8 +262,6 @@ export class RetardRepository {
           const qtyRealisee = avancementByOf.get(ofId)?.qtyRealisee ?? 0
           const ofReste = resteAProduire(alloc.ofFlow.quantity, origin.launched, qtyRealisee)
           const launched = origin.launched ?? alloc.ofFlow.quantity
-          // Affichage = signal OP brut (CPLQTY), pas le delta launched−reste
-          // (opaque quand X3 a déjà netté ou gamme mono-op).
           qteFaite += Math.min(qtyRealisee, launched)
           qteTotaleOf += Math.round(launched)
           qteCharge += alloc.qteAllouee * (ofReste / alloc.ofFlow.quantity)
