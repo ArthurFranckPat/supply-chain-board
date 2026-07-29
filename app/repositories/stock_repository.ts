@@ -13,7 +13,96 @@ const STOCK_CHUNK = Number(process.env.X3_STOCK_CHUNK) || 500
 /** En deçà, un échec n'est plus une question de taille de réponse. */
 const MIN_CHUNK = 25
 
+/**
+ * Composantes brutes du stock d'un article, avant tout calcul.
+ *
+ * `getStockFlows()` en dérive des `Flow` (un par sous-type non nul) — une découpe
+ * de présentation. La réplique (#98) stocke les composantes : `strict` est un
+ * calcul (`physique − alloueP hys − alloueGlobal`), pas une donnée, et le garder
+ * dérivable laisse la règle modifiable sans réingestion.
+ */
+export interface StockLevel {
+  article: string
+  physique: number
+  controleQual: number
+  rebut: number
+  allouePhys: number
+  alloueGlobal: number
+  pmp: number | null
+}
+
 export class X3StockRepository {
+  /**
+   * Composantes brutes par article, sur toute la base (ITMMASTER actifs).
+   *
+   * Ne filtre RIEN sur les quantités : contrairement à `getStockFlows()`, les
+   * articles à composantes toutes nulles sont conservés. Une ligne à zéro est une
+   * information — elle distingue « article connu, stock épuisé » de « article
+   * absent de la réplique », deux cas qu'un consommateur doit pouvoir séparer.
+   *
+   * ## Agrégation par article : `ITMMVT` n'est PAS au grain article
+   *
+   * Certains articles y ont deux lignes — une par site (`STOFCY_0 = 'AE1'`) et une
+   * ligne consolidée à site VIDE, convention X3. Vérifié en production :
+   *
+   *     A1307H03  STOFCY=''     PHYSTO=0     GLOALL=0
+   *     A1307H03  STOFCY='AE1'  PHYSTO=4139  GLOALL=30
+   *
+   * Les lignes à site vide sont à zéro sur les quantités, ce qui explique que
+   * `getStockFlows()` ne double-compte pas : il n'émet un flow que si la quantité
+   * est > 0. Mais elles portent parfois un PMP, et un `SELECT` au grain article
+   * casse sur une contrainte d'unicité si on ne les agrège pas.
+   *
+   * On somme donc les quantités (le site vide y ajoute zéro, donc sans effet, et
+   * un éventuel second site réel serait correctement cumulé) et on prend le MAX du
+   * PMP — un prix unitaire ne s'additionne pas.
+   */
+  async getStockLevels(): Promise<StockLevel[]> {
+    const rows = await ItemMovement.query()
+      .select(
+        'ITMMVT.ITMREF_0',
+        'ITMMVT.PHYSTO_0',
+        'ITMMVT.CTLSTO_0',
+        'ITMMVT.REJSTO_0',
+        'ITMMVT.PHYALL_0',
+        'ITMMVT.GLOALL_0',
+        'ITMMVT.AVC_0'
+      )
+      .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'ITMMVT.ITMREF_0')
+      .where('ITMMASTER.ITMSTA_0', '1')
+
+    const byArticle = new Map<string, StockLevel>()
+    for (const row of rows) {
+      const article = row.article?.trim() ?? ''
+      if (!article) continue
+
+      const pmp = Number.parseFloat(row.prixMoyenPondere ?? '0') || null
+      const current = byArticle.get(article)
+
+      if (!current) {
+        byArticle.set(article, {
+          article,
+          physique: Number.parseFloat(row.stockInterneA ?? '0') || 0,
+          controleQual: Number.parseFloat(row.stockInterneQ ?? '0') || 0,
+          rebut: Number.parseFloat(row.stockInterneR ?? '0') || 0,
+          allouePhys: Number.parseFloat(row.alloueInterneA ?? '0') || 0,
+          alloueGlobal: Number.parseFloat(row.alloueGlobal ?? '0') || 0,
+          pmp,
+        })
+        continue
+      }
+
+      current.physique += Number.parseFloat(row.stockInterneA ?? '0') || 0
+      current.controleQual += Number.parseFloat(row.stockInterneQ ?? '0') || 0
+      current.rebut += Number.parseFloat(row.stockInterneR ?? '0') || 0
+      current.allouePhys += Number.parseFloat(row.alloueInterneA ?? '0') || 0
+      current.alloueGlobal += Number.parseFloat(row.alloueGlobal ?? '0') || 0
+      if (pmp !== null) current.pmp = Math.max(current.pmp ?? 0, pmp)
+    }
+
+    return [...byArticle.values()]
+  }
+
   /**
    * Stock courant. Si `articles` fourni → scope (WHERE ITMREF IN ...), batché.
    * Sans `articles` → toute la base (lourd).

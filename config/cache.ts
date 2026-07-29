@@ -14,8 +14,13 @@ import SuperJSON from 'superjson'
  *
  * Le L1 mémoire, lui, ne sérialise plus (`serialize: false` ci-dessous) : les
  * objets y sont stockés tels quels, donc Date et Map y survivent nativement.
+ *
+ * EXPORTÉ pour être vérifiable directement : depuis `serialize: false`, une lecture
+ * servie par le L1 ne traverse plus aucun serializer. `cache:verify` et le test
+ * fonctionnel du cache passeraient donc au vert sans jamais exercer superjson —
+ * ils le contrôlent maintenant sur ce symbole.
  */
-const superjsonSerializer: CacheSerializer = {
+export const superjsonSerializer: CacheSerializer = {
   serialize: (value) => SuperJSON.stringify(value),
   deserialize: (value) => SuperJSON.parse(value),
 }

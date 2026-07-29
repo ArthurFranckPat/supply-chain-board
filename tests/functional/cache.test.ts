@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import app from '@adonisjs/core/services/app'
+import { superjsonSerializer } from '#config/cache'
 
 /**
  * Cache distribué (issue #20). En test, CACHE_STORE=memory (cf. .env) : on valide la
@@ -57,11 +58,15 @@ test.group('cache service (#20)', () => {
     assert.isFalse(await ns.has({ key: 'b' }))
   })
 
+  /**
+   * Contrôle du serializer sur le symbole LUI-MÊME, pas sur le retour d'un `get`.
+   *
+   * Depuis `serialize: false` sur le L1, une lecture servie par la mémoire ne
+   * traverse plus aucun serializer : Date et Map y survivent nativement, donc les
+   * assertions passaient au vert même avec superjson débranché. Ici on exerce
+   * l'aller-retour que fera la couche L2 (fichier en dev, Redis en prod).
+   */
   test('serializer superjson : Date et Map préservées', async ({ assert }) => {
-    const cache = await app.container.make('cache.manager')
-    const ns = cache.namespace('test:superjson')
-    await ns.clear()
-
     const value = {
       date: new Date('2026-01-02T03:04:05.000Z'),
       map: new Map<string, number>([
@@ -69,12 +74,28 @@ test.group('cache service (#20)', () => {
         ['b', 2],
       ]),
     }
-    await ns.set({ key: 'k', value })
-    const out = await ns.get<typeof value>({ key: 'k' })
 
-    assert.instanceOf(out!.date, Date)
-    assert.equal(out!.date.toISOString(), '2026-01-02T03:04:05.000Z')
-    assert.instanceOf(out!.map, Map)
-    assert.equal(out!.map.get('b'), 2)
+    const out = superjsonSerializer.deserialize(
+      superjsonSerializer.serialize(value)
+    ) as typeof value
+
+    assert.instanceOf(out.date, Date)
+    assert.equal(out.date.toISOString(), '2026-01-02T03:04:05.000Z')
+    assert.instanceOf(out.map, Map)
+    assert.equal(out.map.get('b'), 2)
+  })
+
+  /**
+   * Le JSON brut — serializer par défaut de bentocache — détruit Date et Map.
+   * Sans ce contre-exemple, le test ci-dessus ne distingue pas « superjson
+   * fonctionne » de « le payload n'avait rien qui puisse casser ».
+   */
+  test('le serializer par défaut (JSON brut) perdrait Date et Map', async ({ assert }) => {
+    const value = { date: new Date('2026-01-02T03:04:05.000Z'), map: new Map([['a', 1]]) }
+
+    const out = JSON.parse(JSON.stringify(value)) as unknown as typeof value
+
+    assert.notInstanceOf(out.date, Date)
+    assert.notInstanceOf(out.map, Map)
   })
 })

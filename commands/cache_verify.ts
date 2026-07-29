@@ -1,13 +1,19 @@
 import { BaseCommand } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import env from '#start/env'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
+import { superjsonSerializer } from '#config/cache'
 
 /**
  * `node ace cache:verify` — confirme que le cache (config/cache.ts) fonctionne :
  * roundtrip set/get/delete sur le store par défaut + contrôle du serializer superjson
- * (Date/Map préservées). En CACHE_STORE=redis, le get traverse la couche L2 → valide
- * la connectivité Redis (issue #20, critère d'acceptation).
+ * (Date/Map préservées). En CACHE_STORE=redis, le `set` écrit dans la couche L2 → un
+ * Redis injoignable remonte en erreur (issue #20, critère d'acceptation).
+ *
+ * Le contrôle du serializer se fait sur `superjsonSerializer` DIRECTEMENT, et non
+ * plus sur le retour du `get` : depuis `serialize: false` sur le L1, une lecture
+ * servie par la mémoire ne traverse aucun serializer. Date et Map y survivent
+ * nativement, donc les assertions passaient au vert sans rien exercer.
  */
 export default class CacheVerify extends BaseCommand {
   static commandName = 'cache:verify'
@@ -20,7 +26,7 @@ export default class CacheVerify extends BaseCommand {
     const storeName = env.get('CACHE_STORE')
     this.logger.info(`Store par défaut : ${storeName}`)
 
-    const ns = cache.namespace('cache:verify')
+    const ns = cacheNs('cache:verify')
     const key = `probe_${Date.now()}`
     const payload = {
       date: new Date('2026-01-02T03:04:05.000Z'),
@@ -38,9 +44,15 @@ export default class CacheVerify extends BaseCommand {
         return
       }
 
+      // Aller-retour explicite dans le serializer configuré : c'est ce que fera
+      // la couche L2 (fichier en dev, Redis en prod) à chaque écriture.
+      const revived = superjsonSerializer.deserialize(
+        superjsonSerializer.serialize(payload)
+      ) as typeof payload
+
       const dateOk =
-        out.date instanceof Date && out.date.toISOString() === payload.date.toISOString()
-      const mapOk = out.map instanceof Map && out.map.get('a') === 1
+        revived.date instanceof Date && revived.date.toISOString() === payload.date.toISOString()
+      const mapOk = revived.map instanceof Map && revived.map.get('a') === 1
 
       if (!dateOk || !mapOk) {
         this.logger.error(`Serializer KO (date=${dateOk}, map=${mapOk}) — superjson mal câblé ?`)
@@ -48,7 +60,21 @@ export default class CacheVerify extends BaseCommand {
         return
       }
 
-      this.logger.success(`Cache OK (${storeName}) : roundtrip + Date/Map préservées.`)
+      // Le L1 ne sérialisant plus, la valeur lue doit être l'objet lui-même.
+      // Si ce n'est pas le cas, `serialize: false` n'est pas honoré — patch
+      // bentocache absent ou périmé.
+      if (out !== payload) {
+        this.logger.error(
+          '`serialize: false` non honoré sur le L1 : la lecture rend une copie. ' +
+            'Vérifier patches/bentocache+1.6.1.patch (npx patch-package).'
+        )
+        this.exitCode = 1
+        return
+      }
+
+      this.logger.success(
+        `Cache OK (${storeName}) : roundtrip, L1 sans sérialisation, Date/Map préservées.`
+      )
     } catch (err) {
       this.logger.error(
         `Cache KO (${storeName}) : ${err instanceof Error ? err.message : String(err)}`

@@ -79,9 +79,15 @@ jobs:
         # `tests/domain/scenario_store.test.ts` écrit dans la table `scenarios` :
         # sans migration, il échoue en `SQLITE_CANTOPEN`. La base vit dans
         # `tmp/db.sqlite3` (config/database.ts) et se reconstruit à chaque run.
+        #
+        # DEUX connexions, donc deux migrations : la réplique X3 (#98) vit dans un
+        # fichier séparé (`tmp/replica.sqlite3`) avec son propre dossier de
+        # migrations. Sans cette seconde passe, `tests/unit/replica_sync.test.ts`
+        # échoue sur `ingestion_log` absente.
         run: |
           mkdir -p tmp
           node ace migration:run --force
+          node ace migration:run --force --connection=replica
 
       - name: Suite unit
         # `unit` est un ARGUMENT POSITIONNEL, pas un flag : `node ace test unit`.
