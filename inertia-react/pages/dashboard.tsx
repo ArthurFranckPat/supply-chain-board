@@ -78,11 +78,15 @@ interface RetardLigne {
   dateExp: string
   dateExpIso: string | null
   joursRetard: number
+  /** Qté totale commandée (EXTQTY) — dénominateur lisible côté commande. */
+  qteCommandee: number
   qteRestante: number
-  /** Pièces déjà pointées (OF couverture) — null/0 si pas d'avancement. */
+  /** Pièces déjà pointées OP (CPLQTY) — détail OF pour le tooltip. */
   qteFaite: number
-  /** Qté à produire pour la ligne (dénominateur avancement). */
+  /** Total lancé OF (EXTQTY) — détail OF pour le tooltip. */
   qteAProduire: number
+  /** N° des OF de couverture — pour le tooltip. */
+  numOfs: string[]
   heures: number
   postes: string[]
 }
@@ -1594,22 +1598,20 @@ export default function Dashboard(props: DashboardProps) {
                               </td>
                               <td
                                 className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground"
-                                title={
-                                  l.qteAProduire > 0
-                                    ? `${l.qteFaite} faites / ${l.qteAProduire} (resteAProduire → reste charge ${l.qteRestante})`
-                                    : undefined
-                                }
+                                title={[
+                                  `Commandée : ${l.qteCommandee}`,
+                                  `Déjà couvert : ${l.qteCommandee - l.qteRestante}`,
+                                  `Reste à faire : ${l.qteRestante}`,
+                                  l.numOfs.length > 0
+                                    ? `OF ${l.numOfs.join(', ')} : ${l.qteFaite} pointés / ${l.qteAProduire} lancés`
+                                    : undefined,
+                                  `Charge : ${l.heures} h`,
+                                ]
+                                  .filter(Boolean)
+                                  .join('\n')}
                               >
-                                {l.qteAProduire > 0 ? (
-                                  <>
-                                    <span className={l.qteFaite > 0 ? 'text-ferme' : undefined}>
-                                      {l.qteFaite}
-                                    </span>
-                                    <span className="text-muted-foreground">/{l.qteAProduire}</span>
-                                  </>
-                                ) : (
-                                  l.qteRestante
-                                )}
+                                <span className="text-ferme">{l.qteCommandee - l.qteRestante}</span>
+                                <span className="text-muted-foreground">/{l.qteCommandee}</span>
                               </td>
                               <td className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">
                                 {l.heures > 0 ? `${l.heures} h` : '—'}

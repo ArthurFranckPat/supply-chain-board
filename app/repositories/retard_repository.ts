@@ -30,6 +30,7 @@ SELECT
   I.ITMDES1_0   AS DESIGNATION,
   O.ENDDAT_0    AS DATE_EXP,
   O.RMNEXTQTY_0 AS QTE_RESTANTE,
+  O.EXTQTY_0    AS QTE_COMMANDEE,
   O.ALLQTY_0    AS QTE_ALLOUEE,
   Q.FMINUM_0    AS CONTREMARQUE,
   H.SOHTYP_0    AS SOHTYP
@@ -78,12 +79,16 @@ export interface RetardLigne {
   dateExpIso: string | null
   /** Jours calendaires de retard (refDate − dateExp). */
   joursRetard: number
+  /** Qté totale commandée (ORDERS.EXTQTY) — dénominateur lisible côté commande. */
+  qteCommandee: number
   /** Reste à produire (Σ resteAProduire, prorata alloc + non couvert). */
   qteRestante: number
-  /** Pièces déjà pointées OP (CPLQTY) — même signal que /suivi `piecesFaites`. */
+  /** Pièces déjà pointées OP (CPLQTY) — détail OF, pour le tooltip. */
   qteFaite: number
-  /** Total lancé OF (EXTQTY) — même dénominateur que /suivi `piecesTotalOf`. */
+  /** Total lancé OF (EXTQTY) — détail OF, pour le tooltip. */
   qteAProduire: number
+  /** N° des OF de couverture matchés — pour le tooltip. */
+  numOfs: string[]
   heures: number
   postes: string[]
 }
@@ -166,6 +171,7 @@ export class RetardRepository {
       row: RawRow
       article: string
       qty: number
+      qteCommandee: number
       qteAProduire: number
       ops: Array<{ workstation: string; label: string; rate: number }>
     }
@@ -173,6 +179,7 @@ export class RetardRepository {
     for (const row of rows) {
       const article = row.ARTICLE?.trim() ?? ''
       const qty = Number.parseFloat(row.QTE_RESTANTE ?? '0') || 0
+      const qteCommandee = Number.parseFloat(row.QTE_COMMANDEE ?? '0') || 0
       const allqty = Number.parseFloat(row.QTE_ALLOUEE ?? '0') || 0
 
       // Pas un retard de production : article sans gamme (acheté/sous-traité)
@@ -190,7 +197,7 @@ export class RetardRepository {
       }
       if (qteAProduire <= 0) continue
 
-      pending.push({ row, article, qty, qteAProduire, ops })
+      pending.push({ row, article, qty, qteCommandee, qteAProduire, ops })
     }
 
     // Matching OF↔commande — LE MÊME moteur que le board / panneau engagement
@@ -210,7 +217,7 @@ export class RetardRepository {
         orderType: (p.row.SOHTYP?.trim() || null) as OrderType | null,
         nature: 'COMMANDE',
         contremarque: p.row.CONTREMARQUE?.trim() || null,
-        qteCommandee: p.qty,
+        qteCommandee: p.qteCommandee,
         qteAllouee: Number.parseFloat(p.row.QTE_ALLOUEE ?? '0') || 0,
         ligne: p.row.LIGNE?.trim() ?? null,
       },
@@ -266,11 +273,13 @@ export class RetardRepository {
       let qteCouverte = 0
       let qteFaite = 0
       let qteTotaleOf = 0
+      const ofs: string[] = []
       if (result) {
         for (const alloc of result.ofAllocations) {
           const origin = alloc.ofFlow.origin as { id?: string; launched?: number }
           const ofId = origin.id?.trim()
           if (!ofId || alloc.ofFlow.quantity <= 0 || alloc.qteAllouee <= 0) continue
+          ofs.push(ofId)
           qteCouverte += alloc.qteAllouee
           const qtyRealisee = avancementByOf.get(ofId)?.qtyRealisee ?? 0
           const ofReste = resteAProduire(alloc.ofFlow.quantity, origin.launched, qtyRealisee)
@@ -316,9 +325,11 @@ export class RetardRepository {
         dateExp: iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '',
         dateExpIso: iso,
         joursRetard,
+        qteCommandee: Math.round(p.qteCommandee),
         qteRestante,
         qteFaite,
         qteAProduire,
+        numOfs: ofs,
         heures: lineHeures,
         postes: linePostes,
       })
