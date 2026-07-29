@@ -3,11 +3,13 @@
  * d'opération intermédiaire (issue #95).
  *
  * Périmètre : ORDERS live (reste>0, DONE>0) ∪ MFGITM ouverts (MFGSTA<3, DONE>0)
- * absents du live. Pas de JOIN X3 : 2 requêtes plates + MFGOPE chunké app-side.
+ * absents du live. Pas de JOIN X3 : requêtes plates + MFGOPE chunké app-side.
+ * Enrichissement dates/statut uniquement sur les OF en écart (pas tout le pool).
  */
 
 import cache from '@adonisjs/cache/services/main'
 import { X3Database } from '#app/x3/client/x3_database'
+import { parseX3Date } from '#app/x3/utils/parse_date'
 import { X3OperationRepository } from '#repositories/operation_repository'
 import {
   computeAvancement,
@@ -15,6 +17,7 @@ import {
   estEcartDeclaration,
 } from '#app/domain/of_avancement'
 import staticSync from '#services/static_sync_service'
+import LocalMenu from '#models/local_menu'
 
 export type ControleProdSource = 'live' | 'ouvert'
 
@@ -24,9 +27,26 @@ export interface ControleProdRow {
   designation: string | null
   qtyDeclaree: number
   qtyPointee: number
+  qtyLancee: number | null
   ecart: number
   qteRestante: number
   source: ControleProdSource
+  /** MFGITM.STRDAT — début planifié. */
+  dateDebutIso: string | null
+  /** MFGITM.ENDDAT — fin planifiée. */
+  dateFinIso: string | null
+  /** MFGITM.TRKFIRST — premier suivi atelier. */
+  datePremierSuiviIso: string | null
+  /** MFGITM.TRKLAST — dernier suivi atelier (clé d'analyse). */
+  dateDernierSuiviIso: string | null
+  /** MFGITM.MFGSTA + libellé menu local. */
+  mfgSta: number | null
+  mfgStaLabel: string | null
+  planner: string | null
+  site: string | null
+  /** OPENUM dernière op intermédiaire pointée. */
+  derniereOpPointee: number | null
+  nbOperations: number
 }
 
 export interface ControleProdStats {
@@ -44,12 +64,31 @@ export interface ControleProdPayload {
 
 const num = (v: unknown) => Number.parseFloat(String(v ?? '0')) || 0
 
+function isoDay(d: Date | null): string | null {
+  if (!d) return null
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const da = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
 interface OfCandidate {
   numOf: string
   article: string
   done: number
   remain: number
   source: ControleProdSource
+}
+
+interface OfEnrichment {
+  qtyLancee: number
+  dateDebutIso: string | null
+  dateFinIso: string | null
+  datePremierSuiviIso: string | null
+  dateDernierSuiviIso: string | null
+  mfgSta: number | null
+  planner: string | null
+  site: string | null
 }
 
 async function fetchCandidates(): Promise<OfCandidate[]> {
@@ -103,12 +142,56 @@ WHERE MFGSTA_0 < 3 AND CPLQTY_0 > 0`
   }
 }
 
+/** Enrichit les seuls OF en écart via MFGITM (dates suivi, lancée, statut…). */
+async function fetchEnrichment(numOfs: string[]): Promise<Map<string, OfEnrichment>> {
+  const out = new Map<string, OfEnrichment>()
+  if (numOfs.length === 0) return out
+
+  const db = new X3Database()
+  try {
+    const CHUNK = 500
+    for (let i = 0; i < numOfs.length; i += CHUNK) {
+      const chunk = numOfs.slice(i, i + CHUNK)
+      const inList = chunk.map((n) => `'${n.replace(/'/g, "''")}'`).join(',')
+      const rows = (await db.raw(
+        `SELECT MFGNUM_0 AS NUM, EXTQTY_0 AS LAUNCHED, STRDAT_0 AS STRDAT, ENDDAT_0 AS ENDDAT,
+                TRKFIRST_0 AS TRKFIRST, TRKLAST_0 AS TRKLAST, MFGSTA_0 AS MFGSTA,
+                PLANNER_0 AS PLANNER, MFGFCY_0 AS SITE
+         FROM MFGITM
+         WHERE MFGNUM_0 IN (${inList})`
+      )) as Record<string, string | null>[]
+      for (const r of rows) {
+        const numOf = (r.NUM ?? '').trim()
+        if (!numOf) continue
+        const staRaw = r.MFGSTA
+        const mfgSta =
+          staRaw != null && String(staRaw).trim() !== ''
+            ? Number.parseInt(String(staRaw), 10)
+            : null
+        out.set(numOf, {
+          qtyLancee: num(r.LAUNCHED),
+          dateDebutIso: isoDay(parseX3Date(r.STRDAT)),
+          dateFinIso: isoDay(parseX3Date(r.ENDDAT)),
+          datePremierSuiviIso: isoDay(parseX3Date(r.TRKFIRST)),
+          dateDernierSuiviIso: isoDay(parseX3Date(r.TRKLAST)),
+          mfgSta: Number.isFinite(mfgSta as number) ? (mfgSta as number) : null,
+          planner: (r.PLANNER ?? '').trim() || null,
+          site: (r.SITE ?? '').trim() || null,
+        })
+      }
+    }
+    return out
+  } finally {
+    await db.destroy()
+  }
+}
+
 /**
  * Calcule la liste d'écarts. `force` purge le cache bentocache (2 min).
  */
 export async function loadControleProdData(force = false): Promise<ControleProdPayload> {
   const ns = () => cache.namespace('controle-prod')
-  const key = 'payload'
+  const key = 'payload:v2'
   if (force) await ns().delete({ key })
 
   try {
@@ -124,21 +207,62 @@ export async function loadControleProdData(force = false): Promise<ControleProdP
         const designations = new Map<string, string>()
         for (const a of articles) if (a.code) designations.set(a.code, a.description)
 
-        const rows: ControleProdRow[] = []
+        const draft: {
+          c: OfCandidate
+          qtyPointee: number
+          derniereOp: number | null
+          nbOps: number
+        }[] = []
         for (const c of candidates) {
           const av = avancementByOf.get(c.numOf)
           if (!estEcartDeclaration(av, c.done)) continue
-          rows.push({
+          draft.push({
+            c,
+            qtyPointee: av?.qtyRealisee ?? 0,
+            derniereOp: av?.derniereOpPointée ?? null,
+            nbOps: av?.nbOperations ?? 0,
+          })
+        }
+
+        const enrich = await fetchEnrichment(draft.map((d) => d.c.numOf))
+
+        // Menu local MFGSTA (chapitre X3 usuel des statuts OF article — 230 si présent,
+        // sinon on tombe sur le code numérique).
+        const menuRows = await LocalMenu.query()
+          .whereIn('chapter', [230, 317])
+          .catch(() => [])
+        const staLabel = (sta: number | null) => {
+          if (sta == null) return null
+          const hit =
+            menuRows.find((m) => m.chapter === 230 && m.value === sta) ??
+            menuRows.find((m) => m.chapter === 317 && m.value === sta)
+          return hit?.label ?? String(sta)
+        }
+
+        const rows: ControleProdRow[] = draft.map(({ c, qtyPointee, derniereOp, nbOps }) => {
+          const e = enrich.get(c.numOf)
+          return {
             numOf: c.numOf,
             article: c.article,
             designation: designations.get(c.article) ?? null,
             qtyDeclaree: c.done,
-            qtyPointee: av?.qtyRealisee ?? 0,
-            ecart: ecartDeclarationQty(av, c.done),
+            qtyPointee,
+            qtyLancee: e?.qtyLancee ?? null,
+            ecart: ecartDeclarationQty(avancementByOf.get(c.numOf), c.done),
             qteRestante: c.remain,
             source: c.source,
-          })
-        }
+            dateDebutIso: e?.dateDebutIso ?? null,
+            dateFinIso: e?.dateFinIso ?? null,
+            datePremierSuiviIso: e?.datePremierSuiviIso ?? null,
+            dateDernierSuiviIso: e?.dateDernierSuiviIso ?? null,
+            mfgSta: e?.mfgSta ?? null,
+            mfgStaLabel: staLabel(e?.mfgSta ?? null),
+            planner: e?.planner ?? null,
+            site: e?.site ?? null,
+            derniereOpPointee: derniereOp,
+            nbOperations: nbOps,
+          }
+        })
         rows.sort((a, b) => b.ecart - a.ecart)
 
         const stats: ControleProdStats = {

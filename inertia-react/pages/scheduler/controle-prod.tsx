@@ -27,9 +27,20 @@ interface ControleProdRow {
   designation: string | null
   qtyDeclaree: number
   qtyPointee: number
+  qtyLancee: number | null
   ecart: number
   qteRestante: number
   source: Source
+  dateDebutIso: string | null
+  dateFinIso: string | null
+  datePremierSuiviIso: string | null
+  dateDernierSuiviIso: string | null
+  mfgSta: number | null
+  mfgStaLabel: string | null
+  planner: string | null
+  site: string | null
+  derniereOpPointee: number | null
+  nbOperations: number
 }
 
 interface ControleProdResponse {
@@ -58,6 +69,14 @@ const fold = (s: string): string =>
 const fmt = (n: number) =>
   Number.isFinite(n) ? n.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—'
 
+/** ISO YYYY-MM-DD → JJ/MM/AA. */
+function fmtFr(iso: string | null): string {
+  if (!iso) return '—'
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return iso
+  return `${m[3]}/${m[2]}/${m[1].slice(2)}`
+}
+
 interface Props {
   rowsHref: string
 }
@@ -76,7 +95,9 @@ export default function ControleProd(props: Props) {
     return viewData.rows.filter((r) => {
       if (sourceFilter !== 'all' && r.source !== sourceFilter) return false
       if (!q) return true
-      const hay = fold(`${r.numOf} ${r.article} ${r.designation ?? ''}`)
+      const hay = fold(
+        `${r.numOf} ${r.article} ${r.designation ?? ''} ${r.planner ?? ''} ${r.site ?? ''} ${r.mfgStaLabel ?? ''}`
+      )
       return hay.includes(q)
     })
   }, [viewData.rows, query, sourceFilter])
@@ -140,8 +161,8 @@ export default function ControleProd(props: Props) {
           <div className={PILL}>
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
             <input
-              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="OF, article…"
+              className="w-[220px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+              placeholder="OF, article, planner…"
               type="search"
               autoComplete="off"
               value={query}
@@ -192,15 +213,22 @@ export default function ControleProd(props: Props) {
                   {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · Σ écart visible{' '}
                   <span className="font-semibold text-destructive">+{fmt(sumVisible)}</span>
                 </div>
-                <table className="w-full border-collapse">
+                <table className="w-full min-w-[1100px] border-collapse">
                   <thead>
                     <tr className="border-b border-border text-left text-[11px] font-semibold text-muted-foreground">
-                      <th className="px-2.5 py-2.5">OF</th>
-                      <th className="px-2.5 py-2.5 text-right">Déclaré</th>
-                      <th className="px-2.5 py-2.5 text-right">Pointé</th>
-                      <th className="px-2.5 py-2.5 text-right">Écart</th>
-                      <th className="px-2.5 py-2.5 text-right">Reste</th>
-                      <th className="px-2.5 py-2.5">Source</th>
+                      <th className="px-2 py-2.5">OF</th>
+                      <th className="px-2 py-2.5 text-right">Lancée</th>
+                      <th className="px-2 py-2.5 text-right">Déclaré</th>
+                      <th className="px-2 py-2.5 text-right">Pointé</th>
+                      <th className="px-2 py-2.5 text-right">Écart</th>
+                      <th className="px-2 py-2.5 text-right">Reste</th>
+                      <th className="px-2 py-2.5">Op</th>
+                      <th className="px-2 py-2.5">Début</th>
+                      <th className="px-2 py-2.5">Fin</th>
+                      <th className="px-2 py-2.5">1er suivi</th>
+                      <th className="px-2 py-2.5">Dern. suivi</th>
+                      <th className="px-2 py-2.5">Statut</th>
+                      <th className="px-2 py-2.5">Source</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -210,7 +238,7 @@ export default function ControleProd(props: Props) {
                         className="cursor-pointer border-b border-rule-soft transition-colors hover:bg-secondary/80"
                         onClick={() => onSelectOf(r.numOf)}
                       >
-                        <td className="px-2.5 py-2.5 align-top">
+                        <td className="px-2 py-2 align-top">
                           <button
                             type="button"
                             className="cursor-pointer font-mono text-[12px] font-bold tracking-tight text-brand hover:underline"
@@ -221,30 +249,28 @@ export default function ControleProd(props: Props) {
                           >
                             {r.numOf}
                           </button>
-                          <div className="mt-0.5 max-w-[16rem] truncate font-mono text-[11px] text-muted-foreground">
+                          <div className="mt-0.5 max-w-[14rem] truncate font-mono text-[11px] text-muted-foreground">
                             <span className="font-semibold text-foreground">{r.article}</span>
                             {r.designation && (
                               <span className="font-sans font-normal"> · {r.designation}</span>
                             )}
                           </div>
+                          {(r.planner || r.site) && (
+                            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
+                              {[r.site, r.planner].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
                         </td>
-                        <td className="px-2.5 py-2.5 text-right align-top">
-                          <span className="text-[14px] font-bold tabular-nums tracking-tight">
-                            {fmt(r.qtyDeclaree)}
-                            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">
-                              u
-                            </span>
-                          </span>
+                        <td className="px-2 py-2 text-right align-top">
+                          <Qty n={r.qtyLancee} muted />
                         </td>
-                        <td className="px-2.5 py-2.5 text-right align-top">
-                          <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">
-                            {fmt(r.qtyPointee)}
-                            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">
-                              u
-                            </span>
-                          </span>
+                        <td className="px-2 py-2 text-right align-top">
+                          <Qty n={r.qtyDeclaree} />
                         </td>
-                        <td className="px-2.5 py-2.5 text-right align-top">
+                        <td className="px-2 py-2 text-right align-top">
+                          <Qty n={r.qtyPointee} muted />
+                        </td>
+                        <td className="px-2 py-2 text-right align-top">
                           <span className="text-[14px] font-bold tabular-nums tracking-tight text-destructive">
                             +{fmt(r.ecart)}
                             <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">
@@ -252,21 +278,39 @@ export default function ControleProd(props: Props) {
                             </span>
                           </span>
                         </td>
-                        <td className="px-2.5 py-2.5 text-right align-top">
-                          <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">
-                            {r.qteRestante > 0 ? (
-                              <>
-                                {fmt(r.qteRestante)}
-                                <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">
-                                  u
-                                </span>
-                              </>
-                            ) : (
-                              '—'
-                            )}
-                          </span>
+                        <td className="px-2 py-2 text-right align-top">
+                          {r.qteRestante > 0 ? <Qty n={r.qteRestante} muted /> : <Dash />}
                         </td>
-                        <td className="px-2.5 py-2.5 align-top">
+                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {r.derniereOpPointee != null ? (
+                            <>
+                              <span className="font-semibold text-foreground">
+                                {r.derniereOpPointee}
+                              </span>
+                              <span className="text-muted-foreground/70">/{r.nbOperations}</span>
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {fmtFr(r.dateDebutIso)}
+                        </td>
+                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {fmtFr(r.dateFinIso)}
+                        </td>
+                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {fmtFr(r.datePremierSuiviIso)}
+                        </td>
+                        <td className="px-2 py-2 align-top font-mono text-[11px] font-semibold tabular-nums text-foreground">
+                          {fmtFr(r.dateDernierSuiviIso)}
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <div className="max-w-[7rem] truncate text-[11px] font-medium text-foreground">
+                            {r.mfgStaLabel ?? '—'}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 align-top">
                           <span
                             className={cn(
                               'inline-flex h-5 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wide',
@@ -291,4 +335,25 @@ export default function ControleProd(props: Props) {
       <OfDetailSheet num={selectedOf} open={detailOpen} onOpenChange={setDetailOpen} />
     </AppLayout>
   )
+}
+
+function Qty({ n, muted }: { n: number | null; muted?: boolean }) {
+  if (n == null || !Number.isFinite(n)) return <Dash />
+  return (
+    <span
+      className={cn(
+        'tabular-nums tracking-tight',
+        muted
+          ? 'text-[13px] font-semibold text-muted-foreground'
+          : 'text-[14px] font-bold text-foreground'
+      )}
+    >
+      {fmt(n)}
+      <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">u</span>
+    </span>
+  )
+}
+
+function Dash() {
+  return <span className="text-[13px] text-muted-foreground">—</span>
 }
