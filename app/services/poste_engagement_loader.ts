@@ -124,18 +124,16 @@ export interface EngagementSummaryDataset {
   postes: PosteSummary[]
 }
 
-// Fenêtre de demande du matcher : assez large pour couvrir les commandes des OF
-// fermes (lookback 30 j pour l'overdue, 120 j devant). Au-delà, le repli peg
-// (indépendant de toute fenêtre) prend le relais. Bornage nécessaire : la vue
-// ORDERS passe par ZSOAPSQL O(n²) — une fenêtre illimitée exploserait le SOAP.
+// Fenêtre de demande du matcher : lookback 30 j (overdue) + horizon devant.
+// Bornage nécessaire : la vue ORDERS passe par ZSOAPSQL O(n²).
 /** Postes affichés au séquenceur : lignes de production PP_XXX seulement. */
 const POSTE_PP_RE = /^PP_\d+$/
 
 const DEMAND_LOOKBACK_DAYS = 30
-/** Horizon matching engagement (fermes). Mode lancer : OF planifiés souvent
- *  plus loin (ex. oct–déc) → LANCER_DEMAND_HORIZON_DAYS. */
-const DEMAND_HORIZON_DAYS = 120
-const LANCER_DEMAND_HORIZON_DAYS = 180
+/** Horizon matching engagement (OF fermes) — commandes jusqu'à ~4 mois. */
+const ENGAGEMENT_HORIZON_DAYS = 120
+/** Horizon candidats + matching « À lancer » (#100). */
+const LANCER_HORIZON_DAYS = 30
 const ENGAGEMENT_TTL = 2 * 60 * 1000
 
 const engagementCache = () => cache.namespace('engagement')
@@ -172,6 +170,141 @@ const weeklyCapacityOf = (
   )
 }
 
+/** Demande window ISO [today − lookback, today + horizon]. */
+function demandWindow(horizonDays: number): {
+  fromIso: string
+  toIso: string
+  from: Date
+  to: Date
+} {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const from = new Date(today)
+  from.setDate(from.getDate() - DEMAND_LOOKBACK_DAYS)
+  const to = new Date(today)
+  to.setDate(to.getDate() + horizonDays)
+  to.setHours(23, 59, 59, 999)
+  return { from, to, fromIso: isoDay(from), toIso: isoDay(to) }
+}
+
+/** STRDAT (ou override) dans [from, to] — filtre candidats « À lancer ». */
+function moInWindow(
+  mo: ManufacturingOrder,
+  overrideMap: Map<string, { dateDebut?: string | null }>,
+  from: Date,
+  to: Date
+): boolean {
+  const ov = overrideMap.get(mo.numOf)
+  const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
+  if (!start) return true // sans date → on garde (mieux afficher que cacher)
+  const t = start.getTime()
+  return t >= from.getTime() && t <= to.getTime()
+}
+
+/**
+ * Matching commande↔OF — MÊME chaîne que /programme (#21) :
+ * CommandeOFMatcher (hard peg + heuristiques) puis repli reverse peg SORDERQ.
+ * `scopedNums` borne le résultat aux OF de la vue (jamais élargir le peg IN()
+ * à toute l'usine).
+ */
+async function resolveCommandesByOf(opts: {
+  scopedNums: Set<string>
+  supply: Flow[]
+  force: boolean
+  horizonDays: number
+}): Promise<{ byOf: Map<string, EngagementCommande[]>; errors: string[] }> {
+  const byOf = new Map<string, EngagementCommande[]>()
+  const errors: string[] = []
+  if (opts.scopedNums.size === 0) return { byOf, errors }
+
+  const { fromIso, toIso } = demandWindow(opts.horizonDays)
+
+  try {
+    const [{ demand }, lineDateOverrides, articlesList] = await Promise.all([
+      timeStage('engagement.demand', () =>
+        boardDataset.getDemandAndReception(fromIso, toIso, opts.force)
+      ),
+      new OrderLineOverrideStore().getMap(),
+      boardDataset.getArticles(),
+    ])
+
+    const remapped =
+      lineDateOverrides.size === 0
+        ? demand
+        : demand.map((f) => {
+            const o = f.origin as { type?: string; id?: string; ligne?: string | null }
+            if (o.type !== 'order') return f
+            const ov = lineDateOverrides.get(`${o.id}#${o.ligne ?? ''}`)
+            if (!ov || !/^\d{4}-\d{2}-\d{2}$/.test(ov)) return f
+            return { ...f, date: new Date(ov) }
+          })
+
+    const windowDemands = remapped.filter(
+      (f) => f.direction === 'demand' && f.quantity > 0 && !!f.date
+    )
+
+    const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
+    const matcher = new CommandeOFMatcher(
+      opts.supply,
+      articles,
+      new Map<string, Nomenclature>(),
+      30
+    )
+    const results = matcher.matchCommandes(windowDemands)
+
+    for (const r of results) {
+      for (const alloc of r.ofAllocations) {
+        const ofId = ((alloc.ofFlow.origin as { id?: string }).id ?? '').trim()
+        if (!opts.scopedNums.has(ofId)) continue
+        const o = r.demandFlow.origin as {
+          id?: string
+          ligne?: string | null
+          customer?: string | null
+        }
+        const numCommande = o.id ?? ''
+        if (!numCommande) continue
+        const list = byOf.get(ofId) ?? []
+        const ligne = o.ligne ?? null
+        if (!list.some((c) => c.numCommande === numCommande && c.ligne === ligne)) {
+          list.push({
+            numCommande,
+            ligne,
+            client: o.customer || null,
+            livraisonIso: r.demandFlow.date ? isoDay(r.demandFlow.date) : null,
+            method: 'matcher',
+          })
+        }
+        byOf.set(ofId, list)
+      }
+    }
+  } catch (e) {
+    errors.push(`matcher: ${(e as Error).message}`)
+  }
+
+  try {
+    const pegs = await boardDataset.getOfPegsAll([...opts.scopedNums])
+    for (const [ofNum, list] of pegs) {
+      if (!opts.scopedNums.has(ofNum)) continue
+      const existing = byOf.get(ofNum) ?? []
+      for (const p of list) {
+        if (existing.some((c) => c.numCommande === p.numCommande)) continue
+        existing.push({
+          numCommande: p.numCommande,
+          ligne: null,
+          client: p.client,
+          livraisonIso: p.dateExpedition ? isoDay(p.dateExpedition) : null,
+          method: 'peg',
+        })
+      }
+      if (existing.length) byOf.set(ofNum, existing)
+    }
+  } catch (e) {
+    errors.push(`peg: ${(e as Error).message}`)
+  }
+
+  return { byOf, errors }
+}
+
 /** Page /sequenceur (tous les postes) — sources déjà cachées (SWR board:*),
  *  aucun matching commande. Coût borné, indépendant du nombre d'OF fermes. */
 export async function loadPosteSummaries(
@@ -182,14 +315,16 @@ export async function loadPosteSummaries(
   // minuit, donc plus aucune valeur en grâce (12 h) n'est servable au 1er hit du
   // jour → recalcul synchrone au lieu du SWR. Et rien ici ne dépend de la date
   // du jour : les dates rendues viennent des OF, la capacité est statique.
-  // Suffixe kind : ferme vs lancer (#100) ne partagent pas le même dataset.
-  const cacheKey = kind === 'ferme' ? 'summaries' : `summaries:${kind}`
+  // Suffixe kind + version matching : ferme vs lancer (#100) ; v2 = matcher
+  // complet (plus peg-only) + horizon 30 j.
+  const cacheKey = kind === 'ferme' ? 'summaries' : `summaries:${kind}:v2`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
     factory: async (): Promise<EngagementSummaryDataset> => {
       const statuses = KIND_STATUSES[kind]
+      const { from: winFrom, to: winTo } = demandWindow(LANCER_HORIZON_DAYS)
       const [ord, ref, overrides] = await Promise.all([
         timeStage('engagement.summaries.orders', () => boardDataset.getOrders(force)),
         boardDataset.getReferential(force),
@@ -204,9 +339,10 @@ export async function loadPosteSummaries(
       for (const mo of ord.mos) {
         const st = Number(mo.status)
         if (!statuses.has(st)) continue
-        // Dédoublonnage : ORDERS peut renvoyer plusieurs lignes / OF.
         if (seenOf.has(mo.numOf)) continue
         seenOf.add(mo.numOf)
+        // Mode lancer : uniquement les OF dont le début tombe dans l'horizon 30 j.
+        if (kind === 'lancer' && !moInWindow(mo, overrideMap, winFrom, winTo)) continue
         const poste = resolvePoste(mo, overrideMap, opsByArticle)
         if (!poste) continue
         const list = mosByPoste.get(poste) ?? []
@@ -278,29 +414,26 @@ export async function loadPosteSummaries(
         }
       })
 
-      // Mode lancer (#100) : reverse peg sur les candidats (≪ fermes usine).
-      // Sans ça la vue « tous postes » n'avait aucune commande — alors que le
-      // matching complet O(n²) reste réservé au détail d'un poste.
+      // Mode lancer (#100) : même matching que /programme (CommandeOFMatcher
+      // + repli peg). Candidats planifiés/suggérés ≪ fermes → coût OK même
+      // en vue tous postes.
       if (kind === 'lancer') {
-        const nums = postes.flatMap((p) => p.rows.map((r) => r.numOf))
-        if (nums.length > 0) {
-          try {
-            const pegs = await boardDataset.getOfPegsAll(nums)
-            for (const p of postes) {
-              for (const r of p.rows) {
-                const list = pegs.get(r.numOf) ?? []
-                r.commandes = list.map((peg) => ({
-                  numCommande: peg.numCommande,
-                  ligne: null,
-                  client: peg.client,
-                  livraisonIso: peg.dateExpedition ? isoDay(peg.dateExpedition) : null,
-                  method: 'peg' as const,
-                }))
-                r.livraisonIso = r.commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null
-              }
+        const nums = new Set(postes.flatMap((p) => p.rows.map((r) => r.numOf)))
+        if (nums.size > 0) {
+          const { byOf } = await resolveCommandesByOf({
+            scopedNums: nums,
+            supply: ord.supply as Flow[],
+            force,
+            horizonDays: LANCER_HORIZON_DAYS,
+          })
+          for (const p of postes) {
+            for (const r of p.rows) {
+              const commandes = (byOf.get(r.numOf) ?? []).sort((a, b) =>
+                (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')
+              )
+              r.commandes = commandes
+              r.livraisonIso = commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null
             }
-          } catch {
-            // Peg KO → liste sans commandes, pas de mur de la page.
           }
         }
       }
@@ -324,30 +457,21 @@ export async function loadPosteEngagement(
   // recalcul en arrière-plan. Une clé datée changeait à minuit → aucune grâce
   // servable au 1er hit du jour → recalcul synchrone (jusqu'à ~20 s si
   // board:orders était aussi froid — mur froid mesuré : 22,5 s sur /sequenceur).
-  const cacheKey = kind === 'ferme' ? `poste:${poste}` : `poste:${poste}:${kind}`
+  const cacheKey = kind === 'ferme' ? `poste:${poste}` : `poste:${poste}:${kind}:v2`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
     factory: async (): Promise<PosteEngagement> => {
       const statuses = KIND_STATUSES[kind]
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const from = new Date(today)
-      from.setDate(from.getDate() - DEMAND_LOOKBACK_DAYS)
-      const to = new Date(today)
-      const horizon = kind === 'lancer' ? LANCER_DEMAND_HORIZON_DAYS : DEMAND_HORIZON_DAYS
-      to.setDate(to.getDate() + horizon)
-      to.setHours(23, 59, 59, 999)
-      const fromIso = isoDay(from)
-      const toIso = isoDay(to)
+      const horizonDays = kind === 'lancer' ? LANCER_HORIZON_DAYS : ENGAGEMENT_HORIZON_DAYS
+      const { from: winFrom, to: winTo } = demandWindow(horizonDays)
 
       const errors: string[] = []
 
-      const [ord, ref, articlesList, overrides] = await Promise.all([
+      const [ord, ref, overrides] = await Promise.all([
         timeStage('engagement.orders', () => boardDataset.getOrders(force)),
         boardDataset.getReferential(force),
-        boardDataset.getArticles(),
         new OverrideStore().getAll(),
       ])
 
@@ -360,98 +484,23 @@ export async function loadPosteEngagement(
         if (!statuses.has(st)) return false
         if (seenOf.has(mo.numOf)) return false
         if (resolvePoste(mo, overrideMap, opsByArticle) !== poste) return false
+        if (kind === 'lancer' && !moInWindow(mo, overrideMap, winFrom, winTo)) return false
         seenOf.add(mo.numOf)
         return true
       })
       const scopedNums = new Set(scoped.map((m) => m.numOf))
 
-      const byOf = new Map<string, EngagementCommande[]>()
-      try {
-        const [{ demand }, lineDateOverrides] = await Promise.all([
-          timeStage('engagement.demand', () =>
-            boardDataset.getDemandAndReception(fromIso, toIso, force)
-          ),
-          new OrderLineOverrideStore().getMap(),
-        ])
-
-        const remapped =
-          lineDateOverrides.size === 0
-            ? demand
-            : demand.map((f) => {
-                const o = f.origin as { type?: string; id?: string; ligne?: string | null }
-                if (o.type !== 'order') return f
-                const ov = lineDateOverrides.get(`${o.id}#${o.ligne ?? ''}`)
-                if (!ov || !/^\d{4}-\d{2}-\d{2}$/.test(ov)) return f
-                return { ...f, date: new Date(ov) }
-              })
-
-        const windowDemands = remapped.filter(
-          (f) => f.direction === 'demand' && f.quantity > 0 && !!f.date
-        )
-
-        const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
-        const matcher = new CommandeOFMatcher(
-          ord.supply as Flow[],
-          articles,
-          new Map<string, Nomenclature>(), // inutilisé par le matcher
-          30
-        )
-        const results = matcher.matchCommandes(windowDemands)
-
-        for (const r of results) {
-          for (const alloc of r.ofAllocations) {
-            const ofId = ((alloc.ofFlow.origin as { id?: string }).id ?? '').trim()
-            if (!scopedNums.has(ofId)) continue
-            const o = r.demandFlow.origin as {
-              id?: string
-              ligne?: string | null
-              customer?: string | null
-            }
-            const numCommande = o.id ?? ''
-            if (!numCommande) continue
-            const list = byOf.get(ofId) ?? []
-            const ligne = o.ligne ?? null
-            if (!list.some((c) => c.numCommande === numCommande && c.ligne === ligne)) {
-              list.push({
-                numCommande,
-                ligne,
-                client: o.customer || null,
-                livraisonIso: r.demandFlow.date ? isoDay(r.demandFlow.date) : null,
-                method: 'matcher',
-              })
-            }
-            byOf.set(ofId, list)
-          }
-        }
-      } catch (e) {
-        errors.push(`matcher: ${(e as Error).message}`)
-      }
-
-      try {
-        const pegs = await boardDataset.getOfPegsAll([...scopedNums])
-        for (const [ofNum, list] of pegs) {
-          if (!scopedNums.has(ofNum)) continue
-          const existing = byOf.get(ofNum) ?? []
-          for (const p of list) {
-            if (existing.some((c) => c.numCommande === p.numCommande)) continue
-            existing.push({
-              numCommande: p.numCommande,
-              ligne: null,
-              client: p.client,
-              livraisonIso: p.dateExpedition ? isoDay(p.dateExpedition) : null,
-              method: 'peg',
-            })
-          }
-          if (existing.length) byOf.set(ofNum, existing)
-        }
-      } catch (e) {
-        errors.push(`peg: ${(e as Error).message}`)
-      }
+      const { byOf, errors: matchErrors } = await resolveCommandesByOf({
+        scopedNums,
+        supply: ord.supply as Flow[],
+        force,
+        horizonDays,
+      })
+      errors.push(...matchErrors)
 
       const rows: EngagementRow[] = scoped
         .map((mo) => {
           const ov = overrideMap.get(mo.numOf)
-          // Arrondi au dixième conservé ici (affichage) — cf. hoursForQuantity.
           const hours =
             Math.round(hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10) / 10
           const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
@@ -479,9 +528,6 @@ export async function loadPosteEngagement(
             a.numOf.localeCompare(b.numOf)
         )
 
-      // Même source que /programme (board_payload_loader.wstLabels, dernière
-      // gamme du poste qui gagne) : libellé de gamme, pas la description du
-      // référentiel workstation.
       let label = poste
       for (const g of ref.gamme)
         if (g.workstation === poste) label = g.workstationLabel || g.workstation

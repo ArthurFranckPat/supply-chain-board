@@ -775,7 +775,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 <Info size={14} strokeWidth={1.75} />
                 <span>
                   {isLancer
-                    ? 'Commandes via contremarque (peg). Sélectionnez un poste pour le matching complet + urgence livraison.'
+                    ? 'Matching commande↔OF (même algo que /programme). Sélectionnez un poste pour filtrer urgence.'
                     : 'Sélectionnez un poste pour afficher les commandes et les dates de livraison.'}
                 </span>
               </div>
