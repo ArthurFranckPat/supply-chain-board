@@ -28,6 +28,7 @@ export type MastheadTab =
   | 'sequenceur'
   | 'load'
   | 'ruptures'
+  | 'controle-prod'
   | 'tracking'
   | 'expeditions'
   | 'receptions'
@@ -71,6 +72,7 @@ const ORDONNANCEMENT_GROUPS: TabGroup[] = [
       { key: 'programme', label: 'Programme', href: route('scheduler.programme') },
       { key: 'sequenceur', label: 'Séquenceur', href: route('sequenceur.index') },
       { key: 'ruptures', label: 'Ruptures composants', href: route('scheduler.shortage_tracker') },
+      { key: 'controle-prod', label: 'Contrôle prod', href: route('controle_prod.index') },
     ],
   },
 ]
@@ -286,7 +288,10 @@ export function Masthead(props: {
         {/* Nav centrée — DESIGN.md top-nav : onglets au milieu. */}
         <nav className="flex flex-1 items-center justify-center gap-0">
           {/* Tableau de bord */}
-          <Link href={TABLEAU_DE_BORD.href} className={tabCls(TABLEAU_DE_BORD.key === props.active)}>
+          <Link
+            href={TABLEAU_DE_BORD.href}
+            className={tabCls(TABLEAU_DE_BORD.key === props.active)}
+          >
             {TABLEAU_DE_BORD.label}
           </Link>
           {/* Ordonnancement ▾ */}
@@ -295,7 +300,7 @@ export function Masthead(props: {
             groups={ORDONNANCEMENT_GROUPS}
             active={props.active}
             triggerCls={tabCls(
-              ORDONNANCEMENT_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)),
+              ORDONNANCEMENT_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
             )}
           />
           {/* Suivi commandes */}
@@ -315,7 +320,7 @@ export function Masthead(props: {
             groups={LOGISTIQUE_GROUPS}
             active={props.active}
             triggerCls={tabCls(
-              LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)),
+              LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
             )}
           />
           {/* Plus ▾ */}
@@ -391,13 +396,10 @@ export function Masthead(props: {
           groups={ORDONNANCEMENT_GROUPS}
           active={props.active}
           triggerCls={tabCls(
-            ORDONNANCEMENT_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)),
+            ORDONNANCEMENT_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
           )}
         />
-        <Link
-          href={SUIVI_COMMANDES.href}
-          className={tabCls(SUIVI_COMMANDES.key === props.active)}
-        >
+        <Link href={SUIVI_COMMANDES.href} className={tabCls(SUIVI_COMMANDES.key === props.active)}>
           {SUIVI_COMMANDES.label}
         </Link>
         <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
@@ -408,7 +410,7 @@ export function Masthead(props: {
           groups={LOGISTIQUE_GROUPS}
           active={props.active}
           triggerCls={tabCls(
-            LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)),
+            LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
           )}
         />
         <MoreMenu

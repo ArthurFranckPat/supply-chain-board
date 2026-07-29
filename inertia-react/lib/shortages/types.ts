@@ -86,19 +86,9 @@ export interface PhantomOfDisplay {
   qtyPrevueOp: number
 }
 
-/** OF dont la déclaration PF dépasse le pointage ops intermédiaires (issue #95). */
-export interface EcartDeclarationDisplay {
-  numOf: string
-  article: string
-  qtyDeclaree: number
-  qtyPointee: number
-  ecart: number
-}
-
 export interface ShortageRowsResponse {
   rows: ShortageDisplayRow[]
   stats: ShortageStats
   phantomOfs?: PhantomOfDisplay[]
-  ecartDeclarations?: EcartDeclarationDisplay[]
   x3Error: string | null
 }

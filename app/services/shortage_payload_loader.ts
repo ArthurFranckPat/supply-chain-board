@@ -9,11 +9,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
-import {
-  loadOrderImpacts,
-  type EcartDeclarationOf,
-  type PhantomOf,
-} from '#services/order_impacts_loader'
+import { loadOrderImpacts, type PhantomOf } from '#services/order_impacts_loader'
 import {
   buildShortageRows,
   fabricationDaysFromHours,
@@ -103,8 +99,6 @@ export async function loadShortageRowsData(params: {
   stats: { nbRuptures: number; nbCouvertes: number; nbSansCouverture: number }
   /** OF écartés de l'offre car pointés à 100 % et jamais soldés — à signaler, pas à masquer. */
   phantomOfs: PhantomOf[]
-  /** OF sur-déclarés PF vs pointage atelier (issue #95). */
-  ecartDeclarations: EcartDeclarationOf[]
   x3Error: string | null
   windowFrom: Date
   horizon: number
@@ -133,7 +127,6 @@ export async function loadShortageRowsData(params: {
   let rows: ShortageRow[] = []
   let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
   let phantomOfs: PhantomOf[] = []
-  let ecartDeclarations: EcartDeclarationOf[] = []
   let x3Error: string | null = null
   try {
     const cached = await ruptCache().getOrSet({
@@ -154,7 +147,6 @@ export async function loadShortageRowsData(params: {
           ofPegs,
           receptionFlows,
           phantomOfs: fantomes,
-          ecartDeclarations: ecarts,
         } = await loadOrderImpacts({
           from: windowFrom,
           to: windowTo,
@@ -228,19 +220,17 @@ export async function loadShortageRowsData(params: {
         })
         // OF fantômes retirés de l'offre : remontés tels quels pour être signalés au
         // planificateur (« OF à solder »), pas noyés dans le calcul.
-        // Écarts déclaration (#95) : signalés à part, OF restant dans l'offre.
-        return { ...built, phantomOfs: fantomes, ecartDeclarations: ecarts }
+        return { ...built, phantomOfs: fantomes }
       },
     })
     rows = cached.rows
     stats = cached.stats
     phantomOfs = cached.phantomOfs ?? []
-    ecartDeclarations = cached.ecartDeclarations ?? []
   } catch (e) {
     x3Error = (e as Error).message
   }
 
-  return { rows, stats, phantomOfs, ecartDeclarations, x3Error, windowFrom, horizon }
+  return { rows, stats, phantomOfs, x3Error, windowFrom, horizon }
 }
 
 /**
@@ -250,7 +240,7 @@ export async function loadShortageRowsData(params: {
  */
 export async function loadShortageRows(ctx: HttpContext) {
   const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-  const { rows, stats, phantomOfs, ecartDeclarations, x3Error } = await loadShortageRowsData({
+  const { rows, stats, phantomOfs, x3Error } = await loadShortageRowsData({
     start: ctx.request.input('start') as string | undefined,
     days: daysParam,
     force: !!ctx.request.input('refresh'),
@@ -324,5 +314,5 @@ export async function loadShortageRows(ctx: HttpContext) {
     }
   })
 
-  return { rows: displayRows, stats, phantomOfs, ecartDeclarations, x3Error }
+  return { rows: displayRows, stats, phantomOfs, x3Error }
 }

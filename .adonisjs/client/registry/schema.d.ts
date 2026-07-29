@@ -187,6 +187,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'controle_prod.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/controle-prod'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'suivi.board': {
     methods: ["GET","HEAD"]
     pattern: '/suivi'
@@ -790,6 +802,18 @@ export interface Registry {
   'scheduler.shortage_rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/shortages/rows'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'controle_prod.rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/controle-prod'
     types: {
       body: {}
       paramsTuple: []

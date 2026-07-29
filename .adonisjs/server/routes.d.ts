@@ -19,6 +19,7 @@ export type ScannedRoutes = {
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
+    'controle_prod.index': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
@@ -70,6 +71,7 @@ export type ScannedRoutes = {
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
+    'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
@@ -123,6 +125,7 @@ export type ScannedRoutes = {
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
+    'controle_prod.index': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
@@ -153,6 +156,7 @@ export type ScannedRoutes = {
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
+    'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
@@ -192,6 +196,7 @@ export type ScannedRoutes = {
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
+    'controle_prod.index': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
@@ -222,6 +227,7 @@ export type ScannedRoutes = {
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
+    'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }

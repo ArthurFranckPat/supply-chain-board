@@ -106,6 +106,9 @@ router
       .get('/planification', ({ response }) => response.redirect('/programme?mode=planification'))
       .as('planning')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
+    router
+      .get('/controle-prod', '#controllers/controle_prod_controller.index')
+      .as('controle_prod.index')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router
@@ -223,6 +226,9 @@ router
       '#controllers/scheduler_controller.posteEngagement'
     )
     router.get('/api/v1/planning/shortages/rows', '#controllers/scheduler_controller.shortageRows')
+    router
+      .get('/api/v1/planning/controle-prod', '#controllers/controle_prod_controller.rows')
+      .as('controle_prod.rows')
     // Détail d'une période de charge : composition d'une barre du graphe /charge.
     router
       .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')

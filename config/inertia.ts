@@ -136,6 +136,9 @@ declare module '@adonisjs/inertia/types' {
       dateRange: string
       rowsHref: string
     }
+    'scheduler/controle-prod': {
+      rowsHref: string
+    }
     'scheduler/tracking': {
       rowsHref: string
       proactiveRowsHref: string

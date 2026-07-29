@@ -37,6 +37,10 @@ export interface ApiDefinition {
     posteEngagement: typeof routes['scheduler.poste_engagement']
     shortageRows: typeof routes['scheduler.shortage_rows']
   }
+  controleProd: {
+    index: typeof routes['controle_prod.index']
+    rows: typeof routes['controle_prod.rows']
+  }
   suivi: {
     board: typeof routes['suivi.board']
     assign: typeof routes['suivi.assign']

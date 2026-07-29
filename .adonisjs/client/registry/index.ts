@@ -96,6 +96,12 @@ const routes = {
     tokens: [{"old":"/ruptures","type":0,"val":"ruptures","end":""}],
     types: placeholder as Registry['scheduler.shortage_tracker']['types'],
   },
+  'controle_prod.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/controle-prod',
+    tokens: [{"old":"/controle-prod","type":0,"val":"controle-prod","end":""}],
+    types: placeholder as Registry['controle_prod.index']['types'],
+  },
   'suivi.board': {
     methods: ["GET","HEAD"],
     pattern: '/suivi',
@@ -401,6 +407,12 @@ const routes = {
     pattern: '/api/v1/planning/shortages/rows',
     tokens: [{"old":"/api/v1/planning/shortages/rows","type":0,"val":"api","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"shortages","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['scheduler.shortage_rows']['types'],
+  },
+  'controle_prod.rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/controle-prod',
+    tokens: [{"old":"/api/v1/planning/controle-prod","type":0,"val":"api","end":""},{"old":"/api/v1/planning/controle-prod","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/controle-prod","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/controle-prod","type":0,"val":"controle-prod","end":""}],
+    types: placeholder as Registry['controle_prod.rows']['types'],
   },
   'charge.detail': {
     methods: ["GET","HEAD"],
