@@ -1,6 +1,7 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import type { RetardChargeKpi } from '#repositories/retard_repository'
+import { emptyProfondeur } from '#app/domain/retard_profondeur'
 import { OtdRepository, resolveOtdPeriods } from '#repositories/otd_repository'
 import type { OtdKpi, OtdMode } from '#repositories/otd_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
@@ -52,7 +53,13 @@ export default class DashboardController {
     const pinned = Boolean(referenceDate) && !Number.isNaN(parsed.getTime())
     const refDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed
 
-    let retardCharge: RetardChargeKpi = { totalHeures: 0, nbLignes: 0, postes: [], lignes: [] }
+    let retardCharge: RetardChargeKpi = {
+      totalHeures: 0,
+      nbLignes: 0,
+      postes: [],
+      lignes: [],
+      profondeur: emptyProfondeur(),
+    }
     let x3Error: string | null = null
 
     try {

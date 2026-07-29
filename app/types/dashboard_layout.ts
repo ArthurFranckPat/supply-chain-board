@@ -10,7 +10,7 @@
  */
 
 /** Identifiants stables des KPI du tableau de bord. */
-export const KPI_IDS = ['charge', 'otd', 'stock', 'lignes', 'stockTable'] as const
+export const KPI_IDS = ['charge', 'profondeur', 'otd', 'stock', 'lignes', 'stockTable'] as const
 export type KpiId = (typeof KPI_IDS)[number]
 
 /** Largeur discrète sur la grille 3 colonnes : 1 = 1/3, 2 = 2/3, 3 = plein. */
@@ -58,20 +58,20 @@ export interface DashboardLayout {
 }
 
 /**
- * Layout par défaut — reproduit la disposition historique codée en dur :
- * colonne gauche 1/3 (charge, OTD, valorisation) + colonne droite 2/3
- * (lignes en retard, stock par article).
+ * Layout par défaut — colonne gauche 1/3 (charge, profondeur, OTD, valorisation)
+ * + colonne droite 2/3 (lignes en retard, stock par article).
  */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   version: LAYOUT_VERSION,
   items: [
     { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 10 },
-    { id: 'otd', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
-    { id: 'stock', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
+    { id: 'profondeur', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
+    { id: 'otd', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
+    { id: 'stock', visible: true, width: 1, x: 0, y: 30, w: 8, h: 10 },
     { id: 'lignes', visible: true, width: 2, x: 8, y: 0, w: 16, h: 14 },
     { id: 'stockTable', visible: true, width: 2, x: 8, y: 14, w: 16, h: 16 },
   ],
-  printOrder: ['charge', 'otd', 'stock', 'lignes', 'stockTable'],
+  printOrder: ['charge', 'profondeur', 'otd', 'stock', 'lignes', 'stockTable'],
 }
 
 /** Vérifie qu'un `unknown` est un `KpiId` valide. */

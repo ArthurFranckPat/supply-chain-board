@@ -128,7 +128,8 @@ export const useLayoutStore = create<LayoutState>()(
       //    donnaient une géométrie NaN au premier rendu ;
       //  - store v3 : le pas de grille a été divisé par deux, les unités des
       //    layouts plus anciens doivent être doublées (cf. LAYOUT_VERSION).
-      version: 3,
+      //  - store v4 : ajout du KPI `profondeur` (injecté via normalize).
+      version: 4,
       migrate: (persisted) => normalizeDashboardLayout(persisted),
     }
   )

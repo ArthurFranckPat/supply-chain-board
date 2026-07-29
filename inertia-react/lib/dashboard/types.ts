@@ -6,7 +6,7 @@
  * `#types/*` (Adonis). Les deux fichiers doivent rester synchrones.
  */
 
-export const KPI_IDS = ['charge', 'otd', 'stock', 'lignes', 'stockTable'] as const
+export const KPI_IDS = ['charge', 'profondeur', 'otd', 'stock', 'lignes', 'stockTable'] as const
 export type KpiId = (typeof KPI_IDS)[number]
 
 export const KPI_WIDTHS = [1, 2, 3] as const
@@ -52,12 +52,13 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   version: LAYOUT_VERSION,
   items: [
     { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 10 },
-    { id: 'otd', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
-    { id: 'stock', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
+    { id: 'profondeur', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
+    { id: 'otd', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
+    { id: 'stock', visible: true, width: 1, x: 0, y: 30, w: 8, h: 10 },
     { id: 'lignes', visible: true, width: 2, x: 8, y: 0, w: 16, h: 14 },
     { id: 'stockTable', visible: true, width: 2, x: 8, y: 14, w: 16, h: 16 },
   ],
-  printOrder: ['charge', 'otd', 'stock', 'lignes', 'stockTable'],
+  printOrder: ['charge', 'profondeur', 'otd', 'stock', 'lignes', 'stockTable'],
 }
 
 export function isKpiId(v: unknown): v is KpiId {
@@ -132,6 +133,7 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
 /** Titre affichable de chaque KPI. */
 export const KPI_TITLES: Record<KpiId, string> = {
   charge: 'Charge en retard',
+  profondeur: 'Profondeur de retard',
   otd: 'OTD',
   stock: 'Valorisation stock',
   lignes: 'Lignes en retard',

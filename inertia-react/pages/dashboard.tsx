@@ -19,7 +19,22 @@ import {
   type KpiWidth,
 } from '@r/lib/dashboard/types'
 import { useLayoutStore } from '@r/lib/dashboard/layout-store'
-import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight, ChevronLeft, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import {
+  Eye,
+  EyeOff,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  LoaderCircle,
+  Calendar as CalendarIcon,
+  X,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  RotateCcw,
+  SlidersHorizontal,
+} from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
@@ -62,6 +77,7 @@ interface RetardLigne {
   type: string
   dateExp: string
   dateExpIso: string | null
+  joursRetard: number
   qteRestante: number
   /** Pièces déjà pointées (OF couverture) — null/0 si pas d'avancement. */
   qteFaite: number
@@ -71,11 +87,25 @@ interface RetardLigne {
   postes: string[]
 }
 
+interface RetardProfondeurBucket {
+  id: string
+  label: string
+  heures: number
+  nbLignes: number
+}
+
+interface RetardProfondeurKpi {
+  maxJours: number
+  moyennePondereeHeures: number
+  buckets: RetardProfondeurBucket[]
+}
+
 interface RetardChargeKpi {
   totalHeures: number
   nbLignes: number
   postes: { code: string; label: string; heures: number }[]
   lignes: RetardLigne[]
+  profondeur: RetardProfondeurKpi
 }
 
 interface OtdLigneDtl {
@@ -162,7 +192,13 @@ interface DashboardProps {
 
 // ═════════════════════════════════════════════════════════════════════════ Constants
 const EMPTY_KPIS: DashboardKpisResponse = {
-  retardCharge: { totalHeures: 0, nbLignes: 0, postes: [], lignes: [] },
+  retardCharge: {
+    totalHeures: 0,
+    nbLignes: 0,
+    postes: [],
+    lignes: [],
+    profondeur: { maxJours: 0, moyennePondereeHeures: 0, buckets: [] },
+  },
   x3Error: null,
   referenceDate: '',
 }
@@ -287,7 +323,12 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
   }, [series.length])
 
   return (
-    <div className="mt-5" style={{ 'WebkitPrintColorAdjust': 'exact', 'print-color-adjust': 'exact' } as React.CSSProperties}>
+    <div
+      className="mt-5"
+      style={
+        { 'WebkitPrintColorAdjust': 'exact', 'print-color-adjust': 'exact' } as React.CSSProperties
+      }
+    >
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -324,11 +365,26 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
 
 /** Placeholder pour un KPI masqué. En mode édition, il reste un tile réordonnable
  * (pour le replacer) ; hors édition, il est masqué à l'impression. */
-function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode: boolean; screenRank?: number; onShow: () => void }) {
+function HiddenTile({
+  id,
+  editMode,
+  screenRank,
+  onShow,
+}: {
+  id: KpiId
+  editMode: boolean
+  screenRank?: number
+  onShow: () => void
+}) {
   // Affiché uniquement en mode édition : sinon le KPI masqué disparaît totalement.
   if (!editMode) return null
   return (
-    <div className="lg:col-span-1 transition-all duration-300 ease-out" style={{ order: screenRank ?? 999, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties}>
+    <div
+      className="lg:col-span-1 transition-all duration-300 ease-out"
+      style={
+        { order: screenRank ?? 999, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties
+      }
+    >
       <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-all duration-200 hover:border-brand/40 hover:bg-secondary/50 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
         <span className="font-mono text-[10px] font-semibold text-muted-foreground">
@@ -398,7 +454,9 @@ function Tile({
               onClick={() => onWidth(1)}
               className={cn(
                 'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
-                width === 1 ? 'bg-brand text-brand-foreground rounded-xs' : 'text-muted-foreground hover:text-foreground'
+                width === 1
+                  ? 'bg-brand text-brand-foreground rounded-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               title="Largeur 1/3 (4 colonnes)"
             >
@@ -409,7 +467,9 @@ function Tile({
               onClick={() => onWidth(2)}
               className={cn(
                 'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
-                width === 2 ? 'bg-brand text-brand-foreground rounded-xs' : 'text-muted-foreground hover:text-foreground'
+                width === 2
+                  ? 'bg-brand text-brand-foreground rounded-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               title="Largeur 2/3 (8 colonnes)"
             >
@@ -420,7 +480,9 @@ function Tile({
               onClick={() => onWidth(3)}
               className={cn(
                 'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
-                width === 3 ? 'bg-brand text-brand-foreground rounded-xs' : 'text-muted-foreground hover:text-foreground'
+                width === 3
+                  ? 'bg-brand text-brand-foreground rounded-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               title="Pleine largeur (12 colonnes)"
             >
@@ -431,7 +493,10 @@ function Tile({
           {/* Ordre d'impression */}
           {onPrintMove && (
             <div className="pointer-events-auto flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
-              <span className="px-1 font-mono text-[9px] text-muted-foreground" title="Ordre impression">
+              <span
+                className="px-1 font-mono text-[9px] text-muted-foreground"
+                title="Ordre impression"
+              >
                 🖨️ #{printRank + 1}
               </span>
               <button
@@ -491,7 +556,7 @@ function Spinner() {
           <Skeleton
             key={i}
             className="w-full rounded-t-sm"
-            style={{ height: `${30 + (i * 11) % 60}%` }}
+            style={{ height: `${30 + ((i * 11) % 60)}%` }}
           />
         ))}
       </div>
@@ -528,11 +593,23 @@ export default function Dashboard(props: DashboardProps) {
     }
   }, [layoutFromProps, setLayout])
 
-  const setVisible = useCallback((id: KpiId, visible: boolean) => setStoreVisible(id, visible), [setStoreVisible])
-  const setWidth = useCallback((id: KpiId, width: KpiWidth) => setStoreWidth(id, width), [setStoreWidth])
-  const movePrint = useCallback((id: KpiId, dir: -1 | 1) => moveStorePrint(id, dir), [moveStorePrint])
+  const setVisible = useCallback(
+    (id: KpiId, visible: boolean) => setStoreVisible(id, visible),
+    [setStoreVisible]
+  )
+  const setWidth = useCallback(
+    (id: KpiId, width: KpiWidth) => setStoreWidth(id, width),
+    [setStoreWidth]
+  )
+  const movePrint = useCallback(
+    (id: KpiId, dir: -1 | 1) => moveStorePrint(id, dir),
+    [moveStorePrint]
+  )
 
-  const isVisible = useCallback((id: KpiId) => items.find((it) => it.id === id)?.visible ?? true, [items])
+  const isVisible = useCallback(
+    (id: KpiId) => items.find((it) => it.id === id)?.visible ?? true,
+    [items]
+  )
   const layoutItem = useCallback((id: KpiId) => items.find((it) => it.id === id), [items])
   const getPrintRank = useCallback((id: KpiId) => printOrder.indexOf(id), [printOrder])
 
@@ -568,10 +645,14 @@ export default function Dashboard(props: DashboardProps) {
   const [stockSearch, setStockSearch] = useState('')
   const [stockCatFilter, setStockCatFilter] = useState('')
   const [stockHideZero, setStockHideZero] = useState(false)
-  const [stockSortBy, setStockSortBy] = useState<'valeur' | 'stock' | 'article' | 'categorie'>('valeur')
+  const [stockSortBy, setStockSortBy] = useState<'valeur' | 'stock' | 'article' | 'categorie'>(
+    'valeur'
+  )
   const [stockSortDir, setStockSortDir] = useState<'asc' | 'desc'>('desc')
   const [stockGrain, setStockGrain] = useState<StockGrain>('mois')
-  const [stockRange, setStockRange] = useState<{ start: Date | null; end: Date | null } | null>(null)
+  const [stockRange, setStockRange] = useState<{ start: Date | null; end: Date | null } | null>(
+    null
+  )
   const [stockCalendarOpen, setStockCalendarOpen] = useState(false)
   // Article ouvert dans la sheet de détail (null = fermé).
   const [stockArticle, setStockArticle] = useState<string | null>(null)
@@ -594,7 +675,7 @@ export default function Dashboard(props: DashboardProps) {
       const layout: DashboardLayout = { version: layoutVersion, items, printOrder }
       fetch('/api/v1/user/dashboard-layout', {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        headers: { 'content-type': 'application/json', 'accept': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify(layout),
       })
@@ -651,10 +732,21 @@ export default function Dashboard(props: DashboardProps) {
   const x3Error = useMemo(() => (kpisData.data ?? EMPTY_KPIS).x3Error, [kpisData.data])
   const otdError = useMemo(() => (otdData.data ?? EMPTY_OTD).x3Error, [otdData.data])
   const maxHeures = useMemo(() => Math.max(1, ...kpi.postes.map((p) => p.heures)), [kpi.postes])
+  const profondeur = kpi.profondeur
+  const maxBucketHeures = useMemo(
+    () => Math.max(1, ...(profondeur?.buckets ?? []).map((b) => b.heures)),
+    [profondeur]
+  )
 
-  const stock = useMemo(() => (stockData.data ?? { stockValuation: EMPTY_STOCK }).stockValuation, [stockData.data])
+  const stock = useMemo(
+    () => (stockData.data ?? { stockValuation: EMPTY_STOCK }).stockValuation,
+    [stockData.data]
+  )
   const stockError = useMemo(() => (stockData.data ?? { x3Error: null }).x3Error, [stockData.data])
-  const stockMaxCat = useMemo(() => Math.max(1, ...stock.categories.map((c) => c.valeur)), [stock.categories])
+  const stockMaxCat = useMemo(
+    () => Math.max(1, ...stock.categories.map((c) => c.valeur)),
+    [stock.categories]
+  )
 
   // Stock categories
   const stockCategories = useMemo(() => {
@@ -674,7 +766,11 @@ export default function Dashboard(props: DashboardProps) {
       .filter((a) => {
         if (hideZero && a.stock === 0) return false
         if (cat && a.categorie !== cat) return false
-        if (needle && !a.article.toLowerCase().includes(needle) && !a.designation.toLowerCase().includes(needle))
+        if (
+          needle &&
+          !a.article.toLowerCase().includes(needle) &&
+          !a.designation.toLowerCase().includes(needle)
+        )
           return false
         return true
       })
@@ -706,7 +802,9 @@ export default function Dashboard(props: DashboardProps) {
 
   const stockCal = useRangeCalendar({
     open: stockCalendarOpen,
-    value: stockRange?.start ? { from: stockRange.start, to: stockRange.end ?? undefined } : undefined,
+    value: stockRange?.start
+      ? { from: stockRange.start, to: stockRange.end ?? undefined }
+      : undefined,
     onCommit: (r) => {
       setStockRange({ start: r.from ?? null, end: r.to ?? null })
       setStockCalendarOpen(false)
@@ -722,885 +820,1042 @@ export default function Dashboard(props: DashboardProps) {
       scrollable={false}
       maxWidth="7xl"
     >
-        <div ref={contentElRef} className="h-full overflow-auto print:overflow-visible">
-          {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
-          <div
-            data-print-header
-            className="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex"
-          >
-            <span className="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
-              Supply Chain <span className="font-medium italic text-brand">AERECO</span>
-              <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
-                Tableau de bord
-              </span>
+      <div ref={contentElRef} className="h-full overflow-auto print:overflow-visible">
+        {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
+        <div
+          data-print-header
+          className="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex"
+        >
+          <span className="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
+            Supply Chain <span className="font-medium italic text-brand">AERECO</span>
+            <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
+              Tableau de bord
             </span>
-            <span className="font-mono text-[12px] text-muted-foreground">
-              {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date(props.referenceDate))}
-            </span>
-          </div>
-
-          {/* Barre d'outils édition */}
-          <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
-            {editMode && (
-              <span className="font-mono text-xs font-medium text-muted-foreground">
-                Personnalisation — glissez les KPI, ajustez la poignée ou choisissez une largeur, masquez-en.
-              </span>
+          </span>
+          <span className="font-mono text-[12px] text-muted-foreground">
+            {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(
+              new Date(props.referenceDate)
             )}
-            <div className="ml-auto flex items-center gap-2">
-              {editMode && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
-                  className="font-mono text-xs font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  <RotateCcw size={13} className="mr-1" />
-                  Réinitialiser
-                </Button>
-              )}
+          </span>
+        </div>
+
+        {/* Barre d'outils édition */}
+        <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
+          {editMode && (
+            <span className="font-mono text-xs font-medium text-muted-foreground">
+              Personnalisation — glissez les KPI, ajustez la poignée ou choisissez une largeur,
+              masquez-en.
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            {editMode && (
               <Button
                 type="button"
-                variant={editMode ? 'default' : 'outline'}
+                variant="outline"
                 size="xs"
-                onClick={() => setEditMode((v) => !v)}
-                className="font-mono text-xs font-semibold"
+                onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
+                className="font-mono text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
-                <SlidersHorizontal size={13} className="mr-1" />
-                {editMode ? 'Terminé' : 'Personnaliser'}
+                <RotateCcw size={13} className="mr-1" />
+                Réinitialiser
               </Button>
-            </div>
+            )}
+            <Button
+              type="button"
+              variant={editMode ? 'default' : 'outline'}
+              size="xs"
+              onClick={() => setEditMode((v) => !v)}
+              className="font-mono text-xs font-semibold"
+            >
+              <SlidersHorizontal size={13} className="mr-1" />
+              {editMode ? 'Terminé' : 'Personnaliser'}
+            </Button>
           </div>
+        </div>
 
-          <DashboardGrid
-            items={gridLayout}
-            editMode={editMode}
-            onChange={handleLayoutChange}
-            cols={GRID_COLS}
-            rowHeight={24.5}
-            gap={16}
-            minW={6}
-            minH={6}
-          >
-            {/* ═════ KPI #1 — Charge en retard par poste ═════ */}
-            {isVisible('charge') && (
-              <div key="charge">
-                <Tile
-                  id="charge"
-                  editMode={editMode}
-                  printRank={getPrintRank('charge')}
-                  width={layoutItem('charge')?.width ?? 1}
-                  onWidth={setWidth.bind(null, 'charge')}
-                  onHide={() => setVisible('charge', false)}
-                  onPrintMove={(dir) => movePrint('charge', dir)}
-                >
-                  <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                    <CardHeader
-                      title="Charge en retard"
-                      suffix="par poste"
-                      onHide={() => setVisible('charge', false)}
-                    />
-                    {kpisData.loading ? (
-                      <Spinner />
-                    ) : x3Error ? (
-                      <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                        {x3Error}
-                      </p>
-                    ) : (
-                      <>
-                        <div className="flex items-end justify-between gap-3">
-                          <div className="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                            {kpi.totalHeures}
-                            <span className="ml-1 font-mono text-[18px] font-bold text-muted-foreground">
-                              h
-                            </span>
-                          </div>
-                          <div className="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                            <b className="text-[13px] text-foreground">{kpi.nbLignes}</b> ligne
-                            {kpi.nbLignes > 1 ? 's' : ''}
-                            <br />
-                            en retard
-                          </div>
+        <DashboardGrid
+          items={gridLayout}
+          editMode={editMode}
+          onChange={handleLayoutChange}
+          cols={GRID_COLS}
+          rowHeight={24.5}
+          gap={16}
+          minW={6}
+          minH={6}
+        >
+          {/* ═════ KPI #1 — Charge en retard par poste ═════ */}
+          {isVisible('charge') && (
+            <div key="charge">
+              <Tile
+                id="charge"
+                editMode={editMode}
+                printRank={getPrintRank('charge')}
+                width={layoutItem('charge')?.width ?? 1}
+                onWidth={setWidth.bind(null, 'charge')}
+                onHide={() => setVisible('charge', false)}
+                onPrintMove={(dir) => movePrint('charge', dir)}
+              >
+                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                  <CardHeader
+                    title="Charge en retard"
+                    suffix="par poste"
+                    onHide={() => setVisible('charge', false)}
+                  />
+                  {kpisData.loading ? (
+                    <Spinner />
+                  ) : x3Error ? (
+                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {x3Error}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                          {kpi.totalHeures}
+                          <span className="ml-1 font-mono text-[18px] font-bold text-muted-foreground">
+                            h
+                          </span>
                         </div>
+                        <div className="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                          <b className="text-[13px] text-foreground">{kpi.nbLignes}</b> ligne
+                          {kpi.nbLignes > 1 ? 's' : ''}
+                          <br />
+                          en retard
+                        </div>
+                      </div>
 
-                        {kpi.postes.length > 0 ? (
-                          <div className="mt-6 flex flex-col gap-3.5">
-                            {kpi.postes.map((poste, i) => (
-                              <div key={poste.code}>
-                                <div className="mb-[5px] flex items-baseline justify-between gap-2">
-                                  <span
-                                    className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
-                                    title={poste.label}
-                                  >
-                                    {poste.code}
-                                    {poste.label ? ` · ${poste.label}` : ''}
-                                  </span>
-                                  <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                    {poste.heures} h
-                                  </span>
-                                </div>
-                                <div
-                                  className="h-2 overflow-hidden rounded-full bg-secondary"
-                                  style={{
-                                    'WebkitPrintColorAdjust': 'exact',
-                                    'printColorAdjust': 'exact',
-                                  } as React.CSSProperties}
+                      {kpi.postes.length > 0 ? (
+                        <div className="mt-6 flex flex-col gap-3.5">
+                          {kpi.postes.map((poste, i) => (
+                            <div key={poste.code}>
+                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
+                                <span
+                                  className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
+                                  title={poste.label}
                                 >
-                                  <div
-                                    className="h-full rounded-full"
-                                    style={{
+                                  {poste.code}
+                                  {poste.label ? ` · ${poste.label}` : ''}
+                                </span>
+                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                  {poste.heures} h
+                                </span>
+                              </div>
+                              <div
+                                className="h-2 overflow-hidden rounded-full bg-secondary"
+                                style={
+                                  {
+                                    WebkitPrintColorAdjust: 'exact',
+                                    printColorAdjust: 'exact',
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <div
+                                  className="h-full rounded-full"
+                                  style={
+                                    {
                                       width: `${Math.max(3, (poste.heures / maxHeures) * 100)}%`,
                                       background: BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)],
-                                      'WebkitPrintColorAdjust': 'exact',
-                                      'printColorAdjust': 'exact',
-                                    } as React.CSSProperties}
-                                  />
-                                </div>
+                                      WebkitPrintColorAdjust: 'exact',
+                                      printColorAdjust: 'exact',
+                                    } as React.CSSProperties
+                                  }
+                                />
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
-                            Aucune charge en retard — rien à rattraper.
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </Card>
-                </Tile>
-              </div>
-            )}
-
-            {/* ═════ KPI #2 — OTD ═════ */}
-            {isVisible('otd') && (
-              <div key="otd">
-                <Tile
-                  id="otd"
-                  editMode={editMode}
-                  printRank={getPrintRank('otd')}
-                  width={layoutItem('otd')?.width ?? 1}
-                  onWidth={setWidth.bind(null, 'otd')}
-                  onHide={() => setVisible('otd', false)}
-                  onPrintMove={(dir) => movePrint('otd', dir)}
-                >
-                  <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                    <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                      <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
-                      <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
-                        OTD
-                      </h2>
-                      {/* Sélecteur de plage */}
-                      <div className="ml-auto flex items-center gap-1">
-                        <DateWindowPill
-                          open={calendarOpen}
-                          onOpenChange={setCalendarOpen}
-                          selected={{ from: otdRange?.start ?? undefined, to: otdRange?.end ?? undefined }}
-                          onSelect={(range) => {
-                            if (range?.from && range?.to) {
-                              setOtdRange({ start: range.from, end: range.to })
-                              setCalendarOpen(false)
-                            } else if (range?.from) {
-                              setOtdRange({ start: range.from, end: range.from })
-                            }
-                          }}
-                          disabled={(day) => day > new Date()}
-                          align="right"
-                        />
-                        {otdRange?.start && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => {
-                              setOtdRange(null)
-                              setCalendarOpen(false)
-                            }}
-                            title="Réinitialiser la période OTD"
-                          >
-                            <X size={14} />
-                          </Button>
-                        )}
-                      </div>
-                      {/* Toggle mode */}
-                      <Segment role="radiogroup" ariaLabel="Mode d'OTD">
-                        <SegmentButton
-                          role="radio"
-                          active={otdMode === 'demandee'}
-                          onClick={() => setOtdMode('demandee')}
-                        >
-                          Demandée
-                        </SegmentButton>
-                        <SegmentButton
-                          role="radio"
-                          active={otdMode === 'acceptee'}
-                          onClick={() => setOtdMode('acceptee')}
-                        >
-                          Acceptée
-                        </SegmentButton>
-                      </Segment>
-                      <button
-                        type="button"
-                        onClick={() => setVisible('otd', false)}
-                        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                        title="Masquer ce KPI"
-                        aria-label="Masquer le KPI OTD"
-                      >
-                        <Eye size={15} />
-                      </button>
-                    </div>
-
-                    {otdData.loading ? (
-                      <Spinner />
-                    ) : otdError ? (
-                      <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                        {otdError}
-                      </p>
-                    ) : otd.length === 0 ? (
-                      <p className="font-fraunces text-[13px] italic text-muted-foreground">
-                        Aucune donnée OTD.
-                      </p>
-                    ) : (
-                      <>
-                        {/* Filtre client + toggle détails */}
-                        <div className="mb-3 flex items-center gap-1.5">
-                          <InputGroup className="h-8 flex-1">
-                            <InputGroupAddon align="inline-start">
-                              <Search size={13} className="text-muted-foreground" />
-                            </InputGroupAddon>
-                            <InputGroupInput
-                              type="text"
-                              value={clientFilter}
-                              onChange={(e) => setClientFilter(e.target.value)}
-                              placeholder="Filtrer par client"
-                              aria-label="Filtrer les lignes par client"
-                              className="h-8 text-xs"
-                            />
-                            {clientFilter && (
-                              <InputGroupAddon align="inline-end">
-                                <InputGroupButton
-                                  size="icon-xs"
-                                  onClick={() => setClientFilter('')}
-                                  title="Effacer le filtre"
-                                  aria-label="Effacer le filtre"
-                                >
-                                  <X size={13} />
-                                </InputGroupButton>
-                              </InputGroupAddon>
-                            )}
-                          </InputGroup>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="xs"
-                            onClick={() => setDetailsOpen((v) => !v)}
-                            title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
-                          >
-                            <DynamicIcon name={detailsOpen ? 'expand_more' : 'chevron_right'} size={13} className="text-muted-foreground" />
-                            <span>Détails</span>
-                          </Button>
+                            </div>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
+                          Aucune charge en retard — rien à rattraper.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </Card>
+              </Tile>
+            </div>
+          )}
 
-                        {otd.map((p, i) => (
-                          <div key={p.label} className={cn('mt-5 border-t border-rule-soft pt-5', i > 0)}>
-                            <div className="mb-2 font-mono text-[10px] font-semibold text-muted-foreground">
-                              {p.label}
-                            </div>
-
-                            {p.nbTotal === 0 ? (
-                              <p className="font-fraunces text-[12px] italic text-muted-foreground">
-                                Aucune ligne à expédier.
-                              </p>
-                            ) : (
-                              <>
-                                <div className="flex items-end justify-between gap-3">
-                                  <div
-                                    className="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums"
-                                    style={{ color: otdColor(p.tauxOtif, p.nbTotal) }}
-                                  >
-                                    {p.tauxOtif}
-                                    <span className="ml-0.5 font-mono text-[16px] font-bold text-muted-foreground">
-                                      %
-                                    </span>
-                                  </div>
-                                  <div className="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                                    <b className="text-[13px] text-foreground">{p.nbOtif}</b>/{p.nbTotal}
-                                    <br />
-                                    lignes OTIF
-                                  </div>
-                                </div>
-
-                                {detailsOpen && p.lignesNon.length > 0 && (
-                                  <div className="-mx-2 mt-4 max-h-[160px] overflow-auto">
-                                    <table className="w-full border-collapse text-left">
-                                      <thead>
-                                        <tr className="sticky top-0 bg-card">
-                                          <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                            Commande
-                                          </th>
-                                          <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                            Article
-                                          </th>
-                                          <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                            Poste
-                                          </th>
-                                          <th className="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                            Livré/Cmde
-                                          </th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {p.lignesNon.map((l) => (
-                                          <tr key={`${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
-                                            <td className="px-2 py-1.5 align-top">
-                                              <div className="font-mono text-[11px] font-bold text-foreground">
-                                                {l.numCommande}
-                                              </div>
-                                              <div className="font-sans text-[10px] text-muted-foreground">
-                                                {l.client}
-                                              </div>
-                                            </td>
-                                            <td className="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">
-                                              {l.article}
-                                            </td>
-                                            <td className="px-2 py-1.5 align-top">
-                                              {l.posteDeCharge ? (
-                                                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
-                                                  {l.posteDeCharge}
-                                                </span>
-                                              ) : (
-                                                <span className="font-sans text-[10px] text-muted-foreground/70">
-                                                  —
-                                                </span>
-                                              )}
-                                            </td>
-                                            <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                              {l.qteLivree}/{l.qteCmde}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                )}
-
-                                {detailsOpen && p.lignesNon.length === 0 && (
-                                  <p className="mt-4 font-fraunces text-[12px] italic text-muted-foreground">
-                                    Toutes les lignes sont OTIF.
-                                  </p>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </Card>
-                </Tile>
-              </div>
-            )}
-
-            {/* ═════ KPI #3 — Valorisation du stock ═════ */}
-            {isVisible('stock') && (
-              <div key="stock">
-                <Tile
-                  id="stock"
-                  editMode={editMode}
-                  printRank={getPrintRank('stock')}
-                  width={layoutItem('stock')?.width ?? 1}
-                  onWidth={setWidth.bind(null, 'stock')}
-                  onHide={() => setVisible('stock', false)}
-                  onPrintMove={(dir) => movePrint('stock', dir)}
-                >
-                  <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                    <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                      <span className="size-2 shrink-0 rounded-full" style={{ background: '#00a699' }} />
-                      <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
-                        Valorisation stock
-                      </h2>
-                      <div className="ml-auto flex items-center gap-1">
-                        <DateWindowPill
-                          open={stockCalendarOpen}
-                          onOpenChange={setStockCalendarOpen}
-                          selected={{ from: stockRange?.start ?? undefined, to: stockRange?.end ?? undefined }}
-                          onSelect={(range) => {
-                            if (range?.from && range?.to) {
-                              setStockRange({ start: range.from, end: range.to })
-                              setStockCalendarOpen(false)
-                            } else if (range?.from) {
-                              setStockRange({ start: range.from, end: range.from })
-                            }
-                          }}
-                          disabled={(day) => day > new Date()}
-                          align="right"
-                        />
-                        {stockRange?.start && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => {
-                              setStockRange(null)
-                              setStockCalendarOpen(false)
-                            }}
-                            title="Réinitialiser la période stock"
-                          >
-                            <X size={14} />
-                          </Button>
-                        )}
+          {/* ═════ KPI — Profondeur de retard ═════ */}
+          {isVisible('profondeur') && (
+            <div key="profondeur">
+              <Tile
+                id="profondeur"
+                editMode={editMode}
+                printRank={getPrintRank('profondeur')}
+                width={layoutItem('profondeur')?.width ?? 1}
+                onWidth={setWidth.bind(null, 'profondeur')}
+                onHide={() => setVisible('profondeur', false)}
+                onPrintMove={(dir) => movePrint('profondeur', dir)}
+              >
+                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                  <CardHeader
+                    title="Profondeur de retard"
+                    suffix="jours"
+                    onHide={() => setVisible('profondeur', false)}
+                  />
+                  {kpisData.loading ? (
+                    <Spinner />
+                  ) : x3Error ? (
+                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {x3Error}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                          {profondeur?.maxJours ?? 0}
+                          <span className="ml-1 font-mono text-[18px] font-bold text-muted-foreground">
+                            j
+                          </span>
+                        </div>
+                        <div className="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                          moy.{' '}
+                          <b className="text-[13px] text-foreground">
+                            {profondeur?.moyennePondereeHeures ?? 0}
+                          </b>{' '}
+                          j
+                          <br />
+                          pondérée h
+                        </div>
                       </div>
-                      {/* Toggle maille */}
-                      <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
-                        <SegmentButton
-                          role="radio"
-                          active={stockGrain === 'mois'}
-                          onClick={() => setStockGrain('mois')}
-                        >
-                          Mois
-                        </SegmentButton>
-                        <SegmentButton
-                          role="radio"
-                          active={stockGrain === 'semaine'}
-                          onClick={() => setStockGrain('semaine')}
-                        >
-                          Sem.
-                        </SegmentButton>
-                      </Segment>
-                      <button
-                        type="button"
-                        onClick={() => setVisible('stock', false)}
-                        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                        title="Masquer ce KPI"
-                        aria-label="Masquer le KPI Valorisation stock"
-                      >
-                        <Eye size={15} />
-                      </button>
-                    </div>
 
-                    {stockData.loading ? (
-                      <Spinner />
-                    ) : stockError ? (
-                      <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                        {stockError}
-                      </p>
-                    ) : stock.series.length === 0 ? (
-                      <p className="font-fraunces text-[13px] italic text-muted-foreground">
-                        Aucune donnée de valorisation.
-                      </p>
-                    ) : (
-                      <>
-                        {/* Valeur actuelle + delta */}
-                        <div className="flex items-end justify-between gap-3">
-                          <div>
-                            <div className="font-fraunces text-[40px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                              {fmtEuro.format(stock.totalActuel)}
-                            </div>
-                            <div className="mt-1.5 flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground">
-                              {stock.deltaPct !== 0 && (
-                                <span
-                                  className="font-bold tabular-nums"
-                                  style={{ color: stock.deltaPct > 0 ? '#ff385c' : '#008049' }}
-                                >
-                                  {stock.deltaPct > 0 ? '+' : ''}
-                                  {stock.deltaPct}%
+                      {(profondeur?.buckets ?? []).some((b) => b.nbLignes > 0) ? (
+                        <div className="mt-6 flex flex-col gap-3.5">
+                          {(profondeur?.buckets ?? []).map((bucket, i) => (
+                            <div key={bucket.id}>
+                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
+                                <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+                                  {bucket.label}
+                                  <span className="ml-1.5 font-normal text-muted-foreground">
+                                    · {bucket.nbLignes} ligne{bucket.nbLignes > 1 ? 's' : ''}
+                                  </span>
                                 </span>
-                              )}
-                              <span>vs début de plage</span>
+                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                  {bucket.heures} h
+                                </span>
+                              </div>
+                              <div
+                                className="h-2 overflow-hidden rounded-full bg-secondary"
+                                style={
+                                  {
+                                    WebkitPrintColorAdjust: 'exact',
+                                    printColorAdjust: 'exact',
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <div
+                                  className="h-full rounded-full"
+                                  style={
+                                    {
+                                      width: `${bucket.heures > 0 ? Math.max(3, (bucket.heures / maxBucketHeures) * 100) : 0}%`,
+                                      background: BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)],
+                                      WebkitPrintColorAdjust: 'exact',
+                                      printColorAdjust: 'exact',
+                                    } as React.CSSProperties
+                                  }
+                                />
+                              </div>
                             </div>
-                          </div>
-                          <div className="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                            <b className="text-[13px] text-foreground">{stock.nbArticles}</b> art.
-                            <br />
-                            valorisés
-                          </div>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
+                          Aucun retard — profondeur nulle.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </Card>
+              </Tile>
+            </div>
+          )}
 
-                        {/* Mini-graphique */}
-                        <StockSparkline series={stock.series} />
+          {/* ═════ KPI #2 — OTD ═════ */}
+          {isVisible('otd') && (
+            <div key="otd">
+              <Tile
+                id="otd"
+                editMode={editMode}
+                printRank={getPrintRank('otd')}
+                width={layoutItem('otd')?.width ?? 1}
+                onWidth={setWidth.bind(null, 'otd')}
+                onHide={() => setVisible('otd', false)}
+                onPrintMove={(dir) => movePrint('otd', dir)}
+              >
+                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                  <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+                    <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
+                    <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
+                      OTD
+                    </h2>
+                    {/* Sélecteur de plage */}
+                    <div className="ml-auto flex items-center gap-1">
+                      <DateWindowPill
+                        open={calendarOpen}
+                        onOpenChange={setCalendarOpen}
+                        selected={{
+                          from: otdRange?.start ?? undefined,
+                          to: otdRange?.end ?? undefined,
+                        }}
+                        onSelect={(range) => {
+                          if (range?.from && range?.to) {
+                            setOtdRange({ start: range.from, end: range.to })
+                            setCalendarOpen(false)
+                          } else if (range?.from) {
+                            setOtdRange({ start: range.from, end: range.from })
+                          }
+                        }}
+                        disabled={(day) => day > new Date()}
+                        align="right"
+                      />
+                      {otdRange?.start && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => {
+                            setOtdRange(null)
+                            setCalendarOpen(false)
+                          }}
+                          title="Réinitialiser la période OTD"
+                        >
+                          <X size={14} />
+                        </Button>
+                      )}
+                    </div>
+                    {/* Toggle mode */}
+                    <Segment role="radiogroup" ariaLabel="Mode d'OTD">
+                      <SegmentButton
+                        role="radio"
+                        active={otdMode === 'demandee'}
+                        onClick={() => setOtdMode('demandee')}
+                      >
+                        Demandée
+                      </SegmentButton>
+                      <SegmentButton
+                        role="radio"
+                        active={otdMode === 'acceptee'}
+                        onClick={() => setOtdMode('acceptee')}
+                      >
+                        Acceptée
+                      </SegmentButton>
+                    </Segment>
+                    <button
+                      type="button"
+                      onClick={() => setVisible('otd', false)}
+                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+                      title="Masquer ce KPI"
+                      aria-label="Masquer le KPI OTD"
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </div>
 
-                        {/* Top 5 catégories */}
-                        <div className="mt-5">
-                          <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
-                            Top catégories
+                  {otdData.loading ? (
+                    <Spinner />
+                  ) : otdError ? (
+                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {otdError}
+                    </p>
+                  ) : otd.length === 0 ? (
+                    <p className="font-fraunces text-[13px] italic text-muted-foreground">
+                      Aucune donnée OTD.
+                    </p>
+                  ) : (
+                    <>
+                      {/* Filtre client + toggle détails */}
+                      <div className="mb-3 flex items-center gap-1.5">
+                        <InputGroup className="h-8 flex-1">
+                          <InputGroupAddon align="inline-start">
+                            <Search size={13} className="text-muted-foreground" />
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            type="text"
+                            value={clientFilter}
+                            onChange={(e) => setClientFilter(e.target.value)}
+                            placeholder="Filtrer par client"
+                            aria-label="Filtrer les lignes par client"
+                            className="h-8 text-xs"
+                          />
+                          {clientFilter && (
+                            <InputGroupAddon align="inline-end">
+                              <InputGroupButton
+                                size="icon-xs"
+                                onClick={() => setClientFilter('')}
+                                title="Effacer le filtre"
+                                aria-label="Effacer le filtre"
+                              >
+                                <X size={13} />
+                              </InputGroupButton>
+                            </InputGroupAddon>
+                          )}
+                        </InputGroup>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          onClick={() => setDetailsOpen((v) => !v)}
+                          title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
+                        >
+                          <DynamicIcon
+                            name={detailsOpen ? 'expand_more' : 'chevron_right'}
+                            size={13}
+                            className="text-muted-foreground"
+                          />
+                          <span>Détails</span>
+                        </Button>
+                      </div>
+
+                      {otd.map((p, i) => (
+                        <div
+                          key={p.label}
+                          className={cn('mt-5 border-t border-rule-soft pt-5', i > 0)}
+                        >
+                          <div className="mb-2 font-mono text-[10px] font-semibold text-muted-foreground">
+                            {p.label}
                           </div>
-                          <div className="flex flex-col gap-3">
-                            {stock.categories.map((cat, i) => (
-                              <div key={cat.categorie}>
-                                <div className="mb-[5px] flex items-baseline justify-between gap-2">
-                                  <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
-                                    {cat.categorie}
-                                  </span>
-                                  <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                    {fmtEuro.format(cat.valeur)}
-                                    <span className="ml-1 text-[10px] text-muted-foreground/70">{cat.part}%</span>
+
+                          {p.nbTotal === 0 ? (
+                            <p className="font-fraunces text-[12px] italic text-muted-foreground">
+                              Aucune ligne à expédier.
+                            </p>
+                          ) : (
+                            <>
+                              <div className="flex items-end justify-between gap-3">
+                                <div
+                                  className="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums"
+                                  style={{ color: otdColor(p.tauxOtif, p.nbTotal) }}
+                                >
+                                  {p.tauxOtif}
+                                  <span className="ml-0.5 font-mono text-[16px] font-bold text-muted-foreground">
+                                    %
                                   </span>
                                 </div>
-                                <div
-                                  className="h-2 overflow-hidden rounded-full bg-secondary"
-                                  style={{
-                                    'WebkitPrintColorAdjust': 'exact',
-                                    'printColorAdjust': 'exact',
-                                  } as React.CSSProperties}
-                                >
-                                  <div
-                                    className="h-full rounded-full"
-                                    style={{
-                                      width: `${Math.max(3, (cat.valeur / stockMaxCat) * 100)}%`,
-                                      background: STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
-                                      'WebkitPrintColorAdjust': 'exact',
-                                      'printColorAdjust': 'exact',
-                                    } as React.CSSProperties}
-                                  />
+                                <div className="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                                  <b className="text-[13px] text-foreground">{p.nbOtif}</b>/
+                                  {p.nbTotal}
+                                  <br />
+                                  lignes OTIF
                                 </div>
                               </div>
-                            ))}
+
+                              {detailsOpen && p.lignesNon.length > 0 && (
+                                <div className="-mx-2 mt-4 max-h-[160px] overflow-auto">
+                                  <table className="w-full border-collapse text-left">
+                                    <thead>
+                                      <tr className="sticky top-0 bg-card">
+                                        <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                          Commande
+                                        </th>
+                                        <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                          Article
+                                        </th>
+                                        <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                          Poste
+                                        </th>
+                                        <th className="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                          Livré/Cmde
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {p.lignesNon.map((l) => (
+                                        <tr
+                                          key={`${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`}
+                                          className="border-b border-rule-soft last:border-0 hover:bg-secondary/40"
+                                        >
+                                          <td className="px-2 py-1.5 align-top">
+                                            <div className="font-mono text-[11px] font-bold text-foreground">
+                                              {l.numCommande}
+                                            </div>
+                                            <div className="font-sans text-[10px] text-muted-foreground">
+                                              {l.client}
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">
+                                            {l.article}
+                                          </td>
+                                          <td className="px-2 py-1.5 align-top">
+                                            {l.posteDeCharge ? (
+                                              <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+                                                {l.posteDeCharge}
+                                              </span>
+                                            ) : (
+                                              <span className="font-sans text-[10px] text-muted-foreground/70">
+                                                —
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                                            {l.qteLivree}/{l.qteCmde}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              {detailsOpen && p.lignesNon.length === 0 && (
+                                <p className="mt-4 font-fraunces text-[12px] italic text-muted-foreground">
+                                  Toutes les lignes sont OTIF.
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </Card>
+              </Tile>
+            </div>
+          )}
+
+          {/* ═════ KPI #3 — Valorisation du stock ═════ */}
+          {isVisible('stock') && (
+            <div key="stock">
+              <Tile
+                id="stock"
+                editMode={editMode}
+                printRank={getPrintRank('stock')}
+                width={layoutItem('stock')?.width ?? 1}
+                onWidth={setWidth.bind(null, 'stock')}
+                onHide={() => setVisible('stock', false)}
+                onPrintMove={(dir) => movePrint('stock', dir)}
+              >
+                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                  <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: '#00a699' }}
+                    />
+                    <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
+                      Valorisation stock
+                    </h2>
+                    <div className="ml-auto flex items-center gap-1">
+                      <DateWindowPill
+                        open={stockCalendarOpen}
+                        onOpenChange={setStockCalendarOpen}
+                        selected={{
+                          from: stockRange?.start ?? undefined,
+                          to: stockRange?.end ?? undefined,
+                        }}
+                        onSelect={(range) => {
+                          if (range?.from && range?.to) {
+                            setStockRange({ start: range.from, end: range.to })
+                            setStockCalendarOpen(false)
+                          } else if (range?.from) {
+                            setStockRange({ start: range.from, end: range.from })
+                          }
+                        }}
+                        disabled={(day) => day > new Date()}
+                        align="right"
+                      />
+                      {stockRange?.start && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => {
+                            setStockRange(null)
+                            setStockCalendarOpen(false)
+                          }}
+                          title="Réinitialiser la période stock"
+                        >
+                          <X size={14} />
+                        </Button>
+                      )}
+                    </div>
+                    {/* Toggle maille */}
+                    <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
+                      <SegmentButton
+                        role="radio"
+                        active={stockGrain === 'mois'}
+                        onClick={() => setStockGrain('mois')}
+                      >
+                        Mois
+                      </SegmentButton>
+                      <SegmentButton
+                        role="radio"
+                        active={stockGrain === 'semaine'}
+                        onClick={() => setStockGrain('semaine')}
+                      >
+                        Sem.
+                      </SegmentButton>
+                    </Segment>
+                    <button
+                      type="button"
+                      onClick={() => setVisible('stock', false)}
+                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+                      title="Masquer ce KPI"
+                      aria-label="Masquer le KPI Valorisation stock"
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </div>
+
+                  {stockData.loading ? (
+                    <Spinner />
+                  ) : stockError ? (
+                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {stockError}
+                    </p>
+                  ) : stock.series.length === 0 ? (
+                    <p className="font-fraunces text-[13px] italic text-muted-foreground">
+                      Aucune donnée de valorisation.
+                    </p>
+                  ) : (
+                    <>
+                      {/* Valeur actuelle + delta */}
+                      <div className="flex items-end justify-between gap-3">
+                        <div>
+                          <div className="font-fraunces text-[40px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                            {fmtEuro.format(stock.totalActuel)}
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground">
+                            {stock.deltaPct !== 0 && (
+                              <span
+                                className="font-bold tabular-nums"
+                                style={{ color: stock.deltaPct > 0 ? '#ff385c' : '#008049' }}
+                              >
+                                {stock.deltaPct > 0 ? '+' : ''}
+                                {stock.deltaPct}%
+                              </span>
+                            )}
+                            <span>vs début de plage</span>
                           </div>
                         </div>
-                      </>
-                    )}
-                  </Card>
-                </Tile>
-              </div>
-            )}
+                        <div className="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                          <b className="text-[13px] text-foreground">{stock.nbArticles}</b> art.
+                          <br />
+                          valorisés
+                        </div>
+                      </div>
 
-            {/* ═════ KPI #4 — Lignes en retard ═════ */}
-            {isVisible('lignes') && (
-              <div key="lignes">
-                <Tile
-                  id="lignes"
-                  editMode={editMode}
-                  printRank={getPrintRank('lignes')}
-                  width={layoutItem('lignes')?.width ?? 2}
-                  onWidth={setWidth.bind(null, 'lignes')}
-                  onHide={() => setVisible('lignes', false)}
-                  onPrintMove={(dir) => movePrint('lignes', dir)}
-                >
-                  <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                    <CardHeader
-                      title="Lignes en retard"
-                      suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
-                      onHide={() => setVisible('lignes', false)}
-                    />
-                    {kpisData.loading ? (
-                      <Spinner />
-                    ) : x3Error ? (
-                      <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                        {x3Error}
-                      </p>
-                    ) : kpi.lignes.length === 0 ? (
-                      <p className="font-fraunces text-[13px] italic text-muted-foreground">
-                        Aucune ligne en retard.
-                      </p>
-                    ) : (
+                      {/* Mini-graphique */}
+                      <StockSparkline series={stock.series} />
+
+                      {/* Top 5 catégories */}
+                      <div className="mt-5">
+                        <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
+                          Top catégories
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {stock.categories.map((cat, i) => (
+                            <div key={cat.categorie}>
+                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
+                                <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+                                  {cat.categorie}
+                                </span>
+                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                  {fmtEuro.format(cat.valeur)}
+                                  <span className="ml-1 text-[10px] text-muted-foreground/70">
+                                    {cat.part}%
+                                  </span>
+                                </span>
+                              </div>
+                              <div
+                                className="h-2 overflow-hidden rounded-full bg-secondary"
+                                style={
+                                  {
+                                    WebkitPrintColorAdjust: 'exact',
+                                    printColorAdjust: 'exact',
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <div
+                                  className="h-full rounded-full"
+                                  style={
+                                    {
+                                      width: `${Math.max(3, (cat.valeur / stockMaxCat) * 100)}%`,
+                                      background:
+                                        STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
+                                      WebkitPrintColorAdjust: 'exact',
+                                      printColorAdjust: 'exact',
+                                    } as React.CSSProperties
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </Card>
+              </Tile>
+            </div>
+          )}
+
+          {/* ═════ KPI #4 — Lignes en retard ═════ */}
+          {isVisible('lignes') && (
+            <div key="lignes">
+              <Tile
+                id="lignes"
+                editMode={editMode}
+                printRank={getPrintRank('lignes')}
+                width={layoutItem('lignes')?.width ?? 2}
+                onWidth={setWidth.bind(null, 'lignes')}
+                onHide={() => setVisible('lignes', false)}
+                onPrintMove={(dir) => movePrint('lignes', dir)}
+              >
+                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                  <CardHeader
+                    title="Lignes en retard"
+                    suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
+                    onHide={() => setVisible('lignes', false)}
+                  />
+                  {kpisData.loading ? (
+                    <Spinner />
+                  ) : x3Error ? (
+                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {x3Error}
+                    </p>
+                  ) : kpi.lignes.length === 0 ? (
+                    <p className="font-fraunces text-[13px] italic text-muted-foreground">
+                      Aucune ligne en retard.
+                    </p>
+                  ) : (
+                    <div className="-mx-2 overflow-auto print:overflow-visible">
+                      <table className="w-full border-collapse text-left">
+                        <thead>
+                          <tr className="sticky top-0 bg-card">
+                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Expé
+                            </th>
+                            <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              J. retard
+                            </th>
+                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Commande · Client
+                            </th>
+                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Article · Désignation
+                            </th>
+                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Poste
+                            </th>
+                            <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Qté
+                            </th>
+                            <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Charge
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {kpi.lignes.map((l) => (
+                            <tr
+                              key={`${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`}
+                              className="border-b border-rule-soft last:border-0 hover:bg-secondary/40"
+                            >
+                              <td className="whitespace-nowrap px-2 py-2.5 align-top font-mono text-[12px] font-semibold text-destructive">
+                                {l.dateExp || '—'}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-destructive">
+                                {(l.joursRetard ?? 0) > 0 ? `${l.joursRetard} j` : '—'}
+                              </td>
+                              <td className="px-2 py-2.5 align-top">
+                                <div className="font-mono text-[12px] font-bold text-foreground">
+                                  {l.numCommande}
+                                </div>
+                                <div className="font-sans text-[11px] text-muted-foreground">
+                                  {l.client}
+                                </div>
+                              </td>
+                              <td className="px-2 py-2.5 align-top">
+                                <div className="font-mono text-[12px] font-semibold text-brand">
+                                  {l.article}
+                                </div>
+                                <div className="font-sans text-[11px] leading-snug text-secondary-foreground">
+                                  {l.designation || '—'}
+                                </div>
+                              </td>
+                              <td className="px-2 py-2.5 align-top">
+                                {l.postes.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {l.postes.map((p) => (
+                                      <Badge
+                                        key={p}
+                                        variant="secondary"
+                                        className="font-mono text-[10px] font-bold tracking-wide"
+                                      >
+                                        {p}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="font-sans text-[11px] text-muted-foreground/70">
+                                    —
+                                  </span>
+                                )}
+                              </td>
+                              <td
+                                className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground"
+                                title={
+                                  l.qteAProduire > 0
+                                    ? `${l.qteFaite} faites / ${l.qteAProduire} (resteAProduire → reste charge ${l.qteRestante})`
+                                    : undefined
+                                }
+                              >
+                                {l.qteAProduire > 0 ? (
+                                  <>
+                                    <span className={l.qteFaite > 0 ? 'text-ferme' : undefined}>
+                                      {l.qteFaite}
+                                    </span>
+                                    <span className="text-muted-foreground">/{l.qteAProduire}</span>
+                                  </>
+                                ) : (
+                                  l.qteRestante
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">
+                                {l.heures > 0 ? `${l.heures} h` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              </Tile>
+            </div>
+          )}
+
+          {/* ═════ KPI #5 — Stock par article ═════ */}
+          {isVisible('stockTable') && (
+            <div key="stockTable">
+              <Tile
+                id="stockTable"
+                editMode={editMode}
+                printRank={getPrintRank('stockTable')}
+                width={layoutItem('stockTable')?.width ?? 2}
+                onWidth={setWidth.bind(null, 'stockTable')}
+                onHide={() => setVisible('stockTable', false)}
+                onPrintMove={(dir) => movePrint('stockTable', dir)}
+              >
+                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                  <CardHeader
+                    title="Stock par article"
+                    suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}
+                    tone="#00a699"
+                    onHide={() => setVisible('stockTable', false)}
+                  />
+                  {stockData.loading ? (
+                    <Spinner />
+                  ) : stockError ? (
+                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {stockError}
+                    </p>
+                  ) : (
+                    <>
+                      {/* Barre de filtres */}
+                      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                        <InputGroup className="h-8 flex-1">
+                          <InputGroupAddon align="inline-start">
+                            <Search size={13} className="text-muted-foreground" />
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            type="text"
+                            value={stockSearch}
+                            onChange={(e) => setStockSearch(e.target.value)}
+                            placeholder="Article ou désignation"
+                            aria-label="Filtrer les articles"
+                            className="h-8 text-xs"
+                          />
+                          {stockSearch && (
+                            <InputGroupAddon align="inline-end">
+                              <InputGroupButton
+                                size="icon-xs"
+                                onClick={() => setStockSearch('')}
+                                title="Effacer la recherche"
+                                aria-label="Effacer la recherche"
+                              >
+                                <X size={13} />
+                              </InputGroupButton>
+                            </InputGroupAddon>
+                          )}
+                        </InputGroup>
+                        <Select
+                          value={stockCatFilter || 'all'}
+                          onValueChange={(val) =>
+                            setStockCatFilter(val === 'all' ? '' : (val ?? ''))
+                          }
+                        >
+                          <SelectTrigger
+                            size="sm"
+                            className="h-8 border-border bg-card font-mono text-[11px] font-semibold text-foreground"
+                          >
+                            <SelectValue placeholder="Toutes cat." />
+                          </SelectTrigger>
+                          <SelectContent side="bottom">
+                            <SelectItem value="all">Toutes cat.</SelectItem>
+                            {stockCategories.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <button
+                          type="button"
+                          onClick={() => setStockHideZero((v) => !v)}
+                          className={cn(
+                            'h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold transition-colors',
+                            stockHideZero
+                              ? 'border-brand/40 bg-brand-soft text-brand'
+                              : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                          )}
+                        >
+                          Stock ≠ 0
+                        </button>
+                      </div>
+
                       <div className="-mx-2 overflow-auto print:overflow-visible">
                         <table className="w-full border-collapse text-left">
                           <thead>
                             <tr className="sticky top-0 bg-card">
                               <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Expé
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStockSort('article')}
+                                  className="flex items-center gap-1 hover:text-foreground"
+                                >
+                                  Article
+                                  {stockSortBy === 'article' && (
+                                    <span className="text-[10px]">
+                                      {stockSortDir === 'asc' ? '▲' : '▼'}
+                                    </span>
+                                  )}
+                                </button>
                               </th>
                               <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Commande · Client
+                                Désignation
                               </th>
                               <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Article · Désignation
-                              </th>
-                              <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Poste
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStockSort('categorie')}
+                                  className="flex items-center gap-1 hover:text-foreground"
+                                >
+                                  Cat.
+                                  {stockSortBy === 'categorie' && (
+                                    <span className="text-[10px]">
+                                      {stockSortDir === 'asc' ? '▲' : '▼'}
+                                    </span>
+                                  )}
+                                </button>
                               </th>
                               <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Qté
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStockSort('stock')}
+                                  className="ml-auto flex items-center gap-1 hover:text-foreground"
+                                >
+                                  Stock
+                                  {stockSortBy === 'stock' && (
+                                    <span className="text-[10px]">
+                                      {stockSortDir === 'asc' ? '▲' : '▼'}
+                                    </span>
+                                  )}
+                                </button>
                               </th>
                               <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Charge
+                                PMP
+                              </th>
+                              <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStockSort('valeur')}
+                                  className="ml-auto flex items-center gap-1 hover:text-foreground"
+                                >
+                                  Valeur
+                                  {stockSortBy === 'valeur' && (
+                                    <span className="text-[10px]">
+                                      {stockSortDir === 'asc' ? '▲' : '▼'}
+                                    </span>
+                                  )}
+                                </button>
                               </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {kpi.lignes.map((l) => (
-                              <tr key={`${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
-                                <td className="whitespace-nowrap px-2 py-2.5 align-top font-mono text-[12px] font-semibold text-destructive">
-                                  {l.dateExp || '—'}
+                            {filteredArticles.map((a) => (
+                              <tr
+                                key={`${a.article}::${a.categorie}`}
+                                onClick={() => setStockArticle(a.article)}
+                                title="Ouvrir le détail de l'article"
+                                className="cursor-pointer border-b border-rule-soft last:border-0 hover:bg-secondary/40"
+                              >
+                                <td className="px-2 py-1.5 align-top font-mono text-[12px] font-semibold text-brand">
+                                  {a.article}
                                 </td>
-                                <td className="px-2 py-2.5 align-top">
-                                  <div className="font-mono text-[12px] font-bold text-foreground">
-                                    {l.numCommande}
-                                  </div>
-                                  <div className="font-sans text-[11px] text-muted-foreground">{l.client}</div>
+                                <td className="px-2 py-1.5 align-top font-sans text-[11px] leading-snug text-secondary-foreground">
+                                  {a.designation || '—'}
                                 </td>
-                                <td className="px-2 py-2.5 align-top">
-                                  <div className="font-mono text-[12px] font-semibold text-brand">{l.article}</div>
-                                  <div className="font-sans text-[11px] leading-snug text-secondary-foreground">
-                                    {l.designation || '—'}
-                                  </div>
+                                <td className="px-2 py-1.5 align-top">
+                                  <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+                                    {a.categorie}
+                                  </span>
                                 </td>
-                                <td className="px-2 py-2.5 align-top">
-                                  {l.postes.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {l.postes.map((p) => (
-                                        <Badge
-                                          key={p}
-                                          variant="secondary"
-                                          className="font-mono text-[10px] font-bold tracking-wide"
-                                        >
-                                          {p}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="font-sans text-[11px] text-muted-foreground/70">—</span>
-                                  )}
+                                <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-foreground">
+                                  {fmtQtyDec.format(a.stock)}
                                 </td>
-                                <td
-                                  className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground"
-                                  title={
-                                    l.qteAProduire > 0
-                                      ? `${l.qteFaite} faites / ${l.qteAProduire} (resteAProduire → reste charge ${l.qteRestante})`
-                                      : undefined
-                                  }
-                                >
-                                  {l.qteAProduire > 0 ? (
-                                    <>
-                                      <span className={l.qteFaite > 0 ? 'text-ferme' : undefined}>
-                                        {l.qteFaite}
-                                      </span>
-                                      <span className="text-muted-foreground">/{l.qteAProduire}</span>
-                                    </>
-                                  ) : (
-                                    l.qteRestante
-                                  )}
+                                <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                                  {fmtPmp.format(a.pmp)}
                                 </td>
-                                <td className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">
-                                  {l.heures > 0 ? `${l.heures} h` : '—'}
+                                <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] font-bold tabular-nums text-foreground">
+                                  {fmtEuro.format(a.valeur)}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
-                    )}
-                  </Card>
-                </Tile>
-              </div>
-            )}
-
-            {/* ═════ KPI #5 — Stock par article ═════ */}
-            {isVisible('stockTable') && (
-              <div key="stockTable">
-                <Tile
-                  id="stockTable"
-                  editMode={editMode}
-                  printRank={getPrintRank('stockTable')}
-                  width={layoutItem('stockTable')?.width ?? 2}
-                  onWidth={setWidth.bind(null, 'stockTable')}
-                  onHide={() => setVisible('stockTable', false)}
-                  onPrintMove={(dir) => movePrint('stockTable', dir)}
-                >
-                  <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                    <CardHeader
-                      title="Stock par article"
-                      suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}
-                      tone="#00a699"
-                      onHide={() => setVisible('stockTable', false)}
-                    />
-                    {stockData.loading ? (
-                      <Spinner />
-                    ) : stockError ? (
-                      <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                        {stockError}
-                      </p>
-                    ) : (
-                      <>
-                        {/* Barre de filtres */}
-                        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                          <InputGroup className="h-8 flex-1">
-                            <InputGroupAddon align="inline-start">
-                              <Search size={13} className="text-muted-foreground" />
-                            </InputGroupAddon>
-                            <InputGroupInput
-                              type="text"
-                              value={stockSearch}
-                              onChange={(e) => setStockSearch(e.target.value)}
-                              placeholder="Article ou désignation"
-                              aria-label="Filtrer les articles"
-                              className="h-8 text-xs"
-                            />
-                            {stockSearch && (
-                              <InputGroupAddon align="inline-end">
-                                <InputGroupButton
-                                  size="icon-xs"
-                                  onClick={() => setStockSearch('')}
-                                  title="Effacer la recherche"
-                                  aria-label="Effacer la recherche"
-                                >
-                                  <X size={13} />
-                                </InputGroupButton>
-                              </InputGroupAddon>
-                            )}
-                          </InputGroup>
-                          <Select
-                            value={stockCatFilter || 'all'}
-                            onValueChange={(val) => setStockCatFilter(val === 'all' ? '' : (val ?? ''))}
-                          >
-                            <SelectTrigger size="sm" className="h-8 border-border bg-card font-mono text-[11px] font-semibold text-foreground">
-                              <SelectValue placeholder="Toutes cat." />
-                            </SelectTrigger>
-                            <SelectContent side="bottom">
-                              <SelectItem value="all">Toutes cat.</SelectItem>
-                              {stockCategories.map((c) => (
-                                <SelectItem key={c} value={c}>
-                                  {c}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <button
-                            type="button"
-                            onClick={() => setStockHideZero((v) => !v)}
-                            className={cn(
-                              'h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold transition-colors',
-                              stockHideZero
-                                ? 'border-brand/40 bg-brand-soft text-brand'
-                                : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-                            )}
-                          >
-                            Stock ≠ 0
-                          </button>
-                        </div>
-
-                        <div className="-mx-2 overflow-auto print:overflow-visible">
-                          <table className="w-full border-collapse text-left">
-                            <thead>
-                              <tr className="sticky top-0 bg-card">
-                                <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStockSort('article')}
-                                    className="flex items-center gap-1 hover:text-foreground"
-                                  >
-                                    Article
-                                    {stockSortBy === 'article' && (
-                                      <span className="text-[10px]">{stockSortDir === 'asc' ? '▲' : '▼'}</span>
-                                    )}
-                                  </button>
-                                </th>
-                                <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                  Désignation
-                                </th>
-                                <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStockSort('categorie')}
-                                    className="flex items-center gap-1 hover:text-foreground"
-                                  >
-                                    Cat.
-                                    {stockSortBy === 'categorie' && (
-                                      <span className="text-[10px]">{stockSortDir === 'asc' ? '▲' : '▼'}</span>
-                                    )}
-                                  </button>
-                                </th>
-                                <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStockSort('stock')}
-                                    className="ml-auto flex items-center gap-1 hover:text-foreground"
-                                  >
-                                    Stock
-                                    {stockSortBy === 'stock' && (
-                                      <span className="text-[10px]">{stockSortDir === 'asc' ? '▲' : '▼'}</span>
-                                    )}
-                                  </button>
-                                </th>
-                                <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                  PMP
-                                </th>
-                                <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStockSort('valeur')}
-                                    className="ml-auto flex items-center gap-1 hover:text-foreground"
-                                  >
-                                    Valeur
-                                    {stockSortBy === 'valeur' && (
-                                      <span className="text-[10px]">{stockSortDir === 'asc' ? '▲' : '▼'}</span>
-                                    )}
-                                  </button>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filteredArticles.map((a) => (
-                                <tr
-                                  key={`${a.article}::${a.categorie}`}
-                                  onClick={() => setStockArticle(a.article)}
-                                  title="Ouvrir le détail de l'article"
-                                  className="cursor-pointer border-b border-rule-soft last:border-0 hover:bg-secondary/40"
-                                >
-                                  <td className="px-2 py-1.5 align-top font-mono text-[12px] font-semibold text-brand">
-                                    {a.article}
-                                  </td>
-                                  <td className="px-2 py-1.5 align-top font-sans text-[11px] leading-snug text-secondary-foreground">
-                                    {a.designation || '—'}
-                                  </td>
-                                  <td className="px-2 py-1.5 align-top">
-                                    <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
-                                      {a.categorie}
-                                    </span>
-                                  </td>
-                                  <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-foreground">
-                                    {fmtQtyDec.format(a.stock)}
-                                  </td>
-                                  <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                    {fmtPmp.format(a.pmp)}
-                                  </td>
-                                  <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] font-bold tabular-nums text-foreground">
-                                    {fmtEuro.format(a.valeur)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
-                  </Card>
-                </Tile>
-              </div>
-            )}
-          </DashboardGrid>
-
-          {/* Section cartes masquées en mode édition */}
-          {editMode && items.some((it) => !it.visible) && (
-            <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border pt-4 print:hidden">
-              <span className="font-mono text-xs font-semibold text-muted-foreground">
-                Cartes masquées :
-              </span>
-              {items
-                .filter((it) => !it.visible)
-                .map((it) => (
-                  <Button
-                    key={it.id}
-                    type="button"
-                    variant="outline"
-                    size="xs"
-                    onClick={() => setVisible(it.id, true)}
-                    className="font-mono text-xs"
-                  >
-                    <Eye size={12} className="mr-1" />
-                    Afficher {KPI_TITLES[it.id]}
-                  </Button>
-                ))}
+                    </>
+                  )}
+                </Card>
+              </Tile>
             </div>
           )}
+        </DashboardGrid>
 
-          {/* Sheet de détail article (clic sur une ligne du KPI stock). */}
-          <StockArticleSheet
-            article={stockArticle}
-            open={!!stockArticle}
-            onOpenChange={(v) => {
-              if (!v) setStockArticle(null)
-            }}
-          />
-        </div>
+        {/* Section cartes masquées en mode édition */}
+        {editMode && items.some((it) => !it.visible) && (
+          <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border pt-4 print:hidden">
+            <span className="font-mono text-xs font-semibold text-muted-foreground">
+              Cartes masquées :
+            </span>
+            {items
+              .filter((it) => !it.visible)
+              .map((it) => (
+                <Button
+                  key={it.id}
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => setVisible(it.id, true)}
+                  className="font-mono text-xs"
+                >
+                  <Eye size={12} className="mr-1" />
+                  Afficher {KPI_TITLES[it.id]}
+                </Button>
+              ))}
+          </div>
+        )}
+
+        {/* Sheet de détail article (clic sur une ligne du KPI stock). */}
+        <StockArticleSheet
+          article={stockArticle}
+          open={!!stockArticle}
+          onOpenChange={(v) => {
+            if (!v) setStockArticle(null)
+          }}
+        />
+      </div>
     </AppLayout>
   )
 }

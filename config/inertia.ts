@@ -58,11 +58,11 @@ declare module '@adonisjs/inertia/types' {
       stockHref: string
       layout?: {
         items: {
-          id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'
+          id: 'charge' | 'profondeur' | 'otd' | 'stock' | 'lignes' | 'stockTable'
           visible: boolean
           width: 1 | 2 | 3
         }[]
-        printOrder: ('charge' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
+        printOrder: ('charge' | 'profondeur' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
       }
     }
     // Expéditions (issue #44) — onglet dédié à la gestion des expéditions client.

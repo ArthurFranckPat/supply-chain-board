@@ -3,9 +3,17 @@ import { parseX3Date } from '#app/x3/utils/parse_date'
 import boardDataset from '#services/board_dataset'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
+import {
+  computeJoursRetard,
+  computeProfondeur,
+  emptyProfondeur,
+  type RetardProfondeurKpi,
+} from '#app/domain/retard_profondeur'
 import type { Flow, OrderType } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
+
+export type { RetardProfondeurKpi }
 
 // ORDERS WIPTYP=1 (commandes vente) WIPSTA=1 (confirmées).
 // ENDDAT_0 = date expé = SHIDAT_0 pour les commandes confirmées.
@@ -68,6 +76,8 @@ export interface RetardLigne {
   type: string
   dateExp: string
   dateExpIso: string | null
+  /** Jours calendaires de retard (refDate − dateExp). */
+  joursRetard: number
   /** Reste à produire (Σ resteAProduire, prorata alloc + non couvert). */
   qteRestante: number
   /** Pièces déjà pointées OP (CPLQTY) — même signal que /suivi `piecesFaites`. */
@@ -83,6 +93,8 @@ export interface RetardChargeKpi {
   nbLignes: number
   postes: { code: string; label: string; heures: number }[]
   lignes: RetardLigne[]
+  /** Sévérité temporelle du même backlog (max / moyenne pondérée / buckets). */
+  profondeur: RetardProfondeurKpi
 }
 
 function toYYYYMMDD(d: Date): string {
@@ -237,6 +249,7 @@ export class RetardRepository {
 
     const posteAccum = new Map<string, { label: string; heures: number }>()
     const lignes: RetardLigne[] = []
+    const refIso = refDate.toISOString().slice(0, 10)
 
     for (const [i, p] of pending.entries()) {
       const demandFlow = demandFlows[i]
@@ -292,6 +305,7 @@ export class RetardRepository {
       const linePostes = Object.entries(byPoste)
         .sort((a, b) => b[1] - a[1])
         .map(([code]) => code)
+      const joursRetard = computeJoursRetard(iso, refIso)
 
       lignes.push({
         numCommande: row.SOHNUM?.trim() ?? '',
@@ -301,6 +315,7 @@ export class RetardRepository {
         type: 'SOH',
         dateExp: iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '',
         dateExpIso: iso,
+        joursRetard,
         qteRestante,
         qteFaite,
         qteAProduire,
@@ -314,7 +329,8 @@ export class RetardRepository {
       .sort((a, b) => b.heures - a.heures)
 
     const totalHeures = Math.round(postes.reduce((s, p) => s + p.heures, 0) * 10) / 10
+    const profondeur = lignes.length > 0 ? computeProfondeur(lignes) : emptyProfondeur()
 
-    return { totalHeures, nbLignes: lignes.length, postes, lignes }
+    return { totalHeures, nbLignes: lignes.length, postes, lignes, profondeur }
   }
 }
