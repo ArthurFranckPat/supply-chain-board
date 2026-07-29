@@ -18,14 +18,14 @@ import { isoDay } from '#app/utils/dates'
  * de la fenêtre board sélectionnée par l'utilisateur. Un poste peut avoir des OF
  * affermis hors fenêtre board : la vue sert justement à les révéler.
  *
- * Issue #100 — mode « À lancer » : candidats planifiés/suggérés (WIPSTA 2/3).
- * Matching commande = `loadOrderImpacts({ pipeline: 'programme' })` — MÊMES
- * entrées que /programme (getOrdersForWindow + demande + nomenclatures +
- * netDemandsByAllocation + delta #99). On n'expose que les commandes fermes
- * (`nature === 'commande'`, WIPSTA=1) — pas les prévisions.
+ * Issue #100 — mode « À lancer » : OF planifiés/suggérés (WIPSTA 2/3) qui
+ * couvrent des **commandes fermes à servir dans l'horizon** — pas un pool OF
+ * filtré sur STRDAT. Source : `loadOrderImpacts({ pipeline: 'programme' })`
+ * (mêmes entrées que /programme). Un OF hors fenêtre STRDAT apparaît s'il
+ * alloue une commande de l'horizon (delta matching #99) ; un OF dans la
+ * fenêtre STRDAT sans commande horizon n'apparaît pas.
  *
- * Engagement (kind=ferme) : getOrders() hors fenêtre + CommandeOFMatcher local
- * + repli peg (perf / historique #46) — ne pas confondre avec À lancer.
+ * Engagement (kind=ferme) : getOrders() + CommandeOFMatcher local + repli peg.
  */
 
 /** Kind de dataset : fermes (engagement) vs candidats à affermir (#100). */
@@ -89,7 +89,7 @@ export interface SummaryRow {
   hours: number
   status: number
   statusLabel: string
-  /** Rempli en kind=lancer via loadOrderImpacts (commandes fermes) ; vide en engagement. */
+  /** Rempli en kind=lancer via commandes fermes de l'horizon ; vide en engagement. */
   commandes: EngagementCommande[]
   livraisonIso: string | null
 }
@@ -176,8 +176,8 @@ function demandWindow(horizonDays: number): {
 }
 
 /**
- * Fenêtre [today, today + horizon] — même borne que /programme (pas de lookback).
- * Utilisée pour À lancer : pool OF + matching + faisabilité.
+ * Fenêtre [today, today + horizon] — horizon des **commandes à servir**.
+ * Même borne que /programme (pas de lookback). STRDAT OF hors sujet.
  */
 function programmeHorizonWindow(horizonDays: number): {
   fromIso: string
@@ -194,23 +194,20 @@ function programmeHorizonWindow(horizonDays: number): {
 }
 
 /**
- * Matching À lancer (#100) : pipeline /programme tel quel.
- * Inverse orders→OF ; ne garde que `nature === 'commande'` (fermes client).
+ * À lancer (#100) : commandes fermes de l'horizon → OF planifiés/suggérés alloués.
+ * Pipeline /programme ; ne part PAS d'un pool STRDAT.
  */
-async function resolveCommandesByOfFromProgramme(opts: {
-  scopedNums: Set<string>
-  force: boolean
-  horizonDays: number
-}): Promise<{
+async function loadLancerFromProgramme(opts: { force: boolean; horizonDays: number }): Promise<{
   byOf: Map<string, EngagementCommande[]>
+  lancerNums: Set<string>
   fromIso: string
   toIso: string
   errors: string[]
 }> {
   const { from, to, fromIso, toIso } = programmeHorizonWindow(opts.horizonDays)
   const byOf = new Map<string, EngagementCommande[]>()
+  const lancerNums = new Set<string>()
   const errors: string[] = []
-  if (opts.scopedNums.size === 0) return { byOf, fromIso, toIso, errors }
 
   try {
     const { result } = await timeStage('engagement.loadOrderImpacts', () =>
@@ -225,7 +222,9 @@ async function resolveCommandesByOfFromProgramme(opts: {
     for (const order of result.orders) {
       if (order.nature !== 'commande') continue
       for (const ofRow of order.ofs) {
-        if (!opts.scopedNums.has(ofRow.numOf)) continue
+        const st = ofRow.statutNum
+        if (st !== 2 && st !== 3) continue
+        lancerNums.add(ofRow.numOf)
         const list = byOf.get(ofRow.numOf) ?? []
         const ligne = order.ligne ?? null
         if (!list.some((c) => c.numCommande === order.numCommande && c.ligne === ligne)) {
@@ -244,7 +243,7 @@ async function resolveCommandesByOfFromProgramme(opts: {
     errors.push(`loadOrderImpacts: ${(e as Error).message}`)
   }
 
-  return { byOf, fromIso, toIso, errors }
+  return { byOf, lancerNums, fromIso, toIso, errors }
 }
 
 /**
@@ -352,28 +351,38 @@ async function resolveCommandesByOf(opts: {
   return { byOf, errors }
 }
 
-/** Page /sequenceur (tous les postes) — sources déjà cachées (SWR board:*).
- *  kind=ferme : aucun matching commande (perf). kind=lancer : loadOrderImpacts. */
+/** Page /sequenceur (tous les postes).
+ *  kind=ferme : aucun matching commande (perf).
+ *  kind=lancer : OF issus des commandes fermes de l'horizon (pas STRDAT). */
 export async function loadPosteSummaries(
   force = false,
   kind: EngagementKind = 'ferme'
 ): Promise<EngagementSummaryDataset> {
-  // Clé STABLE — cf. loadPosteEngagement. v3 = loadOrderImpacts + commandes fermes.
-  const cacheKey = kind === 'ferme' ? 'summaries' : `summaries:${kind}:v3`
+  // Clé STABLE — cf. loadPosteEngagement. v5 = piloté par commandes horizon.
+  const cacheKey = kind === 'ferme' ? 'summaries' : `summaries:${kind}:v5`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
     factory: async (): Promise<EngagementSummaryDataset> => {
-      const statuses = KIND_STATUSES[kind]
-      const progWin = kind === 'lancer' ? programmeHorizonWindow(LANCER_HORIZON_DAYS) : null
+      // À lancer : d'abord les commandes fermes de l'horizon → nums OF 2/3.
+      let lancerByOf = new Map<string, EngagementCommande[]>()
+      let lancerNums: Set<string> | null = null
+      let window: { from: string; to: string } | null = null
+      if (kind === 'lancer') {
+        const matched = await loadLancerFromProgramme({
+          force,
+          horizonDays: LANCER_HORIZON_DAYS,
+        })
+        lancerByOf = matched.byOf
+        lancerNums = matched.lancerNums
+        window = { from: matched.fromIso, to: matched.toIso }
+      }
 
+      const statuses = KIND_STATUSES[kind]
+      // Enrichissement MO : getOrders() (tous ouverts) — STRDAT hors critère.
       const [ord, ref, overrides] = await Promise.all([
-        timeStage('engagement.summaries.orders', () =>
-          kind === 'lancer' && progWin
-            ? boardDataset.getOrdersForWindow(progWin.from, progWin.to, force)
-            : boardDataset.getOrders(force)
-        ),
+        timeStage('engagement.summaries.orders', () => boardDataset.getOrders(force)),
         boardDataset.getReferential(force),
         new OverrideStore().getAll(),
       ])
@@ -387,6 +396,8 @@ export async function loadPosteSummaries(
         const st = Number(mo.status)
         if (!statuses.has(st)) continue
         if (seenOf.has(mo.numOf)) continue
+        // À lancer : uniquement les OF alloués à une commande ferme de l'horizon.
+        if (lancerNums && !lancerNums.has(mo.numOf)) continue
         seenOf.add(mo.numOf)
         const poste = resolvePoste(mo, overrideMap, opsByArticle)
         if (!poste) continue
@@ -428,6 +439,9 @@ export async function loadPosteSummaries(
               Math.round(hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10) / 10
             const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
             const st = Number(mo.status)
+            const commandes = (lancerByOf.get(mo.numOf) ?? []).sort((a, b) =>
+              (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')
+            )
             return {
               numOf: mo.numOf,
               article: mo.article,
@@ -438,12 +452,13 @@ export async function loadPosteSummaries(
               hours,
               status: st,
               statusLabel: statusLabelOf(st),
-              commandes: [] as EngagementCommande[],
-              livraisonIso: null as string | null,
+              commandes,
+              livraisonIso: commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null,
             }
           })
           .sort(
             (a, b) =>
+              (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999') ||
               (a.dateDebutIso ?? '9999').localeCompare(b.dateDebutIso ?? '9999') ||
               a.numOf.localeCompare(b.numOf)
           )
@@ -459,29 +474,6 @@ export async function loadPosteSummaries(
         }
       })
 
-      // Mode lancer (#100) : loadOrderImpacts pipeline programme — commandes fermes.
-      let window: { from: string; to: string } | null = null
-      if (kind === 'lancer' && progWin) {
-        window = { from: progWin.fromIso, to: progWin.toIso }
-        const nums = new Set(postes.flatMap((p) => p.rows.map((r) => r.numOf)))
-        if (nums.size > 0) {
-          const { byOf } = await resolveCommandesByOfFromProgramme({
-            scopedNums: nums,
-            force,
-            horizonDays: LANCER_HORIZON_DAYS,
-          })
-          for (const p of postes) {
-            for (const r of p.rows) {
-              const commandes = (byOf.get(r.numOf) ?? []).sort((a, b) =>
-                (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')
-              )
-              r.commandes = commandes
-              r.livraisonIso = commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null
-            }
-          }
-        }
-      }
-
       return { postes, window }
     },
   })
@@ -490,7 +482,7 @@ export async function loadPosteSummaries(
 /** GET /api/v1/planning/postes/:poste/engagement — panneau « Engagement » (#46).
  *  Matching commande SCOPÉ à ce poste (petite liste d'OF) — ne jamais élargir à
  *  l'ensemble de l'usine, cf. commentaire de tête de fichier (ZSOAPSQL O(n²)).
- *  `kind=lancer` (#100) : planifiés/suggérés du poste via loadOrderImpacts. */
+ *  `kind=lancer` (#100) : OF du poste alloués aux commandes fermes de l'horizon. */
 export async function loadPosteEngagement(
   poste: string,
   force = false,
@@ -501,24 +493,27 @@ export async function loadPosteEngagement(
   // recalcul en arrière-plan. Une clé datée changeait à minuit → aucune grâce
   // servable au 1er hit du jour → recalcul synchrone (jusqu'à ~20 s si
   // board:orders était aussi froid — mur froid mesuré : 22,5 s sur /sequenceur).
-  const cacheKey = kind === 'ferme' ? `poste:${poste}` : `poste:${poste}:${kind}:v3`
+  const cacheKey = kind === 'ferme' ? `poste:${poste}` : `poste:${poste}:${kind}:v5`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
     factory: async (): Promise<PosteEngagement> => {
       const statuses = KIND_STATUSES[kind]
-      const progWin = kind === 'lancer' ? programmeHorizonWindow(LANCER_HORIZON_DAYS) : null
       const horizonDays = kind === 'lancer' ? LANCER_HORIZON_DAYS : ENGAGEMENT_HORIZON_DAYS
-
       const errors: string[] = []
 
+      let lancerByOf = new Map<string, EngagementCommande[]>()
+      let lancerNums: Set<string> | null = null
+      if (kind === 'lancer') {
+        const matched = await loadLancerFromProgramme({ force, horizonDays })
+        lancerByOf = matched.byOf
+        lancerNums = matched.lancerNums
+        errors.push(...matched.errors)
+      }
+
       const [ord, ref, overrides] = await Promise.all([
-        timeStage('engagement.orders', () =>
-          kind === 'lancer' && progWin
-            ? boardDataset.getOrdersForWindow(progWin.from, progWin.to, force)
-            : boardDataset.getOrders(force)
-        ),
+        timeStage('engagement.orders', () => boardDataset.getOrders(force)),
         boardDataset.getReferential(force),
         new OverrideStore().getAll(),
       ])
@@ -531,6 +526,7 @@ export async function loadPosteEngagement(
         const st = Number(mo.status)
         if (!statuses.has(st)) return false
         if (seenOf.has(mo.numOf)) return false
+        if (lancerNums && !lancerNums.has(mo.numOf)) return false
         if (resolvePoste(mo, overrideMap, opsByArticle) !== poste) return false
         seenOf.add(mo.numOf)
         return true
@@ -539,13 +535,7 @@ export async function loadPosteEngagement(
 
       let byOf: Map<string, EngagementCommande[]>
       if (kind === 'lancer') {
-        const matched = await resolveCommandesByOfFromProgramme({
-          scopedNums,
-          force,
-          horizonDays,
-        })
-        byOf = matched.byOf
-        errors.push(...matched.errors)
+        byOf = lancerByOf
       } else {
         const matched = await resolveCommandesByOf({
           scopedNums,
