@@ -100,6 +100,30 @@ export default class CachePreheatProvider {
    * Le vrai gain n'est de toute façon pas ici mais en amont, en sortant X3 du
    * chemin de lecture (#98).
    *
+   * DEUX FAMILLES, deux règles — c'est ce qui empêche cette liste de redevenir un
+   * assortiment arbitraire :
+   *
+   * 1. Les DATASETS X3 partagés (`board:*`) — `warm: true`. Plusieurs pages en
+   *    dépendent, leurs clés sont stables, le warmer les garde vivants en
+   *    permanence pour que personne ne repaie le mur froid.
+   * 2. Les PAYLOADS DE PAGE (`programme:*`, `engagement:*`, `ruptures:*`,
+   *    `charge:*`, `suivi:*`) — `warm: false`. Un par point d'entrée, à ses
+   *    paramètres PAR DÉFAUT (= la clé d'une requête sans query string, donc
+   *    celle de l'arrivée à froid). Le warmer ne les reprend pas : les maintenir
+   *    tièdes coûterait une reconstruction complète toutes les 4 à 8 min, page
+   *    consultée ou non. Après le boot, c'est le trafic réel qui les rafraîchit
+   *    via le SWR — le refresh suit l'usage, pas un minuteur.
+   *
+   * La leçon qui a produit cette règle : chauffer les datasets ne suffit PAS.
+   * /programme a été mesuré à 22,6 s et /sequenceur à 27,6 s alors que `board:*`
+   * était chaud, parce que chaque page assemble son propre payload derrière sa
+   * propre clé. Toute page absente de cette liste paie son mur froid en entier.
+   * Une page ajoutée à l'app doit donc être ajoutée ici.
+   *
+   * Une plage choisie par l'utilisateur (calendrier, horizon custom) produit une
+   * clé qu'on ne peut pas deviner : elle restera froide à sa première ouverture.
+   * C'est assumé — seul le chemin par défaut est préchauffable.
+   *
    * Les deux KPI du dashboard sont les murs restants mesurés en requête :
    * retard 23 s (3 requêtes SOAP séquentielles), valorisation stock 9 s
    * (1 requête base + ~6 chunks STOJOU). Leurs clés de cache sont stables
@@ -146,9 +170,7 @@ export default class CachePreheatProvider {
         // Une plage choisie au calendrier produit une clé propre — impossible à
         // deviner, elle reste froide à sa première ouverture.
         //
-        // `warm: false` : le warmer ne le reprend pas. Le maintenir tiède
-        // coûterait une reconstruction complète (~20 s de travail X3) toutes les
-        // 4 à 8 min, que la page soit consultée ou non.
+        // `warm: false` : cf. la règle des payloads de page ci-dessus.
         label: 'payload /programme (14 j)',
         warm: false,
         run: async () => {
@@ -156,6 +178,44 @@ export default class CachePreheatProvider {
           // du board. En statique, ce provider l'importerait au boot de l'app.
           const { default: SchedulerController } = await import('#controllers/scheduler_controller')
           return new SchedulerController().loadProgrammeData({ days: 14 }, '/programme', 'combined')
+        },
+      },
+      {
+        // /sequenceur — clé `engagement:summaries:v7`, STABLE (aucune date).
+        label: 'payload /sequenceur',
+        warm: false,
+        run: async () => {
+          const { loadPosteSummaries } = await import('#services/poste_engagement_loader')
+          return loadPosteSummaries()
+        },
+      },
+      {
+        // /ruptures — clé `ruptures:payload:<jour>:14`. `{}` reproduit exactement
+        // les défauts d'une requête sans paramètre (aujourd'hui, horizon 14).
+        label: 'payload /ruptures (14 j)',
+        warm: false,
+        run: async () => {
+          const { loadShortageRowsData } = await import('#services/shortage_payload_loader')
+          return loadShortageRowsData({})
+        },
+      },
+      {
+        // /charge — clé `charge:payload:charge:<1er du mois>:<NB_MONTHS>`.
+        label: 'payload /charge',
+        warm: false,
+        run: async () => {
+          const { loadChargePayloadData } = await import('#services/load_payload_loader')
+          return loadChargePayloadData({})
+        },
+      },
+      {
+        // /suivi — clé `suivi:context`, STABLE. `buildContext` réassemble les ports
+        // à chaque appel ; seul le snapshot X3 est caché, et c'est lui qui coûte.
+        label: 'contexte /suivi',
+        warm: false,
+        run: async () => {
+          const { SuiviService } = await import('#services/suivi_service')
+          return new SuiviService().buildContext()
         },
       },
     ]
