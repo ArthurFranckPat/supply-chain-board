@@ -214,15 +214,49 @@ function moToCard(
 // Board data — same X3 sources as the planning-board API (boardDataset)
 // ---------------------------------------------------------------------------
 
+/**
+ * Fenêtre demandée par l'appelant : les 3 seuls paramètres de requête dont
+ * dépendent les loaders du board.
+ *
+ * Existe pour que ces loaders soient appelables HORS requête HTTP — le
+ * préchauffage du cache (providers/cache_preheat_provider.ts) construit le
+ * payload /programme au boot, sans `HttpContext`. Les loaders ne se servaient
+ * du contexte que pour lire ces trois entrées ; le prendre en paramètre les
+ * rend indépendants du transport sans rien changer au comportement en requête.
+ */
+export type WindowParams = {
+  /** `start` — date de début de fenêtre (ISO). Absent = aujourd'hui. */
+  start?: string
+  /** `days` — horizon en jours. Hors ]0, 90] ou absent = 14. */
+  days?: number
+  /** `refresh` — force le recalcul en ignorant le cache. */
+  refresh?: boolean
+}
+
+/** Lit la fenêtre depuis une requête HTTP. Seul point de couplage au transport. */
+export function windowParamsFromCtx(ctx: HttpContext): WindowParams {
+  return {
+    start: ctx.request.input('start') as string | undefined,
+    days: Number.parseInt(ctx.request.input('days', '14'), 10),
+    refresh: !!ctx.request.input('refresh'),
+  }
+}
+
+/** Normalise l'horizon comme le faisaient les loaders : ]0, 90] sinon 14. */
+export function resolveHorizon(days: number | undefined): number {
+  return Number.isFinite(days) && (days as number) > 0 && (days as number) <= 90
+    ? (days as number)
+    : 14
+}
+
 /** GET /ordonnancement, /programme — board OF posés sur postes de charge. */
 export async function loadBoardData(
-  ctx: HttpContext,
+  params: WindowParams,
   basePath = '/ordonnancement'
 ): Promise<BoardPayload> {
-  const startParam = ctx.request.input('start') as string | undefined
-  const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-  const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-  const force = !!ctx.request.input('refresh')
+  const startParam = params.start
+  const horizon = resolveHorizon(params.days)
+  const force = !!params.refresh
 
   const windowStart = startParam ? new Date(startParam) : new Date()
   windowStart.setHours(0, 0, 0, 0)

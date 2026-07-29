@@ -4,6 +4,7 @@ import staticSync from '#services/static_sync_service'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { OverrideStore } from '#services/override_store'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
+import { resolveHorizon, type WindowParams } from '#services/board_payload_loader'
 import { explodeCharge } from '#app/domain/charge_explosion'
 import {
   groupGammeByArticle,
@@ -293,14 +294,13 @@ export default class OrderPlanningController {
  * @param modeParam  Param supplémentaire à injecter dans le navQuery (ex. "mode=planification").
  */
 export async function loadOrderBoardData(
-  ctx: HttpContext,
+  params: WindowParams,
   base = '/planification',
   modeParam = ''
 ): Promise<OrderBoardData> {
-  const startParam = ctx.request.input('start') as string | undefined
-  const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-  const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-  const force = !!ctx.request.input('refresh')
+  const startParam = params.start
+  const horizon = resolveHorizon(params.days)
+  const force = !!params.refresh
 
   const today = atMidnight(new Date())
   const windowStart = startParam ? atMidnight(new Date(startParam)) : today

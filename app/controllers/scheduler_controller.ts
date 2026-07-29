@@ -12,7 +12,12 @@ import {
 } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadPosteEngagement, loadPosteSummaries } from '#services/poste_engagement_loader'
-import { loadBoardData } from '#services/board_payload_loader'
+import {
+  loadBoardData,
+  resolveHorizon,
+  windowParamsFromCtx,
+  type WindowParams,
+} from '#services/board_payload_loader'
 import { loadShortageRows } from '#services/shortage_payload_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
@@ -145,7 +150,7 @@ export default class SchedulerController {
     // Les 3 modes (Combiné / OF / Cmdes) dérivent du MÊME payload (board OF + orderBoard
     // lignes) → le switch se fait côté client (toggle UI, zéro round-trip). `mode` n'est lu
     // qu'au chargement initial (deep-link / redirection /planification) pour le mode d'affichage.
-    const data = await this.loadProgrammeData(ctx, '/programme', mode)
+    const data = await this.loadProgrammeData(windowParamsFromCtx(ctx), '/programme', mode)
     return ctx.inertia.render('scheduler/programme', {
       mode,
       board: data.board,
@@ -177,15 +182,14 @@ export default class SchedulerController {
    * rangée du poste de l'OF qui la couvre, à sa date d'expédition ; un lien
    * horizontal matérialise le rattachement. Échec non-fatal (board sans liens).
    */
-  private async loadProgrammeData(
-    ctx: HttpContext,
+  async loadProgrammeData(
+    params: WindowParams,
     basePath = '/programme',
     mode: 'combined' | 'ordonnancement' | 'planification' = 'combined'
   ) {
-    const startParam = ctx.request.input('start') as string | undefined
-    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-    const force = !!ctx.request.input('refresh')
+    const startParam = params.start
+    const horizon = resolveHorizon(params.days)
+    const force = !!params.refresh
 
     const windowStart = startParam ? new Date(startParam) : new Date()
     windowStart.setHours(0, 0, 0, 0)
@@ -215,7 +219,7 @@ export default class SchedulerController {
         windowTo.setHours(23, 59, 59, 999)
 
         const [data, impactsCtx, orderBoardData] = await Promise.all([
-          timeStage('programme.loadBoardData', () => loadBoardData(ctx, basePath)),
+          timeStage('programme.loadBoardData', () => loadBoardData(params, basePath)),
           timeStage('programme.loadOrderImpacts', () =>
             loadOrderImpacts({
               from: windowStart,
@@ -230,7 +234,7 @@ export default class SchedulerController {
           // avec loadOrderImpacts) + référentiel (coalescé avec loadBoardData) → 0 SOAP
           // supplémentaire. Les 2 boards vivent dans le payload → switch client instantané.
           timeStage('programme.loadOrderBoardData', () =>
-            loadOrderBoardData(ctx, basePath).catch(() => null)
+            loadOrderBoardData(params, basePath).catch(() => null)
           ),
         ])
         let x3Error = data.x3Error

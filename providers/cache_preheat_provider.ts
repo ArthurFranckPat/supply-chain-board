@@ -101,17 +101,19 @@ export default class CachePreheatProvider {
    * (cf. boardDataset.getRetardKpi / getStockValuation) : le warmer les tient
    * donc vraiment à chaud, au lieu d'alimenter une clé neuve chaque jour.
    */
-  private tasks(): Array<{ label: string; run: () => Promise<unknown> }> {
+  private tasks(): Array<{ label: string; run: () => Promise<unknown>; warm: boolean }> {
     return [
-      { label: 'board:orders', run: () => boardDataset.getOrders() },
+      { label: 'board:orders', warm: true, run: () => boardDataset.getOrders() },
       {
         // Dépend de board:orders — doit rester APRÈS lui, sinon les deux
         // déclenchent la même factory ORDERS.
         label: 'retard-kpi (dashboard)',
+        warm: true,
         run: () => boardDataset.getRetardKpi(new Date(), RETARD_LOOKBACK_DAYS),
       },
       {
         label: 'stock-valuation (dashboard)',
+        warm: true,
         run: () => {
           // Mêmes valeurs par défaut que le contrôleur (grain mois, 12 périodes
           // glissantes) → même clé de cache, sinon on chaufferait à côté.
@@ -122,7 +124,34 @@ export default class CachePreheatProvider {
       },
       {
         label: 'estimateur conditionnement',
+        warm: true,
         run: () => boardDataset.getConditionnementEstimator(),
+      },
+      {
+        // Payload assemblé de /programme — la page d'entrée, et le seul mur qui
+        // restait après la persistance disque : 22,6 s mesurées sur un premier
+        // chargement. Le préchauffage `board:*` ne l'atteignait pas, /programme
+        // dépendant de clés que personne ne chauffait (`orders-window:*`,
+        // `demand-recep:*`, `orders-matching-delta:*`, `bom`, `mfgmat:*`,
+        // `stock:*`), puis du payload assemblé lui-même. Le chauffer chauffe
+        // toute la chaîne, puisque c'est elle qui le construit.
+        //
+        // Fenêtre PAR DÉFAUT uniquement (aujourd'hui, 14 j) : c'est la clé du
+        // chargement sans paramètre, donc celle de l'arrivée à froid sur la page.
+        // Une plage choisie au calendrier produit une clé propre — impossible à
+        // deviner, elle reste froide à sa première ouverture.
+        //
+        // `warm: false` : le warmer ne le reprend pas. Le maintenir tiède
+        // coûterait une reconstruction complète (~20 s de travail X3) toutes les
+        // 4 à 8 min, que la page soit consultée ou non.
+        label: 'payload /programme (14 j)',
+        warm: false,
+        run: async () => {
+          // Import dynamique : le contrôleur tire toute la chaîne de chargement
+          // du board. En statique, ce provider l'importerait au boot de l'app.
+          const { default: SchedulerController } = await import('#controllers/scheduler_controller')
+          return new SchedulerController().loadProgrammeData({ days: 14 }, '/programme', 'combined')
+        },
       },
     ]
   }
@@ -167,13 +196,18 @@ export default class CachePreheatProvider {
    * Séquentiel volontairement (pas de Promise.all) : ces factories tapent
    * toutes le même pool SOAP, les lancer ensemble allonge chaque requête.
    * Un tick ne se chevauche pas avec le précédent (garde `warmRunning`).
+   *
+   * Seules les entrées `warm: true` sont reprises. Le préchauffage au boot est
+   * ponctuel — on peut y payer cher une fois ; le warmer, lui, rejoue toutes les
+   * 4 min, indéfiniment. Une entrée dont le refresh coûte une reconstruction
+   * complète n'a rien à y faire tant que personne ne consulte la page.
    */
   private startWarmer(logger: LoggerService) {
     this.warmTimer = setInterval(() => {
       if (this.warmRunning) return
       this.warmRunning = true
       void (async () => {
-        for (const task of this.tasks()) {
+        for (const task of this.tasks().filter((t) => t.warm)) {
           try {
             await task.run()
           } catch (e) {
