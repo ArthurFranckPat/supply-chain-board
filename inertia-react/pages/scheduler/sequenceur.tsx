@@ -43,7 +43,7 @@ import {
   urgencyOf,
 } from '@r/lib/board/engagement-format'
 import type { FeasStatus } from '@r/lib/board/types'
-import { buildFeasibilityMap, feasibilityWindowFromDates } from '@r/lib/board/feasibility-map'
+import { feasibilityWindowFromDates, fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 
@@ -217,24 +217,13 @@ export default function Sequenceur(props: SequenceurPageProps) {
     const { from, to } = feasibilityWindowFromDates(props.rows.map((r) => r.dateDebutIso))
     setFeasLoading(true)
     try {
-      const body: Record<string, string> = { from, to, mode: 'sequential' }
-      if (posteFilter) body.workstation = posteFilter.toLowerCase()
-      const res = await fetch(route('planning_board.board_feasibility'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const { map } = await fetchBoardFeasibility({
+        from,
+        to,
+        mode: 'sequential',
+        ...(posteFilter ? { workstation: posteFilter } : {}),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as {
-        ofs?: {
-          numOf: string
-          feasible?: boolean
-          missingComponents?: Record<string, unknown>
-          qcComponents?: Record<string, number>
-        }[]
-      }
-      const { map } = buildFeasibilityMap(data.ofs ?? [])
-      // Ne garder que les OF de la page (pipeline board peut en renvoyer d'autres).
+      // Ne garder que les OF candidats affichés (réponse board = fenêtre STRDAT entière).
       const scoped: Record<string, FeasStatus> = {}
       let nbOk = 0
       let nbBlocked = 0
@@ -249,7 +238,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
       }
       setFeasibility(scoped)
       setFeasDone(true)
-      // Défaut utile : une fois calculée, bascule sur « Lançables » s'il y en a.
       if (nbOk > 0) setFeasFilter('ok')
       const parts = [
         nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,

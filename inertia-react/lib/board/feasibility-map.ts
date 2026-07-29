@@ -1,9 +1,9 @@
 /**
- * Parse la réponse `POST /board-feasibility` → map numOf → FeasStatus.
- * Même règles que le store board (`runFeasibility`) : ok / qc / blocked.
- * Extrait pour réemploi hors store (séquenceur #100).
+ * Parse + fetch `POST /board-feasibility` — chemin unique programme + séquenceur.
+ * Règles ok / qc / blocked identiques au store board (`runFeasibility`).
  */
-import type { FeasStatus } from '@r/lib/board/types'
+import type { FeasibilityMode, FeasStatus } from '@r/lib/board/types'
+import { route } from '@r/lib/routes'
 
 export interface FeasibilityOfPayload {
   numOf: string
@@ -42,6 +42,30 @@ export function buildFeasibilityMap(ofs: FeasibilityOfPayload[]): {
     }
   }
   return { map, nbOk, nbBlocked, nbQc }
+}
+
+/** Même contrat API que `useBoardStore.runFeasibility` — mode explicite (programme : store.mode, séquenceur : sequential). */
+export async function fetchBoardFeasibility(opts: {
+  from: string
+  to: string
+  mode: FeasibilityMode
+  workstation?: string
+}): Promise<ReturnType<typeof buildFeasibilityMap>> {
+  const body: Record<string, string> = {
+    from: opts.from,
+    to: opts.to,
+    mode: opts.mode,
+  }
+  if (opts.workstation) body.workstation = opts.workstation.toLowerCase()
+
+  const res = await fetch(route('planning_board.board_feasibility'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = (await res.json()) as { ofs?: FeasibilityOfPayload[] }
+  return buildFeasibilityMap(data.ofs ?? [])
 }
 
 /** Fenêtre ISO pour couvrir les dates début des candidats.
