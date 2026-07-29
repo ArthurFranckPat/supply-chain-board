@@ -245,13 +245,12 @@ export class RetardRepository {
           const ofId = origin.id?.trim()
           if (!ofId || alloc.ofFlow.quantity <= 0 || alloc.qteAllouee <= 0) continue
           qteCouverte += alloc.qteAllouee
-          const ofReste = resteAProduire(
-            alloc.ofFlow.quantity,
-            origin.launched,
-            avancementByOf.get(ofId)?.qtyRealisee ?? 0
-          )
+          const qtyRealisee = avancementByOf.get(ofId)?.qtyRealisee ?? 0
+          const ofReste = resteAProduire(alloc.ofFlow.quantity, origin.launched, qtyRealisee)
           const launched = origin.launched ?? alloc.ofFlow.quantity
-          qteFaite += Math.max(0, launched - ofReste)
+          // Affichage = signal OP brut (CPLQTY), pas le delta launched−reste
+          // (opaque quand X3 a déjà netté ou gamme mono-op).
+          qteFaite += Math.min(qtyRealisee, launched)
           qteTotaleOf += Math.round(launched)
           qteCharge += alloc.qteAllouee * (ofReste / alloc.ofFlow.quantity)
         }

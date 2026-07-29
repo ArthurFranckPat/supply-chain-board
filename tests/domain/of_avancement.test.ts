@@ -56,13 +56,27 @@ test.group('computeAvancement', () => {
     assert.isFalse(result.get('OF-3')!.estDebuté)
   })
 
-  test('gammes mono-opération → estDebuté false (angle mort documenté)', ({ assert }) => {
+  test('gammes mono-opération pointée → estDebuté + qtyRealisee (plus d’angle mort)', ({
+    assert,
+  }) => {
     const records: OperationRecord[] = [
-      op('OF-4', 10, 720), // seule op = dernière = déclaration stock
+      op('OF-4', 10, 720), // seule op = poste atelier, pas d'op stock séparée
     ]
     const result = computeAvancement(records)
-    assert.isFalse(result.get('OF-4')!.estDebuté)
-    assert.equal(result.get('OF-4')!.nbOperations, 0)
+    const a = result.get('OF-4')!
+    assert.isTrue(a.estDebuté)
+    assert.equal(a.qtyRealisee, 720)
+    assert.equal(a.qtyPrevueOp, 100)
+    assert.equal(a.nbOperations, 1)
+    assert.equal(a.derniereOpPointée, 10)
+    assert.equal(a.derniereOpGamme, 10)
+  })
+
+  test('gammes mono-opération non pointée → estDebuté false', ({ assert }) => {
+    const records: OperationRecord[] = [op('OF-4b', 10, 0)]
+    const a = computeAvancement(records).get('OF-4b')!
+    assert.isFalse(a.estDebuté)
+    assert.equal(a.qtyRealisee, 0)
   })
 
   test('plusieurs OFs traités indépendamment', ({ assert }) => {

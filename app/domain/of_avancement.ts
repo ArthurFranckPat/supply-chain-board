@@ -1,11 +1,17 @@
 /**
  * Logique métier : avancement d'un OF via les pointages d'opérations (issue #41).
  *
- * La dernière opération d'une gamme = déclaration d'entrée en stock (MFGHEAD.CPLQTY_0).
- * Elle ne reflète pas l'avancement réel et peut passer de 0 à la qté totale d'un coup
- * (ex. palette 720 pcs déclarée en bloc). On l'exclut donc du calcul d'avancement.
+ * La dernière opération d'une gamme multi-op = déclaration d'entrée en stock
+ * (MFGHEAD.CPLQTY_0). Elle ne reflète pas l'avancement réel et peut passer de 0
+ * à la qté totale d'un coup (ex. palette 720 pcs déclarée en bloc). On l'exclut
+ * donc du calcul d'avancement.
  *
- * Les opérations intermédiaires (pointages opérateur) sont le vrai signal de production.
+ * Exception mono-op : une seule opération MFGOPE = le poste atelier lui-même
+ * (pas d'op stock séparée). Son CPLQTY EST le signal de pointage — l'exclure
+ * laissait qtyRealisee à 0 et la charge KPI pleine (ex. 11016256).
+ *
+ * Les opérations intermédiaires (pointages opérateur) sont le vrai signal de production
+ * sur les gammes multi-op.
  */
 import type { OperationRecord } from '#repositories/operation_repository'
 
@@ -61,6 +67,9 @@ export interface OfAvancement {
 export function estOfFantome(avancement: OfAvancement | undefined, qteRestante: number): boolean {
   if (!avancement || qteRestante <= 0) return false
   if (!avancement.estDebuté || avancement.qtyPrevueOp <= 0) return false
+  // Mono-op : la seule op est à la fois production et « dernière » — pas de signal
+  // fantôme fiable (cf. computeAvancement). Exige une vraie gamme multi-op.
+  if (avancement.derniereOpPointée === avancement.derniereOpGamme) return false
   return avancement.qtyRealisee >= avancement.qtyPrevueOp
 }
 
@@ -82,6 +91,8 @@ export function ecartDeclarationQty(
 ): number {
   if (!avancement || quantityDone <= 0) return 0
   if (!avancement.estDebuté || avancement.nbOperations <= 0) return 0
+  // Mono-op : indécidable (pas d'op intermédiaire distincte de la déclaration).
+  if (avancement.derniereOpPointée === avancement.derniereOpGamme) return 0
   return Math.max(0, quantityDone - avancement.qtyRealisee)
 }
 
@@ -146,7 +157,27 @@ export function computeAvancement(records: OperationRecord[]): Map<string, OfAva
     const sorted = [...ops].sort((a, b) => a.openum - b.openum)
     const derniereOpGamme = sorted[sorted.length - 1]?.openum ?? null
 
-    // Opérations intermédiaires = tout sauf la dernière (par OPENUM)
+    // Mono-op : la seule opération EST le poste atelier (pas d'op stock séparée).
+    // L'exclure comme « dernière = déclaration » crevait l'avancement (qtyRealisee
+    // toujours 0) — angle mort qui laissait la charge KPI pleine sur des OF pointés
+    // (ex. 11016256 / PP_763 → 0/960 · 8 h malgré pointages MFGOPE).
+    if (sorted.length === 1) {
+      const only = sorted[0]
+      const pointe = only.cplqty > 0
+      result.set(numOf, {
+        numOf,
+        estDebuté: pointe,
+        derniereOpPointée: pointe ? only.openum : null,
+        derniereOpGamme,
+        nbOperations: 1,
+        nbOperationsPointées: pointe ? 1 : 0,
+        qtyRealisee: Math.max(0, only.cplqty),
+        qtyPrevueOp: Math.max(0, only.extqty),
+      })
+      continue
+    }
+
+    // Multi-op : opérations intermédiaires = tout sauf la dernière (déclaration stock)
     const intermediaires = sorted.filter(
       (op) => derniereOpGamme !== null && op.openum < derniereOpGamme
     )
