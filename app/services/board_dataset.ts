@@ -29,7 +29,7 @@ import {
 import type { RetardChargeKpi } from '#repositories/retard_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 
 /**
  * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
@@ -72,7 +72,7 @@ type Live = { demand: Flow[]; reception: Flow[]; supply: Flow[]; at: number }
  * réchauffe pour tous. Les creds X3 (via ALS) ne changent que la session, pas la
  * donnée renvoyée → aucun risque de cloisonnement.
  */
-const board = () => cache.namespace('board')
+const board = () => cacheNs('board')
 
 /**
  * Bucket de période d'une date : `YYYY-MM` (mois) ou `YYYY-Www` (semaine ISO).
@@ -546,17 +546,25 @@ class BoardDataset {
    * TTL long (REF_TTL = 2h) : le conditionnement change rarement et l'historique
    * STOJOU est quasi-immuable. SWR background (2 appels SOAP agrégeant beaucoup
    * de lignes).
+   *
+   * On cache un tableau d'entries et non la Map, comme `getMfgMaterials` et
+   * `getOfPegs` : avec `serialize: false` sur le L1, la valeur cachée est rendue
+   * par référence, et `Object.freeze` ne bloque pas `Map.set()` — le contenu
+   * d'une Map vit dans des slots internes, pas dans des propriétés. Une Map
+   * cachée serait donc mutable par n'importe quel appelant, sans garde-fou
+   * possible (cf. `app/services/cache_ns.ts`). Reconstruire la Map à chaque
+   * appel isole les appelants les uns des autres.
    */
   async getConditionnementEstimator(force = false): Promise<Map<string, EstimationsPaire>> {
     if (force) await board().delete({ key: 'cond-estimator' })
-    return board().getOrSet({
+    const entries = await board().getOrSet({
       key: 'cond-estimator',
       ttl: REF_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
         const { stock, stojou } = await new ConditionnementRepository().getObservations()
         const articles = new Set([...stock.keys(), ...stojou.keys()])
-        const out = new Map<string, EstimationsPaire>()
+        const out: [string, EstimationsPaire][] = []
         for (const article of articles) {
           // Les deux sources passent par le domaine : consensus SM* pour STOCK,
           // concordance des N derniers rangements pour STOJOU (ordre récent →
@@ -564,12 +572,13 @@ class BoardDataset {
           const stockEstim = estimerDepuisStock(stock.get(article) ?? [])
           const stojouEstim = estimerDepuisStojou(stojou.get(article) ?? [])
           if (stockEstim || stojouEstim) {
-            out.set(article, { stock: stockEstim, stojou: stojouEstim })
+            out.push([article, { stock: stockEstim, stojou: stojouEstim }])
           }
         }
         return out
       },
     })
+    return new Map(entries)
   }
 
   /** Vide tous les caches `board:*` → prochain accès recharge depuis X3. */
@@ -607,6 +616,10 @@ class BoardDataset {
    * Latence fournisseur moyenne par article (retard observé, en jours — PRD §8.6).
    * Source : historique PORDERQ (6 derniers mois). TTL long (2h) — donnée
    * historique qui évolue lentement. SWR : sert la stale si X3 est injoignable.
+   *
+   * Entries plutôt que Map dans le cache, pour la même raison que
+   * `getConditionnementEstimator` : une Map cachée serait rendue par référence
+   * et `Object.freeze` ne protège pas son contenu.
    */
   async getSupplierLatency(force = false): Promise<Map<string, number>> {
     if (force) await board().delete({ key: 'supplier-latency' })
@@ -614,12 +627,12 @@ class BoardDataset {
       key: 'supplier-latency',
       ttl: REF_TTL,
       timeout: SWR_TIMEOUT,
-      factory: async () => ({
-        latency: await computeSupplierLatency(),
-        at: Date.now(),
-      }),
+      factory: async () => {
+        const map = await computeSupplierLatency()
+        return { latency: [...map.entries()], at: Date.now() }
+      },
     })
-    return latency
+    return new Map(latency)
   }
 
   status() {

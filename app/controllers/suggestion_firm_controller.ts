@@ -1,5 +1,5 @@
 import { type HttpContext } from '@adonisjs/core/http'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run_client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
@@ -9,7 +9,7 @@ import printService, { docLabel } from '#services/print_service'
  * Invalide les caches board après un write-back X3 (FIRMSUGG).
  *
  * K4 (audit sécu) : tous les namespaces sont GLOBAUX (cf. `board_dataset.ts:63`
- * `cache.namespace('board')` sans suffixe user) — le code précédent ciblait des
+ * `cacheNs('board')` sans suffixe user) — le code précédent ciblait des
  * clés inexistantes (`board:user_${id}`) → aucun cache n'était invalidé → UI
  * stale → re-clic possible = double lancement d'OF. On purge tous les
  * namespaces impactés par un changement de statut OF (Ferme/Planifié/Suggéré) :
@@ -20,12 +20,12 @@ import printService, { docLabel } from '#services/print_service'
  */
 async function bustBoardCaches() {
   await Promise.all([
-    cache.namespace('board').clear(),
-    cache.namespace('programme').clear(),
-    cache.namespace('suivi').clear(),
-    cache.namespace('ruptures').clear(),
-    cache.namespace('charge').clear(),
-    cache.namespace('engagement').clear(),
+    cacheNs('board').clear(),
+    cacheNs('programme').clear(),
+    cacheNs('suivi').clear(),
+    cacheNs('ruptures').clear(),
+    cacheNs('charge').clear(),
+    cacheNs('engagement').clear(),
   ])
 }
 

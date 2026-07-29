@@ -7,7 +7,7 @@
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import boardDataset from '#services/board_dataset'
 import { loadOrderImpacts, type PhantomOf } from '#services/order_impacts_loader'
 import {
@@ -117,7 +117,7 @@ export async function loadShortageRowsData(params: {
   // timeout 1 s) comme /programme et /suivi (issue #33). Clé GLOBALE, pas par
   // utilisateur (issue #39, C2) : payload dérivé des données usine, identique pour
   // tous → plus de cold start (~18 s) répété par user. ?refresh=1 invalide la clé.
-  const ruptCache = () => cache.namespace('ruptures')
+  const ruptCache = () => cacheNs('ruptures')
   const cacheKey = `payload:${isoDay(windowFrom)}:${horizon}`
   if (force) await ruptCache().delete({ key: cacheKey })
 

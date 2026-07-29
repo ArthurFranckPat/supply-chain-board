@@ -15,7 +15,7 @@
  * quel que soit le filtre actif.
  */
 
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import type { Article } from '#app/domain/models/article'
@@ -122,8 +122,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
 
   const cacheKey = `detail:charge:${isoDay(monthStart)}:${params.view}:${poste}:${params.gran}:${params.bucket}`
   const force = !!params.refresh
-  if (force) await cache.namespace('charge').delete({ key: cacheKey })
-  return cache.namespace('charge').getOrSet({
+  if (force) await cacheNs('charge').delete({ key: cacheKey })
+  return cacheNs('charge').getOrSet({
     key: cacheKey,
     ttl: 2 * 60 * 1000,
     timeout: 0,

@@ -7,7 +7,7 @@
  * Enrichissement dates/statut uniquement sur les OF en écart (pas tout le pool).
  */
 
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import { X3OperationRepository } from '#repositories/operation_repository'
@@ -190,7 +190,7 @@ async function fetchEnrichment(numOfs: string[]): Promise<Map<string, OfEnrichme
  * Calcule la liste d'écarts. `force` purge le cache bentocache (2 min).
  */
 export async function loadControleProdData(force = false): Promise<ControleProdPayload> {
-  const ns = () => cache.namespace('controle-prod')
+  const ns = () => cacheNs('controle-prod')
   const key = 'payload:v2'
   if (force) await ns().delete({ key })
 

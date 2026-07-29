@@ -12,7 +12,7 @@
  * (STOJOU/PINVD) sont hors scope — c'est une projection, pas un constat.
  */
 
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import logger from '@adonisjs/core/services/logger'
 
 import { X3ReceptionRepository } from '#repositories/reception_repository'
@@ -290,7 +290,7 @@ export async function loadReceptionPayload(opts: {
   to: string
   force?: boolean
 }): Promise<ReceptionsPayload> {
-  const recepCache = cache.namespace('receptions')
+  const recepCache = cacheNs('receptions')
   const cacheKey = `payload:${opts.from}:${opts.to}`
   if (opts.force) await recepCache.delete({ key: cacheKey })
 

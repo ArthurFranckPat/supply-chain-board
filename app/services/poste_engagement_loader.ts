@@ -14,7 +14,7 @@ import {
   buildPosteNatureByWorkstation,
   type PosteNature,
 } from '#app/domain/atelier'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import { isoDay } from '#app/utils/dates'
 
 /**
@@ -119,7 +119,7 @@ const MATCHING_HORIZON_DAYS = 120
 const ENGAGEMENT_HORIZON_DAYS = MATCHING_HORIZON_DAYS
 const ENGAGEMENT_TTL = 2 * 60 * 1000
 
-const engagementCache = () => cache.namespace('engagement')
+const engagementCache = () => cacheNs('engagement')
 
 const resolvePoste = (
   mo: ManufacturingOrder,

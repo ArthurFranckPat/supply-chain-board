@@ -1,5 +1,5 @@
 import { type HttpContext } from '@adonisjs/core/http'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import logger from '@adonisjs/core/services/logger'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import boardDataset from '#services/board_dataset'
@@ -104,7 +104,7 @@ export default class ConditionnementsController {
 
   /** GET /api/v1/conditionnements/rows — articles seuls (FAST, ITMMASTER instantané). */
   async rows(_ctx: HttpContext) {
-    const condCache = () => cache.namespace('conditionnements')
+    const condCache = () => cacheNs('conditionnements')
 
     let rows: ConditionnementDisplayRow[] = []
     let stats: ConditionnementsRowsResponse['stats'] = {
@@ -149,7 +149,7 @@ export default class ConditionnementsController {
    * frontend (ex. seulement les manquants visibles), pour limiter le calcul.
    */
   async estimations(ctx: HttpContext) {
-    const condCache = () => cache.namespace('conditionnements')
+    const condCache = () => cacheNs('conditionnements')
     const articlesParam = (ctx.request.input('articles') as string | undefined)?.trim()
     const articles = articlesParam
       ? articlesParam

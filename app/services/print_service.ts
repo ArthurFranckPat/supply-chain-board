@@ -1,4 +1,4 @@
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import { getX3EnvConfig, type X3EnvConfig } from '#config/x3'
 import { callRunSubprog, type RunResult } from '#app/x3/run_client'
 import { X3Connection } from '#app/x3/connection'
@@ -169,7 +169,7 @@ class PrintService {
    */
   async listX3Destinations(config?: X3EnvConfig): Promise<X3Destination[]> {
     const cfg = config ?? getX3EnvConfig()
-    return cache.namespace('print').getOrSet({
+    return cacheNs('print').getOrSet({
       key: `destinations:${cfg.pool}`,
       ttl: '10m',
       factory: async () => {

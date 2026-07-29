@@ -11,7 +11,7 @@
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad } from '#repositories/order_line_repository'
@@ -377,7 +377,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
   const cacheKey = `payload:charge:${isoDay(monthStart)}:${NB_MONTHS}`
-  const chargeCache = () => cache.namespace('charge')
+  const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
   // Tout le calcul dans le factory : cache miss = 1 exécution, hits suivants = instant (SWR).

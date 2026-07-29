@@ -28,7 +28,7 @@
  *  - Valorisation au PMP actuel (même convention que l'historique).
  */
 
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
@@ -210,7 +210,7 @@ export async function loadStockArticleDetail(
   const refDate = params.referenceDate ?? new Date()
 
   const cacheKey = `detail:stock-article:${article}:${isoDay(refDate)}`
-  return cache.namespace('stock').getOrSet({
+  return cacheNs('stock').getOrSet({
     key: cacheKey,
     ttl: 2 * 60 * 1000,
     timeout: 0,

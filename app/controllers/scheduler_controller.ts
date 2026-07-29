@@ -1,5 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
@@ -198,7 +198,7 @@ export default class SchedulerController {
     // pas par utilisateur (issue #39, C2) : le payload dépend des données usine (ORDERS
     // + matching), identiques pour tous → un namespace par user faisait repayer le cold
     // start (~20 s) à chacun. TTL court : sources X3 vivantes. ?refresh=1 invalide la clé.
-    const programmeCache = () => cache.namespace('programme')
+    const programmeCache = () => cacheNs('programme')
     const cacheKey = `payload:${basePath}:${isoDay(windowStart)}:${horizon}`
     if (force) await programmeCache().delete({ key: cacheKey })
 

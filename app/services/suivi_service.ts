@@ -40,7 +40,7 @@ import {
   hoursForQuantity,
   type GammeOperation,
 } from '#app/domain/models/gamme'
-import cache from '@adonisjs/cache/services/main'
+import { cacheNs } from '#services/cache_ns'
 import type { OfRecord, StockRecord } from '#app/domain/recursive_checker'
 import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture_engine'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
@@ -343,7 +343,7 @@ export const SUIVI_FORWARD_DAYS = Number(process.env.SUIVI_FORWARD_DAYS) || 30
 // stock + OF + BOM) est identique pour tous les users → un namespace par user
 // faisait repayer le cold start X3 (~14 s) à chacun. Clé partagée = le premier
 // réchauffe pour tous.
-const suiviCache = () => cache.namespace('suivi')
+const suiviCache = () => cacheNs('suivi')
 
 /** Invalide le cache de contexte → prochain buildContext() recharge depuis X3. */
 export async function reloadSuiviContext() {

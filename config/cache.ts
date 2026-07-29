@@ -9,13 +9,39 @@ import SuperJSON from 'superjson'
  * Serializer superjson : le serializer par défaut de bentocache est du JSON brut
  * (`JSON.stringify`), qui détruit les `Date` (→ string ISO) et les `Map` (→ {}).
  * Or les payloads cachés ici (flux X3 avec `date: Date`, maps de ruptures) en
- * contiennent. superjson préserve Date/Map à travers l'aller-retour Redis ET la
- * couche L1 mémoire (les valeurs y sont aussi sérialisées).
+ * contiennent. superjson préserve Date/Map à travers l'aller-retour L2 (fichier
+ * en dev, Redis en prod).
+ *
+ * Le L1 mémoire, lui, ne sérialise plus (`serialize: false` ci-dessous) : les
+ * objets y sont stockés tels quels, donc Date et Map y survivent nativement.
  */
 const superjsonSerializer: CacheSerializer = {
   serialize: (value) => SuperJSON.stringify(value),
   deserialize: (value) => SuperJSON.parse(value),
 }
+
+/**
+ * Couche L1 mémoire, SANS sérialisation.
+ *
+ * Par défaut bentocache sérialise aussi le L1 : chaque hit — donc en mémoire,
+ * dans le process, sans I/O — repayait un `SuperJSON.parse` complet, synchrone
+ * sur le thread principal. Mesuré sur les payloads du projet : 22,70 ms pour
+ * 3 k OF / 8 k flux, 93,51 ms pour 10 k OF / 30 k flux. Et l'entrée était
+ * stockée deux fois (objet + forme sérialisée).
+ *
+ * L'option n'était pas honorée avant `patches/bentocache+1.6.1.patch` : elle
+ * était perdue au passage par un namespace, et tout le projet est namespacé.
+ *
+ * CONTREPARTIE, non négociable : un hit L1 rend désormais la MÊME référence à
+ * tous les appelants. Une valeur lue depuis le cache est en LECTURE SEULE —
+ * copier avant de muter. Le garde-fou est dans `app/services/cache_ns.ts` :
+ * hors production, toute valeur lue est gelée en profondeur, une mutation en
+ * place lève un `TypeError` au lieu de corrompre les requêtes suivantes.
+ *
+ * `maxSize` / `maxEntrySize` deviennent inutilisables (la taille d'un objet non
+ * sérialisé n'est pas calculable) — ils n'étaient pas posés.
+ */
+const l1 = () => drivers.memory({ serialize: false })
 
 // `file` en dev, `redis` en prod, `memory` en test (cf. .env).
 //
@@ -42,7 +68,7 @@ const cacheConfig = defineConfig({
 
   stores: {
     // Cache mémoire pur (tests). Meurt avec le process — voir `file` ci-dessous.
-    memory: store().useL1Layer(drivers.memory()),
+    memory: store().useL1Layer(l1()),
 
     // Dev local : L1 mémoire + L2 fichier sous `tmp/cache`, sans dépendance externe.
     //
@@ -75,7 +101,7 @@ const cacheConfig = defineConfig({
     // relatif au CWD, deux worktrees ne se marchent pas dessus ; seul le cas « deux
     // serveurs dans le MÊME worktree » est concerné.
     file: store()
-      .useL1Layer(drivers.memory())
+      .useL1Layer(l1())
       .useL2Layer(drivers.file({ directory: 'tmp/cache' })),
 
     // Store redis déclaré UNIQUEMENT si CACHE_STORE=redis. Sinon le provider résout
@@ -87,7 +113,7 @@ const cacheConfig = defineConfig({
           // Cache distribué : L1 mémoire (accès rapide intra-process) + L2 Redis
           // (persistant, partagé entre instances → cross-reboot, scale-out).
           redis: store()
-            .useL1Layer(drivers.memory())
+            .useL1Layer(l1())
             .useL2Layer(drivers.redis({ connectionName: 'main' })),
         }
       : {}),
