@@ -13,7 +13,7 @@ import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
  *    valorisation stock 9 s) et l'estimateur de conditionnement (STOCK +
  *    STOJOU sur 6 mois). Sans préchauffage, le PREMIER utilisateur subit le
  *    cold start (~22 s mesuré sur le panneau engagement ; jusqu'à 86 s avant
- *    optimisation du conditionnement).
+ *    optimisation du conditionnement). Chaque tâche logue sa durée.
  * 2. WARMER (tick 4 min) : ces entrées ont un TTL de 2 à 5 min + grâce 12 h.
  *    Une nuit / un week-end sans trafic épuise la grâce → le 1er utilisateur du
  *    matin repayait le mur froid synchrone. Le tick garde la valeur vivante en
@@ -21,6 +21,12 @@ import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
  *    déclenche le refresh X3 en arrière-plan. Hors requête, les creds X3 =
  *    compte de service `.env` (getX3EnvConfig).
  *    Multi-instance : le lock bentocache évite le dogpile sur la factory.
+ *
+ * PRÉREQUIS : un store qui SURVIT au process. La grâce de 12 h invoquée ci-dessus
+ * n'existe que si son support existe encore au redémarrage — L2 Redis en prod,
+ * L2 fichier en dev (`CACHE_STORE=file`, cf. config/cache.ts). Avec un store L1
+ * seule, tout ce préchauffage est repayé intégralement à chaque `node ace serve`
+ * et à chaque redémarrage HMR.
  *
  * PRÉREQUIS : ne chauffer que des clés STABLES. Une clé qui embarque le jour
  * courant (`…:2026-07-26`) est neuve chaque matin — le warmer alimenterait
@@ -72,9 +78,22 @@ export default class CachePreheatProvider {
   }
 
   /**
-   * Entrées maintenues chaudes, dans l'ordre de préchauffage (séquentiel, doux
-   * pour le pool SOAP X3) : orders d'abord (le plus partagé), puis les deux
-   * KPI du dashboard, puis l'estimateur de conditionnement.
+   * Entrées maintenues chaudes, dans l'ordre de préchauffage : orders d'abord (le
+   * plus partagé), puis les deux KPI du dashboard, puis l'estimateur de
+   * conditionnement.
+   *
+   * SÉQUENTIEL, et ça a été mesuré — ne pas re-tenter la parallélisation. Le graphe
+   * de dépendances ne compte qu'un lien (retard-kpi appelle getOrders), donc deux
+   * chaînes indépendantes semblent gratuites :
+   *
+   *   orders ──▶ retard-kpi        |     stock-valuation ──▶ conditionnement
+   *
+   * Essayé, sur X3 prod : les deux chaînes en `Promise.all` donnent **110 s** de
+   * mur total, contre ~94 s en séquentiel. `board:orders` passe de 36,5 s seul à
+   * 72,7 s en concurrence — presque exactement ×2. Le pool Syracuse sérialise de
+   * toute façon, et y ajouter de la contention coûte plus qu'elle ne rapporte. Le
+   * parallélisme ne se gagnera pas ici mais en amont, en sortant X3 du chemin de
+   * lecture (#98).
    *
    * Les deux KPI du dashboard sont les murs restants mesurés en requête :
    * retard 23 s (3 requêtes SOAP séquentielles), valorisation stock 9 s
@@ -86,6 +105,8 @@ export default class CachePreheatProvider {
     return [
       { label: 'board:orders', run: () => boardDataset.getOrders() },
       {
+        // Dépend de board:orders — doit rester APRÈS lui, sinon les deux
+        // déclenchent la même factory ORDERS.
         label: 'retard-kpi (dashboard)',
         run: () => boardDataset.getRetardKpi(new Date(), RETARD_LOOKBACK_DAYS),
       },
@@ -106,17 +127,35 @@ export default class CachePreheatProvider {
     ]
   }
 
+  /**
+   * Préchauffage séquentiel, chaque tâche logguant sa DURÉE.
+   *
+   * La durée va dans le MESSAGE, pas seulement dans les bindings : le transport
+   * pretty du dev (config/logger.ts) n'affiche que `msg`, un `{ ms }` structuré y
+   * serait invisible — or c'est précisément en dev que ce log sert. Sans elle il
+   * fallait soustraire à la main deux timestamps pour savoir où passait le mur de
+   * boot, et rien n'était comparable d'un démarrage à l'autre.
+   */
   private async preheat(logger: LoggerService) {
+    const startedAt = Date.now()
     for (const task of this.tasks()) {
+      const taskStartedAt = Date.now()
       try {
         logger.info(`[cache-preheat] préchauffage ${task.label}…`)
         await task.run()
-        logger.info(`[cache-preheat] ${task.label} prêt`)
+        const ms = Date.now() - taskStartedAt
+        logger.info({ ms }, `[cache-preheat] ${task.label} prêt en ${ms} ms`)
       } catch (e) {
         // Non fatal : X3 peut être indispo au boot. Le cache se remplira à la 1re requête.
-        logger.warn({ err: e }, `[cache-preheat] échec préchauffage ${task.label} (non fatal)`)
+        const ms = Date.now() - taskStartedAt
+        logger.warn(
+          { err: e, ms },
+          `[cache-preheat] échec préchauffage ${task.label} après ${ms} ms (non fatal)`
+        )
       }
     }
+    const total = Date.now() - startedAt
+    logger.info({ ms: total }, `[cache-preheat] préchauffage terminé en ${total} ms`)
   }
 
   /**

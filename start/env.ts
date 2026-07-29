@@ -32,8 +32,9 @@ export default await Env.create(new URL('../', import.meta.url), {
   REDIS_PASSWORD: Env.schema.string.optional(),
   REDIS_DB: Env.schema.number.optional(),
 
-  // Cache (config/cache.ts) : `memory` en local/test, `redis` en prod.
-  CACHE_STORE: Env.schema.enum(['memory', 'redis'] as const),
+  // Cache (config/cache.ts) : `file` en dev (L2 fichier, survit aux redémarrages),
+  // `redis` en prod, `memory` en test (forcé par config/cache.ts).
+  CACHE_STORE: Env.schema.enum(['memory', 'file', 'redis'] as const),
 
   // X3
   X3_ENV: Env.schema.enum(['test', 'prod'] as const),

@@ -1,4 +1,5 @@
 import env from '#start/env'
+import app from '@adonisjs/core/services/app'
 import { defineConfig, store, drivers } from '@adonisjs/cache'
 import type { InferStores } from '@adonisjs/cache/types'
 import type { CacheSerializer } from 'bentocache/types'
@@ -16,8 +17,13 @@ const superjsonSerializer: CacheSerializer = {
   deserialize: (value) => SuperJSON.parse(value),
 }
 
-// memory en dev/test (aucune dépendance Redis), redis en prod (cf. .env).
-const cacheStore = env.get('CACHE_STORE')
+// `file` en dev, `redis` en prod, `memory` en test (cf. .env).
+//
+// Les tests sont forcés sur `memory` quel que soit le `.env` chargé : le L2 fichier
+// survit au process, deux runs de suite partageraient donc les mêmes entrées et un
+// test verrait le cache d'un autre. C'est la seule couche où cette garantie tient,
+// puisqu'il n'existe pas de `.env.test` dans ce dépôt.
+const cacheStore = app.inTest ? 'memory' : env.get('CACHE_STORE')
 
 const cacheConfig = defineConfig({
   default: cacheStore,
@@ -35,8 +41,32 @@ const cacheConfig = defineConfig({
   grace: '12h',
 
   stores: {
-    // Cache mémoire pur (dev local sans Redis, tests).
+    // Cache mémoire pur (tests). Meurt avec le process — voir `file` ci-dessous.
     memory: store().useL1Layer(drivers.memory()),
+
+    // Dev local : L1 mémoire + L2 fichier sous `tmp/cache`, sans dépendance externe.
+    //
+    // Avec le store `memory` (L1 seule), TOUT le cache mourait avec le process : chaque
+    // `node ace serve`, chaque redémarrage HMR rejouait les ~90 s de préchauffage X3 du
+    // boot (cf. providers/cache_preheat_provider.ts) contre X3 prod. La grâce de 12 h
+    // existe précisément pour éviter ça, mais elle ne peut rien couvrir si son support
+    // disparaît à l'arrêt. Le L2 fichier lui donne ce support — c'est le pendant local du
+    // « persistant cross-reboot » que le L2 Redis apporte en prod.
+    //
+    // Déclaré inconditionnellement : contrairement à Redis, le driver n'ouvre aucune
+    // connexion à la résolution (il crée le dossier au premier write), donc le résoudre
+    // au boot en mode `redis` ou `memory` ne coûte rien.
+    //
+    // Chemin RELATIF, surtout pas `app.tmpPath('cache')` : le driver fichier de
+    // bentocache passe le répertoire dans le même `#sanitizePath` que les clés, qui
+    // remplace `:` par `/` pour transformer les namespaces en sous-dossiers. Sur
+    // Windows il mange donc la lettre de lecteur — `C:\…\tmp\cache` devient le
+    // dossier relatif `C/Users/…/tmp/cache` créé sous le CWD. L'échec est
+    // silencieux (les erreurs L2 sont avalées) : le cache paraît vide alors qu'il
+    // écrit ailleurs. Sans `:`, plus de mutilation possible.
+    file: store()
+      .useL1Layer(drivers.memory())
+      .useL2Layer(drivers.file({ directory: 'tmp/cache' })),
 
     // Store redis déclaré UNIQUEMENT si CACHE_STORE=redis. Sinon le provider résout
     // tous les stores au boot → ouvre la connexion Redis même en mode memory →
