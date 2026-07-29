@@ -95,8 +95,8 @@ export const MANIFEST = {
   'print_config.upsert_rule': { method: 'POST', pattern: '/api/v1/config/print/rules' },
   'print_journal': { method: 'GET', pattern: '/impressions' },
   'print_journal.rows': { method: 'GET', pattern: '/api/v1/config/print/journal' },
-  'print.history': { method: 'GET', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'print.documents': { method: 'GET', pattern: '/api/v1/planning/print/documents' },
+  'print.history': { method: 'GET', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'print.print': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'promesse.articles': { method: 'GET', pattern: '/api/v1/promesse/articles' },
   'promesse.index': { method: 'GET', pattern: '/api/v1/promesse' },
@@ -213,8 +213,8 @@ export type RouteParams = {
   'print_config.upsert_rule': void
   'print_journal': void
   'print_journal.rows': void
-  'print.history': { orderNum: string | number }
   'print.documents': void
+  'print.history': { orderNum: string | number }
   'print.print': { orderNum: string | number }
   'promesse.articles': void
   'promesse.index': void
