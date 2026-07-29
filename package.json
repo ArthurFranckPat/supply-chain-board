@@ -9,6 +9,7 @@
     "./registry": "./.adonisjs/client/registry/index.ts"
   },
   "scripts": {
+    "postinstall": "patch-package --error-on-fail",
     "start": "dotenvx run -- node bin/server.js",
     "build": "dotenvx run -- node ace build",
     "dev": "dotenvx run -- node ace serve --hmr",
@@ -119,6 +120,7 @@
     "edge.js": "^6.5.1",
     "lucide-react": "^1.25.0",
     "luxon": "^3.7.2",
+    "patch-package": "^8.0.1",
     "react": "^19.2.7",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.7",

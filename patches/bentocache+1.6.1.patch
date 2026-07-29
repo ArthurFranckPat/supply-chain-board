@@ -1,0 +1,20 @@
+diff --git a/node_modules/bentocache/build/index.js b/node_modules/bentocache/build/index.js
+index 601a3ae..add6752 100644
+--- a/node_modules/bentocache/build/index.js
++++ b/node_modules/bentocache/build/index.js
+@@ -1761,11 +1761,14 @@ var BentoCacheOptions = class _BentoCacheOptions {
+   }
+   serializeL1Cache(shouldSerialize = true) {
+     this.serializeL1 = shouldSerialize;
++    this.#options.serializeL1 = shouldSerialize;
+     return this;
+   }
+   cloneWith(options) {
+     const newOptions = { ...this.#options, ...options };
+-    return new _BentoCacheOptions(newOptions);
++    return new _BentoCacheOptions(newOptions).serializeL1Cache(
++      newOptions.serializeL1 ?? true
++    );
+   }
+ };
+ 
