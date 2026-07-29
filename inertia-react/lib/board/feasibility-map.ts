@@ -44,10 +44,12 @@ export function buildFeasibilityMap(ofs: FeasibilityOfPayload[]): {
   return { map, nbOk, nbBlocked, nbQc }
 }
 
-/** Fenêtre ISO pour couvrir les dates début des candidats (+ marge). */
+/** Fenêtre ISO pour couvrir les dates début des candidats.
+ *  IMPORTANT : borner depuis min/max des dates candidats — pas depuis
+ *  today+N j (sinon des OF à 3–5 mois sortent de board-feasibility / STRDAT). */
 export function feasibilityWindowFromDates(
   dates: (string | null | undefined)[],
-  fallbackDaysAhead = 60
+  fallbackDaysAhead = 90
 ): { from: string; to: string } {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -58,19 +60,18 @@ export function feasibilityWindowFromDates(
     return `${y}-${m}-${da}`
   }
   const valid = dates.filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}/.test(d))
-  let from = new Date(today)
-  from.setDate(from.getDate() - 7)
-  let to = new Date(today)
-  to.setDate(to.getDate() + fallbackDaysAhead)
-  if (valid.length > 0) {
-    const sorted = [...valid].sort()
-    const min = new Date(sorted[0])
-    const max = new Date(sorted[sorted.length - 1])
-    if (min < from) from = min
-    if (max > to) to = max
-    // Marge 3 j de chaque côté pour STRDAT board-feasibility.
-    from.setDate(from.getDate() - 3)
-    to.setDate(to.getDate() + 3)
+  if (valid.length === 0) {
+    const from = new Date(today)
+    from.setDate(from.getDate() - 7)
+    const to = new Date(today)
+    to.setDate(to.getDate() + fallbackDaysAhead)
+    return { from: iso(from), to: iso(to) }
   }
+  const sorted = [...valid].sort()
+  const from = new Date(sorted[0])
+  const to = new Date(sorted[sorted.length - 1])
+  // Marge 7 j de chaque côté pour STRDAT board-feasibility.
+  from.setDate(from.getDate() - 7)
+  to.setDate(to.getDate() + 7)
   return { from: iso(from), to: iso(to) }
 }

@@ -91,7 +91,8 @@ export interface PosteEngagement {
 }
 
 /** Ligne allégée (page /sequenceur, vue "tous les postes") — sans matching
- *  commande, volontairement, pour rester sur les seules sources déjà cachées. */
+ *  commande en mode engagement (perf). Mode lancer (#100) : pegs attachés
+ *  (candidats planifiés/suggérés ≪ fermes → coût acceptable). */
 export interface SummaryRow {
   numOf: string
   article: string
@@ -102,6 +103,9 @@ export interface SummaryRow {
   hours: number
   status: number
   statusLabel: string
+  /** Rempli en kind=lancer via reverse peg ; vide en engagement. */
+  commandes: EngagementCommande[]
+  livraisonIso: string | null
 }
 
 export interface PosteSummary {
@@ -128,7 +132,10 @@ export interface EngagementSummaryDataset {
 const POSTE_PP_RE = /^PP_\d+$/
 
 const DEMAND_LOOKBACK_DAYS = 30
+/** Horizon matching engagement (fermes). Mode lancer : OF planifiés souvent
+ *  plus loin (ex. oct–déc) → LANCER_DEMAND_HORIZON_DAYS. */
 const DEMAND_HORIZON_DAYS = 120
+const LANCER_DEMAND_HORIZON_DAYS = 180
 const ENGAGEMENT_TTL = 2 * 60 * 1000
 
 const engagementCache = () => cache.namespace('engagement')
@@ -193,8 +200,13 @@ export async function loadPosteSummaries(
       const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
       const mosByPoste = new Map<string, ManufacturingOrder[]>()
+      const seenOf = new Set<string>()
       for (const mo of ord.mos) {
-        if (!statuses.has(mo.status)) continue
+        const st = Number(mo.status)
+        if (!statuses.has(st)) continue
+        // Dédoublonnage : ORDERS peut renvoyer plusieurs lignes / OF.
+        if (seenOf.has(mo.numOf)) continue
+        seenOf.add(mo.numOf)
         const poste = resolvePoste(mo, overrideMap, opsByArticle)
         if (!poste) continue
         const list = mosByPoste.get(poste) ?? []
@@ -234,6 +246,7 @@ export async function loadPosteSummaries(
             const hours =
               Math.round(hoursForQuantity(opsByArticle.get(mo.article)?.[0], mo.quantity) * 10) / 10
             const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
+            const st = Number(mo.status)
             return {
               numOf: mo.numOf,
               article: mo.article,
@@ -242,8 +255,10 @@ export async function loadPosteSummaries(
               launched: mo.quantityLaunched,
               dateDebutIso: start ? isoDay(start) : null,
               hours,
-              status: mo.status,
-              statusLabel: statusLabelOf(mo.status),
+              status: st,
+              statusLabel: statusLabelOf(st),
+              commandes: [] as EngagementCommande[],
+              livraisonIso: null as string | null,
             }
           })
           .sort(
@@ -262,6 +277,34 @@ export async function loadPosteSummaries(
           atelierLabel: resolveAtelierLabel(stoloc),
         }
       })
+
+      // Mode lancer (#100) : reverse peg sur les candidats (≪ fermes usine).
+      // Sans ça la vue « tous postes » n'avait aucune commande — alors que le
+      // matching complet O(n²) reste réservé au détail d'un poste.
+      if (kind === 'lancer') {
+        const nums = postes.flatMap((p) => p.rows.map((r) => r.numOf))
+        if (nums.length > 0) {
+          try {
+            const pegs = await boardDataset.getOfPegsAll(nums)
+            for (const p of postes) {
+              for (const r of p.rows) {
+                const list = pegs.get(r.numOf) ?? []
+                r.commandes = list.map((peg) => ({
+                  numCommande: peg.numCommande,
+                  ligne: null,
+                  client: peg.client,
+                  livraisonIso: peg.dateExpedition ? isoDay(peg.dateExpedition) : null,
+                  method: 'peg' as const,
+                }))
+                r.livraisonIso =
+                  r.commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null
+              }
+            }
+          } catch {
+            // Peg KO → liste sans commandes, pas de mur de la page.
+          }
+        }
+      }
 
       return { postes }
     },
@@ -294,7 +337,8 @@ export async function loadPosteEngagement(
       const from = new Date(today)
       from.setDate(from.getDate() - DEMAND_LOOKBACK_DAYS)
       const to = new Date(today)
-      to.setDate(to.getDate() + DEMAND_HORIZON_DAYS)
+      const horizon = kind === 'lancer' ? LANCER_DEMAND_HORIZON_DAYS : DEMAND_HORIZON_DAYS
+      to.setDate(to.getDate() + horizon)
       to.setHours(23, 59, 59, 999)
       const fromIso = isoDay(from)
       const toIso = isoDay(to)
@@ -311,9 +355,15 @@ export async function loadPosteEngagement(
       const opsByArticle = groupGammeByArticle(ref.gamme)
       const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
-      const scoped = ord.mos.filter(
-        (mo) => statuses.has(mo.status) && resolvePoste(mo, overrideMap, opsByArticle) === poste
-      )
+      const seenOf = new Set<string>()
+      const scoped = ord.mos.filter((mo) => {
+        const st = Number(mo.status)
+        if (!statuses.has(st)) return false
+        if (seenOf.has(mo.numOf)) return false
+        if (resolvePoste(mo, overrideMap, opsByArticle) !== poste) return false
+        seenOf.add(mo.numOf)
+        return true
+      })
       const scopedNums = new Set(scoped.map((m) => m.numOf))
 
       const byOf = new Map<string, EngagementCommande[]>()
@@ -419,8 +469,8 @@ export async function loadPosteEngagement(
             hours,
             commandes,
             livraisonIso: commandes.find((c) => c.livraisonIso)?.livraisonIso ?? null,
-            status: mo.status,
-            statusLabel: statusLabelOf(mo.status),
+            status: Number(mo.status),
+            statusLabel: statusLabelOf(Number(mo.status)),
           }
         })
         .sort(

@@ -139,7 +139,7 @@ function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined) {
       icon: TriangleAlert,
     }
   return {
-    label: '…',
+    label: 'N/D',
     className: 'bg-secondary text-muted-foreground',
     icon: RefreshCw,
   }
@@ -775,7 +775,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 <Info size={14} strokeWidth={1.75} />
                 <span>
                   {isLancer
-                    ? 'Sélectionnez un poste pour afficher les commandes et prioriser par livraison.'
+                    ? 'Commandes via contremarque (peg). Sélectionnez un poste pour le matching complet + urgence livraison.'
                     : 'Sélectionnez un poste pour afficher les commandes et les dates de livraison.'}
                 </span>
               </div>

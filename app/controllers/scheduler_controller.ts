@@ -420,8 +420,9 @@ export default class SchedulerController {
           ...r,
           posteCode: p.poste.code,
           posteLabel: p.poste.label,
-          commandes: [],
-          livraisonIso: null as string | null,
+          // Pegs déjà résolus en kind=lancer ; engagement → tableaux vides.
+          commandes: r.commandes ?? [],
+          livraisonIso: r.livraisonIso ?? null,
         }))
       ),
       selectedPoste: null,
