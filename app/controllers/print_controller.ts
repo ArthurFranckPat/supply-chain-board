@@ -18,7 +18,7 @@ import PrintJob from '#models/print_job'
  */
 export default class PrintController {
   /** GET /api/v1/planning/print/documents — états actifs du dossier d'OF. */
-  async documents(ctx: HttpContext) {
+  async documents() {
     const rows = await printService.listDocuments()
     return {
       ok: true,
