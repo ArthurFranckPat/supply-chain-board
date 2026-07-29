@@ -474,23 +474,24 @@ export default class SchedulerController {
 
   private async loadOfDetail(num: string): Promise<DetailPayload> {
     // getReferential (cachée) + getManufacturingOrderByNum (1 ligne ZSOAPSQL) +
-    // getMaterials (MFGMAT filtrée par 1 OF) + overrides (SQLite) → tous indépendants → parallèle.
-    // Remplace getOrders() (500-2000 lignes, 90j lookback) qui était le goulot d'étranglement.
+    // getMaterials (MFGMAT filtrée par 1 OF) + overrides (SQLite) → indépendants.
+    // allSettled : un échec MFGMAT (suggestion sans éclatement) ne doit PAS
+    // effacer l'OF ni basculer le statut sur le fallback « Ferme ».
     let mo: ManufacturingOrder | null = null
     let gammeOps: GammeOperation[] = []
     let materials: import('#repositories/mfgmat_repository').OfMaterial[] = []
     let overrides: Awaited<ReturnType<typeof this.store.getAll>> = []
 
-    try {
-      ;[{ gamme: gammeOps }, mo, materials, overrides] = await Promise.all([
-        boardDataset.getReferential(),
-        new X3OfRepository().getManufacturingOrderByNum(num),
-        new X3MfgmatRepository().getMaterials(num),
-        this.store.getAll(),
-      ])
-    } catch {
-      // serve empty detail
-    }
+    const settled = await Promise.allSettled([
+      boardDataset.getReferential(),
+      new X3OfRepository().getManufacturingOrderByNum(num),
+      new X3MfgmatRepository().getMaterials(num),
+      this.store.getAll(),
+    ])
+    if (settled[0].status === 'fulfilled') gammeOps = settled[0].value.gamme
+    if (settled[1].status === 'fulfilled') mo = settled[1].value
+    if (settled[2].status === 'fulfilled') materials = settled[2].value
+    if (settled[3].status === 'fulfilled') overrides = settled[3].value
 
     const opsByArticle = groupGammeByArticle(gammeOps)
     const ov = overrides.find((o) => o.numOf === num) ?? null
@@ -500,10 +501,20 @@ export default class SchedulerController {
       ? (gammeOps.find((g) => g.workstation === wst)?.workstationLabel ?? wst)
       : null
 
-    const status = ov?.status ?? mo?.status ?? 1
+    // JAMAIS de défaut « Ferme » (1) : un SGAE introuvable / fetch partiel
+    // affichait « Ferme » + qty 0 + BOM vide. Inférer depuis le préfixe X3.
+    const status = ov?.status ?? mo?.status ?? (/^SGAE/i.test(num) ? 3 : 0)
     const statusLabel =
       mo?.statutLabel ??
-      (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
+      (status === 1
+        ? 'Ferme'
+        : status === 2
+          ? 'Planifié'
+          : status === 3
+            ? 'Suggéré'
+            : mo
+              ? 'Planifié'
+              : 'Introuvable')
 
     // Arrondi au dixième conservé ici (affichage drawer OF) — cf. hoursForQuantity.
     // Poste + heures = 1ʳᵉ op (même règle que le board), pas last-wins.
@@ -536,8 +547,8 @@ export default class SchedulerController {
 
       if (materials.length === 0 && mo) {
         // OF sans MFGMAT (suggéré / non éclaté) → nomenclature théorique.
-        bom = await this.loadBomRowsFromNomenclature(num, mo, status)
-      } else {
+        bom = await this.loadBomRowsFromNomenclature(num, mo, status || 3)
+      } else if (materials.length > 0) {
         // Stock availability per component.
         const articleCodes = [...new Set(materials.map((m) => m.article).filter(Boolean))]
         const stockFlows =
@@ -553,7 +564,7 @@ export default class SchedulerController {
           numOf: num,
           article: mo?.article ?? '',
           qteRestante: mo?.quantity ?? 0,
-          statutNum: status,
+          statutNum: status || 1,
           dateBesoin: null,
           materials,
         }
