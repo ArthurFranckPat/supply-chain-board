@@ -61,7 +61,6 @@ export interface ApiDefinition {
   }
   sequenceur: {
     index: typeof routes['sequenceur.index']
-    show: typeof routes['sequenceur.show']
   }
   load: {
     index: typeof routes['load.index']
@@ -134,6 +133,7 @@ export interface ApiDefinition {
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
   }
   print: {
+    documents: typeof routes['print.documents']
     print: typeof routes['print.print']
     history: typeof routes['print.history']
   }

@@ -24,7 +24,12 @@ import { atMidnight, DAY_MS, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
-import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
+import {
+  atelierLabel,
+  atelierCategoryFromPosteNature,
+  buildPosteNatureByWorkstation,
+  type AtelierCategory,
+} from '#app/domain/atelier'
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
@@ -165,6 +170,8 @@ export interface ChargeInputs {
    * le total de la table cesse de retomber sur la hauteur de la barre.
    */
   avancementByOf: Map<string, OfAvancement>
+  /** Catégorie article (préfixe PF / SF) — nature poste montage/fabrication. */
+  categoryByArticle: Map<string, string>
   x3Error: string | null
 }
 
@@ -230,12 +237,17 @@ export async function fetchChargeInputs(
   const bomByParent = new Map<string, NomenclatureEntry[]>()
   let x3Error: string | null = null
 
-  const [refR, ordR, olR, nomR] = await Promise.allSettled([
+  const categoryByArticle = new Map<string, string>()
+  const [refR, ordR, olR, nomR, artR] = await Promise.allSettled([
     boardDataset.getReferential(force),
     boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
     boardDataset.getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd), force),
     staticSync.readNomenclatures(),
+    boardDataset.getArticles(),
   ])
+  if (artR.status === 'fulfilled') {
+    for (const a of artR.value) categoryByArticle.set(a.code, a.category ?? '')
+  }
   if (refR.status === 'fulfilled') {
     gammeOps = refR.value.gamme
     workstations = refR.value.workstations ?? []
@@ -288,6 +300,7 @@ export async function fetchChargeInputs(
     wstLabels,
     bomByParent,
     avancementByOf,
+    categoryByArticle,
     x3Error,
   }
 }
@@ -399,7 +412,11 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       }
 
       const inputs = await fetchChargeInputs(monthStart, horizonEnd, force)
-      const { mos, gammeMap, workstations, wstLabels, x3Error } = inputs
+      const { mos, gammeMap, workstations, wstLabels, categoryByArticle, x3Error } = inputs
+      const posteNatureByWst = buildPosteNatureByWorkstation(
+        [...gammeMap.values()].flat(),
+        categoryByArticle
+      )
 
       const calendar = await capacityCalendar
         .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
@@ -500,7 +517,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
               atelier: stoloc,
               atelierLabel: atelierLabel(stoloc),
               workCenter: w?.workCenter ?? '',
-              category: atelierCategory(stoloc),
+              category: atelierCategoryFromPosteNature(posteNatureByWst.get(code) ?? 'autre'),
             }
           })
       }

@@ -13,11 +13,17 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { router } from '@inertiajs/react'
 import type { OrderBoardData, OrderCard, OrderSearchScope } from '@r/lib/orders/types'
-import type { FeasibilityMode, FeasStatus } from '@r/lib/board/types'
+import type {
+  FeasibilityMode,
+  FeasStatus,
+  PosteNature,
+  PosteNatureFilterKey,
+} from '@r/lib/board/types'
 import { route } from '@r/lib/routes'
 
 const ALL_TYPES = ['MTS', 'MTO', 'NOR'] as const
 const ALL_NATURES = ['COMMANDE', 'PREVISION'] as const
+const ALL_POSTE_NATURES = ['assemblage_pf', 'assemble_sous_ensemble'] as const
 
 type StatusKey = (typeof ALL_TYPES)[number] | (typeof ALL_NATURES)[number]
 
@@ -30,6 +36,8 @@ interface OrderBoardState {
   natureFilter: Set<string>
   // Filtre atelier (STOLOC, issue #36) : vide ⇒ tous les ateliers visibles.
   atelierFilter: Set<string>
+  /** Filtre nature poste : assemblage PF / sous-ensemble. Les deux actifs par défaut. */
+  posteNatureFilter: Set<PosteNatureFilterKey>
   // ── Faisabilité (issue #21) ──
   mode: FeasibilityMode
   feasibility: Record<string, FeasStatus>
@@ -48,6 +56,7 @@ interface OrderBoardState {
   toggleNature: (n: string) => void
   toggleAtelier: (code: string) => void
   clearAtelier: () => void
+  togglePosteNature: (n: PosteNatureFilterKey) => void
 
   moveCard: (id: string, fromLineCode: string, toCol: number, toIso: string) => void
   resetOverride: (id: string) => void
@@ -172,6 +181,7 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
   typeFilter: new Set(ALL_TYPES),
   natureFilter: new Set(ALL_NATURES),
   atelierFilter: new Set(),
+  posteNatureFilter: new Set<PosteNatureFilterKey>(ALL_POSTE_NATURES),
   mode: 'immediate',
   feasibility: {},
   feasLoading: false,
@@ -185,6 +195,7 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
       typeFilter: new Set(ALL_TYPES),
       natureFilter: new Set(ALL_NATURES),
       atelierFilter: new Set(),
+      posteNatureFilter: new Set<PosteNatureFilterKey>(ALL_POSTE_NATURES),
       feasibility: {},
     }),
 
@@ -215,6 +226,13 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
       const next = new Set(state.atelierFilter)
       next.has(code) ? next.delete(code) : next.add(code)
       return { atelierFilter: next }
+    }),
+
+  togglePosteNature: (n) =>
+    set((state) => {
+      const next = new Set(state.posteNatureFilter)
+      next.has(n) ? next.delete(n) : next.add(n)
+      return { posteNatureFilter: next }
     }),
 
   clearAtelier: () => set({ atelierFilter: new Set() }),
@@ -423,6 +441,17 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
     const state = get()
     const line = state.board.lines.find((l) => l.code === lineCode)
     if (!line) return false
+    const nature: PosteNature = line.nature ?? 'autre'
+    if (nature === 'autre') {
+      if (!(
+        state.posteNatureFilter.has('assemblage_pf') &&
+        state.posteNatureFilter.has('assemble_sous_ensemble')
+      )) {
+        return false
+      }
+    } else if (!state.posteNatureFilter.has(nature)) {
+      return false
+    }
     const af = state.atelierFilter
     if (af.size > 0 && !(line.atelier && af.has(line.atelier))) return false
     // Recherche par poste : le poste cherché reste affiché même vide — c'est LUI le

@@ -55,6 +55,11 @@ export interface LineRow {
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: WeekLoad[]
+  /**
+   * Nature du poste (catégories article préfixe PF / SF, 1ʳᵉ op gamme).
+   * Absent sur d'anciens payloads → traité comme `autre`.
+   */
+  nature?: PosteNature
   /** Présent seulement sur la ligne PP_830 — header d'équilibrage (issue #42). */
   pp830?: {
     /** Charge (heures) par typo, splittée bouche-consommatrice vs non. */
@@ -62,6 +67,10 @@ export interface LineRow {
     stockBouchesHygro: number | null
   }
 }
+
+/** Assemblage PF vs sous-ensemble — filtre lignes poste du Programme. */
+export type PosteNature = 'assemblage_pf' | 'assemble_sous_ensemble' | 'autre'
+export type PosteNatureFilterKey = 'assemblage_pf' | 'assemble_sous_ensemble'
 
 /**
  * Map typo X3 (TSICOD_4) → {label, color, light}. Sémantique issue #42

@@ -126,12 +126,6 @@ const routes = {
     tokens: [{"old":"/sequenceur","type":0,"val":"sequenceur","end":""}],
     types: placeholder as Registry['sequenceur.index']['types'],
   },
-  'sequenceur.show': {
-    methods: ["GET","HEAD"],
-    pattern: '/sequenceur/:poste',
-    tokens: [{"old":"/sequenceur/:poste","type":0,"val":"sequenceur","end":""},{"old":"/sequenceur/:poste","type":1,"val":"poste","end":""}],
-    types: placeholder as Registry['sequenceur.show']['types'],
-  },
   'load.index': {
     methods: ["GET","HEAD"],
     pattern: '/charge',
@@ -335,6 +329,12 @@ const routes = {
     pattern: '/api/v1/planning/suggestions/:sugNum/firm',
     tokens: [{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"suggestions","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":1,"val":"sugNum","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"firm","end":""}],
     types: placeholder as Registry['planning.suggestion_firm']['types'],
+  },
+  'print.documents': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/print/documents',
+    tokens: [{"old":"/api/v1/planning/print/documents","type":0,"val":"api","end":""},{"old":"/api/v1/planning/print/documents","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/print/documents","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/print/documents","type":0,"val":"print","end":""},{"old":"/api/v1/planning/print/documents","type":0,"val":"documents","end":""}],
+    types: placeholder as Registry['print.documents']['types'],
   },
   'print.print': {
     methods: ["POST"],

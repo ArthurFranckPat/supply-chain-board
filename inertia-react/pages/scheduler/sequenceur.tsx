@@ -21,6 +21,7 @@ import {
   SegmentButton,
   ToolbarRow,
   ToolbarSpacer,
+  FilterMenu,
 } from '@r/components/vision/toolbar'
 import {
   Combobox,
@@ -42,17 +43,14 @@ import {
   urgencyColor,
   urgencyOf,
 } from '@r/lib/board/engagement-format'
-import type { FeasStatus } from '@r/lib/board/types'
+import type { FeasStatus, PosteNature, PosteNatureFilterKey } from '@r/lib/board/types'
 import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 
 /**
- * Page « Séquenceur » — engagement OF par poste (#46) + mode « À lancer » (#100).
- *
- * `/sequenceur` (aucun poste) : dataset léger, tous postes, SANS matching commande.
- * `/sequenceur/:poste` : matching commande scopé.
- * Query `?vue=lancer` : planifiés/suggérés + faisabilité + affermissement batch.
+ * Page « Séquenceur » — board /programme en table (#46/#100 unifiés).
+ * Filtre poste côté client (plus de route `/sequenceur/:poste`).
  */
 
 interface PosteSummary {
@@ -63,6 +61,7 @@ interface PosteSummary {
   weeklyCapacityHours: number | null
   atelier: string
   atelierLabel: string
+  nature: PosteNature
 }
 
 type SequenceurRow = EngagementRow & {
@@ -72,59 +71,193 @@ type SequenceurRow = EngagementRow & {
   statusLabel?: string
 }
 
-type VueMode = 'engagement' | 'lancer'
 type FeasFilter = 'all' | 'ok' | 'qc' | 'blocked' | 'unknown'
+/** Statuts WIPSTA X3 affichés — 1 ferme / 2 planifié / 3 suggéré. */
+type StatusKey = 1 | 2 | 3
+const ALL_STATUSES: StatusKey[] = [1, 2, 3]
+
+const ALL_POSTE_NATURES: PosteNatureFilterKey[] = ['assemblage_pf', 'assemble_sous_ensemble']
+
+const POSTE_NATURE_CHIPS: { k: PosteNatureFilterKey; label: string }[] = [
+  { k: 'assemblage_pf', label: 'Assemblage PF' },
+  { k: 'assemble_sous_ensemble', label: 'Sous-ensemble' },
+]
+
+const STATUS_FILTER_CHIPS: { k: StatusKey; label: string }[] = [
+  { k: 1, label: 'Ferme' },
+  { k: 2, label: 'Planifié' },
+  { k: 3, label: 'Suggéré' },
+]
+
+// Classes littérales (pas de `bg-${k}` dynamique — Tailwind v4 scanne le
+// source statiquement, une interpolation ne serait pas détectée).
+const STATUS_DOT_CLASS: Record<StatusKey, string> = {
+  1: 'bg-ferme',
+  2: 'bg-planifie',
+  3: 'bg-suggere',
+}
+
+/** Couleur de libellé de statut — même sémantique que /programme. */
+function statusTextClass(status: number | undefined): string {
+  if (status === 1) return 'text-ferme'
+  if (status === 2) return 'text-planifie'
+  if (status === 3) return 'text-suggere'
+  return 'text-muted-foreground'
+}
+
+/** OF affermissable en un clic (planifié/suggéré) — les fermes sont déjà lancés. */
+function affirmable(status: number | undefined): boolean {
+  return status === 2 || status === 3
+}
+
+/** Split charge affichée : ferme (WIPSTA 1) vs lançable (planifié/suggéré). */
+function splitChargeHours(rows: { hours: number; status?: number }[]): {
+  ferme: number
+  lancable: number
+} {
+  let ferme = 0
+  let lancable = 0
+  for (const r of rows) {
+    if (r.status === 1) ferme += r.hours
+    else if (affirmable(r.status)) lancable += r.hours
+  }
+  return {
+    ferme: Math.round(ferme * 100) / 100,
+    lancable: Math.round(lancable * 100) / 100,
+  }
+}
 
 interface SequenceurPageProps {
   postes: PosteSummary[]
   ateliers: { code: string; label: string }[]
   rows: SequenceurRow[]
-  selectedPoste: string | null
-  /** true = commandes/livraison chargées (poste unique). */
-  detail: boolean
-  vue: VueMode
-  /** Fenêtre matching/faisabilité (vue lancer) — alignée loadOrderImpacts /programme. */
+  /** Fenêtre matching/faisabilité — alignée loadOrderImpacts /programme. */
   feasibilityWindow: { from: string; to: string } | null
   x3Error: string | null
 }
 
-const ROW_GRID_ALL = 'grid-cols-[6rem_7rem_6.5rem_1.5fr_6rem_1.3fr_5.5rem_4rem_4rem]'
-const ROW_GRID_ONE = 'grid-cols-[7rem_6.5rem_1.5fr_6rem_1.3fr_5.5rem_4rem_4rem]'
-const ROW_GRID_LANCER_ALL = 'grid-cols-[2rem_6rem_7rem_5.5rem_6.5rem_1.3fr_5rem_1.2fr_5rem_4rem]'
-const ROW_GRID_LANCER_ONE = 'grid-cols-[2rem_7rem_5.5rem_6.5rem_1.3fr_5rem_1.2fr_5rem_4rem]'
+const ROW_GRID_ALL =
+  'grid-cols-[2rem_6rem_7rem_5.5rem_6.5rem_1.3fr_5.5rem_6rem_1.2fr_5rem_4rem_4rem]'
+const ROW_GRID_ONE = 'grid-cols-[2rem_7rem_5.5rem_6.5rem_1.3fr_5.5rem_6rem_1.2fr_5rem_4rem_4rem]'
 
-const ATELIER_STORAGE_KEY = 'sequenceur:ateliers'
+/** Filtres persistés au refresh (sessionStorage). */
+const FILTERS_STORAGE_KEY = 'sequenceur:filters'
 
-function readStoredAteliers(): Set<string> {
+type StoredFilters = {
+  ateliers: string[]
+  posteNatures: PosteNatureFilterKey[]
+  query: string
+  urgencyFilter: Urgency | 'all'
+  feasFilter: FeasFilter
+  statusFilter: StatusKey[]
+  /** Poste sélectionné (filtre client) — aussi synchronisé en `?poste=`. */
+  poste: string | null
+}
+
+function readStoredFilters(): StoredFilters {
+  const defaults: StoredFilters = {
+    ateliers: [],
+    posteNatures: [...ALL_POSTE_NATURES],
+    query: '',
+    urgencyFilter: 'all',
+    feasFilter: 'all',
+    statusFilter: [...ALL_STATUSES],
+    poste: null,
+  }
   try {
-    const raw = sessionStorage.getItem(ATELIER_STORAGE_KEY)
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+    const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY)
+    if (!raw) {
+      // Migration clé atelier seule (avant bundling des filtres).
+      const legacy = sessionStorage.getItem('sequenceur:ateliers')
+      if (legacy) {
+        defaults.ateliers = JSON.parse(legacy) as string[]
+      }
+      return defaults
+    }
+    const parsed = JSON.parse(raw) as Partial<StoredFilters>
+    return {
+      ateliers: Array.isArray(parsed.ateliers) ? parsed.ateliers : [],
+      posteNatures:
+        Array.isArray(parsed.posteNatures) && parsed.posteNatures.length > 0
+          ? (parsed.posteNatures.filter((n) =>
+              ALL_POSTE_NATURES.includes(n)
+            ) as PosteNatureFilterKey[])
+          : [...ALL_POSTE_NATURES],
+      query: typeof parsed.query === 'string' ? parsed.query : '',
+      urgencyFilter:
+        parsed.urgencyFilter === 'overdue' ||
+        parsed.urgencyFilter === 'week' ||
+        parsed.urgencyFilter === 'later' ||
+        parsed.urgencyFilter === 'all'
+          ? parsed.urgencyFilter
+          : 'all',
+      feasFilter:
+        parsed.feasFilter === 'ok' ||
+        parsed.feasFilter === 'qc' ||
+        parsed.feasFilter === 'blocked' ||
+        parsed.feasFilter === 'unknown' ||
+        parsed.feasFilter === 'all'
+          ? parsed.feasFilter
+          : 'all',
+      statusFilter:
+        Array.isArray(parsed.statusFilter) && parsed.statusFilter.length > 0
+          ? (parsed.statusFilter.filter((s) =>
+              ALL_STATUSES.includes(s as StatusKey)
+            ) as StatusKey[])
+          : [...ALL_STATUSES],
+      poste: typeof parsed.poste === 'string' && parsed.poste ? parsed.poste : null,
+    }
   } catch {
-    return new Set()
+    return defaults
   }
 }
 
-function writeStoredAteliers(codes: Set<string>) {
+function writeStoredFilters(patch: Partial<StoredFilters>) {
   try {
-    sessionStorage.setItem(ATELIER_STORAGE_KEY, JSON.stringify([...codes]))
+    const cur = readStoredFilters()
+    const next = { ...cur, ...patch }
+    sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(next))
   } catch {
-    // sessionStorage indisponible — filtre session seule.
+    // sessionStorage indisponible — filtre session React seule.
   }
 }
 
-function sequenceurUrl(poste: string | null, vue: VueMode): string {
-  const base = poste ? route('sequenceur.show', { poste }) : route('sequenceur.index')
-  return vue === 'lancer' ? `${base}?vue=lancer` : base
+function natureOk(nature: PosteNature | undefined, filter: Set<PosteNatureFilterKey>): boolean {
+  const n = nature ?? 'autre'
+  if (n === 'autre') {
+    return filter.has('assemblage_pf') && filter.has('assemble_sous_ensemble')
+  }
+  return filter.has(n)
 }
 
-function goto(poste: string | null, vue: VueMode) {
-  router.visit(sequenceurUrl(poste, vue))
+/** Poste initial : `?poste=` prime sur sessionStorage. */
+function readInitialPoste(stored: StoredFilters): string | null {
+  try {
+    const q = new URLSearchParams(window.location.search).get('poste')?.trim()
+    if (q) return q
+  } catch {
+    // SSR / pas de window
+  }
+  return stored.poste
 }
 
-function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined) {
+function syncPosteQueryParam(poste: string | null) {
+  try {
+    const url = new URL(window.location.href)
+    if (poste) url.searchParams.set('poste', poste)
+    else url.searchParams.delete('poste')
+    url.searchParams.delete('vue')
+    window.history.replaceState({}, '', url)
+  } catch {
+    // ignore
+  }
+}
+
+function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined, ofStatus?: number) {
   if (st === 'ok')
     return {
-      label: 'Lançable',
+      // OF ferme : déjà lancé en prod — pas un candidat à affermir.
+      label: ofStatus === 1 ? 'Lancé' : 'Lançable',
       className: 'bg-ferme/15 text-ferme',
       icon: CircleCheck,
     }
@@ -148,14 +281,19 @@ function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined) {
 }
 
 export default function Sequenceur(props: SequenceurPageProps) {
-  const vue = props.vue === 'lancer' ? 'lancer' : 'engagement'
-  const isLancer = vue === 'lancer'
   const anchorRef = useComboboxAnchor()
+  const stored = useMemo(() => readStoredFilters(), [])
   const [posteQuery, setPosteQuery] = useState('')
-  const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>('all')
-  const [query, setQuery] = useState('')
-  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(readStoredAteliers)
-  const [feasFilter, setFeasFilter] = useState<FeasFilter>('all')
+  const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>(stored.urgencyFilter)
+  const [query, setQuery] = useState(stored.query)
+  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(() => new Set(stored.ateliers))
+  const [posteNatureFilter, setPosteNatureFilter] = useState<Set<PosteNatureFilterKey>>(
+    () => new Set(stored.posteNatures)
+  )
+  const [statusFilter, setStatusFilter] = useState<Set<StatusKey>>(
+    () => new Set(stored.statusFilter)
+  )
+  const [feasFilter, setFeasFilter] = useState<FeasFilter>(stored.feasFilter)
   const [feasibility, setFeasibility] = useState<Record<string, FeasStatus>>({})
   const [feasLoading, setFeasLoading] = useState(false)
   const [feasDone, setFeasDone] = useState(false)
@@ -170,49 +308,91 @@ export default function Sequenceur(props: SequenceurPageProps) {
       const next = new Set(prev)
       if (next.has(code)) next.delete(code)
       else next.add(code)
-      writeStoredAteliers(next)
+      writeStoredFilters({ ateliers: [...next] })
       return next
     })
   }
+
+  const togglePosteNature = (n: PosteNatureFilterKey) => {
+    setPosteNatureFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(n)) next.delete(n)
+      else next.add(n)
+      writeStoredFilters({ posteNatures: [...next] })
+      return next
+    })
+  }
+
+  const toggleStatus = (k: StatusKey) => {
+    setStatusFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(k)) next.delete(k)
+      else next.add(k)
+      writeStoredFilters({ statusFilter: [...next] })
+      return next
+    })
+  }
+
+  const setQueryPersisted = (value: string) => {
+    setQuery(value)
+    writeStoredFilters({ query: value })
+  }
+
+  const setUrgencyPersisted = (value: Urgency | 'all') => {
+    setUrgencyFilter(value)
+    writeStoredFilters({ urgencyFilter: value })
+  }
+
+  const setFeasFilterPersisted = (value: FeasFilter) => {
+    setFeasFilter(value)
+    writeStoredFilters({ feasFilter: value })
+  }
+
   const posteAtelier = useMemo(
     () => new Map(props.postes.map((p) => [p.code, p.atelier])),
+    [props.postes]
+  )
+  const posteNature = useMemo(
+    () => new Map(props.postes.map((p) => [p.code, p.nature])),
     [props.postes]
   )
   const posteByCode = useMemo(() => new Map(props.postes.map((p) => [p.code, p])), [props.postes])
   const posteRank = useMemo(() => new Map(props.postes.map((p, i) => [p.code, i])), [props.postes])
 
-  const [posteFilter, setPosteFilter] = useState<string | null>(props.selectedPoste)
-  useEffect(() => {
-    setPosteFilter(props.selectedPoste)
-  }, [props.selectedPoste])
+  const [posteFilter, setPosteFilter] = useState<string | null>(() => readInitialPoste(stored))
 
-  // Reset sélection / faisabilité quand le dataset change (vue, poste, rows).
+  // Sync URL une fois au montage si sessionStorage avait un poste sans query.
+  useEffect(() => {
+    syncPosteQueryParam(posteFilter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Reset sélection / faisabilité quand le dataset change.
   useEffect(() => {
     setSelected(new Set())
     setBatch({})
     setFeasibility({})
     setFeasDone(false)
-    setFeasFilter('all')
-  }, [vue, props.selectedPoste, props.rows])
+  }, [props.rows])
 
   function selectPoste(poste: string | null) {
     setPosteFilter(poste)
-    goto(poste, vue)
-  }
-
-  function selectVue(next: VueMode) {
-    goto(posteFilter, next)
+    writeStoredFilters({ poste })
+    syncPosteQueryParam(poste)
   }
 
   const activePoste = posteFilter ? props.postes.find((p) => p.code === posteFilter) : null
   const showPosteCol = !posteFilter
+  /** Urgence / buckets livraison utiles dès qu'un poste est filtré. */
+  const detail = !!posteFilter
 
   const filteredPostes = useMemo(() => {
     const q = posteQuery.trim().toLowerCase()
     return props.postes
+      .filter((p) => natureOk(p.nature, posteNatureFilter))
       .filter((p) => atelierFilter.size === 0 || atelierFilter.has(p.atelier))
       .filter((p) => !q || p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q))
-  }, [props.postes, posteQuery, atelierFilter])
+  }, [props.postes, posteQuery, atelierFilter, posteNatureFilter])
 
   const runFeasibility = useCallback(async () => {
     if (feasLoading || props.rows.length === 0 || !props.feasibilityWindow) return
@@ -240,7 +420,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
       }
       setFeasibility(scoped)
       setFeasDone(true)
-      if (nbOk > 0) setFeasFilter('ok')
+      if (nbOk > 0) setFeasFilterPersisted('ok')
       const parts = [
         nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,
         nbQc > 0 ? `${nbQc} sous CQ` : null,
@@ -254,28 +434,20 @@ export default function Sequenceur(props: SequenceurPageProps) {
     }
   }, [feasLoading, props.rows, props.feasibilityWindow, posteFilter])
 
-  // Auto-calcul à l'entrée du mode « À lancer » (une fois le dataset prêt).
-  useEffect(() => {
-    if (!isLancer || feasDone || feasLoading || props.rows.length === 0) return
-    void runFeasibility()
-    // Intentionnel : ne pas re-déclencher à chaque recréation de runFeasibility
-    // (feasLoading flipperait en boucle). Relance via bouton ou changement dataset.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLancer, props.rows, feasDone])
-
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = props.rows
       .filter((r) => !posteFilter || r.posteCode === posteFilter)
+      .filter((r) => natureOk(posteNature.get(r.posteCode), posteNatureFilter))
       .filter(
         (r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? '')
       )
+      .filter((r) => statusFilter.has((r.status ?? 1) as StatusKey))
       .filter(
-        (r) =>
-          !props.detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
+        (r) => !detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
       )
       .filter((r) => {
-        if (!isLancer || feasFilter === 'all') return true
+        if (feasFilter === 'all') return true
         const st = feasibility[r.numOf]?.st
         if (feasFilter === 'unknown') return !st
         return st === feasFilter
@@ -295,7 +467,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
         return haystack.includes(q)
       })
     return [...rows].sort((a, b) => {
-      if (isLancer && feasDone) {
+      if (feasDone) {
         // Lançables d'abord, puis CQ, bloqués, inconnus.
         const rank = (id: string) => {
           const st = feasibility[id]?.st
@@ -313,8 +485,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
         const rb = posteRank.get(b.posteCode) ?? Infinity
         if (ra !== rb) return ra - rb
       }
-      const aNoCmd = props.detail && a.commandes.length === 0
-      const bNoCmd = props.detail && b.commandes.length === 0
+      const aNoCmd = detail && a.commandes.length === 0
+      const bNoCmd = detail && b.commandes.length === 0
       if (aNoCmd !== bNoCmd) return aNoCmd ? 1 : -1
       const ua = urgencyOf(a.livraisonIso)
       const ub = urgencyOf(b.livraisonIso)
@@ -326,15 +498,17 @@ export default function Sequenceur(props: SequenceurPageProps) {
     })
   }, [
     props.rows,
-    props.detail,
+    detail,
     posteFilter,
     atelierFilter,
     posteAtelier,
+    posteNature,
+    posteNatureFilter,
+    statusFilter,
     urgencyFilter,
     query,
     posteRank,
     showPosteCol,
-    isLancer,
     feasFilter,
     feasibility,
     feasDone,
@@ -347,8 +521,10 @@ export default function Sequenceur(props: SequenceurPageProps) {
     let unknown = 0
     for (const r of props.rows) {
       if (posteFilter && r.posteCode !== posteFilter) continue
+      if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) continue
       if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
         continue
+      if (!statusFilter.has((r.status ?? 1) as StatusKey)) continue
       const st = feasibility[r.numOf]?.st
       if (st === 'ok') ok++
       else if (st === 'qc') qc++
@@ -356,7 +532,24 @@ export default function Sequenceur(props: SequenceurPageProps) {
       else unknown++
     }
     return { ok, qc, blocked, unknown }
-  }, [props.rows, posteFilter, atelierFilter, posteAtelier, feasibility])
+  }, [
+    props.rows,
+    posteFilter,
+    atelierFilter,
+    posteAtelier,
+    posteNature,
+    posteNatureFilter,
+    statusFilter,
+    feasibility,
+  ])
+
+  // Sélectionnables (affermissables) parmi les lignes affichées + faisabilité ok —
+  // seul périmètre légitime pour « Tout sélectionner » (les fermes ne s'affermissent pas).
+  const affirmableOkCount = useMemo(
+    () =>
+      filteredRows.filter((r) => affirmable(r.status) && feasibility[r.numOf]?.st === 'ok').length,
+    [filteredRows, feasibility]
+  )
 
   const rowGroups = useMemo(() => {
     if (!showPosteCol) return [{ posteCode: null as string | null, rows: filteredRows }]
@@ -373,6 +566,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
   }, [filteredRows, showPosteCol])
 
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
+  const chargeSplit = useMemo(() => splitChargeHours(filteredRows), [filteredRows])
   const sat = activePoste
     ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours)
     : null
@@ -381,13 +575,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
       ? Math.round((activePoste.totalHours / activePoste.weeklyCapacityHours) * 10) / 10
       : null
 
-  const rowGrid = isLancer
-    ? showPosteCol
-      ? ROW_GRID_LANCER_ALL
-      : ROW_GRID_LANCER_ONE
-    : showPosteCol
-      ? ROW_GRID_ALL
-      : ROW_GRID_ONE
+  const rowGrid = showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -401,7 +589,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
   function selectAllLaunchable() {
     const next = new Set<string>()
     for (const r of filteredRows) {
-      if (feasibility[r.numOf]?.st === 'ok') next.add(r.numOf)
+      if (affirmable(r.status) && feasibility[r.numOf]?.st === 'ok') next.add(r.numOf)
     }
     setSelected(next)
   }
@@ -456,35 +644,31 @@ export default function Sequenceur(props: SequenceurPageProps) {
     if (nbOk > 0) setTimeout(() => router.reload(), 1500)
   }
 
-  const metaLabel = isLancer ? 'candidats' : 'OF'
-  const title = isLancer ? 'Séquenceur · À lancer' : 'Séquenceur · Engagement postes'
-
   return (
     <AppLayout
-      title={title}
+      title="Séquenceur"
       active="sequenceur"
-      subtitle={
-        isLancer
-          ? 'Séquenceur · OF lançables (planifiés / suggérés)'
-          : 'Séquenceur · engagement OF par poste'
-      }
+      subtitle="Board tabulaire · OF ferme / planifié / suggéré par poste"
       theme="airbnb"
       dense
       scrollable={false}
       meta={
         <div>
-          <b className="font-bold text-foreground">{filteredRows.length}</b> {metaLabel} ·{' '}
-          <b className="font-bold text-foreground">{fmtH(totalHours)}</b> h
-          {isLancer && feasDone && (
+          <b className="font-bold text-foreground">{filteredRows.length}</b> OF ·{' '}
+          <b className="font-bold text-foreground">{fmtH(totalHours)}</b> h{' · '}
+          <b className="font-bold text-ferme">{fmtH(chargeSplit.ferme)}</b> h ferme
+          {' · '}
+          <b className="font-bold text-planifie">{fmtH(chargeSplit.lancable)}</b> h lançable
+          {feasDone && (
             <>
               {' '}
-              · <b className="font-bold text-ferme">{feasCounts.ok}</b> lançables
+              · <b className="font-bold text-ferme">{feasCounts.ok}</b> faisables
             </>
           )}
         </div>
       }
     >
-      <Head title={isLancer ? 'Séquenceur · À lancer' : 'Séquenceur'} />
+      <Head title="Séquenceur" />
       <div className="flex h-full min-h-0 flex-col">
         {props.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
@@ -495,15 +679,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
         )}
 
         <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-          <Segment role="radiogroup" ariaLabel="Vue séquenceur">
-            <SegmentButton role="radio" active={!isLancer} onClick={() => selectVue('engagement')}>
-              Engagement
-            </SegmentButton>
-            <SegmentButton role="radio" active={isLancer} onClick={() => selectVue('lancer')}>
-              À lancer
-            </SegmentButton>
-          </Segment>
-
           <div ref={anchorRef}>
             <Combobox
               value={posteFilter ?? ''}
@@ -520,7 +695,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                       <ComboboxItem key={p.code} value={p.code}>
                         <span className="font-mono text-[12px] font-semibold">{p.code}</span>
                         <span className="truncate text-muted-foreground">{p.label}</span>
-                        {isLancer && p.count > 0 && (
+                        {p.count > 0 && (
                           <span className="ml-auto font-mono text-[10px] text-muted-foreground">
                             {p.count}
                           </span>
@@ -548,30 +723,79 @@ export default function Sequenceur(props: SequenceurPageProps) {
             </Segment>
           )}
 
-          {isLancer ? (
-            <Segment role="radiogroup" ariaLabel="Faisabilité">
-              {(
-                [
-                  ['all', 'Tous', null as number | null],
-                  ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
-                  ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
-                  ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
-                ] as const
-              ).map(([id, label, count]) => (
+          <FilterMenu
+            label="Poste"
+            indicators={
+              POSTE_NATURE_CHIPS.some(({ k }) => posteNatureFilter.has(k)) ? (
+                <span
+                  className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  {POSTE_NATURE_CHIPS.filter(({ k }) => posteNatureFilter.has(k))
+                    .map(({ k }) => (k === 'assemblage_pf' ? 'PF' : 'S/E'))
+                    .join('+')}
+                </span>
+              ) : null
+            }
+          >
+            <Segment className="w-full justify-between">
+              {POSTE_NATURE_CHIPS.map(({ k, label }) => (
                 <SegmentButton
-                  key={id}
-                  role="radio"
-                  active={feasFilter === id}
-                  onClick={() => setFeasFilter(id)}
+                  key={k}
+                  active={posteNatureFilter.has(k)}
+                  onClick={() => togglePosteNature(k)}
                 >
                   {label}
-                  {count !== null && count > 0 && (
-                    <span className="ml-1 tabular-nums opacity-70">{count}</span>
-                  )}
                 </SegmentButton>
               ))}
             </Segment>
-          ) : props.detail ? (
+          </FilterMenu>
+
+          <FilterMenu
+            label="Statut"
+            indicators={
+              STATUS_FILTER_CHIPS.some(({ k }) => statusFilter.has(k)) ? (
+                <span className="ml-0.5 flex items-center gap-0.5" aria-hidden="true">
+                  {STATUS_FILTER_CHIPS.filter(({ k }) => statusFilter.has(k)).map(({ k }) => (
+                    <span key={k} className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
+                  ))}
+                </span>
+              ) : null
+            }
+          >
+            <Segment className="w-full justify-between">
+              {STATUS_FILTER_CHIPS.map(({ k, label }) => (
+                <SegmentButton key={k} active={statusFilter.has(k)} onClick={() => toggleStatus(k)}>
+                  {label}
+                </SegmentButton>
+              ))}
+            </Segment>
+          </FilterMenu>
+
+          <Segment role="radiogroup" ariaLabel="Faisabilité">
+            {(
+              [
+                ['all', 'Tous', null as number | null],
+                ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
+                ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
+                ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
+              ] as const
+            ).map(([id, label, count]) => (
+              <SegmentButton
+                key={id}
+                role="radio"
+                active={feasFilter === id}
+                onClick={() => setFeasFilterPersisted(id)}
+              >
+                {label}
+                {count !== null && count > 0 && (
+                  <span className="ml-1 tabular-nums opacity-70">{count}</span>
+                )}
+              </SegmentButton>
+            ))}
+          </Segment>
+
+          {detail ? (
             <Segment role="radiogroup" ariaLabel="Urgence">
               {(
                 [
@@ -585,7 +809,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   key={id}
                   role="radio"
                   active={urgencyFilter === id}
-                  onClick={() => setUrgencyFilter(id)}
+                  onClick={() => setUrgencyPersisted(id)}
                 >
                   {label}
                 </SegmentButton>
@@ -599,34 +823,26 @@ export default function Sequenceur(props: SequenceurPageProps) {
 
           <ToolbarSpacer />
 
-          {isLancer && (
-            <>
-              <button
-                type="button"
-                className={cn(PILL, 'gap-1.5')}
-                onClick={() => void runFeasibility()}
-                disabled={feasLoading || props.rows.length === 0}
-                title="Recalculer la faisabilité matières"
-              >
-                <RefreshCw
-                  size={15}
-                  strokeWidth={1.75}
-                  className={cn(feasLoading && 'animate-spin')}
-                />
-                {feasLoading ? 'Calcul…' : 'Faisabilité'}
-              </button>
-              {feasDone && feasCounts.ok > 0 && (
-                <button
-                  type="button"
-                  className={cn(PILL, 'gap-1.5')}
-                  onClick={selectAllLaunchable}
-                  disabled={batchRunning}
-                >
-                  <Check size={15} strokeWidth={1.75} />
-                  Tout sélectionner ({feasCounts.ok})
-                </button>
-              )}
-            </>
+          <button
+            type="button"
+            className={cn(PILL, 'gap-1.5')}
+            onClick={() => void runFeasibility()}
+            disabled={feasLoading || props.rows.length === 0}
+            title="Calculer la faisabilité matières"
+          >
+            <RefreshCw size={15} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
+            {feasLoading ? 'Calcul…' : 'Faisabilité'}
+          </button>
+          {feasDone && affirmableOkCount > 0 && (
+            <button
+              type="button"
+              className={cn(PILL, 'gap-1.5')}
+              onClick={selectAllLaunchable}
+              disabled={batchRunning}
+            >
+              <Check size={15} strokeWidth={1.75} />
+              Tout sélectionner ({affirmableOkCount})
+            </button>
           )}
 
           <div className={PILL}>
@@ -637,7 +853,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
               type="text"
               autoComplete="off"
               value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
+              onChange={(e) => setQueryPersisted(e.currentTarget.value)}
             />
           </div>
         </ToolbarRow>
@@ -655,10 +871,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   title={p.label}
                 >
                   <span className="font-bold">{p.code}</span>
-                  <span className="text-muted-foreground">
-                    {p.count} {isLancer ? 'cand.' : 'OF'}
-                  </span>
-                  {!isLancer && s.pct !== null && (
+                  <span className="text-muted-foreground">{p.count} OF</span>
+                  {s.pct !== null && (
                     <span
                       className={cn(
                         'font-bold',
@@ -688,51 +902,51 @@ export default function Sequenceur(props: SequenceurPageProps) {
               </span>
             </div>
             <span className="flex-1" />
-            {!isLancer && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[17px] font-bold tabular-nums text-foreground">
-                    {fmtH(activePoste.totalHours)}
+            <div className="flex items-center gap-3">
+              <div className="flex items-baseline gap-1">
+                <span className="text-[17px] font-bold tabular-nums text-foreground">
+                  {fmtH(activePoste.totalHours)}
+                </span>
+                <span className="font-mono text-[10px] font-semibold text-muted-foreground">h</span>
+                {weeksEngaged !== null && (
+                  <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
+                    ≈ {fmtJ(activePoste.totalHours)} j
                   </span>
-                  <span className="font-mono text-[10px] font-semibold text-muted-foreground">
-                    h
-                  </span>
-                  {weeksEngaged !== null && (
-                    <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                      ≈ {fmtJ(activePoste.totalHours)} j
-                    </span>
-                  )}
-                </div>
-                {sat && sat.pct !== null && (
-                  <div className="flex items-center gap-2">
-                    <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
-                      <div
-                        className={cn(
-                          'absolute inset-y-0 left-0 rounded-full transition-all',
-                          sat.level === 'ok' && 'bg-ferme',
-                          sat.level === 'high' && 'bg-suggere',
-                          sat.level === 'crit' && 'bg-danger'
-                        )}
-                        style={{ width: `${Math.min(100, sat.pct)}%` }}
-                      />
-                    </div>
-                    <span
-                      className={cn(
-                        'font-mono text-[11px] font-bold tabular-nums',
-                        sat.level === 'ok' && 'text-ferme',
-                        sat.level === 'high' && 'text-suggere',
-                        sat.level === 'crit' && 'text-danger'
-                      )}
-                    >
-                      {sat.pct}%
-                    </span>
-                  </div>
                 )}
               </div>
-            )}
-            {isLancer && feasDone && (
               <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
-                <span className="text-ferme">{feasCounts.ok} lançables</span>
+                <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
+                <span className="text-planifie">{fmtH(chargeSplit.lancable)} h lançable</span>
+              </div>
+              {sat && sat.pct !== null && (
+                <div className="flex items-center gap-2">
+                  <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
+                    <div
+                      className={cn(
+                        'absolute inset-y-0 left-0 rounded-full transition-all',
+                        sat.level === 'ok' && 'bg-ferme',
+                        sat.level === 'high' && 'bg-suggere',
+                        sat.level === 'crit' && 'bg-danger'
+                      )}
+                      style={{ width: `${Math.min(100, sat.pct)}%` }}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      'font-mono text-[11px] font-bold tabular-nums',
+                      sat.level === 'ok' && 'text-ferme',
+                      sat.level === 'high' && 'text-suggere',
+                      sat.level === 'crit' && 'text-danger'
+                    )}
+                  >
+                    {sat.pct}%
+                  </span>
+                </div>
+              )}
+            </div>
+            {feasDone && (
+              <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
+                <span className="text-ferme">{feasCounts.ok} faisables</span>
                 {feasCounts.qc > 0 && <span className="text-suggere">{feasCounts.qc} sous CQ</span>}
                 {feasCounts.blocked > 0 && (
                   <span className="text-destructive">{feasCounts.blocked} bloqués</span>
@@ -746,13 +960,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
             <Package size={26} strokeWidth={1.75} />
             <span className="text-[13px] font-medium">
-              {isLancer
-                ? feasFilter === 'ok'
-                  ? 'Aucun OF lançable pour ces filtres.'
-                  : 'Aucun candidat à lancer pour ces filtres.'
+              {feasFilter === 'ok'
+                ? 'Aucun OF lançable pour ces filtres.'
                 : 'Aucun OF pour ces filtres.'}
             </span>
-            {isLancer && feasLoading && (
+            {feasLoading && (
               <span className="flex items-center gap-1.5 font-mono text-[11px]">
                 <RefreshCw size={14} className="animate-spin" /> Calcul de faisabilité…
               </span>
@@ -760,17 +972,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
           </div>
         ) : (
           <>
-            {!props.detail && (
-              <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
-                <Info size={14} strokeWidth={1.75} />
-                <span>
-                  {isLancer
-                    ? 'Matching commande↔OF (même algo que /programme). Sélectionnez un poste pour filtrer urgence.'
-                    : 'Sélectionnez un poste pour afficher les commandes et les dates de livraison.'}
-                </span>
-              </div>
-            )}
-            {isLancer && feasLoading && (
+            <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
+              <Info size={14} strokeWidth={1.75} />
+              <span>
+                Board tabulaire : mêmes OF que /programme. Lancez la faisabilité pour repérer les
+                lançables / bloqués.
+              </span>
+            </div>
+            {feasLoading && (
               <div className="flex flex-none items-center gap-2 border-b border-brand/20 bg-brand-soft/40 px-7 py-1.5 font-mono text-[10px] text-foreground">
                 <RefreshCw size={14} strokeWidth={1.75} className="animate-spin text-brand" />
                 <span>Calcul de faisabilité matières (même moteur que /programme)…</span>
@@ -783,55 +992,56 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   rowGrid
                 )}
               >
-                {isLancer && <span />}
+                <span />
                 {showPosteCol && <span>POSTE</span>}
                 <span>OF</span>
-                {isLancer && <span>STATUT</span>}
+                <span>STATUT</span>
                 <span>ARTICLE</span>
                 <span>DÉSIGNATION</span>
-                {isLancer ? (
-                  <span>FAISABILITÉ</span>
-                ) : (
-                  <span className="text-right">AVANCEMENT</span>
-                )}
+                <span className="text-right">AVANCEMENT</span>
+                <span>FAISABILITÉ</span>
                 <span>COMMANDE(S)</span>
                 <span>LIVRAISON</span>
                 <span className="text-right">HEURES</span>
-                {!isLancer && <span className="text-right">JOURS</span>}
+                <span className="text-right">JOURS</span>
               </div>
 
               {rowGroups.map((group) => {
                 const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
                 const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
+                const groupCharge = splitChargeHours(group.rows)
                 return (
                   <div key={group.posteCode ?? 'all'}>
                     {showPosteCol && poste && (
                       <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
                         <span className="text-brand">{poste.code}</span>
                         <span className="truncate text-muted-foreground">{poste.label}</span>
-                        <span className="ml-auto flex items-center gap-2 text-muted-foreground">
+                        <span className="ml-auto flex items-center gap-2.5 text-muted-foreground">
                           <span>{group.rows.length}</span>
                           <span>{fmtH(groupHours)} h</span>
+                          <span className="text-ferme">{fmtH(groupCharge.ferme)} h ferme</span>
+                          <span className="text-planifie">
+                            {fmtH(groupCharge.lancable)} h lançable
+                          </span>
                         </span>
                       </div>
                     )}
                     {group.rows.map((r, i) => {
                       const u = urgencyOf(r.livraisonIso)
-                      const bucket = props.detail && r.commandes.length === 0 ? 'none' : u
+                      const bucket = detail && r.commandes.length === 0 ? 'none' : u
                       const prevBucket =
                         i > 0
-                          ? props.detail && group.rows[i - 1].commandes.length === 0
+                          ? detail && group.rows[i - 1].commandes.length === 0
                             ? 'none'
                             : urgencyOf(group.rows[i - 1].livraisonIso)
                           : null
-                      const showSep =
-                        props.detail && !isLancer && (prevBucket === null || prevBucket !== bucket)
+                      const showSep = detail && (prevBucket === null || prevBucket !== bucket)
                       let bucketCount = 0
                       if (showSep) {
                         for (let j = i; j < group.rows.length; j++) {
                           const rj = group.rows[j]
                           const bj =
-                            props.detail && rj.commandes.length === 0
+                            detail && rj.commandes.length === 0
                               ? 'none'
                               : urgencyOf(rj.livraisonIso)
                           if (bj !== bucket) break
@@ -849,8 +1059,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
                       const avancement =
                         r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
                       const feas = feasibility[r.numOf]
-                      const badge = feasBadge(feas?.st ?? (feasDone ? 'unknown' : undefined))
+                      const badge = feasBadge(
+                        feas?.st ?? (feasDone ? 'unknown' : undefined),
+                        r.status
+                      )
                       const BadgeIcon = badge.icon
+                      const canSelect = affirmable(r.status)
                       const isSelected = selected.has(r.numOf)
                       const batchItem = batch[r.numOf]
                       return (
@@ -884,14 +1098,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             className={cn(
                               'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors',
                               rowGrid,
-                              props.detail && r.commandes.length === 0 && 'opacity-60',
+                              detail && r.commandes.length === 0 && 'opacity-60',
                               isSelected && 'bg-brand-soft/40',
                               batchItem?.st === 'ok' && 'bg-ferme/10',
                               batchItem?.st === 'error' && 'bg-destructive/5',
                               'hover:bg-secondary/50'
                             )}
                           >
-                            {isLancer && (
+                            {canSelect ? (
                               <label className="flex cursor-pointer items-center justify-center">
                                 <input
                                   type="checkbox"
@@ -902,6 +1116,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                   aria-label={`Sélectionner ${r.numOf}`}
                                 />
                               </label>
+                            ) : (
+                              <span />
                             )}
                             {showPosteCol && (
                               <span className="truncate font-mono text-[11px] font-bold text-foreground">
@@ -918,16 +1134,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             >
                               {r.numOf}
                             </button>
-                            {isLancer && (
-                              <span
-                                className={cn(
-                                  'truncate font-mono text-[10px] font-semibold',
-                                  r.status === 3 ? 'text-suggere' : 'text-planifie'
-                                )}
-                              >
-                                {r.statusLabel ?? '—'}
-                              </span>
-                            )}
+                            <span
+                              className={cn(
+                                'truncate font-mono text-[10px] font-semibold',
+                                statusTextClass(r.status)
+                              )}
+                            >
+                              {r.statusLabel ?? '—'}
+                            </span>
                             <span className="truncate font-mono text-[11px] font-bold text-foreground">
                               {r.article}
                             </span>
@@ -937,46 +1151,43 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             >
                               {r.designation ?? '—'}
                             </span>
-                            {isLancer ? (
-                              <span
-                                className={cn(
-                                  'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
-                                  badge.className
-                                )}
-                                title={
-                                  feas?.st === 'blocked'
-                                    ? `Rupture : ${feas.missing.join(', ') || 'composant(s)'}`
-                                    : feas?.st === 'qc'
-                                      ? 'Couverture dépendante du stock sous CQ'
-                                      : undefined
-                                }
-                              >
-                                <BadgeIcon
-                                  size={12}
-                                  strokeWidth={2}
-                                  className={cn(!feas && feasLoading && 'animate-spin')}
-                                />
-                                {badge.label}
-                              </span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <div className="relative h-2.5 w-full">
-                                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
-                                    <div
-                                      className={cn(
-                                        'absolute inset-y-0 left-0 rounded-full',
-                                        avancement >= 100 && 'bg-ferme',
-                                        avancement > 0 && avancement < 100 && 'bg-planifie'
-                                      )}
-                                      style={{ width: `${avancement}%` }}
-                                    />
-                                  </div>
+                            <div className="flex items-center gap-2">
+                              <div className="relative h-2.5 w-full">
+                                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
+                                  <div
+                                    className={cn(
+                                      'absolute inset-y-0 left-0 rounded-full',
+                                      avancement >= 100 && 'bg-ferme',
+                                      avancement > 0 && avancement < 100 && 'bg-planifie'
+                                    )}
+                                    style={{ width: `${avancement}%` }}
+                                  />
                                 </div>
-                                <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
-                                  {r.done}/{r.launched}
-                                </span>
                               </div>
-                            )}
+                              <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
+                                {r.done}/{r.launched}
+                              </span>
+                            </div>
+                            <span
+                              className={cn(
+                                'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
+                                badge.className
+                              )}
+                              title={
+                                feas?.st === 'blocked'
+                                  ? `Rupture : ${feas.missing.join(', ') || 'composant(s)'}`
+                                  : feas?.st === 'qc'
+                                    ? 'Couverture dépendante du stock sous CQ'
+                                    : undefined
+                              }
+                            >
+                              <BadgeIcon
+                                size={12}
+                                strokeWidth={2}
+                                className={cn(!feas && feasLoading && 'animate-spin')}
+                              />
+                              {badge.label}
+                            </span>
                             <div className="min-w-0">
                               {r.commandes.length === 0 ? (
                                 <span className="font-mono text-[11px] text-muted-foreground">
@@ -1018,11 +1229,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
                               {fmtH(r.hours)}
                             </span>
-                            {!isLancer && (
-                              <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                                {fmtJ(r.hours)}
-                              </span>
-                            )}
+                            <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                              {fmtJ(r.hours)}
+                            </span>
                           </div>
                         </div>
                       )
@@ -1035,19 +1244,17 @@ export default function Sequenceur(props: SequenceurPageProps) {
         )}
       </div>
 
-      {isLancer && (
-        <SequenceurFirmBar
-          selected={[...selected]}
-          feasibility={feasibility}
-          batch={batch}
-          batchRunning={batchRunning}
-          onFirm={(ids) => void batchFirm(ids)}
-          onClear={() => {
-            setSelected(new Set())
-            setBatch({})
-          }}
-        />
-      )}
+      <SequenceurFirmBar
+        selected={[...selected]}
+        feasibility={feasibility}
+        batch={batch}
+        batchRunning={batchRunning}
+        onFirm={(ids) => void batchFirm(ids)}
+        onClear={() => {
+          setSelected(new Set())
+          setBatch({})
+        }}
+      />
 
       <OfDetailSheet
         num={detailOf}

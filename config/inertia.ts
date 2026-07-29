@@ -104,7 +104,7 @@ declare module '@adonisjs/inertia/types' {
       x3Error: string | null
     }
     'diagnostic-test': Record<string, never>
-    'writeback-test': Record<string, never>
+    'writeback-test': { firmSubprog: string }
     // Impression X3 (issue #85) — appel direct de ZSOAPPRINT sur un OF.
     // Le dossier ciblé suit la session : la page doit l'annoncer avant le tir.
     'print-test': {
@@ -272,9 +272,7 @@ declare module '@adonisjs/inertia/types' {
       evaluatedAt: string
       dataAt: string
     }
-    // Séquenceur (#46) : engagement OF par poste, tous postes ou scopé (miroir :
-    // inertia-react/lib/board/engagement-format.ts → EngagementRow).
-    // `vue=lancer` (#100) : candidats planifiés/suggérés + faisabilité.
+    // Séquenceur (#46/#100 unifiés) : board /programme en table. Filtre poste client.
     'scheduler/sequenceur': {
       postes: {
         code: string
@@ -284,16 +282,11 @@ declare module '@adonisjs/inertia/types' {
         weeklyCapacityHours: number | null
         atelier: string
         atelierLabel: string
+        nature: 'assemblage_pf' | 'assemble_sous_ensemble' | 'autre'
       }[]
       ateliers: { code: string; label: string }[]
       rows: any[]
-      selectedPoste: string | null
-      /** true = commandes/livraison chargées (poste unique, matching scopé) ;
-       *  false = vue "tous les postes", sans matching commande (perf, cf. loader). */
-      detail: boolean
-      /** 'engagement' = OF fermes ; 'lancer' = planifiés/suggérés (#100). */
-      vue: 'engagement' | 'lancer'
-      /** Fenêtre [from,to] matching/faisabilité (vue lancer) — null en engagement. */
+      /** Fenêtre [from,to] matching/faisabilité (horizon programme). */
       feasibilityWindow: { from: string; to: string } | null
       x3Error: string | null
     }

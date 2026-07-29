@@ -16,7 +16,7 @@ import type { Flow } from '#app/domain/models/flow'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Workstation } from '#app/domain/models/workstation'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
-import { atelierLabel } from '#app/domain/atelier'
+import { atelierLabel, buildPosteNatureByWorkstation, type PosteNature } from '#app/domain/atelier'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { remapDemandDates } from '#app/domain/order_impacts_assembly'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
@@ -103,6 +103,8 @@ interface LineRow {
   dot: string
   /** Atelier (STOLOC du poste) — filtre atelier (#36). */
   atelier: string
+  /** Assemblage PF vs sous-ensemble (catégories article préfixe PF / SF). */
+  nature: PosteNature
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: { week: number; hours: number; pct: number; barClass: string }[]
@@ -426,6 +428,10 @@ export async function loadOrderBoardData(
 
   const overrideMap = await new OrderLineOverrideStore().getMap()
   const opsByArticle = groupGammeByArticle(gammeOps)
+  const categoryByArticle = new Map(
+    [...matchArticles.entries()].map(([code, a]) => [code, a.category ?? ''])
+  )
+  const posteNatureByWst = buildPosteNatureByWorkstation(gammeOps, categoryByArticle)
   const wstByCode = new Map(workstations.map((w) => [w.code, w]))
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
@@ -656,6 +662,7 @@ export async function loadOrderBoardData(
         dot: 'bg-primary',
         // Atelier (STOLOC du poste) — filtre atelier (#36), parité /charge.
         atelier: stoloc,
+        nature: posteNatureByWst.get(code) ?? 'autre',
         meta: [
           { k: 'LIGNES', v: String(bucket.lineCount) },
           { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },

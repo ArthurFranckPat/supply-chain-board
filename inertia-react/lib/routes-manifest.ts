@@ -96,6 +96,7 @@ export const MANIFEST = {
   'print_journal': { method: 'GET', pattern: '/impressions' },
   'print_journal.rows': { method: 'GET', pattern: '/api/v1/config/print/journal' },
   'print.history': { method: 'GET', pattern: '/api/v1/planning/orders/:orderNum/print' },
+  'print.documents': { method: 'GET', pattern: '/api/v1/planning/print/documents' },
   'print.print': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'promesse.articles': { method: 'GET', pattern: '/api/v1/promesse/articles' },
   'promesse.index': { method: 'GET', pattern: '/api/v1/promesse' },
@@ -121,7 +122,6 @@ export const MANIFEST = {
   'scheduler.shortage_tracker': { method: 'GET', pattern: '/ruptures' },
   'scheduling': { method: 'GET', pattern: '/ordonnancement' },
   'sequenceur.index': { method: 'GET', pattern: '/sequenceur' },
-  'sequenceur.show': { method: 'GET', pattern: '/sequenceur/:poste' },
   'static_sync.status': { method: 'GET', pattern: '/api/v1/static/status' },
   'static_sync.sync': { method: 'POST', pattern: '/api/v1/static/sync' },
   'suivi.assign': { method: 'POST', pattern: '/api/v1/status/assign' },
@@ -214,6 +214,7 @@ export type RouteParams = {
   'print_journal': void
   'print_journal.rows': void
   'print.history': { orderNum: string | number }
+  'print.documents': void
   'print.print': { orderNum: string | number }
   'promesse.articles': void
   'promesse.index': void
@@ -236,7 +237,6 @@ export type RouteParams = {
   'scheduler.shortage_tracker': void
   'scheduling': void
   'sequenceur.index': void
-  'sequenceur.show': { poste: string | number }
   'static_sync.status': void
   'static_sync.sync': void
   'suivi.assign': void

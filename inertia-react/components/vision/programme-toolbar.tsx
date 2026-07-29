@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from 'react'
 import { cn } from '@r/lib/utils'
-import { useBoardStore, statusActive } from '@r/lib/board/store'
+import { useBoardStore, statusActive, posteNatureActive } from '@r/lib/board/store'
+import { useOrderBoardStore } from '@r/lib/orders/orders-store'
+import type { PosteNatureFilterKey } from '@r/lib/board/types'
 import { ChevronDown, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import {
@@ -34,6 +36,11 @@ const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string 
   { k: 'ferme', label: 'Ferme' },
   { k: 'planifie', label: 'Planifié' },
   { k: 'suggere', label: 'Suggéré' },
+]
+
+const POSTE_NATURE_CHIPS: { k: PosteNatureFilterKey; label: string }[] = [
+  { k: 'assemblage_pf', label: 'Assemblage PF' },
+  { k: 'assemble_sous_ensemble', label: 'Sous-ensemble' },
 ]
 
 // Classes littérales (pas de `bg-${k}` dynamique — Tailwind v4 scanne le
@@ -75,6 +82,20 @@ export function ProgrammeToolbar(props: {
   const statusSuggere = useBoardStore((s) => statusActive(s, 'suggere'))
   const statuses = { ferme: statusFerme, planifie: statusPlanifie, suggere: statusSuggere }
   const toggleStatus = useBoardStore((s) => s.toggleStatus)
+
+  // Nature poste — board OF/combiné OU store commandes selon le mode.
+  const boardPf = useBoardStore((s) => posteNatureActive(s, 'assemblage_pf'))
+  const boardSe = useBoardStore((s) => posteNatureActive(s, 'assemble_sous_ensemble'))
+  const toggleBoardPosteNature = useBoardStore((s) => s.togglePosteNature)
+  const orderPf = useOrderBoardStore((s) => s.posteNatureFilter.has('assemblage_pf'))
+  const orderSe = useOrderBoardStore((s) => s.posteNatureFilter.has('assemble_sous_ensemble'))
+  const toggleOrderPosteNature = useOrderBoardStore((s) => s.togglePosteNature)
+  const isOrders = props.mode === 'planification'
+  const posteNatures = {
+    assemblage_pf: isOrders ? orderPf : boardPf,
+    assemble_sous_ensemble: isOrders ? orderSe : boardSe,
+  }
+  const togglePosteNature = isOrders ? toggleOrderPosteNature : toggleBoardPosteNature
 
   return (
     <ToolbarRow>
@@ -128,6 +149,31 @@ export function ProgrammeToolbar(props: {
           </Segment>
         </FilterMenu>
       )}
+
+      {/* Nature poste — Assemblage PF vs Sous-ensemble */}
+      <FilterMenu
+        label="Poste"
+        indicators={
+          POSTE_NATURE_CHIPS.some(({ k }) => posteNatures[k]) ? (
+            <span
+              className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
+              aria-hidden="true"
+            >
+              {POSTE_NATURE_CHIPS.filter(({ k }) => posteNatures[k])
+                .map(({ k }) => (k === 'assemblage_pf' ? 'PF' : 'S/E'))
+                .join('+')}
+            </span>
+          ) : null
+        }
+      >
+        <Segment className="w-full justify-between">
+          {POSTE_NATURE_CHIPS.map(({ k, label }) => (
+            <SegmentButton key={k} active={posteNatures[k]} onClick={() => togglePosteNature(k)}>
+              {label}
+            </SegmentButton>
+          ))}
+        </Segment>
+      </FilterMenu>
 
       <ToolbarSpacer />
 

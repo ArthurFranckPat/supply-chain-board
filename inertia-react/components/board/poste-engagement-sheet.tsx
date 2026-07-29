@@ -114,7 +114,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                 </SheetTitle>
               </div>
               <Link
-                href={route('sequenceur.show', { poste: data.poste.code })}
+                href={`${route('sequenceur.index')}?poste=${encodeURIComponent(data.poste.code)}`}
                 className="flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-brand hover:underline"
               >
                 <SquareArrowOutUpRight size={12} strokeWidth={2} />

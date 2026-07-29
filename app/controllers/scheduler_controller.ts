@@ -361,27 +361,18 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /sequenceur, /sequenceur/:poste — page dédiée engagement OF par poste (#46).
-   *
-   * `/sequenceur` (aucun poste) : `loadPosteSummaries` — sources déjà cachées
-   * (getOrders/getReferential), AUCUN matching commande. Coût borné, indépendant
-   * du nombre d'OF fermes dans l'usine (cf. commentaire de tête du loader).
-   * `/sequenceur/:poste` : en plus, `loadPosteEngagement` pour CE poste — matching
-   * commande scopé (petite liste d'OF, comme le panneau). Changer de poste dans
-   * l'UI navigue vers l'autre route (Inertia visit), pas de fetch caché côté client.
-   *
-   * Query `vue=lancer` (#100) : dataset planifiés/suggérés (candidats à affermir)
-   * au lieu des fermes. Même routes, même matching scopé.
+   * GET /sequenceur — board /programme en table (#46/#100 unifiés).
+   * Filtre poste entièrement client (plus de `/sequenceur/:poste`).
    */
   async sequenceur(ctx: HttpContext) {
-    const poste = (ctx.params.poste as string | undefined)?.trim() || null
     const force = !!ctx.request.input('refresh')
-    const vueRaw = String(ctx.request.input('vue') ?? '')
-      .trim()
-      .toLowerCase()
-    const kind = vueRaw === 'lancer' ? ('lancer' as const) : ('ferme' as const)
+    // Ancienne bascule `?vue=` — redirige vers la vue unique.
+    if (ctx.request.input('vue') !== undefined) {
+      const qs = force ? '?refresh=1' : ''
+      return ctx.response.redirect().status(302).toPath(`/sequenceur${qs}`)
+    }
 
-    const summaries = await loadPosteSummaries(force, kind)
+    const summaries = await loadPosteSummaries(force)
     const postes = summaries.postes.map((p) => ({
       code: p.poste.code,
       label: p.poste.label,
@@ -390,34 +381,13 @@ export default class SchedulerController {
       weeklyCapacityHours: p.weeklyCapacityHours,
       atelier: p.atelier,
       atelierLabel: p.atelierLabel,
+      nature: p.nature,
     }))
-    // Filtre atelier (#36, même rattachement que /charge) : liste distincte des
-    // ateliers réellement présents parmi les postes affichés.
     const ateliers = [
       ...new Map(postes.filter((p) => p.atelier).map((p) => [p.atelier, p.atelierLabel])).entries(),
     ]
       .map(([code, label]) => ({ code, label }))
       .sort((a, b) => a.label.localeCompare(b.label))
-
-    const feasibilityWindow = kind === 'lancer' ? summaries.window : null
-
-    if (poste) {
-      const detail = await loadPosteEngagement(poste, force, kind)
-      return ctx.inertia.render('scheduler/sequenceur', {
-        postes,
-        ateliers,
-        rows: detail.rows.map((r) => ({
-          ...r,
-          posteCode: detail.poste.code,
-          posteLabel: detail.poste.label,
-        })),
-        selectedPoste: poste,
-        detail: true,
-        vue: kind === 'lancer' ? 'lancer' : 'engagement',
-        feasibilityWindow,
-        x3Error: detail.x3Error,
-      })
-    }
 
     return ctx.inertia.render('scheduler/sequenceur', {
       postes,
@@ -427,15 +397,11 @@ export default class SchedulerController {
           ...r,
           posteCode: p.poste.code,
           posteLabel: p.poste.label,
-          // Matching loadOrderImpacts en kind=lancer ; engagement → tableaux vides.
           commandes: r.commandes ?? [],
           livraisonIso: r.livraisonIso ?? null,
         }))
       ),
-      selectedPoste: null,
-      detail: false,
-      vue: kind === 'lancer' ? 'lancer' : 'engagement',
-      feasibilityWindow,
+      feasibilityWindow: summaries.window,
       x3Error: null,
     })
   }

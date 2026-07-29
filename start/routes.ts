@@ -2,6 +2,7 @@ import router from '@adonisjs/core/services/router'
 import app from '@adonisjs/core/services/app'
 import { readFile } from 'node:fs/promises'
 import { middleware } from '#start/kernel'
+import { getX3EnvConfig } from '#config/x3'
 
 /*
 |--------------------------------------------------------------------------
@@ -83,7 +84,9 @@ router
     // verrouiller/retirer une fois le write-back fiabilisé.
     router
       .get('/writeback-test', async ({ inertia }) => {
-        return inertia.render('writeback-test', {})
+        return inertia.render('writeback-test', {
+          firmSubprog: getX3EnvConfig().firmSubprog,
+        })
       })
       .as('x3_writeback_test')
 
@@ -114,12 +117,8 @@ router
     router
       .get('/programme/scenarios/comparer', '#controllers/scenario_controller.comparePage')
       .as('scenarios.compare')
-    // Séquenceur (#46) : engagement OF par poste, vue transverse (tous postes,
-    // filtres) ou scopée à un poste — même controller, même loader partagé.
+    // Séquenceur (#46/#100) : board /programme en table, filtre poste côté client.
     router.get('/sequenceur', '#controllers/scheduler_controller.sequenceur').as('sequenceur.index')
-    router
-      .get('/sequenceur/:poste', '#controllers/scheduler_controller.sequenceur')
-      .as('sequenceur.show')
     router.get('/charge', '#controllers/load_controller.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
@@ -196,6 +195,9 @@ router
           .post('/suggestions/:sugNum/firm', '#controllers/suggestion_firm_controller.firm')
           .as('planning.suggestion_firm')
         // Impression du dossier d'OF à la demande / historique (#85 lot 3).
+        router
+          .get('/print/documents', '#controllers/print_controller.documents')
+          .as('print.documents')
         router.post('/orders/:orderNum/print', '#controllers/print_controller.print')
         router.get('/orders/:orderNum/print', '#controllers/print_controller.history')
         router

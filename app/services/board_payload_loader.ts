@@ -22,6 +22,7 @@ import {
 import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
+import { buildPosteNatureByWorkstation, type PosteNature } from '#app/domain/atelier'
 
 // ---------------------------------------------------------------------------
 // Display types
@@ -83,6 +84,12 @@ interface LineRow {
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: { week: number; hours: number; pct: number; barClass: string }[]
+  /** Assemblage PF vs sous-ensemble (catégories article préfixe PF / SF). */
+  nature: PosteNature
+  pp830?: {
+    chargeByTypo: { typo: string; sans: number; bouche: number }[]
+    stockBouchesHygro: number | null
+  }
 }
 
 export interface BoardPayload {
@@ -270,6 +277,7 @@ export async function loadBoardData(
   let x3Error: string | null = null
   let bdhParents: Set<string> = new Set()
   let typologieByArticle = new Map<string, string>()
+  let categoryByArticle = new Map<string, string>()
   let stockBouchesHygro: number | null = null
 
   try {
@@ -293,7 +301,10 @@ export async function loadBoardData(
     gammeOps = ref.gamme
     mos = [...ord.mos]
     bdhParents = bdh
-    for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
+    for (const a of articlesList) {
+      if (a.typologie) typologieByArticle.set(a.code, a.typologie)
+      categoryByArticle.set(a.code, a.category ?? '')
+    }
     // Stock (strict+qc) des bouches hygro — 1 SOAP scopé, caché 2 min. Null si indispo.
     const bouches = [...bouchesHygro]
     if (bouches.length > 0) {
@@ -312,6 +323,7 @@ export async function loadBoardData(
   const overrides = await new OverrideStore().getAll()
   const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
   const opsByArticle = groupGammeByArticle(gammeOps)
+  const posteNatureByWst = buildPosteNatureByWorkstation(gammeOps, categoryByArticle)
 
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
@@ -492,6 +504,7 @@ export async function loadBoardData(
         code,
         dot: 'bg-emerald-500',
         meta: [],
+        nature: posteNatureByWst.get(code) ?? 'autre',
         // Header PP_830 (issue #42) : charge par typologie + stock bouches hygro (goulot).
         ...(code === 'PP_830'
           ? {

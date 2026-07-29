@@ -12,7 +12,15 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { router } from '@inertiajs/react'
-import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from '@r/lib/board/types'
+import type {
+  BoardData,
+  Card,
+  SearchScope,
+  FeasibilityMode,
+  FeasStatus,
+  PosteNature,
+  PosteNatureFilterKey,
+} from '@r/lib/board/types'
 import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
 import { route } from '@r/lib/routes'
 
@@ -50,6 +58,8 @@ const SCOPE_CFG: Record<
 
 const STATUS_FILTER_KEYS = ['ferme', 'planifie', 'suggere'] as const
 export type StatusKey = (typeof STATUS_FILTER_KEYS)[number]
+const POSTE_NATURE_FILTER_KEYS = ['assemblage_pf', 'assemble_sous_ensemble'] as const
+export type { PosteNatureFilterKey }
 const normStatus = (s: string) =>
   s
     .normalize('NFD')
@@ -88,6 +98,8 @@ interface BoardState {
   feasibility: Record<string, FeasStatus>
   feasLoading: boolean
   statusFilter: Set<StatusKey>
+  /** Filtre nature poste : assemblage PF / sous-ensemble. Les deux actifs par défaut. */
+  posteNatureFilter: Set<PosteNatureFilterKey>
   selectMode: boolean
   selected: Set<string>
   batch: Record<string, BatchItem>
@@ -114,6 +126,7 @@ interface BoardState {
   clearSearch: () => void
   setMode: (m: FeasibilityMode) => void
   toggleStatus: (s: StatusKey) => void
+  togglePosteNature: (n: PosteNatureFilterKey) => void
 
   // Faisabilité
   runFeasibility: (from: string, to: string) => void
@@ -245,6 +258,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   feasibility: {},
   feasLoading: false,
   statusFilter: new Set<StatusKey>(STATUS_FILTER_KEYS),
+  posteNatureFilter: new Set<PosteNatureFilterKey>(POSTE_NATURE_FILTER_KEYS),
   selectMode: false,
   selected: new Set<string>(),
   batch: {},
@@ -258,6 +272,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       query: '',
       matchSet: new Set<string>(),
       statusFilter: new Set<StatusKey>(STATUS_FILTER_KEYS),
+      posteNatureFilter: new Set<PosteNatureFilterKey>(POSTE_NATURE_FILTER_KEYS),
       feasibility: {},
     }),
 
@@ -374,6 +389,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const next = new Set(state.statusFilter)
       next.has(s) ? next.delete(s) : next.add(s)
       return { statusFilter: next }
+    }),
+
+  togglePosteNature: (n) =>
+    set((state) => {
+      const next = new Set(state.posteNatureFilter)
+      next.has(n) ? next.delete(n) : next.add(n)
+      return { posteNatureFilter: next }
     }),
 
   setMode: (m) => set({ mode: m }),
@@ -507,8 +529,9 @@ export function cardMatches(state: BoardState, card: Card, lineCode: string): bo
   return ms.has(SCOPE_CFG[state.scope].attr(card, lineCode).toLowerCase())
 }
 
-/** Une ligne reste visible si elle matche (poste) ou tient ≥1 carte matchée. */
+/** Une ligne reste visible si elle passe le filtre nature + (matche poste ou ≥1 carte). */
 export function lineVisible(state: BoardState, lineCode: string): boolean {
+  if (!lineNatureOk(state, lineCode)) return false
   const q = state.query.trim()
   if (!q) return true
   const ms = state.matchSet
@@ -516,6 +539,19 @@ export function lineVisible(state: BoardState, lineCode: string): boolean {
   const line = state.board.lines.find((l) => l.code === lineCode)
   if (!line) return false
   return line.dayCells.some((dc) => dc.cards.some((c) => cardMatches(state, c, lineCode)))
+}
+
+/** Filtre nature poste : `autre` visible seulement si PF et S/E sont tous deux actifs. */
+export function lineNatureOk(state: BoardState, lineCode: string): boolean {
+  const line = state.board.lines.find((l) => l.code === lineCode)
+  const nature: PosteNature = line?.nature ?? 'autre'
+  if (nature === 'autre') {
+    return (
+      state.posteNatureFilter.has('assemblage_pf') &&
+      state.posteNatureFilter.has('assemble_sous_ensemble')
+    )
+  }
+  return state.posteNatureFilter.has(nature)
 }
 
 /** Charge par colonne (somme des heures des cartes visibles). */
@@ -560,6 +596,10 @@ export function statusActive(state: BoardState, s: StatusKey): boolean {
   return state.statusFilter.has(s)
 }
 
+export function posteNatureActive(state: BoardState, n: PosteNatureFilterKey): boolean {
+  return state.posteNatureFilter.has(n)
+}
+
 export function batchCounts(state: BoardState) {
   let ok = 0
   let err = 0
@@ -573,5 +613,5 @@ export function batchCounts(state: BoardState) {
   return { ok, err, run, total: ok + err + run }
 }
 
-export { STATUS_FILTER_KEYS, normStatus }
+export { STATUS_FILTER_KEYS, POSTE_NATURE_FILTER_KEYS, normStatus }
 export type { BatchItem }

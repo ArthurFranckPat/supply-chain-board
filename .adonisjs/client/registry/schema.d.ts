@@ -247,18 +247,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'sequenceur.show': {
-    methods: ["GET","HEAD"]
-    pattern: '/sequenceur/:poste'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { poste: ParamValue }
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'load.index': {
     methods: ["GET","HEAD"]
     pattern: '/charge'
@@ -662,6 +650,18 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { sugNum: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print.documents': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/print/documents'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
       query: {}
       response: unknown
       errorResponse: unknown

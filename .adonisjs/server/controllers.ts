@@ -9,6 +9,7 @@ export const controllers = {
   Auth: () => import('#controllers/auth_controller'),
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
   Conditionnements: () => import('#controllers/conditionnements_controller'),
+  ControleProd: () => import('#controllers/controle_prod_controller'),
   Dashboard: () => import('#controllers/dashboard_controller'),
   DashboardLayout: () => import('#controllers/dashboard_layout_controller'),
   Expeditions: () => import('#controllers/expeditions_controller'),
@@ -30,5 +31,4 @@ export const controllers = {
   Suivi: () => import('#controllers/suivi_controller'),
   X3Data: () => import('#controllers/x3_data_controller'),
   X3Writeback: () => import('#controllers/x3_writeback_controller'),
-  ControleProd: () => import('#controllers/controle_prod_controller'),
 }

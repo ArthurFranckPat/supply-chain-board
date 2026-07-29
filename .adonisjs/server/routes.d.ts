@@ -24,7 +24,6 @@ export type ScannedRoutes = {
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
     'sequenceur.index': { paramsTuple?: []; params?: {} }
-    'sequenceur.show': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -59,6 +58,7 @@ export type ScannedRoutes = {
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
+    'print.documents': { paramsTuple?: []; params?: {} }
     'print.print': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'print.history': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'planning.order_firm': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
@@ -130,7 +130,6 @@ export type ScannedRoutes = {
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
     'sequenceur.index': { paramsTuple?: []; params?: {} }
-    'sequenceur.show': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -150,6 +149,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'print.documents': { paramsTuple?: []; params?: {} }
     'print.history': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'scenarios.index': { paramsTuple?: []; params?: {} }
     'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -201,7 +201,6 @@ export type ScannedRoutes = {
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
     'sequenceur.index': { paramsTuple?: []; params?: {} }
-    'sequenceur.show': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -221,6 +220,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'print.documents': { paramsTuple?: []; params?: {} }
     'print.history': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'scenarios.index': { paramsTuple?: []; params?: {} }
     'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

@@ -3,6 +3,8 @@
  * Miroir des formes émises par OrderPlanningController.loadBoardData().
  */
 
+import type { PosteNature } from '@r/lib/board/types'
+
 export interface Field {
   icon: string
   val: string
@@ -75,6 +77,8 @@ export interface OrderLineRow {
   dot: string
   /** Atelier (STOLOC du poste) — filtre atelier (#36). */
   atelier: string
+  /** Assemblage PF vs sous-ensemble (catégories article préfixe PF / SF). */
+  nature?: PosteNature
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: WeekLoad[]
