@@ -82,18 +82,23 @@ export default class CachePreheatProvider {
    * plus partagé), puis les deux KPI du dashboard, puis l'estimateur de
    * conditionnement.
    *
-   * SÉQUENTIEL, et ça a été mesuré — ne pas re-tenter la parallélisation. Le graphe
-   * de dépendances ne compte qu'un lien (retard-kpi appelle getOrders), donc deux
-   * chaînes indépendantes semblent gratuites :
+   * SÉQUENTIEL par défaut prudent, pas par démonstration. Le graphe de dépendances
+   * ne compte qu'un lien (retard-kpi appelle getOrders), donc deux chaînes
+   * indépendantes semblent gratuites :
    *
    *   orders ──▶ retard-kpi        |     stock-valuation ──▶ conditionnement
    *
-   * Essayé, sur X3 prod : les deux chaînes en `Promise.all` donnent **110 s** de
-   * mur total, contre ~94 s en séquentiel. `board:orders` passe de 36,5 s seul à
-   * 72,7 s en concurrence — presque exactement ×2. Le pool Syracuse sérialise de
-   * toute façon, et y ajouter de la contention coûte plus qu'elle ne rapporte. Le
-   * parallélisme ne se gagnera pas ici mais en amont, en sortant X3 du chemin de
-   * lecture (#98).
+   * Essayé sur X3 prod : 110 s de mur total en `Promise.all` contre ~94 s en
+   * séquentiel. MAIS ce chiffre ne conclut rien — `board:orders` seul a été mesuré
+   * à 26,3 / 36,5 / 72,7 / 104,4 s selon la charge X3 et le nombre de serveurs de
+   * dev concurrents. La variance d'une seule tâche dépasse l'écart entre les deux
+   * stratégies : l'A/B demanderait plusieurs runs appariés, pas un de chaque.
+   *
+   * Donc : si quelqu'un veut re-tenter, qu'il mesure sérieusement d'abord. En
+   * attendant, le séquentiel est retenu parce qu'il ne peut pas dégrader une
+   * requête utilisateur concurrente, ce que la contention SOAP, elle, peut faire.
+   * Le vrai gain n'est de toute façon pas ici mais en amont, en sortant X3 du
+   * chemin de lecture (#98).
    *
    * Les deux KPI du dashboard sont les murs restants mesurés en requête :
    * retard 23 s (3 requêtes SOAP séquentielles), valorisation stock 9 s

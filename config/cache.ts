@@ -64,6 +64,16 @@ const cacheConfig = defineConfig({
     // dossier relatif `C/Users/…/tmp/cache` créé sous le CWD. L'échec est
     // silencieux (les erreurs L2 sont avalées) : le cache paraît vide alors qu'il
     // écrit ailleurs. Sans `:`, plus de mutilation possible.
+    //
+    // LIMITE connue, acceptée : les écritures ne sont pas atomiques (`writeFile`
+    // direct, sans fichier temporaire ni `rename`) et le mutex du driver est
+    // intra-process. DEUX serveurs de dev partageant ce dossier peuvent donc se
+    // lire mutuellement un fichier à moitié écrit — la désérialisation échoue,
+    // bentocache compte un miss et rejoue la requête X3. Observé sur `board:orders`
+    // (11 Mo, fenêtre d'écriture large). C'est auto-réparateur (le miss réécrit
+    // l'entrée) et cantonné au dev, la prod étant sur Redis. Le dossier étant
+    // relatif au CWD, deux worktrees ne se marchent pas dessus ; seul le cas « deux
+    // serveurs dans le MÊME worktree » est concerné.
     file: store()
       .useL1Layer(drivers.memory())
       .useL2Layer(drivers.file({ directory: 'tmp/cache' })),
