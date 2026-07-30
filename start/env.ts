@@ -43,7 +43,16 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Optionnel et défaut fermé : les deux stratégies coexistent volontairement, le
   // choix se tranchera au déploiement. Un défaut ouvert basculerait la production
   // sur une source dont l'équivalence avec la voie directe n'est pas démontrée.
-  REPLICA_READS: Env.schema.enum.optional(['true', 'false'] as const),
+  //
+  // `schema.boolean`, PAS `schema.enum(['true', 'false'])` : `@poppinss/
+  // validator-lite` (ensureOneOf, derrière schema.enum) coerce toute valeur
+  // booléenne-like en vrai booléen AVANT de vérifier `choices.includes()` — avec
+  // des choix en STRING, "true" devient `true` (booléen) et ne matche plus
+  // jamais 'true' (string). `enum(['true','false'])` ne peut donc JAMAIS valider,
+  // quelle que soit la valeur posée. Bug constaté en posant la variable pour de
+  // vrai pour la première fois (jusque-là toujours absente, `.optional()`
+  // masquait le défaut).
+  REPLICA_READS: Env.schema.boolean.optional(),
 
   // X3
   X3_ENV: Env.schema.enum(['test', 'prod'] as const),

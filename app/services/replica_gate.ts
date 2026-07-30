@@ -67,7 +67,7 @@ export class ReplicaGate {
    * `disabled` et ne prouveraient rien (cf. `tests/unit/replica_gate.test.ts`).
    */
   protected get enabled(): boolean {
-    return env.get('REPLICA_READS', 'false') === 'true'
+    return env.get('REPLICA_READS', false) === true
   }
 
   /**
