@@ -4,6 +4,11 @@ import replicaSyncService from '#services/replica_sync_service'
 import replicaGate from '#services/replica_gate'
 import ordersReplicaRepository from '#repositories/orders_replica_repository'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
+import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
+import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
+import stockReplicaRepository from '#repositories/stock_replica_repository'
+import { X3StockRepository } from '#repositories/stock_repository'
+import type { Flow } from '#app/domain/models/flow'
 
 /**
  * `node ace replica:sync` — ingestion X3 → réplique SQLite locale (#98, lot 1).
@@ -16,7 +21,7 @@ import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_reposi
  *
  * `--status` n'interroge que le journal — aucun appel X3.
  *
- * `--compare` (#98, lot 2) : appelle X3 ET lit la réplique pour `orders_replica`,
+ * `--compare` (#98, lot 2) : appelle X3 ET lit la réplique pour les trois tables,
  * diffe les deux jeux, n'écrit rien. C'est la « comparaison en parallèle » du lot 2 —
  * volontairement hors du chemin de lecture chaud (`board_dataset.ts` ne fait jamais
  * les deux appels), pour ne pas repayer le coût X3 qu'on cherche à éliminer sur
@@ -141,6 +146,23 @@ export default class ReplicaSync extends BaseCommand {
    *   comparaison qui ait un sens sur une donnée régénérée entre les deux lectures.
    */
   private async printCompare() {
+    this.logger.info('=== orders_replica ===')
+    const ordersOk = await this.compareOrders()
+
+    this.logger.info('=== order_lines_replica ===')
+    const linesOk = await this.compareOrderLines()
+
+    this.logger.info('=== stock_replica ===')
+    const stockOk = await this.compareStock()
+
+    if (ordersOk && linesOk && stockOk) {
+      this.logger.success('Réplique et voie directe cohérentes sur les trois tables')
+    } else {
+      this.exitCode = 1
+    }
+  }
+
+  private async compareOrders(): Promise<boolean> {
     const started = Date.now()
     const [direct, replica] = await Promise.all([
       new X3OfRepository().getManufacturingOrders(),
@@ -155,14 +177,7 @@ export default class ReplicaSync extends BaseCommand {
       direct.filter((o) => o.status === 3),
       replica.filter((o) => o.status === 3)
     )
-
-    if (stableOk && suggOk) {
-      this.logger.success(
-        'Réplique et voie directe cohérentes (fermes/planifiés exacts, suggestions par agrégat)'
-      )
-    } else {
-      this.exitCode = 1
-    }
+    return stableOk && suggOk
   }
 
   /** Fermes + planifiés : identité stable, diff exact par numOf. */
@@ -251,8 +266,114 @@ export default class ReplicaSync extends BaseCommand {
     }
     return diffs.length === 0
   }
+
+  /**
+   * Lignes de commande — identité STABLE (`numCommande#ligne`, pas de régénération
+   * CBN contrairement aux suggestions d'OF), diff exact comme les OF fermes/planifiés.
+   */
+  private async compareOrderLines(): Promise<boolean> {
+    const started = Date.now()
+    const [direct, replica] = await Promise.all([
+      new X3OrderLineRepository().getOpenOrderLines(),
+      orderLinesReplicaRepository.getOpenOrderLines(),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} lignes · réplique : ${replica.length} lignes · ${elapsed} s`
+    )
+
+    const key = (l: OrderLineRow) => `${l.numCommande}#${l.ligne}`
+    const byKey = new Map(direct.map((l) => [key(l), l]))
+    const replicaKeys = new Set(replica.map(key))
+    const onlyDirect = direct.filter((l) => !replicaKeys.has(key(l)))
+    const onlyReplica = replica.filter((l) => !byKey.has(key(l)))
+
+    const fieldDiffs: string[] = []
+    for (const r of replica) {
+      const d = byKey.get(key(r))
+      if (!d) continue
+      const mismatches: string[] = []
+      if (d.quantite !== r.quantite) mismatches.push(`quantite ${d.quantite}≠${r.quantite}`)
+      if (dayKey(d.dateLivraison) !== dayKey(r.dateLivraison)) mismatches.push('dateLivraison')
+      if (d.nature !== r.nature) mismatches.push(`nature ${d.nature}≠${r.nature}`)
+      if (d.contremarque !== r.contremarque) mismatches.push('contremarque')
+      if (mismatches.length > 0) fieldDiffs.push(`${key(r)} : ${mismatches.join(', ')}`)
+    }
+
+    if (onlyDirect.length > 0) {
+      this.logger.warning(
+        `  ${onlyDirect.length} lignes présentes en X3 seulement (ex. ${onlyDirect
+          .slice(0, 5)
+          .map(key)
+          .join(', ')})`
+      )
+    }
+    if (onlyReplica.length > 0) {
+      this.logger.warning(
+        `  ${onlyReplica.length} lignes présentes en réplique seulement (ex. ${onlyReplica
+          .slice(0, 5)
+          .map(key)
+          .join(', ')})`
+      )
+    }
+    if (fieldDiffs.length > 0) {
+      this.logger.warning(`  ${fieldDiffs.length} lignes avec un champ divergent :`)
+      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    }
+    const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
+    if (ok) this.logger.success('  lignes de commande identiques')
+    return ok
+  }
+
+  /**
+   * Stock — pas d'identité de ligne (`Flow[]` sans id), diff par agrégat
+   * `article#subType → quantité`. Sans filtre d'articles des deux côtés (comme
+   * l'ingestion) : coûteux côté X3 (« sans articles → toute la base, lourd », cf.
+   * `X3StockRepository.getStockFlows`), assumé pour une commande de validation
+   * manuelle, jamais sur le chemin de lecture chaud.
+   */
+  private async compareStock(): Promise<boolean> {
+    const started = Date.now()
+    const [direct, replica] = await Promise.all([
+      new X3StockRepository().getStockFlows(),
+      stockReplicaRepository.getStockFlows(),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} flux · réplique : ${replica.length} flux · ${elapsed} s`
+    )
+
+    const aggregate = (flows: Flow[]) => {
+      const m = new Map<string, number>()
+      for (const f of flows) {
+        const subType = f.origin.type === 'stock' ? (f.origin.subType ?? '?') : '?'
+        const k = `${f.article}#${subType}`
+        m.set(k, (m.get(k) ?? 0) + f.quantity)
+      }
+      return m
+    }
+
+    const directAgg = aggregate(direct)
+    const replicaAgg = aggregate(replica)
+    const keys = new Set([...directAgg.keys(), ...replicaAgg.keys()])
+
+    const diffs: string[] = []
+    for (const k of keys) {
+      const d = directAgg.get(k) ?? 0
+      const r = replicaAgg.get(k) ?? 0
+      if (Math.abs(d - r) > 0.01) diffs.push(`${k} : ${d}≠${r}`)
+    }
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} article#sous-type avec une quantité divergente :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    } else {
+      this.logger.success('  stock identique par article et sous-type')
+    }
+    return diffs.length === 0
+  }
 }
 
-function dayKey(d: ManufacturingOrder['endDate']): string {
+function dayKey(d: Date | null): string {
   return d ? d.toISOString().slice(0, 10) : ''
 }
