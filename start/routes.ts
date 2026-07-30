@@ -268,6 +268,8 @@ router
 
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
+    // Prévision charge transport J→J+n (issue #104).
+    router.get('/api/v1/expeditions/forecast', '#controllers/expeditions_controller.forecast')
 
     // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
     router

@@ -7,15 +7,17 @@ import {
   CAMION_CAPACITE_PALETTES,
   type ExpeditionKpi,
 } from '#repositories/expedition_repository'
+import {
+  loadExpeditionForecast,
+  FORECAST_DEFAULT_HORIZON,
+} from '#services/expedition_forecast_loader'
 
 /**
- * Page « Expéditions » (issue #44) — onglet dédié à la gestion des expéditions client
- * (livraisons STOJOU TRSTYP_0=4), remplace la carte dashboard initiale jugée
- * insuffisante pour un usage opérationnel (retour terrain : besoin de filtrer/vérifier
- * les camions un par un, pas juste un résumé).
+ * Page « Expéditions » (issue #44 + #104) — rétroviseur STOJOU + prévision de charge
+ * transport depuis l'ordonnancement.
  *
- * Même motif que /suivi : coquille Inertia instantanée, calcul lourd (X3 + clustering
- * camion) chargé en différé via /api/v1/expeditions/rows.
+ * Même motif que /suivi : coquille Inertia instantanée, calculs lourds en différé
+ * via /api/v1/expeditions/rows (passé) et /api/v1/expeditions/forecast (futur).
  */
 export default class ExpeditionsController {
   /** GET /expeditions — coquille de la page. */
@@ -23,11 +25,22 @@ export default class ExpeditionsController {
     const referenceDate =
       (ctx.request.input('referenceDate') as string | undefined) ||
       new Date().toISOString().slice(0, 10)
+    const daysParam = Number.parseInt(
+      ctx.request.input('days', String(FORECAST_DEFAULT_HORIZON)),
+      10
+    )
+    const forecastDays =
+      Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90
+        ? daysParam
+        : FORECAST_DEFAULT_HORIZON
+
     return ctx.inertia.render('expeditions', {
       referenceDate,
       rowsHref: `/api/v1/expeditions/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
+      forecastHref: `/api/v1/expeditions/forecast?days=${forecastDays}`,
       defaultGapMinutes: CAMION_GAP_MINUTES,
       maxPalettesCamion: MAX_PALETTES_CAMION,
+      forecastDefaultDays: forecastDays,
     })
   }
 
@@ -82,5 +95,22 @@ export default class ExpeditionsController {
     }
 
     return { expeditions, x3Error }
+  }
+
+  /** GET /api/v1/expeditions/forecast — prévision charge transport J→J+n (issue #104). */
+  async forecast(ctx: HttpContext) {
+    const daysParam = Number.parseInt(
+      ctx.request.input('days', String(FORECAST_DEFAULT_HORIZON)),
+      10
+    )
+    const days =
+      Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90
+        ? daysParam
+        : FORECAST_DEFAULT_HORIZON
+    const force = !!ctx.request.input('refresh')
+    const startParam = ctx.request.input('start') as string | undefined
+    const start = startParam ? new Date(startParam) : undefined
+
+    return loadExpeditionForecast({ start, days, force })
   }
 }

@@ -30,6 +30,15 @@ export const MAX_PALETTES_CAMION = Number(process.env.EXPEDITION_MAX_PALETTES_CA
 export const CAMION_CAPACITE_PALETTES = Number(process.env.EXPEDITION_CAMION_CAPACITE) || 33
 
 /**
+ * Nombre de départs camion de référence par jour ouvré (issue #104).
+ * Capacité journalière = NB_DEPARTS_QUOTIDIENS × CAMION_CAPACITE_PALETTES.
+ */
+export const NB_DEPARTS_QUOTIDIENS = Number(process.env.EXPEDITION_DEPARTS_QUOTIDIENS) || 2
+
+/** Capacité transport journalière de référence (éq-palettes). */
+export const CAPACITE_JOUR_PALETTES = NB_DEPARTS_QUOTIDIENS * CAMION_CAPACITE_PALETTES
+
+/**
  * Seuil de divergence entre palettes comptées (PALNUM) et palettes théoriques (calcul UC).
  * Au-delà, on considère que la saisie terrain est suspecte (scan incomplet ou palette
  * éclatée en plusieurs PALNUM). Exprimé en ratio (0.3 = ±30% de tolérance).
@@ -288,18 +297,17 @@ function fmtHeureSec(tsMs: number): string {
 }
 
 /**
- * Métriques volumes d'un ensemble de lignes : équivalent-palettes théorique (calcul UC),
+ * Métriques volumes d'un ensemble de lignes : équivalent-palettes théorique (calcul UC/US),
  * taux de remplissage, et écart vs palettes comptées (PALNUM).
  *
- * `palTheo` = Σ (UC / ucParPal × facteurSurface), où `ucParPal` = PCUSTUCOE_1 (nombre
- * d'UC par palette pour l'article, cf. ITMMASTER). Le facteur de surface vaut
- * `ESH_SURFACE_RATIO` (1,25) pour les palettes ESH (1000×1200, famille YFAMSTAT7='ESH'),
- * 1,0 sinon (palette standard 800×1200) — afin que le taux de remplissage reste homogène
- * quel que soit le format mélangé dans le camion.
+ * `palTheo` = Σ (qté / ucParPal × facteurSurface), où `ucParPal` = PCUSTUCOE_1
+ * (US/palette côté ORDERS/réceptions ; UC/palette côté STOJOU quand PCU≈STU).
+ * Facteur de surface = `ESH_SURFACE_RATIO` (1,25) pour YFAMSTAT7='ESH', 1,0 sinon.
  *
  * Si aucune ligne n'a de `ucParPal` exploitable (>0), retourne -1 (impossible à calculer).
+ * Exporté pour la prévision de charge transport (issue #104).
  */
-function calcVolumes(
+export function calcVolumes(
   lignes: { qteUc: number; ucParPal: number | null; yfamstat7?: string | null }[],
   nbPalettesComptees: number
 ): { palTheo: number; tauxRemplissage: number; ecartPalettes: number } {
@@ -604,7 +612,58 @@ export function clusterCamions(
  * est déduite a posteriori : si au moins une palette porte un n° de navette, le camion
  * est marqué 'navette' et n'est jamais signalé en anomalie (source fiable terrain).
  */
+/** Coefficients de volume ITMMASTER pour un article (prévision #104). */
+export interface VolumeCoef {
+  article: string
+  /** PCUSTUCOE_0 — US par UC (colisage). */
+  pcuStuCoe: number | null
+  /** PCUSTUCOE_1 — US (ou UC) par palette. */
+  ucParPal: number | null
+  /** YFAMSTAT7_0 — famille (ESH, VB…). */
+  yfamstat7: string | null
+}
+
 export class ExpeditionRepository {
+  /**
+   * Coefs palettisation pour un ensemble d'articles (ITMMASTER).
+   * Utilisé par la prévision de charge (#104) — les OrderImpactRow n'embarquent pas les coefs.
+   */
+  async getVolumeCoefs(articles: string[]): Promise<Map<string, VolumeCoef>> {
+    const out = new Map<string, VolumeCoef>()
+    const unique = [...new Set(articles.map((a) => a.trim()).filter(Boolean))]
+    if (unique.length === 0) return out
+
+    const inList = unique.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')
+    const sql = `
+SELECT
+  ITMREF_0 AS ITMREF,
+  PCUSTUCOE_0 AS PCU_STU_COE,
+  PCUSTUCOE_1 AS UC_PAR_PAL,
+  YFAMSTAT7_0 AS YFAMSTAT7
+FROM ITMMASTER
+WHERE ITMREF_0 IN (${inList})
+`
+    const db = new X3Database()
+    let rows: RawRow[] = []
+    try {
+      rows = await db.raw(sql)
+    } finally {
+      await db.destroy()
+    }
+
+    for (const row of rows) {
+      const article = row.ITMREF?.trim() ?? ''
+      if (!article) continue
+      out.set(article, {
+        article,
+        pcuStuCoe: row.PCU_STU_COE ? toNum(row.PCU_STU_COE) : null,
+        ucParPal: row.UC_PAR_PAL ? toNum(row.UC_PAR_PAL) : null,
+        yfamstat7: row.YFAMSTAT7?.trim() || null,
+      })
+    }
+    return out
+  }
+
   async getExpeditions(
     from: Date,
     to: Date,
