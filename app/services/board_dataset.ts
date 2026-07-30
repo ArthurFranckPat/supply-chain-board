@@ -30,6 +30,8 @@ import type { RetardChargeKpi } from '#repositories/retard_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
 import { cacheNs } from '#services/cache_ns'
+import replicaGate from '#services/replica_gate'
+import ordersReplicaRepository from '#repositories/orders_replica_repository'
 
 /**
  * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
@@ -123,8 +125,13 @@ class BoardDataset {
       // ne paie le mur froid qu'au tout premier chargement (aucune valeur en grace).
       timeout: SWR_TIMEOUT,
       factory: async () => {
+        // Bascule des lectures (#98, lot 2) : réplique si le portail la juge à jour,
+        // sinon voie directe X3 inchangée. `REPLICA_READS` fermé par défaut → ce
+        // `canRead` rend toujours `false` tant que le lot n'est pas activé en prod.
         // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
-        const mos = await new X3OfRepository().getManufacturingOrders()
+        const mos = (await replicaGate.canRead('orders_replica'))
+          ? await ordersReplicaRepository.getManufacturingOrders()
+          : await new X3OfRepository().getManufacturingOrders()
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
@@ -164,7 +171,10 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const mos = await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
+        // Cf. getOrders() — même bascule #98 lot 2, même portail par table.
+        const mos = (await replicaGate.canRead('orders_replica'))
+          ? await ordersReplicaRepository.getManufacturingOrdersForWindow(from, to)
+          : await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
