@@ -32,6 +32,8 @@ import staticSync from '#services/static_sync_service'
 import { cacheNs } from '#services/cache_ns'
 import replicaGate from '#services/replica_gate'
 import ordersReplicaRepository from '#repositories/orders_replica_repository'
+import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
+import stockReplicaRepository from '#repositories/stock_replica_repository'
 
 /**
  * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
@@ -275,7 +277,13 @@ class BoardDataset {
       key,
       ttl: LIVE_TTL,
       timeout: SWR_TIMEOUT,
-      factory: () => new X3OrderLineRepository().getOpenOrderLines({ from, to }),
+      factory: async () => {
+        // Cf. getOrders() — même bascule #98 lot 2.
+        if (await replicaGate.canRead('order_lines_replica')) {
+          return orderLinesReplicaRepository.getOpenOrderLines({ from, to })
+        }
+        return new X3OrderLineRepository().getOpenOrderLines({ from, to })
+      },
     })
   }
 
@@ -448,7 +456,13 @@ class BoardDataset {
       key,
       ttl: STOCK_TTL,
       timeout: SWR_TIMEOUT,
-      factory: () => new X3StockRepository().getStockFlows(articles),
+      factory: async () => {
+        // Cf. getOrders() — même bascule #98 lot 2.
+        if (await replicaGate.canRead('stock_replica')) {
+          return stockReplicaRepository.getStockFlows(articles)
+        }
+        return new X3StockRepository().getStockFlows(articles)
+      },
     })
   }
 

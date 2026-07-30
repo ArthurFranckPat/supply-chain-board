@@ -3,29 +3,32 @@ import type { LoggerService } from '@adonisjs/core/types'
 import replicaSyncService from '#services/replica_sync_service'
 
 /**
- * Rafraîchissement périodique de `orders_replica` (#98, lot 2).
+ * Rafraîchissement périodique de la réplique complète — `orders_replica`,
+ * `order_lines_replica`, `stock_replica` (#98, lot 2).
  *
  * Le lot 1 posait volontairement AUCUNE planification : « L'app ne lit pas encore
  * la réplique : la déclencher n'a donc aucun effet sur les écrans » (cf.
- * `replica_sync_service.ts`). Ce n'est plus vrai dès que `board_dataset.getOrders()`
- * / `getOrdersForWindow()` consultent `orders_replica` via le portail — une réplique
- * jamais rafraîchie se fige sur l'état du dernier `node ace replica:sync` manuel et
- * ne change plus jamais, contrairement à la voie X3 directe qu'elle remplace (TTL
- * 5 min). Sans ce provider, activer `REPLICA_READS=true` dégraderait la fraîcheur au
- * lieu de la préserver.
+ * `replica_sync_service.ts`). Ce n'est plus vrai dès que `board_dataset` consulte les
+ * trois tables via `replicaGate` (`getOrders`/`getOrdersForWindow`,
+ * `getOpenOrderLines`, `getStock`) — une réplique jamais rafraîchie se fige sur
+ * l'état du dernier `node ace replica:sync` manuel et ne change plus jamais,
+ * contrairement à la voie X3 directe qu'elle remplace (TTL 2-5 min selon la table).
+ * Sans ce provider, activer `REPLICA_READS=true` dégraderait la fraîcheur au lieu de
+ * la préserver.
  *
- * Ne resynchronise QUE `orders_replica` : c'est la seule table que `board_dataset`
- * consulte via `replicaGate` à ce lot. `order_lines_replica` / `stock_replica`
- * restent au rythme manuel tant qu'aucun lecteur ne dépend de leur fraîcheur — les
- * planifier maintenant coûterait de la charge SOAP pour rien.
+ * `syncAll()` est SÉQUENTIEL côté service (ZSOAPSQL en O(n²), la parallélisation a
+ * déjà été mesurée sans gain sur ce projet) : ~29 s mesurées en prod pour les trois
+ * tables (13,4 + 12,7 + 2,8 s). Un tick de 5 min absorbe ce coût sans se chevaucher
+ * avec le suivant (garde `running`).
  *
  * Même patron que `cache_preheat_provider.ts` (tick in-process, `unref()` pour ne
  * jamais retenir le process) plutôt qu'un cron externe : c'est le seul mécanisme de
  * planification que ce projet utilise déjà.
  */
 
-// Aligné sur ORDERS_TTL (board_dataset.ts) : au pire un tick de retard sur la
-// fraîcheur que la voie X3 directe offrait déjà via son propre TTL.
+// Aligné sur ORDERS_TTL (board_dataset.ts), le plus long des trois TTL concernés
+// (LIVE_TTL et STOCK_TTL sont à 2 min) : au pire un tick de retard sur la fraîcheur
+// que la voie X3 directe offrait déjà via ses propres TTL.
 const SYNC_INTERVAL_MS = 5 * 60 * 1000
 
 export default class ReplicaSyncProvider {
@@ -52,16 +55,18 @@ export default class ReplicaSyncProvider {
   }
 
   private async sync(logger: LoggerService, source: string) {
-    const result = await replicaSyncService.syncOrders(source)
-    if (result.status === 'ok') {
-      logger.info(
-        { rows: result.rows, ms: result.durationMs },
-        `[replica-sync] orders_replica : ${result.rows} lignes en ${result.durationMs} ms`
-      )
-    } else {
-      // Non fatal : X3 injoignable → la réplique reste sur son dernier état connu,
-      // et le portail (last-run-failed) repart sur la voie directe pour ce cycle.
-      logger.warn({ err: result.error }, `[replica-sync] échec orders_replica (non fatal)`)
+    const { results } = await replicaSyncService.syncAll(source)
+    for (const r of results) {
+      if (r.status === 'ok') {
+        logger.info(
+          { rows: r.rows, ms: r.durationMs },
+          `[replica-sync] ${r.table} : ${r.rows} lignes en ${r.durationMs} ms`
+        )
+      } else {
+        // Non fatal : X3 injoignable → la table reste sur son dernier état connu,
+        // et le portail (last-run-failed) repart sur la voie directe pour ce cycle.
+        logger.warn({ err: r.error }, `[replica-sync] échec ${r.table} (non fatal)`)
+      }
     }
   }
 
