@@ -173,10 +173,24 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Cf. getOrders() — même bascule #98 lot 2, même portail par table.
-        const mos = (await replicaGate.canRead('orders_replica'))
-          ? await ordersReplicaRepository.getManufacturingOrdersForWindow(from, to)
-          : await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
+        // TOUJOURS X3 direct, jamais la réplique — contrairement à getOrders().
+        //
+        // `order_impacts_loader.ts` combine CETTE méthode avec
+        // `getOrdersForMatchingDelta()` (toujours X3 direct, cf. plus bas) dans le
+        // MÊME calcul de matching OF↔commande. Les deux portent des suggestions
+        // (WIPSTA=3), qui n'ont pas d'identité stable : régénérées à CHAQUE run CBN
+        // avec un nouveau numOf (cf. commentaire de compareSuggested dans
+        // commands/replica_sync.ts). Servir l'une depuis une réplique figée à T et
+        // l'autre depuis X3 lu à T+Δ revient exactement à la « vue déchirée moitié
+        // run N moitié run N+1 » que l'issue #98 écarte explicitement pour
+        // l'INGESTION (swap complet, jamais de merge incrémental) — sauf que ce
+        // mélange se produisait ici, à la LECTURE. Constaté en prod : matching
+        // OF↔commande cassé dès `REPLICA_READS=true`.
+        //
+        // `getOrders()` (lookback complet, sans fenêtre) n'a pas ce problème : rien
+        // ne le combine avec `getOrdersForMatchingDelta()`. Lui seul reste éligible
+        // à la réplique.
+        const mos = await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
