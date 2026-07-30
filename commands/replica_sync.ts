@@ -108,9 +108,22 @@ export default class ReplicaSync extends BaseCommand {
   }
 
   /**
-   * Diff X3 (voie directe) vs `orders_replica`, num-OF par num-OF, sur les champs qui
-   * comptent pour le board (statut, quantités, dates). Pas de vérité arbitrée entre
-   * les deux : X3 est la référence, la réplique est comparée contre elle.
+   * Diff X3 (voie directe) vs `orders_replica`, sur les champs qui comptent pour le
+   * board (statut, quantités, date de fin). X3 est la référence.
+   *
+   * Deux populations, deux méthodes — l'issue #98 posait la question en suspens
+   * (« à vérifier : que le VCRNUM_0 d'une suggestion soit bien instable entre deux
+   * CBN ») et une première mesure en a apporté la réponse : oui, instable. Sur
+   * ~14 000 OF, ~12 200 sont des suggestions (WIPSTA=3) — sortie du CBN, régénérées
+   * à chaque run AVEC UN NOUVEAU NUMÉRO. Comparer `orders_replica` (ingérée à T) à
+   * X3 en direct (lu à T+Δ) par `numOf` fait donc apparaître un roulement quasi
+   * total sur ce sous-ensemble — pas un défaut de la réplique, juste la mauvaise
+   * clé de comparaison pour une donnée sans identité stable.
+   *
+   * - Fermes (WIPSTA=1) et planifiés (WIPSTA=2) : identité stable → diff exact par
+   *   `numOf`, écarts attendus proches de zéro.
+   * - Suggérés (WIPSTA=3) : diff par agrégat `article → {count, quantité}`, seule
+   *   comparaison qui ait un sens sur une donnée régénérée entre les deux lectures.
    */
   private async printCompare() {
     const started = Date.now()
@@ -119,6 +132,27 @@ export default class ReplicaSync extends BaseCommand {
       ordersReplicaRepository.getManufacturingOrders(),
     ])
     const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(`X3 : ${direct.length} OF · réplique : ${replica.length} OF · ${elapsed} s`)
+
+    const isStable = (o: ManufacturingOrder) => o.status === 1 || o.status === 2
+    const stableOk = this.compareStable(direct.filter(isStable), replica.filter(isStable))
+    const suggOk = this.compareSuggested(
+      direct.filter((o) => o.status === 3),
+      replica.filter((o) => o.status === 3)
+    )
+
+    if (stableOk && suggOk) {
+      this.logger.success(
+        'Réplique et voie directe cohérentes (fermes/planifiés exacts, suggestions par agrégat)'
+      )
+    } else {
+      this.exitCode = 1
+    }
+  }
+
+  /** Fermes + planifiés : identité stable, diff exact par numOf. */
+  private compareStable(direct: ManufacturingOrder[], replica: ManufacturingOrder[]): boolean {
+    this.logger.info(`Fermes/planifiés — X3 : ${direct.length} · réplique : ${replica.length}`)
 
     const byNum = new Map(direct.map((o) => [o.numOf, o]))
     const replicaNums = new Set(replica.map((o) => o.numOf))
@@ -138,10 +172,9 @@ export default class ReplicaSync extends BaseCommand {
       if (mismatches.length > 0) fieldDiffs.push(`${r.numOf} : ${mismatches.join(', ')}`)
     }
 
-    this.logger.info(`X3 : ${direct.length} OF · réplique : ${replica.length} OF · ${elapsed} s`)
     if (onlyDirect.length > 0) {
       this.logger.warning(
-        `${onlyDirect.length} OF présents en X3 seulement (ex. ${onlyDirect
+        `  ${onlyDirect.length} OF présents en X3 seulement (ex. ${onlyDirect
           .slice(0, 5)
           .map((o) => o.numOf)
           .join(', ')})`
@@ -149,21 +182,59 @@ export default class ReplicaSync extends BaseCommand {
     }
     if (onlyReplica.length > 0) {
       this.logger.warning(
-        `${onlyReplica.length} OF présents en réplique seulement (ex. ${onlyReplica
+        `  ${onlyReplica.length} OF présents en réplique seulement (ex. ${onlyReplica
           .slice(0, 5)
           .map((o) => o.numOf)
           .join(', ')})`
       )
     }
     if (fieldDiffs.length > 0) {
-      this.logger.warning(`${fieldDiffs.length} OF avec un champ divergent :`)
-      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`  ${line}`)
+      this.logger.warning(`  ${fieldDiffs.length} OF avec un champ divergent :`)
+      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`    ${line}`)
     }
-    if (onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0) {
-      this.logger.success('Réplique et voie directe identiques sur tous les OF comparés')
+    const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
+    if (ok) this.logger.success('  fermes/planifiés identiques')
+    return ok
+  }
+
+  /** Suggestions : numOf instable entre deux CBN, diff par agrégat article. */
+  private compareSuggested(direct: ManufacturingOrder[], replica: ManufacturingOrder[]): boolean {
+    this.logger.info(`Suggestions — X3 : ${direct.length} · réplique : ${replica.length}`)
+
+    const aggregate = (list: ManufacturingOrder[]) => {
+      const m = new Map<string, { count: number; qty: number }>()
+      for (const o of list) {
+        const cur = m.get(o.article) ?? { count: 0, qty: 0 }
+        cur.count += 1
+        cur.qty += o.quantity
+        m.set(o.article, cur)
+      }
+      return m
+    }
+
+    const directAgg = aggregate(direct)
+    const replicaAgg = aggregate(replica)
+    const articles = new Set([...directAgg.keys(), ...replicaAgg.keys()])
+
+    const diffs: string[] = []
+    for (const article of articles) {
+      const d = directAgg.get(article) ?? { count: 0, qty: 0 }
+      const r = replicaAgg.get(article) ?? { count: 0, qty: 0 }
+      if (d.count !== r.count || Math.abs(d.qty - r.qty) > 0.01) {
+        diffs.push(`${article} : count ${d.count}≠${r.count}, qty ${d.qty}≠${r.qty}`)
+      }
+    }
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} articles avec un agrégat de suggestions divergent :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+      this.logger.info(
+        '  Un écart isolé peut venir du CBN qui a tourné entre le sync et la comparaison — relancer replica:sync juste avant --compare pour réduire la fenêtre.'
+      )
     } else {
-      this.exitCode = 1
+      this.logger.success('  suggestions identiques par article (count + quantité)')
     }
+    return diffs.length === 0
   }
 }
 
