@@ -26,6 +26,13 @@ import type { Flow } from '#app/domain/models/flow'
  * volontairement hors du chemin de lecture chaud (`board_dataset.ts` ne fait jamais
  * les deux appels), pour ne pas repayer le coût X3 qu'on cherche à éliminer sur
  * chaque requête utilisateur.
+ *
+ * Couvre aussi le delta matching (#99, `getOrdersForMatchingDelta`) sur une fenêtre
+ * `--from`/`--to` (défaut J → J+14) : c'est le filet qui manquait avant d'envisager
+ * `REPLICA_READS=true` en réel — sans lui une divergence entre
+ * `X3OfRepository.getManufacturingOrdersForMatching()` et son miroir réplique
+ * passerait inaperçue jusqu'à l'usage, comme la régression du 30/07/2026 sur
+ * `getOrdersForWindow()`.
  */
 export default class ReplicaSync extends BaseCommand {
   static commandName = 'replica:sync'
@@ -46,6 +53,16 @@ export default class ReplicaSync extends BaseCommand {
     description: 'Tables à ingérer (orders, order-lines, stock). Défaut : toutes',
   })
   declare only: string[]
+
+  @flags.string({
+    description: 'Borne basse (YYYY-MM-DD) du delta matching comparé par --compare. Défaut : J',
+  })
+  declare from: string
+
+  @flags.string({
+    description: 'Borne haute (YYYY-MM-DD) du delta matching comparé par --compare. Défaut : J+14',
+  })
+  declare to: string
 
   async run() {
     if (this.status) {
@@ -155,11 +172,28 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info('=== stock_replica ===')
     const stockOk = await this.compareStock()
 
-    if (ordersOk && linesOk && stockOk) {
-      this.logger.success('Réplique et voie directe cohérentes sur les trois tables')
+    const { from, to } = this.resolveMatchingWindow()
+    this.logger.info(`=== delta matching (#99, ${dayKey(from)} → ${dayKey(to)}) ===`)
+    const deltaOk = await this.compareMatchingDelta(from, to)
+
+    if (ordersOk && linesOk && stockOk && deltaOk) {
+      this.logger.success(
+        'Réplique et voie directe cohérentes sur les trois tables + le delta matching'
+      )
     } else {
       this.exitCode = 1
     }
+  }
+
+  /** `--from`/`--to`, défaut J → J+14 (horizon planning typique de /programme). */
+  private resolveMatchingWindow(): { from: Date; to: Date } {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const from = this.from ? new Date(`${this.from}T00:00:00`) : today
+    const to = this.to
+      ? new Date(`${this.to}T00:00:00`)
+      : new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000)
+    return { from, to }
   }
 
   private async compareOrders(): Promise<boolean> {
@@ -265,6 +299,32 @@ export default class ReplicaSync extends BaseCommand {
       this.logger.success('  suggestions identiques par article (count + quantité)')
     }
     return diffs.length === 0
+  }
+
+  /**
+   * Delta matching (#99) : même population que `orders_replica` (WIPTYP=5, WIPSTA
+   * 1/2/3) donc même instabilité d'identité sur les suggestions — réutilise
+   * `compareStable`/`compareSuggested`. Scopé à une fenêtre (contrairement aux OF
+   * qui portent tout le lookback) : le delta dépend aussi de `order_lines_replica`
+   * pour son sous-filtre WIPTYP=1, donc une divergence ici peut venir de l'une ou
+   * l'autre table.
+   */
+  private async compareMatchingDelta(from: Date, to: Date): Promise<boolean> {
+    const started = Date.now()
+    const [direct, replica] = await Promise.all([
+      new X3OfRepository().getManufacturingOrdersForMatching(from, to),
+      ordersReplicaRepository.getManufacturingOrdersForMatching(from, to),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(`X3 : ${direct.length} OF · réplique : ${replica.length} OF · ${elapsed} s`)
+
+    const isStable = (o: ManufacturingOrder) => o.status === 1 || o.status === 2
+    const stableOk = this.compareStable(direct.filter(isStable), replica.filter(isStable))
+    const suggOk = this.compareSuggested(
+      direct.filter((o) => o.status === 3),
+      replica.filter((o) => o.status === 3)
+    )
+    return stableOk && suggOk
   }
 
   /**
