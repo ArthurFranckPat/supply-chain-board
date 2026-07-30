@@ -2,6 +2,8 @@ import db from '@adonisjs/lucid/services/db'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
+import { StockFluxRepository } from '#repositories/stock_flux_repository'
+import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
 
 /**
@@ -156,6 +158,29 @@ export class ReplicaSyncService {
         alloue_phys: s.allouePhys,
         alloue_global: s.alloueGlobal,
         pmp: s.pmp,
+      }))
+    })
+  }
+
+  /**
+   * Flux STOJOU dédoublonné par document, fenêtre `defaultStockRange('mois', …)`
+   * (12 mois glissants — #98, lot 3, scoping du 30/07/2026). PAS dans `syncAll()`
+   * ni le scheduler : ~50 appels SOAP chunkés (une semaine à la fois, cf.
+   * `StockFluxRepository`) contre 1 à 3 pour les autres tables — un tick 5 min
+   * répété sur ce volume serait une charge X3 nouvelle et non arbitrée. Reste
+   * une commande manuelle (`--only=stock-flux`) tant que la cadence
+   * d'ingestion n'est pas décidée avec des mesures réelles en face.
+   */
+  async syncStockFlux(source = 'manual'): Promise<TableIngestionResult> {
+    return this.ingest('stock_flux_replica', source, async () => {
+      const { from, to } = defaultStockRange('mois', new Date())
+      const rows = await new StockFluxRepository().getFluxNetByDocument(from, to)
+      return rows.map((r): Row => ({
+        article: r.article,
+        jour: isoDay(r.jour) ?? '',
+        vcrtyp: r.vcrtyp,
+        vcrnum: r.vcrnum,
+        net_doc: r.netDoc,
       }))
     })
   }

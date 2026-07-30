@@ -8,6 +8,9 @@ import orderLinesReplicaRepository from '#repositories/order_lines_replica_repos
 import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
+import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
+import { StockFluxRepository } from '#repositories/stock_flux_repository'
+import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import type { Flow } from '#app/domain/models/flow'
 
 /**
@@ -50,7 +53,8 @@ export default class ReplicaSync extends BaseCommand {
   declare compare: boolean
 
   @flags.array({
-    description: 'Tables à ingérer (orders, order-lines, stock). Défaut : toutes',
+    description:
+      'Tables à ingérer (orders, order-lines, stock, stock-flux). Défaut : toutes SAUF stock-flux (~50 appels SOAP, cf. syncStockFlux)',
   })
   declare only: string[]
 
@@ -90,6 +94,9 @@ export default class ReplicaSync extends BaseCommand {
     if (all || only.has('orders')) results.push(await replicaSyncService.syncOrders('cli'))
     if (all || only.has('order-lines')) results.push(await replicaSyncService.syncOrderLines('cli'))
     if (all || only.has('stock')) results.push(await replicaSyncService.syncStock('cli'))
+    // JAMAIS via `all` : ~50 appels SOAP chunkés, cf. syncStockFlux(). Nommer
+    // explicitement `--only=stock-flux`.
+    if (only.has('stock-flux')) results.push(await replicaSyncService.syncStockFlux('cli'))
 
     if (results.length === 0) {
       this.logger.error(`Aucune table reconnue dans --only=${[...only].join(',')}`)
@@ -176,9 +183,12 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info(`=== delta matching (#99, ${dayKey(from)} → ${dayKey(to)}) ===`)
     const deltaOk = await this.compareMatchingDelta(from, to)
 
-    if (ordersOk && linesOk && stockOk && deltaOk) {
+    this.logger.info('=== stock_flux_replica (#98, lot 3) ===')
+    const fluxOk = await this.compareStockFlux()
+
+    if (ordersOk && linesOk && stockOk && deltaOk && fluxOk) {
       this.logger.success(
-        'Réplique et voie directe cohérentes sur les trois tables + le delta matching'
+        'Réplique et voie directe cohérentes sur les trois tables + le delta matching + le flux stock'
       )
     } else {
       this.exitCode = 1
@@ -325,6 +335,62 @@ export default class ReplicaSync extends BaseCommand {
       replica.filter((o) => o.status === 3)
     )
     return stableOk && suggOk
+  }
+
+  /**
+   * `stock_flux_replica` n'est PAS dans le sync par défaut (`--only=stock-flux`
+   * requis, cf. `syncStockFlux`) — une table vide ici veut dire « pas encore
+   * ingérée », pas « divergente ». Skip informatif plutôt qu'échec.
+   *
+   * Diff par agrégat ARTICLE (somme `net_doc`) et non par ligne exacte : les
+   * derniers jours de la fenêtre peuvent encore recevoir des écritures X3 entre
+   * l'ingestion et cette comparaison (STOJOU n'est pas figé comme un snapshot
+   * CBN) — l'agrégat absorbe ce bruit de bord tout en vérifiant exactement ce
+   * que le KPI consomme (`SUM(net_doc)` par article et par période).
+   */
+  private async compareStockFlux(): Promise<boolean> {
+    const { from, to } = defaultStockRange('mois', new Date())
+    const replica = await stockFluxReplicaRepository.getFluxNetByDocument(from, to)
+    if (replica.length === 0) {
+      this.logger.info(
+        '  stock_flux_replica vide — pas encore ingérée (node ace replica:sync --only=stock-flux). Skip.'
+      )
+      return true
+    }
+
+    const started = Date.now()
+    const direct = await new StockFluxRepository().getFluxNetByDocument(from, to)
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} lignes document · réplique : ${replica.length} lignes document · ${elapsed} s`
+    )
+
+    const aggregate = (rows: { article: string; netDoc: number }[]) => {
+      const m = new Map<string, number>()
+      for (const r of rows) m.set(r.article, (m.get(r.article) ?? 0) + r.netDoc)
+      return m
+    }
+    const directAgg = aggregate(direct)
+    const replicaAgg = aggregate(replica)
+    const articles = new Set([...directAgg.keys(), ...replicaAgg.keys()])
+
+    const diffs: string[] = []
+    for (const article of articles) {
+      const d = directAgg.get(article) ?? 0
+      const r = replicaAgg.get(article) ?? 0
+      if (Math.abs(d - r) > 0.01) diffs.push(`${article} : ${d}≠${r}`)
+    }
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} articles avec un net_doc cumulé divergent :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+      this.logger.info(
+        '  Un écart isolé peut venir de STOJOU écrit entre le sync et cette comparaison — relancer --only=stock-flux juste avant --compare pour réduire la fenêtre.'
+      )
+    } else {
+      this.logger.success('  net_doc cumulé identique par article')
+    }
+    return diffs.length === 0
   }
 
   /**
