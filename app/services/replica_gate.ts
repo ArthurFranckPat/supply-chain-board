@@ -38,7 +38,8 @@ import env from '#start/env'
 export type ReadSource = 'replica' | 'direct'
 
 /** Tables de réplique adressables par le portail. */
-export type ReplicaTable = 'orders_replica' | 'order_lines_replica' | 'stock_replica'
+export type ReplicaTable =
+  'orders_replica' | 'order_lines_replica' | 'stock_replica' | 'stock_flux_replica'
 
 export interface GateVerdict {
   table: ReplicaTable
@@ -144,7 +145,12 @@ export class ReplicaGate {
 
   /** Verdicts de toutes les tables — diagnostic, page d'admin, `replica:sync --status`. */
   async verdicts(): Promise<GateVerdict[]> {
-    const tables: ReplicaTable[] = ['orders_replica', 'order_lines_replica', 'stock_replica']
+    const tables: ReplicaTable[] = [
+      'orders_replica',
+      'order_lines_replica',
+      'stock_replica',
+      'stock_flux_replica',
+    ]
     return Promise.all(tables.map((t) => this.verdict(t)))
   }
 }

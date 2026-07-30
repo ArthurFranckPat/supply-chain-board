@@ -1,5 +1,8 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+import replicaGate from '#services/replica_gate'
+import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
+import type { StockFluxDocRow } from '#repositories/stock_flux_repository'
 
 /**
  * KPI Valorisation du stock — reconstruction sur une plage (site AE1).
@@ -312,7 +315,117 @@ export function defaultStockRange(grain: StockGrain, refDate: Date): { from: Dat
   return { from, to }
 }
 
+/**
+ * Agrège des lignes de flux document (article, jour, netDoc) en
+ * (article → période → net qté cumulée). Pure, testable sans X3 ni SQLite —
+ * partagée par la voie réplique (`stock_flux_replica`, grain document) et la
+ * voie X3 directe (`buildFluxSql`, déjà agrégée par période côté SQL, donc un
+ * seul appel `add` par (article, période) ici — l'accumulation est un no-op
+ * dans ce cas, pas une double-comptée).
+ */
+export function aggregateFluxByArticlePeriod(
+  rows: { article: string; jour: Date; netDoc: number }[],
+  grain: StockGrain
+): Map<string, Map<string, number>> {
+  const fluxByArticle = new Map<string, Map<string, number>>()
+  for (const { article, jour, netDoc } of rows) {
+    if (!article) continue
+    const key = periodKey(jour, grain)
+    let perPeriod = fluxByArticle.get(article)
+    if (!perPeriod) {
+      perPeriod = new Map()
+      fluxByArticle.set(article, perPeriod)
+    }
+    perPeriod.set(key, (perPeriod.get(key) ?? 0) + netDoc)
+  }
+  return fluxByArticle
+}
+
+/**
+ * `stock_flux_replica` n'est PAS sur le scheduler (#98 lot 3, ingestion
+ * manuelle `--only=stock-flux`) — deux questions SÉPARÉES, pas une seule :
+ *  - Assez d'HISTOIRE : `coverageMin <= from` ? Question de données, qu'aucune
+ *    fraîcheur de run ne compense (plage `pinned` plus ancienne que la fenêtre
+ *    12 mois répliquée).
+ *  - Assez RÉCENT : `ageMs <= maxAgeMs` ? Question de temps. PAS vérifiable via
+ *    `MAX(jour)` de la table — un jour sans mouvement produit `MAX(jour) <
+ *    aujourd'hui` même juste après un run parfaitement à jour, ce qui rendrait
+ *    la réplique injustement inéligible en permanence (constaté contre X3 test,
+ *    dont l'activité STOJOU récente est en pratique quasi nulle).
+ *
+ * Pure, testable sans DB.
+ */
+export function replicaEligibleForFlux(
+  signals: { coverageMin: Date | null; ageMs: number | null },
+  from: Date,
+  maxAgeMs: number
+): boolean {
+  const { coverageMin, ageMs } = signals
+  if (coverageMin === null || coverageMin.getTime() > from.getTime()) return false
+  if (ageMs === null || ageMs > maxAgeMs) return false
+  return true
+}
+
+/** Cadence non décidée (#98 lot 3, ingestion manuelle) : borne conservatrice,
+ *  pas un TTL calibré sur un usage réel. À revoir avec la cadence, quand elle
+ *  existera. */
+const STOCK_FLUX_MAX_AGE_MS = 6 * 60 * 60 * 1000
+
 export class StockValuationRepository {
+  /**
+   * Flux STOJOU agrégé par (article, période) — #98 lot 3. Réplique si
+   * `stock_flux_replica` couvre assez d'historique ET a été synchronisée
+   * assez récemment, sinon X3 direct, chunké par article comme avant.
+   */
+  private async getFluxByArticlePeriod(
+    from: Date,
+    grain: StockGrain,
+    articles: string[],
+    fromStr: string
+  ): Promise<Map<string, Map<string, number>>> {
+    const now = new Date()
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const [coverage, ageMs, canReadReplica] = await Promise.all([
+      stockFluxReplicaRepository.getCoverage(),
+      stockFluxReplicaRepository.getLastFullRunAgeMs(),
+      replicaGate.canRead('stock_flux_replica'),
+    ])
+    const onReplica =
+      canReadReplica &&
+      replicaEligibleForFlux({ coverageMin: coverage.min, ageMs }, from, STOCK_FLUX_MAX_AGE_MS)
+
+    if (onReplica) {
+      const rows: StockFluxDocRow[] = await stockFluxReplicaRepository.getFluxNetByDocument(
+        from,
+        today,
+        articles
+      )
+      return aggregateFluxByArticlePeriod(rows, grain)
+    }
+
+    // X3 direct — chunké par article : le flux complet dépasse le seuil de
+    // lignes du web service SOAP Syracuse (resultXml is nil), même motif que
+    // retard_repository.ts qui chunk le stock dispo.
+    const CHUNK_SIZE = 120
+    const docRows: { article: string; jour: Date; netDoc: number }[] = []
+    const fluxDb = new X3Database()
+    try {
+      for (let i = 0; i < articles.length; i += CHUNK_SIZE) {
+        const chunk = articles.slice(i, i + CHUNK_SIZE)
+        const rows: RawRow[] = await fluxDb.raw(buildFluxSql(fromStr, chunk, grain))
+        for (const row of rows) {
+          const article = row.ARTICLE?.trim() ?? ''
+          const d = parseX3Date(row.PERIODE)
+          if (!article || !d) continue
+          docRows.push({ article, jour: d, netDoc: num(row.NETQ) })
+        }
+      }
+    } finally {
+      await fluxDb.destroy()
+    }
+    return aggregateFluxByArticlePeriod(docRows, grain)
+  }
+
   async getStockValuationKpi(
     refDate: Date = new Date(),
     grain: StockGrain = 'mois',
@@ -333,39 +446,16 @@ export class StockValuationRepository {
       await baseDb.destroy()
     }
 
-    // --- Flux STOJOU paginé par chunks d'articles ---
-    // Le flux complet dépasse le seuil de lignes du web service SOAP Syracuse
-    // (resultXml is nil). On découpe la population en tranches de CHUNK_SIZE
-    // articles (même motif que retard_repository.ts qui chunk le stock dispo).
-    const CHUNK_SIZE = 120
     const allArticles = [...new Set(baseRows.map((r) => r.ARTICLE?.trim() ?? '').filter(Boolean))]
-    const fluxRows: RawRow[] = []
-    const fluxDb = new X3Database()
-    try {
-      for (let i = 0; i < allArticles.length; i += CHUNK_SIZE) {
-        const chunk = allArticles.slice(i, i + CHUNK_SIZE)
-        const rows: RawRow[] = await fluxDb.raw(buildFluxSql(fromStr, chunk, grain))
-        fluxRows.push(...rows)
-      }
-    } finally {
-      await fluxDb.destroy()
-    }
 
-    // --- Indexer les flux par article → (période → net qté) ---
-    const fluxByArticle = new Map<string, Map<string, number>>()
-    for (const row of fluxRows) {
-      const article = row.ARTICLE?.trim() ?? ''
-      if (!article) continue
-      const d = parseX3Date(row.PERIODE)
-      if (!d) continue
-      const key = periodKey(d, grain)
-      let perPeriod = fluxByArticle.get(article)
-      if (!perPeriod) {
-        perPeriod = new Map()
-        fluxByArticle.set(article, perPeriod)
-      }
-      perPeriod.set(key, num(row.NETQ))
-    }
+    // --- Flux STOJOU : réplique si elle couvre la fenêtre, sinon X3 direct ---
+    // (#98, lot 3). La rembobinage a besoin du flux de `from` jusqu'à
+    // AUJOURD'HUI (pas juste jusqu'à `to`) — cf. docstring du module : on
+    // reconstruit le passé en défaisant les mouvements POSTÉRIEURS à chaque
+    // période depuis le stock actuel. `stock_flux_replica` n'est pas sur le
+    // scheduler (ingestion manuelle, `--only=stock-flux`) : son `coverage.max`
+    // doit donc être vérifié à chaque appel, pas supposé à jour.
+    const fluxByArticle = await this.getFluxByArticlePeriod(from, grain, allArticles, fromStr)
 
     // --- Rembobinage par article + agrégation ---
     // seriesAcc[i] = total valeur/qté de fin de période i, cumul sur tous les articles.
