@@ -43,9 +43,24 @@ export default class ReplicaSync extends BaseCommand {
   declare only: string[]
 
   async run() {
-    if (this.status) return this.printStatus()
-    if (this.compare) return this.printCompare()
+    if (this.status) {
+      await this.printStatus()
+    } else if (this.compare) {
+      await this.printCompare()
+    } else {
+      await this.runSync()
+    }
 
+    // `X3Database` (derrière X3OfRepository/X3StockRepository/…) ouvre un pool knex
+    // jamais fermé — son timer d'éviction interne (tarn) garde le process vivant
+    // indéfiniment après la fin du travail. Sans effet sur le serveur web (qui ne
+    // termine jamais de toute façon) mais fatal pour une commande one-shot : sans
+    // cette sortie explicite, `replica:sync`/`--status`/`--compare` finissent leur
+    // rapport puis ne rendent jamais la main au shell.
+    process.exit(this.exitCode ?? 0)
+  }
+
+  private async runSync() {
     const only = new Set(this.only ?? [])
     const all = only.size === 0
 
