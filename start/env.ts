@@ -36,6 +36,15 @@ export default await Env.create(new URL('../', import.meta.url), {
   // `redis` en prod, `memory` en test (forcé par config/cache.ts).
   CACHE_STORE: Env.schema.enum(['memory', 'file', 'redis'] as const),
 
+  // Réplique X3 locale (#98). `true` autorise les lectures depuis la réplique ;
+  // toute autre valeur, ou l'absence, garde TOUTES les lectures sur la voie
+  // directe X3 (cf. app/services/replica_gate.ts).
+  //
+  // Optionnel et défaut fermé : les deux stratégies coexistent volontairement, le
+  // choix se tranchera au déploiement. Un défaut ouvert basculerait la production
+  // sur une source dont l'équivalence avec la voie directe n'est pas démontrée.
+  REPLICA_READS: Env.schema.enum.optional(['true', 'false'] as const),
+
   // X3
   X3_ENV: Env.schema.enum(['test', 'prod'] as const),
   X3_TEST_HOST: Env.schema.string({ format: 'host' }),

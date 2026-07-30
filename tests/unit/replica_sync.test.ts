@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
-import { ReplicaSyncService } from '#services/replica_sync_service'
+import replicaSyncService, { ReplicaSyncService } from '#services/replica_sync_service'
+import replicaGate, { type ReplicaTable } from '#services/replica_gate'
 
 /**
  * Swap transactionnel et journalisation (#98, lot 1).
@@ -39,6 +40,7 @@ test.group('ReplicaSyncService — swap transactionnel', (group) => {
   group.teardown(async () => {
     await conn.rawQuery('DROP TABLE IF EXISTS swap_probe')
     await conn.from('ingestion_log').where('source', SOURCE).delete()
+    await conn.from('replica_dirty').where('table_name', 'swap_probe').delete()
   })
 
   test('un swap réussi remplace intégralement le contenu', async ({ assert }) => {
@@ -112,6 +114,46 @@ test.group('ReplicaSyncService — swap transactionnel', (group) => {
     assert.equal(entry.status, 'failed')
     assert.include(entry.error, 'panne simulée')
     assert.isNotNull(entry.finished_at)
+  })
+
+  /**
+   * Couplage swap → read-after-write : un run complet réussi doit lever le
+   * marquage `dirty`, sinon les lectures resteraient sur la voie directe pour
+   * toujours. Un run en échec doit le laisser, sinon on servirait une réplique qui
+   * n'a rien rattrapé.
+   *
+   * `swap_probe` n'est pas un `ReplicaTable`, d'où le cast : `clearDirty` et
+   * `markDirty` travaillent sur un nom de table au runtime, le type ne sert qu'à
+   * empêcher les fautes de frappe côté appelants réels.
+   */
+  const probeTable = 'swap_probe' as ReplicaTable
+
+  test('un swap réussi lève le marquage dirty', async ({ assert }) => {
+    await replicaGate.markDirty([probeTable], 'test')
+
+    await service.run('swap_probe', async () => [{ id: 'a', val: 1 }])
+
+    const dirty = await conn.from('replica_dirty').where('table_name', 'swap_probe').first()
+    assert.isNotOk(dirty)
+  })
+
+  test('un swap en échec laisse le marquage dirty', async ({ assert }) => {
+    await replicaGate.markDirty([probeTable], 'test')
+
+    await service.run('swap_probe', async () => {
+      throw new Error('X3 injoignable')
+    })
+
+    const dirty = await conn.from('replica_dirty').where('table_name', 'swap_probe').first()
+    assert.isDefined(dirty)
+  })
+
+  test('une ré-ingestion ciblée sans numéro ne touche ni X3 ni la table', async ({ assert }) => {
+    const result = await replicaSyncService.reingestOrders([])
+
+    assert.equal(result.status, 'ok')
+    assert.equal(result.rows, 0)
+    assert.equal(result.durationMs, 0)
   })
 
   test('freshness rend le dernier run de chaque table', async ({ assert }) => {

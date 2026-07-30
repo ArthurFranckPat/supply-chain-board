@@ -2,6 +2,7 @@ import db from '@adonisjs/lucid/services/db'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
+import replicaGate, { type ReplicaTable } from '#services/replica_gate'
 
 /**
  * Ingestion X3 → réplique SQLite locale (issue #98, lot 1).
@@ -166,12 +167,20 @@ export class ReplicaSyncService {
    * aussi (TTL 2–5 min + grâce 12 h) mais aucune requête ne peut la lire.
    */
   async freshness(): Promise<ReplicaFreshness[]> {
+    // `scope = 'full'` DANS LES DEUX clauses, y compris la sous-requête : sans le
+    // filtre côté `MAX(id)`, une ré-ingestion partielle plus récente gagnerait
+    // l'agrégat puis serait écartée par la jointure, et la table ressortirait
+    // « jamais ingérée » alors qu'un run complet a bien eu lieu.
     const rows = await this.conn.rawQuery(
       `SELECT l.table_name, l.status, l.started_at, l.finished_at, l.rows, l.duration_ms
          FROM ingestion_log l
          JOIN (
-           SELECT table_name, MAX(id) AS id FROM ingestion_log GROUP BY table_name
+           SELECT table_name, MAX(id) AS id
+             FROM ingestion_log
+            WHERE scope = 'full'
+            GROUP BY table_name
          ) last ON last.id = l.id
+        WHERE l.scope = 'full'
         ORDER BY l.table_name`
     )
 
@@ -188,6 +197,30 @@ export class ReplicaSyncService {
         ageMs: finished === null ? null : now - finished,
       }
     })
+  }
+
+  /**
+   * Ré-ingestions partielles récentes.
+   *
+   * `freshness()` ne retient que les runs complets — c'est la bonne règle pour
+   * juger de la fraîcheur d'une table, mais ça rend les partiels invisibles. Les
+   * exposer à part évite de conclure qu'ils n'ont pas eu lieu.
+   */
+  async recentPartialRuns(
+    limit = 5
+  ): Promise<{ table: string; startedAt: string; note: string | null }[]> {
+    const rows = await this.conn
+      .from('ingestion_log')
+      .select('table_name', 'started_at', 'note')
+      .where('scope', 'partial')
+      .orderBy('id', 'desc')
+      .limit(limit)
+
+    return rows.map((r) => ({
+      table: r.table_name,
+      startedAt: r.started_at,
+      note: r.note ?? null,
+    }))
   }
 
   /**
@@ -231,16 +264,140 @@ export class ReplicaSyncService {
       await this.log({
         table,
         status: 'ok',
+        scope: 'full',
         startedAt,
         rows: rows.length,
         durationMs,
         source,
       })
+
+      // Le run a démontré avoir vu tout ce qui était écrit avant son démarrage :
+      // le marquage `dirty` de cette table n'a plus d'objet.
+      //
+      // Seul un run COMPLET peut lever le marquage. Une ré-ingestion partielle le
+      // lève aussi, mais sous une condition plus étroite, cf. `reingestOrders`.
+      await replicaGate.clearDirty([table as ReplicaTable])
+
       return { table, status: 'ok', rows: rows.length, durationMs }
     } catch (error) {
       const durationMs = Date.now() - start
       const message = (error as Error)?.message ?? String(error)
-      await this.log({ table, status: 'failed', startedAt, durationMs, source, error: message })
+      await this.log({
+        table,
+        status: 'failed',
+        scope: 'full',
+        startedAt,
+        durationMs,
+        source,
+        error: message,
+      })
+      return { table, status: 'failed', rows: 0, durationMs, error: message }
+    }
+  }
+
+  /**
+   * Ré-ingestion CIBLÉE de quelques OF, par numéro (#98, read-after-write).
+   *
+   * À appeler juste après une écriture X3 sur ces OF. Referme la fenêtre de voie
+   * directe en ~1 s au lieu d'attendre le prochain run complet : un `IN (...)` sur
+   * les numéros écrits, sans le lookback 90 j, donc quelques lignes ZSOAPSQL au
+   * lieu de 11 000.
+   *
+   * ## Upsert et non swap
+   *
+   * Évident mais à dire : un `DELETE` complet viderait la table pour ne réécrire
+   * que les OF nommés. Les lignes réécrites ici seront de toute façon remplacées
+   * au prochain swap complet — c'est auto-réparateur, pas un conflit.
+   *
+   * ## Un OF disparu de la tranche est SUPPRIMÉ
+   *
+   * Si X3 ne rend plus l'OF (clos, supprimé, sorti du périmètre WIPTYP=5), sa ligne
+   * est retirée de la réplique. Sans ça un OF clos y resterait vivant jusqu'au
+   * prochain run complet — exactement le genre de fantôme que le board ne doit pas
+   * afficher.
+   *
+   * ## Pourquoi ça peut lever le marquage `dirty`
+   *
+   * L'hypothèse est explicite : une écriture X3 ne modifie que les OF qu'elle
+   * nomme. Sous cette hypothèse, relire ces OF suffit à remettre
+   * `orders_replica` en accord avec X3.
+   *
+   * L'hypothèse ne s'étend PAS aux autres tables : un affermissement consomme des
+   * allocations, donc `stock_replica` reste suspecte jusqu'à un run complet. C'est
+   * à l'appelant de marquer les tables qu'il salit ; celle-ci n'en lave qu'une.
+   */
+  async reingestOrders(numOfs: string[], source = 'writeback'): Promise<TableIngestionResult> {
+    const table = 'orders_replica'
+    const start = Date.now()
+    const startedAt = new Date().toISOString()
+    const asked = [...new Set(numOfs.map((n) => n.trim()).filter(Boolean))]
+
+    if (asked.length === 0) {
+      return { table, status: 'ok', rows: 0, durationMs: 0 }
+    }
+
+    try {
+      const orders = await new X3OfRepository().getManufacturingOrdersByNums(asked)
+      const found = new Set(orders.map((o) => o.numOf))
+      const vanished = asked.filter((n) => !found.has(n))
+
+      const trx = await this.conn.transaction()
+      try {
+        await trx.from(table).whereIn('num_of', asked).delete()
+        const rows = orders.map((o): Row => ({
+          num_of: o.numOf,
+          article: o.article,
+          designation: o.designation,
+          status: o.status,
+          statut_label: o.statutLabel,
+          quantity: o.quantity,
+          quantity_launched: o.quantityLaunched,
+          quantity_done: o.quantityDone,
+          start_date: isoDay(o.startDate),
+          end_date: isoDay(o.endDate),
+        }))
+        for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+          await trx.table(table).insert(rows.slice(i, i + INSERT_CHUNK))
+        }
+        await trx.commit()
+      } catch (error) {
+        await trx.rollback()
+        throw error
+      }
+
+      const durationMs = Date.now() - start
+      await this.log({
+        table,
+        status: 'ok',
+        scope: 'partial',
+        startedAt,
+        rows: orders.length,
+        durationMs,
+        source,
+        // Sans ça une ligne `partial` est illisible : 3 lignes sur 11 000, mais
+        // lesquelles ?
+        note: `${asked.length} demandés, ${orders.length} trouvés${
+          vanished.length ? `, ${vanished.length} disparus : ${vanished.join(', ')}` : ''
+        }`,
+      })
+
+      await replicaGate.clearDirty([table])
+
+      return { table, status: 'ok', rows: orders.length, durationMs }
+    } catch (error) {
+      const durationMs = Date.now() - start
+      const message = (error as Error)?.message ?? String(error)
+      await this.log({
+        table,
+        status: 'failed',
+        scope: 'partial',
+        startedAt,
+        durationMs,
+        source,
+        error: message,
+      })
+      // Pas de `clearDirty` : l'échec laisse la table suspecte, donc les lectures
+      // restent sur la voie directe. C'est le comportement voulu.
       return { table, status: 'failed', rows: 0, durationMs, error: message }
     }
   }
@@ -253,21 +410,25 @@ export class ReplicaSyncService {
   private async log(entry: {
     table: string
     status: IngestionStatus
+    scope: 'full' | 'partial'
     startedAt: string
     rows?: number
     durationMs: number
     source: string
-    error?: string
+    error?: string | null
+    note?: string
   }): Promise<void> {
     await this.conn.table('ingestion_log').insert({
       table_name: entry.table,
       status: entry.status,
+      scope: entry.scope,
       started_at: entry.startedAt,
       finished_at: new Date().toISOString(),
       rows: entry.rows ?? null,
       duration_ms: entry.durationMs,
       source: entry.source,
       error: entry.error ?? null,
+      note: entry.note ?? null,
     })
   }
 }

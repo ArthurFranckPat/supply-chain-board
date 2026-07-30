@@ -4,6 +4,8 @@ import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run_client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
 import printService, { docLabel } from '#services/print_service'
+import replicaGate from '#services/replica_gate'
+import replicaSyncService from '#services/replica_sync_service'
 
 /**
  * Invalide les caches board après un write-back X3 (FIRMSUGG).
@@ -27,6 +29,36 @@ async function bustBoardCaches() {
     cacheNs('charge').clear(),
     cacheNs('engagement').clear(),
   ])
+}
+
+/**
+ * Pendant de `bustBoardCaches` pour la réplique X3 (#98) : ce qui invalide un
+ * cache doit marquer la réplique. C'est le MÊME événement — une écriture que la
+ * source de lecture n'a pas encore vue — et le tenir au même endroit est ce qui
+ * évite qu'un futur chemin d'écriture n'en câble qu'une des deux.
+ *
+ * On marque large : l'affermissement change l'OF (`orders_replica`) mais consomme
+ * aussi des allocations de composants (`stock_replica`). Un marquage en trop coûte
+ * une fenêtre de lecture directe ; un marquage manquant sert une donnée fausse.
+ *
+ * Puis ré-ingestion CIBLÉE des OF touchés : referme la fenêtre en ~1 s au lieu
+ * d'attendre le prochain run complet. Elle ne lève le marquage que de
+ * `orders_replica` — `stock_replica` reste suspecte, ses effets de bord ne se
+ * relisent pas par numéro d'OF.
+ *
+ * Jamais bloquant : la réplique n'est lue par personne tant que `REPLICA_READS`
+ * n'est pas à `true`, et même après, un échec ici laisse la table marquée sale,
+ * donc les lectures sur la voie directe. Faire échouer un affermissement réussi
+ * en X3 pour un problème de réplique serait le pire des deux mondes.
+ */
+async function markReplicaDirty(numOfs: string[]) {
+  try {
+    await replicaGate.markDirty(['orders_replica', 'stock_replica'], 'affermissement (#31)')
+    await replicaSyncService.reingestOrders(numOfs)
+  } catch {
+    // Silencieux par conception : voir plus haut. L'état « sale » est déjà posé,
+    // c'est lui qui protège les lectures.
+  }
 }
 
 /**
@@ -111,6 +143,9 @@ export default class SuggestionFirmController {
     // Inutile de blacklister la suggestion : depuis #32, la supply vient d'ORDERS
     // (temps réel) → FUNMAUTR y consomme la suggestion, elle disparaît d'elle-même.
     await bustBoardCaches()
+    // Les DEUX numéros : celui qu'on a consommé (la suggestion, qui doit
+    // disparaître de la réplique) et celui qui vient de naître (l'OF ferme).
+    await markReplicaDirty([keys.sugNum, mfgNum])
 
     // --- Impression du dossier (issue #85, lot 3) ----------------------------
     // Affermir d'abord, imprimer ensuite : l'OF existe dans l'ERP quoi qu'il

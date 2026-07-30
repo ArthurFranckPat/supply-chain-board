@@ -1,6 +1,7 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import replicaSyncService from '#services/replica_sync_service'
+import replicaGate from '#services/replica_gate'
 
 /**
  * `node ace replica:sync` — ingestion X3 → réplique SQLite locale (#98, lot 1).
@@ -59,20 +60,36 @@ export default class ReplicaSync extends BaseCommand {
     if (results.some((r) => r.status === 'failed')) this.exitCode = 1
   }
 
+  /**
+   * Fraîcheur ET verdict du portail. Les deux sont nécessaires pour comprendre ce
+   * que voit l'app : une table peut être fraîche de 30 secondes et servie en voie
+   * directe quand même (écriture X3 depuis, ou `REPLICA_READS` fermé). L'âge seul
+   * répondrait à côté de la question.
+   */
   private async printStatus() {
-    const freshness = await replicaSyncService.freshness()
+    const [freshness, verdicts] = await Promise.all([
+      replicaSyncService.freshness(),
+      replicaGate.verdicts(),
+    ])
 
-    if (freshness.length === 0) {
-      this.logger.info('Aucune ingestion journalisée — réplique jamais alimentée.')
-      return
+    const byTable = new Map(freshness.map((f) => [f.table, f]))
+
+    for (const v of verdicts) {
+      const f = byTable.get(v.table)
+      const age = !f || f.ageMs === null ? 'jamais ingérée' : `${Math.round(f.ageMs / 60000)} min`
+      const rows = !f || f.rows === null ? '—' : `${f.rows} lignes`
+      const why = v.reason ? ` (${v.reason})` : ''
+      const line = `${v.table} : lecture ${v.source}${why} · ${rows} · âge ${age}`
+
+      if (v.source === 'replica') this.logger.info(line)
+      else this.logger.warning(line)
     }
 
-    for (const f of freshness) {
-      const age = f.ageMs === null ? '—' : `${Math.round(f.ageMs / 60000)} min`
-      const rows = f.rows === null ? '—' : `${f.rows} lignes`
-      const line = `${f.table} : ${f.status}, ${rows}, âge ${age}`
-      if (f.status === 'ok') this.logger.info(line)
-      else this.logger.warning(line)
+    // Les runs partiels n'apparaissent pas ci-dessus (freshness ne retient que le
+    // complet). Les lister à part évite de croire qu'ils n'ont pas eu lieu.
+    const partials = await replicaSyncService.recentPartialRuns()
+    for (const p of partials) {
+      this.logger.info(`  ↳ partiel ${p.table} : ${p.note ?? '—'} (${p.startedAt})`)
     }
   }
 }

@@ -281,6 +281,49 @@ WHERE WIPTYP_0 = 5
     }
   }
 
+  /**
+   * Charge N OF par numéro. Comme `getManufacturingOrderByNum`, SANS le lookback
+   * 90 j : le périmètre est la liste fournie, donc quelques lignes ZSOAPSQL au lieu
+   * de 11 000.
+   *
+   * Sert la ré-ingestion ciblée de la réplique après une écriture X3 (#98) :
+   * l'affermissement batch (#34) écrit N OF d'un coup, un appel par OF coûterait
+   * N allers-retours SOAP là où un `IN (...)` en coûte un.
+   *
+   * Découpage à 200 : un `IN` trop long fait ressortir `ZSOAPSQL` avec un
+   * `resultXml` vide (issue #40) plutôt qu'une erreur SQL.
+   */
+  async getManufacturingOrdersByNums(numOfs: string[]): Promise<ManufacturingOrder[]> {
+    const uniq = [...new Set(numOfs.map((n) => n.trim()).filter(Boolean))]
+    if (uniq.length === 0) return []
+
+    const CHUNK = 200
+    const out: ManufacturingOrder[] = []
+    for (let i = 0; i < uniq.length; i += CHUNK) {
+      const list = uniq
+        .slice(i, i + CHUNK)
+        .map((n) => `'${n.replace(/'/g, "''")}'`)
+        .join(', ')
+      out.push(
+        ...(await this.fetchOrders(`
+SELECT
+  VCRNUM_0    AS NUM,
+  ITMREF_0    AS ARTICLE,
+  WIPSTA_0    AS STA,
+  EXTQTY_0    AS LAUNCHED,
+  CPLQTY_0    AS DONE,
+  RMNEXTQTY_0 AS REMAIN,
+  STRDAT_0    AS STRDAT,
+  ENDDAT_0    AS ENDDAT
+FROM ORDERS
+WHERE WIPTYP_0 = 5
+  AND VCRNUM_0 IN (${list})
+`))
+      )
+    }
+    return out
+  }
+
   /** Exécute un SQL liste ORDERS et hydrate (libellé statut + désignation locale). */
   private async fetchOrders(sql: string): Promise<ManufacturingOrder[]> {
     const [rows, menuRows, articles] = await Promise.all([
