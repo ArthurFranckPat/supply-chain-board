@@ -156,6 +156,27 @@ class BoardDataset {
     })
   }
 
+  /**
+   * `getOrdersForWindow()` et `getOrdersForMatchingDelta()` portent toutes deux des
+   * suggestions CBN (WIPSTA=3), sans identité stable : régénérées à chaque run avec
+   * un nouveau numOf. Servir l'une depuis la réplique (figée à T) et l'autre depuis
+   * X3 direct (lu à T+Δ) reproduit la vue déchirée que #98 écarte pour l'INGESTION
+   * (swap complet) — sauf que le mélange se produirait ici, à la LECTURE. Constaté
+   * en prod le 30/07/2026 : matching OF↔commande cassé.
+   *
+   * Un seul verdict, appelé par les deux méthodes, empêche structurellement qu'elles
+   * divergent — plus robuste qu'un commentaire d'avertissement sur chacune.
+   * `order_lines_replica` entre dans le verdict : `getOrdersForMatchingDelta` en
+   * dépend pour son sous-filtre WIPTYP=1 (articles en demande dans la fenêtre).
+   */
+  private async matchingFamilyOnReplica(): Promise<boolean> {
+    const [orders, lines] = await Promise.all([
+      replicaGate.canRead('orders_replica'),
+      replicaGate.canRead('order_lines_replica'),
+    ])
+    return orders && lines
+  }
+
   /** OFs dont STRDAT ∈ [from, to] — fenêtre courte, ~25× moins de lignes que getOrders().
    * Cache par fenêtre (clé orders-window:from:to). Utilisé par /ordonnancement et /programme
    * pour ne charger que les OFs visibles sur le board, au lieu du lookback 90j ENDDAT. */
@@ -173,24 +194,12 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // TOUJOURS X3 direct, jamais la réplique — contrairement à getOrders().
-        //
-        // `order_impacts_loader.ts` combine CETTE méthode avec
-        // `getOrdersForMatchingDelta()` (toujours X3 direct, cf. plus bas) dans le
-        // MÊME calcul de matching OF↔commande. Les deux portent des suggestions
-        // (WIPSTA=3), qui n'ont pas d'identité stable : régénérées à CHAQUE run CBN
-        // avec un nouveau numOf (cf. commentaire de compareSuggested dans
-        // commands/replica_sync.ts). Servir l'une depuis une réplique figée à T et
-        // l'autre depuis X3 lu à T+Δ revient exactement à la « vue déchirée moitié
-        // run N moitié run N+1 » que l'issue #98 écarte explicitement pour
-        // l'INGESTION (swap complet, jamais de merge incrémental) — sauf que ce
-        // mélange se produisait ici, à la LECTURE. Constaté en prod : matching
-        // OF↔commande cassé dès `REPLICA_READS=true`.
-        //
-        // `getOrders()` (lookback complet, sans fenêtre) n'a pas ce problème : rien
-        // ne le combine avec `getOrdersForMatchingDelta()`. Lui seul reste éligible
-        // à la réplique.
-        const mos = await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
+        // Cf. `matchingFamilyOnReplica()` : verdict partagé avec
+        // `getOrdersForMatchingDelta()`, jamais l'une sur la réplique et l'autre en
+        // X3 direct.
+        const mos = (await this.matchingFamilyOnReplica())
+          ? await ordersReplicaRepository.getManufacturingOrdersForWindow(from, to)
+          : await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
@@ -233,7 +242,10 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const mos = await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
+        // Cf. `matchingFamilyOnReplica()` : même verdict que `getOrdersForWindow()`.
+        const mos = (await this.matchingFamilyOnReplica())
+          ? await ordersReplicaRepository.getManufacturingOrdersForMatching(from, to)
+          : await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
         return mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,

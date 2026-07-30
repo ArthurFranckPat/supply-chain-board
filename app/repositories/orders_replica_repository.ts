@@ -87,6 +87,44 @@ export class OrdersReplicaRepository {
       .select('*')
     return (rows as ReplicaRow[]).map(toOrder)
   }
+
+  /**
+   * Miroir réplique de `X3OfRepository.getManufacturingOrdersForMatching()` (#99) :
+   * OFs démarrés avant `from`, encore ouverts, fin ≤ `to`, sur un article ayant de
+   * la demande dans la fenêtre.
+   *
+   * Deux requêtes plutôt qu'une jointure/sous-requête corrélée : `order_lines_replica`
+   * et `orders_replica` sont deux tables indépendantes du même fichier SQLite, le
+   * volume (dizaines de lignes) rend le coût du deuxième aller négligeable.
+   *
+   * Le sous-filtre WIPTYP=1 de `buildMatchingDeltaSql` compare sur `ENDDAT_0` brut,
+   * alors que `date_livraison` vaut l'ÉCHÉANCE (`SHIDAT_0` firme / `ENDDAT_0`
+   * prévision, cf. `X3OrderLineRepository`). Vérifié en PROD le 30/07/2026 :
+   * `SHIDAT_0 = ENDDAT_0` sur 100 % des lignes fermes (WIPTYP=1, WIPSTA=1,
+   * RMNEXTQTY>0) — pas une divergence marginale, une égalité totale sur toute la
+   * population. `date_livraison` est donc équivalent à `ENDDAT_0` ici.
+   */
+  async getManufacturingOrdersForMatching(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+    const fromIso = isoLocal(from)
+    const toIso = isoLocal(to)
+
+    const demandRows = await this.conn
+      .from('order_lines_replica')
+      .where('date_livraison', '>=', fromIso)
+      .andWhere('date_livraison', '<=', toIso)
+      .distinct('article')
+      .select('article')
+    const articles = (demandRows as { article: string }[]).map((r) => r.article)
+    if (articles.length === 0) return []
+
+    const rows = await this.conn
+      .from('orders_replica')
+      .where('end_date', '<=', toIso)
+      .andWhere((q) => q.where('start_date', '<', fromIso).orWhere('start_date', '>', toIso))
+      .whereIn('article', articles)
+      .select('*')
+    return (rows as ReplicaRow[]).map(toOrder)
+  }
 }
 
 const ordersReplicaRepository = new OrdersReplicaRepository()
