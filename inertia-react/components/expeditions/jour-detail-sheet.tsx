@@ -6,7 +6,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@r/components/ui/sheet'
-import { Badge } from '@r/components/ui/badge'
 import {
   type DayCharge,
   type ForecastLine,
@@ -14,36 +13,41 @@ import {
   fmtJour,
   fmtPal,
 } from '@r/components/expeditions/forecast-types'
+import { TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 
 /**
- * Drill-down d'un jour de prévision (issue #104) — commandes composant la charge.
+ * Drill-down jour / différé (issue #104) — même densité que CamionDetailSheet.
  */
 
 const TH =
   'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground border-b border-rule'
 
-function statutClass(s: ForecastLine['statut']): string {
+function statutTone(s: ForecastLine['statut']): string {
   switch (s) {
     case 'on_time':
     case 'stock':
-      return 'bg-ferme/15 text-ferme'
+      return 'text-ferme'
     case 'retard':
-      return 'bg-suggere/15 text-suggere'
+      return 'text-suggere'
     case 'bloquee':
     case 'sans_couverture':
-      return 'bg-destructive/15 text-destructive'
+      return 'text-destructive'
   }
 }
 
 function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) {
   if (lines.length === 0) {
-    return <p className="px-1 py-4 text-[12px] text-muted-foreground">{empty}</p>
+    return (
+      <p className="px-1 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
+        {empty}
+      </p>
+    )
   }
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-md border border-rule">
       <table className="w-full border-collapse text-[12px]">
-        <thead>
+        <thead className="bg-secondary">
           <tr>
             <th className={TH}>Client</th>
             <th className={TH}>Commande</th>
@@ -51,43 +55,45 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
             <th className={cn(TH, 'text-right')}>Qté</th>
             <th className={cn(TH, 'text-right')}>Pal</th>
             <th className={TH}>Statut</th>
-            <th className={TH}>OF / fin</th>
+            <th className={TH}>OF</th>
           </tr>
         </thead>
         <tbody>
           {lines.map((l) => (
             <tr
               key={`${l.numCommande}|${l.ligne ?? ''}|${l.article}`}
-              className="border-b border-rule-soft"
+              className="border-b border-rule-soft last:border-b-0"
             >
-              <td className="px-3 py-1.5 font-medium text-foreground">{l.client || '—'}</td>
-              <td className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
+              <td className="px-3 py-2 font-medium text-foreground">{l.client || '—'}</td>
+              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
                 {l.numCommande}
                 {l.ligne ? `/${l.ligne}` : ''}
               </td>
-              <td className="px-3 py-1.5">
+              <td className="px-3 py-2">
                 <div className="font-mono text-[11px] font-semibold text-foreground">
                   {l.article}
                 </div>
                 {l.description ? (
-                  <div className="max-w-[180px] truncate text-[10px] text-muted-foreground">
+                  <div className="max-w-[200px] truncate text-[10px] text-muted-foreground">
                     {l.description}
                   </div>
                 ) : null}
               </td>
-              <td className="px-3 py-1.5 text-right font-mono tabular-nums">{l.qte}</td>
-              <td className="px-3 py-1.5 text-right font-mono tabular-nums">{fmtPal(l.palTheo)}</td>
-              <td className="px-3 py-1.5">
-                <Badge className={cn('text-[9px] uppercase tracking-wider', statutClass(l.statut))}>
-                  {STATUT_LABEL[l.statut]}
-                  {l.glisse ? ' · glissé' : ''}
-                </Badge>
+              <td className="px-3 py-2 text-right font-mono tabular-nums">{l.qte}</td>
+              <td className="px-3 py-2 text-right font-mono font-semibold tabular-nums">
+                {fmtPal(l.palTheo)}
               </td>
-              <td className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
+              <td className={cn('px-3 py-2 font-mono text-[10px] font-bold', statutTone(l.statut))}>
+                {STATUT_LABEL[l.statut]}
+                {l.glisse ? ' · glissé' : ''}
+              </td>
+              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
                 {l.ofNum ? (
                   <>
                     {l.ofNum}
-                    {l.ofDateFin ? ` · ${fmtJour(l.ofDateFin)}` : ''}
+                    {l.ofDateFin ? (
+                      <span className="text-muted-foreground/70"> · {fmtJour(l.ofDateFin)}</span>
+                    ) : null}
                   </>
                 ) : (
                   '—'
@@ -109,7 +115,6 @@ export function JourDetailSheet({
   onOpenChange,
 }: {
   day: DayCharge | null
-  /** Si fourni, affiche le volume différé au lieu d'un jour. */
   deferred?: ForecastLine[] | null
   camionCapacitePalettes: number
   open: boolean
@@ -127,45 +132,48 @@ export function JourDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-3xl">
         <SheetHeader>
-          <SheetTitle className="font-fraunces text-[18px]">{title}</SheetTitle>
+          <SheetTitle className="font-fraunces text-[20px] font-bold tracking-tight">
+            {title}
+          </SheetTitle>
           <SheetDescription className="font-mono text-[11px] text-muted-foreground">
             {isDeferred
-              ? 'Commandes bloquées / sans couverture — hors calendrier'
+              ? 'Bloquées / sans couverture — date de sortie inconnue'
               : day
-                ? `${fmtPal(day.chargeRealiste)} pal réaliste · ${fmtPal(day.chargeNominale)} pal nominale · capa ${fmtPal(day.capaciteJour)}`
+                ? `${fmtPal(day.chargeRealiste)} réaliste · ${fmtPal(day.chargeNominale)} nominale · capa ${fmtPal(day.capaciteJour)}`
                 : ''}
           </SheetDescription>
         </SheetHeader>
 
         {isDeferred ? (
-          <div className="mt-4">
+          <div className="mt-5">
             <LinesTable lines={deferred ?? []} empty="Aucun volume différé." />
           </div>
         ) : day ? (
-          <div className="mt-4 space-y-6">
+          <div className="mt-5 space-y-6">
             {day.spot && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-foreground">
-                Spot à prévoir — dépassement de{' '}
-                <span className="font-mono font-bold">{fmtPal(day.deltaVsCapacite)}</span>{' '}
-                éq-palettes (~{camionFrac.toFixed(1)} camion)
+              <div className="flex items-start gap-2 border-l-[3px] border-destructive bg-destructive/5 px-3 py-2.5 text-[12px] text-foreground">
+                <TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 text-destructive" />
+                <div>
+                  <div className="font-bold text-destructive">Spot à prévoir</div>
+                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                    +{fmtPal(day.deltaVsCapacite)} pal (~{camionFrac.toFixed(1)} camion)
+                  </div>
+                </div>
               </div>
             )}
 
             <section>
-              <h3 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Charge réaliste ({realistLines.length})
+              <h3 className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Réaliste · {realistLines.length}
               </h3>
-              <LinesTable lines={realistLines} empty="Aucune commande ce jour (réaliste)." />
+              <LinesTable lines={realistLines} empty="Aucune commande ce jour." />
             </section>
 
             <section>
-              <h3 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Charge nominale ({nominalLines.length})
+              <h3 className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Nominale · {nominalLines.length}
               </h3>
-              <LinesTable
-                lines={nominalLines}
-                empty="Aucune commande à cette date contractuelle."
-              />
+              <LinesTable lines={nominalLines} empty="Rien à cette date contractuelle." />
             </section>
           </div>
         ) : null}

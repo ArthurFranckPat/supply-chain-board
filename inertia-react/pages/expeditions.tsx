@@ -385,17 +385,19 @@ export default function Expeditions(props: ExpeditionsPageProps) {
         )}
 
         {view === 'prevision' && (
-          <div className="flex flex-wrap items-center gap-4 font-mono text-[10px] text-muted-foreground">
-            <Legend sw="bg-planifie/40" label="Nominale" />
-            <Legend sw="bg-planifie" label="Réaliste" />
-            <Legend sw="bg-suggere" label="Glissé (retard)" />
-            <Legend sw="bg-destructive" label="Spot" />
-          </div>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            Charge vs {forecast?.capaciteJour ?? '—'} pal/j
+          </span>
         )}
 
         {!isPrevision && (
           <span className="ml-auto font-mono text-[11px] text-muted-foreground">
             {baseRows.length} camion{baseRows.length > 1 ? 's' : ''}
+          </span>
+        )}
+        {isPrevision && forecast && (
+          <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+            {forecast.days.length} j · {forecast.days.filter((d) => d.spot).length} spot
           </span>
         )}
       </div>

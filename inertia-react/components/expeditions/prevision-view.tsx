@@ -1,33 +1,65 @@
 import { useMemo, useState } from 'react'
-import { TriangleAlert, CalendarRange } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import {
   type ExpeditionForecast,
   type DayCharge,
-  fmtJour,
   fmtPal,
 } from '@r/components/expeditions/forecast-types'
 import { JourDetailSheet } from '@r/components/expeditions/jour-detail-sheet'
-import { chargeBgClass, chargeTier } from '@r/components/expeditions/palette-charge'
+import { chargeBgClass, chargeText, chargeTier } from '@r/components/expeditions/palette-charge'
 import { cn } from '@r/lib/utils'
 
 /**
  * Vue prévision de charge transport J→J+n (issue #104).
- * Frise calendaire : double barre nominale / réaliste, seuil capacité, badge spot.
+ *
+ * Motif aligné sur le bordereau réceptions + lit camion manifeste :
+ * rail de date (Fraunces) + barre de remplissage horizontale vs capacité.
+ * Pas d'histogramme vertical en grille de cartes.
  */
+
+const railWeekday = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' })
+const railDay = new Intl.DateTimeFormat('fr-FR', { day: 'numeric' })
+const railMonth = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
+
+const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s)
+
+function formatRail(iso: string): { weekday: string; day: string; month: string } {
+  const d = new Date(`${iso}T00:00:00`)
+  return {
+    weekday: cap(railWeekday.format(d)).replace(/\.$/, ''),
+    day: railDay.format(d),
+    month: cap(railMonth.format(d)).replace(/\.$/, ''),
+  }
+}
+
+function relatifOf(iso: string, today: string): string {
+  const a = new Date(`${iso}T00:00:00`).getTime()
+  const b = new Date(`${today}T00:00:00`).getTime()
+  const diff = Math.round((a - b) / 86_400_000)
+  if (diff === 0) return 'auj.'
+  if (diff > 0) return `+${diff}j`
+  return `${diff}j`
+}
 
 export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
   const [selectedDay, setSelectedDay] = useState<DayCharge | null>(null)
   const [showDeferred, setShowDeferred] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
 
-  const maxCharge = useMemo(() => {
+  /** Échelle commune : capa visible + headroom pour les spots. */
+  const scaleMax = useMemo(() => {
     const peak = Math.max(
       forecast.capaciteJour,
       ...forecast.days.map((d) => Math.max(d.chargeNominale, d.chargeRealiste)),
       1
     )
-    return peak
+    return peak * 1.08
   }, [forecast])
+
+  const spotCount = forecast.days.filter((d) => d.spot).length
+  const spotPal = forecast.days
+    .filter((d) => d.spot)
+    .reduce((s, d) => s + Math.max(d.deltaVsCapacite, 0), 0)
 
   const openDay = (d: DayCharge) => {
     setSelectedDay(d)
@@ -41,73 +73,82 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
     setDetailOpen(true)
   }
 
-  const spotCount = forecast.days.filter((d) => d.spot).length
-
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Résumé horizon */}
-      <div className="flex flex-none flex-wrap items-center gap-4 border-b border-rule-soft px-7 py-2 font-mono text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <CalendarRange size={13} strokeWidth={1.75} />
-          {fmtJour(forecast.from)} → {fmtJour(forecast.to)}
-        </span>
+      {/* Bandeau — densifié comme la légende frise, pas un dashboard KPI */}
+      <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-1 border-b border-rule-soft px-7 py-2 font-mono text-[10px] text-muted-foreground">
         <span>
-          Capa <b className="text-foreground">{fmtPal(forecast.capaciteJour)}</b> pal/j (
-          {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes})
-        </span>
-        {spotCount > 0 && (
-          <span className="flex items-center gap-1 text-destructive">
-            <TriangleAlert size={13} strokeWidth={1.75} />
-            {spotCount} jour{spotCount > 1 ? 's' : ''} spot
+          Capa <b className="tabular-nums text-foreground">{fmtPal(forecast.capaciteJour)}</b> pal/j
+          <span className="text-muted-foreground/70">
+            {' '}
+            · {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes}
           </span>
+        </span>
+        {spotCount > 0 ? (
+          <span className="flex items-center gap-1 font-bold text-destructive">
+            <TriangleAlert size={12} strokeWidth={1.75} />
+            {spotCount} spot · +{fmtPal(spotPal)} pal
+          </span>
+        ) : (
+          <span className="text-ferme">Sous capacité</span>
         )}
         <span className="ml-auto flex items-center gap-3">
-          <Legend sw="bg-planifie/40" label="Nominale" />
+          <Legend sw="bg-foreground/15" label="Nominale" />
           <Legend sw="bg-planifie" label="Réaliste" />
           <Legend sw="bg-suggere" label="Glissé" />
-          <Legend sw="border border-dashed border-foreground/40" label="Capa" dashed />
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-px bg-foreground/50" />
+            Capa
+          </span>
         </span>
       </div>
 
-      {/* Frise jours */}
-      <div className="flex-1 overflow-auto p-5">
-        <div
-          className="grid gap-3"
-          style={{
-            gridTemplateColumns: `repeat(${Math.max(forecast.days.length, 1)}, minmax(96px, 1fr))`,
-          }}
-        >
-          {forecast.days.map((d) => (
-            <DayColumn key={d.date} day={d} maxCharge={maxCharge} onClick={() => openDay(d)} />
+      <div className="flex-1 overflow-auto px-5 pb-8 pt-4">
+        <div className="overflow-hidden rounded-lg border border-rule bg-card shadow-xs">
+          {forecast.days.map((d, i) => (
+            <DayRow
+              key={d.date}
+              day={d}
+              today={forecast.from}
+              scaleMax={scaleMax}
+              camionCapacitePalettes={forecast.camionCapacitePalettes}
+              first={i === 0}
+              onClick={() => openDay(d)}
+            />
           ))}
         </div>
 
-        {/* Volume différé */}
+        {/* Différé — pied discret, pas une carte d’alerte géante */}
         <button
           type="button"
           onClick={openDeferred}
           className={cn(
-            'mt-6 w-full rounded-md border px-4 py-3 text-left transition-colors',
+            'mt-3 flex w-full items-center gap-4 rounded-lg border px-5 py-3 text-left transition-colors',
             forecast.deferred.length > 0
-              ? 'border-destructive/30 bg-destructive/5 hover:bg-destructive/10'
-              : 'border-rule bg-card hover:bg-secondary/40'
+              ? 'border-rule hover:border-destructive/40 hover:bg-destructive/[0.03]'
+              : 'border-rule-soft text-muted-foreground hover:bg-secondary/40'
           )}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Volume différé
-              </div>
-              <div className="mt-0.5 text-[13px] text-foreground">
-                {forecast.deferred.length === 0
-                  ? 'Aucune commande bloquée / sans couverture'
-                  : `${forecast.deferred.length} commande${forecast.deferred.length > 1 ? 's' : ''} hors calendrier`}
-              </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Volume différé
             </div>
-            <div className="font-mono text-[16px] font-bold tabular-nums text-foreground">
-              {fmtPal(forecast.deferredPalTheo)}{' '}
-              <span className="text-[11px] font-normal text-muted-foreground">pal</span>
+            <div className="mt-0.5 truncate text-[12.5px] font-medium text-foreground">
+              {forecast.deferred.length === 0
+                ? 'Rien de bloqué / sans couverture'
+                : `${forecast.deferred.length} commande${forecast.deferred.length > 1 ? 's' : ''} hors calendrier`}
             </div>
+          </div>
+          <div
+            className={cn(
+              'font-fraunces text-[22px] font-black tabular-nums leading-none',
+              forecast.deferred.length > 0 ? 'text-destructive' : 'text-muted-foreground/40'
+            )}
+          >
+            {fmtPal(forecast.deferredPalTheo)}
+            <span className="ml-1 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              pal
+            </span>
           </div>
         </button>
       </div>
@@ -123,96 +164,154 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
   )
 }
 
-function DayColumn({
+function DayRow({
   day,
-  maxCharge,
+  today,
+  scaleMax,
+  camionCapacitePalettes,
+  first,
   onClick,
 }: {
   day: DayCharge
-  maxCharge: number
+  today: string
+  scaleMax: number
+  camionCapacitePalettes: number
+  first: boolean
   onClick: () => void
 }) {
-  const capaPct = Math.min((day.capaciteJour / maxCharge) * 100, 100)
-  const nomPct = Math.min((day.chargeNominale / maxCharge) * 100, 100)
-  const realPct = Math.min((day.chargeRealiste / maxCharge) * 100, 100)
-  const glissePct = day.chargeRealiste > 0 ? (day.partGlisse / day.chargeRealiste) * realPct : 0
-  const aDatePct = Math.max(realPct - glissePct, 0)
+  const rail = formatRail(day.date)
+  const relatif = relatifOf(day.date, today)
   const tier = chargeTier(day.capaciteJour > 0 ? day.chargeRealiste / day.capaciteJour : 0)
+  const nbCmd = day.lignesRealistes.length
+
+  const pct = (n: number) => Math.min((n / scaleMax) * 100, 100)
+  const realPct = pct(day.chargeRealiste)
+  const nomPct = pct(day.chargeNominale)
+  const capaPct = pct(day.capaciteJour)
+  const glisseShare = day.chargeRealiste > 0 ? Math.min(day.partGlisse / day.chargeRealiste, 1) : 0
+  const aDateShare = 1 - glisseShare
+
+  const over = Math.max(day.chargeRealiste / Math.max(day.capaciteJour, 1) - 1, 0)
+  const camionExtra =
+    day.spot && camionCapacitePalettes > 0 ? day.deltaVsCapacite / camionCapacitePalettes : 0
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'flex flex-col rounded-md border bg-card p-2 text-left transition-colors hover:border-brand/40',
-        day.spot ? 'border-destructive/50' : 'border-rule'
+        'relative flex w-full text-left transition-colors hover:bg-foreground/[0.025]',
+        !first && 'border-t border-rule-soft',
+        day.spot &&
+          'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-destructive'
       )}
     >
-      <div className="mb-2 flex items-baseline justify-between gap-1">
-        <span className="font-mono text-[11px] font-bold text-foreground">{fmtJour(day.date)}</span>
-        {day.spot && (
-          <span className="rounded bg-destructive/15 px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-destructive">
-            Spot
-          </span>
-        )}
-      </div>
-
-      {/* Barres verticales */}
-      <div className="relative flex h-36 items-end justify-center gap-1.5">
-        {/* Seuil capacité */}
-        <div
-          className="pointer-events-none absolute inset-x-0 border-t border-dashed border-foreground/35"
-          style={{ bottom: `${capaPct}%` }}
-          title={`Capacité ${fmtPal(day.capaciteJour)}`}
-        />
-
-        {/* Nominale (arrière) */}
-        <div
-          className="w-4 rounded-t bg-planifie/35"
-          style={{ height: `${Math.max(nomPct, day.chargeNominale > 0 ? 4 : 0)}%` }}
-          title={`Nominale ${fmtPal(day.chargeNominale)}`}
-        />
-
-        {/* Réaliste : à date + glissé empilés */}
-        <div
-          className="flex w-5 flex-col justify-end overflow-hidden rounded-t"
-          style={{ height: `${Math.max(realPct, day.chargeRealiste > 0 ? 4 : 0)}%` }}
-          title={`Réaliste ${fmtPal(day.chargeRealiste)}`}
-        >
-          {glissePct > 0 && (
-            <div
-              className="w-full bg-suggere"
-              style={{ height: `${(glissePct / realPct) * 100}%` }}
-            />
+      {/* Rail date — même vocabulaire que réceptions */}
+      <aside className="flex w-[7.5rem] flex-none flex-col border-r border-rule-soft py-4 pl-5 pr-3">
+        <div className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          {rail.weekday}
+        </div>
+        <div className="font-fraunces text-[32px] font-extrabold leading-none tracking-tight tabular-nums text-foreground">
+          {rail.day}
+        </div>
+        <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{rail.month}</div>
+        <span
+          className={cn(
+            'mt-2 font-mono text-[10px] font-bold',
+            relatif === 'auj.' ? 'text-brand' : 'text-muted-foreground'
           )}
+        >
+          {relatif}
+        </span>
+      </aside>
+
+      {/* Charge */}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2.5 px-5 py-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <span
+            className={cn(
+              'flex items-baseline gap-1.5 font-fraunces text-[28px] font-black leading-none tracking-tight tabular-nums',
+              chargeText(tier)
+            )}
+          >
+            {fmtPal(day.chargeRealiste)}
+            <span className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground">
+              / {fmtPal(day.capaciteJour)} pal
+            </span>
+            {day.spot && (
+              <span
+                className="ml-1 font-mono text-[12px] font-bold text-destructive"
+                title={`${Math.round(over * 100)} % au-delà · ~${camionExtra.toFixed(1)} camion`}
+              >
+                +{fmtPal(day.deltaVsCapacite)}
+              </span>
+            )}
+          </span>
+          {day.spot ? (
+            <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-destructive">
+              <TriangleAlert size={12} strokeWidth={1.75} />
+              Spot
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              {nbCmd} cmd
+              {day.partGlisse > 0 ? ` · ${fmtPal(day.partGlisse)} glissés` : ''}
+            </span>
+          )}
+        </div>
+
+        {/* Lit de charge — réaliste plein + nominale en filigrane */}
+        <div className="relative h-3.5 overflow-hidden rounded-full bg-secondary">
+          {/* Nominale (sous-couche, plus large ou plus étroite) */}
           <div
-            className={cn('w-full', chargeBgClass(tier))}
-            style={{ height: `${realPct > 0 ? (aDatePct / realPct) * 100 : 100}%` }}
+            className="absolute inset-y-0 left-0 rounded-full bg-foreground/12"
+            style={{ width: `${Math.max(nomPct, day.chargeNominale > 0 ? 2 : 0)}%` }}
+          />
+          {/* Réaliste : à date + glissé */}
+          <div
+            className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full"
+            style={{ width: `${Math.max(realPct, day.chargeRealiste > 0 ? 2 : 0)}%` }}
+          >
+            <div
+              className={cn('h-full', chargeBgClass(tier))}
+              style={{ width: `${aDateShare * 100}%` }}
+            />
+            {glisseShare > 0 && (
+              <div className="h-full bg-suggere" style={{ width: `${glisseShare * 100}%` }} />
+            )}
+          </div>
+          {/* Marqueur capacité */}
+          <div
+            className="pointer-events-none absolute inset-y-0 w-px bg-foreground/55"
+            style={{ left: `${capaPct}%` }}
+            title={`Capacité ${fmtPal(day.capaciteJour)}`}
           />
         </div>
-      </div>
 
-      <div className="mt-2 space-y-0.5 font-mono text-[10px] tabular-nums">
-        <div className="flex justify-between text-muted-foreground">
-          <span>Nom.</span>
-          <span>{fmtPal(day.chargeNominale)}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-foreground">
-          <span>Réal.</span>
-          <span className={day.spot ? 'text-destructive' : undefined}>
-            {fmtPal(day.chargeRealiste)}
+        <div className="flex items-center gap-4 font-mono text-[9.5px] tabular-nums text-muted-foreground">
+          <span>
+            Nom. <b className="text-foreground/80">{fmtPal(day.chargeNominale)}</b>
           </span>
+          {day.partGlisse > 0 && (
+            <span>
+              Glissé <b className="text-suggere">{fmtPal(day.partGlisse)}</b>
+            </span>
+          )}
+          {day.spot && (
+            <span className="ml-auto font-bold text-destructive">
+              ~{camionExtra.toFixed(1)} camion en plus
+            </span>
+          )}
         </div>
-        {day.spot && <div className="text-destructive">+{fmtPal(day.deltaVsCapacite)} pal</div>}
       </div>
     </button>
   )
 }
 
-function Legend({ sw, label, dashed }: { sw: string; label: string; dashed?: boolean }) {
+function Legend({ sw, label }: { sw: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className={cn('h-[9px] w-5 rounded-[2px]', sw, dashed && 'bg-transparent')} />
+      <span className={cn('h-[9px] w-5 rounded-[2px]', sw)} />
       {label}
     </span>
   )
