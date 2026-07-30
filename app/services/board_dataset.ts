@@ -34,6 +34,7 @@ import replicaGate from '#services/replica_gate'
 import ordersReplicaRepository from '#repositories/orders_replica_repository'
 import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
+import { logStockValuationCall } from '#services/stock_valuation_usage_logger'
 
 /**
  * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
@@ -507,6 +508,10 @@ class BoardDataset {
     pinned = false,
     force = false
   ): Promise<StockValuationKpi> {
+    // Instrumentation temporaire #98 lot 3 — fire-and-forget, jamais sur le chemin
+    // bloquant (cf. stock_valuation_usage_logger.ts).
+    void logStockValuationCall(grain, pinned, from, to)
+
     const isoL = (d: Date) => d.toISOString().slice(0, 10)
     // `pinned` = l'appelant a fourni une plage / une date de référence explicite :
     // ces valeurs ne tournent pas toutes seules, la clé peut les porter telles

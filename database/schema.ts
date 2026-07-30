@@ -480,6 +480,23 @@ export class StaticWorkstationSchema extends BaseModel {
   declare wsttyp: number
 }
 
+export class StockValuationCallSchema extends BaseModel {
+  static $columns = ['calledAt', 'fromDate', 'grain', 'id', 'pinned', 'toDate'] as const
+  $columns = StockValuationCallSchema.$columns
+  @column.dateTime()
+  declare calledAt: DateTime
+  @column.date()
+  declare fromDate: DateTime
+  @column()
+  declare grain: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare pinned: boolean
+  @column.date()
+  declare toDate: DateTime
+}
+
 export class UserSchema extends BaseModel {
   static $columns = [
     'createdAt',
