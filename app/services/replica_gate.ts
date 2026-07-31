@@ -83,22 +83,27 @@ const HOUR = 60 * MINUTE
  * n'est pas « quand rafraîchir » (l'ingestion décide) mais « à partir de quand
  * cette donnée devient trompeuse à l'écran ».
  *
- * Deux régimes :
+ * Trois régimes, chacun aligné sur la CADENCE d'ingestion de la table — un seuil
+ * plus court que la cadence rejetterait la réplique en permanence :
  *  - **30 min** pour ce qui bouge vite. Les tables du tick 5 min tolèrent ainsi
  *    5 ticks manqués avant de replier — le cas visé est un scheduler mort, pas
  *    un run lent. `operations_replica` (pointages) y est aussi : la donnée
  *    change en continu pendant un poste, une heure de retard se voit sur un
  *    écran d'avancement.
- *  - **6 h** pour ce qui se lit en tendance. `stock_flux_replica` (valorisation
- *    par période) et `stock_detail_replica` (l'estimateur conditionnement en
- *    tire des ratios US/palette observés, pas un état instantané).
+ *  - **6 h** pour `stock_detail_replica` : l'estimateur conditionnement en tire
+ *    des ratios US/palette observés, pas un état instantané.
+ *  - **26 h** pour `stock_flux_replica`, seule table sur cadence QUOTIDIENNE
+ *    (cf. `replica_sync_provider.ts`). 24 h de cadence + 2 h de marge : un run
+ *    dure ~3-4 min et peut démarrer en retard après un redémarrage, un seuil à
+ *    24 h pile ferait clignoter la table en voie directe chaque fin de journée.
+ *    Ce que ça autorise : une valorisation amputée des mouvements du jour. Assumé
+ *    — série lue en tendance sur 12 mois glissants.
  *
- * Conséquence assumée pour les trois tables hors `syncAll()` (`stock_flux`,
- * `operations`, `stock_detail`) : sans cadence, elles ne servent la réplique
- * que peu après un run manuel, et sinon X3 direct — c'est-à-dire le
- * comportement d'aujourd'hui. Le seuil ne dégrade rien ; il rend la décision de
- * cadence nécessaire pour en tirer un gain, au lieu de laisser une donnée
- * périmée passer pour fraîche.
+ * Conséquence assumée pour les deux tables restées hors cadence (`operations`,
+ * `stock_detail`) : elles ne servent la réplique que peu après un run manuel, et
+ * sinon X3 direct. Le seuil ne dégrade rien ; il rend la décision de cadence
+ * nécessaire pour en tirer un gain, au lieu de laisser une donnée périmée passer
+ * pour fraîche.
  */
 const MAX_AGE_MS: Record<ReplicaTable, number> = {
   orders_replica: 30 * MINUTE,
@@ -106,7 +111,7 @@ const MAX_AGE_MS: Record<ReplicaTable, number> = {
   stock_replica: 30 * MINUTE,
   receptions_replica: 30 * MINUTE,
   operations_replica: 30 * MINUTE,
-  stock_flux_replica: 6 * HOUR,
+  stock_flux_replica: 26 * HOUR,
   stock_detail_replica: 6 * HOUR,
 }
 

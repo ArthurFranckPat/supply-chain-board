@@ -1,5 +1,8 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+import replicaGate from '#services/replica_gate'
+import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
+import type { StockFluxDocRow } from '#repositories/stock_flux_repository'
 
 /**
  * KPI Valorisation du stock — reconstruction sur une plage (site AE1).
@@ -315,9 +318,10 @@ export function defaultStockRange(grain: StockGrain, refDate: Date): { from: Dat
 /**
  * Agrège des lignes de flux document (article, jour, netDoc) en
  * (article → période → net qté cumulée). Pure, testable sans X3 ni SQLite —
- * utilisée par la voie X3 directe (`buildFluxSql`, déjà agrégée par période
- * côté SQL, donc un seul appel `add` par (article, période) ici — l'accumulation
- * est un no-op dans ce cas, pas une double-comptée).
+ * partagée par la voie réplique (`stock_flux_replica`, grain document) et la
+ * voie X3 directe (`buildFluxSql`, déjà agrégée par période côté SQL, donc un
+ * seul appel `add` par (article, période) ici — l'accumulation est un no-op
+ * dans ce cas, pas une double-comptée).
  */
 export function aggregateFluxByArticlePeriod(
   rows: { article: string; jour: Date; netDoc: number }[],
@@ -355,19 +359,41 @@ export function aggregateFluxByArticlePeriod(
  *
  * Pure, testable sans DB.
  */
+export function replicaCoversFluxRange(coverageMin: Date | null, from: Date): boolean {
+  if (coverageMin === null) return false
+  return coverageMin.getTime() <= from.getTime()
+}
+
 export class StockValuationRepository {
   /**
-   * Flux STOJOU agrégé par (article, période) — conservé sur la voie X3 directe.
-   * Cette fonctionnalité est peu utilisée et sa lecture historique est coûteuse ;
-   * la réplique reste disponible pour comparaison et ingestion explicites, mais ne
-   * participe pas au chemin applicatif.
+   * Flux STOJOU agrégé par (article, période) — #98 lot 3. Réplique si le
+   * portail l'autorise (interrupteur, run complet réussi, pas d'écriture depuis,
+   * âge sous le seuil de la table) ET qu'elle couvre assez d'historique pour
+   * `from`. Sinon X3 direct, chunké par article comme avant.
    */
   private async getFluxByArticlePeriod(
-    _from: Date,
+    from: Date,
     grain: StockGrain,
     articles: string[],
     fromStr: string
   ): Promise<Map<string, Map<string, number>>> {
+    const now = new Date()
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const [coverage, canReadReplica] = await Promise.all([
+      stockFluxReplicaRepository.getCoverage(),
+      replicaGate.canRead('stock_flux_replica'),
+    ])
+    const onReplica = canReadReplica && replicaCoversFluxRange(coverage.min, from)
+
+    if (onReplica) {
+      const rows: StockFluxDocRow[] = await stockFluxReplicaRepository.getFluxNetByDocument(
+        from,
+        today,
+        articles
+      )
+      return aggregateFluxByArticlePeriod(rows, grain)
+    }
+
     // X3 direct — chunké par article : le flux complet dépasse le seuil de
     // lignes du web service SOAP Syracuse (resultXml is nil), même motif que
     // retard_repository.ts qui chunk le stock dispo.
@@ -413,9 +439,18 @@ export class StockValuationRepository {
 
     const allArticles = [...new Set(baseRows.map((r) => r.ARTICLE?.trim() ?? '').filter(Boolean))]
 
-    // --- Flux STOJOU : voie X3 directe ---
-    // Cette fonctionnalité est peu utilisée ; la réplique reste réservée aux
-    // comparaisons et ingestions explicites, sans bascule applicative.
+    // --- Flux STOJOU : réplique si elle couvre la fenêtre, sinon X3 direct ---
+    // (#98, lot 3). Le rembobinage a besoin du flux de `from` jusqu'à
+    // AUJOURD'HUI (pas juste jusqu'à `to`) — cf. docstring du module : on
+    // reconstruit le passé en défaisant les mouvements POSTÉRIEURS à chaque
+    // période depuis le stock actuel.
+    //
+    // `stock_flux_replica` est sur une cadence QUOTIDIENNE, pas sur le tick de
+    // 5 min (cf. `replica_sync_provider.ts`) : la donnée peut dater de la veille,
+    // ce qui ampute le mois courant des mouvements du jour. Assumé — cette série
+    // se lit en tendance sur 12 mois, et l'usage mesuré (`stock_valuation_calls`,
+    // 152 appels) est à 100 % `grain=mois` sur la fenêtre glissante par défaut.
+    // La borne d'âge correspondante vit dans `ReplicaGate`, pas ici.
     const fluxByArticle = await this.getFluxByArticlePeriod(from, grain, allArticles, fromStr)
 
     // --- Rembobinage par article + agrégation ---

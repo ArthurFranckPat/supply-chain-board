@@ -259,10 +259,16 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
     }
   })
 
-  test('les tables lues en tendance tolèrent 6 h', ({ assert }) => {
-    for (const table of ['stock_flux_replica', 'stock_detail_replica'] as ReplicaTable[]) {
-      assert.equal(maxAgeMsFor(table), 6 * HOUR, table)
-    }
+  test('stock_detail_replica, lue en tendance, tolère 6 h', ({ assert }) => {
+    assert.equal(maxAgeMsFor('stock_detail_replica'), 6 * HOUR)
+  })
+
+  test('stock_flux_replica tolère 26 h — seule table sur cadence quotidienne', ({ assert }) => {
+    // Le seuil doit dépasser la cadence, sinon la table repart en voie directe
+    // chaque fin de journée : 24 h d'intervalle + 2 h de marge pour un run de
+    // ~3-4 min qui peut démarrer en retard après un redémarrage.
+    assert.equal(maxAgeMsFor('stock_flux_replica'), 26 * HOUR)
+    assert.isAbove(maxAgeMsFor('stock_flux_replica'), 24 * HOUR)
   })
 
   test('une table sans seuil déclaré hérite du régime COURT, pas du permissif', ({ assert }) => {

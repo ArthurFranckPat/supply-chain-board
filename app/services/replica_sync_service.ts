@@ -300,6 +300,40 @@ export class ReplicaSyncService {
   }
 
   /**
+   * Derniers runs COMPLETS d'une table : la dernière tentative quelle qu'en soit
+   * l'issue, et le dernier succès. Deux horodatages parce qu'ils répondent à deux
+   * questions d'une planification quotidienne (`replica_sync_provider.ts`) :
+   *
+   * - `lastSuccessAt` dit si le travail du jour est FAIT. C'est lui qui décide de
+   *   déclencher, et il est lu en base plutôt que gardé en mémoire : un
+   *   `setInterval` de 24 h remet son compte à zéro à chaque redémarrage, donc un
+   *   déploiement quotidien avant l'heure de synchro l'empêcherait de partir, pour
+   *   toujours et sans rien signaler.
+   * - `lastAttemptAt` borne les REPRISES. Sans lui, une journée où X3 refuse
+   *   relancerait ~3-4 min d'ingestion à chaque tick de 5 min, toute la journée.
+   *
+   * `MAX(finished_at)` est correct sur ces colonnes : `log()` n'y écrit que des
+   * ISO 8601 UTC produits par `toISOString()` — largeur fixe, donc l'ordre
+   * lexicographique est l'ordre chronologique.
+   */
+  async lastFullRuns(
+    table: ReplicaTable
+  ): Promise<{ lastAttemptAt: string | null; lastSuccessAt: string | null }> {
+    const rows = await this.conn.rawQuery(
+      `SELECT MAX(finished_at) AS last_attempt,
+              MAX(CASE WHEN status = 'ok' THEN finished_at END) AS last_success
+         FROM ingestion_log
+        WHERE table_name = ? AND scope = 'full'`,
+      [table]
+    )
+    const row = (rows as any[])[0] ?? {}
+    return {
+      lastAttemptAt: row.last_attempt ?? null,
+      lastSuccessAt: row.last_success ?? null,
+    }
+  }
+
+  /**
    * Ré-ingestions partielles récentes.
    *
    * `freshness()` ne retient que les runs complets — c'est la bonne règle pour
