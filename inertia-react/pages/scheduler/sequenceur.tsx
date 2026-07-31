@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Head, router } from '@inertiajs/react'
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
+  ChevronsUpDown,
   CircleCheck,
   FlaskConical,
   Info,
@@ -15,6 +18,7 @@ import { toast } from 'sonner'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import type { SortingState } from '@r/components/ui/data-table'
 import {
   PILL,
   Segment,
@@ -280,6 +284,129 @@ function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined, ofStatus?: numb
   }
 }
 
+/** Rang faisabilité pour le tri colonne (aligné sur le tri défaut post-calcul). */
+function feasRank(st: FeasStatus['st'] | undefined): number {
+  if (st === 'ok') return 0
+  if (st === 'qc') return 1
+  if (st === 'blocked') return 2
+  return 3
+}
+
+/**
+ * Tri manuel colonnes — même cycle que /suivi (DataTable) : asc → desc → off.
+ * Appliqué uniquement quand `sorting` est non vide ; sinon le tri métier défaut
+ * (faisabilité → poste → urgence → livraison) reste en place.
+ */
+function sortSequenceurRows(
+  rows: SequenceurRow[],
+  sorting: SortingState[],
+  feasibility: Record<string, FeasStatus>
+): SequenceurRow[] {
+  if (sorting.length === 0) return rows
+  const { id, desc } = sorting[0]
+  const sorted = [...rows]
+  sorted.sort((a, b) => {
+    let cmp = 0
+    switch (id) {
+      case 'poste':
+        cmp = a.posteCode.localeCompare(b.posteCode)
+        break
+      case 'numOf':
+        cmp = a.numOf.localeCompare(b.numOf)
+        break
+      case 'status':
+        cmp = (a.status ?? 0) - (b.status ?? 0)
+        break
+      case 'article':
+        cmp = a.article.localeCompare(b.article)
+        break
+      case 'designation':
+        cmp = (a.designation ?? '').localeCompare(b.designation ?? '', 'fr')
+        break
+      case 'avancement': {
+        const av = (r: SequenceurRow) => (r.launched > 0 ? r.done / r.launched : -1)
+        cmp = av(a) - av(b)
+        break
+      }
+      case 'faisabilite':
+        cmp = feasRank(feasibility[a.numOf]?.st) - feasRank(feasibility[b.numOf]?.st)
+        break
+      case 'commande': {
+        const cmd = (r: SequenceurRow) => r.commandes[0]?.numCommande ?? ''
+        cmp = cmd(a).localeCompare(cmd(b))
+        break
+      }
+      case 'livraison': {
+        const da = a.livraisonIso ?? '9999-12-31'
+        const db = b.livraisonIso ?? '9999-12-31'
+        cmp = da.localeCompare(db)
+        break
+      }
+      case 'heures':
+      case 'jours':
+        cmp = a.hours - b.hours
+        break
+      default:
+        return 0
+    }
+    if (cmp !== 0) return desc ? -cmp : cmp
+    return a.numOf.localeCompare(b.numOf)
+  })
+  return sorted
+}
+
+function toggleSortingState(sorting: SortingState[], columnId: string): SortingState[] {
+  const existing = sorting.find((s) => s.id === columnId)
+  if (!existing) return [{ id: columnId, desc: false }]
+  if (!existing.desc) return [{ id: columnId, desc: true }]
+  return []
+}
+
+/** En-tête cliquable — mêmes icônes / cycle que `DataTable` (/suivi). */
+function SortHeader({
+  id,
+  label,
+  sorting,
+  onToggle,
+  className,
+}: {
+  id: string
+  label: ReactNode
+  sorting: SortingState[]
+  onToggle: (id: string) => void
+  className?: string
+}) {
+  const sorted = sorting.find((s) => s.id === id)
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-sort={sorted ? (sorted.desc ? 'descending' : 'ascending') : undefined}
+      className={cn(
+        'inline-flex cursor-pointer select-none items-center gap-1 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
+        sorted && 'font-bold text-foreground',
+        className
+      )}
+      onClick={() => onToggle(id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onToggle(id)
+        }
+      }}
+    >
+      <span>{label}</span>
+      {!sorted ? (
+        <ChevronsUpDown size={12} strokeWidth={1.75} className="text-muted-foreground/50" />
+      ) : sorted.desc ? (
+        <ArrowDown size={12} strokeWidth={1.75} className="text-primary" />
+      ) : (
+        <ArrowUp size={12} strokeWidth={1.75} className="text-primary" />
+      )}
+    </span>
+  )
+}
+
 export default function Sequenceur(props: SequenceurPageProps) {
   const anchorRef = useComboboxAnchor()
   const stored = useMemo(() => readStoredFilters(), [])
@@ -302,6 +429,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [batchRunning, setBatchRunning] = useState(false)
   const [detailOf, setDetailOf] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  /** Tri colonnes (comme /suivi) — vide = tri métier défaut. */
+  const [sorting, setSorting] = useState<SortingState[]>([])
+  const customSort = sorting.length > 0
+  const toggleColumnSort = useCallback((columnId: string) => {
+    setSorting((prev) => toggleSortingState(prev, columnId))
+  }, [])
 
   const toggleAtelier = (code: string) => {
     setAtelierFilter((prev) => {
@@ -466,18 +599,17 @@ export default function Sequenceur(props: SequenceurPageProps) {
           .toLowerCase()
         return haystack.includes(q)
       })
+
+    // Tri colonne utilisateur (comme /suivi) — remplace le tri métier.
+    if (sorting.length > 0) {
+      return sortSequenceurRows(rows, sorting, feasibility)
+    }
+
     return [...rows].sort((a, b) => {
       if (feasDone) {
         // Lançables d'abord, puis CQ, bloqués, inconnus.
-        const rank = (id: string) => {
-          const st = feasibility[id]?.st
-          if (st === 'ok') return 0
-          if (st === 'qc') return 1
-          if (st === 'blocked') return 2
-          return 3
-        }
-        const ra = rank(a.numOf)
-        const rb = rank(b.numOf)
+        const ra = feasRank(feasibility[a.numOf]?.st)
+        const rb = feasRank(feasibility[b.numOf]?.st)
         if (ra !== rb) return ra - rb
       }
       if (showPosteCol) {
@@ -512,6 +644,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     feasFilter,
     feasibility,
     feasDone,
+    sorting,
   ])
 
   const feasCounts = useMemo(() => {
@@ -552,7 +685,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
   )
 
   const rowGroups = useMemo(() => {
-    if (!showPosteCol) return [{ posteCode: null as string | null, rows: filteredRows }]
+    // Groupes poste uniquement en tri défaut (ou tri explicite sur poste) —
+    // sinon un tri colonne (livraison, heures…) serait cassé par les blocs.
+    const sortByPoste = sorting[0]?.id === 'poste'
+    if (!showPosteCol || (customSort && !sortByPoste)) {
+      return [{ posteCode: null as string | null, rows: filteredRows }]
+    }
     const groups: { posteCode: string; rows: SequenceurRow[] }[] = []
     for (const r of filteredRows) {
       const last = groups[groups.length - 1]
@@ -563,7 +701,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
       }
     }
     return groups
-  }, [filteredRows, showPosteCol])
+  }, [filteredRows, showPosteCol, customSort, sorting])
 
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
   const chargeSplit = useMemo(() => splitChargeHours(filteredRows), [filteredRows])
@@ -993,17 +1131,72 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 )}
               >
                 <span />
-                {showPosteCol && <span>POSTE</span>}
-                <span>OF</span>
-                <span>STATUT</span>
-                <span>ARTICLE</span>
-                <span>DÉSIGNATION</span>
-                <span className="text-right">AVANCEMENT</span>
-                <span>FAISABILITÉ</span>
-                <span>COMMANDE(S)</span>
-                <span>LIVRAISON</span>
-                <span className="text-right">HEURES</span>
-                <span className="text-right">JOURS</span>
+                {showPosteCol && (
+                  <SortHeader
+                    id="poste"
+                    label="POSTE"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                )}
+                <SortHeader id="numOf" label="OF" sorting={sorting} onToggle={toggleColumnSort} />
+                <SortHeader
+                  id="status"
+                  label="STATUT"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                />
+                <SortHeader
+                  id="article"
+                  label="ARTICLE"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                />
+                <SortHeader
+                  id="designation"
+                  label="DÉSIGNATION"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                />
+                <SortHeader
+                  id="avancement"
+                  label="AVANCEMENT"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                  className="justify-end"
+                />
+                <SortHeader
+                  id="faisabilite"
+                  label="FAISABILITÉ"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                />
+                <SortHeader
+                  id="commande"
+                  label="COMMANDE(S)"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                />
+                <SortHeader
+                  id="livraison"
+                  label="LIVRAISON"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                />
+                <SortHeader
+                  id="heures"
+                  label="HEURES"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                  className="justify-end"
+                />
+                <SortHeader
+                  id="jours"
+                  label="JOURS"
+                  sorting={sorting}
+                  onToggle={toggleColumnSort}
+                  className="justify-end"
+                />
               </div>
 
               {rowGroups.map((group) => {
@@ -1035,7 +1228,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             ? 'none'
                             : urgencyOf(group.rows[i - 1].livraisonIso)
                           : null
-                      const showSep = detail && (prevBucket === null || prevBucket !== bucket)
+                      const showSep =
+                        detail && !customSort && (prevBucket === null || prevBucket !== bucket)
                       let bucketCount = 0
                       if (showSep) {
                         for (let j = i; j < group.rows.length; j++) {
