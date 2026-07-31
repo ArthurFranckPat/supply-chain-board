@@ -1,5 +1,9 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+import { isoDay } from '#app/utils/dates'
+import replicaGate from '#services/replica_gate'
+import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
+import stockReplicaRepository from '#repositories/stock_replica_repository'
 import boardDataset from '#services/board_dataset'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
 import { computeAvancement, resteAProduire } from '#app/domain/of_avancement'
@@ -106,17 +110,88 @@ function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
 }
 
+/**
+ * Ligne de commande en retard, NORMALISÉE — indépendante de sa provenance.
+ *
+ * Le reste de ce KPI travaillait directement sur les `RawRow` d'X3
+ * (`row.QTE_RESTANTE` en string, `parseX3Date(row.DATE_EXP)`…). Impossible d'y
+ * brancher une seconde source sans fabriquer de faux X3 : `parseX3Date`
+ * n'accepte que `dd-MMM-yy`, et reformater une date locale vers ce format pour
+ * la reparser aussitôt serait une perte de précision gratuite (année sur deux
+ * chiffres). D'où ce type, produit par les deux voies.
+ */
+type RetardLine = {
+  numCommande: string
+  ligne: string | null
+  client: string | null
+  article: string
+  designation: string | null
+  dateExpedition: Date | null
+  /** `RMNEXTQTY_0` brut, allocations comprises. */
+  qteRestante: number
+  /** `EXTQTY_0`. */
+  qteCommandee: number
+  /** `ALLQTY_0`. */
+  qteAllouee: number
+  contremarque: string | null
+  orderType: OrderType | null
+}
+
+function toRetardLine(row: RawRow): RetardLine {
+  const num = (v: string | null | undefined) => Number.parseFloat(v ?? '0') || 0
+  return {
+    numCommande: row.SOHNUM?.trim() ?? '',
+    ligne: row.LIGNE?.trim() || null,
+    client: row.CLIENT?.trim() || null,
+    article: row.ARTICLE?.trim() ?? '',
+    designation: row.DESIGNATION?.trim() || null,
+    dateExpedition: parseX3Date(row.DATE_EXP),
+    qteRestante: num(row.QTE_RESTANTE),
+    qteCommandee: num(row.QTE_COMMANDEE),
+    qteAllouee: num(row.QTE_ALLOUEE),
+    contremarque: row.CONTREMARQUE?.trim() || null,
+    orderType: (row.SOHTYP?.trim() || null) as OrderType | null,
+  }
+}
+
 export class RetardRepository {
+  /**
+   * Les deux sources de ce KPI — lignes de commande et stock disponible — sont
+   * servies ENSEMBLE ou pas du tout.
+   *
+   * Le stock est consommé au fil de l'eau contre les lignes triées par échéance :
+   * mélanger des lignes figées à T avec un stock lu à T+Δ reproduirait la « vue
+   * déchirée » que l'issue #98 écarte pour l'ingestion, mais à la lecture — c'est
+   * exactement la régression `getOrdersForWindow` du lot 2, et le motif pour
+   * lequel `matchingFamilyOnReplica()` avait été introduit.
+   */
+  private async replicaServesRetard(): Promise<boolean> {
+    const [lines, stock] = await Promise.all([
+      replicaGate.canRead('order_lines_replica'),
+      replicaGate.canRead('stock_replica'),
+    ])
+    return lines && stock
+  }
+
   async getRetardKpi(refDate: Date, lookbackDays: number): Promise<RetardChargeKpi> {
     const from = new Date(refDate)
     from.setDate(refDate.getDate() - lookbackDays)
 
-    const db = new X3Database()
-    let rows: RawRow[] = []
-    try {
-      rows = await db.raw(buildSql(toYYYYMMDD(from), toYYYYMMDD(refDate)))
-    } finally {
-      await db.destroy()
+    const onReplica = await this.replicaServesRetard()
+
+    let rows: RetardLine[]
+    if (onReplica) {
+      // `RetardReplicaLine` est structurellement plus étroit (`dateExpedition`
+      // et `ligne` non nullables) : assignable tel quel, pas de conversion.
+      rows = await orderLinesReplicaRepository.getRetardLines(isoDay(from), isoDay(refDate))
+    } else {
+      const db = new X3Database()
+      try {
+        const raw: RawRow[] = await db.raw(buildSql(toYYYYMMDD(from), toYYYYMMDD(refDate)))
+        rows = raw.map(toRetardLine)
+      } finally {
+        await db.destroy()
+      }
     }
 
     // Gamme depuis SQLite (boardDataset.getReferential, cache 2h — 0 SOAP).
@@ -141,26 +216,34 @@ export class RetardRepository {
     // affecté à SA commande n'est pas un retard de production.
     const candidateArticles = [
       ...new Set(
-        rows
-          .map((r) => r.ARTICLE?.trim() ?? '')
-          .filter((a) => a && (opsByArticle.get(a)?.length ?? 0) > 0)
+        rows.map((r) => r.article).filter((a) => a && (opsByArticle.get(a)?.length ?? 0) > 0)
       ),
     ]
     const stockDispo = new Map<string, number>()
     if (candidateArticles.length > 0) {
-      const stockDb = new X3Database()
-      try {
-        for (let i = 0; i < candidateArticles.length; i += 1000) {
-          const chunk = candidateArticles.slice(i, i + 1000)
-          const stockRows: RawRow[] = await stockDb.raw(buildStockSql(chunk))
-          for (const sr of stockRows) {
-            const art = sr.ARTICLE?.trim()
-            if (!art) continue
-            stockDispo.set(art, Math.max(0, Number.parseFloat(sr.QTE_DISPO ?? '0') || 0))
-          }
+      if (onReplica) {
+        // `stock_replica` mire `ITMMVT` : `physique/alloue_phys/alloue_global`
+        // sont `PHYSTO_0/PHYALL_0/GLOALL_0`, donc la même soustraction que
+        // `buildStockSql`. Pas de chunk par 1000 — c'est une limite du `IN`
+        // d'Oracle, sans objet en SQL local.
+        for (const s of await stockReplicaRepository.getDisponibleByArticle(candidateArticles)) {
+          stockDispo.set(s.article, Math.max(0, s.disponible))
         }
-      } finally {
-        await stockDb.destroy()
+      } else {
+        const stockDb = new X3Database()
+        try {
+          for (let i = 0; i < candidateArticles.length; i += 1000) {
+            const chunk = candidateArticles.slice(i, i + 1000)
+            const stockRows: RawRow[] = await stockDb.raw(buildStockSql(chunk))
+            for (const sr of stockRows) {
+              const art = sr.ARTICLE?.trim()
+              if (!art) continue
+              stockDispo.set(art, Math.max(0, Number.parseFloat(sr.QTE_DISPO ?? '0') || 0))
+            }
+          }
+        } finally {
+          await stockDb.destroy()
+        }
       }
     }
 
@@ -168,7 +251,7 @@ export class RetardRepository {
     // allocation existante et stock dispo non alloué) — c'est CETTE qté qu'on soumet
     // au matcher, pas la qté restante brute X3 (RMNEXTQTY_0).
     type PendingLine = {
-      row: RawRow
+      line: RetardLine
       article: string
       qty: number
       qteCommandee: number
@@ -176,11 +259,11 @@ export class RetardRepository {
       ops: Array<{ workstation: string; label: string; rate: number }>
     }
     const pending: PendingLine[] = []
-    for (const row of rows) {
-      const article = row.ARTICLE?.trim() ?? ''
-      const qty = Number.parseFloat(row.QTE_RESTANTE ?? '0') || 0
-      const qteCommandee = Number.parseFloat(row.QTE_COMMANDEE ?? '0') || 0
-      const allqty = Number.parseFloat(row.QTE_ALLOUEE ?? '0') || 0
+    for (const line of rows) {
+      const article = line.article
+      const qty = line.qteRestante
+      const qteCommandee = line.qteCommandee
+      const allqty = line.qteAllouee
 
       // Pas un retard de production : article sans gamme (acheté/sous-traité)
       // ou entièrement couvert par allocation stock (pas bloqué en prod).
@@ -197,7 +280,7 @@ export class RetardRepository {
       }
       if (qteAProduire <= 0) continue
 
-      pending.push({ row, article, qty, qteCommandee, qteAProduire, ops })
+      pending.push({ line, article, qty, qteCommandee, qteAProduire, ops })
     }
 
     // Matching OF↔commande — LE MÊME moteur que le board / panneau engagement
@@ -208,18 +291,18 @@ export class RetardRepository {
       article: p.article,
       quantity: p.qteAProduire,
       direction: 'demand',
-      date: parseX3Date(p.row.DATE_EXP),
+      date: p.line.dateExpedition,
       origin: {
         type: 'order',
-        id: p.row.SOHNUM?.trim() ?? '',
-        customer: p.row.CLIENT?.trim() ?? '',
+        id: p.line.numCommande,
+        customer: p.line.client ?? '',
         pays: null,
-        orderType: (p.row.SOHTYP?.trim() || null) as OrderType | null,
+        orderType: p.line.orderType,
         nature: 'COMMANDE',
-        contremarque: p.row.CONTREMARQUE?.trim() || null,
+        contremarque: p.line.contremarque,
         qteCommandee: p.qteCommandee,
-        qteAllouee: Number.parseFloat(p.row.QTE_ALLOUEE ?? '0') || 0,
-        ligne: p.row.LIGNE?.trim() ?? null,
+        qteAllouee: p.line.qteAllouee,
+        ligne: p.line.ligne,
       },
     }))
 
@@ -260,7 +343,7 @@ export class RetardRepository {
 
     for (const [i, p] of pending.entries()) {
       const demandFlow = demandFlows[i]
-      const row = p.row
+      const line = p.line
       const result = resultByFlow.get(demandFlow)
 
       // Contremarque vers OF clôturé / stock complet : rien à produire en atelier.
@@ -308,7 +391,7 @@ export class RetardRepository {
         posteAccum.set(ws, prev)
       }
 
-      const date = parseX3Date(row.DATE_EXP)
+      const date = line.dateExpedition
       const iso = date?.toISOString().slice(0, 10) ?? null
       const lineHeures = Math.round(Object.values(byPoste).reduce((s, h) => s + h, 0) * 10) / 10
       const linePostes = Object.entries(byPoste)
@@ -317,10 +400,10 @@ export class RetardRepository {
       const joursRetard = computeJoursRetard(iso, refIso)
 
       lignes.push({
-        numCommande: row.SOHNUM?.trim() ?? '',
-        client: row.CLIENT?.trim() ?? '',
+        numCommande: line.numCommande,
+        client: line.client ?? '',
         article: p.article,
-        designation: row.DESIGNATION?.trim() ?? '',
+        designation: line.designation ?? '',
         type: 'SOH',
         dateExp: iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '',
         dateExpIso: iso,

@@ -35,6 +35,8 @@ excalidraw.log
 .claude/skills/carbon-react
 # Bases SQLite locales
 *.sqlite
+# La réplique #98 : `database/db.sqlite3`, créée par les migrations réplique.
+*.sqlite3
 # Local backup files
 *.bak
 

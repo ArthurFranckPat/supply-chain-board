@@ -46,6 +46,32 @@ import { getActiveX3EnvName } from '#config/x3'
 /** Taille des lots d'insert. Au-delà, SQLite dépasse sa limite de variables liées. */
 const INSERT_CHUNK = 400
 
+/**
+ * Horizon d'ingestion de `order_lines_replica`, en jours autour d'aujourd'hui.
+ *
+ * Le lookback reprend `RETARD_LOOKBACK_DAYS` (défaut 90 j), la même variable que
+ * `of_repository` pour `orders_replica` et que `RetardRepository` : les trois
+ * doivent couvrir la même profondeur de passé, sinon un OF répliqué n'a pas sa
+ * ligne de commande, ou le KPI retard voit des lignes sans OF.
+ *
+ * L'horizon avant est fixé à un an. Les lignes plus lointaines existent mais
+ * aucun écran ne les demande — `/programme` et `/ruptures` travaillent à 14 j,
+ * `/charge` à 6 mois. Répliquer au-delà coûterait du temps X3 pour rien.
+ */
+const ORDER_LINES_LOOKBACK_DAYS = Number.parseInt(process.env.RETARD_LOOKBACK_DAYS ?? '90', 10)
+const ORDER_LINES_FORWARD_DAYS = 365
+
+/** Fenêtre d'ingestion courante, en ISO. Exportée pour être lisible côté lecture. */
+export function orderLinesReplicaWindow(now = new Date()): { from: string; to: string } {
+  const from = new Date(now)
+  from.setDate(from.getDate() - ORDER_LINES_LOOKBACK_DAYS)
+  const to = new Date(now)
+  to.setDate(to.getDate() + ORDER_LINES_FORWARD_DAYS)
+  // `isoDay` local est nullable (il sert aussi à des dates X3 absentes) ; ici les
+  // deux bornes sont construites, jamais nulles.
+  return { from: isoDay(from)!, to: isoDay(to)! }
+}
+
 export type IngestionStatus = 'ok' | 'failed'
 
 export interface TableIngestionResult {
@@ -131,7 +157,18 @@ export class ReplicaSyncService {
 
   async syncOrderLines(source = 'manual'): Promise<TableIngestionResult> {
     return this.ingest('order_lines_replica', source, async () => {
-      const lines = await new X3OrderLineRepository().getOpenOrderLines()
+      // `getOrderLinesForReplica()` et NON `getOpenOrderLines()` : on mire la
+      // SOURCE, pas une vue. Le filtre `resteAFabriquer > 0` de la vue exclut les
+      // lignes entièrement allouées, dont `RetardRepository` a besoin — il vit
+      // maintenant côté LECTURE (`OrderLinesReplicaRepository.getOpenOrderLines`).
+      //
+      // BORNÉE dans le temps, comme la voie directe l'a toujours été. Une
+      // ingestion « tout l'ouvert » ne passe pas contre PROD (120 s de timeout
+      // SOAP atteints sans un octet rendu) et ne sert personne : aucun lecteur ne
+      // demande au-delà de cet horizon.
+      const lines = await new X3OrderLineRepository().getOrderLinesForReplica(
+        orderLinesReplicaWindow()
+      )
       return lines.map((l): Row => ({
         num_commande: l.numCommande,
         ligne: l.ligne,
@@ -139,6 +176,9 @@ export class ReplicaSyncService {
         article: l.article,
         designation: l.designation,
         quantite: l.quantite,
+        qte_restante: l.qteRestante,
+        qte_commandee: l.qteCommandee,
+        qte_allouee: l.qteAllouee,
         // `date_livraison` est NOT NULL : `OrderLineRow.dateLivraison` n'est pas
         // nullable côté type, mais une date X3 à 0 ressort en `Invalid Date`.
         // `isoDay` rendrait `NaN-NaN-NaN`, que la table STRICT accepterait

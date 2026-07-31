@@ -71,6 +71,35 @@ export class StockReplicaRepository {
     const rows = await query
     return (rows as ReplicaRow[]).flatMap(toFlows)
   }
+
+  /**
+   * Stock disponible NON ALLOUÉ par article — miroir du `buildStockSql` de
+   * `RetardRepository` (`SUM(PHYSTO_0 - PHYALL_0 - GLOALL_0)` sur ITMMVT).
+   *
+   * Volontairement distinct de `getStockFlows()` : celui-ci rend trois flux par
+   * article (strict / contrôle qualité / rebut), quand le retard veut UN nombre,
+   * le seul « strict ». Recomposer l'un depuis l'autre obligerait l'appelant à
+   * connaître la convention des sous-types, qui est justement ce que ces
+   * repositories encapsulent.
+   *
+   * Non clampé à zéro ici : `buildStockSql` ne l'est pas non plus, et l'appelant
+   * applique déjà `Math.max(0, …)`. Un négatif est un signal (allocations
+   * supérieures au physique, régularisation en cours), pas un zéro.
+   */
+  async getDisponibleByArticle(
+    articles: string[]
+  ): Promise<Array<{ article: string; disponible: number }>> {
+    const unique = [...new Set(articles.filter(Boolean))]
+    if (unique.length === 0) return []
+    const rows = await this.conn
+      .from('stock_replica')
+      .select('article', 'physique', 'alloue_phys', 'alloue_global')
+      .whereIn('article', unique)
+    return (rows as ReplicaRow[]).map((r) => ({
+      article: r.article,
+      disponible: r.physique - r.alloue_phys - r.alloue_global,
+    }))
+  }
 }
 
 const stockReplicaRepository = new StockReplicaRepository()
