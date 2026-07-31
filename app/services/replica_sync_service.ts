@@ -224,7 +224,12 @@ export class ReplicaSyncService {
    *
    * PAS dans `syncAll()`/le tick 5 min : ~45k lignes en PROD, `ZSOAPSQL` O(n²),
    * CONNUE pour timeout côté X3 (cf. dégradation `Promise.allSettled` documentée
-   * dans `ConditionnementRepository.getObservations()`). Cadence propre de 2 h
+   * dans `ConditionnementRepository.getObservations()`).
+   *
+   * Ne pas en attendre le gain sur le préchauffage « estimateur conditionnement » :
+   * mesuré à 20 ms depuis la réplique contre 19 697 ms pour `getStojouRangements()`
+   * qui tourne en parallèle et reste directe. Cf. la note sur
+   * `ConditionnementRepository.getStockSrmParArticle()`. Cadence propre de 2 h
    * depuis le 31/07/2026, déclarée dans `SCHEDULE` (`replica_sync_provider.ts`) —
    * un tiers du seuil de 6 h du portail. Mesuré à 1,9-2,0 s sur 3 runs consécutifs,
    * mais sur CLTEST où la table ne fait que 4 683 lignes : compter un ordre de

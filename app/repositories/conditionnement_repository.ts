@@ -238,11 +238,27 @@ export class ConditionnementRepository {
    * Observations de palette par article, depuis STOCK (source 'STOCK').
    * Retourne une Map article → PaletteObservation[] (toutes source 'STOCK').
    *
-   * Bascule réplique (#98, suite lot 3) : c'est la requête ~45k lignes qui timeout
-   * parfois côté X3 (cf. dégradation `Promise.allSettled` dans `getObservations()`)
-   * — le vrai goulot conditionnement, contrairement à `getStojouRangements()`
-   * ci-dessous qui reste bornée à ~3 lignes/article par le `ROW_NUMBER` et n'a
-   * jamais eu besoin de réplique.
+   * Bascule réplique (#98, suite lot 3) : requête ~45k lignes qui timeout parfois
+   * côté X3 (cf. dégradation `Promise.allSettled` dans `getObservations()`).
+   *
+   * ATTENTION — `43f94e0` la désignait comme « le vrai goulot conditionnement »
+   * par opposition à `getStojouRangements()`. **C'est faux, et mesuré** (CLTEST,
+   * 31/07/2026, réplique servie) :
+   *
+   *     getStockSrmParArticle :     20 ms   (réplique)
+   *     getStojouRangements   : 19 697 ms   (X3 direct)
+   *
+   * Les deux tournent en parallèle dans `getObservations()`, donc les ~19,4 s du
+   * préchauffage « estimateur conditionnement » viennent en totalité de
+   * `getStojouRangements()`. Répliquer celle-ci ne rapporte donc rien tant que
+   * l'autre reste directe.
+   *
+   * L'erreur de raisonnement vaut d'être retenue : le `ROW_NUMBER` de
+   * `buildStojouSql()` borne le RÉSULTAT (~3 lignes/article), pas le travail que
+   * X3 fait pour le produire — il faut trier 10 M de lignes de STOJOU avant de
+   * pouvoir en garder trois. Compter les lignes rendues ne dit rien du coût.
+   *
+   * Décision assumée (31/07/2026) : `getStojouRangements()` n'est PAS répliquée.
    */
   async getStockSrmParArticle(): Promise<Map<string, PaletteObservation[]>> {
     if (await replicaGate.canRead('stock_detail_replica')) {
@@ -288,6 +304,11 @@ export class ConditionnementRepository {
    * Les `NB_MOUVEMENTS_STOJOU` derniers rangements de palette par article, source
    * 'STOJOU'. **Ordre du plus récent au plus ancien** (ORDER BY RN) — le domaine
    * s'appuie dessus pour son repli « valeur du mouvement le plus récent ».
+   *
+   * **Le poste le plus cher de tout le préchauffage : ~19,7 s mesurées** (CLTEST,
+   * 31/07/2026). Non répliquée, décision assumée — voir la note détaillée sur
+   * `getStockSrmParArticle()`, qui corrige au passage l'affirmation inverse de
+   * `43f94e0`.
    */
   async getStojouRangements(): Promise<Map<string, PaletteObservation[]>> {
     const db = new X3Database()
