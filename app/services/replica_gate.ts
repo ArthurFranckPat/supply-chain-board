@@ -72,6 +72,26 @@ import { getActiveX3EnvName } from '#config/x3'
  * aujourd'hui, jamais une donnée fausse.
  */
 
+/**
+ * Le MODE de lecture de l'application. `REPLICA_READS` ne règle pas un détail du
+ * portail : il choisit entre deux architectures.
+ *
+ * - **FERMÉ — mode direct.** Les écrans lisent X3 à travers bentocache. Le
+ *   préchauffage au boot et le warmer périodique ont tout leur sens : ils
+ *   amortissent un cold start de ~18 s.
+ * - **OUVERT — mode réplique.** Les écrans lisent SQLite. Le cache n'a plus rien
+ *   à amortir — une lecture indexée coûte ~4 ms, quand un hit L1 repaie un
+ *   `SuperJSON.parse` mesuré à 22-93 ms. **Le cache est plus lent que ce qu'il
+ *   enveloppe**, et préchauffer revient à recopier la réplique en mémoire pour
+ *   la relire plus lentement.
+ *
+ * D'où cette fonction exportée plutôt qu'un `env.get()` recopié : le mode se lit
+ * au même endroit partout, et `cache_preheat_provider` s'éteint en mode réplique.
+ */
+export function replicaReadsEnabled(): boolean {
+  return env.get('REPLICA_READS', false) === true
+}
+
 export type ReadSource = 'replica' | 'direct'
 
 /** Tables de réplique adressables par le portail. */
@@ -174,7 +194,7 @@ export class ReplicaGate {
    * `disabled` et ne prouveraient rien (cf. `tests/unit/replica_gate.test.ts`).
    */
   protected get enabled(): boolean {
-    return env.get('REPLICA_READS', false) === true
+    return replicaReadsEnabled()
   }
 
   /**

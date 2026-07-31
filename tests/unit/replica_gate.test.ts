@@ -1,6 +1,12 @@
 import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
-import { ReplicaGate, maxAgeMsFor, type ReplicaTable } from '#services/replica_gate'
+import env from '#start/env'
+import {
+  ReplicaGate,
+  maxAgeMsFor,
+  replicaReadsEnabled,
+  type ReplicaTable,
+} from '#services/replica_gate'
 
 /**
  * Read-after-write (#98) : le portail sert-il la réplique ou la voie directe ?
@@ -11,10 +17,11 @@ import { ReplicaGate, maxAgeMsFor, type ReplicaTable } from '#services/replica_g
  * partiel. Dans les quatre cas le verdict doit être `direct`, parce que le défaut
  * doit être la voie qui marche, jamais une donnée fausse.
  *
- * `REPLICA_READS` n'étant pas à `true` dans `.env`, la classe est instanciée avec
- * l'interrupteur forcé ouvert : sans ça tous les verdicts vaudraient `disabled` et
- * le test ne prouverait rien. Le cas `disabled` a son propre test, sur une
- * instance normale.
+ * L'interrupteur est FORCÉ des deux côtés, jamais lu depuis `.env` : `OpenGate`
+ * pour les règles du portail (sinon tous les verdicts vaudraient `disabled` et
+ * ne prouveraient rien), `ClosedGate` pour le mode direct. La version précédente
+ * instanciait `ReplicaGate` nue en supposant `REPLICA_READS` absent — le test
+ * tombait dès qu'un développeur activait le mode réplique sur sa machine.
  */
 
 /**
@@ -30,6 +37,14 @@ const TABLE = 'probe_replica' as ReplicaTable
 class OpenGate extends ReplicaGate {
   protected get enabled() {
     return true
+  }
+}
+
+/** Interrupteur forcé FERMÉ. Symétrique d'`OpenGate` : le test du mode direct
+ *  ne doit pas plus dépendre du `.env` local que celui du mode réplique. */
+class ClosedGate extends ReplicaGate {
+  protected get enabled() {
+    return false
   }
 }
 
@@ -260,11 +275,16 @@ test.group('ReplicaGate — read-after-write', (group) => {
     assert.equal(verdict.reason, 'dirty')
   })
 
-  test('REPLICA_READS absent ou faux → voie directe quoi qu’il arrive', async ({ assert }) => {
+  test('mode direct (REPLICA_READS fermé) → voie directe quoi qu’il arrive', async ({ assert }) => {
+    // Run parfait : récent, complet, réussi, bon environnement, table propre.
+    // Seul l'interrupteur ferme la porte, et il doit primer sur tout le reste.
     await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-60_000) })
 
-    // Instance normale : l'interrupteur lit l'environnement, où il n'est pas posé.
-    const verdict = await new ReplicaGate().verdict(TABLE)
+    // Interrupteur forcé FERMÉ, symétrique d'`OpenGate`. La version précédente
+    // instanciait `ReplicaGate` nue en supposant que `REPLICA_READS` n'était pas
+    // posé dans `.env` — le test tombait dès qu'un développeur activait le mode
+    // réplique sur sa machine. Un test ne doit pas dépendre du `.env` local.
+    const verdict = await new ClosedGate().verdict(TABLE)
 
     assert.equal(verdict.source, 'direct')
     assert.equal(verdict.reason, 'disabled')
@@ -314,5 +334,29 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
     // voie directe, visibles et sans danger ; régime long → du périmé servi en
     // silence pendant 6 h.
     assert.equal(maxAgeMsFor('table_pas_declaree' as ReplicaTable), 30 * MINUTE)
+  })
+})
+
+/**
+ * Le MODE de lecture (#98). `REPLICA_READS` ne règle pas un détail du portail :
+ * il choisit entre deux architectures exclusives.
+ *
+ *  - fermé : X3 direct AVEC préchauffage (bentocache amortit ~18 s de cold start)
+ *  - ouvert : réplique SANS préchauffage (rien à amortir, et le cache est plus
+ *    lent que la lecture SQLite qu'il enveloppe)
+ *
+ * `cache_preheat_provider.ready()` consulte `replicaReadsEnabled()` pour sortir
+ * en mode réplique. Ce test verrouille la lecture du mode elle-même — sans lui,
+ * un `env.get()` recopié ailleurs pourrait diverger et ressusciter la
+ * superposition des deux couches.
+ */
+test.group('replicaReadsEnabled — mode de lecture', () => {
+  test('reflète REPLICA_READS tel que le portail le lit', ({ assert }) => {
+    // `env.get()` est figé au boot : ce test constate la valeur du run courant
+    // et vérifie que le portail et le provider lisent la MÊME chose, pas une
+    // valeur qu'on pourrait forcer.
+    const mode = replicaReadsEnabled()
+    assert.isBoolean(mode)
+    assert.equal(mode, env.get('REPLICA_READS', false) === true)
   })
 })

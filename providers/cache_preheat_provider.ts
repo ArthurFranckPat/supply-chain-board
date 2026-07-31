@@ -3,9 +3,26 @@ import type { LoggerService } from '@adonisjs/core/types'
 import boardDataset from '#services/board_dataset'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
+import { replicaReadsEnabled } from '#services/replica_gate'
 
 /**
  * Préchauffage + maintien à chaud du cache X3.
+ *
+ * ## Ce provider n'appartient QU'AU MODE DIRECT
+ *
+ * `REPLICA_READS` choisit entre deux architectures, pas entre deux réglages
+ * (#98) :
+ *
+ * - **fermé — mode direct** : les écrans lisent X3 à travers bentocache. Tout ce
+ *   qui suit s'applique : sans préchauffage le premier utilisateur paie ~18-22 s.
+ * - **ouvert — mode réplique** : les écrans lisent SQLite. Il n'y a plus de cold
+ *   start à amortir, et le cache est devenu plus LENT que ce qu'il enveloppe —
+ *   lecture indexée ~4 ms contre 22-93 ms de `SuperJSON.parse` par hit L1.
+ *   Préchauffer y revient à recopier la réplique en mémoire pour la relire moins
+ *   vite.
+ *
+ * D'où la sortie immédiate de `ready()` en mode réplique : ni préchauffage ni
+ * warmer. Les deux modes restent entiers et exclusifs, jamais superposés.
  *
  * 1. PREHEAT (boot) : les entrées coûteuses de `tasks()` — vue ORDERS
  *    (~18-20 s SOAP à froid, partagée par /programme, /ordonnancement,
@@ -59,6 +76,24 @@ export default class CachePreheatProvider {
   async ready() {
     // Pas de préchauffage en repl/test.
     if (!this.app.getEnvironment().startsWith('web')) return
+
+    // MODE RÉPLIQUE : ni préchauffage ni warmer (#98).
+    //
+    // Ce provider existe pour amortir un cold start X3 de ~18 s. En mode
+    // réplique il n'y a plus de cold start à amortir : les écrans lisent SQLite,
+    // et préchauffer revient à recopier la réplique en mémoire pour la relire
+    // PLUS LENTEMENT — lecture indexée ~4 ms contre 22-93 ms de `SuperJSON.parse`
+    // par hit L1. Le préchauffage mesuré à 285 ms sur `board:orders` en mode
+    // réplique n'était pas un gain, c'était du travail perdu.
+    //
+    // Les deux modes restent entiers et exclusifs : `REPLICA_READS` fermé = X3
+    // direct AVEC préchauffage, ouvert = réplique SANS. Pas de troisième
+    // configuration où les deux couches se superposent.
+    if (replicaReadsEnabled()) {
+      const logger = await this.app.container.make('logger')
+      logger.info('[cache-preheat] mode réplique (REPLICA_READS) — préchauffage désactivé')
+      return
+    }
 
     // ATTENTION au timing : `cache` (@adonisjs/cache/services/main) n'est
     // instancié qu'à l'intérieur d'un hook `app.booted()`. L'appeler pendant
