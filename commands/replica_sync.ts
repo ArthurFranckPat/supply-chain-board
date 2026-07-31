@@ -11,6 +11,12 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
 import { StockFluxRepository } from '#repositories/stock_flux_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
+import operationsReplicaRepository from '#repositories/operations_replica_repository'
+import { X3OperationRepository, type OperationRecord } from '#repositories/operation_repository'
+import stockDetailReplicaRepository from '#repositories/stock_detail_replica_repository'
+import { ConditionnementRepository } from '#repositories/conditionnement_repository'
+import db from '@adonisjs/lucid/services/db'
 import type { Flow } from '#app/domain/models/flow'
 
 /**
@@ -24,8 +30,9 @@ import type { Flow } from '#app/domain/models/flow'
  *
  * `--status` n'interroge que le journal — aucun appel X3.
  *
- * `--compare` (#98, lot 2) : appelle X3 ET lit la réplique pour les trois tables,
- * diffe les deux jeux, n'écrit rien. C'est la « comparaison en parallèle » du lot 2 —
+ * `--compare` (#98) : appelle X3 ET lit la réplique pour chaque table (orders,
+ * order-lines, stock, stock-flux, receptions, operations, stock-detail), diffe les
+ * deux jeux, n'écrit rien. C'est la « comparaison en parallèle » du lot 2 —
  * volontairement hors du chemin de lecture chaud (`board_dataset.ts` ne fait jamais
  * les deux appels), pour ne pas repayer le coût X3 qu'on cherche à éliminer sur
  * chaque requête utilisateur.
@@ -40,7 +47,7 @@ import type { Flow } from '#app/domain/models/flow'
 export default class ReplicaSync extends BaseCommand {
   static commandName = 'replica:sync'
   static description =
-    'Ingère ORDERS / lignes de commande / STOCK depuis X3 vers la réplique SQLite'
+    'Ingère ORDERS / lignes de commande / STOCK / réceptions / MFGOPE / STOCK détail depuis X3 vers la réplique SQLite'
 
   static options: CommandOptions = { startApp: true }
 
@@ -54,7 +61,9 @@ export default class ReplicaSync extends BaseCommand {
 
   @flags.array({
     description:
-      'Tables à ingérer (orders, order-lines, stock, stock-flux). Défaut : toutes SAUF stock-flux (~50 appels SOAP, cf. syncStockFlux)',
+      'Tables à ingérer (orders, order-lines, stock, receptions, stock-flux, operations, stock-detail). ' +
+      'Défaut : orders/order-lines/stock/receptions SEULEMENT — stock-flux/operations/stock-detail ' +
+      'demandent un --only explicite (charge X3 non arbitrée, cf. syncStockFlux/syncOperations/syncStockDetail)',
   })
   declare only: string[]
 
@@ -94,9 +103,15 @@ export default class ReplicaSync extends BaseCommand {
     if (all || only.has('orders')) results.push(await replicaSyncService.syncOrders('cli'))
     if (all || only.has('order-lines')) results.push(await replicaSyncService.syncOrderLines('cli'))
     if (all || only.has('stock')) results.push(await replicaSyncService.syncStock('cli'))
+    if (all || only.has('receptions')) results.push(await replicaSyncService.syncReceptions('cli'))
     // JAMAIS via `all` : ~50 appels SOAP chunkés, cf. syncStockFlux(). Nommer
     // explicitement `--only=stock-flux`.
     if (only.has('stock-flux')) results.push(await replicaSyncService.syncStockFlux('cli'))
+    // JAMAIS via `all` non plus : ~14 chunks séquentiels sur toute la tranche
+    // utile, jamais mesurés en charge répétée (cf. syncOperations).
+    if (only.has('operations')) results.push(await replicaSyncService.syncOperations('cli'))
+    // JAMAIS via `all` : ~45k lignes connues pour timeout côté X3 (cf. syncStockDetail).
+    if (only.has('stock-detail')) results.push(await replicaSyncService.syncStockDetail('cli'))
 
     if (results.length === 0) {
       this.logger.error(`Aucune table reconnue dans --only=${[...only].join(',')}`)
@@ -186,10 +201,26 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info('=== stock_flux_replica (#98, lot 3) ===')
     const fluxOk = await this.compareStockFlux()
 
-    if (ordersOk && linesOk && stockOk && deltaOk && fluxOk) {
-      this.logger.success(
-        'Réplique et voie directe cohérentes sur les trois tables + le delta matching + le flux stock'
-      )
+    this.logger.info('=== receptions_replica ===')
+    const receptionsOk = await this.compareReceptions()
+
+    this.logger.info('=== operations_replica ===')
+    const operationsOk = await this.compareOperations()
+
+    this.logger.info('=== stock_detail_replica ===')
+    const stockDetailOk = await this.compareStockDetail()
+
+    if (
+      ordersOk &&
+      linesOk &&
+      stockOk &&
+      deltaOk &&
+      fluxOk &&
+      receptionsOk &&
+      operationsOk &&
+      stockDetailOk
+    ) {
+      this.logger.success('Réplique et voie directe cohérentes sur toutes les tables')
     } else {
       this.exitCode = 1
     }
@@ -495,6 +526,153 @@ export default class ReplicaSync extends BaseCommand {
       for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
     } else {
       this.logger.success('  stock identique par article et sous-type')
+    }
+    return diffs.length === 0
+  }
+  /**
+   * Réceptions — identité STABLE (`AUUID_0`, cf. migration `receptions_replica`),
+   * diff exact comme les lignes de commande.
+   */
+  private async compareReceptions(): Promise<boolean> {
+    const started = Date.now()
+    const [direct, replicaFlows] = await Promise.all([
+      new X3ReceptionRepository().getReceptionRows(),
+      db.connection('replica').from('receptions_replica').select('*'),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} lignes · réplique : ${replicaFlows.length} lignes · ${elapsed} s`
+    )
+
+    const byUuid = new Map(direct.map((r) => [r.uuid, r]))
+    const replicaUuids = new Set(replicaFlows.map((r) => r.uuid as string))
+    const onlyDirect = direct.filter((r) => !replicaUuids.has(r.uuid))
+    const onlyReplica = replicaFlows.filter((r) => !byUuid.has(r.uuid as string))
+
+    const fieldDiffs: string[] = []
+    for (const r of replicaFlows as { uuid: string; quantity: number; article: string }[]) {
+      const d = byUuid.get(r.uuid)
+      if (!d) continue
+      const mismatches: string[] = []
+      if (Math.abs(d.quantity - r.quantity) > 0.01)
+        mismatches.push(`quantity ${d.quantity}≠${r.quantity}`)
+      if (d.article !== r.article) mismatches.push(`article ${d.article}≠${r.article}`)
+      if (mismatches.length > 0) fieldDiffs.push(`${r.uuid} : ${mismatches.join(', ')}`)
+    }
+
+    if (onlyDirect.length > 0) {
+      this.logger.warning(`  ${onlyDirect.length} lignes présentes en X3 seulement`)
+    }
+    if (onlyReplica.length > 0) {
+      this.logger.warning(`  ${onlyReplica.length} lignes présentes en réplique seulement`)
+    }
+    if (fieldDiffs.length > 0) {
+      this.logger.warning(`  ${fieldDiffs.length} lignes avec un champ divergent :`)
+      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    }
+    const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
+    if (ok) this.logger.success('  réceptions identiques')
+    return ok
+  }
+
+  /**
+   * MFGOPE — scopée aux `num_of` déjà dans `orders_replica` des deux côtés (même
+   * périmètre que `syncOperations`), sinon la voie directe verrait des OF hors du
+   * périmètre répliqué et ferait apparaître un écart qui n'en est pas un.
+   */
+  private async compareOperations(): Promise<boolean> {
+    const numOfRows = await db.connection('replica').from('orders_replica').select('num_of')
+    const numOfs = (numOfRows as { num_of: string }[]).map((r) => r.num_of)
+    if (numOfs.length === 0) {
+      this.logger.info('  orders_replica vide — rien à comparer. Skip.')
+      return true
+    }
+
+    const started = Date.now()
+    const [direct, replica] = await Promise.all([
+      new X3OperationRepository().getOperations(numOfs),
+      operationsReplicaRepository.getOperations(numOfs),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} opérations · réplique : ${replica.length} opérations · ${elapsed} s`
+    )
+
+    const key = (o: OperationRecord) => `${o.mfgnum}#${o.openum}`
+    const byKey = new Map(direct.map((o) => [key(o), o]))
+    const replicaKeys = new Set(replica.map(key))
+    const onlyDirect = direct.filter((o) => !replicaKeys.has(key(o)))
+    const onlyReplica = replica.filter((o) => !byKey.has(key(o)))
+
+    const fieldDiffs: string[] = []
+    for (const r of replica) {
+      const d = byKey.get(key(r))
+      if (!d) continue
+      const mismatches: string[] = []
+      if (Math.abs(d.cplqty - r.cplqty) > 0.01) mismatches.push('cplqty')
+      if (d.opesta !== r.opesta) mismatches.push('opesta')
+      if (mismatches.length > 0) fieldDiffs.push(`${key(r)} : ${mismatches.join(', ')}`)
+    }
+
+    if (onlyDirect.length > 0) {
+      this.logger.warning(`  ${onlyDirect.length} opérations présentes en X3 seulement`)
+    }
+    if (onlyReplica.length > 0) {
+      this.logger.warning(`  ${onlyReplica.length} opérations présentes en réplique seulement`)
+    }
+    if (fieldDiffs.length > 0) {
+      this.logger.warning(`  ${fieldDiffs.length} opérations avec un champ divergent :`)
+      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    }
+    const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
+    if (ok) this.logger.success('  opérations identiques')
+    return ok
+  }
+
+  /**
+   * STOCK détail — pas d'identité de ligne exploitée (même choix que `compareStock`,
+   * cf. sa note), diff par agrégat `article#loc → quantité`.
+   */
+  private async compareStockDetail(): Promise<boolean> {
+    const replica = await stockDetailReplicaRepository.getRows()
+    if (replica.length === 0) {
+      this.logger.info(
+        '  stock_detail_replica vide — pas encore ingérée (node ace replica:sync --only=stock-detail). Skip.'
+      )
+      return true
+    }
+
+    const started = Date.now()
+    const direct = await new ConditionnementRepository().getStockDetailRows()
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} lignes · réplique : ${replica.length} lignes · ${elapsed} s`
+    )
+
+    const aggregate = (rows: { article: string; loc: string; qte: number }[]) => {
+      const m = new Map<string, number>()
+      for (const r of rows) {
+        const k = `${r.article}#${r.loc}`
+        m.set(k, (m.get(k) ?? 0) + r.qte)
+      }
+      return m
+    }
+    const directAgg = aggregate(direct)
+    const replicaAgg = aggregate(replica)
+    const keys = new Set([...directAgg.keys(), ...replicaAgg.keys()])
+
+    const diffs: string[] = []
+    for (const k of keys) {
+      const d = directAgg.get(k) ?? 0
+      const r = replicaAgg.get(k) ?? 0
+      if (Math.abs(d - r) > 0.01) diffs.push(`${k} : ${d}≠${r}`)
+    }
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} article#emplacement avec une quantité divergente :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    } else {
+      this.logger.success('  stock détail identique par article et emplacement')
     }
     return diffs.length === 0
   }

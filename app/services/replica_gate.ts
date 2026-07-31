@@ -39,7 +39,13 @@ export type ReadSource = 'replica' | 'direct'
 
 /** Tables de réplique adressables par le portail. */
 export type ReplicaTable =
-  'orders_replica' | 'order_lines_replica' | 'stock_replica' | 'stock_flux_replica'
+  | 'orders_replica'
+  | 'order_lines_replica'
+  | 'stock_replica'
+  | 'stock_flux_replica'
+  | 'receptions_replica'
+  | 'operations_replica'
+  | 'stock_detail_replica'
 
 export interface GateVerdict {
   table: ReplicaTable
@@ -150,6 +156,9 @@ export class ReplicaGate {
       'order_lines_replica',
       'stock_replica',
       'stock_flux_replica',
+      'receptions_replica',
+      'operations_replica',
+      'stock_detail_replica',
     ]
     return Promise.all(tables.map((t) => this.verdict(t)))
   }

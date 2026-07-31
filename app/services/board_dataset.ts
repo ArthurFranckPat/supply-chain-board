@@ -34,6 +34,8 @@ import replicaGate from '#services/replica_gate'
 import ordersReplicaRepository from '#repositories/orders_replica_repository'
 import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
+import receptionsReplicaRepository from '#repositories/receptions_replica_repository'
+import operationsReplicaRepository from '#repositories/operations_replica_repository'
 import { logStockValuationCall } from '#services/stock_valuation_usage_logger'
 
 /**
@@ -432,7 +434,18 @@ class BoardDataset {
       key,
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
-      factory: () => new X3OperationRepository().getOperations(numOfs),
+      factory: async () => {
+        // Bascule réplique (#98, suite lot 3) : `operations_replica` ne couvre que
+        // les `num_of` de `orders_replica` (tranche utile). Les appelants connus
+        // (retard_repository, load_payload_loader, order_impacts_loader) tirent
+        // tous leurs numOfs de cette même population — cf. le repository de
+        // lecture pour le détail de la vérification. `controle_prod_loader`
+        // interroge X3OperationRepository directement et ne passe pas par ici.
+        if (await replicaGate.canRead('operations_replica')) {
+          return operationsReplicaRepository.getOperations(numOfs)
+        }
+        return new X3OperationRepository().getOperations(numOfs)
+      },
     })
   }
 
@@ -469,7 +482,15 @@ class BoardDataset {
       key: 'receptions',
       ttl: LIVE_TTL,
       timeout: SWR_TIMEOUT,
-      factory: () => new X3ReceptionRepository().getReceptionFlows(),
+      factory: async () => {
+        // Bascule réplique (#98, suite lot 3) : PORDERQ n'est jamais écrit par
+        // l'app (réceptions saisies dans X3), donc `receptions_replica` n'a jamais
+        // de fenêtre `dirty` — contrairement à `orders_replica`/`stock_replica`.
+        if (await replicaGate.canRead('receptions_replica')) {
+          return receptionsReplicaRepository.getReceptionFlows()
+        }
+        return new X3ReceptionRepository().getReceptionFlows()
+      },
     })
   }
 

@@ -3,6 +3,8 @@ import {
   NB_MOUVEMENTS_STOJOU,
   type PaletteObservation,
 } from '#app/domain/conditionnement_estimator'
+import replicaGate from '#services/replica_gate'
+import stockDetailReplicaRepository from '#repositories/stock_detail_replica_repository'
 
 /**
  * Article avec ses coefs de conditionnement référencés et son contexte opérationnel.
@@ -100,8 +102,12 @@ function toNumOrNull(v: string | null): number | null {
  * On exclut les qtés ≤ 1 (articles de paramétrage STOCK_CF, STOCK_PRODUIT… qui
  * ne représentent pas une vraie palette).
  */
+// `AUUID_0` (clé primaire du modèle `Stock`, cf. app/models/x3/stock.ts) est
+// sélectionnée pour `getStockDetailRows()` (#98, ingestion `stock_detail_replica`) —
+// colonne ignorée par `getStockSrmParArticle()`/`aggregate()`, aucun coût pour
+// l'appelant existant.
 const buildStockSql = () => `
-SELECT ITMREF_0 AS ITMREF, LOC_0 AS LOC, ABS(QTYSTU_0) AS QTE
+SELECT AUUID_0 AS AUUID, ITMREF_0 AS ITMREF, LOC_0 AS LOC, ABS(QTYSTU_0) AS QTE
 FROM STOCK
 WHERE (LOC_0 LIKE '${LOC_STOCKAGE_PREFIX}%' OR LOC_0 LIKE '${LOC_CONSO_PATTERN}' OR LOC_0 = 'CLP')
   AND ABS(QTYSTU_0) > 1
@@ -231,8 +237,17 @@ export class ConditionnementRepository {
   /**
    * Observations de palette par article, depuis STOCK (source 'STOCK').
    * Retourne une Map article → PaletteObservation[] (toutes source 'STOCK').
+   *
+   * Bascule réplique (#98, suite lot 3) : c'est la requête ~45k lignes qui timeout
+   * parfois côté X3 (cf. dégradation `Promise.allSettled` dans `getObservations()`)
+   * — le vrai goulot conditionnement, contrairement à `getStojouRangements()`
+   * ci-dessous qui reste bornée à ~3 lignes/article par le `ROW_NUMBER` et n'a
+   * jamais eu besoin de réplique.
    */
   async getStockSrmParArticle(): Promise<Map<string, PaletteObservation[]>> {
+    if (await replicaGate.canRead('stock_detail_replica')) {
+      return stockDetailReplicaRepository.getObservations()
+    }
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
@@ -241,6 +256,32 @@ export class ConditionnementRepository {
       await db.destroy()
     }
     return aggregate(rows, 'STOCK')
+  }
+
+  /**
+   * Lignes STOCK brutes (mêmes filtres que `getStockSrmParArticle()`), avec
+   * `AUUID_0` en plus pour une identité de ligne stable. Sert exclusivement
+   * l'ingestion de `stock_detail_replica` (#98) : le swap complet a besoin d'une
+   * clé primaire, que `PaletteObservation` ne porte pas.
+   */
+  async getStockDetailRows(): Promise<
+    { uuid: string; article: string; loc: string; qte: number }[]
+  > {
+    const db = new X3Database()
+    let rows: RawRow[] = []
+    try {
+      rows = await db.raw(buildStockSql())
+    } finally {
+      await db.destroy()
+    }
+    return rows
+      .map((row) => ({
+        uuid: row.AUUID?.trim() ?? '',
+        article: row.ITMREF?.trim() ?? '',
+        loc: row.LOC?.trim() ?? '',
+        qte: toNum(row.QTE),
+      }))
+      .filter((r) => r.uuid.length > 0 && r.article.length > 0)
   }
 
   /**
@@ -409,8 +450,13 @@ function libelleTypeMvt(raw: string | null): string | null {
   }
 }
 
-/** Détecte si un emplacement LOC est de stockage (SM*) ou de consommation (S*P/CLP). */
-function typeLoc(loc: string | null | undefined): 'stockage' | 'conso' | null {
+/**
+ * Détecte si un emplacement LOC est de stockage (SM*) ou de consommation (S*P/CLP).
+ * Exportée : `StockDetailReplicaRepository` (#98) réutilise cette classification à
+ * la LECTURE plutôt que de la figer à l'ingestion — même raisonnement que
+ * `stock_flux_replica` (agrégation à la lecture, une seule réplique).
+ */
+export function typeLoc(loc: string | null | undefined): 'stockage' | 'conso' | null {
   if (!loc) return null
   const l = loc.trim().toUpperCase()
   if (l.startsWith(LOC_STOCKAGE_PREFIX)) return 'stockage'

@@ -4,6 +4,9 @@ import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { StockFluxRepository } from '#repositories/stock_flux_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { X3OperationRepository } from '#repositories/operation_repository'
+import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
 
 /**
@@ -102,6 +105,7 @@ export class ReplicaSyncService {
     results.push(await this.syncOrders(source))
     results.push(await this.syncOrderLines(source))
     results.push(await this.syncStock(source))
+    results.push(await this.syncReceptions(source))
 
     return { results, durationMs: Date.now() - start }
   }
@@ -158,6 +162,77 @@ export class ReplicaSyncService {
         alloue_phys: s.allouePhys,
         alloue_global: s.alloueGlobal,
         pmp: s.pmp,
+      }))
+    })
+  }
+
+  /**
+   * Lignes PORDERQ ouvertes (réceptions attendues) — swap complet, DANS
+   * `syncAll()` (#98, suite lot 3). Un seul appel X3 non chunké, déjà servi live
+   * toutes les 2 min sans incident connu (contrairement à `syncStockDetail()`
+   * ci-dessous) — pas de raison de le tenir hors du tick 5 min comme
+   * `syncStockFlux`/`syncOperations`/`syncStockDetail`.
+   */
+  async syncReceptions(source = 'manual'): Promise<TableIngestionResult> {
+    return this.ingest('receptions_replica', source, async () => {
+      const rows = await new X3ReceptionRepository().getReceptionRows()
+      return rows.map((r): Row => ({
+        uuid: r.uuid,
+        num_commande: r.numCommande,
+        article: r.article,
+        quantity: r.quantity,
+        date: isoDay(r.date),
+        supplier: r.supplier,
+        designation: r.designation,
+        date_commande: isoDay(r.dateCommande),
+        qte_commandee: r.qteCommandee,
+      }))
+    })
+  }
+
+  /**
+   * MFGOPE (pointages d'opérations), scopée aux `num_of` déjà dans
+   * `orders_replica` — relus depuis la réplique elle-même (écrite plus tôt dans le
+   * même `syncAll()`, donc à jour) plutôt que via un nouvel appel X3.
+   *
+   * PAS dans `syncAll()`/le tick 5 min : ~14 chunks séquentiels (limite IN à 1000,
+   * cf. `X3OperationRepository`) sur la tranche utile complète, jamais mesurés en
+   * charge répétée. Même prudence que `syncStockFlux` — reste une commande
+   * manuelle (`--only=operations`) tant que la cadence n'est pas arbitrée.
+   */
+  async syncOperations(source = 'manual'): Promise<TableIngestionResult> {
+    return this.ingest('operations_replica', source, async () => {
+      const numOfRows = await this.conn.from('orders_replica').select('num_of')
+      const numOfs = (numOfRows as { num_of: string }[]).map((r) => r.num_of)
+      const ops = await new X3OperationRepository().getOperations(numOfs)
+      return ops.map((o): Row => ({
+        num_of: o.mfgnum,
+        openum: o.openum,
+        cplqty: o.cplqty,
+        opesta: o.opesta,
+        extqty: o.extqty,
+      }))
+    })
+  }
+
+  /**
+   * STOCK au grain ligne (article × emplacement), filtré SM* / S*P / CLP — source de
+   * `ConditionnementRepository.getStockSrmParArticle()`.
+   *
+   * PAS dans `syncAll()`/le tick 5 min : ~45k lignes, `ZSOAPSQL` O(n²), CONNUE pour
+   * timeout côté X3 (cf. dégradation `Promise.allSettled` documentée dans
+   * `ConditionnementRepository.getObservations()`) — un tick répété dessus serait
+   * une charge X3 nouvelle et non arbitrée, même motif que `syncStockFlux`. Reste
+   * une commande manuelle (`--only=stock-detail`).
+   */
+  async syncStockDetail(source = 'manual'): Promise<TableIngestionResult> {
+    return this.ingest('stock_detail_replica', source, async () => {
+      const rows = await new ConditionnementRepository().getStockDetailRows()
+      return rows.map((r): Row => ({
+        uuid: r.uuid,
+        article: r.article,
+        loc: r.loc,
+        qte: r.qte,
       }))
     })
   }

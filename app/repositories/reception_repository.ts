@@ -40,6 +40,20 @@ export const RECEPTION_LOOKBACK_DAYS = Number(process.env.RECEPTION_LOOKBACK_DAY
  */
 export const RECEPTION_OVERDUE_MIN_QTY = Number(process.env.RECEPTION_OVERDUE_MIN_QTY) || 0
 
+/** Ligne PORDERQ brute, avec sa clé stable — sert l'ingestion `receptions_replica` (#98). */
+export interface ReceptionReplicaRow {
+  /** AUUID_0 — clé primaire déclarée par le modèle `PurchaseOrderLine`. */
+  uuid: string
+  numCommande: string
+  article: string
+  quantity: number
+  date: Date | null
+  supplier: string
+  designation: string | null
+  dateCommande: Date | null
+  qteCommandee: number
+}
+
 export class X3ReceptionRepository {
   /** Réceptions attendues ; si `to` fourni, bornées à `EXTRCPDAT_0 <= to`. */
   async getReceptionFlows(opts?: { to?: string }): Promise<Flow[]> {
@@ -89,6 +103,52 @@ export class X3ReceptionRepository {
           // PORDERQ filtré sur PORDER.CLEFLG=1 → POs confirmées → toujours fermes.
           firm: true,
         },
+      }
+    })
+  }
+
+  /**
+   * Même population/filtres que `getReceptionFlows()` (sans borne `to` — c'est
+   * l'appel que fait `board_dataset.getReceptions()`), avec `AUUID_0` en plus pour
+   * une identité de ligne stable. Sert exclusivement l'ingestion de
+   * `receptions_replica` (#98) : le swap complet a besoin d'une clé primaire, que
+   * `Flow` ne porte pas.
+   */
+  async getReceptionRows(): Promise<ReceptionReplicaRow[]> {
+    const rows = await PurchaseOrderLine.query()
+      .select(
+        'PORDERQ.AUUID_0',
+        'PORDERQ.POHNUM_0',
+        'PORDERQ.ITMREF_0',
+        'PORDERQ.BPSNUM_0',
+        'PORDERQ.QTYSTU_0',
+        'PORDERQ.RCPQTYSTU_0',
+        'PORDERQ.EXTRCPDAT_0 AS EXTRCPDAT_RAW',
+        'PORDERQ.ORDDAT_0 AS ORDDAT_RAW',
+        'BPSUPPLIER.BPSNAM_0',
+        'ITMMASTER.ITMDES1_0'
+      )
+      .innerJoin('PORDER', 'PORDER.POHNUM_0', 'PORDERQ.POHNUM_0')
+      .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'PORDERQ.ITMREF_0')
+      .innerJoin('BPSUPPLIER', 'BPSUPPLIER.BPSNUM_0', 'PORDERQ.BPSNUM_0')
+      .where('PORDER.CLEFLG_0', '1')
+      .where('PORDERQ.LINCLEFLG_0', '1')
+      .where('ITMMASTER.ITMSTA_0', '1')
+      .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
+
+    return rows.map((row) => {
+      const qteCommandee = Number.parseFloat(row.quantiteUs ?? '0') || 0
+      const qteRecue = Number.parseFloat(row.quantiteReceptionneeUs ?? '0') || 0
+      return {
+        uuid: row.identifiantUnique?.trim() ?? '',
+        numCommande: row.noCommande?.trim() ?? '',
+        article: row.article?.trim() ?? '',
+        quantity: qteCommandee - qteRecue,
+        date: parseX3Date(row.$extras.EXTRCPDAT_RAW),
+        supplier: (row.$extras.BPSNAM_0 as string | null)?.trim() ?? row.fournisseur?.trim() ?? '',
+        designation: (row.$extras.ITMDES1_0 as string | null) ?? null,
+        dateCommande: parseX3Date(row.$extras.ORDDAT_RAW),
+        qteCommandee,
       }
     })
   }
