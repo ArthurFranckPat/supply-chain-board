@@ -8,6 +8,7 @@ import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3OperationRepository } from '#repositories/operation_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
+import { getActiveX3EnvName } from '#config/x3'
 
 /**
  * Ingestion X3 → réplique SQLite locale (issue #98, lot 1).
@@ -566,6 +567,10 @@ export class ReplicaSyncService {
       source: entry.source,
       error: entry.error ?? null,
       note: entry.note ?? null,
+      // PROVENANCE de la donnée, pas une décoration : `ReplicaGate` s'en sert
+      // pour refuser de servir du CLTEST à une session prod. Cf. la migration
+      // `add_x3_env_to_ingestion_log`.
+      x3_env: getActiveX3EnvName(),
     })
   }
 }

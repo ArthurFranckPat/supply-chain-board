@@ -1,5 +1,6 @@
 import db from '@adonisjs/lucid/services/db'
 import env from '#start/env'
+import { getActiveX3EnvName } from '#config/x3'
 
 /**
  * Décide, pour chaque table de réplique, si une lecture peut lui faire confiance
@@ -46,11 +47,29 @@ import env from '#start/env'
  * `getOrdersForWindow` (deux chemins de lecture qui divergent parce que la
  * règle vit à deux endroits).
  *
+ * ## La règle de provenance
+ *
+ * Les deux règles ci-dessus supposent toutes deux que la réplique parle du même
+ * X3 que le lecteur. Rien ne le garantissait.
+ *
+ * `getX3EnvConfig()` (`config/x3.ts`) prend l'environnement de la session HTTP
+ * quand il y en a une, et `X3_ENV` sinon. Or l'ingestion tourne HORS requête
+ * (provider, CLI) donc toujours sur `X3_ENV`, tandis que les lectures tournent
+ * DANS une requête donc sur l'environnement de l'utilisateur connecté. Avec
+ * `X3_ENV=test` et un utilisateur connecté en prod — configuration observée en
+ * développement — la réplique est remplie depuis CLTEST et servie à une session
+ * prod. Aucun écran ne le signalerait : les chiffres sont plausibles, faux.
+ *
+ * D'où `ingestion_log.x3_env`, comparé à l'environnement du lecteur. C'est la
+ * règle la plus prioritaire des trois : une donnée fraîche et propre reste
+ * fausse si elle vient de l'autre environnement.
+ *
  * ## Dégradation
  *
- * Réplique jamais alimentée, ingestion en panne, table marquée sale, dernier
- * run trop vieux : le verdict est `direct` dans les quatre cas. Le défaut est
- * donc la voie qui marche aujourd'hui, jamais une donnée fausse.
+ * Réplique jamais alimentée, ingestion en panne, provenance différente de celle
+ * du lecteur, table marquée sale, dernier run trop vieux : le verdict est
+ * `direct` dans les cinq cas. Le défaut est donc la voie qui marche
+ * aujourd'hui, jamais une donnée fausse.
  */
 
 export type ReadSource = 'replica' | 'direct'
@@ -69,7 +88,8 @@ export interface GateVerdict {
   table: ReplicaTable
   source: ReadSource
   /** Pourquoi la voie directe, quand c'est elle. `null` si la réplique est servie. */
-  reason: 'disabled' | 'never-ingested' | 'last-run-failed' | 'dirty' | 'stale' | null
+  reason:
+    'disabled' | 'never-ingested' | 'last-run-failed' | 'env-mismatch' | 'dirty' | 'stale' | null
   dirtySince: string | null
   lastFullRunAt: string | null
 }
@@ -213,6 +233,28 @@ export class ReplicaGate {
 
     if (!lastRun) return { ...base, source: 'direct', reason: 'never-ingested' }
     if (lastRun.status !== 'ok') return { ...base, source: 'direct', reason: 'last-run-failed' }
+
+    // PROVENANCE avant tout le reste : une donnée du bon âge et propre reste
+    // fausse si elle vient de l'autre environnement X3.
+    //
+    // Le cas n'est pas théorique. `getX3EnvConfig()` prend l'environnement de la
+    // session HTTP quand il y en a une, et `X3_ENV` sinon. L'ingestion tourne
+    // hors requête (provider, CLI) donc toujours sur `X3_ENV` ; les lectures
+    // tournent dans une requête donc sur l'environnement de l'utilisateur
+    // connecté. Avec `X3_ENV=test` et un utilisateur connecté en prod —
+    // configuration observée en développement — la réplique est remplie depuis
+    // CLTEST et servie à une session prod. Rien à l'écran ne le signalerait :
+    // les chiffres sont plausibles, simplement faux.
+    //
+    // Le `?? null` couvre un cas que le schéma rend inatteignable (`x3_env` est
+    // `NOT NULL DEFAULT 'test'`, les lignes antérieures à la migration ont donc
+    // été étiquetées, pas laissées vides). Gardé quand même : si la colonne
+    // devenait nullable un jour, l'absence doit valoir refus et non « la bonne
+    // provenance » — même principe que l'âge indémontrable.
+    const runEnv: string | null = lastRun.x3_env ?? null
+    if (runEnv === null || runEnv !== getActiveX3EnvName()) {
+      return { ...base, source: 'direct', reason: 'env-mismatch' }
+    }
 
     // Le run doit avoir DÉMARRÉ après l'écriture. Comparaison sur des ISO 8601 en
     // UTC, donc l'ordre lexicographique vaut l'ordre chronologique.

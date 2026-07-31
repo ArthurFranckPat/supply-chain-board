@@ -46,6 +46,10 @@ test.group('ReplicaGate — read-after-write', (group) => {
     status: 'ok' | 'failed'
     scope: 'full' | 'partial'
     startedAt: string
+    /** Provenance. Défaut `test` : c'est ce que `getActiveX3EnvName()` renvoie
+     *  hors requête HTTP, donc dans ces tests. Jamais `null` — la colonne est
+     *  `NOT NULL`, une provenance absente n'est pas un état atteignable. */
+    x3Env?: string
   }) {
     await conn.table('ingestion_log').insert({
       table_name: TABLE,
@@ -56,6 +60,7 @@ test.group('ReplicaGate — read-after-write', (group) => {
       rows: 1,
       duration_ms: 1,
       source: 'test',
+      x3_env: opts.x3Env ?? 'test',
     })
   }
 
@@ -148,6 +153,39 @@ test.group('ReplicaGate — read-after-write', (group) => {
     const verdict = await gate.verdict(TABLE)
 
     assert.equal(verdict.source, 'replica')
+  })
+
+  /**
+   * Provenance (#98) — le trou que les deux règles précédentes laissaient ouvert.
+   *
+   * L'ingestion tourne hors requête HTTP et prend donc `X3_ENV` ; les lectures
+   * tournent dans une requête et prennent l'environnement de l'utilisateur
+   * connecté. Rien n'imposait que les deux coïncident, et en développement
+   * (`X3_ENV=test` + compte prod) ils ne coïncident pas : la réplique était
+   * remplie depuis CLTEST et servie à une session prod, sans le moindre signal
+   * à l'écran.
+   *
+   * Ces tests tournent hors requête, donc `getActiveX3EnvName()` vaut `test`.
+   */
+  test('ingestion venue d’un AUTRE environnement X3 → voie directe', async ({ assert }) => {
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-60_000), x3Env: 'prod' })
+
+    const verdict = await gate.verdict(TABLE)
+
+    assert.equal(verdict.source, 'direct')
+    assert.equal(verdict.reason, 'env-mismatch')
+  })
+
+  test('la provenance prime sur la fraîcheur et sur le marquage', async ({ assert }) => {
+    // Run récent, table propre : tout est bon SAUF l'environnement. Une donnée
+    // fraîche et propre reste fausse si elle vient de l'autre X3, donc ce motif
+    // doit être annoncé avant les autres.
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-1_000), x3Env: 'prod' })
+    await gate.markDirty([TABLE], 'test')
+
+    const verdict = await gate.verdict(TABLE)
+
+    assert.equal(verdict.reason, 'env-mismatch')
   })
 
   test('markDirty deux fois de suite ne duplique pas la ligne', async ({ assert }) => {

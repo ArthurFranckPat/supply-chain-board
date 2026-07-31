@@ -94,4 +94,25 @@ export function getX3EnvConfig(envName?: X3EnvName): X3EnvConfig {
   return baseX3Config(fallback)
 }
 
+/**
+ * NOM de l'environnement X3 actif, sans construire de config ni toucher aux
+ * credentials.
+ *
+ * Même arbitrage que `getX3EnvConfig()` — session HTTP d'abord, `X3_ENV`
+ * ensuite — mais exposé séparément parce que la réplique #98 a besoin de la
+ * RÉPONSE, pas des identifiants : `ReplicaSyncService` l'écrit dans
+ * `ingestion_log.x3_env`, `ReplicaGate` le compare à celui du lecteur.
+ *
+ * Ce sont précisément les deux côtés de la bascule : l'ingestion tourne hors
+ * requête (provider, CLI) et prend donc `X3_ENV` ; les lectures tournent dans
+ * une requête et prennent l'environnement de l'utilisateur connecté. Rien
+ * n'imposait que les deux coïncident, et en développement ils ne coïncident
+ * pas.
+ */
+export function getActiveX3EnvName(): X3EnvName {
+  const ctxCreds = HttpContext.get()?.x3Credentials
+  if (ctxCreds) return ctxCreds.env
+  return (env.get('X3_ENV', 'test') as X3EnvName) ?? 'test'
+}
+
 export default defineConfig({})
