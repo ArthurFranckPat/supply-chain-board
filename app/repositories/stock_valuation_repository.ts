@@ -510,7 +510,19 @@ export class StockValuationRepository {
     return selectValuationBase(articles, stockByArticle, movedArticles)
   }
 
-  /** Base articles depuis X3 — passe unique, ~700 lignes. */
+  /**
+   * Base articles depuis X3 — passe unique.
+   *
+   * Le commentaire d'origine annonçait « ~700 lignes ». Mesuré : **3 529** sur
+   * CLTEST, fenêtre 12 mois. Corrigé plutôt que recopié — c'est le genre de
+   * chiffre qui sert ensuite à écarter une optimisation.
+   *
+   * ## Équivalence avec `getBaseFromReplica()`, vérifiée par différence
+   *
+   * Les deux populations comparées ARTICLE PAR ARTICLE sur CLTEST, pas seulement
+   * en cardinalité : 3 529 des deux côtés, `comm -3` vide dans les deux sens.
+   * Zéro article présent d'un côté seulement.
+   */
   private async getBaseFromX3(fromStr: string): Promise<StockBaseRow[]> {
     const baseDb = new X3Database()
     let rows: RawRow[] = []
