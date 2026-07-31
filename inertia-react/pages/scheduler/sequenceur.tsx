@@ -258,13 +258,16 @@ function syncPosteQueryParam(poste: string | null) {
 }
 
 function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined, ofStatus?: number) {
-  if (st === 'ok')
+  if (st === 'ok') {
+    // OF ferme (WIPSTA 1) : déjà lancé — vert ferme.
+    // Planifié/suggéré : lançable — teal planifié (aligné split charge).
+    const launched = ofStatus === 1
     return {
-      // OF ferme : déjà lancé en prod — pas un candidat à affermir.
-      label: ofStatus === 1 ? 'Lancé' : 'Lançable',
-      className: 'bg-ferme/15 text-ferme',
+      label: launched ? 'Lancé' : 'Lançable',
+      className: launched ? 'bg-ferme/15 text-ferme' : 'bg-planifie/15 text-planifie',
       icon: CircleCheck,
     }
+  }
   if (st === 'qc')
     return {
       label: 'Sous CQ',
