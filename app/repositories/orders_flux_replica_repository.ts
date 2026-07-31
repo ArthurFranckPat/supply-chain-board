@@ -240,17 +240,32 @@ export class OrdersFluxReplicaRepository {
    * paramètres d'appel, et les rejouer à la lecture ferait vivre la même règle
    * à deux endroits — la classe de bug de `getOrdersForWindow`.
    */
-  async getLiveRows(fromIso: string, toIso: string): Promise<OrdersSourceRow[]> {
+  async getLiveRows(
+    fromIso: string,
+    toIso: string,
+    /**
+     * Familles à ramener. Défaut = les trois (`fetchLive`).
+     * `[1, 2]` sert `fetchDemandAndReception`, qui a la même population sans les
+     * OF — inutile de rapatrier 13 500 lignes WIPTYP=5 pour les jeter ensuite.
+     */
+    wiptyps: Array<1 | 2 | 5> = [1, 2, 5]
+  ): Promise<OrdersSourceRow[]> {
+    const windowed = wiptyps.filter((w) => w !== 2)
     const rows = await this.conn
       .from('orders_flux_replica')
       .select('*')
       .where((q) => {
-        q.where((w) =>
-          w
-            .whereIn('wiptyp', [1, 5])
-            .andWhere('date_echeance', '>=', fromIso)
-            .andWhere('date_echeance', '<=', toIso)
-        ).orWhere((w) => w.where('wiptyp', 2).andWhere('date_echeance', '<=', toIso))
+        if (windowed.length > 0) {
+          q.orWhere((w) =>
+            w
+              .whereIn('wiptyp', windowed)
+              .andWhere('date_echeance', '>=', fromIso)
+              .andWhere('date_echeance', '<=', toIso)
+          )
+        }
+        if (wiptyps.includes(2)) {
+          q.orWhere((w) => w.where('wiptyp', 2).andWhere('date_echeance', '<=', toIso))
+        }
       })
     return (rows as ReplicaRow[]).map(toOwn)
   }

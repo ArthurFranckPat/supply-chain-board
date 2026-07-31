@@ -297,8 +297,29 @@ class BoardDataset {
       ttl: LIVE_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
+        // Même population que `getLive()` sans les OF — `orders_flux_replica` la
+        // contient déjà, aucune ingestion supplémentaire (#105). Mêmes deux
+        // conditions que `getLive()` : fraîcheur ET couverture de plage, la
+        // fenêtre venant ici aussi d'un choix d'écran.
+        //
+        // Les options de mise en forme DIFFÈRENT de `LIVE_MAP_OPTS` :
+        // `fetchDemandAndReception` reporte la désignation et n'expose pas les
+        // réfs client. Recopiées telles quelles pour que la bascule ne change
+        // rien au contenu rendu.
+        const [fresh, coverage] = await Promise.all([
+          replicaGate.canRead('orders_flux_replica'),
+          ordersFluxReplicaRepository.getCoverage(),
+        ])
         const { demandFlows, receptionFlows } =
-          await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
+          fresh && replicaCoversOrdersRange(coverage, from, to)
+            ? await ordersFluxReplicaRepository.getLiveRows(from, to, [1, 2]).then((rows) =>
+                splitOrdersFlows(rows, {
+                  contremarque: true,
+                  designation: true,
+                  customerRef: false,
+                })
+              )
+            : await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
         return { demand: demandFlows, reception: receptionFlows }
       },
     })
