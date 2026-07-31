@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import {
   aggregateFluxByArticlePeriod,
-  replicaEligibleForFlux,
+  replicaCoversFluxRange,
 } from '#repositories/stock_valuation_repository'
 
 /**
@@ -67,57 +67,35 @@ test.group('aggregateFluxByArticlePeriod', () => {
   })
 })
 
-test.group('replicaEligibleForFlux', () => {
+/**
+ * Couverture d'historique — question de DONNÉES, propre à cette table (seule
+ * réplique interrogée sur une plage arbitraire). La question de TEMPS (« le
+ * dernier run est-il assez récent ») vit dans `ReplicaGate` et se teste là-bas.
+ */
+test.group('replicaCoversFluxRange', () => {
   const from = new Date('2026-06-01T00:00:00Z')
-  const ONE_HOUR = 60 * 60 * 1000
-  const maxAgeMs = 6 * ONE_HOUR
 
-  test('éligible quand from ≥ coverageMin et le run est assez récent', ({ assert }) => {
-    const ok = replicaEligibleForFlux(
-      { coverageMin: new Date('2026-01-01T00:00:00Z'), ageMs: ONE_HOUR },
-      from,
-      maxAgeMs
-    )
-    assert.isTrue(ok)
+  test('couvert quand coverageMin est antérieur à from', ({ assert }) => {
+    assert.isTrue(replicaCoversFluxRange(new Date('2026-01-01T00:00:00Z'), from))
   })
 
-  test('inéligible si le dernier run est trop vieux, même avec assez d’historique', ({
-    assert,
-  }) => {
-    const ok = replicaEligibleForFlux(
-      { coverageMin: new Date('2026-01-01T00:00:00Z'), ageMs: 7 * ONE_HOUR },
-      from,
-      maxAgeMs
-    )
-    assert.isFalse(ok)
+  test('couvert quand coverageMin tombe exactement sur from (borne incluse)', ({ assert }) => {
+    assert.isTrue(replicaCoversFluxRange(new Date('2026-06-01T00:00:00Z'), from))
   })
 
-  test('inéligible si from déborde coverageMin (plage pinned plus ancienne)', ({ assert }) => {
-    const ok = replicaEligibleForFlux(
-      { coverageMin: new Date('2026-06-15T00:00:00Z'), ageMs: ONE_HOUR },
-      from,
-      maxAgeMs
-    )
-    assert.isFalse(ok)
+  test('non couvert si from déborde coverageMin (plage pinned plus ancienne)', ({ assert }) => {
+    assert.isFalse(replicaCoversFluxRange(new Date('2026-06-15T00:00:00Z'), from))
   })
 
-  test('inéligible pour une table jamais ingérée (coverageMin/ageMs null)', ({ assert }) => {
-    const ok = replicaEligibleForFlux({ coverageMin: null, ageMs: null }, from, maxAgeMs)
-    assert.isFalse(ok)
+  test('non couvert pour une table vide (coverageMin null)', ({ assert }) => {
+    assert.isFalse(replicaCoversFluxRange(null, from))
   })
 
-  test('un jour sans mouvement récent (MAX(jour) en retard) ne bloque PAS l’éligibilité — la régression visée', ({
-    assert,
-  }) => {
-    // Un run vieux de 10 min mais où la donnée la plus récente ingérée date de
-    // plusieurs jours (aucun mouvement STOJOU depuis) doit rester éligible :
-    // c'est exactement le cas où l'ancien `MAX(jour) >= today` rejetait à tort
-    // une réplique fraîchement synchronisée.
-    const ok = replicaEligibleForFlux(
-      { coverageMin: new Date('2025-08-01T00:00:00Z'), ageMs: 10 * 60 * 1000 },
-      from,
-      maxAgeMs
-    )
-    assert.isTrue(ok)
+  test('une réplique sans mouvement récent reste couvrante — la régression visée', ({ assert }) => {
+    // La couverture se juge sur la borne BASSE. Une table dont la donnée la plus
+    // récente date de plusieurs jours (aucun mouvement STOJOU depuis) répond
+    // parfaitement pour un `from` récent : c'est le cas où l'ancien
+    // `MAX(jour) >= today` rejetait à tort une réplique fraîchement synchronisée.
+    assert.isTrue(replicaCoversFluxRange(new Date('2025-08-01T00:00:00Z'), from))
   })
 })

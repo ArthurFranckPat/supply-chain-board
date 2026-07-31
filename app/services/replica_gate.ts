@@ -28,11 +28,29 @@ import env from '#start/env'
  * l'écriture. `scope` compte : une ré-ingestion partielle n'a rafraîchi que les
  * clés qu'on lui a nommées, elle ne prouve rien sur la table.
  *
+ * ## La règle de fraîcheur
+ *
+ * La règle de confirmation ci-dessus répond à « la réplique a-t-elle vu NOS
+ * écritures ». Elle ne dit rien de « la réplique a-t-elle vu celles de X3 » —
+ * un run réussi il y a trois semaines la satisfait pleinement.
+ *
+ * Ça suffisait tant que toute table lue était sur le tick 5 min. Ce n'est plus
+ * vrai : `operations_replica` et `stock_detail_replica` (#98, suite lot 3) sont
+ * hors `syncAll()`, alimentées à la main, cadence non arbitrée. Sans borne
+ * d'âge, un seul `--only=operations` suivi de `REPLICA_READS=true` figerait les
+ * pointages à cette date pour toujours — le SWR bentocache rejoue bien la
+ * factory à chaque TTL, mais contre une réplique morte.
+ *
+ * D'où `MAX_AGE_MS`, par table, appliqué ici et pas dans les repositories :
+ * trois contrôles de fraîcheur écrits séparément, c'est la classe de bug de
+ * `getOrdersForWindow` (deux chemins de lecture qui divergent parce que la
+ * règle vit à deux endroits).
+ *
  * ## Dégradation
  *
- * Réplique jamais alimentée, ingestion en panne, table marquée sale : le verdict
- * est `direct` dans les trois cas. Le défaut est donc la voie qui marche
- * aujourd'hui, jamais une donnée fausse.
+ * Réplique jamais alimentée, ingestion en panne, table marquée sale, dernier
+ * run trop vieux : le verdict est `direct` dans les quatre cas. Le défaut est
+ * donc la voie qui marche aujourd'hui, jamais une donnée fausse.
  */
 
 export type ReadSource = 'replica' | 'direct'
@@ -51,9 +69,66 @@ export interface GateVerdict {
   table: ReplicaTable
   source: ReadSource
   /** Pourquoi la voie directe, quand c'est elle. `null` si la réplique est servie. */
-  reason: 'disabled' | 'never-ingested' | 'last-run-failed' | 'dirty' | null
+  reason: 'disabled' | 'never-ingested' | 'last-run-failed' | 'dirty' | 'stale' | null
   dirtySince: string | null
   lastFullRunAt: string | null
+}
+
+const MINUTE = 60 * 1000
+const HOUR = 60 * MINUTE
+
+/**
+ * Âge maximal du dernier run complet réussi, au-delà duquel la table repart en
+ * voie directe. C'est un seuil de CONFIANCE, pas un TTL de cache : la question
+ * n'est pas « quand rafraîchir » (l'ingestion décide) mais « à partir de quand
+ * cette donnée devient trompeuse à l'écran ».
+ *
+ * Deux régimes :
+ *  - **30 min** pour ce qui bouge vite. Les tables du tick 5 min tolèrent ainsi
+ *    5 ticks manqués avant de replier — le cas visé est un scheduler mort, pas
+ *    un run lent. `operations_replica` (pointages) y est aussi : la donnée
+ *    change en continu pendant un poste, une heure de retard se voit sur un
+ *    écran d'avancement.
+ *  - **6 h** pour ce qui se lit en tendance. `stock_flux_replica` (valorisation
+ *    par période) et `stock_detail_replica` (l'estimateur conditionnement en
+ *    tire des ratios US/palette observés, pas un état instantané).
+ *
+ * Conséquence assumée pour les trois tables hors `syncAll()` (`stock_flux`,
+ * `operations`, `stock_detail`) : sans cadence, elles ne servent la réplique
+ * que peu après un run manuel, et sinon X3 direct — c'est-à-dire le
+ * comportement d'aujourd'hui. Le seuil ne dégrade rien ; il rend la décision de
+ * cadence nécessaire pour en tirer un gain, au lieu de laisser une donnée
+ * périmée passer pour fraîche.
+ */
+const MAX_AGE_MS: Record<ReplicaTable, number> = {
+  orders_replica: 30 * MINUTE,
+  order_lines_replica: 30 * MINUTE,
+  stock_replica: 30 * MINUTE,
+  receptions_replica: 30 * MINUTE,
+  operations_replica: 30 * MINUTE,
+  stock_flux_replica: 6 * HOUR,
+  stock_detail_replica: 6 * HOUR,
+}
+
+/** Défaut volontairement STRICT : une table ajoutée à `ReplicaTable` sans entrée
+ *  dans `MAX_AGE_MS` hérite du régime court, jamais du permissif. L'oubli coûte
+ *  alors des lectures en voie directe — visible et sans danger — plutôt que de
+ *  servir du périmé en silence. */
+const DEFAULT_MAX_AGE_MS = 30 * MINUTE
+
+/** Seuil applicable à une table. Pur, testable sans DB. */
+export function maxAgeMsFor(table: ReplicaTable): number {
+  return MAX_AGE_MS[table] ?? DEFAULT_MAX_AGE_MS
+}
+
+/** Âge en ms d'un horodatage ISO 8601. `null` si absent ou illisible — un âge
+ *  indémontrable ne doit jamais valoir « frais ». Un horodatage dans le futur
+ *  (décalage d'horloge) donne un âge négatif, donc frais : le seuil borne le
+ *  retard, pas l'avance. */
+function ageOf(finishedAt: string | null | undefined): number | null {
+  if (!finishedAt) return null
+  const t = Date.parse(finishedAt)
+  return Number.isNaN(t) ? null : Date.now() - t
 }
 
 export class ReplicaGate {
@@ -138,6 +213,19 @@ export class ReplicaGate {
     // UTC, donc l'ordre lexicographique vaut l'ordre chronologique.
     if (dirtySince !== null && lastFullRunAt !== null && lastFullRunAt <= dirtySince) {
       return { ...base, source: 'direct', reason: 'dirty' }
+    }
+
+    // Fraîcheur mesurée sur `finished_at` et non `started_at` : c'est la fin du
+    // swap qui date la donnée visible. L'écart compte — `stock_flux_replica`
+    // met ~3-4 min par run, `orders_replica` ~13 s.
+    //
+    // `finished_at` absent sur un run marqué `ok` ne devrait pas arriver
+    // (`log()` l'écrit toujours) ; si ça arrive, l'âge est indémontrable, donc
+    // voie directe. Même principe que le reste : on ne sert la réplique que sur
+    // preuve.
+    const ageMs = ageOf(lastRun.finished_at)
+    if (ageMs === null || ageMs > maxAgeMsFor(table)) {
+      return { ...base, source: 'direct', reason: 'stale' }
     }
 
     return { ...base, source: 'replica', reason: null }

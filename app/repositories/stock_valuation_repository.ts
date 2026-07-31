@@ -342,40 +342,34 @@ export function aggregateFluxByArticlePeriod(
 }
 
 /**
- * `stock_flux_replica` n'est PAS sur le scheduler (#98 lot 3, ingestion
- * manuelle `--only=stock-flux`) — deux questions SÉPARÉES, pas une seule :
- *  - Assez d'HISTOIRE : `coverageMin <= from` ? Question de données, qu'aucune
- *    fraîcheur de run ne compense (plage `pinned` plus ancienne que la fenêtre
- *    12 mois répliquée).
- *  - Assez RÉCENT : `ageMs <= maxAgeMs` ? Question de temps. PAS vérifiable via
- *    `MAX(jour)` de la table — un jour sans mouvement produit `MAX(jour) <
- *    aujourd'hui` même juste après un run parfaitement à jour, ce qui rendrait
- *    la réplique injustement inéligible en permanence (constaté contre X3 test,
- *    dont l'activité STOJOU récente est en pratique quasi nulle).
+ * Question de DONNÉES : `stock_flux_replica` a-t-elle assez d'HISTOIRE pour
+ * répondre depuis `from` ? Une plage `pinned` plus ancienne que la fenêtre
+ * répliquée n'est couverte par aucun run, si récent soit-il.
+ *
+ * La question de TEMPS (« le dernier run est-il assez récent ») était traitée
+ * ici aussi ; elle appartient maintenant à `ReplicaGate` (#98), qui l'applique à
+ * TOUTES les tables avec un seuil par table. Deux contrôles d'âge, deux sources
+ * de vérité : le jour où l'un des seuils bouge, l'autre le contredit en silence.
+ *
+ * Ce que la borne d'âge ne doit surtout pas être : `MAX(jour)` de la table. Un
+ * jour sans mouvement produit `MAX(jour) < aujourd'hui` même juste après un run
+ * parfaitement à jour — la réplique serait rejetée en permanence (constaté
+ * contre X3 test, dont l'activité STOJOU récente est en pratique quasi nulle).
+ * `ingestion_log.finished_at`, lui, date le RUN et pas la donnée.
  *
  * Pure, testable sans DB.
  */
-export function replicaEligibleForFlux(
-  signals: { coverageMin: Date | null; ageMs: number | null },
-  from: Date,
-  maxAgeMs: number
-): boolean {
-  const { coverageMin, ageMs } = signals
-  if (coverageMin === null || coverageMin.getTime() > from.getTime()) return false
-  if (ageMs === null || ageMs > maxAgeMs) return false
-  return true
+export function replicaCoversFluxRange(coverageMin: Date | null, from: Date): boolean {
+  if (coverageMin === null) return false
+  return coverageMin.getTime() <= from.getTime()
 }
-
-/** Cadence non décidée (#98 lot 3, ingestion manuelle) : borne conservatrice,
- *  pas un TTL calibré sur un usage réel. À revoir avec la cadence, quand elle
- *  existera. */
-const STOCK_FLUX_MAX_AGE_MS = 6 * 60 * 60 * 1000
 
 export class StockValuationRepository {
   /**
-   * Flux STOJOU agrégé par (article, période) — #98 lot 3. Réplique si
-   * `stock_flux_replica` couvre assez d'historique ET a été synchronisée
-   * assez récemment, sinon X3 direct, chunké par article comme avant.
+   * Flux STOJOU agrégé par (article, période) — #98 lot 3. Réplique si le
+   * portail l'autorise (interrupteur, run complet réussi, pas d'écriture depuis,
+   * âge sous le seuil de la table) ET qu'elle couvre assez d'historique pour
+   * `from`. Sinon X3 direct, chunké par article comme avant.
    */
   private async getFluxByArticlePeriod(
     from: Date,
@@ -385,14 +379,11 @@ export class StockValuationRepository {
   ): Promise<Map<string, Map<string, number>>> {
     const now = new Date()
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const [coverage, ageMs, canReadReplica] = await Promise.all([
+    const [coverage, canReadReplica] = await Promise.all([
       stockFluxReplicaRepository.getCoverage(),
-      stockFluxReplicaRepository.getLastFullRunAgeMs(),
       replicaGate.canRead('stock_flux_replica'),
     ])
-    const onReplica =
-      canReadReplica &&
-      replicaEligibleForFlux({ coverageMin: coverage.min, ageMs }, from, STOCK_FLUX_MAX_AGE_MS)
+    const onReplica = canReadReplica && replicaCoversFluxRange(coverage.min, from)
 
     if (onReplica) {
       const rows: StockFluxDocRow[] = await stockFluxReplicaRepository.getFluxNetByDocument(

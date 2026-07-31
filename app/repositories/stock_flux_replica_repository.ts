@@ -7,19 +7,19 @@ import type { StockFluxDocRow } from '#repositories/stock_flux_repository'
  * grain (article, jour, document), même bornes [from, to] inclusives.
  *
  * Consommée par `stock_valuation_repository.getStockValuationKpi()` derrière
- * `replicaGate.canRead('stock_flux_replica')` + deux vérifications SÉPARÉES,
- * pas une seule :
- *  - `getCoverage().min` — la réplique a-t-elle assez d'HISTOIRE pour `from` ?
- *    Question de DONNÉES : si l'utilisateur pointe une plage `pinned` plus
- *    ancienne que la fenêtre 12 mois répliquée, aucune fraîcheur de run n'y
- *    changera rien.
- *  - `getLastFullRunAgeMs()` — le dernier run est-il assez RÉCENT ? Question de
- *    TEMPS, pas de données. `MAX(jour)` a été essayé et rejeté pour ça : sur un
- *    site avec peu de mouvements un jour donné (ou X3 test, dont l'activité
- *    STOJOU récente est en pratique quasi nulle — mesuré le 30/07/2026),
- *    `MAX(jour)` reste en retard sur « aujourd'hui » même juste après un run
- *    parfaitement à jour. `MAX(jour)` ne peut pas distinguer « pas encore
- *    synchronisé » de « synchronisé, mais rien à synchroniser ce jour-là ».
+ * DEUX questions séparées, qui ne se remplacent pas :
+ *  - TEMPS — le dernier run est-il assez récent ? `replicaGate`, seuil par
+ *    table. Vaut pour toutes les répliques, pas seulement celle-ci.
+ *  - DONNÉES — `getCoverage().min` : la réplique a-t-elle assez d'HISTOIRE pour
+ *    le `from` demandé ? Propre à cette table, parce qu'elle seule est
+ *    interrogée sur une plage arbitraire : une plage `pinned` plus ancienne que
+ *    la fenêtre répliquée n'est couverte par aucun run, si récent soit-il.
+ *
+ * Ni l'une ni l'autre ne se déduit de `MAX(jour)` — essayé et rejeté. Sur un
+ * site sans mouvement un jour donné (ou X3 test, dont l'activité STOJOU récente
+ * est quasi nulle — mesuré le 30/07/2026), `MAX(jour)` reste en retard sur
+ * « aujourd'hui » même juste après un run parfait : il ne distingue pas « pas
+ * encore synchronisé » de « synchronisé, mais rien à synchroniser ce jour-là ».
  */
 type ReplicaRow = {
   article: string
@@ -80,32 +80,6 @@ export class StockFluxReplicaRepository {
     const row = await this.conn.from('stock_flux_replica').min('jour as min_jour').first()
     const min = row?.min_jour ? new Date(`${row.min_jour}T00:00:00Z`) : null
     return { min }
-  }
-
-  /**
-   * Âge du dernier run COMPLET réussi, en ms. `null` si jamais ingérée.
-   *
-   * Requête directe sur `ingestion_log` plutôt qu'un import de
-   * `ReplicaSyncService.freshness()` : ce dernier importe déjà
-   * `defaultStockRange` depuis `stock_valuation_repository.ts` (pour
-   * `syncStockFlux`), et ce module-ci est importé PAR
-   * `stock_valuation_repository.ts` — un import dans l'autre sens fermerait un
-   * cycle. La requête est à peine plus qu'un alias de ce que `freshness()` fait
-   * déjà pour une seule table.
-   */
-  async getLastFullRunAgeMs(): Promise<number | null> {
-    const row = await this.conn
-      .from('ingestion_log')
-      .where('table_name', 'stock_flux_replica')
-      .where('scope', 'full')
-      .where('status', 'ok')
-      .orderBy('id', 'desc')
-      .select('finished_at')
-      .first()
-    if (!row?.finished_at) return null
-    const finished = Date.parse(row.finished_at)
-    if (Number.isNaN(finished)) return null
-    return Date.now() - finished
   }
 }
 

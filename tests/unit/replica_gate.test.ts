@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
-import { ReplicaGate, type ReplicaTable } from '#services/replica_gate'
+import { ReplicaGate, maxAgeMsFor, type ReplicaTable } from '#services/replica_gate'
 
 /**
  * Read-after-write (#98) : le portail sert-il la réplique ou la voie directe ?
@@ -160,6 +160,68 @@ test.group('ReplicaGate — read-after-write', (group) => {
     assert.equal(rows[0].reason, 'seconde')
   })
 
+  /**
+   * Fraîcheur (#98) — la règle de confirmation ci-dessus prouve que la réplique
+   * a vu NOS écritures, pas qu'elle a vu celles de X3. Sans borne d'âge, un run
+   * réussi il y a trois semaines la satisfait pleinement : c'est exactement ce
+   * qui figerait `operations_replica` / `stock_detail_replica` (hors `syncAll()`,
+   * alimentées à la main) sur un seul run manuel.
+   *
+   * `probe_replica` n'ayant pas d'entrée dans `MAX_AGE_MS`, ces cas s'appuient
+   * sur `DEFAULT_MAX_AGE_MS` (30 min) — et vérifient au passage que le défaut
+   * est bien appliqué à une table inconnue plutôt qu'ignoré.
+   */
+  test('dernier run complet trop vieux → voie directe', async ({ assert }) => {
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-31 * 60_000) })
+
+    const verdict = await gate.verdict(TABLE)
+
+    assert.equal(verdict.source, 'direct')
+    assert.equal(verdict.reason, 'stale')
+  })
+
+  test('run complet récent, sous le seuil → réplique', async ({ assert }) => {
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-29 * 60_000) })
+
+    const verdict = await gate.verdict(TABLE)
+
+    assert.equal(verdict.source, 'replica')
+    assert.isNull(verdict.reason)
+  })
+
+  test('`finished_at` absent sur un run OK → voie directe (âge indémontrable)', async ({
+    assert,
+  }) => {
+    await conn.table('ingestion_log').insert({
+      table_name: TABLE,
+      status: 'ok',
+      scope: 'full',
+      started_at: isoAt(-60_000),
+      finished_at: null,
+      rows: 1,
+      duration_ms: 1,
+      source: 'test',
+    })
+
+    const verdict = await gate.verdict(TABLE)
+
+    assert.equal(verdict.source, 'direct')
+    assert.equal(verdict.reason, 'stale')
+  })
+
+  test('une écriture récente prime sur un run récent', async ({ assert }) => {
+    // `dirty` doit rester diagnostiqué comme tel : les deux motifs mènent à la
+    // voie directe, mais confondre « périmé » et « écriture non vue » enverrait
+    // sur la mauvaise piste au diagnostic — la première se corrige par une
+    // cadence, la seconde par une ré-ingestion ciblée.
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-60_000) })
+    await gate.markDirty([TABLE], 'test')
+
+    const verdict = await gate.verdict(TABLE)
+
+    assert.equal(verdict.reason, 'dirty')
+  })
+
   test('REPLICA_READS absent ou faux → voie directe quoi qu’il arrive', async ({ assert }) => {
     await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-60_000) })
 
@@ -168,5 +230,45 @@ test.group('ReplicaGate — read-after-write', (group) => {
 
     assert.equal(verdict.source, 'direct')
     assert.equal(verdict.reason, 'disabled')
+  })
+})
+
+/**
+ * Seuils par table — pur, sans DB. Le test de verdict ci-dessus tourne sur un
+ * nom fictif (il ne peut pas toucher `ingestion_log` d'une vraie table sans
+ * effacer un run réel) : il exerce la MÉCANIQUE de la borne, jamais les valeurs.
+ * Ce groupe couvre ce qu'il ne peut pas voir.
+ */
+test.group('ReplicaGate — seuils de fraîcheur', () => {
+  const MINUTE = 60 * 1000
+  const HOUR = 60 * MINUTE
+
+  test('les tables à mouvement rapide replient après 30 min', ({ assert }) => {
+    // Les quatre premières sont sur le tick 5 min de `syncAll()` : 30 min tolère
+    // 5 ticks manqués, le cas visé étant un scheduler mort. `operations_replica`
+    // (pointages) partage le régime court sans être sur le tick — la donnée
+    // change en continu pendant un poste.
+    for (const table of [
+      'orders_replica',
+      'order_lines_replica',
+      'stock_replica',
+      'receptions_replica',
+      'operations_replica',
+    ] as ReplicaTable[]) {
+      assert.equal(maxAgeMsFor(table), 30 * MINUTE, table)
+    }
+  })
+
+  test('les tables lues en tendance tolèrent 6 h', ({ assert }) => {
+    for (const table of ['stock_flux_replica', 'stock_detail_replica'] as ReplicaTable[]) {
+      assert.equal(maxAgeMsFor(table), 6 * HOUR, table)
+    }
+  })
+
+  test('une table sans seuil déclaré hérite du régime COURT, pas du permissif', ({ assert }) => {
+    // Le défaut décide ce que coûte un oubli : régime court → des lectures en
+    // voie directe, visibles et sans danger ; régime long → du périmé servi en
+    // silence pendant 6 h.
+    assert.equal(maxAgeMsFor('table_pas_declaree' as ReplicaTable), 30 * MINUTE)
   })
 })

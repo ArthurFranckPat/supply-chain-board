@@ -147,55 +147,9 @@ test.group('StockFluxReplicaRepository', (group) => {
     assert.equal(min!.toISOString(), '2000-01-01T00:00:00.000Z')
   })
 
-  test('getLastFullRunAgeMs : dernier run OK/full le plus récent, ignore les autres', async ({
-    assert,
-  }) => {
-    const logConn = db.connection('replica')
-    const SOURCE = 'test-flux-age-probe'
-    const oldFinished = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() // 5h
-    const recentFinished = new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10min
-
-    try {
-      await logConn.table('ingestion_log').insert([
-        {
-          table_name: 'stock_flux_replica',
-          status: 'ok',
-          scope: 'full',
-          started_at: oldFinished,
-          finished_at: oldFinished,
-          source: SOURCE,
-        },
-        // Plus récent mais `status: 'failed'` — ne doit PAS être retenu, un run
-        // raté ne prouve rien sur la fraîcheur des données.
-        {
-          table_name: 'stock_flux_replica',
-          status: 'failed',
-          scope: 'full',
-          started_at: recentFinished,
-          finished_at: recentFinished,
-          source: SOURCE,
-        },
-        // Plus récent et OK mais `scope: 'partial'` — ne doit PAS être retenu
-        // non plus, même règle que `replicaGate`.
-        {
-          table_name: 'stock_flux_replica',
-          status: 'ok',
-          scope: 'partial',
-          started_at: recentFinished,
-          finished_at: recentFinished,
-          source: SOURCE,
-        },
-      ])
-
-      const ageMs = await stockFluxReplicaRepository.getLastFullRunAgeMs()
-
-      assert.isNotNull(ageMs)
-      // Doit dater du run `oldFinished` (5h), pas des runs plus récents mais
-      // disqualifiés — marge large pour la durée réelle du test.
-      const fiveHoursMs = 5 * 60 * 60 * 1000
-      assert.approximately(ageMs!, fiveHoursMs, 10_000)
-    } finally {
-      await logConn.from('ingestion_log').where('source', SOURCE).delete()
-    }
-  })
+  // `getLastFullRunAgeMs()` a été retirée de ce repository : la fraîcheur est
+  // désormais une question de `ReplicaGate`, pour toutes les tables et avec un
+  // seuil par table (#98). Sa couverture vit dans `replica_gate.test.ts` — y
+  // compris les cas « run plus récent mais raté / partiel ne compte pas », qui
+  // étaient déjà la même règle écrite deux fois.
 })
