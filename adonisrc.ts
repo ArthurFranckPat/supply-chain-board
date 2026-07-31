@@ -60,6 +60,7 @@ export default defineConfig({
     () => import('#providers/x3_provider'),
     () => import('#providers/cache_preheat_provider'),
     () => import('#providers/replica_sync_provider'),
+    () => import('#providers/demand_snapshot_provider'),
     () => import('@adonisjs/core/providers/edge_provider'),
     () => import('@adonisjs/vite/vite_provider'),
     () => import('@adonisjs/inertia/inertia_provider'),

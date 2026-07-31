@@ -196,9 +196,11 @@ export class ReplicaSyncService {
    * même `syncAll()`, donc à jour) plutôt que via un nouvel appel X3.
    *
    * PAS dans `syncAll()`/le tick 5 min : ~14 chunks séquentiels (limite IN à 1000,
-   * cf. `X3OperationRepository`) sur la tranche utile complète, jamais mesurés en
-   * charge répétée. Même prudence que `syncStockFlux` — reste une commande
-   * manuelle (`--only=operations`) tant que la cadence n'est pas arbitrée.
+   * cf. `X3OperationRepository`) sur la tranche utile complète. Cadence propre de
+   * 10 min depuis le 31/07/2026, déclarée dans `SCHEDULE`
+   * (`replica_sync_provider.ts`) — un tiers du seuil de 30 min du portail, pour
+   * que deux runs manqués ne fassent pas basculer la table en voie directe.
+   * Mesuré à 2,3 s constant sur 3 runs consécutifs (CLTEST).
    */
   async syncOperations(source = 'manual'): Promise<TableIngestionResult> {
     return this.ingest('operations_replica', source, async () => {
@@ -219,11 +221,13 @@ export class ReplicaSyncService {
    * STOCK au grain ligne (article × emplacement), filtré SM* / S*P / CLP — source de
    * `ConditionnementRepository.getStockSrmParArticle()`.
    *
-   * PAS dans `syncAll()`/le tick 5 min : ~45k lignes, `ZSOAPSQL` O(n²), CONNUE pour
-   * timeout côté X3 (cf. dégradation `Promise.allSettled` documentée dans
-   * `ConditionnementRepository.getObservations()`) — un tick répété dessus serait
-   * une charge X3 nouvelle et non arbitrée, même motif que `syncStockFlux`. Reste
-   * une commande manuelle (`--only=stock-detail`).
+   * PAS dans `syncAll()`/le tick 5 min : ~45k lignes en PROD, `ZSOAPSQL` O(n²),
+   * CONNUE pour timeout côté X3 (cf. dégradation `Promise.allSettled` documentée
+   * dans `ConditionnementRepository.getObservations()`). Cadence propre de 2 h
+   * depuis le 31/07/2026, déclarée dans `SCHEDULE` (`replica_sync_provider.ts`) —
+   * un tiers du seuil de 6 h du portail. Mesuré à 1,9-2,0 s sur 3 runs consécutifs,
+   * mais sur CLTEST où la table ne fait que 4 683 lignes : compter un ordre de
+   * grandeur de plus en PROD, et resserrer la cadence si les timeouts reviennent.
    */
   async syncStockDetail(source = 'manual'): Promise<TableIngestionResult> {
     return this.ingest('stock_detail_replica', source, async () => {
@@ -239,12 +243,11 @@ export class ReplicaSyncService {
 
   /**
    * Flux STOJOU dédoublonné par document, fenêtre `defaultStockRange('mois', …)`
-   * (12 mois glissants — #98, lot 3, scoping du 30/07/2026). PAS dans `syncAll()`
-   * ni le scheduler : ~50 appels SOAP chunkés (une semaine à la fois, cf.
-   * `StockFluxRepository`) contre 1 à 3 pour les autres tables — un tick 5 min
-   * répété sur ce volume serait une charge X3 nouvelle et non arbitrée. Reste
-   * une commande manuelle (`--only=stock-flux`) tant que la cadence
-   * d'ingestion n'est pas décidée avec des mesures réelles en face.
+   * (12 mois glissants — #98, lot 3, scoping du 30/07/2026). PAS dans `syncAll()` :
+   * ~122 appels SOAP chunkés (trois jours à la fois, cf. `StockFluxRepository`)
+   * contre 1 à 3 pour les autres tables. Cadence QUOTIDIENNE depuis le 31/07/2026,
+   * ancrée sur 03 h locale (`SCHEDULE`, `replica_sync_provider.ts`) : à ~3-4 min
+   * par run, ça se place dans un creux, pas à un intervalle quelconque.
    */
   async syncStockFlux(source = 'manual'): Promise<TableIngestionResult> {
     return this.ingest('stock_flux_replica', source, async () => {

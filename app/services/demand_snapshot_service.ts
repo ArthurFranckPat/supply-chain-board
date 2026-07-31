@@ -66,6 +66,30 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Jour de la photo la plus récente (`YYYY-MM-DD`), `null` si la table est vide.
+   *
+   * C'est le seul état durable dont dispose la planification quotidienne
+   * (`demand_snapshot_provider.ts`) : ce service n'écrit pas d'`ingestion_log`,
+   * volontairement (cf. `write()`). La photo elle-même fait donc office de
+   * journal — ce qui suffit, puisque la question posée est exactement « la photo
+   * du jour existe-t-elle ». Lu en base et non gardé en mémoire, pour la même
+   * raison que `ReplicaSyncService.lastFullRuns()` : un redémarrage ne doit pas
+   * pouvoir faire sauter une journée en silence.
+   *
+   * SQLite stocke `snapshot_date` en texte ISO de largeur fixe : `MAX()` y est
+   * bien l'ordre chronologique.
+   */
+  async latestSnapshotDay(): Promise<string | null> {
+    const row = await db.connection().from('demand_snapshots').max('snapshot_date as day').first()
+    const day: unknown = (row as { day?: unknown } | null)?.day ?? null
+    if (day === null || day === undefined) return null
+    // Selon le driver, une colonne `date` peut revenir en `Date` plutôt qu'en
+    // texte. Normaliser ici évite une comparaison de types au point d'appel.
+    if (day instanceof Date) return isoDay(day)
+    return String(day).slice(0, 10)
+  }
+
+  /**
    * Swap complet + garde-fou, isolé de l'extraction X3 — même découpage que
    * `ReplicaSyncService.ingest(table, source, fetch)`, `protected` pour la même
    * raison : seule cette logique (transaction, garde-fou vide, journalisation)
