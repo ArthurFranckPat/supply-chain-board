@@ -74,6 +74,27 @@ export class StockFluxReplicaRepository {
     return (rows as ReplicaRow[]).map(toOwn)
   }
 
+  /**
+   * Articles ayant eu AU MOINS UN mouvement depuis `from` — miroir du
+   * sous-`SELECT ITMREF_0 FROM STOJOU WHERE IPTDAT_0 >= …` de `buildBaseSql`.
+   *
+   * Sert la seconde branche de la population du KPI valorisation : un article
+   * vidé au cours de la plage a un stock nul aujourd'hui mais doit figurer dans
+   * la série, sinon son historique disparaît au lieu de descendre à zéro.
+   *
+   * Le grain de la table est le DOCUMENT NET, pas la ligne `STOJOU` : un
+   * document dont les mouvements se compensent (`net_doc = 0`) reste une ligne
+   * ici, donc l'article reste détecté — même population que le sous-`SELECT`,
+   * qui teste lui aussi la présence et non la quantité.
+   */
+  async getArticlesWithMovementSince(from: Date): Promise<Set<string>> {
+    const rows = await this.conn
+      .from('stock_flux_replica')
+      .distinct('article')
+      .where('jour', '>=', isoLocal(from))
+    return new Set((rows as Array<{ article: string }>).map((r) => r.article))
+  }
+
   /** Borne basse réellement couverte par la table (question de DONNÉES, pas de
    *  fraîcheur — cf. commentaire de tête). `null` si la table est vide. */
   async getCoverage(): Promise<{ min: Date | null }> {

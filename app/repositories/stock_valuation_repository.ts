@@ -2,6 +2,8 @@ import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import replicaGate from '#services/replica_gate'
 import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
+import stockReplicaRepository from '#repositories/stock_replica_repository'
+import staticSync from '#services/static_sync_service'
 import type { StockFluxDocRow } from '#repositories/stock_flux_repository'
 
 /**
@@ -364,14 +366,177 @@ export function replicaCoversFluxRange(coverageMin: Date | null, from: Date): bo
   return coverageMin.getTime() <= from.getTime()
 }
 
+/**
+ * Ligne de base du KPI, NORMALISÉE — indépendante de sa provenance.
+ *
+ * Le rembobinage travaillait directement sur les `RawRow` d'X3 (`row.STK` en
+ * string, `row.CATEGORIE` à retrimmer). Y brancher une seconde source aurait
+ * imposé de fabriquer de faux `RawRow` — des nombres reformatés en chaînes pour
+ * être reparsés aussitôt. Même motif que `RetardLine` dans `retard_repository`.
+ */
+export interface StockBaseRow {
+  article: string
+  designation: string
+  /** Déjà normalisée en MAJUSCULES, `(sans cat.)` si vide — les deux voies. */
+  categorie: string
+  /** `PHYSTO_0 + CTLSTO_0` : physique + contrôle qualité, rebut exclu. */
+  stock: number
+  pmp: number
+}
+
+/** Source retenue pour UN appel au KPI. Les deux moitiés — base articles et flux
+ *  — la partagent obligatoirement, cf. `resolveSource()`. */
+type ValuationSource = 'replica' | 'direct'
+
+/** Identité d'article telle que `static_articles` la rend. */
+export interface ValuationIdentity {
+  code: string
+  description: string | null
+  category: string | null
+}
+
+/**
+ * Population de la base du KPI, reconstruite depuis les tables locales — la
+ * traduction, terme à terme, du `WHERE` de `buildBaseSql` :
+ *
+ * ```sql
+ * FROM ITMMASTER M INNER JOIN ITMMVT V ON … AND V.STOFCY_0 = 'AE1'
+ * WHERE M.ITMSTA_0 = 1                      -- déjà posé à l'ingestion de static_articles
+ *   AND M.TCLCOD_0 NOT LIKE 'Z%'            -- `category` ne commence pas par Z
+ *   AND ((V.PHYSTO_0 + V.CTLSTO_0) <> 0     -- `stock !== 0`
+ *        OR M.ITMREF_0 IN (SELECT … STOJOU)) -- `movedArticles`
+ * ```
+ *
+ * `INNER JOIN` ≡ absence de la Map `stockByArticle` → article écarté.
+ *
+ * Pure et exportée pour être testable sans base : c'est ici que vit la
+ * correspondance avec le SQL, donc c'est ici qu'une divergence se glisserait.
+ */
+export function selectValuationBase(
+  articles: ValuationIdentity[],
+  stockByArticle: Map<string, { stock: number; pmp: number }>,
+  movedArticles: Set<string>
+): StockBaseRow[] {
+  const out: StockBaseRow[] = []
+  for (const a of articles) {
+    const code = a.code?.trim() ?? ''
+    if (!code) continue
+
+    const categorie = (a.category ?? '').trim().toUpperCase()
+    if (categorie.startsWith('Z')) continue
+
+    const stk = stockByArticle.get(code)
+    if (!stk) continue
+
+    // Un article vidé pendant la plage doit rester dans la série pour y descendre
+    // à zéro, au lieu d'en disparaître.
+    if (stk.stock === 0 && !movedArticles.has(code)) continue
+
+    out.push({
+      article: code,
+      designation: (a.description ?? '').trim(),
+      categorie: categorie || '(SANS CAT.)',
+      stock: stk.stock,
+      pmp: stk.pmp,
+    })
+  }
+  return out
+}
+
 export class StockValuationRepository {
   /**
-   * Flux STOJOU agrégé par (article, période) — #98 lot 3. Réplique si le
-   * portail l'autorise (interrupteur, run complet réussi, pas d'écriture depuis,
-   * âge sous le seuil de la table) ET qu'elle couvre assez d'historique pour
-   * `from`. Sinon X3 direct, chunké par article comme avant.
+   * Source des DEUX moitiés du KPI, tranchée une seule fois par appel.
+   *
+   * La base (stock actuel) et le flux ne sont pas deux lectures indépendantes :
+   * le rembobinage défait les mouvements du flux À PARTIR du stock de la base.
+   * Les mélanger, c'est soustraire des mouvements lus à T d'un stock lu à T+Δ —
+   * chaque période de la série encaisse alors l'écart. C'est la « vue déchirée »
+   * que l'issue #98 écarte pour l'ingestion, ici à la lecture, et le même motif
+   * que `replicaServesRetard()`.
+   *
+   * Jusqu'ici seul le flux basculait, la base restant sur X3 : ce hybride est
+   * supprimé. Coût assumé : `stock_replica` indisponible renvoie AUSSI le flux
+   * sur X3, alors qu'il aurait pu être servi. Une série cohérente et lente vaut
+   * mieux qu'une série rapide et fausse.
+   *
+   * Trois conditions, pas deux — la couverture n'est pas une question de
+   * fraîcheur : une plage `pinned` plus ancienne que la fenêtre 12 mois répliquée
+   * n'est couverte par aucun run, si récent soit-il.
+   */
+  private async resolveSource(from: Date): Promise<ValuationSource> {
+    const [coverage, canFlux, canStock] = await Promise.all([
+      stockFluxReplicaRepository.getCoverage(),
+      replicaGate.canRead('stock_flux_replica'),
+      replicaGate.canRead('stock_replica'),
+    ])
+    const ok = canFlux && canStock && replicaCoversFluxRange(coverage.min, from)
+    return ok ? 'replica' : 'direct'
+  }
+
+  /**
+   * Base articles depuis la réplique — équivalent de `buildBaseSql`, en trois
+   * lectures locales au lieu d'un join X3 :
+   *
+   *  - identité (désignation, catégorie) et filtre `ITMSTA_0 = 1` →
+   *    `static_articles`, dont l'ingestion pose exactement ce filtre ;
+   *  - stock et PMP → `stock_replica` (équivalence de site vérifiée en PROD,
+   *    cf. `getValuationBase()`) ;
+   *  - seconde branche de population → `stock_flux_replica`.
+   *
+   * Le join se fait en TypeScript et non en SQL : `static_articles` vit sur la
+   * connexion par défaut, les répliques sur la connexion `replica`. ~12 900
+   * articles × ~7 000 lignes de stock, deux Map — sans commune mesure avec les
+   * 11,7 s de la voie directe.
+   *
+   * La règle de population elle-même est dans `selectValuationBase()`, pure et
+   * testée.
+   *
+   * Rend `null` — donc « repasse en direct » — quand `static_articles` est vide.
+   * Cette table est alimentée par `StaticSyncService`, que `ReplicaGate` ne
+   * couvre PAS : ses trois règles (fraîcheur, propreté, provenance) ne portent
+   * que sur les tables de réplique. Un référentiel jamais synchronisé donnerait
+   * ici une base vide, donc un KPI à zéro euro — plausible et faux, exactement ce
+   * que le portail existe pour empêcher ailleurs. Le cas n'est pas théorique :
+   * une base fraîchement clonée a ses tables `static_*` créées et vides.
+   */
+  private async getBaseFromReplica(from: Date): Promise<StockBaseRow[] | null> {
+    const [articles, stockRows, movedArticles] = await Promise.all([
+      staticSync.readArticles(),
+      stockReplicaRepository.getValuationBase(),
+      stockFluxReplicaRepository.getArticlesWithMovementSince(from),
+    ])
+    if (articles.length === 0) return null
+    const stockByArticle = new Map(stockRows.map((r) => [r.article, r]))
+    return selectValuationBase(articles, stockByArticle, movedArticles)
+  }
+
+  /** Base articles depuis X3 — passe unique, ~700 lignes. */
+  private async getBaseFromX3(fromStr: string): Promise<StockBaseRow[]> {
+    const baseDb = new X3Database()
+    let rows: RawRow[] = []
+    try {
+      rows = await baseDb.raw(buildBaseSql(fromStr))
+    } finally {
+      await baseDb.destroy()
+    }
+    return rows
+      .map((row) => ({
+        article: row.ARTICLE?.trim() ?? '',
+        designation: row.DESIGNATION?.trim() ?? '',
+        categorie: (row.CATEGORIE?.trim() || '(sans cat.)').toUpperCase(),
+        stock: num(row.STK),
+        pmp: num(row.PMP),
+      }))
+      .filter((r) => r.article)
+  }
+
+  /**
+   * Flux STOJOU agrégé par (article, période) — #98 lot 3. `source` est tranchée
+   * en amont par `resolveSource()` et NON relue ici : le flux doit venir du même
+   * monde que la base sur laquelle il est rembobiné.
    */
   private async getFluxByArticlePeriod(
+    source: ValuationSource,
     from: Date,
     grain: StockGrain,
     articles: string[],
@@ -379,13 +544,8 @@ export class StockValuationRepository {
   ): Promise<Map<string, Map<string, number>>> {
     const now = new Date()
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const [coverage, canReadReplica] = await Promise.all([
-      stockFluxReplicaRepository.getCoverage(),
-      replicaGate.canRead('stock_flux_replica'),
-    ])
-    const onReplica = canReadReplica && replicaCoversFluxRange(coverage.min, from)
 
-    if (onReplica) {
+    if (source === 'replica') {
       const rows: StockFluxDocRow[] = await stockFluxReplicaRepository.getFluxNetByDocument(
         from,
         today,
@@ -428,16 +588,23 @@ export class StockValuationRepository {
     const refPeriods = buildRefPeriods(grain, from, to)
     const fromStr = toYYYYMMDD(from)
 
-    // --- Base articles (passe en une requête : ~700 lignes). ---
-    const baseDb = new X3Database()
-    let baseRows: RawRow[] = []
-    try {
-      baseRows = await baseDb.raw(buildBaseSql(fromStr))
-    } finally {
-      await baseDb.destroy()
+    // Source tranchée UNE fois : base et flux la partagent, sinon le rembobinage
+    // soustrait des mouvements d'un stock lu à un autre instant (cf.
+    // `resolveSource()`).
+    //
+    // La rétrogradation vers `direct` se fait AVANT la lecture du flux, jamais
+    // après : c'est ce qui garantit que les deux moitiés restent du même monde
+    // même quand la réplique se dérobe en cours d'appel.
+    let source = await this.resolveSource(from)
+
+    // --- Base articles : identité + stock + PMP actuels. ---
+    let baseRows = source === 'replica' ? await this.getBaseFromReplica(from) : null
+    if (baseRows === null) {
+      source = 'direct'
+      baseRows = await this.getBaseFromX3(fromStr)
     }
 
-    const allArticles = [...new Set(baseRows.map((r) => r.ARTICLE?.trim() ?? '').filter(Boolean))]
+    const allArticles = [...new Set(baseRows.map((r) => r.article))]
 
     // --- Flux STOJOU : réplique si elle couvre la fenêtre, sinon X3 direct ---
     // (#98, lot 3). Le rembobinage a besoin du flux de `from` jusqu'à
@@ -451,7 +618,13 @@ export class StockValuationRepository {
     // se lit en tendance sur 12 mois, et l'usage mesuré (`stock_valuation_calls`,
     // 152 appels) est à 100 % `grain=mois` sur la fenêtre glissante par défaut.
     // La borne d'âge correspondante vit dans `ReplicaGate`, pas ici.
-    const fluxByArticle = await this.getFluxByArticlePeriod(from, grain, allArticles, fromStr)
+    const fluxByArticle = await this.getFluxByArticlePeriod(
+      source,
+      from,
+      grain,
+      allArticles,
+      fromStr
+    )
 
     // --- Rembobinage par article + agrégation ---
     // seriesAcc[i] = total valeur/qté de fin de période i, cumul sur tous les articles.
@@ -465,10 +638,10 @@ export class StockValuationRepository {
     const toKey = refPeriods[refPeriods.length - 1]?.key
 
     for (const row of baseRows) {
-      const article = row.ARTICLE?.trim() ?? ''
-      const stkNow = num(row.STK)
-      const pmp = num(row.PMP)
-      const cat = (row.CATEGORIE?.trim() || '(sans cat.)').toUpperCase()
+      const article = row.article
+      const stkNow = row.stock
+      const pmp = row.pmp
+      const cat = row.categorie
 
       const flux = fluxByArticle.get(article)
 
@@ -498,7 +671,7 @@ export class StockValuationRepository {
       catValues.set(cat, (catValues.get(cat) ?? 0) + valeur)
       articleRows.push({
         article,
-        designation: row.DESIGNATION?.trim() ?? '',
+        designation: row.designation,
         categorie: cat,
         stock: Math.round(stkAnchor * 100) / 100,
         pmp: Math.round(pmp * 1_000_000) / 1_000_000,

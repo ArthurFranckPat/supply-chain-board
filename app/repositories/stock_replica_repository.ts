@@ -73,6 +73,43 @@ export class StockReplicaRepository {
   }
 
   /**
+   * Base du KPI valorisation : stock actuel et PMP par article — miroir du
+   * `INNER JOIN ITMMVT V ... V.STOFCY_0 = 'AE1'` de `buildBaseSql`.
+   *
+   * `stock` vaut `PHYSTO_0 + CTLSTO_0` (physique + contrôle qualité), la même
+   * somme que la voie directe : c'est la décision assumée du projet de compter
+   * le statut Q comme du stock détenu. Le rebut en est exclu des deux côtés.
+   *
+   * ## Équivalence avec le filtre de site, vérifiée
+   *
+   * L'ingestion agrège `ITMMVT` par article SANS filtrer `STOFCY_0` (elle somme
+   * les quantités, prend le MAX du PMP), quand `buildBaseSql` lit la seule ligne
+   * `AE1`. Mesuré en PROD sur toute la population `ITMSTA_0 = 1`, trois
+   * requêtes, trois fois zéro ligne :
+   *
+   *  - `MAX(AVC_0) <> AVC_0(AE1)` → 0 article ;
+   *  - `SUM(PHYSTO_0+CTLSTO_0) <> Σ(AE1)` → 0 article ;
+   *  - article avec une ligne `ITMMVT` mais aucune ligne `AE1` → 0 article.
+   *
+   * Les lignes à site vide sont donc à zéro sur les quantités ET ne portent
+   * jamais un PMP supérieur à celui d'AE1. Le jour où un second site réel
+   * apparaît, cette équivalence tombe et l'ingestion doit être scopée.
+   *
+   * Ne filtre RIEN : la population (stock non nul OU mouvements sur la fenêtre)
+   * est décidée par l'appelant, qui seul connaît la fenêtre.
+   */
+  async getValuationBase(): Promise<Array<{ article: string; stock: number; pmp: number }>> {
+    const rows = await this.conn
+      .from('stock_replica')
+      .select('article', 'physique', 'controle_qual', 'pmp')
+    return (rows as ReplicaRow[]).map((r) => ({
+      article: r.article,
+      stock: r.physique + r.controle_qual,
+      pmp: r.pmp ?? 0,
+    }))
+  }
+
+  /**
    * Stock disponible NON ALLOUÉ par article — miroir du `buildStockSql` de
    * `RetardRepository` (`SUM(PHYSTO_0 - PHYALL_0 - GLOALL_0)` sur ITMMVT).
    *
