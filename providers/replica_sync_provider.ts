@@ -242,13 +242,17 @@ export default class ReplicaSyncProvider {
         const now = new Date()
         const runs = await replicaSyncService.lastFullRuns(entry.table)
 
-        const due =
-          entry.everyMs !== undefined
-            ? needsIntervalRun(runs, now, entry.everyMs)
-            : needsDailyRun(runs, now, dailyWindowStart(now, entry.dailyHour))
+        const periodique = entry.everyMs !== undefined
+        const due = periodique
+          ? needsIntervalRun(runs, now, entry.everyMs!)
+          : needsDailyRun(runs, now, dailyWindowStart(now, entry.dailyHour))
         if (!due) continue
 
-        const r = await entry.run('scheduler')
+        // Le régime est écrit dans `ingestion_log.source` : c'est ce qui permet
+        // de distinguer, en relisant le journal, un run de cadence périodique
+        // d'un run de fenêtre nocturne — et de constater qu'une cadence s'est
+        // bien déclenchée d'elle-même plutôt que par une commande manuelle.
+        const r = await entry.run(periodique ? 'scheduler' : 'scheduler-daily')
         if (r.status === 'ok') {
           logger.info(
             { rows: r.rows, ms: r.durationMs },

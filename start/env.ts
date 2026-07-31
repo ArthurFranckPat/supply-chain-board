@@ -44,6 +44,17 @@ export default await Env.create(new URL('../', import.meta.url), {
   // choix se tranchera au déploiement. Un défaut ouvert basculerait la production
   // sur une source dont l'équivalence avec la voie directe n'est pas démontrée.
   //
+  // Ouvrir l'interrupteur ne bascule PAS tout d'un coup : le portail tranche table
+  // par table, à chaque appel (ingérée, dernier run complet réussi, aucune écriture
+  // applicative depuis, âge sous le seuil de la table). Une table refusée repart
+  // sur X3 direct sans bruit — l'interrupteur ne peut donc pas fausser un écran,
+  // au pire il n'apporte rien.
+  //
+  // Prérequis : une réplique alimentée. Le tick de 5 min de
+  // `providers/replica_sync_provider.ts` s'en charge dès que l'app tourne ; sinon
+  // `node ace replica:sync`. Lire l'état avec `node ace replica:sync --status`,
+  // qui affiche le verdict du portail table par table et le motif d'un refus.
+  //
   // `schema.boolean`, PAS `schema.enum(['true', 'false'])` : `@poppinss/
   // validator-lite` (ensureOneOf, derrière schema.enum) coerce toute valeur
   // booléenne-like en vrai booléen AVANT de vérifier `choices.includes()` — avec
