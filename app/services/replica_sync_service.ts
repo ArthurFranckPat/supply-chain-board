@@ -5,6 +5,7 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import { StockFluxRepository } from '#repositories/stock_flux_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { X3OperationRepository } from '#repositories/operation_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
@@ -190,6 +191,79 @@ export class ReplicaSyncService {
         nature: l.nature,
       }))
     })
+  }
+
+  /**
+   * `orders_flux_replica` — miroir de la SOURCE `ORDERS`, en TROIS passes.
+   *
+   * Le découpage par `WIPTYP` n'est pas un filtre de consommateur mais une
+   * PARTITION : les trois passes réunies rendent exactement la population de
+   * `fetchLive`, et `buildOrdersSql` n'a qu'UNE condition par `WIPTYP`, réutilisée
+   * telle quelle (cf. `conditionByWiptyp`) — l'ingestion ne peut donc pas dériver
+   * de l'appel groupé.
+   *
+   * Pourquoi ne PAS faire un seul appel : `ZSOAPSQL` est en O(n²) sur les lignes
+   * et les colonnes, donc découper coûte MOINS cher que regrouper. Mesuré en PROD
+   * sur la fenêtre : 9 208 + 895 + 13 536 = 23 639 lignes ; en un appel unique,
+   * 23 639² vaut ~2× la somme des carrés. Le constat était déjà posé lors du
+   * travail perf sur `/suivi` : ne pas combiner WIPTYP=1+5.
+   *
+   * Les trois passes écrivent dans la MÊME table, donc un seul swap : `ingest()`
+   * reçoit les lignes déjà concaténées. Une table à moitié remplie parce qu'une
+   * passe a échoué serait pire qu'une table périmée — le portail ne saurait pas
+   * la distinguer d'une table complète.
+   *
+   * PAS dans `syncAll()` pour l'instant : la variante grasse (contremarque +
+   * réfs client, 3 jointures de plus) n'a pas encore de coût mesuré sur un tick
+   * de 5 min. Cadence à arbitrer après observation, comme `operations`/
+   * `stock_detail` — `--only=orders-flux` en attendant.
+   */
+  async syncOrdersFlux(source = 'manual'): Promise<TableIngestionResult> {
+    const window = orderLinesReplicaWindow()
+    return this.ingest(
+      'orders_flux_replica',
+      source,
+      async () => {
+        const { from, to } = window
+        const repo = new CombinedOrdersRepository()
+        const out: Row[] = []
+        // Séquentiel : même motif que `syncAll()`, le coût de ZSOAPSQL est CPU
+        // côté X3 et trois extractions concurrentes se ralentissent mutuellement.
+        for (const wiptyp of [1, 2, 5] as const) {
+          const rows = await repo.fetchForReplica(from, to, wiptyp)
+          for (const r of rows) {
+            out.push({
+              wiptyp: r.wiptyp,
+              wipsta: r.wipsta,
+              vcrnum: r.vcrnum,
+              // Composantes de la clé primaire : `''` et non `null`, la table est
+              // NOT NULL dessus. Une ligne X3 sans `VCRLIN`/`VCRSEQ` reste ainsi
+              // ingérable, et se relit en `null` (cf. `toOwn`).
+              vcrlin: r.vcrlin ?? '',
+              vcrseq: r.vcrseq ?? '',
+              article: r.article,
+              designation: r.designation,
+              date_echeance: isoDay(r.date),
+              qte_restante: r.qteRestante,
+              qte_commandee: r.qteCommandee,
+              qte_allouee: r.qteAllouee,
+              partner_nom: r.partnerNom,
+              pays: r.pays,
+              date_commande: isoDay(r.dateCommande),
+              contremarque: r.contremarque,
+              bpcord: r.bpcord,
+              cusordref: r.cusordref,
+              itmrefbpc: r.itmrefbpc,
+              sohtyp: r.sohtyp,
+            })
+          }
+        }
+        return out
+      },
+      // La fenêtre RÉELLEMENT ingérée, relue par `getCoverage()`. Sans elle, une
+      // plage demandée hors de ces bornes serait servie tronquée, sans erreur.
+      JSON.stringify(window)
+    )
   }
 
   async syncStock(source = 'manual'): Promise<TableIngestionResult> {
@@ -423,7 +497,15 @@ export class ReplicaSyncService {
   protected async ingest(
     table: string,
     source: string,
-    fetch: () => Promise<Row[]>
+    fetch: () => Promise<Row[]>,
+    /**
+     * Note journalisée sur un run RÉUSSI. Sert aux tables dont la lecture porte
+     * sur une plage arbitraire : elle y consigne la fenêtre réellement ingérée,
+     * seule façon de répondre ensuite à « la réplique couvre-t-elle CE que
+     * l'utilisateur demande ? » — question distincte de la fraîcheur, et que le
+     * portail ne traite pas (cf. `OrdersFluxReplicaRepository.getCoverage`).
+     */
+    note?: string
   ): Promise<TableIngestionResult> {
     const start = Date.now()
     const startedAt = new Date().toISOString()
@@ -452,6 +534,7 @@ export class ReplicaSyncService {
         rows: rows.length,
         durationMs,
         source,
+        note,
       })
 
       // Le run a démontré avoir vu tout ce qui était écrit avant son démarrage :

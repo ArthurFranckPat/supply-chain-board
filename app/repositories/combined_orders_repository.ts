@@ -11,6 +11,8 @@ interface OrdersSqlOptions {
   includeContremarque: boolean
   /** BPCORD/CUSORDREF/ITMREFBPC (réf client) — colonne coûteuse, lean par défaut. */
   includeCustomerRef: boolean
+  /** Restreint à UN `WIPTYP` — ingestion partitionnée (`fetchForReplica`). */
+  onlyWiptyp?: 1 | 2 | 5
 }
 
 // ORDERS WIPTYP=1 (demande) + WIPTYP=2 (réceptions) [+ WIPTYP=5 (OFs) si includeOf].
@@ -18,13 +20,19 @@ interface OrdersSqlOptions {
 // ZSOAPSQL O(n²) sur les lignes ET colonnes : les colonnes contremarque/réf client ne
 // s'ajoutent que si demandées — ne jamais élargir une variante lean par défaut.
 function buildOrdersSql(opts: OrdersSqlOptions): string {
-  const { from, to, includeOf, includeContremarque, includeCustomerRef } = opts
+  const { from, to, includeOf, includeContremarque, includeCustomerRef, onlyWiptyp } = opts
 
   const columns = [
     'O.WIPTYP_0',
     'O.WIPSTA_0',
     'O.VCRNUM_0',
     'O.VCRLIN_0',
+    // 4ᵉ composante de l'identité d'une ligne. Une commande ouverte porte
+    // plusieurs échéances sur la MÊME ligne : `COA2400006` ligne 1 en a six, de
+    // 20 000 chacune. Sans `VCRSEQ_0`, toute réplique clé sur (WIPTYP, VCRNUM,
+    // VCRLIN) les écraserait en une seule et perdrait 100 000 unités d'appro.
+    // Inoffensive pour les appelants X3 directs, qui ne dédoublonnent pas.
+    'O.VCRSEQ_0',
     'O.ITMREF_0',
     'I.ITMDES1_0   AS DESIGNATION',
     'O.ENDDAT_0',
@@ -59,25 +67,29 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
   if (includeCustomerRef)
     joins.push('LEFT JOIN ITMBPC IB ON IB.ITMREF_0 = O.ITMREF_0 AND IB.BPCNUM_0 = H.BPCORD_0')
 
-  const conditions = [
-    `(O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
+  // Une condition par WIPTYP, indexée par WIPTYP : `onlyWiptyp` en garde UNE et
+  // n'en réécrit AUCUNE. C'est ce qui garantit qu'une ingestion partitionnée
+  // rend exactement la même population que l'appel groupé, tranche par tranche.
+  const conditionByWiptyp: Record<1 | 2 | 5, string> = {
+    1: `(O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
-    `(O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
+    2: `(O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
-  ]
-  if (includeOf) {
-    conditions.push(`(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
+    5: `(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD')
-      AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`)
+      AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
   }
+
+  const wiptyps: Array<1 | 2 | 5> = onlyWiptyp ? [onlyWiptyp] : includeOf ? [1, 2, 5] : [1, 2]
+  const conditions = wiptyps.map((w) => conditionByWiptyp[w])
 
   return `
 SELECT
   ${columns.join(',\n  ')}
 FROM ORDERS O
 ${joins.join('\n')}
-WHERE O.WIPTYP_0 IN (${includeOf ? '1, 2, 5' : '1, 2'})
+WHERE O.WIPTYP_0 IN (${wiptyps.join(', ')})
   AND I.ITMSTA_0 = 1
   AND O.RMNEXTQTY_0 > 0
   AND (
@@ -101,6 +113,89 @@ function toNum(v: string | null | undefined): number {
   return Number.parseFloat(v ?? '0') || 0
 }
 
+/**
+ * Une ligne d'`ORDERS` NORMALISÉE, jointures comprises — indépendante de sa
+ * provenance (SOAP X3 ou `orders_flux_replica`).
+ *
+ * Les trois mappers ci-dessous travaillaient sur les `RawRow` bruts d'X3
+ * (`row.RMNEXTQTY_0` en string, `parseX3Date(row.ENDDAT_0)`). Y brancher la
+ * réplique aurait imposé de refabriquer de faux `RawRow` : `parseX3Date`
+ * n'accepte que `dd-MMM-yy`, donc reformater une date déjà parsée pour la
+ * reparser aussitôt — et perdre le siècle au passage (année sur 2 chiffres).
+ * Même motif que `RetardLine` dans `retard_repository`.
+ *
+ * `vcrseq` n'était lue par personne avant la réplique. Elle est pourtant la
+ * 4ᵉ composante de l'identité d'une ligne : `COA2400006` ligne 1 porte SIX
+ * échéances de 20 000 (WIPTYP=2, commande ouverte), que seul `VCRSEQ_0`
+ * distingue. Vérifié en PROD : `(WIPTYP, VCRNUM, VCRLIN, VCRSEQ)` n'a aucun
+ * doublon sur l'ensemble d'`ORDERS`, `(WIPTYP, VCRNUM, VCRLIN)` en a.
+ */
+export interface OrdersSourceRow {
+  wiptyp: number
+  wipsta: number
+  vcrnum: string
+  vcrlin: string | null
+  vcrseq: string | null
+  article: string
+  designation: string | null
+  /** `ENDDAT_0` — échéance. */
+  date: Date | null
+  /** `RMNEXTQTY_0` — reste à livrer/produire. */
+  qteRestante: number
+  /** `EXTQTY_0`. */
+  qteCommandee: number
+  /** `ALLQTY_0`. */
+  qteAllouee: number
+  partnerNom: string | null
+  pays: string | null
+  /** `SORDER.ORDDAT_0` — date de commande. */
+  dateCommande: Date | null
+  /** `SORDERQ.FMINUM_0` — peg contremarque commande↔OF. */
+  contremarque: string | null
+  bpcord: string | null
+  cusordref: string | null
+  itmrefbpc: string | null
+  /** Colonne CALCULÉE côté SQL (CASE sur WIPSTA/WIPTYP/pays), pas un champ X3. */
+  sohtyp: string | null
+}
+
+/** `RawRow` X3 → ligne normalisée. Seul point où le format X3 est interprété. */
+export function toOrdersSourceRow(row: RawRow): OrdersSourceRow {
+  return {
+    wiptyp: Number.parseInt(row.WIPTYP_0 ?? '0'),
+    wipsta: Number.parseInt(row.WIPSTA_0 ?? '0'),
+    vcrnum: row.VCRNUM_0?.trim() ?? '',
+    vcrlin: row.VCRLIN_0?.trim() || null,
+    vcrseq: row.VCRSEQ_0?.trim() || null,
+    article: row.ITMREF_0?.trim() ?? '',
+    designation: row.DESIGNATION?.trim() || null,
+    date: parseX3Date(row.ENDDAT_0),
+    qteRestante: toNum(row.RMNEXTQTY_0),
+    qteCommandee: toNum(row.EXTQTY_0),
+    qteAllouee: toNum(row.ALLQTY_0),
+    partnerNom: row.PARTNER_NOM?.trim() || null,
+    pays: row.PAYS?.trim() || null,
+    dateCommande: parseX3Date(row.ORDDAT),
+    contremarque: row.CONTREMARQUE?.trim() || null,
+    bpcord: row.BPCORD?.trim() || null,
+    cusordref: row.CUSORDREF?.trim() || null,
+    itmrefbpc: row.ITMREFBPC?.trim() || null,
+    sohtyp: row.SOHTYP?.trim() || null,
+  }
+}
+
+/**
+ * Options de mise en forme de `fetchLive` — extraites en constante parce que la
+ * voie réplique DOIT les partager. Deux littéraux recopiés finiraient par
+ * diverger (une réf client exposée d'un côté, pas de l'autre), et rien ne le
+ * signalerait : les deux voies rendent des `Flow` bien formés.
+ */
+export const LIVE_MAP_OPTS: DemandMapOptions = {
+  contremarque: true,
+  designation: false,
+  customerRef: true,
+}
+
 interface DemandMapOptions {
   /** Lire SORDERQ.FMINUM_0 (colonne CONTREMARQUE) — sinon toujours null. */
   contremarque: boolean
@@ -110,16 +205,16 @@ interface DemandMapOptions {
   customerRef: boolean
 }
 
-function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
-  const wipsta = Number.parseInt(row.WIPSTA_0 ?? '0')
-  const article = row.ITMREF_0?.trim() ?? ''
-  const quantity = toNum(row.RMNEXTQTY_0)
-  const date = parseX3Date(row.ENDDAT_0)
+function mapDemandRow(row: OrdersSourceRow, opts: DemandMapOptions): Flow {
+  const wipsta = row.wipsta
+  const article = row.article
+  const quantity = row.qteRestante
+  const date = row.date
   const nature: NeedNature = wipsta === 3 ? 'PREVISION' : 'COMMANDE'
-  const orderType = (row.SOHTYP?.trim() || null) as OrderType | null
-  const contremarque = opts.contremarque ? row.CONTREMARQUE?.trim() || null : null
-  const designation = opts.designation ? (row.DESIGNATION?.trim() ?? null) : undefined
-  const exposeRef = opts.customerRef && CLIENTS_AVEC_REF_CLIENT.has((row.BPCORD ?? '').trim())
+  const orderType = row.sohtyp as OrderType | null
+  const contremarque = opts.contremarque ? row.contremarque : null
+  const designation = opts.designation ? row.designation : undefined
+  const exposeRef = opts.customerRef && CLIENTS_AVEC_REF_CLIENT.has(row.bpcord ?? '')
 
   if (nature === 'COMMANDE') {
     return {
@@ -129,27 +224,19 @@ function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
       date,
       origin: {
         type: 'order',
-        id: row.VCRNUM_0?.trim() ?? '',
-        customer: row.PARTNER_NOM?.trim() ?? '',
-        pays: row.PAYS?.trim() ?? null,
+        id: row.vcrnum,
+        customer: row.partnerNom ?? '',
+        pays: row.pays,
         orderType,
         nature,
         contremarque,
-        qteCommandee: toNum(row.EXTQTY_0),
-        qteAllouee: toNum(row.ALLQTY_0),
-        ligne: row.VCRLIN_0?.trim() ?? null,
+        qteCommandee: row.qteCommandee,
+        qteAllouee: row.qteAllouee,
+        ligne: row.vcrlin,
         designation,
-        refCommandeClient: opts.customerRef
-          ? exposeRef
-            ? row.CUSORDREF?.trim() || null
-            : null
-          : undefined,
-        refArticleClient: opts.customerRef
-          ? exposeRef
-            ? row.ITMREFBPC?.trim() || null
-            : null
-          : undefined,
-        dateCommande: parseX3Date(row.ORDDAT),
+        refCommandeClient: opts.customerRef ? (exposeRef ? row.cusordref : null) : undefined,
+        refArticleClient: opts.customerRef ? (exposeRef ? row.itmrefbpc : null) : undefined,
+        dateCommande: row.dateCommande,
       },
     }
   }
@@ -160,62 +247,83 @@ function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
     date,
     origin: {
       type: 'forecast',
-      id: row.VCRNUM_0?.trim() ?? '',
-      customer: row.PARTNER_NOM?.trim() ?? '',
-      pays: row.PAYS?.trim() ?? null,
+      id: row.vcrnum,
+      customer: row.partnerNom ?? '',
+      pays: row.pays,
       orderType,
       contremarque,
-      qteCommandee: toNum(row.EXTQTY_0),
-      qteAllouee: toNum(row.ALLQTY_0),
+      qteCommandee: row.qteCommandee,
+      qteAllouee: row.qteAllouee,
       designation,
-      dateCommande: parseX3Date(row.ORDDAT),
+      dateCommande: row.dateCommande,
     },
   }
 }
 
-function mapReceptionRow(row: RawRow): Flow {
-  const wipsta = Number.parseInt(row.WIPSTA_0 ?? '0')
+function mapReceptionRow(row: OrdersSourceRow): Flow {
   return {
-    article: row.ITMREF_0?.trim() ?? '',
-    quantity: toNum(row.RMNEXTQTY_0),
+    article: row.article,
+    quantity: row.qteRestante,
     direction: 'supply',
-    date: parseX3Date(row.ENDDAT_0),
+    date: row.date,
     origin: {
       type: 'reception',
-      id: row.VCRNUM_0?.trim() ?? '',
-      supplier: row.PARTNER_NOM?.trim() ?? '',
-      designation: row.DESIGNATION?.trim() ?? null,
+      id: row.vcrnum,
+      supplier: row.partnerNom ?? '',
+      designation: row.designation,
       categorie: null,
       dateCommande: null,
-      qteCommandee: toNum(row.EXTQTY_0),
-      firm: wipsta === 1,
+      qteCommandee: row.qteCommandee,
+      firm: row.wipsta === 1,
     },
   }
 }
 
-function mapOfRow(row: RawRow): Flow {
+function mapOfRow(row: OrdersSourceRow): Flow {
   // H5 (audit sécu) : défaut prudent = Suggéré (3), pas Ferme (1). Un statut
   // null/0/NaN ne doit JAMAIS devenir Ferme — cela court-circuiterait les checks
   // de rupture (un OF ferme est considéré lancé, donc la matière est consommée).
   // WIPSTA valide ∈ {1, 2, 3} ; tout autre valeur → 3 (Suggéré, conservatif).
-  const raw = Number.parseInt(row.WIPSTA_0 ?? '0')
+  const raw = row.wipsta
   const status = (raw >= 1 && raw <= 3 ? raw : 3) as 1 | 2 | 3
   return {
-    article: row.ITMREF_0?.trim() ?? '',
-    quantity: toNum(row.RMNEXTQTY_0),
+    article: row.article,
+    quantity: row.qteRestante,
     direction: 'supply',
-    date: parseX3Date(row.ENDDAT_0),
+    date: row.date,
     origin: {
       type: 'of',
-      id: row.VCRNUM_0?.trim() ?? '',
+      id: row.vcrnum,
       status,
       statutLabel: OF_STATUS_LABELS[status] ?? null,
       typeOf: null,
       typeOfLabel: null,
-      designation: row.DESIGNATION?.trim() ?? null,
-      launched: toNum(row.EXTQTY_0),
+      designation: row.designation,
+      launched: row.qteCommandee,
     },
   }
+}
+
+/**
+ * Éclate des lignes normalisées en trois familles de `Flow`, par `WIPTYP`.
+ *
+ * Partagée par les deux voies — X3 direct et réplique — pour que la bascule ne
+ * puisse pas faire diverger la mise en forme. C'est le pendant lecture du
+ * principe d'ingestion : une seule règle, un seul endroit.
+ */
+export function splitOrdersFlows(
+  rows: OrdersSourceRow[],
+  opts: DemandMapOptions
+): LiveOrdersResult {
+  const demandFlows: Flow[] = []
+  const receptionFlows: Flow[] = []
+  const ofFlows: Flow[] = []
+  for (const row of rows) {
+    if (row.wiptyp === 5) ofFlows.push(mapOfRow(row))
+    else if (row.wiptyp === 1) demandFlows.push(mapDemandRow(row, opts))
+    else if (row.wiptyp === 2) receptionFlows.push(mapReceptionRow(row))
+  }
+  return { demandFlows, receptionFlows, ofFlows }
 }
 
 export interface LiveOrdersResult {
@@ -248,16 +356,11 @@ export class CombinedOrdersRepository {
       await db.destroy()
     }
 
-    const demandFlows: Flow[] = []
-    const receptionFlows: Flow[] = []
-    const mapOpts: DemandMapOptions = { contremarque: true, designation: true, customerRef: false }
-
-    for (const row of rows) {
-      const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
-      if (wiptyp === 1) demandFlows.push(mapDemandRow(row, mapOpts))
-      else if (wiptyp === 2) receptionFlows.push(mapReceptionRow(row))
-    }
-
+    const { demandFlows, receptionFlows } = splitOrdersFlows(rows.map(toOrdersSourceRow), {
+      contremarque: true,
+      designation: true,
+      customerRef: false,
+    })
     return { demandFlows, receptionFlows }
   }
 
@@ -288,19 +391,54 @@ export class CombinedOrdersRepository {
       await db.destroy()
     }
 
-    const demandFlows: Flow[] = []
-    const receptionFlows: Flow[] = []
-    const ofFlows: Flow[] = []
-    const mapOpts: DemandMapOptions = { contremarque: true, designation: false, customerRef: true }
+    return splitOrdersFlows(rows.map(toOrdersSourceRow), LIVE_MAP_OPTS)
+  }
 
-    for (const row of rows) {
-      const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
-      if (wiptyp === 5) ofFlows.push(mapOfRow(row))
-      else if (wiptyp === 1) demandFlows.push(mapDemandRow(row, mapOpts))
-      else if (wiptyp === 2) receptionFlows.push(mapReceptionRow(row))
+  /**
+   * Population d'INGESTION d'`orders_flux_replica`, UN `WIPTYP` à la fois.
+   *
+   * Le découpage par `WIPTYP` n'est pas un filtre de consommateur — c'est une
+   * PARTITION de la source : les trois passes réunies rendent exactement ce que
+   * `fetchLive` demande en un appel, rien de moins.
+   *
+   * Pourquoi partitionner plutôt qu'un seul appel : `ZSOAPSQL` est en O(n²) sur
+   * les lignes ET les colonnes (issue #40, append CLOB). Découper est donc moins
+   * cher que regrouper, à l'inverse de l'intuition habituelle. Mesuré en PROD
+   * sur la fenêtre −90 j/+1 an : 9 208 (WIPTYP 1) + 895 (2) + 13 536 (5) =
+   * 23 639 lignes. En un seul appel, 23 639² ≈ 2× le coût de la somme des
+   * carrés — et la variante grasse ajoute 4 colonnes et 3 jointures par-dessus.
+   * Le constat était déjà posé lors du travail perf sur `/suivi` : ne pas
+   * combiner WIPTYP=1+5.
+   *
+   * Variante GRASSE assumée (contremarque + réfs client). Elle est coûteuse par
+   * appel, mais ici elle est payée une fois par tick d'ingestion au lieu d'une
+   * fois par chargement de page — c'est exactement l'échange que fait une
+   * réplique. Sans la contremarque, le matcher perd les pegs commande↔OF et
+   * retombe sur l'heuristique article+date (cf. `fetchLive`).
+   */
+  async fetchForReplica(
+    fromIso: string,
+    toIso: string,
+    wiptyp: 1 | 2 | 5
+  ): Promise<OrdersSourceRow[]> {
+    const from = fromIso.replace(/-/g, '')
+    const to = toIso.replace(/-/g, '')
+    const db = new X3Database()
+    try {
+      const rows: RawRow[] = await db.raw(
+        buildOrdersSql({
+          from,
+          to,
+          includeOf: true,
+          includeContremarque: true,
+          includeCustomerRef: true,
+          onlyWiptyp: wiptyp,
+        })
+      )
+      return rows.map(toOrdersSourceRow)
+    } finally {
+      await db.destroy()
     }
-
-    return { demandFlows, receptionFlows, ofFlows }
   }
 
   /** Flux futurs d'UN article — projection de stock de la sheet détail du KPI

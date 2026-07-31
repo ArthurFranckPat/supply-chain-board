@@ -97,6 +97,7 @@ export type ReadSource = 'replica' | 'direct'
 /** Tables de réplique adressables par le portail. */
 export type ReplicaTable =
   | 'orders_replica'
+  | 'orders_flux_replica'
   | 'order_lines_replica'
   | 'stock_replica'
   | 'stock_flux_replica'
@@ -147,6 +148,12 @@ const HOUR = 60 * MINUTE
  */
 const MAX_AGE_MS: Record<ReplicaTable, number> = {
   orders_replica: 30 * MINUTE,
+  // Même donnée vivante que `orders_replica` (elle mire la même table X3), donc
+  // même seuil — mais elle n'est PAS encore dans `syncAll()` : sa cadence reste
+  // à arbitrer après mesure du coût de la variante grasse. Conséquence assumée,
+  // la même que pour `operations`/`stock_detail` : elle ne sert la réplique que
+  // peu après un `--only=orders-flux`, et sinon X3 direct.
+  orders_flux_replica: 30 * MINUTE,
   order_lines_replica: 30 * MINUTE,
   stock_replica: 30 * MINUTE,
   receptions_replica: 30 * MINUTE,
@@ -308,6 +315,7 @@ export class ReplicaGate {
   async verdicts(): Promise<GateVerdict[]> {
     const tables: ReplicaTable[] = [
       'orders_replica',
+      'orders_flux_replica',
       'order_lines_replica',
       'stock_replica',
       'stock_flux_replica',

@@ -14,7 +14,14 @@ import {
   estimerDepuisStojou,
   type EstimationsPaire,
 } from '#app/domain/conditionnement_estimator'
-import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
+import {
+  CombinedOrdersRepository,
+  splitOrdersFlows,
+  LIVE_MAP_OPTS,
+} from '#repositories/combined_orders_repository'
+import ordersFluxReplicaRepository, {
+  replicaCoversOrdersRange,
+} from '#repositories/orders_flux_replica_repository'
 import { computeSupplierLatency } from '#repositories/supplier_latency_repository'
 import {
   StockValuationRepository,
@@ -354,8 +361,27 @@ class BoardDataset {
       // SWR (issue #33) : demande+réception X3 lent (~13 s cold). Cf. getOrders.
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const { demandFlows, receptionFlows, ofFlows } =
-          await new CombinedOrdersRepository().fetchLive(from, to)
+        // #98/#105 — `orders_flux_replica` mire la SOURCE ORDERS (WIPTYP 1/2/5)
+        // avec ses jointures de contexte. Les trois familles de flux sortent
+        // d'une seule et même lecture : les servir séparément reproduirait la
+        // vue déchirée que `resolveSource()` écarte côté valorisation.
+        //
+        // DEUX conditions, pas une. Le portail répond « la donnée est-elle
+        // fraîche, propre, du bon environnement » ; il ne dit RIEN de la plage
+        // couverte. Or `from`/`to` viennent ici du calendrier de l'écran, donc
+        // arbitraires : l'ingestion est bornée à −90 j/+1 an, et au-delà la
+        // réplique rendrait une population tronquée sans le signaler.
+        const [fresh, coverage] = await Promise.all([
+          replicaGate.canRead('orders_flux_replica'),
+          ordersFluxReplicaRepository.getCoverage(),
+        ])
+        const onReplica = fresh && replicaCoversOrdersRange(coverage, from, to)
+
+        const { demandFlows, receptionFlows, ofFlows } = onReplica
+          ? await ordersFluxReplicaRepository
+              .getLiveRows(from, to)
+              .then((rows) => splitOrdersFlows(rows, LIVE_MAP_OPTS))
+          : await new CombinedOrdersRepository().fetchLive(from, to)
         return {
           demand: demandFlows,
           reception: receptionFlows,

@@ -12,6 +12,12 @@ import stockFluxReplicaRepository from '#repositories/stock_flux_replica_reposit
 import { StockFluxRepository } from '#repositories/stock_flux_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
+import {
+  CombinedOrdersRepository,
+  splitOrdersFlows,
+  LIVE_MAP_OPTS,
+} from '#repositories/combined_orders_repository'
+import ordersFluxReplicaRepository from '#repositories/orders_flux_replica_repository'
 import operationsReplicaRepository from '#repositories/operations_replica_repository'
 import { X3OperationRepository, type OperationRecord } from '#repositories/operation_repository'
 import stockDetailReplicaRepository from '#repositories/stock_detail_replica_repository'
@@ -101,6 +107,9 @@ export default class ReplicaSync extends BaseCommand {
 
     const results = []
     if (all || only.has('orders')) results.push(await replicaSyncService.syncOrders('cli'))
+    // Hors `syncAll()` comme stock-flux/operations/stock-detail : variante grasse
+    // (contremarque + réfs client), coût sur un tick de 5 min non encore mesuré.
+    if (only.has('orders-flux')) results.push(await replicaSyncService.syncOrdersFlux('cli'))
     if (all || only.has('order-lines')) results.push(await replicaSyncService.syncOrderLines('cli'))
     if (all || only.has('stock')) results.push(await replicaSyncService.syncStock('cli'))
     if (all || only.has('receptions')) results.push(await replicaSyncService.syncReceptions('cli'))
@@ -210,6 +219,9 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info('=== stock_detail_replica ===')
     const stockDetailOk = await this.compareStockDetail()
 
+    this.logger.info(`=== orders_flux_replica (#105, ${dayKey(from)} → ${dayKey(to)}) ===`)
+    const ordersFluxOk = await this.compareOrdersFlux(from, to)
+
     if (
       ordersOk &&
       linesOk &&
@@ -218,7 +230,8 @@ export default class ReplicaSync extends BaseCommand {
       fluxOk &&
       receptionsOk &&
       operationsOk &&
-      stockDetailOk
+      stockDetailOk &&
+      ordersFluxOk
     ) {
       this.logger.success('Réplique et voie directe cohérentes sur toutes les tables')
     } else {
@@ -235,6 +248,107 @@ export default class ReplicaSync extends BaseCommand {
       ? new Date(`${this.to}T00:00:00`)
       : new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000)
     return { from, to }
+  }
+
+  /**
+   * Diff `fetchLive()` X3 direct vs `orders_flux_replica` — les trois familles
+   * de flux qui alimentent `/suivi` (#105).
+   *
+   * Comparaison sur le résultat FINAL (`Flow[]`), pas sur les lignes de table :
+   * c'est ce que consomment les écrans, et les deux voies partagent
+   * `splitOrdersFlows()`, donc un écart ici ne peut venir que de la population
+   * ou des colonnes ingérées — exactement ce qu'on veut mesurer.
+   *
+   * Même précaution que `compareOrders()` sur l'identité : les OF SUGGÉRÉS
+   * (WIPSTA=3) sont régénérés par chaque run CBN avec un nouveau numéro, donc
+   * ~12 000 des 13 500 lignes WIPTYP=5 n'ont pas d'identité stable entre deux
+   * lectures. Les diffuser par `id` produirait un roulement quasi total qui ne
+   * dit rien de la réplique. On les compare donc en AGRÉGAT par article, comme
+   * `compareSuggested()`.
+   *
+   * Demande (WIPTYP=1) et réceptions (WIPTYP=2) ont, elles, une identité stable
+   * (numéro de commande + ligne) : diff exact.
+   */
+  private async compareOrdersFlux(from: Date, to: Date): Promise<boolean> {
+    const fromIso = dayKey(from)!
+    const toIso = dayKey(to)!
+    const started = Date.now()
+    const [direct, replicaRows] = await Promise.all([
+      new CombinedOrdersRepository().fetchLive(fromIso, toIso),
+      ordersFluxReplicaRepository.getLiveRows(fromIso, toIso),
+    ])
+    const replica = splitOrdersFlows(replicaRows, LIVE_MAP_OPTS)
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+
+    this.logger.info(
+      `X3 : ${direct.demandFlows.length} demande / ${direct.receptionFlows.length} réception / ${direct.ofFlows.length} OF` +
+        ` · réplique : ${replica.demandFlows.length} / ${replica.receptionFlows.length} / ${replica.ofFlows.length}` +
+        ` · ${elapsed} s`
+    )
+
+    // Identité d'un flux de demande/réception : le couple (numéro, ligne) rendu
+    // par le mapper. Suffisant ici — deux échéances d'une même ligne (VCRSEQ)
+    // portent des dates différentes, incluses dans la signature.
+    const sig = (f: Flow) =>
+      `${f.origin.type}|${'id' in f.origin ? f.origin.id : ''}|${
+        'ligne' in f.origin ? (f.origin.ligne ?? '') : ''
+      }|${dayKey(f.date) ?? ''}|${f.quantity}`
+
+    const exact = (label: string, a: Flow[], b: Flow[]): boolean => {
+      const sa = new Set(a.map(sig))
+      const sb = new Set(b.map(sig))
+      const onlyA = [...sa].filter((s) => !sb.has(s))
+      const onlyB = [...sb].filter((s) => !sa.has(s))
+      if (onlyA.length === 0 && onlyB.length === 0) {
+        this.logger.info(`  ${label} : identiques (${a.length})`)
+        return true
+      }
+      this.logger.warning(
+        `  ${label} : ${onlyA.length} en X3 seulement, ${onlyB.length} en réplique seulement`
+      )
+      for (const s of [...onlyA.slice(0, 3), ...onlyB.slice(0, 3)]) this.logger.warning(`    ${s}`)
+      return false
+    }
+
+    const demandOk = exact('demande (WIPTYP=1)', direct.demandFlows, replica.demandFlows)
+    const recepOk = exact('réception (WIPTYP=2)', direct.receptionFlows, replica.receptionFlows)
+
+    // OF : fermes/planifiés en exact, suggérés en agrégat par article.
+    const isStable = (f: Flow) =>
+      f.origin.type === 'of' && (f.origin.status === 1 || f.origin.status === 2)
+    const ofStableOk = exact(
+      'OF fermes/planifiés',
+      direct.ofFlows.filter(isStable),
+      replica.ofFlows.filter(isStable)
+    )
+
+    const agg = (flows: Flow[]) => {
+      const m = new Map<string, { n: number; q: number }>()
+      for (const f of flows) {
+        const cur = m.get(f.article) ?? { n: 0, q: 0 }
+        m.set(f.article, { n: cur.n + 1, q: cur.q + f.quantity })
+      }
+      return m
+    }
+    const da = agg(direct.ofFlows.filter((f) => !isStable(f)))
+    const ra = agg(replica.ofFlows.filter((f) => !isStable(f)))
+    const articles = new Set([...da.keys(), ...ra.keys()])
+    const drifted: string[] = []
+    for (const a of articles) {
+      const d = da.get(a) ?? { n: 0, q: 0 }
+      const r = ra.get(a) ?? { n: 0, q: 0 }
+      if (d.n !== r.n || Math.abs(d.q - r.q) > 0.01) {
+        drifted.push(`${a} : X3 ${d.n}×${d.q} ≠ réplique ${r.n}×${r.q}`)
+      }
+    }
+    if (drifted.length === 0) {
+      this.logger.info(`  OF suggérés : agrégats identiques sur ${articles.size} articles`)
+    } else {
+      this.logger.warning(`  OF suggérés : ${drifted.length}/${articles.size} articles divergents`)
+      for (const d of drifted.slice(0, 5)) this.logger.warning(`    ${d}`)
+    }
+
+    return demandOk && recepOk && ofStableOk && drifted.length === 0
   }
 
   private async compareOrders(): Promise<boolean> {
