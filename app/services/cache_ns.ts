@@ -1,6 +1,7 @@
 import app from '@adonisjs/core/services/app'
 import cache from '@adonisjs/cache/services/main'
 import type { CacheProvider } from 'bentocache/types'
+import { getActiveX3EnvName } from '#config/x3'
 
 /**
  * Accès namespacé au cache — point de passage UNIQUE.
@@ -97,13 +98,58 @@ function guard(provider: CacheProvider): CacheProvider {
 }
 
 /**
- * Retourne le cache pour un namespace donné.
+ * Retourne le cache pour un namespace donné, CLOISONNÉ PAR ENVIRONNEMENT X3.
  *
  * À utiliser PARTOUT à la place de `cache.namespace(...)` : c'est ce qui garantit
- * que la valeur rendue est gelée hors production, donc qu'une mutation en place
- * est détectée en développement plutôt que subie en production.
+ * à la fois le gel hors production (ci-dessus) et le cloisonnement `test`/`prod`.
+ *
+ * ## Pourquoi le suffixe d'environnement
+ *
+ * Les clés de ce cache sont GLOBALES, pas par utilisateur (issue #39, C2 — cf.
+ * `board_dataset.ts`) : les données usine sont identiques pour tous, et un
+ * namespace par user faisait repayer le cold start X3 (~18 s) à chaque nouvel
+ * arrivant. Le raisonnement est bon, mais il s'appuyait sur une prémisse fausse,
+ * écrite telle quelle dans le commentaire d'origine :
+ *
+ *   « Les creds X3 (via ALS) ne changent que la session, pas la donnée
+ *     renvoyée → aucun risque de cloisonnement. »
+ *
+ * Les credentials changent le POOL (`CLTEST` vs `CLAERECO2`), donc la donnée.
+ * Et les deux côtés de l'app ne résolvent pas l'environnement pareil : ce qui
+ * tourne hors requête (préchauffage au boot, providers, commandes ace) prend
+ * `X3_ENV`, ce qui tourne dans une requête prend l'environnement de la session
+ * (cf. `getX3EnvConfig`). Avec `X3_ENV=test` et un utilisateur connecté en prod —
+ * la configuration de développement courante — le préchauffage remplit
+ * `board:orders` depuis CLTEST et la session prod lit cette même entrée.
+ *
+ * Le suffixe rend le mélange impossible sans rien retirer au partage : tous les
+ * utilisateurs d'un MÊME environnement continuent de se réchauffer mutuellement.
+ *
+ * Même règle que `ReplicaGate` (`env-mismatch`), posée au même endroit qu'elle :
+ * un chokepoint, pas une vérification recopiée dans chaque appelant.
+ *
+ * ## Conséquence assumée
+ *
+ * En développement, le préchauffage remplit désormais `…:test` pendant qu'une
+ * session prod lit `…:prod` : elle paie donc le chemin froid au lieu de se voir
+ * servir la mauvaise donnée. C'est le bon compromis — froid vaut mieux que faux.
+ * En déploiement, `X3_ENV` vaut celui des utilisateurs et le préchauffage
+ * réchauffe de nouveau le bon namespace.
+ *
+ * L'environnement est lu à CHAQUE appel, jamais capturé : tous les appelants
+ * passent par `() => cacheNs(...)` ou l'appellent dans le corps d'une fonction,
+ * donc la résolution a lieu dans le contexte de la requête courante. Ne jamais
+ * hisser un `cacheNs(...)` au niveau module — il figerait l'environnement du boot
+ * pour toutes les requêtes.
  */
+/** Composition du namespace effectif. Pure, exportée pour être testable : le
+ *  fallback `X3_ENV` est figé au boot par AdonisJS (`env.get()` ne relit pas
+ *  `process.env`), donc un test ne peut pas le faire varier à chaud. */
+export function envScopedNamespace(name: string, envName: string): string {
+  return `${name}:${envName}`
+}
+
 export function cacheNs(name: string): CacheProvider {
-  const provider = cache.namespace(name)
+  const provider = cache.namespace(envScopedNamespace(name, getActiveX3EnvName()))
   return app.inProduction ? provider : guard(provider)
 }

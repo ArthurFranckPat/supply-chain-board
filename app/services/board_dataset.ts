@@ -76,8 +76,16 @@ type Live = { demand: Flow[]; reception: Flow[]; supply: Flow[]; at: number }
  * referential/orders/live/bom sont des données usine identiques pour tous les
  * users (vues ERP read-only). Un namespace par user faisait repayer le cold start
  * X3 (~18 s) à chaque nouvel utilisateur. Avec une clé partagée, le premier user
- * réchauffe pour tous. Les creds X3 (via ALS) ne changent que la session, pas la
- * donnée renvoyée → aucun risque de cloisonnement.
+ * réchauffe pour tous.
+ *
+ * CORRECTION (31/07/2026) : ce commentaire affirmait ici que « les creds X3 (via
+ * ALS) ne changent que la session, pas la donnée renvoyée → aucun risque de
+ * cloisonnement ». C'est faux — les creds changent le POOL (`CLTEST` vs
+ * `CLAERECO2`), donc la donnée. Une entrée remplie hors requête (préchauffage au
+ * boot, sur `X3_ENV`) était lue par une session d'un autre environnement.
+ * `cacheNs()` suffixe désormais tout namespace par l'environnement actif ; le
+ * partage entre utilisateurs d'un même environnement, seule raison d'être de la
+ * clé globale, est préservé. Détail dans `cache_ns.ts`.
  */
 const board = () => cacheNs('board')
 

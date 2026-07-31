@@ -1,5 +1,7 @@
 import { test } from '@japa/runner'
-import { cacheNs } from '#services/cache_ns'
+import cache from '@adonisjs/cache/services/main'
+import { cacheNs, envScopedNamespace } from '#services/cache_ns'
+import { getActiveX3EnvName } from '#config/x3'
 
 /**
  * Vérifie les deux propriétés dont dépend `serialize: false` sur le L1 :
@@ -80,5 +82,48 @@ test.group('cacheNs — garde-fou du L1 non sérialisé', () => {
     const value = await ns.get<Record<string, unknown>>({ key: 'k' })
 
     assert.isTrue(Object.isFrozen(value))
+  })
+})
+
+/**
+ * Cloisonnement par environnement X3 (31/07/2026).
+ *
+ * Le bug corrigé : les clés de ce cache sont GLOBALES (issue #39, C2) au motif
+ * que « les creds X3 ne changent que la session, pas la donnée ». Faux — ils
+ * changent le pool (`CLTEST` vs `CLAERECO2`). Le préchauffage, qui tourne hors
+ * requête donc sur `X3_ENV`, remplissait `board:orders` depuis un environnement
+ * pendant qu'une session de l'autre lisait la même entrée.
+ *
+ * Ce que ces tests NE peuvent pas faire : faire varier `X3_ENV` à chaud.
+ * AdonisJS le fige au boot (`env.get()` ne relit pas `process.env`) — c'est
+ * pourquoi la vérification en réel est passée par `X3_ENV=prod node ace …`,
+ * variable posée AVANT le démarrage. D'où le découpage : la composition du
+ * namespace est pure et testée ici, sa résolution est vérifiée par
+ * `ReplicaGate` et en ligne de commande.
+ */
+test.group('cacheNs — cloisonnement par environnement X3', () => {
+  test('le namespace effectif porte l’environnement', ({ assert }) => {
+    assert.equal(envScopedNamespace('board', 'test'), 'board:test')
+    assert.equal(envScopedNamespace('board', 'prod'), 'board:prod')
+    assert.notEqual(envScopedNamespace('board', 'test'), envScopedNamespace('board', 'prod'))
+  })
+
+  test('cacheNs écrit RÉELLEMENT dans le namespace suffixé', async ({ assert }) => {
+    // Le test qui compte : sans ça, `envScopedNamespace` pourrait être correcte
+    // et inutilisée. On écrit via `cacheNs`, on relit via le namespace brut
+    // attendu — s'ils divergent, la lecture rend `undefined`.
+    const envName = getActiveX3EnvName()
+    await cacheNs('test-scope').set({ key: 'k', value: 'valeur' })
+
+    const brut = cache.namespace(envScopedNamespace('test-scope', envName))
+    assert.equal(await brut.get({ key: 'k' }), 'valeur')
+  })
+
+  test('le namespace NON suffixé ne voit rien de ce qu’écrit cacheNs', async ({ assert }) => {
+    // C'est exactement le chemin qui mélangeait les environnements : quiconque
+    // lisait `board` sans suffixe tombait sur l'entrée de l'autre côté.
+    await cacheNs('test-nu').set({ key: 'k', value: 'valeur' })
+
+    assert.isUndefined(await cache.namespace('test-nu').get({ key: 'k' }))
   })
 })
