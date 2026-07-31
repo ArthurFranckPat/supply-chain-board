@@ -38,8 +38,6 @@ import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
 import { cacheNs } from '#services/cache_ns'
 import replicaGate from '#services/replica_gate'
-import ordersReplicaRepository from '#repositories/orders_replica_repository'
-import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
 import receptionsReplicaRepository from '#repositories/receptions_replica_repository'
 import operationsReplicaRepository from '#repositories/operations_replica_repository'
@@ -149,8 +147,8 @@ class BoardDataset {
         // sinon voie directe X3 inchangée. `REPLICA_READS` fermé par défaut → ce
         // `canRead` rend toujours `false` tant que le lot n'est pas activé en prod.
         // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
-        const mos = (await replicaGate.canRead('orders_replica'))
-          ? await ordersReplicaRepository.getManufacturingOrders()
+        const mos = (await replicaGate.canRead('orders_flux_replica'))
+          ? await ordersFluxReplicaRepository.getManufacturingOrders()
           : await new X3OfRepository().getManufacturingOrders()
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
@@ -189,8 +187,8 @@ class BoardDataset {
    */
   private async matchingFamilyOnReplica(): Promise<boolean> {
     const [orders, lines] = await Promise.all([
-      replicaGate.canRead('orders_replica'),
-      replicaGate.canRead('order_lines_replica'),
+      replicaGate.canRead('orders_flux_replica'),
+      replicaGate.canRead('orders_flux_replica'),
     ])
     return orders && lines
   }
@@ -216,7 +214,7 @@ class BoardDataset {
         // `getOrdersForMatchingDelta()`, jamais l'une sur la réplique et l'autre en
         // X3 direct.
         const mos = (await this.matchingFamilyOnReplica())
-          ? await ordersReplicaRepository.getManufacturingOrdersForWindow(from, to)
+          ? await ordersFluxReplicaRepository.getManufacturingOrdersForWindow(from, to)
           : await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
@@ -262,7 +260,7 @@ class BoardDataset {
       factory: async () => {
         // Cf. `matchingFamilyOnReplica()` : même verdict que `getOrdersForWindow()`.
         const mos = (await this.matchingFamilyOnReplica())
-          ? await ordersReplicaRepository.getManufacturingOrdersForMatching(from, to)
+          ? await ordersFluxReplicaRepository.getManufacturingOrdersForMatching(from, to)
           : await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
         return mos.map((mo) => ({
           article: mo.article,
@@ -323,8 +321,8 @@ class BoardDataset {
       timeout: SWR_TIMEOUT,
       factory: async () => {
         // Cf. getOrders() — même bascule #98 lot 2.
-        if (await replicaGate.canRead('order_lines_replica')) {
-          return orderLinesReplicaRepository.getOpenOrderLines({ from, to })
+        if (await replicaGate.canRead('orders_flux_replica')) {
+          return ordersFluxReplicaRepository.getOpenOrderLines({ from, to })
         }
         return new X3OrderLineRepository().getOpenOrderLines({ from, to })
       },

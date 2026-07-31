@@ -13,6 +13,20 @@ interface OrdersSqlOptions {
   includeCustomerRef: boolean
   /** Restreint à UN `WIPTYP` — ingestion partitionnée (`fetchForReplica`). */
   onlyWiptyp?: 1 | 2 | 5
+  /**
+   * Avancement de production (`CPLQTY_0`, `STRDAT_0`) et population d'INGESTION
+   * plutôt que population de `fetchLive`.
+   *
+   * `fetchLive` n'a jamais eu besoin de l'avancement d'un OF ni des OF au-delà de
+   * sa fenêtre. `orders_replica`, que cette table absorbe, a besoin des deux :
+   * le board affiche lancé/réalisé/restant et `getManufacturingOrders()` ne pose
+   * AUCUNE borne haute sur `ENDDAT_0`.
+   *
+   * D'où le drapeau : on ingère la population la plus LARGE que demande un
+   * lecteur, et chaque lecteur reborne ensuite. Sans lui, consolider ferait
+   * disparaître du board les OF dont la fin dépasse l'horizon d'un an.
+   */
+  forReplica?: boolean
 }
 
 // ORDERS WIPTYP=1 (demande) + WIPTYP=2 (réceptions) [+ WIPTYP=5 (OFs) si includeOf].
@@ -20,7 +34,8 @@ interface OrdersSqlOptions {
 // ZSOAPSQL O(n²) sur les lignes ET colonnes : les colonnes contremarque/réf client ne
 // s'ajoutent que si demandées — ne jamais élargir une variante lean par défaut.
 function buildOrdersSql(opts: OrdersSqlOptions): string {
-  const { from, to, includeOf, includeContremarque, includeCustomerRef, onlyWiptyp } = opts
+  const { from, to, includeOf, includeContremarque, includeCustomerRef, onlyWiptyp, forReplica } =
+    opts
 
   const columns = [
     'O.WIPTYP_0',
@@ -43,6 +58,10 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
     'P.CRY_0       AS PAYS',
     'H.ORDDAT_0    AS ORDDAT',
   ]
+  // Avancement de production : deux colonnes de plus dans un SQL en O(n²) sur les
+  // colonnes, donc jamais par défaut — seule l'ingestion les demande, une fois par
+  // tick, pour que le board n'ait plus sa propre table.
+  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0')
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
   if (includeCustomerRef) {
     columns.push(
@@ -76,7 +95,14 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
     2: `(O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
-    5: `(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
+    // Borne haute LEVÉE à l'ingestion : `getManufacturingOrders()`, que cette
+    // table absorbe, n'en pose aucune. La reborner ici ferait disparaître du
+    // board les OF dont la fin dépasse l'horizon d'un an. `getLiveRows()`
+    // rapplique la fenêtre à la lecture, donc `fetchLive` ne change pas.
+    5: forReplica
+      ? `(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
+      AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD'))`
+      : `(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
   }
@@ -157,6 +183,11 @@ export interface OrdersSourceRow {
   itmrefbpc: string | null
   /** Colonne CALCULÉE côté SQL (CASE sur WIPSTA/WIPTYP/pays), pas un champ X3. */
   sohtyp: string | null
+  /** `CPLQTY_0` — quantité RÉALISÉE d'un OF. Seule l'ingestion la demande
+   *  (`forReplica`) ; `undefined` sur les lectures `fetchLive`. */
+  qteRealisee?: number
+  /** `STRDAT_0` — date de LANCEMENT d'un OF, distincte de l'échéance. */
+  dateDebut?: Date | null
 }
 
 /** `RawRow` X3 → ligne normalisée. Seul point où le format X3 est interprété. */
@@ -181,6 +212,10 @@ export function toOrdersSourceRow(row: RawRow): OrdersSourceRow {
     cusordref: row.CUSORDREF?.trim() || null,
     itmrefbpc: row.ITMREFBPC?.trim() || null,
     sohtyp: row.SOHTYP?.trim() || null,
+    // Absentes des variantes non-`forReplica` : `undefined` et non 0/null, pour
+    // que « colonne non demandée » reste distinct de « valeur nulle ».
+    qteRealisee: row.CPLQTY_0 === undefined ? undefined : toNum(row.CPLQTY_0),
+    dateDebut: row.STRDAT_0 === undefined ? undefined : parseX3Date(row.STRDAT_0),
   }
 }
 
@@ -433,6 +468,7 @@ export class CombinedOrdersRepository {
           includeContremarque: true,
           includeCustomerRef: true,
           onlyWiptyp: wiptyp,
+          forReplica: true,
         })
       )
       return rows.map(toOrdersSourceRow)

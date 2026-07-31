@@ -106,11 +106,12 @@ export default class ReplicaSync extends BaseCommand {
     const all = only.size === 0
 
     const results = []
-    if (all || only.has('orders')) results.push(await replicaSyncService.syncOrders('cli'))
-    // Hors `syncAll()` comme stock-flux/operations/stock-detail : variante grasse
-    // (contremarque + réfs client), coût sur un tick de 5 min non encore mesuré.
-    if (only.has('orders-flux')) results.push(await replicaSyncService.syncOrdersFlux('cli'))
-    if (all || only.has('order-lines')) results.push(await replicaSyncService.syncOrderLines('cli'))
+    if (all || only.has('orders-flux')) results.push(await replicaSyncService.syncOrdersFlux('cli'))
+    // `orders` et `order-lines` restent invocables à la main le temps de la
+    // transition, mais ne sont PLUS dans `syncAll()` : `orders_flux_replica` les
+    // remplace et plus aucun lecteur n'interroge leurs tables.
+    if (only.has('orders')) results.push(await replicaSyncService.syncOrders('cli'))
+    if (only.has('order-lines')) results.push(await replicaSyncService.syncOrderLines('cli'))
     if (all || only.has('stock')) results.push(await replicaSyncService.syncStock('cli'))
     if (all || only.has('receptions')) results.push(await replicaSyncService.syncReceptions('cli'))
     // JAMAIS via `all` : ~50 appels SOAP chunkés, cf. syncStockFlux(). Nommer

@@ -2,7 +2,7 @@ import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import { isoDay } from '#app/utils/dates'
 import replicaGate from '#services/replica_gate'
-import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
+import ordersFluxReplicaRepository from '#repositories/orders_flux_replica_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
 import boardDataset from '#services/board_dataset'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
@@ -167,7 +167,7 @@ export class RetardRepository {
    */
   private async replicaServesRetard(): Promise<boolean> {
     const [lines, stock] = await Promise.all([
-      replicaGate.canRead('order_lines_replica'),
+      replicaGate.canRead('orders_flux_replica'),
       replicaGate.canRead('stock_replica'),
     ])
     return lines && stock
@@ -183,7 +183,7 @@ export class RetardRepository {
     if (onReplica) {
       // `RetardReplicaLine` est structurellement plus étroit (`dateExpedition`
       // et `ligne` non nullables) : assignable tel quel, pas de conversion.
-      rows = await orderLinesReplicaRepository.getRetardLines(isoDay(from), isoDay(refDate))
+      rows = await ordersFluxReplicaRepository.getRetardLines(isoDay(from), isoDay(refDate))
     } else {
       const db = new X3Database()
       try {

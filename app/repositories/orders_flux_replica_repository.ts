@@ -1,5 +1,9 @@
 import db from '@adonisjs/lucid/services/db'
 import type { OrdersSourceRow } from '#repositories/combined_orders_repository'
+import type { ManufacturingOrder } from '#repositories/of_repository'
+import type { OrderLineRow } from '#repositories/order_line_repository'
+import type { RetardReplicaLine } from '#repositories/order_lines_replica_repository'
+import type { OrderType } from '#app/domain/models/flow'
 
 /**
  * Lecture read-only d'`orders_flux_replica` (#98, #105) — miroir de la SOURCE
@@ -37,6 +41,72 @@ type ReplicaRow = {
   cusordref: string | null
   itmrefbpc: string | null
   sohtyp: string | null
+  qte_realisee: number | null
+  date_debut: string | null
+}
+
+const OF_STATUS_LABELS: Record<number, string> = { 1: 'Ferme', 2: 'Planifié', 3: 'Suggéré' }
+
+/** `YYYY-MM-DD` local — même format que l'ingestion (`isoDay`). */
+function isoLocal(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
+/**
+ * Date en heure LOCALE, contrairement à `toDate()` ci-dessus qui force UTC.
+ *
+ * L'asymétrie est voulue et reprend celle des deux tables fusionnées :
+ * `orders_replica` parsait ses dates en local (`parseLocalDay`), la lecture des
+ * flux les veut en UTC pour ses seaux de période. Les aligner ferait décaler
+ * l'un ou l'autre d'un jour — donc chaque vue garde la convention de la table
+ * qu'elle remplace.
+ */
+function parseLocalDay(iso: string | null): Date | null {
+  if (!iso) return null
+  const d = new Date(`${iso}T00:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function toManufacturingOrder(r: ReplicaRow): ManufacturingOrder {
+  const status = (r.wipsta >= 1 && r.wipsta <= 3 ? r.wipsta : 3) as 1 | 2 | 3
+  return {
+    numOf: r.vcrnum,
+    article: r.article,
+    designation: r.designation,
+    status,
+    statutLabel: OF_STATUS_LABELS[status] ?? null,
+    typeOfLabel: null,
+    // `qte_commandee` porte `EXTQTY_0`, que `ManufacturingOrder` appelle
+    // `quantityLaunched` — même champ X3, deux noms selon le contexte.
+    quantity: r.qte_restante,
+    quantityLaunched: r.qte_commandee,
+    quantityDone: r.qte_realisee ?? 0,
+    unit: null,
+    startDate: parseLocalDay(r.date_debut),
+    endDate: parseLocalDay(r.date_echeance),
+  }
+}
+
+function toOrderLine(r: ReplicaRow): OrderLineRow {
+  return {
+    numCommande: r.vcrnum,
+    ligne: r.vcrlin,
+    client: r.partner_nom,
+    article: r.article,
+    designation: r.designation,
+    // Reste à FABRIQUER = reliquat − alloué. Dérivée à la lecture, jamais
+    // stockée : c'est la correction de `1783300000011`, la table garde les trois
+    // quantités brutes et chaque lecteur compose la sienne.
+    quantite: r.qte_restante - r.qte_allouee,
+    dateLivraison: parseLocalDay(r.date_echeance) ?? new Date(0),
+    contremarque: r.contremarque,
+    unite: null,
+    orderType: (r.sohtyp as OrderType | null) ?? null,
+    nature: r.wipsta === 3 ? 'PREVISION' : 'COMMANDE',
+  }
 }
 
 /**
@@ -183,6 +253,129 @@ export class OrdersFluxReplicaRepository {
         ).orWhere((w) => w.where('wiptyp', 2).andWhere('date_echeance', '<=', toIso))
       })
     return (rows as ReplicaRow[]).map(toOwn)
+  }
+
+  /**
+   * VUE « ordres de fabrication » — remplace `orders_replica`.
+   *
+   * `WIPTYP=5` est la tranche OF de la source. Les filtres de population
+   * (`WIPSTA 1/2/3`, `RMNEXTQTY > 0`, lookback `ENDDAT ≥ J-90`) sont appliqués à
+   * l'INGESTION, comme ils l'étaient dans `syncOrders` — donc rien à rejouer ici.
+   *
+   * `unit` et `typeOfLabel` valent `null` : `X3OfRepository.getManufacturingOrders()`
+   * ne les renseigne pas davantage, aucune perte face à la voie directe.
+   */
+  async getManufacturingOrders(): Promise<ManufacturingOrder[]> {
+    const rows = await this.conn.from('orders_flux_replica').select('*').where('wiptyp', 5)
+    return (rows as ReplicaRow[]).map(toManufacturingOrder)
+  }
+
+  /**
+   * VUE « ordres de fabrication » bornée par date de DÉBUT — remplace
+   * `orders_replica.getManufacturingOrdersForWindow()`.
+   *
+   * Borne sur `date_debut` (`STRDAT_0`) et NON sur l'échéance : c'est la date de
+   * lancement qui positionne un OF sur `/programme` et `/charge`. Bornes
+   * inclusives, comme le `>= from AND <= to` de `buildWindowSql`.
+   */
+  async getManufacturingOrdersForWindow(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+    const rows = await this.conn
+      .from('orders_flux_replica')
+      .select('*')
+      .where('wiptyp', 5)
+      .andWhere('date_debut', '>=', isoLocal(from))
+      .andWhere('date_debut', '<=', isoLocal(to))
+    return (rows as ReplicaRow[]).map(toManufacturingOrder)
+  }
+
+  /**
+   * VUE « lignes de commande ouvertes » — remplace `order_lines_replica`.
+   *
+   * `WIPTYP=1` est la tranche demande de la source. Le filtre
+   * `resteAFabriquer > 0` reste appliqué ICI et non à l'ingestion : c'est
+   * exactement la correction de `1783300000011` — une ligne entièrement allouée
+   * a un reste à fabriquer nul mais reste dans le périmètre du KPI retard, qui
+   * la lit par `getRetardLines()`.
+   */
+  async getOpenOrderLines(opts?: { from?: string; to?: string }): Promise<OrderLineRow[]> {
+    let query = this.conn.from('orders_flux_replica').select('*').where('wiptyp', 1)
+    if (opts?.from && opts?.to) {
+      query = query
+        .andWhere('date_echeance', '>=', opts.from)
+        .andWhere('date_echeance', '<=', opts.to)
+    }
+    const rows = await query
+    return (rows as ReplicaRow[]).map(toOrderLine).filter((l) => l.quantite > 0)
+  }
+
+  /**
+   * VUE « lignes en retard » — remplace `order_lines_replica.getRetardLines()`.
+   *
+   * Filtre `qte_restante > 0` et NON `quantite > 0` : le KPI retard déduit
+   * lui-même le stock alloué, donc une ligne entièrement allouée doit lui
+   * parvenir pour être écartée en connaissance de cause. C'est toute la raison
+   * d'être de `1783300000011`.
+   *
+   * `wipsta = 1` ≡ commandes FERMES, les prévisions n'entrent pas dans le retard.
+   * Borne haute EXCLUSIVE, comme le `< toStr` du SQL d'origine.
+   */
+  async getRetardLines(fromIso: string, toIso: string): Promise<RetardReplicaLine[]> {
+    const rows = await this.conn
+      .from('orders_flux_replica')
+      .select('*')
+      .where('wiptyp', 1)
+      .andWhere('wipsta', 1)
+      .andWhere('qte_restante', '>', 0)
+      .andWhere('date_echeance', '>=', fromIso)
+      .andWhere('date_echeance', '<', toIso)
+      .orderBy('date_echeance')
+
+    return (rows as ReplicaRow[]).map((r) => ({
+      numCommande: r.vcrnum,
+      ligne: r.vcrlin,
+      client: r.partner_nom,
+      article: r.article,
+      designation: r.designation,
+      dateExpedition: parseLocalDay(r.date_echeance) ?? new Date(0),
+      qteRestante: r.qte_restante,
+      qteCommandee: r.qte_commandee,
+      qteAllouee: r.qte_allouee,
+      contremarque: r.contremarque,
+      orderType: (r.sohtyp as OrderType | null) ?? null,
+    }))
+  }
+
+  /**
+   * VUE « OF mobilisables pour le matching » (#99) — remplace
+   * `orders_replica.getManufacturingOrdersForMatching()`.
+   *
+   * OF démarrés hors de la fenêtre mais qui s'y terminent, sur un article ayant
+   * de la demande dedans. Sans eux, un OF ferme déjà lancé sort du pool et sa
+   * commande est ré-allouée à une suggestion plus tardive.
+   *
+   * La consolidation SIMPLIFIE cette lecture : demande (WIPTYP=1) et OF
+   * (WIPTYP=5) vivent désormais dans la même table, donc la sous-requête des
+   * articles devient une simple auto-jointure au lieu de deux allers séparés.
+   */
+  async getManufacturingOrdersForMatching(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+    const fromIso = isoLocal(from)
+    const toIso = isoLocal(to)
+
+    const rows = await this.conn
+      .from('orders_flux_replica')
+      .select('*')
+      .where('wiptyp', 5)
+      .andWhere('date_echeance', '<=', toIso)
+      .andWhere((q) => q.where('date_debut', '<', fromIso).orWhere('date_debut', '>', toIso))
+      .whereIn('article', (sub) =>
+        sub
+          .from('orders_flux_replica')
+          .where('wiptyp', 1)
+          .andWhere('date_echeance', '>=', fromIso)
+          .andWhere('date_echeance', '<=', toIso)
+          .select('article')
+      )
+    return (rows as ReplicaRow[]).map(toManufacturingOrder)
   }
 }
 

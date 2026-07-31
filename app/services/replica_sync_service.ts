@@ -130,8 +130,15 @@ export class ReplicaSyncService {
     const start = Date.now()
     const results: TableIngestionResult[] = []
 
-    results.push(await this.syncOrders(source))
-    results.push(await this.syncOrderLines(source))
+    // `orders_flux_replica` REMPLACE `syncOrders` + `syncOrderLines` : elle mire
+    // la même source `ORDERS` et contient leurs deux tranches (WIPTYP 5 et 1).
+    // Les garder toutes les trois ferait chercher deux fois la même donnée dans
+    // X3, et laisserait deux tables alimentées séparément diverger en silence.
+    //
+    //   avant  orders 21,6 + order_lines 16,5 + stock 2,5 + receptions 0,9 = 41,5 s
+    //          (+ orders-flux 60 s à la main)                              = 101,5 s
+    //   après  orders-flux 60 + stock 2,5 + receptions 0,9                 =  63,4 s
+    results.push(await this.syncOrdersFlux(source))
     results.push(await this.syncStock(source))
     results.push(await this.syncReceptions(source))
 
@@ -255,6 +262,11 @@ export class ReplicaSyncService {
               cusordref: r.cusordref,
               itmrefbpc: r.itmrefbpc,
               sohtyp: r.sohtyp,
+              // Sans objet pour WIPTYP 1 et 2 (pas d'avancement de production) :
+              // `null` et non 0, qui ferait passer « sans objet » pour « rien de
+              // réalisé ».
+              qte_realisee: r.qteRealisee ?? null,
+              date_debut: isoDay(r.dateDebut ?? null),
             })
           }
         }
