@@ -107,7 +107,67 @@ const board = () => cacheNs('board')
 const periodBucket = (grain: StockGrain, d: Date): string =>
   grain === 'semaine' ? isoWeekKey(d) : d.toISOString().slice(0, 7)
 
+/**
+ * Options d'une lecture qui peut venir de deux ARCHITECTURES (#98, lot 5).
+ */
+interface DualSourceRead<T> {
+  /** Clé de cache — utilisée en mode direct uniquement. */
+  key: string
+  ttl: number
+  force: boolean
+  /** La réplique est-elle servable pour CETTE lecture ? Portail + couverture. */
+  servedByReplica: () => Promise<boolean>
+  /** Lecture SQLite locale. Jamais cachée. */
+  fromReplica: () => Promise<T>
+  /** Lecture X3. Toujours cachée. */
+  fromX3: () => Promise<T>
+}
+
 class BoardDataset {
+  /**
+   * Lecture cachée OU lecture réplique directe — jamais les deux.
+   *
+   * ## Pourquoi le cache doit DISPARAÎTRE sur les chemins répliqués
+   *
+   * Mesuré dans le corps de #98 : une lecture SQLite indexée coûte ~4 ms, un hit
+   * L1 de bentocache repaie un `SuperJSON.parse` chiffré à 22-93 ms. **La couche
+   * de cache coûte 5 à 20× la lecture qu'elle protège.** Elle ajoute en prime une
+   * sérialisation, un aller Redis, un namespace et une invalidation à maintenir —
+   * et son grace period n'a plus d'objet, la source locale ne tombant pas.
+   *
+   * ## Pourquoi il doit RESTER sur les chemins directs
+   *
+   * En mode direct, il amortit un cold start X3 de ~18-22 s. Le supprimer là
+   * rendrait l'application inutilisable. Les deux modes ne se négocient pas au
+   * détail : `REPLICA_READS` choisit une architecture entière.
+   *
+   * ## Pourquoi la décision remonte AU-DESSUS du cache
+   *
+   * Elle était prise DANS la factory (`canRead()` à l'intérieur de `getOrSet`),
+   * donc la lecture réplique payait quand même l'enveloppe. La hisser ici est
+   * tout le correctif : en mode réplique on ne touche jamais `board()`.
+   *
+   * Écrit UNE fois et partagé par toutes les lectures plutôt que recopié sur
+   * chacune — une règle recopiée neuf fois diverge, et c'est précisément
+   * comme ça que le préchauffage avait survécu en mode réplique.
+   *
+   * `force` n'invalide rien côté réplique : il n'y a pas d'entrée à jeter, la
+   * table EST la source. C'est l'ingestion qui la rafraîchit, pas le lecteur.
+   */
+  private async dualSourceRead<T>(opts: DualSourceRead<T>): Promise<T> {
+    if (await opts.servedByReplica()) return opts.fromReplica()
+
+    if (opts.force) await board().delete({ key: opts.key })
+    return board().getOrSet({
+      key: opts.key,
+      ttl: opts.ttl,
+      // SWR (issue #33) : timeout 0 = vrai stale-while-revalidate. Une valeur en
+      // grâce est servie instantanément et le refresh X3 part en arrière-plan.
+      timeout: SWR_TIMEOUT,
+      factory: opts.fromX3,
+    })
+  }
+
   // Horodatages du dernier peuplement (in-memory, pour status() / affichage UI).
   // Réinitialisés au boot et au reloadAll ; la donnée elle-même vit dans le cache.
   private lastReferentialAt: number | null = null
@@ -131,44 +191,37 @@ class BoardDataset {
     })
   }
 
-  /** OF ouverts (tous) + flux supply dérivés. TTL court. */
+  /** OF ouverts (tous) + flux supply dérivés. */
   async getOrders(force = false): Promise<Orders> {
-    if (force) await board().delete({ key: 'orders' })
-    return board().getOrSet({
+    const toOrders = (mos: ManufacturingOrder[]): Orders => {
+      const supply: Flow[] = mos.map((mo) => ({
+        article: mo.article,
+        quantity: mo.quantity,
+        direction: 'supply',
+        date: mo.endDate,
+        origin: {
+          type: 'of',
+          id: mo.numOf,
+          status: mo.status,
+          statutLabel: mo.statutLabel,
+          typeOf: null,
+          typeOfLabel: mo.typeOfLabel,
+          designation: mo.designation,
+          launched: mo.quantityLaunched,
+        },
+      }))
+      this.lastOrdersAt = Date.now()
+      return { mos, supply, at: this.lastOrdersAt } satisfies Orders
+    }
+
+    return this.dualSourceRead<Orders>({
       key: 'orders',
       ttl: ORDERS_TTL,
-      // SWR (issue #33) : la vue ORDERS X3 est lente (~18 s cold). Si une valeur en grace
-      // existe et que la factory dépasse SWR_TIMEOUT, on rend la stale instantanément et le
-      // refresh X3 finit en arrière-plan (contexte requête → creds X3 via ALS). L'utilisateur
-      // ne paie le mur froid qu'au tout premier chargement (aucune valeur en grace).
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Bascule des lectures (#98, lot 2) : réplique si le portail la juge à jour,
-        // sinon voie directe X3 inchangée. `REPLICA_READS` fermé par défaut → ce
-        // `canRead` rend toujours `false` tant que le lot n'est pas activé en prod.
-        // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
-        const mos = (await replicaGate.canRead('orders_flux_replica'))
-          ? await ordersFluxReplicaRepository.getManufacturingOrders()
-          : await new X3OfRepository().getManufacturingOrders()
-        const supply: Flow[] = mos.map((mo) => ({
-          article: mo.article,
-          quantity: mo.quantity,
-          direction: 'supply',
-          date: mo.endDate,
-          origin: {
-            type: 'of',
-            id: mo.numOf,
-            status: mo.status,
-            statutLabel: mo.statutLabel,
-            typeOf: null,
-            typeOfLabel: mo.typeOfLabel,
-            designation: mo.designation,
-            launched: mo.quantityLaunched,
-          },
-        }))
-        this.lastOrdersAt = Date.now()
-        return { mos, supply, at: this.lastOrdersAt } satisfies Orders
-      },
+      force,
+      servedByReplica: () => replicaGate.canRead('orders_flux_replica'),
+      fromReplica: async () => toOrders(await ordersFluxReplicaRepository.getManufacturingOrders()),
+      // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
+      fromX3: async () => toOrders(await new X3OfRepository().getManufacturingOrders()),
     })
   }
 
@@ -182,15 +235,16 @@ class BoardDataset {
    *
    * Un seul verdict, appelé par les deux méthodes, empêche structurellement qu'elles
    * divergent — plus robuste qu'un commentaire d'avertissement sur chacune.
-   * `order_lines_replica` entre dans le verdict : `getOrdersForMatchingDelta` en
-   * dépend pour son sous-filtre WIPTYP=1 (articles en demande dans la fenêtre).
+   *
+   * SIMPLIFIÉ par la consolidation (#105) : ce verdict combinait `orders_replica`
+   * et `order_lines_replica`, parce que `getOrdersForMatchingDelta` dépend des
+   * deux (OF, plus le sous-filtre WIPTYP=1 des articles en demande). Les deux
+   * vivent désormais dans `orders_flux_replica`, alimentée par un swap unique :
+   * OF et demande viennent forcément du même instant. La cohérence n'est plus
+   * une règle à faire respecter, elle est structurelle.
    */
-  private async matchingFamilyOnReplica(): Promise<boolean> {
-    const [orders, lines] = await Promise.all([
-      replicaGate.canRead('orders_flux_replica'),
-      replicaGate.canRead('orders_flux_replica'),
-    ])
-    return orders && lines
+  private matchingFamilyOnReplica(): Promise<boolean> {
+    return replicaGate.canRead('orders_flux_replica')
   }
 
   /** OFs dont STRDAT ∈ [from, to] — fenêtre courte, ~25× moins de lignes que getOrders().
@@ -203,37 +257,39 @@ class BoardDataset {
       const da = String(d.getDate()).padStart(2, '0')
       return `${y}-${m}-${da}`
     }
-    const key = `orders-window:${isoL(from)}:${isoL(to)}`
-    if (force) await board().delete({ key })
-    return board().getOrSet({
-      key,
+    const toOrders = (mos: ManufacturingOrder[]): Orders => ({
+      mos,
+      supply: mos.map((mo) => ({
+        article: mo.article,
+        quantity: mo.quantity,
+        direction: 'supply' as const,
+        date: mo.endDate,
+        origin: {
+          type: 'of' as const,
+          id: mo.numOf,
+          status: mo.status,
+          statutLabel: mo.statutLabel,
+          typeOf: null,
+          typeOfLabel: mo.typeOfLabel,
+          designation: mo.designation,
+          launched: mo.quantityLaunched,
+        },
+      })),
+      at: Date.now(),
+    })
+
+    return this.dualSourceRead<Orders>({
+      key: `orders-window:${isoL(from)}:${isoL(to)}`,
       ttl: ORDERS_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Cf. `matchingFamilyOnReplica()` : verdict partagé avec
-        // `getOrdersForMatchingDelta()`, jamais l'une sur la réplique et l'autre en
-        // X3 direct.
-        const mos = (await this.matchingFamilyOnReplica())
-          ? await ordersFluxReplicaRepository.getManufacturingOrdersForWindow(from, to)
-          : await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
-        const supply: Flow[] = mos.map((mo) => ({
-          article: mo.article,
-          quantity: mo.quantity,
-          direction: 'supply',
-          date: mo.endDate,
-          origin: {
-            type: 'of',
-            id: mo.numOf,
-            status: mo.status,
-            statutLabel: mo.statutLabel,
-            typeOf: null,
-            typeOfLabel: mo.typeOfLabel,
-            designation: mo.designation,
-            launched: mo.quantityLaunched,
-          },
-        }))
-        return { mos, supply, at: Date.now() } satisfies Orders
-      },
+      force,
+      // Cf. `matchingFamilyOnReplica()` : verdict partagé avec
+      // `getOrdersForMatchingDelta()`, jamais l'une sur la réplique et l'autre en
+      // X3 direct.
+      servedByReplica: () => this.matchingFamilyOnReplica(),
+      fromReplica: async () =>
+        toOrders(await ordersFluxReplicaRepository.getManufacturingOrdersForWindow(from, to)),
+      fromX3: async () =>
+        toOrders(await new X3OfRepository().getManufacturingOrdersForWindow(from, to)),
     })
   }
 
@@ -251,34 +307,34 @@ class BoardDataset {
       const da = String(d.getDate()).padStart(2, '0')
       return `${y}-${m}-${da}`
     }
-    const key = `orders-matching-delta:${isoL(from)}:${isoL(to)}`
-    if (force) await board().delete({ key })
-    return board().getOrSet({
-      key,
+    const toFlows = (mos: ManufacturingOrder[]): Flow[] =>
+      mos.map((mo) => ({
+        article: mo.article,
+        quantity: mo.quantity,
+        direction: 'supply' as const,
+        date: mo.endDate,
+        origin: {
+          type: 'of' as const,
+          id: mo.numOf,
+          status: mo.status,
+          statutLabel: mo.statutLabel,
+          typeOf: null,
+          typeOfLabel: mo.typeOfLabel,
+          designation: mo.designation,
+          launched: mo.quantityLaunched,
+        },
+      }))
+
+    return this.dualSourceRead<Flow[]>({
+      key: `orders-matching-delta:${isoL(from)}:${isoL(to)}`,
       ttl: ORDERS_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Cf. `matchingFamilyOnReplica()` : même verdict que `getOrdersForWindow()`.
-        const mos = (await this.matchingFamilyOnReplica())
-          ? await ordersFluxReplicaRepository.getManufacturingOrdersForMatching(from, to)
-          : await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
-        return mos.map((mo) => ({
-          article: mo.article,
-          quantity: mo.quantity,
-          direction: 'supply' as const,
-          date: mo.endDate,
-          origin: {
-            type: 'of' as const,
-            id: mo.numOf,
-            status: mo.status,
-            statutLabel: mo.statutLabel,
-            typeOf: null,
-            typeOfLabel: mo.typeOfLabel,
-            designation: mo.designation,
-            launched: mo.quantityLaunched,
-          },
-        }))
-      },
+      force,
+      // Cf. `matchingFamilyOnReplica()` : même verdict que `getOrdersForWindow()`.
+      servedByReplica: () => this.matchingFamilyOnReplica(),
+      fromReplica: async () =>
+        toFlows(await ordersFluxReplicaRepository.getManufacturingOrdersForMatching(from, to)),
+      fromX3: async () =>
+        toFlows(await new X3OfRepository().getManufacturingOrdersForMatching(from, to)),
     })
   }
 
@@ -290,36 +346,32 @@ class BoardDataset {
     to: string,
     force = false
   ): Promise<{ demand: Flow[]; reception: Flow[] }> {
-    const key = `demand-recep:${from}:${to}`
-    if (force) await board().delete({ key })
-    return board().getOrSet({
-      key,
+    // Même population que `getLive()` sans les OF — `orders_flux_replica` la
+    // contient déjà, aucune ingestion supplémentaire (#105).
+    //
+    // Les options de mise en forme DIFFÈRENT de `LIVE_MAP_OPTS` :
+    // `fetchDemandAndReception` reporte la désignation et n'expose pas les réfs
+    // client. Recopiées telles quelles pour que la bascule ne change rien au
+    // contenu rendu.
+    const DEMAND_RECEP_MAP_OPTS = {
+      contremarque: true,
+      designation: true,
+      customerRef: false,
+    }
+
+    return this.dualSourceRead<{ demand: Flow[]; reception: Flow[] }>({
+      key: `demand-recep:${from}:${to}`,
       ttl: LIVE_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Même population que `getLive()` sans les OF — `orders_flux_replica` la
-        // contient déjà, aucune ingestion supplémentaire (#105). Mêmes deux
-        // conditions que `getLive()` : fraîcheur ET couverture de plage, la
-        // fenêtre venant ici aussi d'un choix d'écran.
-        //
-        // Les options de mise en forme DIFFÈRENT de `LIVE_MAP_OPTS` :
-        // `fetchDemandAndReception` reporte la désignation et n'expose pas les
-        // réfs client. Recopiées telles quelles pour que la bascule ne change
-        // rien au contenu rendu.
-        const [fresh, coverage] = await Promise.all([
-          replicaGate.canRead('orders_flux_replica'),
-          ordersFluxReplicaRepository.getCoverage(),
-        ])
+      force,
+      servedByReplica: () => this.ordersFluxServes(from, to),
+      fromReplica: async () => {
+        const rows = await ordersFluxReplicaRepository.getLiveRows(from, to, [1, 2])
+        const { demandFlows, receptionFlows } = splitOrdersFlows(rows, DEMAND_RECEP_MAP_OPTS)
+        return { demand: demandFlows, reception: receptionFlows }
+      },
+      fromX3: async () => {
         const { demandFlows, receptionFlows } =
-          fresh && replicaCoversOrdersRange(coverage, from, to)
-            ? await ordersFluxReplicaRepository.getLiveRows(from, to, [1, 2]).then((rows) =>
-                splitOrdersFlows(rows, {
-                  contremarque: true,
-                  designation: true,
-                  customerRef: false,
-                })
-              )
-            : await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
+          await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
         return { demand: demandFlows, reception: receptionFlows }
       },
     })
@@ -334,19 +386,15 @@ class BoardDataset {
     to: string,
     force = false
   ): Promise<import('#repositories/order_line_repository').OrderLineRow[]> {
-    const key = `order-lines:${from}:${to}`
-    if (force) await board().delete({ key })
-    return board().getOrSet({
-      key,
+    return this.dualSourceRead({
+      key: `order-lines:${from}:${to}`,
       ttl: LIVE_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Cf. getOrders() — même bascule #98 lot 2.
-        if (await replicaGate.canRead('orders_flux_replica')) {
-          return ordersFluxReplicaRepository.getOpenOrderLines({ from, to })
-        }
-        return new X3OrderLineRepository().getOpenOrderLines({ from, to })
-      },
+      force,
+      // Bornée par la fenêtre demandée, donc soumise à la couverture comme
+      // `getLive` — et non au seul portail.
+      servedByReplica: () => this.ordersFluxServes(from, to),
+      fromReplica: () => ordersFluxReplicaRepository.getOpenOrderLines({ from, to }),
+      fromX3: () => new X3OrderLineRepository().getOpenOrderLines({ from, to }),
     })
   }
 
@@ -371,44 +419,51 @@ class BoardDataset {
    * Les suggestions ne sont plus lues ici depuis #32 : elles viennent d'ORDERS via
    * getOrders() (statut 3), temps réel → plus de source CBNDET ni de blacklist. */
   async getLive(from: string, to: string, force = false): Promise<Live> {
-    const key = `live:${from}:${to}`
-    if (force) await board().delete({ key })
     this.liveWindows.add(`${from}|${to}`)
-    return board().getOrSet({
-      key,
-      ttl: LIVE_TTL,
-      // SWR (issue #33) : demande+réception X3 lent (~13 s cold). Cf. getOrders.
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // #98/#105 — `orders_flux_replica` mire la SOURCE ORDERS (WIPTYP 1/2/5)
-        // avec ses jointures de contexte. Les trois familles de flux sortent
-        // d'une seule et même lecture : les servir séparément reproduirait la
-        // vue déchirée que `resolveSource()` écarte côté valorisation.
-        //
-        // DEUX conditions, pas une. Le portail répond « la donnée est-elle
-        // fraîche, propre, du bon environnement » ; il ne dit RIEN de la plage
-        // couverte. Or `from`/`to` viennent ici du calendrier de l'écran, donc
-        // arbitraires : l'ingestion est bornée à −90 j/+1 an, et au-delà la
-        // réplique rendrait une population tronquée sans le signaler.
-        const [fresh, coverage] = await Promise.all([
-          replicaGate.canRead('orders_flux_replica'),
-          ordersFluxReplicaRepository.getCoverage(),
-        ])
-        const onReplica = fresh && replicaCoversOrdersRange(coverage, from, to)
-
-        const { demandFlows, receptionFlows, ofFlows } = onReplica
-          ? await ordersFluxReplicaRepository
-              .getLiveRows(from, to)
-              .then((rows) => splitOrdersFlows(rows, LIVE_MAP_OPTS))
-          : await new CombinedOrdersRepository().fetchLive(from, to)
-        return {
-          demand: demandFlows,
-          reception: receptionFlows,
-          supply: ofFlows,
-          at: Date.now(),
-        } satisfies Live
-      },
+    const toLive = (r: { demandFlows: Flow[]; receptionFlows: Flow[]; ofFlows: Flow[] }): Live => ({
+      demand: r.demandFlows,
+      reception: r.receptionFlows,
+      supply: r.ofFlows,
+      at: Date.now(),
     })
+
+    return this.dualSourceRead<Live>({
+      key: `live:${from}:${to}`,
+      ttl: LIVE_TTL,
+      force,
+      // #98/#105 — `orders_flux_replica` mire la SOURCE ORDERS (WIPTYP 1/2/5)
+      // avec ses jointures de contexte. Les trois familles de flux sortent d'une
+      // seule et même lecture : les servir séparément reproduirait la vue
+      // déchirée que `resolveSource()` écarte côté valorisation.
+      //
+      // DEUX conditions, pas une. Le portail répond « la donnée est-elle fraîche,
+      // propre, du bon environnement » ; il ne dit RIEN de la plage couverte. Or
+      // `from`/`to` viennent du calendrier de l'écran, donc arbitraires :
+      // l'ingestion est bornée à −90 j/+1 an, et au-delà la réplique rendrait une
+      // population tronquée sans le signaler.
+      servedByReplica: () => this.ordersFluxServes(from, to),
+      fromReplica: async () =>
+        toLive(
+          splitOrdersFlows(await ordersFluxReplicaRepository.getLiveRows(from, to), LIVE_MAP_OPTS)
+        ),
+      fromX3: async () => toLive(await new CombinedOrdersRepository().fetchLive(from, to)),
+    })
+  }
+
+  /**
+   * `orders_flux_replica` peut-elle servir CETTE fenêtre ?
+   *
+   * Fraîcheur ET couverture, jamais l'une sans l'autre — et écrit une seule fois
+   * parce que trois lectures s'en servent (`getLive`, `getDemandAndReception`,
+   * `getOpenOrderLines`). Trois copies de cette règle finiraient par diverger, et
+   * la divergence serait invisible : chacune rendrait des données bien formées.
+   */
+  private async ordersFluxServes(from: string, to: string): Promise<boolean> {
+    const [fresh, coverage] = await Promise.all([
+      replicaGate.canRead('orders_flux_replica'),
+      ordersFluxReplicaRepository.getCoverage(),
+    ])
+    return fresh && replicaCoversOrdersRange(coverage, from, to)
   }
 
   /**
@@ -483,22 +538,18 @@ class BoardDataset {
     const key = `operations:${createHash('md5')
       .update([...numOfs].sort().join(','))
       .digest('hex')}`
-    return board().getOrSet({
+    return this.dualSourceRead<OperationRecord[]>({
       key,
       ttl: ORDERS_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Bascule réplique (#98, suite lot 3) : `operations_replica` ne couvre que
-        // les `num_of` de `orders_replica` (tranche utile). Les appelants connus
-        // (retard_repository, load_payload_loader, order_impacts_loader) tirent
-        // tous leurs numOfs de cette même population — cf. le repository de
-        // lecture pour le détail de la vérification. `controle_prod_loader`
-        // interroge X3OperationRepository directement et ne passe pas par ici.
-        if (await replicaGate.canRead('operations_replica')) {
-          return operationsReplicaRepository.getOperations(numOfs)
-        }
-        return new X3OperationRepository().getOperations(numOfs)
-      },
+      force: false,
+      // `operations_replica` ne couvre que les `num_of` de la tranche utile. Les
+      // appelants connus (retard_repository, load_payload_loader,
+      // order_impacts_loader) tirent tous leurs numOfs de cette même population.
+      // `controle_prod_loader` interroge X3OperationRepository directement et ne
+      // passe pas par ici.
+      servedByReplica: () => replicaGate.canRead('operations_replica'),
+      fromReplica: () => operationsReplicaRepository.getOperations(numOfs),
+      fromX3: () => new X3OperationRepository().getOperations(numOfs),
     })
   }
 
@@ -530,20 +581,15 @@ class BoardDataset {
    * fait côté appelant (groupReceptionsByArticle) sur le sur-ensemble caché.
    */
   async getReceptions(force = false): Promise<Flow[]> {
-    if (force) await board().delete({ key: 'receptions' })
-    return board().getOrSet({
+    return this.dualSourceRead<Flow[]>({
       key: 'receptions',
       ttl: LIVE_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Bascule réplique (#98, suite lot 3) : PORDERQ n'est jamais écrit par
-        // l'app (réceptions saisies dans X3), donc `receptions_replica` n'a jamais
-        // de fenêtre `dirty` — contrairement à `orders_replica`/`stock_replica`.
-        if (await replicaGate.canRead('receptions_replica')) {
-          return receptionsReplicaRepository.getReceptionFlows()
-        }
-        return new X3ReceptionRepository().getReceptionFlows()
-      },
+      force,
+      // PORDERQ n'est jamais écrit par l'app (réceptions saisies dans X3), donc
+      // `receptions_replica` n'a jamais de fenêtre `dirty`.
+      servedByReplica: () => replicaGate.canRead('receptions_replica'),
+      fromReplica: () => receptionsReplicaRepository.getReceptionFlows(),
+      fromX3: () => new X3ReceptionRepository().getReceptionFlows(),
     })
   }
 
@@ -553,17 +599,13 @@ class BoardDataset {
     const key = `stock:${createHash('md5')
       .update([...articles].sort().join(','))
       .digest('hex')}`
-    return board().getOrSet({
+    return this.dualSourceRead<Flow[]>({
       key,
       ttl: STOCK_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        // Cf. getOrders() — même bascule #98 lot 2.
-        if (await replicaGate.canRead('stock_replica')) {
-          return stockReplicaRepository.getStockFlows(articles)
-        }
-        return new X3StockRepository().getStockFlows(articles)
-      },
+      force: false,
+      servedByReplica: () => replicaGate.canRead('stock_replica'),
+      fromReplica: () => stockReplicaRepository.getStockFlows(articles),
+      fromX3: () => new X3StockRepository().getStockFlows(articles),
     })
   }
 
