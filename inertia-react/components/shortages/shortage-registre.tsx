@@ -215,7 +215,7 @@ export function ShortageRegistre({
       onSortingChange={setSorting}
       indexColumn={indexColumn}
       tableClass="min-w-[880px] text-xs"
-      scrollContainerClass="h-full border-0 rounded-none shadow-none"
+      scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowClass={(row) =>
         cn(

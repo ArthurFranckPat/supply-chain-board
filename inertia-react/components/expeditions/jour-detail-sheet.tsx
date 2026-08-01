@@ -45,7 +45,7 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
     )
   }
   return (
-    <div className="overflow-x-auto rounded-md border border-rule">
+    <div className="overflow-x-auto rounded-lg border border-rule shadow-float">
       <table className="w-full border-collapse text-[12px]">
         <thead className="bg-secondary">
           <tr>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -9,6 +9,7 @@ import {
 import { Badge } from '@r/components/ui/badge'
 import { CircleHelp, Ruler, TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /**
  * Détail d'un camion (cluster de lignes STOJOU) — port React iso du Solid
@@ -74,7 +75,136 @@ export function fmtContenants(c: Contenants): string {
 }
 
 const TH =
-  'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground border-b border-rule'
+  'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground'
+const TD = 'px-3 py-[9px] align-middle'
+
+/** Tri générique sur une colonne, palette puis heure en repli à égalité (ordre par défaut). */
+function sortLignes(rows: CamionLigne[], sorting: SortingState[]): CamionLigne[] {
+  const { id, desc } = sorting[0] ?? { id: 'palnum', desc: false }
+  return [...rows].sort((a, b) => {
+    const av = a[id as keyof CamionLigne]
+    const bv = b[id as keyof CamionLigne]
+    const cmp =
+      typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av ?? '').localeCompare(String(bv ?? ''))
+    const signed = desc ? -cmp : cmp
+    return signed !== 0 ? signed : a.ts.localeCompare(b.ts)
+  })
+}
+
+const camionColumns: ColumnDef<CamionLigne>[] = [
+  {
+    accessorKey: 'itmref',
+    header: 'Article',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] font-semibold text-foreground">
+        {(getValue() as string) || '—'}
+      </span>
+    ),
+    meta: { thClass: cn(TH, 'w-[120px]'), tdClass: TD },
+  },
+  {
+    accessorKey: 'designation',
+    header: 'Désignation',
+    cell: ({ row: { original: l } }) => (
+      <>
+        <div className="truncate text-[11px] text-muted-foreground" title={l.designation}>
+          {l.designation || '—'}
+        </div>
+        {l.vcrnum && (
+          <div className="font-mono text-[9px] text-muted-foreground/70">
+            BL {l.vcrnum}
+            {l.vcrlin ? `· L${l.vcrlin}` : ''}
+            {l.lpnnum ? ` · ${l.lpnnum}` : ''}
+          </div>
+        )}
+      </>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
+    accessorKey: 'vcrnum',
+    header: 'BL',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] text-foreground">{(getValue() as string) || '—'}</span>
+    ),
+    meta: { thClass: cn(TH, 'w-[90px]'), tdClass: TD },
+  },
+  {
+    accessorKey: 'sohnum',
+    header: 'Commande',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] text-brand">{(getValue() as string) || '—'}</span>
+    ),
+    meta: { thClass: cn(TH, 'w-[95px]'), tdClass: TD },
+  },
+  {
+    accessorKey: 'palnum',
+    header: 'Palette',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        {(getValue() as string) || '—'}
+      </span>
+    ),
+    meta: { thClass: cn(TH, 'w-[70px] text-right'), tdClass: cn(TD, 'text-right') },
+  },
+  {
+    accessorKey: 'pcu',
+    header: 'PCU',
+    cell: ({ row: { original: l } }) => (
+      <span
+        title={`Unité de conditionnement : ${l.pcu || '—'}${l.yfamstat7 === 'ESH' ? ' · Palette 1000×1200' : ''}`}
+      >
+        <span className="font-mono text-[10px] text-muted-foreground">{l.pcu || '—'}</span>
+        {l.yfamstat7 === 'ESH' && (
+          <span className="ml-1 inline-block rounded bg-brand/10 px-1 text-[8px] font-bold text-brand">
+            ESH
+          </span>
+        )}
+      </span>
+    ),
+    meta: { thClass: cn(TH, 'w-[50px] text-right'), tdClass: cn(TD, 'text-right') },
+  },
+  {
+    accessorKey: 'ucParPal',
+    header: 'UC/Pal',
+    cell: ({ row: { original: l } }) => (
+      <span
+        className="font-mono text-[10px] tabular-nums text-muted-foreground"
+        title="UC par palette (PCUSTUCOE_1 — palettisation article)"
+      >
+        {l.ucParPal > 0 ? l.ucParPal : '—'}
+      </span>
+    ),
+    meta: { thClass: cn(TH, 'w-[60px] text-right'), tdClass: cn(TD, 'text-right') },
+  },
+  {
+    id: 'contenants',
+    accessorFn: (l) => l.qteUc,
+    enableSorting: false,
+    header: 'Contenants',
+    cell: ({ row: { original: l } }) => (
+      <span
+        className="whitespace-nowrap font-mono text-[10px] font-semibold tabular-nums text-foreground"
+        title={`${l.qteUc} UC décomposées`}
+      >
+        {fmtContenants(l)}
+      </span>
+    ),
+    meta: { thClass: cn(TH, 'w-[110px] text-right'), tdClass: cn(TD, 'text-right') },
+  },
+  {
+    accessorKey: 'ts',
+    header: 'Heure',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        {getValue() as string}
+      </span>
+    ),
+    meta: { thClass: cn(TH, 'w-[80px] text-right'), tdClass: cn(TD, 'text-right') },
+  },
+]
 
 export function CamionDetailSheet({
   camion,
@@ -85,13 +215,10 @@ export function CamionDetailSheet({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
+  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'palnum', desc: false }])
+
   // Tri : palette, puis heure — regroupe visuellement les mouvements d'une même palette.
-  const lignes = useMemo(() => {
-    if (!camion) return []
-    return [...camion.lignes].sort((a, b) =>
-      a.palnum === b.palnum ? a.ts.localeCompare(b.ts) : a.palnum.localeCompare(b.palnum)
-    )
-  }, [camion])
+  const lignes = useMemo(() => sortLignes(camion?.lignes ?? [], sorting), [camion, sorting])
 
   // Palettes ESH distinctes (1000×1200) présentes dans le camion — pour info header.
   const nbPalEsh = useMemo(() => {
@@ -120,10 +247,7 @@ export function CamionDetailSheet({
                     {camion.navetteNum}
                   </Badge>
                 ) : (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1 text-[10px] uppercase tracking-wider"
-                  >
+                  <Badge variant="secondary" className="gap-1 text-[10px] uppercase tracking-wider">
                     <CircleHelp size={12} strokeWidth={1.75} />
                     Hors navette
                   </Badge>
@@ -182,78 +306,18 @@ export function CamionDetailSheet({
             </SheetHeader>
 
             {/* ponytail: le Sheet React n'a pas de SheetBody (Base UI Dialog) — div scroll directe. */}
-            <div className="flex-1 overflow-y-auto px-0 py-0">
-              <table className="w-full border-collapse text-left">
-                <thead className="sticky top-0 z-10 bg-secondary">
-                  <tr>
-                    <th className={cn(TH, 'w-[120px]')}>Article</th>
-                    <th className={TH}>Désignation</th>
-                    <th className={cn(TH, 'w-[90px]')}>BL</th>
-                    <th className={cn(TH, 'w-[95px]')}>Commande</th>
-                    <th className={cn(TH, 'w-[70px] text-right')}>Palette</th>
-                    <th className={cn(TH, 'w-[50px] text-right')}>PCU</th>
-                    <th className={cn(TH, 'w-[60px] text-right')}>UC/Pal</th>
-                    <th className={cn(TH, 'w-[110px] text-right')}>Contenants</th>
-                    <th className={cn(TH, 'w-[80px] text-right')}>Heure</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lignes.map((l, i) => (
-                    <tr key={`${l.sohnum}-${l.vcrnum}-${l.vcrlin}-${l.ts}-${i}`} className="border-b border-rule-soft hover:bg-foreground/[0.03]">
-                      <td className="px-3 py-[9px] align-middle font-mono text-[11px] font-semibold text-foreground">
-                        {l.itmref || '—'}
-                      </td>
-                      <td className="px-3 py-[9px] align-middle text-[11px] text-muted-foreground">
-                        <div className="truncate" title={l.designation}>
-                          {l.designation || '—'}
-                        </div>
-                        {l.vcrnum && (
-                          <div className="font-mono text-[9px] text-muted-foreground/70">
-                            BL {l.vcrnum}
-                            {l.vcrlin ? `· L${l.vcrlin}` : ''}
-                            {l.lpnnum ? ` · ${l.lpnnum}` : ''}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-[9px] align-middle font-mono text-[11px] text-foreground">
-                        {l.vcrnum || '—'}
-                      </td>
-                      <td className="px-3 py-[9px] align-middle font-mono text-[11px] text-brand">
-                        {l.sohnum || '—'}
-                      </td>
-                      <td className="px-3 py-[9px] text-right align-middle font-mono text-[11px] tabular-nums text-muted-foreground">
-                        {l.palnum || '—'}
-                      </td>
-                      <td
-                        className="px-3 py-[9px] text-right align-middle font-mono text-[10px] text-muted-foreground"
-                        title={`Unité de conditionnement : ${l.pcu || '—'}${l.yfamstat7 === 'ESH' ? ' · Palette 1000×1200' : ''}`}
-                      >
-                        <span>{l.pcu || '—'}</span>
-                        {l.yfamstat7 === 'ESH' && (
-                          <span className="ml-1 inline-block rounded bg-brand/10 px-1 text-[8px] font-bold text-brand">
-                            ESH
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="px-3 py-[9px] text-right align-middle font-mono text-[10px] tabular-nums text-muted-foreground"
-                        title="UC par palette (PCUSTUCOE_1 — palettisation article)"
-                      >
-                        {l.ucParPal > 0 ? l.ucParPal : '—'}
-                      </td>
-                      <td
-                        className="px-3 py-[9px] whitespace-nowrap text-right align-middle font-mono text-[10px] font-semibold tabular-nums text-foreground"
-                        title={`${l.qteUc} UC décomposées`}
-                      >
-                        {fmtContenants(l)}
-                      </td>
-                      <td className="px-3 py-[9px] text-right align-middle font-mono text-[11px] tabular-nums text-muted-foreground">
-                        {l.ts}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex-1 overflow-hidden px-0 py-0">
+              <DataTable
+                columns={camionColumns}
+                rows={lignes}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                tableClass="w-full table-fixed"
+                scrollContainerClass="h-full overflow-y-auto rounded-none border-0 shadow-none"
+                theadRowClass="sticky top-0 z-10 bg-secondary"
+                getRowClass={() => 'border-b border-rule-soft hover:bg-foreground/[0.03]'}
+                getRowKey={(l) => `${l.sohnum}-${l.vcrnum}-${l.vcrlin}-${l.ts}`}
+              />
             </div>
           </>
         )}

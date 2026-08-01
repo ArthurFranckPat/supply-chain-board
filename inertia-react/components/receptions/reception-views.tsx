@@ -82,7 +82,7 @@ export function ReceptionTableau({
   })
 
   return (
-    <div className="h-full overflow-auto rounded-lg border bg-card shadow-xs">
+    <div className="h-full overflow-auto rounded-lg border border-rule bg-card shadow-float">
       {groups.map((group, gi) => {
         const groupRows = group.items.map((it) => it.row)
         const totalPal = sumPalettes(groupRows)
@@ -211,9 +211,7 @@ export function ReceptionTableau({
                       <span
                         className={cn(
                           'font-fraunces text-[19px] font-bold leading-none tabular-nums',
-                          row.coefManquant
-                            ? 'font-medium text-destructive/45'
-                            : chargeText(tier)
+                          row.coefManquant ? 'font-medium text-destructive/45' : chargeText(tier)
                         )}
                       >
                         {row.nbPalettesFmt}
@@ -325,8 +323,7 @@ export function ReceptionCalendrier({
         >
           {list.map((c) => {
             const tier = chargeTier(c.palettes)
-            const heightPct =
-              maxPalettes > 0 ? Math.max((c.palettes / maxPalettes) * 100, 6) : 6
+            const heightPct = maxPalettes > 0 ? Math.max((c.palettes / maxPalettes) * 100, 6) : 6
             const selected = selectedDay === c.day
             return (
               <button
