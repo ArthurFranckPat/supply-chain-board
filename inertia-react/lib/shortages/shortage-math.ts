@@ -2,18 +2,20 @@
  * Dérivations pures + constantes de rendu du suivi des ruptures (issue #52 —
  * extrait de components/shortages/shortage-table.tsx). Sans Solid, sans JSX :
  * prédicats verdict, agrégation « dégâts par composant » (R2), position
- * temporelle de la frise (R3), classes de cellule Papier partagées (R1+R2).
+ * temporelle de la frise (R3), classes de cellule partagées (R1+R2) — alignées
+ * sur le modèle /suivi proactif (colonnes sans filet vertical, verdict en
+ * point + texte plutôt qu'en pastille pleine).
  */
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 
 // ---------------------------------------------------------------------------
-// Classes de cellule « Papier » (partagées Registre R1 + Par composant R2)
+// Classes de cellule (partagées Registre R1 + Par composant R2)
 // ---------------------------------------------------------------------------
 
 export const TH =
-  'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
+  'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule'
 export const TH_R = TH.replace('text-left', 'text-right')
-export const TD = 'px-4 py-[13px] align-middle border-r border-rule-soft'
+export const TD = 'px-4 py-[13px] align-middle'
 
 // ---------------------------------------------------------------------------
 // Prédicats verdict
@@ -53,17 +55,40 @@ export const VERDICT_RANK: Record<ShortageDisplayRow['verdictKey'], number> = {
   couvert: 0,
 }
 
-/** Badge couverture de la vue « Par composant » (pire verdict du groupe). Teintes du
- *  design system — miroir du VERDICT_PRESET serveur, sans les icônes (libellé seul). */
-export const VERDICT_BADGE: Record<
-  ShortageDisplayRow['verdictKey'],
-  { cls: string; label: string }
-> = {
-  couvert: { cls: 'bg-ferme/15 text-ferme', label: 'Couvert' },
-  a_risque: { cls: 'bg-suggere/15 text-suggere', label: 'À risque' },
-  retard: { cls: 'bg-destructive/10 text-destructive', label: 'Retard' },
-  sous_ensemble: { cls: 'bg-planifie/15 text-planifie', label: 'S/E à lancer' },
-  sans_couverture: { cls: 'bg-destructive/10 text-destructive', label: 'Sans couv.' },
+/** Libellé verdict (Registre R1 + Par composant R2). */
+export const VERDICT_LABEL: Record<ShortageDisplayRow['verdictKey'], string> = {
+  couvert: 'Couvert',
+  a_risque: 'À risque',
+  retard: 'Retard',
+  sous_ensemble: 'S/E à lancer',
+  sans_couverture: 'Sans couv.',
+}
+
+/** Dot verdict (mode compact, même convention que /suivi proactif) — couleur pleine, pas de fond. */
+export const VERDICT_DOT: Record<ShortageDisplayRow['verdictKey'], string> = {
+  couvert: 'bg-ferme',
+  a_risque: 'bg-suggere',
+  retard: 'bg-destructive',
+  sous_ensemble: 'bg-planifie',
+  sans_couverture: 'bg-destructive',
+}
+
+/** Texte verdict (mode compact, même convention que /suivi proactif) — couleur seule, pas de pill. */
+export const VERDICT_TEXT: Record<ShortageDisplayRow['verdictKey'], string> = {
+  couvert: 'text-ferme',
+  a_risque: 'text-suggere',
+  retard: 'text-destructive',
+  sous_ensemble: 'text-planifie',
+  sans_couverture: 'text-destructive',
+}
+
+/** Barre latérale gauche (index column) — même convention que /suivi (LATE_TONE.bar). */
+export const VERDICT_BAR: Record<ShortageDisplayRow['verdictKey'], string> = {
+  couvert: '',
+  a_risque: '[box-shadow:inset_3px_0_var(--color-suggere)]',
+  sous_ensemble: '[box-shadow:inset_3px_0_var(--color-planifie)]',
+  retard: '[box-shadow:inset_3px_0_var(--color-destructive)]',
+  sans_couverture: '[box-shadow:inset_3px_0_var(--color-destructive)]',
 }
 
 /** Agrège les lignes par composant. `rows` arrive trié par urgence (expé asc) du parent. */

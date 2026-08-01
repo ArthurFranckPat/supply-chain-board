@@ -11,7 +11,10 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { cn } from '@r/lib/utils'
 import {
-  VERDICT_BADGE,
+  VERDICT_BAR,
+  VERDICT_DOT,
+  VERDICT_TEXT,
+  VERDICT_LABEL,
   groupByComponent,
   type ComponentGroup,
   TH,
@@ -138,23 +141,26 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       header: () => 'Couverture',
       cell: ({ row: { original: g } }) =>
         g.nbSansCouverture > 0 ? (
-          <span className="inline-flex items-center rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-destructive">
-            {g.nbSansCouverture}/{g.lines.length} sans couv.
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
+            <span className="text-[11px] font-semibold whitespace-nowrap text-destructive">
+              {g.nbSansCouverture}/{g.lines.length} sans couv.
+            </span>
           </span>
         ) : (
-          <span
-            className={cn(
-              'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
-              VERDICT_BADGE[g.worstVerdict].cls
-            )}
-          >
-            {VERDICT_BADGE[g.worstVerdict].label}
+          <span className="inline-flex items-center gap-1.5">
+            <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[g.worstVerdict])} />
+            <span
+              className={cn(
+                'text-[11px] font-semibold whitespace-nowrap',
+                VERDICT_TEXT[g.worstVerdict]
+              )}
+            >
+              {VERDICT_LABEL[g.worstVerdict]}
+            </span>
           </span>
         ),
-      meta: {
-        thClass: `w-[150px] ${TH.replace('border-r border-rule-soft', '')}`,
-        tdClass: 'w-[150px] px-4 py-[13px] align-middle',
-      },
+      meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
     },
   ]
 }
@@ -177,8 +183,8 @@ export function ShortageComposants({
     thClass: `w-[38px] ${TH}`,
     tdClass: (g: ComponentGroup) =>
       cn(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        late(g) && 'bg-destructive/[0.05]'
+        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        VERDICT_BAR[g.worstVerdict]
       ),
   }
 
@@ -192,11 +198,8 @@ export function ShortageComposants({
       tableClass="min-w-[1080px] text-xs"
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
-      getRowClass={(g) =>
-        cn(
-          'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
-          late(g) && 'bg-destructive/10'
-        )
+      getRowClass={() =>
+        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
       }
       getRowKey={(g) => g.component}
       emptyState={emptyState}

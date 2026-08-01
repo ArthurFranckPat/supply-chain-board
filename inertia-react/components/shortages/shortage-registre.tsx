@@ -10,7 +10,15 @@ import { TriangleAlert } from 'lucide-react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { cn } from '@r/lib/utils'
-import { isLate, TH, TH_R, TD } from '@r/lib/shortages/shortage-math'
+import {
+  isLate,
+  TH,
+  TH_R,
+  TD,
+  VERDICT_BAR,
+  VERDICT_DOT,
+  VERDICT_TEXT,
+} from '@r/lib/shortages/shortage-math'
 
 export function ShortageRegistre({
   rows,
@@ -181,19 +189,19 @@ export function ShortageRegistre({
       enableSorting: false,
       header: () => 'Verdict',
       cell: ({ row: { original: row } }) => (
-        <span
-          className={cn(
-            'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
-            row.verdictCls
-          )}
-        >
-          {row.verdictLabel}
+        <span className="inline-flex items-center gap-1.5">
+          <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[row.verdictKey])} />
+          <span
+            className={cn(
+              'text-[11px] font-semibold whitespace-nowrap',
+              VERDICT_TEXT[row.verdictKey]
+            )}
+          >
+            {row.verdictLabel}
+          </span>
         </span>
       ),
-      meta: {
-        thClass: `w-[150px] ${TH.replace('border-r border-rule-soft', '')}`,
-        tdClass: `w-[150px] px-4 py-[13px] align-middle`,
-      },
+      meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
     },
   ]
 
@@ -202,8 +210,8 @@ export function ShortageRegistre({
     thClass: `w-[38px] ${TH}`,
     tdClass: (row: ShortageDisplayRow) =>
       cn(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        isLate(row) && 'bg-destructive/[0.05]'
+        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        VERDICT_BAR[row.verdictKey]
       ),
   }
 
@@ -217,11 +225,8 @@ export function ShortageRegistre({
       tableClass="min-w-[880px] text-xs"
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
-      getRowClass={(row) =>
-        cn(
-          'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
-          isLate(row) && 'bg-destructive/10'
-        )
+      getRowClass={() =>
+        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
       }
       emptyState={emptyState}
     />
