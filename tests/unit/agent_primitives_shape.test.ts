@@ -5,7 +5,7 @@
 
 import { test } from '@japa/runner'
 import { agentToolNames, buildAgentTools } from '#services/agent/tools'
-import { getPromise } from '#services/agent/primitives'
+import { diagnostiquerOF, getPromise } from '#services/agent/primitives'
 
 test.group('agent tools registry', () => {
   test('tools métier + ping en allowlist, zéro builtin', ({ assert }) => {
@@ -14,6 +14,7 @@ test.group('agent tools registry', () => {
       'listerOF',
       'rechercherArticle',
       'getVerdict',
+      'diagnostiquerOF',
       'descendreBOM',
       'getPromise',
       'listerRetardsPrevus',
@@ -48,5 +49,11 @@ test.group('agent primitives validation', () => {
   test('getPromise rejette article vide', async ({ assert }) => {
     const r = await getPromise({ article: '  ', quantity: 10 })
     assert.property(r, 'error')
+  })
+
+  test('diagnostiquerOF rejette un numOf vide sans I/O', async ({ assert }) => {
+    const r = await diagnostiquerOF({ numOf: '   ' })
+    assert.property(r, 'error')
+    assert.equal((r as { _source: string })._source, 'diagnostiquerOF')
   })
 })

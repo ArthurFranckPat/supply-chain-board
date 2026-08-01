@@ -466,6 +466,158 @@ export async function descendreBOM(numOf: string) {
   }
 }
 
+// ─────────────────────────── diagnostiquerOF ───────────────────────────
+
+/** Feuilles bloquantes datées par appel CTP. Au-delà, le coût dépasse l'apport. */
+const DIAG_MAX_LEAVES_DATED = 3
+/** Feuilles rendues au modèle (sans date pour les suivantes). */
+const DIAG_MAX_LEAVES_RETURNED = 8
+
+/**
+ * Diagnostic complet d'un OF en UN appel : verdict, cause racine, dates au plus
+ * tôt des feuilles bloquantes.
+ *
+ * Pourquoi ce tool existe alors que ses trois étages sont déjà exposés
+ * séparément (`getVerdict`, `descendreBOM`, `getPromise`) : c'est la chaîne
+ * canonique du métier, et elle est stable. Jouée en tool-calling déclaratif,
+ * elle coûte 3 à 5 allers-retours au modèle, et surtout elle fait transiter par
+ * son contexte des payloads intermédiaires qui ne servent qu'à produire l'appel
+ * suivant — l'arbre BOM entier (jusqu'à 24 k caractères) pour n'en retenir que
+ * les feuilles. Ici l'enchaînement se fait côté serveur et seule la synthèse
+ * remonte.
+ *
+ * C'est le gain que vise l'issue #93 (Code Mode), obtenu sans faire écrire ni
+ * exécuter de code au modèle : quand la composition est connue et stable, elle
+ * se câble ; le sandbox ne se justifierait que pour une composition ouverte.
+ *
+ * Les trois étages restent exposés séparément : ils répondent à des questions
+ * plus étroites, et à des coûts d'un tout autre ordre.
+ *
+ * Court-circuit assumé : un OF faisable s'arrête après `getVerdict`. Descendre
+ * la nomenclature d'un OF qui passe ne dit rien de plus et coûte le prix fort.
+ */
+export async function diagnostiquerOF(params: { numOf: string; dater?: boolean }) {
+  const ofId = params.numOf?.trim()
+  if (!ofId) return { error: 'numOf requis', _source: 'diagnostiquerOF' as const }
+
+  const verdict = await getVerdict(ofId)
+  if ('error' in verdict) {
+    return { error: verdict.error, _source: 'diagnostiquerOF' as const }
+  }
+
+  // OF faisable : la descente n'apprendrait rien. On rend le verdict seul et on
+  // dit explicitement que la nomenclature n'a pas été parcourue — un « rien à
+  // signaler » doit porter son propre périmètre.
+  if (verdict.feasible) {
+    return {
+      _source: 'diagnostiquerOF' as const,
+      engine: 'getVerdict (court-circuit : OF faisable, pas de descente BOM)',
+      of: verdict.of,
+      faisable: true as const,
+      requirementSource: verdict.requirementSource,
+      etapes: ['getVerdict'],
+      note: 'OF faisable à l’instant t : la nomenclature n’a pas été descendue et aucune date n’a été calculée.',
+    }
+  }
+
+  const bom = await descendreBOM(ofId)
+  if ('error' in bom) {
+    // Le verdict tient même sans la descente : on rend ce qu'on a, en le disant.
+    return {
+      _source: 'diagnostiquerOF' as const,
+      engine: 'getVerdict seul (descendreBOM en erreur)',
+      of: verdict.of,
+      faisable: false as const,
+      requirementSource: verdict.requirementSource,
+      manquantsDirects: verdict.missingDirect,
+      etapes: ['getVerdict'],
+      descenteError: bom.error,
+    }
+  }
+
+  const leaves = bom.blockingLeaves as Array<{
+    article: string
+    description?: string
+    quantityMissing: number
+    available: number | null
+    fabricated: boolean
+    status: string
+    earliestReception: string | null
+    receptionSupplier?: string
+    sousOf: string
+    depth: number
+  }>
+
+  // Datation CTP : bornée, et seulement sur les feuilles réellement en manque.
+  // Chaque appel descend une nomenclature — c'est l'étage cher de la chaîne.
+  const aDater = params.dater === false ? [] : leaves.slice(0, DIAG_MAX_LEAVES_DATED)
+  const dates = await Promise.all(
+    aDater.map(async (leaf) => {
+      try {
+        const p = await getPromise({ article: leaf.article, quantity: leaf.quantityMissing })
+        if ('error' in p) return { article: leaf.article, dateError: p.error }
+        return {
+          article: leaf.article,
+          promesseEngageante: p.engageante.promiseDate,
+          promesseOptimiste: p.optimiste.promiseDate,
+          infeasible: p.engageante.infeasible,
+          facteurLimitant: p.engageante.limitingFactor,
+        }
+      } catch (err) {
+        return {
+          article: leaf.article,
+          dateError: err instanceof Error ? err.message : String(err),
+        }
+      }
+    })
+  )
+  const dateParArticle = new Map(dates.map((d) => [d.article, d]))
+
+  return {
+    _source: 'diagnostiquerOF' as const,
+    engine: 'getVerdict → descendreBOM → getPromise (chaîne enchaînée côté serveur)',
+    // Les trois étages sont nommés pour que la citation reste traçable : un
+    // chiffre de ce payload vient d'un moteur identifiable, pas d'un agrégat
+    // anonyme.
+    etapes:
+      aDater.length > 0
+        ? ['getVerdict', 'descendreBOM', 'getPromise']
+        : ['getVerdict', 'descendreBOM'],
+    of: verdict.of,
+    faisable: false as const,
+    requirementSource: verdict.requirementSource,
+    causeRacine: bom.rootCause,
+    alertes: bom.alerts,
+    composantsExamines: bom.componentsChecked,
+    profondeurMax: bom.maxDepthReached,
+    manquantsDirects: verdict.missingDirect,
+    feuillesBloquantesCount: bom.blockingLeavesCount,
+    // L'arbre entier n'est PAS rendu : c'est précisément le payload
+    // intermédiaire qu'on évite de faire transiter. `descendreBOM` reste
+    // appelable pour qui veut la chaîne complète.
+    feuillesBloquantes: leaves.slice(0, DIAG_MAX_LEAVES_RETURNED).map((leaf) => ({
+      article: leaf.article,
+      description: leaf.description,
+      qteManquante: leaf.quantityMissing,
+      disponible: leaf.available,
+      fabrique: leaf.fabricated,
+      statut: leaf.status,
+      receptionAuPlusTot: leaf.earliestReception,
+      ...(leaf.receptionSupplier ? { fournisseur: leaf.receptionSupplier } : {}),
+      sousOf: leaf.sousOf,
+      profondeur: leaf.depth,
+      // Renseigné pour les seules feuilles datées (les plus profondes d'abord).
+      date: dateParArticle.get(leaf.article) ?? null,
+    })),
+    feuillesDatees: aDater.length,
+    ...(leaves.length > DIAG_MAX_LEAVES_DATED
+      ? {
+          noteDatation: `Seules les ${DIAG_MAX_LEAVES_DATED} premières feuilles sont datées (coût CTP) — appeler getPromise sur une autre feuille au besoin.`,
+        }
+      : {}),
+  }
+}
+
 // ───────────────────────────── getPromise ─────────────────────────────
 
 /**

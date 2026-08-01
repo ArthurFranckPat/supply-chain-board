@@ -61,7 +61,7 @@ async function packageVersion(): Promise<string> {
 }
 
 /**
- * Construit le serveur MCP : les 18 tools agent + les apps déclarées dans MCP_APPS.
+ * Construit le serveur MCP : les tools agent + les apps déclarées dans MCP_APPS.
  *
  * @throws si `buildAgentTools()` rend une liste vide (façade cassée) ou si un schéma
  *         de tool n'est pas convertible en zod — les deux doivent tomber au boot,

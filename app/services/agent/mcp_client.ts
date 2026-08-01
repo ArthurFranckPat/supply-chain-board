@@ -52,7 +52,7 @@ let connection: Promise<SupplyMcpConnection> | null = null
  *
  * Une seule paire client/serveur pour toutes les conversations : le serveur est
  * sans état (les tools tapent les caches board), et un montage par requête
- * rebâtirait 18 tools + relirait package.json à chaque message.
+ * rebâtirait tous les tools + relirait package.json à chaque message.
  */
 export function getSupplyMcpConnection(): Promise<SupplyMcpConnection> {
   if (!connection) {

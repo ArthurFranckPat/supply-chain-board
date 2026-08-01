@@ -196,8 +196,9 @@ export const getVerdictTool = defineTool({
       "l'utilisateur demande si un OF passe, pourquoi il bloque, ou ce qu'il manque. " +
       "Tool d'entrée de tout diagnostic d'OF, peu coûteux.",
     pasSi:
-      'tu cherches la cause racine derrière un composant manquant, quand celui-ci est lui-même ' +
-      'un sous-ensemble bloqué → descendreBOM. getVerdict ne descend pas la nomenclature.',
+      "l'utilisateur veut l'explication entière (cause racine + dates) → diagnostiquerOF, qui " +
+      'enchaîne la chaîne complète en un appel. getVerdict ne descend pas la nomenclature : il ' +
+      'constate.',
     retour:
       'faisable, source des besoins, composants manquants directs et quantités. Fait autorité ' +
       'sur la disponibilité : un composant manquant ici est indisponible pour cet OF, y compris ' +
@@ -224,8 +225,9 @@ export const descendreBOMTool = defineTool({
     quand:
       "getVerdict a rendu une rupture et l'utilisateur veut la cause racine ou la chaîne causale.",
     pasSi:
-      "tu veux seulement savoir si l'OF passe → getVerdict, bien plus léger. Réserve ce tool " +
-      'aux OF déjà identifiés comme non faisables.',
+      "tu veux seulement savoir si l'OF passe → getVerdict, bien plus léger. Tu veux la cause " +
+      'racine ET les dates → diagnostiquerOF. Réserve ce tool au cas où l’arbre de nomenclature ' +
+      'lui-même est demandé.',
     retour:
       'chaîne causale de l’OF jusqu’à la feuille bloquante. PAS de date de réapprovisionnement ' +
       '(→ getPromise), PAS de commande achat couvrante (→ listerRuptures).',
@@ -236,6 +238,47 @@ export const descendreBOMTool = defineTool({
   execute: async (_id, params) => {
     const p = await primitives()
     return toolResult(await p.descendreBOM(params.numOf))
+  },
+})
+
+export const diagnostiquerOFTool = defineTool({
+  name: 'diagnostiquerOF',
+  label: 'Diagnostic complet OF',
+  description: toolDoc({
+    quoi:
+      "Diagnostic complet d'un OF en un appel : faisabilité, cause racine remontée par la " +
+      'nomenclature, feuilles bloquantes et date au plus tôt des plus profondes.',
+    quand:
+      "l'utilisateur demande pourquoi un OF est bloqué ou en retard, et attend l'explication " +
+      'entière — pas seulement le constat. Préfère ce tool à la séquence getVerdict puis ' +
+      'descendreBOM puis getPromise : il enchaîne les trois et ne te fait porter que la synthèse.',
+    pasSi:
+      "la question tient en un constat (« est-ce que l'OF passe ? ») → getVerdict, bien plus " +
+      "léger. Tu veux l'arbre de nomenclature entier → descendreBOM. Tu dates un article hors " +
+      "contexte d'OF → getPromise.",
+    retour:
+      'faisabilité, cause racine, manquants directs, feuilles bloquantes (article, quantité ' +
+      'manquante, réception attendue, sous-OF, profondeur) et, pour les plus profondes, la ' +
+      'promesse engageante avec son facteur limitant. `etapes` liste les moteurs traversés — ' +
+      "cite-les. PAS l'arbre de nomenclature complet.",
+    siVide:
+      'un OF faisable court-circuite la descente : la réponse le dit (`faisable: true`) et ' +
+      "précise que la nomenclature n'a PAS été parcourue. N'en conclus rien sur ses composants " +
+      'au-delà du niveau direct.',
+  }),
+  parameters: Type.Object({
+    numOf: Type.String({ description: "N° d'OF à diagnostiquer" }),
+    dater: Type.Optional(
+      Type.Boolean({
+        description:
+          'Calcule la date au plus tôt des feuilles bloquantes (défaut true). Passer false ' +
+          'quand seule la cause importe : la datation est l’étage coûteux de la chaîne.',
+      })
+    ),
+  }),
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(await p.diagnostiquerOF({ numOf: params.numOf, dater: params.dater }))
   },
 })
 
@@ -781,6 +824,7 @@ export function buildAgentTools(): ToolDefinition[] {
     listerOFTool,
     rechercherArticleTool,
     getVerdictTool,
+    diagnostiquerOFTool,
     descendreBOMTool,
     getPromiseTool,
     listerRetardsPrevusTool,
