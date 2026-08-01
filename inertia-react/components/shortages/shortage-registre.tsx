@@ -37,27 +37,24 @@ export function ShortageRegistre({
       accessorKey: 'component',
       header: () => 'Composant',
       cell: ({ row: { original: row } }) => (
-        <>
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[14px] font-bold tracking-tight text-foreground">
-              {row.component}
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
+            {row.component}
+          </span>
+          <span className="truncate text-2xs text-muted-foreground/70">{row.componentDesc}</span>
+          {row.overDeclaration && row.overDeclaration.length > 0 && (
+            <span
+              className="shrink-0"
+              title={`Sur-déclaré ailleurs : ${row.overDeclaration
+                .map((o) => `${o.numOf} (écart ${o.ecart})`)
+                .join(', ')} — stock compté potentiellement faux`}
+            >
+              <TriangleAlert size={11} strokeWidth={2} className="text-suggere" />
             </span>
-            {row.overDeclaration && row.overDeclaration.length > 0 && (
-              <span
-                title={`Sur-déclaré ailleurs : ${row.overDeclaration
-                  .map((o) => `${o.numOf} (écart ${o.ecart})`)
-                  .join(', ')} — stock compté potentiellement faux`}
-              >
-                <TriangleAlert size={13} strokeWidth={2} className="shrink-0 text-suggere" />
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
-            {row.componentDesc}
-          </div>
-        </>
+          )}
+        </div>
       ),
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[220px] ${TH}`, tdClass: TD },
     },
     {
       accessorKey: 'qteManquante',
@@ -65,14 +62,12 @@ export function ShortageRegistre({
       cell: ({ row: { original: row } }) => (
         <span
           className={cn(
-            'font-fraunces text-[14px] font-bold tabular-nums leading-none',
+            'font-mono text-cell-lg font-bold leading-none tracking-tight tabular-nums',
             isLate(row) ? 'text-destructive' : 'text-foreground'
           )}
         >
           {row.qteManquante}
-          <span className="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">
-            u
-          </span>
+          <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
         </span>
       ),
       meta: { thClass: `w-[80px] ${TH_R}`, tdClass: `w-[80px] whitespace-nowrap text-right ${TD}` },
@@ -85,15 +80,13 @@ export function ShortageRegistre({
           <button
             type="button"
             onClick={() => onSelectOf(row.numOf)}
-            className="cursor-pointer font-mono text-[12px] font-semibold text-brand hover:underline"
+            className="cursor-pointer font-mono text-xs font-bold tracking-tight text-brand underline decoration-dotted decoration-brand/40 underline-offset-2 hover:text-brand/70"
           >
             {row.numOf}
           </button>
-          <div className="mt-0.5 truncate max-w-[11rem] font-mono text-[10.5px] text-muted-foreground">
+          <div className="mt-0.5 truncate max-w-[11rem] text-2xs text-muted-foreground">
             <span className="font-semibold">{row.articleParent}</span>
-            {row.articleParentDesc && (
-              <span className="font-sans font-normal"> · {row.articleParentDesc}</span>
-            )}
+            {row.articleParentDesc && <span> · {row.articleParentDesc}</span>}
           </div>
         </>
       ),
@@ -106,13 +99,13 @@ export function ShortageRegistre({
         row.hasCommande ? (
           <>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-[12px] font-semibold text-secondary-foreground">
+              <span className="font-mono text-xs font-bold tracking-tight text-secondary-foreground">
                 {row.numCommande}
               </span>
               {row.dateExpedition && (
                 <span
                   className={cn(
-                    'font-mono text-[11px] font-bold',
+                    'font-mono text-2xs font-semibold',
                     isLate(row) ? 'text-destructive' : 'text-muted-foreground'
                   )}
                   title={`Expé : ${row.dateExpeditionIso ?? ''}`}
@@ -122,19 +115,19 @@ export function ShortageRegistre({
               )}
               {row.autresCommandes.length > 0 && (
                 <span
-                  className="rounded bg-brand-soft px-1 font-mono text-[9px] font-bold text-brand"
+                  className="rounded bg-brand-soft px-1 font-mono text-3xs font-bold text-brand"
                   title={`Aussi : ${row.autresCommandes.join(', ')}`}
                 >
                   +{row.autresCommandes.length}
                 </span>
               )}
             </div>
-            <div className="mt-0.5 truncate max-w-[11rem] font-sans text-[11px] leading-snug text-muted-foreground">
+            <div className="mt-0.5 truncate max-w-[11rem] text-2xs text-muted-foreground">
               {row.client}
             </div>
           </>
         ) : (
-          <span className="font-sans text-[11px] italic text-muted-foreground/50">— orphelin</span>
+          <span className="text-2xs italic text-muted-foreground/50">— orphelin</span>
         ),
       meta: { thClass: `w-[180px] ${TH}`, tdClass: `w-[180px] ${TD}` },
     },
@@ -145,26 +138,23 @@ export function ShortageRegistre({
       cell: ({ row: { original: row } }) => {
         const rec = row.reception
         if (!rec) {
-          if (row.verdictKey !== 'sous_ensemble') {
-            return <span className="text-muted-foreground/50">—</span>
-          }
-          if (row.sousEnsembleOfs.length === 0) {
+          if (row.verdictKey !== 'sous_ensemble' || row.sousEnsembleOfs.length === 0) {
             return <span className="text-muted-foreground/50">—</span>
           }
           return (
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1.5">
               {row.sousEnsembleOfs.slice(0, 3).map((numOf) => (
                 <button
                   key={numOf}
                   type="button"
                   onClick={() => onSelectOf(numOf)}
-                  className="cursor-pointer rounded border border-planifie/30 px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-planifie transition-colors hover:border-brand hover:text-brand"
+                  className="truncate rounded font-mono text-2xs font-semibold leading-none text-planifie underline decoration-dotted decoration-planifie/40 underline-offset-2 hover:text-planifie/70"
                 >
                   {numOf}
                 </button>
               ))}
               {row.sousEnsembleOfs.length > 3 && (
-                <span className="font-mono text-[10px] text-muted-foreground">
+                <span className="font-mono text-3xs text-muted-foreground">
                   +{row.sousEnsembleOfs.length - 3}
                 </span>
               )}
@@ -173,10 +163,8 @@ export function ShortageRegistre({
         }
         return (
           <>
-            <div className="font-mono text-[11px] font-semibold text-muted-foreground">
-              {rec.id}
-            </div>
-            <div className="mt-0.5 truncate max-w-[14rem] font-sans text-[11px] leading-snug text-muted-foreground">
+            <div className="font-mono text-2xs font-semibold text-muted-foreground">{rec.id}</div>
+            <div className="mt-0.5 truncate max-w-[14rem] text-2xs text-muted-foreground">
               {rec.supplier} · {rec.qty}u · {rec.dateArrivee}
             </div>
           </>
@@ -191,12 +179,7 @@ export function ShortageRegistre({
       cell: ({ row: { original: row } }) => (
         <span className="inline-flex items-center gap-1.5">
           <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[row.verdictKey])} />
-          <span
-            className={cn(
-              'text-[11px] font-semibold whitespace-nowrap',
-              VERDICT_TEXT[row.verdictKey]
-            )}
-          >
+          <span className={cn('text-2xs font-semibold', VERDICT_TEXT[row.verdictKey])}>
             {row.verdictLabel}
           </span>
         </span>
@@ -210,7 +193,7 @@ export function ShortageRegistre({
     thClass: `w-[38px] ${TH}`,
     tdClass: (row: ShortageDisplayRow) =>
       cn(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         VERDICT_BAR[row.verdictKey]
       ),
   }

@@ -37,16 +37,14 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       accessorKey: 'component',
       header: () => 'Composant · Désignation',
       cell: ({ row: { original: g } }) => (
-        <>
-          <div className="font-mono text-[14px] font-bold tracking-tight text-foreground">
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
             {g.component}
-          </div>
-          <div className="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
-            {g.componentDesc}
-          </div>
-        </>
+          </span>
+          <span className="truncate text-2xs text-muted-foreground/70">{g.componentDesc}</span>
+        </div>
       ),
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[220px] ${TH}`, tdClass: TD },
     },
     {
       accessorKey: 'totalManquant',
@@ -54,14 +52,12 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       cell: ({ row: { original: g } }) => (
         <span
           className={cn(
-            'font-fraunces text-[14px] font-bold tabular-nums leading-none',
+            'font-mono text-cell-lg font-bold leading-none tracking-tight tabular-nums',
             late(g) ? 'text-destructive' : 'text-foreground'
           )}
         >
           {fmtTotal(g.totalManquant)}
-          <span className="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">
-            u
-          </span>
+          <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
         </span>
       ),
       meta: {
@@ -74,7 +70,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       accessorFn: (g) => g.lines.length,
       header: () => 'OFs bloqués',
       cell: ({ row: { original: g } }) => (
-        <span className="font-fraunces text-[14px] font-bold tabular-nums leading-none text-foreground">
+        <span className="font-mono text-cell-lg font-bold leading-none tracking-tight tabular-nums text-foreground">
           {g.lines.length}
         </span>
       ),
@@ -85,7 +81,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       enableSorting: false,
       header: () => 'OFs',
       cell: ({ row: { original: g } }) => (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {g.lines.map((l) => (
             <button
               key={l.numOf}
@@ -93,10 +89,10 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
               onClick={() => onSelectOf(l.numOf)}
               title={`${l.articleParent} · ${l.articleParentDesc} — manque ${l.qteManquante} u`}
               className={cn(
-                'cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-bold transition-colors hover:border-brand hover:text-brand',
+                'truncate rounded font-mono text-2xs font-semibold leading-none underline decoration-dotted underline-offset-2',
                 l.verdictKey === 'sans_couverture'
-                  ? 'border-destructive/30 text-destructive'
-                  : 'border-rule text-secondary-foreground'
+                  ? 'text-destructive decoration-destructive/40 hover:text-destructive/70'
+                  : 'text-secondary-foreground decoration-muted-foreground/40 hover:text-secondary-foreground/70'
               )}
             >
               {l.numOf}
@@ -114,24 +110,24 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
         g.urgent ? (
           <>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-[12px] font-semibold text-secondary-foreground">
+              <span className="font-mono text-xs font-bold tracking-tight text-secondary-foreground">
                 {g.urgent.numCommande}
               </span>
               <span
                 className={cn(
-                  'font-mono text-[11px] font-bold',
+                  'font-mono text-2xs font-semibold',
                   late(g) ? 'text-destructive' : 'text-muted-foreground'
                 )}
               >
                 {g.urgent.dateExpedition}
               </span>
             </div>
-            <div className="mt-0.5 truncate max-w-[13rem] font-sans text-[11px] leading-snug text-muted-foreground">
+            <div className="mt-0.5 truncate max-w-[13rem] text-2xs text-muted-foreground">
               {g.urgent.client}
             </div>
           </>
         ) : (
-          <span className="font-sans text-[11px] italic text-muted-foreground/50">— orphelins</span>
+          <span className="text-2xs italic text-muted-foreground/50">— orphelins</span>
         ),
       meta: { thClass: `w-[210px] ${TH}`, tdClass: `w-[210px] ${TD}` },
     },
@@ -143,19 +139,14 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
         g.nbSansCouverture > 0 ? (
           <span className="inline-flex items-center gap-1.5">
             <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-            <span className="text-[11px] font-semibold whitespace-nowrap text-destructive">
+            <span className="text-2xs font-semibold whitespace-nowrap text-destructive">
               {g.nbSansCouverture}/{g.lines.length} sans couv.
             </span>
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5">
             <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[g.worstVerdict])} />
-            <span
-              className={cn(
-                'text-[11px] font-semibold whitespace-nowrap',
-                VERDICT_TEXT[g.worstVerdict]
-              )}
-            >
+            <span className={cn('text-2xs font-semibold', VERDICT_TEXT[g.worstVerdict])}>
               {VERDICT_LABEL[g.worstVerdict]}
             </span>
           </span>
@@ -183,7 +174,7 @@ export function ShortageComposants({
     thClass: `w-[38px] ${TH}`,
     tdClass: (g: ComponentGroup) =>
       cn(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         VERDICT_BAR[g.worstVerdict]
       ),
   }

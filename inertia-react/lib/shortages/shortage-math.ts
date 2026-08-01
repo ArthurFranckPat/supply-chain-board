@@ -13,9 +13,9 @@ import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 // ---------------------------------------------------------------------------
 
 export const TH =
-  'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule'
+  'px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule'
 export const TH_R = TH.replace('text-left', 'text-right')
-export const TD = 'px-4 py-[13px] align-middle'
+export const TD = 'px-4 py-[7px] align-middle'
 
 // ---------------------------------------------------------------------------
 // Prédicats verdict
