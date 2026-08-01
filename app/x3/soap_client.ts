@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 
+import { writeCurlCredentials, redactCurlCommand } from './curl_credentials.js'
 import type { SoapResponse } from './types.js'
 import { buildConcatSql } from './sql_builder.js'
 import { parseResponse } from './response_parser.js'
@@ -77,6 +78,11 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   const tmpFile = join(tmpdir(), `x3_soap_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
   writeFileSync(tmpFile, envelope, 'utf-8')
 
+  // Identifiants par FICHIER (`-K`) et jamais en argument : la ligne de commande
+  // d'un processus est lisible par `ps`, et `execFile` la recopie intégralement
+  // dans `error.message`. Cf. `curl_credentials.ts`.
+  const creds = writeCurlCredentials(config)
+
   const args = [
     '-sS',
     '--max-time',
@@ -85,8 +91,7 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
     'Content-Type: text/xml; charset=utf-8',
     '-H',
     'SOAPAction: ""',
-    '-u',
-    `${config.user}:${config.password}`,
+    ...creds.args,
     '-d',
     `@${tmpFile}`,
     `http://${config.host}:${config.port}/soap-generic/syracuse/collaboration/syracuse/CAdxWebServiceXmlCC`,
@@ -103,9 +108,13 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
         try {
           unlinkSync(tmpFile)
         } catch {}
+        creds.cleanup()
 
         if (error) {
-          const detail = stderr?.trim() || error.message
+          // `redactCurlCommand` MALGRÉ le passage à `-K` : une fuite
+          // d'identifiants ne se rattrape pas après coup, et ce message part
+          // dans les logs ET dans `ingestion_log.error`, donc sur disque.
+          const detail = redactCurlCommand(stderr?.trim() || error.message)
           resolve({ status: null, data: [], count: 0, error: `curl: ${detail}` })
           return
         }

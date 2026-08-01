@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 
 import type { X3SoapConfig } from './soap_client.js'
+import { writeCurlCredentials, redactCurlCommand } from './curl_credentials.js'
 
 export type ObjectOperation = 'read' | 'save' | 'modify' | 'delete' | 'getDescription' | 'queryList'
 
@@ -256,6 +257,10 @@ export async function callQueryList(
   const tmpFile = join(tmpdir(), `x3_ql_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
   writeFileSync(tmpFile, envelope, 'utf-8')
 
+  // Identifiants par FICHIER (`-K`), jamais en argument : `ps` expose la ligne
+  // de commande et `execFile` la recopie dans `error.message`.
+  const creds = writeCurlCredentials(config)
+
   const args = [
     '-s',
     '--max-time',
@@ -264,8 +269,7 @@ export async function callQueryList(
     'Content-Type: text/xml; charset=utf-8',
     '-H',
     'SOAPAction: ""',
-    '-u',
-    `${config.user}:${config.password}`,
+    ...creds.args,
     '-d',
     `@${tmpFile}`,
     ENDPOINT(config),
@@ -276,13 +280,14 @@ export async function callQueryList(
       try {
         unlinkSync(tmpFile)
       } catch {}
+      creds.cleanup()
       if (error) {
         resolve({
           ok: false,
           status: null,
           resultXml: '',
           messages: [],
-          error: `curl: ${stderr?.trim() || error.message}`,
+          error: `curl: ${redactCurlCommand(stderr?.trim() || error.message)}`,
           raw: stdout || '',
         })
         return
@@ -305,6 +310,10 @@ export async function callObjectOperation(
   const tmpFile = join(tmpdir(), `x3_obj_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
   writeFileSync(tmpFile, envelope, 'utf-8')
 
+  // Identifiants par FICHIER (`-K`), jamais en argument : `ps` expose la ligne
+  // de commande et `execFile` la recopie dans `error.message`.
+  const creds = writeCurlCredentials(config)
+
   const args = [
     '-s',
     '--max-time',
@@ -313,8 +322,7 @@ export async function callObjectOperation(
     'Content-Type: text/xml; charset=utf-8',
     '-H',
     'SOAPAction: ""',
-    '-u',
-    `${config.user}:${config.password}`,
+    ...creds.args,
     '-d',
     `@${tmpFile}`,
     ENDPOINT(config),
@@ -325,6 +333,7 @@ export async function callObjectOperation(
       try {
         unlinkSync(tmpFile)
       } catch {}
+      creds.cleanup()
 
       if (error) {
         resolve({
@@ -332,7 +341,7 @@ export async function callObjectOperation(
           status: null,
           resultXml: '',
           messages: [],
-          error: `curl: ${stderr?.trim() || error.message}`,
+          error: `curl: ${redactCurlCommand(stderr?.trim() || error.message)}`,
           raw: stdout || '',
         })
         return

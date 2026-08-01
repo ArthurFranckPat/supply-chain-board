@@ -21,6 +21,7 @@ import { randomBytes } from 'node:crypto'
 
 import type { X3SoapConfig } from './soap_client.js'
 import { parseObjectResponse, type ObjectMessage } from './object_client.js'
+import { writeCurlCredentials, redactCurlCommand } from './curl_credentials.js'
 
 export interface RunResult {
   ok: boolean
@@ -116,6 +117,10 @@ export async function callRunSubprog(
   const tmpFile = join(tmpdir(), `x3_run_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
   writeFileSync(tmpFile, envelope, 'utf-8')
 
+  // Identifiants par FICHIER (`-K`), jamais en argument : `ps` expose la ligne
+  // de commande et `execFile` la recopie dans `error.message`.
+  const creds = writeCurlCredentials(config)
+
   const args = [
     '-s',
     '--max-time',
@@ -124,8 +129,7 @@ export async function callRunSubprog(
     'Content-Type: text/xml; charset=utf-8',
     '-H',
     'SOAPAction: ""',
-    '-u',
-    `${config.user}:${config.password}`,
+    ...creds.args,
     '-d',
     `@${tmpFile}`,
     ENDPOINT(config),
@@ -136,6 +140,7 @@ export async function callRunSubprog(
       try {
         unlinkSync(tmpFile)
       } catch {}
+      creds.cleanup()
 
       if (error) {
         resolve({
@@ -143,7 +148,7 @@ export async function callRunSubprog(
           status: null,
           fields: {},
           messages: [],
-          error: `curl: ${stderr?.trim() || error.message}`,
+          error: `curl: ${redactCurlCommand(stderr?.trim() || error.message)}`,
           raw: stdout || '',
           poolEntryIdx: null,
           trace: '',

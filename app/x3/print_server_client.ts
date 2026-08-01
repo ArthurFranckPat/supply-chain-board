@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import type { X3EnvConfig } from '#config/x3'
+import { writeCurlCredentials, redactCurlCommand } from './curl_credentials.js'
 
 /**
  * Client REST du serveur d'édition X3 (issue #85).
@@ -103,18 +104,23 @@ export function resolvePrintServer(config: X3EnvConfig, destServer: string): str
 /** Appel REST authentifié, via curl (même chemin que le SOAP : proxy/VPN identiques). */
 async function get(config: X3EnvConfig, path: string, timeoutMs = TIMEOUT_MS): Promise<any> {
   const url = `http://${config.host}:${config.port}${path}`
+
+  // Identifiants par FICHIER (`-K`), jamais en argument : `ps` expose la ligne
+  // de commande et `execFile` la recopie dans `error.message`.
+  const creds = writeCurlCredentials(config)
+
   const args = [
     '-sS',
     '--max-time',
     String(Math.max(1, Math.floor(timeoutMs / 1000))),
-    '-u',
-    `${config.user}:${config.password}`,
+    ...creds.args,
     url,
   ]
   return new Promise((resolve, reject) => {
     execFile('curl', args, { timeout: timeoutMs + 2000 }, (error, stdout, stderr) => {
+      creds.cleanup()
       if (error) {
-        const e = new Error(`curl: ${stderr?.trim() || error.message}`)
+        const e = new Error(`curl: ${redactCurlCommand(stderr?.trim() || error.message)}`)
         // Marqué transport : c'est ce qui distingue « muet » de « répond mal ».
         ;(e as Error & { transport?: boolean }).transport = true
         return reject(e)
