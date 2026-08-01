@@ -12,6 +12,46 @@ import type { StockArticleDetail } from '#services/stock_detail_loader'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
+ * L'utilisateur a-t-il VRAIMENT figé une date de référence ?
+ *
+ * `pinned` décide de la forme de la clé de cache : une valeur figée est portée
+ * telle quelle, la plage glissante par défaut est réduite à ses buckets de
+ * période pour que la clé ne tourne pas à minuit (cf. `board_dataset`).
+ *
+ * Le test était `Boolean(referenceDate)`. Or `index()` construit `kpisHref` avec
+ * un `referenceDate` TOUJOURS présent, initialisé à aujourd'hui — donc `pinned`
+ * valait toujours `true` sur `/api/v1/dashboard/kpis` :
+ *
+ * ```
+ * préchauffage  retard-kpi:90                 ← getRetardKpi(new Date(), 90)
+ * requête       retard-kpi:90:2026-08-01      ← pinned = true
+ * ```
+ *
+ * Deux clés : le préchauffage remplissait une entrée que personne ne lisait.
+ *
+ * `/api/v1/dashboard/stock` n'est PAS concerné — `stockHref` n'embarque pas de
+ * `referenceDate`, `pinned` y valait déjà `false` et les clés coïncidaient. Les
+ * ~10 s observées sur cet endpoint en mode direct ont une autre cause, non
+ * élucidée à ce jour : ne pas croire ce correctif suffisant pour elles.
+ *
+ * La correction porte sur le SENS : « figée » veut dire « différente du défaut
+ * glissant », pas « présente dans la requête ». Une date d'aujourd'hui EST le
+ * défaut, quelle que soit la façon dont elle arrive.
+ *
+ * Comparaison au jour près et en heure locale : c'est la granularité de la clé
+ * (`toISOString().slice(0, 10)`) et celle du choix utilisateur.
+ */
+export function isPinnedDate(raw: unknown, parsed: Date): boolean {
+  if (!raw || Number.isNaN(parsed.getTime())) return false
+  const today = new Date()
+  return (
+    parsed.getFullYear() !== today.getFullYear() ||
+    parsed.getMonth() !== today.getMonth() ||
+    parsed.getDate() !== today.getDate()
+  )
+}
+
+/**
  * Tableau de bord (issue #26 shell + #38 KPI). Page d'accueil par défaut post-login.
  *
  * Même motif que /suivi : la coquille Inertia est rendue instantanément (aucun calcul X3),
@@ -48,10 +88,10 @@ export default class DashboardController {
   async kpis(ctx: HttpContext) {
     const referenceDate = ctx.request.input('referenceDate')
     const parsed = referenceDate ? new Date(referenceDate as string) : new Date()
+    const refDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed
     // Une date invalide retomberait sur `Invalid Date`, dont le toISOString()
     // utilisé plus bas (et dans la clé de cache) lève.
-    const pinned = Boolean(referenceDate) && !Number.isNaN(parsed.getTime())
-    const refDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed
+    const pinned = isPinnedDate(referenceDate, parsed)
 
     let retardCharge: RetardChargeKpi = {
       totalHeures: 0,
@@ -137,7 +177,9 @@ export default class DashboardController {
     // et le 1er hit du jour repaie le mur froid X3).
     let from: Date
     let to: Date
-    let pinned = Boolean(referenceDate) && !Number.isNaN(refDate.getTime())
+    // Cf. `isPinnedDate` : le front envoie toujours `referenceDate`, une date
+    // d'aujourd'hui est donc le DÉFAUT et ne doit pas figer la clé.
+    let pinned = isPinnedDate(referenceDate, refDate)
     if (fromParam && toParam) {
       const f = new Date(fromParam as string)
       const t = new Date(toParam as string)
