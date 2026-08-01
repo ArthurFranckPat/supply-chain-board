@@ -14,6 +14,7 @@ import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /**
  * Routage d'impression du dossier d'OF (issue #85, lot 2).
@@ -260,7 +261,12 @@ function DocumentsSetting({ documents }: { documents: Doc[] }) {
   }
 
   const toggle = async (d: Doc) => {
-    const saved = await save({ code: d.code, label: d.label, position: d.position, active: !d.active })
+    const saved = await save({
+      code: d.code,
+      label: d.label,
+      position: d.position,
+      active: !d.active,
+    })
     if (saved) setDocs((prev) => prev.map((x) => (x.id === saved.id ? saved : x)))
   }
 
@@ -591,9 +597,186 @@ function RuleForm({
   )
 }
 
+/** Tri générique une colonne — repli sur `fallback` (ordre par défaut) quand aucun tri n'est actif. */
+function sortByColumn<T>(
+  rows: T[],
+  sorting: SortingState[],
+  fallback: (a: T, b: T) => number
+): T[] {
+  const s = sorting[0]
+  if (!s) return [...rows].sort(fallback)
+  const dir = s.desc ? -1 : 1
+  return [...rows].sort((a, b) => {
+    const av = a[s.id as keyof T]
+    const bv = b[s.id as keyof T]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    if (typeof av === 'boolean' && typeof bv === 'boolean') return (Number(av) - Number(bv)) * dir
+    return String(av ?? '').localeCompare(String(bv ?? '')) * dir
+  })
+}
+
+function createRuleColumns(deps: {
+  rulesCassees: Set<number>
+  removeRule: (id: number) => void
+}): ColumnDef<Rule>[] {
+  const { rulesCassees, removeRule } = deps
+  return [
+    {
+      accessorKey: 'atelierLabel',
+      header: () => 'Atelier',
+      cell: ({ row: { original: r } }) => (
+        <span className={cn(!r.stoloc && 'italic text-muted-foreground')}>{r.atelierLabel}</span>
+      ),
+    },
+    {
+      accessorKey: 'docLabel',
+      header: () => 'Document',
+      cell: ({ row: { original: r } }) => (
+        <>
+          {r.docLabel}
+          {r.orphan && (
+            <span className="ml-1.5 text-[11px] font-semibold text-red-700">document retiré</span>
+          )}
+        </>
+      ),
+    },
+    {
+      accessorKey: 'destCode',
+      header: () => 'Destination',
+      cell: ({ row: { original: r } }) => (
+        <>
+          <span className="font-mono text-[12px] font-bold">{r.destCode}</span>
+          {r.destLabel && <span className="ml-2 text-muted-foreground">{r.destLabel}</span>}
+          {rulesCassees.has(r.id) && (
+            <span
+              className="ml-2 inline-flex items-center gap-1 font-semibold text-red-700"
+              title="File absente du serveur d’édition"
+            >
+              <TriangleAlert size={13} />
+              file introuvable
+            </span>
+          )}
+        </>
+      ),
+    },
+    {
+      id: 'effet',
+      accessorFn: (r) => r.sandbox,
+      header: () => 'Effet',
+      cell: ({ row: { original: r } }) => <EffetChip sandbox={r.sandbox} />,
+    },
+    {
+      accessorKey: 'updatedAt',
+      header: () => 'Modifiée',
+      cell: ({ row: { original: r } }) => (
+        <span className="text-muted-foreground">
+          {fmtStamp(r.updatedAt)}
+          {r.updatedBy ? ` · ${r.updatedBy}` : ''}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      enableSorting: false,
+      header: () => '',
+      cell: ({ row: { original: r } }) => (
+        <button
+          type="button"
+          onClick={() => void removeRule(r.id)}
+          className="text-muted-foreground transition-colors hover:text-danger"
+          title="Supprimer la règle"
+        >
+          <Trash2 size={17} />
+        </button>
+      ),
+      meta: { tdClass: 'text-right' },
+    },
+  ]
+}
+
+const jobColumns: ColumnDef<Job>[] = [
+  {
+    accessorKey: 'createdAt',
+    header: () => 'Quand',
+    cell: ({ row: { original: j } }) => (
+      <span className="text-muted-foreground">{fmtStamp(j.createdAt)}</span>
+    ),
+  },
+  {
+    accessorKey: 'ofNum',
+    header: () => 'OF',
+    cell: ({ row: { original: j } }) => <span className="font-mono text-[12px]">{j.ofNum}</span>,
+  },
+  {
+    accessorKey: 'docLabel',
+    header: () => 'Document',
+  },
+  {
+    id: 'tirage',
+    enableSorting: false,
+    header: () => 'Tirage',
+    cell: ({ row: { original: j } }) =>
+      j.attempt > 1 ? (
+        <span className="font-semibold text-amber-800">réimpression #{j.attempt}</span>
+      ) : (
+        'initial'
+      ),
+  },
+  {
+    accessorKey: 'destCode',
+    header: () => 'Destination',
+    cell: ({ row: { original: j } }) => <span className="font-mono text-[12px]">{j.destCode}</span>,
+  },
+  {
+    accessorKey: 'status',
+    header: () => 'X3',
+    cell: ({ row: { original: j } }) => (
+      <>
+        {j.status === 'submitted' && <span className="text-emerald-700">soumis</span>}
+        {/* Rang réservé, appel X3 sans retour : ni soumis ni refusé. */}
+        {j.status === 'pending' && (
+          <span className="text-amber-700" title="Issue de l’appel X3 inconnue.">
+            en cours
+          </span>
+        )}
+        {j.status !== 'submitted' && j.status !== 'pending' && (
+          <span className="text-red-700" title={j.error}>
+            refusé
+          </span>
+        )}
+      </>
+    ),
+  },
+  {
+    id: 'verdict',
+    enableSorting: false,
+    header: () => 'Serveur d’édition',
+    cell: ({ row: { original: j } }) => (
+      <>
+        <VerdictChip job={j} />
+        {j.jobRank > 0 && (
+          <span className="ml-2 font-mono text-[11px] text-muted-foreground">#{j.jobRank}</span>
+        )}
+      </>
+    ),
+  },
+  {
+    accessorKey: 'origin',
+    header: () => 'Origine',
+    cell: ({ row: { original: j } }) => (
+      <span className="text-muted-foreground">
+        {j.origin}
+        {j.requestedBy ? ` · ${j.requestedBy}` : ''}
+      </span>
+    ),
+  },
+]
+
 export default function ImpressionsConfig(props: PageProps) {
   const [rules, setRules] = useState<Rule[]>(props.rules)
   const [adding, setAdding] = useState(false)
+  const [ruleSorting, setRuleSorting] = useState<SortingState[]>([])
+  const [jobSorting, setJobSorting] = useState<SortingState[]>([])
 
   const applyRule = (r: Rule) => {
     setRules((prev) => [...prev.filter((x) => x.id !== r.id), r])
@@ -607,10 +790,12 @@ export default function ImpressionsConfig(props: PageProps) {
 
   const sorted = useMemo(
     () =>
-      [...rules].sort(
+      sortByColumn(
+        rules,
+        ruleSorting,
         (a, b) => a.stoloc.localeCompare(b.stoloc) || a.docType.localeCompare(b.docType)
       ),
-    [rules]
+    [rules, ruleSorting]
   )
 
   /**
@@ -630,6 +815,8 @@ export default function ImpressionsConfig(props: PageProps) {
         .map((r) => r.id)
     )
   }, [rules, props.destinations, props.queues])
+
+  const ruleColumns = useMemo(() => createRuleColumns({ rulesCassees, removeRule }), [rulesCassees])
 
   const papier = sorted.filter((r) => !r.sandbox).length
   const manquantes = props.documents
@@ -678,8 +865,7 @@ export default function ImpressionsConfig(props: PageProps) {
           </h1>
           <p className="text-[13px] text-muted-foreground">
             À l’affermissement d’un OF, le bon de travail et le bon de sortie matière partent vers
-            l’imprimante de l’atelier concerné. Cet écran décide de la cible ; il ne déclenche
-            rien.
+            l’imprimante de l’atelier concerné. Cet écran décide de la cible ; il ne déclenche rien.
           </p>
         </div>
 
@@ -741,69 +927,18 @@ export default function ImpressionsConfig(props: PageProps) {
               Aucune règle. Commencez par la règle par défaut de chaque document.
             </p>
           ) : (
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-rule text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-2 font-bold">Atelier</th>
-                  <th className="px-4 py-2 font-bold">Document</th>
-                  <th className="px-4 py-2 font-bold">Destination</th>
-                  <th className="px-4 py-2 font-bold">Effet</th>
-                  <th className="px-4 py-2 font-bold">Modifiée</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((r) => (
-                  <tr key={r.id} className="border-b border-rule/60 last:border-0">
-                    <td className="px-4 py-2">
-                      <span className={cn(!r.stoloc && 'italic text-muted-foreground')}>
-                        {r.atelierLabel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      {r.docLabel}
-                      {r.orphan && (
-                        <span className="ml-1.5 text-[11px] font-semibold text-red-700">
-                          document retiré
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className="font-mono text-[12px] font-bold">{r.destCode}</span>
-                      {r.destLabel && (
-                        <span className="ml-2 text-muted-foreground">{r.destLabel}</span>
-                      )}
-                      {rulesCassees.has(r.id) && (
-                        <span
-                          className="ml-2 inline-flex items-center gap-1 font-semibold text-red-700"
-                          title="File absente du serveur d’édition"
-                        >
-                          <TriangleAlert size={13} />
-                          file introuvable
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <EffetChip sandbox={r.sandbox} />
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {fmtStamp(r.updatedAt)}
-                      {r.updatedBy ? ` · ${r.updatedBy}` : ''}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => removeRule(r.id)}
-                        className="text-muted-foreground transition-colors hover:text-danger"
-                        title="Supprimer la règle"
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              columns={ruleColumns}
+              rows={sorted}
+              sorting={ruleSorting}
+              onSortingChange={setRuleSorting}
+              virtualize={false}
+              tableClass="w-full text-[13px]"
+              scrollContainerClass="rounded-none border-0 shadow-none"
+              theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
+              getRowClass={() => 'border-b border-rule/60 last:border-0'}
+              getRowKey={(r) => String(r.id)}
+            />
           )}
 
           {adding ? (
@@ -844,67 +979,18 @@ export default function ImpressionsConfig(props: PageProps) {
               Aucun tirage journalisé.
             </p>
           ) : (
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-rule text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-2 font-bold">Quand</th>
-                  <th className="px-4 py-2 font-bold">OF</th>
-                  <th className="px-4 py-2 font-bold">Document</th>
-                  <th className="px-4 py-2 font-bold">Tirage</th>
-                  <th className="px-4 py-2 font-bold">Destination</th>
-                  <th className="px-4 py-2 font-bold">X3</th>
-                  <th className="px-4 py-2 font-bold">Serveur d’édition</th>
-                  <th className="px-4 py-2 font-bold">Origine</th>
-                </tr>
-              </thead>
-              <tbody>
-                {props.jobs.map((j) => (
-                  <tr key={j.id} className="border-b border-rule/60 last:border-0">
-                    <td className="px-4 py-2 text-muted-foreground">{fmtStamp(j.createdAt)}</td>
-                    <td className="px-4 py-2 font-mono text-[12px]">{j.ofNum}</td>
-                    <td className="px-4 py-2">{j.docLabel}</td>
-                    <td className="px-4 py-2">
-                      {j.attempt > 1 ? (
-                        <span className="font-semibold text-amber-800">
-                          réimpression #{j.attempt}
-                        </span>
-                      ) : (
-                        'initial'
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className="font-mono text-[12px]">{j.destCode}</span>
-                    </td>
-                    <td className="px-4 py-2">
-                      {j.status === 'submitted' && <span className="text-emerald-700">soumis</span>}
-                      {/* Rang réservé, appel X3 sans retour : ni soumis ni refusé. */}
-                      {j.status === 'pending' && (
-                        <span className="text-amber-700" title="Issue de l’appel X3 inconnue.">
-                          en cours
-                        </span>
-                      )}
-                      {j.status !== 'submitted' && j.status !== 'pending' && (
-                        <span className="text-red-700" title={j.error}>
-                          refusé
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <VerdictChip job={j} />
-                      {j.jobRank > 0 && (
-                        <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                          #{j.jobRank}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {j.origin}
-                      {j.requestedBy ? ` · ${j.requestedBy}` : ''}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              columns={jobColumns}
+              rows={props.jobs}
+              sorting={jobSorting}
+              onSortingChange={setJobSorting}
+              virtualize={false}
+              tableClass="w-full text-[13px]"
+              scrollContainerClass="rounded-none border-0 shadow-none"
+              theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
+              getRowClass={() => 'border-b border-rule/60 last:border-0'}
+              getRowKey={(j) => String(j.id)}
+            />
           )}
 
           <p className="border-t border-rule px-4 py-2 text-[11.5px] italic text-muted-foreground">

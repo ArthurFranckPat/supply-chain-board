@@ -1,4 +1,4 @@
-import { useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
@@ -53,6 +53,15 @@ export interface DataTableProps<TRow> {
   selectedRowKey?: string | null
   getRowKey?: (row: TRow) => string
   emptyState?: ReactNode
+  /**
+   * false désactive la fenêtre @tanstack/react-virtual : toutes les lignes
+   * restent dans le DOM. Nécessaire pour l'impression (les lignes hors
+   * viewport doivent exister pour `print:overflow-visible`) et pour
+   * `renderDetailRow`. Défaut true.
+   */
+  virtualize?: boolean
+  /** Ligne de détail insérée après une ligne (colSpan complet) — uniquement pris en compte si virtualize=false. */
+  renderDetailRow?: (row: TRow, rowKey: string) => ReactNode
 }
 
 const DEFAULT_SCROLL_CLASS = 'h-full overflow-auto rounded-lg border bg-card shadow-xs'
@@ -71,6 +80,8 @@ export function DataTable<TRow>({
   selectedRowKey,
   getRowKey,
   emptyState,
+  virtualize = true,
+  renderDetailRow,
 }: DataTableProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -82,6 +93,7 @@ export function DataTable<TRow>({
   })
 
   const virtualItems = rowVirtualizer.getVirtualItems()
+  const rowIndices = virtualize ? virtualItems.map((v) => v.index) : rows.map((_, i) => i)
 
   // Pré-calcul des clés uniques : si getRowKey retourne des doublons (deux
   // rows métier indistinguables par les champs naturels — cas X3 où une
@@ -102,9 +114,9 @@ export function DataTable<TRow>({
   }, [rows, getRowKey])
 
   const totalSize = rowVirtualizer.getTotalSize()
-  const topPad = virtualItems.length > 0 ? virtualItems[0].start : 0
+  const topPad = virtualize && virtualItems.length > 0 ? virtualItems[0].start : 0
   const bottomPad =
-    virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0
+    virtualize && virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0
 
   const colCount = columns.length + (indexColumn ? 1 : 0)
 
@@ -213,52 +225,61 @@ export function DataTable<TRow>({
               </tr>
             )}
 
-            {virtualItems.map((virtualRow) => {
-              const row = rows[virtualRow.index]
+            {rowIndices.map((index) => {
+              const row = rows[index]
               if (!row) return null
 
               const isSelected =
                 selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
-              const rowKey = uniqueKeys[virtualRow.index] ?? virtualRow.index
+              const rowKey = uniqueKeys[index] ?? index
               const rowStyle: CSSProperties | undefined = onRowClick
                 ? { cursor: 'pointer' }
                 : undefined
+              const detail = !virtualize && renderDetailRow ? renderDetailRow(row, String(rowKey)) : null
 
               return (
-                <tr
-                  key={rowKey}
-                  ref={rowVirtualizer.measureElement}
-                  data-index={virtualRow.index}
-                  className={cn(
-                    'border-b transition-colors last:border-b-0 hover:bg-muted/50',
-                    getRowClass?.(row, virtualRow.index),
-                    isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40'
-                  )}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  style={rowStyle}
-                >
-                  {indexColumn && (
-                    <td className={cn('px-3 py-2', indexColumn.tdClass(row, virtualRow.index))}>
-                      {String(virtualRow.index + 1).padStart(2, '0')}
-                    </td>
-                  )}
-                  {columns.map((col) => {
-                    const columnId = colId(col)
-                    const val = getValue(row, col)
-
-                    return (
-                      <td key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
-                        {col.cell
-                          ? col.cell({
-                              row: { original: row },
-                              getValue: () => val,
-                              column: { columnDef: col },
-                            })
-                          : (val as ReactNode)}
+                <Fragment key={rowKey}>
+                  <tr
+                    ref={virtualize ? rowVirtualizer.measureElement : undefined}
+                    data-index={virtualize ? index : undefined}
+                    className={cn(
+                      'border-b transition-colors last:border-b-0 hover:bg-muted/50',
+                      getRowClass?.(row, index),
+                      isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40'
+                    )}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    style={rowStyle}
+                  >
+                    {indexColumn && (
+                      <td className={cn('px-3 py-2', indexColumn.tdClass(row, index))}>
+                        {String(index + 1).padStart(2, '0')}
                       </td>
-                    )
-                  })}
-                </tr>
+                    )}
+                    {columns.map((col) => {
+                      const columnId = colId(col)
+                      const val = getValue(row, col)
+
+                      return (
+                        <td key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
+                          {col.cell
+                            ? col.cell({
+                                row: { original: row },
+                                getValue: () => val,
+                                column: { columnDef: col },
+                              })
+                            : (val as ReactNode)}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  {detail && (
+                    <tr>
+                      <td colSpan={colCount} className="p-0">
+                        {detail}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
 

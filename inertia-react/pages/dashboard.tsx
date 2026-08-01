@@ -254,6 +254,214 @@ const fmtPmp = new Intl.NumberFormat('fr-FR', {
 /** Quantité : 2 décimales max, virgule décimale (l'affichage JS brut point). */
 const fmtQtyDec = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 
+// ═════════════════════════════════════════════════════════════════════════ Colonnes DataTable
+
+const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
+  {
+    accessorKey: 'numCommande',
+    header: () => 'Commande',
+    cell: ({ row: { original: l } }) => (
+      <>
+        <div className="font-mono text-[11px] font-bold text-foreground">{l.numCommande}</div>
+        <div className="font-sans text-[10px] text-muted-foreground">{l.client}</div>
+      </>
+    ),
+  },
+  {
+    accessorKey: 'article',
+    header: () => 'Article',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] font-semibold text-brand">{getValue() as string}</span>
+    ),
+  },
+  {
+    id: 'poste',
+    accessorFn: (l) => l.posteDeCharge ?? '',
+    header: () => 'Poste',
+    cell: ({ row: { original: l } }) =>
+      l.posteDeCharge ? (
+        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+          {l.posteDeCharge}
+        </span>
+      ) : (
+        <span className="font-sans text-[10px] text-muted-foreground/70">—</span>
+      ),
+  },
+  {
+    id: 'livre',
+    enableSorting: false,
+    header: () => 'Livré/Cmde',
+    cell: ({ row: { original: l } }) => (
+      <>
+        {l.qteLivree}/{l.qteCmde}
+      </>
+    ),
+    meta: {
+      thClass: 'text-right',
+      tdClass: 'whitespace-nowrap text-right font-mono text-[11px] text-muted-foreground',
+    },
+  },
+]
+
+const retardLigneColumns: ColumnDef<RetardLigne>[] = [
+  {
+    accessorKey: 'dateExp',
+    header: () => 'Expé',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[12px] font-semibold text-destructive">
+        {(getValue() as string) || '—'}
+      </span>
+    ),
+    meta: { tdClass: 'whitespace-nowrap' },
+  },
+  {
+    accessorKey: 'joursRetard',
+    header: () => 'J. retard',
+    cell: ({ row: { original: l } }) => (
+      <span className="font-mono text-[12px] font-bold tabular-nums text-destructive">
+        {(l.joursRetard ?? 0) > 0 ? `${l.joursRetard} j` : '—'}
+      </span>
+    ),
+    meta: { thClass: 'text-right', tdClass: 'whitespace-nowrap text-right' },
+  },
+  {
+    accessorKey: 'numCommande',
+    header: () => 'Commande · Client',
+    cell: ({ row: { original: l } }) => (
+      <>
+        <div className="font-mono text-[12px] font-bold text-foreground">{l.numCommande}</div>
+        <div className="font-sans text-[11px] text-muted-foreground">{l.client}</div>
+      </>
+    ),
+  },
+  {
+    accessorKey: 'article',
+    header: () => 'Article · Désignation',
+    cell: ({ row: { original: l } }) => (
+      <>
+        <div className="font-mono text-[12px] font-semibold text-brand">{l.article}</div>
+        <div className="font-sans text-[11px] leading-snug text-secondary-foreground">
+          {l.designation || '—'}
+        </div>
+      </>
+    ),
+  },
+  {
+    id: 'postes',
+    enableSorting: false,
+    header: () => 'Poste',
+    cell: ({ row: { original: l } }) =>
+      l.postes.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {l.postes.map((p) => (
+            <Badge
+              key={p}
+              variant="secondary"
+              className="font-mono text-[10px] font-bold tracking-wide"
+            >
+              {p}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <span className="font-sans text-[11px] text-muted-foreground/70">—</span>
+      ),
+  },
+  {
+    id: 'qte',
+    enableSorting: false,
+    header: () => 'Qté',
+    cell: ({ row: { original: l } }) => (
+      <span
+        className="whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-foreground"
+        title={[
+          `Commandée : ${l.qteCommandee}`,
+          `Déjà couvert : ${l.qteCommandee - l.qteRestante}`,
+          `Reste à faire : ${l.qteRestante}`,
+          l.numOfs.length > 0
+            ? `OF ${l.numOfs.join(', ')} : ${l.qteFaite} pointés / ${l.qteAProduire} lancés`
+            : undefined,
+          `Charge : ${l.heures} h`,
+        ]
+          .filter(Boolean)
+          .join('\n')}
+      >
+        <span className="text-ferme">{l.qteCommandee - l.qteRestante}</span>
+        <span className="text-muted-foreground">/{l.qteCommandee}</span>
+      </span>
+    ),
+    meta: { thClass: 'text-right', tdClass: 'text-right' },
+  },
+  {
+    accessorKey: 'heures',
+    header: () => 'Charge',
+    cell: ({ row: { original: l } }) => (
+      <span className="whitespace-nowrap font-mono text-[12px] font-bold tabular-nums text-foreground">
+        {l.heures > 0 ? `${l.heures} h` : '—'}
+      </span>
+    ),
+    meta: { thClass: 'text-right', tdClass: 'text-right' },
+  },
+]
+
+const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
+  {
+    accessorKey: 'article',
+    header: () => 'Article',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[12px] font-semibold text-brand">{getValue() as string}</span>
+    ),
+  },
+  {
+    accessorKey: 'designation',
+    header: () => 'Désignation',
+    cell: ({ getValue }) => (
+      <span className="font-sans text-[11px] leading-snug text-secondary-foreground">
+        {(getValue() as string) || '—'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'categorie',
+    header: () => 'Cat.',
+    cell: ({ getValue }) => (
+      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+        {getValue() as string}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'stock',
+    header: () => 'Stock',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] tabular-nums text-foreground">
+        {fmtQtyDec.format(getValue() as number)}
+      </span>
+    ),
+    meta: { thClass: 'text-right', tdClass: 'whitespace-nowrap text-right' },
+  },
+  {
+    accessorKey: 'pmp',
+    header: () => 'PMP',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        {fmtPmp.format(getValue() as number)}
+      </span>
+    ),
+    meta: { thClass: 'text-right', tdClass: 'whitespace-nowrap text-right' },
+  },
+  {
+    accessorKey: 'valeur',
+    header: () => 'Valeur',
+    cell: ({ getValue }) => (
+      <span className="font-mono text-[11px] font-bold tabular-nums text-foreground">
+        {fmtEuro.format(getValue() as number)}
+      </span>
+    ),
+    meta: { thClass: 'text-right', tdClass: 'whitespace-nowrap text-right' },
+  },
+]
+
 function otdColor(taux: number, nbTotal: number): string {
   if (nbTotal === 0) return 'var(--color-muted-foreground)'
   if (taux >= 95) return 'var(--color-ferme, #008049)'
@@ -411,6 +619,7 @@ function HiddenTile({
 // Grille maison (issue #87) : react-grid-layout v2 laissait drag et resize
 // inertes, et sa v1 est incompatible React 19 (`ReactDOM.findDOMNode`).
 import { DashboardGrid, type DashboardGridItem } from '@r/components/dashboard/grid'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /**
  * Conteneur de KPI. Le placement est porté par `DashboardGrid` ; ici on ne
@@ -644,15 +853,16 @@ export default function Dashboard(props: DashboardProps) {
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [draggedId, setDraggedId] = useState<KpiId | null>(null)
   const [dropTargetId, setDropTargetId] = useState<KpiId | null>(null)
+  const [otdSorting, setOtdSorting] = useState<SortingState[]>([])
+  const [retardSorting, setRetardSorting] = useState<SortingState[]>([
+    { id: 'joursRetard', desc: true },
+  ])
+  const [stockSorting, setStockSorting] = useState<SortingState[]>([{ id: 'valeur', desc: true }])
 
   // Stock filters
   const [stockSearch, setStockSearch] = useState('')
   const [stockCatFilter, setStockCatFilter] = useState('')
   const [stockHideZero, setStockHideZero] = useState(false)
-  const [stockSortBy, setStockSortBy] = useState<'valeur' | 'stock' | 'article' | 'categorie'>(
-    'valeur'
-  )
-  const [stockSortDir, setStockSortDir] = useState<'asc' | 'desc'>('desc')
   const [stockGrain, setStockGrain] = useState<StockGrain>('mois')
   const [stockRange, setStockRange] = useState<{ start: Date | null; end: Date | null } | null>(
     null
@@ -764,36 +974,28 @@ export default function Dashboard(props: DashboardProps) {
     const needle = stockSearch.trim().toLowerCase()
     const cat = stockCatFilter
     const hideZero = stockHideZero
-    const by = stockSortBy
-    const dir = stockSortDir === 'asc' ? 1 : -1
-    return stock.articles
-      .filter((a) => {
-        if (hideZero && a.stock === 0) return false
-        if (cat && a.categorie !== cat) return false
-        if (
-          needle &&
-          !a.article.toLowerCase().includes(needle) &&
-          !a.designation.toLowerCase().includes(needle)
-        )
-          return false
-        return true
-      })
-      .sort((a, b) => {
-        const av = a[by]
-        const bv = b[by]
-        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
-        return String(av).localeCompare(String(bv)) * dir
-      })
-  }, [stock.articles, stockSearch, stockCatFilter, stockHideZero, stockSortBy, stockSortDir])
-
-  const toggleStockSort = (col: 'valeur' | 'stock' | 'article' | 'categorie') => {
-    if (stockSortBy === col) {
-      setStockSortDir(stockSortDir === 'asc' ? 'desc' : 'asc')
-    } else {
-      setStockSortBy(col)
-      setStockSortDir(col === 'article' || col === 'categorie' ? 'asc' : 'desc')
-    }
-  }
+    const sort = stockSorting[0]
+    const filtered = stock.articles.filter((a) => {
+      if (hideZero && a.stock === 0) return false
+      if (cat && a.categorie !== cat) return false
+      if (
+        needle &&
+        !a.article.toLowerCase().includes(needle) &&
+        !a.designation.toLowerCase().includes(needle)
+      )
+        return false
+      return true
+    })
+    if (!sort) return filtered
+    const dir = sort.desc ? -1 : 1
+    const by = sort.id as keyof StockArticleRow
+    return [...filtered].sort((a, b) => {
+      const av = a[by]
+      const bv = b[by]
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+      return String(av).localeCompare(String(bv)) * dir
+    })
+  }, [stock.articles, stockSearch, stockCatFilter, stockHideZero, stockSorting])
 
   const otdCal = useRangeCalendar({
     open: calendarOpen,
@@ -1245,60 +1447,22 @@ export default function Dashboard(props: DashboardProps) {
                               </div>
 
                               {detailsOpen && p.lignesNon.length > 0 && (
-                                <div className="-mx-2 mt-4 max-h-[160px] overflow-auto">
-                                  <table className="w-full border-collapse text-left">
-                                    <thead>
-                                      <tr className="sticky top-0 bg-card">
-                                        <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                          Commande
-                                        </th>
-                                        <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                          Article
-                                        </th>
-                                        <th className="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                          Poste
-                                        </th>
-                                        <th className="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                          Livré/Cmde
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {p.lignesNon.map((l) => (
-                                        <tr
-                                          key={`${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`}
-                                          className="border-b border-rule-soft last:border-0 hover:bg-secondary/40"
-                                        >
-                                          <td className="px-2 py-1.5 align-top">
-                                            <div className="font-mono text-[11px] font-bold text-foreground">
-                                              {l.numCommande}
-                                            </div>
-                                            <div className="font-sans text-[10px] text-muted-foreground">
-                                              {l.client}
-                                            </div>
-                                          </td>
-                                          <td className="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">
-                                            {l.article}
-                                          </td>
-                                          <td className="px-2 py-1.5 align-top">
-                                            {l.posteDeCharge ? (
-                                              <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
-                                                {l.posteDeCharge}
-                                              </span>
-                                            ) : (
-                                              <span className="font-sans text-[10px] text-muted-foreground/70">
-                                                —
-                                              </span>
-                                            )}
-                                          </td>
-                                          <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                            {l.qteLivree}/{l.qteCmde}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
+                                <DataTable
+                                  columns={otdLigneColumns}
+                                  rows={p.lignesNon}
+                                  sorting={otdSorting}
+                                  onSortingChange={setOtdSorting}
+                                  virtualize={false}
+                                  tableClass="w-full border-collapse text-left"
+                                  scrollContainerClass="-mx-2 mt-4 max-h-[160px] overflow-auto rounded-none border-0 shadow-none"
+                                  theadRowClass="sticky top-0 z-10 bg-secondary"
+                                  getRowClass={() =>
+                                    'border-b border-rule-soft last:border-0 hover:bg-secondary/40'
+                                  }
+                                  getRowKey={(l) =>
+                                    `${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`
+                                  }
+                                />
                               )}
 
                               {detailsOpen && p.lignesNon.length === 0 && (
@@ -1522,105 +1686,22 @@ export default function Dashboard(props: DashboardProps) {
                       Aucune ligne en retard.
                     </p>
                   ) : (
-                    <div className="-mx-2 overflow-auto print:overflow-visible">
-                      <table className="w-full border-collapse text-left">
-                        <thead>
-                          <tr className="sticky top-0 bg-card">
-                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              Expé
-                            </th>
-                            <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              J. retard
-                            </th>
-                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              Commande · Client
-                            </th>
-                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              Article · Désignation
-                            </th>
-                            <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              Poste
-                            </th>
-                            <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              Qté
-                            </th>
-                            <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                              Charge
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {kpi.lignes.map((l) => (
-                            <tr
-                              key={`${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`}
-                              className="border-b border-rule-soft last:border-0 hover:bg-secondary/40"
-                            >
-                              <td className="whitespace-nowrap px-2 py-2.5 align-top font-mono text-[12px] font-semibold text-destructive">
-                                {l.dateExp || '—'}
-                              </td>
-                              <td className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-destructive">
-                                {(l.joursRetard ?? 0) > 0 ? `${l.joursRetard} j` : '—'}
-                              </td>
-                              <td className="px-2 py-2.5 align-top">
-                                <div className="font-mono text-[12px] font-bold text-foreground">
-                                  {l.numCommande}
-                                </div>
-                                <div className="font-sans text-[11px] text-muted-foreground">
-                                  {l.client}
-                                </div>
-                              </td>
-                              <td className="px-2 py-2.5 align-top">
-                                <div className="font-mono text-[12px] font-semibold text-brand">
-                                  {l.article}
-                                </div>
-                                <div className="font-sans text-[11px] leading-snug text-secondary-foreground">
-                                  {l.designation || '—'}
-                                </div>
-                              </td>
-                              <td className="px-2 py-2.5 align-top">
-                                {l.postes.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {l.postes.map((p) => (
-                                      <Badge
-                                        key={p}
-                                        variant="secondary"
-                                        className="font-mono text-[10px] font-bold tracking-wide"
-                                      >
-                                        {p}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="font-sans text-[11px] text-muted-foreground/70">
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                              <td
-                                className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground"
-                                title={[
-                                  `Commandée : ${l.qteCommandee}`,
-                                  `Déjà couvert : ${l.qteCommandee - l.qteRestante}`,
-                                  `Reste à faire : ${l.qteRestante}`,
-                                  l.numOfs.length > 0
-                                    ? `OF ${l.numOfs.join(', ')} : ${l.qteFaite} pointés / ${l.qteAProduire} lancés`
-                                    : undefined,
-                                  `Charge : ${l.heures} h`,
-                                ]
-                                  .filter(Boolean)
-                                  .join('\n')}
-                              >
-                                <span className="text-ferme">{l.qteCommandee - l.qteRestante}</span>
-                                <span className="text-muted-foreground">/{l.qteCommandee}</span>
-                              </td>
-                              <td className="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">
-                                {l.heures > 0 ? `${l.heures} h` : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <DataTable
+                      columns={retardLigneColumns}
+                      rows={kpi.lignes}
+                      sorting={retardSorting}
+                      onSortingChange={setRetardSorting}
+                      virtualize={false}
+                      tableClass="w-full border-collapse text-left"
+                      scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
+                      theadRowClass="sticky top-0 z-10 bg-secondary"
+                      getRowClass={() =>
+                        'border-b border-rule-soft last:border-0 hover:bg-secondary/40'
+                      }
+                      getRowKey={(l) =>
+                        `${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`
+                      }
+                    />
                   )}
                 </Card>
               </Tile>
@@ -1716,107 +1797,21 @@ export default function Dashboard(props: DashboardProps) {
                         </button>
                       </div>
 
-                      <div className="-mx-2 overflow-auto print:overflow-visible">
-                        <table className="w-full border-collapse text-left">
-                          <thead>
-                            <tr className="sticky top-0 bg-card">
-                              <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleStockSort('article')}
-                                  className="flex items-center gap-1 hover:text-foreground"
-                                >
-                                  Article
-                                  {stockSortBy === 'article' && (
-                                    <span className="text-[10px]">
-                                      {stockSortDir === 'asc' ? '▲' : '▼'}
-                                    </span>
-                                  )}
-                                </button>
-                              </th>
-                              <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                Désignation
-                              </th>
-                              <th className="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleStockSort('categorie')}
-                                  className="flex items-center gap-1 hover:text-foreground"
-                                >
-                                  Cat.
-                                  {stockSortBy === 'categorie' && (
-                                    <span className="text-[10px]">
-                                      {stockSortDir === 'asc' ? '▲' : '▼'}
-                                    </span>
-                                  )}
-                                </button>
-                              </th>
-                              <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleStockSort('stock')}
-                                  className="ml-auto flex items-center gap-1 hover:text-foreground"
-                                >
-                                  Stock
-                                  {stockSortBy === 'stock' && (
-                                    <span className="text-[10px]">
-                                      {stockSortDir === 'asc' ? '▲' : '▼'}
-                                    </span>
-                                  )}
-                                </button>
-                              </th>
-                              <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                PMP
-                              </th>
-                              <th className="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleStockSort('valeur')}
-                                  className="ml-auto flex items-center gap-1 hover:text-foreground"
-                                >
-                                  Valeur
-                                  {stockSortBy === 'valeur' && (
-                                    <span className="text-[10px]">
-                                      {stockSortDir === 'asc' ? '▲' : '▼'}
-                                    </span>
-                                  )}
-                                </button>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredArticles.map((a) => (
-                              <tr
-                                key={`${a.article}::${a.categorie}`}
-                                onClick={() => setStockArticle(a.article)}
-                                title="Ouvrir le détail de l'article"
-                                className="cursor-pointer border-b border-rule-soft last:border-0 hover:bg-secondary/40"
-                              >
-                                <td className="px-2 py-1.5 align-top font-mono text-[12px] font-semibold text-brand">
-                                  {a.article}
-                                </td>
-                                <td className="px-2 py-1.5 align-top font-sans text-[11px] leading-snug text-secondary-foreground">
-                                  {a.designation || '—'}
-                                </td>
-                                <td className="px-2 py-1.5 align-top">
-                                  <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
-                                    {a.categorie}
-                                  </span>
-                                </td>
-                                <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-foreground">
-                                  {fmtQtyDec.format(a.stock)}
-                                </td>
-                                <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                  {fmtPmp.format(a.pmp)}
-                                </td>
-                                <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] font-bold tabular-nums text-foreground">
-                                  {fmtEuro.format(a.valeur)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <DataTable
+                        columns={stockArticleColumns}
+                        rows={filteredArticles}
+                        sorting={stockSorting}
+                        onSortingChange={setStockSorting}
+                        virtualize={false}
+                        tableClass="w-full border-collapse text-left"
+                        scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
+                        theadRowClass="sticky top-0 z-10 bg-secondary"
+                        getRowClass={() =>
+                          'cursor-pointer border-b border-rule-soft last:border-0 hover:bg-secondary/40'
+                        }
+                        onRowClick={(a) => setStockArticle(a.article)}
+                        getRowKey={(a) => `${a.article}::${a.categorie}`}
+                      />
                     </>
                   )}
                 </Card>

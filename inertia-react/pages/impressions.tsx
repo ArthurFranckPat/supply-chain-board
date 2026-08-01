@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -15,6 +15,7 @@ import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /**
  * Impressions du jour (issue #85, lot 4).
@@ -206,6 +207,124 @@ function JobDetail({ j }: { j: Job }) {
   )
 }
 
+function createJobColumns(deps: {
+  opened: Set<number>
+  toggle: (id: number) => void
+  relaunch: (j: Job) => void
+  relaunching: number | null
+}): ColumnDef<Job>[] {
+  const { opened, toggle, relaunch, relaunching } = deps
+  return [
+    {
+      accessorKey: 'createdAt',
+      header: () => 'Quand',
+      cell: ({ row: { original: j } }) => (
+        <span className="text-muted-foreground">{fmtStamp(j.createdAt)}</span>
+      ),
+    },
+    {
+      accessorKey: 'ofNum',
+      header: () => 'OF',
+      cell: ({ row: { original: j } }) => (
+        <span className="font-mono text-[12px] font-semibold">{j.ofNum}</span>
+      ),
+    },
+    {
+      accessorKey: 'docLabel',
+      header: () => 'Document',
+      cell: ({ row: { original: j } }) => (
+        <>
+          {j.docLabel}
+          {j.attempt > 1 && (
+            <span className="ml-1.5 text-[11px] text-amber-700">réimpression #{j.attempt}</span>
+          )}
+        </>
+      ),
+    },
+    {
+      accessorKey: 'atelierLabel',
+      header: () => 'Atelier',
+      cell: ({ row: { original: j } }) => (
+        <span className="text-muted-foreground">{j.atelierLabel || '—'}</span>
+      ),
+    },
+    {
+      accessorKey: 'destCode',
+      header: () => 'Destination',
+      cell: ({ row: { original: j } }) => (
+        <>
+          <span className="font-mono text-[12px]">{j.destCode || '—'}</span>
+          {j.sandbox && (
+            <span className="ml-1.5 font-mono text-[10px] uppercase text-muted-foreground">
+              sans papier
+            </span>
+          )}
+        </>
+      ),
+    },
+    {
+      id: 'verdict',
+      enableSorting: false,
+      header: () => 'Serveur d’édition',
+      cell: ({ row: { original: j } }) => (
+        <>
+          <Verdict j={j} />
+          {j.jobRank > 0 && (
+            <span className="ml-2 font-mono text-[11px] text-muted-foreground">#{j.jobRank}</span>
+          )}
+        </>
+      ),
+    },
+    {
+      accessorKey: 'origin',
+      header: () => 'Origine',
+      cell: ({ row: { original: j } }) => (
+        <span className="text-muted-foreground">
+          {ORIGINS[j.origin] ?? j.origin}
+          {j.requestedBy ? ` · ${j.requestedBy}` : ''}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      enableSorting: false,
+      header: () => '',
+      cell: ({ row: { original: j } }) => (
+        <span className="inline-flex items-center gap-1.5">
+          {(j.error || j.x3Trace || j.jobDetail) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => toggle(j.id)}
+              title="Cause et trace X3"
+            >
+              {opened.has(j.id) ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              Détail
+            </Button>
+          )}
+          {failed(j) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void relaunch(j)}
+              disabled={relaunching === j.id}
+              title="Relancer ce tirage"
+            >
+              {relaunching === j.id ? (
+                <RefreshCw size={13} className="animate-spin" />
+              ) : (
+                <Printer size={13} />
+              )}
+              Relancer
+            </Button>
+          )}
+        </span>
+      ),
+      meta: { thClass: '', tdClass: 'text-right' },
+    },
+  ]
+}
+
 export default function Impressions(props: PageProps) {
   const [jobs, setJobs] = useState<Job[]>(props.jobs)
   const [period, setPeriod] = useState<number>(DAY)
@@ -217,6 +336,7 @@ export default function Impressions(props: PageProps) {
   const [relaunching, setRelaunching] = useState<number | null>(null)
   /** Tirages dont le détail est déplié. Plusieurs à la fois : on compare. */
   const [opened, setOpened] = useState<Set<number>>(new Set())
+  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'createdAt', desc: true }])
 
   const toggle = (id: number) =>
     setOpened((prev) => {
@@ -283,6 +403,12 @@ export default function Impressions(props: PageProps) {
       setRelaunching(null)
     }
   }
+
+  const columns = useMemo(
+    () => createJobColumns({ opened, toggle, relaunch, relaunching }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [opened, relaunching]
+  )
 
   const reconcile = async () => {
     setBusy(true)
@@ -436,107 +562,25 @@ export default function Impressions(props: PageProps) {
               {failedOnly ? 'Aucun échec sur la période.' : 'Aucun tirage sur la période.'}
             </p>
           ) : (
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-rule text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-2 font-bold">Quand</th>
-                  <th className="px-4 py-2 font-bold">OF</th>
-                  <th className="px-4 py-2 font-bold">Document</th>
-                  <th className="px-4 py-2 font-bold">Atelier</th>
-                  <th className="px-4 py-2 font-bold">Destination</th>
-                  <th className="px-4 py-2 font-bold">Serveur d’édition</th>
-                  <th className="px-4 py-2 font-bold">Origine</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((j) => (
-                  <Fragment key={j.id}>
-                    <tr
-                      className={cn(
-                        'border-b border-rule/60',
-                        opened.has(j.id) && 'border-b-0',
-                        failed(j) && 'bg-red-50/40'
-                      )}
-                    >
-                      <td className="px-4 py-2 text-muted-foreground">{fmtStamp(j.createdAt)}</td>
-                      <td className="px-4 py-2 font-mono text-[12px] font-semibold">{j.ofNum}</td>
-                      <td className="px-4 py-2">
-                        {j.docLabel}
-                        {j.attempt > 1 && (
-                          <span className="ml-1.5 text-[11px] text-amber-700">
-                            réimpression #{j.attempt}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">{j.atelierLabel || '—'}</td>
-                      <td className="px-4 py-2">
-                        <span className="font-mono text-[12px]">{j.destCode || '—'}</span>
-                        {j.sandbox && (
-                          <span className="ml-1.5 font-mono text-[10px] uppercase text-muted-foreground">
-                            sans papier
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        <Verdict j={j} />
-                        {j.jobRank > 0 && (
-                          <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                            #{j.jobRank}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {ORIGINS[j.origin] ?? j.origin}
-                        {j.requestedBy ? ` · ${j.requestedBy}` : ''}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <span className="inline-flex items-center gap-1.5">
-                          {(j.error || j.x3Trace || j.jobDetail) && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => toggle(j.id)}
-                              title="Cause et trace X3"
-                            >
-                              {opened.has(j.id) ? (
-                                <ChevronDown size={13} />
-                              ) : (
-                                <ChevronRight size={13} />
-                              )}
-                              Détail
-                            </Button>
-                          )}
-                          {failed(j) && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void relaunch(j)}
-                              disabled={relaunching === j.id}
-                              title="Relancer ce tirage"
-                            >
-                              {relaunching === j.id ? (
-                                <RefreshCw size={13} className="animate-spin" />
-                              ) : (
-                                <Printer size={13} />
-                              )}
-                              Relancer
-                            </Button>
-                          )}
-                        </span>
-                      </td>
-                    </tr>
-                    {opened.has(j.id) && (
-                      <tr className={cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}>
-                        <td colSpan={8} className="px-4 pb-3 pt-0">
-                          <JobDetail j={j} />
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              columns={columns}
+              rows={jobs}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              virtualize={false}
+              tableClass="w-full text-[13px]"
+              scrollContainerClass="rounded-none border-0 shadow-none"
+              theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
+              getRowClass={(j) => cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}
+              getRowKey={(j) => String(j.id)}
+              renderDetailRow={(j) =>
+                opened.has(j.id) ? (
+                  <div className={cn('w-full px-4 pb-3 pt-0', failed(j) && 'bg-red-50/40')}>
+                    <JobDetail j={j} />
+                  </div>
+                ) : null
+              }
+            />
           )}
 
           <p className="border-t border-rule px-4 py-2 text-[11.5px] italic text-muted-foreground">

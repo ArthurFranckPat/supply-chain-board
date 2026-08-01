@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -15,13 +15,15 @@ import {
 } from '@r/components/expeditions/forecast-types'
 import { TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /**
  * Drill-down jour / différé (issue #104) — même densité que CamionDetailSheet.
  */
 
 const TH =
-  'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground border-b border-rule'
+  'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground'
+const TD = 'px-3 py-2'
 
 function statutTone(s: ForecastLine['statut']): string {
   switch (s) {
@@ -36,7 +38,90 @@ function statutTone(s: ForecastLine['statut']): string {
   }
 }
 
+const forecastColumns: ColumnDef<ForecastLine>[] = [
+  {
+    accessorKey: 'client',
+    header: () => 'Client',
+    cell: ({ row: { original: l } }) => (
+      <span className="font-medium text-foreground">{l.client || '—'}</span>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
+    accessorKey: 'numCommande',
+    header: () => 'Commande',
+    cell: ({ row: { original: l } }) => (
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {l.numCommande}
+        {l.ligne ? `/${l.ligne}` : ''}
+      </span>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
+    accessorKey: 'article',
+    header: () => 'Article',
+    cell: ({ row: { original: l } }) => (
+      <>
+        <div className="font-mono text-[11px] font-semibold text-foreground">{l.article}</div>
+        {l.description ? (
+          <div className="max-w-[200px] truncate text-[10px] text-muted-foreground">
+            {l.description}
+          </div>
+        ) : null}
+      </>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
+    accessorKey: 'qte',
+    header: () => 'Qté',
+    cell: ({ row: { original: l } }) => <span className="font-mono tabular-nums">{l.qte}</span>,
+    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'text-right') },
+  },
+  {
+    accessorKey: 'palTheo',
+    header: () => 'Pal',
+    cell: ({ row: { original: l } }) => (
+      <span className="font-mono font-semibold tabular-nums">{fmtPal(l.palTheo)}</span>
+    ),
+    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'text-right') },
+  },
+  {
+    accessorKey: 'statut',
+    header: () => 'Statut',
+    cell: ({ row: { original: l } }) => (
+      <span className={cn('font-mono text-[10px] font-bold', statutTone(l.statut))}>
+        {STATUT_LABEL[l.statut]}
+        {l.glisse ? ' · glissé' : ''}
+      </span>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
+    accessorKey: 'ofNum',
+    header: () => 'OF',
+    cell: ({ row: { original: l } }) => (
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {l.ofNum ? (
+          <>
+            {l.ofNum}
+            {l.ofDateFin ? (
+              <span className="text-muted-foreground/70"> · {fmtJour(l.ofDateFin)}</span>
+            ) : null}
+          </>
+        ) : (
+          '—'
+        )}
+      </span>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+]
+
 function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) {
+  const [sorting, setSorting] = useState<SortingState[]>([])
+
   if (lines.length === 0) {
     return (
       <p className="px-1 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
@@ -45,65 +130,18 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
     )
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-rule shadow-float">
-      <table className="w-full border-collapse text-[12px]">
-        <thead className="bg-secondary">
-          <tr>
-            <th className={TH}>Client</th>
-            <th className={TH}>Commande</th>
-            <th className={TH}>Article</th>
-            <th className={cn(TH, 'text-right')}>Qté</th>
-            <th className={cn(TH, 'text-right')}>Pal</th>
-            <th className={TH}>Statut</th>
-            <th className={TH}>OF</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((l) => (
-            <tr
-              key={`${l.numCommande}|${l.ligne ?? ''}|${l.article}`}
-              className="border-b border-rule-soft last:border-b-0"
-            >
-              <td className="px-3 py-2 font-medium text-foreground">{l.client || '—'}</td>
-              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                {l.numCommande}
-                {l.ligne ? `/${l.ligne}` : ''}
-              </td>
-              <td className="px-3 py-2">
-                <div className="font-mono text-[11px] font-semibold text-foreground">
-                  {l.article}
-                </div>
-                {l.description ? (
-                  <div className="max-w-[200px] truncate text-[10px] text-muted-foreground">
-                    {l.description}
-                  </div>
-                ) : null}
-              </td>
-              <td className="px-3 py-2 text-right font-mono tabular-nums">{l.qte}</td>
-              <td className="px-3 py-2 text-right font-mono font-semibold tabular-nums">
-                {fmtPal(l.palTheo)}
-              </td>
-              <td className={cn('px-3 py-2 font-mono text-[10px] font-bold', statutTone(l.statut))}>
-                {STATUT_LABEL[l.statut]}
-                {l.glisse ? ' · glissé' : ''}
-              </td>
-              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                {l.ofNum ? (
-                  <>
-                    {l.ofNum}
-                    {l.ofDateFin ? (
-                      <span className="text-muted-foreground/70"> · {fmtJour(l.ofDateFin)}</span>
-                    ) : null}
-                  </>
-                ) : (
-                  '—'
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={forecastColumns}
+      rows={lines}
+      sorting={sorting}
+      onSortingChange={setSorting}
+      virtualize={false}
+      tableClass="w-full border-collapse text-[12px]"
+      scrollContainerClass="overflow-x-auto rounded-lg border border-rule shadow-float"
+      theadRowClass="bg-secondary"
+      getRowClass={() => 'border-b border-rule-soft last:border-b-0'}
+      getRowKey={(l) => `${l.numCommande}|${l.ligne ?? ''}|${l.article}`}
+    />
   )
 }
 
