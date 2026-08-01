@@ -9,12 +9,28 @@ import { Skeleton, SkeletonCard, SkeletonChart, SkeletonRow } from '@r/component
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@r/components/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@r/components/ui/select'
 import { Switch } from '@r/components/ui/switch'
 import { Board } from '@r/components/board/papier-board'
 import { BoardCard } from '@r/components/board/board-card'
 import { ChargeForecast, type ForecastLine } from '@r/components/board/charge-forecast'
-import { ClipboardCheck, Download, RefreshCw, Trash2, SlidersHorizontal, Check, Ban, Pencil, ArrowLeftRight } from 'lucide-react'
+import {
+  ClipboardCheck,
+  Download,
+  RefreshCw,
+  Trash2,
+  SlidersHorizontal,
+  Check,
+  Ban,
+  Pencil,
+  ArrowLeftRight,
+} from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
@@ -343,8 +359,8 @@ export default function DesignSystem() {
               ))}
             </nav>
             <div className="mt-8 rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-muted-foreground">
-              Composants <span className="font-mono text-foreground">ui/*</span> réels du projet, thémés
-              via{' '}
+              Composants <span className="font-mono text-foreground">ui/*</span> réels du projet,
+              thémés via{' '}
               <span className="font-mono text-foreground">
                 {theme === 'navy' ? '.theme-navy' : '.theme-papier'}
               </span>
@@ -366,9 +382,11 @@ export default function DesignSystem() {
                 </span>
               </h1>
               <p className="mt-3 max-w-[620px] text-[14.5px] leading-relaxed text-foreground/80">
-                Les vrais composants du projet, thémés avec le nouveau design system. Chaque primitive
-                ci-dessous est un{' '}
-                <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">ui/*</code>{' '}
+                Les vrais composants du projet, thémés avec le nouveau design system. Chaque
+                primitive ci-dessous est un{' '}
+                <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">
+                  ui/*
+                </code>{' '}
                 réel — la couleur vient du scope{' '}
                 <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">
                   {theme === 'navy' ? '.theme-navy' : '.theme-papier'}
@@ -402,7 +420,9 @@ export default function DesignSystem() {
                   </span>
                 </TypeRow>
                 <TypeRow spec="Display · Fraunces 900 / 34">
-                  <span className="font-fraunces text-[34px] font-black tracking-tight">Semaine 25</span>
+                  <span className="font-fraunces text-[34px] font-black tracking-tight">
+                    Semaine 25
+                  </span>
                 </TypeRow>
                 <TypeRow spec="H1 · Fraunces 700 / 26">
                   <span className="font-fraunces text-[26px] font-bold tracking-tight">
@@ -438,17 +458,21 @@ export default function DesignSystem() {
                 </FieldLabel>
                 <div className="flex flex-wrap items-center gap-3">
                   <Button>
-                    <ClipboardCheck size={17} />Faisabilité
+                    <ClipboardCheck size={17} />
+                    Faisabilité
                   </Button>
                   <Button variant="secondary">
-                    <Download size={17} />Exporter
+                    <Download size={17} />
+                    Exporter
                   </Button>
                   <Button variant="outline">Annuler</Button>
                   <Button variant="ghost">
-                    <RefreshCw size={17} />X3
+                    <RefreshCw size={17} />
+                    X3
                   </Button>
                   <Button variant="destructive">
-                    <Trash2 size={17} />Supprimer
+                    <Trash2 size={17} />
+                    Supprimer
                   </Button>
                   <Button variant="link">Détail</Button>
                 </div>
@@ -550,7 +574,10 @@ export default function DesignSystem() {
                     <FieldLabel>Interrupteur (Switch)</FieldLabel>
                     <div className="flex items-center gap-2 py-1">
                       <Switch id="ds-switch-demo" defaultChecked />
-                      <label htmlFor="ds-switch-demo" className="text-xs font-medium cursor-pointer">
+                      <label
+                        htmlFor="ds-switch-demo"
+                        className="text-xs font-medium cursor-pointer"
+                      >
                         Activer le masque
                       </label>
                     </div>
@@ -572,12 +599,14 @@ export default function DesignSystem() {
                 </FieldLabel>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="success">
-                    <Check size={13} />Ferme
+                    <Check size={13} />
+                    Ferme
                   </Badge>
                   <Badge variant="secondary">Planifié</Badge>
                   <Badge variant="warning">Suggéré</Badge>
                   <Badge variant="destructive">
-                    <Ban size={13} />Sans couverture
+                    <Ban size={13} />
+                    Sans couverture
                   </Badge>
                   <Badge variant="outline">Brouillon</Badge>
                   <Badge variant="default">Default / primary</Badge>
@@ -598,7 +627,8 @@ export default function DesignSystem() {
                     MTS
                   </span>
                   <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold text-suggere">
-                    <Pencil size={12} />Modifié
+                    <Pencil size={12} />
+                    Modifié
                   </span>
                   <span className="flex size-4 items-center justify-center rounded-full bg-ferme text-[10px] font-bold text-card">
                     ✓
@@ -777,12 +807,13 @@ export default function DesignSystem() {
                     Caisse VMC D200
                   </span>
                   <Badge variant="destructive" className="ml-1">
-                    <Ban size={13} />Bloquée ·
-                    MOT-33012 −42
+                    <Ban size={13} />
+                    Bloquée · MOT-33012 −42
                   </Badge>
                   <span className="flex-1" />
                   <Button size="sm">
-                    <ArrowLeftRight size={15} />Replanifier
+                    <ArrowLeftRight size={15} />
+                    Replanifier
                   </Button>
                 </div>
                 <div className="flex items-center gap-0 border-b border-rule-soft bg-card px-4">
@@ -835,13 +866,30 @@ export default function DesignSystem() {
                   title="Aucune rupture"
                   sub="Rien à signaler dans la fenêtre."
                 />
-                <StatePane tone="muted" spin title="Calcul…" sub="Analyse des besoins X3." />
+                <div className="rounded-lg border border-border bg-card">
+                  <LoadingState
+                    variant="orb"
+                    orbState="searching"
+                    title="Calcul…"
+                    description="Analyse des besoins X3."
+                    className="py-9"
+                  />
+                </div>
                 <StatePane
                   tone="destructive"
                   icon="cloud_off"
                   title="X3 injoignable"
                   sub="Données du cache (14:30)."
                 />
+              </div>
+              <div className="mt-4 flex items-center gap-6 rounded-lg border border-border bg-card px-5 py-4">
+                <FieldLabel className="mb-0">Spinner inline</FieldLabel>
+                <Spinner variant="brand" size="sm" />
+                <Spinner variant="brand" size="md" />
+                <Spinner variant="brand" size="lg" />
+                <Separator orientation="vertical" className="h-6" />
+                <FieldLabel className="mb-0">Skeleton</FieldLabel>
+                <Skeleton className="h-4 w-28" />
               </div>
             </Section>
 
@@ -870,9 +918,9 @@ export default function DesignSystem() {
                       : 'Cliquez une seconde date pour fermer la plage'}
                   </div>
                   <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-foreground/70">
-                    Mode plage : 1er clic = début, survol = aperçu, 2e clic = fin (ordre auto). Barre
-                    brand-soft continue entre les bornes, qui sont remplies terra. Existe aussi en
-                    mode date unique (<code className="font-mono">mode="single"</code>).
+                    Mode plage : 1er clic = début, survol = aperçu, 2e clic = fin (ordre auto).
+                    Barre brand-soft continue entre les bornes, qui sont remplies terra. Existe
+                    aussi en mode date unique (<code className="font-mono">mode="single"</code>).
                   </p>
                 </div>
               </div>
@@ -890,8 +938,8 @@ export default function DesignSystem() {
             {/* ═══ 12 Charge long-terme ═══ */}
             <Section id="charge" n="12" title="Charge long-terme" last>
               Projection de charge sur 6 mois : barres empilées Ferme / Planifié / Suggéré, seul le
-              sommet réel de la pile est arrondi (le segment Suggéré en base reste net). Sélecteur de
-              ligne + granularité mois/semaine, moyenne mobile terra et pic repérés.
+              sommet réel de la pile est arrondi (le segment Suggéré en base reste net). Sélecteur
+              de ligne + granularité mois/semaine, moyenne mobile terra et pic repérés.
               <div className="mt-5">
                 <ChargeForecast lines={FORECAST_LINES} monthLabels={FORECAST_MONTHS} />
               </div>
@@ -926,10 +974,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section
-      id={id}
-      className={`scroll-mt-6 ${last ? '' : 'border-t border-rule-soft'} py-9`}
-    >
+    <section id={id} className={`scroll-mt-6 ${last ? '' : 'border-t border-rule-soft'} py-9`}>
       <div className="mb-2 flex items-baseline gap-3">
         <span className="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-brand">
           {n}
@@ -944,20 +989,10 @@ function Section({
 }
 
 function Frame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-6">
-      {children}
-    </div>
-  )
+  return <div className="rounded-lg border border-border bg-card p-6">{children}</div>
 }
 
-function FieldLabel({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
+function FieldLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span
       className={`mb-2 block font-mono text-[10px] font-semibold text-muted-foreground ${className ?? ''}`}
@@ -1005,7 +1040,9 @@ function SwatchGroup({
             <div className="px-3 py-2">
               <div className="font-mono text-[11px] font-semibold">{s.name}</div>
               <div className="font-mono text-[10px] text-muted-foreground">{s.hex}</div>
-              <div className="font-fraunces text-[10px] italic text-muted-foreground/80">{s.use}</div>
+              <div className="font-fraunces text-[10px] italic text-muted-foreground/80">
+                {s.use}
+              </div>
             </div>
           </div>
         ))}
@@ -1014,13 +1051,7 @@ function SwatchGroup({
   )
 }
 
-function Verdot({
-  className,
-  children,
-}: {
-  className?: string
-  children: React.ReactNode
-}) {
+function Verdot({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 text-[10px] font-semibold ${className ?? ''}`}
@@ -1070,7 +1101,8 @@ function RuptureRow(props: {
       <div>
         {props.none ? (
           <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-destructive">
-            <Ban size={13} />Aucune couverture
+            <Ban size={13} />
+            Aucune couverture
           </span>
         ) : (
           <>
@@ -1093,7 +1125,9 @@ function RuptureRow(props: {
 
 function Meta(props: { k: string; v: string; mono?: boolean; last?: boolean }) {
   return (
-    <div className={`flex flex-col py-2 ${props.last ? '' : 'mr-4 border-r border-rule-soft pr-4'}`}>
+    <div
+      className={`flex flex-col py-2 ${props.last ? '' : 'mr-4 border-r border-rule-soft pr-4'}`}
+    >
       <span className="font-mono text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
         {props.k}
       </span>
@@ -1121,7 +1155,9 @@ function StatePane(props: {
       {props.spin ? (
         <Spinner variant="brand" size="lg" />
       ) : (
-        <div className={`flex size-11 items-center justify-center rounded-full ${toneCls[props.tone]}`}>
+        <div
+          className={`flex size-11 items-center justify-center rounded-full ${toneCls[props.tone]}`}
+        >
           <DynamicIcon name={props.icon} size={26} />
         </div>
       )}

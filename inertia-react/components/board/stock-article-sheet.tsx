@@ -238,7 +238,9 @@ function useAnimatedFracs(target: number[][]): number[][] {
       const k = Math.min(1, (now - t0) / 450)
       const e = 1 - Math.pow(1 - k, 3)
       setDisplay(
-        target.map((tv, i) => tv.map((v, j) => (start[i]?.[j] ?? 0) + (v - (start[i]?.[j] ?? 0)) * e))
+        target.map((tv, i) =>
+          tv.map((v, j) => (start[i]?.[j] ?? 0) + (v - (start[i]?.[j] ?? 0)) * e)
+        )
       )
       if (k < 1) raf = requestAnimationFrame(tick)
     }
@@ -324,10 +326,7 @@ function HistoryChart({
   useEffect(() => setHover(null), [points])
 
   // ----- Échelles stables (valeurs cibles) + géométrie animée (fractions) -----
-  const targets = useMemo(
-    () => points.map((p) => [p.line, p.inn, p.out]),
-    [points]
-  )
+  const targets = useMemo(() => points.map((p) => [p.line, p.inn, p.out]), [points])
   // Borne ronde plutôt que « max × 1,08 » : elle sert de graduation lisible et
   // fournit la même marge haute.
   const lineMax = useMemo(() => niceCeil(Math.max(1, ...targets.map((t) => t[0]))), [targets])
@@ -669,7 +668,12 @@ function HistoryChart({
                 strokeWidth={1}
               >
                 <animate attributeName="r" values="3;9" dur="2.4s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.35;0" dur="2.4s" repeatCount="indefinite" />
+                <animate
+                  attributeName="opacity"
+                  values="0.35;0"
+                  dur="2.4s"
+                  repeatCount="indefinite"
+                />
               </circle>
             )}
           </>
@@ -1062,7 +1066,9 @@ function ParamsBar({ detail }: { detail: StockArticleDetail }) {
       />
     )
   if (l.famille)
-    appro.push(<LogItem key="fam" label="Famille" value={l.famille} title="Famille d'usage (YFAMSTAT7)" />)
+    appro.push(
+      <LogItem key="fam" label="Famille" value={l.famille} title="Famille d'usage (YFAMSTAT7)" />
+    )
 
   const conso: ReactNode[] = []
   if (ind.sorties12m > 0)
@@ -1202,6 +1208,7 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
       >
         {loading ? (
           <LoadingState
+            variant="orb"
             title="Chargement du stock..."
             description="Calcul des mouvements et projections de stock"
           />
@@ -1248,13 +1255,19 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                     }
                   />
                   <span className="h-6 w-px bg-border" />
-                  <Metric label="PMP" value={fmtPmp.format(detail.pmp)} title="Prix moyen pondéré (€ / unité)" />
+                  <Metric
+                    label="PMP"
+                    value={fmtPmp.format(detail.pmp)}
+                    title="Prix moyen pondéré (€ / unité)"
+                  />
                   <span className="h-6 w-px bg-border" />
                   <Metric label="Valeur" value={fmtEuro.format(detail.valeur)} />
                   <span className="h-6 w-px bg-border" />
                   <Metric
                     label="Δ 12 mois"
-                    value={delta === null ? '—' : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))}`}
+                    value={
+                      delta === null ? '—' : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))}`
+                    }
                     title="Variation du stock entre la première semaine non nulle et la dernière semaine affichée"
                   />
                   {/* Les totaux 52 semaines ont rejoint le verdict : ils

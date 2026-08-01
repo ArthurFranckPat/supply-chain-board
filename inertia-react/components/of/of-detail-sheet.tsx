@@ -30,11 +30,7 @@ import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
-import {
-  OfPrintVerdict,
-  OfReprintButton,
-  type PrintReport,
-} from './of-print-verdict'
+import { OfPrintVerdict, OfReprintButton, type PrintReport } from './of-print-verdict'
 
 export function OfDetailSheet(props: {
   num: string | null
@@ -201,6 +197,7 @@ export function OfDetailSheet(props: {
             </div>
           ) : (
             <LoadingState
+              variant="orb"
               title="Chargement de l'ordre de fabrication..."
               description="Récupération des détails, composants et opérations"
             />
@@ -437,6 +434,8 @@ export function OfDetailSheet(props: {
               {tab === 'diagnostic' &&
                 (diagLoading ? (
                   <LoadingState
+                    variant="orb"
+                    orbState="solving"
                     compact
                     title="Diagnostic en cours..."
                     description="Analyse des besoins composants et chaînes de dépendance"

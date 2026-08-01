@@ -327,6 +327,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       >
         {loading ? (
           <LoadingState
+            variant="orb"
             title="Chargement de la période..."
             description="Récupération du détail de charge par opération"
           />
