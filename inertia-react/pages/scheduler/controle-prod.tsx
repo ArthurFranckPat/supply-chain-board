@@ -2,8 +2,9 @@
  * Page « Contrôle prod » — OF dont la déclaration PF dépasse le pointage
  * atelier (issue #95). Coquille Inertia + fetch JSON différé, calque /ruptures.
  */
-import { useMemo, useState } from 'react'
-import { Search, TriangleAlert, LoaderCircle, CircleX, RefreshCw } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Search, TriangleAlert, CircleX, RefreshCw } from 'lucide-react'
+import { LoadingState } from '@r/components/ui/loading-state'
 
 import AppLayout from '@r/layouts/app'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
@@ -18,6 +19,7 @@ import {
 } from '@r/components/vision/toolbar'
 import { route } from '@r/lib/routes'
 import { router } from '@inertiajs/react'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 type Source = 'live' | 'ouvert'
 
@@ -77,6 +79,153 @@ function fmtFr(iso: string | null): string {
   return `${m[3]}/${m[2]}/${m[1].slice(2)}`
 }
 
+/** Tri générique une colonne — repli sur l'ordre reçu du serveur si aucun tri actif. */
+function sortByColumn<T>(rows: T[], sorting: SortingState[]): T[] {
+  const s = sorting[0]
+  if (!s) return rows
+  const dir = s.desc ? -1 : 1
+  return [...rows].sort((a, b) => {
+    const av = a[s.id as keyof T]
+    const bv = b[s.id as keyof T]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av ?? '').localeCompare(String(bv ?? '')) * dir
+  })
+}
+
+function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleProdRow>[] {
+  return [
+    {
+      accessorKey: 'numOf',
+      header: () => 'OF',
+      cell: ({ row: { original: r } }) => (
+        <>
+          <button
+            type="button"
+            className="cursor-pointer font-mono text-[12px] font-bold tracking-tight text-brand hover:underline"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelectOf(r.numOf)
+            }}
+          >
+            {r.numOf}
+          </button>
+          <div className="mt-0.5 max-w-[14rem] truncate font-mono text-[11px] text-muted-foreground">
+            <span className="font-semibold text-foreground">{r.article}</span>
+            {r.designation && <span className="font-sans font-normal"> · {r.designation}</span>}
+          </div>
+          {(r.planner || r.site) && (
+            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
+              {[r.site, r.planner].filter(Boolean).join(' · ')}
+            </div>
+          )}
+        </>
+      ),
+      meta: { tdClass: 'align-top' },
+    },
+    {
+      accessorKey: 'qtyLancee',
+      header: () => 'Lancée',
+      cell: ({ row: { original: r } }) => <Qty n={r.qtyLancee} muted />,
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'qtyDeclaree',
+      header: () => 'Déclaré',
+      cell: ({ row: { original: r } }) => <Qty n={r.qtyDeclaree} />,
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'qtyPointee',
+      header: () => 'Pointé',
+      cell: ({ row: { original: r } }) => <Qty n={r.qtyPointee} muted />,
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'ecart',
+      header: () => 'Écart',
+      cell: ({ row: { original: r } }) => (
+        <span className="text-[14px] font-bold tabular-nums tracking-tight text-destructive">
+          +{fmt(r.ecart)}
+          <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">u</span>
+        </span>
+      ),
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'qteRestante',
+      header: () => 'Reste',
+      cell: ({ row: { original: r } }) =>
+        r.qteRestante > 0 ? <Qty n={r.qteRestante} muted /> : <Dash />,
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'derniereOpPointee',
+      header: () => 'Op',
+      cell: ({ row: { original: r } }) =>
+        r.derniereOpPointee != null ? (
+          <>
+            <span className="font-semibold text-foreground">{r.derniereOpPointee}</span>
+            <span className="text-muted-foreground/70">/{r.nbOperations}</span>
+          </>
+        ) : (
+          '—'
+        ),
+      meta: { tdClass: 'align-top font-mono text-[11px] tabular-nums text-muted-foreground' },
+    },
+    {
+      accessorKey: 'dateDebutIso',
+      header: () => 'Début',
+      cell: ({ row: { original: r } }) => fmtFr(r.dateDebutIso),
+      meta: { tdClass: 'align-top font-mono text-[11px] tabular-nums text-muted-foreground' },
+    },
+    {
+      accessorKey: 'dateFinIso',
+      header: () => 'Fin',
+      cell: ({ row: { original: r } }) => fmtFr(r.dateFinIso),
+      meta: { tdClass: 'align-top font-mono text-[11px] tabular-nums text-muted-foreground' },
+    },
+    {
+      accessorKey: 'datePremierSuiviIso',
+      header: () => '1er suivi',
+      cell: ({ row: { original: r } }) => fmtFr(r.datePremierSuiviIso),
+      meta: { tdClass: 'align-top font-mono text-[11px] tabular-nums text-muted-foreground' },
+    },
+    {
+      accessorKey: 'dateDernierSuiviIso',
+      header: () => 'Dern. suivi',
+      cell: ({ row: { original: r } }) => fmtFr(r.dateDernierSuiviIso),
+      meta: {
+        tdClass: 'align-top font-mono text-[11px] font-semibold tabular-nums text-foreground',
+      },
+    },
+    {
+      accessorKey: 'mfgStaLabel',
+      header: () => 'Statut',
+      cell: ({ row: { original: r } }) => (
+        <div className="max-w-[7rem] truncate text-[11px] font-medium text-foreground">
+          {r.mfgStaLabel ?? '—'}
+        </div>
+      ),
+      meta: { tdClass: 'align-top' },
+    },
+    {
+      accessorKey: 'source',
+      header: () => 'Source',
+      cell: ({ row: { original: r } }) => (
+        <span
+          className={cn(
+            'inline-flex h-5 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wide',
+            r.source === 'live' ? 'bg-ferme/15 text-ferme' : 'bg-suggere/15 text-[#b54800]'
+          )}
+        >
+          {r.source === 'live' ? 'Live' : 'Ouvert'}
+        </span>
+      ),
+      meta: { tdClass: 'align-top' },
+    },
+  ]
+}
+
 interface Props {
   rowsHref: string
 }
@@ -86,6 +235,7 @@ export default function ControleProd(props: Props) {
   const [sourceFilter, setSourceFilter] = useState<Source | 'all'>('all')
   const [selectedOf, setSelectedOf] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [sorting, setSorting] = useState<SortingState[]>([])
 
   const { data, loading, error } = useTimedFetch<ControleProdResponse>(props.rowsHref)
   const viewData = data ?? EMPTY
@@ -102,12 +252,16 @@ export default function ControleProd(props: Props) {
     })
   }, [viewData.rows, query, sourceFilter])
 
+  const sorted = useMemo(() => sortByColumn(filtered, sorting), [filtered, sorting])
+
   const sumVisible = useMemo(() => filtered.reduce((s, r) => s + r.ecart, 0), [filtered])
 
-  const onSelectOf = (num: string) => {
+  const onSelectOf = useCallback((num: string) => {
     setSelectedOf(num)
     setDetailOpen(true)
-  }
+  }, [])
+
+  const columns = useMemo(() => createColumns(onSelectOf), [onSelectOf])
 
   const refresh = () => {
     router.visit(route('controle_prod.index') + '?refresh=1', { preserveScroll: true })
@@ -192,140 +346,45 @@ export default function ControleProd(props: Props) {
         )}
 
         {loading && !data ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-[13px] font-medium">Scan des écarts…</span>
-          </div>
+          <LoadingState
+            className="flex-1"
+            variant="orb"
+            orbState="searching"
+            title="Scan des écarts…"
+          />
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
             <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
             Échec du chargement.
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto px-7 pb-7">
+          <div className="flex min-h-0 flex-1 flex-col px-7 pb-7">
             {filtered.length === 0 ? (
               <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
                 Aucun écart sur ce filtre.
               </div>
             ) : (
               <>
-                <div className="sticky top-0 z-[1] bg-background pb-2 pt-2 text-[11px] text-muted-foreground">
+                <div className="flex-none pb-2 pt-2 text-[11px] text-muted-foreground">
                   {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · Σ écart visible{' '}
                   <span className="font-semibold text-destructive">+{fmt(sumVisible)}</span>
                 </div>
-                <table className="w-full min-w-[1100px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-border text-left text-[11px] font-semibold text-muted-foreground">
-                      <th className="px-2 py-2.5">OF</th>
-                      <th className="px-2 py-2.5 text-right">Lancée</th>
-                      <th className="px-2 py-2.5 text-right">Déclaré</th>
-                      <th className="px-2 py-2.5 text-right">Pointé</th>
-                      <th className="px-2 py-2.5 text-right">Écart</th>
-                      <th className="px-2 py-2.5 text-right">Reste</th>
-                      <th className="px-2 py-2.5">Op</th>
-                      <th className="px-2 py-2.5">Début</th>
-                      <th className="px-2 py-2.5">Fin</th>
-                      <th className="px-2 py-2.5">1er suivi</th>
-                      <th className="px-2 py-2.5">Dern. suivi</th>
-                      <th className="px-2 py-2.5">Statut</th>
-                      <th className="px-2 py-2.5">Source</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((r) => (
-                      <tr
-                        key={r.numOf}
-                        className="cursor-pointer border-b border-rule-soft transition-colors hover:bg-secondary/80"
-                        onClick={() => onSelectOf(r.numOf)}
-                      >
-                        <td className="px-2 py-2 align-top">
-                          <button
-                            type="button"
-                            className="cursor-pointer font-mono text-[12px] font-bold tracking-tight text-brand hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onSelectOf(r.numOf)
-                            }}
-                          >
-                            {r.numOf}
-                          </button>
-                          <div className="mt-0.5 max-w-[14rem] truncate font-mono text-[11px] text-muted-foreground">
-                            <span className="font-semibold text-foreground">{r.article}</span>
-                            {r.designation && (
-                              <span className="font-sans font-normal"> · {r.designation}</span>
-                            )}
-                          </div>
-                          {(r.planner || r.site) && (
-                            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
-                              {[r.site, r.planner].filter(Boolean).join(' · ')}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-right align-top">
-                          <Qty n={r.qtyLancee} muted />
-                        </td>
-                        <td className="px-2 py-2 text-right align-top">
-                          <Qty n={r.qtyDeclaree} />
-                        </td>
-                        <td className="px-2 py-2 text-right align-top">
-                          <Qty n={r.qtyPointee} muted />
-                        </td>
-                        <td className="px-2 py-2 text-right align-top">
-                          <span className="text-[14px] font-bold tabular-nums tracking-tight text-destructive">
-                            +{fmt(r.ecart)}
-                            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">
-                              u
-                            </span>
-                          </span>
-                        </td>
-                        <td className="px-2 py-2 text-right align-top">
-                          {r.qteRestante > 0 ? <Qty n={r.qteRestante} muted /> : <Dash />}
-                        </td>
-                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                          {r.derniereOpPointee != null ? (
-                            <>
-                              <span className="font-semibold text-foreground">
-                                {r.derniereOpPointee}
-                              </span>
-                              <span className="text-muted-foreground/70">/{r.nbOperations}</span>
-                            </>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                          {fmtFr(r.dateDebutIso)}
-                        </td>
-                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                          {fmtFr(r.dateFinIso)}
-                        </td>
-                        <td className="px-2 py-2 align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                          {fmtFr(r.datePremierSuiviIso)}
-                        </td>
-                        <td className="px-2 py-2 align-top font-mono text-[11px] font-semibold tabular-nums text-foreground">
-                          {fmtFr(r.dateDernierSuiviIso)}
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <div className="max-w-[7rem] truncate text-[11px] font-medium text-foreground">
-                            {r.mfgStaLabel ?? '—'}
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <span
-                            className={cn(
-                              'inline-flex h-5 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wide',
-                              r.source === 'live'
-                                ? 'bg-ferme/15 text-ferme'
-                                : 'bg-suggere/15 text-[#b54800]'
-                            )}
-                          >
-                            {r.source === 'live' ? 'Live' : 'Ouvert'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="min-h-0 flex-1">
+                  <DataTable
+                    columns={columns}
+                    rows={sorted}
+                    sorting={sorting}
+                    onSortingChange={setSorting}
+                    tableClass="w-full min-w-[1100px] border-collapse"
+                    scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
+                    theadRowClass="sticky top-0 z-10 bg-secondary"
+                    getRowClass={() =>
+                      'cursor-pointer border-b border-rule-soft transition-colors hover:bg-secondary/80'
+                    }
+                    onRowClick={(r) => onSelectOf(r.numOf)}
+                    getRowKey={(r) => r.numOf}
+                  />
+                </div>
               </>
             )}
           </div>
