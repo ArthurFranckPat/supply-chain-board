@@ -10,6 +10,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { cacheNs } from '#services/cache_ns'
 import boardDataset from '#services/board_dataset'
 import { loadOrderImpacts, type PhantomOf } from '#services/order_impacts_loader'
+import { loadControleProdData } from '#services/controle_prod_loader'
 import {
   buildShortageRows,
   fabricationDaysFromHours,
@@ -240,11 +241,29 @@ export async function loadShortageRowsData(params: {
  */
 export async function loadShortageRows(ctx: HttpContext) {
   const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-  const { rows, stats, phantomOfs, x3Error } = await loadShortageRowsData({
-    start: ctx.request.input('start') as string | undefined,
-    days: daysParam,
-    force: !!ctx.request.input('refresh'),
-  })
+  // Parallèle : loadControleProdData a son propre cache (2 min, ns 'controle-prod'),
+  // indépendant du cache 'ruptures' — pas de raison de le sérialiser derrière.
+  const [{ rows, stats, phantomOfs, x3Error }, controleProd] = await Promise.all([
+    loadShortageRowsData({
+      start: ctx.request.input('start') as string | undefined,
+      days: daysParam,
+      force: !!ctx.request.input('refresh'),
+    }),
+    loadControleProdData(),
+  ])
+
+  // Rattache un manque composant à l'OF qui sur-déclare ce même article en PF (issue #95,
+  // point 2) : les pièces déclarées en stock sans conso composant réelle peuvent gonfler
+  // le stock compté ailleurs, ou masquer une conso qui n'a en fait jamais eu lieu — dans
+  // les deux cas la rupture visible ici a une cause probable hors écran. Cross-référencé
+  // par ARTICLE (le PF sur-déclaré = potentiellement le composant qui manque plus loin),
+  // pas par OF : les deux OF n'ont typiquement aucun lien de peg entre eux.
+  const overDeclaredByArticle = new Map<string, { numOf: string; ecart: number }[]>()
+  for (const r of controleProd.rows) {
+    const arr = overDeclaredByArticle.get(r.article) ?? []
+    arr.push({ numOf: r.numOf, ecart: r.ecart })
+    overDeclaredByArticle.set(r.article, arr)
+  }
 
   const displayRows = rows.map((r) => {
     const preset = VERDICT_PRESET[r.verdict]
@@ -256,6 +275,9 @@ export async function loadShortageRows(ctx: HttpContext) {
       qteManquanteNum: r.qteManquante,
       numOf: r.numOf,
       ofHref: `/api/v1/planning/ofs/${r.numOf}/detail`,
+      // OF(s) qui sur-déclarent ce même composant en PF ailleurs — cause probable de
+      // rupture invisible depuis cet écran (issue #95, point 2).
+      overDeclaration: overDeclaredByArticle.get(r.component) ?? null,
       articleParent: r.articleParent,
       articleParentDesc: r.articleParentDesc,
       numCommande: r.numCommande ?? '—',

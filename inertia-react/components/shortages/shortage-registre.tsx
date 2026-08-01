@@ -6,6 +6,7 @@
  * est géré localement par le DataTable.
  */
 import { useState, type ReactNode } from 'react'
+import { TriangleAlert } from 'lucide-react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { cn } from '@r/lib/utils'
@@ -29,8 +30,19 @@ export function ShortageRegistre({
       header: () => 'Composant',
       cell: ({ row: { original: row } }) => (
         <>
-          <div className="font-mono text-[14px] font-bold tracking-tight text-foreground">
-            {row.component}
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-[14px] font-bold tracking-tight text-foreground">
+              {row.component}
+            </span>
+            {row.overDeclaration && row.overDeclaration.length > 0 && (
+              <span
+                title={`Sur-déclaré ailleurs : ${row.overDeclaration
+                  .map((o) => `${o.numOf} (écart ${o.ecart})`)
+                  .join(', ')} — stock compté potentiellement faux`}
+              >
+                <TriangleAlert size={13} strokeWidth={2} className="shrink-0 text-suggere" />
+              </span>
+            )}
           </div>
           <div className="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
             {row.componentDesc}
@@ -50,7 +62,9 @@ export function ShortageRegistre({
           )}
         >
           {row.qteManquante}
-          <span className="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">u</span>
+          <span className="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">
+            u
+          </span>
         </span>
       ),
       meta: { thClass: `w-[80px] ${TH_R}`, tdClass: `w-[80px] whitespace-nowrap text-right ${TD}` },

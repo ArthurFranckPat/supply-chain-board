@@ -19,6 +19,11 @@ export interface ShortageDisplayRow {
   qteManquanteNum: number
   numOf: string
   ofHref: string
+  /**
+   * OF(s) qui sur-déclarent ce même composant en PF ailleurs (issue #95) — cause
+   * probable de rupture invisible depuis cet écran. null si aucun signal.
+   */
+  overDeclaration: { numOf: string; ecart: number }[] | null
   articleParent: string
   articleParentDesc: string
   numCommande: string

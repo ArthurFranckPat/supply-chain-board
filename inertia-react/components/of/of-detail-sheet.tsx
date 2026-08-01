@@ -398,6 +398,14 @@ export function OfDetailSheet(props: {
                       <span className="truncate text-[12px] text-foreground/80">{row.name}</span>
                       <span className="text-right font-mono text-[12px] text-foreground">
                         {row.need} {row.unit}
+                        {row.consumed != null && row.required != null && (
+                          <span
+                            className="ml-1 block font-mono text-[9px] font-normal text-muted-foreground"
+                            title="Conso réelle (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY)"
+                          >
+                            conso {row.consumed}/{row.required}
+                          </span>
+                        )}
                       </span>
                       <span className="text-right font-mono text-[12px] text-muted-foreground">
                         {row.stock}

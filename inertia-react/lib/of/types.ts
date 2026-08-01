@@ -25,6 +25,12 @@ export interface BomRow {
    * Non nul → ligne « ok » mais non lançable tant que le contrôle réception n'a pas libéré.
    */
   qc?: string | null
+  /**
+   * Conso réelle (USEQTY) / besoin théorique total (RETQTY) — issue #95. null si BOM
+   * théorique (OF non éclaté, pas de MFGMAT).
+   */
+  consumed?: string | null
+  required?: string | null
 }
 
 export interface OfDetail {

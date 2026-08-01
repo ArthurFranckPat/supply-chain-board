@@ -49,6 +49,13 @@ interface BomRow {
    * contrôle réception n'a pas libéré le stock. null = aucune dépendance au CQ.
    */
   qc: string | null
+  /**
+   * Conso réelle (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY) — issue #95 :
+   * révèle au clic un écart déclaration PF / consommation matière (ex. F326-02036, 480
+   * déclaré vs 370 consommé). null si BOM théorique (OF non éclaté, pas de MFGMAT).
+   */
+  consumed: string | null
+  required: string | null
 }
 
 interface StatItem {
@@ -567,6 +574,8 @@ export default class SchedulerController {
             ok: short <= 0,
             shortage: short > 0 ? `−${short.toFixed(0)}` : null,
             qc: qcCovered > 0 ? qcCovered.toFixed(0) : null,
+            consumed: m.consumed.toFixed(m.consumed % 1 === 0 ? 0 : 2),
+            required: m.required.toFixed(m.required % 1 === 0 ? 0 : 2),
           }
         })
       }
@@ -713,6 +722,8 @@ export default class SchedulerController {
         ok: short <= 0,
         shortage: short > 0 ? `−${nFr(short).toFixed(0)}` : null,
         qc: qcCovered > 0 ? nFr(qcCovered).toFixed(0) : null,
+        consumed: null,
+        required: null,
       }
     })
   }
