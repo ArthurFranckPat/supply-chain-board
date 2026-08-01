@@ -3,8 +3,7 @@
  * atelier (issue #95). Coquille Inertia + fetch JSON différé, calque /ruptures.
  */
 import { useCallback, useMemo, useState } from 'react'
-import { Search, TriangleAlert, CircleX, RefreshCw } from 'lucide-react'
-import { LoadingState } from '@r/components/ui/loading-state'
+import { Search, TriangleAlert, LoaderCircle, CircleX, RefreshCw } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
@@ -346,12 +345,10 @@ export default function ControleProd(props: Props) {
         )}
 
         {loading && !data ? (
-          <LoadingState
-            className="flex-1"
-            variant="orb"
-            orbState="searching"
-            title="Scan des écarts…"
-          />
+          <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
+            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
+            <span className="text-[13px] font-medium">Scan des écarts…</span>
+          </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
             <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
