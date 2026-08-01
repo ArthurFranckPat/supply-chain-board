@@ -48,6 +48,12 @@
   --text-2xs--line-height: 1.2;
   --text-3xs: 0.5625rem;           /* 9px — décoratif uniquement */
   --text-3xs--line-height: 1.1;
+  --text-4xs: 0.5rem;              /* 8px — tags OF, badges quantité (tableau dense) */
+  --text-4xs--line-height: 1.1;
+  --text-1.5xs: 0.6875rem;         /* 11px — valeurs secondaires (couverture, dates) */
+  --text-1.5xs--line-height: 1.25;
+  --text-cell-lg: 0.8125rem;       /* 13px — valeurs emphase (qté, charge, expé) */
+  --text-cell-lg--line-height: 1;
 
   /* ── Fraunces — NEUTRALISÉ sous le runtime React (thème Airbnb). ──
      Airbnb = jamais de serif. La webfont Fraunces n'est de toute façon pas

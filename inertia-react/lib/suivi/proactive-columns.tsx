@@ -40,17 +40,17 @@ export function createProactiveColumns({
       header: 'Commande · Client',
       cell: ({ row, getValue }) => (
         <>
-          <span className="font-mono text-[12px] font-bold tracking-tight text-foreground">
+          <span className="font-mono text-xs font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="ml-1.5 text-[10px] text-muted-foreground">
+          <span className="ml-1.5 text-2xs text-muted-foreground">
             {row.original.client || '—'}
           </span>
         </>
       ),
       meta: {
         thClass:
-          'w-[150px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[150px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -59,17 +59,17 @@ export function createProactiveColumns({
       header: 'Article · Désignation',
       cell: ({ row, getValue }) => (
         <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="shrink-0 font-mono text-[12px] font-bold tracking-tight text-foreground">
+          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="truncate text-[10px] text-muted-foreground/70">
+          <span className="truncate text-2xs text-muted-foreground/70">
             {row.original.designation || '—'}
           </span>
         </div>
       ),
       meta: {
         thClass:
-          'w-[200px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[200px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -86,7 +86,7 @@ export function createProactiveColumns({
               : 'Normal — Ligne standard'
         return (
           <span
-            className="cursor-help rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
+            className="cursor-help rounded bg-secondary px-[7px] py-0.5 font-mono text-2xs font-semibold text-muted-foreground"
             title={title}
           >
             {val}
@@ -95,7 +95,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[56px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[56px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -106,13 +106,13 @@ export function createProactiveColumns({
         const code = getValue() as string
         if (!code)
           return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground/70">
               —
             </span>
           )
         return (
           <span
-            className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
+            className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-2xs font-semibold text-muted-foreground"
             title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
           >
             {code}
@@ -121,7 +121,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[90px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[90px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -129,14 +129,14 @@ export function createProactiveColumns({
       accessorKey: 'qteRestante',
       header: 'Qté',
       cell: ({ getValue }) => (
-        <span className="font-mono text-[13px] font-bold leading-none tracking-tight text-foreground tabular-nums">
+        <span className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums">
           {getValue() as number}
-          <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">u</span>
+          <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
         </span>
       ),
       meta: {
         thClass:
-          'w-[100px] px-4 py-[7px] text-right font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[100px] px-4 py-[7px] text-right font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'whitespace-nowrap px-4 py-[7px] text-right align-middle',
       },
     },
@@ -147,11 +147,13 @@ export function createProactiveColumns({
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
           <div className="leading-tight">
-            <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
+            <div className="font-mono text-1.5xs font-semibold text-foreground">
+              {(getValue() as string) || '—'}
+            </div>
             {rel && (
               <div
                 className={cn(
-                  'font-sans text-[9px] font-semibold',
+                  'font-sans text-3xs font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
                     : rel.label === "Aujourd'hui"
@@ -169,9 +171,9 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[76px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[76px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass:
-          'whitespace-nowrap px-4 py-[7px] align-middle font-mono text-[12.5px] font-semibold text-foreground',
+          'whitespace-nowrap px-4 py-[7px] align-middle font-mono text-cell-lg font-semibold text-foreground',
       },
     },
     {
@@ -191,12 +193,13 @@ export function createProactiveColumns({
                     <button
                       type="button"
                       className={cn(
-                        'truncate font-mono text-[10px] font-semibold leading-none',
+                        'truncate rounded font-mono text-2xs font-semibold leading-none outline-ring',
                         onSelectOf
-                          ? 'text-foreground underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:text-foreground/70'
+                          ? 'text-foreground underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1'
                           : 'text-secondary-foreground'
                       )}
                       disabled={!onSelectOf}
+                      aria-label={onSelectOf ? `Détail OF ${of.numOf} (faisabilité)` : of.numOf}
                       title={onSelectOf ? `Détail OF ${of.numOf} (faisabilité)` : of.numOf}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -218,14 +221,14 @@ export function createProactiveColumns({
                             : 'OF démarré — pointage atelier en cours'
                         }
                       >
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ferme opacity-75" />
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ferme opacity-75 motion-reduce:animate-none" />
                         <span className="relative inline-flex size-1.5 rounded-full bg-ferme" />
                       </span>
                     )}
                     {st && (
                       <span
                         className={cn(
-                          'shrink-0 cursor-help rounded px-1 py-px font-mono text-[8px] font-bold leading-none',
+                          'shrink-0 cursor-help rounded px-1 py-px font-mono text-4xs font-bold leading-none',
                           st.tone
                         )}
                         title={
@@ -241,7 +244,7 @@ export function createProactiveColumns({
                     )}
                     {of.estDebuté && of.piecesFaites != null && of.piecesTotalOf && (
                       <span
-                        className="shrink-0 cursor-help font-mono text-[8px] font-semibold leading-none text-ferme tabular-nums"
+                        className="shrink-0 cursor-help font-mono text-4xs font-semibold leading-none text-ferme tabular-nums"
                         title="Pièces réalisées / total OF (poste le plus avancé pointé)"
                       >
                         {of.piecesFaites}/{of.piecesTotalOf}
@@ -256,7 +259,7 @@ export function createProactiveColumns({
         const isGood = v === 'Stock' || v === 'Achat'
         return isGood ? (
           <span
-            className="inline-flex cursor-help items-center gap-1 rounded-md border border-transparent bg-secondary px-2 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground"
+            className="inline-flex cursor-help items-center gap-1 rounded-md border border-transparent bg-secondary px-2 py-0.5 font-mono text-1.5xs font-semibold text-muted-foreground"
             title={
               v === 'Stock'
                 ? 'Couvert par le stock disponible'
@@ -266,14 +269,14 @@ export function createProactiveColumns({
             {v}
           </span>
         ) : (
-          <span className="break-all font-mono text-[11px] font-semibold leading-snug text-secondary-foreground">
+          <span className="break-all font-mono text-1.5xs font-semibold leading-snug text-secondary-foreground">
             {v}
           </span>
         )
       },
       meta: {
         thClass:
-          'w-[150px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[150px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -286,7 +289,7 @@ export function createProactiveColumns({
         return (
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
             <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
-            <span className={cn('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
+            <span className={cn('text-2xs font-semibold', VERDICT_TEXT[o.verdictKey])}>
               {o.verdictLabel}
             </span>
           </span>
@@ -294,7 +297,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[120px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[120px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -312,9 +315,9 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[70px] px-4 py-[7px] text-right font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[70px] px-4 py-[7px] text-right font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass:
-          'whitespace-nowrap px-4 py-[7px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground',
+          'whitespace-nowrap px-4 py-[7px] text-right align-middle font-mono text-cell-lg font-semibold text-secondary-foreground',
       },
     },
     {
@@ -326,12 +329,10 @@ export function createProactiveColumns({
         // se reconnaît soit à sa descente BOM (SE réellement manquant), soit à `couvertParOf`
         // (SE dont la couverture ne tient que grâce à un OF producteur).
         const all = row.original.composants
-        const comps = showSubAssemblies
-          ? all
-          : all.filter((c) => !c.descente && !c.couvertParOf)
+        const comps = showSubAssemblies ? all : all.filter((c) => !c.descente && !c.couvertParOf)
         if (comps.length === 0)
           return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground/70">
               —
             </span>
           )
@@ -345,18 +346,16 @@ export function createProactiveColumns({
                       yeux dans une colonne qui mélange les deux. */}
                   <span
                     className={cn(
-                      'shrink-0 font-mono text-[10.5px] font-bold',
+                      'shrink-0 font-mono text-2xs font-bold',
                       c.descente || c.couvertParOf ? 'text-planifie' : 'text-foreground'
                     )}
-                    title={
-                      c.descente || c.couvertParOf ? 'Sous-ensemble fabriqué' : undefined
-                    }
+                    title={c.descente || c.couvertParOf ? 'Sous-ensemble fabriqué' : undefined}
                   >
                     {c.art}
                   </span>
                   {c.desc && (
                     <span
-                      className="truncate font-sans text-[10px] leading-tight text-muted-foreground"
+                      className="truncate font-sans text-2xs leading-tight text-muted-foreground"
                       title={c.desc}
                     >
                       {c.desc}
@@ -364,7 +363,7 @@ export function createProactiveColumns({
                   )}
                   {/* Un SE couvert par production n'est PAS en manque : pas de signe « − »,
                       qui se lirait comme une rupture. */}
-                  <span className="ml-auto shrink-0 rounded bg-secondary px-1 font-mono text-[10px] font-semibold text-muted-foreground tabular-nums">
+                  <span className="ml-auto shrink-0 rounded bg-secondary px-1 font-mono text-2xs font-semibold text-muted-foreground tabular-nums">
                     {c.couvertParOf ? c.qty : `−${c.qty}`}
                   </span>
                 </div>
@@ -373,12 +372,16 @@ export function createProactiveColumns({
                     réception directe ne s'affiche que pour les composants SANS descente
                     (achetés) — pour un SE elle serait du bruit (pas d'achat sur un fabriqué). */}
                 {c.couvertParOf ? (
-                  <div className="mt-0.5 flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground">
+                  <div className="mt-0.5 flex flex-col gap-px font-mono text-3xs leading-snug text-muted-foreground">
                     {/* Part couverte par du stock sous contrôle qualité — à débloquer par le
                         contrôle réception, pas par la production. */}
                     {c.qc > 0 && (
                       <div className="flex items-center gap-1">
-                        <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                        <CornerDownRight
+                          size={10}
+                          strokeWidth={1.75}
+                          className="leading-none text-muted-foreground/60"
+                        />
                         <span>
                           <span className="font-bold text-foreground">{c.qc}</span> en statut Q
                           (contrôle réception)
@@ -388,7 +391,11 @@ export function createProactiveColumns({
                     {c.couvertParOf.ofs.length === 0
                       ? c.couvertParOf.parOf > 0 && (
                           <div className="flex items-center gap-1">
-                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <CornerDownRight
+                              size={10}
+                              strokeWidth={1.75}
+                              className="leading-none text-muted-foreground/60"
+                            />
                             <span>
                               <span className="font-bold text-foreground">
                                 {c.couvertParOf.parOf}
@@ -399,7 +406,11 @@ export function createProactiveColumns({
                         )
                       : c.couvertParOf.ofs.map((of) => (
                           <div key={of.numOf} className="flex items-center gap-1">
-                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <CornerDownRight
+                              size={10}
+                              strokeWidth={1.75}
+                              className="leading-none text-muted-foreground/60"
+                            />
                             <span>
                               <span className="font-bold text-foreground">
                                 {c.couvertParOf!.parOf}
@@ -418,11 +429,15 @@ export function createProactiveColumns({
                       {c.descente.par.slice(0, 3).map((p) => (
                         <div
                           key={p.art}
-                          className="flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground"
+                          className="flex flex-col gap-px font-mono text-3xs leading-snug text-muted-foreground"
                           title={p.desc}
                         >
                           <div className="flex items-center gap-1">
-                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <CornerDownRight
+                              size={10}
+                              strokeWidth={1.75}
+                              className="leading-none text-muted-foreground/60"
+                            />
                             <span>
                               Bloqué par <span className="font-bold text-foreground">{p.art}</span>{' '}
                               <span className="font-bold text-muted-foreground">−{p.manque}</span>
@@ -431,14 +446,19 @@ export function createProactiveColumns({
                           {p.reception ? (
                             <div
                               className={cn(
-                                'flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium',
+                                'flex items-center gap-0.5 pl-3.5 text-3xs font-medium',
                                 p.reception.overdue
                                   ? 'font-bold text-foreground'
                                   : 'text-muted-foreground/80'
                               )}
                               title={p.reception.supplier}
                             >
-                              <DynamicIcon name={p.reception.overdue ? 'warning' : 'local_shipping'} size={10} strokeWidth={1.75} className="leading-none opacity-80" />
+                              <DynamicIcon
+                                name={p.reception.overdue ? 'warning' : 'local_shipping'}
+                                size={10}
+                                strokeWidth={1.75}
+                                className="leading-none opacity-80"
+                              />
                               <span>
                                 {p.reception.overdue
                                   ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
@@ -446,36 +466,49 @@ export function createProactiveColumns({
                               </span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium text-muted-foreground/60">
-                              <CalendarX size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
+                            <div className="flex items-center gap-0.5 pl-3.5 text-3xs font-medium text-muted-foreground/60">
+                              <CalendarX
+                                size={10}
+                                strokeWidth={1.75}
+                                className="leading-none text-muted-foreground/50"
+                              />
                               Aucune couverture prévue
                             </div>
                           )}
                         </div>
                       ))}
                       {c.descente.par.length > 3 && (
-                        <div className="pl-3.5 font-mono text-[8.5px] font-medium text-muted-foreground/70">
+                        <div className="pl-3.5 font-mono text-3xs font-medium text-muted-foreground/70">
                           +{c.descente.par.length - 3} autre(s)
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-muted-foreground">
-                      <CornerDownRight size={11} strokeWidth={1.75} className="leading-none text-muted-foreground" />
+                    <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-semibold leading-none text-muted-foreground">
+                      <CornerDownRight
+                        size={11}
+                        strokeWidth={1.75}
+                        className="leading-none text-muted-foreground"
+                      />
                       ↳ SE à lancer (composants dispo)
                     </div>
                   )
                 ) : c.reception ? (
                   <div
                     className={cn(
-                      'mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none',
+                      'mt-0.5 flex items-center gap-1 font-mono text-3xs leading-none',
                       c.reception.overdue
                         ? 'font-bold text-foreground'
                         : 'font-medium text-muted-foreground'
                     )}
                     title={`Fournisseur: ${c.reception.supplier}`}
                   >
-                    <DynamicIcon name={c.reception.overdue ? 'warning' : 'local_shipping'} size={11} strokeWidth={1.75} className="leading-none opacity-80" />
+                    <DynamicIcon
+                      name={c.reception.overdue ? 'warning' : 'local_shipping'}
+                      size={11}
+                      strokeWidth={1.75}
+                      className="leading-none opacity-80"
+                    />
                     <span>
                       {c.reception.overdue
                         ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
@@ -483,16 +516,24 @@ export function createProactiveColumns({
                     </span>
                   </div>
                 ) : (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground/60">
-                    <CalendarX size={11} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
+                  <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground/60">
+                    <CalendarX
+                      size={11}
+                      strokeWidth={1.75}
+                      className="leading-none text-muted-foreground/50"
+                    />
                     Aucune couverture prévue
                   </div>
                 )}
                 {/* Dette envers le contrôle qualité sur un composant acheté — la ligne SE
                     porte déjà la sienne dans son bloc `couvertParOf`. */}
                 {!c.couvertParOf && c.qc > 0 && (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground">
-                    <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                  <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground">
+                    <CornerDownRight
+                      size={10}
+                      strokeWidth={1.75}
+                      className="leading-none text-muted-foreground/60"
+                    />
                     <span>
                       dont <span className="font-bold text-foreground">{c.qc}</span> en statut Q
                       (contrôle réception)
@@ -502,7 +543,7 @@ export function createProactiveColumns({
               </div>
             ))}
             {comps.length > 4 && (
-              <span className="font-mono text-[10px] font-medium text-muted-foreground/70">
+              <span className="font-mono text-2xs font-medium text-muted-foreground/70">
                 +{comps.length - 4} autre(s)
               </span>
             )}
@@ -511,7 +552,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[300px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[300px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
@@ -523,7 +564,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
   return {
     headerLabel: 'N°',
     thClass:
-      'w-[38px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+      'w-[38px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -532,7 +573,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
           ? ('critical' as const)
           : row.lateSeverity
       return cn(
-        'px-4 py-[7px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
+        'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(s)
       )
     },
