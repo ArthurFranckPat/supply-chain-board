@@ -1,10 +1,10 @@
 /**
  * Dérivations pures + constantes de rendu du suivi des ruptures (issue #52 —
  * extrait de components/shortages/shortage-table.tsx). Sans Solid, sans JSX :
- * prédicats verdict, agrégation « dégâts par composant » (R2), position
- * temporelle de la frise (R3), classes de cellule partagées (R1+R2) — alignées
- * sur le modèle /suivi proactif (colonnes sans filet vertical, verdict en
- * point + texte plutôt qu'en pastille pleine).
+ * prédicats verdict, agrégation « dégâts par composant » (R2), classes de
+ * cellule partagées (R1+R2) — alignées sur le modèle /suivi proactif
+ * (colonnes sans filet vertical, verdict en point + texte plutôt qu'en
+ * pastille pleine).
  */
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 
@@ -25,10 +25,6 @@ export const TD = 'px-4 py-[7px] align-middle'
  *  Pilote le fond de ligne rouge + la bordure gauche — l'unique signal « alerte forte ». */
 export const isLate = (r: ShortageDisplayRow) =>
   r.verdictKey === 'retard' || r.verdictKey === 'sans_couverture'
-/** True si la ligne est une tension logistique (réception entre besoin et expé).
- *  Sert uniquement au marqueur + gap de la frise (R3) — le Registre porte le signal
- *  par le badge verdict seul, sans teinte de ligne. */
-export const isAtRisk = (r: ShortageDisplayRow) => r.verdictKey === 'a_risque'
 
 // ---------------------------------------------------------------------------
 // R2 · Agrégation « quel composant fait le plus de dégâts ? »
@@ -118,18 +114,4 @@ export const groupByComponent = (rows: ShortageDisplayRow[]): ComponentGroup[] =
   return [...map.values()].sort(
     (a, b) => b.lines.length - a.lines.length || b.totalManquant - a.totalManquant
   )
-}
-
-// ---------------------------------------------------------------------------
-// R3 · Frise temporelle — positionnement
-// ---------------------------------------------------------------------------
-
-/** Position en % d'une date ISO dans la fenêtre [start, start+horizon j], clampée 0..100. */
-export const offsetPct = (iso: string | null, startIso: string, horizon: number): number | null => {
-  if (!iso) return null
-  const a = Date.parse(`${startIso}T00:00:00Z`)
-  const b = Date.parse(`${iso}T00:00:00Z`)
-  if (Number.isNaN(a) || Number.isNaN(b) || horizon <= 0) return null
-  const days = (b - a) / 86_400_000
-  return Math.max(0, Math.min(100, (days / horizon) * 100))
 }

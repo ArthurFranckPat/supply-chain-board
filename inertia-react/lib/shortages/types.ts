@@ -33,8 +33,6 @@ export interface ShortageDisplayRow {
   autresCommandes: string[]
   dateExpedition: string
   reception: ShortageReceptionDisplay | null
-  dateArrivee: string
-  arriveeLate: boolean
   /** Vrai si la réception couvrante est en retard de livraison (attendue dans le passé). */
   overdue: boolean
   /** OFs fils produisant le composant (verdict `sous_ensemble` — composant FABRIQUÉ). */
@@ -43,19 +41,8 @@ export interface ShortageDisplayRow {
   verdictKey: ShortageVerdictKey
   verdictLabel: string
   verdictCls: string
-  // ── Vue « Couverture » (frise temporelle) ──
-  /** Date d'expédition commande ISO (YYYY-MM-DD) — null si OF non rattaché. */
+  /** Date d'expédition commande ISO (YYYY-MM-DD) — tooltip du Registre. Null si OF non rattaché. */
   dateExpeditionIso: string | null
-  /** Date d'arrivée de la réception couvrante ISO — null si aucune couverture. */
-  receptionIso: string | null
-  /** Jours de retard d'arrivée vs date de besoin (expé − buffers) — dépassement buffer fab. */
-  joursRetardReception: number
-  /**
-   * Marge logistique signée (j) entre la réception et la deadline client (expédition).
-   * > 0 : marge restante avant expé ; ≤ 0 : retard client projeté. 0 si pas de réception
-   * ou OF orphelin. Sert au badge « Marge +Nj » et au gap de la frise.
-   */
-  joursMarge: number
   /** Texte concaténé (composant / commande / fournisseur / OF / PF) pour le filtre client. */
   filter: string
 }

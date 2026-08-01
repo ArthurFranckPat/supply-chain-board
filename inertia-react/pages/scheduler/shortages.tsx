@@ -4,18 +4,19 @@
  *
  * Shell Inertia instantané (SchedulerController.shortageTracker) ; les lignes (calcul
  * lourd : faisabilité + réceptions) chargées en différé par fetch JSON (shortageRows).
- * Trois vues d'une même donnée : « Registre » (table éditoriale), « Par composant »
- * (agrégation dégâts) et « Couverture » (frise réception ↔ expédition).
+ * Deux vues d'une même donnée : « Registre » (table éditoriale) et « Par composant »
+ * (agrégation dégâts).
  */
 import { useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { Search, TriangleAlert, LoaderCircle, CircleX } from 'lucide-react'
+import { Search, TriangleAlert, CircleX } from 'lucide-react'
+import { LoadingState } from '@r/components/ui/loading-state'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 import AppLayout from '@r/layouts/app'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { ShortageRegistre, ShortageComposants, ShortageTimeline } from '@r/components/shortages'
+import { ShortageRegistre, ShortageComposants } from '@r/components/shortages'
 import {
   PILL,
   Segment,
@@ -59,7 +60,7 @@ interface DateRange {
 }
 
 export default function Shortages(props: ShortagesProps) {
-  const [mode, setMode] = useState<'registre' | 'composants' | 'couverture'>('registre')
+  const [mode, setMode] = useState<'registre' | 'composants'>('registre')
   const [query, setQuery] = useState('')
   const [verdictFilter, setVerdictFilter] = useState<ShortageVerdictKey | 'all'>('all')
   const [calOpen, setCalOpen] = useState(false)
@@ -106,15 +107,6 @@ export default function Shortages(props: ShortagesProps) {
     if (q) r = r.filter((row) => row.filter.includes(q))
     return r
   }, [viewData.rows, query, verdictFilter])
-
-  // Vue Couverture : tri chronologique par date d'expédition (nulls en fin).
-  const timelineRows = useMemo(() => {
-    return [...filteredRows].sort((a, b) => {
-      const da = a.dateExpeditionIso ?? '9999-12-31'
-      const db = b.dateExpeditionIso ?? '9999-12-31'
-      return da < db ? -1 : da > db ? 1 : 0
-    })
-  }, [filteredRows])
 
   // Compteurs KPI (dérivés des lignes, indépendants des filtres).
   const counts = useMemo(() => {
@@ -181,7 +173,7 @@ export default function Shortages(props: ShortagesProps) {
       <div className="flex h-full min-h-0 flex-col">
         {/* ═══ Toolbar ═══ */}
         <ToolbarRow>
-          {/* Bascule Registre / Par composant / Couverture */}
+          {/* Bascule Registre / Par composant */}
           <Segment role="radiogroup" ariaLabel="Vue">
             {(
               [
@@ -190,11 +182,6 @@ export default function Shortages(props: ShortagesProps) {
                   'composants',
                   'Par composant',
                   "Agrégation : quel composant bloque le plus d'OF ?",
-                ],
-                [
-                  'couverture',
-                  'Couverture',
-                  "Frise temporelle : réception couvrante ↔ date d'expédition",
                 ],
               ] as const
             ).map(([key, label, title]) => (
@@ -289,10 +276,12 @@ export default function Shortages(props: ShortagesProps) {
 
         {/* ═══ Vue active ═══ */}
         {loading && !data ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-[13px] font-medium">Calcul des ruptures…</span>
-          </div>
+          <LoadingState
+            className="flex-1"
+            variant="orb"
+            orbState="searching"
+            title="Calcul des ruptures…"
+          />
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
             <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
@@ -310,15 +299,6 @@ export default function Shortages(props: ShortagesProps) {
             {mode === 'composants' && (
               <ShortageComposants
                 rows={filteredRows}
-                onSelectOf={onSelectOf}
-                emptyState={emptyState}
-              />
-            )}
-            {mode === 'couverture' && (
-              <ShortageTimeline
-                rows={timelineRows}
-                windowStartIso={props.windowStart}
-                horizon={props.horizon}
                 onSelectOf={onSelectOf}
                 emptyState={emptyState}
               />

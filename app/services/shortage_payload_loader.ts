@@ -286,7 +286,7 @@ export async function loadShortageRows(ctx: HttpContext) {
       // Autres commandes allouées au même OF (au-delà de la plus urgente affichée).
       autresCommandes: r.autresCommandes,
       // Expé en relatif actionnable (« +5j », « auj. ») — l'ISO absolu reste dans
-      // dateExpeditionIso pour le tooltip et la frise.
+      // dateExpeditionIso pour le tooltip du Registre.
       dateExpedition: fmtRelatif(r.dateExpedition),
       reception: r.reception
         ? {
@@ -296,9 +296,6 @@ export async function loadShortageRows(ctx: HttpContext) {
             dateArrivee: fmtRelatif(r.reception.dateArrivee),
           }
         : null,
-      // Arrivée en relatif — sert uniquement à la frise (le badge verdict porte la lateness).
-      dateArrivee: r.reception ? fmtRelatif(r.reception.dateArrivee) : '',
-      arriveeLate: r.verdict === 'retard',
       overdue: r.overdue,
       // OFs fils produisant le composant (verdict sous_ensemble) — pour la colonne Réception.
       sousEnsembleOfs: r.sousEnsembleOfs,
@@ -323,13 +320,8 @@ export async function loadShortageRows(ctx: HttpContext) {
         return preset.label
       })(),
       verdictCls: preset.cls,
-      // ── Données pour la vue « Couverture » (frise temporelle R3) ──
-      // ISO (YYYY-MM-DD) pour positionner les marqueurs ; jours de retard d'arrivée
-      // pour le sous-libellé « +N j » du marqueur réception.
+      // ISO (YYYY-MM-DD) — tooltip « Expé » du Registre. Null si OF non rattaché.
       dateExpeditionIso: r.dateExpedition,
-      receptionIso: r.reception?.dateArrivee ?? null,
-      joursRetardReception: r.joursRetardReception,
-      joursMarge: r.joursMarge,
       // Champ texte concaténé pour le filtre client (composant / commande / fournisseur).
       filter:
         `${r.component} ${r.componentDesc} ${r.numCommande ?? ''} ${r.client ?? ''} ${r.reception?.supplier ?? ''} ${r.numOf} ${r.articleParent}`.toLowerCase(),
