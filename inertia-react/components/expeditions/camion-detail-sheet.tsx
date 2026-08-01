@@ -315,7 +315,9 @@ export function CamionDetailSheet({
                 tableClass="w-full table-fixed"
                 scrollContainerClass="h-full overflow-y-auto rounded-none border-0 shadow-none"
                 theadRowClass="sticky top-0 z-10 bg-secondary"
-                getRowClass={() => 'border-b border-rule-soft hover:bg-foreground/[0.03]'}
+                getRowClass={() =>
+                  'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
+                }
                 getRowKey={(l) => `${l.sohnum}-${l.vcrnum}-${l.vcrlin}-${l.ts}`}
               />
             </div>

@@ -194,8 +194,8 @@ export function ShortageComposants({
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowClass={(g) =>
         cn(
-          'border-t border-rule-soft transition-colors',
-          late(g) ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]'
+          'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
+          late(g) && 'bg-destructive/10'
         )
       }
       getRowKey={(g) => g.component}

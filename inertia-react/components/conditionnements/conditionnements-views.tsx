@@ -41,9 +41,7 @@ export function CoefCell({ value }: { value: number | null }) {
     return <span className="font-mono text-[13px] font-bold text-destructive">?</span>
   }
   return (
-    <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
-      {value}
-    </span>
+    <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">{value}</span>
   )
 }
 
@@ -165,10 +163,7 @@ export function FacetteDropdown({
       </button>
       {open && (
         <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={onToggleOpen}
-          />
+          <div className="fixed inset-0 z-10" onClick={onToggleOpen} />
           <div className="absolute left-0 top-full z-20 mt-1 max-h-[320px] w-[240px] overflow-auto rounded-md border border-rule bg-card shadow-lg">
             <div className="sticky top-0 flex items-center justify-between border-b border-rule-soft bg-card px-2 py-1">
               <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -446,7 +441,10 @@ export function ConditionnementsTable({
         onSortingChange={setSorting}
         getRowKey={(r) => r.article}
         getRowClass={(r) =>
-          cn('border-t border-rule-soft transition-colors even:bg-foreground/[0.015]', rowClass(r))
+          cn(
+            'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
+            rowClass(r)
+          )
         }
         tableClass="min-w-[880px]"
         scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"

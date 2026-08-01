@@ -1457,7 +1457,7 @@ export default function Dashboard(props: DashboardProps) {
                                   scrollContainerClass="-mx-2 mt-4 max-h-[160px] overflow-auto rounded-none border-0 shadow-none"
                                   theadRowClass="sticky top-0 z-10 bg-secondary"
                                   getRowClass={() =>
-                                    'border-b border-rule-soft last:border-0 hover:bg-secondary/40'
+                                    'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
                                   }
                                   getRowKey={(l) =>
                                     `${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`
@@ -1696,7 +1696,7 @@ export default function Dashboard(props: DashboardProps) {
                       scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
                       theadRowClass="sticky top-0 z-10 bg-secondary"
                       getRowClass={() =>
-                        'border-b border-rule-soft last:border-0 hover:bg-secondary/40'
+                        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
                       }
                       getRowKey={(l) =>
                         `${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`
@@ -1807,7 +1807,7 @@ export default function Dashboard(props: DashboardProps) {
                         scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
                         theadRowClass="sticky top-0 z-10 bg-secondary"
                         getRowClass={() =>
-                          'cursor-pointer border-b border-rule-soft last:border-0 hover:bg-secondary/40'
+                          'cursor-pointer border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
                         }
                         onRowClick={(a) => setStockArticle(a.article)}
                         getRowKey={(a) => `${a.article}::${a.categorie}`}

@@ -690,7 +690,9 @@ export default function Calendrier(props: CalendrierPageProps) {
                   tableClass="w-full border-collapse"
                   scrollContainerClass="rounded-none border-0 shadow-none"
                   theadRowClass="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-                  getRowClass={() => 'border-b border-rule-soft hover:bg-rule/10'}
+                  getRowClass={() =>
+                    'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
+                  }
                   getRowKey={(c) => String(c.id)}
                 />
               )}

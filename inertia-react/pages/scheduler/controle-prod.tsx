@@ -376,7 +376,7 @@ export default function ControleProd(props: Props) {
                     scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
                     theadRowClass="sticky top-0 z-10 bg-secondary"
                     getRowClass={() =>
-                      'cursor-pointer border-b border-rule-soft transition-colors hover:bg-secondary/80'
+                      'cursor-pointer border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
                     }
                     onRowClick={(r) => onSelectOf(r.numOf)}
                     getRowKey={(r) => r.numOf}

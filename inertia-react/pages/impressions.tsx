@@ -571,7 +571,12 @@ export default function Impressions(props: PageProps) {
               tableClass="w-full text-[13px]"
               scrollContainerClass="rounded-none border-0 shadow-none"
               theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
-              getRowClass={(j) => cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}
+              getRowClass={(j) =>
+                cn(
+                  'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
+                  failed(j) && 'bg-red-50/40'
+                )
+              }
               getRowKey={(j) => String(j.id)}
               renderDetailRow={(j) =>
                 opened.has(j.id) ? (

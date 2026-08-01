@@ -139,7 +139,9 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
       tableClass="w-full border-collapse text-[12px]"
       scrollContainerClass="overflow-x-auto rounded-lg border border-rule shadow-float"
       theadRowClass="bg-secondary"
-      getRowClass={() => 'border-b border-rule-soft last:border-b-0'}
+      getRowClass={() =>
+        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
+      }
       getRowKey={(l) => `${l.numCommande}|${l.ligne ?? ''}|${l.article}`}
     />
   )
