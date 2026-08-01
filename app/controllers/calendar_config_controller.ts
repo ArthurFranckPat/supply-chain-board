@@ -3,6 +3,7 @@ import CapacityClosure from '#models/capacity_closure'
 import CapacityHolidayOverride from '#models/capacity_holiday_override'
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
+import { cacheNs } from '#services/cache_ns'
 import { atelierLabel } from '#app/domain/atelier'
 
 /** Jour suivant une date ISO `YYYY-MM-DD`. */
@@ -26,6 +27,26 @@ const order = (a: string, b: string): { from: string; to: string } =>
 const clampFactor = (v: unknown): number => {
   const n = Number(v ?? 0)
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0
+}
+
+/**
+ * Invalide les caches qui intègrent le calendrier dans leur payload calculé.
+ *
+ * `capacityCalendar.buildCalendar(...)` est appelé À L'INTÉRIEUR de la factory
+ * de `cacheNs('charge')` (cf. `load_payload_loader.ts`) : la capacité y est
+ * figée avec le reste du payload. Sans invalidation, une modification de
+ * fermeture ou de férié reste invisible sur /charge jusqu'à l'expiration du TTL
+ * (2 min) voire de la grâce SWR (12 h). Les deux loaders de charge partagent
+ * le namespace `charge` (`payload:charge:*` et `detail:charge:*`), un seul
+ * `.clear()` suffit.
+ *
+ * Fire-and-forget : la mutation SQLite a déjà réussi, un échec d'invalidation
+ * ne fait que retarder l'actualisation (le TTL finit par expirer).
+ */
+function bustCalendarDependentCaches() {
+  return cacheNs('charge')
+    .clear()
+    .catch(() => {})
 }
 
 /**
@@ -67,6 +88,7 @@ export default class CalendarConfigController {
     const active = ctx.request.input('active') !== false && ctx.request.input('active') !== 'false'
     if (!date) return ctx.response.badRequest({ error: 'date requise' })
     await CapacityHolidayOverride.updateOrCreate({ date }, { date, active })
+    void bustCalendarDependentCaches()
     return { ok: true, date, active }
   }
 
@@ -100,6 +122,7 @@ export default class CalendarConfigController {
       factor,
       createdAt: Date.now(),
     })
+    void bustCalendarDependentCaches()
     return {
       ok: true,
       closure: { id: row.id, scope, code, from: m.from, to: m.to, motif, factor },
@@ -132,6 +155,7 @@ export default class CalendarConfigController {
     row.motif = motif
     row.factor = factor
     await row.save()
+    void bustCalendarDependentCaches()
     return {
       ok: true,
       closure: {
@@ -188,6 +212,7 @@ export default class CalendarConfigController {
     const id = Number(ctx.params.id)
     const row = await CapacityClosure.find(id)
     if (row) await row.delete()
+    void bustCalendarDependentCaches()
     return { ok: true }
   }
 }

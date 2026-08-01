@@ -31,6 +31,7 @@ import {
 } from '@r/components/ui/combobox'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import { toast } from 'sonner'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
 /**
@@ -513,6 +514,7 @@ export default function Calendrier(props: CalendrierPageProps) {
         'Chevauchement avec une fermeture de motif/capacité différents — le plus restrictif s’applique.'
       )
     }
+    toast.success('Calendrier enregistré. La vue Charge est actualisée.')
   }
 
   // ── Fériés ───────────────────────────────────────────────────────────────
@@ -529,7 +531,9 @@ export default function Calendrier(props: CalendrierPageProps) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, active: next }),
-    }).catch(() => {
+    })
+      .then(() => toast.success('Calendrier enregistré. La vue Charge est actualisée.'))
+      .catch(() => {
       setHolidays((prev) => {
         const updated = [...prev]
         updated[i] = { ...updated[i], active: !next }
@@ -543,7 +547,9 @@ export default function Calendrier(props: CalendrierPageProps) {
     (id: number) => {
       const snapshot = closures.find((c) => c.id === id)
       setClosures((cs) => cs.filter((c) => c.id !== id))
-      fetch(route('calendar_config.delete_closure', { id }), { method: 'DELETE' }).catch(() => {
+      fetch(route('calendar_config.delete_closure', { id }), { method: 'DELETE' })
+        .then(() => toast.success('Fermeture supprimée. La vue Charge est actualisée.'))
+        .catch(() => {
         if (snapshot) setClosures((prev) => [...prev, snapshot])
       })
     },
