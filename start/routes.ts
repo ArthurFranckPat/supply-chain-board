@@ -123,6 +123,9 @@ router
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
     router
+      .get('/approvisionnements', '#controllers/appro_controller.index')
+      .as('approvisionnements.index')
+    router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
     router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
@@ -280,6 +283,10 @@ router
     router
       .get('/api/v1/receptions/criticite', '#controllers/receptions_controller.criticite')
       .as('receptions.criticite')
+
+    // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
+    // replanification sur commandes fournisseur, groupés par fournisseur.
+    router.get('/api/v1/appro/rows', '#controllers/appro_controller.rows').as('appro.rows')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router

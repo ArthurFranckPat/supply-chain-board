@@ -27,6 +27,7 @@ export type ScannedRoutes = {
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
+    'approvisionnements.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
@@ -85,8 +86,10 @@ export type ScannedRoutes = {
     'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
+    'expeditions.forecast': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
+    'appro.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -133,6 +136,7 @@ export type ScannedRoutes = {
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
+    'approvisionnements.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
@@ -165,8 +169,10 @@ export type ScannedRoutes = {
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
     'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
+    'expeditions.forecast': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
+    'appro.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -204,6 +210,7 @@ export type ScannedRoutes = {
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
+    'approvisionnements.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
@@ -236,8 +243,10 @@ export type ScannedRoutes = {
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
     'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
+    'expeditions.forecast': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
+    'appro.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }

@@ -85,6 +85,13 @@ declare module '@adonisjs/inertia/types' {
       todayHref: string
       defaultHorizon: number
     }
+    // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
+    // replanification, groupés par fournisseur.
+    'approvisionnements': {
+      horizon: number
+      rowsHref: string
+      defaultHorizon: number
+    }
     // Conditionnements — identification des coefs manquants + estimation.
     'conditionnements': {
       rowsHref: string

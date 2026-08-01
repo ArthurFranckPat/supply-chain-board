@@ -68,11 +68,15 @@ export interface ApiDefinition {
   expeditions: {
     index: typeof routes['expeditions.index']
     rows: typeof routes['expeditions.rows']
+    forecast: typeof routes['expeditions.forecast']
   }
   receptions: {
     index: typeof routes['receptions.index']
     rows: typeof routes['receptions.rows']
     criticite: typeof routes['receptions.criticite']
+  }
+  approvisionnements: {
+    index: typeof routes['approvisionnements.index']
   }
   conditionnements: {
     index: typeof routes['conditionnements.index']
@@ -144,6 +148,9 @@ export interface ApiDefinition {
     dashboardLayout: {
       update: typeof routes['user.dashboard_layout.update']
     }
+  }
+  appro: {
+    rows: typeof routes['appro.rows']
   }
   data: {
     load: typeof routes['data.load']

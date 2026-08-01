@@ -283,6 +283,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'approvisionnements.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/approvisionnements'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'conditionnements.index': {
     methods: ["GET","HEAD"]
     pattern: '/conditionnements'
@@ -979,6 +991,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'expeditions.forecast': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/expeditions/forecast'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'receptions.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/receptions/rows'
@@ -994,6 +1018,18 @@ export interface Registry {
   'receptions.criticite': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/receptions/criticite'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/rows'
     types: {
       body: {}
       paramsTuple: []

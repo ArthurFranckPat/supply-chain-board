@@ -144,6 +144,12 @@ const routes = {
     tokens: [{"old":"/receptions","type":0,"val":"receptions","end":""}],
     types: placeholder as Registry['receptions.index']['types'],
   },
+  'approvisionnements.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/approvisionnements',
+    tokens: [{"old":"/approvisionnements","type":0,"val":"approvisionnements","end":""}],
+    types: placeholder as Registry['approvisionnements.index']['types'],
+  },
   'conditionnements.index': {
     methods: ["GET","HEAD"],
     pattern: '/conditionnements',
@@ -492,6 +498,12 @@ const routes = {
     tokens: [{"old":"/api/v1/expeditions/rows","type":0,"val":"api","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"expeditions","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['expeditions.rows']['types'],
   },
+  'expeditions.forecast': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/expeditions/forecast',
+    tokens: [{"old":"/api/v1/expeditions/forecast","type":0,"val":"api","end":""},{"old":"/api/v1/expeditions/forecast","type":0,"val":"v1","end":""},{"old":"/api/v1/expeditions/forecast","type":0,"val":"expeditions","end":""},{"old":"/api/v1/expeditions/forecast","type":0,"val":"forecast","end":""}],
+    types: placeholder as Registry['expeditions.forecast']['types'],
+  },
   'receptions.rows': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/receptions/rows',
@@ -503,6 +515,12 @@ const routes = {
     pattern: '/api/v1/receptions/criticite',
     tokens: [{"old":"/api/v1/receptions/criticite","type":0,"val":"api","end":""},{"old":"/api/v1/receptions/criticite","type":0,"val":"v1","end":""},{"old":"/api/v1/receptions/criticite","type":0,"val":"receptions","end":""},{"old":"/api/v1/receptions/criticite","type":0,"val":"criticite","end":""}],
     types: placeholder as Registry['receptions.criticite']['types'],
+  },
+  'appro.rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/rows',
+    tokens: [{"old":"/api/v1/appro/rows","type":0,"val":"api","end":""},{"old":"/api/v1/appro/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/rows","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/rows","type":0,"val":"rows","end":""}],
+    types: placeholder as Registry['appro.rows']['types'],
   },
   'conditionnements.rows': {
     methods: ["GET","HEAD"],

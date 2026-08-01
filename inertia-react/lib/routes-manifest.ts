@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 107 routes nommées.
+ * 109 routes nommées.
  */
 
 export const MANIFEST = {
@@ -14,6 +14,8 @@ export const MANIFEST = {
   'agent.mcp.app': { method: 'GET', pattern: '/api/v1/agent/mcp/app' },
   'agent.mcp.call': { method: 'POST', pattern: '/api/v1/agent/mcp/call' },
   'agent.show': { method: 'GET', pattern: '/copilote' },
+  'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
+  'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
   'assets.js': { method: 'GET', pattern: '/js/app.js' },
   'auth.attempt': { method: 'POST', pattern: '/login' },
@@ -160,6 +162,8 @@ export type RouteParams = {
   'agent.mcp.app': void
   'agent.mcp.call': void
   'agent.show': void
+  'appro.rows': void
+  'approvisionnements.index': void
   'assets.css': void
   'assets.js': void
   'auth.attempt': void
