@@ -37,6 +37,11 @@ import {
   unlock,
   type StoredAgentSession,
 } from '#services/agent/session_store'
+import {
+  recordAgentTurn,
+  type AgentTurnOutcome,
+  type AgentTurnTokens,
+} from '#services/agent/turn_metrics'
 
 /** Provider / model verrouillés (Q12). */
 export const AGENT_PROVIDER = 'zai' as const
@@ -108,6 +113,56 @@ export interface RunAgentOptions {
 }
 
 type PiEvent = Parameters<Parameters<AgentSession['subscribe']>[0]>[0]
+
+/**
+ * Cumuls de session Pi (tokens facturés, coût, contexte) au moment de l'appel.
+ *
+ * `getSessionStats()` agrège TOUTE la session, compaction comprise — le coût
+ * d'un tour est donc une différence entre deux relevés, jamais une lecture
+ * directe. Null si le SDK ou le provider ne rapporte rien : on préfère
+ * l'absence de chiffre à un zéro qui se confondrait avec un tour gratuit.
+ */
+interface SessionCounters {
+  tokens: AgentTurnTokens
+  cost: number
+  contextTokens: number | null
+  contextPercent: number | null
+}
+
+function readSessionCounters(session: AgentSession): SessionCounters | null {
+  try {
+    const stats = session.getSessionStats()
+    return {
+      tokens: {
+        input: stats.tokens.input,
+        output: stats.tokens.output,
+        cacheRead: stats.tokens.cacheRead,
+        cacheWrite: stats.tokens.cacheWrite,
+        total: stats.tokens.total,
+      },
+      cost: stats.cost,
+      contextTokens: stats.contextUsage?.tokens ?? null,
+      contextPercent: stats.contextUsage?.percent ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function diffTokens(
+  before: SessionCounters | null,
+  after: SessionCounters | null
+): AgentTurnTokens | null {
+  if (!after) return null
+  const b = before?.tokens
+  return {
+    input: after.tokens.input - (b?.input ?? 0),
+    output: after.tokens.output - (b?.output ?? 0),
+    cacheRead: after.tokens.cacheRead - (b?.cacheRead ?? 0),
+    cacheWrite: after.tokens.cacheWrite - (b?.cacheWrite ?? 0),
+    total: after.tokens.total - (b?.total ?? 0),
+  }
+}
 
 /** Emplacement isolé auth/settings Pi — hors du repo user (`~/.pi`). */
 function ensureAgentRuntimeDir(): string {
@@ -391,11 +446,30 @@ export async function* runAgentTurn(
   const convId = options.conversationId?.trim()
   const userId = options.userId
   const needsLock = Boolean(convId && userId !== undefined)
+  const startedAt = Date.now()
 
   // M1 — Verrou atomique sync pré-yield : aucun await entre ce check et la
   // prise effective du verrou → pas de fenêtre TOCTOU.
   if (needsLock) {
     if (!tryLock(userId as string | number, convId as string)) {
+      // Un tour refusé est un signal d'usage (double-clic, onglet doublé), pas
+      // un non-événement : il est compté, sans session ni tokens.
+      recordAgentTurn({
+        at: Date.now(),
+        model: `${AGENT_PROVIDER}/${AGENT_MODEL_ID}`,
+        persistent: true,
+        durationMs: Date.now() - startedAt,
+        ttftMs: null,
+        toolCalls: 0,
+        toolErrors: 0,
+        tools: [],
+        tokens: null,
+        costUsd: null,
+        contextTokens: null,
+        contextPercent: null,
+        outcome: 'rejected',
+        error: 'tour déjà en cours pour cette conversation',
+      })
       throw new Error('Une réponse est déjà en cours pour cette conversation.')
     }
   }
@@ -403,6 +477,14 @@ export async function* runAgentTurn(
   try {
     const { runtime, persistent } = await resolveTurnSession(options)
     const { session, dispose, modelLabel, toolNames, sessionId } = runtime
+
+    // Relevé d'entrée : les cumuls de session Pi portent déjà les tours
+    // précédents pour une conversation réutilisée.
+    const countersBefore = readSessionCounters(session)
+    let ttftMs: number | null = null
+    let toolCalls = 0
+    let toolErrors = 0
+    const toolsUsed: string[] = []
 
     yield { type: 'session', sessionId, model: modelLabel, tools: toolNames }
 
@@ -455,7 +537,17 @@ export async function* runAgentTurn(
           continue
         }
         const event = queue.shift()!
-        for (const e of mapPiEvent(event)) yield e
+        for (const e of mapPiEvent(event)) {
+          if (ttftMs === null && (e.type === 'text_delta' || e.type === 'thinking_delta')) {
+            ttftMs = Date.now() - startedAt
+          }
+          if (e.type === 'tool_start') {
+            toolCalls += 1
+            toolsUsed.push(e.toolName)
+          }
+          if (e.type === 'tool_end' && e.isError) toolErrors += 1
+          yield e
+        }
       }
       await promptPromise
       if (fatalMessage) {
@@ -467,6 +559,33 @@ export async function* runAgentTurn(
         options.signal.removeEventListener('abort', onAbort)
       }
       unsub()
+
+      // Mesure du tour, quel que soit le chemin de sortie (fin normale, erreur
+      // fatale, abandon client). Posée AVANT le dispose : une session jetable
+      // ne rapporterait plus rien après.
+      const countersAfter = readSessionCounters(session)
+      const outcome: AgentTurnOutcome = options.signal?.aborted
+        ? 'aborted'
+        : fatalMessage
+          ? 'error'
+          : 'ok'
+      recordAgentTurn({
+        at: Date.now(),
+        model: modelLabel,
+        persistent,
+        durationMs: Date.now() - startedAt,
+        ttftMs,
+        toolCalls,
+        toolErrors,
+        tools: toolsUsed,
+        tokens: diffTokens(countersBefore, countersAfter),
+        costUsd: countersAfter === null ? null : countersAfter.cost - (countersBefore?.cost ?? 0),
+        contextTokens: countersAfter?.contextTokens ?? null,
+        contextPercent: countersAfter?.contextPercent ?? null,
+        outcome,
+        ...(fatalMessage ? { error: String(fatalMessage).slice(0, 200) } : {}),
+      })
+
       // Session conversationnelle : on la garde vivante (mémoire multi-tour).
       // L'éviction TTL/cap du session_store s'occupe du dispose.
       if (!persistent) dispose()

@@ -92,6 +92,7 @@ export interface ApiDefinition {
     show: typeof routes['agent.show']
     health: typeof routes['agent.health']
     chat: typeof routes['agent.chat']
+    metrics: typeof routes['agent.metrics']
     conversations: typeof routes['agent.conversations']
     conversation: typeof routes['agent.conversation']
     conversationsDestroy: typeof routes['agent.conversationsDestroy']

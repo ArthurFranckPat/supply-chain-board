@@ -1255,6 +1255,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'agent.metrics': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/agent/metrics'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'agent.conversations': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/agent/conversations'

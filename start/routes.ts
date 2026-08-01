@@ -357,6 +357,9 @@ router
       .group(() => {
         router.get('/health', '#controllers/agent_controller.health').as('agent.health')
         router.post('/chat', '#controllers/agent_controller.chat').as('agent.chat')
+        // Télémétrie des tours : durée, TTFT, tokens facturés, histogramme du
+        // nombre d'appels de tools par tour (gate de décision issue #93).
+        router.get('/metrics', '#controllers/agent_controller.metrics').as('agent.metrics')
         // Historique des conversations (sidebar : liste, rechargement, suppression).
         router
           .get('/conversations', '#controllers/agent_controller.conversationsIndex')

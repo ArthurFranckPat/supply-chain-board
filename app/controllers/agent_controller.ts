@@ -27,6 +27,7 @@ import { ConversationStore } from '#services/conversation_store'
 import { compactHistory } from '#services/agent/history_compact'
 import { AgentMessageAssembler, makeUserMessage } from '#services/agent/message_assembler'
 import { hasStoredSession } from '#services/agent/session_store'
+import agentTurnMetrics from '#services/agent/turn_metrics'
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -67,6 +68,26 @@ export default class AgentController {
       const message = err instanceof Error ? err.message : String(err)
       return ctx.response.status(503).json({ ok: false, error: message })
     }
+  }
+
+  /**
+   * GET /api/v1/agent/metrics — télémétrie des tours (mémoire, fenêtre glissante).
+   *
+   * `?reset=1` vide la fenêtre (mesurer un scénario propre), `?recent=N` joint
+   * les N derniers tours. Aucun contenu de conversation n'y transite : durées,
+   * compteurs, noms de tools.
+   */
+  async metrics(ctx: HttpContext) {
+    if (ctx.request.input('reset') === '1') {
+      agentTurnMetrics.reset()
+      return ctx.response.json({ reset: true })
+    }
+    const recentRaw = Number(ctx.request.input('recent') ?? 0)
+    const recent = Number.isFinite(recentRaw) && recentRaw > 0 ? Math.min(recentRaw, 100) : 0
+    return ctx.response.json({
+      stats: agentTurnMetrics.snapshot(),
+      ...(recent > 0 ? { recent: agentTurnMetrics.recent(recent) } : {}),
+    })
   }
 
   /**

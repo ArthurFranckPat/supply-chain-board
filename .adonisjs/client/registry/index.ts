@@ -630,6 +630,12 @@ const routes = {
     tokens: [{"old":"/api/v1/agent/chat","type":0,"val":"api","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"chat","end":""}],
     types: placeholder as Registry['agent.chat']['types'],
   },
+  'agent.metrics': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/agent/metrics',
+    tokens: [{"old":"/api/v1/agent/metrics","type":0,"val":"api","end":""},{"old":"/api/v1/agent/metrics","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/metrics","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/metrics","type":0,"val":"metrics","end":""}],
+    types: placeholder as Registry['agent.metrics']['types'],
+  },
   'agent.conversations': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/agent/conversations',

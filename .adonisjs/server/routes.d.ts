@@ -108,6 +108,7 @@ export type ScannedRoutes = {
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
     'agent.chat': { paramsTuple?: []; params?: {} }
+    'agent.metrics': { paramsTuple?: []; params?: {} }
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'agent.conversationsDestroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -184,6 +185,7 @@ export type ScannedRoutes = {
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
+    'agent.metrics': { paramsTuple?: []; params?: {} }
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'agent.mcp.app': { paramsTuple?: []; params?: {} }
@@ -258,6 +260,7 @@ export type ScannedRoutes = {
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
+    'agent.metrics': { paramsTuple?: []; params?: {} }
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'agent.mcp.app': { paramsTuple?: []; params?: {} }
