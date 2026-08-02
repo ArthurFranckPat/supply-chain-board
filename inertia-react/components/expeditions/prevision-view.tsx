@@ -38,7 +38,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule-soft px-7 py-2 font-mono text-[10px] text-muted-foreground">
         <span>
           File quai · <b className="text-foreground">{fmtPal(forecast.initialQueuePalettes)}</b> pal
@@ -96,7 +96,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
         </div>
       )}
 
-      <div className="flex-1 overflow-auto px-5 pb-6 pt-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-3">
         <section className="mb-4">
           <SectionHead
             title="Décision"
