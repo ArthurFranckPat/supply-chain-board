@@ -19,7 +19,7 @@
 const TRANSACTIONS = { GESMFG: 'OF1', GESSOH: 'OV1' } as const
 
 /** Fonctions X3 cibles du board (code Syracuse). */
-export type X3Fonction = 'GESMFG' | 'GESSOH' | 'GESPOH' | 'GESPTH' | 'GESITM'
+export type X3Fonction = 'GESMFG' | 'GESSOH' | 'GESPOH' | 'GESITM'
 
 /** Prop Inertia partagée `x3Web` — session de l'utilisateur, jamais un choix client. */
 export interface X3Web {

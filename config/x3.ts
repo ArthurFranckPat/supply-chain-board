@@ -27,6 +27,12 @@ export interface X3EnvConfig {
    * « Ouvrir dans X3 » rendu côté front.
    */
   webEndpoint: string
+  /**
+   * Schéma du serveur web Syracuse (`http` par défaut). À côté de l'endpoint,
+   * pas en dur dans le middleware : un passage en HTTPS ne doit pas casser
+   * tous les liens d'un coup et silencieusement (revue #118).
+   */
+  webScheme: string
 }
 
 /** Identifiants X3 d'une session authentifiée (env choisi + creds utilisateur). */
@@ -50,6 +56,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     printServer: env.get('X3_TEST_PRINT_SERVER', ''),
     firmSubprog: 'FIRMSUGG',
     webEndpoint: env.get('X3_TEST_WEB_ENDPOINT', ''),
+    webScheme: env.get('X3_TEST_WEB_SCHEME', 'http'),
   }),
   prod: () => ({
     host: env.get('X3_PROD_HOST', ''),
@@ -64,6 +71,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     printServer: env.get('X3_PROD_PRINT_SERVER', ''),
     firmSubprog: 'ZSOAPFIRM',
     webEndpoint: env.get('X3_PROD_WEB_ENDPOINT', ''),
+    webScheme: env.get('X3_PROD_WEB_SCHEME', 'http'),
   }),
 }
 

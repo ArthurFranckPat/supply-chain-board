@@ -1,5 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
-import { CalendarX, Lightbulb, Link2, Package, TriangleAlert, Truck, Warehouse } from 'lucide-react'
+import {
+  CalendarX,
+  Lightbulb,
+  Link2,
+  Package,
+  TriangleAlert,
+  Truck,
+  Warehouse,
+} from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
@@ -212,12 +220,7 @@ export function ReceptionBoard({
   const undated = rows.length - dated.length
 
   const days = useMemo(
-    () =>
-      buildDayAxis(
-        from,
-        to,
-        dated.map((r) => r.date as string)
-      ),
+    () => buildDayAxis(from, to, dated.map((r) => r.date as string)),
     [from, to, dated]
   )
 
@@ -270,7 +273,8 @@ export function ReceptionBoard({
       const crit = criticiteByLine.get(`${r.noCommande}|${r.article}`)
       if (crit) {
         g.criticiteItems.push(crit)
-        g.criticite = g.criticite === 'retard' || crit.niveau === 'retard' ? 'retard' : 'a_risque'
+        g.criticite =
+          g.criticite === 'retard' || crit.niveau === 'retard' ? 'retard' : 'a_risque'
       }
     }
     for (const g of acc.values()) {
@@ -364,7 +368,11 @@ export function ReceptionBoard({
 
   return (
     <>
-      <div ref={rootRef} data-print-unclip className="min-h-0 flex-1 overflow-auto bg-background">
+      <div
+        ref={rootRef}
+        data-print-unclip
+        className="min-h-0 flex-1 overflow-auto bg-background"
+      >
         <div className="relative" style={{ minWidth }}>
           {/* ═══ En-tête collant (semaines + jours) ═══ */}
           <div className="sticky top-0 z-30 bg-background shadow-float">
@@ -551,8 +559,8 @@ export function ReceptionBoard({
       {criticiteHorizon !== null && (
         <div className="flex flex-none items-center gap-2 border-t border-rule-soft bg-secondary/40 px-7 py-1.5 font-mono text-[10px] text-muted-foreground print:hidden">
           <Link2 size={13} strokeWidth={1.75} />
-          Tension évaluée sur les OF démarrant dans les {criticiteHorizon} jours — une réception
-          attendue par un OF plus lointain n'est pas signalée.
+          Tension évaluée sur les OF démarrant dans les {criticiteHorizon} jours — une
+          réception attendue par un OF plus lointain n'est pas signalée.
           {criticiteOnly && (
             <span className="ml-auto">
               Filtre actif : la charge en pied reste celle du quai entier.
@@ -671,7 +679,9 @@ function ReceptionCard({
         <span
           className={cn(
             'flex w-fit items-center gap-1 rounded px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider',
-            crit === 'retard' ? 'bg-destructive/15 text-destructive' : 'bg-suggere/15 text-suggere'
+            crit === 'retard'
+              ? 'bg-destructive/15 text-destructive'
+              : 'bg-suggere/15 text-suggere'
           )}
         >
           <Link2 size={9} strokeWidth={2} />
@@ -752,7 +762,8 @@ function ReceptionDetailSheet({
                   {group.palettes}
                 </span>
                 <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  palette{group.palettes > 1 ? 's' : ''} · {chargeLabel(chargeTier(group.palettes))}
+                  palette{group.palettes > 1 ? 's' : ''} ·{' '}
+                  {chargeLabel(chargeTier(group.palettes))}
                 </span>
               </div>
               {(group.sansCoef > 0 || group.estimees > 0) && (
@@ -846,8 +857,8 @@ function ReceptionDetailSheet({
                 donc la section plutôt que de se répéter sur chaque ligne. */}
             <div className="px-6 pb-2 pt-4">
               <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {commandes.length} commande{commandes.length > 1 ? 's' : ''} · {group.rows.length}{' '}
-                ligne{group.rows.length > 1 ? 's' : ''}
+                {commandes.length} commande{commandes.length > 1 ? 's' : ''} ·{' '}
+                {group.rows.length} ligne{group.rows.length > 1 ? 's' : ''}
               </div>
             </div>
 

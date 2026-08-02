@@ -89,6 +89,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   // lien « Ouvrir dans X3 » rendu (le navigateur ne joint pas Syracuse, cf. #116).
   X3_TEST_WEB_ENDPOINT: Env.schema.string.optional(),
   X3_PROD_WEB_ENDPOINT: Env.schema.string.optional(),
+  // Schéma du serveur web (http par défaut) — un futur HTTPS ne doit pas
+  // casser les liens silencieusement (revue #118).
+  X3_TEST_WEB_SCHEME: Env.schema.string.optional(),
+  X3_PROD_WEB_SCHEME: Env.schema.string.optional(),
 
   // Couche agentique v1 — provider Z.AI / GLM 5.2 (pi-ai `zai`).
   // Optionnel au boot (les pages non-agent restent utilisables) ;

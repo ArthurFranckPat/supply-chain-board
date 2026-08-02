@@ -126,9 +126,7 @@ function DiagShortRow({ short }: { short: DiagShort }) {
                 <span className="font-semibold tracking-wider">COUVERT PAR</span>
                 <span className="text-[11px] font-bold text-foreground">{cov.numOf}</span>
                 <Badge
-                  variant={
-                    cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'
-                  }
+                  variant={cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'}
                   className="text-[8px]"
                 >
                   {STATUT_OF[cov.statut] ?? `statut ${cov.statut}`}

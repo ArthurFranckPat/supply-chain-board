@@ -500,6 +500,7 @@ function CardView(props: CardViewProps) {
         title={card.title}
         client={card.customer ?? undefined}
         type={card.orderType ?? undefined}
+        nature={card.nature}
         hours={fmt(card.hours)}
         mod={card.hasOverride}
         consommeBouche={card.consommeBouche}

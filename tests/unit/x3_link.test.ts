@@ -34,7 +34,7 @@ test.group('x3Href — lien « Ouvrir dans X3 » (issue #118)', () => {
   })
 
   test('pas de transaction sur les fonctions sans table *TRS', ({ assert }) => {
-    for (const f of ['GESPOH', 'GESPTH', 'GESITM'] as const) {
+    for (const f of ['GESPOH', 'GESITM'] as const) {
       assert.match(x3Href(WEB, f, 'K123') ?? '', new RegExp(`f%3D${f}%252F2`))
       assert.isFalse((x3Href(WEB, f, 'K123') ?? '').includes('~'))
     }

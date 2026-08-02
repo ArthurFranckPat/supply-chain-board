@@ -21,7 +21,10 @@ class InertiaCore extends BaseInertiaMiddleware {
     if (isAuthed && ctx.auth.user?.lastEnv) {
       const env = baseX3Config(ctx.auth.user.lastEnv)
       if (env.webEndpoint) {
-        x3Web = { baseUrl: `http://${env.host}:${env.port}`, endpoint: env.webEndpoint }
+        x3Web = {
+          baseUrl: `${env.webScheme}://${env.host}:${env.port}`,
+          endpoint: env.webEndpoint,
+        }
       }
     }
 

@@ -34,6 +34,10 @@ export function X3Link(props: {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      // Les ancres sont implicitement draggables : sur une carte de board, un
+      // glisser démarré depuis le n° (l'ancre la plus visée) lancerait le drag
+      // du lien au lieu de celui de la carte (revue #118).
+      draggable={false}
       title={props.title}
       aria-label={props.title}
       onClick={(e) => e.stopPropagation()}

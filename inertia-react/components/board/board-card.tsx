@@ -108,6 +108,8 @@ export type CommandeCardProps = Common & {
   client?: string
   /** Type MTS/MTO/NOR (pastille terra). */
   type?: string
+  /** Nature du besoin (COMMANDE/PREVISION/INDUIT) — filtre du lien X3 (#118). */
+  nature?: string
   /** Flag « modifié » (override local). */
   mod?: boolean
   /** Article dont la nomenclature contient un composant BDH (issue #28). */
@@ -187,12 +189,14 @@ function CommandeCard(props: CommandeCardProps) {
       {/* coin haut-droit : faisabilité, ou coche terminé */}
       {props.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
       {props.feas === 'qc' && (
-        <CornerBadge cls="bg-warning" icon="science" title={qcBadgeTitle(props.feasQcComponents)} />
+        <CornerBadge
+          cls="bg-warning"
+          icon="science"
+          title={qcBadgeTitle(props.feasQcComponents)}
+        />
       )}
       {props.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
-      {!props.feas && props.status === 'termine' && (
-        <CornerBadge cls="bg-muted-foreground" icon="check" />
-      )}
+      {!props.feas && props.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
       {/* cours : point terra pulsant (intérieur) */}
       {props.status === 'cours' && (
         <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
@@ -203,6 +207,7 @@ function CommandeCard(props: CommandeCardProps) {
         ord={props.ord}
         client={props.client}
         type={props.type}
+        nature={props.nature}
         mod={props.mod}
         hours={props.hours}
         consommeBouche={props.consommeBouche}
@@ -223,6 +228,7 @@ interface CommandeBodyProps {
   ord?: string
   client?: string
   type?: string
+  nature?: string
   mod?: boolean
   hours: string
   consommeBouche?: boolean
@@ -268,8 +274,10 @@ function CommandeBody(p: CommandeBodyProps) {
         )}
         {/* N° commande (ancre). La carte est draggable : le lien est
             stopPropagation-eur, il ne prend pas le drag ni l'ouverture du détail.
-            Carte induite (ghost) : pas de commande réelle, texte seul. */}
-        {p.induit ? (
+            Cartes sans lien : induite (pas de commande réelle) et PRÉVISION
+            (numéros WIPTYP=1 WIPSTA=3 sans ligne SORDER — clé inexistante,
+            revue #118). */}
+        {p.induit || p.nature === 'PREVISION' ? (
           <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
             {cmd}
           </span>
@@ -312,10 +320,7 @@ function CommandeBody(p: CommandeBodyProps) {
           )}
         </div>
       )}
-      <div
-        className="truncate text-xs font-medium leading-tight text-muted-foreground"
-        title={p.title}
-      >
+      <div className="truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
         {p.title}
       </div>
       {p.client && (
@@ -351,9 +356,7 @@ function CommandeBody(p: CommandeBodyProps) {
               {p.qty}
             </span>
           )}
-          <span className="text-2xs font-medium tabular-nums text-muted-foreground">
-            {p.hours}h
-          </span>
+          <span className="text-2xs font-medium tabular-nums text-muted-foreground">{p.hours}h</span>
         </span>
       </div>
     </>
@@ -490,10 +493,7 @@ function OfListingCard(p: OfCardProps) {
           </X3Link>
         )}
         {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
-        <div
-          className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground"
-          title={p.title}
-        >
+        <div className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
           {p.title}
         </div>
         {p.progress && (
@@ -523,10 +523,7 @@ function OfListingCard(p: OfCardProps) {
               title={typo.label}
               className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase text-secondary-foreground"
             >
-              <span
-                className="size-[8px] shrink-0 rounded-[2px]"
-                style={{ background: typo.color }}
-              />
+              <span className="size-[8px] shrink-0 rounded-[2px]" style={{ background: typo.color }} />
               <span className="truncate">{typo.label}</span>
             </span>
           ) : (
