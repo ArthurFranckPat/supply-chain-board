@@ -498,7 +498,8 @@ export async function loadExpeditionForecast(
       (flow): flow is Flow & { origin: Extract<Flow['origin'], { type: 'order' }> } =>
         flow.direction === 'demand' &&
         flow.origin.type === 'order' &&
-        flow.origin.customerCode === EXPEDITION_CUSTOMER
+        // Déjà scopé SQL sur 80001 ; le code tiers sert de filet si présent.
+        (flow.origin.customerCode == null || flow.origin.customerCode === EXPEDITION_CUSTOMER)
     )
     // Le carnet n'a pas de borne basse. On élargit le pipeline de matching à la
     // plus ancienne échéance encore ouverte, sinon un OF réel d'une commande

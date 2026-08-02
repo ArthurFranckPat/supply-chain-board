@@ -1,5 +1,9 @@
 import { test } from '@japa/runner'
-import { buildOrdersSql } from '#repositories/combined_orders_repository'
+import {
+  buildOrdersSql,
+  toOrdersSourceRow,
+  splitOrdersFlows,
+} from '#repositories/combined_orders_repository'
 
 /**
  * Ré-ingestion CIBLÉE d'`orders_flux_replica` (#98, read-after-write) : après une
@@ -70,5 +74,37 @@ test.group('SQL ORDERS — ré-ingestion ciblée par VCRNUM', () => {
     // brute.
     const sql = buildOrdersSql({ ...BASE, onlyWiptyp: 5, vcrnums: ["F1' OR '1'='1"] })
     assert.include(sql, "'F1'' OR ''1''=''1'")
+  })
+})
+
+test.group('toOrdersSourceRow — alias BPRNUM', () => {
+  test('lit AS BPRNUM (SQL live) et expose customerCode sur le Flow', ({ assert }) => {
+    const row = toOrdersSourceRow({
+      WIPTYP_0: '1',
+      WIPSTA_0: '1',
+      VCRNUM_0: 'AR1',
+      VCRLIN_0: '1000',
+      VCRSEQ_0: '1',
+      ITMREF_0: 'ART',
+      DESIGNATION: 'x',
+      ENDDAT_0: '20260820',
+      RMNEXTQTY_0: '100',
+      EXTQTY_0: '100',
+      ALLQTY_0: '0',
+      BPRNUM: '80001',
+      PARTNER_NOM: 'Aldes',
+      PAYS: 'FR',
+      ORDDAT: '20260101',
+    })
+    assert.equal(row.bprnum, '80001')
+    const { demandFlows } = splitOrdersFlows([row], {
+      contremarque: false,
+      designation: true,
+      customerRef: false,
+    })
+    assert.equal(demandFlows[0]!.origin.type, 'order')
+    if (demandFlows[0]!.origin.type === 'order') {
+      assert.equal(demandFlows[0]!.origin.customerCode, '80001')
+    }
   })
 })

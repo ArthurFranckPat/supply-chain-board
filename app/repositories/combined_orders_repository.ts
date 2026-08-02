@@ -294,7 +294,11 @@ export function toOrdersSourceRow(row: RawRow): OrdersSourceRow {
     qteRealisee: row.CPLQTY_0 === undefined ? undefined : toNum(row.CPLQTY_0),
     dateDebut: row.STRDAT_0 === undefined ? undefined : parseX3Date(row.STRDAT_0),
     stofcy: row.STOFCY_0 === undefined ? undefined : row.STOFCY_0?.trim() || null,
-    bprnum: row.BPRNUM_0 === undefined ? undefined : row.BPRNUM_0?.trim() || null,
+    // Live SQL alias `AS BPRNUM` ; réplique / forReplica renvoie `BPRNUM_0`.
+    bprnum: (() => {
+      const raw = row.BPRNUM_0 ?? row.BPRNUM
+      return raw === undefined ? undefined : raw?.trim() || null
+    })(),
     itmsta:
       row.ITMSTA_0 === undefined ? undefined : Number.parseInt(row.ITMSTA_0 ?? '', 10) || null,
   }
