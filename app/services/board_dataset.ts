@@ -23,6 +23,7 @@ import ordersFluxReplicaRepository, {
   replicaCoversOrdersRange,
 } from '#repositories/orders_flux_replica_repository'
 import { computeSupplierLatency } from '#repositories/supplier_latency_repository'
+import { latencyMapFromReplica } from '#repositories/latency_replica_repository'
 import {
   StockValuationRepository,
   isoWeekKey,
@@ -788,6 +789,12 @@ class BoardDataset {
    * Source : historique PORDERQ (6 derniers mois). TTL long (2h) — donnée
    * historique qui évolue lentement. SWR : sert la stale si X3 est injoignable.
    *
+   * Voie réplique (#105) : `latency_replica` mire les événements bruts, la
+   * moyenne est déduite par le MÊME calcul que la voie directe
+   * (`computeLatencyFromEvents`). Verdict portail pris à la factory — un
+   * `canRead` à l'extérieur aurait figé la voie au premier cache miss pendant
+   * tout le TTL de 2 h.
+   *
    * Entries plutôt que Map dans le cache, pour la même raison que
    * `getConditionnementEstimator` : une Map cachée serait rendue par référence
    * et `Object.freeze` ne protège pas son contenu.
@@ -799,7 +806,9 @@ class BoardDataset {
       ttl: REF_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const map = await computeSupplierLatency()
+        const map = (await replicaGate.canRead('latency_replica'))
+          ? await latencyMapFromReplica()
+          : await computeSupplierLatency()
         return { latency: [...map.entries()], at: Date.now() }
       },
     })

@@ -7,11 +7,10 @@ import { logStockValuationCall } from '#services/stock_valuation_usage_logger'
  * Table à supprimer une fois la décision de réplication STOJOU prise.
  *
  * `stock_valuation_calls` accumule aussi du trafic RÉEL en dev (dashboard servi
- * par le même `db.sqlite3` que les tests) — c'est le but de la table. Comme
- * `orders_replica_repository.test.ts` avec ses `num_of` préfixés `TESTOF-`,
- * ni assertion sur le COUNT total ni `DELETE` sans filtre : les lignes de test
- * portent un `from_date` en 1900 (hors de toute plage réelle possible) et le
- * teardown ne supprime QUE ces lignes-là.
+ * par le même `db.sqlite3` que les tests) — c'est le but de la table. Même
+ * discipline que les tests de réplique : ni assertion sur le COUNT total ni
+ * `DELETE` sans filtre — les lignes de test portent un `from_date` en 1900 (hors
+ * de toute plage réelle possible) et le teardown ne supprime QUE ces lignes-là.
  */
 const SENTINEL_YEAR = '1900-'
 

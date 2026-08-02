@@ -4,9 +4,9 @@ import replicaSyncService, { type TableIngestionResult } from '#services/replica
 import type { ReplicaTable } from '#services/replica_gate'
 
 /**
- * Rafraîchissement périodique de la réplique complète — `orders_replica`,
- * `order_lines_replica`, `stock_replica`, `receptions_replica` (#98, lot 2 + suite
- * lot 3).
+ * Rafraîchissement périodique de la réplique complète — `orders_flux_replica`,
+ * `stock_replica`, `receptions_replica`, `latency_replica` (#98, lot 2 + suite
+ * lot 3, #105).
  *
  * Le lot 1 posait volontairement AUCUNE planification : « L'app ne lit pas encore
  * la réplique : la déclencher n'a donc aucun effet sur les écrans » (cf.
@@ -138,7 +138,7 @@ export function needsIntervalRun(runs: LastRuns, now: Date, everyMs: number): bo
  * cadence égale au seuil produirait un clignotement permanent réplique/direct.
  *
  * Coûts mesurés (CLTEST, 3 runs consécutifs, 31/07/2026) : `operations` 2,3 s
- * constant (~14 chunks SOAP, scopés aux `num_of` d'`orders_replica`),
+ * constant (~14 chunks SOAP, scopés aux `num_of` d'`orders_flux_replica`),
  * `stock_detail` 1,9-2,0 s. Stable, aucun échec — c'est la mesure « en charge
  * répétée » qui manquait à `43f94e0` et qui les gardait en commande manuelle.
  * Réserve : en PROD `stock_detail` porte ~45k lignes contre 4 683 ici, donc

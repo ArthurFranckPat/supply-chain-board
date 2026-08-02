@@ -2,7 +2,6 @@ import db from '@adonisjs/lucid/services/db'
 import type { OrdersSourceRow } from '#repositories/combined_orders_repository'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineRow } from '#repositories/order_line_repository'
-import type { RetardReplicaLine } from '#repositories/order_lines_replica_repository'
 import type { OrderType } from '#app/domain/models/flow'
 
 /**
@@ -43,6 +42,22 @@ type ReplicaRow = {
   sohtyp: string | null
   qte_realisee: number | null
   date_debut: string | null
+  stofcy: string | null
+}
+
+/** Ligne de commande ferme telle que `RetardRepository` la consomme. */
+export interface RetardReplicaLine {
+  numCommande: string
+  ligne: string
+  client: string | null
+  article: string
+  designation: string | null
+  dateExpedition: Date
+  qteRestante: number
+  qteCommandee: number
+  qteAllouee: number
+  contremarque: string | null
+  orderType: OrderType | null
 }
 
 const OF_STATUS_LABELS: Record<number, string> = { 1: 'Ferme', 2: 'Planifié', 3: 'Suggéré' }
@@ -145,6 +160,7 @@ function toOwn(r: ReplicaRow): OrdersSourceRow {
     cusordref: r.cusordref,
     itmrefbpc: r.itmrefbpc,
     sohtyp: r.sohtyp,
+    stofcy: r.stofcy,
   }
 }
 

@@ -58,10 +58,10 @@ export interface OrderLineRow {
 }
 
 /**
- * Ligne telle qu'INGÉRÉE dans `order_lines_replica` : `OrderLineRow` plus les
- * trois quantités brutes d'`ORDERS`. `quantite` (reste à fabriquer) en est
- * dérivée et reste écrite pour les appelants existants — mais elle ne se
- * décompose pas, d'où les trois colonnes supplémentaires.
+ * Ligne telle qu'INGÉRÉE dans la tranche WIPTYP=1 d'`orders_flux_replica` :
+ * `OrderLineRow` plus les trois quantités brutes d'`ORDERS`. `quantite` (reste à
+ * fabriquer) en est dérivée et reste écrite pour les appelants existants — mais
+ * elle ne se décompose pas, d'où les trois colonnes supplémentaires.
  */
 export interface OrderLineReplicaSourceRow extends OrderLineRow {
   /** `RMNEXTQTY_0` — reliquat brut, allocations comprises. */
@@ -300,8 +300,8 @@ WHERE O.WIPTYP_0 = 1
    * `from`/`to` optionnels : borne par ECHEANCE (SHIDAT_0 firmes / ENDDAT_0 prévisions).
    */
   /**
-   * Population d'INGESTION de `order_lines_replica` (#98) — plus large que
-   * `getOpenOrderLines()`, et avec les trois quantités brutes.
+   * Population d'INGESTION de la tranche WIPTYP=1 d'`orders_flux_replica` (#98) —
+   * plus large que `getOpenOrderLines()`, et avec les trois quantités brutes.
    *
    * Deux écarts délibérés avec la vue ci-dessous, tous deux nécessaires pour que
    * la réplique puisse servir plus d'un appelant :

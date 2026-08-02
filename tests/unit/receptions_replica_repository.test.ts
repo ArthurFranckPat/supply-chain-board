@@ -5,7 +5,7 @@ import receptionsReplicaRepository from '#repositories/receptions_replica_reposi
 /**
  * Lecture `receptions_replica` (#98, suite lot 3).
  *
- * Même discipline que `orders_replica_repository.test.ts` : la connexion `replica`
+ * Même discipline que les autres tests de réplique : la connexion `replica`
  * pointe le même fichier en test qu'en dev, les lignes de test portent un `uuid`
  * préfixé `TEST-` et sont supprimées par ce filtre en sortie.
  */

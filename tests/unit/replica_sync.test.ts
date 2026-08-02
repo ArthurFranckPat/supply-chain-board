@@ -12,8 +12,8 @@ import replicaGate, { type ReplicaTable } from '#services/replica_gate'
  *
  * Le test tourne sur une table jetable (`swap_probe`) et non sur les tables de
  * réplique : la connexion `replica` pointe le même fichier en test qu'en dev
- * (pas de `.env.test` dans ce dépôt), un `DELETE FROM orders_replica` viderait
- * donc une réplique réelle. Les lignes de journal produites portent
+ * (pas de `.env.test` dans ce dépôt), un `DELETE` viderait donc une réplique
+ * réelle. Les lignes de journal produites portent
  * `source = 'test'` et sont nettoyées en sortie.
  */
 

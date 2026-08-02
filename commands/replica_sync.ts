@@ -2,9 +2,7 @@ import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import replicaSyncService from '#services/replica_sync_service'
 import replicaGate from '#services/replica_gate'
-import ordersReplicaRepository from '#repositories/orders_replica_repository'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
-import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
 import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
@@ -22,6 +20,11 @@ import operationsReplicaRepository from '#repositories/operations_replica_reposi
 import { X3OperationRepository, type OperationRecord } from '#repositories/operation_repository'
 import stockDetailReplicaRepository from '#repositories/stock_detail_replica_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
+import latencyReplicaRepository from '#repositories/latency_replica_repository'
+import {
+  X3LatencyRepository,
+  computeLatencyFromEvents,
+} from '#repositories/supplier_latency_repository'
 import db from '@adonisjs/lucid/services/db'
 import type { Flow } from '#app/domain/models/flow'
 
@@ -36,8 +39,8 @@ import type { Flow } from '#app/domain/models/flow'
  *
  * `--status` n'interroge que le journal — aucun appel X3.
  *
- * `--compare` (#98) : appelle X3 ET lit la réplique pour chaque table (orders,
- * order-lines, stock, stock-flux, receptions, operations, stock-detail), diffe les
+ * `--compare` (#98) : appelle X3 ET lit la réplique pour chaque table (orders-flux,
+ * stock, stock-flux, receptions, operations, stock-detail, latency), diffe les
  * deux jeux, n'écrit rien. C'est la « comparaison en parallèle » du lot 2 —
  * volontairement hors du chemin de lecture chaud (`board_dataset.ts` ne fait jamais
  * les deux appels), pour ne pas repayer le coût X3 qu'on cherche à éliminer sur
@@ -53,7 +56,7 @@ import type { Flow } from '#app/domain/models/flow'
 export default class ReplicaSync extends BaseCommand {
   static commandName = 'replica:sync'
   static description =
-    'Ingère ORDERS / lignes de commande / STOCK / réceptions / MFGOPE / STOCK détail depuis X3 vers la réplique SQLite'
+    'Ingère ORDERS / STOCK / réceptions / MFGOPE / STOCK détail / latence depuis X3 vers la réplique SQLite'
 
   static options: CommandOptions = { startApp: true }
 
@@ -61,14 +64,14 @@ export default class ReplicaSync extends BaseCommand {
   declare status: boolean
 
   @flags.boolean({
-    description: 'Compare réplique vs voie directe X3 sur orders_replica, sans rien ingérer',
+    description: 'Compare réplique vs voie directe X3, sans rien ingérer',
   })
   declare compare: boolean
 
   @flags.array({
     description:
-      'Tables à ingérer (orders, order-lines, stock, receptions, stock-flux, operations, stock-detail). ' +
-      'Défaut : orders/order-lines/stock/receptions SEULEMENT — stock-flux/operations/stock-detail ' +
+      'Tables à ingérer (orders-flux, stock, receptions, latency, stock-flux, operations, stock-detail). ' +
+      'Défaut : orders-flux/stock/receptions/latency SEULEMENT — stock-flux/operations/stock-detail ' +
       'demandent un --only explicite (charge X3 non arbitrée, cf. syncStockFlux/syncOperations/syncStockDetail)',
   })
   declare only: string[]
@@ -107,13 +110,10 @@ export default class ReplicaSync extends BaseCommand {
 
     const results = []
     if (all || only.has('orders-flux')) results.push(await replicaSyncService.syncOrdersFlux('cli'))
-    // `orders` et `order-lines` restent invocables à la main le temps de la
-    // transition, mais ne sont PLUS dans `syncAll()` : `orders_flux_replica` les
-    // remplace et plus aucun lecteur n'interroge leurs tables.
-    if (only.has('orders')) results.push(await replicaSyncService.syncOrders('cli'))
-    if (only.has('order-lines')) results.push(await replicaSyncService.syncOrderLines('cli'))
     if (all || only.has('stock')) results.push(await replicaSyncService.syncStock('cli'))
     if (all || only.has('receptions')) results.push(await replicaSyncService.syncReceptions('cli'))
+    // Latence fournisseur (historique PORDERQ) — requête bornée, sur le tick 5 min.
+    if (all || only.has('latency')) results.push(await replicaSyncService.syncLatency('cli'))
     // JAMAIS via `all` : ~50 appels SOAP chunkés, cf. syncStockFlux(). Nommer
     // explicitement `--only=stock-flux`.
     if (only.has('stock-flux')) results.push(await replicaSyncService.syncStockFlux('cli'))
@@ -177,14 +177,15 @@ export default class ReplicaSync extends BaseCommand {
   }
 
   /**
-   * Diff X3 (voie directe) vs `orders_replica`, sur les champs qui comptent pour le
-   * board (statut, quantités, date de fin). X3 est la référence.
+   * Diff X3 (voie directe) vs la tranche OF d'`orders_flux_replica`, sur les
+   * champs qui comptent pour le board (statut, quantités, date de fin). X3 est
+   * la référence.
    *
    * Deux populations, deux méthodes — l'issue #98 posait la question en suspens
    * (« à vérifier : que le VCRNUM_0 d'une suggestion soit bien instable entre deux
    * CBN ») et une première mesure en a apporté la réponse : oui, instable. Sur
    * ~14 000 OF, ~12 200 sont des suggestions (WIPSTA=3) — sortie du CBN, régénérées
-   * à chaque run AVEC UN NOUVEAU NUMÉRO. Comparer `orders_replica` (ingérée à T) à
+   * à chaque run AVEC UN NOUVEAU NUMÉRO. Comparer la réplique (ingérée à T) à
    * X3 en direct (lu à T+Δ) par `numOf` fait donc apparaître un roulement quasi
    * total sur ce sous-ensemble — pas un défaut de la réplique, juste la mauvaise
    * clé de comparaison pour une donnée sans identité stable.
@@ -195,10 +196,10 @@ export default class ReplicaSync extends BaseCommand {
    *   comparaison qui ait un sens sur une donnée régénérée entre les deux lectures.
    */
   private async printCompare() {
-    this.logger.info('=== orders_replica ===')
+    this.logger.info('=== orders_flux_replica (OF) ===')
     const ordersOk = await this.compareOrders()
 
-    this.logger.info('=== order_lines_replica ===')
+    this.logger.info('=== orders_flux_replica (lignes de commande) ===')
     const linesOk = await this.compareOrderLines()
 
     this.logger.info('=== stock_replica ===')
@@ -220,6 +221,9 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info('=== stock_detail_replica ===')
     const stockDetailOk = await this.compareStockDetail()
 
+    this.logger.info('=== latency_replica ===')
+    const latencyOk = await this.compareLatency()
+
     this.logger.info(`=== orders_flux_replica (#105, ${dayKey(from)} → ${dayKey(to)}) ===`)
     const ordersFluxOk = await this.compareOrdersFlux(from, to)
 
@@ -232,6 +236,7 @@ export default class ReplicaSync extends BaseCommand {
       receptionsOk &&
       operationsOk &&
       stockDetailOk &&
+      latencyOk &&
       ordersFluxOk
     ) {
       this.logger.success('Réplique et voie directe cohérentes sur toutes les tables')
@@ -356,7 +361,7 @@ export default class ReplicaSync extends BaseCommand {
     const started = Date.now()
     const [direct, replica] = await Promise.all([
       new X3OfRepository().getManufacturingOrders(),
-      ordersReplicaRepository.getManufacturingOrders(),
+      ordersFluxReplicaRepository.getManufacturingOrders(),
     ])
     const elapsed = ((Date.now() - started) / 1000).toFixed(1)
     this.logger.info(`X3 : ${direct.length} OF · réplique : ${replica.length} OF · ${elapsed} s`)
@@ -458,18 +463,18 @@ export default class ReplicaSync extends BaseCommand {
   }
 
   /**
-   * Delta matching (#99) : même population que `orders_replica` (WIPTYP=5, WIPSTA
-   * 1/2/3) donc même instabilité d'identité sur les suggestions — réutilise
-   * `compareStable`/`compareSuggested`. Scopé à une fenêtre (contrairement aux OF
-   * qui portent tout le lookback) : le delta dépend aussi de `order_lines_replica`
-   * pour son sous-filtre WIPTYP=1, donc une divergence ici peut venir de l'une ou
-   * l'autre table.
+   * Delta matching (#99) : même population que la tranche OF d'`orders_flux_replica`
+   * (WIPTYP=5, WIPSTA 1/2/3) donc même instabilité d'identité sur les suggestions —
+   * réutilise `compareStable`/`compareSuggested`. Scopé à une fenêtre
+   * (contrairement aux OF qui portent tout le lookback) : le delta dépend aussi de
+   * la tranche demande (WIPTYP=1) de la même table pour son sous-filtre, une
+   * divergence ici peut donc venir de l'une ou l'autre tranche.
    */
   private async compareMatchingDelta(from: Date, to: Date): Promise<boolean> {
     const started = Date.now()
     const [direct, replica] = await Promise.all([
       new X3OfRepository().getManufacturingOrdersForMatching(from, to),
-      ordersReplicaRepository.getManufacturingOrdersForMatching(from, to),
+      ordersFluxReplicaRepository.getManufacturingOrdersForMatching(from, to),
     ])
     const elapsed = ((Date.now() - started) / 1000).toFixed(1)
     this.logger.info(`X3 : ${direct.length} OF · réplique : ${replica.length} OF · ${elapsed} s`)
@@ -542,12 +547,13 @@ export default class ReplicaSync extends BaseCommand {
   /**
    * Lignes de commande — identité STABLE (`numCommande#ligne`, pas de régénération
    * CBN contrairement aux suggestions d'OF), diff exact comme les OF fermes/planifiés.
+   * Ligne lue dans la tranche WIPTYP=1 d'`orders_flux_replica`.
    */
   private async compareOrderLines(): Promise<boolean> {
     const started = Date.now()
     const [direct, replica] = await Promise.all([
       new X3OrderLineRepository().getOpenOrderLines(),
-      orderLinesReplicaRepository.getOpenOrderLines(),
+      ordersFluxReplicaRepository.getOpenOrderLines(),
     ])
     const elapsed = ((Date.now() - started) / 1000).toFixed(1)
     this.logger.info(
@@ -788,6 +794,53 @@ export default class ReplicaSync extends BaseCommand {
       for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
     } else {
       this.logger.success('  stock détail identique par article et emplacement')
+    }
+    return diffs.length === 0
+  }
+
+  /**
+   * Latence fournisseur — diff par article sur le RÉSULTAT (jours moyens), pas sur
+   * les lignes d'événements : c'est ce que consomment les écrans (CMT), et les
+   * deux voies partagent `computeLatencyFromEvents`, donc un écart ne peut venir
+   * que de la population ingérée — exactement ce qu'on veut mesurer.
+   */
+  private async compareLatency(): Promise<boolean> {
+    const replica = await latencyReplicaRepository.getLatencyEvents()
+    if (replica.length === 0) {
+      this.logger.info(
+        '  latency_replica vide — pas encore ingérée (node ace replica:sync --only=latency). Skip.'
+      )
+      return true
+    }
+
+    const started = Date.now()
+    const directEvents = await new X3LatencyRepository().getLatencyEvents()
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${directEvents.length} événements · réplique : ${replica.length} événements · ${elapsed} s`
+    )
+
+    const direct = computeLatencyFromEvents(directEvents)
+    const rep = computeLatencyFromEvents(replica)
+    const articles = new Set([...direct.keys(), ...rep.keys()])
+
+    const diffs: string[] = []
+    for (const article of articles) {
+      const d = direct.get(article)
+      const r = rep.get(article)
+      if (d === undefined || r === undefined || d !== r) {
+        diffs.push(`${article} : X3 ${d ?? '∅'} ≠ réplique ${r ?? '∅'}`)
+      }
+    }
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} articles avec une latence divergente :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+      this.logger.info(
+        '  Un écart isolé peut venir d’une réception saisie entre le sync et cette comparaison — relancer --only=latency juste avant --compare pour réduire la fenêtre.'
+      )
+    } else {
+      this.logger.success(`  latence identique sur ${articles.size} articles`)
     }
     return diffs.length === 0
   }

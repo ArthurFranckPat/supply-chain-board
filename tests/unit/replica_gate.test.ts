@@ -307,11 +307,11 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
     // (pointages) partage le régime court sans être sur le tick — la donnée
     // change en continu pendant un poste.
     for (const table of [
-      'orders_replica',
-      'order_lines_replica',
+      'orders_flux_replica',
       'stock_replica',
       'receptions_replica',
       'operations_replica',
+      'latency_replica',
     ] as ReplicaTable[]) {
       assert.equal(maxAgeMsFor(table), 30 * MINUTE, table)
     }

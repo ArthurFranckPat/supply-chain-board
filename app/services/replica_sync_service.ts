@@ -1,10 +1,9 @@
 import db from '@adonisjs/lucid/services/db'
-import { X3OfRepository } from '#repositories/of_repository'
-import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { StockFluxRepository } from '#repositories/stock_flux_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { X3LatencyRepository } from '#repositories/supplier_latency_repository'
 import {
   CombinedOrdersRepository,
   type OrdersSourceRow,
@@ -51,12 +50,12 @@ import { getActiveX3EnvName } from '#config/x3'
 const INSERT_CHUNK = 400
 
 /**
- * Horizon d'ingestion de `order_lines_replica`, en jours autour d'aujourd'hui.
+ * Fenêtre d'ingestion d'`orders_flux_replica`, en jours autour d'aujourd'hui.
  *
  * Le lookback reprend `RETARD_LOOKBACK_DAYS` (défaut 90 j), la même variable que
- * `of_repository` pour `orders_replica` et que `RetardRepository` : les trois
- * doivent couvrir la même profondeur de passé, sinon un OF répliqué n'a pas sa
- * ligne de commande, ou le KPI retard voit des lignes sans OF.
+ * `of_repository` et `RetardRepository` : les trois doivent couvrir la même
+ * profondeur de passé, sinon un OF répliqué n'a pas sa ligne de commande, ou le
+ * KPI retard voit des lignes sans OF.
  *
  * L'horizon avant est fixé à un an. Les lignes plus lointaines existent mais
  * aucun écran ne les demande — `/programme` et `/ruptures` travaillent à 14 j,
@@ -149,6 +148,7 @@ function toFluxRow(r: OrdersSourceRow): Row {
     // réalisé ».
     qte_realisee: r.qteRealisee ?? null,
     date_debut: isoDay(r.dateDebut ?? null),
+    stofcy: r.stofcy ?? null,
   }
 }
 
@@ -184,63 +184,9 @@ export class ReplicaSyncService {
     results.push(await this.syncOrdersFlux(source))
     results.push(await this.syncStock(source))
     results.push(await this.syncReceptions(source))
+    results.push(await this.syncLatency(source))
 
     return { results, durationMs: Date.now() - start }
-  }
-
-  async syncOrders(source = 'manual'): Promise<TableIngestionResult> {
-    return this.ingest('orders_replica', source, async () => {
-      const orders = await new X3OfRepository().getManufacturingOrders()
-      return orders.map((o): Row => ({
-        num_of: o.numOf,
-        article: o.article,
-        designation: o.designation,
-        status: o.status,
-        statut_label: o.statutLabel,
-        quantity: o.quantity,
-        quantity_launched: o.quantityLaunched,
-        quantity_done: o.quantityDone,
-        start_date: isoDay(o.startDate),
-        end_date: isoDay(o.endDate),
-      }))
-    })
-  }
-
-  async syncOrderLines(source = 'manual'): Promise<TableIngestionResult> {
-    return this.ingest('order_lines_replica', source, async () => {
-      // `getOrderLinesForReplica()` et NON `getOpenOrderLines()` : on mire la
-      // SOURCE, pas une vue. Le filtre `resteAFabriquer > 0` de la vue exclut les
-      // lignes entièrement allouées, dont `RetardRepository` a besoin — il vit
-      // maintenant côté LECTURE (`OrderLinesReplicaRepository.getOpenOrderLines`).
-      //
-      // BORNÉE dans le temps, comme la voie directe l'a toujours été. Une
-      // ingestion « tout l'ouvert » ne passe pas contre PROD (120 s de timeout
-      // SOAP atteints sans un octet rendu) et ne sert personne : aucun lecteur ne
-      // demande au-delà de cet horizon.
-      const lines = await new X3OrderLineRepository().getOrderLinesForReplica(
-        orderLinesReplicaWindow()
-      )
-      return lines.map((l): Row => ({
-        num_commande: l.numCommande,
-        ligne: l.ligne,
-        client: l.client,
-        article: l.article,
-        designation: l.designation,
-        quantite: l.quantite,
-        qte_restante: l.qteRestante,
-        qte_commandee: l.qteCommandee,
-        qte_allouee: l.qteAllouee,
-        // `date_livraison` est NOT NULL : `OrderLineRow.dateLivraison` n'est pas
-        // nullable côté type, mais une date X3 à 0 ressort en `Invalid Date`.
-        // `isoDay` rendrait `NaN-NaN-NaN`, que la table STRICT accepterait
-        // (c'est du TEXT) et qui casserait tout `BETWEEN` en aval.
-        date_livraison: isoDay(l.dateLivraison) ?? '',
-        contremarque: l.contremarque,
-        unite: l.unite,
-        order_type: l.orderType,
-        nature: l.nature,
-      }))
-    })
   }
 
   /**
@@ -263,10 +209,8 @@ export class ReplicaSyncService {
    * passe a échoué serait pire qu'une table périmée — le portail ne saurait pas
    * la distinguer d'une table complète.
    *
-   * PAS dans `syncAll()` pour l'instant : la variante grasse (contremarque +
-   * réfs client, 3 jointures de plus) n'a pas encore de coût mesuré sur un tick
-   * de 5 min. Cadence à arbitrer après observation, comme `operations`/
-   * `stock_detail` — `--only=orders-flux` en attendant.
+   * Dans `syncAll()` depuis `57941a8` (tick 5 min) : mesuré à ~60 s en PROD à la
+   * main, absorbé par le tick sans chevauchement grâce à la garde `running`.
    */
   async syncOrdersFlux(source = 'manual'): Promise<TableIngestionResult> {
     const window = orderLinesReplicaWindow()
@@ -326,6 +270,25 @@ export class ReplicaSyncService {
         designation: r.designation,
         date_commande: isoDay(r.dateCommande),
         qte_commandee: r.qteCommandee,
+      }))
+    })
+  }
+
+  /**
+   * Événements de réception PORDERQ clôturés (latence fournisseur, #105) —
+   * swap complet, DANS `syncAll()`. Requête bornée (180 jours, ROWNUM ≤ 5000),
+   * même classe de coût que `syncReceptions` (~1 s sur CLTEST). La moyenne par
+   * article se calcule à la LECTURE, la table mire la source brute.
+   */
+  async syncLatency(source = 'manual'): Promise<TableIngestionResult> {
+    return this.ingest('latency_replica', source, async () => {
+      const events = await new X3LatencyRepository().getLatencyEvents()
+      return events.map((e): Row => ({
+        article: e.article,
+        // `isoDay` rend `''` pour une date illisible : la lecture écarte, le
+        // calcul ne stocke pas de faux jalon.
+        date_prevue: isoDay(e.prevu) ?? '',
+        date_reelle: isoDay(e.reel) ?? '',
       }))
     })
   }

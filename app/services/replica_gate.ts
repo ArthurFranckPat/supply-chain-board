@@ -96,14 +96,13 @@ export type ReadSource = 'replica' | 'direct'
 
 /** Tables de réplique adressables par le portail. */
 export type ReplicaTable =
-  | 'orders_replica'
   | 'orders_flux_replica'
-  | 'order_lines_replica'
   | 'stock_replica'
   | 'stock_flux_replica'
   | 'receptions_replica'
   | 'operations_replica'
   | 'stock_detail_replica'
+  | 'latency_replica'
 
 export interface GateVerdict {
   table: ReplicaTable
@@ -147,16 +146,16 @@ const HOUR = 60 * MINUTE
  * pour fraîche.
  */
 const MAX_AGE_MS: Record<ReplicaTable, number> = {
-  orders_replica: 30 * MINUTE,
   // Dans `syncAll()` depuis `57941a8`, donc sur le tick 5 min : même régime que
   // les autres tables vivantes, cinq ticks manqués avant de replier.
   orders_flux_replica: 30 * MINUTE,
-  order_lines_replica: 30 * MINUTE,
   stock_replica: 30 * MINUTE,
   receptions_replica: 30 * MINUTE,
   operations_replica: 30 * MINUTE,
   stock_flux_replica: 26 * HOUR,
   stock_detail_replica: 6 * HOUR,
+  // Latence fournisseur (historique PORDERQ) : dans `syncAll()`, même régime.
+  latency_replica: 30 * MINUTE,
 }
 
 /** Défaut volontairement STRICT : une table ajoutée à `ReplicaTable` sans entrée
@@ -205,7 +204,7 @@ export class ReplicaGate {
    * Marque des tables comme suspectes. À appeler depuis TOUTE écriture X3, au même
    * endroit que l'invalidation de cache — c'est le même événement.
    *
-   * Marquer large plutôt que juste : une écriture d'OF touche `orders_replica`,
+   * Marquer large plutôt que juste : une écriture d'OF touche `orders_flux_replica`,
    * mais l'affermissement consomme aussi des allocations, donc `stock_replica`. Un
    * marquage en trop coûte une fenêtre de voie directe ; un marquage manquant sert
    * une donnée fausse.
@@ -288,7 +287,7 @@ export class ReplicaGate {
 
     // Fraîcheur mesurée sur `finished_at` et non `started_at` : c'est la fin du
     // swap qui date la donnée visible. L'écart compte — `stock_flux_replica`
-    // met ~3-4 min par run, `orders_replica` ~13 s.
+    // met ~3-4 min par run, `orders_flux_replica` ~13 s.
     //
     // `finished_at` absent sur un run marqué `ok` ne devrait pas arriver
     // (`log()` l'écrit toujours) ; si ça arrive, l'âge est indémontrable, donc
@@ -311,14 +310,13 @@ export class ReplicaGate {
   /** Verdicts de toutes les tables — diagnostic, page d'admin, `replica:sync --status`. */
   async verdicts(): Promise<GateVerdict[]> {
     const tables: ReplicaTable[] = [
-      'orders_replica',
       'orders_flux_replica',
-      'order_lines_replica',
       'stock_replica',
       'stock_flux_replica',
       'receptions_replica',
       'operations_replica',
       'stock_detail_replica',
+      'latency_replica',
     ]
     return Promise.all(tables.map((t) => this.verdict(t)))
   }

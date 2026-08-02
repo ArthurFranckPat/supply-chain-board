@@ -23,10 +23,10 @@ import { parseResponse } from './response_parser.js'
  *
  * Ça n'a jamais mordu tant que la réplique n'était alimentée que depuis CLTEST,
  * dont les volumes sont petits. Première ingestion réelle contre PROD
- * (31/07/2026) : `orders_replica` passe de justesse à 13 665 lignes,
- * `order_lines_replica` échoue. Le défaut de 1 Mo était donc franchi entre ces
- * deux tailles — autrement dit il l'était déjà presque partout, sans que rien
- * ne le signale.
+ * (31/07/2026) : `orders_replica` (13 665 lignes, absorbée depuis par
+ * `orders_flux_replica`) passe de justesse, `order_lines_replica` échoue. Le
+ * défaut de 1 Mo était donc franchi entre ces deux tailles — autrement dit il
+ * l'était déjà presque partout, sans que rien ne le signale.
  *
  * 64 Mo : le corps de #98 mesure une réponse de 17,5 Mo pour 60 000 lignes,
  * soit le pire cas plausible sur les tables non chunkées. 3,5× de marge.

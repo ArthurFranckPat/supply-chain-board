@@ -99,7 +99,7 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
   // Avancement de production : deux colonnes de plus dans un SQL en O(n²) sur les
   // colonnes, donc jamais par défaut — seule l'ingestion les demande, une fois par
   // tick, pour que le board n'ait plus sa propre table.
-  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0')
+  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0', 'O.STOFCY_0')
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
   if (includeCustomerRef) {
     columns.push(
@@ -236,6 +236,9 @@ export interface OrdersSourceRow {
   qteRealisee?: number
   /** `STRDAT_0` — date de LANCEMENT d'un OF, distincte de l'échéance. */
   dateDebut?: Date | null
+  /** `STOFCY_0` — site. Seule l'ingestion la demande (`forReplica`), pour la
+   *  résolution des clés d'affermissement (#31, #105). */
+  stofcy?: string | null
 }
 
 /** `RawRow` X3 → ligne normalisée. Seul point où le format X3 est interprété. */
@@ -264,6 +267,7 @@ export function toOrdersSourceRow(row: RawRow): OrdersSourceRow {
     // que « colonne non demandée » reste distinct de « valeur nulle ».
     qteRealisee: row.CPLQTY_0 === undefined ? undefined : toNum(row.CPLQTY_0),
     dateDebut: row.STRDAT_0 === undefined ? undefined : parseX3Date(row.STRDAT_0),
+    stofcy: row.STOFCY_0 === undefined ? undefined : row.STOFCY_0?.trim() || null,
   }
 }
 
