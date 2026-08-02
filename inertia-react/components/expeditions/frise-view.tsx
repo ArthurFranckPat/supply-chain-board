@@ -102,10 +102,7 @@ export function FriseView({
           <div className="border-r border-rule-soft px-4 py-[11px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
             Camion
           </div>
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: `repeat(${bounds.hours}, 1fr)` }}
-          >
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${bounds.hours}, 1fr)` }}>
             {Array.from({ length: bounds.hours }).map((_, i) => (
               <span
                 key={i}
@@ -226,9 +223,7 @@ export function FriseView({
                     {width > 8 && (
                       <span className="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] font-bold text-card">
                         {c.nbPalettes}
-                        {c.anomalie && (
-                          <TriangleAlert size={12} strokeWidth={1.75} />
-                        )}
+                        {c.anomalie && <TriangleAlert size={12} strokeWidth={1.75} />}
                       </span>
                     )}
                   </div>

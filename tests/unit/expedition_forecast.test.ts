@@ -2,7 +2,7 @@ import { test } from '@japa/runner'
 import type { VolumeCoef } from '#repositories/expedition_repository'
 import {
   buildExpeditionForecast,
-  equivalentPalettes,
+  emplacementsPalette,
   type AvailabilitySegment,
   type ExpeditionOrderLine,
 } from '#app/domain/expedition_forecast'
@@ -61,9 +61,21 @@ function build(over: Partial<Parameters<typeof buildExpeditionForecast>[0]> = {}
 
 test.group('expedition_forecast — volumes', () => {
   test('réutilise calcVolumes et conserve les articles non chiffrables', ({ assert }) => {
-    assert.equal(equivalentPalettes(100, volume('ART1', 10)), 10)
-    assert.equal(equivalentPalettes(3, volume('VBART', null, 'VBP')), 3)
-    assert.isNull(equivalentPalettes(100, volume('UNKNOWN', null)))
+    assert.equal(emplacementsPalette(100, volume('ART1', 10)), 10)
+    assert.equal(emplacementsPalette(3, volume('VBART', null, 'VBP')), 3)
+    assert.isNull(emplacementsPalette(100, volume('UNKNOWN', null)))
+  })
+
+  test('rend des emplacements entiers — la ligne ne sort que des palettes pleines', ({
+    assert,
+  }) => {
+    // 16,2 UC pour 27 UC/palette : « 0,6 pal » ne décrit rien de chargeable, une
+    // palette entamée occupe un emplacement plein dans la navette.
+    assert.equal(emplacementsPalette(16.2, volume('ART1', 27)), 1)
+    assert.equal(emplacementsPalette(168, volume('ART1', 19)), 9)
+    assert.equal(emplacementsPalette(480, volume('ART1', 480)), 1)
+    // Un compte déjà juste n'est pas gonflé d'une palette fantôme.
+    assert.equal(emplacementsPalette(176, volume('ART1', 12.571_428_571_428_571)), 14)
   })
 })
 
@@ -219,6 +231,46 @@ test.group('expedition_forecast — file FIFO', () => {
     })
     assert.equal(forecast.days[0]!.lignes[0]!.numCommande, 'SUIVANTE')
     assert.equal(forecast.deferred[0]!.numCommande, 'BLOQUEE')
+  })
+
+  test('somme le stock détail avant de convertir, sans inventer une palette par ligne', ({
+    assert,
+  }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 100, segments: [] })],
+      initialQueue: [
+        { article: 'ART1', location: 'QUAI3', quantityUs: 5, source: 'quai' },
+        { article: 'ART1', location: 'QUAI4', quantityUs: 5, source: 'quai' },
+      ],
+      dailyHorizonDays: 1,
+    })
+    // 5 + 5 US pour 10 US/palette : 1 emplacement, pas 2 (un arrondi par ligne).
+    assert.equal(forecast.initialQueuePalettes, 1)
+  })
+
+  test('toute la charge du jour tient en emplacements entiers', ({ assert }) => {
+    const forecast = build({
+      lines: [
+        line({
+          numCommande: 'A',
+          orderedOpenQuantity: 162,
+          segments: [segment({ quantity: 162 })],
+        }),
+        line({
+          numCommande: 'B',
+          orderedOpenQuantity: 168,
+          segments: [segment({ quantity: 168 })],
+        }),
+      ],
+      volumes: new Map([['ART1', volume('ART1', 19)]]),
+      maxSpotTrucks: 0,
+      dailyHorizonDays: 1,
+    })
+    const jour = forecast.days[0]!
+    for (const value of [jour.entries, jour.available, jour.loaded, jour.fileAfter]) {
+      assert.isTrue(Number.isInteger(value), `valeur fractionnaire : ${value}`)
+    }
+    assert.isTrue(jour.lignes.every((row) => Number.isInteger(row.palTheo ?? 0)))
   })
 
   test("l'allocation ERP ne se cumule pas avec le stock quai du même article", ({ assert }) => {

@@ -22,45 +22,21 @@ const TH =
   'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground'
 const TD = 'px-3 py-2'
 
+const CONFIDENCE_CLASS: Record<ForecastLine['confidence'], string> = {
+  faible: 'text-warning',
+  moyenne: 'text-suggere',
+  haute: 'text-ferme',
+  constatee: 'text-ferme',
+}
+
+/**
+ * Cinq colonnes, pas neuf : le sheet tient dans sa largeur.
+ *
+ * Le client est constant (80001, navette dédiée) — il n'apportait rien. Commande,
+ * source, fiabilité et statut sont repliés sous la donnée qu'ils qualifient.
+ * Une table qu'on lit en scrollant vers la droite ne se lit pas.
+ */
 const columns: ColumnDef<ForecastLine>[] = [
-  {
-    accessorKey: 'chargeStatus',
-    header: () => 'Statut',
-    cell: ({ row: { original: line } }) => {
-      if (!line.chargeStatus) return <span className="text-muted-foreground">—</span>
-      const overflow = line.chargeStatus === 'overflow'
-      return (
-        <span
-          className={cn(
-            'font-mono text-[10px] font-bold uppercase tracking-[0.06em]',
-            overflow ? 'text-destructive' : 'text-ferme'
-          )}
-        >
-          {overflow ? 'Spot' : 'Navette'}
-        </span>
-      )
-    },
-    meta: { thClass: TH, tdClass: TD },
-  },
-  {
-    accessorKey: 'client',
-    header: () => 'Client',
-    cell: ({ row: { original: line } }) => (
-      <span className="font-medium text-foreground">{line.client || '—'}</span>
-    ),
-    meta: { thClass: TH, tdClass: TD },
-  },
-  {
-    accessorKey: 'numCommande',
-    header: () => 'Commande',
-    cell: ({ row: { original: line } }) => (
-      <span className="font-mono text-[11px] text-muted-foreground">
-        {line.numCommande}
-        {line.ligne ? `/${line.ligne}` : ''}
-      </span>
-    ),
-    meta: { thClass: TH, tdClass: TD },
-  },
   {
     accessorKey: 'article',
     header: () => 'Article',
@@ -68,13 +44,15 @@ const columns: ColumnDef<ForecastLine>[] = [
       <>
         <div className="font-mono text-[11px] font-semibold text-foreground">{line.article}</div>
         {line.description ? (
-          <div className="max-w-[180px] truncate text-[10px] text-muted-foreground">
-            {line.description}
-          </div>
+          <div className="truncate text-[10px] text-muted-foreground">{line.description}</div>
         ) : null}
+        <div className="font-mono text-[9px] text-muted-foreground/70">
+          {line.numCommande}
+          {line.ligne ? `/${line.ligne}` : ''}
+        </div>
       </>
     ),
-    meta: { thClass: TH, tdClass: TD },
+    meta: { thClass: TH, tdClass: cn(TD, 'w-[30%]') },
   },
   {
     accessorKey: 'qte',
@@ -84,69 +62,59 @@ const columns: ColumnDef<ForecastLine>[] = [
         {line.qte.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
       </span>
     ),
-    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'w-[10%] text-right') },
   },
   {
     accessorKey: 'palTheo',
     header: () => 'Pal',
     cell: ({ row: { original: line } }) => (
-      <span className="font-mono font-semibold tabular-nums">{fmtPal(line.palTheo)}</span>
+      <>
+        <div className="font-mono text-[13px] font-bold tabular-nums">{fmtPal(line.palTheo)}</div>
+        {line.chargeStatus ? (
+          <div
+            className={cn(
+              'font-mono text-[9px] font-bold uppercase tracking-[0.06em]',
+              line.chargeStatus === 'overflow' ? 'text-destructive' : 'text-ferme'
+            )}
+          >
+            {line.chargeStatus === 'overflow' ? 'Spot' : 'Navette'}
+          </div>
+        ) : null}
+      </>
     ),
-    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'w-[10%] text-right') },
   },
   {
     accessorKey: 'source',
     header: () => 'Source',
     cell: ({ row: { original: line } }) => (
-      <span className="font-mono text-[10px] font-bold text-foreground">
-        {SOURCE_LABEL[line.source]}
-      </span>
+      <>
+        <div className="font-mono text-[10px] font-bold text-foreground">
+          {SOURCE_LABEL[line.source]}
+        </div>
+        <div className={cn('font-mono text-[9px]', CONFIDENCE_CLASS[line.confidence])}>
+          {CONFIDENCE_LABEL[line.confidence]}
+        </div>
+      </>
     ),
-    meta: { thClass: TH, tdClass: TD },
-  },
-  {
-    accessorKey: 'confidence',
-    header: () => 'Fiabilité',
-    cell: ({ row: { original: line } }) => (
-      <span
-        className={cn(
-          'font-mono text-[10px] font-bold',
-          line.confidence === 'faible'
-            ? 'text-warning'
-            : line.confidence === 'moyenne'
-              ? 'text-suggere'
-              : 'text-ferme'
-        )}
-      >
-        {CONFIDENCE_LABEL[line.confidence]}
-      </span>
-    ),
-    meta: { thClass: TH, tdClass: TD },
+    meta: { thClass: TH, tdClass: cn(TD, 'w-[16%]') },
   },
   {
     accessorKey: 'cause',
     header: () => 'Cause / date',
     cell: ({ row: { original: line } }) => (
-      <div className="max-w-[260px] text-[10px] text-muted-foreground">
+      <div className="text-[10px] leading-snug text-muted-foreground">
         <div>{line.cause}</div>
         {line.dateMiseADispo ? (
           <span className="font-mono">dispo {fmtJour(line.dateMiseADispo)}</span>
         ) : null}
       </div>
     ),
-    meta: { thClass: TH, tdClass: TD },
+    meta: { thClass: TH, tdClass: cn(TD, 'w-[34%]') },
   },
 ]
 
-function LinesTable({
-  lines,
-  empty,
-  showStatus,
-}: {
-  lines: ForecastLine[]
-  empty: string
-  showStatus: boolean
-}) {
+function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) {
   const [sorting, setSorting] = useState<SortingState[]>([])
   if (lines.length === 0)
     return (
@@ -154,18 +122,17 @@ function LinesTable({
         {empty}
       </p>
     )
-  const visibleColumns = showStatus
-    ? columns
-    : columns.filter((col) => col.accessorKey !== 'chargeStatus')
   return (
     <DataTable
-      columns={visibleColumns}
+      columns={columns}
       rows={lines}
       sorting={sorting}
       onSortingChange={setSorting}
       virtualize={false}
-      tableClass="w-full border-collapse text-[12px]"
-      scrollContainerClass="overflow-x-auto rounded-lg border border-rule shadow-float"
+      // `table-fixed` + largeurs en % : la table s'adapte au sheet au lieu de
+      // pousser une barre de défilement horizontale.
+      tableClass="w-full table-fixed border-collapse text-[12px]"
+      scrollContainerClass="overflow-hidden rounded-lg border border-rule shadow-float"
       theadRowClass="bg-secondary"
       getRowClass={(line) =>
         cn(
@@ -262,7 +229,6 @@ export function JourDetailSheet({
             empty={
               isDeferred ? 'Aucune ligne hors file.' : 'Aucune ligne dans la charge de ce jour.'
             }
-            showStatus={!isDeferred}
           />
         </div>
       </SheetContent>

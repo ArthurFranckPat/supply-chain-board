@@ -141,10 +141,14 @@ export function fmtJour(iso: string | null): string {
   return `${m[3]}/${m[2]}`
 }
 
+/**
+ * La file se compte en emplacements palette entiers — la ligne ne sort que des
+ * palettes complètes. Le décimal n'est gardé que comme filet, si une valeur
+ * fractionnaire remontait malgré tout du moteur.
+ */
 export function fmtPal(n: number | null): string {
   if (n === null || !Number.isFinite(n)) return '—'
-  if (n === 0) return '0'
-  return n < 10 ? n.toFixed(1) : String(Math.round(n))
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 
 export function weekdayShort(iso: string): string {

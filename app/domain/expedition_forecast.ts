@@ -362,8 +362,16 @@ function sourceRank(source: AvailabilitySource): number {
   }
 }
 
-/** Conversion unique, utilisée par les entrées stock et les portions de commande. */
-export function equivalentPalettes(
+/**
+ * Conversion unique, utilisée par les entrées stock et les portions de commande.
+ *
+ * Rend des **emplacements palette entiers**, jamais un équivalent fractionnaire.
+ * La ligne ne sort que des palettes complètes, et une palette entamée occupe un
+ * emplacement plein dans la navette : « 0,6 pal » ne décrit rien de chargeable.
+ * `calcVolumes` garde son équivalent fractionnaire — c'est ce qu'il faut au
+ * rétroviseur (#44) pour un taux de remplissage, pas à une file de chargement.
+ */
+export function emplacementsPalette(
   quantityUs: number,
   volume: VolumeCoef | undefined
 ): number | null {
@@ -378,7 +386,7 @@ export function equivalentPalettes(
     ],
     0
   )
-  return result.palTheo >= 0 ? result.palTheo : null
+  return result.palTheo >= 0 ? Math.ceil(result.palTheo - EPSILON) : null
 }
 
 function lineKey(line: ExpeditionOrderLine): string {
@@ -412,7 +420,7 @@ function volumeFor(
   article: string,
   volumes: Map<string, VolumeCoef>
 ): number | null {
-  return equivalentPalettes(quantity, volumes.get(article))
+  return emplacementsPalette(quantity, volumes.get(article))
 }
 
 function makeLine(
@@ -485,20 +493,30 @@ function materializeLines(
     line.priority = index
   })
 
+  // Sommer les quantités AVANT de convertir : arrondir chaque emplacement puis
+  // additionner inventerait une palette par ligne de stock détail.
+  const stockQuantities = new Map<
+    string,
+    { quantityUs: number; source: 'quai' | 'stock_production' }
+  >()
+  for (const row of initialQueue) {
+    if (!Number.isFinite(row.quantityUs) || row.quantityUs <= 0) continue
+    const current = stockQuantities.get(row.article)
+    if (current) {
+      current.quantityUs += row.quantityUs
+      if (row.source === 'quai') current.source = 'quai'
+    } else {
+      stockQuantities.set(row.article, { quantityUs: row.quantityUs, source: row.source })
+    }
+  }
   const stockByArticle = new Map<
     string,
     { palettes: number; source: 'quai' | 'stock_production' }
   >()
-  for (const row of initialQueue) {
-    const palettes = equivalentPalettes(row.quantityUs, volumes.get(row.article))
+  for (const [article, row] of stockQuantities) {
+    const palettes = emplacementsPalette(row.quantityUs, volumes.get(article))
     if (palettes === null || palettes <= 0) continue
-    const current = stockByArticle.get(row.article)
-    if (current) {
-      current.palettes += palettes
-      if (row.source === 'quai') current.source = 'quai'
-    } else {
-      stockByArticle.set(row.article, { palettes, source: row.source })
-    }
+    stockByArticle.set(article, { palettes, source: row.source })
   }
 
   const loadedTodayPalettes = loadedShuttle.reduce((sum, row) => sum + Math.max(0, row.palettes), 0)
