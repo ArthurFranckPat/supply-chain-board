@@ -73,6 +73,7 @@ export type ScannedRoutes = {
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
+    'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
@@ -162,6 +163,7 @@ export type ScannedRoutes = {
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
+    'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
@@ -237,6 +239,7 @@ export type ScannedRoutes = {
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
+    'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }

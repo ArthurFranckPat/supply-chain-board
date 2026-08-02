@@ -93,6 +93,23 @@ export interface PhantomOf {
   /** Pointage constaté à l'opération la plus avancée, et qté prévue sur cette opération. */
   qtyRealisee: number
   qtyPrevueOp: number
+  /**
+   * Commandes que cet OF couvrait AVANT d'être écarté, et qui finissent « sans couverture »
+   * faute d'autre offre sur l'article. C'est la conséquence qui rend l'anomalie actionnable :
+   * un OF non soldé sans commande derrière est du nettoyage de données, avec commande derrière
+   * c'est une livraison en jeu.
+   */
+  commandes: PhantomOfCommande[]
+}
+
+/** Ligne de commande rendue « sans couverture » par l'écartement d'un OF fantôme. */
+export interface PhantomOfCommande {
+  numCommande: string
+  ligne: string | null
+  client: string
+  qteRestante: number
+  /** Date d'expédition demandée (ISO, jour). */
+  dateExpedition: string
 }
 
 export interface OrderImpactsContext {
@@ -310,17 +327,23 @@ export async function loadOrderImpacts(
   // gonfle le stock prévisionnel et charge l'atelier pour du travail déjà fait. On les sort donc
   // de l'offre, et on les REMONTE à l'appelant : un OF non soldé est une action de gestion, pas
   // un détail à masquer.
-  const phantomOfs: PhantomOf[] = []
+  // Indexé par n° d'OF : `estFantome` est appelé sur DEUX collections (offre finale et
+  // supply de matching seul), un même OF y passe donc deux fois. Une liste simple le
+  // dupliquerait — et le compteur « N OF à solder » afficherait le double.
+  const phantomByOf = new Map<string, PhantomOf>()
   const estFantome = (f: Flow) => {
     const id = numOfDe(f)
     if (!id || !estOfFantome(avancementByOf.get(id), f.quantity)) return false
-    phantomOfs.push({
-      numOf: id,
-      article: f.article,
-      qteRestante: f.quantity,
-      qtyRealisee: avancementByOf.get(id)?.qtyRealisee ?? 0,
-      qtyPrevueOp: avancementByOf.get(id)?.qtyPrevueOp ?? 0,
-    })
+    if (!phantomByOf.has(id)) {
+      phantomByOf.set(id, {
+        numOf: id,
+        article: f.article,
+        qteRestante: f.quantity,
+        qtyRealisee: avancementByOf.get(id)?.qtyRealisee ?? 0,
+        qtyPrevueOp: avancementByOf.get(id)?.qtyPrevueOp ?? 0,
+        commandes: [],
+      })
+    }
     return true
   }
   finalOfFlows = finalOfFlows.filter((f) => !estFantome(f))
@@ -472,6 +495,34 @@ export async function loadOrderImpacts(
     fabricationDaysByOf,
     matchingOnlySupply
   )
+
+  // Conséquence de l'écartement : les commandes qui finissent « sans couverture » sur un
+  // article dont un OF fantôme a été retiré. Sans ce croisement, la liste des OF à solder
+  // est une liste de codes — avec, elle se trie par enjeu (livraison en jeu vs nettoyage).
+  // Purement en mémoire : `result` et les fantômes sont déjà là, aucune requête en plus.
+  const phantomOfs = [...phantomByOf.values()]
+  if (phantomOfs.length > 0) {
+    const parArticle = new Map<string, PhantomOf[]>()
+    for (const p of phantomOfs) {
+      const arr = parArticle.get(p.article) ?? []
+      arr.push(p)
+      parArticle.set(p.article, arr)
+    }
+    for (const row of result.orders) {
+      if (row.statut !== 'sans_couverture' || row.nature !== 'commande') continue
+      const cibles = parArticle.get(row.article)
+      if (!cibles) continue
+      for (const p of cibles) {
+        p.commandes.push({
+          numCommande: row.numCommande,
+          ligne: row.ligne ?? null,
+          client: row.client,
+          qteRestante: row.qteRestante,
+          dateExpedition: row.dateExpedition,
+        })
+      }
+    }
+  }
 
   // Charge par OF pour l'axe charge du diff (poste gamme + heures + date de fin effective).
   // Les OF sans poste connu sont écartés : un bucket « poste vide » ne veut rien dire en

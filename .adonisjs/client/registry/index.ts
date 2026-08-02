@@ -420,6 +420,12 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/controle-prod","type":0,"val":"api","end":""},{"old":"/api/v1/planning/controle-prod","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/controle-prod","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/controle-prod","type":0,"val":"controle-prod","end":""}],
     types: placeholder as Registry['controle_prod.rows']['types'],
   },
+  'controle_prod.of_a_solder': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/of-a-solder',
+    tokens: [{"old":"/api/v1/planning/of-a-solder","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-a-solder","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-a-solder","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-a-solder","type":0,"val":"of-a-solder","end":""}],
+    types: placeholder as Registry['controle_prod.of_a_solder']['types'],
+  },
   'charge.detail': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/charge/detail',

@@ -40,6 +40,7 @@ export interface ApiDefinition {
   controleProd: {
     index: typeof routes['controle_prod.index']
     rows: typeof routes['controle_prod.rows']
+    ofASolder: typeof routes['controle_prod.of_a_solder']
   }
   suivi: {
     board: typeof routes['suivi.board']

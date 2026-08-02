@@ -234,6 +234,9 @@ router
     router
       .get('/api/v1/planning/controle-prod', '#controllers/controle_prod_controller.rows')
       .as('controle_prod.rows')
+    router
+      .get('/api/v1/planning/of-a-solder', '#controllers/controle_prod_controller.ofASolder')
+      .as('controle_prod.of_a_solder')
     // Détail d'une période de charge : composition d'une barre du graphe /charge.
     router
       .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')

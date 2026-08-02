@@ -835,6 +835,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'controle_prod.of_a_solder': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/of-a-solder'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'charge.detail': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/charge/detail'

@@ -147,6 +147,8 @@ declare module '@adonisjs/inertia/types' {
     }
     'scheduler/controle-prod': {
       rowsHref: string
+      /** Onglet « OF à solder » — fetché seulement à l'ouverture de l'onglet. */
+      solderHref: string
     }
     'scheduler/tracking': {
       rowsHref: string

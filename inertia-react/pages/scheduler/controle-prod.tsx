@@ -1,6 +1,13 @@
 /**
- * Page « Contrôle prod » — OF dont la déclaration PF dépasse le pointage
- * atelier (issue #95). Coquille Inertia + fetch JSON différé, calque /ruptures.
+ * Page « Contrôle prod » — incohérences entre le pointage atelier et ce qu'ORDERS
+ * annonce, en deux onglets symétriques :
+ *  - « Écarts déclaration » (issue #95) : déclaré PF > pointé ;
+ *  - « OF à solder » : gamme pointée à 100 %, rien de déclaré, reste annoncé non nul.
+ *    Ces OF sont écartés de l'offre par le moteur, donc ils font basculer des commandes
+ *    en « sans couverture » — la colonne « Commandes » porte cette conséquence.
+ *
+ * Coquille Inertia + fetch JSON différé, calque /ruptures. L'onglet « OF à solder »
+ * n'est fetché qu'à son ouverture (il déclenche le pipeline ruptures).
  */
 import { useCallback, useMemo, useState } from 'react'
 import { Search, TriangleAlert, CircleX, RefreshCw } from 'lucide-react'
@@ -61,6 +68,45 @@ const EMPTY: ControleProdResponse = {
   stats: { nbEcarts: 0, totalEcart: 0, nbLive: 0, nbOuverts: 0 },
   x3Error: null,
 }
+
+interface CommandeImpactee {
+  numCommande: string
+  ligne: string | null
+  client: string
+  qteRestante: number
+  dateExpedition: string
+}
+
+interface OfASolderRow {
+  numOf: string
+  article: string
+  designation: string | null
+  qteRestante: number
+  qtyRealisee: number
+  qtyPrevueOp: number
+  dernierPointageIso: string | null
+  joursDepuisPointage: number | null
+  poste: string | null
+  dateDebutIso: string | null
+  dateFinIso: string | null
+  planner: string | null
+  site: string | null
+  commandes: CommandeImpactee[]
+}
+
+interface OfASolderResponse {
+  rows: OfASolderRow[]
+  stats: { nbOfs: number; totalQte: number; nbBloquants: number; nbSansCommande: number }
+  x3Error: string | null
+}
+
+const EMPTY_SOLDER: OfASolderResponse = {
+  rows: [],
+  stats: { nbOfs: 0, totalQte: 0, nbBloquants: 0, nbSansCommande: 0 },
+  x3Error: null,
+}
+
+type Tab = 'ecarts' | 'solder'
 
 const fold = (s: string): string =>
   s
@@ -226,11 +272,153 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
   ]
 }
 
+/** Colonnes « OF à solder ». L'ordre suit la décision : quoi, combien, depuis quand, pour qui. */
+function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfASolderRow>[] {
+  return [
+    {
+      accessorKey: 'numOf',
+      header: () => 'OF',
+      cell: ({ row: { original: r } }) => (
+        <>
+          <button
+            type="button"
+            className="cursor-pointer font-mono text-[12px] font-bold tracking-tight text-brand hover:underline"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelectOf(r.numOf)
+            }}
+          >
+            {r.numOf}
+          </button>
+          <div className="mt-0.5 max-w-[14rem] truncate font-mono text-[11px] text-muted-foreground">
+            <span className="font-semibold text-foreground">{r.article}</span>
+            {r.designation && <span className="font-sans font-normal"> · {r.designation}</span>}
+          </div>
+          {(r.planner || r.site || r.poste) && (
+            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">
+              {[r.site, r.planner, r.poste].filter(Boolean).join(' · ')}
+            </div>
+          )}
+        </>
+      ),
+      meta: { tdClass: 'align-top' },
+    },
+    {
+      accessorKey: 'qteRestante',
+      header: () => 'Reste annoncé',
+      cell: ({ row: { original: r } }) => (
+        <span className="text-[14px] font-bold tabular-nums tracking-tight text-destructive">
+          {fmt(r.qteRestante)}
+          <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/70">u</span>
+        </span>
+      ),
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'qtyRealisee',
+      header: () => 'Pointé',
+      cell: ({ row: { original: r } }) => (
+        <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">
+          {fmt(r.qtyRealisee)}/{fmt(r.qtyPrevueOp)}
+        </span>
+      ),
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      accessorKey: 'joursDepuisPointage',
+      header: () => 'Dernier pointage',
+      cell: ({ row: { original: r } }) => {
+        if (!r.dernierPointageIso) return <Dash />
+        // Le délai depuis le pointage EST l'action : récent = déclaration en retard,
+        // ancien = OF mort. Seuil à 30 j, franc pour rester lisible d'un coup d'œil.
+        const vieux = (r.joursDepuisPointage ?? 0) > 30
+        return (
+          <>
+            <div className="font-mono text-[11px] tabular-nums text-foreground">
+              {fmtFr(r.dernierPointageIso)}
+            </div>
+            <div
+              className={cn(
+                'mt-0.5 text-[10px] font-semibold',
+                vieux ? 'text-destructive' : 'text-muted-foreground'
+              )}
+            >
+              {r.joursDepuisPointage} j
+            </div>
+          </>
+        )
+      },
+      meta: { thClass: 'text-right', tdClass: 'text-right align-top' },
+    },
+    {
+      id: 'action',
+      header: () => 'Action',
+      cell: ({ row: { original: r } }) => {
+        const vieux = (r.joursDepuisPointage ?? 0) > 30
+        return (
+          <span
+            className={cn(
+              'inline-flex h-5 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wide',
+              vieux ? 'bg-destructive/15 text-destructive' : 'bg-ferme/15 text-ferme'
+            )}
+          >
+            {vieux ? 'Solder' : 'Déclarer'}
+          </span>
+        )
+      },
+      meta: { tdClass: 'align-top' },
+    },
+    {
+      id: 'commandes',
+      header: () => 'Commandes sans couverture',
+      cell: ({ row: { original: r } }) =>
+        r.commandes.length === 0 ? (
+          <span className="text-[11px] italic text-muted-foreground">aucune</span>
+        ) : (
+          <div className="space-y-0.5">
+            {r.commandes.slice(0, 3).map((c) => (
+              <div key={`${c.numCommande}-${c.ligne ?? ''}`} className="text-[11px] leading-tight">
+                <span className="font-mono font-semibold text-foreground">{c.numCommande}</span>
+                <span className="text-muted-foreground">
+                  {' · '}
+                  {c.client}
+                  {' · '}
+                  {fmt(c.qteRestante)} u{' · '}
+                  {fmtFr(c.dateExpedition)}
+                </span>
+              </div>
+            ))}
+            {r.commandes.length > 3 && (
+              <div className="text-[10px] text-muted-foreground/80">
+                +{r.commandes.length - 3} autre{r.commandes.length - 3 > 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        ),
+      meta: { tdClass: 'align-top' },
+    },
+    {
+      accessorKey: 'dateDebutIso',
+      header: () => 'Début',
+      cell: ({ row: { original: r } }) => fmtFr(r.dateDebutIso),
+      meta: { tdClass: 'align-top font-mono text-[11px] tabular-nums text-muted-foreground' },
+    },
+    {
+      accessorKey: 'dateFinIso',
+      header: () => 'Fin',
+      cell: ({ row: { original: r } }) => fmtFr(r.dateFinIso),
+      meta: { tdClass: 'align-top font-mono text-[11px] tabular-nums text-muted-foreground' },
+    },
+  ]
+}
+
 interface Props {
   rowsHref: string
+  solderHref: string
 }
 
 export default function ControleProd(props: Props) {
+  const [tab, setTab] = useState<Tab>('ecarts')
   const [query, setQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<Source | 'all'>('all')
   const [selectedOf, setSelectedOf] = useState<string | null>(null)
@@ -239,6 +427,11 @@ export default function ControleProd(props: Props) {
 
   const { data, loading, error } = useTimedFetch<ControleProdResponse>(props.rowsHref)
   const viewData = data ?? EMPTY
+
+  // `null` tant que l'onglet n'est pas ouvert : ce payload déclenche le pipeline
+  // ruptures, on ne le paie pas pour un utilisateur qui reste sur les écarts.
+  const solder = useTimedFetch<OfASolderResponse>(tab === 'solder' ? props.solderHref : null)
+  const solderData = solder.data ?? EMPTY_SOLDER
 
   const filtered = useMemo(() => {
     const q = fold(query)
@@ -252,7 +445,23 @@ export default function ControleProd(props: Props) {
     })
   }, [viewData.rows, query, sourceFilter])
 
+  const filteredSolder = useMemo(() => {
+    const q = fold(query)
+    if (!q) return solderData.rows
+    return solderData.rows.filter((r) => {
+      const cmds = r.commandes.map((c) => `${c.numCommande} ${c.client}`).join(' ')
+      const hay = fold(
+        `${r.numOf} ${r.article} ${r.designation ?? ''} ${r.planner ?? ''} ${r.site ?? ''} ${r.poste ?? ''} ${cmds}`
+      )
+      return hay.includes(q)
+    })
+  }, [solderData.rows, query])
+
   const sorted = useMemo(() => sortByColumn(filtered, sorting), [filtered, sorting])
+  const sortedSolder = useMemo(
+    () => sortByColumn(filteredSolder, sorting),
+    [filteredSolder, sorting]
+  )
 
   const sumVisible = useMemo(() => filtered.reduce((s, r) => s + r.ecart, 0), [filtered])
 
@@ -262,6 +471,7 @@ export default function ControleProd(props: Props) {
   }, [])
 
   const columns = useMemo(() => createColumns(onSelectOf), [onSelectOf])
+  const solderColumns = useMemo(() => createSolderColumns(onSelectOf), [onSelectOf])
 
   const refresh = () => {
     router.visit(route('controle_prod.index') + '?refresh=1', { preserveScroll: true })
@@ -271,7 +481,11 @@ export default function ControleProd(props: Props) {
     <AppLayout
       title="Contrôle prod"
       active="controle-prod"
-      subtitle="Déclaration PF vs pointage atelier"
+      subtitle={
+        tab === 'ecarts'
+          ? 'Déclaration PF vs pointage atelier'
+          : 'Gamme pointée à 100 %, rien de déclaré'
+      }
       theme="airbnb"
       dense
       scrollable={false}
@@ -280,35 +494,56 @@ export default function ControleProd(props: Props) {
           <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
             Contrôle prod
           </div>
-          <div>
-            <b className="font-bold text-foreground">{viewData.stats.nbEcarts}</b> écarts · Σ{' '}
-            <b className="font-bold text-foreground">{fmt(viewData.stats.totalEcart)}</b> pcs
-          </div>
+          {tab === 'ecarts' ? (
+            <div>
+              <b className="font-bold text-foreground">{viewData.stats.nbEcarts}</b> écarts · Σ{' '}
+              <b className="font-bold text-foreground">{fmt(viewData.stats.totalEcart)}</b> pcs
+            </div>
+          ) : (
+            <div>
+              <b className="font-bold text-foreground">{solderData.stats.nbOfs}</b> OF · dont{' '}
+              <b className="font-bold text-destructive">{solderData.stats.nbBloquants}</b> avec
+              commande sans couverture
+            </div>
+          )}
         </>
       }
     >
       <div className="flex h-full min-h-0 flex-col">
         <ToolbarRow>
-          <Segment role="radiogroup" ariaLabel="Périmètre">
-            <SegmentButton active={sourceFilter === 'all'} onClick={() => setSourceFilter('all')}>
-              Tous
+          <Segment role="radiogroup" ariaLabel="Famille d'anomalie">
+            <SegmentButton active={tab === 'ecarts'} onClick={() => setTab('ecarts')}>
+              Écarts déclaration
               <span className="ml-1 opacity-60">{viewData.stats.nbEcarts}</span>
             </SegmentButton>
-            <SegmentButton
-              active={sourceFilter === 'live'}
-              onClick={() => setSourceFilter(sourceFilter === 'live' ? 'all' : 'live')}
-            >
-              Live
-              <span className="ml-1 opacity-60">{viewData.stats.nbLive}</span>
-            </SegmentButton>
-            <SegmentButton
-              active={sourceFilter === 'ouvert'}
-              onClick={() => setSourceFilter(sourceFilter === 'ouvert' ? 'all' : 'ouvert')}
-            >
-              Ouverts
-              <span className="ml-1 opacity-60">{viewData.stats.nbOuverts}</span>
+            <SegmentButton active={tab === 'solder'} onClick={() => setTab('solder')}>
+              OF à solder
+              {solder.data && <span className="ml-1 opacity-60">{solderData.stats.nbOfs}</span>}
             </SegmentButton>
           </Segment>
+
+          {tab === 'ecarts' && (
+            <Segment role="radiogroup" ariaLabel="Périmètre">
+              <SegmentButton active={sourceFilter === 'all'} onClick={() => setSourceFilter('all')}>
+                Tous
+                <span className="ml-1 opacity-60">{viewData.stats.nbEcarts}</span>
+              </SegmentButton>
+              <SegmentButton
+                active={sourceFilter === 'live'}
+                onClick={() => setSourceFilter(sourceFilter === 'live' ? 'all' : 'live')}
+              >
+                Live
+                <span className="ml-1 opacity-60">{viewData.stats.nbLive}</span>
+              </SegmentButton>
+              <SegmentButton
+                active={sourceFilter === 'ouvert'}
+                onClick={() => setSourceFilter(sourceFilter === 'ouvert' ? 'all' : 'ouvert')}
+              >
+                Ouverts
+                <span className="ml-1 opacity-60">{viewData.stats.nbOuverts}</span>
+              </SegmentButton>
+            </Segment>
+          )}
 
           <ToolbarSpacer />
 
@@ -337,15 +572,65 @@ export default function ControleProd(props: Props) {
           </button>
         </ToolbarRow>
 
-        {viewData.x3Error && (
+        {(tab === 'ecarts' ? viewData.x3Error : solderData.x3Error) && (
           <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement :</span>
-            <span className="font-mono">{viewData.x3Error}</span>
+            <span className="font-mono">
+              {tab === 'ecarts' ? viewData.x3Error : solderData.x3Error}
+            </span>
           </div>
         )}
 
-        {loading && !data ? (
+        {tab === 'solder' ? (
+          solder.loading && !solder.data ? (
+            <LoadingState
+              className="flex-1"
+              variant="orb"
+              orbState="searching"
+              title="Recherche des OF non soldés…"
+            />
+          ) : solder.error ? (
+            <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+              <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
+              Échec du chargement.
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col px-7 pb-7">
+              {filteredSolder.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+                  Aucun OF à solder sur ce filtre.
+                </div>
+              ) : (
+                <>
+                  <div className="flex-none pb-2 pt-2 text-[11px] text-muted-foreground">
+                    {filteredSolder.length} OF · gamme pointée à 100 %, aucune déclaration en stock
+                    — écartés de la couverture. Σ reste fictif{' '}
+                    <span className="font-semibold text-destructive">
+                      {fmt(solderData.stats.totalQte)}
+                    </span>
+                  </div>
+                  <div className="min-h-0 flex-1">
+                    <DataTable
+                      columns={solderColumns}
+                      rows={sortedSolder}
+                      sorting={sorting}
+                      onSortingChange={setSorting}
+                      tableClass="w-full min-w-[1100px] border-collapse"
+                      scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
+                      theadRowClass="sticky top-0 z-10 bg-secondary"
+                      getRowClass={() =>
+                        'cursor-pointer border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
+                      }
+                      onRowClick={(r) => onSelectOf(r.numOf)}
+                      getRowKey={(r) => r.numOf}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        ) : loading && !data ? (
           <LoadingState
             className="flex-1"
             variant="orb"
