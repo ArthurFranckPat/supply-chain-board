@@ -15,6 +15,7 @@ import {
   getRelativeDateLabel,
 } from '@r/lib/suivi/tracking-shared'
 import { CalendarX, CornerDownRight } from 'lucide-react'
+import { X3Link } from '../../components/x3-link'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 export interface ProactiveColumnsDeps {
@@ -40,9 +41,14 @@ export function createProactiveColumns({
       header: 'Commande · Client',
       cell: ({ row, getValue }) => (
         <>
-          <span className="font-mono text-xs font-bold tracking-tight text-foreground">
+          <X3Link
+            fonction="GESSOH"
+            cle={getValue() as string}
+            title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
+            className="font-mono text-xs font-bold tracking-tight text-foreground"
+          >
             {getValue() as string}
-          </span>
+          </X3Link>
           <span className="ml-1.5 text-2xs text-muted-foreground">
             {row.original.client || '—'}
           </span>

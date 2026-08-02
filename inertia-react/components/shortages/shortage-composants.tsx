@@ -9,6 +9,7 @@
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
+import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
 import {
   VERDICT_BAR,
@@ -110,9 +111,14 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
         g.urgent ? (
           <>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-xs font-bold tracking-tight text-secondary-foreground">
+              <X3Link
+                fonction="GESSOH"
+                cle={g.urgent.numCommande}
+                title={`Ouvrir la commande ${g.urgent.numCommande} dans Sage X3`}
+                className="font-mono text-xs font-bold tracking-tight text-secondary-foreground"
+              >
                 {g.urgent.numCommande}
-              </span>
+              </X3Link>
               <span
                 className={cn(
                   'font-mono text-2xs font-semibold',

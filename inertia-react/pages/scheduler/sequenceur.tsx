@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import { X3Link } from '@r/components/x3-link'
 import type { SortingState } from '@r/components/ui/data-table'
 import {
   PILL,
@@ -1397,9 +1398,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                       className="flex items-center gap-1.5 overflow-hidden"
                                       title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
                                     >
-                                      <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground">
+                                      <X3Link
+                                        fonction="GESSOH"
+                                        cle={c.numCommande}
+                                        title={`Ouvrir la commande ${c.numCommande} dans Sage X3`}
+                                        className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground"
+                                      >
                                         {c.numCommande}
-                                      </span>
+                                      </X3Link>
                                       {c.ligne && (
                                         <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
                                           ·L{c.ligne}

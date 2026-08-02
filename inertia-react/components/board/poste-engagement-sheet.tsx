@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CircleX, Package, SquareArrowOutUpRight, TriangleAlert } from 'lucide-react'
 import { Link } from '@inertiajs/react'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { route } from '@r/lib/routes'
@@ -284,9 +285,14 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                                   className="flex items-center gap-1.5 overflow-hidden"
                                   title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
                                 >
-                                  <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground">
+                                  <X3Link
+                                    fonction="GESSOH"
+                                    cle={c.numCommande}
+                                    title={`Ouvrir la commande ${c.numCommande} dans Sage X3`}
+                                    className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground"
+                                  >
                                     {c.numCommande}
-                                  </span>
+                                  </X3Link>
                                   {c.ligne && (
                                     <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
                                       ·L{c.ligne}

@@ -4,6 +4,7 @@
  */
 import { cn } from '@r/lib/utils'
 import { Receipt, Factory, Package, BookmarkCheck, Truck, Clock, CalendarX, CornerDownRight, CircleCheck } from 'lucide-react'
+import { X3Link } from '@r/components/x3-link'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
 import type { SuiviDisplayRow, ProactiveDisplayRow } from '@r/lib/suivi/types'
@@ -232,9 +233,14 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-lg border border-rule bg-foreground/[0.05] px-2.5 py-0.5 font-mono text-[13px] font-extrabold tracking-tight text-foreground">
+              <X3Link
+                fonction="GESSOH"
+                cle={row.numCommande}
+                title={`Ouvrir la commande ${row.numCommande} dans Sage X3`}
+                className="rounded-lg border border-rule bg-foreground/[0.05] px-2.5 py-0.5 font-mono text-[13px] font-extrabold tracking-tight text-foreground"
+              >
                 {row.numCommande}
-              </span>
+              </X3Link>
               <span className="font-sans text-[11px] font-bold text-muted-foreground/75">
                 • Commande client
               </span>

@@ -8,6 +8,7 @@ import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import { Segment, SegmentButton, DateWindowPill } from '@r/components/vision/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
@@ -262,7 +263,14 @@ const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
     header: () => 'Commande',
     cell: ({ row: { original: l } }) => (
       <>
-        <div className="font-mono text-[11px] font-bold text-foreground">{l.numCommande}</div>
+        <X3Link
+          fonction="GESSOH"
+          cle={l.numCommande}
+          title={`Ouvrir la commande ${l.numCommande} dans Sage X3`}
+          className="font-mono text-[11px] font-bold text-foreground"
+        >
+          {l.numCommande}
+        </X3Link>
         <div className="font-sans text-[10px] text-muted-foreground">{l.client}</div>
       </>
     ),
@@ -329,7 +337,14 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
     header: () => 'Commande · Client',
     cell: ({ row: { original: l } }) => (
       <>
-        <div className="font-mono text-[12px] font-bold text-foreground">{l.numCommande}</div>
+        <X3Link
+          fonction="GESSOH"
+          cle={l.numCommande}
+          title={`Ouvrir la commande ${l.numCommande} dans Sage X3`}
+          className="font-mono text-[12px] font-bold text-foreground"
+        >
+          {l.numCommande}
+        </X3Link>
         <div className="font-sans text-[11px] text-muted-foreground">{l.client}</div>
       </>
     ),

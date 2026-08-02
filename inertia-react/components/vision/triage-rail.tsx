@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
 import type { ImpactVerdict } from '@r/lib/vision/impact'
 import { deltaLabel } from '@r/lib/vision/impact'
@@ -181,6 +182,17 @@ export function TriageRail(props: {
                     <span className="text-muted-foreground">·L{item.ligne}</span>
                   )}
                 </span>
+                {/* Prévision (ligne null) : pas de commande X3, pas de lien.
+                    Le numéro garde sa sélection rail → icône séparée (#118). */}
+                {item.ligne && (
+                  <X3Link
+                    fonction="GESSOH"
+                    cle={item.numCommande}
+                    title={`Ouvrir la commande ${item.numCommande} dans Sage X3`}
+                    iconOnly
+                    className="text-muted-foreground hover:text-brand"
+                  />
+                )}
                 <div className="flex-1" />
                 {item.verdict && item.delta !== null && (
                   <span

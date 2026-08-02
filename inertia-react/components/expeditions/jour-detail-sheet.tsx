@@ -15,6 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@r/components/ui/sheet'
+import { X3Link } from '@r/components/x3-link'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import { cn } from '@r/lib/utils'
 
@@ -47,7 +48,14 @@ const columns: ColumnDef<ForecastLine>[] = [
           <div className="truncate text-[10px] text-muted-foreground">{line.description}</div>
         ) : null}
         <div className="font-mono text-[9px] text-muted-foreground/70">
-          {line.numCommande}
+          <X3Link
+            fonction="GESSOH"
+            cle={line.numCommande}
+            title={`Ouvrir la commande ${line.numCommande} dans Sage X3`}
+            className="font-mono text-[9px] text-muted-foreground/70"
+          >
+            {line.numCommande}
+          </X3Link>
           {line.ligne ? `/${line.ligne}` : ''}
         </div>
       </>

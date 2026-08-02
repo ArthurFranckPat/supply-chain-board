@@ -1,6 +1,7 @@
 import React from 'react'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import type { PlanDiff, DiffSens } from '@r/lib/scenarios/types'
 
 /**
@@ -190,10 +191,15 @@ export function ScenarioDiffSheet({
               <Section title="Client — promesses" count={diff.client.length}>
                 {diff.client.map((e, i) => (
                   <Row key={`client-${i}`} sens={e.sens}>
-                    <span className="font-mono text-[11px] font-bold tabular-nums">
+                    <X3Link
+                      fonction="GESSOH"
+                      cle={e.numCommande}
+                      title={`Ouvrir la commande ${e.numCommande} dans Sage X3`}
+                      className="font-mono text-[11px] font-bold tabular-nums"
+                    >
                       {e.numCommande}
                       {e.ligne ? `#${e.ligne}` : ''}
-                    </span>
+                    </X3Link>
                     <span className="text-muted-foreground">
                       {e.article} · {e.client}
                     </span>
@@ -279,10 +285,15 @@ export function ScenarioDiffSheet({
               <Section title="Allocation — re-matching" count={diff.allocation.length}>
                 {diff.allocation.map((e, i) => (
                   <Row key={`alloc-${i}`} sens={e.sens}>
-                    <span className="font-mono text-[11px] font-bold tabular-nums">
+                    <X3Link
+                      fonction="GESSOH"
+                      cle={e.numCommande}
+                      title={`Ouvrir la commande ${e.numCommande} dans Sage X3`}
+                      className="font-mono text-[11px] font-bold tabular-nums"
+                    >
                       {e.numCommande}
                       {e.ligne ? `#${e.ligne}` : ''}
-                    </span>
+                    </X3Link>
                     <span className="text-muted-foreground">{e.article}</span>
                     <span
                       className={cn(

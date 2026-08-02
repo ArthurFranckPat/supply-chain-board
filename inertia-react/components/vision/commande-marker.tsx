@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import type { VisionCommande } from '@r/lib/vision/types'
 import { fmtDay } from '@r/lib/vision/date-utils'
 import type { ImpactVerdict } from '@r/lib/vision/impact'
@@ -98,12 +99,22 @@ export function CommandeMarker(props: {
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
       <div className="flex items-baseline gap-1 whitespace-nowrap font-mono text-2xs font-bold text-brand">
         <DynamicIcon name={iconName} size={12} strokeWidth={1.75} className={cn('flex-none self-center', iconClass)} />
-        <span>
-          {cmd.numCommande}
-          {cmd.ligne && (
-            <span className="text-brand/70">·L{cmd.ligne}</span>
-          )}
-        </span>
+        {/* Prévision (ligne null) : pas de commande X3, pas de lien (#118). */}
+        {cmd.ligne ? (
+          <X3Link
+            fonction="GESSOH"
+            cle={cmd.numCommande}
+            title={`Ouvrir la commande ${cmd.numCommande} dans Sage X3`}
+            className="font-mono text-2xs font-bold text-brand"
+          >
+            {cmd.numCommande}
+          </X3Link>
+        ) : (
+          <span>{cmd.numCommande}</span>
+        )}
+        {cmd.ligne && (
+          <span className="text-brand/70">·L{cmd.ligne}</span>
+        )}
         {/* #23 : badge retard « +N j » */}
         {verdict !== null && props.deltaJours !== null && props.deltaJours !== undefined && (
           <span

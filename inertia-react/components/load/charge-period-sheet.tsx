@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import {
@@ -720,7 +721,19 @@ function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }
         {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
       </div>
       <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
-        {r.numCommande ?? '—'}
+        {/* Prévision (field s/si) : pas de commande X3, pas de lien (#118). */}
+        {!forecast && r.numCommande ? (
+          <X3Link
+            fonction="GESSOH"
+            cle={r.numCommande}
+            title={`Ouvrir la commande ${r.numCommande} dans Sage X3`}
+            className="font-mono text-[10px] text-secondary-foreground"
+          >
+            {r.numCommande}
+          </X3Link>
+        ) : (
+          r.numCommande ?? '—'
+        )}
         {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
       </div>
       {/* Le badge « prév. » porte déjà la nature : ici on ne dit plus que

@@ -553,7 +553,14 @@ function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
             title={title}
             className="inline-flex items-baseline gap-1 rounded bg-secondary px-1.5 py-0.5"
           >
-            <span className="font-semibold text-foreground">{c.numCommande}</span>
+            <X3Link
+              fonction="GESSOH"
+              cle={c.numCommande}
+              title={`Ouvrir la commande ${c.numCommande} dans Sage X3`}
+              className="font-semibold text-foreground"
+            >
+              {c.numCommande}
+            </X3Link>
             {c.ligne && <span className="text-muted-foreground">L{c.ligne}</span>}
             {c.client && (
               <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>

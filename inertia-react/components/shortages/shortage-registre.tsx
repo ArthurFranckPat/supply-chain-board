@@ -9,6 +9,7 @@ import { useState, type ReactNode } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
+import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
 import {
   isLate,
@@ -99,9 +100,14 @@ export function ShortageRegistre({
         row.hasCommande ? (
           <>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-xs font-bold tracking-tight text-secondary-foreground">
+              <X3Link
+                fonction="GESSOH"
+                cle={row.numCommande}
+                title={`Ouvrir la commande ${row.numCommande} dans Sage X3`}
+                className="font-mono text-xs font-bold tracking-tight text-secondary-foreground"
+              >
                 {row.numCommande}
-              </span>
+              </X3Link>
               {row.dateExpedition && (
                 <span
                   className={cn(
