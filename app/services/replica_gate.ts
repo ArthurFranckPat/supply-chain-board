@@ -148,11 +148,8 @@ const HOUR = 60 * MINUTE
  */
 const MAX_AGE_MS: Record<ReplicaTable, number> = {
   orders_replica: 30 * MINUTE,
-  // Même donnée vivante que `orders_replica` (elle mire la même table X3), donc
-  // même seuil — mais elle n'est PAS encore dans `syncAll()` : sa cadence reste
-  // à arbitrer après mesure du coût de la variante grasse. Conséquence assumée,
-  // la même que pour `operations`/`stock_detail` : elle ne sert la réplique que
-  // peu après un `--only=orders-flux`, et sinon X3 direct.
+  // Dans `syncAll()` depuis `57941a8`, donc sur le tick 5 min : même régime que
+  // les autres tables vivantes, cinq ticks manqués avant de replier.
   orders_flux_replica: 30 * MINUTE,
   order_lines_replica: 30 * MINUTE,
   stock_replica: 30 * MINUTE,

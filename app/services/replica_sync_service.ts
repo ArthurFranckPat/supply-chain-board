@@ -5,7 +5,10 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import { StockFluxRepository } from '#repositories/stock_flux_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
-import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
+import {
+  CombinedOrdersRepository,
+  type OrdersSourceRow,
+} from '#repositories/combined_orders_repository'
 import { X3OperationRepository } from '#repositories/operation_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
@@ -107,6 +110,46 @@ function isoDay(date: Date | null | undefined): string | null {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+/**
+ * `OrdersSourceRow` → ligne d'`orders_flux_replica`.
+ *
+ * Partagé par le swap complet (`syncOrdersFlux`) et la ré-ingestion ciblée
+ * (`reingestOrders`) : deux mappers séparés finiraient par écrire des lignes
+ * subtilement différentes selon le chemin, et une ligne réécrite après une
+ * écriture X3 doit être indiscernable de celle qu'un swap produirait.
+ */
+function toFluxRow(r: OrdersSourceRow): Row {
+  return {
+    wiptyp: r.wiptyp,
+    wipsta: r.wipsta,
+    vcrnum: r.vcrnum,
+    // Composantes de la clé primaire : `''` et non `null`, la table est
+    // NOT NULL dessus. Une ligne X3 sans `VCRLIN`/`VCRSEQ` reste ainsi
+    // ingérable, et se relit en `null` (cf. `toOwn`).
+    vcrlin: r.vcrlin ?? '',
+    vcrseq: r.vcrseq ?? '',
+    article: r.article,
+    designation: r.designation,
+    date_echeance: isoDay(r.date),
+    qte_restante: r.qteRestante,
+    qte_commandee: r.qteCommandee,
+    qte_allouee: r.qteAllouee,
+    partner_nom: r.partnerNom,
+    pays: r.pays,
+    date_commande: isoDay(r.dateCommande),
+    contremarque: r.contremarque,
+    bpcord: r.bpcord,
+    cusordref: r.cusordref,
+    itmrefbpc: r.itmrefbpc,
+    sohtyp: r.sohtyp,
+    // Sans objet pour WIPTYP 1 et 2 (pas d'avancement de production) :
+    // `null` et non 0, qui ferait passer « sans objet » pour « rien de
+    // réalisé ».
+    qte_realisee: r.qteRealisee ?? null,
+    date_debut: isoDay(r.dateDebut ?? null),
+  }
 }
 
 export class ReplicaSyncService {
@@ -238,37 +281,7 @@ export class ReplicaSyncService {
         // côté X3 et trois extractions concurrentes se ralentissent mutuellement.
         for (const wiptyp of [1, 2, 5] as const) {
           const rows = await repo.fetchForReplica(from, to, wiptyp)
-          for (const r of rows) {
-            out.push({
-              wiptyp: r.wiptyp,
-              wipsta: r.wipsta,
-              vcrnum: r.vcrnum,
-              // Composantes de la clé primaire : `''` et non `null`, la table est
-              // NOT NULL dessus. Une ligne X3 sans `VCRLIN`/`VCRSEQ` reste ainsi
-              // ingérable, et se relit en `null` (cf. `toOwn`).
-              vcrlin: r.vcrlin ?? '',
-              vcrseq: r.vcrseq ?? '',
-              article: r.article,
-              designation: r.designation,
-              date_echeance: isoDay(r.date),
-              qte_restante: r.qteRestante,
-              qte_commandee: r.qteCommandee,
-              qte_allouee: r.qteAllouee,
-              partner_nom: r.partnerNom,
-              pays: r.pays,
-              date_commande: isoDay(r.dateCommande),
-              contremarque: r.contremarque,
-              bpcord: r.bpcord,
-              cusordref: r.cusordref,
-              itmrefbpc: r.itmrefbpc,
-              sohtyp: r.sohtyp,
-              // Sans objet pour WIPTYP 1 et 2 (pas d'avancement de production) :
-              // `null` et non 0, qui ferait passer « sans objet » pour « rien de
-              // réalisé ».
-              qte_realisee: r.qteRealisee ?? null,
-              date_debut: isoDay(r.dateDebut ?? null),
-            })
-          }
+          for (const r of rows) out.push(toFluxRow(r))
         }
         return out
       },
@@ -318,9 +331,14 @@ export class ReplicaSyncService {
   }
 
   /**
-   * MFGOPE (pointages d'opérations), scopée aux `num_of` déjà dans
-   * `orders_replica` — relus depuis la réplique elle-même (écrite plus tôt dans le
-   * même `syncAll()`, donc à jour) plutôt que via un nouvel appel X3.
+   * MFGOPE (pointages d'opérations), scopée aux OF déjà dans
+   * `orders_flux_replica` — relus depuis la réplique elle-même (écrite plus tôt
+   * dans le même `syncAll()`, donc à jour) plutôt que via un nouvel appel X3.
+   *
+   * Le périmètre venait d'`orders_replica` jusqu'à ce que `57941a8` la sorte de
+   * `syncAll()` : la liste d'OF se figeait alors au dernier `--only=orders`
+   * manuel, et se vidait avec elle si personne n'en lançait — `operations_replica`
+   * aurait rétréci sans erreur, sur sa cadence de 10 min.
    *
    * PAS dans `syncAll()`/le tick 5 min : ~14 chunks séquentiels (limite IN à 1000,
    * cf. `X3OperationRepository`) sur la tranche utile complète. Cadence propre de
@@ -331,8 +349,7 @@ export class ReplicaSyncService {
    */
   async syncOperations(source = 'manual'): Promise<TableIngestionResult> {
     return this.ingest('operations_replica', source, async () => {
-      const numOfRows = await this.conn.from('orders_replica').select('num_of')
-      const numOfs = (numOfRows as { num_of: string }[]).map((r) => r.num_of)
+      const numOfs = await this.replicatedOfNums()
       const ops = await new X3OperationRepository().getOperations(numOfs)
       return ops.map((o): Row => ({
         num_of: o.mfgnum,
@@ -342,6 +359,24 @@ export class ReplicaSyncService {
         extqty: o.extqty,
       }))
     })
+  }
+
+  /**
+   * Numéros d'OF présents dans la réplique — périmètre des tables qui se scopent
+   * sur elle plutôt que sur un appel X3 (`operations_replica`, et le `--compare`
+   * correspondant).
+   *
+   * Publique et unique : la comparaison DOIT interroger exactement la même
+   * population que l'ingestion, sinon la voie directe voit des OF hors périmètre
+   * répliqué et fait apparaître un écart qui n'en est pas un.
+   */
+  async replicatedOfNums(): Promise<string[]> {
+    const rows = await this.conn
+      .from('orders_flux_replica')
+      .where('wiptyp', 5)
+      .distinct('vcrnum')
+      .select('vcrnum')
+    return (rows as { vcrnum: string }[]).map((r) => r.vcrnum)
   }
 
   /**
@@ -598,14 +633,22 @@ export class ReplicaSyncService {
    *
    * L'hypothèse est explicite : une écriture X3 ne modifie que les OF qu'elle
    * nomme. Sous cette hypothèse, relire ces OF suffit à remettre
-   * `orders_replica` en accord avec X3.
+   * `orders_flux_replica` en accord avec X3.
    *
    * L'hypothèse ne s'étend PAS aux autres tables : un affermissement consomme des
    * allocations, donc `stock_replica` reste suspecte jusqu'à un run complet. C'est
    * à l'appelant de marquer les tables qu'il salit ; celle-ci n'en lave qu'une.
+   *
+   * ## Cible : `orders_flux_replica`
+   *
+   * Elle visait `orders_replica` jusqu'à ce que `57941a8` la remplace. La table
+   * visée n'était alors plus lue par personne, et `orders_flux_replica` — celle
+   * qui sert `/suivi` et `/programme` — n'était ni marquée ni rafraîchie : après
+   * un affermissement, le board servait l'ancien statut jusqu'au tick suivant,
+   * sans le moindre signal.
    */
   async reingestOrders(numOfs: string[], source = 'writeback'): Promise<TableIngestionResult> {
-    const table = 'orders_replica'
+    const table = 'orders_flux_replica'
     const start = Date.now()
     const startedAt = new Date().toISOString()
     const asked = [...new Set(numOfs.map((n) => n.trim()).filter(Boolean))]
@@ -615,25 +658,18 @@ export class ReplicaSyncService {
     }
 
     try {
-      const orders = await new X3OfRepository().getManufacturingOrdersByNums(asked)
-      const found = new Set(orders.map((o) => o.numOf))
+      const orders = await new CombinedOrdersRepository().fetchForReplicaByNums(asked)
+      const found = new Set(orders.map((o) => o.vcrnum))
       const vanished = asked.filter((n) => !found.has(n))
 
       const trx = await this.conn.transaction()
       try {
-        await trx.from(table).whereIn('num_of', asked).delete()
-        const rows = orders.map((o): Row => ({
-          num_of: o.numOf,
-          article: o.article,
-          designation: o.designation,
-          status: o.status,
-          statut_label: o.statutLabel,
-          quantity: o.quantity,
-          quantity_launched: o.quantityLaunched,
-          quantity_done: o.quantityDone,
-          start_date: isoDay(o.startDate),
-          end_date: isoDay(o.endDate),
-        }))
+        // Scopé à `wiptyp = 5` : la table porte aussi les commandes client et
+        // fournisseur, et rien ne garantit qu'un numéro d'OF ne collisionne
+        // jamais avec l'une d'elles. Effacer large ici retirerait des lignes que
+        // la relecture, elle, ne réécrit pas.
+        await trx.from(table).where('wiptyp', 5).whereIn('vcrnum', asked).delete()
+        const rows = orders.map(toFluxRow)
         for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
           await trx.table(table).insert(rows.slice(i, i + INSERT_CHUNK))
         }
@@ -653,8 +689,9 @@ export class ReplicaSyncService {
         durationMs,
         source,
         // Sans ça une ligne `partial` est illisible : 3 lignes sur 11 000, mais
-        // lesquelles ?
-        note: `${asked.length} demandés, ${orders.length} trouvés${
+        // lesquelles ? Les OF demandés d'un côté, les LIGNES relues de l'autre :
+        // un OF peut en porter plusieurs, les deux comptes ne se recoupent pas.
+        note: `${asked.length} demandés, ${found.size} trouvés (${orders.length} lignes)${
           vanished.length ? `, ${vanished.length} disparus : ${vanished.join(', ')}` : ''
         }`,
       })

@@ -691,15 +691,15 @@ export default class ReplicaSync extends BaseCommand {
   }
 
   /**
-   * MFGOPE — scopée aux `num_of` déjà dans `orders_replica` des deux côtés (même
-   * périmètre que `syncOperations`), sinon la voie directe verrait des OF hors du
-   * périmètre répliqué et ferait apparaître un écart qui n'en est pas un.
+   * MFGOPE — scopée aux OF déjà dans `orders_flux_replica` des deux côtés, via la
+   * MÊME méthode que `syncOperations` (`replicatedOfNums()`). Deux façons de
+   * dresser cette liste finiraient par diverger, et la voie directe verrait alors
+   * des OF hors du périmètre répliqué : un écart affiché qui n'en est pas un.
    */
   private async compareOperations(): Promise<boolean> {
-    const numOfRows = await db.connection('replica').from('orders_replica').select('num_of')
-    const numOfs = (numOfRows as { num_of: string }[]).map((r) => r.num_of)
+    const numOfs = await replicaSyncService.replicatedOfNums()
     if (numOfs.length === 0) {
-      this.logger.info('  orders_replica vide — rien à comparer. Skip.')
+      this.logger.info('  orders_flux_replica vide — rien à comparer. Skip.')
       return true
     }
 

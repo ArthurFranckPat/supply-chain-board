@@ -27,15 +27,53 @@ interface OrdersSqlOptions {
    * disparaître du board les OF dont la fin dépasse l'horizon d'un an.
    */
   forReplica?: boolean
+  /**
+   * Ré-ingestion CIBLÉE (read-after-write, #98) : l'identité remplace la fenêtre.
+   *
+   * Les bornes `ENDDAT_0` sautent — un ordre qu'on vient d'écrire dans X3 peut
+   * échoir n'importe quand, et le relire hors de sa fenêtre est justement ce qui
+   * referme la fenêtre sale sans attendre le swap complet. Les WIPSTA, eux, ne
+   * bougent pas : la ré-ingestion doit porter sur la MÊME population que le swap,
+   * sinon elle réécrit des lignes que le run complet effacerait aussitôt.
+   */
+  vcrnums?: string[]
+}
+
+/**
+ * Statuts retenus par `WIPTYP`, déclarés UNE fois.
+ *
+ * La fenêtre (`conditionByWiptyp`) et la ré-ingestion ciblée (`vcrnums`) doivent
+ * porter sur la même population. Recopier ces listes à deux endroits les ferait
+ * diverger au premier ajustement — c'est la classe de bug qui a produit la
+ * régression `getOrdersForWindow` du lot 2.
+ */
+const WIPSTA_BY_WIPTYP: Record<1 | 2 | 5, readonly number[]> = {
+  1: [1, 3],
+  2: [1, 2],
+  5: [1, 2, 3],
+}
+
+/** Littéral SQL d'une liste de `VCRNUM_0`. Quote doublée, comme
+ *  `getManufacturingOrdersByNums` — pas de quote dans la valeur, pas d'injection. */
+function sqlList(values: string[]): string {
+  return values.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')
 }
 
 // ORDERS WIPTYP=1 (demande) + WIPTYP=2 (réceptions) [+ WIPTYP=5 (OFs) si includeOf].
 // Remplace 2 anciens templates quasi identiques (buildDemandReceptionSql / buildLiveSql).
 // ZSOAPSQL O(n²) sur les lignes ET colonnes : les colonnes contremarque/réf client ne
 // s'ajoutent que si demandées — ne jamais élargir une variante lean par défaut.
-function buildOrdersSql(opts: OrdersSqlOptions): string {
-  const { from, to, includeOf, includeContremarque, includeCustomerRef, onlyWiptyp, forReplica } =
-    opts
+export function buildOrdersSql(opts: OrdersSqlOptions): string {
+  const {
+    from,
+    to,
+    includeOf,
+    includeContremarque,
+    includeCustomerRef,
+    onlyWiptyp,
+    forReplica,
+    vcrnums,
+  } = opts
 
   const columns = [
     'O.WIPTYP_0',
@@ -89,23 +127,33 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
   // Une condition par WIPTYP, indexée par WIPTYP : `onlyWiptyp` en garde UNE et
   // n'en réécrit AUCUNE. C'est ce qui garantit qu'une ingestion partitionnée
   // rend exactement la même population que l'appel groupé, tranche par tranche.
-  const conditionByWiptyp: Record<1 | 2 | 5, string> = {
-    1: `(O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
+  const sta = (w: 1 | 2 | 5) => `O.WIPSTA_0 IN (${WIPSTA_BY_WIPTYP[w].join(', ')})`
+
+  const conditionByWiptyp: Record<1 | 2 | 5, string> = vcrnums
+    ? {
+        // Ré-ingestion ciblée : l'identité seule, sans borne de dates. Voir
+        // `OrdersSqlOptions.vcrnums`.
+        1: `(O.WIPTYP_0 = 1 AND ${sta(1)} AND O.VCRNUM_0 IN (${sqlList(vcrnums)}))`,
+        2: `(O.WIPTYP_0 = 2 AND ${sta(2)} AND O.VCRNUM_0 IN (${sqlList(vcrnums)}))`,
+        5: `(O.WIPTYP_0 = 5 AND ${sta(5)} AND O.VCRNUM_0 IN (${sqlList(vcrnums)}))`,
+      }
+    : {
+        1: `(O.WIPTYP_0 = 1 AND ${sta(1)}
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
-    2: `(O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
+        2: `(O.WIPTYP_0 = 2 AND ${sta(2)}
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
-    // Borne haute LEVÉE à l'ingestion : `getManufacturingOrders()`, que cette
-    // table absorbe, n'en pose aucune. La reborner ici ferait disparaître du
-    // board les OF dont la fin dépasse l'horizon d'un an. `getLiveRows()`
-    // rapplique la fenêtre à la lecture, donc `fetchLive` ne change pas.
-    5: forReplica
-      ? `(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
+        // Borne haute LEVÉE à l'ingestion : `getManufacturingOrders()`, que cette
+        // table absorbe, n'en pose aucune. La reborner ici ferait disparaître du
+        // board les OF dont la fin dépasse l'horizon d'un an. `getLiveRows()`
+        // rapplique la fenêtre à la lecture, donc `fetchLive` ne change pas.
+        5: forReplica
+          ? `(O.WIPTYP_0 = 5 AND ${sta(5)}
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD'))`
-      : `(O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
+          : `(O.WIPTYP_0 = 5 AND ${sta(5)}
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
-  }
+      }
 
   const wiptyps: Array<1 | 2 | 5> = onlyWiptyp ? [onlyWiptyp] : includeOf ? [1, 2, 5] : [1, 2]
   const conditions = wiptyps.map((w) => conditionByWiptyp[w])
@@ -472,6 +520,56 @@ export class CombinedOrdersRepository {
         })
       )
       return rows.map(toOrdersSourceRow)
+    } finally {
+      await db.destroy()
+    }
+  }
+
+  /**
+   * Ré-ingestion CIBLÉE d'`orders_flux_replica` : les OF nommés, sans fenêtre
+   * (#98, read-after-write).
+   *
+   * Même SQL, mêmes colonnes grasses et même mapper que `fetchForReplica` — donc
+   * les lignes réécrites après une écriture X3 sont IDENTIQUES à celles qu'un
+   * swap complet produirait. Une variante plus maigre (le `getManufacturingOrders`
+   * historique, par exemple) reviendrait à vider la contremarque et les réfs
+   * client des OF qu'on vient d'affermir : le matcher OF↔commande retomberait sur
+   * l'heuristique article+date pour eux seuls, jusqu'au prochain run complet.
+   *
+   * `WIPTYP=5` seul : une écriture d'affermissement consomme une suggestion et
+   * crée un OF, les deux dans cette partition. Aucun chemin d'écriture du projet
+   * ne touche les WIPTYP 1 ou 2 aujourd'hui.
+   *
+   * Découpage à 200, comme `getManufacturingOrdersByNums` : un `IN` trop long
+   * fait ressortir `ZSOAPSQL` avec un `resultXml` vide (issue #40) plutôt qu'une
+   * erreur SQL.
+   */
+  async fetchForReplicaByNums(numOfs: string[]): Promise<OrdersSourceRow[]> {
+    const uniq = [...new Set(numOfs.map((n) => n.trim()).filter(Boolean))]
+    if (uniq.length === 0) return []
+
+    const CHUNK = 200
+    const db = new X3Database()
+    try {
+      const out: OrdersSourceRow[] = []
+      for (let i = 0; i < uniq.length; i += CHUNK) {
+        const rows: RawRow[] = await db.raw(
+          buildOrdersSql({
+            // Sans objet quand `vcrnums` est posé : les bornes de dates ne sont
+            // pas rendues. Gardées non vides pour le typage seul.
+            from: '',
+            to: '',
+            includeOf: true,
+            includeContremarque: true,
+            includeCustomerRef: true,
+            onlyWiptyp: 5,
+            forReplica: true,
+            vcrnums: uniq.slice(i, i + CHUNK),
+          })
+        )
+        out.push(...rows.map(toOrdersSourceRow))
+      }
+      return out
     } finally {
       await db.destroy()
     }

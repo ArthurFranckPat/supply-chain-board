@@ -37,14 +37,22 @@ async function bustBoardCaches() {
  * source de lecture n'a pas encore vue — et le tenir au même endroit est ce qui
  * évite qu'un futur chemin d'écriture n'en câble qu'une des deux.
  *
- * On marque large : l'affermissement change l'OF (`orders_replica`) mais consomme
- * aussi des allocations de composants (`stock_replica`). Un marquage en trop coûte
- * une fenêtre de lecture directe ; un marquage manquant sert une donnée fausse.
+ * On marque large : l'affermissement change l'OF (`orders_flux_replica`) mais
+ * consomme aussi des allocations de composants (`stock_replica`). Un marquage en
+ * trop coûte une fenêtre de lecture directe ; un marquage manquant sert une donnée
+ * fausse.
  *
  * Puis ré-ingestion CIBLÉE des OF touchés : referme la fenêtre en ~1 s au lieu
  * d'attendre le prochain run complet. Elle ne lève le marquage que de
- * `orders_replica` — `stock_replica` reste suspecte, ses effets de bord ne se
+ * `orders_flux_replica` — `stock_replica` reste suspecte, ses effets de bord ne se
  * relisent pas par numéro d'OF.
+ *
+ * La table marquée était `orders_replica` jusqu'à ce que `57941a8` la remplace par
+ * `orders_flux_replica`. Le marquage portait donc sur une table que plus personne
+ * ne lisait, pendant que celle qui sert `/suivi` et `/programme` restait réputée
+ * saine : après un affermissement, le board pouvait servir l'ancien statut jusqu'au
+ * tick suivant, sans signal. Rappel de la directive du lot 2 — tout chemin
+ * d'écriture X3 marque la réplique au même endroit qu'il invalide le cache.
  *
  * Jamais bloquant : la réplique n'est lue par personne tant que `REPLICA_READS`
  * n'est pas à `true`, et même après, un échec ici laisse la table marquée sale,
@@ -53,7 +61,7 @@ async function bustBoardCaches() {
  */
 async function markReplicaDirty(numOfs: string[]) {
   try {
-    await replicaGate.markDirty(['orders_replica', 'stock_replica'], 'affermissement (#31)')
+    await replicaGate.markDirty(['orders_flux_replica', 'stock_replica'], 'affermissement (#31)')
     await replicaSyncService.reingestOrders(numOfs)
   } catch {
     // Silencieux par conception : voir plus haut. L'état « sale » est déjà posé,
