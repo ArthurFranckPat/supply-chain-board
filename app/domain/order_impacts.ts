@@ -13,6 +13,7 @@
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import { resteAFabriquer } from './models/orders_qty.js'
+import { resteAProduire } from './of_avancement.js'
 import type { FeasibilityOptions } from './stock_state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
@@ -32,7 +33,11 @@ export interface OrderImpactRow {
    *  commande portant éventuellement le même article. Null/absent pour les
    *  prévisions et les anciennes fixtures. */
   ligne?: string | null
+  /** Séquence ORDERS de l'échéance, utile quand une ligne porte plusieurs dates. */
+  vcrseq?: string | null
   client: string
+  /** Code tiers X3, conservé pour les agrégations par client ciblé. */
+  customerCode?: string | null
   article: string
   description: string
   qteRestante: number
@@ -54,6 +59,8 @@ export interface OrderImpactRow {
     numOf: string
     article: string
     qteAllouee: number
+    /** Reste réel après pointages, plafonné à la quantité de l'OF source. */
+    qteRestante?: number
     dateFin: string
     feasible: boolean | null
     missingComponents: Record<string, number>
@@ -436,7 +443,19 @@ export function evaluateOrderImpacts(
       ofRows.push({
         numOf: ofId,
         article: alloc.ofFlow.article,
-        qteAllouee: alloc.qteAllouee,
+        qteAllouee: Math.min(
+          alloc.qteAllouee,
+          resteAProduire(
+            alloc.ofFlow.quantity,
+            (alloc.ofFlow.origin as { launched?: number }).launched,
+            avancementByOf?.get(ofId)?.qtyRealisee ?? 0
+          )
+        ),
+        qteRestante: resteAProduire(
+          alloc.ofFlow.quantity,
+          (alloc.ofFlow.origin as { launched?: number }).launched,
+          avancementByOf?.get(ofId)?.qtyRealisee ?? 0
+        ),
         // Informatif seulement (jalonnement X3 brut) — n'entre plus dans le calcul de retard.
         dateFin: effFin?.toISOString().slice(0, 10) ?? '',
         feasible: ofFeasible,
@@ -482,7 +501,9 @@ export function evaluateOrderImpacts(
     return {
       numCommande: origin.id ?? '',
       ligne: origin.ligne ?? null,
+      vcrseq: origin.vcrseq ?? null,
       client: origin.customer ?? '',
+      customerCode: origin.customerCode ?? null,
       article: demand.article,
       description: articles.get(demand.article)?.description ?? '',
       qteRestante: demand.quantity,

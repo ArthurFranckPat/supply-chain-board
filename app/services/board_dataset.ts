@@ -378,6 +378,18 @@ class BoardDataset {
     })
   }
 
+  /** Carnet ouvert complet d'un client ciblé, sans borne basse de date. */
+  async getOpenExpeditionDemands(customerCode: string, to: string, force = false): Promise<Flow[]> {
+    const key = `open-customer-demands:${customerCode}:${to}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: LIVE_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new CombinedOrdersRepository().fetchOpenCustomerDemands(customerCode, to),
+    })
+  }
+
   /** Lignes de commande ouvertes (OrderLineRow complet, fat query) pour la vue
    * planification (loadOrderBoardData). Cache SWR partagé — avant, /programme?mode=planification
    * appellait getOpenOrderLines en DIRECT à chaque load (SOAP fat 11 cols + 5 JOINs, non caché).

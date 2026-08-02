@@ -52,6 +52,8 @@ export type FlowOrigin =
       type: 'order'
       id: string
       customer: string
+      /** Code tiers X3 (BPRNUM/BPCORD), utile pour les périmètres métier ciblés. */
+      customerCode?: string | null
       pays: string | null
       orderType: OrderType | null
       nature: NeedNature
@@ -59,6 +61,8 @@ export type FlowOrigin =
       qteCommandee: number
       qteAllouee: number
       ligne?: string | null
+      /** Séquence d'échéance ORDERS, distincte pour une même ligne client. */
+      vcrseq?: string | null
       designation?: string | null
       refCommandeClient?: string | null
       refArticleClient?: string | null
@@ -68,11 +72,14 @@ export type FlowOrigin =
       type: 'forecast'
       id: string
       customer: string | null
+      /** Code tiers X3 quand la prévision en porte un. */
+      customerCode?: string | null
       pays: string | null
       orderType: OrderType | null
       contremarque: string | null
       qteCommandee: number
       qteAllouee: number
+      vcrseq?: string | null
       designation?: string | null
       dateCommande?: Date | null
     }

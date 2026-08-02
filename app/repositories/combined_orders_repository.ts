@@ -37,6 +37,8 @@ interface OrdersSqlOptions {
    * sinon elle réécrit des lignes que le run complet effacerait aussitôt.
    */
   vcrnums?: string[]
+  /** Client ciblé sans borne basse de date, pour un carnet ouvert complet. */
+  customerCode?: string
 }
 
 /**
@@ -73,6 +75,7 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
     onlyWiptyp,
     forReplica,
     vcrnums,
+    customerCode,
   } = opts
 
   const columns = [
@@ -92,6 +95,7 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
     'O.RMNEXTQTY_0',
     'O.EXTQTY_0',
     'O.ALLQTY_0',
+    'O.BPRNUM_0    AS BPRNUM',
     'P.BPRNAM_0    AS PARTNER_NOM',
     'P.CRY_0       AS PAYS',
     'H.ORDDAT_0    AS ORDDAT',
@@ -138,7 +142,12 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
         5: `(O.WIPTYP_0 = 5 AND ${sta(5)} AND O.VCRNUM_0 IN (${sqlList(vcrnums)}))`,
       }
     : {
-        1: `(O.WIPTYP_0 = 1 AND ${sta(1)}
+        1: customerCode
+          ? `(O.WIPTYP_0 = 1 AND ${sta(1)}
+      AND O.BPRNUM_0 = '${customerCode.replace(/'/g, "''")}'
+      AND O.STOFCY_0 = 'AE1'
+      AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`
+          : `(O.WIPTYP_0 = 1 AND ${sta(1)}
       AND O.ENDDAT_0 >= TO_DATE('${from}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD'))`,
         2: `(O.WIPTYP_0 = 2 AND ${sta(2)}
@@ -333,6 +342,7 @@ function mapDemandRow(row: OrdersSourceRow, opts: DemandMapOptions): Flow {
         type: 'order',
         id: row.vcrnum,
         customer: row.partnerNom ?? '',
+        customerCode: row.bprnum,
         pays: row.pays,
         orderType,
         nature,
@@ -340,6 +350,7 @@ function mapDemandRow(row: OrdersSourceRow, opts: DemandMapOptions): Flow {
         qteCommandee: row.qteCommandee,
         qteAllouee: row.qteAllouee,
         ligne: row.vcrlin,
+        vcrseq: row.vcrseq,
         designation,
         refCommandeClient: opts.customerRef ? (exposeRef ? row.cusordref : null) : undefined,
         refArticleClient: opts.customerRef ? (exposeRef ? row.itmrefbpc : null) : undefined,
@@ -356,11 +367,13 @@ function mapDemandRow(row: OrdersSourceRow, opts: DemandMapOptions): Flow {
       type: 'forecast',
       id: row.vcrnum,
       customer: row.partnerNom ?? '',
+      customerCode: row.bprnum,
       pays: row.pays,
       orderType,
       contremarque,
       qteCommandee: row.qteCommandee,
       qteAllouee: row.qteAllouee,
+      vcrseq: row.vcrseq,
       designation,
       dateCommande: row.dateCommande,
     },
@@ -469,6 +482,31 @@ export class CombinedOrdersRepository {
       customerRef: false,
     })
     return { demandFlows, receptionFlows }
+  }
+
+  /** Carnet ouvert complet d'un client, sans écraser l'arriéré sur une fenêtre J−N. */
+  async fetchOpenCustomerDemands(customerCode: string, toIso: string): Promise<Flow[]> {
+    const db = new X3Database()
+    try {
+      const rows: RawRow[] = await db.raw(
+        buildOrdersSql({
+          from: '19000101',
+          to: toIso.replace(/-/g, ''),
+          includeOf: false,
+          includeContremarque: true,
+          includeCustomerRef: false,
+          onlyWiptyp: 1,
+          customerCode,
+        })
+      )
+      return splitOrdersFlows(rows.map(toOrdersSourceRow), {
+        contremarque: true,
+        designation: true,
+        customerRef: false,
+      }).demandFlows
+    } finally {
+      await db.destroy()
+    }
   }
 
   /** 1 SOAP (ORDERS WIPTYP=1+2+5) → demande scopée [from,to] + réceptions attendues ≤ to + OFs fenêtre.

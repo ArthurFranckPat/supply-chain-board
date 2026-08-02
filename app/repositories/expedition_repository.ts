@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import { X3Database } from '#app/x3/client/x3_database'
+import Stock from '#models/x3/stock'
 
 /** STOJOU.TRSTYP_0 = 4 → mouvement de livraison client (cf. issue #44). */
 const TRSTYP_LIVRAISON_CLIENT = 4
@@ -37,6 +38,12 @@ export const NB_DEPARTS_QUOTIDIENS = Number(process.env.EXPEDITION_DEPARTS_QUOTI
 
 /** Capacité transport journalière de référence (éq-palettes). */
 export const CAPACITE_JOUR_PALETTES = NB_DEPARTS_QUOTIDIENS * CAMION_CAPACITE_PALETTES
+
+/** Emplacements qui alimentent la file d'expédition dédiée à 80001. */
+export const FILE_EXPEDITION_LOCATIONS = /^(?:QUAI\d+|S3P|S4P|S9P)$/i
+
+/** Site usine de la navette dédiée. */
+export const EXPEDITION_SITE = 'AE1'
 
 /**
  * Seuil de divergence entre palettes comptées (PALNUM) et palettes théoriques (calcul UC).
@@ -286,6 +293,13 @@ function toNum(v: string | null): number {
 
 function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
+}
+
+function toLocalYYYYMMDD(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}${m}${day}`
 }
 
 function fmtHeure(tsMs: number): string {
@@ -621,6 +635,26 @@ export interface VolumeCoef {
   ucParPal: number | null
   /** YFAMSTAT7_0 — famille (ESH, VB…). */
   yfamstat7: string | null
+  /** Présent quand le coef a été repris par l'estimateur conditionnement. */
+  estimationSource?: 'STOCK' | 'STOJOU'
+}
+
+/** Ligne de stock physique utile à la file de quai. */
+export interface ExpeditionQueueStockRow {
+  article: string
+  location: string
+  quantityUs: number
+  palnum: string | null
+}
+
+/** Palette enregistrée dans une navette du jour. */
+export interface LoadedShuttleRow {
+  day: string
+  navette: string
+  palnum: string
+  sohnum: string | null
+  /** Article observé sur le mouvement STOJOU de cette palette, si disponible. */
+  article: string | null
 }
 
 export class ExpeditionRepository {
@@ -633,8 +667,16 @@ export class ExpeditionRepository {
     const unique = [...new Set(articles.map((a) => a.trim()).filter(Boolean))]
     if (unique.length === 0) return out
 
-    const inList = unique.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')
-    const sql = `
+    const db = new X3Database()
+    try {
+      // Syracuse renvoie un resultXml vide avant Oracle ne touche la limite IN :
+      // rester sous le même seuil que les autres lecteurs X3 scoped.
+      for (let i = 0; i < unique.length; i += 500) {
+        const inList = unique
+          .slice(i, i + 500)
+          .map((a) => `'${a.replace(/'/g, "''")}'`)
+          .join(',')
+        const sql = `
 SELECT
   ITMREF_0 AS ITMREF,
   PCUSTUCOE_0 AS PCU_STU_COE,
@@ -643,25 +685,114 @@ SELECT
 FROM ITMMASTER
 WHERE ITMREF_0 IN (${inList})
 `
-    const db = new X3Database()
-    let rows: RawRow[] = []
-    try {
-      rows = await db.raw(sql)
+        const rows = (await db.raw(sql)) as RawRow[]
+        for (const row of rows) {
+          const article = row.ITMREF?.trim() ?? ''
+          if (!article) continue
+          out.set(article, {
+            article,
+            pcuStuCoe: row.PCU_STU_COE ? toNum(row.PCU_STU_COE) : null,
+            ucParPal: row.UC_PAR_PAL ? toNum(row.UC_PAR_PAL) : null,
+            yfamstat7: row.YFAMSTAT7?.trim() || null,
+          })
+        }
+      }
     } finally {
       await db.destroy()
     }
-
-    for (const row of rows) {
-      const article = row.ITMREF?.trim() ?? ''
-      if (!article) continue
-      out.set(article, {
-        article,
-        pcuStuCoe: row.PCU_STU_COE ? toNum(row.PCU_STU_COE) : null,
-        ucParPal: row.UC_PAR_PAL ? toNum(row.UC_PAR_PAL) : null,
-        yfamstat7: row.YFAMSTAT7?.trim() || null,
-      })
-    }
     return out
+  }
+
+  /**
+   * Stock physique des articles dans la file de quai ou les ateliers PF.
+   *
+   * Les emplacements sont filtrés côté application : la réplique de détail stock
+   * historique ne contient pas les QUAI, et garder cette règle ici évite de la
+   * dupliquer dans chaque consommateur.
+   */
+  async getExpeditionQueueStock(articles: string[]): Promise<ExpeditionQueueStockRow[]> {
+    const unique = [...new Set(articles.map((a) => a.trim()).filter(Boolean))]
+    if (unique.length === 0) return []
+
+    const rows: Stock[] = []
+    for (let i = 0; i < unique.length; i += 500) {
+      const chunk = unique.slice(i, i + 500)
+      rows.push(
+        ...(await Stock.query()
+          .select('ITMREF_0', 'LOC_0', 'QTYSTUACT_0', 'PALNUM_0')
+          .whereIn('ITMREF_0', chunk)
+          .where('STOFCY_0', EXPEDITION_SITE)
+          .whereNotNull('LOC_0')
+          .where('QTYSTUACT_0', '>', 0))
+      )
+    }
+
+    return rows.flatMap((row) => {
+      const article = row.article?.trim() ?? ''
+      const location = row.emplacement?.trim() ?? ''
+      const quantityUs = Number.parseFloat(row.quantiteActiveUs ?? '0') || 0
+      if (!article || !location || quantityUs <= 0 || !FILE_EXPEDITION_LOCATIONS.test(location)) {
+        return []
+      }
+      return [
+        {
+          article,
+          location,
+          quantityUs,
+          palnum: row.identifiant1?.trim() || null,
+        },
+      ]
+    })
+  }
+
+  /**
+   * Palettes déjà saisies dans une navette. Une palette peut apparaître plusieurs
+   * fois dans YNAVETTE ; l'identité `(navette, palette)` est donc dédoublonnée ici.
+   */
+  async getLoadedShuttleRows(from: Date, to: Date): Promise<LoadedShuttleRow[]> {
+    const fromStr = toLocalYYYYMMDD(from)
+    const toStr = toLocalYYYYMMDD(to)
+    const db = new X3Database()
+    try {
+      const rows = (await db.raw(`
+SELECT
+  TO_CHAR(Y.DAT_0, 'YYYY-MM-DD') AS JOUR,
+  Y.NAVETTE_0 AS NAVETTE,
+  Y.PALNUM_0 AS PALNUM,
+  Y.SOHNUM_0 AS SOHNUM,
+  S.ITMREF_0 AS ITMREF
+FROM YNAVETTE Y
+LEFT JOIN STOJOU S
+  ON S.PALNUM_0 = Y.PALNUM_0
+ AND S.CREDAT_0 = Y.DAT_0
+ AND S.TRSTYP_0 = 4
+WHERE Y.DAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+  AND Y.DAT_0 < TO_DATE('${toStr}', 'YYYYMMDD') + 1
+  AND Y.NAVETTE_0 IS NOT NULL
+  AND Y.PALNUM_0 IS NOT NULL
+`)) as RawRow[]
+      const seen = new Set<string>()
+      const out: LoadedShuttleRow[] = []
+      for (const row of rows) {
+        const day = row.JOUR?.trim() ?? ''
+        const navette = row.NAVETTE?.trim() ?? ''
+        const palnum = row.PALNUM?.trim() ?? ''
+        if (!day || !navette || !palnum) continue
+        const key = `${day}|${navette}|${palnum}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push({
+          day,
+          navette,
+          palnum,
+          sohnum: row.SOHNUM?.trim() || null,
+          article: row.ITMREF?.trim() || null,
+        })
+      }
+      return out
+    } finally {
+      await db.destroy()
+    }
   }
 
   async getExpeditions(

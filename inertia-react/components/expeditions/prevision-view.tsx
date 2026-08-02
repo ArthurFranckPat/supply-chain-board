@@ -1,151 +1,128 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import {
-  type ExpeditionForecast,
   type DayCharge,
+  type ExpeditionForecast,
+  type WeekCharge,
+  fmtJour,
   fmtPal,
 } from '@r/components/expeditions/forecast-types'
 import { JourDetailSheet } from '@r/components/expeditions/jour-detail-sheet'
-import { chargeBgClass, chargeText, chargeTier } from '@r/components/expeditions/palette-charge'
 import { cn } from '@r/lib/utils'
 
-/**
- * Vue prévision de charge transport J→J+n (issue #104).
- *
- * Motif aligné sur le bordereau réceptions + lit camion manifeste :
- * rail de date (Fraunces) + barre de remplissage horizontale vs capacité.
- * Pas d'histogramme vertical en grille de cartes.
- */
-
-const railWeekday = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' })
-const railDay = new Intl.DateTimeFormat('fr-FR', { day: 'numeric' })
-const railMonth = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
-
-const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s)
-
-function formatRail(iso: string): { weekday: string; day: string; month: string } {
-  const d = new Date(`${iso}T00:00:00`)
-  return {
-    weekday: cap(railWeekday.format(d)).replace(/\.$/, ''),
-    day: railDay.format(d),
-    month: cap(railMonth.format(d)).replace(/\.$/, ''),
-  }
-}
-
-function relatifOf(iso: string, today: string): string {
-  const a = new Date(`${iso}T00:00:00`).getTime()
-  const b = new Date(`${today}T00:00:00`).getTime()
-  const diff = Math.round((a - b) / 86_400_000)
-  if (diff === 0) return 'auj.'
-  if (diff > 0) return `+${diff}j`
-  return `${diff}j`
-}
-
+/** Vue file quai : décision J−2, pré-alerte, puis carnet hebdomadaire. */
 export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
   const [selectedDay, setSelectedDay] = useState<DayCharge | null>(null)
   const [showDeferred, setShowDeferred] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
+  const decision = forecast.days.filter((day) => day.band === 'decision')
+  const prealert = forecast.days.filter((day) => day.band === 'prealert')
+  const peak = Math.max(
+    forecast.capaciteJour,
+    ...forecast.days.map((day) => day.available),
+    ...forecast.weeks.map((week) => week.carnetPalettes),
+    1
+  )
+  const scaleMax = peak * 1.08
+  const spotDays = forecast.days.filter((day) => day.spot)
+  const spotTrucks = spotDays.reduce((sum, day) => sum + day.nbCamionsSpot, 0)
 
-  /** Échelle commune : capa visible + headroom pour les spots. */
-  const scaleMax = useMemo(() => {
-    const peak = Math.max(
-      forecast.capaciteJour,
-      ...forecast.days.map((d) => Math.max(d.chargeNominale, d.chargeRealiste)),
-      1
-    )
-    return peak * 1.08
-  }, [forecast])
-
-  const spotCount = forecast.days.filter((d) => d.spot).length
-  const spotPal = forecast.days
-    .filter((d) => d.spot)
-    .reduce((s, d) => s + Math.max(d.deltaVsCapacite, 0), 0)
-
-  const openDay = (d: DayCharge) => {
-    setSelectedDay(d)
+  const openDay = (day: DayCharge) => {
+    setSelectedDay(day)
     setShowDeferred(false)
-    setDetailOpen(true)
-  }
-
-  const openDeferred = () => {
-    setSelectedDay(null)
-    setShowDeferred(true)
     setDetailOpen(true)
   }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Bandeau — densifié comme la légende frise, pas un dashboard KPI */}
       <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-1 border-b border-rule-soft px-7 py-2 font-mono text-[10px] text-muted-foreground">
         <span>
-          Capa <b className="tabular-nums text-foreground">{fmtPal(forecast.capaciteJour)}</b> pal/j
+          File quai · <b className="text-foreground">{forecast.initialQueuePalettes.toFixed(1)}</b>{' '}
+          pal
           <span className="text-muted-foreground/70">
             {' '}
-            · {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes}
+            · {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes}/j
           </span>
         </span>
-        {spotCount > 0 ? (
+        {spotTrucks > 0 ? (
           <span className="flex items-center gap-1 font-bold text-destructive">
             <TriangleAlert size={12} strokeWidth={1.75} />
-            {spotCount} spot · +{fmtPal(spotPal)} pal
+            {spotTrucks} camion{spotTrucks > 1 ? 's' : ''} spot à prévoir
           </span>
         ) : (
-          <span className="text-ferme">Sous capacité</span>
+          <span className="text-ferme">Sous capacité navette</span>
         )}
         <span className="ml-auto flex items-center gap-3">
-          <Legend sw="bg-foreground/15" label="Nominale" />
-          <Legend sw="bg-planifie" label="Réaliste" />
-          <Legend sw="bg-suggere" label="Glissé" />
-          <span className="flex items-center gap-1.5">
-            <span className="h-3 w-px bg-foreground/50" />
-            Capa
-          </span>
+          <Legend sw="bg-ferme" label="Constaté / décision" />
+          <Legend sw="bg-suggere" label="Pré-alerte" />
+          <Legend sw="bg-planifie" label="Carnet semaine" />
         </span>
       </div>
 
-      <div className="flex-1 overflow-auto px-5 pb-8 pt-4">
-        <div className="overflow-hidden rounded-lg border border-rule bg-card shadow-xs">
-          {forecast.days.map((d, i) => (
-            <DayRow
-              key={d.date}
-              day={d}
-              today={forecast.from}
-              scaleMax={scaleMax}
-              camionCapacitePalettes={forecast.camionCapacitePalettes}
-              first={i === 0}
-              onClick={() => openDay(d)}
-            />
-          ))}
+      {forecast.nonQuantifiableLines > 0 && (
+        <div className="flex flex-none items-center gap-2 border-b border-warning/25 bg-warning/5 px-7 py-2 font-mono text-[10px] text-warning">
+          <TriangleAlert size={13} strokeWidth={1.75} />
+          {forecast.nonQuantifiableLines} ligne
+          {forecast.nonQuantifiableLines > 1 ? 's' : ''} sans coefficient de palettisation
+          exploitable. Elles ne sont pas comptées dans la charge.
         </div>
+      )}
 
-        {/* Différé — pied discret, pas une carte d’alerte géante */}
+      <div className="flex-1 overflow-auto px-5 pb-8 pt-4">
+        <Band title="Décision · J à J+3" tone="decision" hint="préavis transport 48 h">
+          {decision.map((day) => (
+            <DayRow key={day.date} day={day} scaleMax={scaleMax} onClick={() => openDay(day)} />
+          ))}
+        </Band>
+
+        <Band title="Pré-alerte · J+4 à J+7" tone="prealert" hint="OF planifiés / suggérés inclus">
+          {prealert.length > 0 ? (
+            prealert.map((day) => (
+              <DayRow key={day.date} day={day} scaleMax={scaleMax} onClick={() => openDay(day)} />
+            ))
+          ) : (
+            <EmptyBand text="Aucun jour ouvré dans cette fenêtre." />
+          )}
+        </Band>
+
+        <Band
+          title="Carnet · S+1 à S+6"
+          tone="weekly"
+          hint="date de livraison utilisée à cette maille"
+        >
+          <div className="overflow-hidden rounded-lg border border-rule bg-card shadow-xs">
+            {forecast.weeks.map((week) => (
+              <WeekRow key={week.key} week={week} scaleMax={scaleMax} />
+            ))}
+          </div>
+        </Band>
+
         <button
           type="button"
-          onClick={openDeferred}
+          onClick={() => {
+            setSelectedDay(null)
+            setShowDeferred(true)
+            setDetailOpen(true)
+          }}
           className={cn(
-            'mt-3 flex w-full items-center gap-4 rounded-lg border px-5 py-3 text-left transition-colors',
+            'mt-4 flex w-full items-center gap-4 rounded-lg border px-5 py-3 text-left transition-colors',
             forecast.deferred.length > 0
-              ? 'border-rule hover:border-destructive/40 hover:bg-destructive/[0.03]'
+              ? 'border-destructive/30 hover:bg-destructive/[0.03]'
               : 'border-rule-soft text-muted-foreground hover:bg-secondary/40'
           )}
         >
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Volume différé
+              Hors file jour
             </div>
             <div className="mt-0.5 truncate text-[12.5px] font-medium text-foreground">
               {forecast.deferred.length === 0
-                ? 'Rien de bloqué / sans couverture'
-                : `${forecast.deferred.length} commande${forecast.deferred.length > 1 ? 's' : ''} hors calendrier`}
+                ? 'Aucun reliquat sans date de chargement'
+                : `${forecast.deferred.length} ligne${forecast.deferred.length > 1 ? 's' : ''} à qualifier`}
             </div>
           </div>
-          <div
-            className={cn(
-              'font-fraunces text-[22px] font-black tabular-nums leading-none',
-              forecast.deferred.length > 0 ? 'text-destructive' : 'text-muted-foreground/40'
-            )}
-          >
-            {fmtPal(forecast.deferredPalTheo)}
+          <div className="font-fraunces text-[22px] font-black tabular-nums leading-none text-destructive">
+            {fmtPal(forecast.deferredPalettes)}
             <span className="ml-1 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               pal
             </span>
@@ -164,147 +141,211 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
   )
 }
 
+function Band({
+  title,
+  hint,
+  tone,
+  children,
+}: {
+  title: string
+  hint: string
+  tone: 'decision' | 'prealert' | 'weekly'
+  children: React.ReactNode
+}) {
+  return (
+    <section className="mb-5">
+      <div className="mb-2 flex items-baseline gap-3 px-1">
+        <h2
+          className={cn(
+            'font-fraunces text-[16px] font-bold tracking-tight',
+            tone === 'decision' && 'text-ferme',
+            tone === 'prealert' && 'text-suggere',
+            tone === 'weekly' && 'text-planifie'
+          )}
+        >
+          {title}
+        </h2>
+        <span className="font-mono text-[9px] text-muted-foreground">{hint}</span>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function DayRow({
   day,
-  today,
   scaleMax,
-  camionCapacitePalettes,
-  first,
   onClick,
 }: {
   day: DayCharge
-  today: string
   scaleMax: number
-  camionCapacitePalettes: number
-  first: boolean
   onClick: () => void
 }) {
-  const rail = formatRail(day.date)
-  const relatif = relatifOf(day.date, today)
-  const tier = chargeTier(day.capaciteJour > 0 ? day.chargeRealiste / day.capaciteJour : 0)
-  const nbCmd = day.lignesRealistes.length
-
-  const pct = (n: number) => Math.min((n / scaleMax) * 100, 100)
-  const realPct = pct(day.chargeRealiste)
-  const nomPct = pct(day.chargeNominale)
-  const capaPct = pct(day.capaciteJour)
-  const glisseShare = day.chargeRealiste > 0 ? Math.min(day.partGlisse / day.chargeRealiste, 1) : 0
-  const aDateShare = 1 - glisseShare
-
-  const over = Math.max(day.chargeRealiste / Math.max(day.capaciteJour, 1) - 1, 0)
-  const camionExtra =
-    day.spot && camionCapacitePalettes > 0 ? day.deltaVsCapacite / camionCapacitePalettes : 0
+  const pct = (value: number) => Math.min(100, Math.max(0, (value / scaleMax) * 100))
+  const capacityPct = pct(day.capaciteJour)
+  const availablePct = pct(day.available)
+  const loadedPct = pct(day.loaded)
+  const relative = day.offset === 0 ? 'auj.' : `+${day.offset}j`
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'relative flex w-full text-left transition-colors hover:bg-foreground/[0.025]',
-        !first && 'border-t border-rule-soft',
+        'relative flex w-full border border-rule bg-card text-left transition-colors hover:bg-foreground/[0.025]',
         day.spot &&
-          'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-destructive'
+          'border-destructive/35 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-destructive'
       )}
     >
-      {/* Rail date — même vocabulaire que réceptions */}
       <aside className="flex w-[7.5rem] flex-none flex-col border-r border-rule-soft py-4 pl-5 pr-3">
         <div className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          {rail.weekday}
-        </div>
-        <div className="font-fraunces text-[32px] font-extrabold leading-none tracking-tight tabular-nums text-foreground">
-          {rail.day}
-        </div>
-        <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{rail.month}</div>
-        <span
-          className={cn(
-            'mt-2 font-mono text-[10px] font-bold',
-            relatif === 'auj.' ? 'text-brand' : 'text-muted-foreground'
+          {new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(
+            new Date(`${day.date}T00:00:00`)
           )}
-        >
-          {relatif}
+        </div>
+        <div className="font-fraunces text-[30px] font-extrabold leading-none tracking-tight tabular-nums text-foreground">
+          {day.date.slice(8)}
+        </div>
+        <span className="mt-1 font-mono text-[10px] font-bold text-muted-foreground">
+          {relative}
         </span>
       </aside>
 
-      {/* Charge */}
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-2.5 px-5 py-4">
         <div className="flex items-baseline justify-between gap-3">
           <span
             className={cn(
-              'flex items-baseline gap-1.5 font-fraunces text-[28px] font-black leading-none tracking-tight tabular-nums',
-              chargeText(tier)
+              'font-fraunces text-[26px] font-black leading-none tabular-nums',
+              day.spot ? 'text-destructive' : 'text-foreground'
             )}
           >
-            {fmtPal(day.chargeRealiste)}
-            <span className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground">
-              / {fmtPal(day.capaciteJour)} pal
+            {fmtPal(day.available)}
+            <span className="ml-1 font-mono text-[10px] font-semibold text-muted-foreground">
+              dispo / {fmtPal(day.capaciteJour)} pal
             </span>
-            {day.spot && (
-              <span
-                className="ml-1 font-mono text-[12px] font-bold text-destructive"
-                title={`${Math.round(over * 100)} % au-delà · ~${camionExtra.toFixed(1)} camion`}
-              >
-                +{fmtPal(day.deltaVsCapacite)}
-              </span>
-            )}
           </span>
           {day.spot ? (
             <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-destructive">
               <TriangleAlert size={12} strokeWidth={1.75} />
-              Spot
+              {day.nbCamionsSpot} spot
             </span>
           ) : (
             <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-              {nbCmd} cmd
-              {day.partGlisse > 0 ? ` · ${fmtPal(day.partGlisse)} glissés` : ''}
+              {day.lignes.length} ligne{day.lignes.length > 1 ? 's' : ''}
             </span>
           )}
         </div>
 
-        {/* Lit de charge — réaliste plein + nominale en filigrane */}
         <div className="relative h-3.5 overflow-hidden rounded-full bg-secondary">
-          {/* Nominale (sous-couche, plus large ou plus étroite) */}
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-foreground/12"
-            style={{ width: `${Math.max(nomPct, day.chargeNominale > 0 ? 2 : 0)}%` }}
+            className="absolute inset-y-0 left-0 rounded-full bg-foreground/15"
+            style={{ width: `${availablePct}%` }}
           />
-          {/* Réaliste : à date + glissé */}
           <div
-            className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full"
-            style={{ width: `${Math.max(realPct, day.chargeRealiste > 0 ? 2 : 0)}%` }}
-          >
-            <div
-              className={cn('h-full', chargeBgClass(tier))}
-              style={{ width: `${aDateShare * 100}%` }}
-            />
-            {glisseShare > 0 && (
-              <div className="h-full bg-suggere" style={{ width: `${glisseShare * 100}%` }} />
+            className={cn(
+              'absolute inset-y-0 left-0 rounded-full',
+              day.spot ? 'bg-destructive' : day.band === 'decision' ? 'bg-ferme' : 'bg-suggere'
             )}
-          </div>
-          {/* Marqueur capacité */}
+            style={{ width: `${loadedPct}%` }}
+          />
           <div
-            className="pointer-events-none absolute inset-y-0 w-px bg-foreground/55"
-            style={{ left: `${capaPct}%` }}
-            title={`Capacité ${fmtPal(day.capaciteJour)}`}
+            className="pointer-events-none absolute inset-y-0 w-px bg-foreground/60"
+            style={{ left: `${capacityPct}%` }}
           />
         </div>
 
-        <div className="flex items-center gap-4 font-mono text-[9.5px] tabular-nums text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4 font-mono text-[9.5px] tabular-nums text-muted-foreground">
           <span>
-            Nom. <b className="text-foreground/80">{fmtPal(day.chargeNominale)}</b>
+            Entrées <b className="text-foreground/80">{fmtPal(day.entries)}</b>
           </span>
-          {day.partGlisse > 0 && (
-            <span>
-              Glissé <b className="text-suggere">{fmtPal(day.partGlisse)}</b>
-            </span>
-          )}
+          <span>
+            Chargé <b className="text-foreground/80">{fmtPal(day.loaded)}</b>
+          </span>
+          <span>
+            File après <b className="text-foreground/80">{fmtPal(day.fileAfter)}</b>
+          </span>
           {day.spot && (
             <span className="ml-auto font-bold text-destructive">
-              ~{camionExtra.toFixed(1)} camion en plus
+              +{fmtPal(day.spotPalettes)} pal
             </span>
           )}
         </div>
       </div>
     </button>
+  )
+}
+
+function WeekRow({ week, scaleMax }: { week: WeekCharge; scaleMax: number }) {
+  const pct = Math.min(100, Math.max(0, (week.carnetPalettes / scaleMax) * 100))
+  const capPct = Math.min(100, Math.max(0, (week.capacite / scaleMax) * 100))
+  return (
+    <div
+      className={cn(
+        'border-t border-rule-soft px-5 py-4 first:border-t-0',
+        week.spot && 'bg-destructive/[0.025]'
+      )}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <span className="font-mono text-[10px] font-bold text-muted-foreground">{week.key}</span>
+          <span className="ml-3 font-mono text-[10px] text-muted-foreground">
+            {fmtJour(week.from)} → {fmtJour(week.to)}
+          </span>
+        </div>
+        <span
+          className={cn(
+            'font-fraunces text-[24px] font-black tabular-nums',
+            week.spot ? 'text-destructive' : 'text-planifie'
+          )}
+        >
+          {fmtPal(week.carnetPalettes)}{' '}
+          <span className="font-mono text-[10px] font-semibold text-muted-foreground">
+            / {fmtPal(week.capacite)} pal
+          </span>
+        </span>
+      </div>
+      <div className="relative mt-2 h-3 overflow-hidden rounded-full bg-secondary">
+        <div
+          className={cn(
+            'absolute inset-y-0 left-0 rounded-full',
+            week.spot ? 'bg-destructive' : 'bg-planifie'
+          )}
+          style={{ width: `${pct}%` }}
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 w-px bg-foreground/60"
+          style={{ left: `${capPct}%` }}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-4 font-mono text-[9.5px] text-muted-foreground">
+        <span>Transport {fmtPal(week.capaciteTransport)} pal</span>
+        <span>
+          Production{' '}
+          {Number.isFinite(week.capaciteProduction) ? fmtPal(week.capaciteProduction) : '—'} pal
+        </span>
+        <span>
+          {week.lignes.length} ligne{week.lignes.length > 1 ? 's' : ''}
+        </span>
+        {week.nonQuantifiableLines > 0 && (
+          <span className="text-warning">
+            {week.nonQuantifiableLines} non chiffrable{week.nonQuantifiableLines > 1 ? 's' : ''}
+          </span>
+        )}
+        {week.spot && (
+          <span className="ml-auto font-bold text-destructive">
+            {week.nbCamionsSpot} camion{week.nbCamionsSpot > 1 ? 's' : ''} spot
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function EmptyBand({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-rule-soft bg-card px-5 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
+      {text}
+    </div>
   )
 }
 

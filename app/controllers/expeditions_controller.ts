@@ -30,7 +30,7 @@ export default class ExpeditionsController {
       10
     )
     const forecastDays =
-      Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90
+      Number.isFinite(daysParam) && daysParam >= 4 && daysParam <= 30
         ? daysParam
         : FORECAST_DEFAULT_HORIZON
 
@@ -104,7 +104,7 @@ export default class ExpeditionsController {
       10
     )
     const days =
-      Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90
+      Number.isFinite(daysParam) && daysParam >= 4 && daysParam <= 30
         ? daysParam
         : FORECAST_DEFAULT_HORIZON
     const force = !!ctx.request.input('refresh')

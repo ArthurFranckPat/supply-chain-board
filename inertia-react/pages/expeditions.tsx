@@ -172,7 +172,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
   const hasRetroContent = baseRows.length > 0 || !!x3Error
   const hasForecastContent = !!forecast || !!x3Error
   const gapStep = (delta: number) => setGapMin((v) => Math.max(0, (v ?? gapEff) + delta))
-  const horizonStep = (delta: number) => setHorizonDays((v) => Math.min(90, Math.max(1, v + delta)))
+  const horizonStep = (delta: number) => setHorizonDays((v) => Math.min(30, Math.max(4, v + delta)))
 
   const metaLabel = isPrevision
     ? forecast
@@ -181,7 +181,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
     : exp.label || '—'
   const metaCount = isPrevision
     ? forecast
-      ? `${forecast.days.filter((d) => d.spot).length} spot`
+      ? `${forecast.days.reduce((sum, day) => sum + day.nbCamionsSpot, 0)} camion${forecast.days.reduce((sum, day) => sum + day.nbCamionsSpot, 0) > 1 ? 's' : ''} spot`
       : '—'
     : `${exp.nbCamions} camion${exp.nbCamions > 1 ? 's' : ''}`
 
@@ -397,7 +397,8 @@ export default function Expeditions(props: ExpeditionsPageProps) {
         )}
         {isPrevision && forecast && (
           <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-            {forecast.days.length} j · {forecast.days.filter((d) => d.spot).length} spot
+            {forecast.days.length} j ·{' '}
+            {forecast.days.reduce((sum, day) => sum + day.nbCamionsSpot, 0)} camion spot
           </span>
         )}
       </div>

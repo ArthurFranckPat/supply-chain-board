@@ -325,6 +325,21 @@ export async function loadOrderImpacts(
   }
   finalOfFlows = finalOfFlows.filter((f) => !estFantome(f))
   matchingOnlySupply = matchingOnlySupply.filter((f) => !estFantome(f))
+
+  // ORDERS.RMNEXTQTY n'est pas homogène : selon l'OF, X3 la nette au pointage
+  // intermédiaire ou seulement à l'entrée stock. Le matching doit voir le même
+  // reste réel que la charge, sinon un OF lancé peut couvrir deux fois sa
+  // production déjà pointée.
+  const applyRealRemainder = (f: Flow): Flow => {
+    const id = numOfDe(f)
+    const avancement = avancementByOf.get(id)
+    if (!id || !avancement) return f
+    const launched = (f.origin as { launched?: number }).launched
+    const quantity = resteAProduire(f.quantity, launched, avancement.qtyRealisee)
+    return quantity === f.quantity ? f : { ...f, quantity }
+  }
+  finalOfFlows = finalOfFlows.map(applyRealRemainder)
+  matchingOnlySupply = matchingOnlySupply.map(applyRealRemainder)
   for (const materials of mfgByOf.values()) {
     for (const m of materials) if (m.article) articleSet.add(m.article)
   }

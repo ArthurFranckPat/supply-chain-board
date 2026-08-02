@@ -1,59 +1,43 @@
-import { useMemo, useState } from 'react'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@r/components/ui/sheet'
+import { useState } from 'react'
+import { TriangleAlert } from 'lucide-react'
 import {
   type DayCharge,
   type ForecastLine,
-  STATUT_LABEL,
+  CONFIDENCE_LABEL,
+  SOURCE_LABEL,
   fmtJour,
   fmtPal,
 } from '@r/components/expeditions/forecast-types'
-import { TriangleAlert } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@r/components/ui/sheet'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-
-/**
- * Drill-down jour / différé (issue #104) — même densité que CamionDetailSheet.
- */
+import { cn } from '@r/lib/utils'
 
 const TH =
   'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground'
 const TD = 'px-3 py-2'
 
-function statutTone(s: ForecastLine['statut']): string {
-  switch (s) {
-    case 'on_time':
-    case 'stock':
-      return 'text-ferme'
-    case 'retard':
-      return 'text-suggere'
-    case 'bloquee':
-    case 'sans_couverture':
-      return 'text-destructive'
-  }
-}
-
-const forecastColumns: ColumnDef<ForecastLine>[] = [
+const columns: ColumnDef<ForecastLine>[] = [
   {
     accessorKey: 'client',
     header: () => 'Client',
-    cell: ({ row: { original: l } }) => (
-      <span className="font-medium text-foreground">{l.client || '—'}</span>
+    cell: ({ row: { original: line } }) => (
+      <span className="font-medium text-foreground">{line.client || '—'}</span>
     ),
     meta: { thClass: TH, tdClass: TD },
   },
   {
     accessorKey: 'numCommande',
     header: () => 'Commande',
-    cell: ({ row: { original: l } }) => (
+    cell: ({ row: { original: line } }) => (
       <span className="font-mono text-[11px] text-muted-foreground">
-        {l.numCommande}
-        {l.ligne ? `/${l.ligne}` : ''}
+        {line.numCommande}
+        {line.ligne ? `/${line.ligne}` : ''}
       </span>
     ),
     meta: { thClass: TH, tdClass: TD },
@@ -61,12 +45,12 @@ const forecastColumns: ColumnDef<ForecastLine>[] = [
   {
     accessorKey: 'article',
     header: () => 'Article',
-    cell: ({ row: { original: l } }) => (
+    cell: ({ row: { original: line } }) => (
       <>
-        <div className="font-mono text-[11px] font-semibold text-foreground">{l.article}</div>
-        {l.description ? (
-          <div className="max-w-[200px] truncate text-[10px] text-muted-foreground">
-            {l.description}
+        <div className="font-mono text-[11px] font-semibold text-foreground">{line.article}</div>
+        {line.description ? (
+          <div className="max-w-[180px] truncate text-[10px] text-muted-foreground">
+            {line.description}
           </div>
         ) : null}
       </>
@@ -76,44 +60,60 @@ const forecastColumns: ColumnDef<ForecastLine>[] = [
   {
     accessorKey: 'qte',
     header: () => 'Qté',
-    cell: ({ row: { original: l } }) => <span className="font-mono tabular-nums">{l.qte}</span>,
+    cell: ({ row: { original: line } }) => (
+      <span className="font-mono tabular-nums">
+        {line.qte.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
+      </span>
+    ),
     meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'text-right') },
   },
   {
     accessorKey: 'palTheo',
     header: () => 'Pal',
-    cell: ({ row: { original: l } }) => (
-      <span className="font-mono font-semibold tabular-nums">{fmtPal(l.palTheo)}</span>
+    cell: ({ row: { original: line } }) => (
+      <span className="font-mono font-semibold tabular-nums">{fmtPal(line.palTheo)}</span>
     ),
     meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'text-right') },
   },
   {
-    accessorKey: 'statut',
-    header: () => 'Statut',
-    cell: ({ row: { original: l } }) => (
-      <span className={cn('font-mono text-[10px] font-bold', statutTone(l.statut))}>
-        {STATUT_LABEL[l.statut]}
-        {l.glisse ? ' · glissé' : ''}
+    accessorKey: 'source',
+    header: () => 'Source',
+    cell: ({ row: { original: line } }) => (
+      <span className="font-mono text-[10px] font-bold text-foreground">
+        {SOURCE_LABEL[line.source]}
       </span>
     ),
     meta: { thClass: TH, tdClass: TD },
   },
   {
-    accessorKey: 'ofNum',
-    header: () => 'OF',
-    cell: ({ row: { original: l } }) => (
-      <span className="font-mono text-[11px] text-muted-foreground">
-        {l.ofNum ? (
-          <>
-            {l.ofNum}
-            {l.ofDateFin ? (
-              <span className="text-muted-foreground/70"> · {fmtJour(l.ofDateFin)}</span>
-            ) : null}
-          </>
-        ) : (
-          '—'
+    accessorKey: 'confidence',
+    header: () => 'Fiabilité',
+    cell: ({ row: { original: line } }) => (
+      <span
+        className={cn(
+          'font-mono text-[10px] font-bold',
+          line.confidence === 'faible'
+            ? 'text-warning'
+            : line.confidence === 'moyenne'
+              ? 'text-suggere'
+              : 'text-ferme'
         )}
+      >
+        {CONFIDENCE_LABEL[line.confidence]}
       </span>
+    ),
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
+    accessorKey: 'cause',
+    header: () => 'Cause / date',
+    cell: ({ row: { original: line } }) => (
+      <div className="max-w-[260px] text-[10px] text-muted-foreground">
+        <div>{line.cause}</div>
+        {line.dateMiseADispo ? (
+          <span className="font-mono">dispo {fmtJour(line.dateMiseADispo)}</span>
+        ) : null}
+      </div>
     ),
     meta: { thClass: TH, tdClass: TD },
   },
@@ -121,17 +121,15 @@ const forecastColumns: ColumnDef<ForecastLine>[] = [
 
 function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) {
   const [sorting, setSorting] = useState<SortingState[]>([])
-
-  if (lines.length === 0) {
+  if (lines.length === 0)
     return (
       <p className="px-1 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
         {empty}
       </p>
     )
-  }
   return (
     <DataTable
-      columns={forecastColumns}
+      columns={columns}
       rows={lines}
       sorting={sorting}
       onSortingChange={setSorting}
@@ -142,7 +140,9 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
       getRowClass={() =>
         'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
       }
-      getRowKey={(l) => `${l.numCommande}|${l.ligne ?? ''}|${l.article}`}
+      getRowKey={(line) =>
+        `${line.numCommande}|${line.ligne ?? ''}|${line.vcrseq ?? ''}|${line.article}|${line.dateChargement ?? 'deferred'}|${line.source}|${line.ofNum ?? ''}|${line.cause}`
+      }
     />
   )
 }
@@ -158,65 +158,48 @@ export function JourDetailSheet({
   deferred?: ForecastLine[] | null
   camionCapacitePalettes: number
   open: boolean
-  onOpenChange: (v: boolean) => void
+  onOpenChange: (value: boolean) => void
 }) {
-  const isDeferred = deferred != null
-  const title = isDeferred ? 'Volume différé' : day ? `Charge du ${fmtJour(day.date)}` : 'Détail'
-
-  const realistLines = useMemo(() => day?.lignesRealistes ?? [], [day])
-  const nominalLines = useMemo(() => day?.lignesNominales ?? [], [day])
-  const camionFrac =
-    day && camionCapacitePalettes > 0 ? day.deltaVsCapacite / camionCapacitePalettes : 0
+  const isDeferred = deferred !== null && deferred !== undefined
+  const title = isDeferred ? 'Hors file jour' : day ? `Charge du ${fmtJour(day.date)}` : 'Détail'
+  const lines = isDeferred ? (deferred ?? []) : (day?.lignes ?? [])
+  const extraTrucks = day?.nbCamionsSpot ?? 0
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto sm:max-w-3xl">
+      <SheetContent className="overflow-y-auto sm:max-w-6xl">
         <SheetHeader>
           <SheetTitle className="font-fraunces text-[20px] font-bold tracking-tight">
             {title}
           </SheetTitle>
           <SheetDescription className="font-mono text-[11px] text-muted-foreground">
             {isDeferred
-              ? 'Bloquées / sans couverture — date de sortie inconnue'
+              ? 'Lignes sans date fiable à la maille jour, conservées pour la bande semaine.'
               : day
-                ? `${fmtPal(day.chargeRealiste)} réaliste · ${fmtPal(day.chargeNominale)} nominale · capa ${fmtPal(day.capaciteJour)}`
+                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.loaded)} chargées · file ${fmtPal(day.fileAfter)}`
                 : ''}
           </SheetDescription>
         </SheetHeader>
 
-        {isDeferred ? (
-          <div className="mt-5">
-            <LinesTable lines={deferred ?? []} empty="Aucun volume différé." />
-          </div>
-        ) : day ? (
-          <div className="mt-5 space-y-6">
-            {day.spot && (
-              <div className="flex items-start gap-2 border-l-[3px] border-destructive bg-destructive/5 px-3 py-2.5 text-[12px] text-foreground">
-                <TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 text-destructive" />
-                <div>
-                  <div className="font-bold text-destructive">Spot à prévoir</div>
-                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    +{fmtPal(day.deltaVsCapacite)} pal (~{camionFrac.toFixed(1)} camion)
-                  </div>
-                </div>
+        {!isDeferred && day?.spot && (
+          <div className="mt-5 flex items-start gap-2 border-l-[3px] border-destructive bg-destructive/5 px-3 py-2.5 text-[12px] text-foreground">
+            <TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 text-destructive" />
+            <div>
+              <div className="font-bold text-destructive">Camion spot à demander à J−2</div>
+              <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                +{fmtPal(day.spotPalettes)} pal · {extraTrucks} camion{extraTrucks > 1 ? 's' : ''}{' '}
+                de {camionCapacitePalettes} pal
               </div>
-            )}
-
-            <section>
-              <h3 className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Réaliste · {realistLines.length}
-              </h3>
-              <LinesTable lines={realistLines} empty="Aucune commande ce jour." />
-            </section>
-
-            <section>
-              <h3 className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Nominale · {nominalLines.length}
-              </h3>
-              <LinesTable lines={nominalLines} empty="Rien à cette date contractuelle." />
-            </section>
+            </div>
           </div>
-        ) : null}
+        )}
+
+        <div className="mt-5">
+          <LinesTable
+            lines={lines}
+            empty={isDeferred ? 'Aucune ligne hors file.' : 'Aucune ligne chargée ce jour.'}
+          />
+        </div>
       </SheetContent>
     </Sheet>
   )

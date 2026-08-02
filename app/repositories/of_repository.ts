@@ -40,6 +40,7 @@ type RawRow = Record<string, string | null>
 // Lookback pour les OF (via env RETARD_LOOKBACK_DAYS, même variable que la vue retards).
 // Élimine les OF très en retard (anomalies ERP) → réduit drastiquement les lignes ZSOAPSQL O(n²).
 const OF_LOOKBACK_DAYS = Number.parseInt(process.env.RETARD_LOOKBACK_DAYS ?? '90', 10)
+const SITE = 'AE1'
 
 function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
@@ -68,6 +69,7 @@ FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
+  AND STOFCY_0 = '${SITE}'
   AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
 `
 
@@ -86,6 +88,7 @@ FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
+  AND STOFCY_0 = '${SITE}'
   AND STRDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
   AND STRDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
 `
@@ -97,7 +100,7 @@ WHERE WIPTYP_0 = 5
  * ré-allouée à une suggestion d'août — alors que X3 nette le stock prévisionnel sur les FINS.
  *
  * Borné aux articles ayant de la demande dans la fenêtre : sans ce filtre le delta pèse
- * ~1 340 lignes (tout le backlog usine), avec il en pèse ~14 (mesuré en PROD le 28/07/2026).
+ * ~1 340 lignes (tout le backlog usine), avec il reste ciblé sur les articles à expédier.
  * Sous-select plutôt qu'IN-list d'articles : rien à expédier dans le CLOB ZSOAPSQL.
  */
 const buildMatchingDeltaSql = (fromStr: string, toStr: string) => `
@@ -114,10 +117,10 @@ FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
+  AND STOFCY_0 = '${SITE}'
   AND NOT (STRDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
            AND STRDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
-  AND ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
-  AND ITMREF_0 IN (
+   AND ITMREF_0 IN (
     SELECT ITMREF_0
     FROM ORDERS
     WHERE WIPTYP_0 = 1
@@ -193,7 +196,7 @@ export class X3OfRepository {
       if (safe.length === 0) return out
       const inList = safe.map((n) => `'${n}'`).join(',')
       const rows = (await db.raw(
-        `SELECT VCRNUM_0 AS NUM, CREDAT_0 AS CREDAT FROM ORDERS WHERE WIPTYP_0 = 5 AND VCRNUM_0 IN (${inList})`
+        `SELECT VCRNUM_0 AS NUM, CREDAT_0 AS CREDAT FROM ORDERS WHERE WIPTYP_0 = 5 AND STOFCY_0 = '${SITE}' AND VCRNUM_0 IN (${inList})`
       )) as unknown as RawRow[]
       for (const row of rows) {
         const numOf = row.NUM?.trim() ?? ''
@@ -246,6 +249,7 @@ SELECT
   CREUSR_0    AS CREUSR
 FROM ORDERS
 WHERE WIPTYP_0 = 5
+  AND STOFCY_0 = '${SITE}'
   AND VCRNUM_0 = '${safe}'
 `
     const [rows, menuRows, articles] = await Promise.all([
@@ -317,6 +321,7 @@ SELECT
   ENDDAT_0    AS ENDDAT
 FROM ORDERS
 WHERE WIPTYP_0 = 5
+  AND STOFCY_0 = '${SITE}'
   AND VCRNUM_0 IN (${list})
 `))
       )

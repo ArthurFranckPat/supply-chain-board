@@ -5,6 +5,8 @@ import type { OrderLineForLoad, OrderLineRow } from '#repositories/order_line_re
 import type { NeedNature, OrderType } from '#app/domain/models/flow'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
 
+const SITE = 'AE1'
+
 /**
  * Lecture read-only d'`orders_flux_replica` (#98, #105) — miroir de la SOURCE
  * `ORDERS`, jointures de contexte comprises.
@@ -341,6 +343,7 @@ export class OrdersFluxReplicaRepository {
       .from('orders_flux_replica')
       .select('*')
       .where('wiptyp', 5)
+      .andWhere('stofcy', SITE)
       .andWhere('date_debut', '>=', isoLocal(from))
       .andWhere('date_debut', '<=', isoLocal(to))
     return (rows as ReplicaRow[]).map(toManufacturingOrder)
@@ -473,7 +476,7 @@ export class OrdersFluxReplicaRepository {
       .from('orders_flux_replica')
       .select('*')
       .where('wiptyp', 5)
-      .andWhere('date_echeance', '<=', toIso)
+      .andWhere('stofcy', SITE)
       .andWhere((q) => q.where('date_debut', '<', fromIso).orWhere('date_debut', '>', toIso))
       .whereIn('article', (sub) =>
         sub
