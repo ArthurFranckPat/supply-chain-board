@@ -24,6 +24,25 @@ const TD = 'px-3 py-2'
 
 const columns: ColumnDef<ForecastLine>[] = [
   {
+    accessorKey: 'chargeStatus',
+    header: () => 'Statut',
+    cell: ({ row: { original: line } }) => {
+      if (!line.chargeStatus) return <span className="text-muted-foreground">—</span>
+      const overflow = line.chargeStatus === 'overflow'
+      return (
+        <span
+          className={cn(
+            'font-mono text-[10px] font-bold uppercase tracking-[0.06em]',
+            overflow ? 'text-destructive' : 'text-ferme'
+          )}
+        >
+          {overflow ? 'Overflow' : 'Chargé'}
+        </span>
+      )
+    },
+    meta: { thClass: TH, tdClass: TD },
+  },
+  {
     accessorKey: 'client',
     header: () => 'Client',
     cell: ({ row: { original: line } }) => (
@@ -119,7 +138,15 @@ const columns: ColumnDef<ForecastLine>[] = [
   },
 ]
 
-function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) {
+function LinesTable({
+  lines,
+  empty,
+  showStatus,
+}: {
+  lines: ForecastLine[]
+  empty: string
+  showStatus: boolean
+}) {
   const [sorting, setSorting] = useState<SortingState[]>([])
   if (lines.length === 0)
     return (
@@ -127,9 +154,12 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
         {empty}
       </p>
     )
+  const visibleColumns = showStatus
+    ? columns
+    : columns.filter((col) => col.accessorKey !== 'chargeStatus')
   return (
     <DataTable
-      columns={columns}
+      columns={visibleColumns}
       rows={lines}
       sorting={sorting}
       onSortingChange={setSorting}
@@ -137,11 +167,14 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
       tableClass="w-full border-collapse text-[12px]"
       scrollContainerClass="overflow-x-auto rounded-lg border border-rule shadow-float"
       theadRowClass="bg-secondary"
-      getRowClass={() =>
-        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
+      getRowClass={(line) =>
+        cn(
+          'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
+          line.chargeStatus === 'overflow' && 'bg-destructive/[0.04]'
+        )
       }
       getRowKey={(line) =>
-        `${line.numCommande}|${line.ligne ?? ''}|${line.vcrseq ?? ''}|${line.article}|${line.dateChargement ?? 'deferred'}|${line.source}|${line.ofNum ?? ''}|${line.cause}`
+        `${line.numCommande}|${line.ligne ?? ''}|${line.vcrseq ?? ''}|${line.article}|${line.dateChargement ?? 'deferred'}|${line.chargeStatus ?? ''}|${line.source}|${line.ofNum ?? ''}|${line.cause}`
       }
     />
   )
@@ -164,6 +197,11 @@ export function JourDetailSheet({
   const title = isDeferred ? 'Hors file jour' : day ? `Charge du ${fmtJour(day.date)}` : 'Détail'
   const lines = isDeferred ? (deferred ?? []) : (day?.lignes ?? [])
   const extraTrucks = day?.nbCamionsSpot ?? 0
+  const overflowPal = !isDeferred
+    ? lines
+        .filter((line) => line.chargeStatus === 'overflow')
+        .reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
+    : 0
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -176,7 +214,7 @@ export function JourDetailSheet({
             {isDeferred
               ? 'Lignes sans date fiable à la maille jour, conservées pour la bande semaine.'
               : day
-                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.loaded)} chargées · file ${fmtPal(day.fileAfter)}`
+                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.loaded)} chargées · overflow ${fmtPal(day.fileAfter)}`
                 : ''}
           </SheetDescription>
         </SheetHeader>
@@ -189,6 +227,7 @@ export function JourDetailSheet({
               <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                 +{fmtPal(day.spotPalettes)} pal · {extraTrucks} camion{extraTrucks > 1 ? 's' : ''}{' '}
                 de {camionCapacitePalettes} pal
+                {overflowPal > 0 ? ` · ${fmtPal(overflowPal)} pal en overflow ci-dessous` : ''}
               </div>
             </div>
           </div>
@@ -197,7 +236,10 @@ export function JourDetailSheet({
         <div className="mt-5">
           <LinesTable
             lines={lines}
-            empty={isDeferred ? 'Aucune ligne hors file.' : 'Aucune ligne chargée ce jour.'}
+            empty={
+              isDeferred ? 'Aucune ligne hors file.' : 'Aucune ligne dans la charge de ce jour.'
+            }
+            showStatus={!isDeferred}
           />
         </div>
       </SheetContent>

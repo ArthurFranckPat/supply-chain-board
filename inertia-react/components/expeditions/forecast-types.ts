@@ -32,6 +32,7 @@ export interface ForecastLine {
   ofNum: string | null
   coefficientSource: 'référencé' | 'STOCK' | 'STOJOU' | 'inconnu'
   nonChiffrable: boolean
+  chargeStatus?: 'loaded' | 'overflow'
 }
 
 export interface DayCharge {
@@ -48,6 +49,7 @@ export interface DayCharge {
   spot: boolean
   nbCamionsSpot: number
   spotPalettes: number
+  /** Charge du jour = chargé + overflow (spot / report). */
   lignes: ForecastLine[]
 }
 

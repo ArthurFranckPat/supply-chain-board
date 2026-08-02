@@ -88,6 +88,38 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(forecast.days[1]!.available, 4)
   })
 
+  test('le drill-down du jour spot liste chargé + overflow, pas seulement le chargé', ({
+    assert,
+  }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 1000, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 800, source: 'quai' }],
+      loadedShuttle: [{ palettes: 10 }],
+      dailyHorizonDays: 1,
+    })
+    const monday = forecast.days[0]!
+    const loaded = monday.lignes.filter((row) => row.chargeStatus === 'loaded')
+    const overflow = monday.lignes.filter((row) => row.chargeStatus === 'overflow')
+    const loadedPal = loaded.reduce((sum, row) => sum + (row.palTheo ?? 0), 0)
+    const overflowPal = overflow.reduce((sum, row) => sum + (row.palTheo ?? 0), 0)
+
+    assert.isAbove(overflow.length, 0)
+    assert.equal(loadedPal, 66)
+    assert.equal(overflowPal, 4)
+    assert.equal(loadedPal + overflowPal, monday.available)
+  })
+
+  test('le KPI file quai ne compte que le stock matché à une commande ouverte', ({ assert }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 50, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 800, source: 'quai' }],
+      dailyHorizonDays: 1,
+    })
+    // 50 US / 10 = 5 pal matchées ; les 75 pal orphelines restent hors modèle.
+    assert.equal(forecast.initialQueuePalettes, 5)
+    assert.equal(forecast.days[0]!.available, 5)
+  })
+
   test('saute samedi et dimanche : la file ne consomme que des jours ouvrés', ({ assert }) => {
     const forecast = build({
       lines: [

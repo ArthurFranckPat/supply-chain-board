@@ -91,6 +91,11 @@ export interface ForecastLine {
   ofNum: string | null
   coefficientSource: 'référencé' | 'STOCK' | 'STOJOU' | 'inconnu'
   nonChiffrable: boolean
+  /**
+   * Statut dans la charge du jour. Absent hors bande jour (semaine / deferred).
+   * `overflow` = portion qui compose le spot / la file reportée.
+   */
+  chargeStatus?: 'loaded' | 'overflow'
 }
 
 export interface DayCharge {
@@ -115,6 +120,10 @@ export interface DayCharge {
   nbCamionsSpot: number
   /** Équivalent-palettes au-delà des deux navettes. */
   spotPalettes: number
+  /**
+   * Lignes composant la charge du jour = portions chargées + overflow
+   * (ce qui force le spot / report). Jamais seulement le chargé.
+   */
   lignes: ForecastLine[]
 }
 
@@ -330,7 +339,8 @@ function makeLine(
   quantity: number,
   palettes: number | null,
   dateChargement: string | null,
-  volumes: Map<string, VolumeCoef>
+  volumes: Map<string, VolumeCoef>,
+  chargeStatus?: 'loaded' | 'overflow'
 ): ForecastLine {
   const volume = volumes.get(line.article)
   return {
@@ -353,6 +363,7 @@ function makeLine(
     ofNum: segment.ofNum ?? null,
     coefficientSource: volume?.estimationSource ?? (volume?.ucParPal ? 'référencé' : 'inconnu'),
     nonChiffrable: palettes === null,
+    ...(chargeStatus ? { chargeStatus } : {}),
   }
 }
 
@@ -432,11 +443,6 @@ function materializeLines(
     }
   }
 
-  const initialQueuePalettes = [...stockByArticle.values()].reduce(
-    (sum, stock) => sum + stock.palettes,
-    0
-  )
-
   const remainingByArticle = new Map<string, MaterializedLine[]>()
   for (const line of materialized) {
     const explicitQuantity = line.segments.reduce((sum, segment) => sum + segment.quantity, 0)
@@ -459,6 +465,7 @@ function materializeLines(
     )
   }
 
+  let initialQueuePalettes = 0
   for (const [article, list] of remainingByArticle) {
     const stock = stockByArticle.get(article)
     if (!stock || stock.palettes <= EPSILON) continue
@@ -479,6 +486,7 @@ function materializeLines(
           stock.source === 'quai' ? 'Stock prêt sur le quai' : 'Production présente en atelier',
       })
       stock.palettes -= palettes
+      initialQueuePalettes += palettes
     }
   }
 
@@ -600,7 +608,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       const ratio = token.palettes > EPSILON ? take / token.palettes : 0
       const quantity = token.quantity * ratio
       loadedLines.push(
-        makeLine(token.line.source, token.segment, quantity, take, date, opts.volumes)
+        makeLine(token.line.source, token.segment, quantity, take, date, opts.volumes, 'loaded')
       )
       consumedByLine.set(token.line.key, (consumedByLine.get(token.line.key) ?? 0) + take)
       token.palettes -= take
@@ -608,6 +616,20 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       capacityLeft -= take
       if (token.palettes <= EPSILON) queue.shift()
     }
+
+    // Overflow = reste de la file après chargement. Fait partie de la charge du jour
+    // (disponible − chargé) : c'est ce qui force le spot et ce que le drill-down doit montrer.
+    const overflowLines: ForecastLine[] = queue.map((token) =>
+      makeLine(
+        token.line.source,
+        token.segment,
+        token.quantity,
+        token.palettes,
+        null,
+        opts.volumes,
+        'overflow'
+      )
+    )
 
     const loaded = loadedLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
     const fileAfter = queue.reduce((sum, token) => sum + token.palettes, 0)
@@ -632,7 +654,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       spot: spotPalettes > EPSILON,
       nbCamionsSpot,
       spotPalettes,
-      lignes: loadedLines,
+      lignes: [...loadedLines, ...overflowLines],
     })
   }
 
