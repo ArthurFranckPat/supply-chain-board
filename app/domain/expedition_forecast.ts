@@ -621,46 +621,41 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     queue.push(...entries)
     const entriesPalettes = entries.reduce((sum, token) => sum + token.palettes, 0)
     const available = fileBefore + entriesPalettes
-    let capacityLeft = Math.max(0, opts.capaciteJour)
-    const loadedLines: ForecastLine[] = []
-
-    while (capacityLeft > EPSILON && queue.length > 0) {
-      const token = queue[0]!
-      const take = Math.min(capacityLeft, token.palettes)
-      const ratio = token.palettes > EPSILON ? take / token.palettes : 0
-      const quantity = token.quantity * ratio
-      loadedLines.push(
-        makeLine(token.line.source, token.segment, quantity, take, date, opts.volumes, 'loaded')
-      )
-      consumedByLine.set(token.line.key, (consumedByLine.get(token.line.key) ?? 0) + take)
-      token.palettes -= take
-      token.quantity -= quantity
-      capacityLeft -= take
-      if (token.palettes <= EPSILON) queue.shift()
-    }
-
-    // Overflow = reste de la file après chargement. Fait partie de la charge du jour
-    // (disponible − chargé) : c'est ce qui force le spot et ce que le drill-down doit montrer.
-    const overflowLines: ForecastLine[] = queue.map((token) =>
-      makeLine(
-        token.line.source,
-        token.segment,
-        token.quantity,
-        token.palettes,
-        null,
-        opts.volumes,
-        'overflow'
-      )
-    )
-
-    const loaded = loadedLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
-    const fileAfter = queue.reduce((sum, token) => sum + token.palettes, 0)
     const deltaVsCapacite = available - opts.capaciteJour
     const spotPalettes = Math.max(0, deltaVsCapacite)
     const nbCamionsSpot =
       spotPalettes > EPSILON && opts.camionCapacitePalettes > 0
         ? Math.ceil(spotPalettes / opts.camionCapacitePalettes)
         : 0
+
+    const drainQueue = (capacity: number, status: 'loaded' | 'overflow'): ForecastLine[] => {
+      let capacityLeft = Math.max(0, capacity)
+      const out: ForecastLine[] = []
+      while (capacityLeft > EPSILON && queue.length > 0) {
+        const token = queue[0]!
+        const take = Math.min(capacityLeft, token.palettes)
+        const ratio = token.palettes > EPSILON ? take / token.palettes : 0
+        const quantity = token.quantity * ratio
+        out.push(
+          makeLine(token.line.source, token.segment, quantity, take, date, opts.volumes, status)
+        )
+        consumedByLine.set(token.line.key, (consumedByLine.get(token.line.key) ?? 0) + take)
+        token.palettes -= take
+        token.quantity -= quantity
+        capacityLeft -= take
+        if (token.palettes <= EPSILON) queue.shift()
+      }
+      return out
+    }
+
+    // Navettes d'abord, puis les camions spot annoncés — sinon la file reporte le
+    // même tas et chaque jour recomptabilise des spots déjà « demandés » la veille
+    // (26 + 24 + 22… pour un seul pic de reprise).
+    const loadedLines = drainQueue(opts.capaciteJour, 'loaded')
+    const spotLines = drainQueue(nbCamionsSpot * opts.camionCapacitePalettes, 'overflow')
+
+    const loaded = loadedLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
+    const fileAfter = queue.reduce((sum, token) => sum + token.palettes, 0)
     days.push({
       date,
       // Bandes = rang dans la file des jours ouvrés, pas décalage calendaire :
@@ -677,7 +672,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       spot: spotPalettes > EPSILON,
       nbCamionsSpot,
       spotPalettes,
-      lignes: [...loadedLines, ...overflowLines],
+      lignes: [...loadedLines, ...spotLines],
     })
   })
 

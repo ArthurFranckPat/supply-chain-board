@@ -82,13 +82,14 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(forecast.initialQueuePalettes, 70)
     assert.equal(monday.available, 70)
     assert.equal(monday.loaded, 66)
-    assert.equal(monday.fileAfter, 4)
+    // Le camion spot annoncé vide aussi la file — sinon J+1 recomptabilise le même reste.
+    assert.equal(monday.fileAfter, 0)
     assert.isTrue(monday.spot)
     assert.equal(monday.nbCamionsSpot, 1)
-    assert.equal(forecast.days[1]!.available, 4)
+    assert.equal(forecast.days[1]!.available, 0)
   })
 
-  test('le drill-down du jour spot liste chargé + overflow, pas seulement le chargé', ({
+  test('le drill-down du jour spot liste navette + portion spot, pas seulement le chargé', ({
     assert,
   }) => {
     const forecast = build({
@@ -107,6 +108,22 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(loadedPal, 66)
     assert.equal(overflowPal, 4)
     assert.equal(loadedPal + overflowPal, monday.available)
+    assert.equal(monday.fileAfter, 0)
+  })
+
+  test('un pic de reprise ne cascade pas des spots sur les jours suivants', ({ assert }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 2000, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 2000, source: 'quai' }],
+      dailyHorizonDays: 4,
+    })
+    // 200 pal dispo → ceil((200-66)/33) = 5 spots le jour 1, file vidée, jours suivants à 0.
+    assert.equal(forecast.days[0]!.available, 200)
+    assert.equal(forecast.days[0]!.nbCamionsSpot, 5)
+    assert.equal(forecast.days[0]!.fileAfter, 0)
+    assert.equal(forecast.days[1]!.available, 0)
+    assert.equal(forecast.days[1]!.nbCamionsSpot, 0)
+    assert.equal(forecast.days[2]!.nbCamionsSpot, 0)
   })
 
   test('le KPI file quai ne compte que le stock matché à une commande ouverte', ({ assert }) => {

@@ -36,7 +36,7 @@ const columns: ColumnDef<ForecastLine>[] = [
             overflow ? 'text-destructive' : 'text-ferme'
           )}
         >
-          {overflow ? 'Overflow' : 'Chargé'}
+          {overflow ? 'Spot' : 'Navette'}
         </span>
       )
     },
@@ -214,7 +214,7 @@ export function JourDetailSheet({
             {isDeferred
               ? 'Lignes sans date fiable à la maille jour, conservées pour la bande semaine.'
               : day
-                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.loaded)} chargées · overflow ${fmtPal(day.fileAfter)}`
+                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.loaded)} navette · ${fmtPal(day.spotPalettes)} spot · file ${fmtPal(day.fileAfter)}`
                 : ''}
           </SheetDescription>
         </SheetHeader>
@@ -227,7 +227,7 @@ export function JourDetailSheet({
               <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                 +{fmtPal(day.spotPalettes)} pal · {extraTrucks} camion{extraTrucks > 1 ? 's' : ''}{' '}
                 de {camionCapacitePalettes} pal
-                {overflowPal > 0 ? ` · ${fmtPal(overflowPal)} pal en overflow ci-dessous` : ''}
+                {overflowPal > 0 ? ` · ${fmtPal(overflowPal)} pal sur spot ci-dessous` : ''}
               </div>
             </div>
           </div>
