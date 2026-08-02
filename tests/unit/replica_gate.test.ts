@@ -302,7 +302,7 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
   const HOUR = 60 * MINUTE
 
   test('les tables à mouvement rapide replient après 30 min', ({ assert }) => {
-    // Les quatre premières sont sur le tick 5 min de `syncAll()` : 30 min tolère
+    // Les trois premières sont sur le tick 5 min de `syncAll()` : 30 min tolère
     // 5 ticks manqués, le cas visé étant un scheduler mort. `operations_replica`
     // (pointages) partage le régime court sans être sur le tick — la donnée
     // change en continu pendant un poste.
@@ -311,7 +311,6 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
       'stock_replica',
       'receptions_replica',
       'operations_replica',
-      'latency_replica',
     ] as ReplicaTable[]) {
       assert.equal(maxAgeMsFor(table), 30 * MINUTE, table)
     }
@@ -319,6 +318,15 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
 
   test('stock_detail_replica, lue en tendance, tolère 6 h', ({ assert }) => {
     assert.equal(maxAgeMsFor('stock_detail_replica'), 6 * HOUR)
+  })
+
+  test('latency_replica, moyenne sur 180 jours, tolère 18 h', ({ assert }) => {
+    // Sortie du tick 5 min : la moyenne glissante ne devient pas trompeuse en une
+    // nuit, et son consommateur cache 2 h. Le seuil doit dépasser la cadence de
+    // `SCHEDULE` (6 h) d'assez pour tolérer deux runs manqués — sinon la table
+    // clignote réplique/direct.
+    assert.equal(maxAgeMsFor('latency_replica'), 18 * HOUR)
+    assert.isAbove(maxAgeMsFor('latency_replica'), 2 * 6 * HOUR)
   })
 
   test('stock_flux_replica tolère 26 h — seule table sur cadence quotidienne', ({ assert }) => {

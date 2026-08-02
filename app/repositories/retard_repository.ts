@@ -2,7 +2,9 @@ import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import { isoDay } from '#app/utils/dates'
 import replicaGate from '#services/replica_gate'
-import ordersFluxReplicaRepository from '#repositories/orders_flux_replica_repository'
+import ordersFluxReplicaRepository, {
+  replicaCoversOrdersRange,
+} from '#repositories/orders_flux_replica_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
 import boardDataset from '#services/board_dataset'
 import { CommandeOFMatcher } from '#app/domain/of_conso'
@@ -164,20 +166,36 @@ export class RetardRepository {
    * déchirée » que l'issue #98 écarte pour l'ingestion, mais à la lecture — c'est
    * exactement la régression `getOrdersForWindow` du lot 2, et le motif pour
    * lequel `matchingFamilyOnReplica()` avait été introduit.
+   *
+   * ## Couverture, et pas seulement fraîcheur
+   *
+   * Même exigence que `ordersFluxServes()` côté board, pour la même raison : le
+   * portail répond « la donnée est-elle fraîche, propre, du bon environnement »,
+   * il ne dit RIEN de la plage RAMENÉE. Or `refDate` vient du paramètre
+   * `referenceDate` du dashboard, donc arbitraire — et la fenêtre du KPI est
+   * `[refDate − lookback, refDate]`. Reculer `refDate` de trois mois place sa
+   * borne basse sous celle de l'ingestion (J−90) : la réplique rendrait alors une
+   * population TRONQUÉE, sans erreur ni écran vide — un retard sous-évalué, ce
+   * qu'un KPI de retard ne peut pas se permettre.
+   *
+   * Le cas par défaut (`refDate` = aujourd'hui) reste couvert : le lookback
+   * d'ingestion reprend `RETARD_LOOKBACK_DAYS`, les deux bornes coïncident.
+   * C'est un alignement, pas une garantie — d'où le contrôle.
    */
-  private async replicaServesRetard(): Promise<boolean> {
-    const [lines, stock] = await Promise.all([
+  private async replicaServesRetard(fromIso: string, toIso: string): Promise<boolean> {
+    const [lines, stock, coverage] = await Promise.all([
       replicaGate.canRead('orders_flux_replica'),
       replicaGate.canRead('stock_replica'),
+      ordersFluxReplicaRepository.getCoverage(),
     ])
-    return lines && stock
+    return lines && stock && replicaCoversOrdersRange(coverage, fromIso, toIso)
   }
 
   async getRetardKpi(refDate: Date, lookbackDays: number): Promise<RetardChargeKpi> {
     const from = new Date(refDate)
     from.setDate(refDate.getDate() - lookbackDays)
 
-    const onReplica = await this.replicaServesRetard()
+    const onReplica = await this.replicaServesRetard(isoDay(from), isoDay(refDate))
 
     let rows: RetardLine[]
     if (onReplica) {

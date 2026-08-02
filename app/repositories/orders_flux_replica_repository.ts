@@ -3,6 +3,7 @@ import type { OrdersSourceRow } from '#repositories/combined_orders_repository'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad, OrderLineRow } from '#repositories/order_line_repository'
 import type { NeedNature, OrderType } from '#app/domain/models/flow'
+import { resteAFabriquer } from '#app/domain/models/orders_qty'
 
 /**
  * Lecture read-only d'`orders_flux_replica` (#98, #105) — miroir de la SOURCE
@@ -113,10 +114,12 @@ function toOrderLine(r: ReplicaRow): OrderLineRow {
     client: r.partner_nom,
     article: r.article,
     designation: r.designation,
-    // Reste à FABRIQUER = reliquat − alloué. Dérivée à la lecture, jamais
-    // stockée : c'est la correction de `1783300000011`, la table garde les trois
-    // quantités brutes et chaque lecteur compose la sienne.
-    quantite: r.qte_restante - r.qte_allouee,
+    // Reste à FABRIQUER, dérivé à la lecture et jamais stocké : c'est la
+    // correction de `1783300000011`, la table garde les trois quantités brutes
+    // et chaque lecteur compose la sienne. Via `resteAFabriquer()` et non une
+    // soustraction recopiée — `orders_qty.ts` est le seul endroit où « ce qu'il
+    // reste à faire » se définit, clamp à 0 compris.
+    quantite: resteAFabriquer(r.qte_restante, r.qte_allouee),
     dateLivraison: parseLocalDay(r.date_echeance) ?? new Date(0),
     contremarque: r.contremarque,
     unite: null,
@@ -346,8 +349,13 @@ export class OrdersFluxReplicaRepository {
    * `X3OrderLineRepository.getOrderLinesForLoad()`.
    *
    * Même population que la vue ci-dessus (WIPTYP=1, WIPSTA 1/3), mêmes bornes de
-   * fenêtre INCLUSIVES sur l'échéance. `quantite` = `resteAFabriquer`
-   * (`qte_restante − qte_allouee`), le filtre de la vue directe, calculé ici.
+   * fenêtre INCLUSIVES sur l'échéance. `quantite` = `resteAFabriquer`, le filtre
+   * de la vue directe, calculé ici.
+   *
+   * Le SQL direct porte `WIPSTA_0 IN (1, 3)` ; ce n'est PAS rejoué ici. Les
+   * WIPSTA sont filtrés à l'INGESTION (`WIPSTA_BY_WIPTYP[1]`), et les rejouer à
+   * la lecture ferait vivre la même règle à deux endroits — la classe de bug de
+   * `getOrdersForWindow`, déjà écartée pour `getLiveRows()` juste au-dessus.
    *
    * `clientCode` est `bprnum`, le code tiers BRUT — la résolution du nom reste à
    * la demande via `resolveClientNames`, comme la voie directe (#39). Une ligne
@@ -359,7 +367,6 @@ export class OrdersFluxReplicaRepository {
       .from('orders_flux_replica')
       .select('*')
       .where('wiptyp', 1)
-      .whereIn('wipsta', [1, 3])
       .andWhere('date_echeance', '>=', fromIso)
       .andWhere('date_echeance', '<=', toIso)
 
@@ -367,7 +374,7 @@ export class OrdersFluxReplicaRepository {
       .map((r) => ({
         article: r.article,
         designation: r.designation,
-        quantite: r.qte_restante - r.qte_allouee,
+        quantite: resteAFabriquer(r.qte_restante, r.qte_allouee),
         dateLivraison: parseLocalDay(r.date_echeance),
         nature: (r.wipsta === 1 ? 'COMMANDE' : 'PREVISION') as NeedNature,
         numCommande: r.vcrnum || null,

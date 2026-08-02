@@ -10,7 +10,8 @@ import { maxAgeMsFor } from '#services/replica_gate'
 /**
  * Cadences des tables hors `syncAll()` (#98, lot 3 — actées le 31/07/2026) :
  * fenêtre quotidienne pour `stock_flux_replica`, intervalle périodique pour
- * `operations_replica` (10 min) et `stock_detail_replica` (2 h).
+ * `operations_replica` (10 min), `stock_detail_replica` (2 h) et
+ * `latency_replica` (6 h, #105).
  *
  * Fonctions pures : l'état vit dans `ingestion_log`, jamais dans la mémoire du
  * process, et c'est précisément ce que ces tests verrouillent.

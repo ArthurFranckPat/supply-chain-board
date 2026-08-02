@@ -5,8 +5,7 @@ import type { ReplicaTable } from '#services/replica_gate'
 
 /**
  * Rafraîchissement périodique de la réplique complète — `orders_flux_replica`,
- * `stock_replica`, `receptions_replica`, `latency_replica` (#98, lot 2 + suite
- * lot 3, #105).
+ * `stock_replica`, `receptions_replica` (#98, lot 2 + suite lot 3, #105).
  *
  * Le lot 1 posait volontairement AUCUNE planification : « L'app ne lit pas encore
  * la réplique : la déclencher n'a donc aucun effet sur les écrans » (cf.
@@ -18,10 +17,11 @@ import type { ReplicaTable } from '#services/replica_gate'
  * provider, activer `REPLICA_READS=true` dégraderait la fraîcheur au lieu de la
  * préserver.
  *
- * `operations_replica`, `stock_detail_replica` et `stock_flux_replica` restent
- * HORS `syncAll()` — trop coûteuses pour douze passages par heure — mais ont
- * chacune leur propre cadence, déclarée dans `SCHEDULE` et déclenchée par ce même
- * tick. Elles étaient manuelles jusqu'au 31/07/2026, ce qui rendait leur câblage
+ * `operations_replica`, `stock_detail_replica`, `stock_flux_replica` et
+ * `latency_replica` restent HORS `syncAll()` — les trois premières parce que trop
+ * coûteuses pour douze passages par heure, la dernière parce que trop LENTE à
+ * bouger pour les mériter (cf. `syncLatency()`) — mais ont chacune leur propre
+ * cadence, déclarée dans `SCHEDULE` et déclenchée par ce même tick. Elles étaient manuelles jusqu'au 31/07/2026, ce qui rendait leur câblage
  * en lecture inopérant : sans cadence, la borne d'âge de `ReplicaGate` les renvoie
  * en voie directe la quasi-totalité du temps.
  *
@@ -128,9 +128,10 @@ export function needsIntervalRun(runs: LastRuns, now: Date, everyMs: number): bo
 }
 
 /**
- * Tables trop coûteuses pour le tick de 5 min, mais qui ont malgré tout besoin
- * d'une cadence : sans elle, leur borne d'âge dans `ReplicaGate` les renvoie en
- * voie directe la quasi-totalité du temps, et le câblage ne rapporte rien.
+ * Tables qui n'ont pas leur place dans le tick de 5 min — trop coûteuses, ou trop
+ * lentes à bouger pour le mériter — mais qui ont malgré tout besoin d'une cadence :
+ * sans elle, leur borne d'âge dans `ReplicaGate` les renvoie en voie directe la
+ * quasi-totalité du temps, et le câblage ne rapporte rien.
  *
  * **Règle de choix : cadence ≈ seuil / 3.** Le seuil dit à partir de quand la
  * donnée devient trompeuse à l'écran ; la cadence doit rester assez en dessous
@@ -175,6 +176,16 @@ export const SCHEDULE: ScheduledIngestion[] = [
     table: 'stock_flux_replica',
     run: (s) => replicaSyncService.syncStockFlux(s),
     dailyHour: DAILY_SYNC_HOUR,
+  },
+  {
+    // Seuil 18 h → cadence 6 h, deux runs manqués tolérés.
+    //
+    // Seule entrée de `SCHEDULE` qui n'est pas là pour son coût : la requête
+    // vaut ~1 s. C'est la donnée qui ne justifie pas le tick — moyenne glissante
+    // sur 180 jours, consommée derrière un cache de 2 h. Cf. `syncLatency()`.
+    table: 'latency_replica',
+    run: (s) => replicaSyncService.syncLatency(s),
+    everyMs: 6 * 60 * 60 * 1000,
   },
 ]
 

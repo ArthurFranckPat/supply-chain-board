@@ -1,5 +1,8 @@
 import { test } from '@japa/runner'
 import { replicaCoversOrdersRange } from '#repositories/orders_flux_replica_repository'
+import { orderLinesReplicaWindow } from '#services/replica_sync_service'
+import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
+import { isoDay } from '#app/utils/dates'
 
 /**
  * `/suivi` laisse choisir sa fenêtre au CALENDRIER : `getLive(from, to)` reçoit
@@ -45,5 +48,39 @@ test.group('couverture de plage — orders_flux_replica', () => {
     // indémontrable ne doit jamais valoir couverture. Même principe que l'âge
     // indémontrable dans `ReplicaGate`.
     assert.isFalse(replicaCoversOrdersRange(null, '2026-07-31', '2026-08-14'))
+  })
+})
+
+/**
+ * Le KPI retard (#105) est soumis à la MÊME couverture, et pour une raison plus
+ * mordante encore que `/suivi` : sa fenêtre est `[refDate − RETARD_LOOKBACK_DAYS,
+ * refDate]`, où `refDate` vient du paramètre `referenceDate` du dashboard.
+ * Reculer cette date place la borne basse sous celle de l'ingestion — la réplique
+ * rendrait un retard SOUS-ÉVALUÉ, sans erreur ni écran vide.
+ *
+ * Le cas par défaut tient parce que le lookback d'ingestion reprend la même
+ * variable. C'est un alignement, pas une garantie : ces deux tests le
+ * verrouillent, et rattraperont le jour où l'un des deux lookbacks bouge seul.
+ */
+test.group('couverture de plage — KPI retard', () => {
+  const NOW = new Date(2026, 7, 2, 14, 30)
+
+  function retardWindow(refDate: Date): { from: string; to: string } {
+    const from = new Date(refDate)
+    from.setDate(refDate.getDate() - RETARD_LOOKBACK_DAYS)
+    return { from: isoDay(from), to: isoDay(refDate) }
+  }
+
+  test('refDate = aujourd’hui → la fenêtre du KPI tient dans la plage ingérée', ({ assert }) => {
+    const { from, to } = retardWindow(NOW)
+    assert.isTrue(replicaCoversOrdersRange(orderLinesReplicaWindow(NOW), from, to))
+  })
+
+  test('refDate reculé → hors couverture, donc voie directe', ({ assert }) => {
+    // Un mois en arrière suffit à sortir la borne basse de la plage ingérée.
+    const refDate = new Date(NOW)
+    refDate.setDate(refDate.getDate() - 30)
+    const { from, to } = retardWindow(refDate)
+    assert.isFalse(replicaCoversOrdersRange(orderLinesReplicaWindow(NOW), from, to))
   })
 })

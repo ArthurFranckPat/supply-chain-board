@@ -798,26 +798,31 @@ class BoardDataset {
    *
    * Voie réplique (#105) : `latency_replica` mire les événements bruts, la
    * moyenne est déduite par le MÊME calcul que la voie directe
-   * (`computeLatencyFromEvents`). Verdict portail pris à la factory — un
-   * `canRead` à l'extérieur aurait figé la voie au premier cache miss pendant
-   * tout le TTL de 2 h.
+   * (`computeLatencyFromEvents`).
+   *
+   * Le verdict passe par `dualSourceRead` comme toutes les autres lectures, et
+   * NON dans la factory du `getOrSet`. Il y a été un temps, sur l'idée qu'un
+   * `canRead` au-dessus « figerait la voie pendant le TTL de 2 h » — c'est faux :
+   * la factory ne rejoue qu'au miss, donc le résultat est figé 2 h dans les deux
+   * cas. Placer le verdict dedans ne changeait rien à ce figement et faisait
+   * simplement repayer l'enveloppe de cache (SuperJSON, 22-93 ms mesurés en #98)
+   * par-dessus une lecture SQLite de ~4 ms.
    *
    * Entries plutôt que Map dans le cache, pour la même raison que
    * `getConditionnementEstimator` : une Map cachée serait rendue par référence
-   * et `Object.freeze` ne protège pas son contenu.
+   * et `Object.freeze` ne protège pas son contenu. La voie réplique n'étant pas
+   * cachée, le wrapper y est inutile — mais il reste RENDU par les deux voies,
+   * sinon la forme dépendrait de la source.
    */
   async getSupplierLatency(force = false): Promise<Map<string, number>> {
-    if (force) await board().delete({ key: 'supplier-latency' })
-    const { latency } = await board().getOrSet({
+    const toEntries = (m: Map<string, number>) => ({ latency: [...m.entries()], at: Date.now() })
+    const { latency } = await this.dualSourceRead<{ latency: [string, number][]; at: number }>({
       key: 'supplier-latency',
       ttl: REF_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: async () => {
-        const map = (await replicaGate.canRead('latency_replica'))
-          ? await latencyMapFromReplica()
-          : await computeSupplierLatency()
-        return { latency: [...map.entries()], at: Date.now() }
-      },
+      force,
+      servedByReplica: () => replicaGate.canRead('latency_replica'),
+      fromReplica: async () => toEntries(await latencyMapFromReplica()),
+      fromX3: async () => toEntries(await computeSupplierLatency()),
     })
     return new Map(latency)
   }

@@ -185,7 +185,6 @@ export class ReplicaSyncService {
     results.push(await this.syncOrdersFlux(source))
     results.push(await this.syncStock(source))
     results.push(await this.syncReceptions(source))
-    results.push(await this.syncLatency(source))
 
     return { results, durationMs: Date.now() - start }
   }
@@ -276,20 +275,30 @@ export class ReplicaSyncService {
   }
 
   /**
-   * Événements de réception PORDERQ clôturés (latence fournisseur, #105) —
-   * swap complet, DANS `syncAll()`. Requête bornée (180 jours, ROWNUM ≤ 5000),
-   * même classe de coût que `syncReceptions` (~1 s sur CLTEST). La moyenne par
-   * article se calcule à la LECTURE, la table mire la source brute.
+   * Événements de réception PORDERQ clôturés (latence fournisseur, #105) — swap
+   * complet, PAS dans `syncAll()` : cadence propre déclarée dans `SCHEDULE`
+   * (`replica_sync_provider`).
+   *
+   * La requête est pourtant bornée et peu chère (180 jours, ROWNUM ≤ 5000, ~1 s
+   * sur CLTEST) — ce n'est pas le coût unitaire qui l'exclut du tick, c'est le
+   * RAPPORT : douze passages par heure pour une moyenne glissante sur 180 jours,
+   * dont le seul consommateur (`getSupplierLatency`) cache 2 h. Un jour de dérive
+   * déplace la moyenne d'environ 1/5000 de l'échantillon. Payer 288 extractions
+   * X3 par jour pour ça n'achète rien.
+   *
+   * La moyenne par article se calcule à la LECTURE, la table mire la source brute.
    */
   async syncLatency(source = 'manual'): Promise<TableIngestionResult> {
     return this.ingest('latency_replica', source, async () => {
       const events = await new X3LatencyRepository().getLatencyEvents()
+      // `isoDay` est nullable (il sert aussi à des dates X3 absentes) ; ici les
+      // deux dates viennent d'événements déjà filtrés par `getLatencyEvents`,
+      // qui écarte toute réception dont une date est illisible. Même `!` que
+      // dans `orderLinesReplicaWindow()`.
       return events.map((e): Row => ({
         article: e.article,
-        // `isoDay` rend `''` pour une date illisible : la lecture écarte, le
-        // calcul ne stocke pas de faux jalon.
-        date_prevue: isoDay(e.prevu) ?? '',
-        date_reelle: isoDay(e.reel) ?? '',
+        date_prevue: isoDay(e.prevu)!,
+        date_reelle: isoDay(e.reel)!,
       }))
     })
   }

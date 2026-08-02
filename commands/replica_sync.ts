@@ -71,8 +71,8 @@ export default class ReplicaSync extends BaseCommand {
   @flags.array({
     description:
       'Tables à ingérer (orders-flux, stock, receptions, latency, stock-flux, operations, stock-detail). ' +
-      'Défaut : orders-flux/stock/receptions/latency SEULEMENT — stock-flux/operations/stock-detail ' +
-      'demandent un --only explicite (charge X3 non arbitrée, cf. syncStockFlux/syncOperations/syncStockDetail)',
+      'Défaut : orders-flux/stock/receptions SEULEMENT — latency/stock-flux/operations/stock-detail ' +
+      'demandent un --only explicite (cadence propre dans SCHEDULE, cf. replica_sync_provider)',
   })
   declare only: string[]
 
@@ -112,8 +112,10 @@ export default class ReplicaSync extends BaseCommand {
     if (all || only.has('orders-flux')) results.push(await replicaSyncService.syncOrdersFlux('cli'))
     if (all || only.has('stock')) results.push(await replicaSyncService.syncStock('cli'))
     if (all || only.has('receptions')) results.push(await replicaSyncService.syncReceptions('cli'))
-    // Latence fournisseur (historique PORDERQ) — requête bornée, sur le tick 5 min.
-    if (all || only.has('latency')) results.push(await replicaSyncService.syncLatency('cli'))
+    // Hors `all` comme les trois suivantes, mais pour une autre raison : la
+    // requête est peu chère, c'est la donnée qui bouge trop lentement pour le
+    // tick de 5 min (cf. syncLatency). Cadence propre de 6 h dans `SCHEDULE`.
+    if (only.has('latency')) results.push(await replicaSyncService.syncLatency('cli'))
     // JAMAIS via `all` : ~50 appels SOAP chunkés, cf. syncStockFlux(). Nommer
     // explicitement `--only=stock-flux`.
     if (only.has('stock-flux')) results.push(await replicaSyncService.syncStockFlux('cli'))

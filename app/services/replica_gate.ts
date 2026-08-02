@@ -154,8 +154,10 @@ const MAX_AGE_MS: Record<ReplicaTable, number> = {
   operations_replica: 30 * MINUTE,
   stock_flux_replica: 26 * HOUR,
   stock_detail_replica: 6 * HOUR,
-  // Latence fournisseur (historique PORDERQ) : dans `syncAll()`, même régime.
-  latency_replica: 30 * MINUTE,
+  // Latence fournisseur : moyenne glissante sur 180 jours, elle ne devient pas
+  // trompeuse en une nuit. Cadence propre de 6 h dans `SCHEDULE` (règle
+  // cadence ≈ seuil / 3), donc deux runs manqués avant de replier sur X3.
+  latency_replica: 18 * HOUR,
 }
 
 /** Défaut volontairement STRICT : une table ajoutée à `ReplicaTable` sans entrée
