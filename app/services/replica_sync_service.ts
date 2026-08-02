@@ -150,6 +150,9 @@ function toFluxRow(r: OrdersSourceRow): Row {
     date_debut: isoDay(r.dateDebut ?? null),
     stofcy: r.stofcy ?? null,
     bprnum: r.bprnum ?? null,
+    // Statut de l'article. L'ingestion ne filtre PLUS dessus (cf. migration
+    // `1783300000018`) : elle le porte, et les vues demande le rappliquent.
+    itmsta: r.itmsta ?? null,
   }
 }
 

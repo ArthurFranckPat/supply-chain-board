@@ -66,8 +66,14 @@ export class X3SuggestionRepository {
     return this.fromX3(num)
   }
 
-  /** Point-lookup dans la tranche WIPTYP=5 d'`orders_flux_replica`. */
-  private async fromReplica(num: string): Promise<SuggestionKeys | null> {
+  /**
+   * Point-lookup dans la tranche WIPTYP=5 d'`orders_flux_replica`.
+   *
+   * Publique — pas pour l'application, qui doit passer par `getFirmingKeys()` et
+   * son portail, mais pour `replica:sync --compare` : c'est la seule façon de
+   * confronter les deux voies, `getFirmingKeys()` ne rendant JAMAIS les deux.
+   */
+  async fromReplica(num: string): Promise<SuggestionKeys | null> {
     const found = await replicaDb
       .connection('replica')
       .from('orders_flux_replica')
@@ -85,8 +91,9 @@ export class X3SuggestionRepository {
   }
 
   /** Point-lookup direct X3 — identique à l'avant. `num` est whitelisté
-   *  (`/^[A-Za-z0-9_-]+$/` en amont) : pas de quote, pas d'injection. */
-  private async fromX3(num: string): Promise<SuggestionKeys | null> {
+   *  (`/^[A-Za-z0-9_-]+$/` en amont) : pas de quote, pas d'injection.
+   *  Publique pour la même raison que `fromReplica()` : `--compare`. */
+  async fromX3(num: string): Promise<SuggestionKeys | null> {
     const x3db = new X3Database()
     try {
       const rows: RawRow[] = await x3db.raw(X3_SQL(num))

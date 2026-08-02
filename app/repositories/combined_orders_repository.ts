@@ -99,7 +99,7 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
   // Avancement de production : deux colonnes de plus dans un SQL en O(n²) sur les
   // colonnes, donc jamais par défaut — seule l'ingestion les demande, une fois par
   // tick, pour que le board n'ait plus sa propre table.
-  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0', 'O.STOFCY_0', 'O.BPRNUM_0')
+  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0', 'O.STOFCY_0', 'O.BPRNUM_0', 'I.ITMSTA_0')
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
   if (includeCustomerRef) {
     columns.push(
@@ -158,13 +158,23 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
   const wiptyps: Array<1 | 2 | 5> = onlyWiptyp ? [onlyWiptyp] : includeOf ? [1, 2, 5] : [1, 2]
   const conditions = wiptyps.map((w) => conditionByWiptyp[w])
 
+  // `ITMSTA_0 = 1` (article actif) est un filtre de CONSOMMATEUR, pas de source :
+  // il vient des vues DEMANDE. L'ingestion ne le pose PAS et remonte la colonne à
+  // la place — les vues qui le veulent le rappliquent à la lecture.
+  //
+  // Il s'appliquait à toute la requête, donc aussi à la tranche WIPTYP=5, alors
+  // qu'`X3OfRepository.getManufacturingOrders()` — la voie directe que cette
+  // tranche mire — ne joint même pas `ITMMASTER`. Mesuré en PROD le 02/08/2026 :
+  // 118 OF FERMES visibles en direct et absents de la réplique, tous en
+  // `ITMSTA_0 = 6`. Cf. migration `1783300000018`.
+  const itmstaFilter = forReplica ? '' : '\n  AND I.ITMSTA_0 = 1'
+
   return `
 SELECT
   ${columns.join(',\n  ')}
 FROM ORDERS O
 ${joins.join('\n')}
-WHERE O.WIPTYP_0 IN (${wiptyps.join(', ')})
-  AND I.ITMSTA_0 = 1
+WHERE O.WIPTYP_0 IN (${wiptyps.join(', ')})${itmstaFilter}
   AND O.RMNEXTQTY_0 > 0
   AND (
     ${conditions.join('\n    OR ')}
@@ -242,6 +252,10 @@ export interface OrdersSourceRow {
   /** `BPRNUM_0` — code tiers brut de la ligne. Seule l'ingestion la demande
    *  (`forReplica`), pour la vue /charge (`OrderLineForLoad.clientCode`). */
   bprnum?: string | null
+  /** `ITMSTA_0` — statut de l'article (1 = actif). Seule l'ingestion la demande
+   *  (`forReplica`) : elle ne filtre plus dessus, les vues demande le font à la
+   *  lecture. Cf. migration `1783300000018`. */
+  itmsta?: number | null
 }
 
 /** `RawRow` X3 → ligne normalisée. Seul point où le format X3 est interprété. */
@@ -272,6 +286,8 @@ export function toOrdersSourceRow(row: RawRow): OrdersSourceRow {
     dateDebut: row.STRDAT_0 === undefined ? undefined : parseX3Date(row.STRDAT_0),
     stofcy: row.STOFCY_0 === undefined ? undefined : row.STOFCY_0?.trim() || null,
     bprnum: row.BPRNUM_0 === undefined ? undefined : row.BPRNUM_0?.trim() || null,
+    itmsta:
+      row.ITMSTA_0 === undefined ? undefined : Number.parseInt(row.ITMSTA_0 ?? '', 10) || null,
   }
 }
 

@@ -45,6 +45,26 @@ type ReplicaRow = {
   date_debut: string | null
   stofcy: string | null
   bprnum: string | null
+  itmsta: number | null
+}
+
+/**
+ * « L'article de cette ligne est-il ACTIF ? », posé à la LECTURE.
+ *
+ * L'ingestion ne filtre plus dessus (migration `1783300000018`) : elle mire la
+ * source. Les vues qui mirent une requête X3 joignant `ITMMASTER … ITMSTA_0 = 1`
+ * rappellent la condition ici ; celles qui mirent `of_repository`, qui ne joint
+ * pas `ITMMASTER`, ne la posent PAS. La différence n'est pas un oubli, elle
+ * existe dans X3.
+ *
+ * `NULL` vaut ACTIF, et c'est démontrable plutôt que commode : avant la
+ * migration, l'ingestion ne gardait QUE `ITMSTA_0 = 1`, donc une ligne sans
+ * `itmsta` a forcément un article actif. C'est le seul `null` de cette table qui
+ * ne veut pas dire « indéterminé » — d'où cette fonction nommée, plutôt qu'un
+ * `where` recopié dans quatre vues.
+ */
+function whereArticleActif(q: { where: Function; orWhereNull: Function }) {
+  return q.where('itmsta', 1).orWhereNull('itmsta')
 }
 
 /** Ligne de commande ferme telle que `RetardRepository` la consomme. */
@@ -275,6 +295,8 @@ export class OrdersFluxReplicaRepository {
     const rows = await this.conn
       .from('orders_flux_replica')
       .select('*')
+      // `fetchLive` joint `ITMMASTER … ITMSTA_0 = 1` : la vue le rappelle.
+      .where(whereArticleActif)
       .where((q) => {
         if (windowed.length > 0) {
           q.orWhere((w) =>
@@ -334,7 +356,12 @@ export class OrdersFluxReplicaRepository {
    * la lit par `getRetardLines()`.
    */
   async getOpenOrderLines(opts?: { from?: string; to?: string }): Promise<OrderLineRow[]> {
-    let query = this.conn.from('orders_flux_replica').select('*').where('wiptyp', 1)
+    let query = this.conn
+      .from('orders_flux_replica')
+      .select('*')
+      .where('wiptyp', 1)
+      // `X3OrderLineRepository.getOpenOrderLines` joint `ITMMASTER … ITMSTA_0 = 1`.
+      .where(whereArticleActif)
     if (opts?.from && opts?.to) {
       query = query
         .andWhere('date_echeance', '>=', opts.from)
@@ -367,6 +394,8 @@ export class OrdersFluxReplicaRepository {
       .from('orders_flux_replica')
       .select('*')
       .where('wiptyp', 1)
+      // `X3OrderLineRepository.getOrderLinesForLoad` joint `ITMMASTER … ITMSTA_0 = 1`.
+      .where(whereArticleActif)
       .andWhere('date_echeance', '>=', fromIso)
       .andWhere('date_echeance', '<=', toIso)
 
@@ -401,6 +430,8 @@ export class OrdersFluxReplicaRepository {
       .from('orders_flux_replica')
       .select('*')
       .where('wiptyp', 1)
+      // `RetardRepository.buildSql` joint `ITMMASTER … ITMSTA_0 = 1`.
+      .where(whereArticleActif)
       .andWhere('wipsta', 1)
       .andWhere('qte_restante', '>', 0)
       .andWhere('date_echeance', '>=', fromIso)

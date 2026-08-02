@@ -16,8 +16,10 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
  * dates. Les colonnes sont NOT NULL : une date X3 à 0 est écartée à la lecture,
  * pas stockée (cf. `isoDay`).
  *
- * Sur le tick 5 min (`syncAll()`) : requête bornée (ROWNUM ≤ 5000), même classe
- * de coût que `receptions_replica` (~1 s sur CLTEST).
+ * Cadence PROPRE de 6 h (`SCHEDULE`, cf. `replica_sync_provider`) et non le tick
+ * de 5 min : la requête est pourtant peu chère (ROWNUM ≤ 5000, ~1 s), c'est la
+ * donnée qui ne mérite pas douze passages par heure — moyenne glissante sur
+ * 180 jours, consommée derrière un cache de 2 h.
  */
 export default class extends BaseSchema {
   protected tableName = 'latency_replica'

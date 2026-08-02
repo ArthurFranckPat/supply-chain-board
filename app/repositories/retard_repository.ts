@@ -122,7 +122,7 @@ function toYYYYMMDD(d: Date): string {
  * la reparser aussitôt serait une perte de précision gratuite (année sur deux
  * chiffres). D'où ce type, produit par les deux voies.
  */
-type RetardLine = {
+export type RetardLine = {
   numCommande: string
   ligne: string | null
   client: string | null
@@ -191,26 +191,36 @@ export class RetardRepository {
     return lines && stock && replicaCoversOrdersRange(coverage, fromIso, toIso)
   }
 
+  /**
+   * Population du KPI depuis X3, sans agrégation — la voie directe telle quelle.
+   *
+   * Extraite et publique pour que `replica:sync --compare` puisse la confronter à
+   * `getRetardLines()`. Sans ça, la seule population dont le filtre diffère
+   * VOLONTAIREMENT de celui des lignes ouvertes (`qte_restante > 0` et non reste
+   * à fabriquer) n'avait aucun filet, alors que c'est celle où une divergence
+   * coûte le plus cher : elle sous-évalue un retard sans rien afficher d'anormal.
+   */
+  async getRetardLinesDirect(from: Date, toExclusive: Date): Promise<RetardLine[]> {
+    const db = new X3Database()
+    try {
+      const raw: RawRow[] = await db.raw(buildSql(toYYYYMMDD(from), toYYYYMMDD(toExclusive)))
+      return raw.map(toRetardLine)
+    } finally {
+      await db.destroy()
+    }
+  }
+
   async getRetardKpi(refDate: Date, lookbackDays: number): Promise<RetardChargeKpi> {
     const from = new Date(refDate)
     from.setDate(refDate.getDate() - lookbackDays)
 
     const onReplica = await this.replicaServesRetard(isoDay(from), isoDay(refDate))
 
-    let rows: RetardLine[]
-    if (onReplica) {
-      // `RetardReplicaLine` est structurellement plus étroit (`dateExpedition`
-      // et `ligne` non nullables) : assignable tel quel, pas de conversion.
-      rows = await ordersFluxReplicaRepository.getRetardLines(isoDay(from), isoDay(refDate))
-    } else {
-      const db = new X3Database()
-      try {
-        const raw: RawRow[] = await db.raw(buildSql(toYYYYMMDD(from), toYYYYMMDD(refDate)))
-        rows = raw.map(toRetardLine)
-      } finally {
-        await db.destroy()
-      }
-    }
+    // `RetardReplicaLine` est structurellement plus étroit (`dateExpedition` et
+    // `ligne` non nullables) : assignable tel quel, pas de conversion.
+    const rows: RetardLine[] = onReplica
+      ? await ordersFluxReplicaRepository.getRetardLines(isoDay(from), isoDay(refDate))
+      : await this.getRetardLinesDirect(from, refDate)
 
     // Gamme depuis SQLite (boardDataset.getReferential, cache 2h — 0 SOAP).
     const ref = await boardDataset.getReferential()

@@ -1,9 +1,16 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
-import replicaSyncService from '#services/replica_sync_service'
+import replicaSyncService, { orderLinesReplicaWindow } from '#services/replica_sync_service'
 import replicaGate from '#services/replica_gate'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
-import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
+import {
+  X3OrderLineRepository,
+  type OrderLineRow,
+  type OrderLineForLoad,
+} from '#repositories/order_line_repository'
+import { RetardRepository, type RetardLine } from '#repositories/retard_repository'
+import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
+import { X3SuggestionRepository, type SuggestionKeys } from '#repositories/suggestion_repository'
 import stockReplicaRepository from '#repositories/stock_replica_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
@@ -204,6 +211,15 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info('=== orders_flux_replica (lignes de commande) ===')
     const linesOk = await this.compareOrderLines()
 
+    this.logger.info('=== vue /charge (#105) ===')
+    const loadOk = await this.compareOrderLinesForLoad()
+
+    this.logger.info('=== lignes en retard (#105) ===')
+    const retardOk = await this.compareRetardLines()
+
+    this.logger.info('=== clés d’affermissement (#31, #105) ===')
+    const firmingOk = await this.compareFirmingKeys()
+
     this.logger.info('=== stock_replica ===')
     const stockOk = await this.compareStock()
 
@@ -232,6 +248,9 @@ export default class ReplicaSync extends BaseCommand {
     if (
       ordersOk &&
       linesOk &&
+      loadOk &&
+      retardOk &&
+      firmingOk &&
       stockOk &&
       deltaOk &&
       fluxOk &&
@@ -550,12 +569,21 @@ export default class ReplicaSync extends BaseCommand {
    * Lignes de commande — identité STABLE (`numCommande#ligne`, pas de régénération
    * CBN contrairement aux suggestions d'OF), diff exact comme les OF fermes/planifiés.
    * Ligne lue dans la tranche WIPTYP=1 d'`orders_flux_replica`.
+   *
+   * **Bornée des DEUX côtés sur la fenêtre réellement ingérée.** Sans bornes, la
+   * voie directe rend tout `ORDERS` et la réplique seulement `[J−90, J+365]` :
+   * mesuré en PROD le 02/08/2026, 12 lignes « en X3 seulement », toutes des
+   * prévisions à échéance nov. 2027 / 2028 / 2029. Aucune n'est un défaut de la
+   * réplique — c'est la comparaison qui était injuste. L'application, elle, ne
+   * lit jamais sans fenêtre : `ordersFluxServes()` exige la couverture.
    */
   private async compareOrderLines(): Promise<boolean> {
+    const { from, to } = orderLinesReplicaWindow()
+    this.logger.info(`  fenêtre ingérée ${from} → ${to}`)
     const started = Date.now()
     const [direct, replica] = await Promise.all([
-      new X3OrderLineRepository().getOpenOrderLines(),
-      ordersFluxReplicaRepository.getOpenOrderLines(),
+      new X3OrderLineRepository().getOpenOrderLines({ from, to }),
+      ordersFluxReplicaRepository.getOpenOrderLines({ from, to }),
     ])
     const elapsed = ((Date.now() - started) / 1000).toFixed(1)
     this.logger.info(
@@ -603,6 +631,214 @@ export default class ReplicaSync extends BaseCommand {
     const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
     if (ok) this.logger.success('  lignes de commande identiques')
     return ok
+  }
+
+  /**
+   * Vue `/charge` (`getOrderLinesForLoad`) — la seule des trois voies câblées au
+   * dernier lot de #105 qui n'avait AUCUN filet.
+   *
+   * `compareOrderLines` ci-dessus ne la couvre pas : population voisine mais
+   * projection différente (8 champs dont `clientCode`, WIPSTA 1/3, reste > 0), et
+   * c'est exactement dans cet écart de projection que vivait le trou de `bprnum`.
+   * Comparer la vue que l'écran consomme, pas seulement la table qui l'alimente.
+   *
+   * Fenêtre = celle du loader `/charge` : début du mois courant → horizon d'un an,
+   * la même que `load_payload_loader`.
+   */
+  private async compareOrderLinesForLoad(): Promise<boolean> {
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const horizon = new Date(now.getFullYear() + 1, now.getMonth(), 1)
+    const yyyymmdd = (d: Date) => dayKey(d).replaceAll('-', '')
+    const fromIso = dayKey(monthStart)
+    const toIso = dayKey(horizon)
+    this.logger.info(`  fenêtre ${fromIso} → ${toIso}`)
+
+    const started = Date.now()
+    const [direct, replica] = await Promise.all([
+      new X3OrderLineRepository().getOrderLinesForLoad(yyyymmdd(monthStart), yyyymmdd(horizon)),
+      ordersFluxReplicaRepository.getOrderLinesForLoad(fromIso, toIso),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} lignes · réplique : ${replica.length} lignes · ${elapsed} s`
+    )
+
+    // Une prévision porte `VCRLIN_0 = 0` → `ligne: null` des deux côtés : la clé
+    // doit inclure l'article, sinon toutes les prévisions se confondent en une.
+    const key = (l: OrderLineForLoad) => `${l.numCommande}#${l.ligne}#${l.article}`
+    const byKey = new Map(direct.map((l) => [key(l), l]))
+    const replicaKeys = new Set(replica.map(key))
+    const onlyDirect = direct.filter((l) => !replicaKeys.has(key(l)))
+    const onlyReplica = replica.filter((l) => !byKey.has(key(l)))
+
+    const fieldDiffs: string[] = []
+    for (const r of replica) {
+      const d = byKey.get(key(r))
+      if (!d) continue
+      const mismatches: string[] = []
+      if (d.quantite !== r.quantite) mismatches.push(`quantite ${d.quantite}≠${r.quantite}`)
+      if (dayKey(d.dateLivraison) !== dayKey(r.dateLivraison)) mismatches.push('dateLivraison')
+      if (d.nature !== r.nature) mismatches.push(`nature ${d.nature}≠${r.nature}`)
+      // Le champ qui manquait à la réplique jusqu'à `1783300000017`.
+      if (d.clientCode !== r.clientCode)
+        mismatches.push(`clientCode ${d.clientCode}≠${r.clientCode}`)
+      if (mismatches.length > 0) fieldDiffs.push(`${key(r)} : ${mismatches.join(', ')}`)
+    }
+
+    if (onlyDirect.length > 0) {
+      this.logger.warning(
+        `  ${onlyDirect.length} lignes présentes en X3 seulement (ex. ${onlyDirect
+          .slice(0, 5)
+          .map(key)
+          .join(', ')})`
+      )
+    }
+    if (onlyReplica.length > 0) {
+      this.logger.warning(
+        `  ${onlyReplica.length} lignes présentes en réplique seulement (ex. ${onlyReplica
+          .slice(0, 5)
+          .map(key)
+          .join(', ')})`
+      )
+    }
+    if (fieldDiffs.length > 0) {
+      this.logger.warning(`  ${fieldDiffs.length} lignes avec un champ divergent :`)
+      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    }
+    const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
+    if (ok) this.logger.success('  vue /charge identique')
+    return ok
+  }
+
+  /**
+   * Lignes du KPI retard — l'autre voie sans filet, et la plus sensible : c'est
+   * la seule dont la population est VOLONTAIREMENT plus large que celle des
+   * lignes ouvertes (`qte_restante > 0` et non `reste à fabriquer > 0`), parce
+   * que le KPI déduit lui-même le stock alloué. Une ligne entièrement allouée
+   * DOIT lui parvenir pour être écartée en connaissance de cause — c'est toute la
+   * raison d'être de la migration `1783300000011`, et rien ne le vérifiait.
+   *
+   * Fenêtre = celle du dashboard par défaut : `[J − RETARD_LOOKBACK_DAYS, J]`,
+   * borne haute EXCLUSIVE des deux côtés.
+   */
+  private async compareRetardLines(): Promise<boolean> {
+    const refDate = new Date()
+    const from = new Date(refDate)
+    from.setDate(refDate.getDate() - RETARD_LOOKBACK_DAYS)
+    this.logger.info(`  fenêtre ${dayKey(from)} → ${dayKey(refDate)} (borne haute exclusive)`)
+
+    const started = Date.now()
+    const [direct, replica] = await Promise.all([
+      new RetardRepository().getRetardLinesDirect(from, refDate),
+      ordersFluxReplicaRepository.getRetardLines(dayKey(from), dayKey(refDate)),
+    ])
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} lignes · réplique : ${replica.length} lignes · ${elapsed} s`
+    )
+
+    const key = (l: Pick<RetardLine, 'numCommande' | 'ligne'>) => `${l.numCommande}#${l.ligne}`
+    const byKey = new Map(direct.map((l) => [key(l), l]))
+    const replicaKeys = new Set(replica.map(key))
+    const onlyDirect = direct.filter((l) => !replicaKeys.has(key(l)))
+    const onlyReplica = replica.filter((l) => !byKey.has(key(l)))
+
+    const fieldDiffs: string[] = []
+    for (const r of replica) {
+      const d = byKey.get(key(r))
+      if (!d) continue
+      const mismatches: string[] = []
+      if (d.qteRestante !== r.qteRestante)
+        mismatches.push(`qteRestante ${d.qteRestante}≠${r.qteRestante}`)
+      // La quantité qui décide si la ligne est déjà couverte par du stock.
+      if (d.qteAllouee !== r.qteAllouee)
+        mismatches.push(`qteAllouee ${d.qteAllouee}≠${r.qteAllouee}`)
+      if (d.qteCommandee !== r.qteCommandee)
+        mismatches.push(`qteCommandee ${d.qteCommandee}≠${r.qteCommandee}`)
+      if (dayKey(d.dateExpedition) !== dayKey(r.dateExpedition)) mismatches.push('dateExpedition')
+      if (d.contremarque !== r.contremarque) mismatches.push('contremarque')
+      if (d.orderType !== r.orderType) mismatches.push(`orderType ${d.orderType}≠${r.orderType}`)
+      if (mismatches.length > 0) fieldDiffs.push(`${key(r)} : ${mismatches.join(', ')}`)
+    }
+
+    if (onlyDirect.length > 0) {
+      this.logger.warning(
+        `  ${onlyDirect.length} lignes présentes en X3 seulement (ex. ${onlyDirect
+          .slice(0, 5)
+          .map(key)
+          .join(', ')})`
+      )
+    }
+    if (onlyReplica.length > 0) {
+      this.logger.warning(
+        `  ${onlyReplica.length} lignes présentes en réplique seulement (ex. ${onlyReplica
+          .slice(0, 5)
+          .map(key)
+          .join(', ')})`
+      )
+    }
+    if (fieldDiffs.length > 0) {
+      this.logger.warning(`  ${fieldDiffs.length} lignes avec un champ divergent :`)
+      for (const line of fieldDiffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+    }
+    const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
+    if (ok) this.logger.success('  lignes en retard identiques')
+    return ok
+  }
+
+  /**
+   * Clés d'affermissement (#31) — la troisième et dernière voie câblée par #105
+   * sans filet.
+   *
+   * Point-lookup par nature : on ÉCHANTILLONNE au lieu de tout comparer. Le tirage
+   * prend les deux extrémités de la tranche WIPTYP=5 / WIPSTA 2-3 triée par
+   * numéro, jamais un `LIMIT` nu : les suggestions sont régénérées par lot, donc
+   * les premières et les dernières d'un tri viennent de runs CBN différents — un
+   * échantillon en tête seule ne verrait qu'une seule génération.
+   *
+   * Un écart ici ne fait pas qu'afficher un chiffre faux : il affermit sur le
+   * mauvais site ou le mauvais article.
+   */
+  private async compareFirmingKeys(): Promise<boolean> {
+    const SAMPLE = 12
+    const rows = await db
+      .connection('replica')
+      .from('orders_flux_replica')
+      .where('wiptyp', 5)
+      .whereIn('wipsta', [2, 3])
+      .orderBy('vcrnum')
+      .select('vcrnum')
+    if (rows.length === 0) {
+      this.logger.info('  aucune suggestion en réplique — rien à comparer. Skip.')
+      return true
+    }
+
+    const nums = (rows as { vcrnum: string }[]).map((r) => r.vcrnum)
+    const half = Math.ceil(SAMPLE / 2)
+    const sample = [...new Set([...nums.slice(0, half), ...nums.slice(-half)])]
+    this.logger.info(`  ${nums.length} suggestions en réplique · échantillon de ${sample.length}`)
+
+    const repo = new X3SuggestionRepository()
+    const started = Date.now()
+    const diffs: string[] = []
+    for (const num of sample) {
+      // Séquentiel : chaque appel direct ouvre son propre pool X3 (pool à 1).
+      const [direct, replica] = [await repo.fromX3(num), await repo.fromReplica(num)]
+      const fmt = (k: SuggestionKeys | null) =>
+        k ? `${k.stofcy}/${k.itmref}/${k.qte}` : 'introuvable'
+      if (fmt(direct) !== fmt(replica)) diffs.push(`${num} : X3 ${fmt(direct)} ≠ ${fmt(replica)}`)
+    }
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(`  ${sample.length} point-lookups en ${elapsed} s`)
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} clés divergentes :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+      return false
+    }
+    this.logger.success('  clés d’affermissement identiques')
+    return true
   }
 
   /**
@@ -711,11 +947,22 @@ export default class ReplicaSync extends BaseCommand {
       return true
     }
 
+    // Garde SYMÉTRIQUE de celles de `stock_flux`/`stock_detail`/`latency`, et
+    // elle manquait : `operations_replica` a sa propre cadence (10 min), donc
+    // elle peut être vide alors qu'`orders_flux_replica` est pleine. Sans ce
+    // test, la comparaison partait quand même — ~14 chunks SOAP payés pour
+    // afficher « tout est en écart », ce qui n'est pas un écart mais une table
+    // pas encore ingérée.
+    const replicaOps = await operationsReplicaRepository.getOperations(numOfs)
+    if (replicaOps.length === 0) {
+      this.logger.info(
+        '  operations_replica vide — pas encore ingérée (node ace replica:sync --only=operations). Skip.'
+      )
+      return true
+    }
+
     const started = Date.now()
-    const [direct, replica] = await Promise.all([
-      new X3OperationRepository().getOperations(numOfs),
-      operationsReplicaRepository.getOperations(numOfs),
-    ])
+    const [direct, replica] = [await new X3OperationRepository().getOperations(numOfs), replicaOps]
     const elapsed = ((Date.now() - started) / 1000).toFixed(1)
     this.logger.info(
       `X3 : ${direct.length} opérations · réplique : ${replica.length} opérations · ${elapsed} s`

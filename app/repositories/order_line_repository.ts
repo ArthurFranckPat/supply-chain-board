@@ -58,21 +58,6 @@ export interface OrderLineRow {
 }
 
 /**
- * Ligne telle qu'INGÉRÉE dans la tranche WIPTYP=1 d'`orders_flux_replica` :
- * `OrderLineRow` plus les trois quantités brutes d'`ORDERS`. `quantite` (reste à
- * fabriquer) en est dérivée et reste écrite pour les appelants existants — mais
- * elle ne se décompose pas, d'où les trois colonnes supplémentaires.
- */
-export interface OrderLineReplicaSourceRow extends OrderLineRow {
-  /** `RMNEXTQTY_0` — reliquat brut, allocations comprises. */
-  qteRestante: number
-  /** `EXTQTY_0` — quantité commandée d'origine. */
-  qteCommandee: number
-  /** `ALLQTY_0` — part déjà allouée depuis le stock. */
-  qteAllouee: number
-}
-
-/**
  * Ligne de demande servant la projection de charge (ORDERS WIPTYP=1). Volontairement
  * distinct d'`OrderLineRow` : `clientCode` est le CODE tiers brut, pas la raison
  * sociale — la résolution du nom coûte une jointure BPARTNER, faite à la demande.
@@ -299,84 +284,6 @@ WHERE O.WIPTYP_0 = 1
    * Lignes de commande ouvertes (RESTE_LIVRER > 0), niveau ligne.
    * `from`/`to` optionnels : borne par ECHEANCE (SHIDAT_0 firmes / ENDDAT_0 prévisions).
    */
-  /**
-   * Population d'INGESTION de la tranche WIPTYP=1 d'`orders_flux_replica` (#98) —
-   * plus large que `getOpenOrderLines()`, et avec les trois quantités brutes.
-   *
-   * Deux écarts délibérés avec la vue ci-dessous, tous deux nécessaires pour que
-   * la réplique puisse servir plus d'un appelant :
-   *
-   *  - **filtre `RMNEXTQTY_0 > 0` au lieu de `resteAFabriquer > 0`.** Une ligne
-   *    entièrement allouée (`RMNEXTQTY_0 = ALLQTY_0`) a un reste à fabriquer nul :
-   *    invisible pour la vue planification, mais dans le périmètre de
-   *    `RetardRepository`, qui déduit lui-même le stock alloué. L'ingérer et
-   *    laisser chaque lecteur filtrer est la seule façon de servir les deux.
-   *  - **les trois quantités séparément.** `quantite` (reste à fabriquer) reste
-   *    écrite pour les appelants existants, mais elle ne se décompose pas : un
-   *    lecteur qui a besoin d'`ALLQTY_0` ne peut pas la retrouver.
-   *
-   * Ne PAS la substituer à `getOpenOrderLines()` côté écrans : elle rend des
-   * lignes à besoin nul que la vue planification exclut à raison.
-   */
-  async getOrderLinesForReplica(window: {
-    from: string
-    to: string
-  }): Promise<OrderLineReplicaSourceRow[]> {
-    if (!ISO.test(window.from) || !ISO.test(window.to)) {
-      throw new Error(`Fenêtre d'ingestion invalide : ${window.from} → ${window.to} (attendu ISO)`)
-    }
-
-    // `SQL` filtre `resteAFabriquer > 0` ; on reconstruit la requête avec le
-    // filtre large plutôt que de paramétrer `SQL`, qui est partagé par
-    // `getOrderLine()` et doit garder exactement sa sémantique.
-    const sql =
-      `${SQL.replace(`AND ${SQL_RESTE_A_FABRIQUER} > 0`, 'AND O.RMNEXTQTY_0 > 0')}`.replace(
-        '  O.WIPSTA_0  AS WIPSTA,',
-        '  O.WIPSTA_0  AS WIPSTA,\n  O.RMNEXTQTY_0 AS QTE_RESTANTE,\n  O.EXTQTY_0 AS QTE_COMMANDEE,\n  O.ALLQTY_0 AS QTE_ALLOUEE,'
-      ) +
-      // BORNE TEMPORELLE — même expression d'échéance que
-      // `getOpenOrderLines({from,to})`, donc même population.
-      //
-      // Sans elle, l'ingestion tirait TOUTES les lignes ouvertes alors que la voie
-      // directe est toujours bornée (`board_dataset.getOpenOrderLines` exige
-      // `from`/`to`). Contre PROD ça n'aboutit jamais : `ZSOAPSQL` (O(n²)) dépasse
-      // les 120 s de `--max-time` sans avoir rendu un seul octet. Répliquer « tout »
-      // quand personne ne lit « tout » était l'erreur de conception.
-      `\n  AND (CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END)` +
-      ` BETWEEN TO_DATE('${window.from}', 'YYYY-MM-DD') AND TO_DATE('${window.to}', 'YYYY-MM-DD')`
-
-    const db = new X3Database()
-    try {
-      const rows: RawRow[] = await db.raw(sql)
-      const out: OrderLineReplicaSourceRow[] = []
-      for (const row of rows) {
-        const date = parseX3Date(row.ECHEANCE)
-        if (!date) continue
-        const rawType = row.SOHTYP?.trim() ?? ''
-        const num = (v: string | null | undefined) => Number.parseFloat(v ?? '0') || 0
-        out.push({
-          numCommande: row.NO_COMMANDE?.trim() ?? '',
-          ligne: row.LIGNE?.trim() ?? '',
-          client: row.CLIENT?.trim() || null,
-          article: row.ARTICLE?.trim() ?? '',
-          designation: row.DESIGNATION?.trim() || null,
-          quantite: num(row.RESTE_LIVRER),
-          dateLivraison: date,
-          contremarque: row.CONTREMARQUE?.trim() || null,
-          unite: row.UNITE?.trim() || null,
-          orderType: rawType === '' ? null : (rawType as OrderType),
-          nature: row.WIPSTA?.trim() === '1' ? 'COMMANDE' : 'PREVISION',
-          qteRestante: num(row.QTE_RESTANTE),
-          qteCommandee: num(row.QTE_COMMANDEE),
-          qteAllouee: num(row.QTE_ALLOUEE),
-        })
-      }
-      return out
-    } finally {
-      await db.destroy()
-    }
-  }
-
   async getOpenOrderLines(opts?: { from?: string; to?: string }): Promise<OrderLineRow[]> {
     let sql = SQL
     if (opts?.from && opts?.to && ISO.test(opts.from) && ISO.test(opts.to)) {

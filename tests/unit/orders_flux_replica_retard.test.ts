@@ -202,3 +202,88 @@ test.group('orders_flux_replica — vue /charge (WIPTYP=1)', (group) => {
     assert.notInclude(nums, `${LOAD_PREFIX}OUT`)
   })
 })
+
+/**
+ * `itmsta` — le filtre `ITMSTA_0 = 1` a quitté l'ingestion pour la lecture
+ * (migration `1783300000018`), et il ne s'applique PAS aux mêmes vues.
+ *
+ * Ce qui l'a fait bouger : mesuré en PROD le 02/08/2026, **118 OF FERMES**
+ * présents en voie directe et absents de la réplique, tous sur des articles
+ * `ITMSTA_0 = 6`. Le filtre venait des vues DEMANDE et s'appliquait à toute la
+ * requête d'ingestion, donc aussi à la tranche WIPTYP=5 — alors
+ * qu'`X3OfRepository.getManufacturingOrders()`, la voie directe que cette tranche
+ * mire, ne joint même pas `ITMMASTER`.
+ *
+ * La règle est asymétrique PAR NATURE, elle l'est déjà dans X3. Ces tests la
+ * fixent des deux côtés : une seule assertion « le filtre existe » laisserait
+ * repasser exactement le bug d'origine, qui était de l'appliquer trop largement.
+ */
+test.group('orders_flux_replica — article inactif (itmsta)', (group) => {
+  const conn = db.connection('replica')
+  const repo = ordersFluxReplicaRepository
+  const P = 'ZZITMSTA-'
+
+  const cleanup = async () => {
+    await conn.from('orders_flux_replica').where('vcrnum', 'like', `${P}%`).delete()
+  }
+  group.each.setup(cleanup)
+  group.teardown(cleanup)
+
+  const of = (over: Partial<Record<string, unknown>> = {}) => ({
+    wiptyp: 5,
+    wipsta: 1,
+    vcrnum: `${P}OF`,
+    vcrlin: '',
+    vcrseq: '',
+    article: 'ART-INACTIF',
+    designation: 'Article obsolète',
+    date_echeance: '2026-07-15',
+    date_debut: '2026-07-10',
+    qte_restante: 5,
+    qte_commandee: 5,
+    qte_allouee: 0,
+    contremarque: null,
+    sohtyp: null,
+    partner_nom: null,
+    ...over,
+  })
+
+  test('un OF sur article inactif RESTE visible — la voie directe ne joint pas ITMMASTER', async ({
+    assert,
+  }) => {
+    await conn.table('orders_flux_replica').insert(of({ itmsta: 6 }))
+
+    const mos = await repo.getManufacturingOrders()
+
+    assert.isDefined(mos.find((m) => m.numOf === `${P}OF`))
+  })
+
+  test('une ligne de demande sur article inactif est ÉCARTÉE — la voie directe filtre', async ({
+    assert,
+  }) => {
+    await conn
+      .table('orders_flux_replica')
+      .insert(of({ wiptyp: 1, vcrnum: `${P}DEM`, vcrlin: '1000', itmsta: 6 }))
+
+    const lines = await repo.getOpenOrderLines()
+    const load = await repo.getOrderLinesForLoad('2026-07-01', '2026-08-01')
+    const retard = await repo.getRetardLines('2026-07-01', '2026-08-01')
+
+    assert.isUndefined(lines.find((l) => l.numCommande === `${P}DEM`))
+    assert.isUndefined(load.find((l) => l.numCommande === `${P}DEM`))
+    assert.isUndefined(retard.find((l) => l.numCommande === `${P}DEM`))
+  })
+
+  test('`itmsta` NULL vaut ACTIF — les lignes ingérées avant la migration', async ({ assert }) => {
+    // Démontrable, pas commode : avant `1783300000018` l'ingestion ne gardait QUE
+    // `ITMSTA_0 = 1`. Traiter ce `null` comme indéterminé viderait les vues
+    // demande jusqu'au prochain swap complet.
+    await conn
+      .table('orders_flux_replica')
+      .insert(of({ wiptyp: 1, vcrnum: `${P}NULL`, vcrlin: '1000', itmsta: null }))
+
+    const lines = await repo.getOpenOrderLines()
+
+    assert.isDefined(lines.find((l) => l.numCommande === `${P}NULL`))
+  })
+})
