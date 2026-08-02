@@ -3,6 +3,7 @@ import type { DayChargeDisplay, ReceptionDisplayRow } from '@r/lib/receptions/ty
 import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { chargeBg, chargeText, chargeTier } from '@r/lib/receptions/charge'
+import { X3Link } from '@r/components/x3-link'
 
 /**
  * Vues des réceptions fournisseurs (port React — markup shadcn / thème Airbnb).
@@ -169,9 +170,14 @@ export function ReceptionTableau({
                         <span className="font-mono text-[13px] font-bold tracking-tight text-foreground">
                           {row.article}
                         </span>
-                        <span className="font-mono text-[10.5px] font-medium text-muted-foreground/70">
+                        <X3Link
+                          fonction="GESPOH"
+                          cle={row.noCommande}
+                          title={`Ouvrir la commande ${row.noCommande} dans Sage X3`}
+                          className="font-mono text-[10.5px] font-medium text-muted-foreground/70"
+                        >
                           {row.noCommande}
-                        </span>
+                        </X3Link>
                       </div>
                       <div className="mt-0.5 truncate text-[11.5px] leading-snug text-muted-foreground">
                         {row.designation}

@@ -1,6 +1,7 @@
 import { Pencil, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { TYPO_META } from '@r/lib/board/types'
+import { X3Link } from '../x3-link'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
@@ -186,14 +187,12 @@ function CommandeCard(props: CommandeCardProps) {
       {/* coin haut-droit : faisabilité, ou coche terminé */}
       {props.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
       {props.feas === 'qc' && (
-        <CornerBadge
-          cls="bg-warning"
-          icon="science"
-          title={qcBadgeTitle(props.feasQcComponents)}
-        />
+        <CornerBadge cls="bg-warning" icon="science" title={qcBadgeTitle(props.feasQcComponents)} />
       )}
       {props.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
-      {!props.feas && props.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
+      {!props.feas && props.status === 'termine' && (
+        <CornerBadge cls="bg-muted-foreground" icon="check" />
+      )}
       {/* cours : point terra pulsant (intérieur) */}
       {props.status === 'cours' && (
         <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
@@ -267,9 +266,23 @@ function CommandeBody(p: CommandeBodyProps) {
             aria-label={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
           />
         )}
-        <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
-          {cmd}
-        </span>
+        {/* N° commande (ancre). La carte est draggable : le lien est
+            stopPropagation-eur, il ne prend pas le drag ni l'ouverture du détail.
+            Carte induite (ghost) : pas de commande réelle, texte seul. */}
+        {p.induit ? (
+          <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
+            {cmd}
+          </span>
+        ) : (
+          <X3Link
+            fonction="GESSOH"
+            cle={cmd}
+            title={`Ouvrir la commande ${cmd} dans Sage X3`}
+            className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground"
+          >
+            {cmd}
+          </X3Link>
+        )}
         {ligne && (
           <span className="shrink-0 font-mono text-2xs font-medium leading-tight text-muted-foreground">
             ·{ligne}
@@ -299,7 +312,10 @@ function CommandeBody(p: CommandeBodyProps) {
           )}
         </div>
       )}
-      <div className="truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+      <div
+        className="truncate text-xs font-medium leading-tight text-muted-foreground"
+        title={p.title}
+      >
         {p.title}
       </div>
       {p.client && (
@@ -335,7 +351,9 @@ function CommandeBody(p: CommandeBodyProps) {
               {p.qty}
             </span>
           )}
-          <span className="text-2xs font-medium tabular-nums text-muted-foreground">{p.hours}h</span>
+          <span className="text-2xs font-medium tabular-nums text-muted-foreground">
+            {p.hours}h
+          </span>
         </span>
       </div>
     </>
@@ -446,18 +464,36 @@ function OfListingCard(p: OfCardProps) {
             BDH
           </span>
         )}
-        {/* N° OF (ancre). Réserve à droite la place du tampon BDH si présent. */}
-        <div
-          title={p.article}
-          className={cn(
-            'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
-            p.consommeBouche && 'pr-9'
-          )}
-        >
-          {p.article}
-        </div>
+        {/* N° OF (ancre). Réserve à droite la place du tampon BDH si présent.
+            OF suggéré : pas de MFGNUM, pas de lien (#118). */}
+        {p.status === 'suggere' ? (
+          <div
+            title={p.article}
+            className={cn(
+              'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
+              p.consommeBouche && 'pr-9'
+            )}
+          >
+            {p.article}
+          </div>
+        ) : (
+          <X3Link
+            fonction="GESMFG"
+            cle={p.article}
+            title={`Ouvrir l'OF ${p.article} dans Sage X3`}
+            className={cn(
+              'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
+              p.consommeBouche && 'pr-9'
+            )}
+          >
+            {p.article}
+          </X3Link>
+        )}
         {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
-        <div className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+        <div
+          className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground"
+          title={p.title}
+        >
           {p.title}
         </div>
         {p.progress && (
@@ -487,7 +523,10 @@ function OfListingCard(p: OfCardProps) {
               title={typo.label}
               className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase text-secondary-foreground"
             >
-              <span className="size-[8px] shrink-0 rounded-[2px]" style={{ background: typo.color }} />
+              <span
+                className="size-[8px] shrink-0 rounded-[2px]"
+                style={{ background: typo.color }}
+              />
               <span className="truncate">{typo.label}</span>
             </span>
           ) : (

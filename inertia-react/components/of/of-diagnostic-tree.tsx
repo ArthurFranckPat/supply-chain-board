@@ -11,6 +11,7 @@
 import { Badge } from '@r/components/ui/badge'
 import { CornerDownRight, CircleCheck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import { X3Link } from '@r/components/x3-link'
 import {
   type DiagResult,
   type DiagShort,
@@ -50,14 +51,17 @@ function DiagRow({ short }: { short: DiagShort }) {
           {TREE_STATUS_LABEL[short.status]}
         </Badge>
       </div>
-      <span
+      <X3Link
+        fonction="GESITM"
+        cle={short.article}
+        title={`Ouvrir l'article ${short.article} dans Sage X3`}
         className={cn(
           'w-[6rem] flex-none truncate font-mono text-[11px] font-bold',
           short.status === 'rupture_matiere' ? 'text-destructive' : 'text-foreground'
         )}
       >
         {short.article}
-      </span>
+      </X3Link>
       <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
         {short.description}
       </span>
@@ -122,7 +126,9 @@ function DiagShortRow({ short }: { short: DiagShort }) {
                 <span className="font-semibold tracking-wider">COUVERT PAR</span>
                 <span className="text-[11px] font-bold text-foreground">{cov.numOf}</span>
                 <Badge
-                  variant={cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'}
+                  variant={
+                    cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'
+                  }
                   className="text-[8px]"
                 >
                   {STATUT_OF[cov.statut] ?? `statut ${cov.statut}`}

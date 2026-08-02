@@ -21,6 +21,12 @@ export interface X3EnvConfig {
   printServer: string
   /** Sous-programme SOAP d'affermissement (issue #31) — `run` sur FUNMAUTR. */
   firmSubprog: string
+  /**
+   * Endpoint Syracuse du serveur web X3 (issue #118). Distinct du pool SOAP :
+   * `X3U12T_CLTEST` en TEST, `X3U12P_CLAERECO` en PROD. Vide = pas de lien
+   * « Ouvrir dans X3 » rendu côté front.
+   */
+  webEndpoint: string
 }
 
 /** Identifiants X3 d'une session authentifiée (env choisi + creds utilisateur). */
@@ -43,6 +49,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     grpCount: 'GRP3',
     printServer: env.get('X3_TEST_PRINT_SERVER', ''),
     firmSubprog: 'FIRMSUGG',
+    webEndpoint: env.get('X3_TEST_WEB_ENDPOINT', ''),
   }),
   prod: () => ({
     host: env.get('X3_PROD_HOST', ''),
@@ -56,6 +63,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     grpCount: 'GRP3',
     printServer: env.get('X3_PROD_PRINT_SERVER', ''),
     firmSubprog: 'ZSOAPFIRM',
+    webEndpoint: env.get('X3_PROD_WEB_ENDPOINT', ''),
   }),
 }
 

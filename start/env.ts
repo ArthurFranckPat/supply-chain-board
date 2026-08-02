@@ -84,6 +84,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   X3_TEST_PRINT_SERVER: Env.schema.string.optional(),
   X3_PROD_PRINT_SERVER: Env.schema.string.optional(),
 
+  // Endpoint Syracuse du serveur web X3 (issue #118), distinct du pool SOAP —
+  // en PROD `X3U12P_CLAERECO` alors que le pool est `CLAERECO2`. Vide = aucun
+  // lien « Ouvrir dans X3 » rendu (le navigateur ne joint pas Syracuse, cf. #116).
+  X3_TEST_WEB_ENDPOINT: Env.schema.string.optional(),
+  X3_PROD_WEB_ENDPOINT: Env.schema.string.optional(),
+
   // Couche agentique v1 — provider Z.AI / GLM 5.2 (pi-ai `zai`).
   // Optionnel au boot (les pages non-agent restent utilisables) ;
   // requis dès POST /api/v1/agent/chat.

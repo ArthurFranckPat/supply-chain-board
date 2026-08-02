@@ -30,6 +30,7 @@ import {
 import type { OfCommandeLink, OfDetail } from '@r/lib/of/types'
 import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
+import { X3Link } from '@r/components/x3-link'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
 import { OfPrintVerdict, OfReprintButton, type PrintReport } from './of-print-verdict'
@@ -220,9 +221,21 @@ export function OfDetailSheet(props: {
             <div className="flex items-center gap-4 px-5 py-3 pr-14">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-[15px] font-bold tracking-tight text-foreground">
-                    {d.num}
-                  </span>
+                  {/* Pas de lien sur un OF suggéré : pas de MFGNUM à ouvrir (#118). */}
+                  {isSuggestion ? (
+                    <span className="font-mono text-[15px] font-bold tracking-tight text-foreground">
+                      {d.num}
+                    </span>
+                  ) : (
+                    <X3Link
+                      fonction="GESMFG"
+                      cle={d.num}
+                      title={`Ouvrir l'OF ${d.num} dans Sage X3`}
+                      className="font-mono text-[15px] font-bold tracking-tight text-foreground"
+                    >
+                      {d.num}
+                    </X3Link>
+                  )}
                   {d.article && (
                     <span className="font-mono text-[11px] font-semibold text-brand">
                       {d.article}
@@ -437,14 +450,17 @@ export function OfDetailSheet(props: {
                               : `${row.id} — ${row.name}`
                           }
                         >
-                          <span
+                          <X3Link
+                            fonction="GESITM"
+                            cle={row.id}
+                            title={`Ouvrir l'article ${row.id} dans Sage X3`}
                             className={cn(
                               'truncate font-mono text-[12px] font-bold',
                               !row.ok ? 'text-destructive' : 'text-foreground'
                             )}
                           >
                             {row.id}
-                          </span>
+                          </X3Link>
                           <span className="truncate text-[12px] text-foreground/80">
                             {row.name}
                           </span>

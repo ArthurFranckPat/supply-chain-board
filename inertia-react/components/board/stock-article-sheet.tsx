@@ -3,6 +3,7 @@ import { CalendarClock, CircleX, Package, ShieldCheck, TriangleAlert } from 'luc
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
+import { X3Link } from '@r/components/x3-link'
 
 /**
  * Sheet « Détail article » du KPI Stock par article (dashboard) : historique
@@ -1223,9 +1224,21 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-5 py-3 pr-14">
               <Package size={18} strokeWidth={1.75} className="self-center text-brand" />
               <div className="flex min-w-0 items-baseline gap-2">
-                <span className="font-mono text-[13px] font-bold text-brand">
-                  {detail?.article ?? props.article}
-                </span>
+                {(() => {
+                  const article = detail?.article ?? props.article
+                  return article ? (
+                    <X3Link
+                      fonction="GESITM"
+                      cle={article}
+                      title={`Ouvrir l'article ${article} dans Sage X3`}
+                      className="font-mono text-[13px] font-bold text-brand"
+                    >
+                      {article}
+                    </X3Link>
+                  ) : (
+                    <span className="font-mono text-[13px] font-bold text-brand" />
+                  )
+                })()}
                 <SheetTitle className="truncate font-fraunces text-[14px] font-medium italic text-muted-foreground">
                   {detail?.designation || '—'}
                 </SheetTitle>
