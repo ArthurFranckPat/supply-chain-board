@@ -11,7 +11,12 @@ import {
   type GammeOperation,
 } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
-import { loadPosteEngagement, loadPosteSummaries } from '#services/poste_engagement_loader'
+import {
+  loadPosteEngagement,
+  loadPosteSummaries,
+  loadCommandesForOf,
+  type EngagementCommande,
+} from '#services/poste_engagement_loader'
 import {
   loadBoardData,
   resolveHorizon,
@@ -76,13 +81,18 @@ interface DetailPayload {
   stats: StatItem[]
   progressPct: number
   operator: { initials: string; name: string }
-  /** Date de création de l'OF (ORDERS.CREDAT_0), formatée FR — '—' si absente. */
+  /** Date de création de l'OF (ORDERS.CREDAT_0), formatée FR jour — '—' si absente. */
   createdAt: string
   cycle: { start: string; end: string }
   bomCount: number
   bomBlocked: number
   bom: BomRow[]
   events: { label: string; time: string; desc: string | null; dot: string }[]
+  /**
+   * Commandes clientes allouées à cet OF (CommandeOFMatcher + repli peg).
+   * Vide si aucune couverture commande dans la fenêtre matching.
+   */
+  commandes: EngagementCommande[]
 }
 
 // ---------------------------------------------------------------------------
@@ -507,15 +517,16 @@ export default class SchedulerController {
 
     const perf = qtyLaunched > 0 ? Math.round((qtyDone / qtyLaunched) * 100) : null
 
+    // X3 ne porte que le jour (STRDAT/ENDDAT/CREDAT) — afficher l'heure fabrique
+    // un faux « 00:00 » systématique. Jour civil FR uniquement.
     const fmtDate = (d: Date | null) =>
-      d
-        ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) +
-          ', ' +
-          d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-        : '—'
+      d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'
 
     const startDate = ov?.dateDebut ? new Date(ov.dateDebut) : (mo?.startDate ?? null)
     const endDate = ov?.dateFin ? new Date(ov.dateFin) : (mo?.endDate ?? null)
+
+    // Matching commandes en parallèle du BOM (non fatal).
+    const commandesPromise = loadCommandesForOf(num).catch(() => [] as EngagementCommande[])
 
     // BOM : besoins directs via le moteur unique (#73, étape 2.3). MFGMAT si l'OF est
     // éclaté, repli nomenclature théorique sinon (suggestions, issue #30). Même verdict
@@ -589,7 +600,7 @@ export default class SchedulerController {
     if (status >= 2 && startDate) {
       events.push({
         label: 'Début production',
-        time: fmtDate(startDate).split(', ')[1] ?? '—',
+        time: fmtDate(startDate),
         desc: `Lancement sur ${wstLabel ?? 'poste non assigné'}`,
         dot: 'bg-blue-500',
       })
@@ -597,7 +608,7 @@ export default class SchedulerController {
     if (status === 3 && endDate) {
       events.push({
         label: 'Fin de production',
-        time: fmtDate(endDate).split(', ')[1] ?? '—',
+        time: fmtDate(endDate),
         desc: `${qtyDone} ${mo?.unit ?? ''} produites`,
         dot: 'bg-emerald-500',
       })
@@ -611,34 +622,31 @@ export default class SchedulerController {
       })
     }
 
+    const commandes = await commandesPromise
+
     return {
       num,
       title: mo?.designation ?? mo?.article ?? num,
       article: mo?.article ?? '',
       statusLabel,
-      context: [wstLabel, status === 2 ? 'En cours' : ''].filter(Boolean).join(' • '),
+      // Poste seul — ne pas coller « En cours » sur Planifié (WIPSTA=2).
+      context: wstLabel ?? '',
       progressPct: Math.max(0, Math.min(100, perf ?? 0)),
+      // Pas de % ici — l'avancement (barre) porte le seul pourcentage.
+      // Production = faits bruts : pièces faites/lancées + reste + heures.
       stats: [
         {
-          label: 'Quantité',
-          value: String(qtyRemaining),
-          sub: `/ ${qtyLaunched}`,
+          label: 'Qté',
+          value: `${qtyDone}/${qtyLaunched || qtyRemaining}`,
+          sub: qtyRemaining > 0 ? `reste ${qtyRemaining}` : null,
           valueClass: 'text-primary',
           trend: null,
           trendClass: '',
         },
         {
-          label: 'Réalisé',
-          value: perf !== null ? `${perf}%` : '—',
-          sub: `${qtyDone} ${mo?.unit ?? ''}`,
-          valueClass: perf !== null && perf >= 95 ? 'text-emerald-600' : 'text-primary',
-          trend: perf !== null && perf >= 95 ? 'trending_up' : null,
-          trendClass: 'text-emerald-500',
-        },
-        {
           label: 'Temps',
-          value: hours > 0 ? String(hours) : '—',
-          sub: 'heures',
+          value: hours > 0 ? `${hours} h` : '—',
+          sub: null,
           valueClass: 'text-primary',
           trend: null,
           trendClass: '',
@@ -656,6 +664,7 @@ export default class SchedulerController {
         events.length > 0
           ? events
           : [{ label: 'Aucun événement', time: '', desc: null, dot: 'bg-gray-300' }],
+      commandes,
     }
   }
 

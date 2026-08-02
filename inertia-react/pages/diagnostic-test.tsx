@@ -6,7 +6,8 @@ import { cn } from '@r/lib/utils'
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
-import { BadgeCheck, CornerDownRight, Search, LoaderCircle, CircleX, CircleCheck } from 'lucide-react'
+import { BadgeCheck, CornerDownRight, Search, CircleX, CircleCheck } from 'lucide-react'
+import { Spinner } from '@r/components/ui/spinner'
 
 /**
  * Page de TEST provisoire (issue #25) pour valider le diagnostic récursif sur un
@@ -17,11 +18,7 @@ import { BadgeCheck, CornerDownRight, Search, LoaderCircle, CircleX, CircleCheck
  */
 
 type NodeStatus =
-  | 'ok'
-  | 'qc_a_controler'
-  | 'rupture_matiere'
-  | 'sous_ensemble_a_lancer'
-  | 'indetermine'
+  'ok' | 'qc_a_controler' | 'rupture_matiere' | 'sous_ensemble_a_lancer' | 'indetermine'
 type NodeSource = 'MFGMAT' | 'NOMENCLATURE'
 
 interface DiagnosticNode {
@@ -73,10 +70,7 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
   sous_ensemble_a_lancer: 'Sous-ensemble à lancer',
   indetermine: 'Indéterminé',
 }
-const STATUS_VARIANT: Record<
-  NodeStatus,
-  'success' | 'destructive' | 'warning' | 'secondary'
-> = {
+const STATUS_VARIANT: Record<NodeStatus, 'success' | 'destructive' | 'warning' | 'secondary'> = {
   ok: 'success',
   qc_a_controler: 'warning',
   rupture_matiere: 'destructive',
@@ -90,9 +84,7 @@ const STATUT_OF: Record<number, string> = {
 }
 
 function StatusBadge({ status }: { status: NodeStatus }) {
-  return (
-    <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
-  )
+  return <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
 }
 
 /** Affiche un composant en manque + (récursivement) les OF couvrants et leurs composants. */
@@ -103,19 +95,12 @@ interface ShortRowProps {
 
 function ShortRow({ short, depth }: ShortRowProps) {
   return (
-    <div
-      className="border-l-2 border-border/60 pl-3"
-      style={{ marginLeft: `${depth * 4}px` }}
-    >
+    <div className="border-l-2 border-border/60 pl-3" style={{ marginLeft: `${depth * 4}px` }}>
       <div className="flex flex-wrap items-center gap-2 py-1">
         <StatusBadge status={short.status} />
-        <span className="font-mono text-[12px] font-bold text-foreground">
-          {short.article}
-        </span>
+        <span className="font-mono text-[12px] font-bold text-foreground">{short.article}</span>
         {short.description && (
-          <span className="text-[11px] text-muted-foreground">
-            {short.description}
-          </span>
+          <span className="text-[11px] text-muted-foreground">{short.description}</span>
         )}
         <span className="font-mono text-[11px] text-muted-foreground">
           besoin {short.quantityNeeded} · dispo {short.available}
@@ -125,13 +110,10 @@ function ShortRow({ short, depth }: ShortRowProps) {
               · <span className="text-warning font-semibold">CQ {short.stockQc}</span>
             </>
           )}{' '}
-          · manque{' '}
-          <span className="font-bold text-destructive">{short.quantityMissing}</span>
+          · manque <span className="font-bold text-destructive">{short.quantityMissing}</span>
         </span>
         {short.earliestReception && (
-          <span className="font-mono text-[11px] text-brand">
-            récep. {short.earliestReception}
-          </span>
+          <span className="font-mono text-[11px] text-brand">récep. {short.earliestReception}</span>
         )}
         {short.fabricated && (
           <Badge variant="secondary" className="text-[9px]">
@@ -142,8 +124,7 @@ function ShortRow({ short, depth }: ShortRowProps) {
       {short.status === 'qc_a_controler' && (
         <div className="ml-1 flex items-center gap-1.5 py-0.5 font-mono text-[11px] text-warning">
           <BadgeCheck size={13} />
-          Action : lever le contrôle qualité ({short.stockQc} en CQ — couvre le
-          besoin)
+          Action : lever le contrôle qualité ({short.stockQc} en CQ — couvre le besoin)
         </div>
       )}
 
@@ -158,24 +139,14 @@ function ShortRow({ short, depth }: ShortRowProps) {
             <span className="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">
               COUVERT PAR
             </span>
-            <span className="font-mono text-[12px] font-bold text-foreground">
-              {cov.numOf}
-            </span>
+            <span className="font-mono text-[12px] font-bold text-foreground">{cov.numOf}</span>
             <Badge
-              variant={
-                cov.statut === 1
-                  ? 'success'
-                  : cov.statut === 2
-                    ? 'secondary'
-                    : 'warning'
-              }
+              variant={cov.statut === 1 ? 'success' : cov.statut === 2 ? 'secondary' : 'warning'}
               className="text-[9px]"
             >
               {STATUT_OF[cov.statut] ?? `statut ${cov.statut}`}
             </Badge>
-            <span className="font-mono text-[11px] text-muted-foreground">
-              qté {cov.quantity}
-            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">qté {cov.quantity}</span>
             <StatusBadge status={cov.node.status} />
             <Badge
               variant={cov.node.source === 'MFGMAT' ? 'success' : 'secondary'}
@@ -192,9 +163,7 @@ function ShortRow({ short, depth }: ShortRowProps) {
               ))}
             </div>
           ) : (
-            <div className="mt-1 pl-6 text-[11px] text-ferme">
-              ✓ tous composants disponibles
-            </div>
+            <div className="mt-1 pl-6 text-[11px] text-ferme">✓ tous composants disponibles</div>
           )}
         </div>
       ))}
@@ -219,9 +188,7 @@ export default function DiagnosticTest() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(
-          route('planning_board.of_materials_diagnostic', { of: v })
-        )
+        const res = await fetch(route('planning_board.of_materials_diagnostic', { of: v }))
         if (!res.ok) {
           const txt = await res.text().catch(() => '')
           throw new Error(`HTTP ${res.status}${txt ? ` — ${txt}` : ''}`)
@@ -268,7 +235,7 @@ export default function DiagnosticTest() {
 
             {loading && (
               <div className="flex items-center gap-2 rounded-md bg-secondary px-4 py-3 text-[13px] text-muted-foreground">
-                <LoaderCircle size={18} className="animate-spin" />
+                <Spinner size="md" />
                 Diagnostic en cours…
               </div>
             )}

@@ -25,6 +25,7 @@ import {
 } from 'ai'
 import { useChat } from '@ai-sdk/react'
 import { Bot, Check, Copy, PanelLeft, PanelRight } from 'lucide-react'
+import { ThinkingOrb } from 'thinking-orbs'
 
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
@@ -35,9 +36,10 @@ import { AppShell } from '@r/components/copilote/app-shell'
 import { CopiloteSidebar, type ConversationSummary } from '@r/components/copilote/sidebar'
 import { InspectorPanel, deriveInspectorContext } from '@r/components/copilote/inspector'
 import { Composer } from '@r/components/copilote/composer'
-import { ToolTokens } from '@r/components/copilote/tool-tokens'
+import { ToolTokens, toolStatus } from '@r/components/copilote/tool-tokens'
 import { McpAppParts } from '@r/components/copilote/mcp-app-frame'
 import { CopiloteMarkdown } from '@r/components/copilote/markdown'
+import type { LoadingOrbState } from '@r/components/ui/loading-state'
 
 /** Metadata émise par le backend sur le chunk `start` (ex-event `session`). */
 interface AgentMessageMetadata {
@@ -47,6 +49,41 @@ interface AgentMessageMetadata {
 }
 
 type AgentUIMessage = UIMessage<AgentMessageMetadata>
+
+const BUSY_LABELS: Record<LoadingOrbState, string> = {
+  listening: 'En écoute…',
+  searching: 'Interroge les données…',
+  solving: 'Analyse…',
+  composing: 'Rédige…',
+  working: 'Réfléchit…',
+  shaping: 'Prépare…',
+}
+
+function deriveBusyOrb(
+  messages: AgentUIMessage[],
+  status: string
+): {
+  state: LoadingOrbState
+  label: string
+} {
+  if (status === 'submitted') {
+    return { state: 'listening', label: BUSY_LABELS.listening }
+  }
+  const last = [...messages].reverse().find((m) => m.role === 'assistant')
+  if (last) {
+    const tools = last.parts.filter(isToolUIPart)
+    if (tools.some((p) => toolStatus(p) === 'running')) {
+      return { state: 'searching', label: BUSY_LABELS.searching }
+    }
+    if (last.parts.some(isReasoningUIPart)) {
+      return { state: 'solving', label: BUSY_LABELS.solving }
+    }
+    if (last.parts.some((p) => isTextUIPart(p) && p.text)) {
+      return { state: 'composing', label: BUSY_LABELS.composing }
+    }
+  }
+  return { state: 'working', label: BUSY_LABELS.working }
+}
 
 function newConversationId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -197,6 +234,11 @@ export default function Copilote() {
   const { entries: inspectorEntries, subject } = useMemo(
     () => deriveInspectorContext(chat.messages),
     [chat.messages]
+  )
+
+  const busyOrb = useMemo(
+    () => (busy ? deriveBusyOrb(chat.messages, chat.status) : null),
+    [busy, chat.messages, chat.status]
   )
 
   return (
@@ -365,17 +407,15 @@ export default function Copilote() {
                 </div>
               ))}
 
-              {busy && (
-                <div className="mt-6 flex items-center gap-3 text-[13.5px] italic text-muted-foreground">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-primary">
-                    <Bot size={15} />
-                  </span>
-                  <span className="inline-flex gap-1">
-                    <span className="size-[5px] animate-pulse rounded-full bg-current [animation-delay:0ms]" />
-                    <span className="size-[5px] animate-pulse rounded-full bg-current [animation-delay:180ms]" />
-                    <span className="size-[5px] animate-pulse rounded-full bg-current [animation-delay:360ms]" />
-                  </span>
-                  Le copilote réfléchit…
+              {busyOrb && (
+                <div className="mt-6 flex items-center gap-2.5 text-[13.5px] italic text-muted-foreground">
+                  <ThinkingOrb
+                    state={busyOrb.state}
+                    size={20}
+                    aria-label={busyOrb.label}
+                    className="shrink-0"
+                  />
+                  {busyOrb.label}
                 </div>
               )}
 

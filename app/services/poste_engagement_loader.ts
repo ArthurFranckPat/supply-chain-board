@@ -239,6 +239,29 @@ async function loadLancerFromProgramme(opts: { force: boolean; horizonDays?: num
 }
 
 /**
+ * Commandes rattachées à un OF (drawer détail) — même chaîne que l'engagement
+ * poste : CommandeOFMatcher sur fenêtre matching + repli contremarque.
+ * Sources boardDataset déjà SWR → chaud après /programme ou /sequenceur.
+ */
+export async function loadCommandesForOf(
+  numOf: string,
+  force = false
+): Promise<EngagementCommande[]> {
+  const safe = numOf.trim()
+  if (!safe) return []
+  const ord = await boardDataset.getOrders(force)
+  const { byOf } = await resolveCommandesByOf({
+    scopedNums: new Set([safe]),
+    supply: ord.supply as Flow[],
+    force,
+    horizonDays: MATCHING_HORIZON_DAYS,
+  })
+  return (byOf.get(safe) ?? []).sort((a, b) =>
+    (a.livraisonIso ?? '9999').localeCompare(b.livraisonIso ?? '9999')
+  )
+}
+
+/**
  * Matching engagement (kind=ferme) — CommandeOFMatcher local + repli peg.
  * `scopedNums` borne le résultat (jamais élargir le peg IN() à toute l'usine).
  */

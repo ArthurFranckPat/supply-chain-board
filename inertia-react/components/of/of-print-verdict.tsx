@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Printer, RefreshCw } from 'lucide-react'
 
 import { Button } from '@r/components/ui/button'
-import { Label } from '@r/components/ui/label'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 
@@ -98,7 +97,11 @@ export function OfPrintVerdict({ report }: { report: PrintReport }) {
     <div className="flex flex-col gap-0.5">
       <div
         className={`font-mono text-[11px] font-semibold ${
-          failed.length > 0 ? 'text-destructive' : report.deferred ? 'text-foreground' : 'text-ferme'
+          failed.length > 0
+            ? 'text-destructive'
+            : report.deferred
+              ? 'text-foreground'
+              : 'text-ferme'
         }`}
       >
         {failed.length > 0
@@ -123,9 +126,8 @@ interface FolderDocument {
 /**
  * Impression manuelle du dossier depuis le détail OF.
  *
- * L'utilisateur choisit les états (bon de travail, bon de sortie matière…) via des
- * cases cochées par défaut. Toujours `force` : chaque clic est un tirage explicite,
- * journalisé comme réimpression.
+ * Choix des documents = pills toggle (défaut : tout coché). Toujours `force` :
+ * chaque clic = tirage explicite, journalisé comme réimpression.
  */
 export function OfReprintButton({ ofNum }: { ofNum: string }) {
   const [busy, setBusy] = useState(false)
@@ -189,25 +191,28 @@ export function OfReprintButton({ ofNum }: { ofNum: string }) {
   return (
     <div className="flex flex-col items-end gap-1.5">
       {documents.length > 0 && (
-        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-          {documents.map((d) => (
-            <Label
-              key={d.code}
-              className={cn(
-                'cursor-pointer gap-1.5 font-mono text-[10px] font-medium text-muted-foreground',
-                busy && 'pointer-events-none opacity-60'
-              )}
-            >
-              <input
-                type="checkbox"
-                className="size-3.5 accent-brand"
-                checked={selected.has(d.code)}
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {documents.map((d) => {
+            const on = selected.has(d.code)
+            return (
+              <button
+                key={d.code}
+                type="button"
                 disabled={busy}
-                onChange={() => toggleDoc(d.code)}
-              />
-              {d.label}
-            </Label>
-          ))}
+                onClick={() => toggleDoc(d.code)}
+                aria-pressed={on}
+                className={cn(
+                  'rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium transition-colors',
+                  on
+                    ? 'border-brand/40 bg-brand/10 text-brand'
+                    : 'border-rule-soft bg-background text-muted-foreground hover:text-foreground',
+                  busy && 'pointer-events-none opacity-60'
+                )}
+              >
+                {d.label}
+              </button>
+            )
+          })}
         </div>
       )}
       {loadErr && (

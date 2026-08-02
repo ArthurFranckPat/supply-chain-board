@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Head } from '@inertiajs/react'
-import { Check, Copy, LoaderCircle, Printer, TriangleAlert } from 'lucide-react'
+import { Check, Copy, Printer, TriangleAlert } from 'lucide-react'
+import { Spinner } from '@r/components/ui/spinner'
 
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
@@ -155,7 +156,10 @@ export default function PrintTest(props: PageProps) {
   const etats = useMemo(
     () => [
       { cod: 'PING', label: 'PING — sonde, n’imprime rien' },
-      ...props.documents.map((d) => ({ cod: d.code, label: `${d.code} — ${(d.label || d.code).toLowerCase()}` })),
+      ...props.documents.map((d) => ({
+        cod: d.code,
+        label: `${d.code} — ${(d.label || d.code).toLowerCase()}`,
+      })),
     ],
     [props.documents]
   )
@@ -194,11 +198,7 @@ export default function PrintTest(props: PageProps) {
   return (
     <>
       <Head title="Test impression X3" />
-      <Masthead
-        subtitle="Impression X3 · page de test (#85)"
-        active="programme"
-        variant="airbnb"
-      />
+      <Masthead subtitle="Impression X3 · page de test (#85)" active="programme" variant="airbnb" />
 
       <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
         <header className="flex flex-col gap-1">
@@ -323,7 +323,9 @@ export default function PrintTest(props: PageProps) {
             {destChoisie && (
               <p className="text-muted-foreground text-sm">
                 {destChoisie.kindLabel}
-                {destChoisie.server ? ` · serveur ${destChoisie.server}` : ' · aucun serveur d’impression déclaré'}
+                {destChoisie.server
+                  ? ` · serveur ${destChoisie.server}`
+                  : ' · aucun serveur d’impression déclaré'}
                 {destChoisie.queue ? ` · file ${destChoisie.queue}` : ''}
               </p>
             )}
@@ -368,11 +370,7 @@ export default function PrintTest(props: PageProps) {
           </label>
 
           <Button onClick={run} disabled={loading} className="self-start">
-            {loading ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <Printer className="size-4" />
-            )}
+            {loading ? <Spinner size="sm" variant="white" /> : <Printer className="size-4" />}
             Lancer
           </Button>
         </section>
@@ -439,8 +437,9 @@ export default function PrintTest(props: PageProps) {
                 </span>
                 {res.serveur.verdict === 'ok' && (
                   <span className="text-emerald-700">
-                    Tâche remise à la file{res.serveur.inferred ? ' (succès déduit de sa disparition)' : ''}.
-                    Un bac vide ou un bourrage ne remonte pas jusqu’ici.
+                    Tâche remise à la file
+                    {res.serveur.inferred ? ' (succès déduit de sa disparition)' : ''}. Un bac vide
+                    ou un bourrage ne remonte pas jusqu’ici.
                   </span>
                 )}
                 {res.serveur.verdict === 'error' && (

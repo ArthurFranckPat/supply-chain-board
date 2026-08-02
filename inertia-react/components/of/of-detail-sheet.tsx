@@ -7,6 +7,9 @@
  * méta+avancement, onglets). Vues lourdes déléguées :
  *   • arbre diagnostic récursif → <OfDiagnosticTree>
  *   • action affermir + popover rupture → <OfFirmAction>
+ *
+ * Layout Scan-first : identité ≠ actions, méta en grille 4 cols, table
+ * silencieuse sur les lignes OK, commandes matching dans le chrome.
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { router } from '@inertiajs/react'
@@ -17,7 +20,6 @@ import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
 import {
   CircleX,
-  Loader2,
   ArrowRight,
   Package,
   Network,
@@ -25,12 +27,21 @@ import {
   CircleCheck,
   FlaskConical,
 } from 'lucide-react'
-import type { OfDetail } from '@r/lib/of/types'
+import type { OfCommandeLink, OfDetail } from '@r/lib/of/types'
 import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
 import { OfPrintVerdict, OfReprintButton, type PrintReport } from './of-print-verdict'
+
+/** ISO YYYY-MM-DD → « 17 août » (jour civil, pas d'heure). */
+function fmtLivraison(iso: string | null): string {
+  if (!iso) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return iso
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
 
 export function OfDetailSheet(props: {
   num: string | null
@@ -120,7 +131,7 @@ export function OfDetailSheet(props: {
   })()
 
   /** Gate : par défaut l'affermissement d'un OF en rupture est interdit — il faut
-   *  confirmer explicitement. Sans rupture, on affermit directement. */
+   * confirmer explicitement. Sans rupture, on affermit directement. */
   const firm = () => {
     if (hasRuptures && !confirmRupture) {
       setConfirmRupture(true)
@@ -179,9 +190,10 @@ export function OfDetailSheet(props: {
   }
 
   const statusVariant = (label: string) =>
-    label === 'Ferme' ? 'success' : label === 'Suggéré' ? 'warning' : 'secondary'
+    label === 'Ferme' ? 'success' : label === 'Suggéré' ? 'warning' : 'default'
 
   const d = detail
+  const commandes = d?.commandes ?? []
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
@@ -204,74 +216,111 @@ export function OfDetailSheet(props: {
           )
         ) : (
           <>
-            {/* Barre d'identité */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b bg-secondary px-5 py-3 pr-14">
-              <span className="font-mono text-[13px] font-bold text-foreground">{d.num}</span>
-              {d.article && (
-                <span className="font-mono text-[12px] font-bold text-brand">{d.article}</span>
-              )}
-              <SheetTitle className="text-[14px] font-medium italic text-muted-foreground">
-                {d.title}
-              </SheetTitle>
-              <Badge variant={statusVariant(d.statusLabel)} className="ml-0.5">
-                {d.statusLabel}
-              </Badge>
-              {d.bomBlocked > 0 && <Badge variant="destructive">{d.bomBlocked} rupture(s)</Badge>}
-              <span className="flex-1" />
-              {/* Deux verdicts empilés, jamais fusionnés : l'affermissement a
-                  réussi ou non, l'impression a abouti ou non (#85, invariant 1). */}
-              {(firmMsg || printMsg) && (
-                <span className="flex flex-col items-end gap-0.5">
-                  {firmMsg && (
-                    <span
-                      className={`font-mono text-[11px] font-semibold ${firmMsg.ok ? 'text-ferme' : 'text-destructive'}`}
-                    >
-                      {firmMsg.ok ? '✓ ' : '⚠ '}
-                      {firmMsg.text}
+            {/* Ligne 1 — identité + actions */}
+            <div className="flex items-center gap-4 px-5 py-3 pr-14">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="font-mono text-[15px] font-bold tracking-tight text-foreground">
+                    {d.num}
+                  </span>
+                  {d.article && (
+                    <span className="font-mono text-[11px] font-semibold text-brand">
+                      {d.article}
                     </span>
                   )}
-                  {printMsg && <OfPrintVerdict report={printMsg} />}
-                </span>
-              )}
-              {!canFirm && d.statusLabel === 'Ferme' && <OfReprintButton ofNum={d.num} />}
-              {canFirm && (
-                <OfFirmAction
-                  firming={firming}
-                  confirmRupture={confirmRupture}
-                  isSuggestion={isSuggestion}
-                  rupturedComponents={rupturedComponents}
-                  onFirm={firm}
-                  onDoFirm={() => void doFirm()}
-                  onCancelConfirm={() => setConfirmRupture(false)}
-                />
-              )}
+                  <Badge
+                    variant={statusVariant(d.statusLabel)}
+                    className="h-[18px] px-2 font-mono text-[10px] font-semibold uppercase tracking-wide"
+                  >
+                    {d.statusLabel}
+                  </Badge>
+                  {d.bomBlocked > 0 && (
+                    <Badge variant="destructive" className="h-[18px] px-2 font-mono text-[10px]">
+                      {d.bomBlocked} rupture{d.bomBlocked > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+                <SheetTitle className="mt-0.5 truncate text-[12px] font-normal text-muted-foreground">
+                  {d.title}
+                </SheetTitle>
+              </div>
+
+              {/* Verdicts + actions */}
+              <div className="flex shrink-0 items-center gap-3">
+                {(firmMsg || printMsg) && (
+                  <div className="flex flex-col items-end gap-0.5">
+                    {firmMsg && (
+                      <span
+                        className={`font-mono text-[11px] font-semibold ${firmMsg.ok ? 'text-ferme' : 'text-destructive'}`}
+                      >
+                        {firmMsg.ok ? '✓ ' : '⚠ '}
+                        {firmMsg.text}
+                      </span>
+                    )}
+                    {printMsg && <OfPrintVerdict report={printMsg} />}
+                  </div>
+                )}
+                {!canFirm && d.statusLabel === 'Ferme' && <OfReprintButton ofNum={d.num} />}
+                {canFirm && (
+                  <OfFirmAction
+                    firming={firming}
+                    confirmRupture={confirmRupture}
+                    isSuggestion={isSuggestion}
+                    rupturedComponents={rupturedComponents}
+                    onFirm={firm}
+                    onDoFirm={() => void doFirm()}
+                    onCancelConfirm={() => setConfirmRupture(false)}
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Méta + avancement */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule-soft px-5 py-2.5">
-              <Meta k="Début" v={d.cycle.start} mono />
-              <ArrowRight size={15} strokeWidth={1.75} className="text-muted-foreground" />
-              <Meta k="Fin" v={d.cycle.end} mono />
-              {d.context && <Meta k="Poste" v={d.context} />}
-              <Meta k="Créé le" v={d.createdAt} mono />
-              {d.operator.name !== 'Non assigné' && <Meta k="Par" v={d.operator.name} mono />}
-              {d.stats.map((s) => (
-                <Meta key={s.label} k={s.label} v={s.value} mono />
-              ))}
-              <div className="ml-auto flex items-center gap-2">
-                <span className="font-mono text-[10px] font-semibold text-muted-foreground">
-                  Avancement
+            {/* Ligne 2 — faits clés en 4 colonnes */}
+            <div className="grid grid-cols-2 border-t border-rule-soft px-5 py-2.5 sm:grid-cols-4">
+              <Fact label="Cycle">
+                <span className="inline-flex items-center gap-1.5 font-mono text-[13px] font-bold text-foreground">
+                  {d.cycle.start}
+                  <ArrowRight size={12} strokeWidth={2} className="text-muted-foreground" />
+                  {d.cycle.end}
                 </span>
-                <span className="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
-                  <span
-                    className="block h-full rounded-full bg-brand"
-                    style={{ width: `${d.progressPct}%` }}
-                  />
+              </Fact>
+              <Fact label="Poste">
+                <span className="truncate text-[13px] font-medium text-foreground">
+                  {d.context || '—'}
                 </span>
-                <span className="font-mono text-[11px] font-bold text-foreground">
+              </Fact>
+              <Fact label="Production">
+                <span className="font-mono text-[13px] font-bold text-foreground">
+                  {d.stats.find((s) => s.label === 'Qté')?.value ?? '—'}
+                </span>
+                <span className="ml-1 font-mono text-[11px] text-muted-foreground">
+                  {d.stats.find((s) => s.label === 'Temps')?.value ?? ''}
+                </span>
+              </Fact>
+              <Fact label="Avancement">
+                {/* Pas de barre à 0% — juste le % */}
+                <span
+                  className={cn(
+                    'font-mono text-[13px] font-bold',
+                    d.progressPct === 0
+                      ? 'text-muted-foreground'
+                      : d.progressPct >= 95
+                        ? 'text-ferme'
+                        : 'text-foreground'
+                  )}
+                >
                   {d.progressPct}%
                 </span>
-              </div>
+              </Fact>
+            </div>
+
+            {/* Ligne 3 — métadonnées (création, commandes) */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-rule-soft px-5 py-1.5 font-mono text-[10px] text-muted-foreground">
+              <span>
+                Créé {d.createdAt}
+                {d.operator.name !== 'Non assigné' ? ` · ${d.operator.name}` : ''}
+              </span>
+              {commandes.length > 0 && <CommandesRow commandes={commandes} />}
             </div>
 
             {/* Onglets */}
@@ -295,7 +344,6 @@ export function OfDetailSheet(props: {
             <div className="flex-1 overflow-auto px-5 py-3">
               {tab === 'composants' && (
                 <>
-                  {/* Récap ruptures en haut — visible sans scroll */}
                   {d.bomBlocked > 0 && (
                     <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2.5">
                       <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-destructive">
@@ -318,9 +366,6 @@ export function OfDetailSheet(props: {
                     </div>
                   )}
 
-                  {/* Dépendance au contrôle qualité : le stock statut Q compte comme dispo
-                      dans le verdict, mais l'OF n'est pas lançable tant qu'il n'est pas
-                      libéré → l'action est de relancer le contrôle réception. */}
                   {qcRows.length > 0 && (
                     <div className="mb-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5">
                       <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-warning">
@@ -346,7 +391,6 @@ export function OfDetailSheet(props: {
                     </div>
                   )}
 
-                  {/* En-tête table */}
                   <div className="mb-1 flex items-center justify-between">
                     {d.bomBlocked === 0 && d.bom.length > 0 && qcRows.length === 0 && (
                       <div className="flex items-center gap-2 rounded-md bg-ferme/10 px-3 py-1.5 text-[12px] font-medium text-ferme">
@@ -359,75 +403,89 @@ export function OfDetailSheet(props: {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-[1fr_1.7fr_72px_84px_96px] gap-3 border-b bg-secondary px-3 py-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
-                    <span>Article</span>
-                    <span>Désignation</span>
-                    <span className="text-right">Besoin</span>
-                    <span className="text-right">Dispo</span>
-                    <span className="text-right">État</span>
-                  </div>
-
-                  {d.bom.map((row) => (
-                    <div
-                      key={row.id}
-                      className={cn(
-                        'grid grid-cols-[1fr_1.7fr_72px_84px_96px] items-center gap-3 border-b px-3 py-2',
-                        !row.ok
-                          ? 'border-l-2 border-destructive/20 border-l-destructive bg-destructive/10'
-                          : row.qc
-                            ? 'border-l-2 border-warning/20 border-l-warning bg-warning/10'
-                            : 'border-rule-soft'
-                      )}
-                      title={
-                        row.qc
-                          ? `${row.id} — ${row.name}\n${row.qc} sous contrôle qualité : contacter le contrôle réception`
-                          : `${row.id} — ${row.name}`
-                      }
-                    >
-                      <span
-                        className={cn(
-                          'truncate font-mono text-[12px] font-bold',
-                          row.ok ? 'text-foreground' : 'text-destructive'
-                        )}
-                      >
-                        {row.id}
-                      </span>
-                      <span className="truncate text-[12px] text-foreground/80">{row.name}</span>
-                      <span className="text-right font-mono text-[12px] text-foreground">
-                        {row.need} {row.unit}
-                        {row.consumed != null && row.required != null && (
-                          <span
-                            className="ml-1 block font-mono text-[9px] font-normal text-muted-foreground"
-                            title="Conso réelle (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY)"
-                          >
-                            conso {row.consumed}/{row.required}
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-right font-mono text-[12px] text-muted-foreground">
-                        {row.stock}
-                        {row.qc && (
-                          <span className="ml-1 font-semibold text-warning">·Q{row.qc}</span>
-                        )}
-                      </span>
-                      <span className="text-right">
-                        {row.ok ? (
-                          row.qc ? (
-                            <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-warning">
-                              <FlaskConical size={12} strokeWidth={2} />
-                              CQ
-                            </span>
-                          ) : (
-                            <span className="font-bold text-ferme">✓</span>
-                          )
-                        ) : (
-                          <span className="font-mono text-[12px] font-bold text-destructive">
-                            −{row.shortage}
-                          </span>
-                        )}
-                      </span>
+                  <div className="rounded-md border border-rule-soft">
+                    <div className="grid grid-cols-[110px_1fr_120px_140px] items-center gap-4 border-b bg-secondary/50 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>Article</span>
+                      <span>Désignation</span>
+                      <span className="text-right">Besoin</span>
+                      <span className="text-right">Dispo</span>
                     </div>
-                  ))}
+
+                    {/* Tri : ruptures → CQ → OK */}
+                    {[...d.bom]
+                      .sort((a, b) => {
+                        if (!a.ok && b.ok) return -1
+                        if (a.ok && !b.ok) return 1
+                        if (!!a.qc && !b.qc) return -1
+                        if (!a.qc && !!b.qc) return 1
+                        return 0
+                      })
+                      .map((row) => (
+                        <div
+                          key={row.id}
+                          className={cn(
+                            'grid grid-cols-[110px_1fr_120px_140px] items-center gap-4 border-b border-rule-soft px-3 py-2 last:border-0',
+                            !row.ok
+                              ? 'bg-destructive/[0.05]'
+                              : row.qc
+                                ? 'bg-warning/[0.05]'
+                                : 'bg-background'
+                          )}
+                          title={
+                            row.qc
+                              ? `${row.id} — ${row.name}\n${row.qc} sous contrôle qualité : contacter le contrôle réception`
+                              : `${row.id} — ${row.name}`
+                          }
+                        >
+                          <span
+                            className={cn(
+                              'truncate font-mono text-[12px] font-bold',
+                              !row.ok ? 'text-destructive' : 'text-foreground'
+                            )}
+                          >
+                            {row.id}
+                          </span>
+                          <span className="truncate text-[12px] text-foreground/80">
+                            {row.name}
+                          </span>
+                          <div className="text-right font-mono text-[12px]">
+                            <span className="font-bold text-foreground">
+                              {row.need}
+                              <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">
+                                {row.unit}
+                              </span>
+                            </span>
+                            {row.consumed != null && row.required != null && (
+                              <div
+                                className="mt-0.5 font-mono text-[10px] text-muted-foreground"
+                                title="Consommé réel (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY)"
+                              >
+                                consommé {row.consumed}/{row.required}
+                              </div>
+                            )}
+                          </div>
+                          <div
+                            className={cn(
+                              'text-right font-mono text-[12px]',
+                              !row.ok ? 'text-destructive' : 'text-foreground'
+                            )}
+                          >
+                            <span className="font-bold">{row.stock}</span>
+                            {!row.ok ? (
+                              <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-bold text-destructive">
+                                <TriangleAlert size={11} strokeWidth={2.5} />
+                                manque {row.shortage?.replace('−', '')}
+                              </div>
+                            ) : row.qc ? (
+                              <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-semibold text-warning">
+                                <FlaskConical size={11} strokeWidth={2.5} />
+                                dont {row.qc} en CQ
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </>
               )}
 
@@ -456,13 +514,49 @@ export function OfDetailSheet(props: {
   )
 }
 
-function Meta(p: { k: string; v: string; mono?: boolean }) {
+function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
   return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="font-mono text-[10px] font-semibold text-muted-foreground">{p.k}</span>
-      <span className={cn('text-[13px] font-bold text-foreground', p.mono && 'font-mono')}>
-        {p.v}
+    <span className="inline-flex flex-wrap items-baseline gap-1">
+      <span className="mr-1.5 font-semibold text-foreground">
+        Cmd{commandes.length > 1 ? 's' : ''}
       </span>
+      {commandes.map((c) => {
+        const liv = fmtLivraison(c.livraisonIso)
+        const title = [
+          c.numCommande,
+          c.ligne ? `L${c.ligne}` : null,
+          c.client,
+          liv ? `exp. ${liv}` : null,
+          c.method === 'peg' ? 'contremarque' : 'matching',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+        return (
+          <span
+            key={`${c.numCommande}#${c.ligne ?? ''}`}
+            title={title}
+            className="inline-flex items-baseline gap-1 rounded bg-secondary px-1.5 py-0.5"
+          >
+            <span className="font-semibold text-foreground">{c.numCommande}</span>
+            {c.ligne && <span className="text-muted-foreground">L{c.ligne}</span>}
+            {c.client && (
+              <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>
+            )}
+            {liv && <span className="text-muted-foreground">{liv}</span>}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <div className="font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 min-h-[20px]">{children}</div>
     </div>
   )
 }

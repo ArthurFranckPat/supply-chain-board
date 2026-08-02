@@ -7,7 +7,8 @@ import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
-import { TriangleAlert, Download, LoaderCircle, CircleX } from 'lucide-react'
+import { TriangleAlert, Download, CircleX } from 'lucide-react'
+import { Spinner } from '@r/components/ui/spinner'
 
 /**
  * Terrain de test du write-back X3 (issue #29).
@@ -23,14 +24,7 @@ import { TriangleAlert, Download, LoaderCircle, CircleX } from 'lucide-react'
  * Port depuis inertia/pages/writeback-test.tsx (SolidJS).
  */
 
-type Op =
-  | 'describe'
-  | 'read'
-  | 'save'
-  | 'modify'
-  | 'delete'
-  | 'list'
-  | 'run'
+type Op = 'describe' | 'read' | 'save' | 'modify' | 'delete' | 'list' | 'run'
 
 interface ObjectMessage {
   type: number // 1=erreur, 2=warning, 3=info
@@ -173,14 +167,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
       setLoading(true)
       setFetchErr('')
       try {
-        const r = await execOp(
-          op,
-          object.trim(),
-          keys.trim(),
-          objectXml,
-          queryXml,
-          listSize
-        )
+        const r = await execOp(op, object.trim(), keys.trim(), objectXml, queryXml, listSize)
         setResult(r)
       } catch (err) {
         setFetchErr((err as Error).message)
@@ -207,9 +194,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
     async (e: React.FormEvent) => {
       e.preventDefault()
       if (!keys.trim()) {
-        setFetchErr(
-          "Renseigne d'abord une clé pour le read (ex. BPCNUM:C001)."
-        )
+        setFetchErr("Renseigne d'abord une clé pour le read (ex. BPCNUM:C001).")
         return
       }
       setLoading(true)
@@ -227,15 +212,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
     [keys, object]
   )
 
-  const OP_OPTIONS: Op[] = [
-    'describe',
-    'read',
-    'list',
-    'save',
-    'modify',
-    'delete',
-    'run',
-  ]
+  const OP_OPTIONS: Op[] = ['describe', 'read', 'list', 'save', 'modify', 'delete', 'run']
 
   const getOpIcon = (opType: Op): string => {
     switch (opType) {
@@ -295,10 +272,9 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
             <div className="flex items-center gap-2 rounded-md bg-warning/10 px-4 py-2.5 text-[12px] text-warning">
               <TriangleAlert size={16} />
               <span>
-                Save / Modify <strong>écrivent dans X3</strong> via la couche objet
-                (validations + transactions applicatives). Cible
-                l'environnement <strong>TEST</strong> : connecte-toi avec{' '}
-                <code>env=test</code> avant de tester.
+                Save / Modify <strong>écrivent dans X3</strong> via la couche objet (validations +
+                transactions applicatives). Cible l'environnement <strong>TEST</strong> :
+                connecte-toi avec <code>env=test</code> avant de tester.
               </span>
             </div>
 
@@ -324,8 +300,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
               ))}
               {result && (
                 <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                  env cible :{' '}
-                  <span className="font-bold text-foreground">{result.env}</span>
+                  env cible : <span className="font-bold text-foreground">{result.env}</span>
                 </span>
               )}
             </div>
@@ -378,10 +353,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
                         value={listSize}
                         onChange={(e) =>
                           setListSize(
-                            Math.min(
-                              500,
-                              Math.max(1, parseInt(e.currentTarget.value) || 50)
-                            )
+                            Math.min(500, Math.max(1, parseInt(e.currentTarget.value) || 50))
                           )
                         }
                       />
@@ -398,8 +370,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
                       onChange={(e) => setQueryXml(e.currentTarget.value)}
                     />
                     <span className="font-mono text-[10px] text-muted-foreground">
-                      Ex. CBD :{' '}
-                      <code>{'<PARAM><FLD NAME="ITMREF">PP830</FLD></PARAM>'}</code>
+                      Ex. CBD : <code>{'<PARAM><FLD NAME="ITMREF">PP830</FLD></PARAM>'}</code>
                     </span>
                   </div>
                 </>
@@ -431,8 +402,8 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
                     onChange={(e) => setObjectXml(e.currentTarget.value)}
                   />
                   <span className="font-mono text-[10px] text-muted-foreground">
-                    Astuce : Read sur un enregistrement existant → copier le XML
-                    renvoyé ici → modifier les valeurs.
+                    Astuce : Read sur un enregistrement existant → copier le XML renvoyé ici →
+                    modifier les valeurs.
                   </span>
                 </div>
               )}
@@ -444,7 +415,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
                 </Button>
                 {loading && (
                   <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                    <LoaderCircle size={16} className="animate-spin" />
+                    <Spinner size="sm" />
                     En cours…
                   </span>
                 )}
@@ -494,9 +465,7 @@ export default function WritebackTest({ firmSubprog }: { firmSubprog: string }) 
                           MSG_STYLE[msg.type] ?? MSG_STYLE[3]
                         )}
                       >
-                        <span className="font-bold">
-                          [{MSG_LABEL[msg.type] ?? msg.type}]
-                        </span>{' '}
+                        <span className="font-bold">[{MSG_LABEL[msg.type] ?? msg.type}]</span>{' '}
                         {msg.text}
                       </div>
                     ))}
