@@ -14,7 +14,7 @@ import { cn } from '@r/lib/utils'
 /** Vue file quai : décision, pré-alerte, carnet — densité type manifeste. */
 export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
   const [selectedDay, setSelectedDay] = useState<DayCharge | null>(null)
-  const [showDeferred, setShowDeferred] = useState(false)
+  const [sheetList, setSheetList] = useState<'none' | 'deferred' | 'retard'>('none')
   const [detailOpen, setDetailOpen] = useState(false)
 
   const decision = forecast.days.filter((day) => day.band === 'decision')
@@ -23,17 +23,28 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
     forecast.capaciteJour,
     ...forecast.days.map((day) => day.available),
     ...forecast.weeks.map((week) => week.carnetPalettes),
+    forecast.retardPalettes,
     1
   )
   const spotTrucks = forecast.days.reduce((sum, day) => sum + day.nbCamionsSpot, 0)
+  const saturedDays = forecast.days.filter((day) => day.spotSature).length
   const activeClosures = forecast.plantClosures.filter(
     (closure) => closure.to >= forecast.from && closure.from <= forecast.to
   )
   const hasCharge = forecast.days.some((day) => day.available > 0)
+  // La bande décision commence au premier jour ouvré, pas à J : pendant les
+  // congès, afficher « 02/08 → 20/08 » laissait croire à une décision à J−2.
+  const decisionFrom = decision[0]?.date ?? forecast.firstWorkingDay ?? forecast.from
 
   const openDay = (day: DayCharge) => {
     setSelectedDay(day)
-    setShowDeferred(false)
+    setSheetList('none')
+    setDetailOpen(true)
+  }
+
+  const openList = (which: 'deferred' | 'retard') => {
+    setSelectedDay(null)
+    setSheetList(which)
     setDetailOpen(true)
   }
 
@@ -47,10 +58,17 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
             · {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes}/j
           </span>
         </span>
+        <span title="Cadence de sortie atelier retenue par le portillon de production">
+          Atelier · <b className="text-foreground">{fmtPal(forecast.productionDailyCapacity)}</b>{' '}
+          pal/j
+        </span>
         {spotTrucks > 0 ? (
           <span className="flex items-center gap-1 font-bold text-destructive">
             <TriangleAlert size={12} strokeWidth={1.75} />
             {spotTrucks} camion{spotTrucks > 1 ? 's' : ''} spot
+            <span className="font-normal text-muted-foreground">
+              (max {forecast.maxSpotTrucks}/j)
+            </span>
           </span>
         ) : hasCharge ? (
           <span className="text-ferme">Sous capacité navette</span>
@@ -88,6 +106,19 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
         </div>
       ))}
 
+      {saturedDays > 0 && (
+        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/5 px-7 py-2 font-mono text-[11px] text-foreground">
+          <TriangleAlert size={13} strokeWidth={1.75} className="text-destructive" />
+          <span>
+            <b>
+              {saturedDays} jour{saturedDays > 1 ? 's' : ''}
+            </b>{' '}
+            au-delà de {forecast.maxSpotTrucks} camions spot — ce n&apos;est plus une commande
+            transport, c&apos;est un arriéré. Le surplus reste en file.
+          </span>
+        </div>
+      )}
+
       {forecast.nonQuantifiableLines > 0 && (
         <div className="flex flex-none items-center gap-2 border-b border-warning/25 bg-warning/5 px-7 py-2 font-mono text-[10px] text-warning">
           <TriangleAlert size={13} strokeWidth={1.75} />
@@ -100,7 +131,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
         <section className="mb-4">
           <SectionHead
             title="Décision"
-            hint={`préavis 48 h · ${fmtJour(forecast.from)} → ${fmtJour(forecast.decisionTo)}`}
+            hint={`préavis 48 h · ${fmtJour(decisionFrom)} → ${fmtJour(forecast.decisionTo)}`}
             tone="decision"
           />
           <DayTable days={decision} peak={peak} onOpen={openDay} empty="Aucun jour ouvré." />
@@ -121,17 +152,22 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
         </section>
 
         <section className="mb-4">
-          <SectionHead title="Carnet" hint="S+1 → S+6 · date livraison" tone="weekly" />
-          <WeekTable weeks={forecast.weeks} peak={peak} />
+          <SectionHead
+            title="Carnet"
+            hint="S+1 → S+6 · date livraison · net de la bande jour"
+            tone="weekly"
+          />
+          <WeekTable
+            weeks={forecast.weeks}
+            peak={peak}
+            retardPalettes={forecast.retardPalettes}
+            onOpenRetard={() => openList('retard')}
+          />
         </section>
 
         <button
           type="button"
-          onClick={() => {
-            setSelectedDay(null)
-            setShowDeferred(true)
-            setDetailOpen(true)
-          }}
+          onClick={() => openList('deferred')}
           className={cn(
             'flex w-full items-center gap-3 border px-3.5 py-2.5 text-left transition-colors',
             forecast.deferred.length > 0
@@ -141,12 +177,12 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
         >
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Hors file jour
+              Hors horizon jour
             </div>
             <div className="truncate text-[12px] font-medium text-foreground">
               {forecast.deferred.length === 0
                 ? 'Aucun reliquat sans date'
-                : `${forecast.deferred.length} ligne${forecast.deferred.length > 1 ? 's' : ''} à qualifier`}
+                : `${forecast.deferred.length} ligne${forecast.deferred.length > 1 ? 's' : ''} — sans date, ou au-delà de la cadence atelier sur l'horizon`}
             </div>
           </div>
           <div className="font-mono text-[13px] font-bold tabular-nums text-destructive">
@@ -156,8 +192,20 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
       </div>
 
       <JourDetailSheet
-        day={showDeferred ? null : selectedDay}
-        deferred={showDeferred ? forecast.deferred : null}
+        day={sheetList === 'none' ? selectedDay : null}
+        deferred={
+          sheetList === 'retard'
+            ? forecast.retardLines
+            : sheetList === 'deferred'
+              ? forecast.deferred
+              : null
+        }
+        deferredTitle={sheetList === 'retard' ? 'Carnet en retard' : undefined}
+        deferredHint={
+          sheetList === 'retard'
+            ? 'Lignes dont la date de livraison est déjà passée et que la bande jour n’a pas absorbées.'
+            : undefined
+        }
         camionCapacitePalettes={forecast.camionCapacitePalettes}
         open={detailOpen}
         onOpenChange={setDetailOpen}
@@ -290,17 +338,34 @@ function DayRow({ day, peak, onClick }: { day: DayCharge; peak: number; onClick:
       </span>
       <span
         className={cn(
-          'text-right font-mono text-[11px] font-bold tabular-nums',
+          'text-right font-mono text-[11px] font-bold tabular-nums leading-tight',
           day.spot ? 'text-destructive' : 'text-muted-foreground'
         )}
       >
         {day.spot ? `${day.nbCamionsSpot} cam.` : '—'}
+        {/* Le besoin non affrétable n'est pas un camion de plus : c'est de
+            l'arriéré. On l'écrit, on ne le fond pas dans le compte. */}
+        {day.spotSature && (
+          <span className="block font-normal text-[9px] text-destructive/80">
+            arriéré {fmtPal(day.fileAfter)}
+          </span>
+        )}
       </span>
     </button>
   )
 }
 
-function WeekTable({ weeks, peak }: { weeks: WeekCharge[]; peak: number }) {
+function WeekTable({
+  weeks,
+  peak,
+  retardPalettes,
+  onOpenRetard,
+}: {
+  weeks: WeekCharge[]
+  peak: number
+  retardPalettes: number
+  onOpenRetard: () => void
+}) {
   return (
     <div className="overflow-hidden border border-rule bg-card">
       <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_5rem_5rem_5rem] gap-2 border-b border-rule-soft bg-secondary/60 px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
@@ -310,6 +375,35 @@ function WeekTable({ weeks, peak }: { weeks: WeekCharge[]; peak: number }) {
         <span className="text-right">Capacité</span>
         <span className="text-right">Écart</span>
       </div>
+      {/* Le carnet à échéance dépassée n'appartient à aucune semaine à venir.
+          Sans cette ligne, il disparaissait purement de l'écran. */}
+      {retardPalettes > 0 && (
+        <button
+          type="button"
+          onClick={onOpenRetard}
+          className="grid w-full grid-cols-[7.5rem_minmax(0,1fr)_5rem_5rem_5rem] items-center gap-2 border-t border-rule-soft bg-destructive/[0.04] px-3 py-2 text-left transition-colors hover:bg-destructive/[0.08]"
+        >
+          <div className="min-w-0">
+            <div className="font-mono text-[11px] font-bold text-destructive">Retard</div>
+            <div className="font-mono text-[9px] text-muted-foreground">échéance dépassée</div>
+          </div>
+          <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
+            <div
+              className="absolute inset-y-0 left-0 bg-destructive"
+              style={{ width: `${Math.min(100, (retardPalettes / peak) * 100)}%` }}
+            />
+          </div>
+          <span className="text-right font-mono text-[12px] font-bold tabular-nums text-destructive">
+            {fmtPal(retardPalettes)}
+          </span>
+          <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
+            —
+          </span>
+          <span className="text-right font-mono text-[11px] font-bold tabular-nums text-destructive">
+            à rattraper
+          </span>
+        </button>
+      )}
       {weeks.map((week) => {
         const pct = Math.min(100, (week.carnetPalettes / peak) * 100)
         const capPct = Math.min(100, (week.capacite / peak) * 100)

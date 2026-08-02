@@ -41,13 +41,20 @@ export interface DayCharge {
   offset: number
   fileBefore: number
   entries: number
+  /** Part des entrées sortie de l'atelier ce jour. */
+  entriesProduites: number
   available: number
   loaded: number
+  loadedSpot: number
   fileAfter: number
   capaciteJour: number
   deltaVsCapacite: number
   spot: boolean
+  /** Camions à commander, plafonnés par ce qui est affrétable en un jour. */
   nbCamionsSpot: number
+  /** Ce qu'il faudrait sans plafond : mesure de l'arriéré, pas une commande. */
+  nbCamionsSpotTheorique: number
+  spotSature: boolean
   spotPalettes: number
   /** Charge du jour = chargé + overflow (spot / report). */
   lignes: ForecastLine[]
@@ -86,10 +93,16 @@ export interface ExpeditionForecast {
   capaciteJour: number
   nbDepartsQuotidiens: number
   camionCapacitePalettes: number
+  /** Cadence atelier retenue, en équivalent-palettes par jour ouvré. */
+  productionDailyCapacity: number
+  maxSpotTrucks: number
   initialQueuePalettes: number
   loadedTodayPalettes: number
   days: DayCharge[]
   weeks: WeekCharge[]
+  /** Carnet à échéance dépassée que la bande jour n'a pas absorbé. */
+  retardPalettes: number
+  retardLines: ForecastLine[]
   deferred: ForecastLine[]
   deferredPalettes: number
   nonQuantifiableLines: number

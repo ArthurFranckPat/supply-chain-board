@@ -111,19 +111,25 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(monday.fileAfter, 0)
   })
 
-  test('un pic de reprise ne cascade pas des spots sur les jours suivants', ({ assert }) => {
+  test('le besoin au-delà du plafond est un arriéré, pas une flotte de camions', ({ assert }) => {
     const forecast = build({
-      lines: [line({ orderedOpenQuantity: 2000, segments: [] })],
-      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 2000, source: 'quai' }],
-      dailyHorizonDays: 4,
+      lines: [line({ orderedOpenQuantity: 10_000, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 8980, source: 'quai' }],
+      maxSpotTrucks: 3,
+      dailyHorizonDays: 2,
     })
-    // 200 pal dispo → ceil((200-66)/33) = 5 spots le jour 1, file vidée, jours suivants à 0.
-    assert.equal(forecast.days[0]!.available, 200)
-    assert.equal(forecast.days[0]!.nbCamionsSpot, 5)
-    assert.equal(forecast.days[0]!.fileAfter, 0)
-    assert.equal(forecast.days[1]!.available, 0)
-    assert.equal(forecast.days[1]!.nbCamionsSpot, 0)
-    assert.equal(forecast.days[2]!.nbCamionsSpot, 0)
+    const jour1 = forecast.days[0]!
+    // 898 pal au quai → il en «faudrait» 26 : ce chiffre décrit l'arriéré, il ne
+    // s'affrète pas. On commande 3 camions et on assume la file restante.
+    assert.equal(jour1.available, 898)
+    assert.equal(jour1.nbCamionsSpotTheorique, 26)
+    assert.equal(jour1.nbCamionsSpot, 3)
+    assert.isTrue(jour1.spotSature)
+    assert.equal(jour1.loaded, 66)
+    assert.equal(jour1.loadedSpot, 99)
+    assert.equal(jour1.fileAfter, 733)
+    // L'arriéré ne s'évapore pas d'un jour à l'autre.
+    assert.equal(forecast.days[1]!.fileBefore, 733)
   })
 
   test('le KPI file quai ne compte que le stock matché à une commande ouverte', ({ assert }) => {
@@ -214,6 +220,79 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(forecast.days[0]!.lignes[0]!.numCommande, 'SUIVANTE')
     assert.equal(forecast.deferred[0]!.numCommande, 'BLOQUEE')
   })
+
+  test("l'allocation ERP ne se cumule pas avec le stock quai du même article", ({ assert }) => {
+    const forecast = build({
+      lines: [
+        line({
+          numCommande: 'ALLOUEE',
+          orderedOpenQuantity: 500,
+          segments: [segment({ quantity: 500, source: 'stock', confidence: 'constatee' })],
+        }),
+        line({ numCommande: 'AUTRE', orderedOpenQuantity: 500, segments: [] }),
+      ],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 800, source: 'quai' }],
+      maxSpotTrucks: 0,
+      dailyHorizonDays: 1,
+    })
+    // 80 pal au quai dont 50 déjà allouées : seules 30 sont redistribuables.
+    assert.equal(forecast.initialQueuePalettes, 30)
+    assert.equal(forecast.days[0]!.available, 80)
+  })
+})
+
+test.group('expedition_forecast — portillon de production', () => {
+  test('étale les OF fermes à la cadence atelier au lieu de tout poser le jour 1', ({ assert }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 3000, segments: [segment({ quantity: 3000 })] })],
+      productionDailyCapacity: 66,
+      dailyHorizonDays: 4,
+    })
+    // 300 pal à fabriquer : l'atelier n'en sort que 66 par jour ouvré.
+    assert.equal(forecast.days[0]!.entries, 66)
+    assert.equal(forecast.days[0]!.entriesProduites, 66)
+    assert.equal(forecast.days[0]!.available, 66)
+    assert.isFalse(forecast.days[0]!.spot)
+    assert.equal(forecast.days[3]!.entries, 66)
+    // 300 − 4 × 66 : ce qui déborde de l'horizon reste visible, pas absorbé.
+    assert.equal(Math.round(forecast.deferredPalettes), 36)
+  })
+
+  test('une palette déjà au quai ne repasse pas par le portillon', ({ assert }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 3000, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 2000, source: 'quai' }],
+      productionDailyCapacity: 66,
+      maxSpotTrucks: 0,
+      dailyHorizonDays: 2,
+    })
+    assert.equal(forecast.days[0]!.entries, 200)
+    assert.equal(forecast.days[0]!.entriesProduites, 0)
+  })
+
+  test('la reprise après congès ne concentre plus tout le carnet sur un jour', ({ assert }) => {
+    const closed = new Set<string>()
+    for (let i = 0; i < 14; i++) {
+      const d = new Date('2026-08-03T00:00:00Z')
+      d.setUTCDate(d.getUTCDate() + i)
+      closed.add(d.toISOString().slice(0, 10))
+    }
+    const forecast = build({
+      today: '2026-08-02',
+      closedDays: closed,
+      dailyHorizonDays: 4,
+      productionDailyCapacity: 66,
+      maxSpotTrucks: 3,
+      lines: [line({ orderedOpenQuantity: 8980, segments: [segment({ quantity: 8980 })] })],
+    })
+    const reprise = forecast.days[0]!
+    assert.equal(reprise.date, '2026-08-17')
+    // 898 pal de carnet, mais l'atelier redémarre à 66/j : plus de 26 camions.
+    assert.equal(reprise.available, 66)
+    assert.equal(reprise.nbCamionsSpot, 0)
+    assert.isFalse(reprise.spotSature)
+    assert.equal(forecast.days[3]!.available, 66)
+  })
 })
 
 test.group('expedition_forecast — bandes hebdomadaires', () => {
@@ -235,6 +314,42 @@ test.group('expedition_forecast — bandes hebdomadaires', () => {
     assert.equal(week.capacite, 250)
     assert.equal(week.chargePlafonnee, 250)
     assert.equal(week.nbCamionsSpot, 5)
+  })
+
+  test('le carnet à échéance dépassée sort en retard au lieu de disparaître', ({ assert }) => {
+    const forecast = build({
+      lines: [
+        line({
+          numCommande: 'RETARD',
+          dateLivraison: '2026-07-20',
+          segments: [segment({ quantity: 100, weeklyOnly: true, date: null, source: 'ctp' })],
+        }),
+      ],
+      dailyHorizonDays: 1,
+    })
+    // Antérieure à la première semaine de l'horizon : sans seau dédié, cette
+    // ligne n'appartenait à aucune semaine et le retard quittait l'écran.
+    assert.equal(forecast.retardPalettes, 10)
+    assert.equal(forecast.retardLines[0]!.numCommande, 'RETARD')
+    assert.isTrue(forecast.weeks.every((week) => week.carnetPalettes === 0))
+  })
+
+  test('la semaine ne recompte pas ce que la bande jour a déjà chargé', ({ assert }) => {
+    const forecast = build({
+      lines: [
+        line({
+          orderedOpenQuantity: 1000,
+          dateLivraison: '2026-08-12',
+          segments: [segment({ quantity: 1000 })],
+        }),
+      ],
+      maxSpotTrucks: 0,
+      dailyHorizonDays: 2,
+    })
+    // 100 pal entièrement emportées par les navettes sur 2 jours : la semaine de
+    // livraison n'a plus rien à annoncer.
+    assert.equal(forecast.days[0]!.loaded + forecast.days[1]!.loaded, 100)
+    assert.equal(forecast.weeks[0]!.carnetPalettes, 0)
   })
 
   test('signale les lignes sans coef sans les transformer en zéro silencieux', ({ assert }) => {

@@ -4,6 +4,18 @@
  * Ce module est volontairement pur. Il ne connaît ni ORDERS ni STOCK : le loader
  * transforme les sources ERP en lignes de commande et en entrées de file, puis ce
  * moteur simule la vidange FIFO par journées ouvrées.
+ *
+ * Le modèle a DEUX étages, pas un :
+ *
+ *   1. le portillon de production — un OF n'entre pas dans la file du quai à la
+ *      date où on le regarde, mais à la date où l'atelier peut l'avoir fabriqué.
+ *      Le rang de séquencement (`sequence`) devient une date en drainant une
+ *      cadence journalière ;
+ *   2. la file du quai — vidée par les deux navettes, puis par les camions spot
+ *      réellement affrétables.
+ *
+ * Sans le premier étage, tout OF ferme du carnet devenait disponible le jour 1 :
+ * 898 pal et 26 camions spot sur une seule journée de reprise après les congès.
  */
 
 import { calcVolumes, type VolumeCoef } from '#repositories/expedition_repository'
@@ -107,17 +119,25 @@ export interface DayCharge {
   fileBefore: number
   /** Entrées nouvelles dans la file ce jour. */
   entries: number
+  /** Part des entrées sortie de l'atelier ce jour (portillon de production). */
+  entriesProduites: number
   /** Volume disponible avant les deux départs du jour. */
   available: number
   /** Volume effectivement chargé par les navettes régulières. */
   loaded: number
+  /** Volume emporté par les camions spot réellement affrétables. */
+  loadedSpot: number
   /** File reportée au jour ouvré suivant. */
   fileAfter: number
   capaciteJour: number
   deltaVsCapacite: number
   spot: boolean
-  /** Nombre entier de camions spot à demander, jamais un simple delta. */
+  /** Camions spot à demander, plafonnés par ce qui est affrétable en un jour. */
   nbCamionsSpot: number
+  /** Camions qu'il faudrait sans plafond — mesure de l'arriéré, pas une commande. */
+  nbCamionsSpotTheorique: number
+  /** Le besoin dépasse le nombre de spots affrétables : c'est un arriéré. */
+  spotSature: boolean
   /** Équivalent-palettes au-delà des deux navettes. */
   spotPalettes: number
   /**
@@ -131,7 +151,11 @@ export interface WeekCharge {
   key: string
   from: string
   to: string
-  /** Carnet 80001 réparti selon la date de livraison, uniquement à cette maille. */
+  /**
+   * Carnet 80001 réparti selon la date de livraison, uniquement à cette maille,
+   * NET de ce que la bande jour a déjà chargé — sinon les deux bandes comptent
+   * deux fois les mêmes palettes sur leur période commune.
+   */
   carnetPalettes: number
   /** Capacité de départs sur les jours ouvrés de la semaine. */
   capaciteTransport: number
@@ -167,10 +191,21 @@ export interface ExpeditionForecast {
   capaciteJour: number
   nbDepartsQuotidiens: number
   camionCapacitePalettes: number
+  /** Cadence de sortie atelier retenue, en équivalent-palettes par jour ouvré. */
+  productionDailyCapacity: number
+  /** Plafond de camions spot affrétables en une journée. */
+  maxSpotTrucks: number
   initialQueuePalettes: number
   loadedTodayPalettes: number
   days: DayCharge[]
   weeks: WeekCharge[]
+  /**
+   * Carnet dont la date de livraison est déjà passée et que la bande jour n'a pas
+   * absorbé. Sans ce seau, ces lignes n'appartenaient à aucune semaine et le
+   * retard disparaissait de l'écran.
+   */
+  retardPalettes: number
+  retardLines: ForecastLine[]
   /** Portions sans date exploitable ou non visibles à la maille jour. */
   deferred: ForecastLine[]
   deferredPalettes: number
@@ -199,6 +234,18 @@ export interface BuildForecastOptions {
   closedDays?: Set<string>
   /** Capacité production hebdomadaire déjà normalisée en équivalent-palettes. */
   productionWeeklyCapacity?: number
+  /**
+   * Cadence de sortie atelier par jour ouvré, en équivalent-palettes. C'est le
+   * portillon : un OF ferme n'entre dans la file qu'une fois fabriqué. Absente
+   * ou nulle, la production est réputée infinie et la file redevient un tas.
+   */
+  productionDailyCapacity?: number
+  /**
+   * Camions spot affrétables en une journée. Au-delà, annoncer « 26 camions »
+   * n'est pas une commande transport mais un arriéré de production : le surplus
+   * reste dans la file et le jour est marqué saturé.
+   */
+  maxSpotTrucks?: number
   plantClosures?: PlantClosureRange[]
 }
 
@@ -216,7 +263,12 @@ interface QueueToken {
   segment: AvailabilitySegment
   quantity: number
   palettes: number
+  /** Date d'entrée dans la file du quai, après passage du portillon production. */
   availabilityDate: string
+  /** Date au plus tôt avant le portillon : stock présent, ou composant arrivé. */
+  earliestDate: string
+  /** Doit encore sortir de l'atelier : consomme la cadence journalière. */
+  needsProduction: boolean
   priority: number
 }
 
@@ -281,6 +333,14 @@ function weekKey(iso: string): string {
   const yearStart = Date.UTC(date.getUTCFullYear(), 0, 1)
   const week = Math.ceil(((date.getTime() - yearStart) / 86_400_000 + 1) / 7)
   return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+}
+
+/**
+ * Une palette déjà fabriquée n'a pas à repasser par l'atelier. Tout le reste —
+ * OF lancé compris, il lui reste des pointages — consomme la cadence du jour.
+ */
+function isPhysical(source: AvailabilitySource): boolean {
+  return source === 'stock' || source === 'quai' || source === 'stock_production'
 }
 
 function sourceRank(source: AvailabilitySource): number {
@@ -465,6 +525,20 @@ function materializeLines(
     }
   }
 
+  // Une allocation ERP porte déjà sur des palettes physiques — souvent celles du
+  // quai. Sans cette déduction, le même stock servait deux fois : une fois via la
+  // ligne allouée, une fois redistribué à une autre ligne du même article.
+  for (const line of materialized) {
+    for (const segment of line.segments) {
+      if (segment.source !== 'stock') continue
+      const stock = stockByArticle.get(line.source.article)
+      if (!stock) continue
+      const palettes = volumeFor(segment.quantity, line.source.article, volumes)
+      if (palettes === null || palettes <= 0) continue
+      stock.palettes = Math.max(0, stock.palettes - palettes)
+    }
+  }
+
   const remainingByArticle = new Map<string, MaterializedLine[]>()
   for (const line of materialized) {
     const explicitQuantity = line.segments.reduce((sum, segment) => sum + segment.quantity, 0)
@@ -529,21 +603,92 @@ function buildToken(
   volumes: Map<string, VolumeCoef>
 ): QueueToken | null {
   if (segment.weeklyOnly || !segment.date) return null
-  const availabilityDate = normalizeEntryDate(segment.date, dailyDates)
-  if (!availabilityDate) return null
+  const normalized = normalizeEntryDate(segment.date, dailyDates)
+  if (!normalized) return null
   const palettes = volumeFor(segment.quantity, line.source.article, volumes)
   if (palettes === null || palettes <= EPSILON) return null
+  // Rien ne peut entrer avant la première journée ouvrée : ni une palette déjà
+  // au quai, ni un OF. Le recalage sur `firstDay` est donc légitime — ce qui ne
+  // l'était pas, c'était de s'y arrêter, sans faire passer les OF par l'atelier.
+  const earliestDate = normalized < firstDay ? firstDay : normalized
   return {
     line,
     segment,
     quantity: segment.quantity,
     palettes,
-    availabilityDate: availabilityDate < firstDay ? firstDay : availabilityDate,
+    availabilityDate: earliestDate,
+    earliestDate,
+    needsProduction: !isPhysical(segment.source),
     priority: line.priority,
   }
 }
 
-function makeWeekLine(line: MaterializedLine, volumes: Map<string, VolumeCoef>): ForecastLine {
+/**
+ * Portillon de production : transforme le rang de séquencement en date.
+ *
+ * Les tokens à fabriquer sont servis dans l'ordre du séquenceur (source, rang
+ * ferme, ancienneté commande) contre une cadence journalière. Un token plus gros
+ * que la cadence est fractionné sur plusieurs jours ; ce qui déborde de l'horizon
+ * n'est pas planifié et retombe dans `deferred`.
+ *
+ * La file de production n'est pas bloquante (règle métier verrouillée) : un token
+ * qui ne trouve pas de place un jour donné n'empêche pas le suivant d'en trouver
+ * une, puisque chacun repart du premier jour ouvré où il reste de la capacité.
+ */
+function scheduleProduction(
+  tokens: QueueToken[],
+  dailyDates: string[],
+  dailyCapacity: number
+): QueueToken[] {
+  if (!Number.isFinite(dailyCapacity) || dailyCapacity <= 0) return tokens
+  const ordered = [...tokens].sort(
+    (a, b) =>
+      a.earliestDate.localeCompare(b.earliestDate) ||
+      sourceRank(a.segment.source) - sourceRank(b.segment.source) ||
+      (a.segment.sequence ?? Number.MAX_SAFE_INTEGER) -
+        (b.segment.sequence ?? Number.MAX_SAFE_INTEGER) ||
+      a.priority - b.priority ||
+      a.line.key.localeCompare(b.line.key)
+  )
+  const capacityLeft = new Map(dailyDates.map((date) => [date, dailyCapacity]))
+  const out: QueueToken[] = []
+  for (const token of ordered) {
+    let index = dailyDates.indexOf(token.earliestDate)
+    if (index < 0) {
+      out.push(token)
+      continue
+    }
+    let remaining = token.palettes
+    let quantityLeft = token.quantity
+    while (remaining > EPSILON && index < dailyDates.length) {
+      const date = dailyDates[index]!
+      const left = capacityLeft.get(date) ?? 0
+      if (left <= EPSILON) {
+        index++
+        continue
+      }
+      const take = Math.min(left, remaining)
+      const ratio = token.palettes > EPSILON ? take / token.palettes : 0
+      const quantity = Math.min(quantityLeft, token.quantity * ratio)
+      out.push({ ...token, palettes: take, quantity, availabilityDate: date })
+      capacityLeft.set(date, left - take)
+      remaining -= take
+      quantityLeft -= quantity
+      if (left - take <= EPSILON) index++
+    }
+  }
+  return out
+}
+
+/**
+ * Ligne à la maille semaine, ramenée au reliquat `palettes` restant après la
+ * bande jour (`null` = ligne non chiffrable, affichée sans volume).
+ */
+function makeWeekLine(
+  line: MaterializedLine,
+  palettes: number | null,
+  volumes: Map<string, VolumeCoef>
+): ForecastLine {
   const segment = line.segments.find((candidate) => candidate.source === 'ctp') ??
     line.segments.find((candidate) => !candidate.weeklyOnly) ??
     line.segments[0] ?? {
@@ -554,11 +699,15 @@ function makeWeekLine(line: MaterializedLine, volumes: Map<string, VolumeCoef>):
       cause: 'Aucune source de disponibilité datée',
       weeklyOnly: true,
     }
+  const ratio =
+    palettes !== null && line.totalPalettes !== null && line.totalPalettes > EPSILON
+      ? palettes / line.totalPalettes
+      : 1
   return makeLine(
     line.source,
     segment,
-    line.source.orderedOpenQuantity,
-    line.totalPalettes,
+    line.source.orderedOpenQuantity * ratio,
+    palettes,
     null,
     volumes
   )
@@ -593,15 +742,30 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     firstDay
   )
 
-  const byDate = new Map<string, QueueToken[]>()
+  const productionDailyCapacity =
+    opts.productionDailyCapacity && opts.productionDailyCapacity > 0
+      ? opts.productionDailyCapacity
+      : Number.POSITIVE_INFINITY
+  const maxSpotTrucks = Math.max(0, opts.maxSpotTrucks ?? Number.POSITIVE_INFINITY)
+
+  const physicalTokens: QueueToken[] = []
+  const productionTokens: QueueToken[] = []
   for (const line of lines) {
     for (const segment of line.segments) {
       const token = buildToken(line, segment, firstDay, dailyDates, opts.volumes)
       if (!token) continue
-      const list = byDate.get(token.availabilityDate) ?? []
-      list.push(token)
-      byDate.set(token.availabilityDate, list)
+      ;(token.needsProduction ? productionTokens : physicalTokens).push(token)
     }
+  }
+
+  const byDate = new Map<string, QueueToken[]>()
+  for (const token of [
+    ...physicalTokens,
+    ...scheduleProduction(productionTokens, dailyDates, productionDailyCapacity),
+  ]) {
+    const list = byDate.get(token.availabilityDate) ?? []
+    list.push(token)
+    byDate.set(token.availabilityDate, list)
   }
 
   const queue: QueueToken[] = []
@@ -620,13 +784,22 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     const fileBefore = queue.reduce((sum, token) => sum + token.palettes, 0)
     queue.push(...entries)
     const entriesPalettes = entries.reduce((sum, token) => sum + token.palettes, 0)
+    const entriesProduites = entries.reduce(
+      (sum, token) => sum + (token.needsProduction ? token.palettes : 0),
+      0
+    )
     const available = fileBefore + entriesPalettes
     const deltaVsCapacite = available - opts.capaciteJour
     const spotPalettes = Math.max(0, deltaVsCapacite)
-    const nbCamionsSpot =
+    const nbCamionsSpotTheorique =
       spotPalettes > EPSILON && opts.camionCapacitePalettes > 0
         ? Math.ceil(spotPalettes / opts.camionCapacitePalettes)
         : 0
+    // Au-delà du plafond, le chiffre n'est plus une commande transport : c'est
+    // un arriéré. On affrète ce qui est affrétable, le reste reste dans la file
+    // et le jour est marqué saturé — jamais absorbé en silence.
+    const nbCamionsSpot = Math.min(nbCamionsSpotTheorique, maxSpotTrucks)
+    const spotSature = nbCamionsSpotTheorique > nbCamionsSpot
 
     const drainQueue = (capacity: number, status: 'loaded' | 'overflow'): ForecastLine[] => {
       let capacityLeft = Math.max(0, capacity)
@@ -648,13 +821,14 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       return out
     }
 
-    // Navettes d'abord, puis les camions spot annoncés — sinon la file reporte le
-    // même tas et chaque jour recomptabilise des spots déjà « demandés » la veille
-    // (26 + 24 + 22… pour un seul pic de reprise).
+    // Navettes d'abord, puis les seuls camions spot réellement affrétés — sinon
+    // le même tas reporte à J+1, J+2 et chaque jour recomptabilise des spots déjà
+    // « demandés » la veille (26 + 24 + 22… pour un seul pic de reprise).
     const loadedLines = drainQueue(opts.capaciteJour, 'loaded')
     const spotLines = drainQueue(nbCamionsSpot * opts.camionCapacitePalettes, 'overflow')
 
     const loaded = loadedLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
+    const loadedSpot = spotLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
     const fileAfter = queue.reduce((sum, token) => sum + token.palettes, 0)
     days.push({
       date,
@@ -664,13 +838,17 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       offset: dayOffset(opts.today, date),
       fileBefore,
       entries: entriesPalettes,
+      entriesProduites,
       available,
       loaded,
+      loadedSpot,
       fileAfter,
       capaciteJour: opts.capaciteJour,
       deltaVsCapacite,
       spot: spotPalettes > EPSILON,
       nbCamionsSpot,
+      nbCamionsSpotTheorique,
+      spotSature,
       spotPalettes,
       lignes: [...loadedLines, ...spotLines],
     })
@@ -717,17 +895,47 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     }
   }
 
+  /**
+   * Reliquat d'une ligne après la bande jour. Les deux bandes se recouvrent dans
+   * le temps : sans ce net, une palette chargée le 18/08 était recomptée dans la
+   * semaine de sa date de livraison.
+   */
+  const residualPalettes = (line: MaterializedLine): number | null =>
+    line.totalPalettes === null
+      ? null
+      : Math.max(0, line.totalPalettes - (consumedByLine.get(line.key) ?? 0))
+
   const weeklyFrom = nextMonday(opts.today)
+
+  // Carnet à échéance dépassée : il n'appartient à aucune semaine de l'horizon.
+  // Le laisser tomber effaçait le retard de l'écran au lieu de le montrer.
+  const retardLines: ForecastLine[] = []
+  let retardPalettes = 0
+  for (const line of lines) {
+    const date = line.source.dateLivraison
+    if (!date || date >= weeklyFrom) continue
+    const residual = residualPalettes(line)
+    if (residual === null || residual <= EPSILON) continue
+    retardLines.push(makeWeekLine(line, residual, opts.volumes))
+    retardPalettes += residual
+  }
+
   const weeks: WeekCharge[] = []
   for (let index = 0; index < weeklyHorizonWeeks; index++) {
     const from = addDays(weeklyFrom, index * 7)
     const period = weekDates(from, closedDays)
     const weekLines = lines.filter((line) => {
-      const date = line.source.dateLivraison ?? opts.today
-      return date >= period.from && date <= period.to
+      const date = line.source.dateLivraison
+      if (!date) return false
+      if (date < period.from || date > period.to) return false
+      const residual = residualPalettes(line)
+      return residual === null || residual > EPSILON
     })
     const quantifiable = weekLines.filter((line) => line.totalPalettes !== null)
-    const carnetPalettes = quantifiable.reduce((sum, line) => sum + (line.totalPalettes ?? 0), 0)
+    const carnetPalettes = quantifiable.reduce(
+      (sum, line) => sum + (residualPalettes(line) ?? 0),
+      0
+    )
     const capaciteTransport = period.capacityDays * opts.capaciteJour
     const capaciteProduction = opts.productionWeeklyCapacity ?? Number.POSITIVE_INFINITY
     const capacite = Math.min(capaciteTransport, capaciteProduction)
@@ -748,7 +956,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
         spotPalettes > EPSILON && opts.camionCapacitePalettes > 0
           ? Math.ceil(spotPalettes / opts.camionCapacitePalettes)
           : 0,
-      lignes: weekLines.map((line) => makeWeekLine(line, opts.volumes)),
+      lignes: weekLines.map((line) => makeWeekLine(line, residualPalettes(line), opts.volumes)),
       nonQuantifiableLines: weekLines.length - quantifiable.length,
       usineFermee: period.capacityDays === 0,
     })
@@ -766,10 +974,14 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     capaciteJour: opts.capaciteJour,
     nbDepartsQuotidiens: opts.nbDepartsQuotidiens,
     camionCapacitePalettes: opts.camionCapacitePalettes,
+    productionDailyCapacity,
+    maxSpotTrucks,
     initialQueuePalettes,
     loadedTodayPalettes,
     days,
     weeks,
+    retardPalettes,
+    retardLines,
     deferred,
     deferredPalettes,
     nonQuantifiableLines: lines.filter((line) => line.nonQuantifiable).length,

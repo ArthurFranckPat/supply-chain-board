@@ -183,18 +183,27 @@ function LinesTable({
 export function JourDetailSheet({
   day,
   deferred,
+  deferredTitle,
+  deferredHint,
   camionCapacitePalettes,
   open,
   onOpenChange,
 }: {
   day: DayCharge | null
+  /** Lignes hors bande jour : reliquat sans date, ou carnet en retard. */
   deferred?: ForecastLine[] | null
+  deferredTitle?: string
+  deferredHint?: string
   camionCapacitePalettes: number
   open: boolean
   onOpenChange: (value: boolean) => void
 }) {
   const isDeferred = deferred !== null && deferred !== undefined
-  const title = isDeferred ? 'Hors file jour' : day ? `Charge du ${fmtJour(day.date)}` : 'Détail'
+  const title = isDeferred
+    ? (deferredTitle ?? 'Hors horizon jour')
+    : day
+      ? `Charge du ${fmtJour(day.date)}`
+      : 'Détail'
   const lines = isDeferred ? (deferred ?? []) : (day?.lignes ?? [])
   const extraTrucks = day?.nbCamionsSpot ?? 0
   const overflowPal = !isDeferred
@@ -212,9 +221,10 @@ export function JourDetailSheet({
           </SheetTitle>
           <SheetDescription className="font-mono text-[11px] text-muted-foreground">
             {isDeferred
-              ? 'Lignes sans date fiable à la maille jour, conservées pour la bande semaine.'
+              ? (deferredHint ??
+                'Lignes sans date fiable à la maille jour, ou au-delà de la cadence atelier sur l’horizon. Conservées pour la bande semaine.')
               : day
-                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.loaded)} navette · ${fmtPal(day.spotPalettes)} spot · file ${fmtPal(day.fileAfter)}`
+                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.entriesProduites)} sortis atelier · ${fmtPal(day.loaded)} navette · ${fmtPal(day.loadedSpot)} spot · file ${fmtPal(day.fileAfter)}`
                 : ''}
           </SheetDescription>
         </SheetHeader>
@@ -223,12 +233,25 @@ export function JourDetailSheet({
           <div className="mt-5 flex items-start gap-2 border-l-[3px] border-destructive bg-destructive/5 px-3 py-2.5 text-[12px] text-foreground">
             <TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 text-destructive" />
             <div>
-              <div className="font-bold text-destructive">Camion spot à demander à J−2</div>
+              <div className="font-bold text-destructive">
+                {extraTrucks > 0
+                  ? `${extraTrucks} camion${extraTrucks > 1 ? 's' : ''} spot à demander à J−2`
+                  : 'Charge au-delà des navettes'}
+              </div>
               <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                +{fmtPal(day.spotPalettes)} pal · {extraTrucks} camion{extraTrucks > 1 ? 's' : ''}{' '}
-                de {camionCapacitePalettes} pal
+                +{fmtPal(day.spotPalettes)} pal au-delà des navettes · {extraTrucks} camion
+                {extraTrucks > 1 ? 's' : ''} de {camionCapacitePalettes} pal
                 {overflowPal > 0 ? ` · ${fmtPal(overflowPal)} pal sur spot ci-dessous` : ''}
               </div>
+              {/* Le besoin non affrétable ne se convertit pas en camions : il reste
+                  en file et se dit comme tel, sinon on promet 26 camions. */}
+              {day.spotSature && (
+                <div className="mt-1 font-mono text-[11px] font-bold text-destructive">
+                  Besoin théorique {day.nbCamionsSpotTheorique} camions — au-delà de ce qui
+                  s&apos;affrète en un jour. {fmtPal(day.fileAfter)} pal restent en file : arriéré
+                  de production, pas une commande transport.
+                </div>
+              )}
             </div>
           </div>
         )}

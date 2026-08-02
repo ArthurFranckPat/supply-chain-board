@@ -47,9 +47,30 @@ export const EXPEDITION_WEEKLY_HORIZON = 6
 /** Lookback nécessaire pour les commandes ouvertes et les OF déjà lancés. */
 export const FORECAST_LOOKBACK_DAYS = Number(process.env.EXPEDITION_FORECAST_LOOKBACK) || 30
 
-/** Capacité de production hebdomadaire de référence, surchargeable au déploiement. */
+/**
+ * Cadence de sortie atelier, en équivalent-palettes par jour ouvré.
+ *
+ * C'est le portillon de production : sans lui, tout OF ferme du carnet entrait
+ * dans la file le premier jour ouvré et la reprise après congès annonçait 26
+ * camions spot sur une seule journée.
+ *
+ * La valeur par défaut est l'hypothèse équilibrée — l'atelier sort ce que les
+ * deux navettes emportent. Elle est affichée à l'écran pour être contestée, et
+ * se cale au déploiement une fois le rétroviseur (#44) confronté au réel.
+ */
+export const EXPEDITION_PRODUCTION_DAILY_CAPACITY =
+  Number(process.env.EXPEDITION_PRODUCTION_DAILY_CAPACITY) || CAPACITE_JOUR_PALETTES
+
+/** Capacité de production hebdomadaire, cohérente avec la cadence journalière. */
 export const EXPEDITION_PRODUCTION_WEEKLY_CAPACITY =
-  Number(process.env.EXPEDITION_PRODUCTION_WEEKLY_CAPACITY) || CAPACITE_JOUR_PALETTES * 5
+  Number(process.env.EXPEDITION_PRODUCTION_WEEKLY_CAPACITY) ||
+  EXPEDITION_PRODUCTION_DAILY_CAPACITY * 5
+
+/**
+ * Camions spot affrétables en une journée. Le transporteur n'en sort pas 26 :
+ * au-delà, le chiffre décrit un arriéré de production, pas une commande.
+ */
+export const EXPEDITION_MAX_SPOT_TRUCKS = Number(process.env.EXPEDITION_MAX_SPOT_TRUCKS) || 3
 
 /** Alias conservé pour le contrôleur et les liens générés côté page. */
 export const FORECAST_DEFAULT_HORIZON = EXPEDITION_DAILY_HORIZON
@@ -447,6 +468,8 @@ function emptyForecast(today: string, dailyHorizonDays: number): ExpeditionForec
     nbDepartsQuotidiens: NB_DEPARTS_QUOTIDIENS,
     camionCapacitePalettes: CAMION_CAPACITE_PALETTES,
     productionWeeklyCapacity: EXPEDITION_PRODUCTION_WEEKLY_CAPACITY,
+    productionDailyCapacity: EXPEDITION_PRODUCTION_DAILY_CAPACITY,
+    maxSpotTrucks: EXPEDITION_MAX_SPOT_TRUCKS,
   })
 }
 
@@ -615,6 +638,8 @@ export async function loadExpeditionForecast(
       camionCapacitePalettes: CAMION_CAPACITE_PALETTES,
       closedDays,
       productionWeeklyCapacity: EXPEDITION_PRODUCTION_WEEKLY_CAPACITY,
+      productionDailyCapacity: EXPEDITION_PRODUCTION_DAILY_CAPACITY,
+      maxSpotTrucks: EXPEDITION_MAX_SPOT_TRUCKS,
       plantClosures: plantClosures.filter((closure) => closure.to >= todayIso),
     })
     return { forecast, x3Error: null }
