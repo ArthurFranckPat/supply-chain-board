@@ -9,6 +9,10 @@ import {
 
 const TODAY = '2026-08-03' // lundi
 const CAPACITY = 66
+/** 2 navettes × 35 palettes : ce que le quai charge en tassant. */
+const CAPACITY_TASSEE = 70
+/** Un tiers de camion — en dessous, on reporte au lendemain plutôt qu'affréter. */
+const SPOT_MIN = 11
 
 function volume(
   article: string,
@@ -50,7 +54,11 @@ function build(over: Partial<Parameters<typeof buildExpeditionForecast>[0]> = {}
     initialQueue: [],
     volumes: new Map([['ART1', volume('ART1', 10)]]),
     today: TODAY,
+    // Les tests tournent sur la configuration réelle : sans tassage ni seuil, ils
+    // validaient un réglage que personne n'exécute.
     capaciteJour: CAPACITY,
+    capaciteJourTassee: CAPACITY_TASSEE,
+    spotMinPalettes: SPOT_MIN,
     nbDepartsQuotidiens: 2,
     camionCapacitePalettes: 33,
     dailyHorizonDays: 8,
@@ -80,9 +88,7 @@ test.group('expedition_forecast — volumes', () => {
 })
 
 test.group('expedition_forecast — file FIFO', () => {
-  test('déduit les palettes déjà en navette, vide la file par 66 et annonce un camion entier', ({
-    assert,
-  }) => {
+  test('déduit les palettes déjà en navette et charge les 70 palettes en tassant', ({ assert }) => {
     const forecast = build({
       lines: [line({ orderedOpenQuantity: 1000, segments: [] })],
       initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 800, source: 'quai' }],
@@ -93,21 +99,40 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(forecast.loadedTodayPalettes, 10)
     assert.equal(forecast.initialQueuePalettes, 70)
     assert.equal(monday.available, 70)
-    assert.equal(monday.loaded, 66)
-    // Le camion spot annoncé vide aussi la file — sinon J+1 recomptabilise le même reste.
+    // Les 4 palettes au-delà du nominal entrent en tassant : aucun camion spot.
+    assert.equal(monday.loaded, 70)
+    assert.equal(monday.loadedTasse, 4)
+    assert.isFalse(monday.spot)
+    assert.equal(monday.nbCamionsSpot, 0)
     assert.equal(monday.fileAfter, 0)
-    assert.isTrue(monday.spot)
-    assert.equal(monday.nbCamionsSpot, 1)
-    assert.equal(forecast.days[1]!.available, 0)
+  })
+
+  test("un surplus trop petit se reporte au lendemain plutôt que d'affréter un camion", ({
+    assert,
+  }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 1000, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 740, source: 'quai' }],
+      dailyHorizonDays: 2,
+    })
+    const jour1 = forecast.days[0]!
+    // 74 pal : 4 au-dessus du tassage. Un camion de 33 pour 4 palettes n'existe pas.
+    assert.equal(jour1.available, 74)
+    assert.equal(jour1.loaded, 70)
+    assert.isFalse(jour1.spot)
+    assert.equal(jour1.nbCamionsSpot, 0)
+    assert.equal(jour1.reportePalettes, 4)
+    assert.equal(jour1.fileAfter, 4)
+    // Elles partent avec la navette du lendemain, sans coût.
+    assert.equal(forecast.days[1]!.loaded, 4)
   })
 
   test('le drill-down du jour spot liste navette + portion spot, pas seulement le chargé', ({
     assert,
   }) => {
     const forecast = build({
-      lines: [line({ orderedOpenQuantity: 1000, segments: [] })],
-      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 800, source: 'quai' }],
-      loadedShuttle: [{ palettes: 10 }],
+      lines: [line({ orderedOpenQuantity: 10_000, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 1200, source: 'quai' }],
       dailyHorizonDays: 1,
     })
     const monday = forecast.days[0]!
@@ -117,8 +142,8 @@ test.group('expedition_forecast — file FIFO', () => {
     const overflowPal = overflow.reduce((sum, row) => sum + (row.palTheo ?? 0), 0)
 
     assert.isAbove(overflow.length, 0)
-    assert.equal(loadedPal, 66)
-    assert.equal(overflowPal, 4)
+    assert.equal(loadedPal, 70)
+    assert.equal(overflowPal, 50)
     assert.equal(loadedPal + overflowPal, monday.available)
     assert.equal(monday.fileAfter, 0)
   })
@@ -137,11 +162,11 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(jour1.nbCamionsSpotTheorique, 26)
     assert.equal(jour1.nbCamionsSpot, 3)
     assert.isTrue(jour1.spotSature)
-    assert.equal(jour1.loaded, 66)
+    assert.equal(jour1.loaded, 70)
     assert.equal(jour1.loadedSpot, 99)
-    assert.equal(jour1.fileAfter, 733)
+    assert.equal(jour1.fileAfter, 729)
     // L'arriéré ne s'évapore pas d'un jour à l'autre.
-    assert.equal(forecast.days[1]!.fileBefore, 733)
+    assert.equal(forecast.days[1]!.fileBefore, 729)
   })
 
   test('le KPI file quai ne compte que le stock matché à une commande ouverte', ({ assert }) => {
@@ -308,6 +333,26 @@ test.group('expedition_forecast — portillon de production', () => {
     assert.equal(forecast.days[3]!.entries, 66)
     // 300 − 4 × 66 : ce qui déborde de l'horizon reste visible, pas absorbé.
     assert.equal(Math.round(forecast.deferredPalettes), 36)
+  })
+
+  test("fractionner un OF sur deux jours n'invente pas de quantité décimale", ({ assert }) => {
+    const forecast = build({
+      lines: [line({ orderedOpenQuantity: 100, segments: [segment({ quantity: 100 })] })],
+      productionDailyCapacity: 6,
+      dailyHorizonDays: 2,
+    })
+    const portions = [...forecast.days[0]!.lignes, ...forecast.days[1]!.lignes]
+    // Un kit se compte en pièces entières : « 249,6 » n'existe pas sur une ligne.
+    assert.isTrue(portions.every((row) => Number.isInteger(row.qte)))
+    // L'arrondi ne crée ni ne perd de pièce : la somme reste la quantité d'origine.
+    assert.equal(
+      portions.reduce((sum, row) => sum + row.qte, 0),
+      100
+    )
+    assert.deepEqual(
+      portions.map((row) => row.qte),
+      [60, 40]
+    )
   })
 
   test('une palette déjà au quai ne repasse pas par le portillon', ({ assert }) => {

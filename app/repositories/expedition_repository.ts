@@ -39,6 +39,17 @@ export const NB_DEPARTS_QUOTIDIENS = Number(process.env.EXPEDITION_DEPARTS_QUOTI
 /** Capacité transport journalière de référence (éq-palettes). */
 export const CAPACITE_JOUR_PALETTES = NB_DEPARTS_QUOTIDIENS * CAMION_CAPACITE_PALETTES
 
+/**
+ * Capacité réelle d'un camion « en tassant » (issue #104). Le quai charge 35
+ * palettes quand il pousse, contre 33 en nominal. Ces 2 palettes ne sont pas un
+ * détail : sans elles, un dépassement de 4 palettes déclenchait la demande d'un
+ * camion spot entier.
+ */
+export const CAMION_CAPACITE_TASSEE = Number(process.env.EXPEDITION_CAMION_CAPACITE_TASSEE) || 35
+
+/** Capacité transport journalière en tassant (éq-palettes). */
+export const CAPACITE_JOUR_TASSEE = NB_DEPARTS_QUOTIDIENS * CAMION_CAPACITE_TASSEE
+
 /** Emplacements qui alimentent la file d'expédition dédiée à 80001. */
 export const FILE_EXPEDITION_LOCATIONS = /^(?:QUAI\d+|S3P|S4P|S9P)$/i
 

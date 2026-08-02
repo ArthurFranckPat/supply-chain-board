@@ -123,13 +123,19 @@ export interface DayCharge {
   entriesProduites: number
   /** Volume disponible avant les deux départs du jour. */
   available: number
-  /** Volume effectivement chargé par les navettes régulières. */
+  /** Volume chargé par les navettes, tassage compris. */
   loaded: number
+  /** Part de `loaded` qui n'entre que parce que le quai tasse (33 → 35/camion). */
+  loadedTasse: number
   /** Volume emporté par les camions spot réellement affrétables. */
   loadedSpot: number
+  /** Surplus trop petit pour justifier un spot : reporté au jour ouvré suivant. */
+  reportePalettes: number
   /** File reportée au jour ouvré suivant. */
   fileAfter: number
   capaciteJour: number
+  /** Capacité des mêmes navettes en tassant — c'est elle qui déclenche le spot. */
+  capaciteJourTassee: number
   deltaVsCapacite: number
   spot: boolean
   /** Camions spot à demander, plafonnés par ce qui est affrétable en un jour. */
@@ -189,6 +195,10 @@ export interface ExpeditionForecast {
   dailyHorizonDays: number
   weeklyHorizonWeeks: number
   capaciteJour: number
+  /** Capacité des navettes en tassant — seuil réel de déclenchement du spot. */
+  capaciteJourTassee: number
+  /** Surplus minimal pour qu'un camion spot se justifie. */
+  spotMinPalettes: number
   nbDepartsQuotidiens: number
   camionCapacitePalettes: number
   /** Cadence de sortie atelier retenue, en équivalent-palettes par jour ouvré. */
@@ -229,6 +239,18 @@ export interface BuildForecastOptions {
   dailyHorizonDays?: number
   weeklyHorizonWeeks?: number
   capaciteJour: number
+  /**
+   * Capacité des mêmes navettes en tassant (défaut : `capaciteJour`). C'est le
+   * vrai seuil de déclenchement du spot — un dépassement que le quai absorbe en
+   * poussant les palettes n'est pas un besoin de camion.
+   */
+  capaciteJourTassee?: number
+  /**
+   * Surplus en dessous duquel on ne demande pas de spot : les palettes partent
+   * le lendemain. Affréter un camion pour 4 palettes n'a pas de sens, et la file
+   * se charge de déclencher quand l'arriéré devient réel.
+   */
+  spotMinPalettes?: number
   nbDepartsQuotidiens: number
   camionCapacitePalettes: number
   closedDays?: Set<string>
@@ -339,6 +361,23 @@ function weekKey(iso: string): string {
  * Une palette déjà fabriquée n'a pas à repasser par l'atelier. Tout le reste —
  * OF lancé compris, il lui reste des pointages — consomme la cadence du jour.
  */
+/**
+ * Répartit une quantité au prorata des palettes emportées, sans inventer de
+ * décimales : un kit se compte en pièces entières, « 249,6 » n'existe pas.
+ *
+ * Le dernier morceau absorbe le reste, de sorte que la somme des portions reste
+ * exactement la quantité d'origine — l'arrondi ne doit ni créer ni perdre de
+ * pièce. Une quantité source déjà fractionnaire (articles vendus au mètre) est
+ * respectée telle quelle : on ne corrige que ce que le prorata a fabriqué.
+ */
+function splitQuantity(totalQuantity: number, totalPalettes: number, take: number): number {
+  if (take >= totalPalettes - EPSILON) return totalQuantity
+  if (totalPalettes <= EPSILON) return 0
+  const exact = totalQuantity * (take / totalPalettes)
+  const value = Number.isInteger(totalQuantity) ? Math.round(exact) : exact
+  return Math.min(totalQuantity, Math.max(0, value))
+}
+
 function isPhysical(source: AvailabilitySource): boolean {
   return source === 'stock' || source === 'quai' || source === 'stock_production'
 }
@@ -590,7 +629,7 @@ function materializeLines(
       const remainingPalettes = volumeFor(remainingQuantity, article, volumes)
       if (remainingPalettes === null || remainingPalettes <= EPSILON) continue
       const palettes = Math.min(stock.palettes, remainingPalettes)
-      const quantity = remainingQuantity * (palettes / remainingPalettes)
+      const quantity = splitQuantity(remainingQuantity, remainingPalettes, palettes)
       line.segments.push({
         quantity,
         date: firstDay,
@@ -686,8 +725,7 @@ function scheduleProduction(
         continue
       }
       const take = Math.min(left, remaining)
-      const ratio = token.palettes > EPSILON ? take / token.palettes : 0
-      const quantity = Math.min(quantityLeft, token.quantity * ratio)
+      const quantity = Math.min(quantityLeft, splitQuantity(token.quantity, token.palettes, take))
       out.push({ ...token, palettes: take, quantity, availabilityDate: date })
       capacityLeft.set(date, left - take)
       remaining -= take
@@ -765,6 +803,8 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       ? opts.productionDailyCapacity
       : Number.POSITIVE_INFINITY
   const maxSpotTrucks = Math.max(0, opts.maxSpotTrucks ?? Number.POSITIVE_INFINITY)
+  const capaciteJourTassee = Math.max(opts.capaciteJour, opts.capaciteJourTassee ?? 0)
+  const spotMinPalettes = Math.max(0, opts.spotMinPalettes ?? 0)
 
   const physicalTokens: QueueToken[] = []
   const productionTokens: QueueToken[] = []
@@ -807,8 +847,13 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       0
     )
     const available = fileBefore + entriesPalettes
-    const deltaVsCapacite = available - opts.capaciteJour
-    const spotPalettes = Math.max(0, deltaVsCapacite)
+    // Le seuil de déclenchement, c'est la capacité EN TASSANT : ce que le quai
+    // absorbe en poussant les palettes n'est pas un besoin de camion.
+    const deltaVsCapacite = available - capaciteJourTassee
+    const surplus = Math.max(0, deltaVsCapacite)
+    // Sous le seuil, on n'affrète pas : les palettes partent le lendemain. La
+    // file se charge de déclencher quand l'arriéré devient réel.
+    const spotPalettes = surplus >= spotMinPalettes ? surplus : 0
     const nbCamionsSpotTheorique =
       spotPalettes > EPSILON && opts.camionCapacitePalettes > 0
         ? Math.ceil(spotPalettes / opts.camionCapacitePalettes)
@@ -825,8 +870,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       while (capacityLeft > EPSILON && queue.length > 0) {
         const token = queue[0]!
         const take = Math.min(capacityLeft, token.palettes)
-        const ratio = token.palettes > EPSILON ? take / token.palettes : 0
-        const quantity = token.quantity * ratio
+        const quantity = splitQuantity(token.quantity, token.palettes, take)
         out.push(
           makeLine(token.line.source, token.segment, quantity, take, date, opts.volumes, status)
         )
@@ -839,15 +883,18 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       return out
     }
 
-    // Navettes d'abord, puis les seuls camions spot réellement affrétés — sinon
-    // le même tas reporte à J+1, J+2 et chaque jour recomptabilise des spots déjà
-    // « demandés » la veille (26 + 24 + 22… pour un seul pic de reprise).
-    const loadedLines = drainQueue(opts.capaciteJour, 'loaded')
+    // Navettes (tassage compris) d'abord, puis les seuls camions spot réellement
+    // affrétés — sinon le même tas reporte à J+1, J+2 et chaque jour
+    // recomptabilise des spots déjà « demandés » la veille (26 + 24 + 22…).
+    const loadedLines = drainQueue(capaciteJourTassee, 'loaded')
     const spotLines = drainQueue(nbCamionsSpot * opts.camionCapacitePalettes, 'overflow')
 
     const loaded = loadedLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
+    const loadedTasse = Math.max(0, loaded - opts.capaciteJour)
     const loadedSpot = spotLines.reduce((sum, line) => sum + (line.palTheo ?? 0), 0)
     const fileAfter = queue.reduce((sum, token) => sum + token.palettes, 0)
+    // Surplus qu'on a choisi de ne pas affréter : il part le lendemain.
+    const reportePalettes = spotPalettes > EPSILON ? 0 : surplus
     days.push({
       date,
       // Bandes = rang dans la file des jours ouvrés, pas décalage calendaire :
@@ -859,9 +906,12 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       entriesProduites,
       available,
       loaded,
+      loadedTasse,
       loadedSpot,
+      reportePalettes,
       fileAfter,
       capaciteJour: opts.capaciteJour,
+      capaciteJourTassee,
       deltaVsCapacite,
       spot: spotPalettes > EPSILON,
       nbCamionsSpot,
@@ -990,6 +1040,8 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     dailyHorizonDays,
     weeklyHorizonWeeks,
     capaciteJour: opts.capaciteJour,
+    capaciteJourTassee,
+    spotMinPalettes,
     nbDepartsQuotidiens: opts.nbDepartsQuotidiens,
     camionCapacitePalettes: opts.camionCapacitePalettes,
     productionDailyCapacity,

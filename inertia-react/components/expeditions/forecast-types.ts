@@ -44,10 +44,16 @@ export interface DayCharge {
   /** Part des entrées sortie de l'atelier ce jour. */
   entriesProduites: number
   available: number
+  /** Chargé par les navettes, tassage compris. */
   loaded: number
+  /** Part de `loaded` qui n'entre que parce que le quai tasse (33 → 35/camion). */
+  loadedTasse: number
   loadedSpot: number
+  /** Surplus trop petit pour un spot : reporté au jour ouvré suivant. */
+  reportePalettes: number
   fileAfter: number
   capaciteJour: number
+  capaciteJourTassee: number
   deltaVsCapacite: number
   spot: boolean
   /** Camions à commander, plafonnés par ce qui est affrétable en un jour. */
@@ -91,6 +97,10 @@ export interface ExpeditionForecast {
   dailyHorizonDays: number
   weeklyHorizonWeeks: number
   capaciteJour: number
+  /** Capacité des navettes en tassant — seuil réel de déclenchement du spot. */
+  capaciteJourTassee: number
+  /** Surplus minimal pour qu'un camion spot se justifie. */
+  spotMinPalettes: number
   nbDepartsQuotidiens: number
   camionCapacitePalettes: number
   /** Cadence atelier retenue, en équivalent-palettes par jour ouvré. */

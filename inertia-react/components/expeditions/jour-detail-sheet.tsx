@@ -191,7 +191,7 @@ export function JourDetailSheet({
               ? (deferredHint ??
                 'Lignes sans date fiable à la maille jour, ou au-delà de la cadence atelier sur l’horizon. Conservées pour la bande semaine.')
               : day
-                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.entriesProduites)} sortis atelier · ${fmtPal(day.loaded)} navette · ${fmtPal(day.loadedSpot)} spot · file ${fmtPal(day.fileAfter)}`
+                ? `${fmtPal(day.available)} disponibles · ${fmtPal(day.entriesProduites)} sortis atelier · ${fmtPal(day.loaded)} navette${day.loadedTasse > 0 ? ` (dont ${fmtPal(day.loadedTasse)} en tassant)` : ''} · ${fmtPal(day.loadedSpot)} spot · file ${fmtPal(day.fileAfter)}`
                 : ''}
           </SheetDescription>
         </SheetHeader>
@@ -206,7 +206,8 @@ export function JourDetailSheet({
                   : 'Charge au-delà des navettes'}
               </div>
               <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                +{fmtPal(day.spotPalettes)} pal au-delà des navettes · {extraTrucks} camion
+                +{fmtPal(day.spotPalettes)} pal au-delà des {fmtPal(day.capaciteJourTassee)} pal des
+                navettes en tassant · {extraTrucks} camion
                 {extraTrucks > 1 ? 's' : ''} de {camionCapacitePalettes} pal
                 {overflowPal > 0 ? ` · ${fmtPal(overflowPal)} pal sur spot ci-dessous` : ''}
               </div>

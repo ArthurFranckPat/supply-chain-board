@@ -30,6 +30,7 @@ import {
 import {
   CAMION_CAPACITE_PALETTES,
   CAPACITE_JOUR_PALETTES,
+  CAPACITE_JOUR_TASSEE,
   ExpeditionRepository,
   NB_DEPARTS_QUOTIDIENS,
 } from '#repositories/expedition_repository'
@@ -71,6 +72,16 @@ export const EXPEDITION_PRODUCTION_WEEKLY_CAPACITY =
  * au-delà, le chiffre décrit un arriéré de production, pas une commande.
  */
 export const EXPEDITION_MAX_SPOT_TRUCKS = Number(process.env.EXPEDITION_MAX_SPOT_TRUCKS) || 3
+
+/**
+ * Surplus minimal, en palettes, pour qu'un camion spot se justifie.
+ *
+ * Affréter un camion de 33 palettes pour en emporter 4 n'a pas de sens : ces
+ * palettes partent le lendemain, et si l'arriéré grossit vraiment, la file le
+ * fait remonter d'elle-même. Défaut : un tiers de camion.
+ */
+export const EXPEDITION_SPOT_MIN_PALETTES =
+  Number(process.env.EXPEDITION_SPOT_MIN_PALETTES) || Math.ceil(CAMION_CAPACITE_PALETTES / 3)
 
 /** Alias conservé pour le contrôleur et les liens générés côté page. */
 export const FORECAST_DEFAULT_HORIZON = EXPEDITION_DAILY_HORIZON
@@ -470,6 +481,8 @@ function emptyForecast(today: string, dailyHorizonDays: number): ExpeditionForec
     productionWeeklyCapacity: EXPEDITION_PRODUCTION_WEEKLY_CAPACITY,
     productionDailyCapacity: EXPEDITION_PRODUCTION_DAILY_CAPACITY,
     maxSpotTrucks: EXPEDITION_MAX_SPOT_TRUCKS,
+    capaciteJourTassee: CAPACITE_JOUR_TASSEE,
+    spotMinPalettes: EXPEDITION_SPOT_MIN_PALETTES,
   })
 }
 
@@ -640,6 +653,8 @@ export async function loadExpeditionForecast(
       productionWeeklyCapacity: EXPEDITION_PRODUCTION_WEEKLY_CAPACITY,
       productionDailyCapacity: EXPEDITION_PRODUCTION_DAILY_CAPACITY,
       maxSpotTrucks: EXPEDITION_MAX_SPOT_TRUCKS,
+      capaciteJourTassee: CAPACITE_JOUR_TASSEE,
+      spotMinPalettes: EXPEDITION_SPOT_MIN_PALETTES,
       plantClosures: plantClosures.filter((closure) => closure.to >= todayIso),
     })
     return { forecast, x3Error: null }

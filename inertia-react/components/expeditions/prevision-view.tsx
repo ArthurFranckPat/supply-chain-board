@@ -55,7 +55,8 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
           File quai · <b className="text-foreground">{fmtPal(forecast.initialQueuePalettes)}</b> pal
           <span className="text-muted-foreground/70">
             {' '}
-            · {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes}/j
+            · {forecast.nbDepartsQuotidiens}×{forecast.camionCapacitePalettes}/j (
+            {forecast.capaciteJourTassee} en tassant)
           </span>
         </span>
         <span title="Cadence de sortie atelier retenue par le portillon de production">
@@ -330,8 +331,15 @@ function DayRow({ day, peak, onClick }: { day: DayCharge; peak: number; onClick:
       >
         {fmtPal(day.available)}
       </span>
-      <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
+      <span className="text-right font-mono text-[12px] tabular-nums leading-tight text-muted-foreground">
         {fmtPal(day.loaded)}
+        {/* Les 2 palettes/camion gagnées en tassant évitent un spot entier :
+            elles se disent, sinon le chargé paraît dépasser la capacité. */}
+        {day.loadedTasse > 0 && (
+          <span className="block text-[9px] text-muted-foreground/70">
+            dont {fmtPal(day.loadedTasse)} tassé
+          </span>
+        )}
       </span>
       <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
         {fmtPal(day.fileAfter)}
@@ -342,12 +350,17 @@ function DayRow({ day, peak, onClick }: { day: DayCharge; peak: number; onClick:
           day.spot ? 'text-destructive' : 'text-muted-foreground'
         )}
       >
-        {day.spot ? `${day.nbCamionsSpot} cam.` : '—'}
+        {day.spot ? `${day.nbCamionsSpot} cam.` : day.reportePalettes > 0 ? 'reporté' : '—'}
         {/* Le besoin non affrétable n'est pas un camion de plus : c'est de
             l'arriéré. On l'écrit, on ne le fond pas dans le compte. */}
         {day.spotSature && (
           <span className="block font-normal text-[9px] text-destructive/80">
             arriéré {fmtPal(day.fileAfter)}
+          </span>
+        )}
+        {!day.spot && day.reportePalettes > 0 && (
+          <span className="block font-normal text-[9px] text-muted-foreground/70">
+            {fmtPal(day.reportePalettes)} pal à J+1
           </span>
         )}
       </span>
