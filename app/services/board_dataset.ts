@@ -400,19 +400,26 @@ class BoardDataset {
   }
 
   /** Lignes de commande allégées pour /charge (5 cols, 1 JOIN). Cache SWR partagé.
-   * fromStr/toStr au format YYYYMMDD. */
+   * fromStr/toStr au format YYYYMMDD. Servie par la réplique quand le portail et
+   * la couverture le permettent (#105, point 4). */
   async getOrderLinesForLoad(
     fromStr: string,
     toStr: string,
     force = false
   ): Promise<import('#repositories/order_line_repository').OrderLineForLoad[]> {
     const key = `order-lines-load:${fromStr}:${toStr}`
-    if (force) await board().delete({ key })
-    return board().getOrSet({
+    // Le format de la fenêtre ingérée est ISO (YYYY-MM-DD), celui des appelants
+    // YYYYMMDD : conversion pour la comparaison de couverture et la lecture.
+    const iso = (s: string) => s.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')
+    const fromIso = iso(fromStr)
+    const toIso = iso(toStr)
+    return this.dualSourceRead({
       key,
       ttl: LIVE_TTL,
-      timeout: SWR_TIMEOUT,
-      factory: () => new X3OrderLineRepository().getOrderLinesForLoad(fromStr, toStr),
+      force,
+      servedByReplica: () => this.ordersFluxServes(fromIso, toIso),
+      fromReplica: () => ordersFluxReplicaRepository.getOrderLinesForLoad(fromIso, toIso),
+      fromX3: () => new X3OrderLineRepository().getOrderLinesForLoad(fromStr, toStr),
     })
   }
 

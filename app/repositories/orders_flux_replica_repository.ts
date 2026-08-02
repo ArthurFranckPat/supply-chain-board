@@ -1,8 +1,8 @@
 import db from '@adonisjs/lucid/services/db'
 import type { OrdersSourceRow } from '#repositories/combined_orders_repository'
 import type { ManufacturingOrder } from '#repositories/of_repository'
-import type { OrderLineRow } from '#repositories/order_line_repository'
-import type { OrderType } from '#app/domain/models/flow'
+import type { OrderLineForLoad, OrderLineRow } from '#repositories/order_line_repository'
+import type { NeedNature, OrderType } from '#app/domain/models/flow'
 
 /**
  * Lecture read-only d'`orders_flux_replica` (#98, #105) — miroir de la SOURCE
@@ -43,6 +43,7 @@ type ReplicaRow = {
   qte_realisee: number | null
   date_debut: string | null
   stofcy: string | null
+  bprnum: string | null
 }
 
 /** Ligne de commande ferme telle que `RetardRepository` la consomme. */
@@ -161,6 +162,7 @@ function toOwn(r: ReplicaRow): OrdersSourceRow {
     itmrefbpc: r.itmrefbpc,
     sohtyp: r.sohtyp,
     stofcy: r.stofcy,
+    bprnum: r.bprnum,
   }
 }
 
@@ -337,6 +339,43 @@ export class OrdersFluxReplicaRepository {
     }
     const rows = await query
     return (rows as ReplicaRow[]).map(toOrderLine).filter((l) => l.quantite > 0)
+  }
+
+  /**
+   * VUE « lignes allégées pour /charge » — remplace la lecture directe de
+   * `X3OrderLineRepository.getOrderLinesForLoad()`.
+   *
+   * Même population que la vue ci-dessus (WIPTYP=1, WIPSTA 1/3), mêmes bornes de
+   * fenêtre INCLUSIVES sur l'échéance. `quantite` = `resteAFabriquer`
+   * (`qte_restante − qte_allouee`), le filtre de la vue directe, calculé ici.
+   *
+   * `clientCode` est `bprnum`, le code tiers BRUT — la résolution du nom reste à
+   * la demande via `resolveClientNames`, comme la voie directe (#39). Une ligne
+   * ingérée avant `1783300000017` n'a pas de code : `null`, identique à la voie
+   * directe sur une ligne sans BPRNUM.
+   */
+  async getOrderLinesForLoad(fromIso: string, toIso: string): Promise<OrderLineForLoad[]> {
+    const rows = await this.conn
+      .from('orders_flux_replica')
+      .select('*')
+      .where('wiptyp', 1)
+      .whereIn('wipsta', [1, 3])
+      .andWhere('date_echeance', '>=', fromIso)
+      .andWhere('date_echeance', '<=', toIso)
+
+    return (rows as ReplicaRow[])
+      .map((r) => ({
+        article: r.article,
+        designation: r.designation,
+        quantite: r.qte_restante - r.qte_allouee,
+        dateLivraison: parseLocalDay(r.date_echeance),
+        nature: (r.wipsta === 1 ? 'COMMANDE' : 'PREVISION') as NeedNature,
+        numCommande: r.vcrnum || null,
+        // Une prévision porte VCRLIN_0 = 0 : pas de ligne, pas un « 0 » à afficher.
+        ligne: r.vcrlin && r.vcrlin !== '0' ? r.vcrlin : null,
+        clientCode: r.bprnum,
+      }))
+      .filter((l): l is OrderLineForLoad => l.dateLivraison !== null && l.quantite > 0)
   }
 
   /**

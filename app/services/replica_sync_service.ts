@@ -149,6 +149,7 @@ function toFluxRow(r: OrdersSourceRow): Row {
     qte_realisee: r.qteRealisee ?? null,
     date_debut: isoDay(r.dateDebut ?? null),
     stofcy: r.stofcy ?? null,
+    bprnum: r.bprnum ?? null,
   }
 }
 

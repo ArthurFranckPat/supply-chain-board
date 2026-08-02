@@ -99,7 +99,7 @@ export function buildOrdersSql(opts: OrdersSqlOptions): string {
   // Avancement de production : deux colonnes de plus dans un SQL en O(n²) sur les
   // colonnes, donc jamais par défaut — seule l'ingestion les demande, une fois par
   // tick, pour que le board n'ait plus sa propre table.
-  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0', 'O.STOFCY_0')
+  if (forReplica) columns.push('O.CPLQTY_0', 'O.STRDAT_0', 'O.STOFCY_0', 'O.BPRNUM_0')
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
   if (includeCustomerRef) {
     columns.push(
@@ -239,6 +239,9 @@ export interface OrdersSourceRow {
   /** `STOFCY_0` — site. Seule l'ingestion la demande (`forReplica`), pour la
    *  résolution des clés d'affermissement (#31, #105). */
   stofcy?: string | null
+  /** `BPRNUM_0` — code tiers brut de la ligne. Seule l'ingestion la demande
+   *  (`forReplica`), pour la vue /charge (`OrderLineForLoad.clientCode`). */
+  bprnum?: string | null
 }
 
 /** `RawRow` X3 → ligne normalisée. Seul point où le format X3 est interprété. */
@@ -268,6 +271,7 @@ export function toOrdersSourceRow(row: RawRow): OrdersSourceRow {
     qteRealisee: row.CPLQTY_0 === undefined ? undefined : toNum(row.CPLQTY_0),
     dateDebut: row.STRDAT_0 === undefined ? undefined : parseX3Date(row.STRDAT_0),
     stofcy: row.STOFCY_0 === undefined ? undefined : row.STOFCY_0?.trim() || null,
+    bprnum: row.BPRNUM_0 === undefined ? undefined : row.BPRNUM_0?.trim() || null,
   }
 }
 

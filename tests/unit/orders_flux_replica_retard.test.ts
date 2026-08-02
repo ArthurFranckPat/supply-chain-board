@@ -111,3 +111,94 @@ test.group('orders_flux_replica — deux populations (WIPTYP=1)', (group) => {
     assert.notInclude(nums, `${PREFIX}OUT`)
   })
 })
+
+/**
+ * Vue /charge — `getOrderLinesForLoad` (#105, point 4). Même tranche WIPTYP=1
+ * que les deux populations ci-dessus, mais 8 champs au lieu de la vue complète,
+ * et `quantite` = reste à FABRIQUER (qte_restante − qte_allouee), le filtre de
+ * la voie directe.
+ */
+test.group('orders_flux_replica — vue /charge (WIPTYP=1)', (group) => {
+  const conn = db.connection('replica')
+  const repo = ordersFluxReplicaRepository
+  const LOAD_PREFIX = 'ZZLOAD-'
+
+  const cleanup = async () => {
+    await conn.from('orders_flux_replica').where('vcrnum', 'like', `${LOAD_PREFIX}%`).delete()
+  }
+  group.each.setup(cleanup)
+  group.teardown(cleanup)
+
+  function loadRow(over: Partial<Record<string, unknown>> = {}) {
+    return row({ vcrnum: `${LOAD_PREFIX}1`, ...over })
+  }
+
+  test('mappe une ligne ferme vers OrderLineForLoad (nature COMMANDE, clientCode brut)', async ({
+    assert,
+  }) => {
+    await conn.table('orders_flux_replica').insert(
+      loadRow({
+        vcrnum: `${LOAD_PREFIX}A`,
+        wipsta: 1,
+        qte_restante: 10,
+        qte_allouee: 4,
+        bprnum: '80001',
+        date_echeance: '2026-07-20',
+      })
+    )
+
+    const lines = await repo.getOrderLinesForLoad('2026-07-01', '2026-08-01')
+    const line = lines.find((l) => l.numCommande === `${LOAD_PREFIX}A`)
+
+    assert.isDefined(line)
+    assert.equal(line!.quantite, 6) // reste à fabriquer = restant − alloué
+    assert.equal(line!.nature, 'COMMANDE')
+    assert.equal(line!.clientCode, '80001')
+    assert.equal(line!.ligne, '1000')
+    // Date en heure locale (convention des vues flux) — getters locaux, TZ-safe.
+    assert.equal(line!.dateLivraison.getFullYear(), 2026)
+    assert.equal(line!.dateLivraison.getMonth(), 6)
+    assert.equal(line!.dateLivraison.getDate(), 20)
+  })
+
+  test('une prévision (WIPSTA=3) est nature PREVISION, clientCode null, ligne null sur VCRLIN=0', async ({
+    assert,
+  }) => {
+    await conn
+      .table('orders_flux_replica')
+      .insert(loadRow({ vcrnum: `${LOAD_PREFIX}B`, wipsta: 3, vcrlin: '0', bprnum: null }))
+
+    const lines = await repo.getOrderLinesForLoad('2026-07-01', '2026-08-01')
+    const line = lines.find((l) => l.numCommande === `${LOAD_PREFIX}B`)
+
+    assert.isDefined(line)
+    assert.equal(line!.nature, 'PREVISION')
+    assert.isNull(line!.clientCode)
+    assert.isNull(line!.ligne)
+  })
+
+  test('une ligne entièrement allouée est exclue (reste à fabriquer ≤ 0)', async ({ assert }) => {
+    await conn
+      .table('orders_flux_replica')
+      .insert(loadRow({ vcrnum: `${LOAD_PREFIX}C`, wipsta: 1, qte_restante: 10, qte_allouee: 10 }))
+
+    const lines = await repo.getOrderLinesForLoad('2026-07-01', '2026-08-01')
+
+    assert.isUndefined(lines.find((l) => l.numCommande === `${LOAD_PREFIX}C`))
+  })
+
+  test('bornes INCLUSIVES, comme la voie directe (`>= from AND <= to`)', async ({ assert }) => {
+    await conn
+      .table('orders_flux_replica')
+      .insert([
+        loadRow({ vcrnum: `${LOAD_PREFIX}IN`, date_echeance: '2026-07-01' }),
+        loadRow({ vcrnum: `${LOAD_PREFIX}OUT`, date_echeance: '2026-08-02' }),
+      ])
+
+    const lines = await repo.getOrderLinesForLoad('2026-07-01', '2026-08-01')
+    const nums = lines.map((l) => l.numCommande)
+
+    assert.include(nums, `${LOAD_PREFIX}IN`)
+    assert.notInclude(nums, `${LOAD_PREFIX}OUT`)
+  })
+})

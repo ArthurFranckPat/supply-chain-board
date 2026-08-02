@@ -30,9 +30,25 @@ import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
  * Deux clés : le préchauffage remplissait une entrée que personne ne lisait.
  *
  * `/api/v1/dashboard/stock` n'est PAS concerné — `stockHref` n'embarque pas de
- * `referenceDate`, `pinned` y valait déjà `false` et les clés coïncidaient. Les
- * ~10 s observées sur cet endpoint en mode direct ont une autre cause, non
- * élucidée à ce jour : ne pas croire ce correctif suffisant pour elles.
+ * `referenceDate`, `pinned` y valait déjà `false` et les clés coïncident.
+ *
+ * Les ~10 s observées sur cet endpoint en mode direct, juste après un
+ * préchauffage de 10 312 ms, ont été élucidées (#105, point 5) : ce n'est PAS
+ * une clé de cache. La requête arrivait PENDANT que le préchauffage au boot
+ * calculait la MÊME clé — le L1 étant vide (pas d'entrée à servir en grâce,
+ * `timeout: 0` ne rend le stale que s'il existe), le lock de bentocache fait
+ * attendre l'appelant jusqu'à la fin de la factory du préchauffage, puis il
+ * partage son résultat : une seule computation, payée une fois par le premier
+ * appelant. C'est le cold start assumé, pas un trou de cache (vérifié par un
+ * banc : 3 s de factory + appelant concurrent = 3 s d'attente et valeur
+ * partagée, contre 0 ms sur clé chaude).
+ *
+ * Deux cas où la requête ne profite PAS du préchauffage, tous deux voulus :
+ *  - le cloisonnement par environnement (`cacheNs`) : un utilisateur dont
+ *    `lastEnv` diffère de `X3_ENV` lit un namespace froid — « froid vaut mieux
+ *    que faux » (cf. `cache_ns.ts`) ;
+ *  - en dev, `CACHE_STORE=memory` meurt à chaque reload HMR : le préchauffage
+ *    rejoue et la 1re requête le race. En prod (Redis) le L2 survit au restart.
  *
  * La correction porte sur le SENS : « figée » veut dire « différente du défaut
  * glissant », pas « présente dans la requête ». Une date d'aujourd'hui EST le
