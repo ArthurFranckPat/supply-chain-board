@@ -24,6 +24,7 @@ import {
   type ExpeditionForecast,
   type ExpeditionOrderLine,
   type LoadedShuttleObservation,
+  type PlantClosureRange,
   type QueueStockObservation,
 } from '#app/domain/expedition_forecast'
 import {
@@ -474,12 +475,23 @@ export async function loadExpeditionForecast(
   const force = !!opts.force
 
   try {
-    const [rawDemands, closedDays, supplierLatency] = await Promise.all([
+    const year = today.getFullYear()
+    const [rawDemands, closedDays, supplierLatency, plantClosures] = await Promise.all([
       boardDataset.getOpenExpeditionDemands(EXPEDITION_CUSTOMER, localIsoDay(dataTo), force),
-      capacityCalendarService
-        .globalClosedDays(today.getFullYear(), today.getFullYear() + 1)
-        .catch(() => new Set<string>()),
+      capacityCalendarService.globalClosedDays(year, year + 1).catch(() => new Set<string>()),
       boardDataset.getSupplierLatency().catch(() => new Map<string, number>()),
+      capacityCalendarService
+        .closures()
+        .then((rows) =>
+          rows
+            .filter((row) => row.scope === 'global' && row.factor <= 0)
+            .map((row): PlantClosureRange => ({
+              from: row.from,
+              to: row.to,
+              motif: row.motif || 'fermeture',
+            }))
+        )
+        .catch(() => [] as PlantClosureRange[]),
     ])
 
     const targetDemands = rawDemands.filter(
@@ -602,6 +614,7 @@ export async function loadExpeditionForecast(
       camionCapacitePalettes: CAMION_CAPACITE_PALETTES,
       closedDays,
       productionWeeklyCapacity: EXPEDITION_PRODUCTION_WEEKLY_CAPACITY,
+      plantClosures: plantClosures.filter((closure) => closure.to >= todayIso),
     })
     return { forecast, x3Error: null }
   } catch (error) {

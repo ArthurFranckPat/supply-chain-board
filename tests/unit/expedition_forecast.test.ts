@@ -120,7 +120,7 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(forecast.days[0]!.available, 5)
   })
 
-  test('saute samedi et dimanche : la file ne consomme que des jours ouvrés', ({ assert }) => {
+  test('saute samedi, dimanche et compte N jours ouvrés', ({ assert }) => {
     const forecast = build({
       lines: [
         line({
@@ -128,12 +128,39 @@ test.group('expedition_forecast — file FIFO', () => {
           segments: [segment({ quantity: 10, date: '2026-08-07' })],
         }),
       ],
-      dailyHorizonDays: 8,
+      dailyHorizonDays: 6,
     })
     assert.deepEqual(
       forecast.days.map((day) => day.date),
       ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07', '2026-08-10']
     )
+  })
+
+  test('saute une fermeture usine et pose la décision sur la reprise', ({ assert }) => {
+    const closed = new Set<string>()
+    for (let i = 0; i < 14; i++) {
+      const d = new Date('2026-08-03T00:00:00Z')
+      d.setUTCDate(d.getUTCDate() + i)
+      closed.add(d.toISOString().slice(0, 10))
+    }
+    const forecast = build({
+      today: '2026-08-02',
+      closedDays: closed,
+      dailyHorizonDays: 6,
+      decisionDays: 4,
+      plantClosures: [{ from: '2026-08-03', to: '2026-08-16', motif: 'conges' }],
+      lines: [line({ orderedOpenQuantity: 100, segments: [] })],
+      initialQueue: [{ article: 'ART1', location: 'QUAI3', quantityUs: 100, source: 'quai' }],
+    })
+    assert.equal(forecast.firstWorkingDay, '2026-08-17')
+    assert.deepEqual(
+      forecast.days.slice(0, 4).map((day) => day.date),
+      ['2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20']
+    )
+    assert.isTrue(forecast.days.slice(0, 4).every((day) => day.band === 'decision'))
+    assert.equal(forecast.days[4]!.band, 'prealert')
+    assert.equal(forecast.plantClosures[0]!.motif, 'conges')
+    assert.isTrue(forecast.weeks.some((week) => week.usineFermee))
   })
 
   test('cappe chaque ligne au reliquat commandé, même si une source annonce davantage', ({

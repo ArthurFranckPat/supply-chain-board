@@ -67,6 +67,13 @@ export interface WeekCharge {
   nbCamionsSpot: number
   lignes: ForecastLine[]
   nonQuantifiableLines: number
+  usineFermee: boolean
+}
+
+export interface PlantClosureRange {
+  from: string
+  to: string
+  motif: string
 }
 
 export interface ExpeditionForecast {
@@ -86,6 +93,8 @@ export interface ExpeditionForecast {
   deferred: ForecastLine[]
   deferredPalettes: number
   nonQuantifiableLines: number
+  plantClosures: PlantClosureRange[]
+  firstWorkingDay: string | null
 }
 
 export interface ForecastResponse {
@@ -121,5 +130,10 @@ export function fmtJour(iso: string | null): string {
 
 export function fmtPal(n: number | null): string {
   if (n === null || !Number.isFinite(n)) return '—'
+  if (n === 0) return '0'
   return n < 10 ? n.toFixed(1) : String(Math.round(n))
+}
+
+export function weekdayShort(iso: string): string {
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(new Date(`${iso}T12:00:00`))
 }

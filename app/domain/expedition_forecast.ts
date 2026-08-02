@@ -146,6 +146,15 @@ export interface WeekCharge {
   nbCamionsSpot: number
   lignes: ForecastLine[]
   nonQuantifiableLines: number
+  /** Tous les jours ouvrés de la semaine sont fermés (congès, férié…). */
+  usineFermee: boolean
+}
+
+/** Fermeture usine (scope global, facteur 0) chevauchant l'horizon. */
+export interface PlantClosureRange {
+  from: string
+  to: string
+  motif: string
 }
 
 export interface ExpeditionForecast {
@@ -167,6 +176,10 @@ export interface ExpeditionForecast {
   deferredPalettes: number
   /** Lignes dont le coef direct et l'estimateur sont tous deux absents. */
   nonQuantifiableLines: number
+  /** Fermetures usine dans ou juste avant l'horizon (bandeau UI). */
+  plantClosures: PlantClosureRange[]
+  /** Premier jour ouvré réellement simulé, null si aucun. */
+  firstWorkingDay: string | null
 }
 
 export interface BuildForecastOptions {
@@ -175,9 +188,9 @@ export interface BuildForecastOptions {
   loadedShuttle?: LoadedShuttleObservation[]
   volumes: Map<string, VolumeCoef>
   today: string
-  /** J inclus, J+3 inclus par défaut. */
+  /** Nombre de jours ouvrés de la bande décision (défaut 4). */
   decisionDays?: number
-  /** J inclus, J+7 inclus par défaut. */
+  /** Nombre de jours ouvrés de la bande jour (défaut 8). */
   dailyHorizonDays?: number
   weeklyHorizonWeeks?: number
   capaciteJour: number
@@ -186,6 +199,7 @@ export interface BuildForecastOptions {
   closedDays?: Set<string>
   /** Capacité production hebdomadaire déjà normalisée en équivalent-palettes. */
   productionWeeklyCapacity?: number
+  plantClosures?: PlantClosureRange[]
 }
 
 interface MaterializedLine {
@@ -231,9 +245,17 @@ function isWorkingDay(iso: string, closedDays: Set<string>): boolean {
   return day !== 0 && day !== 6 && !closedDays.has(iso)
 }
 
-function workingDates(from: string, calendarDays: number, closedDays: Set<string>): string[] {
+/**
+ * Collecte `count` jours ouvrés à partir de `from` (inclus si ouvré).
+ * Saute week-ends et fermetures usine — indispensable pendant les congès :
+ * un horizon calendaire de 8 j tombant dans une fermeture de 2 semaines
+ * produisait une prévision vide alors que la reprise doit être anticipée.
+ */
+function workingDates(from: string, count: number, closedDays: Set<string>): string[] {
+  const need = Math.max(1, count)
   const out: string[] = []
-  for (let i = 0; i < Math.max(1, calendarDays); i++) {
+  // Cap de sécurité : ~3 mois de calendrier pour trouver `need` jours ouvrés.
+  for (let i = 0; out.length < need && i < need * 4 + 90; i++) {
     const date = addDays(from, i)
     if (isWorkingDay(date, closedDays)) out.push(date)
   }
@@ -585,7 +607,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
   const queue: QueueToken[] = []
   const consumedByLine = new Map<string, number>()
   const days: DayCharge[] = []
-  for (const date of dailyDates) {
+  dailyDates.forEach((date, workingIndex) => {
     const entries = byDate.get(date) ?? []
     entries.sort(
       (a, b) =>
@@ -639,11 +661,12 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       spotPalettes > EPSILON && opts.camionCapacitePalettes > 0
         ? Math.ceil(spotPalettes / opts.camionCapacitePalettes)
         : 0
-    const offset = dayOffset(opts.today, date)
     days.push({
       date,
-      band: offset < decisionDays ? 'decision' : 'prealert',
-      offset,
+      // Bandes = rang dans la file des jours ouvrés, pas décalage calendaire :
+      // pendant les congès, les 4 premiers jours de reprise restent « décision ».
+      band: workingIndex < decisionDays ? 'decision' : 'prealert',
+      offset: dayOffset(opts.today, date),
       fileBefore,
       entries: entriesPalettes,
       available,
@@ -656,7 +679,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
       spotPalettes,
       lignes: [...loadedLines, ...overflowLines],
     })
-  }
+  })
 
   const deferred: ForecastLine[] = []
   let deferredPalettes = 0
@@ -732,16 +755,17 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
           : 0,
       lignes: weekLines.map((line) => makeWeekLine(line, opts.volumes)),
       nonQuantifiableLines: weekLines.length - quantifiable.length,
+      usineFermee: period.capacityDays === 0,
     })
   }
 
-  const decisionTo = addDays(opts.today, decisionDays - 1)
-  const prealertTo = addDays(opts.today, dailyHorizonDays - 1)
+  const lastDaily = dailyDates[dailyDates.length - 1] ?? opts.today
+  const decisionLast = dailyDates[Math.min(decisionDays, dailyDates.length) - 1] ?? lastDaily
   return {
     from: opts.today,
-    to: prealertTo,
-    decisionTo,
-    prealertTo,
+    to: lastDaily,
+    decisionTo: decisionLast,
+    prealertTo: lastDaily,
     dailyHorizonDays,
     weeklyHorizonWeeks,
     capaciteJour: opts.capaciteJour,
@@ -754,5 +778,7 @@ export function buildExpeditionForecast(opts: BuildForecastOptions): ExpeditionF
     deferred,
     deferredPalettes,
     nonQuantifiableLines: lines.filter((line) => line.nonQuantifiable).length,
+    plantClosures: opts.plantClosures ?? [],
+    firstWorkingDay: dailyDates[0] ?? null,
   }
 }
