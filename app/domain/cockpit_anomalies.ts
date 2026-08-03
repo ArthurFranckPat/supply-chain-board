@@ -43,7 +43,13 @@ function joursEntre(avantIso: string, apresIso: string): number {
 }
 
 export type AnomalieKind =
-  'jamais_pointe' | 'silence' | 'sans_heures' | 'heures_faibles' | 'doublon_declaration'
+  | 'jamais_pointe'
+  | 'silence'
+  | 'sans_heures'
+  | 'heures_faibles'
+  | 'doublon_declaration'
+  | 'ecart_declaration'
+  | 'of_a_solder'
 
 /** Une anomalie portant sur un OF du poste. Les champs non pertinents pour la
  *  famille sont null — la vue décide de ce qu'elle affiche par famille. */
@@ -74,6 +80,10 @@ export interface AnomaliesPosteResultat {
   silences: AnomaliePoste[]
   heures: AnomaliePoste[]
   doublons: DoublonDeclaration[]
+  /** Écarts de déclaration (#95) filtrés sur le poste. */
+  ecartsDeclaration: AnomaliePoste[]
+  /** OF à solder / fantômes filtrés sur le poste. */
+  ofsASolder: AnomaliePoste[]
 }
 
 export interface OfEnCoursPoste {
@@ -177,5 +187,12 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
   silences.sort((a, b) => (b.jours ?? 0) - (a.jours ?? 0))
   heures.sort((a, b) => (a.heuresPointees ?? 0) - (b.heuresPointees ?? 0))
 
-  return { jamaisPointes, silences, heures, doublons }
+  return {
+    jamaisPointes,
+    silences,
+    heures,
+    doublons,
+    ecartsDeclaration: [],
+    ofsASolder: [],
+  }
 }

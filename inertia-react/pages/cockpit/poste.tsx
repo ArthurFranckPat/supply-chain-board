@@ -30,10 +30,7 @@ import {
   ToolbarSpacer,
 } from '@r/components/vision/toolbar'
 import { moisLabel } from '@r/components/cockpit/chart-common'
-import {
-  fetchBoardFeasibility,
-  feasibilityWindowFromDates,
-} from '@r/lib/board/feasibility-map'
+import { fetchBoardFeasibility, feasibilityWindowFromDates } from '@r/lib/board/feasibility-map'
 import type { FeasStatus } from '@r/lib/board/types'
 import { route } from '@r/lib/routes'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
@@ -55,13 +52,7 @@ interface PosteListItem {
 interface ReplicaState {
   disponible: boolean
   raison:
-    | 'disabled'
-    | 'never-ingested'
-    | 'last-run-failed'
-    | 'env-mismatch'
-    | 'dirty'
-    | 'stale'
-    | null
+    'disabled' | 'never-ingested' | 'last-run-failed' | 'env-mismatch' | 'dirty' | 'stale' | null
   dernierRunIso: string | null
 }
 
@@ -164,6 +155,8 @@ type AnomalieKind =
   | 'sans_heures'
   | 'heures_faibles'
   | 'doublon_declaration'
+  | 'ecart_declaration'
+  | 'of_a_solder'
 
 interface AnomalieVue {
   kind: AnomalieKind
@@ -190,6 +183,8 @@ interface AnomaliesVue {
   silences: AnomalieVue[]
   heures: AnomalieVue[]
   doublons: DoublonVue[]
+  ecartsDeclaration: AnomalieVue[]
+  ofsASolder: AnomalieVue[]
 }
 
 interface PostePayload {
@@ -216,12 +211,12 @@ interface PostePayload {
 const JOURS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const
 
 const REPLICA_RAISON: Record<NonNullable<ReplicaState['raison']>, string> = {
-  disabled: 'lecture réplique désactivée (REPLICA_READS)',
+  'disabled': 'lecture réplique désactivée (REPLICA_READS)',
   'never-ingested': 'réplique jamais alimentée',
   'last-run-failed': 'dernière ingestion en échec',
   'env-mismatch': 'réplique alimentée depuis un autre environnement X3',
-  dirty: 'réplique marquée sale après une écriture',
-  stale: 'réplique trop ancienne',
+  'dirty': 'réplique marquée sale après une écriture',
+  'stale': 'réplique trop ancienne',
 }
 
 interface Props {
@@ -316,7 +311,10 @@ export default function CockpitPoste(props: Props) {
           <button
             type="button"
             onClick={refresh}
-            className={cn(PILL, 'cursor-pointer px-2.5 text-muted-foreground hover:text-foreground')}
+            className={cn(
+              PILL,
+              'cursor-pointer px-2.5 text-muted-foreground hover:text-foreground'
+            )}
             title="Rafraîchir"
             aria-label="Rafraîchir"
           >
@@ -375,9 +373,7 @@ export default function CockpitPoste(props: Props) {
 /** Carte d'identité + passé constaté + anomalies + analyses + engagement. */
 function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string) => void }) {
   const { poste, engagement, passe, anomalies, analyses, x3Error } = props.payload
-  const sat = engagement
-    ? saturation(engagement.totalHours, engagement.weeklyCapacityHours)
-    : null
+  const sat = engagement ? saturation(engagement.totalHours, engagement.weeklyCapacityHours) : null
 
   // Faisabilité matières — même contrat API que le séquenceur (#119 : reprise du
   // bloc séquenceur sans dupliquer la logique). À la demande : le calcul est
@@ -418,7 +414,9 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
           <span className="text-[13px] font-medium text-muted-foreground">{poste.label}</span>
         </div>
         {poste.atelier && (
-          <span className="text-[12px] font-medium text-muted-foreground">{poste.atelierLabel}</span>
+          <span className="text-[12px] font-medium text-muted-foreground">
+            {poste.atelierLabel}
+          </span>
         )}
 
         <span className="flex-1" />
@@ -447,9 +445,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
             <span className="text-[15px] font-bold tabular-nums text-foreground">
               {fmtH(poste.capaciteHebdoHeures)}
             </span>
-            <span className="font-mono text-[10px] font-semibold text-muted-foreground">
-              h/sem
-            </span>
+            <span className="font-mono text-[10px] font-semibold text-muted-foreground">h/sem</span>
           </div>
         )}
 
@@ -473,7 +469,9 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
       {passe && <PasseSection passe={passe} onSelectOf={props.onSelectOf} />}
 
       {/* Anomalies de pointage — quatre détecteurs (#119, lot 5). */}
-      {passe && anomalies && <AnomaliesSection anomalies={anomalies} onSelectOf={props.onSelectOf} />}
+      {passe && anomalies && (
+        <AnomaliesSection anomalies={anomalies} onSelectOf={props.onSelectOf} />
+      )}
 
       {/* Analyses — fiabilité gamme, adhérence, mix articles (#119, lot 6). */}
       {passe && analyses && <AnalysesSection analyses={analyses} />}
@@ -524,7 +522,11 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
               )}
               title="Couverture matières des OF engagés (même moteur que /programme)"
             >
-              <RefreshCw size={14} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
+              <RefreshCw
+                size={14}
+                strokeWidth={1.75}
+                className={cn(feasLoading && 'animate-spin')}
+              />
               {feasLoading ? 'Calcul…' : feasMap ? 'Recalculer la faisabilité' : 'Faisabilité'}
             </button>
           )}
@@ -598,9 +600,7 @@ function EngagementLine(props: {
               </span>
             ))}
             {r.commandes.length > 3 && (
-              <span className="text-[10px] text-muted-foreground">
-                +{r.commandes.length - 3}
-              </span>
+              <span className="text-[10px] text-muted-foreground">+{r.commandes.length - 3}</span>
             )}
           </div>
         )}
@@ -633,7 +633,9 @@ function EngagementLine(props: {
         </span>
       )}
 
-      <span className={cn('shrink-0 font-mono text-[11px] font-bold tabular-nums', urgencyColor(u))}>
+      <span
+        className={cn('shrink-0 font-mono text-[11px] font-bold tabular-nums', urgencyColor(u))}
+      >
         {r.livraisonIso ? dateLong(r.livraisonIso) : '—'}
       </span>
 
@@ -655,7 +657,9 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
     anomalies.jamaisPointes.length +
     anomalies.silences.length +
     anomalies.heures.length +
-    anomalies.doublons.length
+    anomalies.doublons.length +
+    anomalies.ecartsDeclaration.length +
+    anomalies.ofsASolder.length
 
   return (
     <div className="border-b border-border px-7 py-4">
@@ -717,7 +721,12 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
                   {a.article} · décl. {a.qtyDeclaree ?? 0}
                 </span>
                 <span className="ml-auto">
-                  <span className={cn('font-bold', a.kind === 'sans_heures' ? 'text-danger' : 'text-suggere')}>
+                  <span
+                    className={cn(
+                      'font-bold',
+                      a.kind === 'sans_heures' ? 'text-danger' : 'text-suggere'
+                    )}
+                  >
                     {fmtH(a.heuresPointees ?? 0)} h
                   </span>
                   <span className="text-muted-foreground">
@@ -735,11 +744,67 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
             count={anomalies.doublons.length}
           >
             {anomalies.doublons.map((d) => (
-              <AnomalieRow key={`${d.numOf}-${d.openum}-${d.iptdat}`} numOf={d.numOf} onSelectOf={onSelectOf}>
+              <AnomalieRow
+                key={`${d.numOf}-${d.openum}-${d.iptdat}`}
+                numOf={d.numOf}
+                onSelectOf={onSelectOf}
+              >
                 <span className="text-muted-foreground">
                   op. {d.openum} · {dateLong(d.iptdat)}
                 </span>
                 <span className="ml-auto font-bold text-suggere">×{d.nombre}</span>
+              </AnomalieRow>
+            ))}
+          </AnomalieCard>
+
+          <AnomalieCard
+            titre="Écarts de déclaration"
+            note={
+              <>
+                Quantité pointée &gt; quantité déclarée — détail sur{' '}
+                <a href="/controle-prod" className="text-brand hover:underline">
+                  /controle-prod
+                </a>
+              </>
+            }
+            count={anomalies.ecartsDeclaration.length}
+          >
+            {anomalies.ecartsDeclaration.map((a) => (
+              <AnomalieRow
+                key={a.numOf}
+                numOf={a.numOf}
+                onSelectOf={onSelectOf}
+                origineHref="/controle-prod"
+                origineLabel="contrôle prod"
+              >
+                <span className="text-muted-foreground">{a.article}</span>
+                <span className="ml-auto font-bold text-danger">écart {a.qtyDeclaree ?? 0}</span>
+              </AnomalieRow>
+            ))}
+          </AnomalieCard>
+
+          <AnomalieCard
+            titre="OF à solder"
+            note={
+              <>
+                Pointé à 100 %, rien déclaré — détail sur{' '}
+                <a href="/controle-prod" className="text-brand hover:underline">
+                  /controle-prod
+                </a>
+              </>
+            }
+            count={anomalies.ofsASolder.length}
+          >
+            {anomalies.ofsASolder.map((a) => (
+              <AnomalieRow
+                key={a.numOf}
+                numOf={a.numOf}
+                onSelectOf={onSelectOf}
+                origineHref="/controle-prod"
+                origineLabel="contrôle prod"
+              >
+                <span className="text-muted-foreground">{a.article}</span>
+                <span className="ml-auto font-bold text-danger">{a.jours} j</span>
               </AnomalieRow>
             ))}
           </AnomalieCard>
@@ -749,7 +814,12 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
   )
 }
 
-function AnomalieCard(props: { titre: string; note: string; count: number; children: React.ReactNode }) {
+function AnomalieCard(props: {
+  titre: string
+  note: React.ReactNode
+  count: number
+  children: React.ReactNode
+}) {
   return (
     <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
       <div className="mb-1 flex items-baseline gap-2 px-1">
@@ -772,7 +842,13 @@ function AnomalieCard(props: { titre: string; note: string; count: number; child
   )
 }
 
-function AnomalieRow(props: { numOf: string; onSelectOf: (numOf: string) => void; children: React.ReactNode }) {
+function AnomalieRow(props: {
+  numOf: string
+  onSelectOf: (numOf: string) => void
+  origineHref?: string
+  origineLabel?: string
+  children: React.ReactNode
+}) {
   return (
     <div className="flex items-center gap-3 px-1 py-1.5 font-mono text-[11px] tabular-nums">
       <button
@@ -782,7 +858,22 @@ function AnomalieRow(props: { numOf: string; onSelectOf: (numOf: string) => void
       >
         {props.numOf}
       </button>
+      <X3Link
+        fonction="GESMFG"
+        cle={props.numOf}
+        iconOnly
+        title={`Ouvrir ${props.numOf} dans Sage X3`}
+      />
       {props.children}
+      {props.origineHref && (
+        <a
+          href={props.origineHref}
+          className="shrink-0 text-[10px] text-brand hover:underline"
+          title={props.origineLabel}
+        >
+          {props.origineLabel ?? 'origine'}
+        </a>
+      )}
     </div>
   )
 }
@@ -812,7 +903,11 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
         ? passe.productionParSemaine
         : passe.productionParMois
   const palettes =
-    maille === 'jour' ? passe.palettes.parJour : maille === 'semaine' ? passe.palettes.parSemaine : passe.palettes.parMois
+    maille === 'jour'
+      ? passe.palettes.parJour
+      : maille === 'semaine'
+        ? passe.palettes.parSemaine
+        : passe.palettes.parMois
 
   const palettesParDate = new Map(palettes.map((p) => [p.date, p.palettes]))
   const palettesDisponibles = palettes.some((p) => p.palettes !== null)
@@ -823,7 +918,7 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
 
   const chartData = prod.map((m) => ({
     label: labelDe(m.date),
-    qty: unite === 'pieces' ? m.qty : (palettesParDate.get(m.date) ?? 0),
+    qty: unite === 'pieces' ? m.qty : (palettesParDate.get(m.date) ?? null),
     heures: m.heures,
     dontHeuresReglage: m.dontHeuresReglage,
   }))
@@ -887,8 +982,8 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
               </div>
               {unite === 'palettes' && !palettesDisponibles ? (
                 <div className="flex h-[170px] items-center justify-center p-4 text-center font-fraunces text-[13px] italic text-muted-foreground">
-                  Équivalent palette indisponible : aucun coefficient PCUSTUCOE_1 sur les
-                  articles produits.
+                  Équivalent palette indisponible : aucun coefficient PCUSTUCOE_1 sur les articles
+                  produits.
                 </div>
               ) : (
                 <ProductionChart data={chartData} />
@@ -1023,7 +1118,10 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
           ) : (
             <div className="max-h-[220px] divide-y divide-rule-soft overflow-auto">
               {fiabilite.articles.map((a) => (
-                <div key={a.article} className="flex items-center gap-2 px-1 py-1 font-mono text-[11px] tabular-nums">
+                <div
+                  key={a.article}
+                  className="flex items-center gap-2 px-1 py-1 font-mono text-[11px] tabular-nums"
+                >
                   <span className="font-semibold">{a.article}</span>
                   <span className="ml-auto text-muted-foreground">
                     {fmtH(a.heuresTheoriques)} / {fmtH(a.heuresPointees)} h
@@ -1045,12 +1143,14 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
         {/* Adhérence au programme. */}
         <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
           <div className="mb-1 flex items-baseline gap-2 px-1">
-            <span className="text-[11px] font-semibold text-foreground">Adhérence au programme</span>
+            <span className="text-[11px] font-semibold text-foreground">
+              Adhérence au programme
+            </span>
           </div>
           <div className="px-1 pb-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
             OF prévus (lancement des OF ouverts) vs réellement pointés, par semaine — semaine en
-            cours exclue. Les OF passés en stock ne sont plus dans ORDERS : périmètre vivant
-            seulement.
+            cours exclue. 4 semaines récentes seulement (ORDERS ne garde pas l'historique des OF
+            soldés).
           </div>
           {adherence.length === 0 ? (
             <div className="px-1 pb-1 font-fraunces text-[12px] italic text-muted-foreground">
@@ -1059,7 +1159,10 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
           ) : (
             <div className="max-h-[220px] divide-y divide-rule-soft overflow-auto">
               {adherence.map((s) => (
-                <div key={s.semaine} className="flex items-center gap-2 px-1 py-1 font-mono text-[11px] tabular-nums">
+                <div
+                  key={s.semaine}
+                  className="flex items-center gap-2 px-1 py-1 font-mono text-[11px] tabular-nums"
+                >
                   <span>{semaineLabel(s.semaine)}</span>
                   <span className="ml-auto text-muted-foreground">
                     {s.pointes}/{s.prevus} pointés
@@ -1087,7 +1190,9 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
         {/* Mix articles et cadence réelle. */}
         <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
           <div className="mb-1 flex items-baseline gap-2 px-1">
-            <span className="text-[11px] font-semibold text-foreground">Mix articles & cadence réelle</span>
+            <span className="text-[11px] font-semibold text-foreground">
+              Mix articles & cadence réelle
+            </span>
           </div>
           <div className="px-1 pb-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
             top productions de la fenêtre · u/h constatées vs cadence gamme

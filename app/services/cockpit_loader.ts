@@ -9,9 +9,13 @@ import {
   type PosteEngagement,
 } from '#services/poste_engagement_loader'
 import { OverrideStore } from '#services/override_store'
-import { POSTE_PP_RE, atelierLabel } from '#app/domain/atelier'
+import { atelierLabel } from '#app/domain/atelier'
 import { capacityPeriod } from '#app/domain/capacity'
-import { detecterAnomaliesPoste, type AnomaliesPosteResultat } from '#app/domain/cockpit_anomalies'
+import {
+  detecterAnomaliesPoste,
+  type AnomaliePoste,
+  type AnomaliesPosteResultat,
+} from '#app/domain/cockpit_anomalies'
 import {
   adherenceProgramme,
   fiabiliteTempsGamme,
@@ -22,16 +26,19 @@ import {
   type MixArticle,
 } from '#app/domain/cockpit_analyses'
 import {
+  estPosteProduction,
   heuresConvertiesParJour,
   palettesRealisees,
   productionParMois,
   productionParSemaine,
   productionRealiseeParJour,
   syntheseParOf,
+  tronquerPoste,
   type PalettesMaille,
   type PointageTrk,
   type ProductionRealisee,
 } from '#app/domain/production_realisee'
+import { calcPalettes } from '#app/domain/receptions'
 import {
   groupGammeByArticle,
   hoursForQuantity,
@@ -41,6 +48,8 @@ import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { Article } from '#app/domain/models/article'
 import { isoDay } from '#app/utils/dates'
 import { cacheNs } from '#services/cache_ns'
+import { loadControleProdData } from '#services/controle_prod_loader'
+import { loadOfASolderData } from '#services/of_a_solder_loader'
 
 /**
  * Cockpit poste (#119) — sélecteur, identité, passé constaté, engagement.
@@ -171,20 +180,22 @@ function fenetrePointage(): { fromIso: string; toIso: string; toExclIso: string 
   return { fromIso: isoDay(from), toIso: isoDay(to), toExclIso: isoDay(toExcl) }
 }
 
-/** Tri numérique du code (PP_2 avant PP_10) — même règle qu'au séquenceur. */
-const posteNum = (code: string): number =>
-  Number.parseInt(POSTE_PP_RE.exec(code)?.[0].slice(3) ?? '0', 10)
+/** Tri numérique du code tronqué (PP_2 avant PP_10). */
+const posteNum = (code: string): number => {
+  const m = /^(?:PP|PE)_(\d+)$/.exec(tronquerPoste(code))
+  return m ? Number.parseInt(m[1], 10) : 0
+}
 
 /**
- * Liste des postes du sélecteur : les postes NUMÉRIQUES (`PP_\d+`) ayant pointé
- * dans la fenêtre répliquée. La réplique est la source — un poste pointé mais
- * absent du référentiel gammes doit rester sélectionnable (son libellé retombe
- * sur le code). À l'inverse, un poste du référentiel sans aucun pointage n'a pas
- * sa place ici : l'écran raconte le passé constaté.
+ * Liste des postes du sélecteur : postes de production (`PP_`/`PE_` + digits)
+ * ayant pointé dans la fenêtre répliquée, dédupliqués par code tronqué.
+ * La réplique est la source — un poste pointé mais absent du référentiel
+ * gammes doit rester sélectionnable (libellé = code). À l'inverse, un poste
+ * du référentiel sans aucun pointage n'a pas sa place ici.
  */
 export async function loadCockpitPostes(force = false): Promise<CockpitPostesPayload> {
   const cache = cacheNs('cockpit')
-  const key = 'postes:v1'
+  const key = 'postes:v2'
   if (force) await cache.delete({ key })
   return cache.getOrSet({
     key,
@@ -210,11 +221,21 @@ export async function loadCockpitPostes(force = false): Promise<CockpitPostesPay
       // séquenceur et le board, deux sources qui peuvent diverger.
       const ref = await boardDataset.getReferential()
       const wstLabels = new Map<string, string>()
-      for (const g of ref.gamme)
-        if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+      for (const g of ref.gamme) {
+        if (!g.workstation) continue
+        const t = tronquerPoste(g.workstation)
+        if (!wstLabels.has(t)) wstLabels.set(t, g.workstationLabel || t)
+      }
 
+      const seen = new Set<string>()
       const postes = codes
-        .filter((c) => POSTE_PP_RE.test(c))
+        .filter((c) => estPosteProduction(c))
+        .map((c) => tronquerPoste(c))
+        .filter((c) => {
+          if (seen.has(c)) return false
+          seen.add(c)
+          return true
+        })
         .sort((a, b) => posteNum(a) - posteNum(b))
         .map((code) => ({ code, label: wstLabels.get(code) ?? code }))
 
@@ -245,14 +266,14 @@ function moisDeLaFenetre(fromIso: string, toIso: string): string[] {
   return out
 }
 
-/** Cadence de gamme par (article, poste) — première rencontrée, rate > 0. */
+/** Cadence de gamme par (article, poste tronqué) — première rencontrée, rate > 0. */
 function cadenceParArticlePoste(
   gamme: { article: string; workstation: string; rate: number }[]
 ): Map<string, number> {
   const cadenceParCle = new Map<string, number>()
   for (const g of gamme) {
     if (!g.workstation || g.rate <= 0) continue
-    const cle = `${g.article}#${g.workstation}`
+    const cle = `${g.article}#${tronquerPoste(g.workstation)}`
     if (!cadenceParCle.has(cle)) cadenceParCle.set(cle, g.rate)
   }
   return cadenceParCle
@@ -347,41 +368,111 @@ type CockpitWorkstation = Parameters<typeof capacityPeriod>[0]
 const STATUTS_EN_COURS = new Set([1, 2, 3])
 
 /**
- * OF EN COURS rattachés au poste — une seule extraction pour les anomalies,
- * l'adhérence et la liste des OF terminés. Même résolution de poste que
- * l'engagement (#46) : override manuel sinon première opération de gamme.
+ * Tous les OF ouverts (statuts 1/2/3), une seule extraction. Le rattachement
+ * poste (override sinon première op. de gamme) se décide à l'appelant.
  */
-async function ofsEnCoursDuPoste(
-  poste: string,
-  gamme: GammeOperation[]
-): Promise<ManufacturingOrder[]> {
+async function ofsOuverts(gamme: GammeOperation[]): Promise<{
+  all: ManufacturingOrder[]
+  resolve: (mo: ManufacturingOrder) => string | null
+}> {
   const [ord, overrides] = await Promise.all([
     boardDataset.getOrders(),
     new OverrideStore().getAll(),
   ])
   const opsByArticle = groupGammeByArticle(gamme)
   const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
-
   const seen = new Set<string>()
-  return ord.mos.filter((mo) => {
-    if (!STATUTS_EN_COURS.has(Number(mo.status))) return false
-    if (seen.has(mo.numOf)) return false
-    if (resolvePoste(mo, overrideMap, opsByArticle) !== poste) return false
+  const all: ManufacturingOrder[] = []
+  for (const mo of ord.mos) {
+    if (!STATUTS_EN_COURS.has(Number(mo.status))) continue
+    if (seen.has(mo.numOf)) continue
     seen.add(mo.numOf)
-    return true
-  })
+    all.push(mo)
+  }
+  return {
+    all,
+    resolve: (mo) => resolvePoste(mo, overrideMap, opsByArticle),
+  }
+}
+
+/** openum sélectionné par OF sur ce poste (OPENUM max quantifié). */
+function selectionOpenumParOf(pointages: PointageTrk[], poste: string): Map<string, number> {
+  const selection = new Map<string, number>()
+  for (const p of pointages) {
+    if (tronquerPoste(p.cplwst) !== poste) continue
+    if (p.cplqty <= 0) continue
+    const cur = selection.get(p.numOf)
+    if (cur === undefined || p.openum > cur) selection.set(p.numOf, p.openum)
+  }
+  return selection
+}
+
+/**
+ * Quantité déclarée SUR LE POSTE (revue #119, 2.3) : MFGOPE.CPLQTY de
+ * l'opération sélectionnée (OPENUM max quantifié sur ce poste), pas la somme
+ * toutes opérations / tous postes.
+ */
+function qtyDeclareeSurPoste(
+  operations: { mfgnum: string; openum: number; cplqty: number }[],
+  openumParOf: Map<string, number>
+): Map<string, number> {
+  const declareeParOf = new Map<string, number>()
+  for (const op of operations) {
+    if (openumParOf.get(op.mfgnum) !== op.openum) continue
+    declareeParOf.set(op.mfgnum, (declareeParOf.get(op.mfgnum) ?? 0) + (op.cplqty || 0))
+  }
+  return declareeParOf
+}
+
+/** Enrichit le résultat domaine avec écarts (#95) et OF à solder du poste. */
+async function enrichAnomaliesPoste(
+  result: AnomaliesPosteResultat,
+  poste: string
+): Promise<AnomaliesPosteResultat> {
+  const [controle, solder] = await Promise.all([
+    loadControleProdData(false).catch(() => null),
+    loadOfASolderData(false).catch(() => null),
+  ])
+
+  result.ecartsDeclaration = (controle?.rows ?? [])
+    .filter((r) => tronquerPoste(r.poste ?? '') === poste)
+    .map((r): AnomaliePoste => ({
+      kind: 'ecart_declaration',
+      numOf: r.numOf,
+      article: r.article,
+      designation: r.designation,
+      dateDebutIso: r.dateDebutIso,
+      dernierPointageIso: null,
+      jours: null,
+      qtyDeclaree: r.ecart,
+      heuresPointees: null,
+      heuresTheoriques: null,
+    }))
+
+  result.ofsASolder = (solder?.rows ?? [])
+    .filter((r) => tronquerPoste(r.poste ?? '') === poste)
+    .map((r): AnomaliePoste => ({
+      kind: 'of_a_solder',
+      numOf: r.numOf,
+      article: r.article,
+      designation: r.designation,
+      dateDebutIso: r.dateDebutIso,
+      dernierPointageIso: r.dernierPointageIso,
+      jours: r.joursDepuisPointage,
+      qtyDeclaree: null,
+      heuresPointees: null,
+      heuresTheoriques: null,
+    }))
+
+  return result
 }
 
 /**
  * Anomalies de pointage du poste (#119, lot 5). Domaine pur sur :
- *  - les OF EN COURS rattachés au poste (ORDERS ouverts + même résolution de
- *    poste que l'engagement : override sinon première opération de gamme) ;
- *  - les quantités déclarées (MFGOPE via `getOperations`, dual-source) ;
- *  - les pointages du poste déjà lus de la réplique.
- *
- * Retourne null si la réplique est indisponible : trois détecteurs sur quatre
- * vivent sur les pointages, et le quatrième (déclaré sans heures) n'a de sens
- * qu'en regard des mêmes pointages.
+ *  - les OF EN COURS rattachés au poste (1ʳᵉ op.) + ceux pointés ici ;
+ *  - les quantités déclarées sur les ops du poste (MFGOPE × openums gamme) ;
+ *  - les pointages du poste déjà lus de la réplique ;
+ *  - écarts déclaration (#95) et OF à solder filtrés sur le poste.
  */
 async function buildAnomalies(opts: {
   poste: string
@@ -390,49 +481,50 @@ async function buildAnomalies(opts: {
   enCours: ManufacturingOrder[]
 }): Promise<AnomaliesPosteResultat> {
   const { enCours } = opts
+  const openumParOf = selectionOpenumParOf(opts.pointages, opts.poste)
+
+  let result: AnomaliesPosteResultat
   if (enCours.length === 0) {
-    // Sans OF en cours sur le poste, seuls les doublons restent détectables.
-    return detecterAnomaliesPoste({
+    result = detecterAnomaliesPoste({
       ofs: [],
       pointages: opts.pointages,
       heuresTheoriquesPour: () => 0,
       aujourdhuiIso: isoDay(new Date()),
     })
-  }
-
-  // Quantité déclarée par OF — MFGOPE (dual-source, cf. board_dataset).
-  const declareeParOf = new Map<string, number>()
-  try {
-    const operations = await boardDataset.getOperations(enCours.map((m) => m.numOf))
-    for (const op of operations) {
-      declareeParOf.set(op.mfgnum, (declareeParOf.get(op.mfgnum) ?? 0) + (op.cplqty || 0))
+  } else {
+    let declareeParOf = new Map<string, number>()
+    try {
+      const operations = await boardDataset.getOperations(enCours.map((m) => m.numOf))
+      declareeParOf = qtyDeclareeSurPoste(operations, openumParOf)
+    } catch {
+      // Déclarations indisponibles : le détecteur 3 tournera sur des quantités à
+      // zéro (donc muet) plutôt que de faire échouer tout le payload.
     }
-  } catch {
-    // Déclarations indisponibles : le détecteur 3 tournera sur des quantités à
-    // zéro (donc muet) plutôt que de faire échouer tout le payload.
+
+    const cadenceParCle = cadenceParArticlePoste(opts.gamme)
+
+    result = detecterAnomaliesPoste({
+      ofs: enCours.map((mo) => ({
+        numOf: mo.numOf,
+        article: mo.article,
+        designation: mo.designation,
+        dateDebutIso: mo.startDate ? isoDay(mo.startDate) : null,
+        qtyDeclaree: declareeParOf.get(mo.numOf) ?? 0,
+      })),
+      pointages: opts.pointages,
+      heuresTheoriquesPour: (article, qty) =>
+        hoursForQuantity({ rate: cadenceParCle.get(`${article}#${opts.poste}`) ?? 0 }, qty),
+      aujourdhuiIso: isoDay(new Date()),
+    })
   }
 
-  const cadenceParCle = cadenceParArticlePoste(opts.gamme)
-
-  return detecterAnomaliesPoste({
-    ofs: enCours.map((mo) => ({
-      numOf: mo.numOf,
-      article: mo.article,
-      designation: mo.designation,
-      dateDebutIso: mo.startDate ? isoDay(mo.startDate) : null,
-      qtyDeclaree: declareeParOf.get(mo.numOf) ?? 0,
-    })),
-    pointages: opts.pointages,
-    heuresTheoriquesPour: (article, qty) =>
-      hoursForQuantity({ rate: cadenceParCle.get(`${article}#${opts.poste}`) ?? 0 }, qty),
-    aujourdhuiIso: isoDay(new Date()),
-  })
+  return enrichAnomaliesPoste(result, opts.poste)
 }
 
 /**
  * OF « terminés » du point de vue du poste : pointés dans la fenêtre et qui ne
- * sont PLUS en cours. La date de sortie est approchée par le dernier pointage —
- * la réplique ne connaît pas la clôture X3, et c'est documenté comme tel.
+ * sont PLUS en cours (tous postes). La date de sortie est approchée par le
+ * dernier pointage — la réplique ne connaît pas la clôture X3.
  */
 function buildOfTermines(opts: {
   pointages: PointageTrk[]
@@ -451,7 +543,7 @@ function buildOfTermines(opts: {
       qty: of.qty,
       heures: Math.round(of.heures * 100) / 100,
       dernierJourIso: of.dernierJour,
-      palettes: coef && coef > 0 ? Math.round((of.qty / coef) * 10) / 10 : null,
+      palettes: coef && coef > 0 ? calcPalettes(of.qty, coef) : null,
     })
   }
   return termines.sort((a, b) => b.dernierJourIso.localeCompare(a.dernierJourIso))
@@ -531,7 +623,21 @@ function versPointages(
  * le dira. Les pointages sont lus UNE fois et partagés passé/anomalies.
  */
 export async function loadCockpitPoste(poste: string, force = false): Promise<CockpitPostePayload> {
-  const safe = poste.trim()
+  const safe = tronquerPoste(poste.trim())
+  const cache = cacheNs('cockpit')
+  const key = `poste:${safe}:v2`
+  if (force) await cache.delete({ key })
+  return cache.getOrSet({
+    key,
+    ttl: COCKPIT_TTL,
+    factory: () => loadCockpitPosteUncached(safe, force),
+  })
+}
+
+async function loadCockpitPosteUncached(
+  safe: string,
+  force: boolean
+): Promise<CockpitPostePayload> {
   const fen = fenetrePointage()
   const fenetre = { fromIso: fen.fromIso, toIso: fen.toIso }
 
@@ -542,10 +648,33 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
     dernierRunIso: verdict.lastFullRunAt,
   }
 
+  if (!estPosteProduction(safe)) {
+    return {
+      poste: {
+        code: safe,
+        label: safe,
+        atelier: '',
+        atelierLabel: '',
+        capaciteHebdoHeures: null,
+        regimeHebdo: null,
+        dernierPointageIso: null,
+      },
+      engagement: null,
+      passe: null,
+      anomalies: null,
+      analyses: null,
+      fenetre,
+      replica,
+      x3Error: null,
+    }
+  }
+
   const ref = await boardDataset.getReferential()
-  const wst = ref.workstations.find((w) => w.code === safe)
+  const wst = ref.workstations.find((w) => tronquerPoste(w.code) === safe)
   let label = safe
-  for (const g of ref.gamme) if (g.workstation === safe) label = g.workstationLabel || g.workstation
+  for (const g of ref.gamme) {
+    if (tronquerPoste(g.workstation) === safe) label = g.workstationLabel || g.workstation
+  }
 
   const pointages: PointageTrk[] = replica.disponible
     ? versPointages(
@@ -570,8 +699,6 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
   let anomalies: AnomaliesPosteResultat | null = null
   let analyses: CockpitAnalyses | null = null
   if (replica.disponible) {
-    // Articles du miroir statique : désignations + coefficient palette
-    // (PCUSTUCOE_1) — la page ne fait aucune requête X3 en ligne.
     const articles = await boardDataset.getArticles().catch(() => [] as Article[])
     const designationParArticle = new Map<string, string>()
     const coefParArticle = new Map<string, number>()
@@ -581,22 +708,39 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
     }
     const usParPalette = (article: string): number | null => coefParArticle.get(article) ?? null
 
-    const enCours = await ofsEnCoursDuPoste(safe, ref.gamme)
-    const enCoursNums = new Set(enCours.map((m) => m.numOf))
+    const { all: allOpen, resolve } = await ofsOuverts(ref.gamme)
+    const allOpenNums = new Set(allOpen.map((m) => m.numOf))
+    const enCoursPremierOp = allOpen.filter((mo) => tronquerPoste(resolve(mo) ?? '') === safe)
+
+    // Anomalies : 1ʳᵉ op. sur ce poste + OF ouverts pointés ici (silence/heures).
+    const pointageOfNums = new Set(pointages.map((p) => p.numOf))
+    const seenAnom = new Set(enCoursPremierOp.map((m) => m.numOf))
+    const enCoursAnomalies = [...enCoursPremierOp]
+    for (const mo of allOpen) {
+      if (seenAnom.has(mo.numOf)) continue
+      if (!pointageOfNums.has(mo.numOf)) continue
+      seenAnom.add(mo.numOf)
+      enCoursAnomalies.push(mo)
+    }
 
     const ofTermines = buildOfTermines({
       pointages,
-      enCoursNums,
+      enCoursNums: allOpenNums,
       designationParArticle,
       usParPalette,
     })
     passe = buildPasse({ pointages, fen, wst, gamme: ref.gamme, usParPalette, ofTermines })
-    anomalies = await buildAnomalies({ poste: safe, pointages, gamme: ref.gamme, enCours })
+    anomalies = await buildAnomalies({
+      poste: safe,
+      pointages,
+      gamme: ref.gamme,
+      enCours: enCoursAnomalies,
+    })
     analyses = await buildAnalyses({
       poste: safe,
       pointages,
       gamme: ref.gamme,
-      enCours,
+      enCours: enCoursPremierOp,
       fen,
       usParPalette,
     })

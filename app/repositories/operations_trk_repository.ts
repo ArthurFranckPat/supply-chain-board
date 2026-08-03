@@ -66,8 +66,14 @@ export interface OperationsTrkRow {
   xequipe: string | null
 }
 
+/** Bornes locales → YYYYMMDD. Jamais `toISOString()` : en Europe/Paris, minuit
+ *  local = 22:00 UTC la veille, et la fenêtre d'ingestion perdait le jour courant
+ *  (revue #119). */
 function toYYYYMMDD(d: Date): string {
-  return d.toISOString().slice(0, 10).replace(/-/g, '')
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}${m}${day}`
 }
 
 function addDays(d: Date, n: number): Date {

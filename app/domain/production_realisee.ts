@@ -5,48 +5,58 @@
  * pointages d'`operations_trk_replica` (lot 1), produit les mailles jour du
  * graphe de production et la conversion en heures via la cadence de gamme.
  *
+ * ## Identité du poste
+ *
+ * Même convention que `/charge` et `/programme` (`gamme_repository`) :
+ * tronquer à 6 caractères (`SUBSTR(WST_0, 1, 6)`), puis égalité stricte sur
+ * le code retenu. `PP_093S` tombe donc sur `PP_093` — pas une somme de postes
+ * distincts, une normalisa­tion d'identité. Les codes dont le segment après
+ * `PP_` / `PE_` n'est pas numérique (`PP_MECA`, `PE_PROD`…) sont exclus.
+ *
  * ## La règle de sélection — pourquoi elle existe
  *
  * Un OF peut passer PLUSIEURS fois sur le même poste (la gamme y repasse,
  * jusqu'à 6 opérations quantifiées relevées pour un même couple OF × poste).
  * Chaque opération quantifiée redéclare la même pièce : sommer les quantités de
  * toutes les opérations compterait la pièce autant de fois que le poste l'a
- * vue. La production d'un OF sur un poste est donc portée par sa DERNIÈRE
- * opération quantifiée — la plus avancée dans la gamme, la plus proche de la
- * sortie du poste. Les déclarations PARTIELLES de cette opération (50 pièces
- * lundi, 50 mardi) sont en revanche des ajouts légitimes : on somme ses
- * pointages, on ne garde pas seulement le dernier.
- *
- * « Dernière » = dernier pointage quantifié le plus récent en date
- * d'imputation ; à égalité de jour, l'OPENUM le plus élevé (le plus avancé dans
- * la gamme). La sélection est recalculée sur l'état courant des pointages :
- * quand une opération plus récente est déclarée, la production historique de
- * l'OF bascule sur elle — c'est voulu, la série du poste reste cohérente avec
- * « ce qui est sorti du poste ».
+ * vue. La production d'un OF sur un poste est donc portée par l'opération de
+ * plus grand `OPENUM` ayant une quantité > 0 — la plus avancée dans la gamme.
+ * Les déclarations PARTIELLES de cette opération (50 pièces lundi, 50 mardi)
+ * sont en revanche des ajouts légitimes : on somme ses pointages.
  *
  * ## Rebut
  *
- * Les pointages dont le rebut est renseigné ne participent pas à la production
- * réalisée (#119) — ni quantité, ni heures, ni sélection d'opération. Le rebut
- * reste hors périmètre v1 ; la valeur n'est pas exposée, seul le fait qu'il y
- * en ait l'est (booléen).
+ * `REJCPLQTY` est ingéré et NON EXPOSÉ en v1. Le pointage entier reste compté
+ * (`CPLQTY` + heures) : il n'existe pas de pointage de rebut pur — écarter le
+ * pointage jetait la production bonne avec le rebut (revue #119).
  *
- * ## Heures
+ * ## Heures vs quantités
  *
  * Deux lectures distinctes, à ne pas mélanger :
- * - les heures POINTÉES (`heures`) : temps réellement passé, somme des temps
- *   opératoires et de réglage des pointages de l'opération sélectionnée. Les
- *   pointages à quantité nulle — réglage pur — portent des heures réelles et
- *   comptent ;
- * - les heures CONVERTIES (`heuresConvertiesParJour`) : la quantité produite
- *   convertie en heures via la cadence de gamme (`hoursForQuantity`), pour
- *   comparer « ce qui a été produit » à la capacité théorique. C'est une
- *   convention de gestion, pas du temps constaté.
+ * - QUANTITÉS : opération sélectionnée seule (anti double comptage des pièces) ;
+ * - HEURES POINTÉES : TOUS les pointages du poste pour l'OF — le temps passé
+ *   sur un premier passage a bien été passé, même si les pièces sont portées
+ *   par l'opération suivante ;
+ * - heures CONVERTIES (`heuresConvertiesParJour`) : quantité de l'opération
+ *   sélectionnée via `hoursForQuantity` (convention de gestion).
  */
 
 import { hoursForQuantity } from '#app/domain/models/gamme'
 import { calcPalettes } from '#app/domain/receptions'
 import { isoDay, mondayOf } from '#app/utils/dates'
+
+/** Troncature d'identité poste — même longueur que `SUBSTR(WST_0, 1, 6)`. */
+export function tronquerPoste(code: string): string {
+  return code.trim().slice(0, 6)
+}
+
+/**
+ * Poste de production de la ligne : préfixe `PP_` / `PE_` + segment numérique,
+ * après troncature. Exclut `PP_MECA`, `PE_PROD`, etc. (#119).
+ */
+export function estPosteProduction(code: string): boolean {
+  return /^(PP|PE)_\d+$/.test(tronquerPoste(code))
+}
 
 /** Pointage de suivi de fabrication, tel que lu de la réplique (lot 1). */
 export interface PointageTrk {
@@ -54,7 +64,7 @@ export interface PointageTrk {
   openum: number
   /** Date d'imputation ISO YYYY-MM-DD — la maille du graphe. */
   iptdat: string
-  /** Poste réalisé — égalité stricte, jamais de regroupement. */
+  /** Poste réalisé — déjà normalisé (6 car.) côté lecteur, ou brut. */
   cplwst: string
   /** Quantité réalisée — 0 sur les pointages de réglage pur. */
   cplqty: number
@@ -62,7 +72,10 @@ export interface PointageTrk {
   opetim: number
   /** Temps de réglage pointé, heures. */
   settim: number
-  /** Le pointage déclare du rebut (exclu de la production réalisée). */
+  /**
+   * Signal rebut (valeur non exposée). Conservé pour compat lecture réplique ;
+   * n'exclut plus le pointage de la production réalisée (revue #119).
+   */
   rebut: boolean
   /** Article produit — null si l'OF n'a pas de détail connu. */
   itmrefOf: string | null
@@ -75,6 +88,20 @@ export interface ProductionRealisee {
   /** Heures pointées (temps opératoire + réglage). */
   heures: number
   dontHeuresReglage: number
+}
+
+/**
+ * Normalise les pointages : troncature du poste + exclusion des codes
+ * alphabétiques. À appliquer une fois en tête de pipeline.
+ */
+export function filtrerPointagesProduction(pointages: PointageTrk[]): PointageTrk[] {
+  const out: PointageTrk[] = []
+  for (const p of pointages) {
+    const cplwst = tronquerPoste(p.cplwst)
+    if (!estPosteProduction(cplwst)) continue
+    out.push(p.cplwst === cplwst ? p : { ...p, cplwst })
+  }
+  return out
 }
 
 /**
@@ -102,67 +129,57 @@ export function productionParMois(mailles: ProductionRealisee[]): ProductionReal
 
 /** Clé de groupe : un OF sur UN poste — le poste fait partie de l'identité. */
 function groupeKey(p: PointageTrk): string {
-  return `${p.numOf}#${p.cplwst}`
+  return `${p.numOf}#${tronquerPoste(p.cplwst)}`
 }
 
-/** Pointage qui compte pour la production : quantité positive et pas de rebut. */
+/** Pointage qui compte pour la quantité : quantité positive. */
 function estQuantifie(p: PointageTrk): boolean {
-  return p.cplqty > 0 && !p.rebut
+  return p.cplqty > 0
 }
 
 /**
- * Sélection de la dernière opération quantifiée par (OF, poste).
+ * Sélection de l'opération de plus grand OPENUM ayant une quantité > 0, par
+ * (OF, poste). Règle verrouillée #119 — pas la dernière date d'imputation.
  *
  * Rend `numOf#cplwst → openum`. Un groupe sans aucun pointage quantifié
- * (réglage pur, ou uniquement du rebut) n'a PAS d'opération sélectionnée : les
- * lecteurs appliquent alors leur repli (cf. `productionRealiseeParJour` — les
- * heures de réglage restent comptées, la quantité reste nulle).
+ * (réglage pur) n'a PAS d'opération sélectionnée : les lecteurs appliquent
+ * alors leur repli (heures de réglage comptées, quantité nulle).
  */
 export function selectionDerniereOperationQuantifiee(
   pointages: PointageTrk[]
 ): Map<string, number> {
-  // Par groupe puis par opération : la date du dernier pointage quantifié.
-  const derniereQuantification = new Map<string, { iptdat: string; openum: number }>()
+  const selection = new Map<string, number>()
 
   for (const p of pointages) {
     if (!estQuantifie(p)) continue
     const key = groupeKey(p)
-    const cur = derniereQuantification.get(key)
-    if (!cur || p.iptdat > cur.iptdat || (p.iptdat === cur.iptdat && p.openum > cur.openum)) {
-      derniereQuantification.set(key, { iptdat: p.iptdat, openum: p.openum })
-    }
+    const cur = selection.get(key)
+    if (cur === undefined || p.openum > cur) selection.set(key, p.openum)
   }
 
-  const selection = new Map<string, number>()
-  for (const [key, cur] of derniereQuantification) selection.set(key, cur.openum)
   return selection
 }
 
 /**
- * Mailles jour de la production réalisée. Deux lectures, deux sélections :
+ * Mailles jour de la production réalisée :
  *
- * - QUANTITÉS : l'opération sélectionnée (dernière quantifiée), pour ne pas
- *   compter deux fois la même pièce quand l'OF repasse sur le poste ;
- * - HEURES : l'opération sélectionnée AUSSI — sauf quand l'OF n'a AUCUNE
- *   opération quantifiée sur le poste (réglage pur) : ses heures sont alors
- *   comptées intégralement, quantité nulle. Sans ce repli, un OF venu régler
- *   la ligne sans rien produire disparaîtrait de la courbe d'heures, qui
- *   divergerait de la production sans raison (#119).
+ * - QUANTITÉS : opération sélectionnée (OPENUM max quantifié) ;
+ * - HEURES : TOUS les pointages du poste pour l'OF (passages précédents inclus).
+ *   Repli réglage pur : sans opération quantifiée, toutes les heures comptent,
+ *   quantité nulle.
  *
  * Chaque pointage reste sur sa date d'imputation (déclarations partielles).
  * Trié par date croissante.
  */
 export function productionRealiseeParJour(pointages: PointageTrk[]): ProductionRealisee[] {
-  const selection = selectionDerniereOperationQuantifiee(pointages)
+  const filtrés = filtrerPointagesProduction(pointages)
+  const selection = selectionDerniereOperationQuantifiee(filtrés)
 
   const parJour = new Map<string, ProductionRealisee>()
-  for (const p of pointages) {
-    if (p.rebut) continue
+  for (const p of filtrés) {
     const openumSelectionne = selection.get(groupeKey(p))
     const surOperationSelectionnee = openumSelectionne === p.openum
-    const repliReglagePur = openumSelectionne === undefined
-    if (!surOperationSelectionnee && !repliReglagePur) continue
-
+    // Heures : toujours. Quantités : opération sélectionnée seulement.
     let maille = parJour.get(p.iptdat)
     if (!maille) {
       maille = { date: p.iptdat, qty: 0, heures: 0, dontHeuresReglage: 0 }
@@ -192,15 +209,17 @@ export function heuresConvertiesParJour(
   pointages: PointageTrk[],
   rateFor: (article: string, poste: string) => number | null
 ): Map<string, number> {
-  const selection = selectionDerniereOperationQuantifiee(pointages)
+  const filtrés = filtrerPointagesProduction(pointages)
+  const selection = selectionDerniereOperationQuantifiee(filtrés)
 
   const parJour = new Map<string, number>()
-  for (const p of pointages) {
+  for (const p of filtrés) {
     if (!estQuantifie(p)) continue
     if (selection.get(groupeKey(p)) !== p.openum) continue
     if (!p.itmrefOf) continue
 
-    const heures = hoursForQuantity({ rate: rateFor(p.itmrefOf, p.cplwst) ?? 0 }, p.cplqty)
+    const poste = tronquerPoste(p.cplwst)
+    const heures = hoursForQuantity({ rate: rateFor(p.itmrefOf, poste) ?? 0 }, p.cplqty)
     if (heures <= 0) continue
     parJour.set(p.iptdat, (parJour.get(p.iptdat) ?? 0) + heures)
   }
@@ -243,21 +262,18 @@ export interface SyntheseOf {
 }
 
 /**
- * Un résumé par OF : quantité et heures de l'opération sélectionnée, jours
- * pointés. Même repli que `productionRealiseeParJour` : un OF sans AUCUNE
- * opération quantifiée sur le poste (réglage pur) apparaît quand même — ses
- * heures sont réelles — avec `qty = 0`.
+ * Un résumé par OF : quantité de l'opération sélectionnée, heures de TOUS les
+ * pointages du poste. Un OF sans opération quantifiée (réglage pur) apparaît
+ * avec `qty = 0` et ses heures réelles.
  */
 export function syntheseParOf(pointages: PointageTrk[]): SyntheseOf[] {
-  const selection = selectionDerniereOperationQuantifiee(pointages)
+  const filtrés = filtrerPointagesProduction(pointages)
+  const selection = selectionDerniereOperationQuantifiee(filtrés)
 
   const parOf = new Map<string, SyntheseOf & { jours: Set<string> }>()
-  for (const p of pointages) {
-    if (p.rebut) continue
+  for (const p of filtrés) {
     const openumSelectionne = selection.get(groupeKey(p))
     const surOperationSelectionnee = openumSelectionne === p.openum
-    const repliReglagePur = openumSelectionne === undefined
-    if (!surOperationSelectionnee && !repliReglagePur) continue
 
     let cur = parOf.get(p.numOf)
     if (!cur) {
@@ -293,60 +309,81 @@ export interface PalettesMaille {
 
 /**
  * Équivalent palette de la production, par jour/semaine/mois. Réutilise
- * `calcPalettes` (`app/domain/receptions.ts`) — JAMAIS réécrit, son piège
- * PCUSTUCOE est documenté là-bas : les coefficients ne se composent pas,
- * `PCUSTUCOE_1` est directement l'US par palette.
+ * `calcPalettes` (`app/domain/receptions.ts`) — JAMAIS réécrit.
  *
- * Règle d'absence (#119) : dans une maille, les quantités dont l'article n'a
- * PAS de coefficient ne produisent pas « 0 palette » — si aucune quantité de la
- * maille n'est convertible, la maille vaut `null` (absence de donnée). Une
- * maille mixte additionne le convertible ; le reste est assumé perdu, signalé
- * par le commentaire d'affichage côté écran.
+ * Règle d'agrégation (revue #119) : sommer les quantités de la maille par
+ * article, PUIS convertir une fois via `calcPalettes`. Appliquer le ceil par
+ * pointage gonflait les palettes (4 déclarations partielles → 4 palettes là
+ * où il en faut 2).
+ *
+ * Règle d'absence (#119) : si aucune quantité de la maille n'est convertible,
+ * la maille vaut `null` (absence de donnée), jamais 0.
  */
 export function palettesRealisees(
   pointages: PointageTrk[],
   usParPalette: (article: string) => number | null
 ): { parJour: PalettesMaille[]; parSemaine: PalettesMaille[]; parMois: PalettesMaille[] } {
-  const selection = selectionDerniereOperationQuantifiee(pointages)
+  const filtrés = filtrerPointagesProduction(pointages)
+  const selection = selectionDerniereOperationQuantifiee(filtrés)
 
-  const parJour = new Map<string, { palettes: number; convertible: boolean }>()
-  for (const p of pointages) {
+  // Jour → article → qty cumulée (opération sélectionnée seulement).
+  const qtyParJourArticle = new Map<string, Map<string, number>>()
+  for (const p of filtrés) {
     if (!estQuantifie(p)) continue
     if (selection.get(groupeKey(p)) !== p.openum) continue
     if (!p.itmrefOf) continue
 
-    const coef = usParPalette(p.itmrefOf)
-    let cur = parJour.get(p.iptdat)
-    if (!cur) {
-      cur = { palettes: 0, convertible: false }
-      parJour.set(p.iptdat, cur)
+    let parArticle = qtyParJourArticle.get(p.iptdat)
+    if (!parArticle) {
+      parArticle = new Map()
+      qtyParJourArticle.set(p.iptdat, parArticle)
     }
-    if (coef && coef > 0) {
-      cur.palettes += calcPalettes(p.cplqty, coef)
-      cur.convertible = true
-    }
+    parArticle.set(p.itmrefOf, (parArticle.get(p.itmrefOf) ?? 0) + p.cplqty)
   }
 
-  const mailleJour: PalettesMaille[] = [...parJour.entries()]
-    .map(([date, v]) => ({ date, palettes: v.convertible ? v.palettes : null }))
+  const mailleJour: PalettesMaille[] = [...qtyParJourArticle.entries()]
+    .map(([date, parArticle]) => {
+      let palettes = 0
+      let convertible = false
+      for (const [article, qty] of parArticle) {
+        const coef = usParPalette(article)
+        if (coef && coef > 0) {
+          palettes += calcPalettes(qty, coef)
+          convertible = true
+        }
+      }
+      return { date, palettes: convertible ? palettes : null }
+    })
     .sort((a, b) => a.date.localeCompare(b.date))
 
   const regroupe = (clef: (date: string) => string): PalettesMaille[] => {
-    const par = new Map<string, { palettes: number; convertible: boolean }>()
-    for (const m of mailleJour) {
-      const k = clef(m.date)
-      let cur = par.get(k)
+    // Re-agrège les qtés jour→maille avant conversion, pour ne pas cumuler des
+    // ceil déjà appliqués. On repart des qtés article/jour.
+    const qtyParMailleArticle = new Map<string, Map<string, number>>()
+    for (const [jour, parArticle] of qtyParJourArticle) {
+      const k = clef(jour)
+      let cur = qtyParMailleArticle.get(k)
       if (!cur) {
-        cur = { palettes: 0, convertible: false }
-        par.set(k, cur)
+        cur = new Map()
+        qtyParMailleArticle.set(k, cur)
       }
-      if (m.palettes !== null) {
-        cur.palettes += m.palettes
-        cur.convertible = true
+      for (const [article, qty] of parArticle) {
+        cur.set(article, (cur.get(article) ?? 0) + qty)
       }
     }
-    return [...par.entries()]
-      .map(([date, v]) => ({ date, palettes: v.convertible ? v.palettes : null }))
+    return [...qtyParMailleArticle.entries()]
+      .map(([date, parArticle]) => {
+        let palettes = 0
+        let convertible = false
+        for (const [article, qty] of parArticle) {
+          const coef = usParPalette(article)
+          if (coef && coef > 0) {
+            palettes += calcPalettes(qty, coef)
+            convertible = true
+          }
+        }
+        return { date, palettes: convertible ? palettes : null }
+      })
       .sort((a, b) => a.date.localeCompare(b.date))
   }
 

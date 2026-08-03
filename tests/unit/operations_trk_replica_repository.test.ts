@@ -59,10 +59,14 @@ test.group('OperationsTrkReplicaRepository', (group) => {
     assert.equal(rows[0].iptdat, '2026-07-01')
   })
 
-  test('le filtre poste est une égalité stricte — aucun regroupement', async ({ assert }) => {
+  test('le filtre poste tronque à 6 caractères — PP_093S tombe sur PP_093', async ({ assert }) => {
     await conn
       .table('operations_trk_replica')
-      .insert([row({ cplwst: 'ZZ_093' }), row({ cplwst: 'ZZ_0931' }), row({ cplwst: 'ZZ_09' })])
+      .insert([
+        row({ cplwst: 'ZZ_093' }),
+        row({ cplwst: 'ZZ_093S', num_of: 'TESTOF-TRK-B' }),
+        row({ cplwst: 'ZZ_09' }),
+      ])
 
     const rows = await operationsTrkReplicaRepository.getPointages(
       '2026-01-01',
@@ -70,8 +74,11 @@ test.group('OperationsTrkReplicaRepository', (group) => {
       'ZZ_093'
     )
 
-    assert.lengthOf(rows, 1)
-    assert.equal(rows[0].cplwst, 'ZZ_093')
+    // ZZ_093 et ZZ_093S (substr 6 = ZZ_093) ; ZZ_09 exclu.
+    assert.sameMembers(
+      rows.map((r) => r.cplwst),
+      ['ZZ_093', 'ZZ_093S']
+    )
   })
 
   test('les colonnes hors périmètre v1 ne sont pas exposées', async ({ assert }) => {
@@ -82,8 +89,8 @@ test.group('OperationsTrkReplicaRepository', (group) => {
 
     assert.lengthOf(rows, 1)
     // Matricule, panne, arrêt, équipe, champ « gamme », VALEUR du rebut :
-    // ingérés mais jamais sélectionnés par le lecteur (décision #119). Le fait
-    // de rebut, lui, sort en booléen — la règle d'exclusion en a besoin.
+    // ingérés mais jamais sélectionnés. Le signal rebut sort en booléen
+    // (traçabilité) ; il n'exclut plus le pointage de la production (revue #119).
     assert.deepEqual(Object.keys(rows[0]).sort(), [
       'cplqty',
       'cplwst',

@@ -10,7 +10,8 @@ import { BRAND, FERME, FG, fmtCompact } from './chart-common'
 export interface ProductionMailleView {
   /** Libellé prêt à afficher (ex. « juil. 26 », « S 27/07 », « 03/08 »). */
   label: string
-  qty: number
+  /** null = trou (pas de coeff palette), pas barre à zéro. */
+  qty: number | null
   heures: number
   dontHeuresReglage: number
 }
@@ -30,21 +31,22 @@ export function ProductionChart({ data }: { data: ProductionMailleView[] }) {
     const slot = plotW / n
     const barW = Math.max(Math.min(slot * 0.55, 42), 1.5)
 
-    const maxQty = Math.max(...data.map((d) => d.qty), 0) * 1.08 || 1
+    const maxQty = Math.max(...data.map((d) => d.qty ?? 0), 0) * 1.08 || 1
     const maxH = Math.max(...data.map((d) => d.heures), 0) * 1.08 || 1
     const yQty = (v: number) => PAD_T + plotH - (v / maxQty) * plotH
     const yH = (v: number) => PAD_T + plotH - (v / maxH) * plotH
 
     const bars = data.map((d, i) => {
       const cx = PAD_L + slot * i + slot / 2
+      const qty = d.qty
       return {
         label: d.label,
         cx,
         x: cx - barW / 2,
-        y: yQty(d.qty),
-        h: PAD_T + plotH - yQty(d.qty),
+        y: qty === null ? null : yQty(qty),
+        h: qty === null ? null : PAD_T + plotH - yQty(qty),
         w: barW,
-        qty: d.qty,
+        qty,
       }
     })
 
@@ -98,12 +100,14 @@ export function ProductionChart({ data }: { data: ProductionMailleView[] }) {
         </g>
       ))}
 
-      {/* Barres quantité. */}
+      {/* Barres quantité — qty null = trou (slot conservé pour la ligne heures). */}
       {geom.bars.map((b, i) => (
         <g key={`${b.label}-${i}`}>
-          <rect x={b.x} y={b.y} width={b.w} height={Math.max(b.h, 0)} rx="2" fill={BRAND} />
+          {b.qty !== null && b.y !== null && b.h !== null && (
+            <rect x={b.x} y={b.y} width={b.w} height={Math.max(b.h, 0)} rx="2" fill={BRAND} />
+          )}
           {/* La valeur au-dessus de la barre n'a de sens qu'en petit effectif. */}
-          {geom.bars.length <= 14 && (
+          {b.qty !== null && b.y !== null && geom.bars.length <= 14 && (
             <text
               x={b.cx}
               y={b.y - 4}
@@ -124,7 +128,14 @@ export function ProductionChart({ data }: { data: ProductionMailleView[] }) {
       {geom.ligne.length <= 40 &&
         geom.ligne.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill={FERME} />)}
 
-      <line x1={PAD_L} x2={W - PAD_R} y1={geom.baseline} y2={geom.baseline} stroke={FG} strokeOpacity="0.2" />
+      <line
+        x1={PAD_L}
+        x2={W - PAD_R}
+        y1={geom.baseline}
+        y2={geom.baseline}
+        stroke={FG}
+        strokeOpacity="0.2"
+      />
       {geom.bars.map((b, i) =>
         i % geom.pasLabel === 0 ? (
           <text

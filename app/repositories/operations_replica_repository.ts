@@ -16,6 +16,10 @@ function toRecord(row: ReplicaRow): OperationRecord {
     cplqty: row.cplqty,
     opesta: row.opesta,
     extqty: row.extqty,
+    // Réplique MFGOPE sans colonnes poste — le rattachement cockpit passe par
+    // la gamme ou MFGOPETRK (of_a_solder / controle_prod en voie X3).
+    cplwst: null,
+    extwst: null,
   }
 }
 

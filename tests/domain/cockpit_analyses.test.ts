@@ -94,6 +94,18 @@ test.group('fiabiliteTempsGamme', () => {
     assert.lengthOf(r.articles, 1)
     assert.isNull(r.articles[0].ratio)
   })
+  test('plusieurs OF du même article sans cadence : exclusFauteCadence compte 1 article', ({
+    assert,
+  }) => {
+    const r = fiabiliteTempsGamme({
+      synthese: [
+        of({ numOf: 'OF-1', article: 'SANS', qty: 10, heures: 1 }),
+        of({ numOf: 'OF-2', article: 'SANS', qty: 20, heures: 2 }),
+      ],
+      cadencePour: () => null,
+    })
+    assert.equal(r.exclusFauteCadence, 1)
+  })
 })
 
 test.group('adherenceProgramme', () => {
@@ -132,6 +144,26 @@ test.group('adherenceProgramme', () => {
     assert.deepEqual(
       r.map((s) => s.semaine),
       ['2026-03-02', '2026-03-09']
+    )
+  })
+
+  test('borne aux N semaines les plus récentes', ({ assert }) => {
+    const r = adherenceProgramme({
+      prevusParSemaine: new Map(),
+      synthese: [],
+      semaines: [
+        '2026-02-02',
+        '2026-02-09',
+        '2026-02-16',
+        '2026-02-23',
+        '2026-03-02',
+        '2026-03-09',
+      ],
+      maxSemaines: 4,
+    })
+    assert.deepEqual(
+      r.map((s) => s.semaine),
+      ['2026-02-16', '2026-02-23', '2026-03-02', '2026-03-09']
     )
   })
 })

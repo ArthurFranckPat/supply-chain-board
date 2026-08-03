@@ -1,4 +1,5 @@
 import db from '@adonisjs/lucid/services/db'
+import { tronquerPoste } from '#app/domain/production_realisee'
 
 /**
  * Lecture read-only d'`operations_trk_replica` (#119, lot 1).
@@ -14,10 +15,9 @@ import db from '@adonisjs/lucid/services/db'
  * produit) — ne sont PAS sélectionnées ici. Les exposer un jour coûte une
  * colonne dans ce SELECT, pas une ré-ingestion.
  *
- * Le rebut fait exception partielle : la VALEUR (`rejcplqty`) reste interne,
- * mais le fait qu'il y en ait est exposé en booléen — les pointages avec rebut
- * ne participent pas à la production réalisée, et cette règle d'exclusion
- * (#119) a besoin du signal.
+ * Le rebut : la VALEUR (`rejcplqty`) reste interne ; le booléen signal est
+ * exposé pour traçabilité, mais n'exclut plus le pointage de la production
+ * réalisée (revue #119 — compter `CPLQTY` + heures, ne rien afficher du rebut).
  *
  * N'effectue AUCUNE vérification de fraîcheur elle-même : appelant responsable
  * de passer par `replicaGate.canRead('operations_trk_replica')` en amont.
@@ -28,14 +28,14 @@ export interface OperationsTrkReplicaRow {
   openum: number
   /** ISO YYYY-MM-DD (maille du graphe). */
   iptdat: string
-  /** Poste réalisé — égalité stricte au filtre, jamais sommé. */
+  /** Poste réalisé brut (avant troncature domaine). */
   cplwst: string
   cplqty: number
   /** Temps opératoire pointé, heures. */
   opetim: number
   /** Temps de réglage pointé, heures. */
   settim: number
-  /** Le pointage déclare du rebut — exclu de la production réalisée (#119). */
+  /** Signal rebut — valeur non exposée ; n'exclut plus le pointage. */
   rebut: boolean
   /** Article produit (MFGITM), null si l'OF n'a pas de détail. */
   itmrefOf: string | null
@@ -84,9 +84,9 @@ export class OperationsTrkReplicaRepository {
   }
 
   /**
-   * Pointages sur `[fromIso, toIso)` — borne haute EXCLUSIVE, comme le codage
-   * ISO du repo. `cplwst` optionnel : égalité stricte, aucun regroupement
-   * d'autres codes sur celui-ci (règle d'identité du poste, #119).
+   * Pointages sur `[fromIso, toIso)` — borne haute EXCLUSIVE.
+   * `cplwst` optionnel : filtre sur l'identité tronquée (6 car.), pour aligner
+   * `PP_093S` sur `PP_093` comme `/charge` et `/programme` (#119).
    */
   async getPointages(
     fromIso: string,
@@ -97,17 +97,17 @@ export class OperationsTrkReplicaRepository {
       .from('operations_trk_replica')
       .where('iptdat', '>=', fromIso)
       .where('iptdat', '<', toIso)
-      // La valeur du rebut reste interne : seul le fait qu'il y en ait sort.
       .select(...SELECTED_COLUMNS, this.conn.raw('rejcplqty > 0 AS rebut'))
-    if (cplwst) q.where('cplwst', cplwst)
+    if (cplwst) {
+      q.whereRaw('substr(cplwst, 1, 6) = ?', [tronquerPoste(cplwst)])
+    }
     const rows = (await q) as ReplicaRow[]
     return rows.map(toRow)
   }
 
   /**
    * Date (ISO) du dernier pointage du poste sur `[fromIso, toIso)`, null si
-   * aucun. Sert l'identité du cockpit : le passé du poste commence là, et
-   * « dernier pointage » répond à « l'atelier déclare-t-il encore ici ? ».
+   * aucun. Identité tronquée — même convention que `getPointages`.
    */
   async getDernierPointageIso(
     cplwst: string,
@@ -116,16 +116,16 @@ export class OperationsTrkReplicaRepository {
   ): Promise<string | null> {
     const rows = (await this.conn
       .from('operations_trk_replica')
-      .where('cplwst', cplwst)
+      .whereRaw('substr(cplwst, 1, 6) = ?', [tronquerPoste(cplwst)])
       .where('iptdat', '>=', fromIso)
       .where('iptdat', '<', toIso)
       .max('iptdat as dernier')) as { dernier: string | null }[]
     return rows[0]?.dernier ?? null
   }
 
-  /** Postes distincts ayant pointé sur `[fromIso, toIso)` — brut, sans filtre sur
-   *  la forme du code : l'exclusion des codes alphabétiques est une règle domaine
-   *  (`production_realisee`), pas un silence de requête. */
+  /** Postes distincts ayant pointé sur `[fromIso, toIso)` — codes bruts.
+   *  L'exclusion alphabétique + troncature sont des règles domaine
+   *  (`production_realisee` / loader cockpit). */
   async getDistinctWorkstations(fromIso: string, toIso: string): Promise<string[]> {
     const rows = await this.conn
       .from('operations_trk_replica')

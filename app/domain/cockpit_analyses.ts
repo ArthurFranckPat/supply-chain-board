@@ -18,7 +18,12 @@
  *   aucune boucle de retour vers la charge avant d'avoir regardé l'écart.
  */
 
+import { calcPalettes } from '#app/domain/receptions'
 import type { SyntheseOf } from '#app/domain/production_realisee'
+
+/** Nombre de semaines d'adhérence affichées (hors semaine en cours) — l'historique
+ *  ORDERS ne garde pas les OF soldés, au-delà le taux tend vers 0 (revue #119). */
+export const ADHERENCE_SEMAINES_RECENTES = 4
 
 /** Fiabilité d'un article : le temps pointé colle-t-il à la gamme ? */
 export interface FiabiliteArticle {
@@ -38,7 +43,7 @@ export interface FiabilitePoste {
   heuresPointees: number
   heuresTheoriques: number
   ratioGlobal: number | null
-  /** Nb d'articles écartés faute de cadence exploitable (rate ≤ 0 ou absent). */
+  /** Nb d'ARTICLES distincts écartés faute de cadence exploitable. */
   exclusFauteCadence: number
 }
 
@@ -51,16 +56,15 @@ export function fiabiliteTempsGamme(opts: {
   cadencePour: (article: string) => number | null
 }): FiabilitePoste {
   const parArticle = new Map<string, { qty: number; heures: number }>()
-  let exclusFauteCadence = 0
+  const articlesSansCadence = new Set<string>()
 
   for (const of of opts.synthese) {
     if (!of.article) continue
     const cadence = opts.cadencePour(of.article)
     // Garde-fou #119 : pas de cadence exploitable → hors calcul, pas d'écart
-    // aberrant. Le simple fait de produire sans cadence connue est déjà une
-    // information, comptée séparément.
+    // aberrant. Compté une fois par article, pas par OF (revue #119).
     if (!cadence || cadence <= 0) {
-      exclusFauteCadence++
+      articlesSansCadence.add(of.article)
       continue
     }
     const cur = parArticle.get(of.article) ?? { qty: 0, heures: 0 }
@@ -68,6 +72,7 @@ export function fiabiliteTempsGamme(opts: {
     cur.heures += of.heures
     parArticle.set(of.article, cur)
   }
+  const exclusFauteCadence = articlesSansCadence.size
 
   const articles: FiabiliteArticle[] = []
   let heuresPointees = 0
@@ -112,18 +117,19 @@ export interface AdherenceSemaine {
  *
  * Limite assumée, à dire sur l'écran : les OF PRÉVUS viennent des OF OUVERTS
  * rattachés au poste (ORDERS) — ce qui est passé en stock n'existe plus dans
- * ORDERS et ne peut plus être « prévu ». L'adhérence mesure donc le périmètre
- * encore vivant, pas l'histoire complète ; la réplique de pointages, elle,
- * garde l'histoire des pointés.
+ * ORDERS. On borne donc aux `ADHERENCE_SEMAINES_RECENTES` semaines les plus
+ * récentes de `semaines` (revue #119) : au-delà, le taux tend vers 0 quelle
+ * que soit la performance réelle.
  */
 export function adherenceProgramme(opts: {
   /** OF ouverts du poste attendus par semaine : lundi ISO → numéros d'OF. */
   prevusParSemaine: Map<string, Set<string>>
   synthese: SyntheseOf[]
-  /** Semaines à servir (lundis ISO), ordre indifférent. */
+  /** Semaines candidates (lundis ISO), ordre indifférent. */
   semaines: string[]
+  /** Override du plafond de semaines récentes (tests). */
+  maxSemaines?: number
 }): AdherenceSemaine[] {
-  // OF réellement pointés par semaine.
   const pointesParSemaine = new Map<string, Set<string>>()
   for (const of of opts.synthese) {
     for (const jour of of.joursPointes) {
@@ -134,8 +140,11 @@ export function adherenceProgramme(opts: {
     }
   }
 
+  const max = opts.maxSemaines ?? ADHERENCE_SEMAINES_RECENTES
+  const semainesRetenues = [...opts.semaines].sort().slice(-max)
+
   const out: AdherenceSemaine[] = []
-  for (const semaine of [...opts.semaines].sort()) {
+  for (const semaine of semainesRetenues) {
     const prevus = opts.prevusParSemaine.get(semaine) ?? new Set<string>()
     const pointes = pointesParSemaine.get(semaine) ?? new Set<string>()
     let tiens = 0
@@ -186,29 +195,26 @@ export function mixArticles(opts: {
   top?: number
 }): MixArticle[] {
   const top = opts.top ?? 10
-  const parArticle = new Map<string, { qty: number; heures: number; palettes: number | null }>()
+  const parArticle = new Map<string, { qty: number; heures: number }>()
 
   for (const of of opts.synthese) {
     if (!of.article || of.qty <= 0) continue
-    const cur = parArticle.get(of.article) ?? { qty: 0, heures: 0, palettes: null }
+    const cur = parArticle.get(of.article) ?? { qty: 0, heures: 0 }
     cur.qty += of.qty
     cur.heures += of.heures
-    const coef = opts.usParPalette(of.article)
-    if (coef && coef > 0) {
-      // Pas de calcPalettes ici : le mix somme des quantités agrégées par
-      // article, la conversion directe qty/coef est l'équivalent exact.
-      cur.palettes = (cur.palettes ?? 0) + of.qty / coef
-    }
     parArticle.set(of.article, cur)
   }
 
   return [...parArticle.entries()]
     .map(([article, v]) => {
       const cadence = opts.cadencePour(article)
+      const coef = opts.usParPalette(article)
+      // Une conversion après sommation — même règle que palettesRealisees.
+      const palettes = coef && coef > 0 ? calcPalettes(v.qty, coef) : null
       return {
         article,
         qty: v.qty,
-        palettes: v.palettes !== null ? Math.round(v.palettes * 10) / 10 : null,
+        palettes,
         heures: Math.round(v.heures * 100) / 100,
         piecesParHeure: v.heures > 0 ? Math.round((v.qty / v.heures) * 10) / 10 : null,
         cadenceGamme: cadence && cadence > 0 ? cadence : null,
