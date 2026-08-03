@@ -8,11 +8,16 @@ import db from '@adonisjs/lucid/services/db'
  *
  * ## Ce qui n'est PAS exposé
  *
- * Les colonnes ingérées hors périmètre v1 — `rejcplqty` (rebut), `empnum`
- * (matricule, donnée nominative), `x4panflg`/`x4arretprod` (panne/arrêt, jamais
- * alimentés), `xequipe` (champ mort probable), `itmref` (documenté « Gamme »,
- * pas l'article produit) — ne sont PAS sélectionnées ici. Les exposer un jour
- * coûte une colonne dans ce SELECT, pas une ré-ingestion.
+ * Les colonnes ingérées hors périmètre v1 — `empnum` (matricule, donnée
+ * nominative), `x4panflg`/`x4arretprod` (panne/arrêt, jamais alimentés),
+ * `xequipe` (champ mort probable), `itmref` (documenté « Gamme », pas l'article
+ * produit) — ne sont PAS sélectionnées ici. Les exposer un jour coûte une
+ * colonne dans ce SELECT, pas une ré-ingestion.
+ *
+ * Le rebut fait exception partielle : la VALEUR (`rejcplqty`) reste interne,
+ * mais le fait qu'il y en ait est exposé en booléen — les pointages avec rebut
+ * ne participent pas à la production réalisée, et cette règle d'exclusion
+ * (#119) a besoin du signal.
  *
  * N'effectue AUCUNE vérification de fraîcheur elle-même : appelant responsable
  * de passer par `replicaGate.canRead('operations_trk_replica')` en amont.
@@ -30,6 +35,8 @@ export interface OperationsTrkReplicaRow {
   opetim: number
   /** Temps de réglage pointé, heures. */
   settim: number
+  /** Le pointage déclare du rebut — exclu de la production réalisée (#119). */
+  rebut: boolean
   /** Article produit (MFGITM), null si l'OF n'a pas de détail. */
   itmrefOf: string | null
 }
@@ -42,6 +49,7 @@ type ReplicaRow = {
   cplqty: number
   opetim: number
   settim: number
+  rebut: number
   itmref_of: string | null
 }
 
@@ -65,6 +73,7 @@ function toRow(r: ReplicaRow): OperationsTrkReplicaRow {
     cplqty: r.cplqty,
     opetim: r.opetim,
     settim: r.settim,
+    rebut: r.rebut === 1,
     itmrefOf: r.itmref_of,
   }
 }
@@ -88,7 +97,8 @@ export class OperationsTrkReplicaRepository {
       .from('operations_trk_replica')
       .where('iptdat', '>=', fromIso)
       .where('iptdat', '<', toIso)
-      .select(...SELECTED_COLUMNS)
+      // La valeur du rebut reste interne : seul le fait qu'il y en ait sort.
+      .select(...SELECTED_COLUMNS, this.conn.raw('rejcplqty > 0 AS rebut'))
     if (cplwst) q.where('cplwst', cplwst)
     const rows = (await q) as ReplicaRow[]
     return rows.map(toRow)

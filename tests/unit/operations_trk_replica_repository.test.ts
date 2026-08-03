@@ -21,7 +21,7 @@ function row(
     iptdat: '2026-07-01',
     cplwst: 'PP_093',
     cplqty: 100,
-    rejcplqty: 2,
+    rejcplqty: 0,
     opetim: 3.5,
     settim: 0.5,
     itmref: 'GAMME-X',
@@ -77,8 +77,9 @@ test.group('OperationsTrkReplicaRepository', (group) => {
     const rows = await operationsTrkReplicaRepository.getPointages('2026-01-01', '2027-01-01')
 
     assert.lengthOf(rows, 1)
-    // Rebut, matricule, panne, arrêt, équipe, champ « gamme » : ingérés mais
-    // jamais sélectionnés par le lecteur (décision #119).
+    // Matricule, panne, arrêt, équipe, champ « gamme », VALEUR du rebut :
+    // ingérés mais jamais sélectionnés par le lecteur (décision #119). Le fait
+    // de rebut, lui, sort en booléen — la règle d'exclusion en a besoin.
     assert.deepEqual(Object.keys(rows[0]).sort(), [
       'cplqty',
       'cplwst',
@@ -87,8 +88,24 @@ test.group('OperationsTrkReplicaRepository', (group) => {
       'numOf',
       'openum',
       'opetim',
+      'rebut',
       'settim',
     ])
+  })
+
+  test('le rebut est exposé en booléen, sa valeur reste interne', async ({ assert }) => {
+    await conn
+      .table('operations_trk_replica')
+      .insert([row({ rejcplqty: 4 }), row({ num_of: 'TESTOF-TRK-B', rejcplqty: 0 })])
+
+    const rows = await operationsTrkReplicaRepository.getPointages('2026-01-01', '2027-01-01')
+
+    const avecRebut = rows.find((r) => r.numOf === 'TESTOF-TRK-A')
+    const sansRebut = rows.find((r) => r.numOf === 'TESTOF-TRK-B')
+    assert.isTrue(avecRebut?.rebut)
+    assert.isFalse(sansRebut?.rebut)
+    // La quantité de rebut ne fuit nulle part dans la ligne exposée.
+    assert.notProperty(avecRebut!, 'rejcplqty')
   })
 
   test('getDistinctWorkstations rend les codes bruts ayant pointé', async ({ assert }) => {
