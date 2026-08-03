@@ -84,9 +84,9 @@ interface PalettesMaille {
 
 interface PasseMoisHeures {
   mois: string
+  /** Capacité calendaire du mois (fériés/fermetures #37) — seule lecture
+   *  consommée (revue #119, round 5). */
   capacite: number
-  heuresPointees: number
-  heuresConverties: number
 }
 
 /** Un OF terminé du point de vue du poste (lot 4, #119) — pointé dans la
@@ -1119,7 +1119,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
                     <th className="px-4 py-2">Article</th>
                     <th className="px-4 py-2 text-right">Qté</th>
                     <th className="px-4 py-2 text-right">Palettes</th>
-                    <th className="px-4 py-2 text-right">Heures</th>
+                    <th className="px-4 py-2 text-right">Heures op.</th>
                     <th className="px-4 py-2 text-right">Pièces/h constatées</th>
                     <th className="px-4 py-2 text-right">Cadence gamme</th>
                   </tr>

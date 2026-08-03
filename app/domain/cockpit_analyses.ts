@@ -197,8 +197,10 @@ export interface MixArticle {
   qty: number
   /** Équivalent palette — null si l'article n'a pas de coefficient (#119). */
   palettes: number | null
+  /** Heures OPÉRATOIRES pointées (réglage exclu — même base que la cadence
+   *  gamme, revue #119 round 5). */
   heures: number
-  /** pièces/heure CONSTATÉES — null si aucune heure pointée. */
+  /** pièces/heure CONSTATÉES (opératoire) — null si aucune heure pointée. */
   piecesParHeure: number | null
   /** Cadence gamme (u/h) pour comparer — null si non exploitable. */
   cadenceGamme: number | null
@@ -206,8 +208,11 @@ export interface MixArticle {
 
 /**
  * Mix articles et cadence réelle : top articles produits sur la fenêtre, avec
- * la cadence CONSTATÉE (qty / heures pointées) face à la cadence gamme.
- * Affichage seul en v1 — pas de recalage automatique de la charge.
+ * la cadence CONSTATÉE (qty / heures OPÉRATOIRES) face à la cadence gamme —
+ * même base que la fiabilité : `cadenceGamme` (ROUOPE.CAD_0) est de
+ * l'opératoire pur, cumuler le réglage afficherait un article tenant sa gamme
+ * ~15 % en dessous (revue #119, round 5). Affichage seul en v1 — pas de
+ * recalage automatique de la charge.
  */
 export function mixArticles(opts: {
   synthese: SyntheseOf[]
@@ -216,13 +221,13 @@ export function mixArticles(opts: {
   top?: number
 }): MixArticle[] {
   const top = opts.top ?? 10
-  const parArticle = new Map<string, { qty: number; heures: number }>()
+  const parArticle = new Map<string, { qty: number; heuresOperatoire: number }>()
 
   for (const of of opts.synthese) {
     if (!of.article || of.qty <= 0) continue
-    const cur = parArticle.get(of.article) ?? { qty: 0, heures: 0 }
+    const cur = parArticle.get(of.article) ?? { qty: 0, heuresOperatoire: 0 }
     cur.qty += of.qty
-    cur.heures += of.heures
+    cur.heuresOperatoire += of.heures - of.dontHeuresReglage
     parArticle.set(of.article, cur)
   }
 
@@ -236,8 +241,9 @@ export function mixArticles(opts: {
         article,
         qty: v.qty,
         palettes,
-        heures: Math.round(v.heures * 100) / 100,
-        piecesParHeure: v.heures > 0 ? Math.round((v.qty / v.heures) * 10) / 10 : null,
+        heures: Math.round(v.heuresOperatoire * 100) / 100,
+        piecesParHeure:
+          v.heuresOperatoire > 0 ? Math.round((v.qty / v.heuresOperatoire) * 10) / 10 : null,
         cadenceGamme: cadence && cadence > 0 ? cadence : null,
       }
     })

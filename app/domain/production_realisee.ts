@@ -35,19 +35,15 @@
  * (`CPLQTY` + heures) : il n'existe pas de pointage de rebut pur — écarter le
  * pointage jetait la production bonne avec le rebut (revue #119).
  *
- * ## Heures vs quantités
+ * Heures vs quantités
  *
  * X3 recopie la même déclaration sur chaque opération de gamme (même qté,
  * temps quasi identiques, même jour) — ce n'est PAS un passage successif
  * (contre-revue #119, F126-48719 / F126-48493). Les heures suivent donc la
  * MÊME sélection que les quantités : opération OPENUM max seule. Repli
  * réglage pur : OF sans aucune op quantifiée → toutes ses heures, qty = 0.
- *
- * heures CONVERTIES (`heuresConvertiesParJour`) : quantité de l'opération
- * sélectionnée via `hoursForQuantity` (convention de gestion).
  */
 
-import { hoursForQuantity } from '#app/domain/models/gamme'
 import { calcPalettes } from '#app/domain/receptions'
 import { isoDay, mondayOf } from '#app/utils/dates'
 
@@ -192,38 +188,6 @@ export function productionRealiseeParJour(pointages: PointageTrk[]): ProductionR
   }
 
   return [...parJour.values()].sort((a, b) => a.date.localeCompare(b.date))
-}
-
-/**
- * La même quantité, lue en HEURES DE GAMME : `qty / cadence` via
- * `hoursForQuantity`, par (article, poste). Sert la courbe « production
- * convertie » du graphe heures vs capacité — une convention de gestion, pas du
- * temps constaté.
- *
- * `rateFor` rend la cadence (unités/heure) d'un couple (article, poste), ou
- * `null` si la gamme ne porte pas ce couple : la quantité compte alors pour
- * zéro heure (convention `hoursForQuantity`), jamais une estimation.
- *
- * Rend `date → heures converties`, uniquement les jours à production.
- */
-export function heuresConvertiesParJour(
-  pointages: PointageTrk[],
-  rateFor: (article: string, poste: string) => number | null
-): Map<string, number> {
-  const filtrés = filtrerPointagesProduction(pointages)
-  const selection = selectionOperationMaxQuantifiee(filtrés)
-
-  const parJour = new Map<string, number>()
-  for (const p of filtrés) {
-    if (!estQuantifie(p)) continue
-    if (selection.get(groupeKey(p)) !== p.openum) continue
-    if (!p.itmrefOf) continue
-
-    const heures = hoursForQuantity({ rate: rateFor(p.itmrefOf, p.cplwst) ?? 0 }, p.cplqty)
-    if (heures <= 0) continue
-    parJour.set(p.iptdat, (parJour.get(p.iptdat) ?? 0) + heures)
-  }
-  return parJour
 }
 
 /**

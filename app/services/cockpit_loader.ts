@@ -30,7 +30,6 @@ import {
 } from '#app/domain/cockpit_analyses'
 import {
   estPosteProduction,
-  heuresConvertiesParJour,
   palettesRealisees,
   productionParMois,
   productionParSemaine,
@@ -110,15 +109,13 @@ export interface CockpitPosteInfo {
   dernierPointageIso: string | null
 }
 
-/** Un mois du graphe heures vs capacité : trois lectures en heures. */
+/** Capacité d'un mois de la fenêtre (h, calendrier usine compris) — la seule
+ *  lecture de `heuresParMois` consommée par les écrans (revue #119, round 5 :
+ *  heuresPointees/heuresConverties y étaient sérialisées pour rien). */
 export interface CockpitHeuresMois {
   mois: string
   /** Capacité nette TABWEEDIA sur le mois, bornée à la fenêtre répliquée. */
   capacite: number
-  /** Heures réellement pointées (opératoire + réglage). */
-  heuresPointees: number
-  /** Quantité produite convertie en heures de gamme — convention de gestion. */
-  heuresConverties: number
 }
 
 /** Un OF « terminé » du point de vue du poste : pointé dans la fenêtre et plus
@@ -378,8 +375,7 @@ function buildPasse(opts: {
     .map(([date, capacite]) => ({ date, capacite: Math.round(capacite * 100) / 100 }))
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  // Capacité par mois, bornée à la fenêtre — heuresPointees/converties remplies
-  // plus bas à partir des mailles jour.
+  // Capacité par mois, bornée à la fenêtre.
   const heuresParMois: CockpitHeuresMois[] = moisDeLaFenetre(opts.fen.fromIso, opts.fen.toIso).map(
     (mois) => {
       const debutMois = new Date(`${mois}-01T00:00:00`)
@@ -389,12 +385,7 @@ function buildPasse(opts: {
       const debut = debutMois > from ? debutMois : from
       const fin = finMois < to ? finMois : to
       const capacite = capacitePeriodePoste(opts.wst, debut, fin, opts.calendar)
-      return {
-        mois,
-        capacite: Math.round(capacite * 100) / 100,
-        heuresPointees: 0,
-        heuresConverties: 0,
-      }
+      return { mois, capacite: Math.round(capacite * 100) / 100 }
     }
   )
 
@@ -417,28 +408,6 @@ function buildPasse(opts: {
   const prodSemaine = productionParSemaine(maillesJour)
   const prodMois = productionParMois(maillesJour)
   const palettes = palettesRealisees(pointages, opts.usParPalette)
-
-  const cadenceParCle = cadenceParArticlePoste(opts.gamme)
-  const convertiesJour = heuresConvertiesParJour(
-    pointages,
-    (article, poste) => cadenceParCle.get(`${article}#${poste}`) ?? null
-  )
-
-  // Agrégat heures par mois : pointées (des mailles jour) + converties.
-  const heuresPointeesParMois = new Map<string, number>()
-  for (const m of maillesJour) {
-    const mois = m.date.slice(0, 7)
-    heuresPointeesParMois.set(mois, (heuresPointeesParMois.get(mois) ?? 0) + m.heures)
-  }
-  const convertiesParMois = new Map<string, number>()
-  for (const [jour, h] of convertiesJour) {
-    const mois = jour.slice(0, 7)
-    convertiesParMois.set(mois, (convertiesParMois.get(mois) ?? 0) + h)
-  }
-  for (const h of heuresParMois) {
-    h.heuresPointees = Math.round((heuresPointeesParMois.get(h.mois) ?? 0) * 100) / 100
-    h.heuresConverties = Math.round((convertiesParMois.get(h.mois) ?? 0) * 100) / 100
-  }
 
   return {
     nbPointages: pointages.length,

@@ -1,7 +1,6 @@
 import { test } from '@japa/runner'
 import {
   estPosteProduction,
-  heuresConvertiesParJour,
   palettesRealisees,
   productionParMois,
   productionParSemaine,
@@ -193,40 +192,6 @@ test.group('productionRealiseeParJour', () => {
       { date: '2026-07-01', qty: 60, heures: 2, dontHeuresReglage: 0 },
       { date: '2026-07-03', qty: 50, heures: 1.5, dontHeuresReglage: 0 },
     ])
-  })
-})
-
-test.group('heuresConvertiesParJour', () => {
-  test('la quantité passe en heures via la cadence de gamme', ({ assert }) => {
-    const parJour = heuresConvertiesParJour(
-      [pointage({ iptdat: '2026-07-01', cplqty: 150 })],
-      () => 100 // 100 unités/heure → 150 pièces = 1,5 h
-    )
-    assert.deepEqual([...parJour.entries()], [['2026-07-01', 1.5]])
-  })
-
-  test('article inconnu ou cadence absente : zéro heure, jamais une estimation', ({ assert }) => {
-    const sansArticle = heuresConvertiesParJour([pointage({ itmrefOf: null })], () => 100)
-    const sansCadence = heuresConvertiesParJour([pointage()], () => null)
-
-    assert.equal(sansArticle.size, 0)
-    assert.equal(sansCadence.size, 0)
-  })
-
-  test('la même règle de sélection s’applique — pas de conversion double', ({ assert }) => {
-    const parJour = heuresConvertiesParJour(
-      [
-        pointage({ openum: 10, iptdat: '2026-07-01', cplqty: 100 }),
-        pointage({ openum: 20, iptdat: '2026-07-05', cplqty: 100 }),
-      ],
-      () => 50
-    )
-    assert.deepEqual([...parJour.entries()], [['2026-07-05', 2]])
-  })
-
-  test('le rebut reste converti (quantité bonne du pointage)', ({ assert }) => {
-    const parJour = heuresConvertiesParJour([pointage({ rebut: true, cplqty: 100 })], () => 100)
-    assert.deepEqual([...parJour.entries()], [['2026-07-01', 1]])
   })
 })
 

@@ -217,6 +217,21 @@ test.group('mixArticles', () => {
     assert.isNull(petit.cadenceGamme) // pas de cadence → null, pas 0
   })
 
+  test('cadence constatée sur heures opératoires, comme la fiabilité', ({ assert }) => {
+    // 12 h pointées dont 2 h de réglage → 10 h opératoires ; 600 pièces →
+    // 60 pc/h constatées, pile la cadence gamme. Avec le réglage, on aurait
+    // lu 50 pc/h (15 % sous la gamme) — revue #119, round 5.
+    const r = mixArticles({
+      synthese: [of({ article: 'ART', qty: 600, heures: 12, dontHeuresReglage: 2 })],
+      cadencePour: () => 60,
+      usParPalette: () => null,
+    })
+    assert.lengthOf(r, 1)
+    assert.equal(r[0].heures, 10)
+    assert.equal(r[0].piecesParHeure, 60)
+    assert.equal(r[0].cadenceGamme, 60)
+  })
+
   test('palettes : null sans coefficient, valeur avec', ({ assert }) => {
     const r = mixArticles({
       synthese: [of({ article: 'AVEC', qty: 1000 }), of({ article: 'SANS', qty: 1000 })],
