@@ -21,11 +21,7 @@
  * Les seuils sont des CONSTANTES à caler sur la donnée réelle (cf. chacun).
  */
 
-import {
-  selectionOperationMaxQuantifiee,
-  tronquerPoste,
-  type PointageTrk,
-} from '#app/domain/production_realisee'
+import { selectionOperationMaxQuantifiee, type PointageTrk } from '#app/domain/production_realisee'
 
 /** Détecteur 1 — jours de lancement sans aucun pointage avant signalement.
  *  À CALER sur la distribution réelle des délais lancement → premier pointage
@@ -129,7 +125,7 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
     const cur = dernierPointage.get(p.numOf)
     if (!cur || p.iptdat > cur) dernierPointage.set(p.numOf, p.iptdat)
 
-    const openumSel = selection.get(`${p.numOf}#${tronquerPoste(p.cplwst)}`)
+    const openumSel = selection.get(`${p.numOf}#${p.cplwst}`)
     const surSel = openumSel === p.openum
     const repliReglagePur = openumSel === undefined
     if (!surSel && !repliReglagePur) continue

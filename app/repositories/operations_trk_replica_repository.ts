@@ -1,5 +1,4 @@
 import db from '@adonisjs/lucid/services/db'
-import { tronquerPoste } from '#app/domain/production_realisee'
 
 /**
  * Lecture read-only d'`operations_trk_replica` (#119, lot 1).
@@ -28,7 +27,7 @@ export interface OperationsTrkReplicaRow {
   openum: number
   /** ISO YYYY-MM-DD (maille du graphe). */
   iptdat: string
-  /** Poste réalisé brut (avant troncature domaine). */
+  /** Poste réalisé — code brut, jamais réécrit. */
   cplwst: string
   cplqty: number
   /** Temps opératoire pointé, heures. */
@@ -85,8 +84,8 @@ export class OperationsTrkReplicaRepository {
 
   /**
    * Pointages sur `[fromIso, toIso)` — borne haute EXCLUSIVE.
-   * `cplwst` optionnel : filtre sur l'identité tronquée (6 car.), pour aligner
-   * `PP_093S` sur `PP_093` comme `/charge` et `/programme` (#119).
+   * `cplwst` optionnel : ÉGALITÉ STRICTE. Aucun regroupement, aucun repli d'un
+   * autre code — `PP_093` ne ramène jamais les pointages de `PP_093S` (#119).
    */
   async getPointages(
     fromIso: string,
@@ -98,16 +97,14 @@ export class OperationsTrkReplicaRepository {
       .where('iptdat', '>=', fromIso)
       .where('iptdat', '<', toIso)
       .select(...SELECTED_COLUMNS, this.conn.raw('rejcplqty > 0 AS rebut'))
-    if (cplwst) {
-      q.whereRaw('substr(cplwst, 1, 6) = ?', [tronquerPoste(cplwst)])
-    }
+    if (cplwst) q.where('cplwst', cplwst.trim())
     const rows = (await q) as ReplicaRow[]
     return rows.map(toRow)
   }
 
   /**
    * Date (ISO) du dernier pointage du poste sur `[fromIso, toIso)`, null si
-   * aucun. Identité tronquée — même convention que `getPointages`.
+   * aucun. Égalité stricte — même convention que `getPointages`.
    */
   async getDernierPointageIso(
     cplwst: string,
@@ -116,7 +113,7 @@ export class OperationsTrkReplicaRepository {
   ): Promise<string | null> {
     const rows = (await this.conn
       .from('operations_trk_replica')
-      .whereRaw('substr(cplwst, 1, 6) = ?', [tronquerPoste(cplwst)])
+      .where('cplwst', cplwst.trim())
       .where('iptdat', '>=', fromIso)
       .where('iptdat', '<', toIso)
       .max('iptdat as dernier')) as { dernier: string | null }[]
@@ -124,8 +121,8 @@ export class OperationsTrkReplicaRepository {
   }
 
   /** Postes distincts ayant pointé sur `[fromIso, toIso)` — codes bruts.
-   *  L'exclusion alphabétique + troncature sont des règles domaine
-   *  (`production_realisee` / loader cockpit). */
+   *  L'exclusion des codes non numériques est une règle domaine
+   *  (`estPosteProduction`), pas un silence de requête. */
   async getDistinctWorkstations(fromIso: string, toIso: string): Promise<string[]> {
     const rows = await this.conn
       .from('operations_trk_replica')

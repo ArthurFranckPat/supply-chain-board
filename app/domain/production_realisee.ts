@@ -5,13 +5,18 @@
  * pointages d'`operations_trk_replica` (lot 1), produit les mailles jour du
  * graphe de production et la conversion en heures via la cadence de gamme.
  *
- * ## Identité du poste
+ * ## Identité du poste — ÉGALITÉ STRICTE, aucune fusion
  *
- * Même convention que `/charge` et `/programme` (`gamme_repository`) :
- * tronquer à 6 caractères (`SUBSTR(WST_0, 1, 6)`), puis égalité stricte sur
- * le code retenu. `PP_093S` tombe donc sur `PP_093` — pas une somme de postes
- * distincts, une normalisa­tion d'identité. Les codes dont le segment après
- * `PP_` / `PE_` n'est pas numérique (`PP_MECA`, `PE_PROD`…) sont exclus.
+ * **Poste retenu `PP_093` ⇒ données de `PP_093`. `CPLWST_0 = 'PP_093'`.
+ * Aucune somme, aucun regroupement, aucun repli d'un autre code sur celui-ci.**
+ *
+ * Les codes suffixés (`PP_093S`) sont des postes DIFFÉRENTS : ils n'entrent ni
+ * au sélecteur, ni dans les pointages d'un autre poste, ni dans sa capacité.
+ * Règle d'admission : le segment après `PP_` / `PE_` doit être numérique —
+ * `PP_MECA`, `PE_PROD`, `PP_093S` sont exclus, sans exception.
+ *
+ * Interdit de rétablir une troncature « d'identité » ici : elle ramène la
+ * fusion des jumeaux par la fenêtre (revue #119, point rouvert trois fois).
  *
  * ## La règle de sélection — pourquoi elle existe
  *
@@ -46,17 +51,13 @@ import { hoursForQuantity } from '#app/domain/models/gamme'
 import { calcPalettes } from '#app/domain/receptions'
 import { isoDay, mondayOf } from '#app/utils/dates'
 
-/** Troncature d'identité poste — même longueur que `SUBSTR(WST_0, 1, 6)`. */
-export function tronquerPoste(code: string): string {
-  return code.trim().slice(0, 6)
-}
-
 /**
- * Poste de production de la ligne : préfixe `PP_` / `PE_` + segment numérique,
- * après troncature. Exclut `PP_MECA`, `PE_PROD`, etc. (#119).
+ * Poste de production de la ligne : préfixe `PP_` / `PE_` + segment NUMÉRIQUE,
+ * sur le code BRUT. Exclut `PP_MECA`, `PE_PROD`… et les codes suffixés comme
+ * `PP_093S`, qui sont des postes distincts et ne concernent pas le cockpit.
  */
 export function estPosteProduction(code: string): boolean {
-  return /^(PP|PE)_\d+$/.test(tronquerPoste(code))
+  return /^(PP|PE)_\d+$/.test(code.trim())
 }
 
 /** Pointage de suivi de fabrication, tel que lu de la réplique (lot 1). */
@@ -94,17 +95,12 @@ export interface ProductionRealisee {
 }
 
 /**
- * Normalise les pointages : troncature du poste + exclusion des codes
- * alphabétiques. À appliquer une fois en tête de pipeline.
+ * Écarte les pointages hors postes de production. Le code n'est JAMAIS réécrit :
+ * un pointage de `PP_093S` reste un pointage de `PP_093S` — et se trouve donc
+ * simplement exclu, comme `PP_MECA`.
  */
 export function filtrerPointagesProduction(pointages: PointageTrk[]): PointageTrk[] {
-  const out: PointageTrk[] = []
-  for (const p of pointages) {
-    const cplwst = tronquerPoste(p.cplwst)
-    if (!estPosteProduction(cplwst)) continue
-    out.push(p.cplwst === cplwst ? p : { ...p, cplwst })
-  }
-  return out
+  return pointages.filter((p) => estPosteProduction(p.cplwst))
 }
 
 /**
@@ -130,9 +126,9 @@ export function productionParMois(mailles: ProductionRealisee[]): ProductionReal
   return [...parMois.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
-/** Clé de groupe : un OF sur UN poste — le poste fait partie de l'identité. */
+/** Clé de groupe : un OF sur UN poste — code brut, égalité stricte. */
 function groupeKey(p: PointageTrk): string {
-  return `${p.numOf}#${tronquerPoste(p.cplwst)}`
+  return `${p.numOf}#${p.cplwst}`
 }
 
 /** Pointage qui compte pour la quantité : quantité positive. */
@@ -222,8 +218,7 @@ export function heuresConvertiesParJour(
     if (selection.get(groupeKey(p)) !== p.openum) continue
     if (!p.itmrefOf) continue
 
-    const poste = tronquerPoste(p.cplwst)
-    const heures = hoursForQuantity({ rate: rateFor(p.itmrefOf, poste) ?? 0 }, p.cplqty)
+    const heures = hoursForQuantity({ rate: rateFor(p.itmrefOf, p.cplwst) ?? 0 }, p.cplqty)
     if (heures <= 0) continue
     parJour.set(p.iptdat, (parJour.get(p.iptdat) ?? 0) + heures)
   }

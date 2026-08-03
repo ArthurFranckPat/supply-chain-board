@@ -8,15 +8,15 @@ import {
   productionRealiseeParJour,
   selectionOperationMaxQuantifiee,
   syntheseParOf,
-  tronquerPoste,
   type PointageTrk,
 } from '#app/domain/production_realisee'
 
 /**
  * Production réalisée d'un poste (#119, lot 2) — domaine pur.
  *
- * Cœur testé : OPENUM max quantifié, heures = op sélectionnée (pas ×N),
- * pas d'exclusion rebut, troncature / exclusion alphabétique, palettes après sommation.
+ * Cœur testé : OPENUM max quantifié, heures = op sélectionnée (pas ×N), pas
+ * d'exclusion rebut, ÉGALITÉ STRICTE du code poste (aucune fusion des jumeaux
+ * suffixés), palettes après sommation.
  */
 
 function pointage(over: Partial<PointageTrk> = {}): PointageTrk {
@@ -35,14 +35,18 @@ function pointage(over: Partial<PointageTrk> = {}): PointageTrk {
 }
 
 test.group('identité poste', () => {
-  test('tronque à 6 caractères — PP_093S → PP_093', ({ assert }) => {
-    assert.equal(tronquerPoste('PP_093S'), 'PP_093')
-    assert.equal(tronquerPoste('PP_093'), 'PP_093')
+  test('un code suffixé est un AUTRE poste, jamais replié (#119)', ({ assert }) => {
+    assert.isTrue(estPosteProduction('PP_093'))
+    assert.isFalse(estPosteProduction('PP_093S'))
+    // Et rien de PP_093S n'entre dans la production de PP_093.
+    const mailles = productionRealiseeParJour([
+      pointage({ cplwst: 'PP_093', cplqty: 100, opetim: 2 }),
+      pointage({ numOf: 'OF-S', cplwst: 'PP_093S', cplqty: 500, opetim: 9 }),
+    ])
+    assert.deepEqual(mailles, [{ date: '2026-07-01', qty: 100, heures: 2, dontHeuresReglage: 0 }])
   })
 
   test('exclut les codes alphabétiques, accepte PP_/PE_ numériques', ({ assert }) => {
-    assert.isTrue(estPosteProduction('PP_093'))
-    assert.isTrue(estPosteProduction('PP_093S')) // après troncature
     assert.isTrue(estPosteProduction('PE_123'))
     assert.isFalse(estPosteProduction('PP_MECA'))
     assert.isFalse(estPosteProduction('PE_PROD'))
@@ -101,12 +105,19 @@ test.group('selectionOperationMaxQuantifiee', () => {
     assert.equal(selection.size, 0)
   })
 
-  test('PP_093S et PP_093 partagent la même identité tronquée', ({ assert }) => {
+  test('PP_093 et PP_093S sont deux histoires séparées (#119)', ({ assert }) => {
     const selection = selectionOperationMaxQuantifiee([
       pointage({ openum: 10, cplwst: 'PP_093', cplqty: 50 }),
       pointage({ openum: 20, cplwst: 'PP_093S', cplqty: 80, iptdat: '2026-07-02' }),
     ])
-    assert.deepEqual([...selection.entries()], [['OF-1#PP_093', 20]])
+    // Chacun garde son opération : aucun repli du suffixé sur le code de base.
+    assert.deepEqual(
+      [...selection.entries()],
+      [
+        ['OF-1#PP_093', 10],
+        ['OF-1#PP_093S', 20],
+      ]
+    )
   })
 })
 

@@ -16,7 +16,6 @@ import {
   ecartDeclarationQty,
   estEcartDeclaration,
 } from '#app/domain/of_avancement'
-import { tronquerPoste } from '#app/domain/production_realisee'
 import staticSync from '#services/static_sync_service'
 import LocalMenu from '#models/local_menu'
 
@@ -49,7 +48,7 @@ export interface ControleProdRow {
   derniereOpPointee: number | null
   nbOperations: number
   /**
-   * Poste de la dernière op pointée (CPLWST sinon EXTWST), tronqué à 6 car.
+   * Poste de la dernière op pointée (CPLWST sinon EXTWST), code brut.
    * Sert le filtrage cockpit (#119) — null si inconnu.
    */
   poste: string | null
@@ -234,7 +233,7 @@ export async function loadControleProdData(force = false): Promise<ControleProdP
             qtyPointee: av?.qtyRealisee ?? 0,
             derniereOp,
             nbOps: av?.nbOperations ?? 0,
-            poste: brut ? tronquerPoste(brut) : null,
+            poste: brut,
           })
         }
 

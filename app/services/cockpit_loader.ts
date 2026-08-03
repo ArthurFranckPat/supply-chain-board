@@ -35,7 +35,6 @@ import {
   productionParSemaine,
   productionRealiseeParJour,
   syntheseParOf,
-  tronquerPoste,
   type PalettesMaille,
   type PointageTrk,
   type ProductionRealisee,
@@ -191,15 +190,18 @@ function fenetrePointage(): { fromIso: string; toIso: string; toExclIso: string 
   return { fromIso: isoDay(from), toIso: isoDay(to), toExclIso: isoDay(toExcl) }
 }
 
-/** Tri numérique du code tronqué (PP_2 avant PP_10). */
+/** Tri numérique du code (PP_2 avant PP_10). */
 const posteNum = (code: string): number => {
-  const m = /^(?:PP|PE)_(\d+)$/.exec(tronquerPoste(code))
+  const m = /^(?:PP|PE)_(\d+)$/.exec(code.trim())
   return m ? Number.parseInt(m[1], 10) : 0
 }
 
 /**
- * Liste des postes du sélecteur : postes de production (`PP_`/`PE_` + digits)
- * ayant pointé dans la fenêtre répliquée, dédupliqués par code tronqué.
+ * Liste des postes du sélecteur : postes de production (`PP_`/`PE_` + segment
+ * NUMÉRIQUE) ayant pointé dans la fenêtre répliquée. Codes bruts, égalité
+ * stricte : `PP_093S` est un poste distinct, il n'apparaît pas et ne se replie
+ * sur personne (#119).
+ *
  * La réplique est la source — un poste pointé mais absent du référentiel
  * gammes doit rester sélectionnable (libellé = code). À l'inverse, un poste
  * du référentiel sans aucun pointage n'a pas sa place ici.
@@ -234,19 +236,13 @@ export async function loadCockpitPostes(force = false): Promise<CockpitPostesPay
       const wstLabels = new Map<string, string>()
       for (const g of ref.gamme) {
         if (!g.workstation) continue
-        const t = tronquerPoste(g.workstation)
-        if (!wstLabels.has(t)) wstLabels.set(t, g.workstationLabel || t)
+        if (!wstLabels.has(g.workstation)) {
+          wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+        }
       }
 
-      const seen = new Set<string>()
       const postes = codes
         .filter((c) => estPosteProduction(c))
-        .map((c) => tronquerPoste(c))
-        .filter((c) => {
-          if (seen.has(c)) return false
-          seen.add(c)
-          return true
-        })
         .sort((a, b) => posteNum(a) - posteNum(b))
         .map((code) => ({ code, label: wstLabels.get(code) ?? code }))
 
@@ -277,14 +273,14 @@ function moisDeLaFenetre(fromIso: string, toIso: string): string[] {
   return out
 }
 
-/** Cadence de gamme par (article, poste tronqué) — première rencontrée, rate > 0. */
+/** Cadence de gamme par (article, poste) — première rencontrée, rate > 0. */
 function cadenceParArticlePoste(
   gamme: { article: string; workstation: string; rate: number }[]
 ): Map<string, number> {
   const cadenceParCle = new Map<string, number>()
   for (const g of gamme) {
     if (!g.workstation || g.rate <= 0) continue
-    const cle = `${g.article}#${tronquerPoste(g.workstation)}`
+    const cle = `${g.article}#${g.workstation}`
     if (!cadenceParCle.has(cle)) cadenceParCle.set(cle, g.rate)
   }
   return cadenceParCle
@@ -298,70 +294,25 @@ type CockpitWorkstation = Parameters<typeof capacityPeriod>[0] & {
 }
 
 /**
- * Tous les WORKSTATIO dont le code tronqué = poste retenu.
- * La fusion `PP_093S` → `PP_093` exige de SOMMER leurs capacités — un seul
- * match (premier trouvé) laissait la courbe heures/capacité incohérente
- * (contre-revue #119, point B).
- */
-function workstationsDuPosteTronque(
-  poste: string,
-  workstations: { code: string }[]
-): CockpitWorkstation[] {
-  return workstations.filter((w) => tronquerPoste(w.code) === poste) as CockpitWorkstation[]
-}
-
-/** Capacité hebdo nette sommée sur tous les jumeaux du code tronqué. */
-function capaciteHebdoTronquee(
-  poste: string,
-  workstations: Parameters<typeof weeklyCapacityOf>[1]
-): number | null {
-  let total = 0
-  let any = false
-  for (const w of workstations) {
-    if (tronquerPoste(w.code) !== poste) continue
-    const c = weeklyCapacityOf(w.code, [w])
-    if (c === null) continue
-    total += c
-    any = true
-  }
-  return any ? Math.round(total * 100) / 100 : null
-}
-
-/** Régime horaire hebdo sommé sur les jumeaux (Lundi→Dimanche, heures brutes). */
-function regimeHebdoTronque(wsts: CockpitWorkstation[]): number[] | null {
-  if (wsts.length === 0) return null
-  const total = [0, 0, 0, 0, 0, 0, 0]
-  for (const w of wsts) {
-    for (let i = 0; i < 7; i++) total[i] += w.dailyCapacity[i] ?? 0
-  }
-  return total.map((h) => Math.round(h * 100) / 100)
-}
-
-/**
- * Capacité période sommée — même périmètre que le réalisé tronqué, et MÊME
- * calendrier que `/charge` : fériés actifs et fermetures (#37) via
+ * Capacité du poste sur une période — celle de CE poste, jamais d'un autre
+ * code. Même calendrier que `/charge` : fériés actifs et fermetures (#37) via
  * `calendar.factor(poste, jour)`. Sans lui, la fenêtre de 6 mois comptait la
  * fermeture d'août comme de la capacité ouverte (revue #119).
  */
-function capacityPeriodTronquee(
-  wsts: CockpitWorkstation[],
+function capacitePeriodePoste(
+  wst: CockpitWorkstation | undefined,
   from: Date,
   to: Date,
   calendar: WorkingCalendar | null
 ): number {
-  if (wsts.length === 0 || to < from) return 0
+  if (!wst || to < from) return 0
+  if (!calendar) return capacityPeriod(wst, from, to)
   let total = 0
-  for (const w of wsts) {
-    if (!calendar) {
-      total += capacityPeriod(w, from, to)
-      continue
-    }
-    for (let t = from.getTime(); t <= to.getTime(); t += 86_400_000) {
-      const jour = new Date(t)
-      const facteur = calendar.factor(w, isoDay(jour))
-      if (facteur <= 0) continue
-      total += capDay(w, jour) * facteur
-    }
+  for (let t = from.getTime(); t <= to.getTime(); t += 86_400_000) {
+    const jour = new Date(t)
+    const facteur = calendar.factor(wst, isoDay(jour))
+    if (facteur <= 0) continue
+    total += capDay(wst, jour) * facteur
   }
   return total
 }
@@ -370,12 +321,12 @@ function capacityPeriodTronquee(
  * Le passé constaté du poste : domaine pur sur les pointages déjà lus de la
  * réplique (jamais de voie directe — c'est l'appelant qui a passé le verdict).
  * La capacité du graphe vient de `capacityPeriod` (#35/#37), bornée à la
- * fenêtre répliquée, SOMMÉE sur tous les jumeaux du code tronqué.
+ * fenêtre répliquée, pour CE poste seul.
  */
 function buildPasse(opts: {
   pointages: PointageTrk[]
   fen: { fromIso: string; toIso: string; toExclIso: string }
-  wsts: CockpitWorkstation[]
+  wst: CockpitWorkstation | undefined
   gamme: { article: string; workstation: string; rate: number }[]
   usParPalette: (article: string) => number | null
   ofTermines: CockpitOfTermine[]
@@ -429,7 +380,7 @@ function buildPasse(opts: {
       finMois.setDate(finMois.getDate() - 1)
       const debut = debutMois > from ? debutMois : from
       const fin = finMois < to ? finMois : to
-      const capacite = capacityPeriodTronquee(opts.wsts, debut, fin, opts.calendar)
+      const capacite = capacitePeriodePoste(opts.wst, debut, fin, opts.calendar)
       return {
         mois,
         capacite: Math.round(capacite * 100) / 100,
@@ -485,7 +436,7 @@ async function ofsOuverts(gamme: GammeOperation[]): Promise<{
 function selectionOpenumParOf(pointages: PointageTrk[], poste: string): Map<string, number> {
   const selection = new Map<string, number>()
   for (const p of pointages) {
-    if (tronquerPoste(p.cplwst) !== poste) continue
+    if (p.cplwst !== poste) continue
     if (p.cplqty <= 0) continue
     const cur = selection.get(p.numOf)
     if (cur === undefined || p.openum > cur) selection.set(p.numOf, p.openum)
@@ -524,7 +475,7 @@ export async function loadCockpitAnomaliesUsine(
   poste: string,
   force = false
 ): Promise<CockpitAnomaliesUsine> {
-  const safe = tronquerPoste(poste.trim())
+  const safe = poste.trim()
   if (!estPosteProduction(safe)) return { ecartsDeclaration: [], ofsASolder: [] }
 
   const [controle, solder] = await Promise.all([
@@ -533,7 +484,7 @@ export async function loadCockpitAnomaliesUsine(
   ])
 
   const ecartsDeclaration = (controle?.rows ?? [])
-    .filter((r) => tronquerPoste(r.poste ?? '') === safe)
+    .filter((r) => (r.poste ?? '') === safe)
     .map((r): AnomaliePoste => ({
       kind: 'ecart_declaration',
       numOf: r.numOf,
@@ -548,7 +499,7 @@ export async function loadCockpitAnomaliesUsine(
     }))
 
   const ofsASolder = (solder?.rows ?? [])
-    .filter((r) => tronquerPoste(r.poste ?? '') === safe)
+    .filter((r) => (r.poste ?? '') === safe)
     .map((r): AnomaliePoste => ({
       kind: 'of_a_solder',
       numOf: r.numOf,
@@ -720,7 +671,7 @@ function versPointages(
  * le dira. Les pointages sont lus UNE fois et partagés passé/anomalies.
  */
 export async function loadCockpitPoste(poste: string, force = false): Promise<CockpitPostePayload> {
-  const safe = tronquerPoste(poste.trim())
+  const safe = poste.trim()
   const cache = cacheNs('cockpit')
   const key = `poste:${safe}:v3`
   if (force) await cache.delete({ key })
@@ -767,13 +718,11 @@ async function loadCockpitPosteUncached(
   }
 
   const ref = await boardDataset.getReferential()
-  const wsts = workstationsDuPosteTronque(safe, ref.workstations)
-  // Identité affichée : code exact s'il existe, sinon premier jumeau trié.
-  const wstExact = wsts.find((w) => w.code === safe)
-  const wst = wstExact ?? [...wsts].sort((a, b) => a.code.localeCompare(b.code))[0]
+  // LE poste, pas un jumeau : égalité stricte sur le code (#119).
+  const wst = ref.workstations.find((w) => w.code === safe) as CockpitWorkstation | undefined
   let label = safe
   for (const g of ref.gamme) {
-    if (tronquerPoste(g.workstation) === safe) label = g.workstationLabel || g.workstation
+    if (g.workstation === safe) label = g.workstationLabel || g.workstation
   }
 
   const pointages: PointageTrk[] = replica.disponible
@@ -787,11 +736,8 @@ async function loadCockpitPosteUncached(
     label,
     atelier: wst?.stockLocation ?? '',
     atelierLabel: atelierLabel(wst?.stockLocation ?? ''),
-    capaciteHebdoHeures: capaciteHebdoTronquee(safe, ref.workstations),
-    // Régime SOMMÉ sur les jumeaux, comme la capacité : afficher le DAYCAP d'un
-    // seul poste à côté d'une capacité qui en somme deux se contredisait à
-    // l'écran (revue #119).
-    regimeHebdo: regimeHebdoTronque(wsts),
+    capaciteHebdoHeures: weeklyCapacityOf(safe, ref.workstations),
+    regimeHebdo: wst ? [...wst.dailyCapacity] : null,
     dernierPointageIso:
       replica.disponible && pointages.length > 0
         ? pointages.reduce((max, p) => (p.iptdat > max ? p.iptdat : max), pointages[0].iptdat)
@@ -813,7 +759,7 @@ async function loadCockpitPosteUncached(
 
     const { all: allOpen, resolve } = await ofsOuverts(ref.gamme)
     const allOpenNums = new Set(allOpen.map((m) => m.numOf))
-    const enCoursPremierOp = allOpen.filter((mo) => tronquerPoste(resolve(mo) ?? '') === safe)
+    const enCoursPremierOp = allOpen.filter((mo) => (resolve(mo) ?? '') === safe)
 
     // Anomalies : 1ʳᵉ op. sur ce poste + OF ouverts pointés ici (silence/heures).
     const pointageOfNums = new Set(pointages.map((p) => p.numOf))
@@ -841,7 +787,7 @@ async function loadCockpitPosteUncached(
     passe = buildPasse({
       pointages,
       fen,
-      wsts,
+      wst,
       gamme: ref.gamme,
       usParPalette,
       ofTermines,
@@ -868,12 +814,9 @@ async function loadCockpitPosteUncached(
   try {
     engagement = await loadPosteEngagement(safe, force)
     if (engagement.x3Error) x3Error = engagement.x3Error
-    // Une seule capacité par écran : la saturation du bloc engagement se lit
-    // contre la MÊME capacité que la carte d'identité et le graphe (jumeaux
-    // sommés). Copie — l'objet vient d'un cache partagé avec le séquenceur.
-    if (info.capaciteHebdoHeures !== null) {
-      engagement = { ...engagement, weeklyCapacityHours: info.capaciteHebdoHeures }
-    }
+    // Pas de recalcul de la capacité ici : `weeklyCapacityOf(safe)` est la même
+    // valeur des deux côtés (égalité stricte sur le code), carte d'identité et
+    // saturation du bloc engagement s'accordent d'elles-mêmes.
   } catch (e) {
     x3Error = (e as Error).message
   }

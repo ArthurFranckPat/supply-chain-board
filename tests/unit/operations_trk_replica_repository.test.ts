@@ -59,7 +59,7 @@ test.group('OperationsTrkReplicaRepository', (group) => {
     assert.equal(rows[0].iptdat, '2026-07-01')
   })
 
-  test('le filtre poste tronque à 6 caractères — PP_093S tombe sur PP_093', async ({ assert }) => {
+  test('le filtre poste est une ÉGALITÉ STRICTE — jamais le jumeau suffixé', async ({ assert }) => {
     await conn
       .table('operations_trk_replica')
       .insert([
@@ -74,10 +74,10 @@ test.group('OperationsTrkReplicaRepository', (group) => {
       'ZZ_093'
     )
 
-    // ZZ_093 et ZZ_093S (substr 6 = ZZ_093) ; ZZ_09 exclu.
+    // ZZ_093 seul. ZZ_093S est un AUTRE poste, ZZ_09 aussi (#119).
     assert.sameMembers(
       rows.map((r) => r.cplwst),
-      ['ZZ_093', 'ZZ_093S']
+      ['ZZ_093']
     )
   })
 

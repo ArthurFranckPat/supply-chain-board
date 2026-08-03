@@ -4,9 +4,10 @@
  *
  * Sélecteur : la liste des postes vient de la RÉPLIQUE de pointages (6 mois
  * glissants), pas du référentiel de gammes — un poste qui a pointé mais n'est
- * plus dans les gammes reste sélectionnable. Identité tronquée à 6 caractères,
- * comme `/charge` et `/programme` (`SUBSTR(WST_0, 1, 6)`), et codes à segment
- * numérique seulement (`PP_MECA`, `PE_PROD`… exclus).
+ * plus dans les gammes reste sélectionnable. Codes à segment NUMÉRIQUE
+ * seulement et égalité stricte : `PP_MECA`, `PE_PROD` et les codes suffixés
+ * comme `PP_093S` sont d'autres postes, ils n'apparaissent pas et ne se
+ * replient sur personne.
  *
  * Le bloc « Engagement » réutilise le pipeline #46 (`loadPosteEngagement`) tel
  * quel. Les écarts #95 et les OF à solder arrivent par un second fetch : eux
