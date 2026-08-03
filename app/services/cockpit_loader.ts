@@ -631,7 +631,8 @@ function buildOfTermines(opts: {
  * entrées (cadences gamme, coefficient palette, semaines de la fenêtre).
  *
  * Adhérence : les semaines couvertes sont celles de la fenêtre répliquée,
- * SANS la semaine en cours (partielle, elle ferait chuter le taux à tort).
+ * SANS la semaine en cours (partielle, elle fausserait la comparaison des
+ * comptages bruts).
  */
 async function buildAnalyses(opts: {
   poste: string

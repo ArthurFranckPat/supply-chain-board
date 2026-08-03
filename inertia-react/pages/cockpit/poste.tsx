@@ -180,13 +180,16 @@ export default function CockpitPoste(props: Props) {
   const [maille, setMaille] = useState<MailleFil>('semaine')
   const [mesure, setMesure] = useState<Mesure>('h')
 
-  // Un seul mécanisme de refresh : le bump ajoute ?refresh=1 aux deux fetches
+  // Un seul mécanisme de refresh : le bump ajoute ?refresh=1 aux fetches
   // (cache-bust serveur). Avant, un router.visit en doublon rechargeait la page
   // et laissait ?refresh=1 dans l'URL (tout reload futur forçait le refresh).
-  // `postesHref` peut déjà porter ?refresh=1 (navigation /cockpit?refresh=1) :
-  // on joint alors avec &, jamais un second ? (revue #119, 04/08).
-  const q = bump > 0 ? (props.postesHref.includes('?') ? '&refresh=1' : '?refresh=1') : ''
-  const postes = useTimedFetch<PostesPayload>(`${props.postesHref}${q}`)
+  // Séparateur décidé PAR URL (revue #119, round 2) : postesHref peut déjà
+  // porter ?refresh=1 (navigation /cockpit?refresh=1) — les deux autres href
+  // jamais. Un `q` unique dérivé de postesHref aurait collé `&refresh=1` sur
+  // une URL sans `?` et cassé le paramètre de route (PP_093&refresh=1).
+  const avecRefresh = (href: string) =>
+    bump > 0 ? href + (href.includes('?') ? '&' : '?') + 'refresh=1' : href
+  const postes = useTimedFetch<PostesPayload>(avecRefresh(props.postesHref))
 
   // Poste effectif : choix utilisateur > présélection ?poste= > défaut serveur.
   // Résolu seulement quand la liste est là, pour valider le code présélectionné.
@@ -201,7 +204,7 @@ export default function CockpitPoste(props: Props) {
   }, [postes.data, chosen, selected, props.posteInitial])
 
   const detailHref = effective
-    ? `/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}${q}`
+    ? avecRefresh(`/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}`)
     : null
   const detail = useTimedFetch<PostePayload>(detailHref)
 
@@ -211,7 +214,9 @@ export default function CockpitPoste(props: Props) {
   // sans lui rien ne s'affiche, inutile de réveiller X3.
   const usineHref =
     effective && detail.data?.anomalies
-      ? `/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}/anomalies-usine${q}`
+      ? avecRefresh(
+          `/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}/anomalies-usine`
+        )
       : null
   const usine = useTimedFetch<AnomaliesUsineVue>(usineHref)
 

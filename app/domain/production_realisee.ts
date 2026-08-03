@@ -126,8 +126,9 @@ export function productionParMois(mailles: ProductionRealisee[]): ProductionReal
   return [...parMois.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
-/** Clé de groupe : un OF sur UN poste — code brut, égalité stricte. */
-function groupeKey(p: PointageTrk): string {
+/** Clé de groupe : un OF sur UN poste — code brut, égalité stricte.
+ *  Exportée : les anomalies (détecteur 4) indexent la même sélection. */
+export function groupeKey(p: PointageTrk): string {
   return `${p.numOf}#${p.cplwst}`
 }
 

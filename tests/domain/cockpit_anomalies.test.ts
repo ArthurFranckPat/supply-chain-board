@@ -181,6 +181,36 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
     assert.lengthOf(r.heures, 0)
   })
 
+  test('le réglage ne compte pas comme heure opératoire (revue #119, round 2)', ({ assert }) => {
+    // 5 h de réglage, 0 h opératoire : « déclaré sans heures », pas
+    // « heures faibles » — le théorique de gamme n'a pas de standard de réglage.
+    const r = detecterAnomaliesPoste({
+      ofs: [of({ qtyDeclaree: 100 })],
+      pointages: [pointage({ opetim: 0, settim: 5 })],
+      operationsSurPoste: [],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.heures, 1)
+    assert.equal(r.heures[0].kind, 'sans_heures')
+    assert.equal(r.heures[0].heuresPointees, 0)
+  })
+
+  test('seules les heures opératoires entrent dans la comparaison', ({ assert }) => {
+    // 45 h opératoires pour 100 h théoriques → ratio 0.45 < 0.5 : signalé.
+    // Avec 10 h de réglage en plus (55 h au total), l'ancien code aurait été muet.
+    const r = detecterAnomaliesPoste({
+      ofs: [of({ qtyDeclaree: 100 })],
+      pointages: [pointage({ opetim: 45, settim: 10 })],
+      operationsSurPoste: [],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.heures, 1)
+    assert.equal(r.heures[0].kind, 'heures_faibles')
+    assert.equal(r.heures[0].heuresPointees, 45)
+  })
+
   test('sans gamme exploitable, pas de comparaison possible → pas d’anomalie', ({ assert }) => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ article: 'SANS-GAMME', qtyDeclaree: 100 })],

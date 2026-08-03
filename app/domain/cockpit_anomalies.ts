@@ -8,7 +8,8 @@
  * 2. **Silence** — l'OF a déjà pointé sur le poste mais plus rien depuis N
  *    jours alors qu'il est toujours en cours.
  * 3. **Déclaré sans heures** (ou heures anormalement faibles) — quantité
- *    déclarée sur le poste vs heures de l'opération sélectionnée.
+ *    déclarée sur le poste vs heures OPÉRATOIRES de l'opération sélectionnée
+ *    (le théorique de gamme n'a pas de standard de réglage).
  * 4. **Déclaré > à produire** — MFGOPE `CPLQTY > EXTQTY` sur une opération
  *    du poste, surplus affiché en pièces. Remplace l'ancien « déclarations en
  *    double » (clé pointages), qui mesurait les partages de production entre
@@ -22,7 +23,11 @@
  * Les seuils sont des CONSTANTES à caler sur la donnée réelle (cf. chacun).
  */
 
-import { selectionOperationMaxQuantifiee, type PointageTrk } from '#app/domain/production_realisee'
+import {
+  groupeKey,
+  selectionOperationMaxQuantifiee,
+  type PointageTrk,
+} from '#app/domain/production_realisee'
 
 /** Détecteur 1 — jours de lancement sans aucun pointage avant signalement.
  *  À CALER sur la distribution réelle des délais lancement → premier pointage
@@ -141,7 +146,10 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
   const ratio = e.ratioHeuresFaibles ?? RATIO_HEURES_FAIBLES
 
   // Dernier pointage : TOUS les pointages (présence). Heures détecteur 3 :
-  // opération sélectionnée seule (même règle que le passé productif).
+  // OPÉRATOIRE seul de l'opération sélectionnée — le théorique
+  // (`heuresTheoriquesPour` → hoursForQuantity) est de l'opératoire pur,
+  // comparer opetim + settim gonflerait les heures pointées d'environ 10-15 %
+  // (même règle que la fiabilité des temps de gamme, revue #119, round 2).
   const dernierPointage = new Map<string, string>()
   const heuresParOf = new Map<string, number>()
   const selection = selectionOperationMaxQuantifiee(e.pointages)
@@ -149,11 +157,11 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
     const cur = dernierPointage.get(p.numOf)
     if (!cur || p.iptdat > cur) dernierPointage.set(p.numOf, p.iptdat)
 
-    const openumSel = selection.get(`${p.numOf}#${p.cplwst}`)
+    const openumSel = selection.get(groupeKey(p))
     const surSel = openumSel === p.openum
     const repliReglagePur = openumSel === undefined
     if (!surSel && !repliReglagePur) continue
-    heuresParOf.set(p.numOf, (heuresParOf.get(p.numOf) ?? 0) + p.opetim + p.settim)
+    heuresParOf.set(p.numOf, (heuresParOf.get(p.numOf) ?? 0) + p.opetim)
   }
 
   const jamaisPointes: AnomaliePoste[] = []
