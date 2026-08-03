@@ -335,6 +335,19 @@ function PosteDetail(props: {
 }) {
   const { poste, engagement, passe, anomalies, analyses, x3Error } = props.payload
   const loadError = x3Error ?? engagement?.x3Error ?? null
+  // Le cockpit mesure la charge réellement engagée : uniquement les OF fermes
+  // (WIPSTA=1). Le loader partagé conserve les planifiés/suggérés pour le
+  // séquenceur, mais ils ne doivent pas gonfler ce cockpit.
+  const engagementFerme = useMemo(() => {
+    if (!engagement) return null
+    const rows = engagement.rows.filter((row) => row.status === 1)
+    return {
+      ...engagement,
+      count: rows.length,
+      totalHours: rows.reduce((sum, row) => sum + row.hours, 0),
+      rows,
+    }
+  }, [engagement])
   const regimeBrutTotal = poste.regimeHebdo?.reduce((sum, h) => sum + Math.max(0, h), 0) ?? 0
   const regimeNetFactor =
     regimeBrutTotal > 0 && poste.capaciteHebdoHeures
@@ -349,8 +362,10 @@ function PosteDetail(props: {
   // Props du fil construites hors condition (passe peut être null → pas de fil).
   const filProps = useMemo(
     () =>
-      passe ? construireFilProps(poste, passe, engagement, anomalies, props.usine, analyses) : null,
-    [poste, passe, engagement, anomalies, props.usine, analyses]
+      passe
+        ? construireFilProps(poste, passe, engagementFerme, anomalies, props.usine, analyses)
+        : null,
+    [poste, passe, engagementFerme, anomalies, props.usine, analyses]
   )
 
   // Faisabilité matières — même contrat API que le séquenceur (#119 : reprise du
@@ -362,11 +377,13 @@ function PosteDetail(props: {
   const [feasCounts, setFeasCounts] = useState({ ok: 0, blocked: 0, qc: 0 })
 
   const runFeasibility = async () => {
-    if (!engagement || engagement.rows.length === 0 || feasLoading) return
+    if (!engagementFerme || engagementFerme.rows.length === 0 || feasLoading) return
     setFeasLoading(true)
     setFeasError(null)
     try {
-      const { from, to } = feasibilityWindowFromDates(engagement.rows.map((r) => r.dateDebutIso))
+      const { from, to } = feasibilityWindowFromDates(
+        engagementFerme.rows.map((r) => r.dateDebutIso)
+      )
       const { map, nbOk, nbBlocked, nbQc } = await fetchBoardFeasibility({
         from,
         to,
@@ -472,14 +489,13 @@ function PosteDetail(props: {
           <span className="text-[15px] font-bold tracking-tight text-foreground">
             Ce qui est engagé
           </span>
-          {engagement && (
+          {engagementFerme && (
             <span className="font-mono text-[10px] text-muted-foreground">
-              {engagement.count} OF · {fmtHs(engagement.totalHours)} h ·{' '}
-              {semaineISO(plusSeptJours(aujourdhuiIso()))} au plus tard
+              {engagementFerme.count} OF fermes · {fmtHs(engagementFerme.totalHours)} h
             </span>
           )}
           <span className="flex-1" />
-          {engagement && engagement.rows.length > 0 && (
+          {engagementFerme && engagementFerme.rows.length > 0 && (
             <button
               type="button"
               onClick={() => void runFeasibility()}
@@ -508,13 +524,13 @@ function PosteDetail(props: {
           </div>
         )}
 
-        {!engagement || engagement.rows.length === 0 ? (
+        {!engagementFerme || engagementFerme.rows.length === 0 ? (
           <div className="rounded-lg border border-rule bg-card p-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
             Aucun OF engagé sur ce poste.
           </div>
         ) : (
           <EngagementTable
-            rows={engagement.rows}
+            rows={engagementFerme.rows}
             feasMap={feasMap}
             feasCounts={feasCounts}
             capaciteHebdoHeures={poste.capaciteHebdoHeures}
