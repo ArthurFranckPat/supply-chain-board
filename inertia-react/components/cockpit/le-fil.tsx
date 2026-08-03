@@ -76,8 +76,10 @@ export interface LeFilProps {
   totaux: { heures: number; qty: number }
   /** OF engagés du programme (#46) — ventilés par semaine de début. */
   ofsEngages: Pick<EngagementRow, 'numOf' | 'dateDebutIso' | 'hours'>[]
-  /** Capacité hebdomadaire théorique (h) — TABWEEDIA. Null si inconnue. */
+  /** Capacité hebdomadaire nette (h) — WORKSTATIO × TABWEEDIA × rendement. */
   capaciteHebdoHeures: number | null
+  /** Régime TABWEEDIA brut, utilisé pour retrouver la capacité nette par jour. */
+  regimeHebdo: number[] | null
   /** Anomalies reprojetées sur la série passée de la maille courante. */
   anomalies: AnomalieFil[]
   maille: MailleFil
@@ -277,6 +279,7 @@ export function LeFil(props: LeFilProps) {
     totaux,
     ofsEngages,
     capaciteHebdoHeures,
+    regimeHebdo,
     anomalies,
     maille,
     onMaille,
@@ -286,6 +289,25 @@ export function LeFil(props: LeFilProps) {
   } = props
 
   const capHebdo = capaciteHebdoHeures ?? 0
+  const regimeBrutTotal = regimeHebdo?.reduce((sum, h) => sum + Math.max(0, h), 0) ?? 0
+  const facteurNet = regimeBrutTotal > 0 && capHebdo > 0 ? capHebdo / regimeBrutTotal : 1
+  const capaciteJour = (date: string): number => {
+    if (!regimeHebdo || regimeBrutTotal <= 0) return capHebdo / 5
+    const d = new Date(`${date}T00:00:00`)
+    const index = (d.getDay() + 6) % 7
+    return (regimeHebdo[index] ?? 0) * facteurNet
+  }
+  const capaciteMois = (mois: string): number => {
+    const debut = `${mois}-01`
+    const fin = new Date(`${debut}T00:00:00`)
+    fin.setMonth(fin.getMonth() + 1)
+    fin.setDate(0)
+    let total = 0
+    for (let d = new Date(`${debut}T00:00:00`); d <= fin; d.setDate(d.getDate() + 1)) {
+      total += capaciteJour(isoDepuisDate(d))
+    }
+    return total
+  }
   const cadenceMoy = totaux.heures > 0 ? totaux.qty / totaux.heures : 0
   const availableRange = useMemo(
     () => periodeDisponible(passeParMaille, ofsEngages),
@@ -324,13 +346,17 @@ export function LeFil(props: LeFilProps) {
     const passePeriodes = toutesPassePeriodes.filter((p) =>
       periodeChevauche(p.date, maille, period)
     )
-    const capPer = capPeriode(maille, capHebdo)
-
     const passe: Barre[] = passePeriodes.map((p) => ({
+      cap: capMesure(
+        maille === 'jour'
+          ? capaciteJour(p.date)
+          : maille === 'mois'
+            ? capaciteMois(p.date)
+            : capHebdo
+      ),
       lab: labelPeriode(p.date, maille),
       tooltipLab: tooltipPeriode(p.date, maille),
       v: toMesure(p.heures, mesure === 'pal' && p.palettes !== null ? p.palettes * 60 : p.qty),
-      cap: capMesure(capPer),
       futur: false,
       vide: false,
     }))
@@ -384,7 +410,7 @@ export function LeFil(props: LeFilProps) {
           lab: libMois,
           tooltipLab: `Engagement agrégé · ${libMois}`,
           v: toMesure(hFut, hFut * cadenceMoy),
-          cap: capMesure(capHebdo * 4.35),
+          cap: capMesure(moisFuturs.reduce((total, mois) => total + capaciteMois(mois), 0)),
           futur: true,
           vide: hFut === 0,
         })
@@ -401,7 +427,7 @@ export function LeFil(props: LeFilProps) {
             lab: `${jour.slice(8, 10)}/${jour.slice(5, 7)}`,
             tooltipLab: tooltipPeriode(jour, 'jour'),
             v: toMesure(heures, heures * cadenceMoy),
-            cap: capMesure(capHebdo / 5),
+            cap: capMesure(capaciteJour(jour)),
             futur: true,
             vide: false,
           })
@@ -411,7 +437,17 @@ export function LeFil(props: LeFilProps) {
 
     return { passe, futur }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passeParMaille, maille, mesure, futurParSemaine, cadenceMoy, capHebdo, ofsEngages, period])
+  }, [
+    passeParMaille,
+    maille,
+    mesure,
+    futurParSemaine,
+    cadenceMoy,
+    capHebdo,
+    ofsEngages,
+    period,
+    regimeHebdo,
+  ])
 
   const all = [...serie.passe, ...serie.futur]
   const capMax = Math.max(...all.map((b) => b.cap), 0)

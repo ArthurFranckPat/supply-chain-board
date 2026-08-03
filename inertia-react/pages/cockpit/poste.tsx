@@ -335,6 +335,16 @@ function PosteDetail(props: {
 }) {
   const { poste, engagement, passe, anomalies, analyses, x3Error } = props.payload
   const loadError = x3Error ?? engagement?.x3Error ?? null
+  const regimeBrutTotal = poste.regimeHebdo?.reduce((sum, h) => sum + Math.max(0, h), 0) ?? 0
+  const regimeNetFactor =
+    regimeBrutTotal > 0 && poste.capaciteHebdoHeures
+      ? poste.capaciteHebdoHeures / regimeBrutTotal
+      : 1
+  const regimeNet = poste.regimeHebdo?.map((h) => h * regimeNetFactor) ?? null
+  const regimeTitle =
+    regimeNet && regimeBrutTotal > 0
+      ? `Régime net : ${fmtHs(poste.capaciteHebdoHeures ?? regimeBrutTotal)} h/sem · régime brut X3 : ${fmtHs(regimeBrutTotal)} h/sem`
+      : 'Régime horaire déclaré par X3'
 
   // Props du fil construites hors condition (passe peut être null → pas de fil).
   const filProps = useMemo(
@@ -397,11 +407,13 @@ function PosteDetail(props: {
           </div>
         )}
 
-        <div
-          className="flex items-center gap-1"
-          title="Capacité journalière déclarée (TABWEEDIA), lundi → dimanche"
-        >
-          {poste.regimeHebdo?.map((h, i) => (
+        <div className="flex items-center gap-1" title={regimeTitle}>
+          {regimeNet && (
+            <span className="mr-1 font-mono text-[9px] font-semibold text-muted-foreground">
+              net
+            </span>
+          )}
+          {regimeNet?.map((h, i) => (
             <div key={i} className="flex flex-col items-center">
               <span
                 className={cn(
@@ -637,6 +649,7 @@ function construireFilProps(
     totaux,
     ofsEngages,
     capaciteHebdoHeures: poste.capaciteHebdoHeures,
+    regimeHebdo: poste.regimeHebdo,
     anomalies: filAnomalies,
     verdicts: {
       saturation: {
