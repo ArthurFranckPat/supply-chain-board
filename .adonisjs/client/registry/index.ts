@@ -102,6 +102,12 @@ const routes = {
     tokens: [{"old":"/controle-prod","type":0,"val":"controle-prod","end":""}],
     types: placeholder as Registry['controle_prod.index']['types'],
   },
+  'cockpit.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/cockpit',
+    tokens: [{"old":"/cockpit","type":0,"val":"cockpit","end":""}],
+    types: placeholder as Registry['cockpit.index']['types'],
+  },
   'suivi.board': {
     methods: ["GET","HEAD"],
     pattern: '/suivi',
@@ -425,6 +431,18 @@ const routes = {
     pattern: '/api/v1/planning/of-a-solder',
     tokens: [{"old":"/api/v1/planning/of-a-solder","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-a-solder","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-a-solder","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-a-solder","type":0,"val":"of-a-solder","end":""}],
     types: placeholder as Registry['controle_prod.of_a_solder']['types'],
+  },
+  'cockpit.postes': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/cockpit/postes',
+    tokens: [{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"api","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"cockpit","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"postes","end":""}],
+    types: placeholder as Registry['cockpit.postes']['types'],
+  },
+  'cockpit.poste': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/cockpit/postes/:poste',
+    tokens: [{"old":"/api/v1/planning/cockpit/postes/:poste","type":0,"val":"api","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste","type":0,"val":"cockpit","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste","type":0,"val":"postes","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste","type":1,"val":"poste","end":""}],
+    types: placeholder as Registry['cockpit.poste']['types'],
   },
   'charge.detail': {
     methods: ["GET","HEAD"],

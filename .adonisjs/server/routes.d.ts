@@ -20,6 +20,7 @@ export type ScannedRoutes = {
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'controle_prod.index': { paramsTuple?: []; params?: {} }
+    'cockpit.index': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
@@ -74,6 +75,8 @@ export type ScannedRoutes = {
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
+    'cockpit.postes': { paramsTuple?: []; params?: {} }
+    'cockpit.poste': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
@@ -131,6 +134,7 @@ export type ScannedRoutes = {
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'controle_prod.index': { paramsTuple?: []; params?: {} }
+    'cockpit.index': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
@@ -164,6 +168,8 @@ export type ScannedRoutes = {
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
+    'cockpit.postes': { paramsTuple?: []; params?: {} }
+    'cockpit.poste': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
@@ -207,6 +213,7 @@ export type ScannedRoutes = {
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'controle_prod.index': { paramsTuple?: []; params?: {} }
+    'cockpit.index': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'scenarios.compare': { paramsTuple?: []; params?: {} }
@@ -240,6 +247,8 @@ export type ScannedRoutes = {
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
+    'cockpit.postes': { paramsTuple?: []; params?: {} }
+    'cockpit.poste': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }

@@ -370,6 +370,7 @@ export class StaticArticleSchema extends BaseModel {
     'supplyType',
     'syncedAt',
     'typologie',
+    'usParPalette',
   ] as const
   $columns = StaticArticleSchema.$columns
   @column()
@@ -388,6 +389,8 @@ export class StaticArticleSchema extends BaseModel {
   declare syncedAt: number
   @column()
   declare typologie: string
+  @column()
+  declare usParPalette: number | null
 }
 
 export class StaticGammeSchema extends BaseModel {
