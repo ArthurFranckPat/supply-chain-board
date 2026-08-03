@@ -89,6 +89,28 @@ interface PasseMoisHeures {
   heuresConverties: number
 }
 
+/** Un OF terminé du point de vue du poste (lot 4, #119) — pointé dans la
+ *  fenêtre, plus en cours. `dernierJourIso` approche la date de sortie. */
+interface OfTermineVue {
+  numOf: string
+  article: string | null
+  designation: string | null
+  qty: number
+  heures: number
+  dernierJourIso: string
+  palettes: number | null
+}
+
+/** Une ligne du mix articles et cadence réelle (lot 6, #119). */
+interface MixArticleVue {
+  article: string
+  qty: number
+  palettes: number | null
+  heures: number
+  piecesParHeure: number | null
+  cadenceGamme: number | null
+}
+
 interface Passe {
   nbPointages: number
   productionParJour: MailleProduction[]
@@ -100,6 +122,8 @@ interface Passe {
    *  ISO) — servie par le loader, consommée telle quelle (revue #119, round 3). */
   capaciteParJour: { date: string; capacite: number }[]
   capaciteParSemaine: { date: string; capacite: number }[]
+  /** OF terminés sur la fenêtre (lot 4, #119). */
+  ofTermines: OfTermineVue[]
 }
 
 interface FiabiliteArticle {
@@ -127,6 +151,8 @@ interface AnalysesVue {
     exclusFauteCadence: number
   }
   adherence: AdherenceSemaine[]
+  /** Mix articles et cadence réelle (lot 6, #119). */
+  mix: MixArticleVue[]
 }
 
 interface PostesPayload {
@@ -566,6 +592,22 @@ function PosteDetail(props: {
         </div>
       )}
 
+      {/* OF terminés sur la fenêtre — lot 4 (#119) : pointés ici, plus en
+          cours. La date de sortie est approchée par le dernier pointage. */}
+      {passe && passe.ofTermines.length > 0 && (
+        <div className="border-t border-border px-7 py-4">
+          <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-[15px] font-bold tracking-tight text-foreground">
+              OF terminés sur la fenêtre
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {passe.ofTermines.length} OF · sortie approchée par le dernier pointage
+            </span>
+          </div>
+          <OfTerminesTable ofTermines={passe.ofTermines} />
+        </div>
+      )}
+
       {/* Analyses — ce que ça dit des gammes (design V3). */}
       {passe && analyses && <AnalysesSection analyses={analyses} />}
     </div>
@@ -713,7 +755,18 @@ function construireFilProps(
         big: `${fia !== null ? fia.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'} <em>× std</em>`,
         txt: vFia.txt,
         cls: vFia.cls,
-        sub: `${fmtHs(hP)} h opératoires pointées pour ${fmtHs(hT)} h de gamme${analyses?.fiabilite.heuresReglage ? ` · ${fmtHs(analyses.fiabilite.heuresReglage)} h de réglage, non comparées` : ''}${analyses?.fiabilite.exclusFauteCadence ? ` · ${analyses.fiabilite.exclusFauteCadence} article(s) sans cadence, exclus` : ''} · la charge de /programme est sous-estimée d'autant`,
+        // La charge de /programme est sous-estimée si la ligne est plus lente
+        // que sa gamme (> 1), sur-estimée si plus rapide (< 1) — la phrase
+        // suit le sens du ratio (revue #119, round 3).
+        sub: `${fmtHs(hP)} h opératoires pointées pour ${fmtHs(hT)} h de gamme${analyses?.fiabilite.heuresReglage ? ` · ${fmtHs(analyses.fiabilite.heuresReglage)} h de réglage, non comparées` : ''}${analyses?.fiabilite.exclusFauteCadence ? ` · ${analyses.fiabilite.exclusFauteCadence} article(s) sans cadence, exclus` : ''} · ${
+          fia === null
+            ? 'gamme non mesurable'
+            : fia > 1
+              ? "la charge de /programme est sous-estimée d'autant"
+              : fia < 1
+                ? "la charge de /programme est sur-estimée d'autant"
+                : 'la cadence déclarée est tenue'
+        }`,
       },
       carnet: {
         big: `${fmtHs(hEng)} <em>h</em>`,
@@ -723,6 +776,45 @@ function construireFilProps(
       },
     },
   }
+}
+
+/** Tableau des OF terminés sur la fenêtre (lot 4, #119). Plafonné en hauteur,
+ *  même convention que les cartes d'anomalies. */
+function OfTerminesTable({ ofTermines }: { ofTermines: OfTermineVue[] }) {
+  return (
+    <div className="max-h-[240px] overflow-auto rounded-lg border border-rule bg-card">
+      <table className="w-full border-collapse">
+        <thead className="sticky top-0 bg-secondary">
+          <tr className="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+            <th className="px-4 py-2">OF</th>
+            <th className="px-4 py-2">Article</th>
+            <th className="px-4 py-2 text-right">Qté</th>
+            <th className="px-4 py-2 text-right">Palettes</th>
+            <th className="px-4 py-2 text-right">Heures</th>
+            <th className="px-4 py-2">Dernier pointage</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-rule-soft">
+          {ofTermines.map((t) => (
+            <tr key={t.numOf} className="font-mono text-[11px] tabular-nums hover:bg-secondary">
+              <td className="px-4 py-2 font-bold tracking-tight">{t.numOf}</td>
+              <td className="px-4 py-2 text-muted-foreground">
+                {t.article}
+                {t.designation ? ` · ${t.designation}` : ''}
+              </td>
+              <td className="px-4 py-2 text-right">{t.qty.toLocaleString('fr-FR')}</td>
+              <td className="px-4 py-2 text-right">
+                {/* null = absence de coefficient — jamais « 0 palette » (#119). */}
+                {t.palettes !== null ? fmtNombre(t.palettes) : '—'}
+              </td>
+              <td className="px-4 py-2 text-right">{fmtHs(t.heures)} h</td>
+              <td className="px-4 py-2 text-muted-foreground">{dateLong(t.dernierJourIso)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 /** Table engagement dense : sem, OF, article, fenêtre, heures, faisabilité. */
@@ -851,7 +943,7 @@ function EngagementTable(props: {
 
 /** Analyses V3 : écart de cadence par article (axe 0,75→1,25) + adhérence. */
 function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
-  const { fiabilite, adherence } = analyses
+  const { fiabilite, adherence, mix } = analyses
   const MIN = 0.75
   const MAX = 1.25
   const pos = (r: number) => ((Math.min(MAX, Math.max(MIN, r)) - MIN) / (MAX - MIN)) * 100
@@ -1008,6 +1100,59 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
               </p>
             </>
           )}
+        </div>
+
+        {/* Mix articles et cadence réelle — lot 6 (#119). */}
+        <div className="mt-4 rounded-lg border border-rule bg-card p-4 shadow-float xl:col-span-2">
+          <h3 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            Mix articles · cadence constatée vs gamme
+          </h3>
+          {mix.length === 0 ? (
+            <div className="py-4 text-center font-fraunces text-[12px] italic text-muted-foreground">
+              Aucune production quantifiée sur la fenêtre.
+            </div>
+          ) : (
+            <div className="mt-2 max-h-[240px] overflow-auto">
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 bg-secondary">
+                  <tr className="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 py-2">Article</th>
+                    <th className="px-4 py-2 text-right">Qté</th>
+                    <th className="px-4 py-2 text-right">Palettes</th>
+                    <th className="px-4 py-2 text-right">Heures</th>
+                    <th className="px-4 py-2 text-right">Pièces/h constatées</th>
+                    <th className="px-4 py-2 text-right">Cadence gamme</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rule-soft">
+                  {mix.map((m) => (
+                    <tr
+                      key={m.article}
+                      className="font-mono text-[11px] tabular-nums hover:bg-secondary"
+                    >
+                      <td className="px-4 py-2 font-bold">{m.article}</td>
+                      <td className="px-4 py-2 text-right">{m.qty.toLocaleString('fr-FR')}</td>
+                      <td className="px-4 py-2 text-right">
+                        {/* null = absence de coefficient, jamais « 0 palette ». */}
+                        {m.palettes !== null ? fmtNombre(m.palettes) : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-right">{fmtHs(m.heures)} h</td>
+                      <td className="px-4 py-2 text-right">
+                        {m.piecesParHeure !== null ? fmtNombre(m.piecesParHeure) : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {m.cadenceGamme !== null ? fmtNombre(m.cadenceGamme) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
+            Cadence constatée = pièces pointées / heures opératoires. Affichage seul en v1 —
+            aucune boucle de retour vers la charge.
+          </p>
         </div>
       </div>
     </div>

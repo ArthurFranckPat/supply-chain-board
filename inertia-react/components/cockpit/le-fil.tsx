@@ -497,7 +497,12 @@ export function LeFil(props: LeFilProps) {
 
   const sub =
     props.sub ??
-    `${serie.passe.length} périodes constatées${serie.futur.length > 0 ? ` + ${serie.futur.length} engagées` : ''} · ${libMesure} ${libMaille}`
+    `${serie.passe.length} périodes constatées${
+      // En mesure palettes les OF engagés n'ont pas d'équivalent (heures
+      // seules) : on ne les annonce pas si aucune barre n'est représentable
+      // (revue #119, round 4).
+      serie.futur.some((b) => b.v !== null) ? ` + ${serie.futur.length} engagées` : ''
+    } · ${libMesure} ${libMaille}`
 
   /* Reprojection des anomalies sur la série passée de la maille courante,
      puis regroupement par index (compteur sur la pastille). */
@@ -604,14 +609,21 @@ export function LeFil(props: LeFilProps) {
           <span className="inline-block h-[10px] w-3 rounded-[2px] bg-brand opacity-80" />
           Constaté · pointages
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]" />
-          Engagé · OF fermes
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0 w-3 border-t-2 border-dashed border-input" />
-          {mesure === 'h' ? 'Capacité déclarée' : 'Capacité convertie'}
-        </span>
+        {/* En mesure palettes, ni la capacité (capMesure → null) ni les OF
+            engagés (heures seules, vFutur → null) ne sont représentés : on ne
+            légende pas des marques inexistantes (revue #119, round 4). */}
+        {serie.futur.some((b) => b.v !== null) && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]" />
+            Engagé · OF fermes
+          </span>
+        )}
+        {capMax > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-0 w-3 border-t-2 border-dashed border-input" />
+            {mesure === 'h' ? 'Capacité déclarée' : 'Capacité convertie'}
+          </span>
+        )}
       </div>
 
       {/* Le fil */}
