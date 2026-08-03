@@ -39,7 +39,10 @@ export interface PassePeriode {
 
 /** Une barre du fil, prête à rendre. */
 interface Barre {
+  /** Label court utilisé sur l'axe. */
   lab: string
+  /** Libellé explicite utilisé dans le tooltip, cohérent avec la maille. */
+  tooltipLab: string
   v: number
   cap: number
   futur: boolean
@@ -146,6 +149,34 @@ function plusSeptJours(iso: string): string {
 }
 
 /** Étiquette courte d'une clé de période, selon la maille. */
+function dateLongue(iso: string): string {
+  const [, y, m, d] = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) ?? []
+  return y && m && d ? `${d}/${m}/${y}` : iso
+}
+
+/** Libellé explicite de la période : le tooltip ne doit jamais laisser
+ * deviner si une barre représente un jour, une semaine ou un mois. */
+function tooltipPeriode(date: string, maille: MailleFil): string {
+  if (maille === 'jour') return `Jour du ${dateLongue(date)}`
+  if (maille === 'semaine') return `Semaine du ${dateLongue(date)}`
+  const [y, m] = date.split('-').map(Number)
+  const mois = [
+    'janvier',
+    'février',
+    'mars',
+    'avril',
+    'mai',
+    'juin',
+    'juillet',
+    'août',
+    'septembre',
+    'octobre',
+    'novembre',
+    'décembre',
+  ]
+  return y && m ? `Mois de ${mois[m - 1]} ${y}` : `Mois de ${date}`
+}
+
 function labelPeriode(date: string, maille: MailleFil): string {
   if (maille === 'semaine') return semaineCourte(date)
   if (maille === 'jour') {
@@ -233,6 +264,7 @@ export function LeFil(props: LeFilProps) {
 
     const passe: Barre[] = passePeriodes.map((p) => ({
       lab: labelPeriode(p.date, maille),
+      tooltipLab: tooltipPeriode(p.date, maille),
       v: toMesure(p.heures, mesure === 'pal' && p.palettes !== null ? p.palettes * 60 : p.qty),
       cap: capMesure(capPer),
       futur: false,
@@ -250,6 +282,7 @@ export function LeFil(props: LeFilProps) {
           const heures = futurParSemaine.find((f) => f.lundi === lundi)?.heures ?? 0
           futur.push({
             lab: semaineCourte(lundi),
+            tooltipLab: tooltipPeriode(lundi, 'semaine'),
             v: toMesure(heures, heures * cadenceMoy),
             cap: capMesure(capHebdo),
             futur: true,
@@ -262,6 +295,7 @@ export function LeFil(props: LeFilProps) {
         if (futur.length > 0 && lundi <= plusSeptJours(dernierFutur)) {
           futur.push({
             lab: semaineCourte(lundi),
+            tooltipLab: tooltipPeriode(lundi, 'semaine'),
             v: 0,
             cap: capMesure(capHebdo),
             futur: true,
@@ -270,8 +304,18 @@ export function LeFil(props: LeFilProps) {
         }
       } else if (maille === 'mois') {
         const hFut = futurParSemaine.reduce((a, f) => a + f.heures, 0)
+        const moisFuturs = [...new Set(futurParSemaine.map((f) => f.lundi.slice(0, 7)))]
+        const premierMois = moisFuturs[0] ?? ''
+        const dernierMois = moisFuturs[moisFuturs.length - 1] ?? premierMois
+        const libMois =
+          premierMois && premierMois === dernierMois
+            ? labelPeriode(premierMois, 'mois')
+            : premierMois && dernierMois
+              ? `${labelPeriode(premierMois, 'mois')} → ${labelPeriode(dernierMois, 'mois')}`
+              : 'À venir'
         futur.push({
-          lab: 'août',
+          lab: libMois,
+          tooltipLab: `Engagement agrégé · ${libMois}`,
           v: toMesure(hFut, hFut * cadenceMoy),
           cap: capMesure(capHebdo * 4.35),
           futur: true,
@@ -287,6 +331,7 @@ export function LeFil(props: LeFilProps) {
         for (const [jour, heures] of [...parJour.entries()].sort()) {
           futur.push({
             lab: `${jour.slice(8, 10)}/${jour.slice(5, 7)}`,
+            tooltipLab: tooltipPeriode(jour, 'jour'),
             v: toMesure(heures, heures * cadenceMoy),
             cap: capMesure(capHebdo / 5),
             futur: true,
@@ -424,7 +469,7 @@ export function LeFil(props: LeFilProps) {
                     )}
                   >
                     <span className="flex items-center justify-between gap-3 border-b border-white/15 pb-1 font-semibold">
-                      <span>{b.lab}</span>
+                      <span>{b.tooltipLab}</span>
                       <span className={b.futur ? 'text-brand' : 'text-white/60'}>{status}</span>
                     </span>
                     <span className="mt-1 block font-mono font-bold tabular-nums">{detail}</span>
@@ -500,8 +545,11 @@ export function LeFil(props: LeFilProps) {
                       tooltipPlacement
                     )}
                   >
-                    <span className="mb-1 block border-b border-white/15 pb-1 font-semibold">
-                      {liste.length} anomalie{liste.length > 1 ? 's' : ''}
+                    <span className="mb-1 flex items-center justify-between gap-3 border-b border-white/15 pb-1 font-semibold">
+                      <span>
+                        {liste.length} anomalie{liste.length > 1 ? 's' : ''}
+                      </span>
+                      <span className="text-brand">{barre.tooltipLab}</span>
                     </span>
                     <span className="flex flex-col gap-0.5 text-white/75">
                       {liste.map((a) => (
