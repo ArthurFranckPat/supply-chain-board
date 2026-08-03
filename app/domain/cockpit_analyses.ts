@@ -35,8 +35,10 @@ export interface FiabiliteArticle {
   /** Heures de réglage pointées, affichage seul — jamais comparées. */
   heuresReglage: number
   heuresTheoriques: number
-  /** théorique / pointé : > 1 = plus rapide que la gamme, < 1 = plus lent.
-   *  null si aucune heure pointée. */
+  /** pointé / théorique — > 1 = plus lent que la gamme (la charge de
+   *  /programme est sous-estimée), < 1 = plus rapide. C'est LE ratio affiché
+   *  (« × std ») : le domaine ne calcule plus une définition inverse de celle
+   *  de l'écran (revue #119, round 2). null si aucune heure pointée. */
   ratio: number | null
 }
 
@@ -48,6 +50,7 @@ export interface FiabilitePoste {
   heuresTheoriques: number
   /** Total des heures de réglage sur ces articles — affichage seul. */
   heuresReglage: number
+  /** pointé / théorique, même sens que `FiabiliteArticle.ratio`. */
   ratioGlobal: number | null
   /** Nb d'ARTICLES distincts écartés faute de cadence exploitable. */
   exclusFauteCadence: number
@@ -107,7 +110,7 @@ export function fiabiliteTempsGamme(opts: {
       heuresPointees: Math.round(v.heuresOperatoire * 100) / 100,
       heuresReglage: Math.round(v.heuresReglage * 100) / 100,
       heuresTheoriques: Math.round(theo * 100) / 100,
-      ratio: v.heuresOperatoire > 0 ? Math.round((theo / v.heuresOperatoire) * 100) / 100 : null,
+      ratio: v.heuresOperatoire > 0 ? Math.round((v.heuresOperatoire / theo) * 100) / 100 : null,
     })
   }
   articles.sort((a, b) => b.qty - a.qty)
@@ -118,7 +121,7 @@ export function fiabiliteTempsGamme(opts: {
     heuresTheoriques: Math.round(heuresTheoriques * 100) / 100,
     heuresReglage: Math.round(heuresReglage * 100) / 100,
     ratioGlobal:
-      heuresPointees > 0 ? Math.round((heuresTheoriques / heuresPointees) * 100) / 100 : null,
+      heuresPointees > 0 ? Math.round((heuresPointees / heuresTheoriques) * 100) / 100 : null,
     exclusFauteCadence,
   }
 }

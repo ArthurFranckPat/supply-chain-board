@@ -650,7 +650,9 @@ function construireFilProps(
 
   const hP = analyses?.fiabilite.heuresPointees ?? 0
   const hT = analyses?.fiabilite.heuresTheoriques ?? 0
-  const fia = hT > 0 ? hP / hT : null
+  // Le ratio affiché vient du domaine (pointé / théorique) — plus de calcul
+  // local en doublon avec une définition qui aurait pu diverger (revue #119).
+  const fia = analyses?.fiabilite.ratioGlobal ?? null
   const vFia =
     fia !== null
       ? verdictPour(VERDICTS.fiabilite, fia)
@@ -826,8 +828,6 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
   const pos = (r: number) => ((Math.min(MAX, Math.max(MIN, r)) - MIN) / (MAX - MIN)) * 100
   const z = pos(1)
 
-  const ratioAff = (a: FiabiliteArticle): number | null =>
-    a.heuresPointees > 0 && a.heuresTheoriques > 0 ? a.heuresPointees / a.heuresTheoriques : null
   const couleur = (r: number) =>
     r > 1.1
       ? 'var(--color-destructive)'
@@ -871,7 +871,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
               </div>
             ) : (
               fiabilite.articles.slice(0, 6).map((a) => {
-                const r = ratioAff(a)
+                const r = a.ratio
                 if (r === null) return null
                 const p = pos(r)
                 const gauche = Math.min(p, z)

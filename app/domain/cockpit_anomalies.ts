@@ -76,6 +76,8 @@ export interface AnomaliePoste {
   /** Jours depuis le lancement (dét. 1) ou depuis le dernier pointage (dét. 2). */
   jours: number | null
   qtyDeclaree: number | null
+  /** Heures OPÉRATOIRES pointées (dét. 3) — le théorique de gamme n'a pas de
+   *  standard de réglage, seul l'opératoire est comparé (revue #119, round 2). */
   heuresPointees: number | null
   heuresTheoriques: number | null
 }

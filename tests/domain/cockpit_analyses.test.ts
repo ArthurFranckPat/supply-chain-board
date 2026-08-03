@@ -40,8 +40,9 @@ test.group('lundiIso', () => {
 })
 
 test.group('fiabiliteTempsGamme', () => {
-  test('ratio = théorique / pointé, par article puis global', ({ assert }) => {
-    // Cadence 100 u/h → 100 pièces = 1 h théorique ; 2 h pointées → ratio 0.5.
+  test('ratio = pointé / théorique, par article puis global', ({ assert }) => {
+    // Cadence 100 u/h → 100 pièces = 1 h théorique ; 2 h pointées → ratio 2
+    // (la ligne prend deux fois le temps prévu, la charge est sous-estimée).
     const r = fiabiliteTempsGamme({
       synthese: [of({ qty: 100, heures: 2 })],
       cadencePour: () => 100,
@@ -49,8 +50,8 @@ test.group('fiabiliteTempsGamme', () => {
     assert.lengthOf(r.articles, 1)
     assert.equal(r.articles[0].heuresTheoriques, 1)
     assert.equal(r.articles[0].heuresPointees, 2)
-    assert.equal(r.articles[0].ratio, 0.5)
-    assert.equal(r.ratioGlobal, 0.5)
+    assert.equal(r.articles[0].ratio, 2)
+    assert.equal(r.ratioGlobal, 2)
   })
 
   test('agrège plusieurs OF du même article', ({ assert }) => {
@@ -98,15 +99,15 @@ test.group('fiabiliteTempsGamme', () => {
 
   test('le réglage est exclu du ratio, comparé en opératoire', ({ assert }) => {
     // 3 h pointées dont 1 h de réglage → 2 h opératoires ; cadence 100 u/h →
-    // 100 pièces = 1 h théorique → ratio 0.5, pas 0.33 (revue #119, 04/08).
+    // 100 pièces = 1 h théorique → ratio 2, pas 3 (revue #119, 04/08).
     const r = fiabiliteTempsGamme({
       synthese: [of({ qty: 100, heures: 3, dontHeuresReglage: 1 })],
       cadencePour: () => 100,
     })
     assert.equal(r.articles[0].heuresPointees, 2)
     assert.equal(r.articles[0].heuresReglage, 1)
-    assert.equal(r.articles[0].ratio, 0.5)
-    assert.equal(r.ratioGlobal, 0.5)
+    assert.equal(r.articles[0].ratio, 2)
+    assert.equal(r.ratioGlobal, 2)
     assert.equal(r.heuresReglage, 1)
   })
 

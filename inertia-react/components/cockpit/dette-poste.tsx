@@ -130,7 +130,7 @@ export function DettePoste(props: {
       cls: 'info',
       ic: Timer,
       t: 'Heures anormalement faibles',
-      regle: 'Heures pointées < 50 % du temps de gamme pour la qté déclarée',
+      regle: 'Heures opératoires < 50 % du temps de gamme pour la qté déclarée',
       items: heuresFaibles.map((a) => ({
         of: a.numOf,
         detail:
@@ -144,7 +144,7 @@ export function DettePoste(props: {
       cls: 'info',
       ic: Square,
       t: 'Pointés sans heures',
-      regle: 'Quantité déclarée, CPLOPETIM et CPLSETTIM à zéro',
+      regle: 'Quantité déclarée, CPLOPETIM à zéro (réglage non compté)',
       items: sansHeures.map((a) => ({
         of: a.numOf,
         detail: fmtQty(a.qtyDeclaree),
