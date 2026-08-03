@@ -47,6 +47,7 @@ export function ProductionChart({ data }: { data: ProductionMailleView[] }) {
         h: qty === null ? null : PAD_T + plotH - yQty(qty),
         w: barW,
         qty,
+        heures: d.heures,
       }
     })
 
@@ -56,16 +57,23 @@ export function ProductionChart({ data }: { data: ProductionMailleView[] }) {
     }))
     const path = ligne.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ')
 
-    // Étiquettes espacées : en maille jour, tout afficher serait illisible.
-    const pasLabel = Math.max(1, Math.ceil(n / 12))
+    // Étiquettes espacées selon leur largeur estimée (9px ≈ 5,4px/car. + marge) —
+    // l'ancien quota « 12 labels » se chevauchait en maille jour sur 6 mois.
+    const maxLen = Math.max(...data.map((d) => d.label.length), 1)
+    const pasLabel = Math.max(1, Math.ceil((n * (maxLen * 5.4 + 10)) / plotW))
 
-    return { bars, ligne, path, maxQty, maxH, baseline: PAD_T + plotH, pasLabel }
+    return { bars, ligne, path, maxQty, maxH, baseline: PAD_T + plotH, pasLabel, slot }
   }, [data])
 
   if (data.length === 0) return null
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="block h-[170px] w-full" role="img">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="block h-[170px] w-full"
+      role="img"
+      aria-label="Production (barres) et heures pointées (ligne) par maille"
+    >
       {/* Lignes de grille + repères d'échelle gauche (quantité) et droite (heures). */}
       {[0.5, 1].map((f) => (
         <g key={f}>
@@ -151,6 +159,25 @@ export function ProductionChart({ data }: { data: ProductionMailleView[] }) {
           </text>
         ) : null
       )}
+
+      {/* Zones de survol transparentes : un tooltip par maille, y compris sur
+          les trous (qty null) où aucune barre n'existe. En dernier = au-dessus. */}
+      {geom.bars.map((b, i) => (
+        <rect
+          key={`hit-${b.label}-${i}`}
+          x={b.cx - geom.slot / 2}
+          y={PAD_T}
+          width={geom.slot}
+          height={geom.baseline - PAD_T}
+          fill="transparent"
+        >
+          <title>
+            {b.qty !== null
+              ? `${b.label} — quantité : ${b.qty.toLocaleString('fr-FR')} · heures : ${fmtCompact(b.heures)} h`
+              : `${b.label} — quantité : — · heures : ${fmtCompact(b.heures)} h`}
+          </title>
+        </rect>
+      ))}
     </svg>
   )
 }

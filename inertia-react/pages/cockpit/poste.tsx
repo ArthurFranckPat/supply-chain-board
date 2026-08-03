@@ -13,8 +13,7 @@
  * Coquille Inertia + JSON différé, calque /controle-prod.
  */
 import { useMemo, useState } from 'react'
-import { router } from '@inertiajs/react'
-import { Factory, RefreshCw, TriangleAlert } from 'lucide-react'
+import { Factory, PackageCheck, TriangleAlert } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
@@ -24,6 +23,7 @@ import { ProductionChart } from '@r/components/cockpit/production-chart'
 import { HeuresCapaciteChart } from '@r/components/cockpit/heures-capacite-chart'
 import {
   PILL,
+  RefreshPill,
   Segment,
   SegmentButton,
   ToolbarRow,
@@ -32,7 +32,6 @@ import {
 import { moisLabel } from '@r/components/cockpit/chart-common'
 import { fetchBoardFeasibility, feasibilityWindowFromDates } from '@r/lib/board/feasibility-map'
 import type { FeasStatus } from '@r/lib/board/types'
-import { route } from '@r/lib/routes'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
 import {
@@ -230,8 +229,16 @@ export default function CockpitPoste(props: Props) {
   const [detailOf, setDetailOf] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [bump, setBump] = useState(0)
+  // Maille/unité remontées ici : le remontage par `key` au changement de poste
+  // (état faisabilité) ne doit pas faire perdre le réglage d'affichage.
+  const [maille, setMaille] = useState<Maille>('mois')
+  const [unite, setUnite] = useState<Unite>('pieces')
 
-  const postes = useTimedFetch<PostesPayload>(props.postesHref)
+  // Un seul mécanisme de refresh : le bump ajoute ?refresh=1 aux deux fetches
+  // (cache-bust serveur). Avant, un router.visit en doublon rechargeait la page
+  // et laissait ?refresh=1 dans l'URL (tout reload futur forçait le refresh).
+  const q = bump > 0 ? '?refresh=1' : ''
+  const postes = useTimedFetch<PostesPayload>(`${props.postesHref}${q}`)
 
   // Poste effectif : choix utilisateur > présélection ?poste= > défaut serveur.
   // Résolu seulement quand la liste est là, pour valider le code présélectionné.
@@ -245,7 +252,6 @@ export default function CockpitPoste(props: Props) {
     return postes.data.defaut
   }, [postes.data, chosen, selected, props.posteInitial])
 
-  const q = bump > 0 ? '?refresh=1' : ''
   const detailHref = effective
     ? `/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}${q}`
     : null
@@ -256,10 +262,7 @@ export default function CockpitPoste(props: Props) {
     setSelected(code)
   }
 
-  const refresh = () => {
-    setBump((b) => b + 1)
-    router.visit(route('cockpit.index') + '?refresh=1', { preserveScroll: true })
-  }
+  const refresh = () => setBump((b) => b + 1)
 
   const replicaDown = postes.data ? !postes.data.replica.disponible : false
 
@@ -272,17 +275,12 @@ export default function CockpitPoste(props: Props) {
       dense
       scrollable={false}
       meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            Cockpit poste
+        postes.data && (
+          <div>
+            <b className="font-bold text-foreground">{postes.data.postes.length}</b> postes ·{' '}
+            {dateLong(postes.data.fenetre.fromIso)} → {dateLong(postes.data.fenetre.toIso)}
           </div>
-          {postes.data && (
-            <div>
-              <b className="font-bold text-foreground">{postes.data.postes.length}</b> postes ·{' '}
-              {dateLong(postes.data.fenetre.fromIso)} → {dateLong(postes.data.fenetre.toIso)}
-            </div>
-          )}
-        </>
+        )
       }
     >
       <div className="flex h-full min-h-0 flex-col">
@@ -295,12 +293,12 @@ export default function CockpitPoste(props: Props) {
               value={effective ?? ''}
               onChange={(e) => pick(e.currentTarget.value)}
               disabled={!postes.data || postes.data.postes.length === 0}
-              aria-label="Poste de charge"
+              aria-label="Poste"
             >
               {!postes.data && <option value="">Chargement…</option>}
               {postes.data?.postes.map((p) => (
                 <option key={p.code} value={p.code}>
-                  {p.code} — {p.label}
+                  {p.label && p.label !== p.code ? `${p.code} — ${p.label}` : p.code}
                 </option>
               ))}
             </select>
@@ -308,18 +306,11 @@ export default function CockpitPoste(props: Props) {
 
           <ToolbarSpacer />
 
-          <button
-            type="button"
+          <RefreshPill
+            loading={(postes.loading && !postes.data) || (detail.loading && !detail.data)}
             onClick={refresh}
-            className={cn(
-              PILL,
-              'cursor-pointer px-2.5 text-muted-foreground hover:text-foreground'
-            )}
-            title="Rafraîchir"
-            aria-label="Rafraîchir"
-          >
-            <RefreshCw size={16} strokeWidth={1.75} />
-          </button>
+            title="Rafraîchir (invalide le cache serveur)"
+          />
         </ToolbarRow>
 
         {/* Indisponibilité de la réplique : le passé constaté ne vient JAMAIS de la
@@ -332,13 +323,15 @@ export default function CockpitPoste(props: Props) {
               {postes.data.replica.raison
                 ? REPLICA_RAISON[postes.data.replica.raison]
                 : 'réplique de pointages hors service'}
+              {postes.data.replica.dernierRunIso &&
+                ` · dernier run ${dateLong(postes.data.replica.dernierRunIso)}`}
             </span>
           </div>
         )}
 
         {postes.loading && !postes.data ? (
           <LoadingState className="flex-1" variant="orb" orbState="searching" title="Postes…" />
-        ) : !replicaDown && detail.loading && !detail.data ? (
+        ) : detail.loading && !detail.data ? (
           <LoadingState
             className="flex-1"
             variant="orb"
@@ -355,12 +348,14 @@ export default function CockpitPoste(props: Props) {
               setDetailOf(num)
               setDetailOpen(true)
             }}
+            maille={maille}
+            onMaille={setMaille}
+            unite={unite}
+            onUnite={setUnite}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-            {replicaDown
-              ? 'Sélectionnez un poste pour consulter son engagement.'
-              : 'Aucun poste à afficher.'}
+            Aucune donnée à afficher pour ce poste.
           </div>
         )}
       </div>
@@ -371,9 +366,18 @@ export default function CockpitPoste(props: Props) {
 }
 
 /** Carte d'identité + passé constaté + anomalies + analyses + engagement. */
-function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string) => void }) {
+function PosteDetail(props: {
+  payload: PostePayload
+  onSelectOf: (numOf: string) => void
+  maille: Maille
+  onMaille: (m: Maille) => void
+  unite: Unite
+  onUnite: (u: Unite) => void
+}) {
   const { poste, engagement, passe, anomalies, analyses, x3Error } = props.payload
   const sat = engagement ? saturation(engagement.totalHours, engagement.weeklyCapacityHours) : null
+  // L'engagement a son propre x3Error (pipeline #46) : ne pas le laisser muet.
+  const loadError = x3Error ?? engagement?.x3Error ?? null
 
   // Faisabilité matières — même contrat API que le séquenceur (#119 : reprise du
   // bloc séquenceur sans dupliquer la logique). À la demande : le calcul est
@@ -411,9 +415,11 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
       <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-2 border-b border-border bg-secondary px-7 py-3">
         <div className="flex items-baseline gap-2">
           <span className="font-mono text-[15px] font-bold text-foreground">{poste.code}</span>
-          <span className="text-[13px] font-medium text-muted-foreground">{poste.label}</span>
+          {poste.label && poste.label !== poste.code && (
+            <span className="text-[13px] font-medium text-muted-foreground">{poste.label}</span>
+          )}
         </div>
-        {poste.atelier && (
+        {poste.atelierLabel && (
           <span className="text-[12px] font-medium text-muted-foreground">
             {poste.atelierLabel}
           </span>
@@ -443,7 +449,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
         {poste.capaciteHebdoHeures != null && (
           <div className="flex items-baseline gap-1">
             <span className="text-[15px] font-bold tabular-nums text-foreground">
-              {fmtH(poste.capaciteHebdoHeures)}
+              {fmtHs(poste.capaciteHebdoHeures)}
             </span>
             <span className="font-mono text-[10px] font-semibold text-muted-foreground">h/sem</span>
           </div>
@@ -457,16 +463,25 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
         </div>
       </div>
 
-      {x3Error && (
+      {loadError && (
         <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
           <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
           <span className="font-bold">Erreur chargement :</span>
-          <span className="font-mono">{x3Error}</span>
+          <span className="font-mono">{loadError}</span>
         </div>
       )}
 
       {/* Passé constaté — réplique de pointages, mailles j/s/m (#119, lots 4/6). */}
-      {passe && <PasseSection passe={passe} onSelectOf={props.onSelectOf} />}
+      {passe && (
+        <PasseSection
+          passe={passe}
+          onSelectOf={props.onSelectOf}
+          maille={props.maille}
+          onMaille={props.onMaille}
+          unite={props.unite}
+          onUnite={props.onUnite}
+        />
+      )}
 
       {/* Anomalies de pointage — quatre détecteurs (#119, lot 5). */}
       {passe && anomalies && (
@@ -485,7 +500,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
           {engagement && (
             <>
               <span className="font-mono text-[11px] text-muted-foreground">
-                {engagement.count} OF · {fmtH(engagement.totalHours)} h
+                {engagement.count} OF · {fmtHs(engagement.totalHours)} h
               </span>
               {sat && sat.pct !== null && (
                 <span
@@ -496,7 +511,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
                     sat.level === 'crit' && 'text-danger'
                   )}
                 >
-                  {sat.pct}% de la capacité
+                  {sat.pct} % de la capacité hebdo
                 </span>
               )}
             </>
@@ -522,10 +537,10 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
               )}
               title="Couverture matières des OF engagés (même moteur que /programme)"
             >
-              <RefreshCw
+              <PackageCheck
                 size={14}
                 strokeWidth={1.75}
-                className={cn(feasLoading && 'animate-spin')}
+                className={cn(feasLoading && 'animate-pulse')}
               />
               {feasLoading ? 'Calcul…' : feasMap ? 'Recalculer la faisabilité' : 'Faisabilité'}
             </button>
@@ -545,7 +560,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
             Aucun OF engagé sur ce poste.
           </div>
         ) : (
-          <div className="divide-y divide-rule-soft rounded-lg border border-rule bg-card shadow-float">
+          <div className="max-h-[320px] divide-y divide-rule-soft overflow-auto rounded-lg border border-rule bg-card shadow-float">
             {engagement.rows.map((r) => (
               <EngagementLine
                 key={r.numOf}
@@ -640,7 +655,7 @@ function EngagementLine(props: {
       </span>
 
       <span className="w-16 shrink-0 text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
-        {fmtH(r.hours)} h
+        {fmtHs(r.hours)} h
       </span>
       <span className="w-12 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
         {fmtJ(r.hours)} j
@@ -678,136 +693,146 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <AnomalieCard
-            titre="Lancés, jamais pointés"
-            note="OF en cours sans aucun pointage sur ce poste"
-            count={anomalies.jamaisPointes.length}
-          >
-            {anomalies.jamaisPointes.map((a) => (
-              <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
-                <span className="text-muted-foreground">{a.article}</span>
-                <span className="ml-auto text-muted-foreground">
-                  lancé {dateLong(a.dateDebutIso)}
-                </span>
-                <span className="font-bold text-danger">{a.jours} j</span>
-              </AnomalieRow>
-            ))}
-          </AnomalieCard>
-
-          <AnomalieCard
-            titre="Sans déclaration récente"
-            note="Dernier pointage trop ancien pour un OF toujours en cours"
-            count={anomalies.silences.length}
-          >
-            {anomalies.silences.map((a) => (
-              <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
-                <span className="text-muted-foreground">{a.article}</span>
-                <span className="ml-auto text-muted-foreground">
-                  dernier {dateLong(a.dernierPointageIso)}
-                </span>
-                <span className="font-bold text-danger">{a.jours} j</span>
-              </AnomalieRow>
-            ))}
-          </AnomalieCard>
-
-          <AnomalieCard
-            titre="Déclaré sans heures"
-            note="Quantité déclarée mais temps pointé nul ou anormalement faible"
-            count={anomalies.heures.length}
-          >
-            {anomalies.heures.map((a) => (
-              <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
-                <span className="text-muted-foreground">
-                  {a.article} · décl. {a.qtyDeclaree ?? 0}
-                </span>
-                <span className="ml-auto">
-                  <span
-                    className={cn(
-                      'font-bold',
-                      a.kind === 'sans_heures' ? 'text-danger' : 'text-suggere'
-                    )}
-                  >
-                    {fmtH(a.heuresPointees ?? 0)} h
+          {/* Cartes vides masquées dès qu'une anomalie existe ailleurs — une
+              grille de « Aucun. » noie le signal. */}
+          {anomalies.jamaisPointes.length > 0 && (
+            <AnomalieCard
+              titre="Lancés, jamais pointés"
+              note="OF en cours sans aucun pointage sur ce poste"
+              count={anomalies.jamaisPointes.length}
+            >
+              {anomalies.jamaisPointes.map((a) => (
+                <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                  <span className="text-muted-foreground">{a.article}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    lancé {dateLong(a.dateDebutIso)}
                   </span>
+                  <span className="font-bold text-danger">
+                    {a.jours !== null ? `${a.jours} j` : '—'}
+                  </span>
+                </AnomalieRow>
+              ))}
+            </AnomalieCard>
+          )}
+
+          {anomalies.silences.length > 0 && (
+            <AnomalieCard
+              titre="Sans déclaration récente"
+              note="Dernier pointage trop ancien pour un OF toujours en cours"
+              count={anomalies.silences.length}
+            >
+              {anomalies.silences.map((a) => (
+                <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                  <span className="text-muted-foreground">{a.article}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    dernier {dateLong(a.dernierPointageIso)}
+                  </span>
+                  <span className="font-bold text-danger">
+                    {a.jours !== null ? `${a.jours} j` : '—'}
+                  </span>
+                </AnomalieRow>
+              ))}
+            </AnomalieCard>
+          )}
+
+          {anomalies.heures.length > 0 && (
+            <AnomalieCard
+              titre="Déclaré sans heures"
+              note="Quantité déclarée mais temps pointé nul ou anormalement faible"
+              count={anomalies.heures.length}
+            >
+              {anomalies.heures.map((a) => (
+                <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
                   <span className="text-muted-foreground">
-                    {' '}
-                    / {fmtH(a.heuresTheoriques ?? 0)} h théo.
+                    {a.article} · décl. {a.qtyDeclaree ?? '—'}
                   </span>
-                </span>
-              </AnomalieRow>
-            ))}
-          </AnomalieCard>
+                  <span className="ml-auto">
+                    <span
+                      className={cn(
+                        'font-bold',
+                        a.kind === 'sans_heures' ? 'text-danger' : 'text-suggere'
+                      )}
+                    >
+                      {a.heuresPointees !== null ? `${fmtHs(a.heuresPointees)} h` : '—'}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {' '}
+                      / {a.heuresTheoriques !== null ? `${fmtHs(a.heuresTheoriques)} h` : '—'} théo.
+                    </span>
+                  </span>
+                </AnomalieRow>
+              ))}
+            </AnomalieCard>
+          )}
 
-          <AnomalieCard
-            titre="Déclarations en double"
-            note="Mêmes (OF, opération, jour) en plusieurs exemplaires — à vérifier"
-            count={anomalies.doublons.length}
-          >
-            {anomalies.doublons.map((d) => (
-              <AnomalieRow
-                key={`${d.numOf}-${d.openum}-${d.iptdat}`}
-                numOf={d.numOf}
-                onSelectOf={onSelectOf}
-              >
-                <span className="text-muted-foreground">
-                  op. {d.openum} · {dateLong(d.iptdat)}
-                </span>
-                <span className="ml-auto font-bold text-suggere">×{d.nombre}</span>
-              </AnomalieRow>
-            ))}
-          </AnomalieCard>
+          {anomalies.doublons.length > 0 && (
+            <AnomalieCard
+              titre="Déclarations en double"
+              note="Mêmes (OF, op, jour, qté, temps) — partielles exclues"
+              count={anomalies.doublons.length}
+            >
+              {anomalies.doublons.map((d) => (
+                <AnomalieRow
+                  key={`${d.numOf}-${d.openum}-${d.iptdat}`}
+                  numOf={d.numOf}
+                  onSelectOf={onSelectOf}
+                >
+                  <span className="text-muted-foreground">
+                    op. {d.openum} · {dateLong(d.iptdat)}
+                  </span>
+                  <span className="ml-auto font-bold text-suggere">×{d.nombre}</span>
+                </AnomalieRow>
+              ))}
+            </AnomalieCard>
+          )}
 
-          <AnomalieCard
-            titre="Écarts de déclaration"
-            note={
-              <>
-                Quantité pointée &gt; quantité déclarée — détail sur{' '}
-                <a href="/controle-prod" className="text-brand hover:underline">
-                  /controle-prod
-                </a>
-              </>
-            }
-            count={anomalies.ecartsDeclaration.length}
-          >
-            {anomalies.ecartsDeclaration.map((a) => (
-              <AnomalieRow
-                key={a.numOf}
-                numOf={a.numOf}
-                onSelectOf={onSelectOf}
-                origineHref="/controle-prod"
-                origineLabel="contrôle prod"
-              >
-                <span className="text-muted-foreground">{a.article}</span>
-                <span className="ml-auto font-bold text-danger">écart {a.qtyDeclaree ?? 0}</span>
-              </AnomalieRow>
-            ))}
-          </AnomalieCard>
+          {anomalies.ecartsDeclaration.length > 0 && (
+            <AnomalieCard
+              titre="Écarts de déclaration"
+              note={
+                <>
+                  Quantité pointée &gt; quantité déclarée — détail sur{' '}
+                  <a href="/controle-prod" className="text-brand hover:underline">
+                    /controle-prod
+                  </a>
+                </>
+              }
+              count={anomalies.ecartsDeclaration.length}
+            >
+              {anomalies.ecartsDeclaration.map((a) => (
+                <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                  <span className="text-muted-foreground">{a.article}</span>
+                  <span className="ml-auto font-bold text-danger">
+                    écart {a.qtyDeclaree ?? '—'}
+                  </span>
+                </AnomalieRow>
+              ))}
+            </AnomalieCard>
+          )}
 
-          <AnomalieCard
-            titre="OF à solder"
-            note={
-              <>
-                Pointé à 100 %, rien déclaré — détail sur{' '}
-                <a href="/controle-prod" className="text-brand hover:underline">
-                  /controle-prod
-                </a>
-              </>
-            }
-            count={anomalies.ofsASolder.length}
-          >
-            {anomalies.ofsASolder.map((a) => (
-              <AnomalieRow
-                key={a.numOf}
-                numOf={a.numOf}
-                onSelectOf={onSelectOf}
-                origineHref="/controle-prod"
-                origineLabel="contrôle prod"
-              >
-                <span className="text-muted-foreground">{a.article}</span>
-                <span className="ml-auto font-bold text-danger">{a.jours} j</span>
-              </AnomalieRow>
-            ))}
-          </AnomalieCard>
+          {anomalies.ofsASolder.length > 0 && (
+            <AnomalieCard
+              titre="OF à solder"
+              note={
+                <>
+                  Pointé à 100 %, rien déclaré — détail sur{' '}
+                  <a href="/controle-prod" className="text-brand hover:underline">
+                    /controle-prod
+                  </a>
+                </>
+              }
+              count={anomalies.ofsASolder.length}
+            >
+              {anomalies.ofsASolder.map((a) => (
+                <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                  <span className="text-muted-foreground">{a.article}</span>
+                  <span className="ml-auto font-bold text-danger">
+                    {a.jours !== null ? `${a.jours} j` : '—'}
+                  </span>
+                </AnomalieRow>
+              ))}
+            </AnomalieCard>
+          )}
         </div>
       )}
     </div>
@@ -836,7 +861,9 @@ function AnomalieCard(props: {
           Aucun.
         </div>
       ) : (
-        <div className="divide-y divide-rule-soft">{props.children}</div>
+        <div className="max-h-[240px] divide-y divide-rule-soft overflow-auto">
+          {props.children}
+        </div>
       )}
     </div>
   )
@@ -845,8 +872,6 @@ function AnomalieCard(props: {
 function AnomalieRow(props: {
   numOf: string
   onSelectOf: (numOf: string) => void
-  origineHref?: string
-  origineLabel?: string
   children: React.ReactNode
 }) {
   return (
@@ -865,15 +890,6 @@ function AnomalieRow(props: {
         title={`Ouvrir ${props.numOf} dans Sage X3`}
       />
       {props.children}
-      {props.origineHref && (
-        <a
-          href={props.origineHref}
-          className="shrink-0 text-[10px] text-brand hover:underline"
-          title={props.origineLabel}
-        >
-          {props.origineLabel ?? 'origine'}
-        </a>
-      )}
     </div>
   )
 }
@@ -887,14 +903,22 @@ const dateLong = (iso: string | null) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
 }
-const semaineLabel = (lundiIso: string) => `S ${dateLong(lundiIso)}`
+/** « S 03/08 » — l'année entière rendait les libellés trop larges pour l'axe. */
+const semaineLabel = (lundiIso: string) => `S ${dateLong(lundiIso).slice(0, 5)}`
+/** fmtH sans le « ,00 » des entiers — 40 h au lieu de 40,00 h. */
+const fmtHs = (h: number) => fmtH(h).replace(/,00$/, '')
 
 /** Passé constaté : production (maille + unité au choix), heures vs capacité,
  *  OF terminés. Les chiffres ne viennent QUE des pointages de ce poste. */
-function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void }) {
-  const { passe } = props
-  const [maille, setMaille] = useState<Maille>('mois')
-  const [unite, setUnite] = useState<Unite>('pieces')
+function PasseSection(props: {
+  passe: Passe
+  onSelectOf: (numOf: string) => void
+  maille: Maille
+  onMaille: (m: Maille) => void
+  unite: Unite
+  onUnite: (u: Unite) => void
+}) {
+  const { passe, maille, unite } = props
 
   const prod =
     maille === 'jour'
@@ -910,14 +934,25 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
         : passe.palettes.parMois
 
   const palettesParDate = new Map(palettes.map((p) => [p.date, p.palettes]))
-  const palettesDisponibles = palettes.some((p) => p.palettes !== null)
+  // Coefficient palette testé sur les TROIS mailles : baser l'état du segment
+  // sur la seule maille courante désactiverait « Palettes » à tort.
+  const palettesDisponibles = [
+    ...passe.palettes.parJour,
+    ...passe.palettes.parSemaine,
+    ...passe.palettes.parMois,
+  ].some((p) => p.palettes !== null)
 
-  // Axe des mailles : jour et semaine en JJ/MM/AAAA (#119), mois en clair.
-  const labelDe = (date: string) =>
-    maille === 'jour' ? dateLong(date) : maille === 'semaine' ? semaineLabel(date) : moisLabel(date)
+  // Axe des mailles : jour en JJ/MM, semaine « S JJ/MM » (labels courts, sinon
+  // chevauchement sur 6 mois), mois en clair avec l'année sur le 1er de la série.
+  const labelDe = (date: string, index: number) =>
+    maille === 'jour'
+      ? dateLong(date).slice(0, 5)
+      : maille === 'semaine'
+        ? semaineLabel(date)
+        : moisLabel(date, index)
 
-  const chartData = prod.map((m) => ({
-    label: labelDe(m.date),
+  const chartData = prod.map((m, i) => ({
+    label: labelDe(m.date, i),
     qty: unite === 'pieces' ? m.qty : (palettesParDate.get(m.date) ?? null),
     heures: m.heures,
     dontHeuresReglage: m.dontHeuresReglage,
@@ -936,21 +971,33 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
         {passe.nbPointages > 0 && (
           <>
             <Segment role="radiogroup" ariaLabel="Unité">
-              <SegmentButton active={unite === 'pieces'} onClick={() => setUnite('pieces')}>
+              <SegmentButton active={unite === 'pieces'} onClick={() => props.onUnite('pieces')}>
                 Pièces
               </SegmentButton>
-              <SegmentButton active={unite === 'palettes'} onClick={() => setUnite('palettes')}>
+              <SegmentButton
+                active={unite === 'palettes'}
+                onClick={() => props.onUnite('palettes')}
+                disabled={!palettesDisponibles}
+                title={
+                  palettesDisponibles
+                    ? undefined
+                    : 'Aucun coefficient palette (PCUSTUCOE_1) sur la fenêtre'
+                }
+              >
                 Palettes
               </SegmentButton>
             </Segment>
             <Segment role="radiogroup" ariaLabel="Maille">
-              <SegmentButton active={maille === 'jour'} onClick={() => setMaille('jour')}>
+              <SegmentButton active={maille === 'jour'} onClick={() => props.onMaille('jour')}>
                 Jour
               </SegmentButton>
-              <SegmentButton active={maille === 'semaine'} onClick={() => setMaille('semaine')}>
+              <SegmentButton
+                active={maille === 'semaine'}
+                onClick={() => props.onMaille('semaine')}
+              >
                 Semaine
               </SegmentButton>
-              <SegmentButton active={maille === 'mois'} onClick={() => setMaille('mois')}>
+              <SegmentButton active={maille === 'mois'} onClick={() => props.onMaille('mois')}>
                 Mois
               </SegmentButton>
             </Segment>
@@ -997,7 +1044,8 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
                 </span>
                 <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-sm bg-foreground/20" /> capacité
+                    <span className="size-2 rounded-sm bg-foreground/10 ring-1 ring-foreground/20" />{' '}
+                    capacité
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="size-2 rounded-full bg-brand" /> pointées
@@ -1051,12 +1099,14 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
                         <td className="max-w-[220px] truncate px-3 py-1.5 font-sans text-muted-foreground">
                           {of.designation ?? '—'}
                         </td>
-                        <td className="px-3 py-1.5 text-right font-semibold">{of.qty}</td>
+                        <td className="px-3 py-1.5 text-right font-semibold">
+                          {of.qty.toLocaleString('fr-FR')}
+                        </td>
                         {/* Pas de coefficient → absence de donnée, jamais « 0 palette » (#119). */}
                         <td className="px-3 py-1.5 text-right text-muted-foreground">
-                          {of.palettes !== null ? of.palettes : '—'}
+                          {of.palettes !== null ? of.palettes.toLocaleString('fr-FR') : '—'}
                         </td>
-                        <td className="px-3 py-1.5 text-right">{of.heures}</td>
+                        <td className="px-3 py-1.5 text-right">{fmtHs(of.heures)}</td>
                         <td className="px-3 py-1.5 text-right">{dateLong(of.dernierJourIso)}</td>
                       </tr>
                     ))}
@@ -1106,8 +1156,8 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
             </span>
           </div>
           <div className="px-1 pb-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
-            théorique / pointé · {fmtH(fiabilite.heuresTheoriques)} h théo pour{' '}
-            {fmtH(fiabilite.heuresPointees)} h pointées
+            théorique / pointé · {fmtHs(fiabilite.heuresTheoriques)} h théo pour{' '}
+            {fmtHs(fiabilite.heuresPointees)} h pointées
             {fiabilite.exclusFauteCadence > 0 &&
               ` · ${fiabilite.exclusFauteCadence} article(s) sans cadence exploitable, exclus`}
           </div>
@@ -1124,7 +1174,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
                 >
                   <span className="font-semibold">{a.article}</span>
                   <span className="ml-auto text-muted-foreground">
-                    {fmtH(a.heuresTheoriques)} / {fmtH(a.heuresPointees)} h
+                    {fmtHs(a.heuresTheoriques)} / {fmtHs(a.heuresPointees)} h
                   </span>
                   <span
                     className={cn(
@@ -1207,10 +1257,12 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
                 <div key={m.article} className="px-1 py-1 font-mono text-[11px] tabular-nums">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{m.article}</span>
-                    <span className="ml-auto text-muted-foreground">{m.qty} u</span>
+                    <span className="ml-auto text-muted-foreground">
+                      {m.qty.toLocaleString('fr-FR')} u
+                    </span>
                     {/* Absence de coefficient palette = « — », jamais 0 (#119). */}
                     <span className="w-14 text-right text-muted-foreground">
-                      {m.palettes !== null ? `${m.palettes} pal` : '—'}
+                      {m.palettes !== null ? `${m.palettes.toLocaleString('fr-FR')} pal` : '—'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
