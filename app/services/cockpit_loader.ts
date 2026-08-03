@@ -17,6 +17,7 @@ import {
   detecterAnomaliesPoste,
   type AnomaliePoste,
   type AnomaliesPosteResultat,
+  type OperationSurPoste,
 } from '#app/domain/cockpit_anomalies'
 import {
   adherenceProgramme,
@@ -538,14 +539,32 @@ async function buildAnomalies(opts: {
     return detecterAnomaliesPoste({
       ofs: [],
       pointages: opts.pointages,
+      operationsSurPoste: [],
       heuresTheoriquesPour: () => 0,
       aujourdhuiIso: isoDay(new Date()),
     })
   } else {
     let declareeParOf = new Map<string, number>()
+    let operationsSurPoste: OperationSurPoste[] = []
     try {
       const operations = await boardDataset.getOperations(enCours.map((m) => m.numOf))
       declareeParOf = qtyDeclareeSurPoste(operations, openumParOf)
+
+      // Opérations du poste : la réplique MFGOPE n'a pas de colonne poste, le
+      // rattachement passe par les (OF, op) pointés ici (#119, détecteur 4).
+      const openumsDuPoste = new Set<string>()
+      for (const p of opts.pointages) {
+        if (p.cplwst !== opts.poste) continue
+        openumsDuPoste.add(`${p.numOf}#${p.openum}`)
+      }
+      operationsSurPoste = operations
+        .filter((op) => openumsDuPoste.has(`${op.mfgnum}#${op.openum}`))
+        .map((op) => ({
+          mfgnum: op.mfgnum,
+          openum: op.openum,
+          cplqty: op.cplqty,
+          extqty: op.extqty,
+        }))
     } catch {
       // Déclarations indisponibles : le détecteur 3 tournera sur des quantités à
       // zéro (donc muet) plutôt que de faire échouer tout le payload.
@@ -562,6 +581,7 @@ async function buildAnomalies(opts: {
         qtyDeclaree: declareeParOf.get(mo.numOf) ?? 0,
       })),
       pointages: opts.pointages,
+      operationsSurPoste,
       heuresTheoriquesPour: (article, qty) =>
         hoursForQuantity({ rate: cadenceParCle.get(`${article}#${opts.poste}`) ?? 0 }, qty),
       aujourdhuiIso: isoDay(new Date()),

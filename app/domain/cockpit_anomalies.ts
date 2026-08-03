@@ -9,9 +9,10 @@
  *    jours alors qu'il est toujours en cours.
  * 3. **Déclaré sans heures** (ou heures anormalement faibles) — quantité
  *    déclarée sur le poste vs heures de l'opération sélectionnée.
- * 4. **Déclarations en double** — clé STRICTE (contre-revue #119) : mêmes
- *    (OF, opération, jour, qté > 0, temps opératoire). Les déclarations
- *    partielles (qtés différentes) et le réglage pur ne sont plus signalés.
+ * 4. **Déclaré > à produire** — MFGOPE `CPLQTY > EXTQTY` sur une opération
+ *    du poste, surplus affiché en pièces. Remplace l'ancien « déclarations en
+ *    double » (clé pointages), qui mesurait les partages de production entre
+ *    opérateurs à quantités égales, pas des doubles saisies (#119, 03/08).
  *
  * Les écarts #95 et les OF à solder ne sont pas ici : ils viennent d'X3, pas
  * de la réplique, et sont servis par un endpoint séparé
@@ -48,7 +49,7 @@ export type AnomalieKind =
   | 'silence'
   | 'sans_heures'
   | 'heures_faibles'
-  | 'doublon_declaration'
+  | 'surdeclaration'
   | 'ecart_declaration'
   | 'of_a_solder'
 
@@ -68,19 +69,32 @@ export interface AnomaliePoste {
   heuresTheoriques: number | null
 }
 
-/** Déclarations en double : mêmes (OF, opération, jour), N fois. */
-export interface DoublonDeclaration {
+/** Opération de gamme répliquée (MFGOPE) rattachée au poste. */
+export interface OperationSurPoste {
+  mfgnum: string
+  openum: number
+  /** Qté déclarée réalisée (CPLQTY). */
+  cplqty: number
+  /** Qté à produire (EXTQTY). */
+  extqty: number
+}
+
+/** Déclaré > à produire : CPLQTY > EXTQTY sur une opération du poste. Le
+ *  surplus est la seule grandeur démontrable — zéro heuristique (#119). */
+export interface Surdeclaration {
   numOf: string
   openum: number
-  iptdat: string
-  nombre: number
+  cplqty: number
+  extqty: number
+  /** Surplus en pièces (cplqty − extqty). */
+  surplus: number
 }
 
 export interface AnomaliesPosteResultat {
   jamaisPointes: AnomaliePoste[]
   silences: AnomaliePoste[]
   heures: AnomaliePoste[]
-  doublons: DoublonDeclaration[]
+  surdeclarations: Surdeclaration[]
 }
 
 export interface OfEnCoursPoste {
@@ -98,6 +112,8 @@ export interface DetecterAnomaliesEntrees {
   ofs: OfEnCoursPoste[]
   /** Pointages du poste sur la fenêtre répliquée (égalité stricte déjà faite). */
   pointages: PointageTrk[]
+  /** Opérations du poste (MFGOPE répliquée, rattachées par les pointages). */
+  operationsSurPoste: OperationSurPoste[]
   /** Temps théorique de gamme pour une quantité déclarée — `hoursForQuantity`. */
   heuresTheoriquesPour: (article: string, qty: number) => number
   aujourdhuiIso: string
@@ -175,24 +191,26 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
     }
   }
 
-  // Détecteur 4 — clé stricte : (OF, op, jour, qté>0, temps opératoire).
-  // Les partielles (qtés différentes) et le réglage ne sont PAS des doublons
-  // (contre-revue #119 : 485 faux positifs → ~86 cas usine).
-  const parCle = new Map<string, DoublonDeclaration>()
-  for (const p of e.pointages) {
-    if (p.cplqty <= 0) continue
-    const cle = `${p.numOf}#${p.openum}#${p.iptdat}#${p.cplqty}#${p.opetim}`
-    const cur = parCle.get(cle)
-    if (cur) cur.nombre += 1
-    else parCle.set(cle, { numOf: p.numOf, openum: p.openum, iptdat: p.iptdat, nombre: 1 })
-  }
-  const doublons = [...parCle.values()]
-    .filter((d) => d.nombre >= 2)
-    .sort((a, b) => b.nombre - a.nombre || b.iptdat.localeCompare(a.iptdat))
+  // Détecteur 4 — déclaré > à produire : CPLQTY > EXTQTY (MFGOPE répliquée).
+  // Remplace l'ancien « déclarations en double » : la clé pointages mesurait
+  // les partages de production entre opérateurs à quantités égales, pas des
+  // doubles saisies (#119, revue 03/08 : 792 groupes, 89 % à matricules
+  // distincts, 70 % des surdéclarations réelles ratées). Le surplus se lit
+  // directement dans les deux colonnes répliquées, sans heuristique.
+  const surdeclarations = e.operationsSurPoste
+    .filter((op) => op.cplqty > op.extqty)
+    .map((op): Surdeclaration => ({
+      numOf: op.mfgnum,
+      openum: op.openum,
+      cplqty: op.cplqty,
+      extqty: op.extqty,
+      surplus: op.cplqty - op.extqty,
+    }))
+    .sort((a, b) => b.surplus - a.surplus || a.numOf.localeCompare(b.numOf))
 
   jamaisPointes.sort((a, b) => (b.jours ?? 0) - (a.jours ?? 0))
   silences.sort((a, b) => (b.jours ?? 0) - (a.jours ?? 0))
   heures.sort((a, b) => (a.heuresPointees ?? 0) - (b.heuresPointees ?? 0))
 
-  return { jamaisPointes, silences, heures, doublons }
+  return { jamaisPointes, silences, heures, surdeclarations }
 }

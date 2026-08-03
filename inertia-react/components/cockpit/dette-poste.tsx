@@ -17,7 +17,7 @@ export type AnomalieKind =
   | 'silence'
   | 'sans_heures'
   | 'heures_faibles'
-  | 'doublon_declaration'
+  | 'surdeclaration'
   | 'ecart_declaration'
   | 'of_a_solder'
 
@@ -34,18 +34,19 @@ export interface AnomalieVue {
   heuresTheoriques: number | null
 }
 
-export interface DoublonVue {
+export interface SurdeclarationVue {
   numOf: string
   openum: number
-  iptdat: string
-  nombre: number
+  cplqty: number
+  extqty: number
+  surplus: number
 }
 
 export interface AnomaliesVue {
   jamaisPointes: AnomalieVue[]
   silences: AnomalieVue[]
   heures: AnomalieVue[]
-  doublons: DoublonVue[]
+  surdeclarations: SurdeclarationVue[]
 }
 
 export interface AnomaliesUsineVue {
@@ -150,14 +151,14 @@ export function DettePoste(props: {
       })),
     },
     {
-      kind: 'doublon_declaration',
-      cls: 'info',
+      kind: 'surdeclaration',
+      cls: 'warn',
       ic: Copy,
-      t: 'Déclarations en double',
-      regle: 'Même OF, même opération, même jour, pointé N fois',
-      items: anomalies.doublons.map((d) => ({
-        of: d.numOf,
-        detail: `×${d.nombre}`,
+      t: 'Déclaré > à produire',
+      regle: 'Qté déclarée (CPLQTY) supérieure à la qté à produire (EXTQTY)',
+      items: anomalies.surdeclarations.map((s) => ({
+        of: s.numOf,
+        detail: `op ${s.openum} · ${fmtQty(s.surplus)}`,
       })),
     },
   ]

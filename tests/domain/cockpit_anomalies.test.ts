@@ -51,6 +51,7 @@ test.group('détecteur 1 — lancé, jamais pointé', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ dateDebutIso: '2026-07-20' })],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -62,6 +63,7 @@ test.group('détecteur 1 — lancé, jamais pointé', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ dateDebutIso: '2026-08-02' })],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -72,6 +74,7 @@ test.group('détecteur 1 — lancé, jamais pointé', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ dateDebutIso: '2026-07-01' })],
       pointages: [pointage({ iptdat: '2026-07-02' })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -82,6 +85,7 @@ test.group('détecteur 1 — lancé, jamais pointé', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ dateDebutIso: null })],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -94,6 +98,7 @@ test.group('détecteur 1 — lancé, jamais pointé', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ dateDebutIso: debut.toISOString().slice(0, 10) })],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -106,6 +111,7 @@ test.group('détecteur 2 — silence', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of()],
       pointages: [pointage({ iptdat: '2026-07-10' })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -119,6 +125,7 @@ test.group('détecteur 2 — silence', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of()],
       pointages: [pointage({ iptdat: '2026-08-02' })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -129,6 +136,7 @@ test.group('détecteur 2 — silence', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of()],
       pointages: [pointage({ iptdat: '2026-07-01' }), pointage({ iptdat: '2026-08-01' })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -141,6 +149,7 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ qtyDeclaree: 100 })],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -153,6 +162,7 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ qtyDeclaree: 100 })],
       pointages: [pointage({ opetim: 10, settim: 0 })], // 10 h pour 100 h théoriques
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -164,6 +174,7 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ qtyDeclaree: 100 })],
       pointages: [pointage({ opetim: 80, settim: 20 })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -174,6 +185,7 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ article: 'SANS-GAMME', qtyDeclaree: 100 })],
       pointages: [pointage({ opetim: 1 })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -184,6 +196,7 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of({ qtyDeclaree: 0 })],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -191,76 +204,78 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
   })
 })
 
-test.group('détecteur 4 — déclarations en double (clé stricte)', () => {
-  test('mêmes (OF, op, jour, qté, temps) en deux exemplaires', ({ assert }) => {
+test.group('détecteur 4 — déclaré > à produire (CPLQTY > EXTQTY)', () => {
+  test('opération du poste surdéclarée : signalée avec le surplus', ({ assert }) => {
     const r = detecterAnomaliesPoste({
       ofs: [],
-      pointages: [
-        pointage({ iptdat: '2026-08-01', cplqty: 40, opetim: 1 }),
-        pointage({ iptdat: '2026-08-01', cplqty: 40, opetim: 1 }),
-      ],
+      pointages: [],
+      operationsSurPoste: [{ mfgnum: 'OF-1', openum: 40, cplqty: 2_305, extqty: 2_000 }],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
-    assert.lengthOf(r.doublons, 1)
-    assert.deepEqual(r.doublons[0], {
+    assert.lengthOf(r.surdeclarations, 1)
+    assert.deepEqual(r.surdeclarations[0], {
       numOf: 'OF-1',
-      openum: 10,
-      iptdat: '2026-08-01',
-      nombre: 2,
+      openum: 40,
+      cplqty: 2_305,
+      extqty: 2_000,
+      surplus: 305,
     })
   })
 
-  test('déclarations partielles même jour : légitimes, pas un doublon', ({ assert }) => {
+  test('déclaré pile à produire : rien à signaler', ({ assert }) => {
     const r = detecterAnomaliesPoste({
       ofs: [],
-      pointages: [
-        pointage({ iptdat: '2026-08-01', cplqty: 40, opetim: 1 }),
-        pointage({ iptdat: '2026-08-01', cplqty: 60, opetim: 2 }),
+      pointages: [],
+      operationsSurPoste: [{ mfgnum: 'OF-1', openum: 40, cplqty: 2_000, extqty: 2_000 }],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.surdeclarations, 0)
+  })
+
+  test('déclaré sous le plan : rien à signaler', ({ assert }) => {
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [],
+      operationsSurPoste: [{ mfgnum: 'OF-1', openum: 40, cplqty: 1_500, extqty: 2_000 }],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.surdeclarations, 0)
+  })
+
+  test('une opération sous le plan n’annule pas une autre surdéclarée', ({ assert }) => {
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [],
+      operationsSurPoste: [
+        { mfgnum: 'OF-1', openum: 20, cplqty: 100, extqty: 200 },
+        { mfgnum: 'OF-1', openum: 40, cplqty: 250, extqty: 200 },
       ],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
-    assert.lengthOf(r.doublons, 0)
+    assert.lengthOf(r.surdeclarations, 1)
+    assert.equal(r.surdeclarations[0].openum, 40)
   })
 
-  test('déclarations partielles sur deux jours : légitimes, pas un doublon', ({ assert }) => {
+  test('tri : surplus décroissant, puis numéro d’OF', ({ assert }) => {
     const r = detecterAnomaliesPoste({
       ofs: [],
-      pointages: [
-        pointage({ iptdat: '2026-08-01', cplqty: 40 }),
-        pointage({ iptdat: '2026-08-02', cplqty: 60 }),
+      pointages: [],
+      operationsSurPoste: [
+        { mfgnum: 'OF-B', openum: 10, cplqty: 20, extqty: 10 },
+        { mfgnum: 'OF-A', openum: 10, cplqty: 50, extqty: 10 },
+        { mfgnum: 'OF-C', openum: 10, cplqty: 20, extqty: 5 },
       ],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
-    assert.lengthOf(r.doublons, 0)
-  })
-
-  test('même jour mais opérations différentes : pas un doublon', ({ assert }) => {
-    const r = detecterAnomaliesPoste({
-      ofs: [],
-      pointages: [
-        pointage({ openum: 10, iptdat: '2026-08-01', cplqty: 50, opetim: 1 }),
-        pointage({ openum: 20, iptdat: '2026-08-01', cplqty: 50, opetim: 1 }),
-      ],
-      heuresTheoriquesPour,
-      aujourdhuiIso: AUJOURDHUI,
-    })
-    assert.lengthOf(r.doublons, 0)
-  })
-
-  test('réglage pur le même jour qu’une déclaration : pas un doublon', ({ assert }) => {
-    const r = detecterAnomaliesPoste({
-      ofs: [],
-      pointages: [
-        pointage({ iptdat: '2026-08-01', cplqty: 0, opetim: 0, settim: 1 }),
-        pointage({ iptdat: '2026-08-01', cplqty: 50, opetim: 2 }),
-      ],
-      heuresTheoriquesPour,
-      aujourdhuiIso: AUJOURDHUI,
-    })
-    assert.lengthOf(r.doublons, 0)
+    assert.deepEqual(
+      r.surdeclarations.map((s) => s.numOf),
+      ['OF-A', 'OF-C', 'OF-B']
+    )
   })
 })
 
@@ -271,6 +286,7 @@ test.group('frontalités communes', () => {
     const r = detecterAnomaliesPoste({
       ofs: [of()],
       pointages: [pointage({ iptdat: dernier.toISOString().slice(0, 10) })],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
@@ -281,12 +297,13 @@ test.group('frontalités communes', () => {
     const r = detecterAnomaliesPoste({
       ofs: [],
       pointages: [],
+      operationsSurPoste: [],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
     assert.lengthOf(r.jamaisPointes, 0)
     assert.lengthOf(r.silences, 0)
     assert.lengthOf(r.heures, 0)
-    assert.lengthOf(r.doublons, 0)
+    assert.lengthOf(r.surdeclarations, 0)
   })
 })

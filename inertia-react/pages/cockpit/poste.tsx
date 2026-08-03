@@ -624,13 +624,6 @@ function construireFilProps(
   anomalies?.heures.forEach((a) =>
     pousser(a, false, `${a.kind === 'sans_heures' ? 'Sans heures' : 'Heures faibles'} · ${a.numOf}`)
   )
-  anomalies?.doublons.forEach((d) =>
-    filAnomalies.push({
-      dateIso: d.iptdat,
-      crit: false,
-      texte: `Doublon · ${d.numOf} (×${d.nombre})`,
-    })
-  )
   usine?.ecartsDeclaration.forEach((a) => pousser(a, false, `Écart de déclaration · ${a.numOf}`))
   usine?.ofsASolder.forEach((a) => pousser(a, false, `OF à solder · ${a.numOf}`))
 
