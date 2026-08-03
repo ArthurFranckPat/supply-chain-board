@@ -75,6 +75,36 @@ export interface ProductionRealisee {
   dontHeuresReglage: number
 }
 
+/** Une maille mois (YYYY-MM) — l'affichage du cockpit est mensuel (#119). */
+export interface ProductionMois {
+  mois: string
+  qty: number
+  heures: number
+  dontHeuresReglage: number
+}
+
+/**
+ * Mailles jour → mailles mois. Le graphe du cockpit est mensuel, mais le calcul
+ * reste journalier en amont : c'est la maille jour qui garantit que les
+ * pointages de réglage pur et les déclarations partielles sont comptés avant
+ * agrégation. Trié par mois croissant.
+ */
+export function productionParMois(mailles: ProductionRealisee[]): ProductionMois[] {
+  const parMois = new Map<string, ProductionMois>()
+  for (const m of mailles) {
+    const mois = m.date.slice(0, 7)
+    let cur = parMois.get(mois)
+    if (!cur) {
+      cur = { mois, qty: 0, heures: 0, dontHeuresReglage: 0 }
+      parMois.set(mois, cur)
+    }
+    cur.qty += m.qty
+    cur.heures += m.heures
+    cur.dontHeuresReglage += m.dontHeuresReglage
+  }
+  return [...parMois.values()].sort((a, b) => a.mois.localeCompare(b.mois))
+}
+
 /** Clé de groupe : un OF sur UN poste — le poste fait partie de l'identité. */
 function groupeKey(p: PointageTrk): string {
   return `${p.numOf}#${p.cplwst}`

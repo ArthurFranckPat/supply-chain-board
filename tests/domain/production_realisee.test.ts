@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import {
   heuresConvertiesParJour,
+  productionParMois,
   productionRealiseeParJour,
   selectionDerniereOperationQuantifiee,
   type PointageTrk,
@@ -180,5 +181,24 @@ test.group('heuresConvertiesParJour', () => {
   test('le rebut est exclu de la conversion aussi', ({ assert }) => {
     const parJour = heuresConvertiesParJour([pointage({ rebut: true })], () => 100)
     assert.equal(parJour.size, 0)
+  })
+})
+
+test.group('productionParMois', () => {
+  test('agrège les mailles jour par mois et trie croissant', ({ assert }) => {
+    const mois = productionParMois([
+      { date: '2026-03-05', qty: 10, heures: 1, dontHeuresReglage: 0 },
+      { date: '2026-02-28', qty: 20, heures: 2, dontHeuresReglage: 1 },
+      { date: '2026-03-01', qty: 5, heures: 0.5, dontHeuresReglage: 0.5 },
+    ])
+
+    assert.deepEqual(mois, [
+      { mois: '2026-02', qty: 20, heures: 2, dontHeuresReglage: 1 },
+      { mois: '2026-03', qty: 15, heures: 1.5, dontHeuresReglage: 0.5 },
+    ])
+  })
+
+  test('vide en entrée → vide en sortie', ({ assert }) => {
+    assert.deepEqual(productionParMois([]), [])
   })
 })

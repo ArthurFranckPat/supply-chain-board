@@ -20,6 +20,8 @@ import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { X3Link } from '@r/components/x3-link'
+import { ProductionChart } from '@r/components/cockpit/production-chart'
+import { HeuresCapaciteChart } from '@r/components/cockpit/heures-capacite-chart'
 import { PILL, ToolbarRow, ToolbarSpacer } from '@r/components/vision/toolbar'
 import { route } from '@r/lib/routes'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
@@ -69,6 +71,26 @@ interface PosteInfo {
   dernierPointageIso: string | null
 }
 
+interface PasseMoisProduction {
+  mois: string
+  qty: number
+  heures: number
+  dontHeuresReglage: number
+}
+
+interface PasseMoisHeures {
+  mois: string
+  capacite: number
+  heuresPointees: number
+  heuresConverties: number
+}
+
+interface Passe {
+  nbPointages: number
+  productionParMois: PasseMoisProduction[]
+  heuresParMois: PasseMoisHeures[]
+}
+
 interface PostePayload {
   poste: PosteInfo
   engagement: {
@@ -79,6 +101,8 @@ interface PostePayload {
     rows: EngagementRow[]
     x3Error: string | null
   } | null
+  /** Passé constaté — null si la réplique est indisponible. */
+  passe: Passe | null
   fenetre: { fromIso: string; toIso: string }
   replica: ReplicaState
   x3Error: string | null
@@ -240,9 +264,9 @@ export default function CockpitPoste(props: Props) {
   )
 }
 
-/** Carte d'identité + bloc engagement d'un poste. */
+/** Carte d'identité + passé constaté + bloc engagement d'un poste. */
 function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string) => void }) {
-  const { poste, engagement, x3Error } = props.payload
+  const { poste, engagement, passe, x3Error } = props.payload
   const sat = engagement
     ? saturation(engagement.totalHours, engagement.weeklyCapacityHours)
     : null
@@ -304,6 +328,63 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
           <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
           <span className="font-bold">Erreur chargement :</span>
           <span className="font-mono">{x3Error}</span>
+        </div>
+      )}
+
+      {/* Passé constaté — réplique de pointages, graphe mensuel (#119, lot 4). */}
+      {passe && (
+        <div className="border-b border-border px-7 py-4">
+          <div className="mb-2 flex items-center gap-3">
+            <span className="font-fraunces text-[13px] font-bold not-italic text-foreground">
+              Passé productif
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {passe.nbPointages} pointage{passe.nbPointages > 1 ? 's' : ''} sur la fenêtre
+            </span>
+          </div>
+
+          {passe.nbPointages === 0 ? (
+            <div className="rounded-lg border border-rule bg-card p-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
+              Aucun pointage sur ce poste dans la fenêtre.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+                <div className="mb-1 flex items-center justify-between px-1">
+                  <span className="text-[11px] font-semibold text-foreground">Production</span>
+                  <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-sm bg-brand" /> quantité
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-ferme" /> heures pointées
+                    </span>
+                  </span>
+                </div>
+                <ProductionChart data={passe.productionParMois} />
+              </div>
+
+              <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+                <div className="mb-1 flex items-center justify-between px-1">
+                  <span className="text-[11px] font-semibold text-foreground">
+                    Heures vs capacité
+                  </span>
+                  <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-sm bg-foreground/20" /> capacité
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-brand" /> pointées
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-ferme" /> converties
+                    </span>
+                  </span>
+                </div>
+                <HeuresCapaciteChart data={passe.heuresParMois} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
