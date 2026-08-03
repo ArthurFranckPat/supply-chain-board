@@ -1,6 +1,9 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
-import replicaSyncService, { orderLinesReplicaWindow } from '#services/replica_sync_service'
+import replicaSyncService, {
+  orderLinesReplicaWindow,
+  operationsTrkWindow,
+} from '#services/replica_sync_service'
 import replicaGate from '#services/replica_gate'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import {
@@ -25,6 +28,8 @@ import {
 import ordersFluxReplicaRepository from '#repositories/orders_flux_replica_repository'
 import operationsReplicaRepository from '#repositories/operations_replica_repository'
 import { X3OperationRepository, type OperationRecord } from '#repositories/operation_repository'
+import operationsTrkReplicaRepository from '#repositories/operations_trk_replica_repository'
+import { X3OperationsTrkRepository } from '#repositories/operations_trk_repository'
 import stockDetailReplicaRepository from '#repositories/stock_detail_replica_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import latencyReplicaRepository from '#repositories/latency_replica_repository'
@@ -77,9 +82,9 @@ export default class ReplicaSync extends BaseCommand {
 
   @flags.array({
     description:
-      'Tables à ingérer (orders-flux, stock, receptions, latency, stock-flux, operations, stock-detail). ' +
-      'Défaut : orders-flux/stock/receptions SEULEMENT — latency/stock-flux/operations/stock-detail ' +
-      'demandent un --only explicite (cadence propre dans SCHEDULE, cf. replica_sync_provider)',
+      'Tables à ingérer (orders-flux, stock, receptions, latency, stock-flux, operations, stock-detail, ' +
+      'operations-trk). Défaut : orders-flux/stock/receptions SEULEMENT — les autres demandent un --only ' +
+      'explicite (cadence propre dans SCHEDULE, cf. replica_sync_provider)',
   })
   declare only: string[]
 
@@ -131,6 +136,9 @@ export default class ReplicaSync extends BaseCommand {
     if (only.has('operations')) results.push(await replicaSyncService.syncOperations('cli'))
     // JAMAIS via `all` : ~45k lignes connues pour timeout côté X3 (cf. syncStockDetail).
     if (only.has('stock-detail')) results.push(await replicaSyncService.syncStockDetail('cli'))
+    // JAMAIS via `all` : swap complet de la fenêtre 6 mois, cadence QUOTIDIENNE
+    // ancrée en heures creuses (#119, cf. syncOperationsTrk).
+    if (only.has('operations-trk')) results.push(await replicaSyncService.syncOperationsTrk('cli'))
 
     if (results.length === 0) {
       this.logger.error(`Aucune table reconnue dans --only=${[...only].join(',')}`)
@@ -236,6 +244,9 @@ export default class ReplicaSync extends BaseCommand {
     this.logger.info('=== operations_replica ===')
     const operationsOk = await this.compareOperations()
 
+    this.logger.info('=== operations_trk_replica (#119) ===')
+    const operationsTrkOk = await this.compareOperationsTrk()
+
     this.logger.info('=== stock_detail_replica ===')
     const stockDetailOk = await this.compareStockDetail()
 
@@ -256,6 +267,7 @@ export default class ReplicaSync extends BaseCommand {
       fluxOk &&
       receptionsOk &&
       operationsOk &&
+      operationsTrkOk &&
       stockDetailOk &&
       latencyOk &&
       ordersFluxOk
@@ -997,6 +1009,82 @@ export default class ReplicaSync extends BaseCommand {
     const ok = onlyDirect.length === 0 && onlyReplica.length === 0 && fieldDiffs.length === 0
     if (ok) this.logger.success('  opérations identiques')
     return ok
+  }
+
+  /**
+   * MFGOPETRK (#119) : l'identité de ligne n'est pas démontrable (plusieurs
+   * pointages par (OF, opération), pas de compteur connu — cf. la migration
+   * `operations_trk_replica`), donc diff par agrégat (poste, jour) : count,
+   * quantité, heures. C'est exactement ce que le cockpit consomme ensuite. Le
+   * bruit de bord (pointages du jour posés entre le sync et la comparaison) est
+   * absorbé par l'agrégat, même motif que `compareStockFlux`.
+   */
+  private async compareOperationsTrk(): Promise<boolean> {
+    const { from, to } = operationsTrkWindow()
+    const fromIso = dayKey(from)!
+    const toExclusive = new Date(to)
+    toExclusive.setDate(toExclusive.getDate() + 1)
+    const toExclIso = dayKey(toExclusive)!
+
+    const replica = await operationsTrkReplicaRepository.getPointages(fromIso, toExclIso)
+    if (replica.length === 0) {
+      this.logger.info(
+        '  operations_trk_replica vide — pas encore ingérée (node ace replica:sync --only=operations-trk). Skip.'
+      )
+      return true
+    }
+
+    const started = Date.now()
+    const direct = await new X3OperationsTrkRepository().getPointages(from, to)
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1)
+    this.logger.info(
+      `X3 : ${direct.length} pointages · réplique : ${replica.length} pointages · ${elapsed} s`
+    )
+
+    type Agg = { count: number; qty: number; hours: number }
+    const aggregate = (
+      rows: { cplwst: string; day: string; cplqty: number; opetim: number; settim: number }[]
+    ) => {
+      const m = new Map<string, Agg>()
+      for (const r of rows) {
+        const cur = m.get(`${r.cplwst}#${r.day}`) ?? { count: 0, qty: 0, hours: 0 }
+        cur.count += 1
+        cur.qty += r.cplqty
+        cur.hours += r.opetim + r.settim
+        m.set(`${r.cplwst}#${r.day}`, cur)
+      }
+      return m
+    }
+
+    const directAgg = aggregate(direct.map((r) => ({ ...r, day: r.iptdatIso })))
+    const replicaAgg = aggregate(replica.map((r) => ({ ...r, day: r.iptdat })))
+    const keys = new Set([...directAgg.keys(), ...replicaAgg.keys()])
+
+    const diffs: string[] = []
+    for (const k of keys) {
+      const d = directAgg.get(k) ?? { count: 0, qty: 0, hours: 0 }
+      const r = replicaAgg.get(k) ?? { count: 0, qty: 0, hours: 0 }
+      if (
+        d.count !== r.count ||
+        Math.abs(d.qty - r.qty) > 0.01 ||
+        Math.abs(d.hours - r.hours) > 0.01
+      ) {
+        diffs.push(
+          `${k} : X3 ${d.count}×${d.qty}/${d.hours}h ≠ réplique ${r.count}×${r.qty}/${r.hours}h`
+        )
+      }
+    }
+
+    if (diffs.length > 0) {
+      this.logger.warning(`  ${diffs.length} couples (poste, jour) divergents :`)
+      for (const line of diffs.slice(0, 10)) this.logger.warning(`    ${line}`)
+      this.logger.info(
+        '  Un écart isolé peut venir de pointages posés entre le sync et cette comparaison — relancer --only=operations-trk juste avant --compare pour réduire la fenêtre.'
+      )
+    } else {
+      this.logger.success(`  pointages identiques par (poste, jour) sur ${keys.size} couples`)
+    }
+    return diffs.length === 0
   }
 
   /**

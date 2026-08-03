@@ -103,6 +103,7 @@ export type ReplicaTable =
   | 'operations_replica'
   | 'stock_detail_replica'
   | 'latency_replica'
+  | 'operations_trk_replica'
 
 export interface GateVerdict {
   table: ReplicaTable
@@ -158,6 +159,11 @@ const MAX_AGE_MS: Record<ReplicaTable, number> = {
   // trompeuse en une nuit. Cadence propre de 6 h dans `SCHEDULE` (règle
   // cadence ≈ seuil / 3), donc deux runs manqués avant de replier sur X3.
   latency_replica: 18 * HOUR,
+  // Passé pointé du cockpit (#119) : série historique de 6 mois lue en tendance,
+  // cadence QUOTIDIENNE ancrée en heures creuses — même régime que
+  // `stock_flux_replica` : 24 h de cadence + 2 h de marge pour qu'un run en
+  // retard après un redémarrage ne fasse pas clignoter la table en voie directe.
+  operations_trk_replica: 26 * HOUR,
 }
 
 /** Défaut volontairement STRICT : une table ajoutée à `ReplicaTable` sans entrée
@@ -319,6 +325,7 @@ export class ReplicaGate {
       'operations_replica',
       'stock_detail_replica',
       'latency_replica',
+      'operations_trk_replica',
     ]
     return Promise.all(tables.map((t) => this.verdict(t)))
   }

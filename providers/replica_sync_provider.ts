@@ -187,6 +187,16 @@ export const SCHEDULE: ScheduledIngestion[] = [
     run: (s) => replicaSyncService.syncLatency(s),
     everyMs: 6 * 60 * 60 * 1000,
   },
+  {
+    // Passé pointé du cockpit (#119) : série 6 mois glissants, cadence
+    // QUOTIDIENNE (le seuil portail est 26 h). Ancrée UNE HEURE APRÈS
+    // `stock_flux_replica` pour ne pas empiler deux extractions longues dans le
+    // même cycle — le tick est séquentiel et la garde `running` absorberait,
+    // mais l'étalement garde chaque cycle court.
+    table: 'operations_trk_replica',
+    run: (s) => replicaSyncService.syncOperationsTrk(s),
+    dailyHour: DAILY_SYNC_HOUR + 1,
+  },
 ]
 
 export default class ReplicaSyncProvider {
