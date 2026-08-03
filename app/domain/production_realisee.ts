@@ -254,6 +254,10 @@ export interface SyntheseOf {
   article: string | null
   qty: number
   heures: number
+  /** Heures de réglage incluses dans `heures` — la fiabilité des temps de
+   *  gamme compare l'opératoire à l'opératoire, le réglage n'a pas de
+   *  standard dans `hoursForQuantity` (revue #119, 04/08). */
+  dontHeuresReglage: number
   /** Jours (ISO) où l'OF a pointé, triés — sert l'adhérence au programme. */
   joursPointes: string[]
   premierJour: string
@@ -283,6 +287,7 @@ export function syntheseParOf(pointages: PointageTrk[]): SyntheseOf[] {
         article: p.itmrefOf,
         qty: 0,
         heures: 0,
+        dontHeuresReglage: 0,
         jours: new Set(),
         joursPointes: [],
         premierJour: p.iptdat,
@@ -292,6 +297,7 @@ export function syntheseParOf(pointages: PointageTrk[]): SyntheseOf[] {
     }
     if (surOperationSelectionnee) cur.qty += p.cplqty
     cur.heures += p.opetim + p.settim
+    cur.dontHeuresReglage += p.settim
     cur.jours.add(p.iptdat)
     if (p.iptdat < cur.premierJour) cur.premierJour = p.iptdat
     if (p.iptdat > cur.dernierJour) cur.dernierJour = p.iptdat

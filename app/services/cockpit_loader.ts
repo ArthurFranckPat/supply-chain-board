@@ -309,8 +309,16 @@ function capacitePeriodePoste(
   if (!wst || to < from) return 0
   if (!calendar) return capacityPeriod(wst, from, to)
   let total = 0
-  for (let t = from.getTime(); t <= to.getTime(); t += 86_400_000) {
-    const jour = new Date(t)
+  // Incrément par setDate et non par 86_400_000 ms : au changement d'heure,
+  // un jour fait 23 ou 25 h et la dérive en ms saute ou double un jour civil.
+  // Vérifié en TZ=Europe/Paris : mars perdait le 31, octobre doublait le 25
+  // (revue #119, 04/08). La fenêtre 6 mois du cockpit traverse toujours un
+  // changement d'heure.
+  const jour = new Date(from)
+  jour.setHours(0, 0, 0, 0)
+  const fin = new Date(to)
+  fin.setHours(0, 0, 0, 0)
+  for (; jour <= fin; jour.setDate(jour.getDate() + 1)) {
     const facteur = calendar.factor(wst, isoDay(jour))
     if (facteur <= 0) continue
     total += capDay(wst, jour) * facteur
@@ -642,10 +650,14 @@ async function buildAnalyses(opts: {
   // Semaines de la fenêtre (lundis ISO), semaine en cours exclue.
   const lundiCourant = lundiIso(opts.fen.toIso)
   const semaines = new Set<string>()
+  // Incrément par setDate, même raison qu'en capacité : la dérive en ms au
+  // changement d'heure saute un jour civil (revue #119, 04/08).
   const curseur = new Date(`${opts.fen.fromIso}T00:00:00`)
+  curseur.setHours(0, 0, 0, 0)
   const fin = new Date(`${opts.fen.toIso}T00:00:00`)
-  for (let t = curseur.getTime(); t <= fin.getTime(); t += 86_400_000) {
-    const lundi = lundiIso(isoDay(new Date(t)))
+  fin.setHours(0, 0, 0, 0)
+  for (; curseur <= fin; curseur.setDate(curseur.getDate() + 1)) {
+    const lundi = lundiIso(isoDay(curseur))
     if (lundi !== lundiCourant) semaines.add(lundi)
   }
 
@@ -692,6 +704,9 @@ function versPointages(
  */
 export async function loadCockpitPoste(poste: string, force = false): Promise<CockpitPostePayload> {
   const safe = poste.trim()
+  // Validé AVANT le cache : un code non-production ne doit pas injecter
+  // d'entrée de cache sous sa clé (revue #119, 04/08).
+  if (!estPosteProduction(safe)) return loadCockpitPosteUncached(safe, force)
   const cache = cacheNs('cockpit')
   const key = `poste:${safe}:v3`
   if (force) await cache.delete({ key })

@@ -29,7 +29,11 @@ export const ADHERENCE_SEMAINES_RECENTES = 4
 export interface FiabiliteArticle {
   article: string
   qty: number
+  /** Heures OPÉRATOIRES pointées (total − réglage) — comparées au théorique
+   *  (`hoursForQuantity` ne porte pas de standard de réglage, revue #119). */
   heuresPointees: number
+  /** Heures de réglage pointées, affichage seul — jamais comparées. */
+  heuresReglage: number
   heuresTheoriques: number
   /** théorique / pointé : > 1 = plus rapide que la gamme, < 1 = plus lent.
    *  null si aucune heure pointée. */
@@ -39,9 +43,11 @@ export interface FiabiliteArticle {
 export interface FiabilitePoste {
   /** Articles à cadence exploitable seulement, triés par quantité décroissante. */
   articles: FiabiliteArticle[]
-  /** Totaux sur ces articles uniquement. */
+  /** Totaux sur ces articles uniquement (opératoire / théorique). */
   heuresPointees: number
   heuresTheoriques: number
+  /** Total des heures de réglage sur ces articles — affichage seul. */
+  heuresReglage: number
   ratioGlobal: number | null
   /** Nb d'ARTICLES distincts écartés faute de cadence exploitable. */
   exclusFauteCadence: number
@@ -50,12 +56,21 @@ export interface FiabilitePoste {
 /**
  * Fiabilité des temps de gamme. `cadencePour` rend la cadence (u/h) de gamme
  * d'un article sur ce poste, ou null si la gamme ne la porte pas.
+ *
+ * Opératoire à opératoire : le théorique vient de `hoursForQuantity`
+ * (`qty / rate`, opératoire pur), donc le pointé entrant dans le ratio est le
+ * temps opératoire (total − réglage). Comparer le total au théorique mentait
+ * d'environ 10 % (14,6 % des heures pointées de la réplique sont du réglage,
+ * revue #119, 04/08). Le réglage reste affiché, il n'est juste pas comparé.
  */
 export function fiabiliteTempsGamme(opts: {
   synthese: SyntheseOf[]
   cadencePour: (article: string) => number | null
 }): FiabilitePoste {
-  const parArticle = new Map<string, { qty: number; heures: number }>()
+  const parArticle = new Map<
+    string,
+    { qty: number; heuresOperatoire: number; heuresReglage: number }
+  >()
   const articlesSansCadence = new Set<string>()
 
   for (const of of opts.synthese) {
@@ -67,28 +82,32 @@ export function fiabiliteTempsGamme(opts: {
       articlesSansCadence.add(of.article)
       continue
     }
-    const cur = parArticle.get(of.article) ?? { qty: 0, heures: 0 }
+    const cur = parArticle.get(of.article) ?? { qty: 0, heuresOperatoire: 0, heuresReglage: 0 }
     cur.qty += of.qty
-    cur.heures += of.heures
+    cur.heuresOperatoire += of.heures - of.dontHeuresReglage
+    cur.heuresReglage += of.dontHeuresReglage
     parArticle.set(of.article, cur)
   }
   const exclusFauteCadence = articlesSansCadence.size
 
   const articles: FiabiliteArticle[] = []
   let heuresPointees = 0
+  let heuresReglage = 0
   let heuresTheoriques = 0
   for (const [article, v] of parArticle) {
     if (v.qty <= 0) continue
     const cadence = opts.cadencePour(article) ?? 0
     const theo = v.qty / cadence
-    heuresPointees += v.heures
+    heuresPointees += v.heuresOperatoire
+    heuresReglage += v.heuresReglage
     heuresTheoriques += theo
     articles.push({
       article,
       qty: v.qty,
-      heuresPointees: Math.round(v.heures * 100) / 100,
+      heuresPointees: Math.round(v.heuresOperatoire * 100) / 100,
+      heuresReglage: Math.round(v.heuresReglage * 100) / 100,
       heuresTheoriques: Math.round(theo * 100) / 100,
-      ratio: v.heures > 0 ? Math.round((theo / v.heures) * 100) / 100 : null,
+      ratio: v.heuresOperatoire > 0 ? Math.round((theo / v.heuresOperatoire) * 100) / 100 : null,
     })
   }
   articles.sort((a, b) => b.qty - a.qty)
@@ -97,19 +116,27 @@ export function fiabiliteTempsGamme(opts: {
     articles,
     heuresPointees: Math.round(heuresPointees * 100) / 100,
     heuresTheoriques: Math.round(heuresTheoriques * 100) / 100,
+    heuresReglage: Math.round(heuresReglage * 100) / 100,
     ratioGlobal:
       heuresPointees > 0 ? Math.round((heuresTheoriques / heuresPointees) * 100) / 100 : null,
     exclusFauteCadence,
   }
 }
 
-/** Une semaine d'adhérence au programme. `semaine` = lundi ISO. */
+/** Une semaine d'adhérence au programme. `semaine` = lundi ISO.
+ *
+ * Pas de taux ici (revue #119, 04/08) : les PRÉVUS viennent des OF OUVERTS
+ * rattachés au poste (ORDERS), et ce qui est passé en stock a quitté ORDERS —
+ * le dénominateur des semaines passées ne contiendrait que les retardataires,
+ * et le taux tendrait vers 0 quelle que soit la performance réelle. On montre
+ * donc les deux comptages bruts ; le lecteur compare des OF, pas des pourcents
+ * de populations différentes. */
 export interface AdherenceSemaine {
   semaine: string
+  /** OF ouverts du poste dont le lancement tombe cette semaine. */
   prevus: number
+  /** OF distincts ayant pointé sur le poste cette semaine. */
   pointes: number
-  /** (prévus ∩ pointés) / prévus — null si rien de prévu. */
-  taux: number | null
 }
 
 /**
@@ -118,8 +145,8 @@ export interface AdherenceSemaine {
  * Limite assumée, à dire sur l'écran : les OF PRÉVUS viennent des OF OUVERTS
  * rattachés au poste (ORDERS) — ce qui est passé en stock n'existe plus dans
  * ORDERS. On borne donc aux `ADHERENCE_SEMAINES_RECENTES` semaines les plus
- * récentes de `semaines` (revue #119) : au-delà, le taux tend vers 0 quelle
- * que soit la performance réelle.
+ * récentes de `semaines` (revue #119) et on n'affiche AUCUN taux : les deux
+ * populations ne sont pas comparables au-delà de la semaine courante.
  */
 export function adherenceProgramme(opts: {
   /** OF ouverts du poste attendus par semaine : lundi ISO → numéros d'OF. */
@@ -143,20 +170,11 @@ export function adherenceProgramme(opts: {
   const max = opts.maxSemaines ?? ADHERENCE_SEMAINES_RECENTES
   const semainesRetenues = [...opts.semaines].sort().slice(-max)
 
-  const out: AdherenceSemaine[] = []
-  for (const semaine of semainesRetenues) {
-    const prevus = opts.prevusParSemaine.get(semaine) ?? new Set<string>()
-    const pointes = pointesParSemaine.get(semaine) ?? new Set<string>()
-    let tiens = 0
-    for (const num of prevus) if (pointes.has(num)) tiens++
-    out.push({
-      semaine,
-      prevus: prevus.size,
-      pointes: pointes.size,
-      taux: prevus.size > 0 ? Math.round((tiens / prevus.size) * 100) / 100 : null,
-    })
-  }
-  return out
+  return semainesRetenues.map((semaine) => ({
+    semaine,
+    prevus: (opts.prevusParSemaine.get(semaine) ?? new Set<string>()).size,
+    pointes: (pointesParSemaine.get(semaine) ?? new Set<string>()).size,
+  }))
 }
 
 /** Lundi ISO d'un jour (YYYY-MM-DD → YYYY-MM-DD du lundi). */

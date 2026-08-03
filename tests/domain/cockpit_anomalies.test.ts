@@ -277,6 +277,75 @@ test.group('détecteur 4 — déclaré > à produire (CPLQTY > EXTQTY)', () => {
       ['OF-A', 'OF-C', 'OF-B']
     )
   })
+
+  test('recopie X3 : une seule ligne par OF, sur le surplus maximal (revue #119)', ({ assert }) => {
+    // X3 recopie la même déclaration sur chaque opération de gamme : un surplus
+    // physique de 216 (600 − 384), recopié sur les opérations 5, 10 et 20 →
+    // une ligne, pas 3. (Un surplus de +1 passerait sous le seuil relatif —
+    // c'est l'objet d'un autre test.)
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [],
+      operationsSurPoste: [
+        { mfgnum: 'OF-1', openum: 5, cplqty: 600, extqty: 384 },
+        { mfgnum: 'OF-1', openum: 10, cplqty: 600, extqty: 384 },
+        { mfgnum: 'OF-1', openum: 20, cplqty: 600, extqty: 384 },
+      ],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.surdeclarations, 1)
+    assert.deepEqual(r.surdeclarations[0], {
+      numOf: 'OF-1',
+      openum: 20,
+      cplqty: 600,
+      extqty: 384,
+      surplus: 216,
+    })
+  })
+
+  test('deux surplus différents sur le même OF : le maximal gagne', ({ assert }) => {
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [],
+      operationsSurPoste: [
+        { mfgnum: 'OF-1', openum: 10, cplqty: 1_010, extqty: 1_000 },
+        { mfgnum: 'OF-1', openum: 20, cplqty: 2_100, extqty: 2_000 },
+      ],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.surdeclarations, 1)
+    assert.equal(r.surdeclarations[0].openum, 20)
+    assert.equal(r.surdeclarations[0].surplus, 100)
+  })
+
+  test('surplus sous le seuil relatif (1 %) : sur-livraison normale, non signalé', ({ assert }) => {
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [],
+      operationsSurPoste: [
+        { mfgnum: 'OF-1', openum: 40, cplqty: 385, extqty: 384 }, // +1 / 384 ≈ 0,26 %
+        { mfgnum: 'OF-2', openum: 40, cplqty: 401, extqty: 400 }, // +1 / 400 = 0,25 %
+      ],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.surdeclarations, 0)
+  })
+
+  test('seuil relatif configurable : 0 lève le filtre', ({ assert }) => {
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [],
+      operationsSurPoste: [{ mfgnum: 'OF-1', openum: 40, cplqty: 385, extqty: 384 }],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+      seuilSurdeclarationRatio: 0,
+    })
+    assert.lengthOf(r.surdeclarations, 1)
+    assert.equal(r.surdeclarations[0].surplus, 1)
+  })
 })
 
 test.group('frontalités communes', () => {

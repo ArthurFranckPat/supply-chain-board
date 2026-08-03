@@ -17,6 +17,7 @@ function of(over: Partial<SyntheseOf> = {}): SyntheseOf {
     article: 'ART-1',
     qty: 100,
     heures: 10,
+    dontHeuresReglage: 0,
     joursPointes: ['2026-07-01'],
     premierJour: '2026-07-01',
     dernierJour: '2026-07-01',
@@ -94,6 +95,31 @@ test.group('fiabiliteTempsGamme', () => {
     assert.lengthOf(r.articles, 1)
     assert.isNull(r.articles[0].ratio)
   })
+
+  test('le réglage est exclu du ratio, comparé en opératoire', ({ assert }) => {
+    // 3 h pointées dont 1 h de réglage → 2 h opératoires ; cadence 100 u/h →
+    // 100 pièces = 1 h théorique → ratio 0.5, pas 0.33 (revue #119, 04/08).
+    const r = fiabiliteTempsGamme({
+      synthese: [of({ qty: 100, heures: 3, dontHeuresReglage: 1 })],
+      cadencePour: () => 100,
+    })
+    assert.equal(r.articles[0].heuresPointees, 2)
+    assert.equal(r.articles[0].heuresReglage, 1)
+    assert.equal(r.articles[0].ratio, 0.5)
+    assert.equal(r.ratioGlobal, 0.5)
+    assert.equal(r.heuresReglage, 1)
+  })
+
+  test('réglage seul sans opératoire : ratio null, le réglage reste affiché', ({ assert }) => {
+    const r = fiabiliteTempsGamme({
+      synthese: [of({ qty: 100, heures: 2, dontHeuresReglage: 2 })],
+      cadencePour: () => 100,
+    })
+    assert.equal(r.articles[0].heuresPointees, 0)
+    assert.equal(r.articles[0].heuresReglage, 2)
+    assert.isNull(r.articles[0].ratio)
+    assert.isNull(r.ratioGlobal)
+  })
   test('plusieurs OF du même article sans cadence : exclusFauteCadence compte 1 article', ({
     assert,
   }) => {
@@ -109,7 +135,7 @@ test.group('fiabiliteTempsGamme', () => {
 })
 
 test.group('adherenceProgramme', () => {
-  test('taux = prévus pointés / prévus', ({ assert }) => {
+  test('comptages bruts par semaine, sans taux (revue #119)', ({ assert }) => {
     const prevus = new Map([['2026-03-02', new Set(['OF-1', 'OF-2'])]])
     const r = adherenceProgramme({
       prevusParSemaine: prevus,
@@ -122,17 +148,17 @@ test.group('adherenceProgramme', () => {
     assert.lengthOf(r, 1)
     assert.equal(r[0].prevus, 2)
     assert.equal(r[0].pointes, 2) // OF-1 et OF-3 ont pointé cette semaine
-    assert.equal(r[0].taux, 0.5) // seul OF-1 était prévu et pointé
   })
 
-  test('rien de prévu → taux null', ({ assert }) => {
+  test('rien de prévu : zéro, et le champ taux n’existe plus', ({ assert }) => {
     const r = adherenceProgramme({
       prevusParSemaine: new Map(),
       synthese: [of({ joursPointes: ['2026-03-03'] })],
       semaines: ['2026-03-02'],
     })
     assert.equal(r[0].prevus, 0)
-    assert.isNull(r[0].taux)
+    assert.equal(r[0].pointes, 1)
+    assert.notProperty(r[0], 'taux')
   })
 
   test('les semaines sont servies triées', ({ assert }) => {

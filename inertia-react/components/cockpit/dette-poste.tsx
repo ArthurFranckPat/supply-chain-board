@@ -8,7 +8,7 @@
  * le signal, l'absence de signal est elle-même un signal.
  */
 
-import { ArrowUpDown, CircleX, Clock, Copy, FileCheck2, Square, Timer } from 'lucide-react'
+import { ArrowUpDown, CircleX, Clock, FileCheck2, Square, Timer, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
 
@@ -153,7 +153,7 @@ export function DettePoste(props: {
     {
       kind: 'surdeclaration',
       cls: 'warn',
-      ic: Copy,
+      ic: TriangleAlert,
       t: 'Déclaré > à produire',
       regle: 'Qté déclarée (CPLQTY) supérieure à la qté à produire (EXTQTY)',
       items: anomalies.surdeclarations.map((s) => ({

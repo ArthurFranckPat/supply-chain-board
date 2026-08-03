@@ -102,24 +102,6 @@ export class OperationsTrkReplicaRepository {
     return rows.map(toRow)
   }
 
-  /**
-   * Date (ISO) du dernier pointage du poste sur `[fromIso, toIso)`, null si
-   * aucun. Égalité stricte — même convention que `getPointages`.
-   */
-  async getDernierPointageIso(
-    cplwst: string,
-    fromIso: string,
-    toIso: string
-  ): Promise<string | null> {
-    const rows = (await this.conn
-      .from('operations_trk_replica')
-      .where('cplwst', cplwst.trim())
-      .where('iptdat', '>=', fromIso)
-      .where('iptdat', '<', toIso)
-      .max('iptdat as dernier')) as { dernier: string | null }[]
-    return rows[0]?.dernier ?? null
-  }
-
   /** Postes distincts ayant pointé sur `[fromIso, toIso)` — codes bruts.
    *  L'exclusion des codes non numériques est une règle domaine
    *  (`estPosteProduction`), pas un silence de requête. */

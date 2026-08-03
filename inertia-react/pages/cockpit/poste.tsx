@@ -102,6 +102,7 @@ interface FiabiliteArticle {
   article: string
   qty: number
   heuresPointees: number
+  heuresReglage: number
   heuresTheoriques: number
   ratio: number | null
 }
@@ -110,7 +111,6 @@ interface AdherenceSemaine {
   semaine: string
   prevus: number
   pointes: number
-  taux: number | null
 }
 
 interface AnalysesVue {
@@ -118,6 +118,7 @@ interface AnalysesVue {
     articles: FiabiliteArticle[]
     heuresPointees: number
     heuresTheoriques: number
+    heuresReglage: number
     ratioGlobal: number | null
     exclusFauteCadence: number
   }
@@ -182,7 +183,9 @@ export default function CockpitPoste(props: Props) {
   // Un seul mécanisme de refresh : le bump ajoute ?refresh=1 aux deux fetches
   // (cache-bust serveur). Avant, un router.visit en doublon rechargeait la page
   // et laissait ?refresh=1 dans l'URL (tout reload futur forçait le refresh).
-  const q = bump > 0 ? '?refresh=1' : ''
+  // `postesHref` peut déjà porter ?refresh=1 (navigation /cockpit?refresh=1) :
+  // on joint alors avec &, jamais un second ? (revue #119, 04/08).
+  const q = bump > 0 ? (props.postesHref.includes('?') ? '&refresh=1' : '?refresh=1') : ''
   const postes = useTimedFetch<PostesPayload>(`${props.postesHref}${q}`)
 
   // Poste effectif : choix utilisateur > présélection ?poste= > défaut serveur.
@@ -674,7 +677,7 @@ function construireFilProps(
         big: `${fia !== null ? fia.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'} <em>× std</em>`,
         txt: vFia.txt,
         cls: vFia.cls,
-        sub: `${fmtHs(hP)} h pointées pour ${fmtHs(hT)} h de gamme${analyses?.fiabilite.exclusFauteCadence ? ` · ${analyses.fiabilite.exclusFauteCadence} article(s) sans cadence, exclus` : ''} · la charge de /programme est sous-estimée d'autant`,
+        sub: `${fmtHs(hP)} h opératoires pointées pour ${fmtHs(hT)} h de gamme${analyses?.fiabilite.heuresReglage ? ` · ${fmtHs(analyses.fiabilite.heuresReglage)} h de réglage, non comparées` : ''}${analyses?.fiabilite.exclusFauteCadence ? ` · ${analyses.fiabilite.exclusFauteCadence} article(s) sans cadence, exclus` : ''} · la charge de /programme est sous-estimée d'autant`,
       },
       carnet: {
         big: `${fmtHs(hEng)} <em>h</em>`,
@@ -829,7 +832,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
           ? 'var(--color-babu)'
           : 'var(--color-ferme)'
 
-  const maxAdh = Math.max(1, ...adherence.map((a) => (a.taux ?? 0) * 100))
+  const maxAdh = Math.max(1, ...adherence.map((a) => Math.max(a.prevus, a.pointes)))
 
   return (
     <div className="border-t border-border px-7 py-4">
@@ -917,18 +920,30 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
           ) : (
             <>
               <div className="mt-3 flex h-11 items-end gap-1">
-                {adherence.map((s) => (
-                  <div
-                    key={s.semaine}
-                    className="group relative flex-1 rounded-t-[3px] bg-planifie opacity-75 hover:opacity-100"
-                    style={{ height: `${Math.max(8, (((s.taux ?? 0) * 100) / maxAdh) * 100)}%` }}
-                  >
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[9px] font-semibold text-white group-hover:block">
-                      {semaineLabel(s.semaine)} ·{' '}
-                      {s.taux !== null ? `${Math.round(s.taux * 100)} %` : '—'}
-                    </span>
-                  </div>
-                ))}
+                {adherence.map((s) => {
+                  const hPrevu = (s.prevus / maxAdh) * 100
+                  const hPointe = (s.pointes / maxAdh) * 100
+                  return (
+                    <div
+                      key={s.semaine}
+                      className="group relative flex flex-1 items-end justify-center gap-[2px]"
+                    >
+                      <div
+                        className="w-1/3 rounded-t-[3px] bg-planifie opacity-40"
+                        style={{ height: `${Math.max(4, hPrevu)}%` }}
+                        title={`${s.prevus} prévu(s)`}
+                      />
+                      <div
+                        className="w-1/3 rounded-t-[3px] bg-ferme"
+                        style={{ height: `${Math.max(4, hPointe)}%` }}
+                        title={`${s.pointes} pointé(s)`}
+                      />
+                      <span className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[9px] font-semibold text-white group-hover:block">
+                        {semaineLabel(s.semaine)} · {s.pointes} pointés / {s.prevus} prévus
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
               <div className="flex gap-1 font-mono text-[8px] font-semibold text-muted-foreground">
                 {adherence.map((s) => (
@@ -940,24 +955,22 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
               <div className="mt-3 flex justify-between gap-2 text-[10px]">
                 <span className="text-muted-foreground">Dernière semaine</span>
                 <span className="font-bold">
-                  {adherence[adherence.length - 1].taux !== null
-                    ? `${Math.round((adherence[adherence.length - 1].taux ?? 0) * 100)} %`
-                    : '—'}
+                  {adherence[adherence.length - 1].pointes} pointés /{' '}
+                  {adherence[adherence.length - 1].prevus} prévus
                 </span>
               </div>
               <div className="flex justify-between gap-2 text-[10px]">
-                <span className="text-muted-foreground">Moyenne fenêtre</span>
+                <span className="text-muted-foreground">Total fenêtre</span>
                 <span className="font-bold" id="adh-moy">
-                  {Math.round(
-                    (adherence.reduce((a, s) => a + (s.taux ?? 0), 0) / adherence.length) * 100
-                  )}{' '}
-                  %
+                  {adherence.reduce((a, s) => a + s.pointes, 0)} pointés /{' '}
+                  {adherence.reduce((a, s) => a + s.prevus, 0)} prévus
                 </span>
               </div>
               <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
-                Part des OF planifiés sur le poste une semaine donnée qui y ont effectivement reçu
-                un pointage cette semaine-là. {adherence.length} semaines récentes seulement (ORDERS
-                ne garde pas les OF soldés).
+                Barre claire : OF ouverts du poste dont le lancement tombe la semaine (ORDERS).
+                Barre pleine : OF distincts ayant pointé ici cette semaine. Pas de pourcentage :
+                ORDERS ne garde pas les OF soldés, un taux mélangerait des populations différentes.{' '}
+                {adherence.length} semaines récentes seulement.
               </p>
             </>
           )}

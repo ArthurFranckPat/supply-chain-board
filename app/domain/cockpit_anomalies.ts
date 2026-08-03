@@ -36,6 +36,12 @@ export const SEUIL_SILENCE_JOURS = 5
  *  heures pointées sont jugées anormalement faibles. À VALIDER métier. */
 export const RATIO_HEURES_FAIBLES = 0.5
 
+/** Détecteur 4 — un surplus n'est signalé que s'il dépasse cette fraction de
+ *  la quantité à produire. +1 sur 384 ou 400 est de la sur-livraison normale,
+ *  pas une anomalie (revue #119, 04/08 : surplus relevés 225, 144, 42, 15, 9,
+ *  1, 1, 1, 1 — la moitié des cas était du bruit). */
+export const SEUIL_SURDECLARATION_RATIO = 0.01
+
 const JOUR_MS = 86_400_000
 
 function joursEntre(avantIso: string, apresIso: string): number {
@@ -120,6 +126,8 @@ export interface DetecterAnomaliesEntrees {
   seuilPremierPointageJours?: number
   seuilSilenceJours?: number
   ratioHeuresFaibles?: number
+  /** Fraction minimale (surplus / extqty) pour signaler — 1 % par défaut. */
+  seuilSurdeclarationRatio?: number
 }
 
 /**
@@ -197,16 +205,33 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
   // doubles saisies (#119, revue 03/08 : 792 groupes, 89 % à matricules
   // distincts, 70 % des surdéclarations réelles ratées). Le surplus se lit
   // directement dans les deux colonnes répliquées, sans heuristique.
-  const surdeclarations = e.operationsSurPoste
-    .filter((op) => op.cplqty > op.extqty)
-    .map((op): Surdeclaration => ({
-      numOf: op.mfgnum,
-      openum: op.openum,
-      cplqty: op.cplqty,
-      extqty: op.extqty,
-      surplus: op.cplqty - op.extqty,
-    }))
-    .sort((a, b) => b.surplus - a.surplus || a.numOf.localeCompare(b.numOf))
+  //
+  // UNE ligne par OF (revue 04/08) : X3 recopie la même déclaration sur chaque
+  // opération de gamme, et chacune de celles pointées ici produirait une ligne
+  // pour un seul surplus physique. On retient le surplus maximal par OF, en
+  // départageant sur l'OPENUM — les recopies portent le même surplus, la règle
+  // reste déterministe. Seuil relatif : un surplus inférieur à
+  // `seuilSurdeclarationRatio` de l'EXTQTY est de la sur-livraison normale.
+  const seuilSurdeclaration = e.seuilSurdeclarationRatio ?? SEUIL_SURDECLARATION_RATIO
+  const surParOf = new Map<string, Surdeclaration>()
+  for (const op of e.operationsSurPoste) {
+    if (op.cplqty <= op.extqty) continue
+    const surplus = op.cplqty - op.extqty
+    if (op.extqty > 0 && surplus / op.extqty < seuilSurdeclaration) continue
+    const cur = surParOf.get(op.mfgnum)
+    if (!cur || surplus > cur.surplus || (surplus === cur.surplus && op.openum > cur.openum)) {
+      surParOf.set(op.mfgnum, {
+        numOf: op.mfgnum,
+        openum: op.openum,
+        cplqty: op.cplqty,
+        extqty: op.extqty,
+        surplus,
+      })
+    }
+  }
+  const surdeclarations = [...surParOf.values()].sort(
+    (a, b) => b.surplus - a.surplus || a.numOf.localeCompare(b.numOf)
+  )
 
   jamaisPointes.sort((a, b) => (b.jours ?? 0) - (a.jours ?? 0))
   silences.sort((a, b) => (b.jours ?? 0) - (a.jours ?? 0))
