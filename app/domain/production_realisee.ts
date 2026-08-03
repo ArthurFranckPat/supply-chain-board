@@ -3,7 +3,7 @@
  *
  * Domaine pur : aucune I/O, aucun appel X3 ni réplique. Nourri par les
  * pointages d'`operations_trk_replica` (lot 1), produit les mailles jour du
- * graphe de production et la conversion en heures via la cadence de gamme.
+ * graphe de production et leur agrégation semaine/mois.
  *
  * ## Identité du poste — ÉGALITÉ STRICTE, aucune fusion
  *

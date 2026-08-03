@@ -61,9 +61,8 @@ import { loadOfASolderData } from '#services/of_a_solder_loader'
  * d'interroger MFGOPETRK en direct. L'engagement, lui, vient du pipeline #46
  * (`loadPosteEngagement`) qui a ses propres sources ORDERS/gammes.
  *
- * La production réalisée et sa conversion en heures sont du DOMAINE PUR
- * (`app/domain/production_realisee.ts`) : le loader assemble réplique + gamme +
- * capacité, il ne recalcule rien.
+ * La production réalisée est du DOMAINE PUR (`app/domain/production_realisee.ts`) :
+ * le loader assemble réplique + gamme + capacité, il ne recalcule rien.
  */
 
 /** Poste présélectionné à l'ouverture — celui qui a motivé l'écran (#119). */
@@ -340,7 +339,6 @@ function buildPasse(opts: {
   pointages: PointageTrk[]
   fen: { fromIso: string; toIso: string; toExclIso: string }
   wst: CockpitWorkstation | undefined
-  gamme: { article: string; workstation: string; rate: number }[]
   usParPalette: (article: string) => number | null
   ofTermines: CockpitOfTermine[]
   /** Calendrier usine (#37) — null si sa lecture a échoué : capacité brute. */
@@ -836,7 +834,6 @@ async function loadCockpitPosteUncached(
       pointages,
       fen,
       wst,
-      gamme: ref.gamme,
       usParPalette,
       ofTermines,
       calendar,
