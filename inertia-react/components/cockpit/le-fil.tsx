@@ -396,18 +396,17 @@ export function LeFil(props: LeFilProps) {
             {all.map((b, i) => {
               const pct = Math.max(b.v === 0 && b.futur ? 3 : 5, (b.v / max) * 100)
               const sat = b.cap > 0 ? b.v / b.cap : 0
-              const tip = b.futur
-                ? `<b>${b.lab} · engagé</b>${
-                    b.vide
-                      ? 'rien au programme'
-                      : `${fmt(b.v)} ${UNITE_LAB[mesure]} · ${Math.round(sat * 100)} % de la capacité`
-                  }`
-                : `<b>${b.lab} · constaté</b>${fmt(b.v)} ${UNITE_LAB[mesure]} · ${Math.round(sat * 100)} % de la capacité`
+              const tooltipAlign = tooltipAlignClass(i, all.length)
+              const tooltipPlacement = tooltipPlacementClass(pct)
+              const status = b.futur ? 'Engagé' : 'Constaté'
+              const detail = b.vide ? 'Aucune heure engagée' : `${fmt(b.v)} ${UNITE_LAB[mesure]}`
               return (
                 <div
                   key={i}
+                  tabIndex={0}
+                  aria-label={`${b.lab} · ${status} · ${detail}`}
                   className={cn(
-                    'group relative min-w-[2px] flex-1 rounded-t-[3px]',
+                    'group relative min-w-[2px] flex-1 rounded-t-[3px] outline-none focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                     b.futur
                       ? b.vide
                         ? 'border border-dashed border-brand/50'
@@ -417,9 +416,24 @@ export function LeFil(props: LeFilProps) {
                   style={{ height: `${pct}%` }}
                 >
                   <span
-                    className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-semibold leading-snug text-white group-hover:block"
-                    dangerouslySetInnerHTML={{ __html: tip }}
-                  />
+                    role="tooltip"
+                    className={cn(
+                      'pointer-events-none absolute z-30 hidden min-w-[150px] rounded-lg border border-white/10 bg-foreground px-3 py-2 text-left text-[10px] text-white shadow-float group-hover:block group-focus-visible:block',
+                      tooltipAlign,
+                      tooltipPlacement
+                    )}
+                  >
+                    <span className="flex items-center justify-between gap-3 border-b border-white/15 pb-1 font-semibold">
+                      <span>{b.lab}</span>
+                      <span className={b.futur ? 'text-brand' : 'text-white/60'}>{status}</span>
+                    </span>
+                    <span className="mt-1 block font-mono font-bold tabular-nums">{detail}</span>
+                    {!b.vide && (
+                      <span className="mt-0.5 block text-white/65">
+                        {Math.round(sat * 100)} % de la capacité
+                      </span>
+                    )}
+                  </span>
                 </div>
               )
             })}
@@ -459,11 +473,15 @@ export function LeFil(props: LeFilProps) {
               const v = barre.v
               const top = (1 - v / max) * 100
               const crit = liste.some((a) => a.crit)
-              const lignes = liste.map((a) => a.texte).join('<br>')
+              const tooltipAlign = tooltipAlignClass(idx, all.length)
+              const tooltipPlacement = tooltipPlacementClass(top)
               return (
                 <div
                   key={idx}
-                  className="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${liste.length} anomalie${liste.length > 1 ? 's' : ''}`}
+                  className="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 outline-none focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   style={{ left: `${((idx + 0.5) / all.length) * 100}%`, top: `${top}%` }}
                 >
                   <span
@@ -475,9 +493,22 @@ export function LeFil(props: LeFilProps) {
                     {liste.length}
                   </span>
                   <span
-                    className="pointer-events-none absolute left-1/2 top-full z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-semibold leading-relaxed text-white group-hover:block"
-                    dangerouslySetInnerHTML={{ __html: lignes }}
-                  />
+                    role="tooltip"
+                    className={cn(
+                      'pointer-events-none absolute z-30 hidden min-w-[190px] rounded-lg border border-white/10 bg-foreground px-3 py-2 text-left text-[10px] text-white shadow-float group-hover:block group-focus-within:block',
+                      tooltipAlign,
+                      tooltipPlacement
+                    )}
+                  >
+                    <span className="mb-1 block border-b border-white/15 pb-1 font-semibold">
+                      {liste.length} anomalie{liste.length > 1 ? 's' : ''}
+                    </span>
+                    <span className="flex flex-col gap-0.5 text-white/75">
+                      {liste.map((a) => (
+                        <span key={a.texte}>{a.texte}</span>
+                      ))}
+                    </span>
+                  </span>
                 </div>
               )
             })}
@@ -556,6 +587,18 @@ function VerdictCell(props: { k: string; v: VerdictVue }) {
   )
 }
 
+function tooltipAlignClass(index: number, total: number): string {
+  if (index < 3) return 'left-0'
+  if (index >= total - 3) return 'left-auto right-0'
+  return 'left-1/2 -translate-x-1/2'
+}
+
+/** Les barres proches du haut du graphe affichent leur tooltip dessous pour
+ * éviter qu'il soit coupé par le bord de la carte. */
+function tooltipPlacementClass(topPct: number): string {
+  return topPct < 28 ? 'top-full mt-2' : 'bottom-full mb-2'
+}
+
 /** Exporté pour les tests éventuels. */
 export const __internal = {
   semaineCourte,
@@ -564,4 +607,6 @@ export const __internal = {
   verdictPour,
   labelPeriode,
   capPeriode,
+  tooltipAlignClass,
+  tooltipPlacementClass,
 }
