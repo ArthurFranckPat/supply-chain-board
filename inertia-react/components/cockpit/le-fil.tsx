@@ -552,12 +552,6 @@ export function LeFil(props: LeFilProps) {
           }}
           title="Sélectionner la période du fil"
           numberOfMonths={2}
-          disabled={(date) =>
-            Boolean(
-              (availableRange.from && date < availableRange.from) ||
-              (availableRange.to && date > availableRange.to)
-            )
-          }
         />
       </div>
 
