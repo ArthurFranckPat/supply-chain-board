@@ -46,7 +46,7 @@ import { fetchBoardFeasibility, feasibilityWindowFromDates } from '@r/lib/board/
 import type { FeasStatus } from '@r/lib/board/types'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
-import { fmtH, fmtJ, type EngagementRow } from '@r/lib/board/engagement-format'
+import { fmtH, type EngagementRow } from '@r/lib/board/engagement-format'
 
 interface PosteListItem {
   code: string
@@ -517,6 +517,8 @@ function PosteDetail(props: {
             rows={engagement.rows}
             feasMap={feasMap}
             feasCounts={feasCounts}
+            capaciteHebdoHeures={poste.capaciteHebdoHeures}
+            regimeHebdo={poste.regimeHebdo}
             onSelectOf={props.onSelectOf}
           />
         )}
@@ -679,10 +681,21 @@ function EngagementTable(props: {
   rows: EngagementRow[]
   feasMap: Record<string, FeasStatus> | null
   feasCounts: { ok: number; blocked: number; qc: number }
+  capaciteHebdoHeures: number | null
+  regimeHebdo: number[] | null
   onSelectOf: (numOf: string) => void
 }) {
-  const { rows, feasMap, feasCounts, onSelectOf } = props
+  const { rows, feasMap, feasCounts, capaciteHebdoHeures, regimeHebdo, onSelectOf } = props
   const totHrs = rows.reduce((a, r) => a + (r.hours ?? 0), 0)
+  // Les jours équivalents utilisent la capacité nette du poste, jamais une
+  // constante générique de 7 h/j. Les DAYCAP résiduels (< 0,1 h) ne comptent
+  // pas comme journée active.
+  const joursActifs = regimeHebdo?.filter((h) => h > 0.1).length || 5
+  const capaciteJourMoy =
+    capaciteHebdoHeures && capaciteHebdoHeures > 0 ? capaciteHebdoHeures / joursActifs : null
+  const joursEquivalents = capaciteJourMoy ? totHrs / capaciteJourMoy : null
+  const semainesEquivalentes =
+    capaciteHebdoHeures && capaciteHebdoHeures > 0 ? totHrs / capaciteHebdoHeures : null
 
   return (
     <div className="overflow-hidden rounded-lg border border-rule bg-card shadow-float">
@@ -775,7 +788,9 @@ function EngagementTable(props: {
               </td>
               <td className="px-4 py-2 text-right">{fmtHs(totHrs)} h</td>
               <td className="px-4 py-2 text-muted-foreground" colSpan={2}>
-                {fmtJ(totHrs)} jours de charge
+                {joursEquivalents !== null && semainesEquivalentes !== null
+                  ? `${fmtNombre(joursEquivalents)} j ouvrés équiv. · ${fmtNombre(semainesEquivalentes)} sem. de capacité · base ${fmtHs(capaciteJourMoy ?? 0)} h/j`
+                  : 'Équivalent capacité indisponible'}
               </td>
             </tr>
           </tfoot>
@@ -984,3 +999,5 @@ const plusSeptJours = (iso: string): string => {
 
 /** fmtH sans le « ,00 » des entiers — 40 h au lieu de 40,00 h. */
 const fmtHs = (h: number) => fmtH(h).replace(/,00$/, '')
+const fmtNombre = (n: number) =>
+  n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
