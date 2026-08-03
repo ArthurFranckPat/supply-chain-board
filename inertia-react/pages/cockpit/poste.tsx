@@ -91,6 +91,40 @@ interface Passe {
   heuresParMois: PasseMoisHeures[]
 }
 
+type AnomalieKind =
+  | 'jamais_pointe'
+  | 'silence'
+  | 'sans_heures'
+  | 'heures_faibles'
+  | 'doublon_declaration'
+
+interface AnomalieVue {
+  kind: AnomalieKind
+  numOf: string
+  article: string
+  designation: string | null
+  dateDebutIso: string | null
+  dernierPointageIso: string | null
+  jours: number | null
+  qtyDeclaree: number | null
+  heuresPointees: number | null
+  heuresTheoriques: number | null
+}
+
+interface DoublonVue {
+  numOf: string
+  openum: number
+  iptdat: string
+  nombre: number
+}
+
+interface AnomaliesVue {
+  jamaisPointes: AnomalieVue[]
+  silences: AnomalieVue[]
+  heures: AnomalieVue[]
+  doublons: DoublonVue[]
+}
+
 interface PostePayload {
   poste: PosteInfo
   engagement: {
@@ -103,6 +137,8 @@ interface PostePayload {
   } | null
   /** Passé constaté — null si la réplique est indisponible. */
   passe: Passe | null
+  /** Anomalies de pointage — null si la réplique est indisponible. */
+  anomalies: AnomaliesVue | null
   fenetre: { fromIso: string; toIso: string }
   replica: ReplicaState
   x3Error: string | null
@@ -264,9 +300,9 @@ export default function CockpitPoste(props: Props) {
   )
 }
 
-/** Carte d'identité + passé constaté + bloc engagement d'un poste. */
+/** Carte d'identité + passé constaté + anomalies + bloc engagement d'un poste. */
 function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string) => void }) {
-  const { poste, engagement, passe, x3Error } = props.payload
+  const { poste, engagement, passe, anomalies, x3Error } = props.payload
   const sat = engagement
     ? saturation(engagement.totalHours, engagement.weeklyCapacityHours)
     : null
@@ -388,6 +424,9 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
         </div>
       )}
 
+      {/* Anomalies de pointage — quatre détecteurs (#119, lot 5). */}
+      {passe && anomalies && <AnomaliesSection anomalies={anomalies} onSelectOf={props.onSelectOf} />}
+
       {/* Engagement futur — pipeline #46 réutilisé. */}
       <div className="px-7 py-4">
         <div className="mb-2 flex items-center gap-3">
@@ -489,6 +528,146 @@ function EngagementLine(props: { row: EngagementRow; onSelectOf: (numOf: string)
       <span className="w-12 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
         {fmtJ(r.hours)} j
       </span>
+    </div>
+  )
+}
+
+/** Les quatre détecteurs d'anomalies (#119, lot 5). Chaque OF est cliquable
+ *  (détail OF), les doublons renvoient vers l'OF concerné. */
+function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: string) => void }) {
+  const { anomalies, onSelectOf } = props
+  const total =
+    anomalies.jamaisPointes.length +
+    anomalies.silences.length +
+    anomalies.heures.length +
+    anomalies.doublons.length
+
+  return (
+    <div className="border-b border-border px-7 py-4">
+      <div className="mb-2 flex items-center gap-3">
+        <span className="font-fraunces text-[13px] font-bold not-italic text-foreground">
+          Anomalies de pointage
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {total === 0 ? 'aucune détectée' : `${total} signalée${total > 1 ? 's' : ''}`}
+        </span>
+      </div>
+
+      {total === 0 ? (
+        <div className="rounded-lg border border-rule bg-card p-4 text-center font-fraunces text-[13px] italic text-muted-foreground">
+          Rien à signaler : tous les OF en cours pointent normalement.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <AnomalieCard
+            titre="Lancés, jamais pointés"
+            note="OF en cours sans aucun pointage sur ce poste"
+            count={anomalies.jamaisPointes.length}
+          >
+            {anomalies.jamaisPointes.map((a) => (
+              <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                <span className="text-muted-foreground">{a.article}</span>
+                <span className="ml-auto text-muted-foreground">
+                  lancé {fmtDateFr(a.dateDebutIso)}
+                </span>
+                <span className="font-bold text-danger">{a.jours} j</span>
+              </AnomalieRow>
+            ))}
+          </AnomalieCard>
+
+          <AnomalieCard
+            titre="Sans déclaration récente"
+            note="Dernier pointage trop ancien pour un OF toujours en cours"
+            count={anomalies.silences.length}
+          >
+            {anomalies.silences.map((a) => (
+              <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                <span className="text-muted-foreground">{a.article}</span>
+                <span className="ml-auto text-muted-foreground">
+                  dernier {fmtDateFr(a.dernierPointageIso)}
+                </span>
+                <span className="font-bold text-danger">{a.jours} j</span>
+              </AnomalieRow>
+            ))}
+          </AnomalieCard>
+
+          <AnomalieCard
+            titre="Déclaré sans heures"
+            note="Quantité déclarée mais temps pointé nul ou anormalement faible"
+            count={anomalies.heures.length}
+          >
+            {anomalies.heures.map((a) => (
+              <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
+                <span className="text-muted-foreground">
+                  {a.article} · décl. {a.qtyDeclaree ?? 0}
+                </span>
+                <span className="ml-auto">
+                  <span className={cn('font-bold', a.kind === 'sans_heures' ? 'text-danger' : 'text-suggere')}>
+                    {fmtH(a.heuresPointees ?? 0)} h
+                  </span>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    / {fmtH(a.heuresTheoriques ?? 0)} h théo.
+                  </span>
+                </span>
+              </AnomalieRow>
+            ))}
+          </AnomalieCard>
+
+          <AnomalieCard
+            titre="Déclarations en double"
+            note="Mêmes (OF, opération, jour) en plusieurs exemplaires — à vérifier"
+            count={anomalies.doublons.length}
+          >
+            {anomalies.doublons.map((d) => (
+              <AnomalieRow key={`${d.numOf}-${d.openum}-${d.iptdat}`} numOf={d.numOf} onSelectOf={onSelectOf}>
+                <span className="text-muted-foreground">
+                  op. {d.openum} · {fmtDateFr(d.iptdat)}
+                </span>
+                <span className="ml-auto font-bold text-suggere">×{d.nombre}</span>
+              </AnomalieRow>
+            ))}
+          </AnomalieCard>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AnomalieCard(props: { titre: string; note: string; count: number; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+      <div className="mb-1 flex items-baseline gap-2 px-1">
+        <span className="text-[11px] font-semibold text-foreground">{props.titre}</span>
+        {props.count > 0 && (
+          <span className="font-mono text-[10px] font-bold text-danger">{props.count}</span>
+        )}
+      </div>
+      <div className="px-1 pb-1 font-mono text-[9px] leading-tight text-muted-foreground/80">
+        {props.note}
+      </div>
+      {props.count === 0 ? (
+        <div className="px-1 pb-1 font-fraunces text-[12px] italic text-muted-foreground">
+          Aucun.
+        </div>
+      ) : (
+        <div className="divide-y divide-rule-soft">{props.children}</div>
+      )}
+    </div>
+  )
+}
+
+function AnomalieRow(props: { numOf: string; onSelectOf: (numOf: string) => void; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 px-1 py-1.5 font-mono text-[11px] tabular-nums">
+      <button
+        type="button"
+        className="shrink-0 cursor-pointer font-bold tracking-tight text-brand hover:underline"
+        onClick={() => props.onSelectOf(props.numOf)}
+      >
+        {props.numOf}
+      </button>
+      {props.children}
     </div>
   )
 }

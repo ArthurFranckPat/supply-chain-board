@@ -121,7 +121,9 @@ const ENGAGEMENT_TTL = 2 * 60 * 1000
 
 const engagementCache = () => cacheNs('engagement')
 
-const resolvePoste = (
+/** Poste d'un OF : override manuel sinon première opération de gamme.
+ *  Exportée pour le cockpit (#119) — MÊME rattachement partout, une seule source. */
+export const resolvePoste = (
   mo: ManufacturingOrder,
   overrideMap: Map<string, { workstation: string | null }>,
   opsByArticle: Map<string, { workstation: string | null }[]>

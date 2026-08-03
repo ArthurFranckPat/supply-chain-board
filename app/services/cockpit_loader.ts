@@ -4,11 +4,14 @@ import replicaGate, { type GateVerdict } from '#services/replica_gate'
 import { operationsTrkWindow } from '#services/replica_sync_service'
 import {
   loadPosteEngagement,
+  resolvePoste,
   weeklyCapacityOf,
   type PosteEngagement,
 } from '#services/poste_engagement_loader'
+import { OverrideStore } from '#services/override_store'
 import { POSTE_PP_RE, atelierLabel } from '#app/domain/atelier'
 import { capacityPeriod } from '#app/domain/capacity'
+import { detecterAnomaliesPoste, type AnomaliesPosteResultat } from '#app/domain/cockpit_anomalies'
 import {
   heuresConvertiesParJour,
   productionParMois,
@@ -16,6 +19,11 @@ import {
   type PointageTrk,
   type ProductionMois,
 } from '#app/domain/production_realisee'
+import {
+  groupGammeByArticle,
+  hoursForQuantity,
+  type GammeOperation,
+} from '#app/domain/models/gamme'
 import { isoDay } from '#app/utils/dates'
 import { cacheNs } from '#services/cache_ns'
 
@@ -103,6 +111,8 @@ export interface CockpitPostePayload {
   engagement: PosteEngagement | null
   /** Passé constaté — réplique de pointages + domaine pur, lot 4. */
   passe: CockpitPasse | null
+  /** Anomalies de pointage (#119, lot 5) — null si la réplique est indisponible. */
+  anomalies: AnomaliesPosteResultat | null
   fenetre: { fromIso: string; toIso: string }
   replica: CockpitReplicaState
   x3Error: string | null
@@ -191,55 +201,41 @@ function moisDeLaFenetre(fromIso: string, toIso: string): string[] {
   return out
 }
 
+/** Cadence de gamme par (article, poste) — première rencontrée, rate > 0. */
+function cadenceParArticlePoste(
+  gamme: { article: string; workstation: string; rate: number }[]
+): Map<string, number> {
+  const cadenceParCle = new Map<string, number>()
+  for (const g of gamme) {
+    if (!g.workstation || g.rate <= 0) continue
+    const cle = `${g.article}#${g.workstation}`
+    if (!cadenceParCle.has(cle)) cadenceParCle.set(cle, g.rate)
+  }
+  return cadenceParCle
+}
+
 /**
- * Le passé constaté du poste : lecture réplique, puis domaine pur pour la
- * production réalisée et la conversion en heures. La capacité du graphe vient de
- * `capacityPeriod` (#35/#37), bornée à la fenêtre répliquée.
- *
- * Retourne null si la réplique est indisponible — l'appelant ne doit PAS tenter
- * la voie directe sur les pointages.
+ * Le passé constaté du poste : domaine pur sur les pointages déjà lus de la
+ * réplique (jamais de voie directe — c'est l'appelant qui a passé le verdict).
+ * La capacité du graphe vient de `capacityPeriod` (#35/#37), bornée à la
+ * fenêtre répliquée.
  */
-async function computePasse(opts: {
-  poste: string
+function buildPasse(opts: {
+  pointages: PointageTrk[]
   fen: { fromIso: string; toIso: string; toExclIso: string }
   wst: CockpitWorkstation | undefined
   gamme: { article: string; workstation: string; rate: number }[]
-}): Promise<CockpitPasse | null> {
-  const verdict = await replicaGate.verdict('operations_trk_replica')
-  if (verdict.source !== 'replica') return null
-
-  const rows = await operationsTrkReplicaRepository.getPointages(
-    opts.fen.fromIso,
-    opts.fen.toExclIso,
-    opts.poste
-  )
-  if (rows.length === 0) {
+}): CockpitPasse {
+  const { pointages } = opts
+  if (pointages.length === 0) {
     return { nbPointages: 0, productionParMois: [], heuresParMois: [] }
   }
-
-  const pointages: PointageTrk[] = rows.map((r) => ({
-    numOf: r.numOf,
-    openum: r.openum,
-    iptdat: r.iptdat,
-    cplwst: r.cplwst,
-    cplqty: r.cplqty,
-    opetim: r.opetim,
-    settim: r.settim,
-    rebut: r.rebut,
-    itmrefOf: r.itmrefOf,
-  }))
 
   // Domaine pur : sélection dernière opération quantifiée + mailles jour + mois.
   const maillesJour = productionRealiseeParJour(pointages)
   const prodMois = productionParMois(maillesJour)
 
-  // Cadence de gamme par (article, poste) pour la conversion en heures.
-  const cadenceParCle = new Map<string, number>()
-  for (const g of opts.gamme) {
-    if (!g.workstation || g.rate <= 0) continue
-    const cle = `${g.article}#${g.workstation}`
-    if (!cadenceParCle.has(cle)) cadenceParCle.set(cle, g.rate)
-  }
+  const cadenceParCle = cadenceParArticlePoste(opts.gamme)
   const convertiesJour = heuresConvertiesParJour(
     pointages,
     (article, poste) => cadenceParCle.get(`${article}#${poste}`) ?? null
@@ -277,16 +273,110 @@ async function computePasse(opts: {
     }
   )
 
-  return { nbPointages: rows.length, productionParMois: prodMois, heuresParMois }
+  return { nbPointages: pointages.length, productionParMois: prodMois, heuresParMois }
 }
 
 /** Poste du référentiel — shape minimale pour la capacité. */
 type CockpitWorkstation = Parameters<typeof capacityPeriod>[0]
 
+/** Statuts OF considérés « en cours » — les mêmes que l'engagement (#46). */
+const STATUTS_EN_COURS = new Set([1, 2, 3])
+
 /**
- * Payload d'un poste : identité + passé constaté + engagement. La réplique
- * indisponible n'empêche pas l'engagement (sources ORDERS/gammes distinctes) —
- * elle met seulement le passé à null et l'écran le dira.
+ * Anomalies de pointage du poste (#119, lot 5). Domaine pur sur :
+ *  - les OF EN COURS rattachés au poste (ORDERS ouverts + même résolution de
+ *    poste que l'engagement : override sinon première opération de gamme) ;
+ *  - les quantités déclarées (MFGOPE via `getOperations`, dual-source) ;
+ *  - les pointages du poste déjà lus de la réplique.
+ *
+ * Retourne null si la réplique est indisponible : trois détecteurs sur quatre
+ * vivent sur les pointages, et le quatrième (déclaré sans heures) n'a de sens
+ * qu'en regard des mêmes pointages.
+ */
+async function buildAnomalies(opts: {
+  poste: string
+  pointages: PointageTrk[]
+  gamme: GammeOperation[]
+}): Promise<AnomaliesPosteResultat | null> {
+  const verdict = await replicaGate.verdict('operations_trk_replica')
+  if (verdict.source !== 'replica') return null
+
+  const [ord, overrides] = await Promise.all([
+    boardDataset.getOrders(),
+    new OverrideStore().getAll(),
+  ])
+  const opsByArticle = groupGammeByArticle(opts.gamme)
+  const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
+
+  const seen = new Set<string>()
+  const enCours = ord.mos.filter((mo) => {
+    if (!STATUTS_EN_COURS.has(Number(mo.status))) return false
+    if (seen.has(mo.numOf)) return false
+    if (resolvePoste(mo, overrideMap, opsByArticle) !== opts.poste) return false
+    seen.add(mo.numOf)
+    return true
+  })
+  if (enCours.length === 0) {
+    // Sans OF en cours sur le poste, seuls les doublons restent détectables.
+    return detecterAnomaliesPoste({
+      ofs: [],
+      pointages: opts.pointages,
+      heuresTheoriquesPour: () => 0,
+      aujourdhuiIso: isoDay(new Date()),
+    })
+  }
+
+  // Quantité déclarée par OF — MFGOPE (dual-source, cf. board_dataset).
+  const declareeParOf = new Map<string, number>()
+  try {
+    const operations = await boardDataset.getOperations(enCours.map((m) => m.numOf))
+    for (const op of operations) {
+      declareeParOf.set(op.mfgnum, (declareeParOf.get(op.mfgnum) ?? 0) + (op.cplqty || 0))
+    }
+  } catch {
+    // Déclarations indisponibles : le détecteur 3 tournera sur des quantités à
+    // zéro (donc muet) plutôt que de faire échouer tout le payload.
+  }
+
+  const cadenceParCle = cadenceParArticlePoste(opts.gamme)
+
+  return detecterAnomaliesPoste({
+    ofs: enCours.map((mo) => ({
+      numOf: mo.numOf,
+      article: mo.article,
+      designation: mo.designation,
+      dateDebutIso: mo.startDate ? isoDay(mo.startDate) : null,
+      qtyDeclaree: declareeParOf.get(mo.numOf) ?? 0,
+    })),
+    pointages: opts.pointages,
+    heuresTheoriquesPour: (article, qty) =>
+      hoursForQuantity({ rate: cadenceParCle.get(`${article}#${opts.poste}`) ?? 0 }, qty),
+    aujourdhuiIso: isoDay(new Date()),
+  })
+}
+
+/** Lignes réplique → pointages du domaine. */
+function versPointages(
+  rows: Awaited<ReturnType<typeof operationsTrkReplicaRepository.getPointages>>
+): PointageTrk[] {
+  return rows.map((r) => ({
+    numOf: r.numOf,
+    openum: r.openum,
+    iptdat: r.iptdat,
+    cplwst: r.cplwst,
+    cplqty: r.cplqty,
+    opetim: r.opetim,
+    settim: r.settim,
+    rebut: r.rebut,
+    itmrefOf: r.itmrefOf,
+  }))
+}
+
+/**
+ * Payload d'un poste : identité + passé constaté + anomalies + engagement. La
+ * réplique indisponible n'empêche pas l'engagement (sources ORDERS/gammes
+ * distinctes) — elle met seulement le passé et les anomalies à null et l'écran
+ * le dira. Les pointages sont lus UNE fois et partagés passé/anomalies.
  */
 export async function loadCockpitPoste(poste: string, force = false): Promise<CockpitPostePayload> {
   const safe = poste.trim()
@@ -305,6 +395,12 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
   let label = safe
   for (const g of ref.gamme) if (g.workstation === safe) label = g.workstationLabel || g.workstation
 
+  const pointages: PointageTrk[] = replica.disponible
+    ? versPointages(
+        await operationsTrkReplicaRepository.getPointages(fen.fromIso, fen.toExclIso, safe)
+      )
+    : []
+
   const info: CockpitPosteInfo = {
     code: safe,
     label,
@@ -312,12 +408,16 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
     atelierLabel: atelierLabel(wst?.stockLocation ?? ''),
     capaciteHebdoHeures: weeklyCapacityOf(safe, ref.workstations),
     regimeHebdo: wst ? [...wst.dailyCapacity] : null,
-    dernierPointageIso: replica.disponible
-      ? await operationsTrkReplicaRepository.getDernierPointageIso(safe, fen.fromIso, fen.toExclIso)
-      : null,
+    dernierPointageIso:
+      replica.disponible && pointages.length > 0
+        ? pointages.reduce((max, p) => (p.iptdat > max ? p.iptdat : max), pointages[0].iptdat)
+        : null,
   }
 
-  const passe = await computePasse({ poste: safe, fen, wst, gamme: ref.gamme })
+  const passe = replica.disponible ? buildPasse({ pointages, fen, wst, gamme: ref.gamme }) : null
+  const anomalies = replica.disponible
+    ? await buildAnomalies({ poste: safe, pointages, gamme: ref.gamme })
+    : null
 
   let engagement: PosteEngagement | null = null
   let x3Error: string | null = null
@@ -328,5 +428,5 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
     x3Error = (e as Error).message
   }
 
-  return { poste: info, engagement, passe, fenetre, replica, x3Error }
+  return { poste: info, engagement, passe, anomalies, fenetre, replica, x3Error }
 }
