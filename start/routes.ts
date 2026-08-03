@@ -112,6 +112,8 @@ router
     router
       .get('/controle-prod', '#controllers/controle_prod_controller.index')
       .as('controle_prod.index')
+    // Cockpit poste (#119) : passé constaté (pointages) + engagement futur par poste.
+    router.get('/cockpit', '#controllers/cockpit_controller.index').as('cockpit.index')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router
@@ -237,6 +239,13 @@ router
     router
       .get('/api/v1/planning/of-a-solder', '#controllers/controle_prod_controller.ofASolder')
       .as('controle_prod.of_a_solder')
+    // Cockpit poste (#119) : sélecteur puis identité + engagement d'un poste.
+    router
+      .get('/api/v1/planning/cockpit/postes', '#controllers/cockpit_controller.postes')
+      .as('cockpit.postes')
+    router
+      .get('/api/v1/planning/cockpit/postes/:poste', '#controllers/cockpit_controller.poste')
+      .as('cockpit.poste')
     // Détail d'une période de charge : composition d'une barre du graphe /charge.
     router
       .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { TriangleAlert, Search } from 'lucide-react'
+import { TriangleAlert, Search, Factory } from 'lucide-react'
+import { router } from '@inertiajs/react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
+import { route } from '@r/lib/routes'
 import type { LoadPageProps, LoadLine, LoadQtyMode, LoadView } from '@r/lib/load/types'
 import {
   type Gran,
@@ -405,6 +407,22 @@ export default function Load(props: LoadPageProps) {
           {/* Pas de légende ici : elle est dessinée DANS le graphe de détail
               (DetailChart), attachée à ce qu'elle décrit. */}
           <ToolbarSpacer />
+          {/* Entrée cockpit (#119) : poste présélectionné si une ligne est active. */}
+          <button
+            type="button"
+            onClick={() =>
+              router.visit(
+                selLine
+                  ? `${route('cockpit.index')}?poste=${encodeURIComponent(selLine.code)}`
+                  : route('cockpit.index')
+              )
+            }
+            className={cn(PILL, 'cursor-pointer px-3 text-foreground hover:border-brand/50')}
+            title={selLine ? `Cockpit du poste ${selLine.code}` : 'Cockpit poste'}
+          >
+            <Factory size={15} strokeWidth={1.75} className="text-brand" />
+            <span className="font-mono text-[11px] font-semibold">Cockpit</span>
+          </button>
           {/* Recherche — systématiquement à droite, jamais consolidée derrière
               un clic (convention toolbar). */}
           <div className={PILL}>

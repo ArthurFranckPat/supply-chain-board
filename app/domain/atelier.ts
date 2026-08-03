@@ -8,6 +8,15 @@
  */
 import { groupGammeByArticle, type GammeOperation } from '#app/domain/models/gamme'
 
+/**
+ * Postes « ligne de production » : préfixe `PP_` + numéro. Convention partagée
+ * du séquenceur (#46) et du cockpit (#119) — les codes hors nomenclature
+ * (stocks, ateliers annexes, codes libres d'override) n'ont leur place ni dans
+ * l'un ni dans l'autre. Le cockpit l'applique à la liste venue des pointages,
+ * le séquenceur à la liste venue des gammes : MÊME filtre, sources différentes.
+ */
+export const POSTE_PP_RE = /^PP_\d+$/
+
 export type AtelierCategory = 'montage' | 'fabrication'
 
 /**

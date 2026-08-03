@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 111 routes nommées.
+ * 114 routes nommées.
  */
 
 export const MANIFEST = {
@@ -28,6 +28,9 @@ export const MANIFEST = {
   'calendar_config.toggle_holiday': { method: 'POST', pattern: '/api/v1/config/holidays/toggle' },
   'calendar_config.update_closure': { method: 'PATCH', pattern: '/api/v1/config/closures/:id' },
   'charge.detail': { method: 'GET', pattern: '/api/v1/planning/charge/detail' },
+  'cockpit.index': { method: 'GET', pattern: '/cockpit' },
+  'cockpit.poste': { method: 'GET', pattern: '/api/v1/planning/cockpit/postes/:poste' },
+  'cockpit.postes': { method: 'GET', pattern: '/api/v1/planning/cockpit/postes' },
   'conditionnements.estimations': {
     method: 'GET',
     pattern: '/api/v1/conditionnements/estimations',
@@ -178,6 +181,9 @@ export type RouteParams = {
   'calendar_config.toggle_holiday': void
   'calendar_config.update_closure': { id: string | number }
   'charge.detail': void
+  'cockpit.index': void
+  'cockpit.poste': { poste: string | number }
+  'cockpit.postes': void
   'conditionnements.estimations': void
   'conditionnements.index': void
   'conditionnements.rows': void
