@@ -1,0 +1,567 @@
+/**
+ * LeFil — « le fil du poste » (#119, design V3).
+ *
+ * Un poste de charge se lit sur UN axe de temps continu : le passé constaté
+ * (réplique MFGOPETRK) et le futur engagé (OF fermes du programme) partagent
+ * la même échelle, la même ligne de capacité, la même maille. La coupure
+ * « aujourd'hui » est la seule rupture — « je tourne à 120 % depuis 6 mois ET
+ * j'ai encore 188 % engagés la semaine prochaine » se lit en un coup d'œil.
+ *
+ * RÈGLES DE REPRÉSENTATION (maquette V3, verrouillées) :
+ *  1. Une seule échelle pour tout le fil, calculée sur le max global.
+ *  2. Ligne de capacité CALCULÉE depuis cette échelle, jamais posée.
+ *  3. Une seule couleur de barre ; le dépassement se lit contre la ligne.
+ *  4. Rempli = constaté. Contour hachuré = engagé, pas encore fait.
+ *  5. Mesure par défaut = heures (seule unité où la capacité est exacte).
+ *     Pièces/palettes : la capacité est alors convertie à la cadence moyenne
+ *     constatée et étiquetée comme telle.
+ *  6. Agrégation mois = SOMME des semaines, jamais échantillonnage.
+ *  7. Verdicts issus de seuils explicites (VERDICTS), pas de prose écrite à
+ *     la main qu'aucun serveur ne saurait rendre.
+ */
+
+import { useMemo } from 'react'
+import { cn } from '@r/lib/utils'
+import type { EngagementRow } from '@r/lib/board/engagement-format'
+
+export type Mesure = 'h' | 'pc' | 'pal'
+export type MailleFil = 'jour' | 'semaine' | 'mois'
+
+/** Une période de la série passée (une des 3 mailles servies par le loader). */
+export interface PassePeriode {
+  /** Clé de période : lundi ISO (semaine), JJ-MM (jour), YYYY-MM (mois). */
+  date: string
+  heures: number
+  qty: number
+  /** Équivalent palette de la période — null = pas de coef (#119). */
+  palettes: number | null
+}
+
+/** Une barre du fil, prête à rendre. */
+interface Barre {
+  lab: string
+  v: number
+  cap: number
+  futur: boolean
+  vide: boolean
+}
+
+/** Une anomalie datée. La reprojection sur la série passée de la maille
+ *  courante se fait ICI (lundi pour semaine, YYYY-MM pour mois, jour exact) —
+ *  même règle que `semVersBarre` de la maquette V3. Hors fenêtre → ignorée. */
+export interface AnomalieFil {
+  /** Date ISO la plus pertinente (dernier pointage ?? lancement ?? jour). */
+  dateIso: string | null
+  crit: boolean
+  texte: string
+}
+
+export interface VerdictVue {
+  /** Valeur brute à afficher (déjà dans la bonne unité). */
+  big: string
+  txt: string
+  cls: 'ok' | 'warn' | 'bad' | 'mute'
+  sub: string
+}
+
+export interface LeFilProps {
+  /** Les 3 mailles passées réelles, servies précalculées par le loader. */
+  passeParMaille: Record<MailleFil, PassePeriode[]>
+  /** Heures totales pointées et pièces totales sur la fenêtre (cadence moyenne). */
+  totaux: { heures: number; qty: number }
+  /** OF engagés du programme (#46) — ventilés par semaine de début. */
+  ofsEngages: Pick<EngagementRow, 'numOf' | 'dateDebutIso' | 'hours'>[]
+  /** Capacité hebdomadaire théorique (h) — TABWEEDIA. Null si inconnue. */
+  capaciteHebdoHeures: number | null
+  /** Anomalies reprojetées sur la série passée de la maille courante. */
+  anomalies: AnomalieFil[]
+  maille: MailleFil
+  onMaille: (m: MailleFil) => void
+  mesure: Mesure
+  onMesure: (m: Mesure) => void
+  verdicts: { saturation: VerdictVue; fiabilite: VerdictVue; carnet: VerdictVue }
+  /** Sous-titre honnête sur ce qu'on regarde (défaut calculé ici). */
+  sub?: string
+}
+
+/** Seuils de verdict — implémentables tels quels côté serveur (maquette V3). */
+export const VERDICTS = {
+  saturation: [
+    { max: 0.85, cls: 'warn', txt: 'Poste sous-employé' },
+    { max: 1.05, cls: 'ok', txt: 'Poste à sa capacité' },
+    { max: 1.25, cls: 'warn', txt: 'Au-dessus de la capacité déclarée' },
+    { max: Infinity, cls: 'bad', txt: 'Capacité déclarée hors sujet' },
+  ],
+  fiabilite: [
+    { max: 0.9, cls: 'warn', txt: 'Gamme trop généreuse' },
+    { max: 1.1, cls: 'ok', txt: 'Gamme tenue' },
+    { max: 1.25, cls: 'warn', txt: 'Gamme optimiste' },
+    { max: Infinity, cls: 'bad', txt: 'Gamme à refaire' },
+  ],
+  carnet: [
+    { max: 0.6, cls: 'warn', txt: 'Carnet creux' },
+    { max: 1.05, cls: 'ok', txt: 'Carnet tenable' },
+    { max: 1.4, cls: 'warn', txt: 'Carnet en surengagement' },
+    { max: Infinity, cls: 'bad', txt: 'Carnet intenable' },
+  ],
+} as const
+
+export type VerdictCls = 'ok' | 'warn' | 'bad'
+
+export function verdictPour(
+  table: readonly { max: number; cls: VerdictCls; txt: string }[],
+  x: number
+): { txt: string; cls: VerdictCls } {
+  const v = table.find((s) => x < s.max) ?? table[table.length - 1]
+  return { txt: v.txt, cls: v.cls }
+}
+
+/** Lundi ISO d'une date ISO (YYYY-MM-DD) — même règle que le domaine. */
+export function lundiIso(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  const dow = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - dow)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
+const fmt = (n: number) => Math.round(n).toLocaleString('fr-FR')
+
+/** « S JJ/MM » à partir d'un lundi ISO — même style que l'axe actuel. */
+function semaineCourte(lundiIso: string): string {
+  const [, m, d] = /^(\d{4})-(\d{2})-(\d{2})/.exec(lundiIso) ?? []
+  return m && d ? `S ${d}/${m}` : lundiIso
+}
+
+/** +7 jours sur une date ISO. */
+function plusSeptJours(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  d.setDate(d.getDate() + 7)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
+/** Étiquette courte d'une clé de période, selon la maille. */
+function labelPeriode(date: string, maille: MailleFil): string {
+  if (maille === 'semaine') return semaineCourte(date)
+  if (maille === 'jour') {
+    const [, m, d] = /^(\d{4})-(\d{2})-(\d{2})/.exec(date) ?? []
+    return m && d ? `${d}/${m}` : date
+  }
+  // mois : YYYY-MM → « févr. », « mars »…
+  const [y, m] = date.split('-').map(Number)
+  const COURTS = [
+    'janv.',
+    'févr.',
+    'mars',
+    'avr.',
+    'mai',
+    'juin',
+    'juil.',
+    'août',
+    'sept.',
+    'oct.',
+    'nov.',
+    'déc.',
+  ]
+  const court = COURTS[(m ?? 1) - 1] ?? date
+  return m === 1 ? `${court} ${String(y).slice(2)}` : court
+}
+
+/** Capacité (h) d'une période de la maille donnée. */
+function capPeriode(maille: MailleFil, capHebdo: number): number {
+  if (capHebdo <= 0) return 0
+  if (maille === 'semaine') return capHebdo
+  if (maille === 'jour') return capHebdo / 5
+  return capHebdo * 4.35 // mois moyen (8 h × 5 j × 4,35)
+}
+
+/**
+ * LeFil : la carte centrale. Construit la série (passé réel + futur ventilé
+ * selon la maille), calcule l'échelle unique et rend barres + capacité +
+ * coupure + pastilles + verdicts.
+ */
+export function LeFil(props: LeFilProps) {
+  const {
+    passeParMaille,
+    totaux,
+    ofsEngages,
+    capaciteHebdoHeures,
+    anomalies,
+    maille,
+    onMaille,
+    mesure,
+    onMesure,
+    verdicts,
+  } = props
+
+  const capHebdo = capaciteHebdoHeures ?? 0
+  const cadenceMoy = totaux.heures > 0 ? totaux.qty / totaux.heures : 0
+
+  /* Ventilation des OF engagés : semaines de début (lundi ISO) → heures. */
+  const futurParSemaine = useMemo(() => {
+    const par = new Map<string, number>()
+    for (const of of ofsEngages) {
+      if (!of.dateDebutIso || !of.hours) continue
+      const lundi = lundiIso(of.dateDebutIso)
+      par.set(lundi, (par.get(lundi) ?? 0) + of.hours)
+    }
+    return [...par.entries()]
+      .map(([lundi, heures]) => ({ lundi, heures }))
+      .sort((a, b) => (a.lundi < b.lundi ? -1 : 1))
+  }, [ofsEngages])
+
+  /* Conversion mesure + capacité dans la mesure courante. */
+  const toMesure = (h: number, pc: number): number => {
+    if (mesure === 'h') return h
+    if (mesure === 'pc') return pc
+    return pc / 60 // 60 pc/palette — valeur de démo, à brancher sur calcPalettes
+  }
+  const capMesure = (h: number): number => {
+    if (mesure === 'h') return h
+    const pc = h * cadenceMoy
+    return mesure === 'pc' ? pc : pc / 60
+  }
+
+  const serie = useMemo(() => {
+    const passePeriodes = passeParMaille[maille] ?? []
+    const capPer = capPeriode(maille, capHebdo)
+
+    const passe: Barre[] = passePeriodes.map((p) => ({
+      lab: labelPeriode(p.date, maille),
+      v: toMesure(p.heures, mesure === 'pal' && p.palettes !== null ? p.palettes * 60 : p.qty),
+      cap: capMesure(capPer),
+      futur: false,
+      vide: false,
+    }))
+
+    const futur: Barre[] = []
+    if (futurParSemaine.length > 0 && passePeriodes.length > 0) {
+      if (maille === 'semaine') {
+        const dernierLundi = passePeriodes[passePeriodes.length - 1].date
+        let lundi = plusSeptJours(dernierLundi)
+        const dernierFutur = futurParSemaine[futurParSemaine.length - 1].lundi
+        let garde = 0
+        while (lundi <= dernierFutur && garde < 6) {
+          const heures = futurParSemaine.find((f) => f.lundi === lundi)?.heures ?? 0
+          futur.push({
+            lab: semaineCourte(lundi),
+            v: toMesure(heures, heures * cadenceMoy),
+            cap: capMesure(capHebdo),
+            futur: true,
+            vide: heures === 0,
+          })
+          lundi = plusSeptJours(lundi)
+          garde++
+        }
+        // Semaine de respiration si le dernier OF est déjà couvert.
+        if (futur.length > 0 && lundi <= plusSeptJours(dernierFutur)) {
+          futur.push({
+            lab: semaineCourte(lundi),
+            v: 0,
+            cap: capMesure(capHebdo),
+            futur: true,
+            vide: true,
+          })
+        }
+      } else if (maille === 'mois') {
+        const hFut = futurParSemaine.reduce((a, f) => a + f.heures, 0)
+        futur.push({
+          lab: 'août',
+          v: toMesure(hFut, hFut * cadenceMoy),
+          cap: capMesure(capHebdo * 4.35),
+          futur: true,
+          vide: hFut === 0,
+        })
+      } else {
+        // jour : chaque OF sur son jour de début.
+        const parJour = new Map<string, number>()
+        for (const of of ofsEngages) {
+          if (!of.dateDebutIso || !of.hours) continue
+          parJour.set(of.dateDebutIso, (parJour.get(of.dateDebutIso) ?? 0) + of.hours)
+        }
+        for (const [jour, heures] of [...parJour.entries()].sort()) {
+          futur.push({
+            lab: `${jour.slice(8, 10)}/${jour.slice(5, 7)}`,
+            v: toMesure(heures, heures * cadenceMoy),
+            cap: capMesure(capHebdo / 5),
+            futur: true,
+            vide: false,
+          })
+        }
+      }
+    }
+
+    return { passe, futur }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passeParMaille, maille, mesure, futurParSemaine, cadenceMoy, capHebdo, ofsEngages])
+
+  const all = [...serie.passe, ...serie.futur]
+  const capMax = Math.max(...all.map((b) => b.cap), 0)
+  const max = Math.max(...all.map((b) => b.v), capMax) * 1.06 || 1
+  const nPasse = serie.passe.length
+
+  const UNITE_LAB: Record<Mesure, string> = { h: 'h', pc: 'pc', pal: 'pal' }
+  const libMesure = { h: 'heures pointées', pc: 'pièces déclarées', pal: 'palettes' }[mesure]
+  const libMaille = { jour: 'par jour', semaine: 'par semaine', mois: 'par mois' }[maille]
+
+  const sub =
+    props.sub ??
+    `${serie.passe.length} périodes constatées${serie.futur.length > 0 ? ` + ${serie.futur.length} engagées` : ''} · ${libMesure} ${libMaille}`
+
+  /* Reprojection des anomalies sur la série passée de la maille courante,
+     puis regroupement par index (compteur sur la pastille). */
+  const parIndex = useMemo(() => {
+    const passePeriodes = passeParMaille[maille] ?? []
+    const m = new Map<number, AnomalieFil[]>()
+    for (const a of anomalies) {
+      const dateIso = a.dateIso
+      if (!dateIso) continue
+      const idx =
+        maille === 'jour'
+          ? passePeriodes.findIndex((p) => p.date === dateIso)
+          : maille === 'mois'
+            ? passePeriodes.findIndex((p) => p.date === dateIso.slice(0, 7))
+            : passePeriodes.findIndex((p) => p.date === lundiIso(dateIso))
+      if (idx === -1) continue
+      const l = m.get(idx) ?? []
+      l.push(a)
+      m.set(idx, l)
+    }
+    return m
+  }, [anomalies, maille, passeParMaille])
+
+  return (
+    <section className="rounded-lg border border-rule bg-card shadow-float">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 pt-4">
+        <span className="text-[15px] font-bold tracking-tight text-foreground">
+          Le fil du poste
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">{sub}</span>
+      </div>
+
+      {/* Segments maille + mesure (grammaire toolbar.tsx) */}
+      <div className="flex flex-wrap items-center gap-2 px-5 pt-2.5">
+        <div className="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5">
+          <span className="px-1.5 font-mono text-[9px] font-semibold text-muted-foreground">
+            Maille
+          </span>
+          {(['jour', 'semaine', 'mois'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onMaille(m)}
+              className={cn(
+                'min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out active:scale-95',
+                maille === m
+                  ? 'bg-brand-soft text-brand'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {m === 'jour' ? 'Jour' : m === 'semaine' ? 'Semaine' : 'Mois'}
+            </button>
+          ))}
+        </div>
+        <div className="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5">
+          <span className="px-1.5 font-mono text-[9px] font-semibold text-muted-foreground">
+            Mesure
+          </span>
+          {(['h', 'pc', 'pal'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onMesure(m)}
+              className={cn(
+                'min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out active:scale-95',
+                mesure === m
+                  ? 'bg-brand-soft text-brand'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {m === 'h' ? 'Heures' : m === 'pc' ? 'Pièces' : 'Palettes'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Le fil */}
+      <div className="px-5 pb-1 pt-4">
+        <div className="relative h-[190px]">
+          <div className="absolute inset-0 flex items-end gap-0.5">
+            {all.map((b, i) => {
+              const pct = Math.max(b.v === 0 && b.futur ? 3 : 5, (b.v / max) * 100)
+              const sat = b.cap > 0 ? b.v / b.cap : 0
+              const tip = b.futur
+                ? `<b>${b.lab} · engagé</b>${
+                    b.vide
+                      ? 'rien au programme'
+                      : `${fmt(b.v)} ${UNITE_LAB[mesure]} · ${Math.round(sat * 100)} % de la capacité`
+                  }`
+                : `<b>${b.lab} · constaté</b>${fmt(b.v)} ${UNITE_LAB[mesure]} · ${Math.round(sat * 100)} % de la capacité`
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    'group relative min-w-[2px] flex-1 rounded-t-[3px]',
+                    b.futur
+                      ? b.vide
+                        ? 'border border-dashed border-brand/50'
+                        : 'border-[1.5px] border-b-0 border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]'
+                      : 'bg-brand opacity-80 hover:opacity-100'
+                  )}
+                  style={{ height: `${pct}%` }}
+                >
+                  <span
+                    className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-semibold leading-snug text-white group-hover:block"
+                    dangerouslySetInnerHTML={{ __html: tip }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Ligne de capacité — top calculé depuis l'échelle, jamais en dur. */}
+          {capMax > 0 && (
+            <div
+              className="absolute left-0 right-0 z-[3] border-t-2 border-dashed border-input"
+              style={{ top: `${(1 - capMax / max) * 100}%` }}
+            >
+              <span className="absolute -top-2 right-0 bg-card px-1.5 text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+                {mesure === 'h'
+                  ? `Capacité ${fmt(capMax)} h`
+                  : `Capacité ≈ ${fmt(capMax)} ${UNITE_LAB[mesure]} (convertie à ${fmt(cadenceMoy)} pc/h)`}
+              </span>
+            </div>
+          )}
+
+          {/* Coupure aujourd'hui : frontière passé/futur. */}
+          {nPasse > 0 && nPasse < all.length && (
+            <div
+              className="absolute bottom-0 top-[-6px] z-[4] border-l-2 border-foreground"
+              style={{ left: `${(nPasse / all.length) * 100}%` }}
+            >
+              <span className="absolute left-1/2 top-[-18px] -translate-x-1/2 whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-white">
+                Aujourd'hui
+              </span>
+            </div>
+          )}
+
+          {/* Pastilles d'anomalies, ancrées sur la barre qui les porte. */}
+          <div className="pointer-events-none absolute inset-0 z-[5]">
+            {[...parIndex.entries()].map(([idx, liste]) => {
+              const barre = serie.passe[idx]
+              if (!barre) return null
+              const v = barre.v
+              const top = (1 - v / max) * 100
+              const crit = liste.some((a) => a.crit)
+              const lignes = liste.map((a) => a.texte).join('<br>')
+              return (
+                <div
+                  key={idx}
+                  className="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${((idx + 0.5) / all.length) * 100}%`, top: `${top}%` }}
+                >
+                  <span
+                    className={cn(
+                      'flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-2 border-card px-0.5 text-[8px] font-extrabold text-white shadow-md',
+                      crit ? 'bg-destructive' : 'bg-suggere'
+                    )}
+                  >
+                    {liste.length}
+                  </span>
+                  <span
+                    className="pointer-events-none absolute left-1/2 top-full z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-semibold leading-relaxed text-white group-hover:block"
+                    dangerouslySetInnerHTML={{ __html: lignes }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Axe */}
+        <div className="flex pt-1 font-mono text-[9px] font-semibold text-muted-foreground">
+          {all.map((b, i) => (
+            <span key={i} className={cn('flex-1 truncate text-center', b.futur && 'text-brand')}>
+              {i === 0 ||
+              i === all.length - 1 ||
+              (i + 1) % Math.max(1, Math.floor(all.length / 7)) === 0
+                ? b.lab
+                : ''}
+            </span>
+          ))}
+        </div>
+
+        {/* Légende */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-rule-soft pt-2.5 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-[10px] w-3 rounded-[2px] bg-brand opacity-80" />{' '}
+            Constaté · pointages
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]" />
+            Engagé · OF fermes
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-0 w-3 border-t-2 border-dashed border-input" />
+            {mesure === 'h'
+              ? 'Capacité déclarée (TABWEEDIA)'
+              : 'Capacité convertie à la cadence moyenne'}
+          </span>
+          <span className="ml-auto hidden sm:inline">
+            Survoler une barre pour le détail · une pastille pour l'anomalie
+          </span>
+        </div>
+      </div>
+
+      {/* Verdicts — seuils explicites, pas de prose écrite à la main. */}
+      <div className="mt-3 grid grid-cols-1 divide-y divide-rule-soft border-t border-rule-soft sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <VerdictCell k="Charge constatée · 6 mois" v={verdicts.saturation} />
+        <VerdictCell k="Fiabilité du temps de gamme" v={verdicts.fiabilite} />
+        <VerdictCell k="Carnet engagé" v={verdicts.carnet} />
+      </div>
+    </section>
+  )
+}
+
+function VerdictCell(props: { k: string; v: VerdictVue }) {
+  const { k, v } = props
+  return (
+    <div className="flex flex-col gap-0.5 px-5 py-3 sm:px-6">
+      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+        {k}
+      </span>
+      <span
+        className="text-[26px] font-extrabold leading-tight tracking-tight"
+        dangerouslySetInnerHTML={{ __html: v.big }}
+      />
+      <span
+        className={cn(
+          'text-[11px] font-bold',
+          v.cls === 'ok' && 'text-ferme',
+          v.cls === 'warn' && 'text-suggere',
+          v.cls === 'bad' && 'text-destructive',
+          v.cls === 'mute' && 'text-muted-foreground'
+        )}
+      >
+        {v.txt}
+      </span>
+      <span className="text-[10px] leading-snug text-muted-foreground">{v.sub}</span>
+    </div>
+  )
+}
+
+/** Exporté pour les tests éventuels. */
+export const __internal = {
+  semaineCourte,
+  plusSeptJours,
+  lundiIso,
+  verdictPour,
+  labelPeriode,
+  capPeriode,
+}
