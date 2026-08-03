@@ -438,6 +438,12 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"api","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"cockpit","end":""},{"old":"/api/v1/planning/cockpit/postes","type":0,"val":"postes","end":""}],
     types: placeholder as Registry['cockpit.postes']['types'],
   },
+  'cockpit.anomalies_usine': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/cockpit/postes/:poste/anomalies-usine',
+    tokens: [{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":0,"val":"api","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":0,"val":"cockpit","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":0,"val":"postes","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":1,"val":"poste","end":""},{"old":"/api/v1/planning/cockpit/postes/:poste/anomalies-usine","type":0,"val":"anomalies-usine","end":""}],
+    types: placeholder as Registry['cockpit.anomalies_usine']['types'],
+  },
   'cockpit.poste': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/cockpit/postes/:poste',

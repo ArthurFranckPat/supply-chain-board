@@ -191,13 +191,13 @@ test.group('détecteur 3 — déclaré sans heures / heures faibles', () => {
   })
 })
 
-test.group('détecteur 4 — déclarations en double', () => {
-  test('mêmes (OF, opération, jour) en deux exemplaires', ({ assert }) => {
+test.group('détecteur 4 — déclarations en double (clé stricte)', () => {
+  test('mêmes (OF, op, jour, qté, temps) en deux exemplaires', ({ assert }) => {
     const r = detecterAnomaliesPoste({
       ofs: [],
       pointages: [
         pointage({ iptdat: '2026-08-01', cplqty: 40, opetim: 1 }),
-        pointage({ iptdat: '2026-08-01', cplqty: 60, opetim: 2 }),
+        pointage({ iptdat: '2026-08-01', cplqty: 40, opetim: 1 }),
       ],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
@@ -209,6 +209,19 @@ test.group('détecteur 4 — déclarations en double', () => {
       iptdat: '2026-08-01',
       nombre: 2,
     })
+  })
+
+  test('déclarations partielles même jour : légitimes, pas un doublon', ({ assert }) => {
+    const r = detecterAnomaliesPoste({
+      ofs: [],
+      pointages: [
+        pointage({ iptdat: '2026-08-01', cplqty: 40, opetim: 1 }),
+        pointage({ iptdat: '2026-08-01', cplqty: 60, opetim: 2 }),
+      ],
+      heuresTheoriquesPour,
+      aujourdhuiIso: AUJOURDHUI,
+    })
+    assert.lengthOf(r.doublons, 0)
   })
 
   test('déclarations partielles sur deux jours : légitimes, pas un doublon', ({ assert }) => {
@@ -228,8 +241,8 @@ test.group('détecteur 4 — déclarations en double', () => {
     const r = detecterAnomaliesPoste({
       ofs: [],
       pointages: [
-        pointage({ openum: 10, iptdat: '2026-08-01' }),
-        pointage({ openum: 20, iptdat: '2026-08-01' }),
+        pointage({ openum: 10, iptdat: '2026-08-01', cplqty: 50, opetim: 1 }),
+        pointage({ openum: 20, iptdat: '2026-08-01', cplqty: 50, opetim: 1 }),
       ],
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
@@ -237,9 +250,7 @@ test.group('détecteur 4 — déclarations en double', () => {
     assert.lengthOf(r.doublons, 0)
   })
 
-  test('réglage pur le même jour qu’une déclaration : signalé aussi', ({ assert }) => {
-    // Deux lignes (OF, op, jour) = signalé, même si l'une est un réglage pur :
-    // l'interprétation se fait à la vérification (#119).
+  test('réglage pur le même jour qu’une déclaration : pas un doublon', ({ assert }) => {
     const r = detecterAnomaliesPoste({
       ofs: [],
       pointages: [
@@ -249,7 +260,7 @@ test.group('détecteur 4 — déclarations en double', () => {
       heuresTheoriquesPour,
       aujourdhuiIso: AUJOURDHUI,
     })
-    assert.lengthOf(r.doublons, 1)
+    assert.lengthOf(r.doublons, 0)
   })
 })
 

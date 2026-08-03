@@ -1,26 +1,31 @@
 /**
  * Anomalies du cockpit poste (#119, lot 5) — domaine pur, aucune I/O.
  *
- * Quatre familles, toutes à l'échelle d'UN poste (égalité stricte) :
+ * Quatre familles locales, toutes à l'échelle d'UN poste :
  *
  * 1. **Lancé, jamais pointé** — l'OF est en cours depuis plus de N jours et
- *    n'a aucun pointage sur le poste. Détecte les lancements « fantômes » :
- *    l'OF est annoncé en production mais l'atelier n'a rien déclaré ici.
+ *    n'a aucun pointage sur le poste.
  * 2. **Silence** — l'OF a déjà pointé sur le poste mais plus rien depuis N
  *    jours alors qu'il est toujours en cours.
- * 3. **Déclaré sans heures** (ou heures anormalement faibles) — une quantité est
- *    déclarée sur l'OF mais les pointages du poste ne portent pas (ou trop peu
- *    de) temps, comparé au temps théorique de gamme.
- * 4. **Déclarations en double** — plusieurs pointages mêmes (OF, opération,
- *    jour). Signalé pour vérification : la saisie en double existe, mais deux
- *    déclarations PARTIELLES le même jour sont légitimes — l'interprétation X3
- *    (champ SEQUENCE éventuel) reste à valider (#119, hors périmètre MCP).
+ * 3. **Déclaré sans heures** (ou heures anormalement faibles) — quantité
+ *    déclarée sur le poste vs heures de l'opération sélectionnée.
+ * 4. **Déclarations en double** — clé STRICTE (contre-revue #119) : mêmes
+ *    (OF, opération, jour, qté > 0, temps opératoire). Les déclarations
+ *    partielles (qtés différentes) et le réglage pur ne sont plus signalés.
  *
- * Les seuils sont des CONSTANTES à caler sur la donnée réelle (cf. chacun) ;
- * l'issue demande explicitement ce calage, il se fera sous supervision X3.
+ * Les écarts #95 et les OF à solder ne sont pas ici : ils viennent d'X3, pas
+ * de la réplique, et sont servis par un endpoint séparé
+ * (`loadCockpitAnomaliesUsine`) pour ne pas mettre deux pipelines lourds
+ * devant l'affichage du poste.
+ *
+ * Les seuils sont des CONSTANTES à caler sur la donnée réelle (cf. chacun).
  */
 
-import type { PointageTrk } from '#app/domain/production_realisee'
+import {
+  selectionOperationMaxQuantifiee,
+  tronquerPoste,
+  type PointageTrk,
+} from '#app/domain/production_realisee'
 
 /** Détecteur 1 — jours de lancement sans aucun pointage avant signalement.
  *  À CALER sur la distribution réelle des délais lancement → premier pointage
@@ -80,10 +85,6 @@ export interface AnomaliesPosteResultat {
   silences: AnomaliePoste[]
   heures: AnomaliePoste[]
   doublons: DoublonDeclaration[]
-  /** Écarts de déclaration (#95) filtrés sur le poste. */
-  ecartsDeclaration: AnomaliePoste[]
-  /** OF à solder / fantômes filtrés sur le poste. */
-  ofsASolder: AnomaliePoste[]
 }
 
 export interface OfEnCoursPoste {
@@ -119,12 +120,19 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
   const seuilSilence = e.seuilSilenceJours ?? SEUIL_SILENCE_JOURS
   const ratio = e.ratioHeuresFaibles ?? RATIO_HEURES_FAIBLES
 
-  // Index des pointages par OF : dernier jour + heures totales.
+  // Dernier pointage : TOUS les pointages (présence). Heures détecteur 3 :
+  // opération sélectionnée seule (même règle que le passé productif).
   const dernierPointage = new Map<string, string>()
   const heuresParOf = new Map<string, number>()
+  const selection = selectionOperationMaxQuantifiee(e.pointages)
   for (const p of e.pointages) {
     const cur = dernierPointage.get(p.numOf)
     if (!cur || p.iptdat > cur) dernierPointage.set(p.numOf, p.iptdat)
+
+    const openumSel = selection.get(`${p.numOf}#${tronquerPoste(p.cplwst)}`)
+    const surSel = openumSel === p.openum
+    const repliReglagePur = openumSel === undefined
+    if (!surSel && !repliReglagePur) continue
     heuresParOf.set(p.numOf, (heuresParOf.get(p.numOf) ?? 0) + p.opetim + p.settim)
   }
 
@@ -171,10 +179,13 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
     }
   }
 
-  // Détecteur 4 — mêmes (OF, opération, jour) déclarés plusieurs fois.
+  // Détecteur 4 — clé stricte : (OF, op, jour, qté>0, temps opératoire).
+  // Les partielles (qtés différentes) et le réglage ne sont PAS des doublons
+  // (contre-revue #119 : 485 faux positifs → ~86 cas usine).
   const parCle = new Map<string, DoublonDeclaration>()
   for (const p of e.pointages) {
-    const cle = `${p.numOf}#${p.openum}#${p.iptdat}`
+    if (p.cplqty <= 0) continue
+    const cle = `${p.numOf}#${p.openum}#${p.iptdat}#${p.cplqty}#${p.opetim}`
     const cur = parCle.get(cle)
     if (cur) cur.nombre += 1
     else parCle.set(cle, { numOf: p.numOf, openum: p.openum, iptdat: p.iptdat, nombre: 1 })
@@ -187,12 +198,5 @@ export function detecterAnomaliesPoste(e: DetecterAnomaliesEntrees): AnomaliesPo
   silences.sort((a, b) => (b.jours ?? 0) - (a.jours ?? 0))
   heures.sort((a, b) => (a.heuresPointees ?? 0) - (b.heuresPointees ?? 0))
 
-  return {
-    jamaisPointes,
-    silences,
-    heures,
-    doublons,
-    ecartsDeclaration: [],
-    ofsASolder: [],
-  }
+  return { jamaisPointes, silences, heures, doublons }
 }

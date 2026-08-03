@@ -45,6 +45,7 @@ export interface ApiDefinition {
   cockpit: {
     index: typeof routes['cockpit.index']
     postes: typeof routes['cockpit.postes']
+    anomaliesUsine: typeof routes['cockpit.anomalies_usine']
     poste: typeof routes['cockpit.poste']
   }
   suivi: {

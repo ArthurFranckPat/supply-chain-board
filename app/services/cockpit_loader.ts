@@ -10,7 +10,9 @@ import {
 } from '#services/poste_engagement_loader'
 import { OverrideStore } from '#services/override_store'
 import { atelierLabel } from '#app/domain/atelier'
-import { capacityPeriod } from '#app/domain/capacity'
+import { capDay, capacityPeriod } from '#app/domain/capacity'
+import capacityCalendar from '#services/capacity_calendar_service'
+import type { WorkingCalendar } from '#app/domain/working_calendar'
 import {
   detecterAnomaliesPoste,
   type AnomaliePoste,
@@ -150,6 +152,15 @@ export interface CockpitPasse {
   ofTermines: CockpitOfTermine[]
 }
 
+/**
+ * Anomalies du poste qui ne viennent PAS de la réplique : écarts de
+ * déclaration (#95) et OF à solder. Chargées à part, à la demande.
+ */
+export interface CockpitAnomaliesUsine {
+  ecartsDeclaration: AnomaliePoste[]
+  ofsASolder: AnomaliePoste[]
+}
+
 export interface CockpitAnalyses {
   fiabilite: FiabilitePoste
   adherence: AdherenceSemaine[]
@@ -279,19 +290,97 @@ function cadenceParArticlePoste(
   return cadenceParCle
 }
 
+/** Poste du référentiel — shape minimale pour la capacité. */
+type CockpitWorkstation = Parameters<typeof capacityPeriod>[0] & {
+  code: string
+  stockLocation?: string
+  dailyCapacity: number[]
+}
+
+/**
+ * Tous les WORKSTATIO dont le code tronqué = poste retenu.
+ * La fusion `PP_093S` → `PP_093` exige de SOMMER leurs capacités — un seul
+ * match (premier trouvé) laissait la courbe heures/capacité incohérente
+ * (contre-revue #119, point B).
+ */
+function workstationsDuPosteTronque(
+  poste: string,
+  workstations: { code: string }[]
+): CockpitWorkstation[] {
+  return workstations.filter((w) => tronquerPoste(w.code) === poste) as CockpitWorkstation[]
+}
+
+/** Capacité hebdo nette sommée sur tous les jumeaux du code tronqué. */
+function capaciteHebdoTronquee(
+  poste: string,
+  workstations: Parameters<typeof weeklyCapacityOf>[1]
+): number | null {
+  let total = 0
+  let any = false
+  for (const w of workstations) {
+    if (tronquerPoste(w.code) !== poste) continue
+    const c = weeklyCapacityOf(w.code, [w])
+    if (c === null) continue
+    total += c
+    any = true
+  }
+  return any ? Math.round(total * 100) / 100 : null
+}
+
+/** Régime horaire hebdo sommé sur les jumeaux (Lundi→Dimanche, heures brutes). */
+function regimeHebdoTronque(wsts: CockpitWorkstation[]): number[] | null {
+  if (wsts.length === 0) return null
+  const total = [0, 0, 0, 0, 0, 0, 0]
+  for (const w of wsts) {
+    for (let i = 0; i < 7; i++) total[i] += w.dailyCapacity[i] ?? 0
+  }
+  return total.map((h) => Math.round(h * 100) / 100)
+}
+
+/**
+ * Capacité période sommée — même périmètre que le réalisé tronqué, et MÊME
+ * calendrier que `/charge` : fériés actifs et fermetures (#37) via
+ * `calendar.factor(poste, jour)`. Sans lui, la fenêtre de 6 mois comptait la
+ * fermeture d'août comme de la capacité ouverte (revue #119).
+ */
+function capacityPeriodTronquee(
+  wsts: CockpitWorkstation[],
+  from: Date,
+  to: Date,
+  calendar: WorkingCalendar | null
+): number {
+  if (wsts.length === 0 || to < from) return 0
+  let total = 0
+  for (const w of wsts) {
+    if (!calendar) {
+      total += capacityPeriod(w, from, to)
+      continue
+    }
+    for (let t = from.getTime(); t <= to.getTime(); t += 86_400_000) {
+      const jour = new Date(t)
+      const facteur = calendar.factor(w, isoDay(jour))
+      if (facteur <= 0) continue
+      total += capDay(w, jour) * facteur
+    }
+  }
+  return total
+}
+
 /**
  * Le passé constaté du poste : domaine pur sur les pointages déjà lus de la
  * réplique (jamais de voie directe — c'est l'appelant qui a passé le verdict).
  * La capacité du graphe vient de `capacityPeriod` (#35/#37), bornée à la
- * fenêtre répliquée.
+ * fenêtre répliquée, SOMMÉE sur tous les jumeaux du code tronqué.
  */
 function buildPasse(opts: {
   pointages: PointageTrk[]
   fen: { fromIso: string; toIso: string; toExclIso: string }
-  wst: CockpitWorkstation | undefined
+  wsts: CockpitWorkstation[]
   gamme: { article: string; workstation: string; rate: number }[]
   usParPalette: (article: string) => number | null
   ofTermines: CockpitOfTermine[]
+  /** Calendrier usine (#37) — null si sa lecture a échoué : capacité brute. */
+  calendar: WorkingCalendar | null
 }): CockpitPasse {
   const { pointages } = opts
   if (pointages.length === 0) {
@@ -306,7 +395,7 @@ function buildPasse(opts: {
     }
   }
 
-  // Domaine pur : sélection dernière opération quantifiée + mailles j/s/m.
+  // Domaine pur : OPENUM max + mailles j/s/m.
   const maillesJour = productionRealiseeParJour(pointages)
   const prodSemaine = productionParSemaine(maillesJour)
   const prodMois = productionParMois(maillesJour)
@@ -340,7 +429,7 @@ function buildPasse(opts: {
       finMois.setDate(finMois.getDate() - 1)
       const debut = debutMois > from ? debutMois : from
       const fin = finMois < to ? finMois : to
-      const capacite = opts.wst ? (fin >= debut ? capacityPeriod(opts.wst, debut, fin) : 0) : 0
+      const capacite = capacityPeriodTronquee(opts.wsts, debut, fin, opts.calendar)
       return {
         mois,
         capacite: Math.round(capacite * 100) / 100,
@@ -360,9 +449,6 @@ function buildPasse(opts: {
     ofTermines: opts.ofTermines,
   }
 }
-
-/** Poste du référentiel — shape minimale pour la capacité. */
-type CockpitWorkstation = Parameters<typeof capacityPeriod>[0]
 
 /** Statuts OF considérés « en cours » — les mêmes que l'engagement (#46). */
 const STATUTS_EN_COURS = new Set([1, 2, 3])
@@ -424,18 +510,30 @@ function qtyDeclareeSurPoste(
   return declareeParOf
 }
 
-/** Enrichit le résultat domaine avec écarts (#95) et OF à solder du poste. */
-async function enrichAnomaliesPoste(
-  result: AnomaliesPosteResultat,
-  poste: string
-): Promise<AnomaliesPosteResultat> {
+/**
+ * Écarts de déclaration (#95) et OF à solder du poste — les deux familles
+ * d'anomalies qui ne vivent PAS sur la réplique.
+ *
+ * Servies par un endpoint SÉPARÉ, à la demande : `controle_prod_loader` et
+ * `of_a_solder_loader` interrogent X3 en direct. Les laisser dans le payload
+ * du poste mettait deux pipelines lourds devant l'affichage et cassait le
+ * critère « la page tient sur la réplique sans requête X3 en ligne » (#119).
+ * Même parti que les onglets de `/controle-prod`.
+ */
+export async function loadCockpitAnomaliesUsine(
+  poste: string,
+  force = false
+): Promise<CockpitAnomaliesUsine> {
+  const safe = tronquerPoste(poste.trim())
+  if (!estPosteProduction(safe)) return { ecartsDeclaration: [], ofsASolder: [] }
+
   const [controle, solder] = await Promise.all([
-    loadControleProdData(false).catch(() => null),
-    loadOfASolderData(false).catch(() => null),
+    loadControleProdData(force).catch(() => null),
+    loadOfASolderData(force).catch(() => null),
   ])
 
-  result.ecartsDeclaration = (controle?.rows ?? [])
-    .filter((r) => tronquerPoste(r.poste ?? '') === poste)
+  const ecartsDeclaration = (controle?.rows ?? [])
+    .filter((r) => tronquerPoste(r.poste ?? '') === safe)
     .map((r): AnomaliePoste => ({
       kind: 'ecart_declaration',
       numOf: r.numOf,
@@ -449,8 +547,8 @@ async function enrichAnomaliesPoste(
       heuresTheoriques: null,
     }))
 
-  result.ofsASolder = (solder?.rows ?? [])
-    .filter((r) => tronquerPoste(r.poste ?? '') === poste)
+  const ofsASolder = (solder?.rows ?? [])
+    .filter((r) => tronquerPoste(r.poste ?? '') === safe)
     .map((r): AnomaliePoste => ({
       kind: 'of_a_solder',
       numOf: r.numOf,
@@ -464,15 +562,17 @@ async function enrichAnomaliesPoste(
       heuresTheoriques: null,
     }))
 
-  return result
+  return { ecartsDeclaration, ofsASolder }
 }
 
 /**
  * Anomalies de pointage du poste (#119, lot 5). Domaine pur sur :
  *  - les OF EN COURS rattachés au poste (1ʳᵉ op.) + ceux pointés ici ;
  *  - les quantités déclarées sur les ops du poste (MFGOPE × openums gamme) ;
- *  - les pointages du poste déjà lus de la réplique ;
- *  - écarts déclaration (#95) et OF à solder filtrés sur le poste.
+ *  - les pointages du poste déjà lus de la réplique.
+ *
+ * Les écarts (#95) et les OF à solder ne sont PAS ici : ils viennent d'X3 et
+ * sont servis à part (`loadCockpitAnomaliesUsine`).
  */
 async function buildAnomalies(opts: {
   poste: string
@@ -483,9 +583,8 @@ async function buildAnomalies(opts: {
   const { enCours } = opts
   const openumParOf = selectionOpenumParOf(opts.pointages, opts.poste)
 
-  let result: AnomaliesPosteResultat
   if (enCours.length === 0) {
-    result = detecterAnomaliesPoste({
+    return detecterAnomaliesPoste({
       ofs: [],
       pointages: opts.pointages,
       heuresTheoriquesPour: () => 0,
@@ -503,7 +602,7 @@ async function buildAnomalies(opts: {
 
     const cadenceParCle = cadenceParArticlePoste(opts.gamme)
 
-    result = detecterAnomaliesPoste({
+    return detecterAnomaliesPoste({
       ofs: enCours.map((mo) => ({
         numOf: mo.numOf,
         article: mo.article,
@@ -517,8 +616,6 @@ async function buildAnomalies(opts: {
       aujourdhuiIso: isoDay(new Date()),
     })
   }
-
-  return enrichAnomaliesPoste(result, opts.poste)
 }
 
 /**
@@ -625,7 +722,7 @@ function versPointages(
 export async function loadCockpitPoste(poste: string, force = false): Promise<CockpitPostePayload> {
   const safe = tronquerPoste(poste.trim())
   const cache = cacheNs('cockpit')
-  const key = `poste:${safe}:v2`
+  const key = `poste:${safe}:v3`
   if (force) await cache.delete({ key })
   return cache.getOrSet({
     key,
@@ -670,7 +767,10 @@ async function loadCockpitPosteUncached(
   }
 
   const ref = await boardDataset.getReferential()
-  const wst = ref.workstations.find((w) => tronquerPoste(w.code) === safe)
+  const wsts = workstationsDuPosteTronque(safe, ref.workstations)
+  // Identité affichée : code exact s'il existe, sinon premier jumeau trié.
+  const wstExact = wsts.find((w) => w.code === safe)
+  const wst = wstExact ?? [...wsts].sort((a, b) => a.code.localeCompare(b.code))[0]
   let label = safe
   for (const g of ref.gamme) {
     if (tronquerPoste(g.workstation) === safe) label = g.workstationLabel || g.workstation
@@ -687,8 +787,11 @@ async function loadCockpitPosteUncached(
     label,
     atelier: wst?.stockLocation ?? '',
     atelierLabel: atelierLabel(wst?.stockLocation ?? ''),
-    capaciteHebdoHeures: weeklyCapacityOf(safe, ref.workstations),
-    regimeHebdo: wst ? [...wst.dailyCapacity] : null,
+    capaciteHebdoHeures: capaciteHebdoTronquee(safe, ref.workstations),
+    // Régime SOMMÉ sur les jumeaux, comme la capacité : afficher le DAYCAP d'un
+    // seul poste à côté d'une capacité qui en somme deux se contredisait à
+    // l'écran (revue #119).
+    regimeHebdo: regimeHebdoTronque(wsts),
     dernierPointageIso:
       replica.disponible && pointages.length > 0
         ? pointages.reduce((max, p) => (p.iptdat > max ? p.iptdat : max), pointages[0].iptdat)
@@ -729,7 +832,21 @@ async function loadCockpitPosteUncached(
       designationParArticle,
       usParPalette,
     })
-    passe = buildPasse({ pointages, fen, wst, gamme: ref.gamme, usParPalette, ofTermines })
+    // Calendrier usine (#37) : fériés + fermetures, comme `/charge`. Une lecture
+    // en échec ne doit pas priver l'écran de son passé : capacité brute alors.
+    const calendar = await capacityCalendar
+      .buildCalendar(Number(fen.fromIso.slice(0, 4)), Number(fen.toIso.slice(0, 4)))
+      .catch(() => null)
+
+    passe = buildPasse({
+      pointages,
+      fen,
+      wsts,
+      gamme: ref.gamme,
+      usParPalette,
+      ofTermines,
+      calendar,
+    })
     anomalies = await buildAnomalies({
       poste: safe,
       pointages,
@@ -751,6 +868,12 @@ async function loadCockpitPosteUncached(
   try {
     engagement = await loadPosteEngagement(safe, force)
     if (engagement.x3Error) x3Error = engagement.x3Error
+    // Une seule capacité par écran : la saturation du bloc engagement se lit
+    // contre la MÊME capacité que la carte d'identité et le graphe (jumeaux
+    // sommés). Copie — l'objet vient d'un cache partagé avec le séquenceur.
+    if (info.capaciteHebdoHeures !== null) {
+      engagement = { ...engagement, weeklyCapacityHours: info.capaciteHebdoHeures }
+    }
   } catch (e) {
     x3Error = (e as Error).message
   }

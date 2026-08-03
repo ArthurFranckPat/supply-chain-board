@@ -32,13 +32,14 @@
  *
  * ## Heures vs quantités
  *
- * Deux lectures distinctes, à ne pas mélanger :
- * - QUANTITÉS : opération sélectionnée seule (anti double comptage des pièces) ;
- * - HEURES POINTÉES : TOUS les pointages du poste pour l'OF — le temps passé
- *   sur un premier passage a bien été passé, même si les pièces sont portées
- *   par l'opération suivante ;
- * - heures CONVERTIES (`heuresConvertiesParJour`) : quantité de l'opération
- *   sélectionnée via `hoursForQuantity` (convention de gestion).
+ * X3 recopie la même déclaration sur chaque opération de gamme (même qté,
+ * temps quasi identiques, même jour) — ce n'est PAS un passage successif
+ * (contre-revue #119, F126-48719 / F126-48493). Les heures suivent donc la
+ * MÊME sélection que les quantités : opération OPENUM max seule. Repli
+ * réglage pur : OF sans aucune op quantifiée → toutes ses heures, qty = 0.
+ *
+ * heures CONVERTIES (`heuresConvertiesParJour`) : quantité de l'opération
+ * sélectionnée via `hoursForQuantity` (convention de gestion).
  */
 
 import { hoursForQuantity } from '#app/domain/models/gamme'
@@ -73,8 +74,10 @@ export interface PointageTrk {
   /** Temps de réglage pointé, heures. */
   settim: number
   /**
-   * Signal rebut (valeur non exposée). Conservé pour compat lecture réplique ;
-   * n'exclut plus le pointage de la production réalisée (revue #119).
+   * Signal rebut (valeur non exposée). Aucun calcul ne le lit : il est là pour
+   * que les tests puissent démontrer qu'un pointage porteur de rebut compte
+   * TOUJOURS sa production et ses heures — la règle inverse avait effacé
+   * 401 954 pièces bonnes (revue #119).
    */
   rebut: boolean
   /** Article produit — null si l'OF n'a pas de détail connu. */
@@ -145,9 +148,7 @@ function estQuantifie(p: PointageTrk): boolean {
  * (réglage pur) n'a PAS d'opération sélectionnée : les lecteurs appliquent
  * alors leur repli (heures de réglage comptées, quantité nulle).
  */
-export function selectionDerniereOperationQuantifiee(
-  pointages: PointageTrk[]
-): Map<string, number> {
+export function selectionOperationMaxQuantifiee(pointages: PointageTrk[]): Map<string, number> {
   const selection = new Map<string, number>()
 
   for (const p of pointages) {
@@ -163,9 +164,10 @@ export function selectionDerniereOperationQuantifiee(
 /**
  * Mailles jour de la production réalisée :
  *
- * - QUANTITÉS : opération sélectionnée (OPENUM max quantifié) ;
- * - HEURES : TOUS les pointages du poste pour l'OF (passages précédents inclus).
- *   Repli réglage pur : sans opération quantifiée, toutes les heures comptent,
+ * - QUANTITÉS et HEURES : opération sélectionnée (OPENUM max quantifié) —
+ *   X3 recopie la déclaration sur chaque op de gamme, sommer les heures
+ *   multiplierait la charge ×N (contre-revue #119) ;
+ * - Repli réglage pur : sans opération quantifiée, toutes les heures comptent,
  *   quantité nulle.
  *
  * Chaque pointage reste sur sa date d'imputation (déclarations partielles).
@@ -173,13 +175,15 @@ export function selectionDerniereOperationQuantifiee(
  */
 export function productionRealiseeParJour(pointages: PointageTrk[]): ProductionRealisee[] {
   const filtrés = filtrerPointagesProduction(pointages)
-  const selection = selectionDerniereOperationQuantifiee(filtrés)
+  const selection = selectionOperationMaxQuantifiee(filtrés)
 
   const parJour = new Map<string, ProductionRealisee>()
   for (const p of filtrés) {
     const openumSelectionne = selection.get(groupeKey(p))
     const surOperationSelectionnee = openumSelectionne === p.openum
-    // Heures : toujours. Quantités : opération sélectionnée seulement.
+    const repliReglagePur = openumSelectionne === undefined
+    if (!surOperationSelectionnee && !repliReglagePur) continue
+
     let maille = parJour.get(p.iptdat)
     if (!maille) {
       maille = { date: p.iptdat, qty: 0, heures: 0, dontHeuresReglage: 0 }
@@ -210,7 +214,7 @@ export function heuresConvertiesParJour(
   rateFor: (article: string, poste: string) => number | null
 ): Map<string, number> {
   const filtrés = filtrerPointagesProduction(pointages)
-  const selection = selectionDerniereOperationQuantifiee(filtrés)
+  const selection = selectionOperationMaxQuantifiee(filtrés)
 
   const parJour = new Map<string, number>()
   for (const p of filtrés) {
@@ -262,18 +266,20 @@ export interface SyntheseOf {
 }
 
 /**
- * Un résumé par OF : quantité de l'opération sélectionnée, heures de TOUS les
- * pointages du poste. Un OF sans opération quantifiée (réglage pur) apparaît
- * avec `qty = 0` et ses heures réelles.
+ * Un résumé par OF : quantité ET heures de l'opération sélectionnée (même
+ * règle — X3 recopie la déclaration sur chaque op). Un OF sans opération
+ * quantifiée (réglage pur) apparaît avec `qty = 0` et ses heures réelles.
  */
 export function syntheseParOf(pointages: PointageTrk[]): SyntheseOf[] {
   const filtrés = filtrerPointagesProduction(pointages)
-  const selection = selectionDerniereOperationQuantifiee(filtrés)
+  const selection = selectionOperationMaxQuantifiee(filtrés)
 
   const parOf = new Map<string, SyntheseOf & { jours: Set<string> }>()
   for (const p of filtrés) {
     const openumSelectionne = selection.get(groupeKey(p))
     const surOperationSelectionnee = openumSelectionne === p.openum
+    const repliReglagePur = openumSelectionne === undefined
+    if (!surOperationSelectionnee && !repliReglagePur) continue
 
     let cur = parOf.get(p.numOf)
     if (!cur) {
@@ -324,7 +330,7 @@ export function palettesRealisees(
   usParPalette: (article: string) => number | null
 ): { parJour: PalettesMaille[]; parSemaine: PalettesMaille[]; parMois: PalettesMaille[] } {
   const filtrés = filtrerPointagesProduction(pointages)
-  const selection = selectionDerniereOperationQuantifiee(filtrés)
+  const selection = selectionOperationMaxQuantifiee(filtrés)
 
   // Jour → article → qty cumulée (opération sélectionnée seulement).
   const qtyParJourArticle = new Map<string, Map<string, number>>()

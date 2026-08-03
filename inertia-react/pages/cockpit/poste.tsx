@@ -4,11 +4,13 @@
  *
  * Sélecteur : la liste des postes vient de la RÉPLIQUE de pointages (6 mois
  * glissants), pas du référentiel de gammes — un poste qui a pointé mais n'est
- * plus dans les gammes reste sélectionnable. Codes `PP_\d+` seulement, égalité
- * stricte : PP_093, PP_0931 et PP_09 sont trois postes distincts.
+ * plus dans les gammes reste sélectionnable. Identité tronquée à 6 caractères,
+ * comme `/charge` et `/programme` (`SUBSTR(WST_0, 1, 6)`), et codes à segment
+ * numérique seulement (`PP_MECA`, `PE_PROD`… exclus).
  *
  * Le bloc « Engagement » réutilise le pipeline #46 (`loadPosteEngagement`) tel
- * quel. Le passé productif (graphes) et les anomalies arrivent aux lots 4-5.
+ * quel. Les écarts #95 et les OF à solder arrivent par un second fetch : eux
+ * seuls interrogent X3, le reste de la page tient sur la réplique.
  *
  * Coquille Inertia + JSON différé, calque /controle-prod.
  */
@@ -182,6 +184,11 @@ interface AnomaliesVue {
   silences: AnomalieVue[]
   heures: AnomalieVue[]
   doublons: DoublonVue[]
+}
+
+/** Écarts (#95) et OF à solder — chargés à part : ils viennent d'X3, pas de la
+ *  réplique, et ne doivent pas retarder l'affichage du poste (#119). */
+interface AnomaliesUsineVue {
   ecartsDeclaration: AnomalieVue[]
   ofsASolder: AnomalieVue[]
 }
@@ -256,6 +263,16 @@ export default function CockpitPoste(props: Props) {
     ? `/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}${q}`
     : null
   const detail = useTimedFetch<PostePayload>(detailHref)
+
+  // Écarts #95 + OF à solder : second fetch, volontairement découplé. Ces deux
+  // familles interrogent X3 en direct ; le poste s'affiche sans les attendre.
+  // Déclenché seulement quand le bandeau anomalies existe (réplique debout) :
+  // sans lui rien ne s'affiche, inutile de réveiller X3.
+  const usineHref =
+    effective && detail.data?.anomalies
+      ? `/api/v1/planning/cockpit/postes/${encodeURIComponent(effective)}/anomalies-usine${q}`
+      : null
+  const usine = useTimedFetch<AnomaliesUsineVue>(usineHref)
 
   const pick = (code: string) => {
     setChosen(true)
@@ -344,6 +361,8 @@ export default function CockpitPoste(props: Props) {
             // (faisabilité) repart de zéro au lieu de survivre à l'ancien poste.
             key={detail.data.poste.code}
             payload={detail.data}
+            usine={usine.data ?? null}
+            usineLoading={usine.loading}
             onSelectOf={(num) => {
               setDetailOf(num)
               setDetailOpen(true)
@@ -368,6 +387,8 @@ export default function CockpitPoste(props: Props) {
 /** Carte d'identité + passé constaté + anomalies + analyses + engagement. */
 function PosteDetail(props: {
   payload: PostePayload
+  usine: AnomaliesUsineVue | null
+  usineLoading: boolean
   onSelectOf: (numOf: string) => void
   maille: Maille
   onMaille: (m: Maille) => void
@@ -485,7 +506,12 @@ function PosteDetail(props: {
 
       {/* Anomalies de pointage — quatre détecteurs (#119, lot 5). */}
       {passe && anomalies && (
-        <AnomaliesSection anomalies={anomalies} onSelectOf={props.onSelectOf} />
+        <AnomaliesSection
+          anomalies={anomalies}
+          usine={props.usine}
+          usineLoading={props.usineLoading}
+          onSelectOf={props.onSelectOf}
+        />
       )}
 
       {/* Analyses — fiabilité gamme, adhérence, mix articles (#119, lot 6). */}
@@ -664,17 +690,25 @@ function EngagementLine(props: {
   )
 }
 
-/** Les quatre détecteurs d'anomalies (#119, lot 5). Chaque OF est cliquable
- *  (détail OF), les doublons renvoient vers l'OF concerné. */
-function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: string) => void }) {
+/** Les détecteurs d'anomalies (#119, lot 5). Chaque OF est cliquable (détail
+ *  OF). Les deux familles venues d'X3 (écarts, OF à solder) arrivent par un
+ *  second fetch : la section s'affiche sans les attendre. */
+function AnomaliesSection(props: {
+  anomalies: AnomaliesVue
+  usine: AnomaliesUsineVue | null
+  usineLoading: boolean
+  onSelectOf: (numOf: string) => void
+}) {
   const { anomalies, onSelectOf } = props
+  const ecartsDeclaration = props.usine?.ecartsDeclaration ?? []
+  const ofsASolder = props.usine?.ofsASolder ?? []
   const total =
     anomalies.jamaisPointes.length +
     anomalies.silences.length +
     anomalies.heures.length +
     anomalies.doublons.length +
-    anomalies.ecartsDeclaration.length +
-    anomalies.ofsASolder.length
+    ecartsDeclaration.length +
+    ofsASolder.length
 
   return (
     <div className="border-b border-border px-7 py-4">
@@ -684,6 +718,7 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
         </span>
         <span className="font-mono text-[11px] text-muted-foreground">
           {total === 0 ? 'aucune détectée' : `${total} signalée${total > 1 ? 's' : ''}`}
+          {props.usineLoading && ' · écarts et OF à solder en cours de lecture…'}
         </span>
       </div>
 
@@ -786,7 +821,7 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
             </AnomalieCard>
           )}
 
-          {anomalies.ecartsDeclaration.length > 0 && (
+          {ecartsDeclaration.length > 0 && (
             <AnomalieCard
               titre="Écarts de déclaration"
               note={
@@ -797,9 +832,9 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
                   </a>
                 </>
               }
-              count={anomalies.ecartsDeclaration.length}
+              count={ecartsDeclaration.length}
             >
-              {anomalies.ecartsDeclaration.map((a) => (
+              {ecartsDeclaration.map((a) => (
                 <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
                   <span className="text-muted-foreground">{a.article}</span>
                   <span className="ml-auto font-bold text-danger">
@@ -810,7 +845,7 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
             </AnomalieCard>
           )}
 
-          {anomalies.ofsASolder.length > 0 && (
+          {ofsASolder.length > 0 && (
             <AnomalieCard
               titre="OF à solder"
               note={
@@ -821,9 +856,9 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
                   </a>
                 </>
               }
-              count={anomalies.ofsASolder.length}
+              count={ofsASolder.length}
             >
-              {anomalies.ofsASolder.map((a) => (
+              {ofsASolder.map((a) => (
                 <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
                   <span className="text-muted-foreground">{a.article}</span>
                   <span className="ml-auto font-bold text-danger">
@@ -905,6 +940,11 @@ const dateLong = (iso: string | null) => {
 }
 /** « S 03/08 » — l'année entière rendait les libellés trop larges pour l'axe. */
 const semaineLabel = (lundiIso: string) => `S ${dateLong(lundiIso).slice(0, 5)}`
+
+/** Capacité manifestement sous-dimensionnée : au moins deux mois où les heures
+ *  pointées dépassent de moitié la capacité déclarée. */
+const capaciteDepassee = (mois: PasseMoisHeures[]): boolean =>
+  mois.filter((m) => m.capacite > 0 && m.heuresPointees > m.capacite * 1.5).length >= 2
 /** fmtH sans le « ,00 » des entiers — 40 h au lieu de 40,00 h. */
 const fmtHs = (h: number) => fmtH(h).replace(/,00$/, '')
 
@@ -1056,6 +1096,17 @@ function PasseSection(props: {
                 </span>
               </div>
               <HeuresCapaciteChart data={passe.heuresParMois} />
+              {/* La capacité vient de WORKSTATIO × TABWEEDIA. Sur les postes à
+                  ressources parallèles non déclarées (WSTNBR = 1 alors que
+                  plusieurs opérateurs y pointent), elle sous-décrit la réalité :
+                  le dire plutôt que laisser lire une surcharge. */}
+              {capaciteDepassee(passe.heuresParMois) && (
+                <div className="px-1 pt-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
+                  Heures pointées durablement au-dessus de la capacité : le référentiel (WORKSTATIO
+                  × TABWEEDIA) ne décrit probablement pas les ressources réelles de ce poste. Lire
+                  l'écart comme une alerte de paramétrage, pas comme une surcharge.
+                </div>
+              )}
             </div>
           </div>
 

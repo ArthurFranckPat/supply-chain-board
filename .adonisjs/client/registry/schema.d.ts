@@ -871,6 +871,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'cockpit.anomalies_usine': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/cockpit/postes/:poste/anomalies-usine'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { poste: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'cockpit.poste': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/cockpit/postes/:poste'

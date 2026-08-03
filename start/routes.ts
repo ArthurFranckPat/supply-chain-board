@@ -244,6 +244,12 @@ router
       .get('/api/v1/planning/cockpit/postes', '#controllers/cockpit_controller.postes')
       .as('cockpit.postes')
     router
+      .get(
+        '/api/v1/planning/cockpit/postes/:poste/anomalies-usine',
+        '#controllers/cockpit_controller.anomaliesUsine'
+      )
+      .as('cockpit.anomalies_usine')
+    router
       .get('/api/v1/planning/cockpit/postes/:poste', '#controllers/cockpit_controller.poste')
       .as('cockpit.poste')
     // Détail d'une période de charge : composition d'une barre du graphe /charge.

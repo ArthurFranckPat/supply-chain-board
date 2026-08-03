@@ -76,6 +76,7 @@ export type ScannedRoutes = {
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
     'cockpit.postes': { paramsTuple?: []; params?: {} }
+    'cockpit.anomalies_usine': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'cockpit.poste': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
@@ -169,6 +170,7 @@ export type ScannedRoutes = {
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
     'cockpit.postes': { paramsTuple?: []; params?: {} }
+    'cockpit.anomalies_usine': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'cockpit.poste': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
@@ -248,6 +250,7 @@ export type ScannedRoutes = {
     'controle_prod.rows': { paramsTuple?: []; params?: {} }
     'controle_prod.of_a_solder': { paramsTuple?: []; params?: {} }
     'cockpit.postes': { paramsTuple?: []; params?: {} }
+    'cockpit.anomalies_usine': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'cockpit.poste': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'charge.detail': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }

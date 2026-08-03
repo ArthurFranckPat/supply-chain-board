@@ -1,5 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { loadCockpitPostes, loadCockpitPoste } from '#services/cockpit_loader'
+import {
+  loadCockpitPostes,
+  loadCockpitPoste,
+  loadCockpitAnomaliesUsine,
+} from '#services/cockpit_loader'
 
 /**
  * Cockpit poste (#119) — ce que le poste a réellement produit (passé constaté)
@@ -33,5 +37,16 @@ export default class CockpitController {
     const force = !!ctx.request.input('refresh')
     const code = ctx.params.poste ?? ''
     return loadCockpitPoste(code, force)
+  }
+
+  /**
+   * GET /api/v1/planning/cockpit/postes/:poste/anomalies-usine — écarts de
+   * déclaration (#95) et OF à solder. Endpoint séparé : ces deux familles
+   * viennent d'X3 en direct, le reste de la page tient sur la réplique (#119).
+   */
+  async anomaliesUsine(ctx: HttpContext) {
+    const force = !!ctx.request.input('refresh')
+    const code = ctx.params.poste ?? ''
+    return loadCockpitAnomaliesUsine(code, force)
   }
 }
