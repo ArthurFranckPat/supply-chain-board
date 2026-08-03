@@ -75,7 +75,7 @@ export interface LeFilProps {
   /** Heures totales pointées et pièces totales sur la fenêtre (cadence moyenne). */
   totaux: { heures: number; qty: number }
   /** OF engagés du programme (#46) — ventilés par semaine de début. */
-  ofsEngages: Pick<EngagementRow, 'numOf' | 'dateDebutIso' | 'hours'>[]
+  ofsEngages: Pick<EngagementRow, 'numOf' | 'dateDebutIso' | 'livraisonIso' | 'hours'>[]
   /** Capacité hebdomadaire nette (h) — WORKSTATIO × TABWEEDIA × rendement. */
   capaciteHebdoHeures: number | null
   /** Régime TABWEEDIA brut, utilisé pour retrouver la capacité nette par jour. */
@@ -247,11 +247,13 @@ function periodeChevauche(
 
 function periodeDisponible(
   passeParMaille: Record<MailleFil, PassePeriode[]>,
-  ofsEngages: Pick<EngagementRow, 'dateDebutIso'>[]
+  ofsEngages: Pick<EngagementRow, 'dateDebutIso' | 'livraisonIso'>[]
 ): DayPickerRange {
   const dates = [
     ...passeParMaille.jour.map((p) => p.date),
-    ...ofsEngages.flatMap((of) => (of.dateDebutIso ? [of.dateDebutIso] : [])),
+    ...ofsEngages.flatMap((of) =>
+      [of.dateDebutIso, of.livraisonIso].filter((date): date is string => Boolean(date))
+    ),
   ].sort()
   if (dates.length === 0) {
     const today = new Date()

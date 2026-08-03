@@ -601,6 +601,7 @@ function construireFilProps(
     engagement?.rows.map((r) => ({
       numOf: r.numOf,
       dateDebutIso: r.dateDebutIso,
+      livraisonIso: r.livraisonIso,
       hours: r.hours,
     })) ?? []
 
