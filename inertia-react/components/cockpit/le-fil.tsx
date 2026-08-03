@@ -20,7 +20,9 @@
  *     la main qu'aucun serveur ne saurait rendre.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { DateWindowPill } from '@r/components/vision/toolbar'
 import { cn } from '@r/lib/utils'
 import type { EngagementRow } from '@r/lib/board/engagement-format'
 
@@ -204,6 +206,59 @@ function labelPeriode(date: string, maille: MailleFil): string {
 }
 
 /** Capacité (h) d'une période de la maille donnée. */
+function isoDepuisDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function bornesPeriode(date: string, maille: MailleFil): [string, string] {
+  if (maille === 'jour') return [date, date]
+  if (maille === 'semaine') return [date, plusJours(date, 6)]
+  const debut = `${date}-01`
+  const fin = new Date(`${debut}T00:00:00`)
+  fin.setMonth(fin.getMonth() + 1)
+  fin.setDate(0)
+  return [debut, isoDepuisDate(fin)]
+}
+
+function plusJours(iso: string, jours: number): string {
+  const d = new Date(`${iso}T00:00:00`)
+  d.setDate(d.getDate() + jours)
+  return isoDepuisDate(d)
+}
+
+function periodeChevauche(
+  date: string,
+  maille: MailleFil,
+  range: DayPickerRange | undefined
+): boolean {
+  if (!range?.from && !range?.to) return true
+  const [debut, fin] = bornesPeriode(date, maille)
+  const from = range.from ? isoDepuisDate(range.from) : debut
+  const to = range.to ? isoDepuisDate(range.to) : from
+  return debut <= to && fin >= from
+}
+
+function periodeDisponible(
+  passeParMaille: Record<MailleFil, PassePeriode[]>,
+  ofsEngages: Pick<EngagementRow, 'dateDebutIso'>[]
+): DayPickerRange {
+  const dates = [
+    ...passeParMaille.jour.map((p) => p.date),
+    ...ofsEngages.flatMap((of) => (of.dateDebutIso ? [of.dateDebutIso] : [])),
+  ].sort()
+  if (dates.length === 0) {
+    const today = new Date()
+    return { from: today, to: today }
+  }
+  return {
+    from: new Date(`${dates[0]}T00:00:00`),
+    to: new Date(`${dates[dates.length - 1]}T00:00:00`),
+  }
+}
+
 function capPeriode(maille: MailleFil, capHebdo: number): number {
   if (capHebdo <= 0) return 0
   if (maille === 'semaine') return capHebdo
@@ -232,6 +287,12 @@ export function LeFil(props: LeFilProps) {
 
   const capHebdo = capaciteHebdoHeures ?? 0
   const cadenceMoy = totaux.heures > 0 ? totaux.qty / totaux.heures : 0
+  const availableRange = useMemo(
+    () => periodeDisponible(passeParMaille, ofsEngages),
+    [passeParMaille, ofsEngages]
+  )
+  const [periodOpen, setPeriodOpen] = useState(false)
+  const [period, setPeriod] = useState<DayPickerRange | undefined>(availableRange)
 
   /* Ventilation des OF engagés : semaines de début (lundi ISO) → heures. */
   const futurParSemaine = useMemo(() => {
@@ -259,7 +320,10 @@ export function LeFil(props: LeFilProps) {
   }
 
   const serie = useMemo(() => {
-    const passePeriodes = passeParMaille[maille] ?? []
+    const toutesPassePeriodes = passeParMaille[maille] ?? []
+    const passePeriodes = toutesPassePeriodes.filter((p) =>
+      periodeChevauche(p.date, maille, period)
+    )
     const capPer = capPeriode(maille, capHebdo)
 
     const passe: Barre[] = passePeriodes.map((p) => ({
@@ -272,11 +336,14 @@ export function LeFil(props: LeFilProps) {
     }))
 
     const futur: Barre[] = []
-    if (futurParSemaine.length > 0 && passePeriodes.length > 0) {
-      if (maille === 'semaine') {
-        const dernierLundi = passePeriodes[passePeriodes.length - 1].date
+    if (futurParSemaine.length > 0 && toutesPassePeriodes.length > 0) {
+      const futurVisible = futurParSemaine.filter((f) =>
+        periodeChevauche(f.lundi, 'semaine', period)
+      )
+      if (maille === 'semaine' && futurVisible.length > 0) {
+        const dernierLundi = toutesPassePeriodes[toutesPassePeriodes.length - 1].date
         let lundi = plusSeptJours(dernierLundi)
-        const dernierFutur = futurParSemaine[futurParSemaine.length - 1].lundi
+        const dernierFutur = futurVisible[futurVisible.length - 1].lundi
         let garde = 0
         while (lundi <= dernierFutur && garde < 6) {
           const heures = futurParSemaine.find((f) => f.lundi === lundi)?.heures ?? 0
@@ -302,9 +369,9 @@ export function LeFil(props: LeFilProps) {
             vide: true,
           })
         }
-      } else if (maille === 'mois') {
-        const hFut = futurParSemaine.reduce((a, f) => a + f.heures, 0)
-        const moisFuturs = [...new Set(futurParSemaine.map((f) => f.lundi.slice(0, 7)))]
+      } else if (maille === 'mois' && futurVisible.length > 0) {
+        const hFut = futurVisible.reduce((a, f) => a + f.heures, 0)
+        const moisFuturs = [...new Set(futurVisible.map((f) => f.lundi.slice(0, 7)))]
         const premierMois = moisFuturs[0] ?? ''
         const dernierMois = moisFuturs[moisFuturs.length - 1] ?? premierMois
         const libMois =
@@ -321,11 +388,12 @@ export function LeFil(props: LeFilProps) {
           futur: true,
           vide: hFut === 0,
         })
-      } else {
+      } else if (maille === 'jour') {
         // jour : chaque OF sur son jour de début.
         const parJour = new Map<string, number>()
         for (const of of ofsEngages) {
           if (!of.dateDebutIso || !of.hours) continue
+          if (!periodeChevauche(of.dateDebutIso, 'jour', period)) continue
           parJour.set(of.dateDebutIso, (parJour.get(of.dateDebutIso) ?? 0) + of.hours)
         }
         for (const [jour, heures] of [...parJour.entries()].sort()) {
@@ -343,7 +411,7 @@ export function LeFil(props: LeFilProps) {
 
     return { passe, futur }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passeParMaille, maille, mesure, futurParSemaine, cadenceMoy, capHebdo, ofsEngages])
+  }, [passeParMaille, maille, mesure, futurParSemaine, cadenceMoy, capHebdo, ofsEngages, period])
 
   const all = [...serie.passe, ...serie.futur]
   const capMax = Math.max(...all.map((b) => b.cap), 0)
@@ -361,7 +429,9 @@ export function LeFil(props: LeFilProps) {
   /* Reprojection des anomalies sur la série passée de la maille courante,
      puis regroupement par index (compteur sur la pastille). */
   const parIndex = useMemo(() => {
-    const passePeriodes = passeParMaille[maille] ?? []
+    const passePeriodes = (passeParMaille[maille] ?? []).filter((p) =>
+      periodeChevauche(p.date, maille, period)
+    )
     const m = new Map<number, AnomalieFil[]>()
     for (const a of anomalies) {
       const dateIso = a.dateIso
@@ -378,7 +448,7 @@ export function LeFil(props: LeFilProps) {
       m.set(idx, l)
     }
     return m
-  }, [anomalies, maille, passeParMaille])
+  }, [anomalies, maille, passeParMaille, period])
 
   return (
     <section className="rounded-lg border border-rule bg-card shadow-float">
@@ -432,6 +502,40 @@ export function LeFil(props: LeFilProps) {
             </button>
           ))}
         </div>
+        <DateWindowPill
+          open={periodOpen}
+          onOpenChange={setPeriodOpen}
+          selected={period ?? {}}
+          onSelect={(range) => {
+            setPeriod(range ?? availableRange)
+            setPeriodOpen(false)
+          }}
+          title="Sélectionner la période du fil"
+          numberOfMonths={2}
+          disabled={(date) =>
+            Boolean(
+              (availableRange.from && date < availableRange.from) ||
+              (availableRange.to && date > availableRange.to)
+            )
+          }
+        />
+      </div>
+
+      {/* Légende visible avant le graphe : elle reste lisible même quand la
+          granularité Jour produit plus d'une centaine de barres. */}
+      <div className="mx-5 mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-rule-soft py-2.5 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[10px] w-3 rounded-[2px] bg-brand opacity-80" />
+          Constaté · pointages
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]" />
+          Engagé · OF fermes
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0 w-3 border-t-2 border-dashed border-input" />
+          {mesure === 'h' ? 'Capacité déclarée' : 'Capacité convertie'}
+        </span>
       </div>
 
       {/* Le fil */}
@@ -576,25 +680,8 @@ export function LeFil(props: LeFilProps) {
           ))}
         </div>
 
-        {/* Légende */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-rule-soft pt-2.5 text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-[10px] w-3 rounded-[2px] bg-brand opacity-80" />{' '}
-            Constaté · pointages
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]" />
-            Engagé · OF fermes
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-0 w-3 border-t-2 border-dashed border-input" />
-            {mesure === 'h'
-              ? 'Capacité déclarée (TABWEEDIA)'
-              : 'Capacité convertie à la cadence moyenne'}
-          </span>
-          <span className="ml-auto hidden sm:inline">
-            Survoler une barre pour le détail · une pastille pour l'anomalie
-          </span>
+        <div className="mt-2 text-right text-[10px] text-muted-foreground">
+          Survoler une barre pour le détail · une pastille pour l'anomalie
         </div>
       </div>
 
