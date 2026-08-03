@@ -30,11 +30,15 @@ import {
   ToolbarSpacer,
 } from '@r/components/vision/toolbar'
 import { moisLabel } from '@r/components/cockpit/chart-common'
+import {
+  fetchBoardFeasibility,
+  feasibilityWindowFromDates,
+} from '@r/lib/board/feasibility-map'
+import type { FeasStatus } from '@r/lib/board/types'
 import { route } from '@r/lib/routes'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
 import {
-  fmtDateFr,
   fmtH,
   fmtJ,
   saturation,
@@ -280,7 +284,7 @@ export default function CockpitPoste(props: Props) {
           {postes.data && (
             <div>
               <b className="font-bold text-foreground">{postes.data.postes.length}</b> postes ·{' '}
-              {fmtDateFr(postes.data.fenetre.fromIso)} → {fmtDateFr(postes.data.fenetre.toIso)}
+              {dateLong(postes.data.fenetre.fromIso)} → {dateLong(postes.data.fenetre.toIso)}
             </div>
           )}
         </>
@@ -345,6 +349,9 @@ export default function CockpitPoste(props: Props) {
           />
         ) : detail.data ? (
           <PosteDetail
+            // La clé force le remontage au changement de poste : l'état local
+            // (faisabilité) repart de zéro au lieu de survivre à l'ancien poste.
+            key={detail.data.poste.code}
             payload={detail.data}
             onSelectOf={(num) => {
               setDetailOf(num)
@@ -371,6 +378,36 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
   const sat = engagement
     ? saturation(engagement.totalHours, engagement.weeklyCapacityHours)
     : null
+
+  // Faisabilité matières — même contrat API que le séquenceur (#119 : reprise du
+  // bloc séquenceur sans dupliquer la logique). À la demande : le calcul est
+  // lourd, on ne le paie qu'à l'ouverture du cockpit d'un poste donné.
+  const [feasMap, setFeasMap] = useState<Record<string, FeasStatus> | null>(null)
+  const [feasLoading, setFeasLoading] = useState(false)
+  const [feasError, setFeasError] = useState<string | null>(null)
+
+  const runFeasibility = async () => {
+    if (!engagement || engagement.rows.length === 0 || feasLoading) return
+    setFeasLoading(true)
+    setFeasError(null)
+    try {
+      const { from, to } = feasibilityWindowFromDates(engagement.rows.map((r) => r.dateDebutIso))
+      const { map, nbOk, nbBlocked, nbQc } = await fetchBoardFeasibility({
+        from,
+        to,
+        mode: 'sequential',
+        workstation: poste.code,
+      })
+      setFeasMap(map)
+      setFeasCounts({ ok: nbOk, blocked: nbBlocked, qc: nbQc })
+    } catch (e) {
+      setFeasError((e as Error).message)
+    } finally {
+      setFeasLoading(false)
+    }
+  }
+
+  const [feasCounts, setFeasCounts] = useState({ ok: 0, blocked: 0, qc: 0 })
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -419,7 +456,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
         <div className="flex items-baseline gap-1.5" title="Dernier pointage dans la fenêtre">
           <span className="text-[11px] font-medium text-muted-foreground">Dernier pointage</span>
           <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
-            {fmtDateFr(poste.dernierPointageIso)}
+            {dateLong(poste.dernierPointageIso)}
           </span>
         </div>
       </div>
@@ -443,7 +480,7 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
 
       {/* Engagement futur — pipeline #46 réutilisé. */}
       <div className="px-7 py-4">
-        <div className="mb-2 flex items-center gap-3">
+        <div className="mb-2 flex flex-wrap items-center gap-3">
           <span className="font-fraunces text-[13px] font-bold not-italic text-foreground">
             Engagement
           </span>
@@ -466,7 +503,40 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
               )}
             </>
           )}
+          <span className="flex-1" />
+          {feasMap && (
+            <span className="flex items-center gap-3 font-mono text-[11px] font-semibold">
+              <span className="text-ferme">{feasCounts.ok} faisables</span>
+              {feasCounts.qc > 0 && <span className="text-suggere">{feasCounts.qc} sous CQ</span>}
+              {feasCounts.blocked > 0 && (
+                <span className="text-destructive">{feasCounts.blocked} bloqués</span>
+              )}
+            </span>
+          )}
+          {engagement && engagement.rows.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void runFeasibility()}
+              disabled={feasLoading}
+              className={cn(
+                PILL,
+                'cursor-pointer px-3 font-mono text-[11px] font-semibold text-foreground hover:border-brand/50 disabled:opacity-60'
+              )}
+              title="Couverture matières des OF engagés (même moteur que /programme)"
+            >
+              <RefreshCw size={14} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
+              {feasLoading ? 'Calcul…' : feasMap ? 'Recalculer la faisabilité' : 'Faisabilité'}
+            </button>
+          )}
         </div>
+
+        {feasError && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] text-foreground">
+            <TriangleAlert size={14} strokeWidth={1.75} className="text-destructive" />
+            <span className="font-bold">Faisabilité :</span>
+            <span className="font-mono">{feasError}</span>
+          </div>
+        )}
 
         {!engagement || engagement.rows.length === 0 ? (
           <div className="rounded-lg border border-rule bg-card p-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
@@ -475,7 +545,12 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
         ) : (
           <div className="divide-y divide-rule-soft rounded-lg border border-rule bg-card shadow-float">
             {engagement.rows.map((r) => (
-              <EngagementLine key={r.numOf} row={r} onSelectOf={props.onSelectOf} />
+              <EngagementLine
+                key={r.numOf}
+                row={r}
+                onSelectOf={props.onSelectOf}
+                feas={feasMap?.[r.numOf] ?? null}
+              />
             ))}
           </div>
         )}
@@ -484,9 +559,14 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
   )
 }
 
-function EngagementLine(props: { row: EngagementRow; onSelectOf: (numOf: string) => void }) {
+function EngagementLine(props: {
+  row: EngagementRow
+  onSelectOf: (numOf: string) => void
+  feas: FeasStatus | null
+}) {
   const r = props.row
   const u = urgencyOf(r.livraisonIso)
+  const feas = props.feas
   return (
     <div className="flex items-center gap-4 px-4 py-2.5 transition-colors hover:bg-foreground/[0.05]">
       <button
@@ -526,6 +606,27 @@ function EngagementLine(props: { row: EngagementRow; onSelectOf: (numOf: string)
         )}
       </div>
 
+      {/* Badge faisabilité matières — seulement après un calcul explicite. */}
+      {feas && (
+        <span
+          className={cn(
+            'shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide',
+            feas.st === 'ok' && 'bg-ferme/15 text-ferme',
+            feas.st === 'qc' && 'bg-suggere/15 text-suggere',
+            feas.st === 'blocked' && 'bg-destructive/15 text-destructive'
+          )}
+          title={
+            feas.st === 'blocked'
+              ? `Composants manquants : ${feas.missing.join(', ') || '—'}`
+              : feas.st === 'qc'
+                ? `Couvert grâce au stock sous contrôle qualité : ${Object.keys(feas.qcComponents ?? {}).join(', ')}`
+                : 'Faisable'
+          }
+        >
+          {feas.st === 'ok' ? 'faisable' : feas.st === 'qc' ? 'sous CQ' : 'bloqué'}
+        </span>
+      )}
+
       {r.statusLabel && (
         <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {r.statusLabel}
@@ -533,7 +634,7 @@ function EngagementLine(props: { row: EngagementRow; onSelectOf: (numOf: string)
       )}
 
       <span className={cn('shrink-0 font-mono text-[11px] font-bold tabular-nums', urgencyColor(u))}>
-        {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
+        {r.livraisonIso ? dateLong(r.livraisonIso) : '—'}
       </span>
 
       <span className="w-16 shrink-0 text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
@@ -582,7 +683,7 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
               <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
                 <span className="text-muted-foreground">{a.article}</span>
                 <span className="ml-auto text-muted-foreground">
-                  lancé {fmtDateFr(a.dateDebutIso)}
+                  lancé {dateLong(a.dateDebutIso)}
                 </span>
                 <span className="font-bold text-danger">{a.jours} j</span>
               </AnomalieRow>
@@ -598,7 +699,7 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
               <AnomalieRow key={a.numOf} numOf={a.numOf} onSelectOf={onSelectOf}>
                 <span className="text-muted-foreground">{a.article}</span>
                 <span className="ml-auto text-muted-foreground">
-                  dernier {fmtDateFr(a.dernierPointageIso)}
+                  dernier {dateLong(a.dernierPointageIso)}
                 </span>
                 <span className="font-bold text-danger">{a.jours} j</span>
               </AnomalieRow>
@@ -636,7 +737,7 @@ function AnomaliesSection(props: { anomalies: AnomaliesVue; onSelectOf: (numOf: 
             {anomalies.doublons.map((d) => (
               <AnomalieRow key={`${d.numOf}-${d.openum}-${d.iptdat}`} numOf={d.numOf} onSelectOf={onSelectOf}>
                 <span className="text-muted-foreground">
-                  op. {d.openum} · {fmtDateFr(d.iptdat)}
+                  op. {d.openum} · {dateLong(d.iptdat)}
                 </span>
                 <span className="ml-auto font-bold text-suggere">×{d.nombre}</span>
               </AnomalieRow>
@@ -689,8 +790,13 @@ function AnomalieRow(props: { numOf: string; onSelectOf: (numOf: string) => void
 type Maille = 'jour' | 'semaine' | 'mois'
 type Unite = 'pieces' | 'palettes'
 
-const jourCourt = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
-const semaineLabel = (lundiIso: string) => `S ${jourCourt(lundiIso)}`
+/** ISO → JJ/MM/AAAA — le critère d'acceptation #119 pour les dates du cockpit. */
+const dateLong = (iso: string | null) => {
+  if (!iso) return '—'
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+const semaineLabel = (lundiIso: string) => `S ${dateLong(lundiIso)}`
 
 /** Passé constaté : production (maille + unité au choix), heures vs capacité,
  *  OF terminés. Les chiffres ne viennent QUE des pointages de ce poste. */
@@ -711,8 +817,9 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
   const palettesParDate = new Map(palettes.map((p) => [p.date, p.palettes]))
   const palettesDisponibles = palettes.some((p) => p.palettes !== null)
 
+  // Axe des mailles : jour et semaine en JJ/MM/AAAA (#119), mois en clair.
   const labelDe = (date: string) =>
-    maille === 'jour' ? jourCourt(date) : maille === 'semaine' ? semaineLabel(date) : moisLabel(date)
+    maille === 'jour' ? dateLong(date) : maille === 'semaine' ? semaineLabel(date) : moisLabel(date)
 
   const chartData = prod.map((m) => ({
     label: labelDe(m.date),
@@ -855,7 +962,7 @@ function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void
                           {of.palettes !== null ? of.palettes : '—'}
                         </td>
                         <td className="px-3 py-1.5 text-right">{of.heures}</td>
-                        <td className="px-3 py-1.5 text-right">{fmtDateFr(of.dernierJourIso)}</td>
+                        <td className="px-3 py-1.5 text-right">{dateLong(of.dernierJourIso)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -7,7 +7,9 @@ import { operationsTrkWindow } from '#services/replica_sync_service'
  * Lecture `operations_trk_replica` (#119, lot 1). Même discipline que les autres
  * tests réplique : `num_of` de test préfixés `TESTOF-TRK-`, nettoyés en sortie.
  * La connexion `replica` pointe le même fichier en test qu'en dev (pas de
- * `.env.test` dans ce dépôt), d'où le préfixe + nettoyage plutôt qu'un vidage.
+ * `.env.test` dans ce dépôt) et peut contenir des DONNÉES RÉELLES ingérées :
+ * les assertions filtrent donc sur les lignes de test, jamais sur un compte de
+ * lignes total. Postes fictifs `ZZ_*` pour la même raison.
  */
 
 const NUMS = ['TESTOF-TRK-A', 'TESTOF-TRK-B']
@@ -19,7 +21,7 @@ function row(
     num_of: 'TESTOF-TRK-A',
     openum: 10,
     iptdat: '2026-07-01',
-    cplwst: 'PP_093',
+    cplwst: 'ZZ_093',
     cplqty: 100,
     rejcplqty: 0,
     opetim: 3.5,
@@ -50,7 +52,8 @@ test.group('OperationsTrkReplicaRepository', (group) => {
         row({ iptdat: '2026-07-02' }),
       ])
 
-    const rows = await operationsTrkReplicaRepository.getPointages('2026-07-01', '2026-07-02')
+    const toutes = await operationsTrkReplicaRepository.getPointages('2026-07-01', '2026-07-02')
+    const rows = toutes.filter((r) => r.numOf === 'TESTOF-TRK-A')
 
     assert.lengthOf(rows, 1)
     assert.equal(rows[0].iptdat, '2026-07-01')
@@ -59,22 +62,23 @@ test.group('OperationsTrkReplicaRepository', (group) => {
   test('le filtre poste est une égalité stricte — aucun regroupement', async ({ assert }) => {
     await conn
       .table('operations_trk_replica')
-      .insert([row({ cplwst: 'PP_093' }), row({ cplwst: 'PP_0931' }), row({ cplwst: 'PP_09' })])
+      .insert([row({ cplwst: 'ZZ_093' }), row({ cplwst: 'ZZ_0931' }), row({ cplwst: 'ZZ_09' })])
 
     const rows = await operationsTrkReplicaRepository.getPointages(
       '2026-01-01',
       '2027-01-01',
-      'PP_093'
+      'ZZ_093'
     )
 
     assert.lengthOf(rows, 1)
-    assert.equal(rows[0].cplwst, 'PP_093')
+    assert.equal(rows[0].cplwst, 'ZZ_093')
   })
 
   test('les colonnes hors périmètre v1 ne sont pas exposées', async ({ assert }) => {
     await conn.table('operations_trk_replica').insert([row()])
 
-    const rows = await operationsTrkReplicaRepository.getPointages('2026-01-01', '2027-01-01')
+    const toutes = await operationsTrkReplicaRepository.getPointages('2026-01-01', '2027-01-01')
+    const rows = toutes.filter((r) => r.numOf === 'TESTOF-TRK-A')
 
     assert.lengthOf(rows, 1)
     // Matricule, panne, arrêt, équipe, champ « gamme », VALEUR du rebut :
@@ -112,9 +116,9 @@ test.group('OperationsTrkReplicaRepository', (group) => {
     await conn
       .table('operations_trk_replica')
       .insert([
-        row({ cplwst: 'PP_093' }),
-        row({ cplwst: 'PP_093', iptdat: '2026-07-02' }),
-        row({ cplwst: 'PP_MECA' }),
+        row({ cplwst: 'ZZ_093' }),
+        row({ cplwst: 'ZZ_093', iptdat: '2026-07-02' }),
+        row({ cplwst: 'ZZ_MECA' }),
       ])
 
     const postes = await operationsTrkReplicaRepository.getDistinctWorkstations(
@@ -123,8 +127,10 @@ test.group('OperationsTrkReplicaRepository', (group) => {
     )
 
     // Le filtrage des codes alphabétiques est une règle domaine, pas un silence
-    // de requête : PP_MECA DOIT ressortir ici.
-    assert.deepEqual(postes.sort(), ['PP_093', 'PP_MECA'])
+    // de requête : ZZ_MECA DOIT ressortir ici. `includes` et non égalité stricte :
+    // la réplique peut porter des données réelles à côté des lignes de test.
+    assert.include(postes, 'ZZ_093')
+    assert.include(postes, 'ZZ_MECA')
   })
 })
 
