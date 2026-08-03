@@ -26,6 +26,10 @@ export default class StaticArticle extends BaseModel {
   @column({ columnName: 'reorder_delay' })
   declare reorderDelay: number
 
+  /** ITMMASTER.PCUSTUCOE_1 — US par palette (#119). null = pas de coefficient. */
+  @column({ columnName: 'us_par_palette' })
+  declare usParPalette: number | null
+
   @column({ columnName: 'synced_at' })
   declare syncedAt: number
 }

@@ -99,10 +99,12 @@ export class StaticSyncService {
     try {
       while (true) {
         const keysetClause = lastCode ? `AND ITM.ITMREF_0 > '${lastCode.replace(/'/g, "''")}'` : ''
+        // PCUSTUCOE_1 = US par palette (#119) — même colonne qu'aux repositories
+        // expéditions/réceptions ; nullable, un article sans coefficient reste null.
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, PCUSTUCOE_1
 FROM (
-  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0
+  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, ITM.PCUSTUCOE_1
   FROM ITMMASTER ITM
   LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = ITM.ITMREF_0 AND F.STOFCY_0 = 'AE1'
   WHERE ITM.ITMSTA_0 = 1 ${keysetClause}
@@ -135,6 +137,7 @@ FROM (
           delay = Number(r.PRPLTI_0) || 14
         }
 
+        const usPal = Number(r.PCUSTUCOE_1)
         return {
           code,
           description,
@@ -143,6 +146,7 @@ FROM (
           famille: String(r.YFAMSTAT7_0 ?? '').trim(),
           typologie: String(r.TSICOD_4 ?? '').trim(),
           reorder_delay: delay,
+          us_par_palette: Number.isFinite(usPal) && usPal > 0 ? usPal : null,
           synced_at: now,
         }
       })
@@ -355,6 +359,7 @@ FROM (
       famille: r.famille ?? '',
       typologie: r.typologie ?? '',
       reorderDelay: r.reorderDelay ?? 0,
+      usParPalette: r.usParPalette ?? null,
       productFamily: null,
       pmp: null,
       economicLot: null,

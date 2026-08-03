@@ -13,17 +13,32 @@ import { POSTE_PP_RE, atelierLabel } from '#app/domain/atelier'
 import { capacityPeriod } from '#app/domain/capacity'
 import { detecterAnomaliesPoste, type AnomaliesPosteResultat } from '#app/domain/cockpit_anomalies'
 import {
+  adherenceProgramme,
+  fiabiliteTempsGamme,
+  lundiIso,
+  mixArticles,
+  type AdherenceSemaine,
+  type FiabilitePoste,
+  type MixArticle,
+} from '#app/domain/cockpit_analyses'
+import {
   heuresConvertiesParJour,
+  palettesRealisees,
   productionParMois,
+  productionParSemaine,
   productionRealiseeParJour,
+  syntheseParOf,
+  type PalettesMaille,
   type PointageTrk,
-  type ProductionMois,
+  type ProductionRealisee,
 } from '#app/domain/production_realisee'
 import {
   groupGammeByArticle,
   hoursForQuantity,
   type GammeOperation,
 } from '#app/domain/models/gamme'
+import type { ManufacturingOrder } from '#repositories/of_repository'
+import type { Article } from '#app/domain/models/article'
 import { isoDay } from '#app/utils/dates'
 import { cacheNs } from '#services/cache_ns'
 
@@ -95,14 +110,41 @@ export interface CockpitHeuresMois {
   heuresConverties: number
 }
 
+/** Un OF « terminé » du point de vue du poste : pointé dans la fenêtre et plus
+ *  en cours. `dernierJourIso` tient lieu de date de sortie — approximation
+ *  documentée : la réplique ne connaît pas la clôture X3. */
+export interface CockpitOfTermine {
+  numOf: string
+  article: string | null
+  designation: string | null
+  qty: number
+  heures: number
+  dernierJourIso: string
+  palettes: number | null
+}
+
 /**
  * Le passé constaté d'un poste sur la fenêtre répliquée. Null quand la réplique
  * est indisponible : jamais de repli en voie directe sur les pointages.
+ *
+ * Les trois mailles (jour/semaine/mois) sont servies précalculées — le graphe
+ * bascule de l'une à l'autre sans retraitement côté client.
  */
 export interface CockpitPasse {
   nbPointages: number
-  productionParMois: ProductionMois[]
+  productionParJour: ProductionRealisee[]
+  productionParSemaine: ProductionRealisee[]
+  productionParMois: ProductionRealisee[]
+  /** Équivalent palette par maille — null = absence de coefficient (#119). */
+  palettes: { parJour: PalettesMaille[]; parSemaine: PalettesMaille[]; parMois: PalettesMaille[] }
   heuresParMois: CockpitHeuresMois[]
+  ofTermines: CockpitOfTermine[]
+}
+
+export interface CockpitAnalyses {
+  fiabilite: FiabilitePoste
+  adherence: AdherenceSemaine[]
+  mix: MixArticle[]
 }
 
 export interface CockpitPostePayload {
@@ -113,6 +155,8 @@ export interface CockpitPostePayload {
   passe: CockpitPasse | null
   /** Anomalies de pointage (#119, lot 5) — null si la réplique est indisponible. */
   anomalies: AnomaliesPosteResultat | null
+  /** Fiabilité gamme, adhérence programme, mix articles (#119, lot 6). */
+  analyses: CockpitAnalyses | null
   fenetre: { fromIso: string; toIso: string }
   replica: CockpitReplicaState
   x3Error: string | null
@@ -225,15 +269,27 @@ function buildPasse(opts: {
   fen: { fromIso: string; toIso: string; toExclIso: string }
   wst: CockpitWorkstation | undefined
   gamme: { article: string; workstation: string; rate: number }[]
+  usParPalette: (article: string) => number | null
+  ofTermines: CockpitOfTermine[]
 }): CockpitPasse {
   const { pointages } = opts
   if (pointages.length === 0) {
-    return { nbPointages: 0, productionParMois: [], heuresParMois: [] }
+    return {
+      nbPointages: 0,
+      productionParJour: [],
+      productionParSemaine: [],
+      productionParMois: [],
+      palettes: { parJour: [], parSemaine: [], parMois: [] },
+      heuresParMois: [],
+      ofTermines: [],
+    }
   }
 
-  // Domaine pur : sélection dernière opération quantifiée + mailles jour + mois.
+  // Domaine pur : sélection dernière opération quantifiée + mailles j/s/m.
   const maillesJour = productionRealiseeParJour(pointages)
+  const prodSemaine = productionParSemaine(maillesJour)
   const prodMois = productionParMois(maillesJour)
+  const palettes = palettesRealisees(pointages, opts.usParPalette)
 
   const cadenceParCle = cadenceParArticlePoste(opts.gamme)
   const convertiesJour = heuresConvertiesParJour(
@@ -273,7 +329,15 @@ function buildPasse(opts: {
     }
   )
 
-  return { nbPointages: pointages.length, productionParMois: prodMois, heuresParMois }
+  return {
+    nbPointages: pointages.length,
+    productionParJour: maillesJour,
+    productionParSemaine: prodSemaine,
+    productionParMois: prodMois,
+    palettes,
+    heuresParMois,
+    ofTermines: opts.ofTermines,
+  }
 }
 
 /** Poste du référentiel — shape minimale pour la capacité. */
@@ -281,6 +345,32 @@ type CockpitWorkstation = Parameters<typeof capacityPeriod>[0]
 
 /** Statuts OF considérés « en cours » — les mêmes que l'engagement (#46). */
 const STATUTS_EN_COURS = new Set([1, 2, 3])
+
+/**
+ * OF EN COURS rattachés au poste — une seule extraction pour les anomalies,
+ * l'adhérence et la liste des OF terminés. Même résolution de poste que
+ * l'engagement (#46) : override manuel sinon première opération de gamme.
+ */
+async function ofsEnCoursDuPoste(
+  poste: string,
+  gamme: GammeOperation[]
+): Promise<ManufacturingOrder[]> {
+  const [ord, overrides] = await Promise.all([
+    boardDataset.getOrders(),
+    new OverrideStore().getAll(),
+  ])
+  const opsByArticle = groupGammeByArticle(gamme)
+  const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
+
+  const seen = new Set<string>()
+  return ord.mos.filter((mo) => {
+    if (!STATUTS_EN_COURS.has(Number(mo.status))) return false
+    if (seen.has(mo.numOf)) return false
+    if (resolvePoste(mo, overrideMap, opsByArticle) !== poste) return false
+    seen.add(mo.numOf)
+    return true
+  })
+}
 
 /**
  * Anomalies de pointage du poste (#119, lot 5). Domaine pur sur :
@@ -297,25 +387,9 @@ async function buildAnomalies(opts: {
   poste: string
   pointages: PointageTrk[]
   gamme: GammeOperation[]
-}): Promise<AnomaliesPosteResultat | null> {
-  const verdict = await replicaGate.verdict('operations_trk_replica')
-  if (verdict.source !== 'replica') return null
-
-  const [ord, overrides] = await Promise.all([
-    boardDataset.getOrders(),
-    new OverrideStore().getAll(),
-  ])
-  const opsByArticle = groupGammeByArticle(opts.gamme)
-  const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
-
-  const seen = new Set<string>()
-  const enCours = ord.mos.filter((mo) => {
-    if (!STATUTS_EN_COURS.has(Number(mo.status))) return false
-    if (seen.has(mo.numOf)) return false
-    if (resolvePoste(mo, overrideMap, opsByArticle) !== opts.poste) return false
-    seen.add(mo.numOf)
-    return true
-  })
+  enCours: ManufacturingOrder[]
+}): Promise<AnomaliesPosteResultat> {
+  const { enCours } = opts
   if (enCours.length === 0) {
     // Sans OF en cours sur le poste, seuls les doublons restent détectables.
     return detecterAnomaliesPoste({
@@ -353,6 +427,84 @@ async function buildAnomalies(opts: {
       hoursForQuantity({ rate: cadenceParCle.get(`${article}#${opts.poste}`) ?? 0 }, qty),
     aujourdhuiIso: isoDay(new Date()),
   })
+}
+
+/**
+ * OF « terminés » du point de vue du poste : pointés dans la fenêtre et qui ne
+ * sont PLUS en cours. La date de sortie est approchée par le dernier pointage —
+ * la réplique ne connaît pas la clôture X3, et c'est documenté comme tel.
+ */
+function buildOfTermines(opts: {
+  pointages: PointageTrk[]
+  enCoursNums: Set<string>
+  designationParArticle: Map<string, string>
+  usParPalette: (article: string) => number | null
+}): CockpitOfTermine[] {
+  const termines: CockpitOfTermine[] = []
+  for (const of of syntheseParOf(opts.pointages)) {
+    if (opts.enCoursNums.has(of.numOf)) continue
+    const coef = of.article ? opts.usParPalette(of.article) : null
+    termines.push({
+      numOf: of.numOf,
+      article: of.article,
+      designation: of.article ? (opts.designationParArticle.get(of.article) ?? null) : null,
+      qty: of.qty,
+      heures: Math.round(of.heures * 100) / 100,
+      dernierJourIso: of.dernierJour,
+      palettes: coef && coef > 0 ? Math.round((of.qty / coef) * 10) / 10 : null,
+    })
+  }
+  return termines.sort((a, b) => b.dernierJourIso.localeCompare(a.dernierJourIso))
+}
+
+/**
+ * Analyses du poste (#119, lot 6) : fiabilité des temps de gamme, adhérence au
+ * programme, mix articles. Domaine pur ; l'assemblage prépare seulement les
+ * entrées (cadences gamme, coefficient palette, semaines de la fenêtre).
+ *
+ * Adhérence : les semaines couvertes sont celles de la fenêtre répliquée,
+ * SANS la semaine en cours (partielle, elle ferait chuter le taux à tort).
+ */
+async function buildAnalyses(opts: {
+  poste: string
+  pointages: PointageTrk[]
+  gamme: GammeOperation[]
+  enCours: ManufacturingOrder[]
+  fen: { fromIso: string; toIso: string }
+  usParPalette: (article: string) => number | null
+}): Promise<CockpitAnalyses> {
+  const cadenceParCle = cadenceParArticlePoste(opts.gamme)
+  const cadencePour = (article: string): number | null =>
+    cadenceParCle.get(`${article}#${opts.poste}`) ?? null
+
+  const synthese = syntheseParOf(opts.pointages)
+
+  // Semaines de la fenêtre (lundis ISO), semaine en cours exclue.
+  const lundiCourant = lundiIso(opts.fen.toIso)
+  const semaines = new Set<string>()
+  const curseur = new Date(`${opts.fen.fromIso}T00:00:00`)
+  const fin = new Date(`${opts.fen.toIso}T00:00:00`)
+  for (let t = curseur.getTime(); t <= fin.getTime(); t += 86_400_000) {
+    const lundi = lundiIso(isoDay(new Date(t)))
+    if (lundi !== lundiCourant) semaines.add(lundi)
+  }
+
+  // OF PRÉVUS par semaine : date de lancement des OF ouverts du poste. Limite
+  // assumée et affichée : ce qui est passé en stock n'est plus dans ORDERS.
+  const prevusParSemaine = new Map<string, Set<string>>()
+  for (const mo of opts.enCours) {
+    if (!mo.startDate) continue
+    const lundi = lundiIso(isoDay(mo.startDate))
+    const cur = prevusParSemaine.get(lundi) ?? new Set<string>()
+    cur.add(mo.numOf)
+    prevusParSemaine.set(lundi, cur)
+  }
+
+  return {
+    fiabilite: fiabiliteTempsGamme({ synthese, cadencePour }),
+    adherence: adherenceProgramme({ prevusParSemaine, synthese, semaines: [...semaines] }),
+    mix: mixArticles({ synthese, cadencePour, usParPalette: opts.usParPalette }),
+  }
 }
 
 /** Lignes réplique → pointages du domaine. */
@@ -414,10 +566,41 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
         : null,
   }
 
-  const passe = replica.disponible ? buildPasse({ pointages, fen, wst, gamme: ref.gamme }) : null
-  const anomalies = replica.disponible
-    ? await buildAnomalies({ poste: safe, pointages, gamme: ref.gamme })
-    : null
+  let passe: CockpitPasse | null = null
+  let anomalies: AnomaliesPosteResultat | null = null
+  let analyses: CockpitAnalyses | null = null
+  if (replica.disponible) {
+    // Articles du miroir statique : désignations + coefficient palette
+    // (PCUSTUCOE_1) — la page ne fait aucune requête X3 en ligne.
+    const articles = await boardDataset.getArticles().catch(() => [] as Article[])
+    const designationParArticle = new Map<string, string>()
+    const coefParArticle = new Map<string, number>()
+    for (const a of articles) {
+      if (a.description) designationParArticle.set(a.code, a.description)
+      if (a.usParPalette && a.usParPalette > 0) coefParArticle.set(a.code, a.usParPalette)
+    }
+    const usParPalette = (article: string): number | null => coefParArticle.get(article) ?? null
+
+    const enCours = await ofsEnCoursDuPoste(safe, ref.gamme)
+    const enCoursNums = new Set(enCours.map((m) => m.numOf))
+
+    const ofTermines = buildOfTermines({
+      pointages,
+      enCoursNums,
+      designationParArticle,
+      usParPalette,
+    })
+    passe = buildPasse({ pointages, fen, wst, gamme: ref.gamme, usParPalette, ofTermines })
+    anomalies = await buildAnomalies({ poste: safe, pointages, gamme: ref.gamme, enCours })
+    analyses = await buildAnalyses({
+      poste: safe,
+      pointages,
+      gamme: ref.gamme,
+      enCours,
+      fen,
+      usParPalette,
+    })
+  }
 
   let engagement: PosteEngagement | null = null
   let x3Error: string | null = null
@@ -428,5 +611,5 @@ export async function loadCockpitPoste(poste: string, force = false): Promise<Co
     x3Error = (e as Error).message
   }
 
-  return { poste: info, engagement, passe, anomalies, fenetre, replica, x3Error }
+  return { poste: info, engagement, passe, anomalies, analyses, fenetre, replica, x3Error }
 }

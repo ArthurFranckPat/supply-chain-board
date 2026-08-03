@@ -22,7 +22,14 @@ import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { X3Link } from '@r/components/x3-link'
 import { ProductionChart } from '@r/components/cockpit/production-chart'
 import { HeuresCapaciteChart } from '@r/components/cockpit/heures-capacite-chart'
-import { PILL, ToolbarRow, ToolbarSpacer } from '@r/components/vision/toolbar'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  ToolbarRow,
+  ToolbarSpacer,
+} from '@r/components/vision/toolbar'
+import { moisLabel } from '@r/components/cockpit/chart-common'
 import { route } from '@r/lib/routes'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
@@ -71,11 +78,27 @@ interface PosteInfo {
   dernierPointageIso: string | null
 }
 
-interface PasseMoisProduction {
-  mois: string
+interface MailleProduction {
+  date: string
   qty: number
   heures: number
   dontHeuresReglage: number
+}
+
+interface PalettesMaille {
+  date: string
+  /** null = absence de coefficient palette, pas zéro (#119). */
+  palettes: number | null
+}
+
+interface OfTermine {
+  numOf: string
+  article: string | null
+  designation: string | null
+  qty: number
+  heures: number
+  dernierJourIso: string
+  palettes: number | null
 }
 
 interface PasseMoisHeures {
@@ -87,8 +110,48 @@ interface PasseMoisHeures {
 
 interface Passe {
   nbPointages: number
-  productionParMois: PasseMoisProduction[]
+  productionParJour: MailleProduction[]
+  productionParSemaine: MailleProduction[]
+  productionParMois: MailleProduction[]
+  palettes: { parJour: PalettesMaille[]; parSemaine: PalettesMaille[]; parMois: PalettesMaille[] }
   heuresParMois: PasseMoisHeures[]
+  ofTermines: OfTermine[]
+}
+
+interface FiabiliteArticle {
+  article: string
+  qty: number
+  heuresPointees: number
+  heuresTheoriques: number
+  ratio: number | null
+}
+
+interface AdherenceSemaine {
+  semaine: string
+  prevus: number
+  pointes: number
+  taux: number | null
+}
+
+interface MixArticle {
+  article: string
+  qty: number
+  palettes: number | null
+  heures: number
+  piecesParHeure: number | null
+  cadenceGamme: number | null
+}
+
+interface AnalysesVue {
+  fiabilite: {
+    articles: FiabiliteArticle[]
+    heuresPointees: number
+    heuresTheoriques: number
+    ratioGlobal: number | null
+    exclusFauteCadence: number
+  }
+  adherence: AdherenceSemaine[]
+  mix: MixArticle[]
 }
 
 type AnomalieKind =
@@ -139,6 +202,8 @@ interface PostePayload {
   passe: Passe | null
   /** Anomalies de pointage — null si la réplique est indisponible. */
   anomalies: AnomaliesVue | null
+  /** Fiabilité gamme, adhérence, mix articles — null si réplique indisponible. */
+  analyses: AnalysesVue | null
   fenetre: { fromIso: string; toIso: string }
   replica: ReplicaState
   x3Error: string | null
@@ -300,9 +365,9 @@ export default function CockpitPoste(props: Props) {
   )
 }
 
-/** Carte d'identité + passé constaté + anomalies + bloc engagement d'un poste. */
+/** Carte d'identité + passé constaté + anomalies + analyses + engagement. */
 function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string) => void }) {
-  const { poste, engagement, passe, anomalies, x3Error } = props.payload
+  const { poste, engagement, passe, anomalies, analyses, x3Error } = props.payload
   const sat = engagement
     ? saturation(engagement.totalHours, engagement.weeklyCapacityHours)
     : null
@@ -367,65 +432,14 @@ function PosteDetail(props: { payload: PostePayload; onSelectOf: (numOf: string)
         </div>
       )}
 
-      {/* Passé constaté — réplique de pointages, graphe mensuel (#119, lot 4). */}
-      {passe && (
-        <div className="border-b border-border px-7 py-4">
-          <div className="mb-2 flex items-center gap-3">
-            <span className="font-fraunces text-[13px] font-bold not-italic text-foreground">
-              Passé productif
-            </span>
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {passe.nbPointages} pointage{passe.nbPointages > 1 ? 's' : ''} sur la fenêtre
-            </span>
-          </div>
-
-          {passe.nbPointages === 0 ? (
-            <div className="rounded-lg border border-rule bg-card p-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
-              Aucun pointage sur ce poste dans la fenêtre.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
-                <div className="mb-1 flex items-center justify-between px-1">
-                  <span className="text-[11px] font-semibold text-foreground">Production</span>
-                  <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-sm bg-brand" /> quantité
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-ferme" /> heures pointées
-                    </span>
-                  </span>
-                </div>
-                <ProductionChart data={passe.productionParMois} />
-              </div>
-
-              <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
-                <div className="mb-1 flex items-center justify-between px-1">
-                  <span className="text-[11px] font-semibold text-foreground">
-                    Heures vs capacité
-                  </span>
-                  <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-sm bg-foreground/20" /> capacité
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-brand" /> pointées
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-ferme" /> converties
-                    </span>
-                  </span>
-                </div>
-                <HeuresCapaciteChart data={passe.heuresParMois} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Passé constaté — réplique de pointages, mailles j/s/m (#119, lots 4/6). */}
+      {passe && <PasseSection passe={passe} onSelectOf={props.onSelectOf} />}
 
       {/* Anomalies de pointage — quatre détecteurs (#119, lot 5). */}
       {passe && anomalies && <AnomaliesSection anomalies={anomalies} onSelectOf={props.onSelectOf} />}
+
+      {/* Analyses — fiabilité gamme, adhérence, mix articles (#119, lot 6). */}
+      {passe && analyses && <AnalysesSection analyses={analyses} />}
 
       {/* Engagement futur — pipeline #46 réutilisé. */}
       <div className="px-7 py-4">
@@ -668,6 +682,345 @@ function AnomalieRow(props: { numOf: string; onSelectOf: (numOf: string) => void
         {props.numOf}
       </button>
       {props.children}
+    </div>
+  )
+}
+
+type Maille = 'jour' | 'semaine' | 'mois'
+type Unite = 'pieces' | 'palettes'
+
+const jourCourt = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+const semaineLabel = (lundiIso: string) => `S ${jourCourt(lundiIso)}`
+
+/** Passé constaté : production (maille + unité au choix), heures vs capacité,
+ *  OF terminés. Les chiffres ne viennent QUE des pointages de ce poste. */
+function PasseSection(props: { passe: Passe; onSelectOf: (numOf: string) => void }) {
+  const { passe } = props
+  const [maille, setMaille] = useState<Maille>('mois')
+  const [unite, setUnite] = useState<Unite>('pieces')
+
+  const prod =
+    maille === 'jour'
+      ? passe.productionParJour
+      : maille === 'semaine'
+        ? passe.productionParSemaine
+        : passe.productionParMois
+  const palettes =
+    maille === 'jour' ? passe.palettes.parJour : maille === 'semaine' ? passe.palettes.parSemaine : passe.palettes.parMois
+
+  const palettesParDate = new Map(palettes.map((p) => [p.date, p.palettes]))
+  const palettesDisponibles = palettes.some((p) => p.palettes !== null)
+
+  const labelDe = (date: string) =>
+    maille === 'jour' ? jourCourt(date) : maille === 'semaine' ? semaineLabel(date) : moisLabel(date)
+
+  const chartData = prod.map((m) => ({
+    label: labelDe(m.date),
+    qty: unite === 'pieces' ? m.qty : (palettesParDate.get(m.date) ?? 0),
+    heures: m.heures,
+    dontHeuresReglage: m.dontHeuresReglage,
+  }))
+
+  return (
+    <div className="border-b border-border px-7 py-4">
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <span className="font-fraunces text-[13px] font-bold not-italic text-foreground">
+          Passé productif
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {passe.nbPointages} pointage{passe.nbPointages > 1 ? 's' : ''} sur la fenêtre
+        </span>
+        <span className="flex-1" />
+        {passe.nbPointages > 0 && (
+          <>
+            <Segment role="radiogroup" ariaLabel="Unité">
+              <SegmentButton active={unite === 'pieces'} onClick={() => setUnite('pieces')}>
+                Pièces
+              </SegmentButton>
+              <SegmentButton active={unite === 'palettes'} onClick={() => setUnite('palettes')}>
+                Palettes
+              </SegmentButton>
+            </Segment>
+            <Segment role="radiogroup" ariaLabel="Maille">
+              <SegmentButton active={maille === 'jour'} onClick={() => setMaille('jour')}>
+                Jour
+              </SegmentButton>
+              <SegmentButton active={maille === 'semaine'} onClick={() => setMaille('semaine')}>
+                Semaine
+              </SegmentButton>
+              <SegmentButton active={maille === 'mois'} onClick={() => setMaille('mois')}>
+                Mois
+              </SegmentButton>
+            </Segment>
+          </>
+        )}
+      </div>
+
+      {passe.nbPointages === 0 ? (
+        <div className="rounded-lg border border-rule bg-card p-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
+          Aucun pointage sur ce poste dans la fenêtre.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+              <div className="mb-1 flex items-center justify-between px-1">
+                <span className="text-[11px] font-semibold text-foreground">
+                  Production {unite === 'pieces' ? '(pièces)' : '(équivalent palettes)'}
+                </span>
+                <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-sm bg-brand" />
+                    {unite === 'pieces' ? 'quantité' : 'palettes'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-ferme" /> heures pointées
+                  </span>
+                </span>
+              </div>
+              {unite === 'palettes' && !palettesDisponibles ? (
+                <div className="flex h-[170px] items-center justify-center p-4 text-center font-fraunces text-[13px] italic text-muted-foreground">
+                  Équivalent palette indisponible : aucun coefficient PCUSTUCOE_1 sur les
+                  articles produits.
+                </div>
+              ) : (
+                <ProductionChart data={chartData} />
+              )}
+            </div>
+
+            <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+              <div className="mb-1 flex items-center justify-between px-1">
+                <span className="text-[11px] font-semibold text-foreground">
+                  Heures vs capacité
+                </span>
+                <span className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-sm bg-foreground/20" /> capacité
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-brand" /> pointées
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-ferme" /> converties
+                  </span>
+                </span>
+              </div>
+              <HeuresCapaciteChart data={passe.heuresParMois} />
+            </div>
+          </div>
+
+          {/* OF terminés — pointés dans la fenêtre et plus en cours. */}
+          {passe.ofTermines.length > 0 && (
+            <div className="rounded-lg border border-rule bg-card shadow-float">
+              <div className="flex items-baseline gap-2 border-b border-rule-soft px-3 py-2">
+                <span className="text-[11px] font-semibold text-foreground">
+                  OF terminés sur la fenêtre
+                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {passe.ofTermines.length} · sortie approchée par le dernier pointage
+                </span>
+              </div>
+              <div className="max-h-[260px] overflow-auto">
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-secondary">
+                    <tr className="text-left font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <th className="px-3 py-1.5">OF</th>
+                      <th className="px-3 py-1.5">Article</th>
+                      <th className="px-3 py-1.5">Désignation</th>
+                      <th className="px-3 py-1.5 text-right">Qté</th>
+                      <th className="px-3 py-1.5 text-right">Palettes</th>
+                      <th className="px-3 py-1.5 text-right">Heures</th>
+                      <th className="px-3 py-1.5 text-right">Dernier jour</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rule-soft">
+                    {passe.ofTermines.map((of) => (
+                      <tr key={of.numOf} className="font-mono text-[11px] tabular-nums">
+                        <td className="px-3 py-1.5">
+                          <button
+                            type="button"
+                            className="cursor-pointer font-bold tracking-tight text-brand hover:underline"
+                            onClick={() => props.onSelectOf(of.numOf)}
+                          >
+                            {of.numOf}
+                          </button>
+                        </td>
+                        <td className="px-3 py-1.5">{of.article ?? '—'}</td>
+                        <td className="max-w-[220px] truncate px-3 py-1.5 font-sans text-muted-foreground">
+                          {of.designation ?? '—'}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-semibold">{of.qty}</td>
+                        {/* Pas de coefficient → absence de donnée, jamais « 0 palette » (#119). */}
+                        <td className="px-3 py-1.5 text-right text-muted-foreground">
+                          {of.palettes !== null ? of.palettes : '—'}
+                        </td>
+                        <td className="px-3 py-1.5 text-right">{of.heures}</td>
+                        <td className="px-3 py-1.5 text-right">{fmtDateFr(of.dernierJourIso)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Analyses (#119, lot 6) : fiabilité des temps de gamme, adhérence au
+ *  programme, mix articles. Affichage seul — aucune boucle vers la charge. */
+function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
+  const { fiabilite, adherence, mix } = analyses
+  const ratioPct = (r: number | null) => (r !== null ? `${Math.round(r * 100)} %` : '—')
+
+  return (
+    <div className="border-b border-border px-7 py-4">
+      <div className="mb-2 flex items-center gap-3">
+        <span className="font-fraunces text-[13px] font-bold not-italic text-foreground">
+          Analyses
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          lecture seule — aucun recalage automatique de la charge en v1
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {/* Fiabilité des temps de gamme. */}
+        <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+          <div className="mb-1 flex items-baseline gap-2 px-1">
+            <span className="text-[11px] font-semibold text-foreground">
+              Fiabilité des temps de gamme
+            </span>
+            <span
+              className={cn(
+                'ml-auto font-mono text-[12px] font-bold tabular-nums',
+                fiabilite.ratioGlobal !== null && fiabilite.ratioGlobal < 0.9 && 'text-danger',
+                fiabilite.ratioGlobal !== null && fiabilite.ratioGlobal >= 0.9 && 'text-ferme'
+              )}
+            >
+              {ratioPct(fiabilite.ratioGlobal)}
+            </span>
+          </div>
+          <div className="px-1 pb-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
+            théorique / pointé · {fmtH(fiabilite.heuresTheoriques)} h théo pour{' '}
+            {fmtH(fiabilite.heuresPointees)} h pointées
+            {fiabilite.exclusFauteCadence > 0 &&
+              ` · ${fiabilite.exclusFauteCadence} article(s) sans cadence exploitable, exclus`}
+          </div>
+          {fiabilite.articles.length === 0 ? (
+            <div className="px-1 pb-1 font-fraunces text-[12px] italic text-muted-foreground">
+              Aucune production avec cadence de gamme.
+            </div>
+          ) : (
+            <div className="max-h-[220px] divide-y divide-rule-soft overflow-auto">
+              {fiabilite.articles.map((a) => (
+                <div key={a.article} className="flex items-center gap-2 px-1 py-1 font-mono text-[11px] tabular-nums">
+                  <span className="font-semibold">{a.article}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {fmtH(a.heuresTheoriques)} / {fmtH(a.heuresPointees)} h
+                  </span>
+                  <span
+                    className={cn(
+                      'w-11 text-right font-bold',
+                      a.ratio !== null && a.ratio < 0.9 ? 'text-danger' : 'text-ferme'
+                    )}
+                  >
+                    {ratioPct(a.ratio)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Adhérence au programme. */}
+        <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+          <div className="mb-1 flex items-baseline gap-2 px-1">
+            <span className="text-[11px] font-semibold text-foreground">Adhérence au programme</span>
+          </div>
+          <div className="px-1 pb-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
+            OF prévus (lancement des OF ouverts) vs réellement pointés, par semaine — semaine en
+            cours exclue. Les OF passés en stock ne sont plus dans ORDERS : périmètre vivant
+            seulement.
+          </div>
+          {adherence.length === 0 ? (
+            <div className="px-1 pb-1 font-fraunces text-[12px] italic text-muted-foreground">
+              Pas de semaine complète dans la fenêtre.
+            </div>
+          ) : (
+            <div className="max-h-[220px] divide-y divide-rule-soft overflow-auto">
+              {adherence.map((s) => (
+                <div key={s.semaine} className="flex items-center gap-2 px-1 py-1 font-mono text-[11px] tabular-nums">
+                  <span>{semaineLabel(s.semaine)}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {s.pointes}/{s.prevus} pointés
+                  </span>
+                  <span
+                    className={cn(
+                      'w-11 text-right font-bold',
+                      s.taux === null
+                        ? 'text-muted-foreground'
+                        : s.taux >= 0.7
+                          ? 'text-ferme'
+                          : s.taux >= 0.4
+                            ? 'text-suggere'
+                            : 'text-danger'
+                    )}
+                  >
+                    {s.taux !== null ? `${Math.round(s.taux * 100)} %` : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mix articles et cadence réelle. */}
+        <div className="rounded-lg border border-rule bg-card p-3 shadow-float">
+          <div className="mb-1 flex items-baseline gap-2 px-1">
+            <span className="text-[11px] font-semibold text-foreground">Mix articles & cadence réelle</span>
+          </div>
+          <div className="px-1 pb-1.5 font-mono text-[9px] leading-tight text-muted-foreground/80">
+            top productions de la fenêtre · u/h constatées vs cadence gamme
+          </div>
+          {mix.length === 0 ? (
+            <div className="px-1 pb-1 font-fraunces text-[12px] italic text-muted-foreground">
+              Aucune production quantifiée.
+            </div>
+          ) : (
+            <div className="max-h-[220px] divide-y divide-rule-soft overflow-auto">
+              {mix.map((m) => (
+                <div key={m.article} className="px-1 py-1 font-mono text-[11px] tabular-nums">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{m.article}</span>
+                    <span className="ml-auto text-muted-foreground">{m.qty} u</span>
+                    {/* Absence de coefficient palette = « — », jamais 0 (#119). */}
+                    <span className="w-14 text-right text-muted-foreground">
+                      {m.palettes !== null ? `${m.palettes} pal` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span>
+                      constaté{' '}
+                      <b className="text-foreground">
+                        {m.piecesParHeure !== null ? m.piecesParHeure : '—'} u/h
+                      </b>
+                    </span>
+                    <span className="ml-auto">
+                      gamme{' '}
+                      <b className="text-foreground">
+                        {m.cadenceGamme !== null ? m.cadenceGamme : '—'} u/h
+                      </b>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
