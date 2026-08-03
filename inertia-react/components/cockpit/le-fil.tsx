@@ -134,7 +134,7 @@ export function lundiIso(iso: string): string {
   return `${y}-${m}-${da}`
 }
 
-const fmt = (n: number) => Math.round(n).toLocaleString('fr-FR')
+const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n)
 
 /** « S JJ/MM » à partir d'un lundi ISO — même style que l'axe actuel. */
 function semaineCourte(lundiIso: string): string {
@@ -178,7 +178,9 @@ function tooltipPeriode(date: string, maille: MailleFil): string {
     'novembre',
     'décembre',
   ]
-  return y && m ? `Mois de ${mois[m - 1]} ${y}` : `Mois de ${date}`
+  if (!y || !m) return `Mois de ${date}`
+  const article = ['avril', 'août', 'octobre'].includes(mois[m - 1]) ? "d'" : 'de '
+  return `Mois ${article}${mois[m - 1]} ${y}`
 }
 
 function labelPeriode(date: string, maille: MailleFil): string {

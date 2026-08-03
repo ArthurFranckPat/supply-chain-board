@@ -421,7 +421,7 @@ function PosteDetail(props: {
                   h > 0 ? 'text-foreground' : 'text-muted-foreground/50'
                 )}
               >
-                {h > 0 ? h : '·'}
+                {h > 0 ? fmtHs(h) : '·'}
               </span>
               <span className="font-mono text-[9px] text-muted-foreground/60">{JOURS[i]}</span>
             </div>
