@@ -26,16 +26,21 @@ export function createReactiveColumns({
     {
       accessorKey: 'numCommande',
       header: 'Commande · Client',
+      // Le clic de LIGNE ouvre la sheet de détail (tracking.tsx) : le numéro
+      // reste le déclencheur naturel de ce drill-down, X3 prend une icône à
+      // côté plutôt que de lui voler le clic (revue #118).
       cell: ({ row, getValue }) => (
         <>
+          <span className="font-mono text-[12px] font-bold tracking-tight text-foreground">
+            {getValue() as string}
+          </span>
           <X3Link
             fonction="GESSOH"
             cle={getValue() as string}
             title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
-            className="font-mono text-[12px] font-bold tracking-tight text-foreground"
-          >
-            {getValue() as string}
-          </X3Link>
+            iconOnly
+            className="ml-1 align-middle text-muted-foreground hover:text-brand"
+          />
           <span className="ml-1.5 text-[10px] text-muted-foreground">
             {row.original.client || '—'}
           </span>

@@ -42,6 +42,8 @@ export interface VisionCommande {
   numCommande: string
   /** N° de ligne de commande (X3 VCRLIN_0) ; null pour les prévisions. */
   ligne: string | null
+  /** Nature de la demande : `commande` (SORDER) ou `prevision` (WIPSTA=3). */
+  nature: 'commande' | 'prevision'
   client: string | null
   dateExpeditionIso: string | null
   /** Type de commande (MTS / MTO / NOR). */

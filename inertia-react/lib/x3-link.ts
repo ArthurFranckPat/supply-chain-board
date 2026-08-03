@@ -28,6 +28,21 @@ export interface X3Web {
 }
 
 /**
+ * Une ligne de demande porte-t-elle un numéro ouvrable dans `GESSOH` ?
+ *
+ * Non pour une PRÉVISION : ce sont des lignes `ORDERS` WIPTYP=1 WIPSTA=3, dont
+ * le numéro (14 chiffres) n'a aucune correspondance dans `SORDER` — le lien
+ * ouvrirait la fonction sur une clé inexistante.
+ *
+ * Seule maison de la règle : les appelants la LISENT, ils ne la redéduisent pas
+ * d'un indice de forme (présence d'un n° de ligne, préfixe du numéro…). Casse
+ * indifférente — le board émet `COMMANDE`, le domaine `commande`.
+ */
+export function peutOuvrirCommande(nature: string | null | undefined): boolean {
+  return (nature ?? '').toUpperCase() === 'COMMANDE'
+}
+
+/**
  * Construit l'URL « Ouvrir dans X3 » pour un objet du board.
  *
  * Retourne `null` si `web` est absent (endpoint non configuré, session non

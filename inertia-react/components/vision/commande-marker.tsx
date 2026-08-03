@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
+import { peutOuvrirCommande } from '@r/lib/x3-link'
 import type { VisionCommande } from '@r/lib/vision/types'
 import { fmtDay } from '@r/lib/vision/date-utils'
 import type { ImpactVerdict } from '@r/lib/vision/impact'
@@ -99,8 +100,8 @@ export function CommandeMarker(props: {
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
       <div className="flex items-baseline gap-1 whitespace-nowrap font-mono text-2xs font-bold text-brand">
         <DynamicIcon name={iconName} size={12} strokeWidth={1.75} className={cn('flex-none self-center', iconClass)} />
-        {/* Prévision (ligne null) : pas de commande X3, pas de lien (#118). */}
-        {cmd.ligne ? (
+        {/* Prévision : rien à ouvrir dans X3 (cf. peutOuvrirCommande). */}
+        {peutOuvrirCommande(cmd.nature) ? (
           <X3Link
             fonction="GESSOH"
             cle={cmd.numCommande}

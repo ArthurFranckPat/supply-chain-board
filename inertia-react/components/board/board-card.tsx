@@ -1,6 +1,7 @@
 import { Pencil, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { TYPO_META } from '@r/lib/board/types'
+import { peutOuvrirCommande } from '@r/lib/x3-link'
 import { X3Link } from '../x3-link'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
@@ -108,8 +109,12 @@ export type CommandeCardProps = Common & {
   client?: string
   /** Type MTS/MTO/NOR (pastille terra). */
   type?: string
-  /** Nature du besoin (COMMANDE/PREVISION/INDUIT) — filtre du lien X3 (#118). */
-  nature?: string
+  /**
+   * Nature du besoin (COMMANDE / PREVISION / INDUIT) — filtre du lien X3 (#118).
+   * Requise : sans elle le lien tomberait en silence, et un appelant qui
+   * l'oublie doit s'en apercevoir au typecheck, pas en production.
+   */
+  nature: string
   /** Flag « modifié » (override local). */
   mod?: boolean
   /** Article dont la nomenclature contient un composant BDH (issue #28). */
@@ -228,7 +233,7 @@ interface CommandeBodyProps {
   ord?: string
   client?: string
   type?: string
-  nature?: string
+  nature: string
   mod?: boolean
   hours: string
   consommeBouche?: boolean
@@ -274,10 +279,9 @@ function CommandeBody(p: CommandeBodyProps) {
         )}
         {/* N° commande (ancre). La carte est draggable : le lien est
             stopPropagation-eur, il ne prend pas le drag ni l'ouverture du détail.
-            Cartes sans lien : induite (pas de commande réelle) et PRÉVISION
-            (numéros WIPTYP=1 WIPSTA=3 sans ligne SORDER — clé inexistante,
-            revue #118). */}
-        {p.induit || p.nature === 'PREVISION' ? (
+            Cartes sans lien : induite (pas de commande réelle) et prévision
+            (cf. peutOuvrirCommande). */}
+        {p.induit || !peutOuvrirCommande(p.nature) ? (
           <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
             {cmd}
           </span>

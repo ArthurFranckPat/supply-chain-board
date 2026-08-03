@@ -39,16 +39,19 @@ export function createProactiveColumns({
     {
       accessorKey: 'numCommande',
       header: 'Commande · Client',
+      // Idem réactif : le clic de ligne ouvre la sheet, X3 est à côté.
       cell: ({ row, getValue }) => (
         <>
+          <span className="font-mono text-xs font-bold tracking-tight text-foreground">
+            {getValue() as string}
+          </span>
           <X3Link
             fonction="GESSOH"
             cle={getValue() as string}
             title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
-            className="font-mono text-xs font-bold tracking-tight text-foreground"
-          >
-            {getValue() as string}
-          </X3Link>
+            iconOnly
+            className="ml-1 align-middle text-muted-foreground hover:text-brand"
+          />
           <span className="ml-1.5 text-2xs text-muted-foreground">
             {row.original.client || '—'}
           </span>

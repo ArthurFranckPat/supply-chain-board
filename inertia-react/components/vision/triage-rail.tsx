@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
+import { peutOuvrirCommande } from '@r/lib/x3-link'
 import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
 import type { ImpactVerdict } from '@r/lib/vision/impact'
 import { deltaLabel } from '@r/lib/vision/impact'
@@ -21,6 +22,8 @@ export interface TriageItem {
   commandeId: string
   numCommande: string
   ligne: string | null
+  /** Nature de la demande — filtre du lien X3 (cf. peutOuvrirCommande). */
+  nature: 'commande' | 'prevision'
   client: string | null
   verdict: ImpactVerdict | null
   delta: number | null
@@ -82,6 +85,7 @@ export function TriageRail(props: {
         commandeId: cmd.id,
         numCommande: cmd.numCommande,
         ligne: cmd.ligne,
+        nature: cmd.nature,
         client: cmd.client,
         verdict,
         delta,
@@ -182,9 +186,9 @@ export function TriageRail(props: {
                     <span className="text-muted-foreground">·L{item.ligne}</span>
                   )}
                 </span>
-                {/* Prévision (ligne null) : pas de commande X3, pas de lien.
-                    Le numéro garde sa sélection rail → icône séparée (#118). */}
-                {item.ligne && (
+                {/* Prévision : rien à ouvrir (cf. peutOuvrirCommande). Le numéro
+                    garde sa sélection rail → icône séparée (#118). */}
+                {peutOuvrirCommande(item.nature) && (
                   <X3Link
                     fonction="GESSOH"
                     cle={item.numCommande}

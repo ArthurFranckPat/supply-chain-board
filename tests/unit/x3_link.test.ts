@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 // Import relatif : le runner ne résout pas l'alias @/ du front (cf. vision_impact.test.ts).
-import { x3Href, type X3Web } from '../../inertia-react/lib/x3-link.ts'
+import { peutOuvrirCommande, x3Href, type X3Web } from '../../inertia-react/lib/x3-link.ts'
 
 const WEB: X3Web = { baseUrl: 'http://192.168.130.77:8124', endpoint: 'X3U12P_CLAERECO' }
 
@@ -48,5 +48,29 @@ test.group('x3Href — lien « Ouvrir dans X3 » (issue #118)', () => {
     const href = x3Href(WEB, 'GESMFG', 'F426-44255') ?? ''
     assert.isFalse(href.includes('profile='))
     assert.isFalse(href.includes('representation='))
+  })
+})
+
+test.group('peutOuvrirCommande — prévisions exclues (revue #118)', () => {
+  test('une commande est ouvrable, quelle que soit la casse', ({ assert }) => {
+    // Le board émet 'COMMANDE', le domaine 'commande' : les deux doivent passer.
+    assert.isTrue(peutOuvrirCommande('COMMANDE'))
+    assert.isTrue(peutOuvrirCommande('commande'))
+  })
+
+  test('une prévision ne l’est pas — pas de ligne SORDER derrière', ({ assert }) => {
+    assert.isFalse(peutOuvrirCommande('PREVISION'))
+    assert.isFalse(peutOuvrirCommande('prevision'))
+  })
+
+  test('nature absente = pas de lien (repli fermé)', ({ assert }) => {
+    assert.isFalse(peutOuvrirCommande(null))
+    assert.isFalse(peutOuvrirCommande(undefined))
+    assert.isFalse(peutOuvrirCommande(''))
+  })
+
+  test('toute autre nature reste fermée (INDUIT, valeur inconnue)', ({ assert }) => {
+    assert.isFalse(peutOuvrirCommande('INDUIT'))
+    assert.isFalse(peutOuvrirCommande('COMMANDE_VIRTUELLE'))
   })
 })

@@ -647,6 +647,7 @@ export default function DesignSystem() {
                 <div className="grid grid-cols-[repeat(auto-fill,176px)] gap-4">
                   <BoardCard
                     variant="commande"
+                    nature="COMMANDE"
                     status="ferme"
                     article="XTR107842"
                     ord="AR24518·L2"
@@ -657,6 +658,7 @@ export default function DesignSystem() {
                   />
                   <BoardCard
                     variant="commande"
+                    nature="COMMANDE"
                     status="planifie"
                     article="XTR108120"
                     ord="AR24601·L1"
@@ -667,6 +669,7 @@ export default function DesignSystem() {
                   />
                   <BoardCard
                     variant="commande"
+                    nature="COMMANDE"
                     status="planifie"
                     mod
                     feas="ok"
@@ -679,6 +682,7 @@ export default function DesignSystem() {
                   />
                   <BoardCard
                     variant="commande"
+                    nature="COMMANDE"
                     status="suggere"
                     mod
                     feas="bad"
