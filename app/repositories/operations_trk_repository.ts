@@ -77,7 +77,12 @@ function toYYYYMMDD(d: Date): string {
 }
 
 function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * 86_400_000)
+  // setDate et non + n × 86_400_000 ms : au changement d'heure, un jour fait
+  // 23 ou 25 h et la dérive en ms reste sur le même jour civil — la fenêtre
+  // d'ingestion perdait les pointages du jour (revue #119, round 3).
+  const out = new Date(d)
+  out.setDate(out.getDate() + n)
+  return out
 }
 
 /** ISO UTC depuis une date parsée en zone UTC (`parseX3Date`). Sentinelle X3

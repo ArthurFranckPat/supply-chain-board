@@ -96,6 +96,10 @@ interface Passe {
   productionParMois: MailleProduction[]
   palettes: { parJour: PalettesMaille[]; parSemaine: PalettesMaille[]; parMois: PalettesMaille[] }
   heuresParMois: PasseMoisHeures[]
+  /** Capacité calendaire (fériés/fermetures #37) par jour / semaine (lundi
+   *  ISO) — servie par le loader, consommée telle quelle (revue #119, round 3). */
+  capaciteParJour: { date: string; capacite: number }[]
+  capaciteParSemaine: { date: string; capacite: number }[]
 }
 
 interface FiabiliteArticle {
@@ -485,7 +489,9 @@ function PosteDetail(props: {
             {...filProps}
             maille={props.maille}
             onMaille={props.onMaille}
-            mesure={props.mesure}
+            // Palettes désactivées sans coefficient sur la fenêtre : on replie
+            // l'affichage sur les heures plutôt que de montrer des trous.
+            mesure={props.mesure === 'pal' && !filProps.palettesDisponibles ? 'h' : props.mesure}
             onMesure={props.onMesure}
           />
         </div>
@@ -579,6 +585,21 @@ function construireFilProps(
   const palS = new Map(passe.palettes.parSemaine.map((p) => [p.date, p.palettes]))
   const palM = new Map(passe.palettes.parMois.map((p) => [p.date, p.palettes]))
 
+  // Capacité calendaire par maille, servie telle quelle au fil (revue #119,
+  // round 3) : le loader a déjà appliqué fériés/fermetures (#37).
+  const capaciteParMaille: LeFilProps['capaciteParMaille'] = {
+    jour: new Map(passe.capaciteParJour.map((c) => [c.date, c.capacite])),
+    semaine: new Map(passe.capaciteParSemaine.map((c) => [c.date, c.capacite])),
+    mois: new Map(passe.heuresParMois.map((m) => [m.mois, m.capacite])),
+  }
+  // La mesure « Palettes » n'est proposée que si au moins une maille de la
+  // fenêtre porte un coefficient (critère d'acceptation #119).
+  const palettesDisponibles = [
+    passe.palettes.parJour,
+    passe.palettes.parSemaine,
+    passe.palettes.parMois,
+  ].some((arr) => arr.some((p) => p.palettes !== null))
+
   const passeParMaille: LeFilProps['passeParMaille'] = {
     jour: passe.productionParJour.map((p) => ({
       date: p.date,
@@ -638,15 +659,21 @@ function construireFilProps(
   // Verdicts — seuils explicites (maquette V3).
   const capHebdo = poste.capaciteHebdoHeures ?? 0
   const totalH = totaux.heures
-  const capTotale = capHebdo > 0 ? passe.productionParSemaine.length * capHebdo : 0
+  // Capacité CALENDAIRE servie par le loader (fériés/fermetures #37) — la
+  // fenêtre 6 mois traverse la fermeture d'août, une capacité à plat
+  // (nb semaines × capHebdo) la surévaluait et faussait le verdict
+  // « sous-employé » (revue #119, round 3).
+  const capTotale = passe.heuresParMois.reduce((a, m) => a + m.capacite, 0)
   const sat = capTotale > 0 ? totalH / capTotale : null
   const vSat =
     sat !== null
       ? verdictPour(VERDICTS.saturation, sat)
       : { txt: 'Capacité inconnue', cls: 'mute' as const }
-  const semOver = passe.productionParSemaine.filter(
-    (p) => capHebdo > 0 && p.heures > capHebdo
-  ).length
+  const capSemaine = new Map(passe.capaciteParSemaine.map((c) => [c.date, c.capacite]))
+  const semOver = passe.productionParSemaine.filter((p) => {
+    const cap = capSemaine.get(p.date) ?? capHebdo
+    return cap > 0 && p.heures > cap
+  }).length
 
   const hP = analyses?.fiabilite.heuresPointees ?? 0
   const hT = analyses?.fiabilite.heuresTheoriques ?? 0
@@ -672,6 +699,8 @@ function construireFilProps(
     ofsEngages,
     capaciteHebdoHeures: poste.capaciteHebdoHeures,
     regimeHebdo: poste.regimeHebdo,
+    capaciteParMaille,
+    palettesDisponibles,
     anomalies: filAnomalies,
     verdicts: {
       saturation: {

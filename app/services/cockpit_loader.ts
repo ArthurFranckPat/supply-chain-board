@@ -149,6 +149,13 @@ export interface CockpitPasse {
   /** Équivalent palette par maille — null = absence de coefficient (#119). */
   palettes: { parJour: PalettesMaille[]; parSemaine: PalettesMaille[]; parMois: PalettesMaille[] }
   heuresParMois: CockpitHeuresMois[]
+  /** Capacité CALENDAIRE (fériés/fermetures #37) par jour de la fenêtre —
+   *  servie par le loader, jamais réapproximée côté vue (revue #119, round 3).
+   *  Indépendante des pointages : la ligne de capacité se dessine même quand
+   *  rien n'a pointé. */
+  capaciteParJour: { date: string; capacite: number }[]
+  /** Capacité calendaire par semaine (clé = lundi ISO). */
+  capaciteParSemaine: { date: string; capacite: number }[]
   ofTermines: CockpitOfTermine[]
 }
 
@@ -343,6 +350,54 @@ function buildPasse(opts: {
   calendar: WorkingCalendar | null
 }): CockpitPasse {
   const { pointages } = opts
+  const from = new Date(`${opts.fen.fromIso}T00:00:00`)
+  const to = new Date(`${opts.fen.toIso}T00:00:00`)
+
+  // Capacité calendaire par jour — indépendante des pointages. Même boucle
+  // setDate que capacitePeriodePoste (le pas en ms saute un jour au changement
+  // d'heure, revue #119 round 1) et même calendrier que /charge (#37).
+  const capaciteParJour: { date: string; capacite: number }[] = []
+  if (opts.wst) {
+    const jour = new Date(from)
+    jour.setHours(0, 0, 0, 0)
+    const fin = new Date(to)
+    fin.setHours(0, 0, 0, 0)
+    for (; jour <= fin; jour.setDate(jour.getDate() + 1)) {
+      const iso = isoDay(jour)
+      const facteur = opts.calendar ? opts.calendar.factor(opts.wst, iso) : 1
+      const cap = facteur > 0 ? capDay(opts.wst, jour) * facteur : 0
+      capaciteParJour.push({ date: iso, capacite: Math.round(cap * 100) / 100 })
+    }
+  }
+  const parSemaine = new Map<string, number>()
+  for (const j of capaciteParJour) {
+    const lundi = lundiIso(j.date)
+    parSemaine.set(lundi, (parSemaine.get(lundi) ?? 0) + j.capacite)
+  }
+  const capaciteParSemaine: { date: string; capacite: number }[] = [...parSemaine.entries()]
+    .map(([date, capacite]) => ({ date, capacite: Math.round(capacite * 100) / 100 }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  // Capacité par mois, bornée à la fenêtre — heuresPointees/converties remplies
+  // plus bas à partir des mailles jour.
+  const heuresParMois: CockpitHeuresMois[] = moisDeLaFenetre(opts.fen.fromIso, opts.fen.toIso).map(
+    (mois) => {
+      const debutMois = new Date(`${mois}-01T00:00:00`)
+      const finMois = new Date(debutMois)
+      finMois.setMonth(finMois.getMonth() + 1)
+      finMois.setDate(finMois.getDate() - 1)
+      const debut = debutMois > from ? debutMois : from
+      const fin = finMois < to ? finMois : to
+      const capacite = capacitePeriodePoste(opts.wst, debut, fin, opts.calendar)
+      return {
+        mois,
+        capacite: Math.round(capacite * 100) / 100,
+        heuresPointees: 0,
+        heuresConverties: 0,
+      }
+    }
+  )
+
   if (pointages.length === 0) {
     return {
       nbPointages: 0,
@@ -350,7 +405,9 @@ function buildPasse(opts: {
       productionParSemaine: [],
       productionParMois: [],
       palettes: { parJour: [], parSemaine: [], parMois: [] },
-      heuresParMois: [],
+      capaciteParJour,
+      capaciteParSemaine,
+      heuresParMois,
       ofTermines: [],
     }
   }
@@ -367,7 +424,7 @@ function buildPasse(opts: {
     (article, poste) => cadenceParCle.get(`${article}#${poste}`) ?? null
   )
 
-  // Agrégat heures par mois : pointées (des mailles jour) + converties + capacité.
+  // Agrégat heures par mois : pointées (des mailles jour) + converties.
   const heuresPointeesParMois = new Map<string, number>()
   for (const m of maillesJour) {
     const mois = m.date.slice(0, 7)
@@ -378,26 +435,10 @@ function buildPasse(opts: {
     const mois = jour.slice(0, 7)
     convertiesParMois.set(mois, (convertiesParMois.get(mois) ?? 0) + h)
   }
-
-  const from = new Date(`${opts.fen.fromIso}T00:00:00`)
-  const to = new Date(`${opts.fen.toIso}T00:00:00`)
-  const heuresParMois: CockpitHeuresMois[] = moisDeLaFenetre(opts.fen.fromIso, opts.fen.toIso).map(
-    (mois) => {
-      const debutMois = new Date(`${mois}-01T00:00:00`)
-      const finMois = new Date(debutMois)
-      finMois.setMonth(finMois.getMonth() + 1)
-      finMois.setDate(finMois.getDate() - 1)
-      const debut = debutMois > from ? debutMois : from
-      const fin = finMois < to ? finMois : to
-      const capacite = capacitePeriodePoste(opts.wst, debut, fin, opts.calendar)
-      return {
-        mois,
-        capacite: Math.round(capacite * 100) / 100,
-        heuresPointees: Math.round((heuresPointeesParMois.get(mois) ?? 0) * 100) / 100,
-        heuresConverties: Math.round((convertiesParMois.get(mois) ?? 0) * 100) / 100,
-      }
-    }
-  )
+  for (const h of heuresParMois) {
+    h.heuresPointees = Math.round((heuresPointeesParMois.get(h.mois) ?? 0) * 100) / 100
+    h.heuresConverties = Math.round((convertiesParMois.get(h.mois) ?? 0) * 100) / 100
+  }
 
   return {
     nbPointages: pointages.length,
@@ -405,6 +446,8 @@ function buildPasse(opts: {
     productionParSemaine: prodSemaine,
     productionParMois: prodMois,
     palettes,
+    capaciteParJour,
+    capaciteParSemaine,
     heuresParMois,
     ofTermines: opts.ofTermines,
   }

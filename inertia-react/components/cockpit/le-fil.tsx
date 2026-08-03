@@ -45,8 +45,12 @@ interface Barre {
   lab: string
   /** Libellé explicite utilisé dans le tooltip, cohérent avec la maille. */
   tooltipLab: string
-  v: number
-  cap: number
+  /** Valeur dans la mesure courante — null = trou (donnée absente), jamais de
+   *  conversion locale vers l'unité (revue #119, round 3). */
+  v: number | null
+  /** Capacité dans la mesure courante — null = pas de ligne (mesure palettes :
+   *  la capacité ne se convertit pas en palettes). */
+  cap: number | null
   futur: boolean
   vide: boolean
 }
@@ -80,6 +84,12 @@ export interface LeFilProps {
   capaciteHebdoHeures: number | null
   /** Régime TABWEEDIA brut, utilisé pour retrouver la capacité nette par jour. */
   regimeHebdo: number[] | null
+  /** Capacité CALENDAIRE (fériés/fermetures #37) par période de la maille,
+   *  servie par le loader — jamais réapproximée ici (revue #119, round 3). */
+  capaciteParMaille: Record<MailleFil, Map<string, number>>
+  /** True si au moins une maille de la fenêtre porte un coefficient palette —
+   *  sinon la mesure « Palettes » est désactivée (critère d'acceptation #119). */
+  palettesDisponibles: boolean
   /** Anomalies reprojetées sur la série passée de la maille courante. */
   anomalies: AnomalieFil[]
   maille: MailleFil
@@ -284,6 +294,8 @@ export function LeFil(props: LeFilProps) {
     ofsEngages,
     capaciteHebdoHeures,
     regimeHebdo,
+    capaciteParMaille,
+    palettesDisponibles,
     anomalies,
     maille,
     onMaille,
@@ -333,16 +345,31 @@ export function LeFil(props: LeFilProps) {
       .sort((a, b) => (a.lundi < b.lundi ? -1 : 1))
   }, [ofsEngages])
 
-  /* Conversion mesure + capacité dans la mesure courante. */
-  const toMesure = (h: number, pc: number): number => {
-    if (mesure === 'h') return h
-    if (mesure === 'pc') return pc
-    return pc / 60 // 60 pc/palette — valeur de démo, à brancher sur calcPalettes
+  /* Valeur d'une période PASSÉE dans la mesure courante. `palettes` (null =
+     absence de coefficient) n'est lu QUE pour la mesure palettes : jamais de
+     conversion locale vers des palettes — la maquette divisait par 60 et une
+     maille sans coefficient s'affichait qty/60, un nombre faux qui avait l'air
+     d'une donnée (revue #119, round 3). */
+  const vPasse = (p: PassePeriode): number | null => {
+    if (mesure === 'h') return p.heures
+    if (mesure === 'pc') return p.qty
+    return p.palettes
   }
-  const capMesure = (h: number): number => {
+  /* Valeur d'un OF ENGAGÉ : des heures seulement (X3 ne prédit pas de
+     palettes) — converties en pièces à la cadence constatée pour la mesure
+     pièces, TROU pour la mesure palettes. */
+  const vFutur = (heures: number): number | null => {
+    if (mesure === 'h') return heures
+    if (mesure === 'pc') return heures * cadenceMoy
+    return null
+  }
+  /* Capacité dans la mesure courante — heures exactes, pièces à la cadence
+     constatée (règle 5 de la maquette), PALETTES JAMAIS : la capacité ne se
+     convertit pas en palettes, la ligne disparaît (revue #119, round 3). */
+  const capMesure = (h: number): number | null => {
     if (mesure === 'h') return h
-    const pc = h * cadenceMoy
-    return mesure === 'pc' ? pc : pc / 60
+    if (mesure === 'pc') return h * cadenceMoy
+    return null
   }
 
   const serie = useMemo(() => {
@@ -350,20 +377,26 @@ export function LeFil(props: LeFilProps) {
     const passePeriodes = toutesPassePeriodes.filter((p) =>
       periodeChevauche(p.date, maille, period)
     )
-    const passe: Barre[] = passePeriodes.map((p) => ({
-      cap: capMesure(
-        maille === 'jour'
+    const passe: Barre[] = passePeriodes.map((p) => {
+      // Capacité calendaire servie par le loader (fériés/fermetures #37) ;
+      // repli local seulement si la période manque à la carte (ne devrait pas
+      // arriver : la carte couvre exactement la fenêtre).
+      const capHeures =
+        capaciteParMaille[maille].get(p.date) ??
+        (maille === 'jour'
           ? capaciteJour(p.date)
           : maille === 'mois'
             ? capaciteMois(p.date)
-            : capHebdo
-      ),
-      lab: labelPeriode(p.date, maille),
-      tooltipLab: tooltipPeriode(p.date, maille),
-      v: toMesure(p.heures, mesure === 'pal' && p.palettes !== null ? p.palettes * 60 : p.qty),
-      futur: false,
-      vide: false,
-    }))
+            : capHebdo)
+      return {
+        cap: capMesure(capHeures),
+        lab: labelPeriode(p.date, maille),
+        tooltipLab: tooltipPeriode(p.date, maille),
+        v: vPasse(p),
+        futur: false,
+        vide: false,
+      }
+    })
 
     const futur: Barre[] = []
     if (futurParSemaine.length > 0 && toutesPassePeriodes.length > 0) {
@@ -380,7 +413,7 @@ export function LeFil(props: LeFilProps) {
           futur.push({
             lab: semaineCourte(lundi),
             tooltipLab: tooltipPeriode(lundi, 'semaine'),
-            v: toMesure(heures, heures * cadenceMoy),
+            v: vFutur(heures),
             cap: capMesure(capHebdo),
             futur: true,
             vide: heures === 0,
@@ -393,7 +426,7 @@ export function LeFil(props: LeFilProps) {
           futur.push({
             lab: semaineCourte(lundi),
             tooltipLab: tooltipPeriode(lundi, 'semaine'),
-            v: 0,
+            v: vFutur(0),
             cap: capMesure(capHebdo),
             futur: true,
             vide: true,
@@ -413,7 +446,7 @@ export function LeFil(props: LeFilProps) {
         futur.push({
           lab: libMois,
           tooltipLab: `Engagement agrégé · ${libMois}`,
-          v: toMesure(hFut, hFut * cadenceMoy),
+          v: vFutur(hFut),
           cap: capMesure(moisFuturs.reduce((total, mois) => total + capaciteMois(mois), 0)),
           futur: true,
           vide: hFut === 0,
@@ -430,7 +463,7 @@ export function LeFil(props: LeFilProps) {
           futur.push({
             lab: `${jour.slice(8, 10)}/${jour.slice(5, 7)}`,
             tooltipLab: tooltipPeriode(jour, 'jour'),
-            v: toMesure(heures, heures * cadenceMoy),
+            v: vFutur(heures),
             cap: capMesure(capaciteJour(jour)),
             futur: true,
             vide: false,
@@ -454,8 +487,8 @@ export function LeFil(props: LeFilProps) {
   ])
 
   const all = [...serie.passe, ...serie.futur]
-  const capMax = Math.max(...all.map((b) => b.cap), 0)
-  const max = Math.max(...all.map((b) => b.v), capMax) * 1.06 || 1
+  const capMax = Math.max(...all.map((b) => b.cap ?? 0), 0)
+  const max = Math.max(...all.map((b) => b.v ?? 0), capMax) * 1.06 || 1
   const nPasse = serie.passe.length
 
   const UNITE_LAB: Record<Mesure, string> = { h: 'h', pc: 'pc', pal: 'pal' }
@@ -531,11 +564,20 @@ export function LeFil(props: LeFilProps) {
               key={m}
               type="button"
               onClick={() => onMesure(m)}
+              disabled={m === 'pal' && !palettesDisponibles}
+              title={
+                m === 'pal' && !palettesDisponibles
+                  ? 'Aucun coefficient palette sur la fenêtre'
+                  : undefined
+              }
               className={cn(
                 'min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out active:scale-95',
                 mesure === m
                   ? 'bg-brand-soft text-brand'
-                  : 'text-muted-foreground hover:text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+                m === 'pal' &&
+                  !palettesDisponibles &&
+                  'cursor-not-allowed opacity-40 hover:text-muted-foreground'
               )}
             >
               {m === 'h' ? 'Heures' : m === 'pc' ? 'Pièces' : 'Palettes'}
@@ -577,12 +619,17 @@ export function LeFil(props: LeFilProps) {
         <div className="relative h-[190px]">
           <div className="absolute inset-0 flex items-end gap-0.5">
             {all.map((b, i) => {
-              const pct = Math.max(b.v === 0 && b.futur ? 3 : 5, (b.v / max) * 100)
-              const sat = b.cap > 0 ? b.v / b.cap : 0
+              const pct =
+                b.v === null ? 0 : Math.max(b.v === 0 && b.futur ? 3 : 5, (b.v / max) * 100)
+              const sat = b.cap !== null && b.cap > 0 && b.v !== null ? b.v / b.cap : 0
               const tooltipAlign = tooltipAlignClass(i, all.length)
               const tooltipPlacement = tooltipPlacementClass(pct)
               const status = b.futur ? 'Engagé' : 'Constaté'
-              const detail = b.vide ? 'Aucune heure engagée' : `${fmt(b.v)} ${UNITE_LAB[mesure]}`
+              const detail = b.vide
+                ? 'Aucune heure engagée'
+                : b.v === null
+                  ? 'Équivalent palette indisponible'
+                  : `${fmt(b.v)} ${UNITE_LAB[mesure]}`
               return (
                 <div
                   key={i}
@@ -590,11 +637,13 @@ export function LeFil(props: LeFilProps) {
                   aria-label={`${b.lab} · ${status} · ${detail}`}
                   className={cn(
                     'group relative min-w-[2px] flex-1 rounded-t-[3px] outline-none focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    b.futur
-                      ? b.vide
-                        ? 'border border-dashed border-brand/50'
-                        : 'border-[1.5px] border-b-0 border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]'
-                      : 'bg-brand opacity-80 hover:opacity-100'
+                    b.v === null
+                      ? 'border-b-2 border-dotted border-muted-foreground/40' // trou : donnée absente
+                      : b.futur
+                        ? b.vide
+                          ? 'border border-dashed border-brand/50'
+                          : 'border-[1.5px] border-b-0 border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]'
+                        : 'bg-brand opacity-80 hover:opacity-100'
                   )}
                   style={{ height: `${pct}%` }}
                 >
@@ -611,7 +660,7 @@ export function LeFil(props: LeFilProps) {
                       <span className={b.futur ? 'text-brand' : 'text-white/60'}>{status}</span>
                     </span>
                     <span className="mt-1 block font-mono font-bold tabular-nums">{detail}</span>
-                    {!b.vide && (
+                    {!b.vide && b.v !== null && (
                       <span className="mt-0.5 block text-white/65">
                         {Math.round(sat * 100)} % de la capacité
                       </span>
@@ -653,7 +702,7 @@ export function LeFil(props: LeFilProps) {
             {[...parIndex.entries()].map(([idx, liste]) => {
               const barre = serie.passe[idx]
               if (!barre) return null
-              const v = barre.v
+              const v = barre.v ?? 0
               const top = (1 - v / max) * 100
               const crit = liste.some((a) => a.crit)
               const tooltipAlign = tooltipAlignClass(idx, all.length)
