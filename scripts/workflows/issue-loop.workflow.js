@@ -17,110 +17,127 @@
 //   workflow({ name: 'issue-loop', scriptPath: 'scripts/workflows/issue-loop.workflow.js',
 //              args: { issue: '119' } })
 
-const SKILL_PATH = '/Users/arthurbledou/.claude/skills/issue-loop/SKILL.md';
-const LEDGER_DIR = '~/.omp/agent/issue-loop';
-const SEVERITY_RANK = { blocker: 3, major: 2, minor: 1 };
+const SKILL_PATH = '/Users/arthurbledou/.claude/skills/issue-loop/SKILL.md'
+const LEDGER_DIR = '~/.omp/agent/issue-loop'
+const SEVERITY_RANK = { blocker: 3, major: 2, minor: 1 }
 
 function asObject(v) {
-  return v && typeof v === 'object' ? v : {};
+  // Le moteur passe `args` en string JSON, pas en objet — parser les deux formes.
+  if (typeof v === 'string') {
+    try {
+      const p = JSON.parse(v)
+      return p && typeof p === 'object' ? p : {}
+    } catch {
+      return {}
+    }
+  }
+  return v && typeof v === 'object' ? v : {}
 }
 function text(v) {
-  return v === undefined || v === null ? '' : String(v).trim();
+  return v === undefined || v === null ? '' : String(v).trim()
 }
 function boolArg(v, fallback) {
-  if (v === true || v === false) return v;
-  const s = text(v).toLowerCase();
-  if (['true', '1', 'yes', 'oui'].includes(s)) return true;
-  if (['false', '0', 'no', 'non'].includes(s)) return false;
-  return fallback;
+  if (v === true || v === false) return v
+  const s = text(v).toLowerCase()
+  if (['true', '1', 'yes', 'oui'].includes(s)) return true
+  if (['false', '0', 'no', 'non'].includes(s)) return false
+  return fallback
 }
 function clampInt(v, fallback, min, max) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(n)));
+  const n = Number(v)
+  if (!Number.isFinite(n)) return fallback
+  return Math.max(min, Math.min(max, Math.floor(n)))
 }
 function shellQuote(s) {
-  return "'" + String(s).replace(/'/g, "'\\''") + "'";
+  return "'" + String(s).replace(/'/g, "'\\''") + "'"
 }
 function json(v) {
   try {
-    return JSON.stringify(v);
+    return JSON.stringify(v)
   } catch {
-    return '[unserializable]';
+    return '[unserializable]'
   }
 }
 function isBlocking(f) {
-  return f && (f.severity === 'blocker' || f.severity === 'major');
+  return f && (f.severity === 'blocker' || f.severity === 'major')
 }
 
 // --- Ledger (persisté, resumable) — lecture/écriture via shell (node -e), déterministe ---
 
 async function readLedger(n) {
-  const res = await shell(`cat ${LEDGER_DIR}/${n}.json 2>/dev/null || true`);
-  if (!res.stdout || !res.stdout.trim()) return null;
+  const res = await shell(`cat ${LEDGER_DIR}/${n}.json 2>/dev/null || true`)
+  if (!res.stdout || !res.stdout.trim()) return null
   try {
-    return JSON.parse(res.stdout);
+    return JSON.parse(res.stdout)
   } catch {
-    return null;
+    return null
   }
 }
 
 async function writeLedger(n, ledger) {
-  ledger.updatedAt = new Date().toISOString();
+  ledger.updatedAt = new Date().toISOString()
   await shell(
     `mkdir -p ${LEDGER_DIR} && node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify(JSON.parse(process.argv[2]), null, 2) + "\\n")' ${LEDGER_DIR}/${n}.json ${shellQuote(
-      JSON.stringify(ledger),
-    )}`,
-  );
+      JSON.stringify(ledger)
+    )}`
+  )
 }
 
 // --- Commentaire GitHub via --body-file (jamais de heredoc : les backticks seraient exécutés) ---
 
 async function postComment(n, body) {
-  const file = `/tmp/issue-${n}-comment.md`;
-  await shell(`node -e 'require("fs").writeFileSync(process.argv[1], process.argv[2])' ${file} ${shellQuote(body)}`);
-  return await shell(`gh issue comment ${n} --body-file ${file}`);
+  const file = `/tmp/issue-${n}-comment.md`
+  await shell(
+    `node -e 'require("fs").writeFileSync(process.argv[1], process.argv[2])' ${file} ${shellQuote(body)}`
+  )
+  return await shell(`gh issue comment ${n} --body-file ${file}`)
 }
 
 function reviewCommentBody(n, round, review, openBlocking) {
-  const lines = ['> *Revue générée par IA.*', '', `**Verdict: ${review.verdict}** (round ${round})`, ''];
-  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const lines = [
+    '> *Revue générée par IA.*',
+    '',
+    `**Verdict: ${review.verdict}** (round ${round})`,
+    '',
+  ]
+  const findings = Array.isArray(review.findings) ? review.findings : []
   if (findings.length === 0) {
-    lines.push('Aucun finding bloquant ou majeur.');
+    lines.push('Aucun finding bloquant ou majeur.')
   } else {
     for (const f of findings) {
-      lines.push(`- \`${f.dedupKey || '?'}\` — [${f.severity}] ${f.problem} → ${f.fix}`);
+      lines.push(`- \`${f.dedupKey || '?'}\` — [${f.severity}] ${f.problem} → ${f.fix}`)
     }
   }
   if (Array.isArray(review.debt) && review.debt.length > 0) {
-    lines.push('', 'Dette documentée :', ...review.debt.map((d) => `- ${d}`));
+    lines.push('', 'Dette documentée :', ...review.debt.map((d) => `- ${d}`))
   }
-  lines.push('', review.summary || '');
-  if (openBlocking > 0) lines.push('', `Findings blocker/major encore ouverts : ${openBlocking}.`);
-  return lines.join('\n');
+  lines.push('', review.summary || '')
+  if (openBlocking > 0) lines.push('', `Findings blocker/major encore ouverts : ${openBlocking}.`)
+  return lines.join('\n')
 }
 
 // --- Entrée ---
 
-const input = asObject(args);
-const issueRef = text(input.issue || input.issueNumber || input._);
+const input = asObject(args)
+const issueRef = text(input.issue || input.issueNumber || input._)
 if (!issueRef) {
   return {
     status: 'incomplete',
-    report: 'Argument `issue` manquant (numéro ou URL). Ex : args: { issue: "119" }. Le framing (issue-writer) se fait avant la boucle.',
-  };
+    report:
+      'Argument `issue` manquant (numéro ou URL). Ex : args: { issue: "119" }. Le framing (issue-writer) se fait avant la boucle.',
+  }
 }
 const requestedMode = ['auto', 'verify', 'fix', 'feature'].includes(text(input.mode).toLowerCase())
   ? text(input.mode).toLowerCase()
-  : 'auto';
-const autoClose = boolArg(input.autoClose, true);
-const postComments = boolArg(input.postComment, true);
-const altReviewerModel = text(input.altReviewerModel);
-const coverage = [];
+  : 'auto'
+const autoClose = boolArg(input.autoClose, true)
+const postComments = boolArg(input.postComment, true)
+const altReviewerModel = text(input.altReviewerModel)
+const coverage = []
 
 // --- Intake : classifier (étape 0 du skill), détecter l'implémentation déjà sur la base ---
 
-phase('Intake');
+phase('Intake')
 const intake = await agent(
   `Intake du workflow issue-loop. Lis d'abord le skill ${SKILL_PATH} (section 0 « EFFORT » et étape 1) et AGENTS.md à la racine du repo ${cwd}.
 
@@ -138,7 +155,19 @@ Ne modifie rien, ne commente pas, ne clôture pas.`,
     retries: 1,
     outputSchema: {
       type: 'object',
-      required: ['status', 'issue', 'state', 'mode', 'title', 'alreadyImplemented', 'requirements', 'acceptanceCriteria', 'repositoryRules', 'currentState', 'commentsSummary'],
+      required: [
+        'status',
+        'issue',
+        'state',
+        'mode',
+        'title',
+        'alreadyImplemented',
+        'requirements',
+        'acceptanceCriteria',
+        'repositoryRules',
+        'currentState',
+        'commentsSummary',
+      ],
       properties: {
         status: { type: 'string', enum: ['ready', 'incomplete', 'closed'] },
         issue: { type: 'string', description: 'Numéro GitHub résolu (ex. "119")' },
@@ -153,12 +182,16 @@ Ne modifie rien, ne commente pas, ne clôture pas.`,
         commentsSummary: { type: 'string' },
       },
     },
-  },
-);
-coverage.push({ id: 'intake', status: intake ? 'complete' : 'missing' });
+  }
+)
+coverage.push({ id: 'intake', status: intake ? 'complete' : 'missing' })
 
 if (!intake) {
-  return { status: 'incomplete', report: 'Intake indisponible — aucune modification effectuée.', coverage };
+  return {
+    status: 'incomplete',
+    report: 'Intake indisponible — aucune modification effectuée.',
+    coverage,
+  }
 }
 if (intake.status !== 'ready') {
   return {
@@ -166,17 +199,17 @@ if (intake.status !== 'ready') {
     report: `Issue non exploitable (${intake.status}${intake.state === 'CLOSED' ? ', déjà fermée' : ''}) — aucune modification effectuée.`,
     intake,
     coverage,
-  };
+  }
 }
 
-const issueNum = text(intake.issue).replace(/^#/, '');
-const mode = requestedMode === 'auto' ? intake.mode : requestedMode;
-const maxRounds = clampInt(input.maxRounds, mode === 'fix' ? 2 : 3, 1, 3);
+const issueNum = text(intake.issue).replace(/^#/, '')
+const mode = requestedMode === 'auto' ? intake.mode : requestedMode
+const maxRounds = clampInt(input.maxRounds, mode === 'fix' ? 2 : 3, 1, 3)
 
 // --- Ledger : charger (resume) ou initialiser ---
 
-let ledger = await readLedger(issueNum);
-const resumed = Boolean(ledger);
+let ledger = await readLedger(issueNum)
+const resumed = Boolean(ledger)
 if (!ledger) {
   ledger = {
     issue: Number(issueNum) || issueNum,
@@ -189,18 +222,20 @@ if (!ledger) {
     startedAt: new Date().toISOString(),
     updatedAt: null,
     findings: [],
-  };
+  }
 }
 if (requestedMode === 'auto' && ledger.mode) {
   // L'effort est stable au resume (self-test 11 du skill).
 }
-await writeLedger(issueNum, ledger);
-log(`Ledger ${resumed ? 'repris' : 'initialisé'} : mode=${ledger.mode || mode}, round=${ledger.round}, findings=${ledger.findings.length}`);
+await writeLedger(issueNum, ledger)
+log(
+  `Ledger ${resumed ? 'repris' : 'initialisé'} : mode=${ledger.mode || mode}, round=${ledger.round}, findings=${ledger.findings.length}`
+)
 
 // --- Mode verify : répondre + commenter les findings, puis s'arrêter ---
 
 if ((ledger.mode || mode) === 'verify') {
-  phase('Iteration');
+  phase('Iteration')
   const verification = await agent(
     `Vérification en lecture seule pour l'issue #${issueNum} dans ${cwd}.
 Lis le skill ${SKILL_PATH} (mode verify) et AGENTS.md.
@@ -223,14 +258,14 @@ Inspecte le code réel, l'historique git et apporte des preuves exactes (grep, g
           findings: { type: 'array', items: { type: 'string' } },
         },
       },
-    },
-  );
-  coverage.push({ id: 'verify', status: verification ? 'complete' : 'missing' });
+    }
+  )
+  coverage.push({ id: 'verify', status: verification ? 'complete' : 'missing' })
   if (!verification) {
-    return { status: 'incomplete', report: 'Vérification indisponible.', intake, coverage };
+    return { status: 'incomplete', report: 'Vérification indisponible.', intake, coverage }
   }
 
-  phase('Finalize');
+  phase('Finalize')
   if (postComments) {
     const body = [
       '> *Revue générée par IA.*',
@@ -242,13 +277,13 @@ Inspecte le code réel, l'historique git et apporte des preuves exactes (grep, g
       ...verification.evidence.map((e) => `- Preuve : ${e}`),
       ...(verification.findings.length ? ['', 'Findings :'] : []),
       ...verification.findings.map((f) => `- ${f}`),
-    ].join('\n');
-    const posted = await postComment(issueNum, body);
-    if (posted.exitCode !== 0) log(`Échec du commentaire de vérification : ${posted.stderr}`);
+    ].join('\n')
+    const posted = await postComment(issueNum, body)
+    if (posted.exitCode !== 0) log(`Échec du commentaire de vérification : ${posted.stderr}`)
   }
-  ledger.mode = 'verify';
-  ledger.round = ledger.round || 1;
-  await writeLedger(issueNum, ledger);
+  ledger.mode = 'verify'
+  ledger.round = ledger.round || 1
+  await writeLedger(issueNum, ledger)
   return {
     status: verification.status === 'incomplete' ? 'incomplete' : 'completed',
     report: verification.summary,
@@ -257,17 +292,17 @@ Inspecte le code réel, l'historique git et apporte des preuves exactes (grep, g
     verification,
     coverage,
     note: 'Mode verify : pas de worktree, pas de revue, pas de clôture automatique.',
-  };
+  }
 }
 
 // --- Boucle fix/feature : IMPLEMENT → REVIEW → PARSE/COMMENT/LEDGER ---
 
-const rounds = [];
-let lastReview = null;
-let closePath = null; // 'approved' | 'minors' | 'diminishing' | 'max-rounds' | 'budget' | 'paused'
-let worktreePath = '';
-let workBranch = '';
-let roundsWithoutNewBlocking = 0;
+const rounds = []
+let lastReview = null
+let closePath = null // 'approved' | 'minors' | 'diminishing' | 'max-rounds' | 'budget' | 'paused'
+let worktreePath = ''
+let workBranch = ''
+let roundsWithoutNewBlocking = 0
 
 const reviewSchema = {
   type: 'object',
@@ -281,7 +316,10 @@ const reviewSchema = {
         required: ['severity', 'dedupKey', 'problem', 'fix'],
         properties: {
           severity: { type: 'string', enum: ['blocker', 'major', 'minor'] },
-          dedupKey: { type: 'string', description: 'Stable type file:line:concept, survit aux reformulations' },
+          dedupKey: {
+            type: 'string',
+            description: 'Stable type file:line:concept, survit aux reformulations',
+          },
           file: { type: 'string' },
           line: { type: 'integer' },
           problem: { type: 'string' },
@@ -292,15 +330,15 @@ const reviewSchema = {
     debt: { type: 'array', items: { type: 'string' } },
     summary: { type: 'string' },
   },
-};
+}
 
-const startRound = clampInt(ledger.round, 1, 1, maxRounds);
+const startRound = clampInt(ledger.round, 1, 1, maxRounds)
 for (let round = startRound; round <= maxRounds && !closePath; round += 1) {
-  phase('Iteration');
-  log(`Round ${round}/${maxRounds} (mode ${mode})`);
+  phase('Iteration')
+  log(`Round ${round}/${maxRounds} (mode ${mode})`)
 
-  const openFindings = ledger.findings.filter((f) => f.status === 'open' || f.status === 'recurred');
-  const recurred = ledger.findings.filter((f) => f.status === 'recurred');
+  const openFindings = ledger.findings.filter((f) => f.status === 'open' || f.status === 'recurred')
+  const recurred = ledger.findings.filter((f) => f.status === 'recurred')
 
   // --- IMPLEMENT ---
   const implementation = await agent(
@@ -331,9 +369,20 @@ Si tu as poussé des commits, reporte le sha du dernier commit poussé.`,
       retries: 1,
       outputSchema: {
         type: 'object',
-        required: ['status', 'summary', 'filesChanged', 'gateEvidence', 'commitEvidence', 'pushEvidence', 'lastCommitSha'],
+        required: [
+          'status',
+          'summary',
+          'filesChanged',
+          'gateEvidence',
+          'commitEvidence',
+          'pushEvidence',
+          'lastCommitSha',
+        ],
         properties: {
-          status: { type: 'string', enum: ['changed', 'unchanged', 'blocked', 'pending_user_choice'] },
+          status: {
+            type: 'string',
+            enum: ['changed', 'unchanged', 'blocked', 'pending_user_choice'],
+          },
           summary: { type: 'string' },
           worktreePath: { type: 'string' },
           branch: { type: 'string' },
@@ -345,49 +394,59 @@ Si tu as poussé des commits, reporte le sha du dernier commit poussé.`,
           lastCommitSha: { type: 'string' },
         },
       },
-    },
-  );
-  coverage.push({ id: `implement-r${round}`, status: implementation ? 'complete' : 'missing' });
-  ledger.spawns.impl += 1;
+    }
+  )
+  coverage.push({ id: `implement-r${round}`, status: implementation ? 'complete' : 'missing' })
+  ledger.spawns.impl += 1
 
-  const roundRecord = { round, implementation, review: null };
-  rounds.push(roundRecord);
+  const roundRecord = { round, implementation, review: null }
+  rounds.push(roundRecord)
 
-  if (implementation && implementation.worktreePath) worktreePath = implementation.worktreePath;
-  if (implementation && implementation.branch) workBranch = implementation.branch;
+  if (implementation && implementation.worktreePath) worktreePath = implementation.worktreePath
+  if (implementation && implementation.branch) workBranch = implementation.branch
 
   if (!implementation || implementation.status === 'blocked') {
-    closePath = 'paused';
-    await writeLedger(issueNum, ledger);
-    break;
+    closePath = 'paused'
+    await writeLedger(issueNum, ledger)
+    break
   }
   if (implementation.status === 'pending_user_choice') {
-    ledger.pendingUserChoice = { kind: 'user-decision', options: implementation.summary, askedAt: new Date().toISOString() };
-    closePath = 'paused';
-    await writeLedger(issueNum, ledger);
-    break;
+    ledger.pendingUserChoice = {
+      kind: 'user-decision',
+      options: implementation.summary,
+      askedAt: new Date().toISOString(),
+    }
+    closePath = 'paused'
+    await writeLedger(issueNum, ledger)
+    break
   }
 
   // Marquer fixed les findings ouverts que l'implémentation déclare traités (preuve dans le commit).
   for (const f of ledger.findings) {
     if ((f.status === 'open' || f.status === 'recurred') && implementation.status === 'changed') {
       const addressed =
-        (implementation.filesChanged || []).some((p) => f.dedupKey && f.dedupKey.startsWith(p.split(':')[0]) && f.dedupKey.includes(':')) ||
-        text(implementation.summary).toLowerCase().includes(text(f.dedupKey).toLowerCase());
+        (implementation.filesChanged || []).some(
+          (p) => f.dedupKey && f.dedupKey.startsWith(p.split(':')[0]) && f.dedupKey.includes(':')
+        ) || text(implementation.summary).toLowerCase().includes(text(f.dedupKey).toLowerCase())
       if (addressed) {
-        f.status = 'fixed';
-        f.roundFixed = round;
+        f.status = 'fixed'
+        f.roundFixed = round
       }
     }
   }
 
   // --- REVIEW (JSON only ; le reviewer ne poste jamais) ---
-  const reviewCwd = worktreePath || cwd;
-  const diffScope = round === 1 ? `git diff origin/<branche par défaut>...HEAD` : `git diff ${ledger.lastReviewedCommit || 'HEAD~1'}..HEAD`;
-  const fixedToVerify = ledger.findings.filter((f) => f.status === 'fixed');
-  const rejectedToCounter = ledger.findings.filter((f) => f.status === 'rejected');
+  const reviewCwd = worktreePath || cwd
+  const diffScope =
+    round === 1
+      ? `git diff origin/<branche par défaut>...HEAD`
+      : `git diff ${ledger.lastReviewedCommit || 'HEAD~1'}..HEAD`
+  const fixedToVerify = ledger.findings.filter((f) => f.status === 'fixed')
+  const rejectedToCounter = ledger.findings.filter((f) => f.status === 'rejected')
 
-  const reviewPrompt = (extra) => `Tu es le reviewer de l'issue #${issueNum}, round ${round}. Lecture seule : tu ne modifies rien, tu ne postes rien — tu renvoies uniquement le JSON structuré demandé.
+  const reviewPrompt = (
+    extra
+  ) => `Tu es le reviewer de l'issue #${issueNum}, round ${round}. Lecture seule : tu ne modifies rien, tu ne postes rien — tu renvoies uniquement le JSON structuré demandé.
 Lis d'abord le skill ${SKILL_PATH} (section 3, « Review prompt ») et AGENTS.md à la racine du repo (le vrai fichier) : ${reviewCwd}
 
 Périmètre du diff : ${diffScope} — régénère-le toi-même avec git en lecture seule dans ${reviewCwd}.
@@ -407,103 +466,143 @@ Rapport d'implémentation (gates + preuves de tests de régression incluses) : $
 ${extra}
 
 Juge contre les critères d'acceptation : couverture réelle, correction à la source (pas le symptôme), pas de code mort, conventions du repo (AGENTS.md). Un fix changeant un comportement sans test de régression passant + preuve d'exécution = finding major. Tout ce qui change des nombres affichés, un comportement ou un contrat de payload = au moins major.
-Renvoie le JSON : verdict (APPROVED seulement s'il ne reste aucun blocker/major ; les minors vont dans debt[]), findings[] actionnables avec dedupKey stable, debt[], summary. Sois efficace : Bash uniquement pour la complétude git.`;
+Renvoie le JSON : verdict (APPROVED seulement s'il ne reste aucun blocker/major ; les minors vont dans debt[]), findings[] actionnables avec dedupKey stable, debt[], summary. Sois efficace : Bash uniquement pour la complétude git.`
 
-  let reviews;
+  let reviews
   if (mode === 'feature' && round === 1 && altReviewerModel) {
     reviews = await parallel('review', {
-      primary: () => agent(reviewPrompt(''), { label: `review-r${round}`, retries: 1, outputSchema: reviewSchema }),
-      second: () =>
-        agent(reviewPrompt('Tu es le second reviewer (diversité de modèles) : apporte un regard indépendant.'), {
-          label: `review-r${round}-alt`,
-          model: altReviewerModel,
+      primary: () =>
+        agent(reviewPrompt(''), {
+          label: `review-r${round}`,
           retries: 1,
           outputSchema: reviewSchema,
         }),
-    });
-    ledger.spawns.impl += 2;
+      second: () =>
+        agent(
+          reviewPrompt(
+            'Tu es le second reviewer (diversité de modèles) : apporte un regard indépendant.'
+          ),
+          {
+            label: `review-r${round}-alt`,
+            model: altReviewerModel,
+            retries: 1,
+            outputSchema: reviewSchema,
+          }
+        ),
+    })
+    ledger.spawns.impl += 2
   } else {
-    const single = await agent(reviewPrompt(''), { label: `review-r${round}`, retries: 1, outputSchema: reviewSchema });
-    reviews = { primary: single };
-    ledger.spawns.impl += 1;
+    const single = await agent(reviewPrompt(''), {
+      label: `review-r${round}`,
+      retries: 1,
+      outputSchema: reviewSchema,
+    })
+    reviews = { primary: single }
+    ledger.spawns.impl += 1
   }
 
   // Merge par dedupKey (le plus sévère gagne).
-  const merged = { verdict: 'APPROVED', findings: [], debt: [], summary: '' };
-  let reviewFailed = false;
+  const merged = { verdict: 'APPROVED', findings: [], debt: [], summary: '' }
+  let reviewFailed = false
   for (const key of Object.keys(reviews)) {
-    const r = reviews[key];
+    const r = reviews[key]
     if (!r || r.verdict === undefined) {
-      reviewFailed = true;
-      continue;
+      reviewFailed = true
+      continue
     }
-    if (r.verdict === 'CHANGES_REQUESTED') merged.verdict = 'CHANGES_REQUESTED';
-    merged.summary += (merged.summary ? '\n' : '') + `[${key}] ${r.summary || ''}`;
-    merged.debt.push(...(Array.isArray(r.debt) ? r.debt : []));
+    if (r.verdict === 'CHANGES_REQUESTED') merged.verdict = 'CHANGES_REQUESTED'
+    merged.summary += (merged.summary ? '\n' : '') + `[${key}] ${r.summary || ''}`
+    merged.debt.push(...(Array.isArray(r.debt) ? r.debt : []))
     for (const f of Array.isArray(r.findings) ? r.findings : []) {
-      const existing = merged.findings.find((x) => x.dedupKey === f.dedupKey);
-      if (!existing) merged.findings.push({ ...f });
-      else if ((SEVERITY_RANK[f.severity] || 0) > (SEVERITY_RANK[existing.severity] || 0)) Object.assign(existing, f);
+      const existing = merged.findings.find((x) => x.dedupKey === f.dedupKey)
+      if (!existing) merged.findings.push({ ...f })
+      else if ((SEVERITY_RANK[f.severity] || 0) > (SEVERITY_RANK[existing.severity] || 0))
+        Object.assign(existing, f)
     }
   }
-  coverage.push({ id: `review-r${round}`, status: reviewFailed && merged.findings.length === 0 && merged.verdict === 'APPROVED' ? 'missing' : 'complete' });
-  roundRecord.review = merged;
-  lastReview = merged;
+  coverage.push({
+    id: `review-r${round}`,
+    status:
+      reviewFailed && merged.findings.length === 0 && merged.verdict === 'APPROVED'
+        ? 'missing'
+        : 'complete',
+  })
+  roundRecord.review = merged
+  lastReview = merged
 
   // Sortie invalide → CHANGES_REQUESTED (jamais clôturer sur un verdict ambigu).
   if (reviewFailed && (!merged.findings || merged.findings.length === 0)) {
-    merged.verdict = 'CHANGES_REQUESTED';
-    merged.summary = (merged.summary || '') + '\n[workflow] Sortie de revue invalide ou absente — traitée comme CHANGES_REQUESTED.';
+    merged.verdict = 'CHANGES_REQUESTED'
+    merged.summary =
+      (merged.summary || '') +
+      '\n[workflow] Sortie de revue invalide ou absente — traitée comme CHANGES_REQUESTED.'
   }
 
   // --- PARSE : dédupliquer contre le ledger ---
-  let newBlockingThisRound = 0;
+  let newBlockingThisRound = 0
   for (const f of merged.findings) {
-    const existing = ledger.findings.find((x) => x.dedupKey === f.dedupKey);
+    const existing = ledger.findings.find((x) => x.dedupKey === f.dedupKey)
     if (!existing) {
-      ledger.findings.push({ ...f, status: 'open', rejection: null, roundFirstSeen: round, roundFixed: null });
-      if (isBlocking(f)) newBlockingThisRound += 1;
+      ledger.findings.push({
+        ...f,
+        status: 'open',
+        rejection: null,
+        roundFirstSeen: round,
+        roundFixed: null,
+      })
+      if (isBlocking(f)) newBlockingThisRound += 1
     } else if (existing.status === 'fixed' || existing.status === 'rejected') {
-      existing.status = 'recurred'; // une seule ré-occurrence suffit
-      existing.severity = (SEVERITY_RANK[f.severity] || 0) > (SEVERITY_RANK[existing.severity] || 0) ? f.severity : existing.severity;
-      newBlockingThisRound += 1;
+      existing.status = 'recurred' // une seule ré-occurrence suffit
+      existing.severity =
+        (SEVERITY_RANK[f.severity] || 0) > (SEVERITY_RANK[existing.severity] || 0)
+          ? f.severity
+          : existing.severity
+      newBlockingThisRound += 1
     } else if (existing.status === 'open') {
-      if ((SEVERITY_RANK[f.severity] || 0) > (SEVERITY_RANK[existing.severity] || 0)) existing.severity = f.severity;
+      if ((SEVERITY_RANK[f.severity] || 0) > (SEVERITY_RANK[existing.severity] || 0))
+        existing.severity = f.severity
     }
   }
 
   // Commentaire de revue + ledger.
   if (postComments) {
-    const openBlocking = ledger.findings.filter((f) => (f.status === 'open' || f.status === 'recurred') && isBlocking(f)).length;
-    const posted = await postComment(issueNum, reviewCommentBody(issueNum, round, merged, openBlocking));
-    if (posted.exitCode !== 0) log(`Échec du commentaire round ${round} : ${posted.stderr}`);
+    const openBlocking = ledger.findings.filter(
+      (f) => (f.status === 'open' || f.status === 'recurred') && isBlocking(f)
+    ).length
+    const posted = await postComment(
+      issueNum,
+      reviewCommentBody(issueNum, round, merged, openBlocking)
+    )
+    if (posted.exitCode !== 0) log(`Échec du commentaire round ${round} : ${posted.stderr}`)
   }
-  if (implementation.lastCommitSha) ledger.lastReviewedCommit = implementation.lastCommitSha;
-  ledger.round = round + 1;
-  await writeLedger(issueNum, ledger);
+  if (implementation.lastCommitSha) ledger.lastReviewedCommit = implementation.lastCommitSha
+  ledger.round = round + 1
+  await writeLedger(issueNum, ledger)
 
   // --- Terminaison (section 5 du skill) ---
-  const openBlocking = ledger.findings.filter((f) => (f.status === 'open' || f.status === 'recurred') && isBlocking(f));
-  const openMinors = ledger.findings.filter((f) => f.status === 'open' && f.severity === 'minor');
+  const openBlocking = ledger.findings.filter(
+    (f) => (f.status === 'open' || f.status === 'recurred') && isBlocking(f)
+  )
+  const openMinors = ledger.findings.filter((f) => f.status === 'open' && f.severity === 'minor')
 
   if (merged.verdict === 'APPROVED' && openBlocking.length === 0) {
-    closePath = 'approved';
+    closePath = 'approved'
   } else if (openBlocking.length === 0 && openMinors.length > 0) {
-    closePath = 'minors';
+    closePath = 'minors'
   } else if (newBlockingThisRound === 0) {
-    roundsWithoutNewBlocking += 1;
-    if (roundsWithoutNewBlocking >= 2 && openBlocking.length === 0) closePath = 'diminishing';
+    roundsWithoutNewBlocking += 1
+    if (roundsWithoutNewBlocking >= 2 && openBlocking.length === 0) closePath = 'diminishing'
   } else {
-    roundsWithoutNewBlocking = 0;
+    roundsWithoutNewBlocking = 0
   }
-  if (!closePath && round === maxRounds) closePath = 'max-rounds';
-  if (!closePath && ledger.spawns.impl >= 8) closePath = 'budget';
+  if (!closePath && round === maxRounds) closePath = 'max-rounds'
+  if (!closePath && ledger.spawns.impl >= 8) closePath = 'budget'
 }
 
 // --- Finalisation : CI une seule fois, clôture traçable, PR en mode feature ---
 
-phase('Finalize');
-const willClose = Boolean(autoClose && ['approved', 'minors', 'diminishing'].includes(closePath));
+phase('Finalize')
+const willClose = Boolean(autoClose && ['approved', 'minors', 'diminishing'].includes(closePath))
 const finalization = await agent(
   `Finalise l'issue #${issueNum} après la boucle issue-loop dans ${worktreePath || cwd}. Lis le skill ${SKILL_PATH} (section 5 « Termination ») et AGENTS.md.
 
@@ -534,15 +633,17 @@ Ne prétends jamais une action sans la sortie de commande qui la prouve.`,
         ciState: { type: 'string' },
       },
     },
-  },
-);
-coverage.push({ id: 'finalize', status: finalization ? 'complete' : 'missing' });
+  }
+)
+coverage.push({ id: 'finalize', status: finalization ? 'complete' : 'missing' })
 
-ledger.pendingUserChoice = null;
-await writeLedger(issueNum, ledger);
+ledger.pendingUserChoice = null
+await writeLedger(issueNum, ledger)
 
 return {
-  report: finalization ? finalization.summary : 'Finalisation indisponible — vérifier manuellement le dépôt et l’issue.',
+  report: finalization
+    ? finalization.summary
+    : 'Finalisation indisponible — vérifier manuellement le dépôt et l’issue.',
   status: closePath === 'paused' ? 'paused' : finalization ? finalization.status : 'incomplete',
   issue: issueNum,
   mode,
@@ -556,4 +657,4 @@ return {
   ledger,
   coverage,
   limits: { maxRounds, autoClose, postComment: postComments, spawns: ledger.spawns },
-};
+}
