@@ -42,6 +42,12 @@ export interface ApiDefinition {
     rows: typeof routes['controle_prod.rows']
     ofASolder: typeof routes['controle_prod.of_a_solder']
   }
+  cockpit: {
+    index: typeof routes['cockpit.index']
+    postes: typeof routes['cockpit.postes']
+    anomaliesUsine: typeof routes['cockpit.anomalies_usine']
+    poste: typeof routes['cockpit.poste']
+  }
   suivi: {
     board: typeof routes['suivi.board']
     assign: typeof routes['suivi.assign']

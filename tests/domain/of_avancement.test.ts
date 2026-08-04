@@ -15,7 +15,7 @@ function op(
   opesta = ' ',
   extqty = 100
 ): OperationRecord {
-  return { mfgnum, openum, cplqty, opesta, extqty }
+  return { mfgnum, openum, cplqty, opesta, extqty, cplwst: null, extwst: null }
 }
 
 test.group('computeAvancement', () => {

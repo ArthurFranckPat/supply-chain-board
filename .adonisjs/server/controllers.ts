@@ -9,6 +9,7 @@ export const controllers = {
   Appro: () => import('#controllers/appro_controller'),
   Auth: () => import('#controllers/auth_controller'),
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
+  Cockpit: () => import('#controllers/cockpit_controller'),
   Conditionnements: () => import('#controllers/conditionnements_controller'),
   ControleProd: () => import('#controllers/controle_prod_controller'),
   Dashboard: () => import('#controllers/dashboard_controller'),

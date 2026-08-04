@@ -12,6 +12,7 @@ import type { ManufacturingOrder } from '#repositories/of_repository'
 import {
   atelierLabel as resolveAtelierLabel,
   buildPosteNatureByWorkstation,
+  POSTE_PP_RE,
   type PosteNature,
 } from '#app/domain/atelier'
 import { cacheNs } from '#services/cache_ns'
@@ -109,8 +110,7 @@ export interface EngagementSummaryDataset {
 
 // Fenêtre de demande du matcher engagement : lookback 30 j (overdue) + horizon.
 // Bornage nécessaire : la vue ORDERS passe par ZSOAPSQL O(n²).
-/** Postes affichés au séquenceur : lignes de production PP_XXX seulement. */
-const POSTE_PP_RE = /^PP_\d+$/
+// `POSTE_PP_RE` vient de `#app/domain/atelier` — partagé avec le cockpit (#119).
 
 const DEMAND_LOOKBACK_DAYS = 30
 /** Horizon matching séquenceur — commandes [today−lookback, today+horizon]. */
@@ -121,7 +121,9 @@ const ENGAGEMENT_TTL = 2 * 60 * 1000
 
 const engagementCache = () => cacheNs('engagement')
 
-const resolvePoste = (
+/** Poste d'un OF : override manuel sinon première opération de gamme.
+ *  Exportée pour le cockpit (#119) — MÊME rattachement partout, une seule source. */
+export const resolvePoste = (
   mo: ManufacturingOrder,
   overrideMap: Map<string, { workstation: string | null }>,
   opsByArticle: Map<string, { workstation: string | null }[]>
@@ -130,7 +132,9 @@ const resolvePoste = (
   return ov?.workstation ?? opsByArticle.get(mo.article)?.[0]?.workstation ?? null
 }
 
-const weeklyCapacityOf = (
+/** Capacité hebdomadaire théorique (h) — WORKSTATIO + TABWEEDIA (#35, #37).
+ *  Exportée pour le cockpit (#119) afin de ne pas réimplémenter la formule. */
+export const weeklyCapacityOf = (
   poste: string,
   workstations: {
     code: string

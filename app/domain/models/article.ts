@@ -14,6 +14,9 @@ export interface Article {
   /** Typologie fine X3 (TSICOD_4) — ex: ESH10-60, BDH60 (bouche), BDH10 (module hygro). Optionnel. */
   typologie?: string
   reorderDelay: number
+  /** ITMMASTER.PCUSTUCOE_1 — US par palette (#119). null/absent = pas de
+   *  coefficient : l'équivalent palette est une ABSENCE de donnée, pas zéro. */
+  usParPalette?: number | null
   productFamily: string | null
   pmp: number | null
   economicLot: number | null

@@ -199,6 +199,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'cockpit.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/cockpit'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'suivi.board': {
     methods: ["GET","HEAD"]
     pattern: '/suivi'
@@ -842,6 +854,42 @@ export interface Registry {
       body: {}
       paramsTuple: []
       params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'cockpit.postes': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/cockpit/postes'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'cockpit.anomalies_usine': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/cockpit/postes/:poste/anomalies-usine'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { poste: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'cockpit.poste': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/cockpit/postes/:poste'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { poste: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown

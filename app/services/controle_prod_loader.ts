@@ -47,6 +47,11 @@ export interface ControleProdRow {
   /** OPENUM dernière op intermédiaire pointée. */
   derniereOpPointee: number | null
   nbOperations: number
+  /**
+   * Poste de la dernière op pointée (CPLWST sinon EXTWST), code brut.
+   * Sert le filtrage cockpit (#119) — null si inconnu.
+   */
+  poste: string | null
 }
 
 export interface ControleProdStats {
@@ -191,7 +196,7 @@ async function fetchEnrichment(numOfs: string[]): Promise<Map<string, OfEnrichme
  */
 export async function loadControleProdData(force = false): Promise<ControleProdPayload> {
   const ns = () => cacheNs('controle-prod')
-  const key = 'payload:v2'
+  const key = 'payload:v3'
   if (force) await ns().delete({ key })
 
   try {
@@ -212,15 +217,23 @@ export async function loadControleProdData(force = false): Promise<ControleProdP
           qtyPointee: number
           derniereOp: number | null
           nbOps: number
+          poste: string | null
         }[] = []
         for (const c of candidates) {
           const av = avancementByOf.get(c.numOf)
           if (!estEcartDeclaration(av, c.done)) continue
+          const derniereOp = av?.derniereOpPointée ?? null
+          const opDerniere =
+            derniereOp !== null
+              ? ops.find((o) => o.mfgnum === c.numOf && o.openum === derniereOp)
+              : undefined
+          const brut = opDerniere?.cplwst || opDerniere?.extwst || null
           draft.push({
             c,
             qtyPointee: av?.qtyRealisee ?? 0,
-            derniereOp: av?.derniereOpPointée ?? null,
+            derniereOp,
             nbOps: av?.nbOperations ?? 0,
+            poste: brut,
           })
         }
 
@@ -239,7 +252,7 @@ export async function loadControleProdData(force = false): Promise<ControleProdP
           return hit?.label ?? String(sta)
         }
 
-        const rows: ControleProdRow[] = draft.map(({ c, qtyPointee, derniereOp, nbOps }) => {
+        const rows: ControleProdRow[] = draft.map(({ c, qtyPointee, derniereOp, nbOps, poste }) => {
           const e = enrich.get(c.numOf)
           return {
             numOf: c.numOf,
@@ -261,6 +274,7 @@ export async function loadControleProdData(force = false): Promise<ControleProdP
             site: e?.site ?? null,
             derniereOpPointee: derniereOp,
             nbOperations: nbOps,
+            poste,
           }
         })
         rows.sort((a, b) => b.ecart - a.ecart)

@@ -150,6 +150,12 @@ declare module '@adonisjs/inertia/types' {
       /** Onglet « OF à solder » — fetché seulement à l'ouverture de l'onglet. */
       solderHref: string
     }
+    // Cockpit poste (#119) : coquille, sélecteur + détail chargés en JSON différé.
+    'cockpit/poste': {
+      postesHref: string
+      /** Présélection `?poste=` (liens séquenceur / charge) — validée côté client. */
+      posteInitial: string | null
+    }
     'scheduler/tracking': {
       rowsHref: string
       proactiveRowsHref: string

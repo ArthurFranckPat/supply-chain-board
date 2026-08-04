@@ -9,6 +9,7 @@ import {
   type OrdersSourceRow,
 } from '#repositories/combined_orders_repository'
 import { X3OperationRepository } from '#repositories/operation_repository'
+import { X3OperationsTrkRepository } from '#repositories/operations_trk_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
 import { getActiveX3EnvName } from '#config/x3'
@@ -73,6 +74,30 @@ export function orderLinesReplicaWindow(now = new Date()): { from: string; to: s
   // `isoDay` local est nullable (il sert aussi à des dates X3 absentes) ; ici les
   // deux bornes sont construites, jamais nulles.
   return { from: isoDay(from)!, to: isoDay(to)! }
+}
+
+/**
+ * Profondeur du passé pointé répliqué (#119) : 6 mois glissants, décision
+ * verrouillée de l'issue — c'est la fenêtre du cockpit poste.
+ */
+const OPERATIONS_TRK_LOOKBACK_MONTHS = 6
+
+/**
+ * Fenêtre d'ingestion d'`operations_trk_replica`, en dates locales.
+ *
+ * Borne haute = DEMAIN (exclusif) pour inclure les pointages du jour, dont la
+ * date d'imputation est posée à la déclaration. La borne basse recule de
+ * `OPERATIONS_TRK_LOOKBACK_MONTHS` mois calendaires — la fenêtre glisse d'un
+ * jour à l'autre, le run quotidien la recentre. Exportée pour être lisible côté
+ * lecture (le repository de relais sert exactement cette fenêtre).
+ */
+export function operationsTrkWindow(now = new Date()): { from: Date; to: Date } {
+  const from = new Date(now)
+  from.setHours(0, 0, 0, 0)
+  from.setMonth(from.getMonth() - OPERATIONS_TRK_LOOKBACK_MONTHS)
+  const to = new Date(now)
+  to.setHours(0, 0, 0, 0)
+  return { from, to }
 }
 
 export type IngestionStatus = 'ok' | 'failed'
@@ -353,6 +378,56 @@ export class ReplicaSyncService {
       .distinct('vcrnum')
       .select('vcrnum')
     return (rows as { vcrnum: string }[]).map((r) => r.vcrnum)
+  }
+
+  /**
+   * MFGOPETRK (pointages de suivi de fabrication) — passé constaté du cockpit
+   * poste (#119, lot 1). Swap complet de la fenêtre 6 mois glissants, PAS dans
+   * `syncAll()` : cadence QUOTIDIENNE ancrée en heures creuses (`SCHEDULE`,
+   * `replica_sync_provider.ts`), même régime que `stock_flux_replica`.
+   *
+   * ## Pourquoi un swap complet et non un append incrémental
+   *
+   * L'issue dit « ingestion incrémentale par IPTDAT ». L'append pur exigerait
+   * une identité de ligne stable pour l'upsert — inconnue sur MFGOPETRK (pas de
+   * clé démontrable, plusieurs pointages par (OF, opération)) — et laisserait
+   * diverger en silence tout pointage corrigé après coup. Le swap de la fenêtre
+   * glissante est l'incrément qui tient : chaque run ne retire de X3 QUE la
+   * fenêtre (`IPTDAT_0` borné), un instantané attribuable au run, auto-réparé au
+   * run suivant. L'extraction est chunkée par semaine sur `IPTDAT_0`
+   * (`X3OperationsTrkRepository`) pour rester sous le seuil `resultXml nil` du
+   * SOAP Syracuse.
+   *
+   * La note journalise la fenêtre RÉELLEMENT ingérée, comme `orders_flux` :
+   * seule façon de répondre ensuite à « la réplique couvre-t-elle CE que le
+   * cockpit demande ? ».
+   */
+  async syncOperationsTrk(source = 'manual'): Promise<TableIngestionResult> {
+    const window = operationsTrkWindow()
+    return this.ingest(
+      'operations_trk_replica',
+      source,
+      async () => {
+        const rows = await new X3OperationsTrkRepository().getPointages(window.from, window.to)
+        return rows.map((r): Row => ({
+          num_of: r.numOf,
+          openum: r.openum,
+          iptdat: r.iptdatIso,
+          cplwst: r.cplwst,
+          cplqty: r.cplqty,
+          rejcplqty: r.rejcplqty,
+          opetim: r.opetim,
+          settim: r.settim,
+          itmref: r.itmref,
+          itmref_of: r.itmrefOf,
+          empnum: r.empnum,
+          x4panflg: r.x4panflg,
+          x4arretprod: r.x4arretprod,
+          xequipe: r.xequipe,
+        }))
+      },
+      JSON.stringify({ from: isoDay(window.from), to: isoDay(window.to) })
+    )
   }
 
   /**

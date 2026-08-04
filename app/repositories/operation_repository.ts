@@ -27,6 +27,10 @@ export interface OperationRecord {
   opesta: string
   /** Quantité prévue sur l'opération (EXTQTY_0). */
   extqty: number
+  /** Poste réalisé (CPLWST_0) — null si non renseigné / réplique sans colonne. */
+  cplwst: string | null
+  /** Poste prévu (EXTWST_0). */
+  extwst: string | null
 }
 
 export class X3OperationRepository {
@@ -50,7 +54,7 @@ export class X3OperationRepository {
     const rows: OperationRecord[] = []
     for (const chunk of chunks) {
       const models = await MfgOpe.query()
-        .select('MFGNUM_0', 'OPENUM_0', 'CPLQTY_0', 'OPESTA_0', 'EXTQTY_0')
+        .select('MFGNUM_0', 'OPENUM_0', 'CPLQTY_0', 'OPESTA_0', 'EXTQTY_0', 'CPLWST_0', 'EXTWST_0')
         .whereIn('MFGNUM_0', chunk)
       for (const row of models) {
         rows.push({
@@ -59,6 +63,8 @@ export class X3OperationRepository {
           cplqty: Number.parseFloat(row.quantiteRealiseeTotale ?? '0') || 0,
           opesta: (row.statutOperation ?? '').trim(),
           extqty: Number.parseFloat(row.quantitePrevue ?? '0') || 0,
+          cplwst: (row.posteRealise ?? '').trim() || null,
+          extwst: (row.postePrevu ?? '').trim() || null,
         })
       }
     }

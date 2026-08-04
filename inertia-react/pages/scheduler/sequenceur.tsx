@@ -6,6 +6,7 @@ import {
   Check,
   ChevronsUpDown,
   CircleCheck,
+  Factory,
   FlaskConical,
   Info,
   Package,
@@ -1095,6 +1096,16 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 )}
               </div>
             )}
+            {/* Entrée cockpit (#119) : le passé constaté du poste filtré. */}
+            <button
+              type="button"
+              onClick={() => router.visit(`${route('cockpit.index')}?poste=${activePoste.code}`)}
+              className="flex items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 font-mono text-[11px] font-semibold text-foreground transition-colors hover:border-brand/50"
+              title={`Cockpit du poste ${activePoste.code}`}
+            >
+              <Factory size={14} strokeWidth={1.75} className="text-brand" />
+              Cockpit
+            </button>
           </div>
         )}
 
