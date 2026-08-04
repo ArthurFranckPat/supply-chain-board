@@ -76,12 +76,18 @@ function triageMessage(item: ApproItem): ApproTriageResult {
   }
 
   if (item.decalage === null) {
+    const cause =
+      item.echeance === null
+        ? 'échéance absente'
+        : item.dateProposee === null
+          ? 'date proposée absente'
+          : 'décalage incalculable'
     return {
       cle: item.cle,
       verdict: 'investiguer',
       score,
       preuves: [
-        `Message d'action (avancer/retarder) sur ${item.article} sans date proposée — donnée incohérente.`,
+        `Message d'action (avancer/retarder) sur ${item.article} sans décalage exploitable (${cause}) — donnée incohérente.`,
       ],
     }
   }
@@ -146,8 +152,12 @@ function triageSuggestion(item: ApproItem, nbAvecMemeArticle: number): ApproTria
 
 /** Triage un dossier fournisseur : un résultat par item, dans l'ordre du dossier. */
 export function triageDossier(dossier: ApproDossier): ApproTriageResult[] {
+  // Comptage borné aux SUGGESTIONS : un message de replanification partageant
+  // l'article d'une suggestion (même dossier fournisseur, aucun rapport entre
+  // les deux) ne doit pas la faire ressortir « regrouper » à tort.
   const nbParArticle = new Map<string, number>()
   for (const item of dossier.items) {
+    if (item.nature !== 'suggestion') continue
     nbParArticle.set(item.article, (nbParArticle.get(item.article) ?? 0) + 1)
   }
 

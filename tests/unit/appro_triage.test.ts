@@ -143,6 +143,32 @@ test.group('appro_triage — suggestions d’achat', () => {
     )
   })
 
+  test('un message sans rapport sur le même article ne déclenche pas un regroupement', ({
+    assert,
+  }) => {
+    // Faux positif documenté : suggestion et message de replanif du même
+    // article, même dossier fournisseur, mais deux natures sans rapport — un
+    // message ne compte pas comme une seconde suggestion à regrouper.
+    const resultats = triageDossier(
+      dossier({
+        suggestions: [sug({ numero: 'A', article: 'ART1', date: d('2026-08-03') })],
+        messages: [msg({ numero: 'B', article: 'ART1', fournisseur: '40025' })],
+      })
+    )
+    const suggestion = resultats.find((r) => r.cle === 'S:A')
+    assert.equal(suggestion?.verdict, 'passer')
+  })
+
+  test('échéance pile à J+7 → passer (borne incluse)', ({ assert }) => {
+    const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: d('2026-08-08') })] }))
+    assert.equal(resultat.verdict, 'passer')
+  })
+
+  test('échéance à J+8 → surveiller (juste au-delà de la borne)', ({ assert }) => {
+    const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: d('2026-08-09') })] }))
+    assert.equal(resultat.verdict, 'surveiller')
+  })
+
   test('le regroupement ne mélange pas deux fournisseurs différents', ({ assert }) => {
     // Faux positif documenté : même article, dossiers distincts (fournisseurs
     // différents) — pas un doublon à regrouper, deux décisions séparées.
@@ -181,5 +207,23 @@ test.group('appro_triage — triagePayload', () => {
     for (const resultat of triagePayload(payload).values()) {
       assert.isAbove(resultat.preuves.length, 0)
     }
+  })
+})
+
+test.group('appro_triage — score', () => {
+  test('une échéance dépassée rend un score au-dessus de 100', ({ assert }) => {
+    // 15 j de retard : 100 - (-15 * 2) = 130.
+    const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: d('2026-07-17') })] }))
+    assert.equal(resultat.score, 130)
+  })
+
+  test('une échéance lointaine rend un score plancher à 0, jamais négatif', ({ assert }) => {
+    const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: d('2026-12-25') })] }))
+    assert.equal(resultat.score, 0)
+  })
+
+  test('une échéance inconnue rend un score de 0', ({ assert }) => {
+    const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: null })] }))
+    assert.equal(resultat.score, 0)
   })
 })
