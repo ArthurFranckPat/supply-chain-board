@@ -135,6 +135,10 @@ const postComments = boolArg(input.postComment, true)
 const altReviewerModel = text(input.altReviewerModel)
 const coverage = []
 
+// Le moteur n'expose pas de global `cwd` — le résoudre via shell.
+const cwdResult = await shell('pwd')
+const cwd = cwdResult.stdout.trim()
+
 // --- Intake : classifier (étape 0 du skill), détecter l'implémentation déjà sur la base ---
 
 phase('Intake')
