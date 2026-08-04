@@ -438,7 +438,7 @@ function PosteDetail(props: {
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 animate-in overflow-auto fade-in-0 duration-200 motion-reduce:animate-none">
       {/* Identité du poste — une ligne, les 3 champs non exposés dits une fois. */}
       <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-2 border-b border-border bg-secondary px-7 py-3">
         <div className="flex items-baseline gap-2">

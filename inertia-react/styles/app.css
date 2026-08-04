@@ -722,3 +722,15 @@
   border-bottom: 2.5px solid var(--brand);
   border-radius: 1px;
 }
+
+/* Fil du poste — la recomposition des barres (changement de maille ou de
+   mesure) grandit depuis la ligne de base : le regroupement sur le même axe
+   s'explique d'un coup d'œil. 300 ms, ease expo (grammaire DESIGN.md). */
+@keyframes fil-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}

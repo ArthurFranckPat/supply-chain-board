@@ -646,12 +646,12 @@ export function LeFil(props: LeFilProps) {
                   : `${fmt(b.v)} ${UNITE_LAB[mesure]}`
               return (
                 <div
-                  key={i}
+                  key={`${maille}-${mesure}-${i}`}
                   tabIndex={0}
                   aria-label={`${b.lab} · ${status} · ${detail}`}
                   onClick={() => setTipOpen(tipOpen === `bar-${i}` ? '' : `bar-${i}`)}
                   className={cn(
-                    'group relative min-w-[2px] flex-1 cursor-pointer rounded-t-[3px] outline-none after:absolute after:inset-x-[-4px] after:bottom-0 after:top-[-12px] after:content-[""] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    'group relative min-w-[2px] flex-1 cursor-pointer origin-bottom rounded-t-[3px] outline-none animate-[fil-grow_300ms_cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none after:absolute after:inset-x-[-4px] after:bottom-0 after:top-[-12px] after:content-[""] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                     b.v === null
                       ? 'border-b-2 border-dotted border-muted-foreground/40' // trou : donnée absente
                       : b.futur
