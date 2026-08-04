@@ -18,7 +18,11 @@
  * 898 pal et 26 camions spot sur une seule journée de reprise après les congès.
  */
 
-import { calcVolumes, type VolumeCoef } from '#repositories/expedition_repository'
+import {
+  calcVolumes,
+  ESH_SURFACE_RATIO,
+  type VolumeCoef,
+} from '#repositories/expedition_repository'
 
 export type ForecastBand = 'decision' | 'prealert'
 
@@ -404,11 +408,16 @@ function sourceRank(source: AvailabilitySource): number {
 /**
  * Conversion unique, utilisée par les entrées stock et les portions de commande.
  *
- * Rend des **emplacements palette entiers**, jamais un équivalent fractionnaire.
- * La ligne ne sort que des palettes complètes, et une palette entamée occupe un
- * emplacement plein dans la navette : « 0,6 pal » ne décrit rien de chargeable.
- * `calcVolumes` garde son équivalent fractionnaire — c'est ce qu'il faut au
- * rétroviseur (#44) pour un taux de remplissage, pas à une file de chargement.
+ * La **palette physique** est l'unité indivisible : on arrondit le NOMBRE de
+ * palettes (ceil), puis on applique le facteur de surface. Une palette entamée
+ * occupe un emplacement plein, et « 0,6 pal » ne décrit rien de chargeable —
+ * mais c'est le compte de palettes qu'on arrondit, pas l'équivalent (revue
+ * #104). Pour une palette ESH (×1,25), arrondir l'équivalent gonflait une
+ * palette seule à 2 emplacements et sous-comptait une palette entamée à 1 :
+ * 17 lignes d'1 palette ESH annonçaient 34 emplacements (1 camion spot
+ * fantôme) pour 21,25 réels. L'équivalent reste fractionnaire — la file
+ * travaille déjà en flottants (`drainQueue` compare à `EPSILON`).
+ * `calcVolumes` garde l'équivalent fractionnaire pour le rétroviseur (#44).
  */
 export function emplacementsPalette(
   quantityUs: number,
@@ -425,7 +434,10 @@ export function emplacementsPalette(
     ],
     0
   )
-  return result.palTheo >= 0 ? Math.ceil(result.palTheo - EPSILON) : null
+  if (result.palTheo < 0) return null
+  // Même règle de facteur que calcVolumes (ESH = surface 1,25, sinon 1).
+  const facteur = volume.yfamstat7 === 'ESH' && ESH_SURFACE_RATIO > 0 ? ESH_SURFACE_RATIO : 1
+  return Math.ceil(result.palTheo / facteur - EPSILON) * facteur
 }
 
 function lineKey(line: ExpeditionOrderLine): string {

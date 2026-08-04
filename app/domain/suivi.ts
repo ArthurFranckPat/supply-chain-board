@@ -728,7 +728,18 @@ export function attachCauses(
 /** Capacité camion semi-remorque standard. */
 export const EUROP_PER_CAMION = 33
 export const EH_PER_CAMION = 26
-/** Ratio d'équivalence EasyHome → europalette (≈ 1.27). */
+/**
+ * Ratio d'équivalence EasyHome → europalette (≈ 1.27).
+ *
+ * Dérivé des capacités entières : 33/26 ≈ 1,269 (26 palettes 1000×1200 par
+ * camion — 26,4 physiques arrondies à l'entier). La prévision transport (#104)
+ * utilise le ratio de SURFACE exact, 1,25 (1,20 m² / 0,96 m², `ESH_SURFACE_RATIO`
+ * dans `expedition_repository`). Les deux dérivent de la même physique et ne
+ * divergent que de ~1,5 % — ils ne changent le nombre de camions que sur des
+ * frontières rares (27 ESH : 34,3 vs 33,75 → 2 camions dans les deux cas).
+ * Ne pas aligner l'un sur l'autre sans toucher les deux côtés, qui servent des
+ * écrans différents (/suivi vs /expeditions).
+ */
 export const EH_TO_EUROP_RATIO = EUROP_PER_CAMION / EH_PER_CAMION
 
 export interface PaletteLigne {
