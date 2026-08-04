@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { cn } from '@r/lib/utils'
 
 /**
- * ChargeHistogram « Papier » — charge d'un poste (hebdo, empilé Ferme/Planifié/Suggéré).
+ * ChargeHistogram — charge d'un poste (hebdo, empilé Ferme/Planifié/Suggéré).
  *
  *  • variant="full" (défaut, design system) : hero total + moyenne h/sem,
  *    barres avec valeurs inscrites, ligne pointillée terra = moyenne, axe total.

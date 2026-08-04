@@ -26,7 +26,7 @@ import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 import { usePrintFit } from './use-print-fit'
 
 /**
- * Grille du board « Papier » (B1 · Quotidien) — ordonnancement des OF.
+ * Grille du board (B1 · Quotidien) — ordonnancement des OF.
  *
  * Temps à l'horizontale (jours en colonnes), un poste par ligne. En-tête
  * collant (bande semaines + jours), colonne « Poste » collante à gauche,

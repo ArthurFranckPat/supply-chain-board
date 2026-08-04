@@ -1,5 +1,5 @@
 /**
- * Page « Suivi des ruptures » (port React) — design system « Papier », harmonisée
+ * Page « Suivi des ruptures » (port React) — design system « Airbnb », harmonisée
  * avec /suivi (masthead FactoryOS, bandeau KPI, toolbar à bascule).
  *
  * Shell Inertia instantané (SchedulerController.shortageTracker) ; les lignes (calcul

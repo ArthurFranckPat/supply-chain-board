@@ -247,7 +247,7 @@ export function Masthead(props: {
   const variant = props.variant ?? 'stock'
 
   // Marque l'environnement X3 courant sur <html> — parité avec le masthead
-  // Solid (le sélecteur [data-env] fait la déclinaison test côté CSS Papier).
+  // Solid (le sélecteur [data-env] fait la déclinaison test côté CSS legacy).
   useEffect(() => {
     if (env) document.documentElement.dataset.env = env
     else delete document.documentElement.dataset.env

@@ -4,7 +4,7 @@ import { cn } from '@r/lib/utils'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
 /**
- * Board « Papier » — grille de planification (coquille, cellules vides).
+ * Board — grille de planification (coquille, cellules vides).
  *
  * Une rangée par poste de production, le temps coule à l'horizontale (semaines
  * côte à côte). En-tête de poste = charge (ChargeHistogram : total + moyenne
