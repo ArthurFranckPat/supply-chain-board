@@ -85,6 +85,19 @@ test.group('expedition_forecast — volumes', () => {
     // Un compte déjà juste n'est pas gonflé d'une palette fantôme.
     assert.equal(emplacementsPalette(176, volume('ART1', 12.571_428_571_428_571)), 14)
   })
+
+  test('une palette ESH compte 1,25 emplacement — le ceil porte sur la palette physique', ({
+    assert,
+  }) => {
+    // 1 palette ESH pleine : 1 × 1,25 = 1,25 emplacement, pas 2 (revue #104).
+    assert.equal(emplacementsPalette(16, volume('ART1', 16, 'ESH')), 1.25)
+    // Palette entamée : 1 palette physique quand même → 1,25, pas 1.
+    assert.equal(emplacementsPalette(12.8, volume('ART1', 16, 'ESH')), 1.25)
+    // 26 palettes ESH = 32,5 emplacements → un camion de 33, pas deux.
+    assert.equal(emplacementsPalette(416, volume('ART1', 16, 'ESH')), 32.5)
+    // Non-ESH inchangé : emplacements entiers.
+    assert.equal(emplacementsPalette(16, volume('ART1', 16)), 1)
+  })
 })
 
 test.group('expedition_forecast — file FIFO', () => {
@@ -125,6 +138,42 @@ test.group('expedition_forecast — file FIFO', () => {
     assert.equal(jour1.fileAfter, 4)
     // Elles partent avec la navette du lendemain, sans coût.
     assert.equal(forecast.days[1]!.loaded, 4)
+  })
+
+  test('17 palettes ESH en lignes séparées ne déclenchent pas un faux camion spot', ({
+    assert,
+  }) => {
+    // 56 emplacements standard + 17 lignes d'1 palette ESH (1,25 emplacement
+    // chacune) = 77,25 emplacements réels. Avant la revue #104, le ceil par
+    // ligne gonflait les ESH à 2 emplacements → 90 → 1 camion spot fantôme.
+    // Le stock n'entre que par une ligne du même article (segments: []).
+    const eshLines = Array.from({ length: 17 }, (_, i) =>
+      line({
+        numCommande: `ESH${i}`,
+        article: 'ESH1',
+        orderedOpenQuantity: 16,
+        segments: [segment({ quantity: 16 })],
+      })
+    )
+    const forecast = build({
+      lines: [
+        ...eshLines,
+        line({ numCommande: 'STDL', article: 'STD', orderedOpenQuantity: 560, segments: [] }),
+      ],
+      volumes: new Map([
+        ['STD', volume('STD', 10)],
+        ['ESH1', volume('ESH1', 16, 'ESH')],
+      ]),
+      initialQueue: [{ article: 'STD', location: 'QUAI3', quantityUs: 560, source: 'quai' }],
+    })
+    const jour1 = forecast.days[0]!
+    assert.equal(jour1.available, 77.25)
+    assert.equal(jour1.loaded, 70)
+    assert.equal(jour1.loadedTasse, 4)
+    assert.isFalse(jour1.spot)
+    assert.equal(jour1.nbCamionsSpot, 0)
+    assert.equal(jour1.reportePalettes, 7.25)
+    assert.equal(jour1.fileAfter, 7.25)
   })
 
   test('le drill-down du jour spot liste navette + portion spot, pas seulement le chargé', ({
