@@ -1,6 +1,7 @@
 import { cacheNs } from '#services/cache_ns'
 import { ApproRepository } from '#app/repositories/appro_repository'
 import { buildApproPayload, type ApproPayload } from '#app/domain/appro'
+import { attacheTriage } from '#app/domain/appro_triage'
 import { isoLocalDay } from '#app/domain/shortages'
 
 /**
@@ -19,7 +20,8 @@ import { isoLocalDay } from '#app/domain/shortages'
  * 4 870 autres après. Ce n'est PAS l'horizon de travail — mesuré, il est plus
  * proche de 30 jours (40 lignes, 13 fournisseurs) — mais la borne de ce qu'on
  * accepte de charger. Le filtrage fin est un choix d'affichage, et l'horizon
- * juste (dérivé du délai fournisseur) reste à trancher (#114).
+ * juste (dérivé du délai fournisseur) a été tranché en #114 — son implémentation
+ * (source du délai OFS_0 + borne du loader) est un ticket de code dédié.
  */
 export const DEFAULT_HORIZON_DAYS = 90
 
@@ -65,7 +67,7 @@ export async function loadApproPayload(horizonDays: number): Promise<ApproPayloa
       timeout: 0,
       factory: async () => {
         const source = await new ApproRepository().fetch(to)
-        return buildApproPayload(source, today)
+        return attacheTriage(buildApproPayload(source, today))
       },
     })
     return { ...payload, range, x3Error: null }
