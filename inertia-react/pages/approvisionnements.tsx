@@ -33,6 +33,13 @@ interface ApproTriage {
   preuves: string[]
 }
 
+type DecisionStatut = 'vu' | 'ignorer' | 'a_passer'
+
+interface ApproDecision {
+  statut: DecisionStatut
+  decidedAt: string
+}
+
 interface ApproItem {
   cle: string
   nature: 'suggestion' | 'message'
@@ -45,6 +52,7 @@ interface ApproItem {
   decalage: number | null
   quantite: number
   triage: ApproTriage | null
+  decision: ApproDecision | null
 }
 
 interface ApproDossier {
@@ -70,6 +78,7 @@ interface ApproResponse {
   }
   range: { to: string; horizonDays: number }
   x3Error: string | null
+  decisions: { nb: number; overrides: number }
 }
 
 interface PageProps {
@@ -105,6 +114,15 @@ const VERDICT_META: Record<ApproTriage['verdict'], { label: string; cls: string 
   investiguer: { label: 'Investiguer', cls: 'bg-[#c13515]/10 text-[#c13515]' },
 }
 
+/** Décisions acheteur (ledger #134). Vu = neutre, ignoré = rouge, à passer = orange. */
+const DECISION_META: Record<DecisionStatut, { label: string; cls: string }> = {
+  vu: { label: 'Vu', cls: 'bg-muted text-muted-foreground' },
+  ignorer: { label: 'Ignoré', cls: 'bg-[#c13515]/10 text-[#c13515]' },
+  a_passer: { label: 'À passer', cls: 'bg-[#fc642d]/13 text-[#b8430f]' },
+}
+
+const DECISION_ACTIONS: DecisionStatut[] = ['vu', 'ignorer', 'a_passer']
+
 function EcheanceChip({ jours }: { jours: number | null }) {
   if (jours === null) return <span className="text-xs text-muted-foreground">sans date</span>
   const retard = jours < 0
@@ -123,14 +141,25 @@ function EcheanceChip({ jours }: { jours: number | null }) {
   )
 }
 
-function ItemRow({ item }: { item: ApproItem }) {
+function ItemRow({
+  item,
+  fournisseur,
+  decisionActuelle,
+  onDecide,
+}: {
+  item: ApproItem
+  fournisseur: string
+  decisionActuelle: DecisionStatut | null
+  onDecide: (statut: DecisionStatut) => void
+}) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
   const verdict = item.triage ? VERDICT_META[item.triage.verdict] : null
   const preuve = item.triage?.preuves[0]
+  const decision = decisionActuelle === null ? null : DECISION_META[decisionActuelle]
   return (
     <tr className="border-b border-[#ebebeb] last:border-0 hover:bg-[#fbfbfb]">
-      <td className="py-2.5 pr-3 pl-4">
+      <td className="py-2.5 pr-3 pl-4 align-top">
         <div className="flex items-center gap-2">
           <Icon className={cn('size-3.5 shrink-0', meta?.cls ?? 'text-muted-foreground')} />
           <span className="text-xs font-semibold">
@@ -146,6 +175,35 @@ function ItemRow({ item }: { item: ApproItem }) {
               {verdict.label}
             </span>
           )}
+          {decision !== null && (
+            <span
+              className={cn(
+                'inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap',
+                decision.cls
+              )}
+            >
+              {decision.label}
+            </span>
+          )}
+        </div>
+        {/* Décision acheteur (ledger #134) — append-only côté serveur. */}
+        <div className="mt-1.5 flex items-center gap-1">
+          {DECISION_ACTIONS.map((statut) => (
+            <button
+              key={statut}
+              type="button"
+              onClick={() => onDecide(statut)}
+              aria-pressed={decisionActuelle === statut}
+              className={cn(
+                'rounded border px-1.5 py-0.5 text-[10px] font-semibold',
+                decisionActuelle === statut
+                  ? 'border-foreground bg-foreground text-white'
+                  : 'border-border text-muted-foreground hover:bg-secondary'
+              )}
+            >
+              {DECISION_META[statut].label}
+            </button>
+          ))}
         </div>
       </td>
       <td className="py-2.5 pr-3">
@@ -177,7 +235,15 @@ function ItemRow({ item }: { item: ApproItem }) {
   )
 }
 
-function Dossier({ dossier }: { dossier: ApproDossier }) {
+function Dossier({
+  dossier,
+  decisions,
+  onDecide,
+}: {
+  dossier: ApproDossier
+  decisions: Record<string, DecisionStatut>
+  onDecide: (item: ApproItem, statut: DecisionStatut) => void
+}) {
   const urgents = dossier.items.filter((i) => i.jours !== null && i.jours <= 21).length
   return (
     <details className="mb-2.5 overflow-hidden rounded-xl border border-border bg-card">
@@ -218,7 +284,13 @@ function Dossier({ dossier }: { dossier: ApproDossier }) {
       <table className="w-full border-t border-[#ebebeb]">
         <tbody>
           {dossier.items.map((item) => (
-            <ItemRow key={item.cle} item={item} />
+            <ItemRow
+              key={item.cle}
+              item={item}
+              fournisseur={dossier.fournisseur}
+              decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+              onDecide={(statut) => onDecide(item, statut)}
+            />
           ))}
         </tbody>
       </table>
@@ -229,6 +301,40 @@ function Dossier({ dossier }: { dossier: ApproDossier }) {
 export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   const { data, loading, error, ms } = useTimedFetch<ApproResponse>(rowsHref)
   const [filtre, setFiltre] = useState<Filtre>(null)
+  // Décisions locales (ledger #134) — priorité sur le payload au re-rendu.
+  const [decisions, setDecisions] = useState<Record<string, DecisionStatut>>({})
+
+  /** POST d'une décision — append-only côté serveur, mise à jour locale immédiate. */
+  const poster = async (item: ApproItem, fournisseur: string, statut: DecisionStatut) => {
+    const body =
+      item.nature === 'message'
+        ? {
+            nature: 'message' as const,
+            statut,
+            numero: item.cle.split(':')[1],
+            ligne: Number(item.cle.split(':')[2]),
+            article: item.article,
+          }
+        : {
+            nature: 'suggestion' as const,
+            statut,
+            article: item.article,
+            fournisseur,
+            echeance: item.echeance,
+            quantite: item.quantite,
+          }
+    try {
+      const res = await fetch('/api/v1/appro/decision', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setDecisions((d) => ({ ...d, [item.cle]: statut }))
+    } catch {
+      // Échec silencieux : la file ne doit pas casser sur un POST refusé.
+    }
+  }
 
   const dossiers = useMemo(() => {
     if (data === null) return []
@@ -308,7 +414,14 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
 
           {!loading &&
             error === null &&
-            dossiers.map((d) => <Dossier key={d.fournisseur || '∅'} dossier={d} />)}
+            dossiers.map((d) => (
+              <Dossier
+                key={d.fournisseur || '∅'}
+                dossier={d}
+                decisions={decisions}
+                onDecide={(item, statut) => poster(item, d.fournisseur, statut)}
+              />
+            ))}
         </div>
       </div>
     </AppLayout>

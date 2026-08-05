@@ -4,6 +4,12 @@ import {
   loadApproPayload,
   type ApproPayloadResult,
 } from '#services/appro_payload_loader'
+import {
+  computeFingerprint,
+  cleLogiqueMessage,
+  isApproDecisionStatut,
+} from '#app/domain/appro_decision'
+import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
 
 /**
  * Page « Approvisionnements » (issue #103) : ce que le CBN de X3 propose côté
@@ -43,5 +49,55 @@ export default class ApproController {
     const horizon = Number(ctx.request.input('horizon')) || DEFAULT_HORIZON_DAYS
     const payload: ApproPayloadResult = await loadApproPayload(horizon)
     return ctx.response.json(payload)
+  }
+
+  /**
+   * POST /api/v1/appro/decision — enregistre une décision acheteur (ledger
+   * append-only #134, décision #112). Rien n'est écrit dans X3 en v1.
+   *
+   * Corps : `{ nature: 'suggestion'|'message', statut, article, fournisseur,
+   * echeance, quantite }` (suggestion — le serveur calcule le fingerprint #112)
+   * ou `{ nature: 'message', statut, numero, ligne }` (clé stable directe).
+   */
+  async decide(ctx: HttpContext) {
+    const body = ctx.request.body() as Record<string, unknown>
+    const nature = body.nature === 'message' ? 'message' : 'suggestion'
+    const statut = body.statut
+
+    if (!isApproDecisionStatut(statut)) {
+      return ctx.response.badRequest({ error: `statut invalide : ${String(statut)}` })
+    }
+
+    const repo = new ApproDecisionRepository()
+    let cleLogique: string
+    let article = String(body.article ?? '')
+    let fournisseur: string | null =
+      body.fournisseur === null || body.fournisseur === undefined ? null : String(body.fournisseur)
+    let quantite = Number(body.quantite ?? 0)
+    let echeance: string | null =
+      body.echeance === null || body.echeance === undefined ? null : String(body.echeance)
+
+    if (nature === 'suggestion') {
+      cleLogique = computeFingerprint(fournisseur ?? '', article, echeance, quantite)
+    } else {
+      const numero = String(body.numero ?? '')
+      const ligne = Number(body.ligne ?? 0)
+      if (numero === '' || !Number.isFinite(ligne) || ligne <= 0) {
+        return ctx.response.badRequest({ error: 'message : numero/ligne requis' })
+      }
+      cleLogique = cleLogiqueMessage(numero, ligne)
+      article = String(body.article ?? '')
+    }
+
+    const row = await repo.record({
+      cleLogique,
+      nature,
+      statut,
+      article,
+      fournisseur,
+      quantite,
+      echeance,
+    })
+    return ctx.response.json({ cleLogique, statut, decidedAt: row.decidedAt })
   }
 }

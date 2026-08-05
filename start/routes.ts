@@ -305,6 +305,10 @@ router
     // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
     // replanification sur commandes fournisseur, groupés par fournisseur.
     router.get('/api/v1/appro/rows', '#controllers/appro_controller.rows').as('appro.rows')
+    // Décision acheteur (ledger append-only #134) — vu / ignorer / à passer.
+    router
+      .post('/api/v1/appro/decision', '#controllers/appro_controller.decide')
+      .as('appro.decision')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router

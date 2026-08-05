@@ -6,6 +6,7 @@ import type {
 } from '#app/repositories/appro_repository'
 import { MRP_MESSAGE } from '#app/repositories/appro_repository'
 import type { ApproTriageResult } from './appro_triage.js'
+import type { ApproDecision } from './appro_decision.js'
 
 /**
  * Domaine pur du module `/approvisionnements` (issue #103) : regroupe ce que le
@@ -60,6 +61,11 @@ export interface ApproItem {
    * brut — la page ne juge que si l'appelant l'a demandé.
    */
   triage: ApproTriageResult | null
+  /**
+   * Décision acheteur (ledger #134, décision #112) : vu / ignorer / à passer,
+   * rattachée par clé logique à la charge du payload. `null` = aucune décision.
+   */
+  decision: ApproDecision | null
 }
 
 /** Un fournisseur et tout ce qu'il porte. */
@@ -126,6 +132,7 @@ const itemFromSuggestion = (row: ApproSuggestionRow, todayIso: string): ApproIte
     decalage: null,
     quantite: row.quantite,
     triage: null,
+    decision: null,
   }
 }
 
@@ -144,6 +151,7 @@ const itemFromMessage = (row: ApproMessageRow, todayIso: string): ApproItem => {
     decalage: echeance !== null && proposee !== null ? joursEntre(echeance, proposee) : null,
     quantite: row.quantite,
     triage: null,
+    decision: null,
   }
 }
 
