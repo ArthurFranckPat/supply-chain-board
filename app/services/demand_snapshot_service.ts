@@ -1,10 +1,16 @@
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
+import { ApproRepository } from '#app/repositories/appro_repository'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
+import {
+  diffApproSnapshots,
+  type ApproDiffNature,
+  type ApproSnapshotRow,
+} from '#app/domain/appro_snapshot_diff'
 
 /**
  * Photo quotidienne du besoin (#74 lot 1, absorbé par #98 lot 4).
@@ -87,6 +93,48 @@ export class DemandSnapshotService {
     // texte. Normaliser ici évite une comparaison de types au point d'appel.
     if (day instanceof Date) return isoDay(day)
     return String(day).slice(0, 10)
+  }
+
+  /**
+   * Lignes de la photo des suggestions d'un jour donné (source `appro_suggestion`).
+   * `null` si aucune photo ce jour-là (le jour est l'identité de la photo).
+   */
+  async approSnapshots(dateStr: string): Promise<ApproSnapshotRow[] | null> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .where('snapshot_date', dateStr)
+      .andWhere('source', 'appro_suggestion')
+    if (rows.length === 0) return null
+    return rows.map((r) => ({
+      article: String(r.itmref),
+      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+      quantite: Number(r.quantity),
+      echeance: r.date_echeance === null ? null : String(r.date_echeance),
+    }))
+  }
+
+  /**
+   * Diff inter-CBN des suggestions entre deux photos (#133) : apparues,
+   * disparues, quantités > ±20 % et échéances > ±7 j (#112). Une photo
+   * manquante d'un côté rend le diff indisponible (`null`) — pas de faux
+   * « tout est apparu » sur un trou de données.
+   */
+  async diffAppro(apresDay: string, avantDay: string) {
+    const [avant, apres] = await Promise.all([
+      this.approSnapshots(avantDay),
+      this.approSnapshots(apresDay),
+    ])
+    if (avant === null || apres === null) return null
+    const entrees = diffApproSnapshots(avant, apres)
+    const parNature: Record<ApproDiffNature, number> = {
+      apparue: 0,
+      disparue: 0,
+      quantite: 0,
+      date: 0,
+    }
+    for (const e of entrees) parNature[e.nature] += 1
+    return { avant: avantDay, apres: apresDay, parNature, entrees }
   }
 
   /**
@@ -214,8 +262,44 @@ export class DemandSnapshotService {
       })
     }
 
+    // Suggestions d'achat CBN (WIPTYP=2, WIPSTA=3) — #133. Population COMPLÈTE
+    // (horizon 18 mois, ~5 600 lignes mesurées #108) : c'est elle qui permet de
+    // voir une suggestion APPARAÎTRE avant son horizon utile. `VCRNUM` recréé
+    // chaque run → la clé du diff est le contenu (appro_snapshot_diff.ts).
+    //
+    // Source ISOLÉE : une erreur X3 ici ne doit pas faire perdre la photo des
+    // autres populations (X3 ne versionne rien — une photo manquée est manquée).
+    // Au pire, une photo sans suggestions → le diff répond « indisponible ».
+    try {
+      const appro = await new ApproRepository().fetch(approSnapshotTo())
+      for (const s of appro.suggestions) {
+        out.push({
+          snapshot_date: dateStr,
+          source: 'appro_suggestion',
+          itmref: s.article,
+          vcrnum: s.numero,
+          vcrlin: null,
+          quantity: s.quantite,
+          date_echeance: isoDayOrNull(s.date),
+          fournisseur: s.fournisseur,
+        })
+      }
+    } catch (error) {
+      logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        '[snapshot] suggestions CBN indisponibles — source écartée de la photo du jour'
+      )
+    }
+
     return out
   }
+}
+
+/** Borne de la photo des suggestions : horizon 18 mois (#108, population complète). */
+const APPRO_SNAPSHOT_HORIZON_DAYS = 548
+const approSnapshotTo = (): string => {
+  const d = new Date(Date.now() + APPRO_SNAPSHOT_HORIZON_DAYS * 86_400_000)
+  return d.toISOString().slice(0, 10)
 }
 
 const demandSnapshotService = new DemandSnapshotService()

@@ -4,6 +4,8 @@ import {
   loadApproPayload,
   type ApproPayloadResult,
 } from '#services/appro_payload_loader'
+import demandSnapshotService from '#services/demand_snapshot_service'
+import { isoLocalDay } from '#app/domain/shortages'
 
 /**
  * Page « Approvisionnements » (issue #103) : ce que le CBN de X3 propose côté
@@ -44,4 +46,34 @@ export default class ApproController {
     const payload: ApproPayloadResult = await loadApproPayload(horizon)
     return ctx.response.json(payload)
   }
+
+  /**
+   * GET /api/v1/appro/diff — diff inter-CBN des suggestions (#133) entre les
+   * deux dernières photos (`demand_snapshots`, source `appro_suggestion`).
+   * `parNature: null` si l'une des deux photos manque (pas de faux « tout est
+   * apparu » sur un trou de données).
+   */
+  async diff(ctx: HttpContext) {
+    const apres = isoLocalDay()
+    const avant = addDays(apres, -1)
+    const result = await demandSnapshotService.diffAppro(apres, avant)
+    if (result === null) {
+      return ctx.response.json({
+        avant,
+        apres,
+        parNature: null,
+        entrees: [],
+        message:
+          'photo(s) indisponible(s) — le diff inter-CBN a besoin de deux photos consécutives',
+      })
+    }
+    return ctx.response.json(result)
+  }
+}
+
+/** Jour ISO à ±`days` jours. Même convention que `appro_payload_loader`. */
+const addDays = (iso: string, days: number): string => {
+  const t = Date.parse(`${iso}T00:00:00Z`)
+  if (!Number.isFinite(t)) return iso
+  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
 }
