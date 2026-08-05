@@ -16,12 +16,22 @@ import { cn } from '@r/lib/utils'
  * replanification sur commandes déjà passées (avancer / retarder / inutile).
  * Les seconds dominent à horizon court et n'étaient affichés nulle part.
  *
- * **Aucun verdict.** L'écran montre et trie ; il ne juge pas. Ne pas y ajouter
- * de score ou de recommandation avant que les règles soient arrêtées : c'est
- * l'erreur qui a coûté sa crédibilité à /ruptures.
+ * **Verdicts de triage (lot 1 #103).** Chaque ligne porte un verdict calculé par
+ * le moteur déterministe (`appro_triage.ts`) — passer / surveiller / regrouper /
+ * replanifier / investiguer — avec sa preuve sourcée, affichée sous la ligne.
+ * Les labels restent une hypothèse de travail à valider en atelier acheteurs ;
+ * l'écran montre aussi l'échéance brute, pour qu'aucune décision ne repose sur
+ * le seul verdict.
  */
 
 type MessageCode = 2 | 3 | 6
+
+interface ApproTriage {
+  cle: string
+  verdict: 'passer' | 'surveiller' | 'regrouper' | 'replanifier' | 'investiguer'
+  score: number
+  preuves: string[]
+}
 
 interface ApproItem {
   cle: string
@@ -34,6 +44,7 @@ interface ApproItem {
   dateProposee: string | null
   decalage: number | null
   quantite: number
+  triage: ApproTriage | null
 }
 
 interface ApproDossier {
@@ -85,6 +96,15 @@ const MESSAGE_META: Record<MessageCode, { label: string; icon: typeof ArrowUp; c
   6: { label: 'Inutile', icon: Ban, cls: 'text-[#c13515]' },
 }
 
+/** Verdicts du moteur de triage (appro_triage.ts). Action = orange, données = rouge, reste = neutre. */
+const VERDICT_META: Record<ApproTriage['verdict'], { label: string; cls: string }> = {
+  passer: { label: 'Passer', cls: 'bg-[#fc642d]/13 text-[#b8430f]' },
+  replanifier: { label: 'Replanifier', cls: 'bg-[#fc642d]/13 text-[#b8430f]' },
+  regrouper: { label: 'Regrouper', cls: 'bg-muted text-muted-foreground' },
+  surveiller: { label: 'Surveiller', cls: 'bg-muted text-muted-foreground' },
+  investiguer: { label: 'Investiguer', cls: 'bg-[#c13515]/10 text-[#c13515]' },
+}
+
 function EcheanceChip({ jours }: { jours: number | null }) {
   if (jours === null) return <span className="text-xs text-muted-foreground">sans date</span>
   const retard = jours < 0
@@ -106,6 +126,8 @@ function EcheanceChip({ jours }: { jours: number | null }) {
 function ItemRow({ item }: { item: ApproItem }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
+  const verdict = item.triage ? VERDICT_META[item.triage.verdict] : null
+  const preuve = item.triage?.preuves[0]
   return (
     <tr className="border-b border-[#ebebeb] last:border-0 hover:bg-[#fbfbfb]">
       <td className="py-2.5 pr-3 pl-4">
@@ -114,11 +136,29 @@ function ItemRow({ item }: { item: ApproItem }) {
           <span className="text-xs font-semibold">
             {meta === null ? 'À commander' : meta.label}
           </span>
+          {verdict !== null && (
+            <span
+              className={cn(
+                'inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap',
+                verdict.cls
+              )}
+            >
+              {verdict.label}
+            </span>
+          )}
         </div>
       </td>
       <td className="py-2.5 pr-3">
         <div className="font-semibold tracking-tight">{item.article}</div>
         <div className="text-xs text-muted-foreground">{item.designation}</div>
+        {preuve !== undefined && (
+          <div
+            className="mt-0.5 max-w-[420px] truncate text-[10.5px] text-muted-foreground/80"
+            title={preuve}
+          >
+            {preuve}
+          </div>
+        )}
       </td>
       <td className="py-2.5 pr-3 text-right tabular-nums">{qte(item.quantite)}</td>
       <td className="py-2.5 pr-3 text-right tabular-nums whitespace-nowrap">{fr(item.echeance)}</td>

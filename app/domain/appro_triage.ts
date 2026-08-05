@@ -185,3 +185,24 @@ export function triagePayload(payload: ApproPayload): Map<string, ApproTriageRes
   }
   return resultats
 }
+
+/**
+ * Rattache le verdict de triage à chaque item du payload, par clé d'affichage.
+ *
+ * Pur et non mutatif : renvoie un NOUVEAU payload (même structure, items
+ * enrichis de `triage`) — le payload brut reste utilisable sans verdict pour
+ * les consommateurs qui n'en veulent pas (tests, export).
+ */
+export function attacheTriage(payload: ApproPayload): ApproPayload {
+  const triages = triagePayload(payload)
+  return {
+    ...payload,
+    dossiers: payload.dossiers.map((dossier) => ({
+      ...dossier,
+      items: dossier.items.map((item) => ({
+        ...item,
+        triage: triages.get(item.cle) ?? null,
+      })),
+    })),
+  }
+}

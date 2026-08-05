@@ -5,6 +5,7 @@ import type {
   MrpMessageCode,
 } from '#app/repositories/appro_repository'
 import { MRP_MESSAGE } from '#app/repositories/appro_repository'
+import type { ApproTriageResult } from './appro_triage.js'
 
 /**
  * Domaine pur du module `/approvisionnements` (issue #103) : regroupe ce que le
@@ -23,11 +24,10 @@ import { MRP_MESSAGE } from '#app/repositories/appro_repository'
  *
  * ## Ce que ce module ne fait PAS
  *
- * **Aucun verdict.** Ni « passer », ni « ignorer », ni score de pertinence. Ces
- * règles ne sont pas encore arrêtées, et en inventer ici donnerait à l'écran une
- * autorité qu'il n'a pas — le défaut exact qui a fait perdre sa crédibilité à
- * `/ruptures`. Cette version MONTRE ce que X3 dit, groupé et trié ; elle ne
- * juge pas.
+ * **Aucun calcul de verdict lui-même.** Les règles vivent dans `appro_triage.ts`
+ * (lot 1, #103) ; ce module ne fait que les PORTER sur chaque ligne quand le
+ * payload le demande (`attacheTriage`). Construit brut, il MONTRE ce que X3 dit,
+ * groupé et trié — le verdict n'est jamais inventé ici.
  *
  * Le tri par urgence n'est pas un verdict : c'est l'échéance, telle quelle.
  */
@@ -54,6 +54,12 @@ export interface ApproItem {
   /** Décalage proposé, en jours. Négatif = avancer. `null` si sans objet. */
   decalage: number | null
   quantite: number
+  /**
+   * Verdict de triage (lot 1 #103) : verdict + score + preuves sourcées, calculé
+   * par `appro_triage.ts` et rattaché par `attacheTriage`. `null` sur un payload
+   * brut — la page ne juge que si l'appelant l'a demandé.
+   */
+  triage: ApproTriageResult | null
 }
 
 /** Un fournisseur et tout ce qu'il porte. */
@@ -119,6 +125,7 @@ const itemFromSuggestion = (row: ApproSuggestionRow, todayIso: string): ApproIte
     dateProposee: null,
     decalage: null,
     quantite: row.quantite,
+    triage: null,
   }
 }
 
@@ -136,6 +143,7 @@ const itemFromMessage = (row: ApproMessageRow, todayIso: string): ApproItem => {
     dateProposee: proposee,
     decalage: echeance !== null && proposee !== null ? joursEntre(echeance, proposee) : null,
     quantite: row.quantite,
+    triage: null,
   }
 }
 

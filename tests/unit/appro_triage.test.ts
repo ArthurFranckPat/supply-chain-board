@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import { buildApproPayload, type ApproDossier } from '#app/domain/appro'
-import { triageDossier, triagePayload } from '#app/domain/appro_triage'
+import { attacheTriage, triageDossier, triagePayload } from '#app/domain/appro_triage'
 import type {
   ApproFetchResult,
   ApproMessageRow,
@@ -256,6 +256,52 @@ test.group('appro_triage — triagePayload', () => {
     for (const resultat of triagePayload(payload).values()) {
       assert.isAbove(resultat.preuves.length, 0)
     }
+  })
+})
+
+test.group('appro_triage — attacheTriage', () => {
+  test('rattache un verdict par item, clé sur ApproItem.cle', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [sug({ numero: 'X1', date: d('2026-08-05') })],
+        messages: [msg()],
+      }),
+      TODAY
+    )
+    const enrichi = attacheTriage(payload)
+    const items = enrichi.dossiers.flatMap((doss) => doss.items)
+    assert.equal(items.length, 2)
+    const parCle = new Map(items.map((i) => [i.cle, i.triage!]))
+    for (const item of items) {
+      assert.isNotNull(item.triage)
+      assert.equal(item.triage!.cle, item.cle)
+      assert.isAbove(item.triage!.preuves.length, 0)
+    }
+    // Suggestion à J+4 → passer ; message avancer de 2 j → replanifier.
+    assert.equal(parCle.get('S:X1')?.verdict, 'passer')
+    assert.equal(parCle.get('M:CG2601534:6000')?.verdict, 'replanifier')
+  })
+
+  test('ne mute pas le payload d’origine (pur)', ({ assert }) => {
+    const payload = buildApproPayload(source({ suggestions: [sug()] }), TODAY)
+    const brut = payload.dossiers[0].items[0].triage
+    attacheTriage(payload)
+    assert.isNull(brut)
+    assert.isNull(payload.dossiers[0].items[0].triage)
+  })
+
+  test('le regroupement d’un dossier est porté par le rattachement', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [
+          sug({ numero: 'A', date: d('2026-09-01') }),
+          sug({ numero: 'B', date: d('2026-09-15') }),
+        ],
+      }),
+      TODAY
+    )
+    const verdicts = attacheTriage(payload).dossiers[0].items.map((i) => i.triage?.verdict)
+    assert.deepEqual(verdicts, ['regrouper', 'regrouper'])
   })
 })
 

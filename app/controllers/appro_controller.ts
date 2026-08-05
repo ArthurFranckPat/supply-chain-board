@@ -18,8 +18,11 @@ import {
  * actionnables sous un mois contre 32 suggestions, mesuré le 01/08/2026 — alors
  * que rien ne l'affichait nulle part jusqu'ici.
  *
- * **Aucun verdict n'est rendu.** L'écran montre et trie ; il ne juge pas. Les
- * règles de triage se décident sur une file qui existe, pas avant.
+ * **Verdicts de triage (lot 1 #103).** Chaque ligne porte le verdict du moteur
+ * déterministe (`appro_triage.ts`, rattaché par `attacheTriage` dans le loader) —
+ * passer / surveiller / regrouper / replanifier / investiguer — avec sa preuve
+ * sourcée. L'écran montre aussi l'échéance brute : le verdict aide à décider,
+ * il ne remplace pas la donnée.
  *
  * Même motif que /receptions, /expeditions, /ruptures : coquille Inertia
  * instantanée, calcul X3 différé via `/api/v1/appro/rows`.
