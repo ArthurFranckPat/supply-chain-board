@@ -225,7 +225,7 @@ const EMPTY_STOCK: StockValuationKpi = {
  * Palette Airbnb « stricte » — une seule famille pour toutes les séries
  * catégorielles (choix utilisateur 2026-07-20) : Rausch en accent (rang le plus
  * chargé / valeur saillante), puis ink, teal Babu, rampe de gris. Remplace
- * l'ancienne famille terreuse Papier (brique/or/moutarde/sable).
+ * l'ancienne famille terreuse legacy (brique/or/moutarde/sable).
  */
 const BAR_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
 /** Catégories de stock — même famille unique (cohérence Airbnb stricte). */

@@ -331,6 +331,9 @@ export function LeFil(props: LeFilProps) {
   )
   const [periodOpen, setPeriodOpen] = useState(false)
   const [period, setPeriod] = useState<DayPickerRange | undefined>(availableRange)
+  /* Tooltip tap-to-toggle : clé du tooltip ouvert (bar-i ou ano-idx).
+     Vide = aucun. Réinitialisé dans le useMemo de la série. */
+  const [tipOpen, setTipOpen] = useState('')
 
   /* Ventilation des OF engagés : semaines de début (lundi ISO) → heures. */
   const futurParSemaine = useMemo(() => {
@@ -373,6 +376,7 @@ export function LeFil(props: LeFilProps) {
   }
 
   const serie = useMemo(() => {
+    setTipOpen('')
     const toutesPassePeriodes = passeParMaille[maille] ?? []
     const passePeriodes = toutesPassePeriodes.filter((p) =>
       periodeChevauche(p.date, maille, period)
@@ -532,9 +536,7 @@ export function LeFil(props: LeFilProps) {
     <section className="rounded-lg border border-rule bg-card shadow-float">
       {/* En-tête */}
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 pt-4">
-        <span className="text-[15px] font-bold tracking-tight text-foreground">
-          Le fil du poste
-        </span>
+        <h2 className="text-[15px] font-bold tracking-tight text-foreground">Le fil du poste</h2>
         <span className="font-mono text-[10px] text-muted-foreground">{sub}</span>
       </div>
 
@@ -550,7 +552,7 @@ export function LeFil(props: LeFilProps) {
               type="button"
               onClick={() => onMaille(m)}
               className={cn(
-                'min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out active:scale-95',
+                'relative min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out after:absolute after:inset-x-0 after:inset-y-[-9px] after:content-[""] active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
                 maille === m
                   ? 'bg-brand-soft text-brand'
                   : 'text-muted-foreground hover:text-foreground'
@@ -576,7 +578,7 @@ export function LeFil(props: LeFilProps) {
                   : undefined
               }
               className={cn(
-                'min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out active:scale-95',
+                'relative min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out after:absolute after:inset-x-0 after:inset-y-[-9px] after:content-[""] active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
                 mesure === m
                   ? 'bg-brand-soft text-brand'
                   : 'text-muted-foreground hover:text-foreground',
@@ -614,7 +616,7 @@ export function LeFil(props: LeFilProps) {
             légende pas des marques inexistantes (revue #119, round 4). */}
         {serie.futur.some((b) => b.v !== null) && (
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]" />
+            <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-brand) 16%,transparent)_0_3px,transparent_3px_6px)]" />
             Engagé · OF fermes
           </span>
         )}
@@ -644,17 +646,18 @@ export function LeFil(props: LeFilProps) {
                   : `${fmt(b.v)} ${UNITE_LAB[mesure]}`
               return (
                 <div
-                  key={i}
+                  key={`${maille}-${mesure}-${i}`}
                   tabIndex={0}
                   aria-label={`${b.lab} · ${status} · ${detail}`}
+                  onClick={() => setTipOpen(tipOpen === `bar-${i}` ? '' : `bar-${i}`)}
                   className={cn(
-                    'group relative min-w-[2px] flex-1 rounded-t-[3px] outline-none focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    'group relative min-w-[2px] flex-1 cursor-pointer origin-bottom rounded-t-[3px] outline-none animate-[fil-grow_300ms_cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none after:absolute after:inset-x-[-4px] after:bottom-0 after:top-[-12px] after:content-[""] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                     b.v === null
                       ? 'border-b-2 border-dotted border-muted-foreground/40' // trou : donnée absente
                       : b.futur
                         ? b.vide
                           ? 'border border-dashed border-brand/50'
-                          : 'border-[1.5px] border-b-0 border-brand [background:repeating-linear-gradient(135deg,rgba(255,56,92,0.16)_0_3px,transparent_3px_6px)]'
+                          : 'border-[1.5px] border-b-0 border-brand [background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-brand) 16%,transparent)_0_3px,transparent_3px_6px)]'
                         : 'bg-brand opacity-80 hover:opacity-100'
                   )}
                   style={{ height: `${pct}%` }}
@@ -663,17 +666,18 @@ export function LeFil(props: LeFilProps) {
                     role="tooltip"
                     className={cn(
                       'pointer-events-none absolute z-30 hidden min-w-[150px] rounded-lg border border-white/10 bg-foreground px-3 py-2 text-left text-[10px] text-white shadow-float group-hover:block group-focus-visible:block',
+                      tipOpen === `bar-${i}` && '!block',
                       tooltipAlign,
                       tooltipPlacement
                     )}
                   >
                     <span className="flex items-center justify-between gap-3 border-b border-white/15 pb-1 font-semibold">
                       <span>{b.tooltipLab}</span>
-                      <span className={b.futur ? 'text-brand' : 'text-white/60'}>{status}</span>
+                      <span className={b.futur ? 'text-brand' : 'text-white/85'}>{status}</span>
                     </span>
                     <span className="mt-1 block font-mono font-bold tabular-nums">{detail}</span>
                     {!b.vide && b.v !== null && (
-                      <span className="mt-0.5 block text-white/65">
+                      <span className="mt-0.5 block text-white/85">
                         {Math.round(sat * 100)} % de la capacité
                       </span>
                     )}
@@ -723,15 +727,15 @@ export function LeFil(props: LeFilProps) {
                 <div
                   key={idx}
                   tabIndex={0}
-                  role="button"
                   aria-label={`${liste.length} anomalie${liste.length > 1 ? 's' : ''}`}
-                  className="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 outline-none focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                  onClick={() => setTipOpen(tipOpen === `ano-${idx}` ? '' : `ano-${idx}`)}
+                  className="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer outline-none after:absolute after:inset-[-14px] after:rounded-full after:content-[''] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   style={{ left: `${((idx + 0.5) / all.length) * 100}%`, top: `${top}%` }}
                 >
                   <span
                     className={cn(
-                      'flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-2 border-card px-0.5 text-[8px] font-extrabold text-white shadow-md',
-                      crit ? 'bg-destructive' : 'bg-suggere'
+                      'relative flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-2 border-card px-0.5 text-[8px] font-extrabold shadow-float',
+                      crit ? 'bg-destructive text-white' : 'bg-suggere text-foreground'
                     )}
                   >
                     {liste.length}
@@ -740,6 +744,7 @@ export function LeFil(props: LeFilProps) {
                     role="tooltip"
                     className={cn(
                       'pointer-events-none absolute z-30 hidden min-w-[190px] rounded-lg border border-white/10 bg-foreground px-3 py-2 text-left text-[10px] text-white shadow-float group-hover:block group-focus-within:block',
+                      tipOpen === `ano-${idx}` && '!block',
                       tooltipAlign,
                       tooltipPlacement
                     )}
@@ -750,7 +755,7 @@ export function LeFil(props: LeFilProps) {
                       </span>
                       <span className="text-brand">{barre.tooltipLab}</span>
                     </span>
-                    <span className="flex flex-col gap-0.5 text-white/75">
+                    <span className="flex flex-col gap-0.5 text-white/90">
                       {liste.map((a) => (
                         <span key={a.texte}>{a.texte}</span>
                       ))}
@@ -776,9 +781,14 @@ export function LeFil(props: LeFilProps) {
         </div>
 
         <div className="mt-2 text-right text-[10px] text-muted-foreground">
-          Survoler une barre pour le détail · une pastille pour l'anomalie
+          Survoler ou toucher une barre pour le détail · une pastille pour l'anomalie
         </div>
       </div>
+
+      {/* Overlay de dismiss : un tap ailleurs referme le tooltip ouvert. */}
+      {tipOpen && (
+        <div className="fixed inset-0 z-50" onClick={() => setTipOpen('')} aria-hidden="true" />
+      )}
 
       {/* Verdicts — seuils explicites, pas de prose écrite à la main. */}
       <div className="mt-3 grid grid-cols-1 divide-y divide-rule-soft border-t border-rule-soft sm:grid-cols-3 sm:divide-x sm:divide-y-0">

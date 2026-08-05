@@ -6,7 +6,7 @@ import { X3Link } from '../x3-link'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
- * BoardCard « Papier » — carte unifiée du board.
+ * BoardCard — carte unifiée du board.
  *
  * Un composant, deux variantes :
  *  • commande — board planification (numCommande·ligne, client, type MTS/MTO).

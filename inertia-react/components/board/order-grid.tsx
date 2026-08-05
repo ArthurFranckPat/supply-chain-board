@@ -8,7 +8,7 @@ import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
 /**
- * Grille du board « Papier » — Planification (issue #10).
+ * Grille du board — Planification (issue #10).
  *
  * Même charpente que <BoardGrid> (ordonnancement) : temps à l'horizontale,
  * un poste par ligne, en-tête collant (semaines + jours), colonne « Poste »

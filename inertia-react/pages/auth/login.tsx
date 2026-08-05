@@ -16,7 +16,7 @@ const ENVS: { value: 'test' | 'prod'; label: string }[] = [
 ]
 
 /**
- * Page de login (issue #13) — direction « Atelier » du design system Papier.
+ * Page de login (issue #13) — direction « Atelier » du design system legacy.
  *
  * Composition split : panneau marque (encre + quadrillé) à gauche, formulaire
  * à droite. L'utilisateur saisit ses identifiants Sage X3 ; le sélecteur

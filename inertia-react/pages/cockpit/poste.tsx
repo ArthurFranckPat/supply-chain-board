@@ -282,7 +282,7 @@ export default function CockpitPoste(props: Props) {
           <div className={cn(PILL, 'gap-2')}>
             <Factory size={17} strokeWidth={1.75} className="text-muted-foreground" />
             <select
-              className="max-w-[340px] cursor-pointer border-0 bg-transparent px-0 font-mono text-xs font-bold text-foreground shadow-none outline-none"
+              className="max-w-[340px] cursor-pointer border-0 bg-transparent px-0 font-mono text-xs font-bold text-foreground shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               value={effective ?? ''}
               onChange={(e) => pick(e.currentTarget.value)}
               disabled={!postes.data || postes.data.postes.length === 0}
@@ -438,7 +438,7 @@ function PosteDetail(props: {
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 animate-in overflow-auto fade-in-0 duration-200 motion-reduce:animate-none">
       {/* Identité du poste — une ligne, les 3 champs non exposés dits une fois. */}
       <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-2 border-b border-border bg-secondary px-7 py-3">
         <div className="flex items-baseline gap-2">
@@ -462,7 +462,7 @@ function PosteDetail(props: {
           </div>
         )}
 
-        <div className="flex items-center gap-1" title={regimeTitle}>
+        <div className="flex items-center gap-1" title={regimeTitle} aria-label={regimeTitle}>
           {regimeNet && (
             <span className="mr-1 font-mono text-[9px] font-semibold text-muted-foreground">
               net
@@ -483,7 +483,11 @@ function PosteDetail(props: {
           ))}
         </div>
 
-        <div className="flex items-baseline gap-1.5" title="Dernier pointage dans la fenêtre">
+        <div
+          className="flex items-baseline gap-1.5"
+          title="Dernier pointage dans la fenêtre"
+          aria-label="Dernier pointage dans la fenêtre"
+        >
           <span className="text-[11px] font-medium text-muted-foreground">Dernier pointage</span>
           <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
             {dateLong(poste.dernierPointageIso)}
@@ -495,6 +499,7 @@ function PosteDetail(props: {
         <span
           className="cursor-help border-b border-dotted border-input text-[10px] text-muted-foreground"
           title="Nature du poste, efficience et nombre de postes ne sont pas exposés par le loader (spec lot 3). Ils apparaîtront ici une fois branchés."
+          aria-label="3 champs X3 non exposés : nature du poste, efficience et nombre de postes"
         >
           3 champs X3 non exposés
         </span>
@@ -526,9 +531,9 @@ function PosteDetail(props: {
       {/* Engagement — table dense avec semaines et total. */}
       <div className="px-7 pb-4">
         <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[15px] font-bold tracking-tight text-foreground">
+          <h2 className="text-[15px] font-bold tracking-tight text-foreground">
             Ce qui est engagé
-          </span>
+          </h2>
           {engagementFerme && (
             <span className="font-mono text-[10px] text-muted-foreground">
               {engagementFerme.count} OF fermes · {fmtHs(engagementFerme.totalHours)} h
@@ -597,9 +602,9 @@ function PosteDetail(props: {
       {passe && passe.ofTermines.length > 0 && (
         <div className="border-t border-border px-7 py-4">
           <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[15px] font-bold tracking-tight text-foreground">
+            <h2 className="text-[15px] font-bold tracking-tight text-foreground">
               OF terminés sur la fenêtre
-            </span>
+            </h2>
             <span className="font-mono text-[10px] text-muted-foreground">
               {passe.ofTermines.length} OF · sortie approchée par le dernier pointage
             </span>
@@ -874,9 +879,11 @@ function EngagementTable(props: {
                     </span>
                   </td>
                   <td className="px-4 py-2">
+                    {/* Hit-area ≥ 44 px (WCAG 2.5.5) — le texte reste compact, un
+                        pseudo-élément étend la zone de tap sans changer le rendu. */}
                     <button
                       type="button"
-                      className="cursor-pointer font-bold tracking-tight text-brand hover:underline"
+                      className="relative cursor-pointer py-[3px] font-bold tracking-tight text-brand hover:underline before:absolute before:-inset-y-[8px] before:-inset-x-1 before:content-['']"
                       onClick={() => onSelectOf(r.numOf)}
                     >
                       {r.numOf}
@@ -901,6 +908,13 @@ function EngagementTable(props: {
                             ? `Composants manquants : ${feas.missing.join(', ') || '—'}`
                             : feas.st === 'qc'
                               ? `Couvert grâce au stock sous contrôle qualité : ${Object.keys(feas.qcComponents ?? {}).join(', ')}`
+                              : 'Faisable'
+                        }
+                        aria-label={
+                          feas.st === 'blocked'
+                            ? `Bloqué : composants manquants — ${feas.missing.join(', ') || '—'}`
+                            : feas.st === 'qc'
+                              ? `Sous CQ : ${Object.keys(feas.qcComponents ?? {}).join(', ')}`
                               : 'Faisable'
                         }
                       >
@@ -953,9 +967,9 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
     r > 1.1
       ? 'var(--color-destructive)'
       : r > 1.02
-        ? 'var(--color-arches)'
+        ? 'var(--color-suggere)'
         : r < 0.9
-          ? 'var(--color-babu)'
+          ? 'var(--color-planifie)'
           : 'var(--color-ferme)'
 
   const maxAdh = Math.max(1, ...adherence.map((a) => Math.max(a.prevus, a.pointes)))
@@ -963,9 +977,9 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
   return (
     <div className="border-t border-border px-7 py-4">
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-[15px] font-bold tracking-tight text-foreground">
+        <h2 className="text-[15px] font-bold tracking-tight text-foreground">
           Ce que ça dit des gammes
-        </span>
+        </h2>
         <span className="font-mono text-[10px] text-muted-foreground">
           affichage seul · aucune écriture vers X3
         </span>
@@ -977,13 +991,17 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
           <h3 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
             Écart de cadence par article · pointé ÷ gamme
           </h3>
-          <div
-            className="mt-2 flex justify-between px-0 font-mono text-[8px] font-semibold text-muted-foreground"
-            style={{ paddingLeft: '196px', paddingRight: '112px' }}
-          >
-            <span>0,75×</span>
-            <span>1,00×</span>
-            <span>1,25×</span>
+          {/* Axe aligné sur les colonnes des lignes de données (article, qty,
+              barre, valeur) — pas de px en dur, responsive par construction. */}
+          <div className="mt-2 flex items-center gap-2.5 font-mono text-[8px] font-semibold text-muted-foreground">
+            <span className="w-[84px] shrink-0" />
+            <span className="w-[62px] shrink-0" />
+            <span className="flex min-w-0 flex-1 justify-between">
+              <span>0,75×</span>
+              <span>1,00×</span>
+              <span>1,25×</span>
+            </span>
+            <span className="w-[52px] shrink-0" />
           </div>
           <div className="mt-1 flex flex-col gap-1">
             {fiabilite.articles.length === 0 ? (
@@ -1087,7 +1105,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
               </div>
               <div className="flex justify-between gap-2 text-[10px]">
                 <span className="text-muted-foreground">Total fenêtre</span>
-                <span className="font-bold" id="adh-moy">
+                <span className="font-bold">
                   {adherence.reduce((a, s) => a + s.pointes, 0)} pointés /{' '}
                   {adherence.reduce((a, s) => a + s.prevus, 0)} prévus
                 </span>
@@ -1150,8 +1168,8 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
             </div>
           )}
           <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
-            Cadence constatée = pièces pointées / heures opératoires. Affichage seul en v1 —
-            aucune boucle de retour vers la charge.
+            Cadence constatée = pièces pointées / heures opératoires. Affichage seul en v1 — aucune
+            boucle de retour vers la charge.
           </p>
         </div>
       </div>

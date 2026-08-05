@@ -1,0 +1,414 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-04T22:26:01.539379Z",
+  "title": "Design System: Supply Chain Board",
+  "extensions": {
+    "colorMeta": {
+      "rausch": {
+        "role": "primary",
+        "displayName": "Rausch",
+        "canonical": "#ff385c",
+        "tonalRamp": [
+          "oklch(15.0% 0.231 17)",
+          "oklch(26.4% 0.231 17)",
+          "oklch(37.9% 0.231 17)",
+          "oklch(49.3% 0.231 17)",
+          "oklch(60.7% 0.231 17)",
+          "oklch(72.1% 0.231 17)",
+          "oklch(83.6% 0.231 17)",
+          "oklch(95.0% 0.231 17)"
+        ]
+      },
+      "rausch-active": {
+        "role": "primary",
+        "displayName": "Rausch Active",
+        "canonical": "#e00b41",
+        "tonalRamp": [
+          "oklch(15.0% 0.228 18)",
+          "oklch(26.4% 0.228 18)",
+          "oklch(37.9% 0.228 18)",
+          "oklch(49.3% 0.228 18)",
+          "oklch(60.7% 0.228 18)",
+          "oklch(72.1% 0.228 18)",
+          "oklch(83.6% 0.228 18)",
+          "oklch(95.0% 0.228 18)"
+        ]
+      },
+      "rausch-soft": {
+        "role": "primary",
+        "displayName": "Rausch Soft",
+        "canonical": "rgba(255, 56, 92, 0.10)"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#222222",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "body": {
+        "role": "neutral",
+        "displayName": "Body",
+        "canonical": "#3f3f3f",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#6a6a6a",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "muted-soft": {
+        "role": "neutral",
+        "displayName": "Muted Soft",
+        "canonical": "#929292",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "surface-soft": {
+        "role": "neutral",
+        "displayName": "Surface Soft",
+        "canonical": "#f7f7f7",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "surface-strong": {
+        "role": "neutral",
+        "displayName": "Surface Strong",
+        "canonical": "#f2f2f2",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#dddddd",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "hairline-soft": {
+        "role": "neutral",
+        "displayName": "Hairline Soft",
+        "canonical": "#ebebeb",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Border Strong",
+        "canonical": "#c1c1c1",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.4% 0.000 90)",
+          "oklch(37.9% 0.000 90)",
+          "oklch(49.3% 0.000 90)",
+          "oklch(60.7% 0.000 90)",
+          "oklch(72.1% 0.000 90)",
+          "oklch(83.6% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "ferme": {
+        "role": "status",
+        "displayName": "Ferme",
+        "canonical": "#008049",
+        "tonalRamp": [
+          "oklch(15.0% 0.129 155)",
+          "oklch(26.4% 0.129 155)",
+          "oklch(37.9% 0.129 155)",
+          "oklch(49.3% 0.129 155)",
+          "oklch(60.7% 0.129 155)",
+          "oklch(72.1% 0.129 155)",
+          "oklch(83.6% 0.129 155)",
+          "oklch(95.0% 0.129 155)"
+        ]
+      },
+      "planifie": {
+        "role": "status",
+        "displayName": "Planifié",
+        "canonical": "#00a699",
+        "tonalRamp": [
+          "oklch(15.0% 0.115 185)",
+          "oklch(26.4% 0.115 185)",
+          "oklch(37.9% 0.115 185)",
+          "oklch(49.3% 0.115 185)",
+          "oklch(60.7% 0.115 185)",
+          "oklch(72.1% 0.115 185)",
+          "oklch(83.6% 0.115 185)",
+          "oklch(95.0% 0.115 185)"
+        ]
+      },
+      "suggere": {
+        "role": "status",
+        "displayName": "Suggéré",
+        "canonical": "#fc642d",
+        "tonalRamp": [
+          "oklch(15.0% 0.197 39)",
+          "oklch(26.4% 0.197 39)",
+          "oklch(37.9% 0.197 39)",
+          "oklch(49.3% 0.197 39)",
+          "oklch(60.7% 0.197 39)",
+          "oklch(72.1% 0.197 39)",
+          "oklch(83.6% 0.197 39)",
+          "oklch(95.0% 0.197 39)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "#c13515",
+        "tonalRamp": [
+          "oklch(15.0% 0.182 34)",
+          "oklch(26.4% 0.182 34)",
+          "oklch(37.9% 0.182 34)",
+          "oklch(49.3% 0.182 34)",
+          "oklch(60.7% 0.182 34)",
+          "oklch(72.1% 0.182 34)",
+          "oklch(83.6% 0.182 34)",
+          "oklch(95.0% 0.182 34)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Chiffres héros du dashboard, titres monumentaux."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Titres de page."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Titres de cartes et de sections."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texte courant — la base du système."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Badges, en-têtes de colonnes, verdicts — uppercase."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Numéros OF, dates, quantités — tabular-nums."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 6px 20px rgb(0 0 0 / 0.16)",
+        "purpose": "Menus, popups, hover des cartes — le « hover float »."
+      },
+      {
+        "name": "overlay",
+        "value": "0 18px 50px rgb(0 0 0 / 0.24)",
+        "purpose": "Sheets, dialogs — la seule élévation hors page."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Élasticité douce des états de transition."
+      },
+      {
+        "name": "duration-standard",
+        "value": "200ms",
+        "purpose": "Durée par défaut des transitions de couleur et d'ombre."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton primaire",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale — Rausch, le seul signal rouge.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M13.5 4.5 6.5 11.5 2.5 7.5\"/></svg>Affermir</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 24px;background:#ff385c;color:#ffffff;border:0;border-radius:8px;font-family:'Plus Jakarta Sans Variable',system-ui,sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:background 200ms ease,box-shadow 200ms ease}.ds-btn-primary:hover{background:#e00b41}.ds-btn-primary:focus-visible{outline:2px solid #222222;outline-offset:2px}"
+    },
+    {
+      "name": "Bouton secondaire",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Action secondaire — s'efface derrière la primaire.",
+      "html": "<button class=\"ds-btn-secondary\">Annuler</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;height:40px;padding:0 16px;background:#f7f7f7;color:#222222;border:1px solid #dddddd;border-radius:8px;font-family:'Plus Jakarta Sans Variable',system-ui,sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:background 200ms ease}.ds-btn-secondary:hover{background:#f2f2f2}"
+    },
+    {
+      "name": "Badge de statut",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Statut OF/commande — pastille de couleur, mono uppercase, jamais de boîte boxy.",
+      "html": "<span class=\"ds-badge\"><span class=\"ds-dot\"></span>Ferme</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Plus Jakarta Sans Variable',system-ui,sans-serif;font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#222222}.ds-dot{width:8px;height:8px;border-radius:9999px;background:#008049}"
+    },
+    {
+      "name": "Champ de saisie",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Input standard — blanc, bordure strong, focus encre.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Rechercher un OF…\" />",
+      "css": ".ds-input{height:40px;padding:0 12px;background:#ffffff;color:#222222;border:1px solid #c1c1c1;border-radius:8px;font-family:'Plus Jakarta Sans Variable',system-ui,sans-serif;font-size:14px;transition:border-color 200ms ease}.ds-input::placeholder{color:#929292}.ds-input:focus-visible{outline:2px solid #222222;outline-offset:2px;border-color:#222222}"
+    },
+    {
+      "name": "Carte",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Conteneur standard — blanc, hairline, lévitation au hover.",
+      "html": "<div class=\"ds-card\"><div style=\"font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6a6a6a\">Charge du poste</div><div style=\"font-size:20px;font-weight:800;margin-top:4px\">128,5 h</div></div>",
+      "css": ".ds-card{background:#ffffff;border:1px solid #dddddd;border-radius:14px;padding:16px 20px;font-family:'Plus Jakarta Sans Variable',system-ui,sans-serif;color:#222222;transition:box-shadow 200ms ease}.ds-card:hover{box-shadow:0 6px 20px rgb(0 0 0 / 0.16)}"
+    },
+    {
+      "name": "Tag / pill",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Filtre ou étiquette — pill 32px, fond surface.",
+      "html": "<span class=\"ds-tag\">Tous</span>",
+      "css": ".ds-tag{display:inline-flex;align-items:center;height:32px;padding:0 14px;background:#f7f7f7;color:#222222;border:1px solid #dddddd;border-radius:9999px;font-family:'Plus Jakarta Sans Variable',system-ui,sans-serif;font-size:12px;font-weight:600;cursor:pointer}.ds-tag:hover{background:#f2f2f2}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le Signal Unique",
+    "overview": "Le Supply Chain Board est une régie d'ordonnancement : une surface blanche, calme, où un seul signal recharge en rouge. La grammaire Airbnb — canvas blanc pur, encre #222222, hairlines — fournit le silence ; Rausch #ff385c fournit l'intensité, réservée aux actions et aux signaux. Tout le reste est discret par design : la donnée respire sur le blanc, les statuts métier gardent des teintes sémantiques stables, et l'élévation ne réagit qu'au geste. C'est un outil d'atelier qui ne crie pas : la densité est assumée, la respiration vient du blanc et des filets.",
+    "keyCharacteristics": [
+      "Un seul voltage de marque : Rausch #ff385c, réservé aux actions et aux signaux.",
+      "Canvas blanc pur, encre #222222 (jamais de noir pur), hairline #dddddd.",
+      "Une seule ombre par contexte : float pour les popups, overlay pour les fenêtres.",
+      "Données en Plus Jakarta Sans + tabular-nums partout où les chiffres comptent.",
+      "Dense mais calme : tableaux micro-serif, respiration par le blanc."
+    ],
+    "rules": [
+      {
+        "name": "La Règle du Voltage Unique",
+        "body": "Rausch est la seule couleur d'accent, et sa rareté est le point : sur un écran donné, il couvre une petite fraction de la surface. Les statuts ne sont pas des accents — ils codent du sens métier et gardent leurs teintes partout.",
+        "section": "colors"
+      },
+      {
+        "name": "La Règle du Chiffre Tabulaire",
+        "body": "Toute donnée numérique — numéros OF, dates, quantités, charges — passe en tabular-nums, les colonnes s'alignent au pixel. Jamais de serif pour les chiffres d'affichage.",
+        "section": "typography"
+      },
+      {
+        "name": "La Règle du Tier Unique",
+        "body": "Deux ombres, pas plus : un float pour les popups, un overlay pour les fenêtres. Ne pas créer de troisième niveau d'ombre globale.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do réserver Rausch aux actions et signaux — ≤ 10 % de la surface d'un écran.",
+      "Do passer les chiffres en tabular-nums (OF, dates, quantités, charges).",
+      "Do une seule ombre par contexte : float (popups) ou overlay (fenêtres).",
+      "Do les rayons de l'échelle : 8 boutons / 14 cartes / 32 pills / 9999 plein.",
+      "Do laisser le blanc structurer : les hairlines suffisent, pas de bordures lourdes."
+    ],
+    "donts": [
+      "Don't de serif d'affichage — Fraunces est neutralisé sous le runtime React.",
+      "Don't de dark mode — le système est light-only.",
+      "Don't de troisième niveau d'ombre globale.",
+      "Don't de couleurs de statut (ferme/planifié/suggéré) détournées en accents décoratifs.",
+      "Don't de noir pur — l'encre est #222222."
+    ]
+  }
+}

@@ -15,7 +15,7 @@
    .theme-airbnb (20/07/2026) reste en place : compat des pages
    qui posent le scope explicitement, valeurs identiques.
 
-   BACKUP — le thème maison (Papier/Aldes) reste intact dans
+   BACKUP — le thème maison legacy reste intact dans
    `resources/css/app.css`, consommé par le runtime Solid. Pour y
    revenir côté React : remplacer les valeurs :root/.dark
    ci-dessous (mêmes noms sémantiques).
@@ -61,7 +61,7 @@
      qui cassait le côté épuré). On résout donc `font-fraunces` sur la
      sans-serif du thème (Inter) : les ~130 occurrences `font-fraunces`
      rendent désormais en Inter (poids/italique/tabular-nums conservés).
-     Si un thème Papier React devait réactiver un display serif, redéfinir
+     Si un thème legacy React devait réactiver un display serif, redéfinir
      cette variable sous son propre scope `.theme-*`. */
   --font-fraunces: var(--font-sans);
 
@@ -721,4 +721,16 @@
   border-right: 2.5px solid var(--brand);
   border-bottom: 2.5px solid var(--brand);
   border-radius: 1px;
+}
+
+/* Fil du poste — la recomposition des barres (changement de maille ou de
+   mesure) grandit depuis la ligne de base : le regroupement sur le même axe
+   s'explique d'un coup d'œil. 300 ms, ease expo (grammaire DESIGN.md). */
+@keyframes fil-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }

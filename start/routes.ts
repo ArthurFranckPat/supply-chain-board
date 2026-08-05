@@ -55,7 +55,7 @@ router
     // KPI #1 « charge en retard » (issue #38) ; coquille instantanée + fetch différé.
     router.get('/', '#controllers/dashboard_controller.index').as('dashboard')
 
-    // Design system « Papier » — showcase des vrais composants ui/* thémés.
+    // Design system legacy — showcase des vrais composants ui/* thémés.
     router
       .get('/design-system', async ({ inertia }) => {
         return inertia.render('design_system', {})

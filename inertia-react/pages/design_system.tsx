@@ -34,13 +34,13 @@ import {
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
- * Design system « Papier » — showcase des VRAIS composants ui/* (shadcn/Base UI)
+ * Design system legacy — showcase des VRAIS composants ui/* (shadcn/Base UI)
  * thémés via le scope .theme-papier (retargeting des tokens sémantiques dans
  * resources/css/app.css). Route : GET /design-system.
  *
  * Chaque section utilise un composant réel du projet ; les patterns app
  * (carte commande, rangée rupture, BOM) sont composés en utilities Tailwind
- * sous le scope Papier.
+ * sous le scope legacy.
  */
 
 const SURFACES = [
@@ -286,7 +286,7 @@ const FORECAST_LINES: ForecastLine[] = [
 type ThemeName = 'papier' | 'navy'
 
 export default function DesignSystem() {
-  // Toggle Papier ↔ Navy — les DEUX scopes coexistent dans app.css (.theme-papier
+  // Toggle legacy ↔ Navy — les DEUX scopes coexistent dans app.css (.theme-papier
   // n'est pas touché). Bascule purement client, aucun composant n'est dupliqué :
   // seule la classe racine change, tous les composants ui/* réagissent au scope.
   const [theme, setTheme] = useState<ThemeName>('papier')
@@ -318,7 +318,7 @@ export default function DesignSystem() {
               Design <span className="italic font-medium text-brand">System</span>
             </div>
             <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-              {theme === 'navy' ? 'Navy · v0.1 (exploration)' : 'Papier · v1.0'}
+              {theme === 'navy' ? 'Navy · v0.1 (exploration)' : 'Legacy · v1.0'}
             </div>
             {/* Toggle thème — les composants ui/* ci-dessous sont réels, seul le
                 scope racine change. */}
@@ -332,7 +332,7 @@ export default function DesignSystem() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                Papier
+                Legacy
               </button>
               <button
                 type="button"
@@ -378,7 +378,7 @@ export default function DesignSystem() {
               <h1 className="mt-2 font-fraunces text-[40px] font-black leading-none tracking-tight">
                 Design System{' '}
                 <span className="font-medium italic text-brand">
-                  {theme === 'navy' ? 'Navy' : 'Papier'}
+                  {theme === 'navy' ? 'Navy' : 'Legacy'}
                 </span>
               </h1>
               <p className="mt-3 max-w-[620px] text-[14.5px] leading-relaxed text-foreground/80">
@@ -934,7 +934,7 @@ export default function DesignSystem() {
             <Section id="board" n="11" title="Board (vide)">
               <Board days={BOARD_DAYS} weeks={BOARD_WEEKS} lines={BOARD_LINES} />
               <p className="mt-3 max-w-[560px] text-[13px] leading-relaxed text-foreground/70">
-                Coquille du board Papier : semaines à l'horizontale, une rangée par poste, cellules
+                Coquille du board legacy : semaines à l'horizontale, une rangée par poste, cellules
                 vides sur fond quadrillé — prêtes à recevoir les cartes commande.
               </p>
             </Section>
@@ -951,7 +951,7 @@ export default function DesignSystem() {
 
             <div className="mt-12 flex justify-between border-t border-rule-soft pt-5 font-fraunces text-[12px] italic text-muted-foreground">
               <span>
-                Design System {theme === 'navy' ? 'Navy' : 'Papier'} · composants réels{' '}
+                Design System {theme === 'navy' ? 'Navy' : 'Legacy'} · composants réels{' '}
                 <code className="font-mono not-italic">inertia-react/components/ui/*</code>
               </span>
               <span>{theme === 'navy' ? 'v0.1' : 'v1.0'} · /design-system</span>

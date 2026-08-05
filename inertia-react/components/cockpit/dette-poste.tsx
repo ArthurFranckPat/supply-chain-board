@@ -8,6 +8,7 @@
  * le signal, l'absence de signal est elle-même un signal.
  */
 
+import { useState } from 'react'
 import { ArrowUpDown, CircleX, Clock, FileCheck2, Square, Timer, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
@@ -163,15 +164,22 @@ export function DettePoste(props: {
     },
   ]
 
+  const [depliees, setDepliees] = useState<Set<AnomalieKind>>(new Set())
+  const basculeFamille = (kind: AnomalieKind) =>
+    setDepliees((prev) => {
+      const s = new Set(prev)
+      if (s.has(kind)) s.delete(kind)
+      else s.add(kind)
+      return s
+    })
+
   const total = familles.reduce((a, f) => a + f.items.length, 0)
   const crit = familles.filter((f) => f.cls === 'crit').reduce((a, f) => a + f.items.length, 0)
 
   return (
     <div>
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-[15px] font-bold tracking-tight text-foreground">
-          La dette du poste
-        </span>
+        <h2 className="text-[15px] font-bold tracking-tight text-foreground">La dette du poste</h2>
         <span className="font-mono text-[10px] text-muted-foreground">
           {total} OF concernés sur 7 familles · {crit} bloquant{crit > 1 ? 's' : ''}
           {props.usineLoading && ' · écarts et OF à solder en lecture…'}
@@ -188,11 +196,14 @@ export function DettePoste(props: {
         {familles.map((f) => {
           const FIcon = f.ic
           const zero = f.items.length === 0
+          const deplie = depliees.has(f.kind)
+          const aDeplier = f.items.length > 3
+          const itemsAffiches = deplie ? f.items : f.items.slice(0, 3)
           return (
             <div
               key={f.kind}
               className={cn(
-                'flex flex-col gap-2 rounded-xl border p-3.5',
+                'flex flex-col gap-2 rounded-lg border p-3.5',
                 zero
                   ? 'border-dashed border-rule bg-secondary shadow-none'
                   : 'border-rule bg-card shadow-float'
@@ -224,14 +235,14 @@ export function DettePoste(props: {
               <span className="text-[9px] leading-snug text-muted-foreground">{f.regle}</span>
               {!zero && (
                 <div className="flex flex-col gap-1">
-                  {f.items.slice(0, 3).map((it) => (
+                  {itemsAffiches.map((it) => (
                     <div
                       key={`${f.kind}-${it.of}`}
                       className="flex items-center gap-1.5 rounded-md border border-rule-soft bg-secondary px-2 py-1 text-[10px]"
                     >
                       <button
                         type="button"
-                        className="cursor-pointer font-bold text-brand hover:underline"
+                        className="min-h-[44px] cursor-pointer px-1 font-bold text-brand hover:underline"
                         onClick={() => onSelectOf(it.of)}
                       >
                         {it.of}
@@ -247,10 +258,14 @@ export function DettePoste(props: {
                       </span>
                     </div>
                   ))}
-                  {f.items.length > 3 && (
-                    <span className="cursor-pointer text-[9px] font-bold text-brand hover:underline">
-                      + {f.items.length - 3} autres →
-                    </span>
+                  {aDeplier && (
+                    <button
+                      type="button"
+                      className="min-h-[44px] cursor-pointer text-left text-[9px] font-bold text-brand hover:underline"
+                      onClick={() => basculeFamille(f.kind)}
+                    >
+                      {deplie ? 'Replier ↑' : `+ ${f.items.length - 3} autres →`}
+                    </button>
                   )}
                 </div>
               )}

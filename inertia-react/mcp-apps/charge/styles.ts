@@ -8,7 +8,7 @@
  * Toutes les couleurs et polices passent par les variables de thème que l'hôte
  * pousse (`useHostStyles` → `applyHostStyleVariables`), avec un repli neutre : dans
  * Claude Desktop l'app doit se fondre dans le fil de discussion, dans /copilote dans
- * le thème Papier. Une palette codée en dur jurerait dans au moins un des deux.
+ * le thème Airbnb. Une palette codée en dur jurerait dans au moins un des deux.
  */
 
 export const APP_CSS = `

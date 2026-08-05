@@ -5,7 +5,7 @@ App AdonisJS (Inertia + SolidJS) qui regroupe le programme d'ordonnancement, le 
 ## Stack
 
 - **Backend** : [AdonisJS](https://adonisjs.com/) v7 + TypeScript
-- **Frontend** : [Inertia.js](https://inertiajs.com/) + [SolidJS](https://www.solidjs.com/) + Tailwind CSS + Kobalte (design system « Papier »)
+- **Frontend** : [Inertia.js](https://inertiajs.com/) + [SolidJS](https://www.solidjs.com/) + Tailwind CSS + Kobalte (design system « Airbnb »)
 - **ORM** : Lucid (SQLite locale)
 - **Cache** : Redis (`@adonisjs/cache`), namespace par user
 - **Base distante** : Sage X3 Oracle via web-services SOAP (ZSOAPSQL + objets CAdxWebServiceXmlCC)
@@ -102,7 +102,7 @@ Toutes les routes (hors `/login`, `/health`, assets) sont protégées par `auth`
 - `GET /conditionnements` — Coefs de conditionnement manquants
 - `GET /configuration/calendrier` — Calendrier usine (fériés, fermetures par ligne)
 - `GET /programme/scenarios/comparer` — Comparateur de scénarios de plan
-- `GET /design-system` — Showcase des composants UI « Papier »
+- `GET /design-system` — Showcase des composants UI « Airbnb »
 
 ### API JSON — Planning (`/api/v1/planning`)
 
@@ -181,7 +181,7 @@ npm run routes:gen
 ## Notes
 
 - Ce repo est **uniquement** l'app AdonisJS. Le monorepo Python/FastAPI décrit dans les anciennes versions du README n'est plus présent ici.
-- Le frontend Edge.js/Unpoly a été remplacé par Inertia + SolidJS (design system « Papier »). Une migration vers React + Carbon est en cours sur une branche séparée (issue #77), pas encore mergée.
+- Le frontend Edge.js/Unpoly a été remplacé par Inertia + SolidJS (design system « Airbnb »). Une migration vers React + Carbon est en cours sur une branche séparée (issue #77), pas encore mergée.
 - Les variables X3 peuvent être chiffrées avec `@dotenvx/dotenvx` ; le démarrage utilise `dotenvx run --`.
 
 ## MCP server (usage hors app)
