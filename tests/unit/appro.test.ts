@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { buildApproPayload } from '#app/domain/appro'
+import { buildApproPayload, filtreFenetreDerivee } from '#app/domain/appro'
 import type {
   ApproFetchResult,
   ApproMessageRow,
@@ -22,6 +22,7 @@ const sug = (over: Partial<ApproSuggestionRow> = {}): ApproSuggestionRow => ({
   quantite: 3024,
   fournisseur: '40025',
   origine: '6',
+  delaiReappro: 28,
   ...over,
 })
 
@@ -179,5 +180,129 @@ test.group('appro — dossiers fournisseur', () => {
     assert.equal(stats.nbSuggestions, 1)
     assert.equal(stats.nbMessages, 4)
     assert.deepEqual(stats.parMessage, { 2: 1, 3: 2, 6: 1 })
+  })
+})
+
+test.group('appro — filtreFenetreDerivee (#114)', () => {
+  test('garde les suggestions échéance ≤ today + délai, écarte les autres', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [
+          sug({ numero: 'PRES', date: d('2026-08-10'), delaiReappro: 28 }), // J+9 ≤ 28 → gardée
+          sug({ numero: 'LOIN', date: d('2026-09-15'), delaiReappro: 28 }), // J+45 > 28 → écartée
+          sug({ numero: 'SANS', date: d('2026-08-05'), delaiReappro: null }), // J+4 ≤ repli 14 → gardée
+        ],
+      }),
+      TODAY
+    )
+    const cles = filtreFenetreDerivee(payload, TODAY)
+      .dossiers.flatMap((doss) => doss.items)
+      .map((i) => i.cle)
+    // Tri du dossier par échéance : SANS (05/08) avant PRES (10/08).
+    assert.deepEqual(cles, ['S:SANS', 'S:PRES'])
+  })
+
+  test('conserve les messages de replanif quelle que soit leur échéance', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [sug({ numero: 'LOIN', date: d('2026-11-20'), delaiReappro: 28 })],
+        messages: [
+          msg({
+            numero: 'M1',
+            date: d('2026-11-20'),
+            dateProposee: d('2026-11-10'),
+            message: 2,
+          }),
+        ],
+      }),
+      TODAY
+    )
+    const cles = filtreFenetreDerivee(payload, TODAY)
+      .dossiers.flatMap((doss) => doss.items)
+      .map((i) => i.cle)
+    assert.deepEqual(cles, ['M:M1:6000'])
+  })
+
+  test('est pur et recalcule les stats', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [
+          sug({ numero: 'A', date: d('2026-08-05'), delaiReappro: 28 }),
+          sug({ numero: 'B', date: d('2026-11-20'), delaiReappro: 28 }),
+        ],
+      }),
+      TODAY
+    )
+    const brut = payload.dossiers.flatMap((doss) => doss.items).length
+    const filtre = filtreFenetreDerivee(payload, TODAY)
+    assert.equal(brut, 2)
+    assert.equal(payload.dossiers.flatMap((doss) => doss.items).length, 2)
+    assert.equal(filtre.stats.nbItems, 1)
+    assert.equal(filtre.stats.nbSuggestions, 1)
+    assert.equal(filtre.stats.nbDossiers, 1)
+  })
+
+  test('recalcule les compteurs de dossier sur les items gardés', ({ assert }) => {
+    // Le sommaire du dossier doit décrire la table affichée, pas le dossier
+    // d'avant filtrage (sinon « 2 à commander » pour une ligne visible).
+    const payload = buildApproPayload(
+      source({
+        suggestions: [
+          sug({ numero: 'GARDE', date: d('2026-08-10'), delaiReappro: 28 }),
+          sug({ numero: 'ECART', date: d('2026-11-20'), delaiReappro: 28 }),
+        ],
+      }),
+      TODAY
+    )
+    const filtre = filtreFenetreDerivee(payload, TODAY)
+    const dossier = filtre.dossiers[0]
+    assert.equal(dossier.nbSuggestions, 1)
+    assert.equal(dossier.nbArticles, 1)
+    assert.equal(dossier.premiereEcheance, '2026-08-10')
+    assert.equal(dossier.jours, 9)
+  })
+
+  test('garde une échéance dépassée (cas le plus urgent), écarte une sans date', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [
+          sug({ numero: 'RETARD', date: d('2026-07-20'), delaiReappro: 28 }), // J-12 → gardée
+          sug({ numero: 'SANS', date: null, delaiReappro: 28 }), // pas d'échéance → écartée
+        ],
+      }),
+      TODAY
+    )
+    const cles = filtreFenetreDerivee(payload, TODAY)
+      .dossiers.flatMap((doss) => doss.items)
+      .map((i) => i.cle)
+    assert.deepEqual(cles, ['S:RETARD'])
+  })
+
+  test('borne exacte : échéance pile à today + délai → gardée', ({ assert }) => {
+    // TODAY = 2026-08-01, délai 28 → échéance 2026-08-29 exactement à la borne.
+    const payload = buildApproPayload(
+      source({ suggestions: [sug({ numero: 'PILE', date: d('2026-08-29'), delaiReappro: 28 })] }),
+      TODAY
+    )
+    const cles = filtreFenetreDerivee(payload, TODAY)
+      .dossiers.flatMap((doss) => doss.items)
+      .map((i) => i.cle)
+    assert.deepEqual(cles, ['S:PILE'])
+  })
+
+  test('un dossier entièrement vidé disparaît de la file', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({
+        suggestions: [
+          sug({ fournisseur: 'F1', numero: 'LOIN', date: d('2026-11-20'), delaiReappro: 28 }),
+          sug({ fournisseur: 'F2', numero: 'PROCHE', date: d('2026-08-10'), delaiReappro: 28 }),
+        ],
+      }),
+      TODAY
+    )
+    const filtre = filtreFenetreDerivee(payload, TODAY)
+    assert.equal(filtre.dossiers.length, 1)
+    assert.equal(filtre.dossiers[0].fournisseur, 'F2')
+    assert.equal(filtre.stats.nbDossiers, 1)
   })
 })

@@ -88,7 +88,8 @@ declare module '@adonisjs/inertia/types' {
     // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
     // replanification, groupés par fournisseur.
     'approvisionnements': {
-      horizon: number
+      /** `null` = vue dérivée du délai (#114) ; nombre = fenêtre fixe. */
+      horizon: number | null
       rowsHref: string
       defaultHorizon: number
     }
