@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { buildApproPayload } from '#app/domain/appro'
+import { buildApproPayload, type ApproDossier } from '#app/domain/appro'
 import { triageDossier, triagePayload } from '#app/domain/appro_triage'
 import type {
   ApproFetchResult,
@@ -53,9 +53,10 @@ const dossier = (over: Partial<ApproFetchResult> = {}) =>
 
 test.group('appro_triage — messages de replanification', () => {
   test('avancer avec décalage ≥ seuil #115 (2 j) → replanifier', ({ assert }) => {
-    // Cas réel CG2601534 : échéance 19/08, proposée 17/08 → décalage 2 j.
+    // Cas réel CG2601534 : échéance 19/08, proposée 17/08 → décalage −2 j.
     const [resultat] = triageDossier(dossier({ messages: [msg()] }))
     assert.equal(resultat.verdict, 'replanifier')
+    assert.isTrue(resultat.preuves[0].startsWith('Avancer de 2 j'))
   })
 
   test('décalage sous le seuil #115 → surveiller, pas replanifier', ({ assert }) => {
@@ -72,12 +73,23 @@ test.group('appro_triage — messages de replanification', () => {
       })
     )
     assert.equal(resultat.verdict, 'replanifier')
+    assert.isTrue(resultat.preuves[0].startsWith('Retarder de 53 j'))
   })
 
   test('« inutile » (annuler) → investiguer, jamais un verdict direct', ({ assert }) => {
     // #115 : « Inutile » exige la chaîne causale avant d'annuler — hors v1.
     const [resultat] = triageDossier(
       dossier({ messages: [msg({ message: 6, dateProposee: null })] })
+    )
+    assert.equal(resultat.verdict, 'investiguer')
+  })
+
+  test('« inutile » reste investiguer même avec un décalage calculable', ({ assert }) => {
+    // Garde défensive : la branche « inutile » doit primer sur le décalage — si
+    // un jour itemFromMessage calculait un décalage sur un message d'annulation,
+    // il ne doit pas devenir « replanifier » par accident (ordre des branches).
+    const [resultat] = triageDossier(
+      dossier({ messages: [msg({ message: 6, dateProposee: d('2026-08-17') })] })
     )
     assert.equal(resultat.verdict, 'investiguer')
   })
@@ -90,6 +102,27 @@ test.group('appro_triage — messages de replanification', () => {
       dossier({ messages: [msg({ message: 2, dateProposee: null })] })
     )
     assert.equal(resultat.verdict, 'investiguer')
+  })
+
+  test('la preuve distingue la cause de la donnée incohérente', ({ assert }) => {
+    // La cause (échéance absente / date proposée absente) est portée par la
+    // preuve : la geler empêche une régression silencieuse du détail.
+    const sansEcheance = triageDossier(dossier({ messages: [msg({ date: null })] }))[0]
+    assert.equal(sansEcheance.verdict, 'investiguer')
+    assert.isTrue(sansEcheance.preuves[0].includes('échéance absente'))
+
+    const sansDateProposee = triageDossier(
+      dossier({ messages: [msg({ message: 2, dateProposee: null })] })
+    )[0]
+    assert.equal(sansDateProposee.verdict, 'investiguer')
+    assert.isTrue(sansDateProposee.preuves[0].includes('date proposée absente'))
+  })
+
+  test('décalage nul (0 j) → surveiller, sous le seuil #115', ({ assert }) => {
+    const [resultat] = triageDossier(
+      dossier({ messages: [msg({ date: d('2026-08-19'), dateProposee: d('2026-08-19') })] })
+    )
+    assert.equal(resultat.verdict, 'surveiller')
   })
 })
 
@@ -184,6 +217,22 @@ test.group('appro_triage — suggestions d’achat', () => {
     const resultats = triagePayload(payload)
     assert.equal(resultats.get('S:A')?.verdict, 'passer')
     assert.equal(resultats.get('S:B')?.verdict, 'passer')
+  })
+})
+
+test.group('appro_triage — triageDossier', () => {
+  test('dossier sans aucun item → aucun résultat', ({ assert }) => {
+    const vide: ApproDossier = {
+      fournisseur: 'X',
+      nom: 'X',
+      items: [],
+      premiereEcheance: null,
+      jours: null,
+      nbArticles: 0,
+      nbSuggestions: 0,
+      nbMessages: 0,
+    }
+    assert.deepEqual(triageDossier(vide), [])
   })
 })
 

@@ -40,7 +40,7 @@ export type ApproVerdict = 'passer' | 'surveiller' | 'regrouper' | 'replanifier'
 export interface ApproTriageResult {
   cle: string
   verdict: ApproVerdict
-  /** Urgence temporelle, 0 (lointain/inconnu) à 100 (échéance dépassée). Axe de tri, pas le verdict. */
+  /** Urgence temporelle : 0 (lointain/inconnu), 100 à l'échéance, au-delà quand elle est dépassée. Axe de tri, pas le verdict. */
   score: number
   preuves: string[]
 }
@@ -94,12 +94,15 @@ function triageMessage(item: ApproItem): ApproTriageResult {
 
   const decalageAbs = Math.abs(item.decalage)
   if (decalageAbs >= DELTA_ACTIONNABLE_JOURS) {
+    // Sens porté par le signe du décalage (appro.ts : négatif = avancer), plus
+    // actionnable pour l'acheteur que la seule magnitude.
+    const sens = item.decalage < 0 ? 'Avancer' : 'Retarder'
     return {
       cle: item.cle,
       verdict: 'replanifier',
       score,
       preuves: [
-        `Décalage de ${decalageAbs} j (seuil actionnable #115 : ${DELTA_ACTIONNABLE_JOURS} j) sur ${item.article}.`,
+        `${sens} de ${decalageAbs} j (seuil actionnable #115 : ${DELTA_ACTIONNABLE_JOURS} j) sur ${item.article}.`,
       ],
     }
   }
@@ -133,7 +136,11 @@ function triageSuggestion(item: ApproItem, nbAvecMemeArticle: number): ApproTria
       cle: item.cle,
       verdict: 'passer',
       score,
-      preuves: [`Échéance à J${item.jours >= 0 ? '+' : ''}${item.jours} sur ${item.article}.`],
+      preuves: [
+        item.jours >= 0
+          ? `Échéance à J+${item.jours} sur ${item.article}.`
+          : `Échéance dépassée de ${-item.jours} j sur ${item.article}.`,
+      ],
     }
   }
 
