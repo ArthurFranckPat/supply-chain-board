@@ -52,6 +52,15 @@ export const cleLogiqueSuggestion = (fournisseur: string, article: string): stri
 /** Clé logique d'un message de replanif — `VCRNUM:VCRLIN` stable (#107). */
 export const cleLogiqueMessage = (numero: string, ligne: number): string => `M:${numero}:${ligne}`
 
+/**
+ * Une chaîne est-elle une clé de message bien formée ?
+ *
+ * Sert à valider ce qu'un client renvoie : il reprend la clé de la ligne
+ * affichée au lieu de la reconstruire, et le serveur vérifie sa forme plutôt que
+ * de refaire le découpage.
+ */
+export const estCleMessage = (v: string): boolean => /^M:[^:]+:\d+$/.test(v)
+
 /** Écart en jours entiers entre deux jours ISO. `null` si l'un des deux manque. */
 const joursEntre = (deIso: string | null, aIso: string | null): number | null => {
   if (deIso === null || aIso === null) return null

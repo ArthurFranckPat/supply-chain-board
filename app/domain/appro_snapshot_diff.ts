@@ -75,6 +75,9 @@ function apparie(
   const ps = [...apres].sort((x, y) => (x.echeance ?? '9').localeCompare(y.echeance ?? '9'))
   const usedP = new Set<number>()
   const paires: Array<[ApproSnapshotRow, ApproSnapshotRow]> = []
+  // Un couple porte quelques lignes au plus : le quadratique reste ici, borné
+  // par la taille d'un couple, pas par celle de la photo.
+  const appariees = new Set<ApproSnapshotRow>()
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
@@ -88,11 +91,12 @@ function apparie(
     })
     if (best === -1) continue
     usedP.add(best)
+    appariees.add(rowA)
     paires.push([rowA, ps[best]])
   }
   return {
     paires,
-    surplusAvant: as.filter((rowA) => !paires.some(([a]) => a === rowA)),
+    surplusAvant: as.filter((rowA) => !appariees.has(rowA)),
     surplusApres: ps.filter((_, i) => !usedP.has(i)),
   }
 }
@@ -104,12 +108,29 @@ export function diffApproSnapshots(
 ): ApproDiffEntry[] {
   const out: ApproDiffEntry[] = []
   const cle = (r: ApproSnapshotRow): string => `${r.fournisseur ?? ''}\u0001${r.article}`
-  const couples = new Set([...avant, ...apres].map(cle))
+
+  // Indexation par couple en un passage sur chaque photo. Un `filter` par couple
+  // relisait la photo ENTIÈRE à chaque tour : sur les ~5 600 suggestions du parc
+  // AE1 et presque autant de couples, cela faisait des dizaines de millions de
+  // comparaisons pour un diff qui n'en demande aucune.
+  const index = (rows: ApproSnapshotRow[]): Map<string, ApproSnapshotRow[]> => {
+    const m = new Map<string, ApproSnapshotRow[]>()
+    for (const r of rows) {
+      const k = cle(r)
+      const list = m.get(k)
+      if (list === undefined) m.set(k, [r])
+      else list.push(r)
+    }
+    return m
+  }
+  const parCoupleAvant = index(avant)
+  const parCoupleApres = index(apres)
+  const couples = new Set([...parCoupleAvant.keys(), ...parCoupleApres.keys()])
 
   for (const key of couples) {
     const [fournisseur, article] = key.split('\u0001')
-    const a = avant.filter((r) => cle(r) === key)
-    const p = apres.filter((r) => cle(r) === key)
+    const a = parCoupleAvant.get(key) ?? []
+    const p = parCoupleApres.get(key) ?? []
 
     if (a.length === 0) {
       for (const rowP of p) {

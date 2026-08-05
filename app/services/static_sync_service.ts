@@ -6,6 +6,7 @@ import StaticWorkstation from '#models/static_workstation'
 import { X3GammeRepository } from '#repositories/gamme_repository'
 import { X3WorkstationRepository } from '#repositories/workstation_repository'
 import { X3Database } from '#app/x3/client/x3_database'
+import { DELAI_REPLI_ACHAT, DELAI_REPLI_FABRICATION } from '#app/domain/models/article'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
@@ -130,18 +131,18 @@ FROM (
         const category = String(r.TCLCOD_0 ?? '').trim()
         const supplyType = String(r.MFGFLG_0 ?? '1') === '2' ? 'FABRICATION' : 'ACHAT'
 
-        let delay = 14
-        if (supplyType === 'FABRICATION') {
-          delay = Number(r.MFGLTI_0) || 10
-        } else {
-          // Décision #114 : le délai de réappro fiable vit dans OFS_0 (ITMFACILIT
-          // AE1, rempli à 98,9 % — médiane 28 j, mesure 05/08/2026). PRPLTI_0
-          // (délai achat) est vide sur le site ; le repli 14 j ne s'applique
-          // plus qu'aux articles réellement sans délai renseigné. Le « 14 j
-          // partout » sous-estimait le délai réel de moitié (promise_engine,
-          // plan_diff en dépendaient).
-          delay = Number(r.OFS_0) || Number(r.PRPLTI_0) || 14
-        }
+        // Décision #114 : le délai de réappro fiable vit dans OFS_0 (ITMFACILIT
+        // AE1, rempli à 98,9 % — médiane 28 j, mesure 05/08/2026). PRPLTI_0
+        // (délai achat) est vide sur le site ; le repli ne s'applique plus qu'aux
+        // articles réellement sans délai renseigné. Le « 14 j partout »
+        // sous-estimait le délai réel de moitié (promise_engine, plan_diff en
+        // dépendaient). Les replis viennent d'`article.ts` : c'est le MÊME défaut
+        // que celui des moteurs pour un article inconnu, il n'a pas à être écrit
+        // deux fois.
+        const delay =
+          supplyType === 'FABRICATION'
+            ? Number(r.MFGLTI_0) || DELAI_REPLI_FABRICATION
+            : Number(r.OFS_0) || Number(r.PRPLTI_0) || DELAI_REPLI_ACHAT
 
         const usPal = Number(r.PCUSTUCOE_1)
         return {

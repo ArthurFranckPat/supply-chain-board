@@ -7,7 +7,7 @@ import {
 import demandSnapshotService from '#services/demand_snapshot_service'
 import {
   cleLogiqueSuggestion,
-  cleLogiqueMessage,
+  estCleMessage,
   isApproDecisionStatut,
 } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
@@ -58,10 +58,15 @@ export default class ApproController {
    * POST /api/v1/appro/decision — enregistre une décision acheteur (ledger
    * append-only #134, décision #112). Rien n'est écrit dans X3 en v1.
    *
-   * Corps : `{ nature: 'suggestion'|'message', statut, article, fournisseur,
-   * echeance, quantite }` (suggestion — clé = couple fournisseur × article,
-   * échéance et quantité stockées comme instantané pour la tolérance #112) ou
-   * `{ nature: 'message', statut, numero, ligne }` (clé stable directe).
+   * Corps : `{ nature: 'suggestion', statut, article, fournisseur, echeance,
+   * quantite }` — la clé est le couple fournisseur × article, l'échéance et la
+   * quantité sont stockées comme instantané pour la tolérance #112 ; ou
+   * `{ nature: 'message', statut, cle, article }` — la clé stable (#107) est
+   * reprise TELLE QUELLE de la ligne affichée.
+   *
+   * Le client ne rebâtit jamais une clé : il renvoie celle qu'il a reçue. Un
+   * découpage puis une reconstruction `M:numero:ligne` de part et d'autre du
+   * réseau, c'est deux définitions d'un même format qui peuvent diverger.
    */
   async decide(ctx: HttpContext) {
     const body = ctx.request.body() as Record<string, unknown>
@@ -74,11 +79,11 @@ export default class ApproController {
 
     const repo = new ApproDecisionRepository()
     let cleLogique: string
-    let article = String(body.article ?? '')
-    let fournisseur: string | null =
+    const article = String(body.article ?? '')
+    const fournisseur: string | null =
       body.fournisseur === null || body.fournisseur === undefined ? null : String(body.fournisseur)
-    let quantite = Number(body.quantite ?? 0)
-    let echeance: string | null =
+    const quantite = Number(body.quantite ?? 0)
+    const echeance: string | null =
       body.echeance === null || body.echeance === undefined ? null : String(body.echeance)
 
     if (nature === 'suggestion') {
@@ -87,13 +92,11 @@ export default class ApproController {
       }
       cleLogique = cleLogiqueSuggestion(fournisseur ?? '', article)
     } else {
-      const numero = String(body.numero ?? '')
-      const ligne = Number(body.ligne ?? 0)
-      if (numero === '' || !Number.isFinite(ligne) || ligne <= 0) {
-        return ctx.response.badRequest({ error: 'message : numero/ligne requis' })
+      const cle = String(body.cle ?? '')
+      if (!estCleMessage(cle)) {
+        return ctx.response.badRequest({ error: `message : clé « ${cle} » invalide` })
       }
-      cleLogique = cleLogiqueMessage(numero, ligne)
-      article = String(body.article ?? '')
+      cleLogique = cle
     }
 
     const row = await repo.record({

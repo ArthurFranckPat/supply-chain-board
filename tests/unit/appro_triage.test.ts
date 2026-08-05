@@ -1,6 +1,11 @@
 import { test } from '@japa/runner'
 import { buildApproPayload, type ApproDossier } from '#app/domain/appro'
-import { attacheTriage, triageDossier, triagePayload } from '#app/domain/appro_triage'
+import {
+  attacheTriage,
+  triageDossier,
+  triagePayload,
+  SCORE_SANS_ECHEANCE,
+} from '#app/domain/appro_triage'
 import type {
   ApproFetchResult,
   ApproMessageRow,
@@ -313,13 +318,26 @@ test.group('appro_triage — score', () => {
     assert.equal(resultat.score, 130)
   })
 
-  test('une échéance lointaine rend un score plancher à 0, jamais négatif', ({ assert }) => {
+  test('une échéance lointaine descend sous 0 au lieu de buter sur un plancher', ({ assert }) => {
+    // 146 j : 100 - 146 × 2 = -192. Un plancher à 0 mettait à égalité tout ce
+    // qui échoit au-delà de J+50 — la moitié lointaine d'une vue 90 j n'avait
+    // alors plus aucun ordre, alors que le score EST l'axe de tri.
     const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: d('2026-12-25') })] }))
-    assert.equal(resultat.score, 0)
+    assert.equal(resultat.score, -192)
   })
 
-  test('une échéance inconnue rend un score de 0', ({ assert }) => {
-    const [resultat] = triageDossier(dossier({ suggestions: [sug({ date: null })] }))
-    assert.equal(resultat.score, 0)
+  test('le score reste strictement décroissant, même très loin', ({ assert }) => {
+    const scoreDe = (date: string) =>
+      triageDossier(dossier({ suggestions: [sug({ date: d(date) })] }))[0].score
+    const scores = ['2026-09-01', '2026-10-01', '2026-12-25', '2027-06-01'].map(scoreDe)
+    for (let i = 1; i < scores.length; i += 1) assert.isBelow(scores[i], scores[i - 1])
+  })
+
+  test('une échéance inconnue passe sous toute ligne datée', ({ assert }) => {
+    const [inconnue] = triageDossier(dossier({ suggestions: [sug({ date: null })] }))
+    assert.equal(inconnue.score, SCORE_SANS_ECHEANCE)
+    // Y compris sous la ligne la plus lointaine que la photo puisse porter
+    // (horizon 18 mois, #133) : 100 - 548 × 2 = -996.
+    assert.isBelow(inconnue.score, -996)
   })
 })

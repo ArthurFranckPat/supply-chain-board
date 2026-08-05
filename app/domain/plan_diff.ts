@@ -12,6 +12,7 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
+import { DELAI_REPLI_ACHAT } from './models/article.js'
 import type { FeasibilityOptions } from './stock_state.js'
 import type { MfgMaterialInput } from './of_feasibility.js'
 import type { Nomenclature } from './models/nomenclature.js'
@@ -321,7 +322,7 @@ export function synthesizeVirtualSupply(
     const besoin = parseIso(m.date)
 
     if (isPurchaseArticle(article)) {
-      const delai = article?.reorderDelay ?? 14
+      const delai = article?.reorderDelay ?? DELAI_REPLI_ACHAT
       const passation = addDays(besoin, -delai)
       plan.entries.push({
         id: `VPO-${m.id}`,
@@ -849,7 +850,7 @@ function approVerdicts(
     for (const comp of entry.composants) {
       const manquant = missingAfter.get(comp.article)?.ofs.get(entry.id) ?? 0
       if (manquant <= 0) continue
-      const leadTime = inputs.articles.get(comp.article)?.reorderDelay ?? 14
+      const leadTime = inputs.articles.get(comp.article)?.reorderDelay ?? DELAI_REPLI_ACHAT
       const limite = addDays(today, leadTime)
       verdicts.push({
         composant: comp.article,
@@ -889,7 +890,7 @@ function approVerdicts(
 
     for (const comp of nom.components) {
       const compArticle = comp.componentArticle
-      const leadTime = inputs.articles.get(compArticle)?.reorderDelay ?? 14
+      const leadTime = inputs.articles.get(compArticle)?.reorderDelay ?? DELAI_REPLI_ACHAT
       const quantite = comp.linkQuantity * f.quantity
       const base = {
         composant: compArticle,

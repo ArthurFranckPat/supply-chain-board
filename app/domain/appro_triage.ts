@@ -40,10 +40,22 @@ export type ApproVerdict = 'passer' | 'surveiller' | 'regrouper' | 'replanifier'
 export interface ApproTriageResult {
   cle: string
   verdict: ApproVerdict
-  /** Urgence temporelle : 0 (lointain/inconnu), 100 à l'échéance, au-delà quand elle est dépassée. Axe de tri, pas le verdict. */
+  /**
+   * Urgence temporelle : 100 à l'échéance, au-delà quand elle est dépassée, en
+   * baisse continue ensuite (négatif au-delà de J+50). Axe de tri, pas le
+   * verdict — une ligne sans échéance vaut `SCORE_SANS_ECHEANCE` et ferme la
+   * marche.
+   */
   score: number
   preuves: string[]
 }
+
+/**
+ * Score d'une ligne sans échéance : sous tout score datable, y compris au bout
+ * de la photo à 18 mois (`100 - 548 × 2 = -996`). Une valeur finie et non un
+ * `-Infinity`, qui ne survit pas à la sérialisation JSON du payload.
+ */
+export const SCORE_SANS_ECHEANCE = -10_000
 
 /** Seuil de significativité d'un décalage de replanif — #115, provisoire (confirmation attendue de #129). */
 const DELTA_ACTIONNABLE_JOURS = 2
@@ -52,13 +64,17 @@ const DELTA_ACTIONNABLE_JOURS = 2
 const SUGGESTION_URGENTE_JOURS = 7
 
 /**
- * Score d'urgence temporelle. Une échéance dépassée (`jours` négatif) rend un
- * score au-dessus de 100 plutôt que d'être plafonnée : le tri doit distinguer
- * « dépassée de 2 jours » de « dépassée de 3 semaines ».
+ * Score d'urgence temporelle, strictement décroissant avec l'échéance.
+ *
+ * Aucune borne, ni en haut ni en bas. En haut, parce que le tri doit distinguer
+ * « dépassée de 2 jours » de « dépassée de 3 semaines ». En bas, parce qu'un
+ * plancher à 0 mettait à égalité TOUT ce qui échoit au-delà de J+50 : en vue
+ * 90 jours, la moitié lointaine de la file n'avait plus d'ordre du tout, alors
+ * que le score est précisément l'axe de tri.
  */
 function scoreUrgence(jours: number | null): number {
-  if (jours === null) return 0
-  return Math.max(0, 100 - jours * 2)
+  if (jours === null) return SCORE_SANS_ECHEANCE
+  return 100 - jours * 2
 }
 
 function triageMessage(item: ApproItem): ApproTriageResult {

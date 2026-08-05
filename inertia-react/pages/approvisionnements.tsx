@@ -345,8 +345,9 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
         ? {
             nature: 'message' as const,
             statut,
-            numero: item.cle.split(':')[1],
-            ligne: Number(item.cle.split(':')[2]),
+            // La clé du serveur est renvoyée telle quelle : la découper ici pour
+            // que le serveur la recompose, c'est deux définitions d'un format.
+            cle: item.cle,
             article: item.article,
           }
         : {

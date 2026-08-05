@@ -13,7 +13,7 @@
  */
 
 import type { Article } from './models/article.js'
-import { isPhantom } from './models/article.js'
+import { isPhantom, DELAI_REPLI_ACHAT, DELAI_REPLI_FABRICATION } from './models/article.js'
 import type { NomenclatureEntry } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
 import { isSubcontracted } from './rules.js'
@@ -186,7 +186,7 @@ function dispoDate(
   if (depth > PHANTOM_DEPTH_CAP) {
     ctx.truncated = true
     const info = ctx.data.articles.get(article)
-    const delay = info?.reorderDelay ?? 14
+    const delay = info?.reorderDelay ?? DELAI_REPLI_ACHAT
     return mkLeaf(
       article,
       quantity,
@@ -275,7 +275,7 @@ function dispoDate(
 
   // 3c — Achat ou sous-traitance : commander (délai appro).
   if (info && (info.supplyType === 'ACHAT' || subcontracted)) {
-    const baseDelay = info.reorderDelay || 14
+    const baseDelay = info.reorderDelay || DELAI_REPLI_ACHAT
     const observed = ctx.mode === 'engageante' && latency > 0 ? latency : undefined
     const orderArrival = shiftDate(from, baseDelay + latency, ctx.mode, ctx.data.closedDays)
     // Si le flux partiel arrive après la commande du reliquat, c'est lui qui contraint.
@@ -317,7 +317,7 @@ function fabricate(
 ): PromiseNode {
   const bom = ctx.data.nomenclatures.get(article)!
   const phantom = info ? isPhantom(info) : false
-  const fabDelay = phantom ? 0 : info!.reorderDelay || 10
+  const fabDelay = phantom ? 0 : info!.reorderDelay || DELAI_REPLI_FABRICATION
 
   const bomChildren: PromiseNode[] = []
   for (const entry of bom.components) {
