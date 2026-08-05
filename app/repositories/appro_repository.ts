@@ -78,6 +78,13 @@ export interface ApproSuggestionRow {
   fournisseur: string
   /** `ORI_0` : `6` sur l'essentiel du parc, `3` sur les consommables. */
   origine: string
+  /**
+   * Délai de réappro effectif : `OFS_0` (rempli à 98,9 % sur AE1 — mesure
+   * 05/08/2026), repli `PRPLTI_0` (vide sur le site), sinon `null` → le repli
+   * d'affichage 14 j s'applique et la ligne porte un signal « sans délai »
+   * (#114/#132).
+   */
+  delaiReappro: number | null
 }
 
 /** Un message de replanification sur commande fournisseur ferme. */
@@ -129,12 +136,16 @@ const parseDate = (raw: string | null | undefined): Date | null => {
  * `ITMSTA_0 = 1` (article actif) et `RMNEXTQTY_0 > 0` : mêmes garde-fous que
  * `buildOrdersSql`. Un article désactivé ou une ligne soldée n'appelle aucune
  * décision d'achat, et les laisser passer gonflerait la file de bruit pur.
+ *
+ * Le `LEFT JOIN ITMFACILIT` (AE1) porte le délai de réappro (`OFS_0`, repli
+ * `PRPLTI_0`) — c'est lui qui borne la fenêtre dérivée de la file (#114/#132).
  */
 const suggestionsSql = (to: string): string => `
 SELECT O.VCRNUM_0, O.ITMREF_0, I.ITMDES1_0, O.ENDDAT_0, O.RMNEXTQTY_0,
-       O.BPRNUM_0, O.ORI_0
+       O.BPRNUM_0, O.ORI_0, F.OFS_0, F.PRPLTI_0
 FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = O.ITMREF_0 AND F.STOFCY_0 = '${SITE}'
 WHERE O.WIPTYP_0 = 2
   AND O.WIPSTA_0 = 3
   AND O.STOFCY_0 = '${SITE}'
@@ -142,6 +153,20 @@ WHERE O.WIPTYP_0 = 2
   AND O.RMNEXTQTY_0 > 0
   AND O.ENDDAT_0 <= TO_DATE('${to}', 'YYYYMMDD')
 `
+
+/**
+ * Délai de réappro effectif d'une ligne : `OFS_0` d'abord (délai de réappro,
+ * ITMFACILIT AE1 — rempli à 98,9 %, médiane 28 j, mesure 05/08/2026), repli
+ * `PRPLTI_0` (délai achat, vide sur le site), sinon `null` : la ligne entrera
+ * dans la fenêtre dérivée avec le repli 14 j et portera le signal « sans
+ * délai » (#114/#132).
+ */
+const delaiReappro = (row: RawRow): number | null => {
+  const ofs = Number(row.OFS_0)
+  if (Number.isFinite(ofs) && ofs > 0) return ofs
+  const prplti = Number(row.PRPLTI_0)
+  return Number.isFinite(prplti) && prplti > 0 ? prplti : null
+}
 
 /**
  * `MRPMES_0 <> 1` écarte l'absence de message. Pas de borne basse sur
@@ -224,6 +249,7 @@ export class ApproRepository {
       quantite: num(row.RMNEXTQTY_0),
       fournisseur: str(row.BPRNUM_0),
       origine: str(row.ORI_0),
+      delaiReappro: delaiReappro(row),
     }))
 
     const messages: ApproMessageRow[] = msgRows.flatMap((row) => {

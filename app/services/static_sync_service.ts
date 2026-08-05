@@ -102,9 +102,9 @@ export class StaticSyncService {
         // PCUSTUCOE_1 = US par palette (#119) — même colonne qu'aux repositories
         // expéditions/réceptions ; nullable, un article sans coefficient reste null.
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, PCUSTUCOE_1
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, OFS_0, PCUSTUCOE_1
 FROM (
-  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, ITM.PCUSTUCOE_1
+  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, F.OFS_0, ITM.PCUSTUCOE_1
   FROM ITMMASTER ITM
   LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = ITM.ITMREF_0 AND F.STOFCY_0 = 'AE1'
   WHERE ITM.ITMSTA_0 = 1 ${keysetClause}
@@ -134,7 +134,13 @@ FROM (
         if (supplyType === 'FABRICATION') {
           delay = Number(r.MFGLTI_0) || 10
         } else {
-          delay = Number(r.PRPLTI_0) || 14
+          // Décision #114 : le délai de réappro fiable vit dans OFS_0 (ITMFACILIT
+          // AE1, rempli à 98,9 % — médiane 28 j, mesure 05/08/2026). PRPLTI_0
+          // (délai achat) est vide sur le site ; le repli 14 j ne s'applique
+          // plus qu'aux articles réellement sans délai renseigné. Le « 14 j
+          // partout » sous-estimait le délai réel de moitié (promise_engine,
+          // plan_diff en dépendaient).
+          delay = Number(r.OFS_0) || Number(r.PRPLTI_0) || 14
         }
 
         const usPal = Number(r.PCUSTUCOE_1)

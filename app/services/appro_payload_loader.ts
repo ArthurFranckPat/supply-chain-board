@@ -1,6 +1,11 @@
 import { cacheNs } from '#services/cache_ns'
 import { ApproRepository } from '#app/repositories/appro_repository'
-import { buildApproPayload, type ApproPayload, type ApproItem } from '#app/domain/appro'
+import {
+  buildApproPayload,
+  filtreFenetreDerivee,
+  type ApproPayload,
+  type ApproItem,
+} from '#app/domain/appro'
 import { attacheTriage } from '#app/domain/appro_triage'
 import { computeFingerprint, estOverride, type ApproDecision } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
@@ -15,17 +20,17 @@ import { isoLocalDay } from '#app/domain/shortages'
  */
 
 /**
- * Horizon par défaut, en jours.
+ * Borne de chargement de la vue dérivée (#114), en jours.
  *
  * 90 jours parce que c'est la borne au-delà de laquelle la population devient du
  * bruit : sur AE1, 698 des 5 568 suggestions échoient dans le trimestre, les
- * 4 870 autres après. Ce n'est PAS l'horizon de travail — mesuré, il est plus
- * proche de 30 jours (40 lignes, 13 fournisseurs) — mais la borne de ce qu'on
- * accepte de charger. Le filtrage fin est un choix d'affichage, et l'horizon
- * juste (dérivé du délai fournisseur) a été tranché en #114 — son implémentation
- * (source du délai OFS_0 + borne du loader) est un ticket de code dédié.
+ * 4 870 autres après. Le délai de réappro max mesuré est 70 j — 90 j couvre la
+ * fenêtre dérivée (`échéance ≤ aujourd'hui + délai`) sans rien tronquer. C'est
+ * une borne de chargement, PAS la file affichée : la vue par défaut applique
+ * ensuite `filtreFenetreDerivee` par article.
  */
 export const DEFAULT_HORIZON_DAYS = 90
+const LOAD_BOUND_DAYS = DEFAULT_HORIZON_DAYS
 
 /**
  * TTL du cache. Le CBN ne tourne qu'une fois par jour : entre deux runs, la
@@ -35,7 +40,7 @@ export const DEFAULT_HORIZON_DAYS = 90
 const TTL_MS = 30 * 60 * 1000
 
 export interface ApproPayloadResult extends ApproPayload {
-  range: { to: string; horizonDays: number }
+  range: { to: string; horizonDays: number | null }
   /** Message X3 si l'extraction a échoué — l'écran l'affiche au lieu d'une page vide. */
   x3Error: string | null
   /** Décisions acheteur rattachées à cette file (ledger #134). */
@@ -116,14 +121,21 @@ function compteOverrides(items: ApproItem[]): number {
  * SWR ne la réveillerait jamais — c'est un piège déjà rencontré quatre fois dans
  * ce dépôt.
  */
-export async function loadApproPayload(horizonDays: number): Promise<ApproPayloadResult> {
+/**
+ * `null` = vue dérivée par défaut (#114) : chaque suggestion entre dans la file
+ * quand `échéance ≤ aujourd'hui + délai de réappro` (`filtreFenetreDerivee`).
+ * La borne de chargement est alors `LOAD_BOUND_DAYS` (le délai max mesuré sur
+ * AE1 est 70 j ; 90 j couvre). Un horizon numérique = fenêtre fixe 30/60/90 j.
+ */
+export async function loadApproPayload(horizonDays: number | null): Promise<ApproPayloadResult> {
   const today = isoLocalDay()
-  const to = addDays(today, horizonDays)
+  const derived = horizonDays === null
+  const to = addDays(today, derived ? LOAD_BOUND_DAYS : horizonDays)
   const range = { to, horizonDays }
 
   try {
     const payload = await cacheNs('appro').getOrSet({
-      key: `appro:file:${today}:${horizonDays}`,
+      key: `appro:file:${today}:${horizonDays ?? 'derivee'}`,
       ttl: TTL_MS,
       // 0 = vrai stale-while-revalidate. NE PAS mettre > 0 : le refresh sortirait
       // du background et une rejection non gérée ferait tomber le serveur (même
@@ -131,7 +143,9 @@ export async function loadApproPayload(horizonDays: number): Promise<ApproPayloa
       timeout: 0,
       factory: async () => {
         const source = await new ApproRepository().fetch(to)
-        return attacheTriage(buildApproPayload(source, today))
+        let brut = buildApproPayload(source, today)
+        if (derived) brut = filtreFenetreDerivee(brut, today)
+        return attacheTriage(brut)
       },
     })
     const avecDecisions = await attacheDecisions(payload)

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { router } from '@inertiajs/react'
 import { CloudOff, Inbox, ArrowUp, ArrowDown, Ban, ShoppingCart } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
@@ -51,6 +52,8 @@ interface ApproItem {
   dateProposee: string | null
   decalage: number | null
   quantite: number
+  /** Délai de réappro (OFS_0) — suggestion seule ; `null` = non renseigné (signal). */
+  delaiReappro: number | null
   triage: ApproTriage | null
   decision: ApproDecision | null
 }
@@ -76,13 +79,14 @@ interface ApproResponse {
     nbMessages: number
     parMessage: Record<string, number>
   }
-  range: { to: string; horizonDays: number }
+  range: { to: string; horizonDays: number | null }
   x3Error: string | null
   decisions: { nb: number; overrides: number }
 }
 
 interface PageProps {
-  horizon: number
+  /** `null` = vue dérivée du délai (#114) ; nombre = fenêtre fixe (bascule). */
+  horizon: number | null
   rowsHref: string
   defaultHorizon: number
 }
@@ -98,6 +102,14 @@ const qte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDi
 
 /** Filtres de nature. `null` = tout. */
 type Filtre = null | 'suggestion' | 'message'
+
+/** Bascule d'horizon : dérivé (défaut, #114) ou fenêtres fixes. */
+const HORIZONS: Array<{ v: number | null; label: string }> = [
+  { v: null, label: 'Dérivé' },
+  { v: 30, label: '30 j' },
+  { v: 60, label: '60 j' },
+  { v: 90, label: '90 j' },
+]
 
 const MESSAGE_META: Record<MessageCode, { label: string; icon: typeof ArrowUp; cls: string }> = {
   2: { label: 'Avancer', icon: ArrowUp, cls: 'text-[#c13515]' },
@@ -215,6 +227,11 @@ function ItemRow({
             title={preuve}
           >
             {preuve}
+          </div>
+        )}
+        {item.nature === 'suggestion' && item.delaiReappro === null && (
+          <div className="mt-0.5 text-[10.5px] text-[#c13515]/80">
+            délai de réappro non renseigné — repli 14 j
           </div>
         )}
       </td>
@@ -381,8 +398,34 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                 {label}
               </button>
             ))}
+            <span
+              className={cn(
+                'ml-3 inline-flex items-center gap-0.5 rounded-lg border p-0.5',
+                'border-border bg-card'
+              )}
+            >
+              {HORIZONS.map((h) => (
+                <button
+                  key={h.label}
+                  type="button"
+                  onClick={() =>
+                    router.get('/approvisionnements', h.v === null ? {} : { horizon: h.v })
+                  }
+                  aria-pressed={horizon === h.v}
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-[12px]',
+                    horizon === h.v
+                      ? 'bg-foreground font-semibold text-white'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  )}
+                >
+                  {h.label}
+                </button>
+              ))}
+            </span>
             <span className="ml-auto text-[12.5px] text-muted-foreground">
-              {dossiers.length} fournisseur{dossiers.length > 1 ? 's' : ''} · horizon {horizon} j
+              {dossiers.length} fournisseur{dossiers.length > 1 ? 's' : ''} ·{' '}
+              {horizon === null ? 'horizon dérivé' : `horizon ${horizon} j`}
               {ms !== null && ` · ${(ms / 1000).toFixed(1)} s`}
             </span>
           </div>

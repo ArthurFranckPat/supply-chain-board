@@ -25,6 +25,7 @@ const sug = (over: Partial<ApproSuggestionRow> = {}): ApproSuggestionRow => ({
   quantite: 3024,
   fournisseur: '40025',
   origine: '6',
+  delaiReappro: 28,
   ...over,
 })
 
