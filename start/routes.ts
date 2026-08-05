@@ -309,6 +309,9 @@ router
     router
       .post('/api/v1/appro/decision', '#controllers/appro_controller.decide')
       .as('appro.decision')
+    // Diff inter-CBN des suggestions (photo #133) — apparues / disparues /
+    // quantité ↑↓ / échéance décalée entre les deux dernières photos.
+    router.get('/api/v1/appro/diff', '#controllers/appro_controller.diff').as('appro.diff')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router

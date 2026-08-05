@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 116 routes nommées.
+ * 117 routes nommées.
  */
 
 export const MANIFEST = {
@@ -16,6 +16,7 @@ export const MANIFEST = {
   'agent.metrics': { method: 'GET', pattern: '/api/v1/agent/metrics' },
   'agent.show': { method: 'GET', pattern: '/copilote' },
   'appro.decision': { method: 'POST', pattern: '/api/v1/appro/decision' },
+  'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
   'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
   'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
@@ -174,6 +175,7 @@ export type RouteParams = {
   'agent.metrics': void
   'agent.show': void
   'appro.decision': void
+  'appro.diff': void
   'appro.rows': void
   'approvisionnements.index': void
   'assets.css': void
