@@ -5,9 +5,8 @@ import {
   type ApproPayloadResult,
 } from '#services/appro_payload_loader'
 import demandSnapshotService from '#services/demand_snapshot_service'
-import { isoLocalDay } from '#app/domain/shortages'
 import {
-  computeFingerprint,
+  cleLogiqueSuggestion,
   cleLogiqueMessage,
   isApproDecisionStatut,
 } from '#app/domain/appro_decision'
@@ -60,8 +59,9 @@ export default class ApproController {
    * append-only #134, décision #112). Rien n'est écrit dans X3 en v1.
    *
    * Corps : `{ nature: 'suggestion'|'message', statut, article, fournisseur,
-   * echeance, quantite }` (suggestion — le serveur calcule le fingerprint #112)
-   * ou `{ nature: 'message', statut, numero, ligne }` (clé stable directe).
+   * echeance, quantite }` (suggestion — clé = couple fournisseur × article,
+   * échéance et quantité stockées comme instantané pour la tolérance #112) ou
+   * `{ nature: 'message', statut, numero, ligne }` (clé stable directe).
    */
   async decide(ctx: HttpContext) {
     const body = ctx.request.body() as Record<string, unknown>
@@ -82,7 +82,10 @@ export default class ApproController {
       body.echeance === null || body.echeance === undefined ? null : String(body.echeance)
 
     if (nature === 'suggestion') {
-      cleLogique = computeFingerprint(fournisseur ?? '', article, echeance, quantite)
+      if (article === '') {
+        return ctx.response.badRequest({ error: 'suggestion : article requis' })
+      }
+      cleLogique = cleLogiqueSuggestion(fournisseur ?? '', article)
     } else {
       const numero = String(body.numero ?? '')
       const ligne = Number(body.ligne ?? 0)
@@ -108,12 +111,26 @@ export default class ApproController {
   /**
    * GET /api/v1/appro/diff — diff inter-CBN des suggestions (#133) entre les
    * deux dernières photos (`demand_snapshots`, source `appro_suggestion`).
-   * `parNature: null` si l'une des deux photos manque (pas de faux « tout est
-   * apparu » sur un trou de données).
+   *
+   * Les deux jours sont LUS EN BASE, pas déduits de la date du jour : un run
+   * nocturne manqué, un lundi matin ou une photo prise le week-end rendaient
+   * sinon « indisponible » alors que deux photos comparables existent. Deux
+   * photos restent nécessaires — `parNature: null` sur un trou de données,
+   * jamais un faux « tout est apparu ».
    */
   async diff(ctx: HttpContext) {
-    const apres = isoLocalDay()
-    const avant = addDays(apres, -1)
+    const jours = await demandSnapshotService.deuxDernieresPhotosAppro()
+    if (jours === null) {
+      return ctx.response.json({
+        avant: null,
+        apres: null,
+        parNature: null,
+        entrees: [],
+        message:
+          'photo(s) indisponible(s) — le diff inter-CBN a besoin de deux photos des suggestions',
+      })
+    }
+    const [apres, avant] = jours
     const result = await demandSnapshotService.diffAppro(apres, avant)
     if (result === null) {
       return ctx.response.json({
@@ -121,17 +138,9 @@ export default class ApproController {
         apres,
         parNature: null,
         entrees: [],
-        message:
-          'photo(s) indisponible(s) — le diff inter-CBN a besoin de deux photos consécutives',
+        message: 'photo(s) illisible(s) — le diff inter-CBN a besoin de deux photos comparables',
       })
     }
     return ctx.response.json(result)
   }
-}
-
-/** Jour ISO à ±`days` jours. Même convention que `appro_payload_loader`. */
-const addDays = (iso: string, days: number): string => {
-  const t = Date.parse(`${iso}T00:00:00Z`)
-  if (!Number.isFinite(t)) return iso
-  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
 }

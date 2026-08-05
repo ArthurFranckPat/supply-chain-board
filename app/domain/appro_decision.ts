@@ -1,17 +1,25 @@
-import { createHash } from 'node:crypto'
-
 /**
  * Clés logiques du ledger de décisions acheteur `/approvisionnements` (#134,
  * décision #112).
  *
- * Les suggestions d'achat sont recréées chaque nuit par le CBN (`VCRNUM`
- * instable, #108) : leur clé de décision ne peut pas être le numéro. Le
- * fingerprint #112 — `sha256(fournisseur, article, bucket échéance ±7 j,
- * bucket quantité ±20 %)` — survit à la recréation : une suggestion recréée
- * identique hérite de la décision passée, un fingerprint différent (échéance
- * déplacée > ±7 j ou quantité > ±20 %) est une nouvelle signature, donc une
- * nouvelle décision. Les messages de replanif ont une clé stable directe
- * (`VCRNUM:VCRLIN`, #107) : pas de fingerprint de leur côté.
+ * ## Pourquoi pas un fingerprint
+ *
+ * La v1 hachait `(fournisseur, article, bucket échéance, bucket quantité)` en
+ * annonçant une tolérance « ±7 j / ±20 % ». Un bucket n'est pas une tolérance :
+ * `round(jours / 7)` et `floor(log q / log 1,2)` sont des BINS, et deux valeurs
+ * de part et d'autre d'une frontière tombent dans deux bins voisins quel que
+ * soit leur écart réel. Une échéance déplacée d'un seul jour pouvait donc
+ * changer l'empreinte, faire perdre la décision en silence, puis la faire
+ * expirer comme « absente ». La tolérance réelle valait 0 j dans le pire cas.
+ *
+ * La clé est donc le **couple (fournisseur, article)** — la maille à laquelle
+ * une décision d'achat se prend (#110), la même que le diff inter-CBN (#133) —
+ * et la tolérance est appliquée à la LECTURE, en comparant l'instantané stocké
+ * à la ligne courante (`decisionEncoreValable`). Une seule définition des
+ * seuils, partagée avec `appro_snapshot_diff.ts`.
+ *
+ * Les messages de replanif gardent leur clé stable directe (`VCRNUM:VCRLIN`,
+ * #107) : rien à comparer de leur côté.
  */
 
 export type ApproDecisionStatut = 'vu' | 'ignorer' | 'a_passer'
@@ -21,27 +29,69 @@ export const APPRO_DECISION_STATUTS: readonly ApproDecisionStatut[] = ['vu', 'ig
 export const isApproDecisionStatut = (v: unknown): v is ApproDecisionStatut =>
   typeof v === 'string' && (APPRO_DECISION_STATUTS as readonly string[]).includes(v)
 
+/** Tolérances de la décision #112, partagées avec le diff inter-CBN (#133). */
+export const TOLERANCE_ECHEANCE_JOURS = 7
+export const TOLERANCE_QUANTITE_RATIO = 0.2
+
+/** Jours consécutifs SANS voir une clé dans la file avant d'expirer sa décision (#112). */
+export const EXPIRATION_JOURS_ABSENCE = 3
+
+/** Séparateur interne d'une clé composite — absent des codes X3. */
+const SEP = '\x1f'
+
 /**
- * Empreinte #112 d'une SUGGESTION.
+ * Clé logique d'une SUGGESTION : le couple fournisseur × article.
  *
- * Bucket d'échéance = semaine ISO (`round(jour_epoch / 7)`, frontière lundi —
- * le 1970-01-01 étant un jeudi, l'arrondi aligne les fenêtres sur les semaines
- * ISO) : deux dates de la même semaine partagent le bucket ; deux dates à plus
- * de 7 j ne le partagent jamais. Bucket de quantité = bande géométrique de
- * ratio 1,2 (`floor(log(q) / log(1,2))`) : un Δquantité < +20 % depuis le bas
- * de la bande reste dans le bucket. Pur — testable sans base ni X3.
+ * Stable par construction — le CBN peut recréer la ligne chaque nuit avec un
+ * `VCRNUM` neuf, le couple ne bouge pas. Ce qui bouge (échéance, quantité) est
+ * comparé à la lecture, pas encodé dans la clé.
  */
-export function computeFingerprint(
-  fournisseur: string,
-  article: string,
-  echeance: string | null,
+export const cleLogiqueSuggestion = (fournisseur: string, article: string): string =>
+  `S:${fournisseur}${SEP}${article}`
+
+/** Clé logique d'un message de replanif — `VCRNUM:VCRLIN` stable (#107). */
+export const cleLogiqueMessage = (numero: string, ligne: number): string => `M:${numero}:${ligne}`
+
+/** Écart en jours entiers entre deux jours ISO. `null` si l'un des deux manque. */
+const joursEntre = (deIso: string | null, aIso: string | null): number | null => {
+  if (deIso === null || aIso === null) return null
+  const de = Date.parse(`${deIso}T00:00:00Z`)
+  const a = Date.parse(`${aIso}T00:00:00Z`)
+  if (!Number.isFinite(de) || !Number.isFinite(a)) return null
+  return Math.round((a - de) / 86_400_000)
+}
+
+/** Instantané de la ligne au moment de la décision, tel que stocké au ledger. */
+export interface ApproDecisionSnapshot {
+  echeance: string | null
   quantite: number
-): string {
-  const epochDays = (iso: string): number => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 86_400_000)
-  const bucketEcheance = echeance === null ? -1 : Math.round(epochDays(echeance) / 7)
-  const bucketQuantite = quantite > 0 ? Math.floor(Math.log(quantite) / Math.log(1.2)) : -1
-  const signature = [fournisseur, article, bucketEcheance, bucketQuantite].join('\x1f')
-  return createHash('sha256').update(signature).digest('hex')
+}
+
+/**
+ * La décision passée vaut-elle encore pour la ligne courante ?
+ *
+ * Oui tant que l'échéance n'a pas bougé de plus de ±7 j ET la quantité de plus
+ * de ±20 % (écart rapporté à la plus petite des deux, comme le diff #133 — un
+ * même écart doit peser pareil dans les deux sens). Au-delà, la ligne n'est plus
+ * celle qui a été décidée : aucune décision ne s'affiche et l'acheteur retranche.
+ *
+ * Deux échéances absentes s'apparient (une ligne sans date n'est pas une ligne
+ * différente) ; une date apparue ou disparue invalide.
+ */
+export function decisionEncoreValable(
+  snapshot: ApproDecisionSnapshot,
+  courant: ApproDecisionSnapshot
+): boolean {
+  if (snapshot.echeance === null || courant.echeance === null) {
+    if (snapshot.echeance !== courant.echeance) return false
+  } else {
+    const ecart = joursEntre(snapshot.echeance, courant.echeance)
+    if (ecart === null || Math.abs(ecart) > TOLERANCE_ECHEANCE_JOURS) return false
+  }
+
+  const base = Math.min(snapshot.quantite, courant.quantite) || 1
+  const ratio = Math.abs(courant.quantite - snapshot.quantite) / base
+  return ratio <= TOLERANCE_QUANTITE_RATIO
 }
 
 /**
@@ -61,9 +111,6 @@ export const estOverride = (
   if (statut === 'a_passer' && verdict === 'surveiller') return true
   return false
 }
-
-/** Clé logique d'un message de replanif — `VCRNUM:VCRLIN` stable (#107). */
-export const cleLogiqueMessage = (numero: string, ligne: number): string => `M:${numero}:${ligne}`
 
 /** Décision affichée sur une ligne de la file. */
 export interface ApproDecision {

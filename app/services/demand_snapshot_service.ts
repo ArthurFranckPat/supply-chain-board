@@ -115,6 +115,31 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Les deux jours de photo des suggestions les plus récents, `[apres, avant]`.
+   * `null` s'il n'y en a pas deux — un diff a besoin de deux points.
+   *
+   * Lus en base plutôt que déduits de la date du jour : un run nocturne manqué,
+   * un week-end ou un lundi matin ne doivent pas rendre le diff indisponible
+   * alors que deux photos comparables existent. Les deux jours rendus peuvent
+   * donc être distants de plus d'un jour — l'écran affiche les dates.
+   */
+  async deuxDernieresPhotosAppro(): Promise<[string, string] | null> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .where('source', 'appro_suggestion')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+      .limit(2)
+    if (rows.length < 2) return null
+    const jour = (r: unknown): string => {
+      const v = (r as { snapshot_date?: unknown }).snapshot_date
+      return v instanceof Date ? isoDay(v) : String(v).slice(0, 10)
+    }
+    return [jour(rows[0]), jour(rows[1])]
+  }
+
+  /**
    * Diff inter-CBN des suggestions entre deux photos (#133) : apparues,
    * disparues, quantités > ±20 % et échéances > ±7 j (#112). Une photo
    * manquante d'un côté rend le diff indisponible (`null`) — pas de faux

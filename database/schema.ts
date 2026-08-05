@@ -9,7 +9,6 @@ import { DateTime } from 'luxon'
 
 export class ApproDecisionLedgerSchema extends BaseModel {
   static $columns = [
-    'absentRuns',
     'article',
     'cleLogique',
     'createdAt',
@@ -18,13 +17,12 @@ export class ApproDecisionLedgerSchema extends BaseModel {
     'expiree',
     'fournisseur',
     'id',
+    'lastSeenAt',
     'nature',
     'quantite',
     'statut',
   ] as const
   $columns = ApproDecisionLedgerSchema.$columns
-  @column()
-  declare absentRuns: number
   @column()
   declare article: string
   @column()
@@ -41,6 +39,8 @@ export class ApproDecisionLedgerSchema extends BaseModel {
   declare fournisseur: string | null
   @column({ isPrimary: true })
   declare id: number
+  @column.date()
+  declare lastSeenAt: DateTime | null
   @column()
   declare nature: string
   @column()

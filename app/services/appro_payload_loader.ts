@@ -7,9 +7,15 @@ import {
   type ApproItem,
 } from '#app/domain/appro'
 import { attacheTriage } from '#app/domain/appro_triage'
-import { computeFingerprint, estOverride, type ApproDecision } from '#app/domain/appro_decision'
+import {
+  cleLogiqueSuggestion,
+  decisionEncoreValable,
+  estOverride,
+  type ApproDecision,
+} from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
 import { isoLocalDay } from '#app/domain/shortages'
+import logger from '@adonisjs/core/services/logger'
 
 /**
  * Chargement du payload `/approvisionnements` (issue #103).
@@ -54,50 +60,97 @@ const addDays = (iso: string, days: number): string => {
 }
 
 /**
- * Clé logique d'une ligne de la file pour le ledger : fingerprint #112 pour une
- * suggestion (survit à la recréation CBN), `M:VCRNUM:VCRLIN` pour un message
- * (clé stable directe — c'est `item.cle` lui-même, #107).
+ * Clé logique d'une ligne de la file pour le ledger : couple fournisseur ×
+ * article pour une suggestion (stable à travers la recréation nocturne du CBN,
+ * #112), `M:VCRNUM:VCRLIN` pour un message (clé stable directe — c'est
+ * `item.cle` lui-même, #107).
  */
-const cleLogiqueItem = (fournisseur: string, item: ApproItem): string =>
-  item.nature === 'suggestion'
-    ? computeFingerprint(fournisseur, item.article, item.echeance, item.quantite)
-    : item.cle
+export const cleLogiqueItem = (fournisseur: string, item: ApproItem): string =>
+  item.nature === 'suggestion' ? cleLogiqueSuggestion(fournisseur, item.article) : item.cle
 
-/**
- * Rattache les décisions du ledger à chaque ligne de la file, HORS cache (#134) :
- * une décision prise il y a une seconde doit s'afficher immédiatement, sans
- * attendre l'expiration du TTL de 30 min de la file X3. Fait aussi tourner
- * l'expiration par absence (#112) : une clé disparue 3 runs passe expirée.
- *
- * Pur sur le payload (nouvel objet, items enrichis) ; l'I/O ledger est ici, à
- * la charge de l'appelant.
- */
-async function attacheDecisions(payload: ApproPayload): Promise<ApproPayload> {
-  const repo = new ApproDecisionRepository()
+/** Toutes les clés logiques d'un payload, dans l'ordre des dossiers. */
+const clesDuPayload = (payload: ApproPayload): string[] => {
   const cles: string[] = []
   for (const dossier of payload.dossiers) {
     for (const item of dossier.items) cles.push(cleLogiqueItem(dossier.fournisseur, item))
   }
+  return cles
+}
 
-  const parCle = await repo.latestParCle(cles)
-  await repo.expireAbsents(cles)
-
-  const decisionDe = (row: {
-    statut: ApproDecision['statut']
-    decidedAt: string
-  }): ApproDecision => ({
-    statut: row.statut,
-    decidedAt: row.decidedAt,
-  })
+/**
+ * Rattache les décisions du ledger à chaque ligne de la file, HORS cache (#134) :
+ * une décision prise il y a une seconde doit s'afficher immédiatement, sans
+ * attendre l'expiration du TTL de 30 min de la file X3.
+ *
+ * La clé seule ne suffit pas : elle ne porte que le couple. La décision ne
+ * s'applique que si la ligne courante est encore CELLE qui a été décidée —
+ * échéance à ±7 j et quantité à ±20 % de l'instantané stocké
+ * (`decisionEncoreValable`, #112). Au-delà, le CBN propose autre chose, et
+ * l'acheteur doit retrancher.
+ *
+ * Aucune écriture ici : l'entretien du ledger (marquage de présence, expiration)
+ * tourne au remplissage du cache, sur la population complète.
+ */
+async function attacheDecisions(payload: ApproPayload): Promise<ApproPayload> {
+  const repo = new ApproDecisionRepository()
+  const parCle = await repo.latestParCle(clesDuPayload(payload))
+  if (parCle.size === 0) return payload
 
   const dossiers = payload.dossiers.map((dossier) => ({
     ...dossier,
     items: dossier.items.map((item) => {
       const row = parCle.get(cleLogiqueItem(dossier.fournisseur, item))
-      return { ...item, decision: row === undefined ? null : decisionDe(row) }
+      if (row === undefined) return { ...item, decision: null }
+      const valable =
+        item.nature === 'message' ||
+        decisionEncoreValable(
+          { echeance: row.echeance, quantite: row.quantite },
+          { echeance: item.echeance, quantite: item.quantite }
+        )
+      const decision: ApproDecision | null = valable
+        ? { statut: row.statut, decidedAt: row.decidedAt }
+        : null
+      return { ...item, decision }
     }),
   }))
   return { ...payload, dossiers }
+}
+
+/**
+ * Entretien du ledger (#112) : marque les clés vues aujourd'hui, puis expire
+ * celles qu'on n'a plus vues depuis 3 JOURS.
+ *
+ * Deux garde-fous, tous deux appris d'un bug de la v1 :
+ *
+ *  - il tourne au REMPLISSAGE DU CACHE, pas à chaque requête — sinon l'unité
+ *    d'absence devient le rafraîchissement de page, et trois F5 expirent une
+ *    décision ;
+ *  - il porte sur la population COMPLÈTE chargée depuis X3, avant
+ *    `filtreFenetreDerivee` — une décision hors fenêtre d'affichage n'est pas
+ *    une décision disparue.
+ *
+ * L'expiration elle-même n'est déclenchée que par la vue dérivée, seule à
+ * charger la borne complète (90 j) : une fenêtre fixe de 30 j ne voit pas les
+ * lignes au-delà et les déclarerait absentes à tort.
+ *
+ * Une panne du ledger ne doit pas emporter la file : l'erreur est journalisée,
+ * la file est servie sans entretien.
+ */
+async function entretientLedger(
+  brut: ApproPayload,
+  today: string,
+  populationComplete: boolean
+): Promise<void> {
+  try {
+    const repo = new ApproDecisionRepository()
+    await repo.marqueVues(clesDuPayload(brut), today)
+    if (populationComplete) await repo.expireNonVues(today)
+  } catch (error) {
+    logger.warn(
+      { err: error instanceof Error ? error.message : String(error) },
+      '[appro] entretien du ledger de décisions impossible — file servie sans expiration'
+    )
+  }
 }
 
 /**
@@ -143,12 +196,23 @@ export async function loadApproPayload(horizonDays: number | null): Promise<Appr
       timeout: 0,
       factory: async () => {
         const source = await new ApproRepository().fetch(to)
-        let brut = buildApproPayload(source, today)
-        if (derived) brut = filtreFenetreDerivee(brut, today)
-        return attacheTriage(brut)
+        const brut = buildApproPayload(source, today)
+        // Entretien sur la population COMPLÈTE, avant tout filtrage d'affichage.
+        await entretientLedger(brut, today, derived)
+        return attacheTriage(derived ? filtreFenetreDerivee(brut, today) : brut)
       },
     })
-    const avecDecisions = await attacheDecisions(payload)
+    // Le ledger est en base locale : son échec ne doit pas se déguiser en panne
+    // X3 côté écran. La file reste servie, sans les décisions.
+    let avecDecisions = payload
+    try {
+      avecDecisions = await attacheDecisions(payload)
+    } catch (error) {
+      logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        '[appro] décisions illisibles — file servie sans les rattacher'
+      )
+    }
     const items = avecDecisions.dossiers.flatMap((d) => d.items)
     return {
       ...avecDecisions,

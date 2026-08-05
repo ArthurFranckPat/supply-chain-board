@@ -1,3 +1,5 @@
+import { TOLERANCE_ECHEANCE_JOURS, TOLERANCE_QUANTITE_RATIO } from '#app/domain/appro_decision'
+
 /**
  * Diff inter-CBN des suggestions d'achat (#133, item « Not yet specified » #106).
  *
@@ -15,6 +17,10 @@
  *
  * Une ligne qui ne bouge pas dans les tolérances n'est PAS rapportée : le diff
  * ne montre que ce qui a changé. Pur, sans I/O — testable sur fixtures.
+ *
+ * Les seuils viennent de `appro_decision.ts` : c'est la même tolérance #112 qui
+ * décide ici « la ligne a bougé » et là-bas « la décision passée ne vaut plus ».
+ * Une seule définition, sinon les deux dérivent.
  */
 
 /** Une ligne de la photo des suggestions (`demand_snapshots`, source `appro_suggestion`). */
@@ -138,8 +144,8 @@ export function diffApproSnapshots(
       const base = Math.min(rowA.quantite, rowP.quantite) || 1
       const ratio = Math.abs(rowP.quantite - rowA.quantite) / base
       const ecartJours = joursEntre(rowA.echeance, rowP.echeance)
-      const qtyChanged = ratio > 0.2
-      const dateChanged = ecartJours !== null && Math.abs(ecartJours) > 7
+      const qtyChanged = ratio > TOLERANCE_QUANTITE_RATIO
+      const dateChanged = ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS
       if (qtyChanged) {
         const sens = rowP.quantite > rowA.quantite ? '+' : '−'
         out.push({
@@ -148,7 +154,7 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowP.quantite,
           echeance: rowP.echeance,
-          detail: `Quantité ${qte(rowA.quantite)} → ${qte(rowP.quantite)} (${sens}${Math.round(ratio * 100)} %) — seuil ±20 % (#112).`,
+          detail: `Quantité ${qte(rowA.quantite)} → ${qte(rowP.quantite)} (${sens}${Math.round(ratio * 100)} %) — seuil ±${Math.round(TOLERANCE_QUANTITE_RATIO * 100)} % (#112).`,
         })
       }
       if (dateChanged) {
@@ -158,7 +164,7 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowP.quantite,
           echeance: rowP.echeance,
-          detail: `Échéance ${rowA.echeance} → ${rowP.echeance} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — seuil ±7 j (#112).`,
+          detail: `Échéance ${rowA.echeance} → ${rowP.echeance} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — seuil ±${TOLERANCE_ECHEANCE_JOURS} j (#112).`,
         })
       }
     }

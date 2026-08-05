@@ -1,61 +1,108 @@
 import { test } from '@japa/runner'
-import { computeFingerprint, cleLogiqueMessage, estOverride } from '#app/domain/appro_decision'
+import {
+  cleLogiqueSuggestion,
+  cleLogiqueMessage,
+  decisionEncoreValable,
+  estOverride,
+} from '#app/domain/appro_decision'
 
 /**
- * Clés logiques du ledger (#134, décision #112) : le fingerprint doit SURVIVRE
- * à la recréation nocturne du CBN (mêmes données → même empreinte), et changer
- * dès que l'échéance sort de ±7 j ou la quantité de ±20 %.
+ * Clés logiques du ledger (#134, décision #112) : la clé d'une suggestion doit
+ * SURVIVRE à la recréation nocturne du CBN — donc ne dépendre ni du `VCRNUM`,
+ * ni de l'échéance, ni de la quantité. Ce qui bouge est jugé à la lecture, avec
+ * une vraie tolérance (±7 j, ±20 %) et non des bins : un déplacement d'un jour
+ * ne doit jamais faire perdre une décision.
  */
 
-test.group('computeFingerprint — stabilité et sensibilité (#112)', () => {
-  test('les mêmes données rendent la même empreinte (survit au run CBN)', ({ assert }) => {
-    const a = computeFingerprint('40025', '11028891', '2026-09-01', 3024)
-    const b = computeFingerprint('40025', '11028891', '2026-09-01', 3024)
-    assert.equal(a, b)
-    assert.equal(a.length, 64)
+test.group('cleLogiqueSuggestion — le couple fournisseur × article', () => {
+  test('mêmes fournisseur et article → même clé, quelles que soient échéance et quantité', ({
+    assert,
+  }) => {
+    assert.equal(
+      cleLogiqueSuggestion('40025', '11028891'),
+      cleLogiqueSuggestion('40025', '11028891')
+    )
   })
 
-  test('deux dates de la même semaine ISO partagent le bucket', ({ assert }) => {
-    const a = computeFingerprint('F', 'A', '2026-09-01', 100)
-    const b = computeFingerprint('F', 'A', '2026-09-02', 100)
-    assert.equal(a, b)
+  test('le fournisseur fait partie de la clé', ({ assert }) => {
+    assert.notEqual(cleLogiqueSuggestion('F1', 'A'), cleLogiqueSuggestion('F2', 'A'))
   })
 
-  test('deux dates à plus de 7 j ne partagent jamais le bucket', ({ assert }) => {
-    const a = computeFingerprint('F', 'A', '2026-09-01', 100)
-    const b = computeFingerprint('F', 'A', '2026-09-20', 100)
-    assert.notEqual(a, b)
+  test('l’article fait partie de la clé', ({ assert }) => {
+    assert.notEqual(cleLogiqueSuggestion('F', 'A1'), cleLogiqueSuggestion('F', 'A2'))
   })
 
-  test('une quantité +10 % reste dans le même bucket (±20 %)', ({ assert }) => {
-    const a = computeFingerprint('F', 'A', '2026-09-01', 100)
-    const b = computeFingerprint('F', 'A', '2026-09-01', 110)
-    assert.equal(a, b)
+  test('le séparateur empêche la collision entre deux découpages', ({ assert }) => {
+    assert.notEqual(cleLogiqueSuggestion('AB', 'C'), cleLogiqueSuggestion('A', 'BC'))
   })
 
-  test('une quantité +50 % change l’empreinte', ({ assert }) => {
-    const a = computeFingerprint('F', 'A', '2026-09-01', 100)
-    const b = computeFingerprint('F', 'A', '2026-09-01', 150)
-    assert.notEqual(a, b)
+  test('ne collisionne pas avec une clé de message', ({ assert }) => {
+    assert.notEqual(cleLogiqueSuggestion('F', 'A'), cleLogiqueMessage('F', 1))
+  })
+})
+
+test.group('decisionEncoreValable — tolérance #112 à la lecture', () => {
+  const snap = { echeance: '2026-09-01', quantite: 100 }
+
+  test('ligne identique → la décision vaut', ({ assert }) => {
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-09-01', quantite: 100 }))
   })
 
-  test('le fournisseur fait partie de la signature', ({ assert }) => {
-    const a = computeFingerprint('F1', 'A', '2026-09-01', 100)
-    const b = computeFingerprint('F2', 'A', '2026-09-01', 100)
-    assert.notEqual(a, b)
+  test('un jour d’écart ne fait JAMAIS perdre la décision (régression du bucket)', ({ assert }) => {
+    // Le fingerprint v1 mettait ces deux dates dans deux bins voisins : la
+    // décision disparaissait pour un jour d'écart. C'est ce que ce test verrouille.
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-09-02', quantite: 100 }))
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-08-31', quantite: 100 }))
   })
 
-  test('une échéance absente a son propre bucket', ({ assert }) => {
-    const a = computeFingerprint('F', 'A', null, 100)
-    const b = computeFingerprint('F', 'A', '2026-09-01', 100)
-    assert.notEqual(a, b)
+  test('la tolérance d’échéance est symétrique et vaut ±7 j', ({ assert }) => {
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-09-08', quantite: 100 }))
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-08-25', quantite: 100 }))
+    assert.isFalse(decisionEncoreValable(snap, { echeance: '2026-09-09', quantite: 100 }))
+    assert.isFalse(decisionEncoreValable(snap, { echeance: '2026-08-24', quantite: 100 }))
   })
 
-  test('une quantité nulle a son propre bucket', ({ assert }) => {
-    const a = computeFingerprint('F', 'A', '2026-09-01', 0)
-    const b = computeFingerprint('F', 'A', '2026-09-01', 1)
-    assert.notEqual(a, b)
-    assert.equal(a, computeFingerprint('F', 'A', '2026-09-01', 0))
+  test('la quantité tolère ±20 %, pas au-delà', ({ assert }) => {
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-09-01', quantite: 120 }))
+    assert.isTrue(decisionEncoreValable(snap, { echeance: '2026-09-01', quantite: 84 }))
+    assert.isFalse(decisionEncoreValable(snap, { echeance: '2026-09-01', quantite: 150 }))
+    assert.isFalse(decisionEncoreValable(snap, { echeance: '2026-09-01', quantite: 50 }))
+  })
+
+  test('un même écart pèse pareil dans les deux sens', ({ assert }) => {
+    const monte = decisionEncoreValable(
+      { echeance: null, quantite: 100 },
+      {
+        echeance: null,
+        quantite: 130,
+      }
+    )
+    const descend = decisionEncoreValable(
+      { echeance: null, quantite: 130 },
+      {
+        echeance: null,
+        quantite: 100,
+      }
+    )
+    assert.equal(monte, descend)
+    assert.isFalse(monte)
+  })
+
+  test('deux échéances absentes s’apparient', ({ assert }) => {
+    assert.isTrue(
+      decisionEncoreValable(
+        { echeance: null, quantite: 10 },
+        {
+          echeance: null,
+          quantite: 10,
+        }
+      )
+    )
+  })
+
+  test('une échéance apparue ou disparue invalide la décision', ({ assert }) => {
+    assert.isFalse(decisionEncoreValable(snap, { echeance: null, quantite: 100 }))
+    assert.isFalse(decisionEncoreValable({ echeance: null, quantite: 100 }, snap))
   })
 })
 

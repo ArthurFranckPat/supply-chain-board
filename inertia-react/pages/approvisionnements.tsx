@@ -135,6 +135,9 @@ const DECISION_META: Record<DecisionStatut, { label: string; cls: string }> = {
 
 const DECISION_ACTIONS: DecisionStatut[] = ['vu', 'ignorer', 'a_passer']
 
+/** État du POST de décision d'une ligne. */
+type EtatEnvoi = 'inerte' | 'en-cours' | 'echec'
+
 function EcheanceChip({ jours }: { jours: number | null }) {
   if (jours === null) return <span className="text-xs text-muted-foreground">sans date</span>
   const retard = jours < 0
@@ -155,13 +158,14 @@ function EcheanceChip({ jours }: { jours: number | null }) {
 
 function ItemRow({
   item,
-  fournisseur,
   decisionActuelle,
+  etatEnvoi,
   onDecide,
 }: {
   item: ApproItem
-  fournisseur: string
   decisionActuelle: DecisionStatut | null
+  /** État du dernier POST de décision sur cette ligne. */
+  etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
 }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
@@ -205,9 +209,10 @@ function ItemRow({
               key={statut}
               type="button"
               onClick={() => onDecide(statut)}
+              disabled={etatEnvoi === 'en-cours'}
               aria-pressed={decisionActuelle === statut}
               className={cn(
-                'rounded border px-1.5 py-0.5 text-[10px] font-semibold',
+                'rounded border px-1.5 py-0.5 text-[10px] font-semibold disabled:opacity-50',
                 decisionActuelle === statut
                   ? 'border-foreground bg-foreground text-white'
                   : 'border-border text-muted-foreground hover:bg-secondary'
@@ -216,6 +221,12 @@ function ItemRow({
               {DECISION_META[statut].label}
             </button>
           ))}
+          {/* Un POST refusé ne doit pas être muet : l'acheteur croirait avoir décidé. */}
+          {etatEnvoi === 'echec' && (
+            <span role="status" className="text-[10px] font-semibold text-[#c13515]">
+              non enregistré — réessayer
+            </span>
+          )}
         </div>
       </td>
       <td className="py-2.5 pr-3">
@@ -255,10 +266,12 @@ function ItemRow({
 function Dossier({
   dossier,
   decisions,
+  envois,
   onDecide,
 }: {
   dossier: ApproDossier
   decisions: Record<string, DecisionStatut>
+  envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
 }) {
   const urgents = dossier.items.filter((i) => i.jours !== null && i.jours <= 21).length
@@ -304,8 +317,8 @@ function Dossier({
             <ItemRow
               key={item.cle}
               item={item}
-              fournisseur={dossier.fournisseur}
               decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+              etatEnvoi={envois[item.cle] ?? 'inerte'}
               onDecide={(statut) => onDecide(item, statut)}
             />
           ))}
@@ -320,6 +333,10 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   const [filtre, setFiltre] = useState<Filtre>(null)
   // Décisions locales (ledger #134) — priorité sur le payload au re-rendu.
   const [decisions, setDecisions] = useState<Record<string, DecisionStatut>>({})
+  // État du POST par ligne : un envoi refusé doit se voir, sans quoi l'acheteur
+  // repart en croyant avoir décidé — et le ledger étant append-only, chaque
+  // nouvel essai qui passe écrit une ligne de plus.
+  const [envois, setEnvois] = useState<Record<string, EtatEnvoi>>({})
 
   /** POST d'une décision — append-only côté serveur, mise à jour locale immédiate. */
   const poster = async (item: ApproItem, fournisseur: string, statut: DecisionStatut) => {
@@ -340,6 +357,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
             echeance: item.echeance,
             quantite: item.quantite,
           }
+    setEnvois((e) => ({ ...e, [item.cle]: 'en-cours' }))
     try {
       const res = await fetch('/api/v1/appro/decision', {
         method: 'POST',
@@ -348,8 +366,10 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setDecisions((d) => ({ ...d, [item.cle]: statut }))
+      setEnvois((e) => ({ ...e, [item.cle]: 'inerte' }))
     } catch {
-      // Échec silencieux : la file ne doit pas casser sur un POST refusé.
+      // La file ne casse pas sur un POST refusé, mais la ligne le dit.
+      setEnvois((e) => ({ ...e, [item.cle]: 'echec' }))
     }
   }
 
@@ -462,6 +482,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                 key={d.fournisseur || '∅'}
                 dossier={d}
                 decisions={decisions}
+                envois={envois}
                 onDecide={(item, statut) => poster(item, d.fournisseur, statut)}
               />
             ))}

@@ -1,10 +1,13 @@
 import db from '@adonisjs/lucid/services/db'
-import type { ApproDecisionStatut } from '#app/domain/appro_decision'
+import { EXPIRATION_JOURS_ABSENCE, type ApproDecisionStatut } from '#app/domain/appro_decision'
 
 /**
  * Accès base du ledger de décisions acheteur `/approvisionnements` (#134).
  * Append-only : `record()` insère, rien n'est mis à jour — la plus récente
  * ligne non expirée d'une clé fait foi, l'historique reste lisible.
+ *
+ * Deux écritures d'entretien seulement, toutes deux ensemblistes (`marqueVues`,
+ * `expireNonVues`) : le chemin de lecture n'écrit rien.
  */
 
 /** Ligne brute du ledger (`appro_decision_ledger`). */
@@ -17,12 +20,16 @@ export interface ApproDecisionRow {
   fournisseur: string | null
   quantite: number
   echeance: string | null
-  absentRuns: number
+  /** Dernier jour où la clé a été vue dans la file complète, ISO. */
+  lastSeenAt: string | null
   expiree: boolean
   decidedAt: string
 }
 
 type RawRow = Record<string, unknown>
+
+/** SQLite plafonne le nombre de paramètres liés d'une requête (999 par défaut). */
+const CHUNK_PARAMS = 400
 
 const str = (v: unknown): string => String(v ?? '')
 const num = (v: unknown): number => Number(v ?? 0)
@@ -42,10 +49,17 @@ const mapRow = (r: RawRow): ApproDecisionRow => ({
   fournisseur: r.fournisseur === null ? null : str(r.fournisseur),
   quantite: num(r.quantite),
   echeance: iso(r.echeance),
-  absentRuns: num(r.absent_runs),
+  lastSeenAt: iso(r.last_seen_at),
   expiree: bool(r.expiree),
   decidedAt: iso(r.decided_at) ?? '',
 })
+
+/** Jour ISO à ±`days` jours. */
+const addDays = (iso_: string, days: number): string => {
+  const t = Date.parse(`${iso_}T00:00:00Z`)
+  if (!Number.isFinite(t)) return iso_
+  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
+}
 
 export class ApproDecisionRepository {
   /** Insère une décision (append-only). Rend la ligne écrite. */
@@ -59,6 +73,7 @@ export class ApproDecisionRepository {
     echeance: string | null
   }): Promise<ApproDecisionRow> {
     const decidedAt = new Date().toISOString()
+    const jour = decidedAt.slice(0, 10)
     const [id] = await db.table('appro_decision_ledger').insert({
       cle_logique: input.cleLogique,
       nature: input.nature,
@@ -67,7 +82,8 @@ export class ApproDecisionRepository {
       fournisseur: input.fournisseur,
       quantite: input.quantite,
       echeance: input.echeance,
-      absent_runs: 0,
+      // La ligne vient d'être décidée depuis la file : elle y est, par définition.
+      last_seen_at: jour,
       expiree: false,
       decided_at: decidedAt,
       created_at: decidedAt,
@@ -81,62 +97,72 @@ export class ApproDecisionRepository {
       fournisseur: input.fournisseur,
       quantite: input.quantite,
       echeance: input.echeance,
-      absentRuns: 0,
+      lastSeenAt: jour,
       expiree: false,
-      decidedAt: decidedAt.slice(0, 10),
+      decidedAt: jour,
     }
   }
 
   /** Dernière décision NON EXPIRÉE par clé logique. `undefined` = aucune. */
   async latestParCle(cles: string[]): Promise<Map<string, ApproDecisionRow>> {
     if (cles.length === 0) return new Map()
-    const rows = await db
-      .connection()
-      .from('appro_decision_ledger')
-      .where('expiree', false)
-      .whereIn('cle_logique', cles)
-      .orderBy('decided_at', 'desc')
-      .orderBy('id', 'desc')
     const out = new Map<string, ApproDecisionRow>()
-    for (const r of rows as RawRow[]) {
-      const row = mapRow(r)
-      if (!out.has(row.cleLogique)) out.set(row.cleLogique, row)
+    for (let i = 0; i < cles.length; i += CHUNK_PARAMS) {
+      const rows = await db
+        .connection()
+        .from('appro_decision_ledger')
+        .where('expiree', false)
+        .whereIn('cle_logique', cles.slice(i, i + CHUNK_PARAMS))
+        .orderBy('decided_at', 'desc')
+        .orderBy('id', 'desc')
+      for (const r of rows as RawRow[]) {
+        const row = mapRow(r)
+        if (!out.has(row.cleLogique)) out.set(row.cleLogique, row)
+      }
     }
     return out
   }
 
   /**
-   * Expiration par absence (#112) : toute décision non expirée dont la clé
-   * n'apparaît plus dans la file courante voit `absent_runs` +1 ; à `seuilRuns`
-   * absences consécutives (3 par défaut) elle passe `expiree`. Une clé de
-   * retour réinitialise son compteur. Les clés présentes doivent être les
-   * clés logiques de la file ACTUELLE.
+   * Marque les clés vues aujourd'hui dans la file COMPLÈTE (#112).
    *
-   * Ne touche PAS les lignes dont l'état ne change pas (présent avec compteur
-   * à 0) : l'expiration tourne à chaque chargement de la file, le cas courant
-   * ne doit pas écrire.
+   * Idempotent et ensembliste : un UPDATE par paquet de clés, jamais un par
+   * ligne. Deux chargements concurrents écrivent la même valeur — il n'y a plus
+   * de compteur à incrémenter, donc plus de course.
+   *
+   * `clesVues` doit venir de la population complète chargée depuis X3, PAS de
+   * la file affichée : une décision hors fenêtre d'affichage n'est pas une
+   * décision disparue.
    */
-  async expireAbsents(clesPresentes: string[], seuilRuns = 3): Promise<number> {
-    const set = new Set(clesPresentes)
-    const rows = (await db
+  async marqueVues(clesVues: string[], jourIso: string): Promise<void> {
+    for (let i = 0; i < clesVues.length; i += CHUNK_PARAMS) {
+      await db
+        .connection()
+        .from('appro_decision_ledger')
+        .where('expiree', false)
+        .whereIn('cle_logique', clesVues.slice(i, i + CHUNK_PARAMS))
+        .update({ last_seen_at: jourIso })
+    }
+  }
+
+  /**
+   * Expire les décisions dont la clé n'a plus été vue depuis `seuilJours` (#112) :
+   * la suggestion a disparu du CBN, ou elle a trop bougé pour rester la ligne
+   * décidée. Une seule requête, et l'unité est le JOUR — pas le nombre de fois
+   * où quelqu'un a ouvert la page.
+   *
+   * Rend le nombre de lignes expirées.
+   */
+  async expireNonVues(jourIso: string, seuilJours = EXPIRATION_JOURS_ABSENCE): Promise<number> {
+    const limite = addDays(jourIso, -seuilJours)
+    // Lucid rend le résultat brut du driver : un nombre de lignes sous SQLite,
+    // un tableau ailleurs. Normalisé ici plutôt qu'au point d'appel.
+    const affected: unknown = await db
       .connection()
       .from('appro_decision_ledger')
-      .where('expiree', false)) as RawRow[]
-    const conn = db.connection()
-    let expirees = 0
-    for (const r of rows) {
-      const row = mapRow(r)
-      const present = set.has(row.cleLogique)
-      const absentRuns = present ? 0 : row.absentRuns + 1
-      const expiree = !present && absentRuns >= seuilRuns
-      if (expiree) expirees += 1
-      // Skip les no-op : une clé présente au compteur 0 n'a rien à écrire.
-      if (absentRuns === row.absentRuns && expiree === row.expiree) continue
-      await conn
-        .from('appro_decision_ledger')
-        .where('id', row.id)
-        .update({ absent_runs: absentRuns, expiree })
-    }
-    return expirees
+      .where('expiree', false)
+      .where('last_seen_at', '<', limite)
+      .update({ expiree: true })
+    return Array.isArray(affected) ? affected.length : Number(affected ?? 0)
   }
 }
