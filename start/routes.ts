@@ -305,6 +305,10 @@ router
     // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
     // replanification sur commandes fournisseur, groupés par fournisseur.
     router.get('/api/v1/appro/rows', '#controllers/appro_controller.rows').as('appro.rows')
+    // Décision acheteur (ledger append-only #134) — vu / ignorer / à passer.
+    router
+      .post('/api/v1/appro/decision', '#controllers/appro_controller.decide')
+      .as('appro.decision')
     // Diff inter-CBN des suggestions (photo #133) — apparues / disparues /
     // quantité ↑↓ / échéance décalée entre les deux dernières photos.
     router.get('/api/v1/appro/diff', '#controllers/appro_controller.diff').as('appro.diff')

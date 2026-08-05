@@ -7,6 +7,48 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class ApproDecisionLedgerSchema extends BaseModel {
+  static $columns = [
+    'absentRuns',
+    'article',
+    'cleLogique',
+    'createdAt',
+    'decidedAt',
+    'echeance',
+    'expiree',
+    'fournisseur',
+    'id',
+    'nature',
+    'quantite',
+    'statut',
+  ] as const
+  $columns = ApproDecisionLedgerSchema.$columns
+  @column()
+  declare absentRuns: number
+  @column()
+  declare article: string
+  @column()
+  declare cleLogique: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column.dateTime()
+  declare decidedAt: DateTime
+  @column.date()
+  declare echeance: DateTime | null
+  @column()
+  declare expiree: boolean
+  @column()
+  declare fournisseur: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare nature: string
+  @column()
+  declare quantite: number
+  @column()
+  declare statut: string
+}
+
 export class CapacityClosureSchema extends BaseModel {
   static $columns = [
     'code',
