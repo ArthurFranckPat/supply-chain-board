@@ -55,6 +55,12 @@ export interface ApproItem {
   decalage: number | null
   quantite: number
   /**
+   * Délai de réappro effectif (OFS_0, repli PRPLTI_0 — #114/#132). Suggestion
+   * seule : `null` sur un message. `null` sur une suggestion = délai non
+   * renseigné → repli d'affichage 14 j + signal « sans délai ».
+   */
+  delaiReappro: number | null
+  /**
    * Verdict de triage (lot 1 #103) : verdict + score + preuves sourcées, calculé
    * par `appro_triage.ts` et rattaché par `attacheTriage`. `null` sur un payload
    * brut — la page ne juge que si l'appelant l'a demandé.
@@ -125,6 +131,7 @@ const itemFromSuggestion = (row: ApproSuggestionRow, todayIso: string): ApproIte
     dateProposee: null,
     decalage: null,
     quantite: row.quantite,
+    delaiReappro: row.delaiReappro,
     triage: null,
   }
 }
@@ -143,6 +150,7 @@ const itemFromMessage = (row: ApproMessageRow, todayIso: string): ApproItem => {
     dateProposee: proposee,
     decalage: echeance !== null && proposee !== null ? joursEntre(echeance, proposee) : null,
     quantite: row.quantite,
+    delaiReappro: null,
     triage: null,
   }
 }
@@ -188,19 +196,12 @@ export function buildApproPayload(source: ApproFetchResult, todayIso: string): A
 
   const dossiers: ApproDossier[] = [...parFournisseur.entries()].map(([code, list]) => {
     const tries = [...list].sort(parEcheance)
-    const premiere = tries.find((i) => i.echeance !== null)?.echeance ?? null
-    return {
-      fournisseur: code,
-      // Un code sans raison sociale reste identifiable par son code : l'afficher
-      // vide ferait un dossier anonyme sur lequel personne ne peut agir.
-      nom: source.fournisseurs[code] || (code === '' ? 'Sans fournisseur' : `Tiers ${code}`),
-      items: tries,
-      premiereEcheance: premiere,
-      jours: premiere === null ? null : joursEntre(todayIso, premiere),
-      nbArticles: new Set(tries.map((i) => i.article)).size,
-      nbSuggestions: tries.filter((i) => i.nature === 'suggestion').length,
-      nbMessages: tries.filter((i) => i.nature === 'message').length,
-    }
+    return construitDossier(
+      code,
+      source.fournisseurs[code] || (code === '' ? 'Sans fournisseur' : `Tiers ${code}`),
+      tries,
+      todayIso
+    )
   })
 
   // Tri des dossiers : l'échéance la plus proche d'abord. Un dossier sans aucune
@@ -213,6 +214,39 @@ export function buildApproPayload(source: ApproFetchResult, todayIso: string): A
     return a.premiereEcheance.localeCompare(b.premiereEcheance) || a.nom.localeCompare(b.nom)
   })
 
+  return {
+    dossiers,
+    stats: buildStats(items, dossiers.length),
+  }
+}
+
+/**
+ * Dossier fournisseur construit depuis ses items — même définition pour la vue
+ * brute et la vue dérivée, pour que le sommaire ne dérive jamais de la table.
+ */
+const construitDossier = (
+  code: string,
+  nom: string,
+  tries: ApproItem[],
+  todayIso: string
+): ApproDossier => {
+  const premiere = tries.find((i) => i.echeance !== null)?.echeance ?? null
+  return {
+    fournisseur: code,
+    // Un code sans raison sociale reste identifiable par son code : l'afficher
+    // vide ferait un dossier anonyme sur lequel personne ne peut agir.
+    nom,
+    items: tries,
+    premiereEcheance: premiere,
+    jours: premiere === null ? null : joursEntre(todayIso, premiere),
+    nbArticles: new Set(tries.map((i) => i.article)).size,
+    nbSuggestions: tries.filter((i) => i.nature === 'suggestion').length,
+    nbMessages: tries.filter((i) => i.nature === 'message').length,
+  }
+}
+
+/** Stats du payload — une seule source pour la vue brute et la vue dérivée. */
+const buildStats = (items: ApproItem[], nbDossiers: number): ApproStats => {
   const parMessage: Record<MrpMessageCode, number> = {
     [MRP_MESSAGE.AVANCER]: 0,
     [MRP_MESSAGE.RETARDER]: 0,
@@ -221,16 +255,46 @@ export function buildApproPayload(source: ApproFetchResult, todayIso: string): A
   for (const item of items) {
     if (item.message !== null) parMessage[item.message] += 1
   }
-
   return {
-    dossiers,
-    stats: {
-      nbDossiers: dossiers.length,
-      nbItems: items.length,
-      nbArticles: new Set(items.map((i) => i.article)).size,
-      nbSuggestions: source.suggestions.length,
-      nbMessages: items.filter((i) => i.nature === 'message').length,
-      parMessage,
-    },
+    nbDossiers,
+    nbItems: items.length,
+    nbArticles: new Set(items.map((i) => i.article)).size,
+    nbSuggestions: items.filter((i) => i.nature === 'suggestion').length,
+    nbMessages: items.filter((i) => i.nature === 'message').length,
+    parMessage,
   }
+}
+
+/**
+ * Restreint le payload à la fenêtre dérivée du délai (décision #114) : une
+ * suggestion entre dans la file quand `échéance ≤ aujourd'hui + délai de
+ * réappro` — le moment où ne pas décider coûte. Le délai est celui de la ligne
+ * (`OFS_0`, repli `PRPLTI_0`, puis 14 j pour une ligne sans délai renseigné,
+ * qui reste signalée par `delaiReappro === null`).
+ *
+ * Les messages de replanif ne sont PAS bornés par le délai : leur décision est
+ * le décalage proposé, pas l'échéance — la file unique #115 les conserve tels
+ * quels, dans la borne de chargement (90 j). Une suggestion sans échéance est
+ * écartée (jamais décidable sans date), une échéance dépassée reste (cas le
+ * plus urgent). Pur : renvoie un nouveau payload, l'original reste intact.
+ */
+export function filtreFenetreDerivee(payload: ApproPayload, todayIso: string): ApproPayload {
+  const DELAI_REPLI = 14
+  const dansFenetre = (item: ApproItem): boolean => {
+    if (item.nature === 'message') return true
+    if (item.echeance === null) return false
+    const delai = item.delaiReappro ?? DELAI_REPLI
+    return joursEntre(todayIso, item.echeance) <= delai
+  }
+
+  const dossiers = payload.dossiers
+    .map((dossier) => {
+      const items = dossier.items.filter(dansFenetre)
+      if (items.length === 0) return null
+      return construitDossier(dossier.fournisseur, dossier.nom, items, todayIso)
+    })
+    .filter((dossier): dossier is ApproDossier => dossier !== null)
+  const items = dossiers.flatMap((dossier) => dossier.items)
+
+  return { dossiers, stats: buildStats(items, dossiers.length) }
 }

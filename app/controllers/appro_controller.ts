@@ -30,17 +30,19 @@ import {
 export default class ApproController {
   /** GET /approvisionnements — coquille Inertia, aucun appel X3. */
   async index(ctx: HttpContext) {
-    const horizon = Number(ctx.request.input('horizon')) || DEFAULT_HORIZON_DAYS
+    // Sans paramètre `horizon` → vue dérivée du délai (décision #114) ;
+    // `horizon=30|60|90` → fenêtre fixe (bascule).
+    const horizon = Number(ctx.request.input('horizon')) || null
     return ctx.inertia.render('approvisionnements', {
       horizon,
-      rowsHref: `/api/v1/appro/rows?horizon=${horizon}`,
+      rowsHref: horizon === null ? `/api/v1/appro/rows` : `/api/v1/appro/rows?horizon=${horizon}`,
       defaultHorizon: DEFAULT_HORIZON_DAYS,
     })
   }
 
   /** GET /api/v1/appro/rows — la file elle-même (X3 + cache SWR). */
   async rows(ctx: HttpContext) {
-    const horizon = Number(ctx.request.input('horizon')) || DEFAULT_HORIZON_DAYS
+    const horizon = Number(ctx.request.input('horizon')) || null
     const payload: ApproPayloadResult = await loadApproPayload(horizon)
     return ctx.response.json(payload)
   }
