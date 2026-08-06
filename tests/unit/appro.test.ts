@@ -5,6 +5,8 @@ import type {
   ApproMessageRow,
   ApproSuggestionRow,
 } from '#app/repositories/appro_repository'
+import { messageSnapshotRow } from '#services/demand_snapshot_service'
+import { diffApproMessageSnapshots } from '#app/domain/cbn_message_diff'
 
 /**
  * Domaine pur `/approvisionnements` (#103). Aucun accès X3 : les cas sont
@@ -305,5 +307,84 @@ test.group('appro — filtreFenetreDerivee (#114)', () => {
     assert.equal(filtre.dossiers.length, 1)
     assert.equal(filtre.dossiers[0].fournisseur, 'F2')
     assert.equal(filtre.stats.nbDossiers, 1)
+  })
+})
+
+/**
+ * La clé de jointure des explications (#138 lot 1).
+ *
+ * `cle` reste la clé du LEDGER (`M:VCRNUM:VCRLIN`, déjà persistée) ; `cleSnapshot`
+ * porte l'identité COMPLÈTE de la ligne d'`ORDERS`. Les confondre attribuait à un
+ * message les explications d'une autre ligne du même article.
+ */
+test.group('ApproItem — clé de jointure des explications', () => {
+  test('un message porte la clé complète VCRNUM:VCRLIN:VCRSEQ', ({ assert }) => {
+    const payload = buildApproPayload(
+      source({ messages: [msg({ numero: 'COA2400006', ligne: 1, sequence: '344000' })] }),
+      TODAY
+    )
+    const item = payload.dossiers[0].items[0]
+
+    assert.equal(item.cle, 'M:COA2400006:1')
+    assert.equal(item.cleSnapshot, 'COA2400006:1:344000')
+  })
+
+  test('deux messages ne différant que par la séquence ont des clés distinctes', ({ assert }) => {
+    // Cas réel : `COA2400006` ligne 1 porte cinq messages « inutile ». Sans la
+    // séquence, l'écran ne peut pas les distinguer — 141 articles du parc
+    // portent plus d'un message.
+    const payload = buildApproPayload(
+      source({
+        messages: [
+          msg({ numero: 'COA2400006', ligne: 1, sequence: '344000' }),
+          msg({ numero: 'COA2400006', ligne: 1, sequence: '372000' }),
+        ],
+      }),
+      TODAY
+    )
+    const cles = payload.dossiers[0].items.map((i) => i.cleSnapshot)
+
+    assert.deepEqual(cles, ['COA2400006:1:344000', 'COA2400006:1:372000'])
+  })
+
+  test('une suggestion n’a pas de clé de photo — elle ne porte aucun message', ({ assert }) => {
+    const payload = buildApproPayload(source({ suggestions: [sug()] }), TODAY)
+
+    assert.isNull(payload.dossiers[0].items[0].cleSnapshot)
+  })
+})
+
+/**
+ * CONTRAT DE CLÉ — la jointure écran ↔ explication (#138 lot 1).
+ *
+ * L'écran joint `ApproItem.cleSnapshot` à `CbnExplanation.cle`. Les deux
+ * naissent de la MÊME ligne X3 mais par deux chemins qui ne se croisent jamais :
+ * `buildApproPayload` d'un côté, `messageSnapshotRow` → photo → diff de l'autre.
+ * Rien dans les types ne force leur format à coïncider — et le jour où ils
+ * divergent, la jointure rend `undefined` en silence et TOUS les messages
+ * s'affichent « non expliqué ». D'où ce test, qui verrouille l'égalité.
+ */
+test.group('Contrat de clé — écran ↔ photo', () => {
+  test('cleSnapshot de l’écran == cle du diff, pour la même ligne X3', ({ assert }) => {
+    const ligneX3 = msg({ numero: 'COA2400006', ligne: 1, sequence: '344000' })
+
+    // Chemin écran.
+    const item = buildApproPayload(source({ messages: [ligneX3] }), TODAY).dossiers[0].items[0]
+
+    // Chemin photo : extraction → ligne de snapshot → diff (message apparu).
+    const photo = messageSnapshotRow(ligneX3, '2026-08-06')
+    const [entree] = diffApproMessageSnapshots([], [photo])
+
+    assert.equal(item.cleSnapshot, entree.cle)
+    assert.equal(entree.cle, 'COA2400006:1:344000')
+  })
+
+  test('l’égalité tient sur une séquence et une ligne à zéro', ({ assert }) => {
+    const ligneX3 = msg({ numero: 'CG2601534', ligne: 0, sequence: '0' })
+
+    const item = buildApproPayload(source({ messages: [ligneX3] }), TODAY).dossiers[0].items[0]
+    const [entree] = diffApproMessageSnapshots([], [messageSnapshotRow(ligneX3, '2026-08-06')])
+
+    assert.equal(item.cleSnapshot, entree.cle)
   })
 })

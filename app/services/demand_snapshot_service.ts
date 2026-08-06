@@ -6,6 +6,7 @@ import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
+import { cacheNs } from '#services/cache_ns'
 import {
   diffApproSnapshots,
   type ApproDiffNature,
@@ -324,6 +325,24 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Les deux jours de photo du BESOIN les plus récents, `[apres, avant]`.
+   *
+   * Distinct de `deuxDernieresPhotosMessages` : les deux tables peuvent diverger
+   * d'un jour quand l'extraction CBN échoue seule (garde-fou par source, lot 0).
+   */
+  async deuxDernieresPhotosBesoin(): Promise<[string, string] | null> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+      .limit(2)
+    if (rows.length < 2) return null
+    const jour = (r: unknown): string => jourIso((r as { snapshot_date?: unknown }).snapshot_date)
+    return [jour(rows[0]), jour(rows[1])]
+  }
+
+  /**
    * Diff pur des messages entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque — pas de faux "tout est apparu".
    */
@@ -393,23 +412,42 @@ export class DemandSnapshotService {
   ): Promise<{
     avant: string
     apres: string
-    messages: CbnMessageDiffEntry[]
-    drivers: DriverDiffEntry[]
+    nbMessages: number
+    nbDrivers: number
     explications: CbnExplanation[]
   } | null> {
-    const [msgDiff, drvDiff] = await Promise.all([
-      this.diffMessages(apresDay, avantDay),
-      this.diffDrivers(apresDay, avantDay),
-    ])
-    if (msgDiff === null || drvDiff === null) return null
-    const explications = explainCbnMessages(msgDiff.entrees, drvDiff.entrees)
-    return {
-      avant: avantDay,
-      apres: apresDay,
-      messages: msgDiff.entrees,
-      drivers: drvDiff.entrees,
-      explications,
-    }
+    // Mis en cache sur le COUPLE de jours : une photo est immuable une fois
+    // écrite, donc le croisement de deux photos l'est aussi. Sans cache, chaque
+    // chargement de la page relit deux journées entières de `demand_snapshots`
+    // — 67 787 lignes mesurées pour le couple 05/08–06/08 — pour rendre une
+    // liste de corrélations qui ne bougera plus jamais.
+    //
+    // `getOrSetForever` et non `getOrSet` : il n'y a pas de fraîcheur à
+    // rattraper, la clé change d'elle-même quand une nouvelle photo arrive.
+    // Valeur en LECTURE SEULE (cf. `cache_ns.ts`) — personne ne la mute ici.
+    const cached = await cacheNs('appro').getOrSetForever({
+      key: `appro:explications:${avantDay}:${apresDay}`,
+      factory: async () => {
+        const [m, d] = await Promise.all([
+          this.diffMessages(apresDay, avantDay),
+          this.diffDrivers(apresDay, avantDay),
+        ])
+        if (m === null || d === null) return null
+        return {
+          nbMessages: m.entrees.length,
+          nbDrivers: d.entrees.length,
+          explications: explainCbnMessages(m.entrees, d.entrees),
+        }
+      },
+    })
+    if (cached === null) return null
+    const { nbMessages, nbDrivers, explications } = cached
+    // Les deux diffs bruts ne sortent PAS d'ici : `drivers` est le diff de
+    // ~250 000 lignes de photo, et l'écran n'en lit que les corrélations déjà
+    // rattachées à chaque message. Qui les veut a `/messages-diff` et
+    // `/drivers-diff`, faits pour ça. On ne garde que les décomptes, qui
+    // suffisent à dire « le diff a bien tourné ».
+    return { avant: avantDay, apres: apresDay, nbMessages, nbDrivers, explications }
   }
 
   /**

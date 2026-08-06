@@ -49,6 +49,22 @@ const joursEntre = (deIso: string | null, aIso: string | null): number | null =>
 
 const qte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
 
+/**
+ * Référence du ratio de variation : la plus petite MAGNITUDE, jamais la plus
+ * petite valeur signée.
+ *
+ * Le stock figé ici est le stock STRICT (physique − alloué), qui passe sous
+ * zéro dès que les allocations dépassent le physique. Avec `Math.min(qa, qp)`
+ * brut, une chute +100 → −100 donnait `base = -100`, donc `ratio = -2`, et
+ * `ratio > 0.2` était FAUX : l'effondrement de stock — le driver de poids 3,
+ * celui qui explique un « avancer » — n'était jamais émis. Symétriquement,
+ * −100 → +500 disparaissait aussi, alors qu'il explique un « retarder ».
+ *
+ * Sur deux quantités positives, `Math.abs` ne change rien : le comportement
+ * historique est préservé.
+ */
+const baseRatio = (qa: number, qp: number): number => Math.abs(Math.min(qa, qp)) || 1
+
 const distEcheance = (a: string | null, b: string | null): number => {
   if (a === null && b === null) return 0
   const d = joursEntre(a, b)
@@ -164,8 +180,7 @@ export function diffCbnDrivers(
     if (source === 'stock') {
       const qa = a[0]?.quantity ?? 0
       const qp = p[0]?.quantity ?? 0
-      const base = Math.min(qa, qp) || 1
-      const ratio = Math.abs(qp - qa) / base
+      const ratio = Math.abs(qp - qa) / baseRatio(qa, qp)
       if (ratio > TOLERANCE_QUANTITE_RATIO) {
         const sens = qp > qa ? '+' : '−'
         out.push({
@@ -185,8 +200,8 @@ export function diffCbnDrivers(
     const { paires, surplusAvant, surplusApres } = apparie(a, p)
 
     for (const [rowA, rowP] of paires) {
-      const base = Math.min(rowA.quantity, rowP.quantity) || 1
-      const ratio = Math.abs(rowP.quantity - rowA.quantity) / base
+      const ratio =
+        Math.abs(rowP.quantity - rowA.quantity) / baseRatio(rowA.quantity, rowP.quantity)
       const ecartJours = joursEntre(rowA.date_echeance, rowP.date_echeance)
       const qtyChanged = ratio > TOLERANCE_QUANTITE_RATIO
       const dateChanged = ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS
@@ -247,17 +262,4 @@ export function diffCbnDrivers(
   }
 
   return out
-}
-
-/**
- * Index drivers par article — utilitaire pour `cbn_explanation`.
- */
-export function indexDriversParArticle(entries: DriverDiffEntry[]): Map<string, DriverDiffEntry[]> {
-  const m = new Map<string, DriverDiffEntry[]>()
-  for (const e of entries) {
-    const list = m.get(e.article)
-    if (list === undefined) m.set(e.article, [e])
-    else list.push(e)
-  }
-  return m
 }

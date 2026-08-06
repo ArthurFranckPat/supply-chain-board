@@ -21,7 +21,19 @@ import type { DriverDiffEntry } from '#app/domain/cbn_driver_diff'
  * Poids (ordre décroissant, stable pour les tests) :
  *  3 = stock, demande_ferme, appro (réceptions)
  *  2 = of_ferme/of_planifie, demande_prevision
- *  1 = of_suggestion/appro_suggestion, apparitions isolées
+ *
+ * ## Ce que le moteur refuse d'expliquer
+ *
+ * `of_suggestion` et `appro_suggestion` sont ÉCARTÉES, alors qu'elles pèsent
+ * 17 295 des 36 638 lignes d'une photo (06/08/2026). Ce ne sont pas des
+ * entrées du CBN : ce sont ses SORTIES, recréées à chaque run au même titre que
+ * les messages qu'on cherche à expliquer. Les corréler reviendrait à expliquer
+ * un symptôme par un autre symptôme du même calcul — une tautologie qui
+ * s'afficherait pourtant comme une explication.
+ *
+ * Elles portaient un poids et une ligne de docstring qui promettaient un
+ * traitement qu'`isConvergent` n'a jamais fait. Poids retiré : mieux vaut ne
+ * rien promettre que promettre ce qu'on ne rend pas.
  */
 
 /** Une corrélation driver → message. Jamais nommée "cause". */
@@ -45,6 +57,7 @@ export interface CbnExplanation {
   contradictions: CbnCorrelation[]
 }
 
+/** Sorties du CBN, jamais des causes — cf. docstring du module. */
 const poidsSource: Record<string, number> = {
   stock: 3,
   demande_ferme: 3,
@@ -52,11 +65,9 @@ const poidsSource: Record<string, number> = {
   of_ferme: 2,
   of_planifie: 2,
   demande_prevision: 2,
-  of_suggestion: 1,
-  appro_suggestion: 1,
 }
 
-const fmtPoids = (s: string): number => poidsSource[s] ?? 1
+const poidsDe = (source: string): number => poidsSource[source] ?? 1
 
 function isConvergent(
   code: number | null,
@@ -100,11 +111,11 @@ function isConvergent(
       if (ecart < 0) return 'convergent'
       if (ecart > 0) return 'contradictoire'
     }
-    if (
-      d.source === 'appro' &&
-      (d.nature === 'disparue' || d.nature === 'date' || d.nature === 'quantite')
-    ) {
-      // Réception retardée (date +) ou réduite/disparue → convergent pour avancer
+    if (d.source === 'appro') {
+      // Réception retardée (date +) ou réduite/disparue → convergent pour avancer.
+      // Une réception NOUVELLE plaide au contraire contre l'avancement : le
+      // miroir le traitait déjà côté « retarder », il manquait ici.
+      if (d.nature === 'apparue') return 'contradictoire'
       if (d.nature === 'disparue') return 'convergent'
       if (d.nature === 'date') {
         const ecart =
@@ -214,18 +225,31 @@ function isConvergent(
       return 'convergent'
     if ((d.source === 'of_ferme' || d.source === 'of_planifie') && d.nature === 'apparue')
       return 'contradictoire'
+    // Une baisse de besoin sans disparition compte aussi : « inutile » ne suit
+    // pas que les annulations franches (74 messages/jour, dont une part vient
+    // d'une demande simplement réduite).
     if (
-      d.source === 'stock' &&
-      d.nature === 'quantite' &&
-      (d.quantiteApres ?? 0) > (d.quantiteAvant ?? 0)
-    )
-      return 'convergent'
-    if (
-      d.source === 'stock' &&
-      d.nature === 'quantite' &&
-      (d.quantiteApres ?? 0) < (d.quantiteAvant ?? 0)
-    )
+      (d.source === 'demande_ferme' ||
+        d.source === 'demande_prevision' ||
+        d.source === 'of_ferme' ||
+        d.source === 'of_planifie') &&
+      d.nature === 'quantite'
+    ) {
+      if ((d.quantiteApres ?? 0) < (d.quantiteAvant ?? 0)) return 'convergent'
       return 'contradictoire'
+    }
+    // Une ressource qui arrive rend la commande superflue ; une qui s'évapore
+    // plaide contre. `appro` était absent de cette branche.
+    if (d.source === 'appro' && d.nature === 'apparue') return 'convergent'
+    if (d.source === 'appro' && d.nature === 'disparue') return 'contradictoire'
+    if (d.source === 'appro' && d.nature === 'quantite') {
+      if ((d.quantiteApres ?? 0) > (d.quantiteAvant ?? 0)) return 'convergent'
+      return 'contradictoire'
+    }
+    if (d.source === 'stock' && d.nature === 'quantite') {
+      if ((d.quantiteApres ?? 0) > (d.quantiteAvant ?? 0)) return 'convergent'
+      return 'contradictoire'
+    }
     return 'neutre'
   }
 
@@ -252,17 +276,39 @@ export function explainCbnMessages(
     const code = m.mrpmesApres ?? m.mrpmesAvant
     const forArticle = parArticle.get(m.article) ?? []
 
+    // Ce qu'on explique, c'est le CHANGEMENT du message, pas le message.
+    //
+    // `isConvergent` raisonne « qu'est-ce qui pousse dans le sens de ce code »,
+    // ce qui est juste pour un message qui APPARAÎT ou s'INTENSIFIE. Pour un
+    // message qui s'atténue ou disparaît, la question est l'inverse : ce qui
+    // l'explique, c'est ce qui pousse CONTRE lui.
+    //
+    // Sans cette inversion, un « avancer » passé de −15 j à −7 j pendant que le
+    // stock remontait de 740 à 1 200 rendait « non expliqué », et rangeait la
+    // vraie explication sous le repli « contradictoire ». Deux natures sur cinq
+    // étaient concernées.
+    //
+    // `modifiee` n'est pas inversée : le code a changé, et `code` vaut déjà le
+    // NOUVEAU — juger dans son sens est correct.
+    const inverse = m.nature === 'attenuee' || m.nature === 'disparue'
+
     const convergent: CbnCorrelation[] = []
     const contradictoire: CbnCorrelation[] = []
 
     for (const d of forArticle) {
-      const cls = isConvergent(code, d)
+      const brut = isConvergent(code, d)
+      const cls =
+        !inverse || brut === 'neutre'
+          ? brut
+          : brut === 'convergent'
+            ? 'contradictoire'
+            : 'convergent'
       if (cls === 'neutre') continue
       const cor: CbnCorrelation = {
         source: d.source,
         nature: d.nature,
         detail: d.detail,
-        poids: fmtPoids(d.source),
+        poids: poidsDe(d.source),
       }
       if (cls === 'convergent') convergent.push(cor)
       else contradictoire.push(cor)

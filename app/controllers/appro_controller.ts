@@ -155,9 +155,14 @@ export default class ApproController {
     let avant: string | null = avantQ ?? null
     let apres: string | null = apresQ ?? null
     if (avant === null || apres === null) {
-      const jours = await demandSnapshotService.deuxDernieresPhotosMessages()
-      // Les drivers suivent le même calendrier que les messages : on réutilise
-      // la même paire de jours pour que les deux diffs soient comparables.
+      // Calendrier PROPRE aux drivers, et non celui des messages : depuis le
+      // garde-fou par source (#138 lot 0), une extraction CBN en échec laisse
+      // `demand_snapshots` avancer d'un jour sans `appro_message_snapshots`.
+      // Emprunter les jours des messages ferait alors demander un diff sur des
+      // jours où la photo du besoin n'existe pas — `null`, et un écran vide
+      // sans raison lisible. `/explanations` croise les deux et impose, lui,
+      // le calendrier des messages : c'est son objet.
+      const jours = await demandSnapshotService.deuxDernieresPhotosBesoin()
       if (jours === null) {
         return ctx.response.json({
           avant: null,
@@ -196,8 +201,8 @@ export default class ApproController {
         return ctx.response.json({
           avant: null,
           apres: null,
-          messages: [],
-          drivers: [],
+          nbMessages: 0,
+          nbDrivers: 0,
           explications: [],
           message: 'photo(s) indisponible(s) — explications nécessitent deux photos',
         })
@@ -209,8 +214,8 @@ export default class ApproController {
       return ctx.response.json({
         avant,
         apres,
-        messages: [],
-        drivers: [],
+        nbMessages: 0,
+        nbDrivers: 0,
         explications: [],
         message: 'photo(s) illisible(s) — explications indisponibles',
       })

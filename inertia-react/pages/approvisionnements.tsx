@@ -88,6 +88,13 @@ interface ApproDecision {
 
 interface ApproItem {
   cle: string
+  /**
+   * `VCRNUM:VCRLIN:VCRSEQ` sur un message, `null` sur une suggestion — la seule
+   * clé qui joigne EXACTEMENT une ligne à son explication (#138 lot 1).
+   * `cle` ne suffit pas : elle omet la séquence, et 141 articles portent plus
+   * d'un message.
+   */
+  cleSnapshot: string | null
   nature: 'suggestion' | 'message'
   message: MessageCode | null
   article: string
@@ -182,8 +189,9 @@ interface CbnExplanation {
 interface ExplanationsResponse {
   avant: string | null
   apres: string | null
-  messages: unknown[]
-  drivers: unknown[]
+  /** Décomptes seuls — les diffs bruts vivent sur `/messages-diff` et `/drivers-diff`. */
+  nbMessages: number
+  nbDrivers: number
   explications: CbnExplanation[]
   message?: string
 }
@@ -321,10 +329,36 @@ function DecisionControl({
   )
 }
 
+/**
+ * Identité d'AFFICHAGE d'une ligne — unique, contrairement à `cle`.
+ *
+ * `cle` est la clé du ledger (`M:VCRNUM:VCRLIN`) : `COA2400006` ligne 1 porte
+ * cinq messages qui la partagent. Utilisée en `key` React, elle faisait
+ * cohabiter cinq lignes sous la même identité.
+ */
+const cleAffichage = (item: ApproItem): string => item.cleSnapshot ?? item.cle
+
+/**
+ * Explications d'une ligne — jointure EXACTE sur `cleSnapshot`
+ * (`VCRNUM:VCRLIN:VCRSEQ`), jamais approchée.
+ *
+ * Un repli par article a existé ici : il attribuait à un message les
+ * explications d'une AUTRE ligne de commande dès que l'article en portait
+ * plusieurs — 141 articles sur les 400 du parc (photo du 06/08/2026), et
+ * `COA2400006` ligne 1 en porte cinq à elle seule. Rien à l'écran ne
+ * distinguait alors une explication empruntée d'une vraie. « Non expliqué »
+ * est honnête ; une explication d'à côté ne l'est pas.
+ */
+function explicationsPour(
+  parCle: Map<string, CbnExplanation[]> | undefined,
+  item: ApproItem
+): CbnExplanation[] | undefined {
+  if (parCle === undefined || item.cleSnapshot === null) return undefined
+  return parCle.get(item.cleSnapshot)
+}
+
 function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) {
   if (explications.length === 0) return null
-  // Lot 1 : un message = une explication ; la jointure se fait par cle 3-colonnes
-  // préfixée par la cle UI 2-colonnes, ou par article en repli.
   return (
     <div className="mt-2 rounded-md border border-[#e8e8e8] bg-[#fafaf8] px-3 py-2">
       {explications.map((exp) => (
@@ -535,35 +569,15 @@ function Feuille({
 }) {
   const { dossier, suggestions, messages } = vue
   const nbItems = suggestions.length + messages.length
-  const explicationsPour = (item: ApproItem): CbnExplanation[] | undefined => {
-    if (explicationsParCle === undefined) return undefined
-    // Cle UI = M:numero:ligne, cle snapshot = numero:ligne:sequence
-    // On matche par préfixe, puis par article en repli.
-    const cleSansM = item.cle.startsWith('M:') ? item.cle.slice(2) : item.cle
-    const direct = explicationsParCle.get(cleSansM)
-    if (direct !== undefined) return direct
-    // Préfixe : CG2601534:6000 → CG2601534:6000:*
-    const prefixMatches: CbnExplanation[] = []
-    for (const [k, v] of explicationsParCle.entries()) {
-      if (k.startsWith(`${cleSansM}:`)) prefixMatches.push(...v)
-    }
-    if (prefixMatches.length > 0) return prefixMatches
-    // Repli par article (pour les 777→400, un message incompris reste expliqué)
-    const parArticle: CbnExplanation[] = []
-    for (const v of explicationsParCle.values()) {
-      for (const e of v) if (e.article === item.article) parArticle.push(e)
-    }
-    return parArticle.length > 0 ? parArticle : undefined
-  }
   const renderRows = (items: ApproItem[]) =>
     items.map((item) => (
       <ItemRow
-        key={item.cle}
+        key={cleAffichage(item)}
         item={item}
         decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
         etatEnvoi={envois[item.cle] ?? 'inerte'}
         onDecide={(statut) => onDecide(item, statut)}
-        explications={item.nature === 'message' ? explicationsPour(item) : undefined}
+        explications={explicationsPour(explicationsParCle, item)}
       />
     ))
   return (
@@ -684,36 +698,16 @@ function DossiersTraités({
                 </span>
               </summary>
               <ul className="border-t border-[#ebebeb]">
-                {items.map((item) => {
-                  let exps: CbnExplanation[] | undefined
-                  if (item.nature === 'message' && explicationsParCle !== undefined) {
-                    const cleSansM = item.cle.startsWith('M:') ? item.cle.slice(2) : item.cle
-                    const direct = explicationsParCle.get(cleSansM)
-                    if (direct !== undefined) exps = direct
-                    else {
-                      const prefix: CbnExplanation[] = []
-                      for (const [k, v] of explicationsParCle.entries())
-                        if (k.startsWith(`${cleSansM}:`)) prefix.push(...v)
-                      if (prefix.length > 0) exps = prefix
-                      else {
-                        const parArt: CbnExplanation[] = []
-                        for (const v of explicationsParCle.values())
-                          for (const e of v) if (e.article === item.article) parArt.push(e)
-                        if (parArt.length > 0) exps = parArt
-                      }
-                    }
-                  }
-                  return (
-                    <ItemRow
-                      key={item.cle}
-                      item={item}
-                      decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
-                      etatEnvoi={envois[item.cle] ?? 'inerte'}
-                      onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
-                      explications={exps}
-                    />
-                  )
-                })}
+                {items.map((item) => (
+                  <ItemRow
+                    key={cleAffichage(item)}
+                    item={item}
+                    decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+                    etatEnvoi={envois[item.cle] ?? 'inerte'}
+                    onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
+                    explications={explicationsPour(explicationsParCle, item)}
+                  />
+                ))}
               </ul>
             </details>
           )
@@ -739,6 +733,12 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   }, [explData])
   const maturationInfo =
     explData && explData.avant === null && explData.apres === null ? explData.message : null
+  // Un message DISPARU n'existe plus dans X3, donc plus dans la file : son
+  // explication est juste mais aucune ligne ne peut la porter. Les compter
+  // comme « analysés » promettait des explications introuvables à l'écran ;
+  // annoncés comme soldés, ils disent quelque chose d'utile à l'acheteur.
+  const nbSoldes = explData?.explications.filter((e) => e.natureMessage === 'disparue').length ?? 0
+  const nbAffichables = (explData?.explications.length ?? 0) - nbSoldes
   const [filtre, setFiltre] = useState<Filtre>(null)
   // Décisions locales (ledger #134) — priorité sur le payload au re-rendu.
   const [decisions, setDecisions] = useState<Record<string, DecisionStatut>>({})
@@ -966,11 +966,6 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                 <span>
                   {maturationInfo} — historique en cours de constitution (J+2 pour explications).
                 </span>
-                {explData !== null && explData.avant !== null && explData.apres !== null && (
-                  <span className="ml-auto text-xs text-amber-700">
-                    {explData.avant} → {explData.apres}
-                  </span>
-                )}
               </div>
             )}
             {explData !== null &&
@@ -983,10 +978,9 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                 <div className="mb-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800">
                   <Info size={14} className="shrink-0" />
                   <span>
-                    Explications corrélées {explData.avant} → {explData.apres} :{' '}
-                    {explData.explications.length} message
-                    {explData.explications.length > 1 ? 's' : ''} analysé
-                    {explData.explications.length > 1 ? 's' : ''}
+                    Explications corrélées {fr(explData.avant)} → {fr(explData.apres)} :{' '}
+                    {nbAffichables} message{nbAffichables > 1 ? 's' : ''} sur cette page
+                    {nbSoldes > 0 && `, ${nbSoldes} soldé${nbSoldes > 1 ? 's' : ''} depuis`}
                   </span>
                 </div>
               )}

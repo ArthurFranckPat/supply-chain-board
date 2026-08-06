@@ -84,3 +84,45 @@ test.group('cbn_driver_diff — demande et appro', () => {
     assert.equal(diff.filter((d) => d.article === 'A2').length, 1)
   })
 })
+
+/**
+ * Stock STRICT (physique − alloué) : il passe sous zéro dès que les allocations
+ * dépassent le physique. Le ratio de variation doit rester lisible dans ce cas —
+ * c'est précisément l'effondrement de stock qui explique un « avancer ».
+ */
+test.group('diffCbnDrivers — stock négatif', () => {
+  const stock = (q: number, jour: string): DemandSnapshotRow => ({
+    snapshot_date: jour,
+    source: 'stock',
+    itmref: 'A7399',
+    vcrnum: null,
+    vcrlin: null,
+    quantity: q,
+    date_echeance: null,
+    fournisseur: null,
+  })
+
+  test('une chute qui traverse zéro est signalée', ({ assert }) => {
+    const out = diffCbnDrivers([stock(100, '2026-08-05')], [stock(-100, '2026-08-06')])
+
+    assert.lengthOf(out, 1)
+    assert.equal(out[0].source, 'stock')
+    assert.equal(out[0].nature, 'quantite')
+    assert.equal(out[0].quantiteApres, -100)
+  })
+
+  test('une remontée depuis un stock négatif est signalée aussi', ({ assert }) => {
+    const out = diffCbnDrivers([stock(-100, '2026-08-05')], [stock(500, '2026-08-06')])
+
+    assert.lengthOf(out, 1)
+    assert.equal(out[0].quantiteAvant, -100)
+    assert.equal(out[0].quantiteApres, 500)
+  })
+
+  test('deux stocks négatifs proches restent sous le seuil de bruit', ({ assert }) => {
+    // −100 → −105 : 5 % de variation, sous les ±20 %. Ne doit pas ressortir.
+    const out = diffCbnDrivers([stock(-100, '2026-08-05')], [stock(-105, '2026-08-06')])
+
+    assert.lengthOf(out, 0)
+  })
+})

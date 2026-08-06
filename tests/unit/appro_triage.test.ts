@@ -244,18 +244,55 @@ test.group('appro_triage — triageDossier', () => {
 })
 
 test.group('appro_triage — triagePayload', () => {
-  test('rend une entrée par item, clé sur ApproItem.cle', ({ assert }) => {
+  test('rend une entrée par item, indexée sur cleTriage', ({ assert }) => {
     const payload = buildApproPayload(
       source({
         suggestions: [sug({ numero: 'X1', fournisseur: 'F' })],
-        messages: [msg({ numero: 'X1', ligne: 1000, fournisseur: 'F' })],
+        messages: [msg({ numero: 'X1', ligne: 1000, sequence: '1000', fournisseur: 'F' })],
       }),
       TODAY
     )
     const resultats = triagePayload(payload)
     assert.equal(resultats.size, 2)
+    // Suggestion : pas de clé de photo, on retombe sur `cle`.
     assert.isTrue(resultats.has('S:X1'))
-    assert.isTrue(resultats.has('M:X1:1000'))
+    // Message : clé COMPLÈTE, séquence comprise — cf. le test suivant.
+    assert.isTrue(resultats.has('X1:1000:1000'))
+  })
+
+  test('deux messages partageant `cle` gardent des verdicts DISTINCTS', ({ assert }) => {
+    // `COA2400006` ligne 1 porte cinq messages que seule `VCRSEQ_0` distingue,
+    // avec des échéances allant du 21/09 au 18/01 — donc des scores d'urgence
+    // opposés. Indexer sur `cle` (`M:VCRNUM:VCRLIN`, la clé du ledger) écrasait
+    // quatre verdicts sur cinq et recollait celui du dernier à toutes les lignes.
+    const payload = buildApproPayload(
+      source({
+        messages: [
+          msg({ numero: 'COA2400006', ligne: 1, sequence: '344000', date: d('2026-09-21') }),
+          msg({ numero: 'COA2400006', ligne: 1, sequence: '463000', date: d('2027-01-18') }),
+        ],
+      }),
+      TODAY
+    )
+    const resultats = triagePayload(payload)
+
+    assert.equal(resultats.size, 2)
+    const proche = resultats.get('COA2400006:1:344000')
+    const lointain = resultats.get('COA2400006:1:463000')
+    assert.isDefined(proche)
+    assert.isDefined(lointain)
+    assert.notEqual(proche!.score, lointain!.score)
+
+    // Et le verdict rattaché à chaque ligne est bien le sien.
+    const items = attacheTriage(payload).dossiers[0].items
+    assert.equal(
+      items.find((i) => i.cleSnapshot === 'COA2400006:1:344000')!.triage!.score,
+      proche!.score
+    )
+    assert.equal(
+      items.find((i) => i.cleSnapshot === 'COA2400006:1:463000')!.triage!.score,
+      lointain!.score
+    )
   })
 
   test('chaque résultat porte au moins une preuve', ({ assert }) => {
