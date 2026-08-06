@@ -112,6 +112,113 @@ export default class ApproController {
   }
 
   /**
+   * GET /api/v1/appro/messages-diff — diff des messages de replanification (#138 lot 1)
+   * entre deux photos `appro_message_snapshots`. Par défaut les deux dernières.
+   */
+  async messagesDiff(ctx: HttpContext) {
+    const avantQ = ctx.request.input('avant') as string | undefined
+    const apresQ = ctx.request.input('apres') as string | undefined
+    let avant: string | null = avantQ ?? null
+    let apres: string | null = apresQ ?? null
+    if (avant === null || apres === null) {
+      const jours = await demandSnapshotService.deuxDernieresPhotosMessages()
+      if (jours === null) {
+        return ctx.response.json({
+          avant: null,
+          apres: null,
+          parNature: null,
+          entrees: [],
+          message: 'photo(s) messages indisponible(s) — le diff a besoin de deux photos',
+        })
+      }
+      ;[apres, avant] = jours
+    }
+    const result = await demandSnapshotService.diffMessages(apres, avant)
+    if (result === null) {
+      return ctx.response.json({
+        avant,
+        apres,
+        parNature: null,
+        entrees: [],
+        message: 'photo(s) illisible(s) — le diff messages a besoin de deux photos comparables',
+      })
+    }
+    return ctx.response.json(result)
+  }
+
+  /**
+   * GET /api/v1/appro/drivers-diff — diff des drivers par article (#138 lot 1).
+   */
+  async driversDiff(ctx: HttpContext) {
+    const avantQ = ctx.request.input('avant') as string | undefined
+    const apresQ = ctx.request.input('apres') as string | undefined
+    let avant: string | null = avantQ ?? null
+    let apres: string | null = apresQ ?? null
+    if (avant === null || apres === null) {
+      const jours = await demandSnapshotService.deuxDernieresPhotosMessages()
+      // Les drivers suivent le même calendrier que les messages : on réutilise
+      // la même paire de jours pour que les deux diffs soient comparables.
+      if (jours === null) {
+        return ctx.response.json({
+          avant: null,
+          apres: null,
+          entrees: [],
+          message: 'photo(s) drivers indisponible(s) — besoin de deux photos',
+        })
+      }
+      ;[apres, avant] = jours
+    }
+    const result = await demandSnapshotService.diffDrivers(apres, avant)
+    if (result === null) {
+      return ctx.response.json({
+        avant,
+        apres,
+        entrees: [],
+        message: 'photo(s) illisible(s) — diff drivers indisponible',
+      })
+    }
+    return ctx.response.json(result)
+  }
+
+  /**
+   * GET /api/v1/appro/explanations — croisement messages × drivers (#138 lot 1).
+   * Rend par message les corrélations convergentes triées par poids, et les
+   * contradictions. Jamais "cause", seulement corrélation.
+   */
+  async explanations(ctx: HttpContext) {
+    const avantQ = ctx.request.input('avant') as string | undefined
+    const apresQ = ctx.request.input('apres') as string | undefined
+    let avant: string | null = avantQ ?? null
+    let apres: string | null = apresQ ?? null
+    if (avant === null || apres === null) {
+      const jours = await demandSnapshotService.deuxDernieresPhotosMessages()
+      if (jours === null) {
+        return ctx.response.json({
+          avant: null,
+          apres: null,
+          messages: [],
+          drivers: [],
+          explications: [],
+          message: 'photo(s) indisponible(s) — explications nécessitent deux photos',
+        })
+      }
+      ;[apres, avant] = jours
+    }
+    const result = await demandSnapshotService.explainMessages(apres, avant)
+    if (result === null) {
+      return ctx.response.json({
+        avant,
+        apres,
+        messages: [],
+        drivers: [],
+        explications: [],
+        message: 'photo(s) illisible(s) — explications indisponibles',
+      })
+    }
+    return ctx.response.json(result)
+  }
+
+  /**
    * GET /api/v1/appro/diff — diff inter-CBN des suggestions (#133) entre les
    * deux dernières photos (`demand_snapshots`, source `appro_suggestion`).
    *

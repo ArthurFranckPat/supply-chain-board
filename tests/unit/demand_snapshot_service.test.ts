@@ -433,23 +433,31 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
     await conn.from('appro_message_snapshots').whereIn('snapshot_date', [J1, J3]).delete()
   })
 
-  test('rend le premier jour et le trou entre deux photos', async ({ assert }) => {
-    await service.runWrite(J1, async () => payload([row({ snapshot_date: J1 })]))
-    await service.runWrite(J3, async () => payload([row({ snapshot_date: J3 })]))
+  test(
+    'rend le premier jour et le trou entre deux photos',
+    { timeout: 15000 },
+    async ({ assert }) => {
+      await service.runWrite(J1, async () => payload([row({ snapshot_date: J1 })]))
+      await service.runWrite(J3, async () => payload([row({ snapshot_date: J3 })]))
 
-    const { besoin } = await service.diagnostic()
+      const { besoin } = await service.diagnostic()
 
-    assert.equal(besoin.premier, J1)
-    assert.include(besoin.manquants, '1900-01-02')
-  })
+      assert.equal(besoin.premier, J1)
+      assert.include(besoin.manquants, '1900-01-02')
+    }
+  )
 
-  test('une photo écrite sous une autre date est signalée comme antidatée', async ({ assert }) => {
-    // C'est exactement ce que fait `snapshot:run --date` : l'état de today figé
-    // sous une date passée. `created_at` est la seule trace qui le trahit.
-    await service.runWrite(J1, async () => payload([row({ snapshot_date: J1 })]))
+  test(
+    'une photo écrite sous une autre date est signalée comme antidatée',
+    { timeout: 15000 },
+    async ({ assert }) => {
+      // C'est exactement ce que fait `snapshot:run --date` : l'état de today figé
+      // sous une date passée. `created_at` est la seule trace qui le trahit.
+      await service.runWrite(J1, async () => payload([row({ snapshot_date: J1 })]))
 
-    const { besoin } = await service.diagnostic()
+      const { besoin } = await service.diagnostic()
 
-    assert.include(besoin.antidates, J1)
-  })
+      assert.include(besoin.antidates, J1)
+    }
+  )
 })

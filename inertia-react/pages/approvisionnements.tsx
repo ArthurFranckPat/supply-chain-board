@@ -46,7 +46,16 @@
  */
 import { useMemo, useState } from 'react'
 import { router } from '@inertiajs/react'
-import { ArrowDown, ArrowUp, Ban, ChevronRight, CloudOff, Inbox, ShoppingCart } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  Ban,
+  ChevronRight,
+  CloudOff,
+  Inbox,
+  Info,
+  ShoppingCart,
+} from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
@@ -151,6 +160,40 @@ const MESSAGE_META: Record<MessageCode, { label: string; icon: typeof ArrowUp; c
   2: { label: 'Avancer', icon: ArrowUp, cls: 'text-[#c13515]' },
   3: { label: 'Retarder', icon: ArrowDown, cls: 'text-muted-foreground' },
   6: { label: 'Inutile', icon: Ban, cls: 'text-[#c13515]' },
+}
+
+interface CbnCorrelation {
+  source: string
+  nature: string
+  detail: string
+  poids: number
+}
+
+interface CbnExplanation {
+  cle: string
+  article: string
+  fournisseur: string | null
+  mrpmes: number | null
+  natureMessage: string
+  correlations: CbnCorrelation[]
+  contradictions: CbnCorrelation[]
+}
+
+interface ExplanationsResponse {
+  avant: string | null
+  apres: string | null
+  messages: unknown[]
+  drivers: unknown[]
+  explications: CbnExplanation[]
+  message?: string
+}
+
+const NATURE_DIFF_LABEL: Record<string, string> = {
+  apparue: 'apparu',
+  disparue: 'disparu',
+  intensifiee: 'intensifié',
+  attenuee: 'atténué',
+  modifiee: 'modifié',
 }
 
 /** Verdicts du moteur de triage (appro_triage.ts) — pastille + petites
@@ -278,17 +321,88 @@ function DecisionControl({
   )
 }
 
+function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) {
+  if (explications.length === 0) return null
+  // Lot 1 : un message = une explication ; la jointure se fait par cle 3-colonnes
+  // préfixée par la cle UI 2-colonnes, ou par article en repli.
+  return (
+    <div className="mt-2 rounded-md border border-[#e8e8e8] bg-[#fafaf8] px-3 py-2">
+      {explications.map((exp) => (
+        <div key={exp.cle} className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em]',
+                exp.natureMessage === 'apparue' && 'bg-[#c13515]/10 text-[#c13515]',
+                exp.natureMessage === 'disparue' && 'bg-muted text-muted-foreground',
+                exp.natureMessage === 'intensifiee' && 'bg-[#c13515]/10 text-[#c13515]',
+                exp.natureMessage === 'attenuee' && 'bg-[#fc642d]/15 text-[#b8430f]',
+                exp.natureMessage === 'modifiee' && 'bg-amber-100 text-amber-800',
+                !['apparue', 'disparue', 'intensifiee', 'attenuee', 'modifiee'].includes(
+                  exp.natureMessage
+                ) && 'bg-muted text-muted-foreground'
+              )}
+            >
+              {NATURE_DIFF_LABEL[exp.natureMessage] ?? exp.natureMessage}
+            </span>
+            <span className="text-[10.5px] text-muted-foreground">
+              {exp.article} · {exp.cle}
+            </span>
+          </div>
+          {exp.correlations.length > 0 ? (
+            <ul className="space-y-0.5">
+              {exp.correlations.map((c, i) => (
+                <li key={i} className="flex gap-1.5 text-[11px] leading-snug">
+                  <Info size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
+                  <span>
+                    <span className="font-semibold">{c.source}</span> — {c.detail}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-[11px] italic text-muted-foreground">
+              Non expliqué — aucune variation convergente au-delà des seuils (±20 % quantité, ±7 j)
+              sur cet article entre les deux photos.
+            </div>
+          )}
+          {exp.contradictions.length > 0 && (
+            <details className="text-[10.5px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                {exp.contradictions.length} variation{exp.contradictions.length > 1 ? 's' : ''}{' '}
+                contradictoire{exp.contradictions.length > 1 ? 's' : ''} (atténue le message)
+              </summary>
+              <ul className="mt-1 space-y-0.5">
+                {exp.contradictions.map((c, i) => (
+                  <li key={i} className="text-muted-foreground">
+                    <span className="font-medium">{c.source}</span> — {c.detail}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <div className="text-[10px] text-muted-foreground/70">
+            Corrélations, non causes — le CBN fait du netting par fenêtres.
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ItemRow({
   item,
   decisionActuelle,
   etatEnvoi,
   onDecide,
+  explications,
 }: {
   item: ApproItem
   decisionActuelle: DecisionStatut | null
   /** État du dernier POST de décision sur cette ligne. */
   etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
+  explications?: CbnExplanation[]
 }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
@@ -367,6 +481,11 @@ function ItemRow({
       <div className="md:pt-0.5">
         <DecisionControl actuelle={decisionActuelle} etatEnvoi={etatEnvoi} onDecide={onDecide} />
       </div>
+      {item.nature === 'message' && explications !== undefined && explications.length > 0 && (
+        <div className="col-span-full">
+          <ExplanationBlock explications={explications} />
+        </div>
+      )}
     </li>
   )
 }
@@ -406,14 +525,36 @@ function Feuille({
   decisions,
   envois,
   onDecide,
+  explicationsParCle,
 }: {
   vue: FeuilleVue
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
+  explicationsParCle?: Map<string, CbnExplanation[]>
 }) {
   const { dossier, suggestions, messages } = vue
   const nbItems = suggestions.length + messages.length
+  const explicationsPour = (item: ApproItem): CbnExplanation[] | undefined => {
+    if (explicationsParCle === undefined) return undefined
+    // Cle UI = M:numero:ligne, cle snapshot = numero:ligne:sequence
+    // On matche par préfixe, puis par article en repli.
+    const cleSansM = item.cle.startsWith('M:') ? item.cle.slice(2) : item.cle
+    const direct = explicationsParCle.get(cleSansM)
+    if (direct !== undefined) return direct
+    // Préfixe : CG2601534:6000 → CG2601534:6000:*
+    const prefixMatches: CbnExplanation[] = []
+    for (const [k, v] of explicationsParCle.entries()) {
+      if (k.startsWith(`${cleSansM}:`)) prefixMatches.push(...v)
+    }
+    if (prefixMatches.length > 0) return prefixMatches
+    // Repli par article (pour les 777→400, un message incompris reste expliqué)
+    const parArticle: CbnExplanation[] = []
+    for (const v of explicationsParCle.values()) {
+      for (const e of v) if (e.article === item.article) parArticle.push(e)
+    }
+    return parArticle.length > 0 ? parArticle : undefined
+  }
   const renderRows = (items: ApproItem[]) =>
     items.map((item) => (
       <ItemRow
@@ -422,6 +563,7 @@ function Feuille({
         decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
         etatEnvoi={envois[item.cle] ?? 'inerte'}
         onDecide={(statut) => onDecide(item, statut)}
+        explications={item.nature === 'message' ? explicationsPour(item) : undefined}
       />
     ))
   return (
@@ -499,11 +641,13 @@ function DossiersTraités({
   decisions,
   envois,
   onDecide,
+  explicationsParCle,
 }: {
   vues: FeuilleVue[]
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, fournisseur: string, statut: DecisionStatut) => void
+  explicationsParCle?: Map<string, CbnExplanation[]>
 }) {
   if (vues.length === 0) return null
   return (
@@ -540,15 +684,36 @@ function DossiersTraités({
                 </span>
               </summary>
               <ul className="border-t border-[#ebebeb]">
-                {items.map((item) => (
-                  <ItemRow
-                    key={item.cle}
-                    item={item}
-                    decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
-                    etatEnvoi={envois[item.cle] ?? 'inerte'}
-                    onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
-                  />
-                ))}
+                {items.map((item) => {
+                  let exps: CbnExplanation[] | undefined
+                  if (item.nature === 'message' && explicationsParCle !== undefined) {
+                    const cleSansM = item.cle.startsWith('M:') ? item.cle.slice(2) : item.cle
+                    const direct = explicationsParCle.get(cleSansM)
+                    if (direct !== undefined) exps = direct
+                    else {
+                      const prefix: CbnExplanation[] = []
+                      for (const [k, v] of explicationsParCle.entries())
+                        if (k.startsWith(`${cleSansM}:`)) prefix.push(...v)
+                      if (prefix.length > 0) exps = prefix
+                      else {
+                        const parArt: CbnExplanation[] = []
+                        for (const v of explicationsParCle.values())
+                          for (const e of v) if (e.article === item.article) parArt.push(e)
+                        if (parArt.length > 0) exps = parArt
+                      }
+                    }
+                  }
+                  return (
+                    <ItemRow
+                      key={item.cle}
+                      item={item}
+                      decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+                      etatEnvoi={envois[item.cle] ?? 'inerte'}
+                      onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
+                      explications={exps}
+                    />
+                  )
+                })}
               </ul>
             </details>
           )
@@ -560,6 +725,20 @@ function DossiersTraités({
 
 export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   const { data, loading, error, ms } = useTimedFetch<ApproResponse>(rowsHref)
+  // Lot 1 : explications corrélées (besoin de 2 photos). Indépendant du rowsHref.
+  const { data: explData } = useTimedFetch<ExplanationsResponse>('/api/v1/appro/explanations')
+  const explicationsParCle = useMemo(() => {
+    if (!explData || !explData.explications || explData.explications.length === 0) return undefined
+    const m = new Map<string, CbnExplanation[]>()
+    for (const e of explData.explications) {
+      const list = m.get(e.cle)
+      if (list === undefined) m.set(e.cle, [e])
+      else list.push(e)
+    }
+    return m
+  }, [explData])
+  const maturationInfo =
+    explData && explData.avant === null && explData.apres === null ? explData.message : null
   const [filtre, setFiltre] = useState<Filtre>(null)
   // Décisions locales (ledger #134) — priorité sur le payload au re-rendu.
   const [decisions, setDecisions] = useState<Record<string, DecisionStatut>>({})
@@ -781,6 +960,36 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                 </div>
               )}
 
+            {maturationInfo !== null && !loading && error === null && data?.x3Error == null && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                <Info size={16} className="shrink-0" />
+                <span>
+                  {maturationInfo} — historique en cours de constitution (J+2 pour explications).
+                </span>
+                {explData !== null && explData.avant !== null && explData.apres !== null && (
+                  <span className="ml-auto text-xs text-amber-700">
+                    {explData.avant} → {explData.apres}
+                  </span>
+                )}
+              </div>
+            )}
+            {explData !== null &&
+              explData.avant !== null &&
+              explData.apres !== null &&
+              explData.explications.length > 0 &&
+              !loading &&
+              error === null &&
+              data?.x3Error == null && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800">
+                  <Info size={14} className="shrink-0" />
+                  <span>
+                    Explications corrélées {explData.avant} → {explData.apres} :{' '}
+                    {explData.explications.length} message
+                    {explData.explications.length > 1 ? 's' : ''} analysé
+                    {explData.explications.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
             {!loading && error === null && data?.x3Error == null && (
               <>
                 <div className="space-y-3">
@@ -791,6 +1000,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                       decisions={decisions}
                       envois={envois}
                       onDecide={(item, statut) => poster(item, vue.dossier.fournisseur, statut)}
+                      explicationsParCle={explicationsParCle}
                     />
                   ))}
                 </div>
@@ -799,6 +1009,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                   decisions={decisions}
                   envois={envois}
                   onDecide={poster}
+                  explicationsParCle={explicationsParCle}
                 />
               </>
             )}

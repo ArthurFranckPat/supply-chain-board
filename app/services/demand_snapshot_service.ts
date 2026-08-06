@@ -11,12 +11,17 @@ import {
   type ApproDiffNature,
   type ApproSnapshotRow,
 } from '#app/domain/appro_snapshot_diff'
+import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
+import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
 import {
   couverture,
   jourIso,
   libelleMessage,
   type CouverturePhotos,
 } from '#app/domain/snapshot_couverture'
+import type { DemandSnapshotRow, ApproMessageSnapshotRow } from '#app/domain/snapshot_rows'
+export type { DemandSnapshotRow, ApproMessageSnapshotRow } from '#app/domain/snapshot_rows'
 
 /**
  * Photo quotidienne du besoin (#74 lot 1, absorbé par #98 lot 4).
@@ -56,40 +61,6 @@ import {
  * est effacée comme les autres. Confondre les deux ferait cohabiter dans une
  * même photo deux états du parc.
  */
-
-export type DemandSnapshotRow = {
-  snapshot_date: string
-  source: string
-  itmref: string
-  vcrnum: string | null
-  vcrlin: string | null
-  quantity: number
-  date_echeance: string | null
-  fournisseur: string | null
-}
-
-/** Une ligne de la photo des messages de replanification (#138 lot 0). */
-export type ApproMessageSnapshotRow = {
-  snapshot_date: string
-  /**
-   * `vcrnum` + `vcrlin` + `vcrseq` : clé STABLE d'un run CBN à l'autre (#107),
-   * contrairement aux suggestions. Les TROIS colonnes, pas les deux premières —
-   * cf. la migration : `COA2400006` ligne 1 porte cinq messages que seule la
-   * séquence distingue.
-   */
-  vcrnum: string
-  vcrlin: number
-  vcrseq: string
-  itmref: string
-  fournisseur: string | null
-  /** `MRPMES_0` : 2 = avancer, 3 = retarder, 6 = inutile. */
-  mrpmes: number
-  /** `MRPDAT_0` — date proposée par le CBN, `null` sur « inutile ». */
-  mrpdat: string | null
-  /** `ENDDAT_0` — échéance actuelle de la commande. */
-  enddat: string | null
-  quantity: number
-}
 
 /** Les deux populations d'une photo, une par table de destination. */
 export interface SnapshotPayload {
@@ -309,6 +280,136 @@ export class DemandSnapshotService {
     }
     for (const e of entrees) parNature[e.nature] += 1
     return { avant: avantDay, apres: apresDay, parNature, entrees }
+  }
+
+  /**
+   * Lignes de la photo des messages d'un jour donné (#138 lot 1).
+   * `null` si aucune photo ce jour-là.
+   */
+  async messageSnapshots(dateStr: string): Promise<ApproMessageSnapshotRow[] | null> {
+    const rows = await db
+      .connection()
+      .from('appro_message_snapshots')
+      .where('snapshot_date', dateStr)
+    if (rows.length === 0) return null
+    return rows.map((r) => ({
+      snapshot_date: String(r.snapshot_date).slice(0, 10),
+      vcrnum: String(r.vcrnum),
+      vcrlin: Number(r.vcrlin),
+      vcrseq: String(r.vcrseq),
+      itmref: String(r.itmref),
+      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+      mrpmes: Number(r.mrpmes),
+      mrpdat: r.mrpdat === null ? null : String(r.mrpdat).slice(0, 10),
+      enddat: r.enddat === null ? null : String(r.enddat).slice(0, 10),
+      quantity: Number(r.quantity),
+    }))
+  }
+
+  /**
+   * Les deux jours de photo des messages les plus récents, `[apres, avant]`.
+   * Même logique que `deuxDernieresPhotosAppro` : on lit en base, pas depuis la
+   * date du jour, pour survivre aux week-ends/pannes.
+   */
+  async deuxDernieresPhotosMessages(): Promise<[string, string] | null> {
+    const rows = await db
+      .connection()
+      .from('appro_message_snapshots')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+      .limit(2)
+    if (rows.length < 2) return null
+    const jour = (r: unknown): string => jourIso((r as { snapshot_date?: unknown }).snapshot_date)
+    return [jour(rows[0]), jour(rows[1])]
+  }
+
+  /**
+   * Diff pur des messages entre deux photos (#138 lot 1).
+   * `null` si l'une des deux photos manque — pas de faux "tout est apparu".
+   */
+  async diffMessages(
+    apresDay: string,
+    avantDay: string
+  ): Promise<{
+    avant: string
+    apres: string
+    parNature: Record<string, number>
+    entrees: CbnMessageDiffEntry[]
+  } | null> {
+    const [avant, apres] = await Promise.all([
+      this.messageSnapshots(avantDay),
+      this.messageSnapshots(apresDay),
+    ])
+    if (avant === null || apres === null) return null
+    const entrees = diffApproMessageSnapshots(avant, apres)
+    const parNature: Record<string, number> = {
+      apparue: 0,
+      disparue: 0,
+      intensifiee: 0,
+      attenuee: 0,
+      modifiee: 0,
+    }
+    for (const e of entrees) parNature[e.nature] = (parNature[e.nature] ?? 0) + 1
+    return { avant: avantDay, apres: apresDay, parNature, entrees }
+  }
+
+  /**
+   * Diff des drivers par article entre deux photos (#138 lot 1).
+   * `null` si l'une des deux photos manque.
+   */
+  async diffDrivers(
+    apresDay: string,
+    avantDay: string
+  ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
+    const conn = db.connection()
+    const [avantRows, apresRows] = await Promise.all([
+      conn.from('demand_snapshots').where('snapshot_date', avantDay),
+      conn.from('demand_snapshots').where('snapshot_date', apresDay),
+    ])
+    if (avantRows.length === 0 || apresRows.length === 0) return null
+    const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
+      snapshot_date: String(r.snapshot_date).slice(0, 10),
+      source: String(r.source),
+      itmref: String(r.itmref),
+      vcrnum: r.vcrnum === null ? null : String(r.vcrnum),
+      vcrlin: r.vcrlin === null ? null : String(r.vcrlin),
+      quantity: Number(r.quantity),
+      date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
+      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+    })
+    const avant: DemandSnapshotRow[] = avantRows.map(toRow)
+    const apres: DemandSnapshotRow[] = apresRows.map(toRow)
+    const entrees = diffCbnDrivers(avant, apres)
+    return { avant: avantDay, apres: apresDay, entrees }
+  }
+
+  /**
+   * Explication : croise diff messages × diff drivers (#138 lot 1).
+   * `null` si l'une des deux photos manque côté messages ou côté besoin.
+   */
+  async explainMessages(
+    apresDay: string,
+    avantDay: string
+  ): Promise<{
+    avant: string
+    apres: string
+    messages: CbnMessageDiffEntry[]
+    drivers: DriverDiffEntry[]
+    explications: CbnExplanation[]
+  } | null> {
+    const [msgDiff, drvDiff] = await Promise.all([
+      this.diffMessages(apresDay, avantDay),
+      this.diffDrivers(apresDay, avantDay),
+    ])
+    if (msgDiff === null || drvDiff === null) return null
+    const explications = explainCbnMessages(msgDiff.entrees, drvDiff.entrees)
+    return {
+      avant: avantDay,
+      apres: apresDay,
+      messages: msgDiff.entrees,
+      drivers: drvDiff.entrees,
+      explications,
+    }
   }
 
   /**
