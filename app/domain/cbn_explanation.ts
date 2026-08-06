@@ -22,6 +22,23 @@ import type { DriverDiffEntry } from '#app/domain/cbn_driver_diff'
  *  3 = stock, demande_ferme, appro (réceptions)
  *  2 = of_ferme/of_planifie, demande_prevision
  *
+ * ## Scoring de confiance (lot 2)
+ *
+ * Chaque corrélation porte une `part` (part relative de l'explication, poids
+ * normalisé sur les corrélations convergentes) et une `confiance` (0-1) :
+ *
+ * - base par poids de source : 3 → 0,85, 2 → 0,70, 1 → 0,55 ;
+ * - corroboration : plusieurs facteurs convergents renforcent (+0,10) ;
+ * - contradiction : un signal qui atténue le message baisse la confiance
+ *   (−0,15) — c'est le chaînon manquant entre les lots 1 et 2 : le lot 1
+ *   détectait déjà les contradictions, le lot 2 les fait peser.
+ *
+ * L'explication porte un `niveau` : `directe` / `probable` / `correlation` /
+ * `non_explique`, et une `couverture` (0-1) : part pondérée de la variation
+ * identifiée qui pousse dans le sens du message. Règle d'UI transverse :
+ * jamais le mot « cause » sur une corrélation — les niveaux se lisent
+ * « corrélation directe », « probable », « corrélation », « non expliqué ».
+ *
  * ## Ce que le moteur refuse d'expliquer
  *
  * `of_suggestion` et `appro_suggestion` sont ÉCARTÉES, alors qu'elles pèsent
@@ -42,7 +59,18 @@ export interface CbnCorrelation {
   nature: string
   detail: string
   poids: number
+  /**
+   * Part relative de l'explication (0-1), poids normalisé sur les corrélations
+   * convergentes. 0 sur une corrélation contradictoire (elle n'explique pas,
+   * elle atténue).
+   */
+  part: number
+  /** Confiance (0-1) de cette corrélation — cf. scoring dans la docstring. */
+  confiance: number
 }
+
+/** Niveau de confiance d'une explication — jamais « cause » (règle d'UI). */
+export type CbnNiveau = 'directe' | 'probable' | 'correlation' | 'non_explique'
 
 export interface CbnExplanation {
   cle: string
@@ -55,6 +83,16 @@ export interface CbnExplanation {
   correlations: CbnCorrelation[]
   /** Contradictoires (atténuent le message), informatifs seulement. */
   contradictions: CbnCorrelation[]
+  /** Niveau de confiance de l'explication. */
+  niveau: CbnNiveau
+  /**
+   * Couverture (0-1) : part pondérée de la variation identifiée qui pousse
+   * dans le sens du message (`∑ convergent / ∑ convergent + contradictoire`).
+   * 0 = non expliqué.
+   */
+  couverture: number
+  /** Phrase de synthèse pour l'UI. */
+  synthese: string
 }
 
 /** Sorties du CBN, jamais des causes — cf. docstring du module. */
@@ -68,6 +106,25 @@ const poidsSource: Record<string, number> = {
 }
 
 const poidsDe = (source: string): number => poidsSource[source] ?? 1
+
+/** Confiance de base par poids de source (3 → 0,85, 2 → 0,70, 1 → 0,55). */
+const CONF_BASE: Record<number, number> = { 3: 0.85, 2: 0.7, 1: 0.55 }
+/** Plusieurs facteurs convergents renforcent la confiance (corroboration). */
+const BONUS_CORROBORATION = 0.1
+/** Un signal contradictoire baisse la confiance (atténue le message). */
+const MALUS_CONTRADICTION = 0.15
+const CONF_MIN = 0.1
+const CONF_MAX = 0.95
+
+const clampConfiance = (v: number): number =>
+  Math.min(CONF_MAX, Math.max(CONF_MIN, Math.round(v * 100) / 100))
+
+const confiance = (poids: number, nbConvergents: number, nbContradictions: number): number =>
+  clampConfiance(
+    (CONF_BASE[poids] ?? 0.55) +
+      (nbConvergents >= 2 ? BONUS_CORROBORATION : 0) -
+      (nbContradictions > 0 ? MALUS_CONTRADICTION : 0)
+  )
 
 function isConvergent(
   code: number | null,
@@ -309,6 +366,10 @@ export function explainCbnMessages(
         nature: d.nature,
         detail: d.detail,
         poids: poidsDe(d.source),
+        // Remplis après le tri : `part` est un poids NORMALISÉ sur la liste
+        // finale, `confiance` dépend du nombre de convergents/contradictions.
+        part: 0,
+        confiance: 0,
       }
       if (cls === 'convergent') convergent.push(cor)
       else contradictoire.push(cor)
@@ -316,6 +377,47 @@ export function explainCbnMessages(
 
     convergent.sort((a, b) => b.poids - a.poids)
     contradictoire.sort((a, b) => b.poids - a.poids)
+
+    // Scoring de confiance (lot 2). La part est normalisée sur les seules
+    // corrélations convergentes : une contradictoire n'explique pas, elle
+    // atténue — sa part vaut 0 et elle ne dilue pas le poids des vraies.
+    const totalConvergent = convergent.reduce((s, c) => s + c.poids, 0)
+    const totalContradictoire = contradictoire.reduce((s, c) => s + c.poids, 0)
+    for (const c of convergent) {
+      c.part = totalConvergent > 0 ? Math.round((c.poids / totalConvergent) * 100) / 100 : 0
+      c.confiance = confiance(c.poids, convergent.length, contradictoire.length)
+    }
+    // Les contradictoires gardent `confiance: 0` (valeur initiale) : elles ne
+    // sont que des avertissements dans l'UI, le bonus de corroboration ne leur
+    // est pas destiné — et aucune interface ne lit leur confiance.
+
+    // Couverture : part pondérée de la variation identifiée qui pousse dans le
+    // sens du message. 1 si aucune contradiction — tout ce qu'on a vu va dans
+    // son sens. 0 si aucun convergent — non expliqué.
+    const couverture =
+      totalConvergent + totalContradictoire > 0
+        ? Math.round((totalConvergent / (totalConvergent + totalContradictoire)) * 100) / 100
+        : 0
+
+    const maxConfiance = convergent.length > 0 ? Math.max(...convergent.map((c) => c.confiance)) : 0
+    const niveau: CbnNiveau =
+      convergent.length === 0
+        ? 'non_explique'
+        : couverture >= 0.8 && maxConfiance >= 0.8
+          ? 'directe'
+          : couverture >= 0.6
+            ? 'probable'
+            : 'correlation'
+
+    const sources = convergent.map((c) => c.source).join(', ')
+    const synthese =
+      convergent.length === 0
+        ? `Non expliqué — aucune variation convergente au-delà des seuils (±20 % quantité, ±7 j) sur ${m.article}.`
+        : `Corrélation${convergent.length > 1 ? 's' : ''} ${sources} — couverture ${Math.round(couverture * 100)} %` +
+          (contradictoire.length > 0
+            ? `, ${contradictoire.length} contradiction${contradictoire.length > 1 ? 's' : ''}`
+            : '') +
+          '.'
 
     return {
       cle: m.cle,
@@ -325,6 +427,9 @@ export function explainCbnMessages(
       natureMessage: m.nature,
       correlations: convergent,
       contradictions: contradictoire,
+      niveau,
+      couverture,
+      synthese,
     }
   })
 }

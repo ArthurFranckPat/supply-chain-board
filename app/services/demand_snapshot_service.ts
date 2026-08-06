@@ -15,10 +15,12 @@ import {
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
+import { detectPatterns, type ApproPatterns } from '#app/domain/cbn_patterns'
 import {
   couverture,
   jourIso,
   libelleMessage,
+  photoLaPlusProche,
   type CouverturePhotos,
 } from '#app/domain/snapshot_couverture'
 import type { DemandSnapshotRow, ApproMessageSnapshotRow } from '#app/domain/snapshot_rows'
@@ -343,6 +345,86 @@ export class DemandSnapshotService {
   }
 
   /**
+   * La paire de photos couvrant une fenêtre de `fenetreJours` jours, `[apres,
+   * avant]` (#138 lot 2).
+   *
+   * `apres` = photo la plus récente. `avant` = photo la plus proche de
+   * `apres - fenetreJours` — jamais une date déduite : on lit les photos
+   * EXISTANTES et on prend la plus proche de la cible, pour survivre aux
+   * week-ends, aux lundis et aux pannes. La fenêtre réelle peut donc être plus
+   * courte que demandée — l'écran affiche les dates réelles.
+   *
+   * `null` s'il n'y a pas au moins deux photos.
+   */
+  async photosMessagesFenetre(fenetreJours: number): Promise<[string, string] | null> {
+    const rows = await db
+      .connection()
+      .from('appro_message_snapshots')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+      .limit(62)
+    const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
+    return photoLaPlusProche(dates, fenetreJours)
+  }
+
+  /**
+   * La paire de photos couvrant une fenêtre de `fenetreJours` jours sur le
+   * calendrier du BESOIN (`demand_snapshots`), `[apres, avant]` (#138 lot 2).
+   *
+   * Distinct de `photosMessagesFenetre` : les deux calendriers peuvent diverger
+   * d'un jour quand l'extraction CBN échoue seule (garde-fou par source, lot
+   * 0). `/drivers-diff` DOIT suivre le calendrier du besoin — emprunter celui
+   * des messages renverrait « illisible » alors que des photos besoin existent.
+   */
+  async photosBesoinFenetre(fenetreJours: number): Promise<[string, string] | null> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+      .limit(62)
+    const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
+    return photoLaPlusProche(dates, fenetreJours)
+  }
+
+  /**
+   * Patterns émergents sur une fenêtre (#138 lot 2) : articles volatils et
+   * fournisseurs dont une part élevée des messages est liée à des réceptions
+   * glissées. Lit les photos de messages de la fenêtre et les explications du
+   * dernier diff de la fenêtre.
+   *
+   * `null` si moins de deux photos dans la table — les patterns ont besoin
+   * d'historique, le diff J-1 seul ne suffit pas.
+   */
+  async patterns(fenetreJours: number): Promise<ApproPatterns | null> {
+    const photos = await this.photosMessagesFenetre(fenetreJours)
+    if (photos === null) return null
+    const [apres, avant] = photos
+    const [lignes, explications] = await Promise.all([
+      db
+        .connection()
+        .from('appro_message_snapshots')
+        .where('snapshot_date', '<=', apres)
+        .andWhere('snapshot_date', '>=', avant),
+      this.explainMessages(apres, avant),
+    ])
+    if (explications === null) return null
+    const lignesTypées: ApproMessageSnapshotRow[] = lignes.map((r) => ({
+      snapshot_date: String(r.snapshot_date).slice(0, 10),
+      vcrnum: String(r.vcrnum),
+      vcrlin: Number(r.vcrlin),
+      vcrseq: String(r.vcrseq),
+      itmref: String(r.itmref),
+      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+      mrpmes: Number(r.mrpmes),
+      mrpdat: r.mrpdat === null ? null : String(r.mrpdat).slice(0, 10),
+      enddat: r.enddat === null ? null : String(r.enddat).slice(0, 10),
+      quantity: Number(r.quantity),
+    }))
+    return detectPatterns(lignesTypées, explications.explications, fenetreJours)
+  }
+
+  /**
    * Diff pur des messages entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque — pas de faux "tout est apparu".
    */
@@ -425,8 +507,12 @@ export class DemandSnapshotService {
     // `getOrSetForever` et non `getOrSet` : il n'y a pas de fraîcheur à
     // rattraper, la clé change d'elle-même quand une nouvelle photo arrive.
     // Valeur en LECTURE SEULE (cf. `cache_ns.ts`) — personne ne la mute ici.
+    //
+    // Suffixe `v2` : le lot 2 a changé la SHAPE de l'explication (niveau,
+    // couverture, part, confiance). Sans lui, les entrées figées par le lot 1
+    // pour les mêmes jours resteraient servies sans les nouveaux champs.
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:explications:${avantDay}:${apresDay}`,
+      key: `appro:explications:v2:${avantDay}:${apresDay}`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),

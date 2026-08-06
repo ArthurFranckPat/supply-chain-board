@@ -455,3 +455,33 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
     assert.include(besoin.antidates, J1)
   }).timeout(15_000)
 })
+
+test.group('DemandSnapshotService — fenêtre de photos (lot 2)', (group) => {
+  const conn = db.connection()
+  const service = new ProbeService()
+  // Dates loin dans le FUTUR : la table réelle porte déjà des photos (2026),
+  // et `photosMessagesFenetre` lit la plus récente. Des dates sentinelles
+  // passées trieraient sous les vraies photos et le test lirait la prod.
+  const DATES = ['2099-01-01', '2099-01-08', '2099-01-15', '2099-01-20']
+
+  group.each.teardown(async () => {
+    // `runWrite` écrit dans LES DEUX tables : purger aussi `demand_snapshots`,
+    // sinon les lignes 2099 y restent après le run et polluent les tests suivants.
+    await conn.from('demand_snapshots').whereIn('snapshot_date', DATES).delete()
+    await conn.from('appro_message_snapshots').whereIn('snapshot_date', DATES).delete()
+  })
+
+  test('lit les photos et délègue le choix de la fenêtre à photoLaPlusProche', async ({
+    assert,
+  }) => {
+    for (const d of DATES)
+      await service.runWrite(d, async () =>
+        payload([row({ snapshot_date: d })], [msg({ snapshot_date: d })])
+      )
+
+    const [apres, avant] = (await service.photosMessagesFenetre(7))!
+
+    assert.equal(apres, '2099-01-20')
+    assert.equal(avant, '2099-01-15')
+  }).timeout(15_000)
+})

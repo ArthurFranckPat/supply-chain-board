@@ -10,7 +10,9 @@ import {
   estCleMessage,
   isApproDecisionStatut,
 } from '#app/domain/appro_decision'
+import { autoEvaluation } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
+import { fenetreValide } from '#app/domain/snapshot_couverture'
 
 /**
  * Page « Approvisionnements » (issue #103) : ce que le CBN de X3 propose côté
@@ -59,10 +61,16 @@ export default class ApproController {
    * append-only #134, décision #112). Rien n'est écrit dans X3 en v1.
    *
    * Corps : `{ nature: 'suggestion', statut, article, fournisseur, echeance,
-   * quantite }` — la clé est le couple fournisseur × article, l'échéance et la
-   * quantité sont stockées comme instantané pour la tolérance #112 ; ou
-   * `{ nature: 'message', statut, cle, article }` — la clé stable (#107) est
-   * reprise TELLE QUELLE de la ligne affichée.
+   * quantite, causePredit?, confiancePredit?, verdictPredit? }` — la clé est le
+   * couple fournisseur × article, l'échéance et la quantité sont stockées comme
+   * instantané pour la tolérance #112 ; ou `{ nature: 'message', statut, cle,
+   * article, causePredit?, confiancePredit?, verdictPredit? }` — la clé stable
+   * (#107) est reprise TELLE QUELLE de la ligne affichée.
+   *
+   * `causePredit` / `confiancePredit` / `verdictPredit` (#138 lot 2) : ce que
+   * le moteur d'explication et le triage disaient au moment de la décision,
+   * figés pour l'auto-évaluation. Optionnels — une ligne sans explication n'a
+   * rien à figer.
    *
    * Le client ne rebâtit jamais une clé : il renvoie celle qu'il a reçue. Un
    * découpage puis une reconstruction `M:numero:ligne` de part et d'autre du
@@ -85,6 +93,25 @@ export default class ApproController {
     const quantite = Number(body.quantite ?? 0)
     const echeance: string | null =
       body.echeance === null || body.echeance === undefined ? null : String(body.echeance)
+    const causePredit: string | null =
+      body.causePredit === null || body.causePredit === undefined ? null : String(body.causePredit)
+    // Une chaîne vide doit rester `null`, pas devenir 0 : `Number('') === 0`,
+    // et une confiance prédite à 0 changerait silencieusement le sens de
+    // l'auto-évaluation (une ligne sans prédiction ne doit pas peser comme une
+    // prédiction à confiance nulle).
+    const confianceBrut = body.confiancePredit === '' ? Number.NaN : Number(body.confiancePredit)
+    const confiancePredit: number | null =
+      body.confiancePredit === null ||
+      body.confiancePredit === undefined ||
+      !Number.isFinite(confianceBrut) ||
+      confianceBrut < 0 ||
+      confianceBrut > 1
+        ? null
+        : Math.round(confianceBrut * 100) / 100
+    const verdictPredit: string | null =
+      body.verdictPredit === null || body.verdictPredit === undefined
+        ? null
+        : String(body.verdictPredit)
 
     if (nature === 'suggestion') {
       if (article === '') {
@@ -107,6 +134,9 @@ export default class ApproController {
       fournisseur,
       quantite,
       echeance,
+      causePredit,
+      confiancePredit,
+      verdictPredit,
     })
     return ctx.response.json({ cleLogique, statut, decidedAt: row.decidedAt })
   }
@@ -118,10 +148,14 @@ export default class ApproController {
   async messagesDiff(ctx: HttpContext) {
     const avantQ = ctx.request.input('avant') as string | undefined
     const apresQ = ctx.request.input('apres') as string | undefined
+    const fenetreQ = fenetreValide(ctx.request.input('fenetre'))
     let avant: string | null = avantQ ?? null
     let apres: string | null = apresQ ?? null
     if (avant === null || apres === null) {
-      const jours = await demandSnapshotService.deuxDernieresPhotosMessages()
+      const jours =
+        fenetreQ !== null
+          ? await demandSnapshotService.photosMessagesFenetre(fenetreQ)
+          : await demandSnapshotService.deuxDernieresPhotosMessages()
       if (jours === null) {
         return ctx.response.json({
           avant: null,
@@ -152,6 +186,7 @@ export default class ApproController {
   async driversDiff(ctx: HttpContext) {
     const avantQ = ctx.request.input('avant') as string | undefined
     const apresQ = ctx.request.input('apres') as string | undefined
+    const fenetreQ = fenetreValide(ctx.request.input('fenetre'))
     let avant: string | null = avantQ ?? null
     let apres: string | null = apresQ ?? null
     if (avant === null || apres === null) {
@@ -162,7 +197,10 @@ export default class ApproController {
       // jours où la photo du besoin n'existe pas — `null`, et un écran vide
       // sans raison lisible. `/explanations` croise les deux et impose, lui,
       // le calendrier des messages : c'est son objet.
-      const jours = await demandSnapshotService.deuxDernieresPhotosBesoin()
+      const jours =
+        fenetreQ !== null
+          ? await demandSnapshotService.photosBesoinFenetre(fenetreQ)
+          : await demandSnapshotService.deuxDernieresPhotosBesoin()
       if (jours === null) {
         return ctx.response.json({
           avant: null,
@@ -193,10 +231,14 @@ export default class ApproController {
   async explanations(ctx: HttpContext) {
     const avantQ = ctx.request.input('avant') as string | undefined
     const apresQ = ctx.request.input('apres') as string | undefined
+    const fenetreQ = fenetreValide(ctx.request.input('fenetre'))
     let avant: string | null = avantQ ?? null
     let apres: string | null = apresQ ?? null
     if (avant === null || apres === null) {
-      const jours = await demandSnapshotService.deuxDernieresPhotosMessages()
+      const jours =
+        fenetreQ !== null
+          ? await demandSnapshotService.photosMessagesFenetre(fenetreQ)
+          : await demandSnapshotService.deuxDernieresPhotosMessages()
       if (jours === null) {
         return ctx.response.json({
           avant: null,
@@ -257,5 +299,41 @@ export default class ApproController {
       })
     }
     return ctx.response.json(result)
+  }
+
+  /**
+   * GET /api/v1/appro/patterns — patterns émergents (#138 lot 2) : articles
+   * volatils et fournisseurs dont une part élevée des messages est liée à des
+   * réceptions glissées. Fenêtre par défaut : 21 jours (3 semaines — la
+   * maturation qui rend les patterns lisibles).
+   */
+  async patterns(ctx: HttpContext) {
+    const fenetre = fenetreValide(ctx.request.input('fenetre')) ?? 21
+    const result = await demandSnapshotService.patterns(fenetre)
+    if (result === null) {
+      return ctx.response.json({
+        apres: null,
+        avant: null,
+        fenetreJours: fenetre,
+        joursCouverts: 0,
+        articles: [],
+        fournisseurs: [],
+        message:
+          'historique insuffisant — photos des messages manquantes, ou drivers indisponibles sur la fenêtre',
+      })
+    }
+    return ctx.response.json(result)
+  }
+
+  /**
+   * GET /api/v1/appro/auto-evaluation — taux d'override du ledger par cause
+   * prédite (#138 lot 2). Lit le ledger non expiré, agrège par
+   * `cause_predit` ; un override = la décision contredit le verdict prédit
+   * (`estOverride`).
+   */
+  async autoEvaluation(ctx: HttpContext) {
+    const repo = new ApproDecisionRepository()
+    const lignes = await repo.dernieresNonExpirees()
+    return ctx.response.json(autoEvaluation(lignes))
   }
 }

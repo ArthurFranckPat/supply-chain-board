@@ -121,6 +121,79 @@ export const estOverride = (
   return false
 }
 
+/**
+ * Auto-évaluation du moteur d'explication (#138 lot 2) : taux d'override du
+ * ledger PAR SOURCE prédite.
+ *
+ * Chaque décision du ledger porte `causePredit` (source dominante de la
+ * corrélation) et `verdictPredit` (verdict du triage au moment de la
+ * décision). Un override = la décision contredit le verdict (`estOverride`).
+ * L'agrégation par source répond à : « quand le moteur corrélait avec le
+ * stock, l'acheteur a-t-il suivi ou ignoré ? » — le signal d'une règle fausse
+ * ou d'un master data pourri (#106, boucle de feedback).
+ *
+ * Le verdict `investiguer` n'est pas un override (`estOverride` lot 1) :
+ * « investiguer » est une injonction à VÉRIFIER, pas à agir — l'ignorer après
+ * vérification n'est pas une contradiction du moteur.
+ *
+ * Pur, sans I/O : l'appelant passe les lignes du ledger.
+ */
+export interface OverrideParSource {
+  source: string
+  /** Décisions portant cette cause prédite. */
+  total: number
+  /** Dont décisions qui contredisent le verdict prédit. */
+  overrides: number
+  /** Taux 0-1, `null` si aucune décision. */
+  taux: number | null
+}
+
+export interface AutoEvaluation {
+  /** Décisions analysées (avec cause prédite), hors suggestions. */
+  total: number
+  overrides: number
+  /** Taux global 0-1, `null` si aucune décision. */
+  tauxGlobal: number | null
+  parSource: OverrideParSource[]
+}
+
+export function autoEvaluation(
+  rows: Array<{
+    causePredit: string | null
+    verdictPredit: string | null
+    statut: ApproDecisionStatut
+  }>
+): AutoEvaluation {
+  const avecCause = rows.filter((r) => r.causePredit !== null)
+  const parSource = new Map<string, { total: number; overrides: number }>()
+  let overrides = 0
+  for (const r of avecCause) {
+    const source = r.causePredit ?? ''
+    const agg = parSource.get(source) ?? { total: 0, overrides: 0 }
+    agg.total += 1
+    if (estOverride(r.verdictPredit ?? undefined, r.statut)) {
+      agg.overrides += 1
+      overrides += 1
+    }
+    parSource.set(source, agg)
+  }
+  const liste: OverrideParSource[] = [...parSource.entries()]
+    .map(([source, agg]) => ({
+      source,
+      total: agg.total,
+      overrides: agg.overrides,
+      taux: agg.total > 0 ? Math.round((agg.overrides / agg.total) * 100) / 100 : null,
+    }))
+    .sort((a, b) => b.total - a.total)
+  return {
+    total: avecCause.length,
+    overrides,
+    tauxGlobal:
+      avecCause.length > 0 ? Math.round((overrides / avecCause.length) * 100) / 100 : null,
+    parSource: liste,
+  }
+}
+
 /** Décision affichée sur une ligne de la file. */
 export interface ApproDecision {
   statut: ApproDecisionStatut

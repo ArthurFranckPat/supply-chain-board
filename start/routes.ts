@@ -322,6 +322,15 @@ router
     router
       .get('/api/v1/appro/explanations', '#controllers/appro_controller.explanations')
       .as('appro.explanations')
+    // Patterns émergents (#138 lot 2) — articles volatils, fournisseurs dont
+    // une part élevée des messages est liée à des réceptions glissées.
+    router
+      .get('/api/v1/appro/patterns', '#controllers/appro_controller.patterns')
+      .as('appro.patterns')
+    // Auto-évaluation (#138 lot 2) — taux d'override du ledger par cause prédite.
+    router
+      .get('/api/v1/appro/auto-evaluation', '#controllers/appro_controller.autoEvaluation')
+      .as('appro.autoEvaluation')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router

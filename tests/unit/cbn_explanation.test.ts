@@ -345,3 +345,137 @@ test.group('explainCbnMessages — asymétries comblées', () => {
     assert.equal(exp.correlations[0].poids, 3)
   })
 })
+
+/**
+ * Scoring de confiance (#138 lot 2) : part normalisée, confiance par
+ * corroboration/contradiction, couverture, niveau et synthèse.
+ */
+test.group('explainCbnMessages — scoring de confiance (lot 2)', () => {
+  const msgCode = (code: number): CbnMessageDiffEntry => ({
+    nature: 'apparue',
+    vcrnum: 'CG2601534',
+    vcrlin: 6000,
+    vcrseq: '1000',
+    cle: 'CG2601534:6000:1000',
+    article: 'A7399',
+    fournisseur: '16012',
+    mrpmesAvant: null,
+    mrpmesApres: code,
+    mrpdatAvant: null,
+    mrpdatApres: code === 6 ? null : '2026-08-09',
+    enddatAvant: null,
+    enddatApres: '2026-08-16',
+    decalageAvant: null,
+    decalageApres: code === 6 ? null : -7,
+    detail: 'Message apparu.',
+  })
+
+  const driver = (
+    source: DriverDiffEntry['source'],
+    avant: number,
+    apres: number
+  ): DriverDiffEntry =>
+    ({
+      article: 'A7399',
+      source,
+      nature: 'quantite',
+      quantiteAvant: avant,
+      quantiteApres: apres,
+      echeanceAvant: '2026-09-01',
+      echeanceApres: '2026-09-01',
+      detail: `${source} quantité ${avant} → ${apres}.`,
+    }) as DriverDiffEntry
+
+  test('stock baisse + demande hausse : couverture 1, niveau directe, parts sommées à 1', ({
+    assert,
+  }) => {
+    const [exp] = explainCbnMessages(
+      [msgCode(2)],
+      // stock baisse (3) + demande ferme HAUSSE (3) → deux convergents pour avancer
+      [driver('stock', 1200, 740), driver('demande_ferme', 400, 800)]
+    )
+
+    assert.lengthOf(exp.correlations, 2)
+    assert.equal(exp.couverture, 1)
+    assert.equal(exp.niveau, 'directe')
+    // parts normalisées sur les convergents : 3/(3+3) = 0.5 chacune
+    assert.equal(exp.correlations[0].part + exp.correlations[1].part, 1)
+    assert.isAtLeast(exp.correlations[0].confiance, 0.8)
+    assert.match(exp.synthese, /stock/)
+  })
+
+  test('contradiction à parité : couverture 0,5 et niveau corrélation', ({ assert }) => {
+    // stock baisse (convergent, 3) + demande baisse (contradictoire pour
+    // avancer, 3) → couverture 3/6 = 0.5
+    const [exp] = explainCbnMessages(
+      [msgCode(2)],
+      [driver('stock', 1200, 740), driver('demande_ferme', 800, 400)]
+    )
+
+    assert.lengthOf(exp.correlations, 1)
+    assert.lengthOf(exp.contradictions, 1)
+    assert.equal(exp.couverture, 0.5)
+    assert.equal(exp.niveau, 'correlation')
+    assert.match(exp.synthese, /contradiction/)
+  })
+
+  test('contradiction minoritaire : couverture 0,75 → probable', ({ assert }) => {
+    // stock baisse (3) + demande hausse (3) convergent, demande_prevision
+    // baisse (2) contradictoire → couverture 6/8 = 0.75
+    const [exp] = explainCbnMessages(
+      [msgCode(2)],
+      [
+        driver('stock', 1200, 740),
+        driver('demande_ferme', 400, 800),
+        driver('demande_prevision', 300, 100),
+      ]
+    )
+
+    assert.equal(exp.couverture, 0.75)
+    assert.equal(exp.niveau, 'probable')
+  })
+
+  test('une contradiction abaisse la confiance de la corrélation', ({ assert }) => {
+    const sansContradiction = explainCbnMessages([msgCode(2)], [driver('stock', 1200, 740)])
+    const avecContradiction = explainCbnMessages(
+      [msgCode(2)],
+      [driver('stock', 1200, 740), driver('demande_ferme', 800, 400)]
+    )
+
+    const c1 = sansContradiction[0].correlations[0].confiance
+    const c2 = avecContradiction[0].correlations[0].confiance
+    assert.isAbove(c1, c2)
+  })
+
+  test('aucun convergent : non expliqué, couverture 0', ({ assert }) => {
+    const [exp] = explainCbnMessages([msgCode(2)], [])
+
+    assert.lengthOf(exp.correlations, 0)
+    assert.equal(exp.couverture, 0)
+    assert.equal(exp.niveau, 'non_explique')
+    assert.match(exp.synthese, /Non expliqué/)
+  })
+
+  test('une seule corrélation de poids 2 : probable, pas directe (maxConfiance < 0,8)', ({
+    assert,
+  }) => {
+    // of_ferme a poids 2 → confiance de base 0,70 (< 0,8) même avec couverture 1 :
+    // le niveau doit rester « probable », jamais « directe ».
+    const ofApparu: DriverDiffEntry = {
+      article: 'A7399',
+      source: 'of_ferme',
+      nature: 'apparue',
+      quantiteAvant: null,
+      quantiteApres: 500,
+      echeanceAvant: null,
+      echeanceApres: '2026-09-10',
+      detail: 'of_ferme apparu : 500 unités.',
+    }
+    const [exp] = explainCbnMessages([msgCode(2)], [ofApparu])
+
+    assert.lengthOf(exp.correlations, 1)
+    assert.equal(exp.couverture, 1)
+    assert.isBelow(exp.correlations[0].confiance, 0.8)
+    assert.equal(exp.niveau, 'probable')
+  })
+})

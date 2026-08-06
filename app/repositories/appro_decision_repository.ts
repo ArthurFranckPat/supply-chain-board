@@ -20,6 +20,12 @@ export interface ApproDecisionRow {
   fournisseur: string | null
   quantite: number
   echeance: string | null
+  /** Source dominante prédite par le moteur d'explication au moment de la décision (#138 lot 2). */
+  causePredit: string | null
+  /** Confiance 0-1 prédite par le moteur d'explication (#138 lot 2). */
+  confiancePredit: number | null
+  /** Verdict du triage au moment de la décision (#138 lot 2). */
+  verdictPredit: string | null
   /** Dernier jour où la clé a été vue dans la file complète, ISO. */
   lastSeenAt: string | null
   expiree: boolean
@@ -49,6 +55,13 @@ const mapRow = (r: RawRow): ApproDecisionRow => ({
   fournisseur: r.fournisseur === null ? null : str(r.fournisseur),
   quantite: num(r.quantite),
   echeance: iso(r.echeance),
+  causePredit: r.cause_predit === null || r.cause_predit === undefined ? null : str(r.cause_predit),
+  confiancePredit:
+    r.confiance_predit === null || r.confiance_predit === undefined
+      ? null
+      : Number(r.confiance_predit),
+  verdictPredit:
+    r.verdict_predit === null || r.verdict_predit === undefined ? null : str(r.verdict_predit),
   lastSeenAt: iso(r.last_seen_at),
   expiree: bool(r.expiree),
   decidedAt: iso(r.decided_at) ?? '',
@@ -71,6 +84,9 @@ export class ApproDecisionRepository {
     fournisseur: string | null
     quantite: number
     echeance: string | null
+    causePredit?: string | null
+    confiancePredit?: number | null
+    verdictPredit?: string | null
   }): Promise<ApproDecisionRow> {
     const decidedAt = new Date().toISOString()
     const jour = decidedAt.slice(0, 10)
@@ -82,6 +98,9 @@ export class ApproDecisionRepository {
       fournisseur: input.fournisseur,
       quantite: input.quantite,
       echeance: input.echeance,
+      cause_predit: input.causePredit ?? null,
+      confiance_predit: input.confiancePredit ?? null,
+      verdict_predit: input.verdictPredit ?? null,
       // La ligne vient d'être décidée depuis la file : elle y est, par définition.
       last_seen_at: jour,
       expiree: false,
@@ -97,6 +116,9 @@ export class ApproDecisionRepository {
       fournisseur: input.fournisseur,
       quantite: input.quantite,
       echeance: input.echeance,
+      causePredit: input.causePredit ?? null,
+      confiancePredit: input.confiancePredit ?? null,
+      verdictPredit: input.verdictPredit ?? null,
       lastSeenAt: jour,
       expiree: false,
       decidedAt: jour,
@@ -119,6 +141,39 @@ export class ApproDecisionRepository {
         const row = mapRow(r)
         if (!out.has(row.cleLogique)) out.set(row.cleLogique, row)
       }
+    }
+    return out
+  }
+
+  /**
+   * Dernière décision NON EXPIRÉE par clé logique, pour l'auto-évaluation
+   * (#138 lot 2).
+   *
+   * Le ledger est append-only : une ligne re-décidée empile les actions (vu
+   * puis ignorer sur la même ligne = deux lignes). L'UI n'affiche que la
+   * DERNIÈRE décision par clé (`latestParCle`) ; l'auto-évaluation doit
+   * mesurer la même chose — l'agréger sur toutes les lignes compterait des
+   * décisions intermédiaires qui ne sont plus celles de l'écran, et gonflerait
+   * le taux d'override de l'historique d'une seule ligne.
+   */
+  async dernieresNonExpirees(): Promise<ApproDecisionRow[]> {
+    const rows = await db
+      .connection()
+      .from('appro_decision_ledger')
+      .where('expiree', false)
+      .orderBy('decided_at', 'desc')
+      .orderBy('id', 'desc')
+    // La plus récente par clé logique : la requête est triée par `decided_at`
+    // desc (et `id` desc en départage — deux lignes écrites dans la même
+    // milliseconde), la première occurrence d'une clé est donc sa décision
+    // courante.
+    const vues = new Set<string>()
+    const out: ApproDecisionRow[] = []
+    for (const r of rows as RawRow[]) {
+      const row = mapRow(r)
+      if (vues.has(row.cleLogique)) continue
+      vues.add(row.cleLogique)
+      out.push(row)
     }
     return out
   }
