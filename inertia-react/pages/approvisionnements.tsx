@@ -1,11 +1,27 @@
-import { useMemo, useState } from 'react'
-import { router } from '@inertiajs/react'
-import { CloudOff, Inbox, ArrowUp, ArrowDown, Ban, ShoppingCart } from 'lucide-react'
-
-import AppLayout from '@r/layouts/app'
-import { LoadingState } from '@r/components/ui/loading-state'
-import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { cn } from '@r/lib/utils'
+/**
+ * CONTRAT DE DIRECTION — refonte /approvisionnements (seed 69c2b364, mode operate).
+ *
+ * THESIS: la page n'est pas une file d'accordéons — c'est une pile de feuilles
+ * de préparation fournisseur, car le fournisseur est la maille à laquelle une
+ * commande est réellement passée. La feuille la plus urgente ouvre la page,
+ * les dossiers entièrement décidés descendent dans « Dossiers traités » : la
+ * pile se vide à vue. Refusé : l'accordéon fermé par défaut où l'urgence est
+ * cachée dans le pli.
+ * OWN-WORLD: grammaire Airbnb — feuilles blanches posées sur un champ
+ * surface-soft, hairlines #ddd, encre #222, Plus Jakarta Sans en
+ * tabular-nums ; verdicts en pastille + petites capitales ; statuts métier
+ * suggéré/danger inchangés ; Rausch absent (aucun CTA sur cette page).
+ * STORY: l'acheteur atterrit sur la feuille à traiter, lit le verdict et sa
+ * preuve, enregistre Vu / Ignorer / À passer par ligne ; la feuille se vide,
+ * la pile descend.
+ * FIRST VIEWPORT: toolbar 48px (segments nature + horizon, reste à décider,
+ * actualiser) ; en dessous, sur le champ gris, la première feuille
+ * fournisseur : nom, première échéance, urgence, sections « À commander » /
+ * « À replanifier ».
+ * FORM: feuille de préparation fournisseur — candidat 7 de la liste ordonnée.
+ * FINISH: unreviewed and undocumented is unfinished; this build ends with the
+ * finish review, the verdict, and DESIGN.md.
+ */
 
 /**
  * Page « Approvisionnements » (issue #103).
@@ -23,7 +39,27 @@ import { cn } from '@r/lib/utils'
  * Les labels restent une hypothèse de travail à valider en atelier acheteurs ;
  * l'écran montre aussi l'échéance brute, pour qu'aucune décision ne repose sur
  * le seul verdict.
+ *
+ * **Décisions acheteur (ledger #134).** Vu / Ignorer / À passer par ligne,
+ * append-only côté serveur. Un dossier dont toutes les lignes visibles sont
+ * décidées quitte la pile active pour l'index « Dossiers traités ».
  */
+import { useMemo, useState } from 'react'
+import { router } from '@inertiajs/react'
+import { ArrowDown, ArrowUp, Ban, ChevronRight, CloudOff, Inbox, ShoppingCart } from 'lucide-react'
+
+import AppLayout from '@r/layouts/app'
+import { LoadingState } from '@r/components/ui/loading-state'
+import {
+  RefreshPill,
+  SEG,
+  Segment,
+  SegmentButton,
+  ToolbarRow,
+  ToolbarSpacer,
+} from '@r/components/vision/toolbar'
+import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
+import { cn } from '@r/lib/utils'
 
 type MessageCode = 2 | 3 | 6
 
@@ -117,23 +153,28 @@ const MESSAGE_META: Record<MessageCode, { label: string; icon: typeof ArrowUp; c
   6: { label: 'Inutile', icon: Ban, cls: 'text-[#c13515]' },
 }
 
-/** Verdicts du moteur de triage (appro_triage.ts). Action = orange, données = rouge, reste = neutre. */
-const VERDICT_META: Record<ApproTriage['verdict'], { label: string; cls: string }> = {
-  passer: { label: 'Passer', cls: 'bg-[#fc642d]/13 text-[#b8430f]' },
-  replanifier: { label: 'Replanifier', cls: 'bg-[#fc642d]/13 text-[#b8430f]' },
-  regrouper: { label: 'Regrouper', cls: 'bg-muted text-muted-foreground' },
-  surveiller: { label: 'Surveiller', cls: 'bg-muted text-muted-foreground' },
-  investiguer: { label: 'Investiguer', cls: 'bg-[#c13515]/10 text-[#c13515]' },
-}
-
-/** Décisions acheteur (ledger #134). Vu = neutre, ignoré = rouge, à passer = orange. */
-const DECISION_META: Record<DecisionStatut, { label: string; cls: string }> = {
-  vu: { label: 'Vu', cls: 'bg-muted text-muted-foreground' },
-  ignorer: { label: 'Ignoré', cls: 'bg-[#c13515]/10 text-[#c13515]' },
-  a_passer: { label: 'À passer', cls: 'bg-[#fc642d]/13 text-[#b8430f]' },
+/** Verdicts du moteur de triage (appro_triage.ts) — pastille + petites
+ *  capitales (grammaire chips DESIGN.md). Action = orange, données = rouge,
+ *  reste = neutre. */
+const VERDICT_META: Record<ApproTriage['verdict'], { label: string; dot: string; cls: string }> = {
+  passer: { label: 'Passer', dot: '#fc642d', cls: 'text-[#b8430f]' },
+  replanifier: { label: 'Replanifier', dot: '#fc642d', cls: 'text-[#b8430f]' },
+  regrouper: { label: 'Regrouper', dot: '#929292', cls: 'text-muted-foreground' },
+  surveiller: { label: 'Surveiller', dot: '#929292', cls: 'text-muted-foreground' },
+  investiguer: { label: 'Investiguer', dot: '#c13515', cls: 'text-[#c13515]' },
 }
 
 const DECISION_ACTIONS: DecisionStatut[] = ['vu', 'ignorer', 'a_passer']
+
+const DECISION_LABEL: Record<DecisionStatut, string> = {
+  vu: 'Vu',
+  ignorer: 'Ignorer',
+  a_passer: 'À passer',
+}
+
+/** Une ligne est « décidée » dès qu'un statut du ledger la couvre — `à passer`
+ *  inclus : la décision est enregistrée, même si la commande reste à poser. */
+const estDecidee = (statut: DecisionStatut | null): boolean => statut !== null
 
 /** État du POST de décision d'une ligne. */
 type EtatEnvoi = 'inerte' | 'en-cours' | 'echec'
@@ -156,6 +197,87 @@ function EcheanceChip({ jours }: { jours: number | null }) {
   )
 }
 
+function VerdictChip({ triage }: { triage: ApproTriage | null }) {
+  if (triage === null) return null
+  const meta = VERDICT_META[triage.verdict]
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: meta.dot }}
+      />
+      <span className={cn('text-[10px] font-bold uppercase tracking-[0.08em]', meta.cls)}>
+        {meta.label}
+      </span>
+    </span>
+  )
+}
+
+function UrgenceChip({ nbRetard, nbUrgents }: { nbRetard: number; nbUrgents: number }) {
+  if (nbRetard > 0) {
+    return (
+      <span className="inline-block rounded-full bg-[#c13515]/10 px-2.5 py-1 text-[10.5px] font-bold whitespace-nowrap text-[#c13515]">
+        {nbRetard} en retard
+      </span>
+    )
+  }
+  if (nbUrgents > 0) {
+    return (
+      <span className="inline-block rounded-full bg-[#fc642d]/13 px-2.5 py-1 text-[10.5px] font-bold whitespace-nowrap text-[#b8430f]">
+        {nbUrgents} sous 21 j
+      </span>
+    )
+  }
+  return (
+    <span className="inline-block rounded-full bg-muted px-2.5 py-1 text-[10.5px] font-bold whitespace-nowrap text-muted-foreground">
+      rien d’urgent
+    </span>
+  )
+}
+
+/** Micro-segment de décision (Vu / Ignorer / À passer) — grammar SEG en
+ *  miniature : actif = encre pleine, Rausch reste hors de la maille ligne. */
+function DecisionControl({
+  actuelle,
+  etatEnvoi,
+  onDecide,
+}: {
+  actuelle: DecisionStatut | null
+  etatEnvoi: EtatEnvoi
+  onDecide: (statut: DecisionStatut) => void
+}) {
+  return (
+    <div className="flex flex-col items-start gap-1 md:items-end">
+      <div className={SEG}>
+        {DECISION_ACTIONS.map((statut) => (
+          <button
+            key={statut}
+            type="button"
+            onClick={() => onDecide(statut)}
+            disabled={etatEnvoi === 'en-cours'}
+            aria-pressed={actuelle === statut}
+            className={cn(
+              'rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap transition-colors duration-150 disabled:opacity-50',
+              actuelle === statut
+                ? 'bg-foreground text-white'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            )}
+          >
+            {DECISION_LABEL[statut]}
+          </button>
+        ))}
+      </div>
+      {/* Un POST refusé ne doit pas être muet : l'acheteur croirait avoir décidé. */}
+      {etatEnvoi === 'echec' && (
+        <span role="status" className="text-[10px] font-semibold text-[#c13515]">
+          non enregistré — réessayer
+        </span>
+      )}
+    </div>
+  )
+}
+
 function ItemRow({
   item,
   decisionActuelle,
@@ -170,161 +292,269 @@ function ItemRow({
 }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
-  const verdict = item.triage ? VERDICT_META[item.triage.verdict] : null
   const preuve = item.triage?.preuves[0]
-  const decision = decisionActuelle === null ? null : DECISION_META[decisionActuelle]
+  /* Vu / Ignorer = traité : la ligne s'efface. À passer reste à pleine
+     encre — la commande n'est pas encore posée dans X3. */
+  const traitee =
+    decisionActuelle === 'vu' || decisionActuelle === 'ignorer' || etatEnvoi === 'en-cours'
   return (
-    <tr className="border-b border-[#ebebeb] last:border-0 hover:bg-[#fbfbfb]">
-      <td className="py-2.5 pr-3 pl-4 align-top">
-        <div className="flex items-center gap-2">
+    <li
+      className={cn(
+        'grid grid-cols-1 gap-x-4 gap-y-2 px-5 py-3 transition-opacity duration-200 hover:bg-secondary/60 md:grid-cols-[144px_minmax(0,1fr)_84px_148px_176px]',
+        traitee && 'opacity-55'
+      )}
+    >
+      {/* Nature + verdict */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 md:flex-col md:items-start md:gap-y-1.5">
+        <span className="inline-flex items-center gap-1.5">
           <Icon className={cn('size-3.5 shrink-0', meta?.cls ?? 'text-muted-foreground')} />
           <span className="text-xs font-semibold">
             {meta === null ? 'À commander' : meta.label}
           </span>
-          {verdict !== null && (
-            <span
-              className={cn(
-                'inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap',
-                verdict.cls
-              )}
-            >
-              {verdict.label}
-            </span>
-          )}
-          {decision !== null && (
-            <span
-              className={cn(
-                'inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap',
-                decision.cls
-              )}
-            >
-              {decision.label}
-            </span>
-          )}
+        </span>
+        <VerdictChip triage={item.triage} />
+      </div>
+
+      {/* Article + preuve */}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-cell-lg font-semibold tracking-tight">{item.article}</span>
+          <span className="truncate text-xs text-muted-foreground">{item.designation}</span>
         </div>
-        {/* Décision acheteur (ledger #134) — append-only côté serveur. */}
-        <div className="mt-1.5 flex items-center gap-1">
-          {DECISION_ACTIONS.map((statut) => (
-            <button
-              key={statut}
-              type="button"
-              onClick={() => onDecide(statut)}
-              disabled={etatEnvoi === 'en-cours'}
-              aria-pressed={decisionActuelle === statut}
-              className={cn(
-                'rounded border px-1.5 py-0.5 text-[10px] font-semibold disabled:opacity-50',
-                decisionActuelle === statut
-                  ? 'border-foreground bg-foreground text-white'
-                  : 'border-border text-muted-foreground hover:bg-secondary'
-              )}
-            >
-              {DECISION_META[statut].label}
-            </button>
-          ))}
-          {/* Un POST refusé ne doit pas être muet : l'acheteur croirait avoir décidé. */}
-          {etatEnvoi === 'echec' && (
-            <span role="status" className="text-[10px] font-semibold text-[#c13515]">
-              non enregistré — réessayer
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="py-2.5 pr-3">
-        <div className="font-semibold tracking-tight">{item.article}</div>
-        <div className="text-xs text-muted-foreground">{item.designation}</div>
         {preuve !== undefined && (
           <div
-            className="mt-0.5 max-w-[420px] truncate text-[10.5px] text-muted-foreground/80"
+            className="mt-0.5 max-w-[560px] truncate text-[10.5px] text-muted-foreground"
             title={preuve}
           >
             {preuve}
           </div>
         )}
-        {item.nature === 'suggestion' && item.delaiReappro === null && (
-          <div className="mt-0.5 text-[10.5px] text-[#c13515]/80">
-            délai de réappro non renseigné — repli 14 j
+        {item.nature === 'suggestion' &&
+          (item.delaiReappro === null ? (
+            <div className="mt-0.5 text-[10.5px] text-[#c13515]/80">
+              délai de réappro non renseigné — repli 14 j
+            </div>
+          ) : (
+            <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+              délai de réappro {item.delaiReappro} j
+            </div>
+          ))}
+      </div>
+
+      {/* Quantité */}
+      <div className="text-cell-lg font-semibold tabular-nums md:text-right">
+        {qte(item.quantite)}
+      </div>
+
+      {/* Échéance + proposition de replanification */}
+      <div className="md:text-right">
+        <div className="text-[12.5px] font-semibold tabular-nums whitespace-nowrap">
+          {fr(item.echeance)}
+        </div>
+        <div className="mt-1 flex md:justify-end">
+          <EcheanceChip jours={item.jours} />
+        </div>
+        {item.dateProposee !== null && (
+          <div className="mt-1 text-[10.5px] whitespace-nowrap text-muted-foreground">
+            {/* Le décalage n'a de sens que sur un message qui propose une date. */}→{' '}
+            {fr(item.dateProposee)}
+            {item.decalage === null ? '' : ` (${item.decalage > 0 ? '+' : ''}${item.decalage} j)`}
           </div>
         )}
-      </td>
-      <td className="py-2.5 pr-3 text-right tabular-nums">{qte(item.quantite)}</td>
-      <td className="py-2.5 pr-3 text-right tabular-nums whitespace-nowrap">{fr(item.echeance)}</td>
-      <td className="py-2.5 pr-3">
-        <EcheanceChip jours={item.jours} />
-      </td>
-      <td className="py-2.5 pr-4 text-xs text-muted-foreground whitespace-nowrap">
-        {/* Le décalage n'a de sens que sur un message qui propose une date. */}
-        {item.dateProposee === null
-          ? '—'
-          : `→ ${fr(item.dateProposee)}${
-              item.decalage === null ? '' : ` (${item.decalage > 0 ? '+' : ''}${item.decalage} j)`
-            }`}
-      </td>
-    </tr>
+      </div>
+
+      {/* Décision acheteur (ledger #134) */}
+      <div className="md:pt-0.5">
+        <DecisionControl actuelle={decisionActuelle} etatEnvoi={etatEnvoi} onDecide={onDecide} />
+      </div>
+    </li>
   )
 }
 
-function Dossier({
-  dossier,
+/** En-tête de section d'une feuille : libellé uppercase + compteur de lignes. */
+function SectionLabel({ label, nb }: { label: string; nb: number }) {
+  return (
+    <div className="flex items-center justify-between px-5 pt-3 pb-1">
+      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-[10px] font-semibold tabular-nums text-muted-foreground/70">
+        {nb} ligne{nb > 1 ? 's' : ''}
+      </span>
+    </div>
+  )
+}
+
+/** Vue préparée d'un dossier : lignes triées par échéance + compte de décisions. */
+interface FeuilleVue {
+  dossier: ApproDossier
+  suggestions: ApproItem[]
+  messages: ApproItem[]
+  nbDecidees: number
+  nbRetard: number
+  nbUrgents: number
+  /** Plus petite échéance parmi les lignes non décidées (null = tout décidé). */
+  minJoursADecider: number | null
+}
+
+const parEcheance = (a: ApproItem, b: ApproItem): number =>
+  (a.jours ?? Number.POSITIVE_INFINITY) - (b.jours ?? Number.POSITIVE_INFINITY)
+
+/** Feuille de préparation fournisseur — le document de travail, toujours ouvert. */
+function Feuille({
+  vue,
   decisions,
   envois,
   onDecide,
 }: {
-  dossier: ApproDossier
+  vue: FeuilleVue
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
 }) {
-  const urgents = dossier.items.filter((i) => i.jours !== null && i.jours <= 21).length
+  const { dossier, suggestions, messages } = vue
+  const nbItems = suggestions.length + messages.length
+  const renderRows = (items: ApproItem[]) =>
+    items.map((item) => (
+      <ItemRow
+        key={item.cle}
+        item={item}
+        decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+        etatEnvoi={envois[item.cle] ?? 'inerte'}
+        onDecide={(statut) => onDecide(item, statut)}
+      />
+    ))
   return (
-    <details className="mb-2.5 overflow-hidden rounded-xl border border-border bg-card">
-      <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3">
+    <article className="overflow-hidden rounded-lg border border-rule bg-card">
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3.5">
         <div className="min-w-0 flex-1">
-          <div className="truncate font-bold tracking-tight">{dossier.nom}</div>
-          <div className="text-xs text-muted-foreground">code {dossier.fournisseur || '—'}</div>
+          <h2 className="truncate text-base font-bold tracking-tight">{dossier.nom}</h2>
+          <p className="mt-0.5 text-1.5xs text-muted-foreground">
+            code <span className="font-mono">{dossier.fournisseur || '—'}</span>
+            {' · '}
+            <b className="font-bold text-foreground">{dossier.nbArticles}</b> article
+            {dossier.nbArticles > 1 ? 's' : ''}
+            {suggestions.length > 0 && (
+              <>
+                {' · '}
+                <b className="font-bold text-foreground">{suggestions.length}</b> à commander
+              </>
+            )}
+            {messages.length > 0 && (
+              <>
+                {' · '}
+                <b className="font-bold text-foreground">{messages.length}</b> à replanifier
+              </>
+            )}
+          </p>
         </div>
-        <div className="text-right text-xs whitespace-nowrap text-muted-foreground">
-          <span className="font-bold text-foreground">{dossier.nbArticles}</span> article
-          {dossier.nbArticles > 1 ? 's' : ''}
-          {dossier.nbSuggestions > 0 && (
-            <>
-              {' · '}
-              <span className="font-bold text-foreground">{dossier.nbSuggestions}</span> à commander
-            </>
-          )}
-          {dossier.nbMessages > 0 && (
-            <>
-              {' · '}
-              <span className="font-bold text-foreground">{dossier.nbMessages}</span> à replanifier
-            </>
-          )}
-          <br />1<sup>re</sup> échéance {fr(dossier.premiereEcheance)}
+        <div className="text-right">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Première échéance
+          </div>
+          <div className="mt-0.5 text-cell-lg font-bold tabular-nums">
+            {fr(dossier.premiereEcheance)}
+          </div>
         </div>
-        <div className="min-w-[110px] text-right">
-          {urgents > 0 ? (
-            <span className="inline-block rounded-full bg-[#fc642d]/13 px-2 py-0.5 text-[10.5px] font-bold text-[#b8430f]">
-              {urgents} sous 21 j
-            </span>
-          ) : (
-            <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-bold text-muted-foreground">
-              rien d’urgent
-            </span>
-          )}
-        </div>
-      </summary>
-      <table className="w-full border-t border-[#ebebeb]">
-        <tbody>
-          {dossier.items.map((item) => (
-            <ItemRow
-              key={item.cle}
-              item={item}
-              decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
-              etatEnvoi={envois[item.cle] ?? 'inerte'}
-              onDecide={(statut) => onDecide(item, statut)}
-            />
-          ))}
-        </tbody>
-      </table>
-    </details>
+        <UrgenceChip nbRetard={vue.nbRetard} nbUrgents={vue.nbUrgents} />
+      </header>
+
+      <div className="border-t border-[#ebebeb]">
+        {suggestions.length > 0 && (
+          <section>
+            <SectionLabel label="À commander" nb={suggestions.length} />
+            <ul className="divide-y divide-[#ebebeb]">{renderRows(suggestions)}</ul>
+          </section>
+        )}
+        {messages.length > 0 && (
+          <section className={cn(suggestions.length > 0 && 'border-t border-[#ebebeb]')}>
+            <SectionLabel label="À replanifier" nb={messages.length} />
+            <ul className="divide-y divide-[#ebebeb]">{renderRows(messages)}</ul>
+          </section>
+        )}
+      </div>
+
+      {/* La progression fait partie du document : c'est elle qui vide la pile. */}
+      <footer className="flex items-center justify-between border-t border-rule bg-secondary/50 px-5 py-2">
+        <span className="text-[10.5px] text-muted-foreground">
+          Décisions{' '}
+          <b className="font-bold tabular-nums text-foreground">
+            {vue.nbDecidees}/{nbItems}
+          </b>{' '}
+          enregistrées
+        </span>
+        {vue.minJoursADecider !== null && vue.minJoursADecider < 0 && (
+          <span className="text-[10.5px] font-semibold text-[#c13515]">
+            échéance dépassée — à traiter
+          </span>
+        )}
+      </footer>
+    </article>
+  )
+}
+
+/** Index des dossiers entièrement décidés — une ligne repliable par dossier. */
+function DossiersTraités({
+  vues,
+  decisions,
+  envois,
+  onDecide,
+}: {
+  vues: FeuilleVue[]
+  decisions: Record<string, DecisionStatut>
+  envois: Record<string, EtatEnvoi>
+  onDecide: (item: ApproItem, fournisseur: string, statut: DecisionStatut) => void
+}) {
+  if (vues.length === 0) return null
+  return (
+    <div className="mt-8">
+      <div className="mb-2 flex items-baseline gap-2 px-1">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          Dossiers traités
+        </h2>
+        <span className="text-[10px] font-semibold tabular-nums text-muted-foreground/70">
+          {vues.length}
+        </span>
+      </div>
+      <div className="divide-y divide-[#ebebeb] overflow-hidden rounded-lg border border-rule bg-card">
+        {vues.map((vue) => {
+          const items = [...vue.suggestions, ...vue.messages]
+          const nb = items.length
+          return (
+            <details key={vue.dossier.fournisseur || '∅'} className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 [&::-webkit-details-marker]:hidden">
+                <ChevronRight
+                  size={14}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-90"
+                />
+                <span className="min-w-0 flex-1 truncate text-cell-lg font-semibold tracking-tight">
+                  {vue.dossier.nom}
+                </span>
+                <span className="hidden text-1.5xs whitespace-nowrap text-muted-foreground sm:inline">
+                  <b className="font-bold tabular-nums text-foreground">{nb}</b> ligne
+                  {nb > 1 ? 's' : ''} · première échéance {fr(vue.dossier.premiereEcheance)}
+                </span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-muted-foreground">
+                  {vue.nbDecidees}/{nb} décidées
+                </span>
+              </summary>
+              <ul className="border-t border-[#ebebeb]">
+                {items.map((item) => (
+                  <ItemRow
+                    key={item.cle}
+                    item={item}
+                    decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+                    etatEnvoi={envois[item.cle] ?? 'inerte'}
+                    onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
+                  />
+                ))}
+              </ul>
+            </details>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -374,119 +604,205 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
     }
   }
 
-  const dossiers = useMemo(() => {
+  /** Décision effective d'une ligne : locale d'abord, payload ensuite. */
+  const decisionEffective = (item: ApproItem): DecisionStatut | null =>
+    decisions[item.cle] ?? item.decision?.statut ?? null
+
+  // Filtrer DANS les dossiers, puis écarter ceux qui se vident : un dossier
+  // vide sous un filtre n'apprend rien et casse le comptage affiché.
+  const dossiersFiltres = useMemo(() => {
     if (data === null) return []
     if (filtre === null) return data.dossiers
-    // Filtrer DANS les dossiers, puis écarter ceux qui se vident : un dossier
-    // vide sous un filtre n'apprend rien et casse le comptage affiché.
     return data.dossiers
       .map((d) => ({ ...d, items: d.items.filter((i) => i.nature === filtre) }))
       .filter((d) => d.items.length > 0)
   }, [data, filtre])
 
+  /** Feuilles préparées : lignes par échéance, pile active vs dossiers traités.
+   *  Le tri d'affichage ne touche jamais la donnée serveur. */
+  const { actives, traitees } = useMemo(() => {
+    const vues: FeuilleVue[] = dossiersFiltres.map((dossier) => {
+      const suggestions = dossier.items.filter((i) => i.nature === 'suggestion').sort(parEcheance)
+      const messages = dossier.items.filter((i) => i.nature === 'message').sort(parEcheance)
+      const items = [...suggestions, ...messages]
+      const nonDecidees = items.filter((i) => !estDecidee(decisionEffective(i)))
+      return {
+        dossier,
+        suggestions,
+        messages,
+        nbDecidees: items.length - nonDecidees.length,
+        nbRetard: items.filter((i) => i.jours !== null && i.jours < 0).length,
+        nbUrgents: items.filter((i) => i.jours !== null && i.jours <= 21).length,
+        minJoursADecider:
+          nonDecidees.length === 0
+            ? null
+            : Math.min(...nonDecidees.map((i) => i.jours ?? Number.POSITIVE_INFINITY)),
+      }
+    })
+    const actifs = vues
+      .filter((v) => v.minJoursADecider !== null)
+      // Comparateur total : deux dossiers « sans date » (Infinity) doivent
+      // rester stables entre eux — une soustraction Infinity - Infinity = NaN.
+      .sort((a, b) => {
+        const ja = a.minJoursADecider ?? 0
+        const jb = b.minJoursADecider ?? 0
+        if (ja === jb) return 0
+        return ja < jb ? -1 : 1
+      })
+    const traites = vues
+      .filter((v) => v.minJoursADecider === null)
+      .sort((a, b) => a.dossier.nom.localeCompare(b.dossier.nom, 'fr'))
+    return { actives: actifs, traitees: traites }
+    // `decisionEffective` lit `decisions` — la dépendance est bien là.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dossiersFiltres, decisions])
+
+  /** Reste à décider sur l'horizon complet (indépendant du filtre nature). */
+  const aDecider = useMemo(() => {
+    if (data === null) return 0
+    let nb = 0
+    for (const d of data.dossiers)
+      for (const i of d.items) if (!estDecidee(decisionEffective(i))) nb++
+    return nb
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, decisions])
+
   const stats = data?.stats
 
-  return (
-    <AppLayout active="approvisionnements" subtitle="Approvisionnements · Suggestions du CBN">
-      <div className="mx-auto max-w-[1180px] px-5 pt-7 pb-20">
-        <h1 className="text-[22px] font-bold tracking-tight">Approvisionnements</h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] text-muted-foreground">
-          Ce que le calcul des besoins propose côté achat, regroupé par fournisseur. Les suggestions
-          à commander et les commandes déjà passées que X3 demande de déplacer.
-        </p>
+  const horizonLabel =
+    horizon === null
+      ? `horizon dérivé${data !== null ? ` · au ${fr(data.range.to)}` : ''}`
+      : `horizon ${horizon} j`
 
-        {stats !== undefined && (
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+  const refreshHref =
+    horizon === null ? '/approvisionnements' : `/approvisionnements?horizon=${horizon}`
+
+  return (
+    <AppLayout
+      active="approvisionnements"
+      title="Approvisionnements"
+      subtitle="Approvisionnements · Suggestions du CBN"
+      dense
+      scrollable={false}
+      meta={
+        stats !== undefined ? (
+          <>
+            <div>
+              <b className="font-bold text-foreground">{stats.nbItems}</b> lignes ·{' '}
+              <b className="font-bold text-foreground">{stats.nbDossiers}</b> dossiers
+            </div>
+            <div className="text-muted-foreground">{horizonLabel}</div>
+          </>
+        ) : null
+      }
+    >
+      {/* AppLayout dense rend ses children en flux bloc : ce wrapper porte la
+          colonne toolbar + zone scrollable (même montage que /ruptures). */}
+      <div className="flex h-full min-h-0 flex-col">
+        <ToolbarRow>
+          <Segment ariaLabel="Nature" label="Nature">
             {(
               [
-                [null, `${stats.nbItems} lignes`],
-                ['suggestion', `${stats.nbSuggestions} à commander`],
-                ['message', `${stats.nbMessages} à replanifier`],
-              ] as Array<[Filtre, string]>
-            ).map(([val, label]) => (
-              <button
+                [null, 'Tout', stats?.nbItems ?? 0],
+                ['suggestion', 'À commander', stats?.nbSuggestions ?? 0],
+                ['message', 'À replanifier', stats?.nbMessages ?? 0],
+              ] as Array<[Filtre, string, number]>
+            ).map(([val, label, count]) => (
+              <SegmentButton
                 key={label}
-                type="button"
+                active={filtre === val}
                 onClick={() => setFiltre(val)}
-                aria-pressed={filtre === val}
-                className={cn(
-                  'rounded-lg border px-3 py-1.5 text-[12.5px]',
-                  filtre === val
-                    ? 'border-foreground bg-foreground font-semibold text-white'
-                    : 'border-border bg-card text-muted-foreground hover:bg-secondary'
-                )}
+                title={label}
               >
                 {label}
-              </button>
+                {count > 0 && <span className="ml-1 opacity-60">{count}</span>}
+              </SegmentButton>
             ))}
-            <span
-              className={cn(
-                'ml-3 inline-flex items-center gap-0.5 rounded-lg border p-0.5',
-                'border-border bg-card'
+          </Segment>
+
+          <Segment role="radiogroup" ariaLabel="Horizon" label="Horizon">
+            {HORIZONS.map((h) => (
+              <SegmentButton
+                key={h.label}
+                role="radio"
+                active={horizon === h.v}
+                title={
+                  h.v === null
+                    ? 'Horizon dérivé du délai de réappro (#114)'
+                    : `Fenêtre fixe ${h.v} jours`
+                }
+                onClick={() =>
+                  router.get('/approvisionnements', h.v === null ? {} : { horizon: h.v })
+                }
+              >
+                {h.label}
+              </SegmentButton>
+            ))}
+          </Segment>
+
+          <ToolbarSpacer />
+
+          <span className="font-mono text-2xs whitespace-nowrap text-muted-foreground">
+            <b className="font-bold text-foreground">{aDecider}</b> à décider ·{' '}
+            {dossiersFiltres.length} fournisseur{dossiersFiltres.length > 1 ? 's' : ''}
+            {ms !== null && ` · ${(ms / 1000).toFixed(1)} s`}
+          </span>
+
+          <RefreshPill loading={loading} href={refreshHref} />
+        </ToolbarRow>
+
+        {/* Champ de travail : les feuilles blanches sur le gris surface-soft. */}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-secondary">
+          <div className="mx-auto max-w-[1180px] px-4 py-5 md:px-7">
+            {loading && <LoadingState title="Lecture du calcul des besoins X3…" />}
+
+            {!loading && error !== null && (
+              <div className="flex items-center gap-3 rounded-lg border border-rule bg-card px-4 py-3 text-sm">
+                <CloudOff className="size-4 shrink-0 text-[#c13515]" />
+                <span>Chargement impossible : {error.message}</span>
+              </div>
+            )}
+
+            {!loading && error === null && data?.x3Error != null && (
+              <div className="flex items-center gap-3 rounded-lg border border-rule bg-card px-4 py-3 text-sm">
+                <CloudOff className="size-4 shrink-0 text-[#c13515]" />
+                <span>X3 n’a pas répondu : {data.x3Error}</span>
+              </div>
+            )}
+
+            {!loading &&
+              error === null &&
+              data?.x3Error == null &&
+              actives.length === 0 &&
+              traitees.length === 0 && (
+                <div className="flex items-center justify-center gap-3 rounded-lg border border-rule bg-card px-4 py-10 text-sm text-muted-foreground">
+                  <Inbox className="size-4 shrink-0" />
+                  <span>Rien à décider sur cet horizon.</span>
+                </div>
               )}
-            >
-              {HORIZONS.map((h) => (
-                <button
-                  key={h.label}
-                  type="button"
-                  onClick={() =>
-                    router.get('/approvisionnements', h.v === null ? {} : { horizon: h.v })
-                  }
-                  aria-pressed={horizon === h.v}
-                  className={cn(
-                    'rounded-md px-2.5 py-1 text-[12px]',
-                    horizon === h.v
-                      ? 'bg-foreground font-semibold text-white'
-                      : 'text-muted-foreground hover:bg-secondary'
-                  )}
-                >
-                  {h.label}
-                </button>
-              ))}
-            </span>
-            <span className="ml-auto text-[12.5px] text-muted-foreground">
-              {dossiers.length} fournisseur{dossiers.length > 1 ? 's' : ''} ·{' '}
-              {horizon === null ? 'horizon dérivé' : `horizon ${horizon} j`}
-              {ms !== null && ` · ${(ms / 1000).toFixed(1)} s`}
-            </span>
+
+            {!loading && error === null && data?.x3Error == null && (
+              <>
+                <div className="space-y-3">
+                  {actives.map((vue) => (
+                    <Feuille
+                      key={vue.dossier.fournisseur || '∅'}
+                      vue={vue}
+                      decisions={decisions}
+                      envois={envois}
+                      onDecide={(item, statut) => poster(item, vue.dossier.fournisseur, statut)}
+                    />
+                  ))}
+                </div>
+                <DossiersTraités
+                  vues={traitees}
+                  decisions={decisions}
+                  envois={envois}
+                  onDecide={poster}
+                />
+              </>
+            )}
           </div>
-        )}
-
-        <div className="mt-5">
-          {loading && <LoadingState title="Lecture du calcul des besoins X3…" />}
-
-          {!loading && error !== null && (
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary px-4 py-3 text-[13px]">
-              <CloudOff className="size-4 shrink-0 text-[#c13515]" />
-              <span>Chargement impossible : {error.message}</span>
-            </div>
-          )}
-
-          {!loading && error === null && data?.x3Error != null && (
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary px-4 py-3 text-[13px]">
-              <CloudOff className="size-4 shrink-0 text-[#c13515]" />
-              <span>X3 n’a pas répondu : {data.x3Error}</span>
-            </div>
-          )}
-
-          {!loading && error === null && data?.x3Error == null && dossiers.length === 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary px-4 py-3 text-[13px] text-muted-foreground">
-              <Inbox className="size-4 shrink-0" />
-              <span>Rien à décider sur cet horizon.</span>
-            </div>
-          )}
-
-          {!loading &&
-            error === null &&
-            dossiers.map((d) => (
-              <Dossier
-                key={d.fournisseur || '∅'}
-                dossier={d}
-                decisions={decisions}
-                envois={envois}
-                onDecide={(item, statut) => poster(item, d.fournisseur, statut)}
-              />
-            ))}
         </div>
       </div>
     </AppLayout>
