@@ -1,3 +1,4 @@
+import logger from '@adonisjs/core/services/logger'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 
@@ -92,6 +93,19 @@ export interface ApproMessageRow {
   /** `VCRNUM_0` + `VCRLIN_0` : stable d'un run à l'autre, contrairement aux suggestions. */
   numero: string
   ligne: number
+  /**
+   * `VCRSEQ_0` — 4ᵉ composante de l'identité d'une ligne d'`ORDERS`, et la seule
+   * qui la rende unique : `COA2400006` ligne 1 porte SIX échéances distinctes
+   * (cf. `combined_orders_repository.ts`). Mesuré le 06/08/2026 sur la
+   * population de `messagesSql` : 777 lignes, **773** couples
+   * `(VCRNUM, VCRLIN)` — le doublon est `COA2400006` ligne 1, cinq messages
+   * « inutile » que seule la séquence distingue.
+   *
+   * L'affichage n'en a pas besoin (le dossier fournisseur agrège par article),
+   * mais la PHOTO si : sans elle, cinq lignes deviennent indiscernables en base
+   * et le diff du lot 1 verrait « 5 puis 4 » sans savoir laquelle a été soldée.
+   */
+  sequence: string
   article: string
   designation: string
   /** `ENDDAT_0` — échéance actuelle de la commande. */
@@ -175,7 +189,7 @@ const delaiReappro = (row: RawRow): number | null => {
  * disparaître.
  */
 const messagesSql = (to: string): string => `
-SELECT O.VCRNUM_0, O.VCRLIN_0, O.ITMREF_0, I.ITMDES1_0, O.ENDDAT_0, O.MRPDAT_0,
+SELECT O.VCRNUM_0, O.VCRLIN_0, O.VCRSEQ_0, O.ITMREF_0, I.ITMDES1_0, O.ENDDAT_0, O.MRPDAT_0,
        O.MRPMES_0, O.RMNEXTQTY_0, O.BPRNUM_0
 FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
@@ -252,16 +266,27 @@ export class ApproRepository {
       delaiReappro: delaiReappro(row),
     }))
 
+    const codesInconnus = new Map<number, number>()
     const messages: ApproMessageRow[] = msgRows.flatMap((row) => {
       const code = num(row.MRPMES_0)
       // Un code hors des trois attendus signifierait que le paramétrage du site a
       // changé. L'écarter plutôt que l'afficher sans libellé : une ligne muette
       // dans une file de décision est pire qu'une ligne absente.
-      if (!isMessageCode(code)) return []
+      //
+      // Mais l'écarter en SILENCE serait pire encore depuis que la photo (#138)
+      // se sert d'ici : le lot 1 lirait une disparition de message là où il n'y
+      // a qu'un code inconnu. D'où le décompte, journalisé une fois en fin de
+      // mapping — le jour où `PARMRP.RPLUPDQTY_2` rouvre les messages de
+      // quantité, ce sont des centaines de lignes, pas un cas isolé.
+      if (!isMessageCode(code)) {
+        codesInconnus.set(code, (codesInconnus.get(code) ?? 0) + 1)
+        return []
+      }
       return [
         {
           numero: str(row.VCRNUM_0),
           ligne: num(row.VCRLIN_0),
+          sequence: str(row.VCRSEQ_0),
           article: str(row.ITMREF_0),
           designation: str(row.ITMDES1_0),
           date: parseDate(row.ENDDAT_0),
@@ -272,6 +297,14 @@ export class ApproRepository {
         },
       ]
     })
+
+    if (codesInconnus.size > 0) {
+      const detail = [...codesInconnus.entries()].map(([code, n]) => `${code}×${n}`).join(', ')
+      logger.warn(
+        { codesInconnus: Object.fromEntries(codesInconnus) },
+        `[appro] code(s) MRPMES_0 hors 2/3/6 — lignes écartées : ${detail}`
+      )
+    }
 
     const fournisseurs: Record<string, string> = {}
     for (const row of partRows) {

@@ -49,6 +49,48 @@ export class ApproDecisionLedgerSchema extends BaseModel {
   declare statut: string
 }
 
+export class ApproMessageSnapshotSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'enddat',
+    'fournisseur',
+    'id',
+    'itmref',
+    'mrpdat',
+    'mrpmes',
+    'quantity',
+    'snapshotDate',
+    'vcrlin',
+    'vcrnum',
+    'vcrseq',
+  ] as const
+  $columns = ApproMessageSnapshotSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column.date()
+  declare enddat: DateTime | null
+  @column()
+  declare fournisseur: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itmref: string
+  @column.date()
+  declare mrpdat: DateTime | null
+  @column()
+  declare mrpmes: number
+  @column()
+  declare quantity: number
+  @column.date()
+  declare snapshotDate: DateTime
+  @column()
+  declare vcrlin: number
+  @column()
+  declare vcrnum: string
+  @column()
+  declare vcrseq: string
+}
+
 export class CapacityClosureSchema extends BaseModel {
   static $columns = [
     'code',

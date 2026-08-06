@@ -1,6 +1,6 @@
 import { type ApplicationService } from '@adonisjs/core/types'
 import type { LoggerService } from '@adonisjs/core/types'
-import demandSnapshotService from '#services/demand_snapshot_service'
+import demandSnapshotService, { SOURCES_ATTENDUES } from '#services/demand_snapshot_service'
 
 /**
  * Photo quotidienne du besoin (#74 lot 1, absorbé par #98 lot 4).
@@ -125,9 +125,21 @@ export default class DemandSnapshotProvider {
       const r = await demandSnapshotService.run(now, 'scheduler')
       if (r.status === 'ok') {
         logger.info(
-          { date: r.date, rows: r.rows, ms: r.durationMs },
+          { date: r.date, rows: r.rows, ms: r.durationMs, sources: r.sourceBreakdown },
           `[snapshot] ${r.date} : ${r.rows} lignes en ${r.durationMs} ms`
         )
+        // C'est CE run qui construit l'historique — pas le CLI. Sans ce
+        // rapprochement, un CBN en échec chaque nuit (X3 saturé à 04 h) logge
+        // trente fois « ok, 28 000 lignes » pendant que ni les suggestions ni
+        // les messages ne sont jamais figés : #138 n'existe que pour rendre
+        // cette panne-là impossible à rater.
+        const manquantes = SOURCES_ATTENDUES.filter((s) => r.sourceBreakdown[s] === undefined)
+        if (manquantes.length > 0) {
+          logger.warn(
+            { date: r.date, manquantes },
+            `[snapshot] photo INCOMPLÈTE — source(s) non extraite(s) : ${manquantes.join(', ')}`
+          )
+        }
       } else {
         // Non fatal, et sans conséquence sur les écrans : la photo alimente
         // l'historique de #74, aucun rendu live n'en dépend.
