@@ -38,6 +38,7 @@ const sug = (over: Partial<ApproSuggestionRow> = {}): ApproSuggestionRow => ({
 const msg = (over: Partial<ApproMessageRow> = {}): ApproMessageRow => ({
   numero: 'CG2601534',
   ligne: 6000,
+  sequence: '1000',
   article: '11028891',
   designation: 'Bouche BDH 60',
   date: d('2026-09-01'),
