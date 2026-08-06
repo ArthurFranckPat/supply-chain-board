@@ -24,6 +24,8 @@ export interface ApproDecisionRow {
   causePredit: string | null
   /** Confiance 0-1 prédite par le moteur d'explication (#138 lot 2). */
   confiancePredit: number | null
+  /** Niveau AFFICHÉ à l'acheteur au moment de la décision (#138 lot 2). */
+  niveauPredit: string | null
   /** Verdict du triage au moment de la décision (#138 lot 2). */
   verdictPredit: string | null
   /** Dernier jour où la clé a été vue dans la file complète, ISO. */
@@ -60,6 +62,8 @@ const mapRow = (r: RawRow): ApproDecisionRow => ({
     r.confiance_predit === null || r.confiance_predit === undefined
       ? null
       : Number(r.confiance_predit),
+  niveauPredit:
+    r.niveau_predit === null || r.niveau_predit === undefined ? null : str(r.niveau_predit),
   verdictPredit:
     r.verdict_predit === null || r.verdict_predit === undefined ? null : str(r.verdict_predit),
   lastSeenAt: iso(r.last_seen_at),
@@ -86,6 +90,7 @@ export class ApproDecisionRepository {
     echeance: string | null
     causePredit?: string | null
     confiancePredit?: number | null
+    niveauPredit?: string | null
     verdictPredit?: string | null
   }): Promise<ApproDecisionRow> {
     const decidedAt = new Date().toISOString()
@@ -100,6 +105,7 @@ export class ApproDecisionRepository {
       echeance: input.echeance,
       cause_predit: input.causePredit ?? null,
       confiance_predit: input.confiancePredit ?? null,
+      niveau_predit: input.niveauPredit ?? null,
       verdict_predit: input.verdictPredit ?? null,
       // La ligne vient d'être décidée depuis la file : elle y est, par définition.
       last_seen_at: jour,
@@ -118,6 +124,7 @@ export class ApproDecisionRepository {
       echeance: input.echeance,
       causePredit: input.causePredit ?? null,
       confiancePredit: input.confiancePredit ?? null,
+      niveauPredit: input.niveauPredit ?? null,
       verdictPredit: input.verdictPredit ?? null,
       lastSeenAt: jour,
       expiree: false,

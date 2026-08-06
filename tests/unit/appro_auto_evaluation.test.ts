@@ -5,11 +5,13 @@ import type { ApproDecisionStatut } from '#app/domain/appro_decision'
 const decision = (over: {
   causePredit?: string | null
   verdictPredit?: string | null
+  niveauPredit?: string | null
   statut?: ApproDecisionStatut
 }) => ({
   causePredit: over.causePredit ?? null,
   verdictPredit: over.verdictPredit ?? null,
-  statut: over.statut ?? 'vu',
+  niveauPredit: over.niveauPredit ?? null,
+  statut: over.statut ?? ('vu' as ApproDecisionStatut),
 })
 
 test.group('autoEvaluation — taux d’override par source', () => {
@@ -47,6 +49,63 @@ test.group('autoEvaluation — taux d’override par source', () => {
     ])
 
     assert.equal(result.parSource[0].source, 'appro')
+  })
+
+  test('concordance : part des « à passer » quand le moteur corrélait avec la source', ({
+    assert,
+  }) => {
+    // « à passer » sur un verdict « replanifier » n'est pas un override : c'est
+    // l'acheteur qui suit. Le taux d'override seul ne sait pas le dire.
+    const result = autoEvaluation([
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'a_passer' }),
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'a_passer' }),
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'vu' }),
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'ignorer' }),
+    ])
+
+    const stock = result.parSource[0]
+    assert.equal(stock.concordance, 0.5)
+    assert.equal(stock.taux, 0.25)
+  })
+})
+
+test.group('autoEvaluation — par niveau affiché', () => {
+  test('agrège les overrides sous le badge que l’acheteur avait à l’écran', ({ assert }) => {
+    const result = autoEvaluation([
+      decision({
+        causePredit: 'stock',
+        niveauPredit: 'directe',
+        verdictPredit: 'replanifier',
+        statut: 'a_passer',
+      }),
+      decision({
+        causePredit: 'stock',
+        niveauPredit: 'correlation',
+        verdictPredit: 'replanifier',
+        statut: 'ignorer',
+      }),
+      decision({
+        causePredit: 'appro',
+        niveauPredit: 'correlation',
+        verdictPredit: 'replanifier',
+        statut: 'ignorer',
+      }),
+    ])
+
+    const directe = result.parNiveau.find((n) => n.niveau === 'directe')
+    const correlation = result.parNiveau.find((n) => n.niveau === 'correlation')
+    assert.equal(directe?.taux, 0)
+    assert.equal(correlation?.total, 2)
+    assert.equal(correlation?.taux, 1)
+  })
+
+  test('les décisions figées avant le suivi du niveau restent hors de l’agrégat', ({ assert }) => {
+    const result = autoEvaluation([
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'ignorer' }),
+    ])
+
+    assert.equal(result.total, 1)
+    assert.lengthOf(result.parNiveau, 0)
   })
 })
 

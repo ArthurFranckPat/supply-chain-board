@@ -21,6 +21,7 @@ export class ApproDecisionLedgerSchema extends BaseModel {
     'id',
     'lastSeenAt',
     'nature',
+    'niveauPredit',
     'quantite',
     'statut',
     'verdictPredit',
@@ -50,6 +51,8 @@ export class ApproDecisionLedgerSchema extends BaseModel {
   declare lastSeenAt: DateTime | null
   @column()
   declare nature: string
+  @column()
+  declare niveauPredit: string | null
   @column()
   declare quantite: number
   @column()

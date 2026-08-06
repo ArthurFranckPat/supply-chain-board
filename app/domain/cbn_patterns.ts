@@ -7,15 +7,28 @@ import type { CbnExplanation } from '#app/domain/cbn_explanation'
  * Avec 3+ semaines d'historique de photos, des régularités apparaissent que le
  * diff J-1 ne montre pas :
  *
- * - **articles volatils** — un article porte un message presque tous les
- *   jours : c'est du bruit structurel, son explication importe moins et il
- *   faut le signaler plutôt que de le laisser encombrer la file ;
+ * - **articles volatils** — un article porte message sur message : c'est du
+ *   bruit structurel, son explication importe moins et il faut le signaler
+ *   plutôt que de le laisser encombrer la file ;
  * - **fournisseurs problématiques** — un fournisseur dont une part élevée des
  *   messages est liée à des réceptions glissées (`appro`) est un signal
  *   fournisseur, pas un signal CBN : l'acheteur peut l'attaquer à la source.
  *
- * Pur, sans I/O : le service lit les photos de la fenêtre et les explications,
- * ce module ne fait qu'agréger.
+ * ## Deux règles de comptage, apprises à la revue
+ *
+ * 1. **Un message = une clé stable**, pas une ligne de photo. Un message
+ *    présent 21 jours d'affilée est UN message qui dure, pas 21 messages. Le
+ *    compter par ligne classait en tête les messages les plus anciens — la
+ *    persistance, pas la volatilité.
+ * 2. **La dominance se mesure sur plusieurs diffs.** L'appelant passe les
+ *    explications de N couples de photos consécutifs (`diffs`), pas d'un diff
+ *    unique étalé sur la fenêtre. « Cet article reçoit systématiquement
+ *    "avancer" à cause du stock » est une régularité DANS LE TEMPS : un seul
+ *    diff J-21 vs J ne peut pas la voir, il ne rend qu'une photo de plus.
+ *
+ * Pur, sans I/O : le service lit les photos et calcule les explications, ce
+ * module ne fait qu'agréger — en une passe, sans boucle imbriquée sur les
+ * lignes (16 000 lignes × 150 fournisseurs se paient comptant sinon).
  */
 
 /** Volatilité d'un article sur la fenêtre, dérivée de sa fréquence de messages. */
@@ -23,26 +36,45 @@ export type Volatilite = 'haute' | 'moyenne' | 'basse'
 
 export interface PatternArticle {
   article: string
-  /** Nombre de messages portés sur la fenêtre (toutes natures confondues). */
+  /** Messages DISTINCTS (clé stable) portés sur la fenêtre. */
   nbMessages: number
-  /** Messages par semaine en moyenne sur la fenêtre. */
+  /** Jours de photo où l'article portait au moins un message. */
+  joursSousMessage: number
+  /** Messages distincts par semaine, sur l'étendue calendaire réelle. */
   messagesSemaine: number
-  /** Source dominante des corrélations convergentes de l'article, `null` si aucune. */
+  /** Source la plus fréquente parmi les corrélations convergentes des diffs. */
   sourceDominante: string | null
-  /** Part de la source dominante (0-1), `null` si aucune. */
+  /** Part de la source dominante (0-1), `null` si aucune corrélation. */
   partSourceDominante: number | null
+  /** Nombre de diffs de la fenêtre où l'article portait une corrélation. */
+  diffsExpliques: number
   volatilite: Volatilite
 }
 
 export interface PatternFournisseur {
   fournisseur: string
-  /** Messages portés par ce fournisseur sur la fenêtre. */
+  /** Messages DISTINCTS portés par ce fournisseur sur la fenêtre. */
   nbMessages: number
   /**
-   * Part des messages du fournisseur dont la cause dominante de l'article est
-   * une réception (`appro`), `null` si aucune cause connue.
+   * Part des messages distincts du fournisseur dont la source dominante de
+   * l'article est une réception (`appro`), `null` si aucune source connue.
    */
   partReceptionsGlissees: number | null
+}
+
+/**
+ * Qualité du moteur sur le diff le plus récent de la fenêtre — les métriques
+ * d'acceptation du lot 2, mesurées et non promises.
+ */
+export interface QualiteExplications {
+  messages: number
+  nonExpliques: number
+  /** `nonExpliques / messages` (0-1), `null` si aucun message. */
+  tauxNonExplique: number | null
+  /** Couverture moyenne des messages expliqués (0-1), `null` si aucun. */
+  couvertureMoyenne: number | null
+  /** Résidu inexpliqué moyen (0-1), `null` si aucun message. */
+  residuMoyen: number | null
 }
 
 export interface ApproPatterns {
@@ -53,8 +85,11 @@ export interface ApproPatterns {
   fenetreJours: number
   /** Jours de photos réellement couverts dans la fenêtre. */
   joursCouverts: number
+  /** Couples de photos consécutifs réellement analysés pour la dominance. */
+  diffsAnalyses: number
   articles: PatternArticle[]
   fournisseurs: PatternFournisseur[]
+  qualite: QualiteExplications
 }
 
 /** Seuils de volatilité, en messages/semaine (hypothèse, à calibrer en atelier). */
@@ -67,133 +102,178 @@ const volatilite = (messagesSemaine: number): Volatilite => {
   return 'basse'
 }
 
-/** Source dominante d'une liste de corrélations, avec sa part (0-1). */
-function causeDominante(
-  explications: CbnExplanation[],
-  article: string
-): { source: string; part: number } | null {
-  const compteur = new Map<string, number>()
-  let total = 0
-  for (const e of explications) {
-    if (e.article !== article) continue
-    for (const c of e.correlations) {
-      compteur.set(c.source, (compteur.get(c.source) ?? 0) + 1)
-      total += 1
+const arrondi2 = (v: number): number => Math.round(v * 100) / 100
+
+/** Clé stable d'un message — la même qu'en base (#107). */
+const cleMessage = (l: ApproMessageSnapshotRow): string => `${l.vcrnum}:${l.vcrlin}:${l.vcrseq}`
+
+/** Étendue calendaire réelle couverte par des photos, en jours (minimum 1). */
+function etendueCalendaire(datesTriees: string[]): number {
+  if (datesTriees.length < 2) return 1
+  const debut = Date.parse(`${datesTriees[0]}T00:00:00Z`)
+  const fin = Date.parse(`${datesTriees.at(-1)}T00:00:00Z`)
+  if (!Number.isFinite(debut) || !Number.isFinite(fin)) return 1
+  return Math.max(1, Math.round((fin - debut) / 86_400_000) + 1)
+}
+
+/** Qualité du moteur sur une liste d'explications (le diff le plus récent). */
+function mesureQualite(explications: CbnExplanation[]): QualiteExplications {
+  const messages = explications.length
+  if (messages === 0) {
+    return {
+      messages: 0,
+      nonExpliques: 0,
+      tauxNonExplique: null,
+      couvertureMoyenne: null,
+      residuMoyen: null,
     }
   }
-  if (total === 0) return null
-  let best: { source: string; n: number } | null = null
-  for (const [source, n] of compteur) {
-    if (best === null || n > best.n) best = { source, n }
+  let nonExpliques = 0
+  let sommeCouverture = 0
+  let nbExpliques = 0
+  let sommeResidu = 0
+  for (const e of explications) {
+    if (e.niveau === 'non_explique') nonExpliques += 1
+    else {
+      sommeCouverture += e.couverture
+      nbExpliques += 1
+    }
+    sommeResidu += e.residuInexplique
   }
-  if (best === null) return null
-  return { source: best.source, part: Math.round((best.n / total) * 100) / 100 }
+  return {
+    messages,
+    nonExpliques,
+    tauxNonExplique: arrondi2(nonExpliques / messages),
+    couvertureMoyenne: nbExpliques > 0 ? arrondi2(sommeCouverture / nbExpliques) : null,
+    residuMoyen: arrondi2(sommeResidu / messages),
+  }
 }
 
 /**
  * Agrège les patterns à partir des photos de messages d'une fenêtre et des
- * explications de la même fenêtre.
+ * explications de plusieurs diffs de cette même fenêtre.
  *
- * `lignes` : toutes les lignes de photos de messages dont la date est dans la
- * fenêtre. `explications` : les explications calculées sur le dernier diff de
- * la fenêtre (elles portent l'article et les corrélations).
+ * `lignes` : toutes les lignes de photos de messages dans la fenêtre.
+ * `diffs` : les explications par couple de photos consécutif, du plus récent
+ * au plus ancien — `diffs[0]` sert aussi de base aux métriques de qualité.
  */
 export function detectPatterns(
   lignes: ApproMessageSnapshotRow[],
-  explications: CbnExplanation[],
+  diffs: CbnExplanation[][],
   fenetreJours: number
 ): ApproPatterns {
-  const parArticle = new Map<string, PatternArticle>()
-  const parFournisseur = new Map<string, { nbMessages: number }>()
-
-  const jours = new Set(lignes.map((l) => l.snapshot_date))
-  const joursCouverts = jours.size
-  // Étendue CALENDAIRE réelle couverte (avant → apres), en jours — la bonne
-  // base pour une fréquence hebdomadaire. Distinct de `joursCouverts` : deux
-  // photos espacées de 20 jours couvrent 20 jours calendaires mais seulement
-  // 2 jours de photos ; diviser par 2 surévaluerait la fréquence.
-  const datesTriees = [...jours].sort()
-  const etendueJours =
-    datesTriees.length >= 2
-      ? Math.max(
-          1,
-          Math.round(
-            (Date.parse(`${datesTriees.at(-1)}T00:00:00Z`) -
-              Date.parse(`${datesTriees[0]}T00:00:00Z`)) /
-              86_400_000
-          ) + 1
-        )
-      : 1
-
-  for (const l of lignes) {
-    const a = parArticle.get(l.itmref) ?? {
-      article: l.itmref,
-      nbMessages: 0,
-      messagesSemaine: 0,
-      sourceDominante: null,
-      partSourceDominante: null,
-      volatilite: 'basse' as Volatilite,
-    }
-    a.nbMessages += 1
-    parArticle.set(l.itmref, a)
-
-    if (l.fournisseur !== null) {
-      const f = parFournisseur.get(l.fournisseur) ?? { nbMessages: 0 }
-      f.nbMessages += 1
-      parFournisseur.set(l.fournisseur, f)
+  // 1. Dominance par article, agrégée sur TOUS les diffs de la fenêtre.
+  const sourcesParArticle = new Map<string, Map<string, number>>()
+  const diffsExpliquesParArticle = new Map<string, number>()
+  for (const explications of diffs) {
+    const vusDansCeDiff = new Set<string>()
+    for (const e of explications) {
+      if (e.correlations.length === 0) continue
+      const compteur = sourcesParArticle.get(e.article) ?? new Map<string, number>()
+      for (const c of e.correlations) compteur.set(c.source, (compteur.get(c.source) ?? 0) + 1)
+      sourcesParArticle.set(e.article, compteur)
+      if (!vusDansCeDiff.has(e.article)) {
+        vusDansCeDiff.add(e.article)
+        diffsExpliquesParArticle.set(e.article, (diffsExpliquesParArticle.get(e.article) ?? 0) + 1)
+      }
     }
   }
 
+  const dominanteParArticle = new Map<string, { source: string; part: number }>()
+  for (const [article, compteur] of sourcesParArticle) {
+    let total = 0
+    let best: { source: string; n: number } | null = null
+    for (const [source, n] of compteur) {
+      total += n
+      if (best === null || n > best.n) best = { source, n }
+    }
+    if (best !== null && total > 0) {
+      dominanteParArticle.set(article, { source: best.source, part: arrondi2(best.n / total) })
+    }
+  }
+
+  // 2. Comptage des messages DISTINCTS, en une passe sur les lignes.
+  const clesVues = new Set<string>()
+  const messagesParArticle = new Map<string, { messages: number; jours: Set<string> }>()
+  const messagesParFournisseur = new Map<
+    string,
+    { messages: number; appro: number; sourcesConnues: number }
+  >()
+  const jours = new Set<string>()
+
+  for (const l of lignes) {
+    jours.add(l.snapshot_date)
+    const article = messagesParArticle.get(l.itmref) ?? { messages: 0, jours: new Set<string>() }
+    article.jours.add(l.snapshot_date)
+    messagesParArticle.set(l.itmref, article)
+
+    // Un message qui dure ne compte qu'une fois — les jours qu'il traverse sont
+    // dans `jours`, pas dans le décompte.
+    const cle = cleMessage(l)
+    if (clesVues.has(cle)) continue
+    clesVues.add(cle)
+    article.messages += 1
+
+    if (l.fournisseur === null) continue
+    const f = messagesParFournisseur.get(l.fournisseur) ?? {
+      messages: 0,
+      appro: 0,
+      sourcesConnues: 0,
+    }
+    f.messages += 1
+    const dominante = dominanteParArticle.get(l.itmref)
+    if (dominante !== undefined) {
+      f.sourcesConnues += 1
+      if (dominante.source === 'appro') f.appro += 1
+    }
+    messagesParFournisseur.set(l.fournisseur, f)
+  }
+
+  const datesTriees = [...jours].sort()
+  const etendueJours = etendueCalendaire(datesTriees)
+
   const articles: PatternArticle[] = []
-  for (const a of parArticle.values()) {
+  for (const [article, agg] of messagesParArticle) {
     // Fréquence normalisée sur l'étendue CALENDAIRE réelle (avant → apres),
     // pas sur la fenêtre demandée : avec des trous (week-ends, pannes),
     // diviser par la fenêtre demandée sous-estime la fréquence observée.
-    const messagesSemaine = (a.nbMessages / etendueJours) * 7
-    const cause = causeDominante(explications, a.article)
+    const messagesSemaine = (agg.messages / etendueJours) * 7
+    const dominante = dominanteParArticle.get(article)
     articles.push({
-      article: a.article,
-      nbMessages: a.nbMessages,
+      article,
+      nbMessages: agg.messages,
+      joursSousMessage: agg.jours.size,
       messagesSemaine: Math.round(messagesSemaine * 10) / 10,
-      sourceDominante: cause?.source ?? null,
-      partSourceDominante: cause?.part ?? null,
+      sourceDominante: dominante?.source ?? null,
+      partSourceDominante: dominante?.part ?? null,
+      diffsExpliques: diffsExpliquesParArticle.get(article) ?? 0,
       volatilite: volatilite(messagesSemaine),
     })
   }
-  articles.sort((x, y) => y.messagesSemaine - x.messagesSemaine)
-
-  // Part des réceptions glissées par fournisseur : la cause dominante de
-  // l'article porte le message ; si elle vaut `appro`, le message est lié à
-  // une réception attendue qui a glissé — le signal fournisseur par excellence.
-  const causeParArticle = new Map<string, string | null>()
-  for (const a of articles) causeParArticle.set(a.article, a.sourceDominante)
+  articles.sort((x, y) => y.messagesSemaine - x.messagesSemaine || y.nbMessages - x.nbMessages)
 
   const fournisseurs: PatternFournisseur[] = []
-  for (const [fournisseur, f] of parFournisseur) {
-    let appro = 0
-    let causesConnues = 0
-    for (const l of lignes) {
-      if (l.fournisseur !== fournisseur) continue
-      const cause = causeParArticle.get(l.itmref)
-      if (cause === undefined || cause === null) continue
-      causesConnues += 1
-      if (cause === 'appro') appro += 1
-    }
+  for (const [fournisseur, f] of messagesParFournisseur) {
     fournisseurs.push({
       fournisseur,
-      nbMessages: f.nbMessages,
-      partReceptionsGlissees:
-        causesConnues > 0 ? Math.round((appro / causesConnues) * 100) / 100 : null,
+      nbMessages: f.messages,
+      partReceptionsGlissees: f.sourcesConnues > 0 ? arrondi2(f.appro / f.sourcesConnues) : null,
     })
   }
-  fournisseurs.sort((x, y) => y.nbMessages - x.nbMessages)
+  fournisseurs.sort(
+    (x, y) =>
+      (y.partReceptionsGlissees ?? -1) - (x.partReceptionsGlissees ?? -1) ||
+      y.nbMessages - x.nbMessages
+  )
 
   return {
-    apres: jours.size > 0 ? ([...jours].sort().at(-1) ?? '') : '',
-    avant: jours.size > 0 ? [...jours].sort()[0] : '',
+    apres: datesTriees.at(-1) ?? '',
+    avant: datesTriees[0] ?? '',
     fenetreJours,
-    joursCouverts,
+    joursCouverts: jours.size,
+    diffsAnalyses: diffs.length,
     articles,
     fournisseurs,
+    qualite: mesureQualite(diffs[0] ?? []),
   }
 }

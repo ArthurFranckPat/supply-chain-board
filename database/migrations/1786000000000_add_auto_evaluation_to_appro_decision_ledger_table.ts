@@ -6,9 +6,16 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
  * Le ledger de décisions est append-only : chaque action (vu / ignorer / à
  * passer) est une ligne nouvelle. En lot 2, on y fige aussi CE QUE LE MOTEUR
  * AVAIT DIT au moment de la décision — `cause_predit` (source dominante de la
- * corrélation), `confiance_predit` (confiance 0-1) et `verdict_predit` (le
+ * corrélation), `confiance_predit` (confiance 0-1), `niveau_predit` (le badge
+ * affiché : `directe` / `probable` / `correlation`) et `verdict_predit` (le
  * verdict du triage) — pour mesurer a posteriori la corrélation entre
  * l'explication et l'acceptation humaine.
+ *
+ * `niveau_predit` est le seul des quatre que l'acheteur VOIT. Sans lui,
+ * l'auto-évaluation ne peut pas répondre à « les explications présentées comme
+ * sûres sont-elles moins contredites que les autres ? » — la question de
+ * calibrage la plus directe. Le rajouter plus tard laisserait un trou dans
+ * l'historique : même argument que le lot 0 sur les messages.
  *
  * Sans cet instantané, l'auto-évaluation comparerait la décision à l'explication
  * ACTUELLE, qui a pu changer depuis — le taux d'override ne mesurerait plus la
@@ -32,6 +39,8 @@ export default class extends BaseSchema {
       table.string('cause_predit', 24).nullable()
       /** Confiance 0-1 de l'explication au moment de la décision. */
       table.double('confiance_predit').nullable()
+      /** Niveau affiché à l'acheteur (directe, probable, correlation). */
+      table.string('niveau_predit', 16).nullable()
       /** Verdict du triage au moment de la décision (passer, replanifier, …). */
       table.string('verdict_predit', 16).nullable()
     })
@@ -40,6 +49,7 @@ export default class extends BaseSchema {
   async down() {
     this.schema.alterTable(this.tableName, (table) => {
       table.dropColumn('verdict_predit')
+      table.dropColumn('niveau_predit')
       table.dropColumn('cause_predit')
       table.dropColumn('confiance_predit')
     })

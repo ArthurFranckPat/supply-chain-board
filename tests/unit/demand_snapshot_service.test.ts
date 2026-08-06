@@ -484,4 +484,26 @@ test.group('DemandSnapshotService — fenêtre de photos (lot 2)', (group) => {
     assert.equal(apres, '2099-01-20')
     assert.equal(avant, '2099-01-15')
   }).timeout(15_000)
+
+  test('patterns : la dominance passe par les couples CONSÉCUTIFS de la fenêtre', async ({
+    assert,
+  }) => {
+    // Le même message porté par les quatre photos : un message qui dure, pas
+    // quatre messages. Et trois couples consécutifs à analyser, pas un diff
+    // unique 01→20 — c'est ce qui distingue une régularité d'une photo de plus.
+    for (const d of DATES)
+      await service.runWrite(d, async () =>
+        payload([row({ snapshot_date: d })], [msg({ snapshot_date: d })])
+      )
+
+    const patterns = (await service.patterns(30))!
+
+    assert.equal(patterns.avant, '2099-01-01')
+    assert.equal(patterns.apres, '2099-01-20')
+    assert.equal(patterns.joursCouverts, 4)
+    assert.equal(patterns.diffsAnalyses, 3)
+    assert.lengthOf(patterns.articles, 1)
+    assert.equal(patterns.articles[0].nbMessages, 1)
+    assert.equal(patterns.articles[0].joursSousMessage, 4)
+  }).timeout(15_000)
 })

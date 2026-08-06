@@ -21,6 +21,7 @@ import {
   jourIso,
   libelleMessage,
   photoLaPlusProche,
+  MAX_FENETRE_JOURS,
   type CouverturePhotos,
 } from '#app/domain/snapshot_couverture'
 import type { DemandSnapshotRow, ApproMessageSnapshotRow } from '#app/domain/snapshot_rows'
@@ -84,6 +85,17 @@ export interface SnapshotPayload {
 }
 
 const INSERT_CHUNK = 400
+
+/**
+ * Couples de photos consécutifs analysés au maximum pour la dominance des
+ * patterns (#138 lot 2).
+ *
+ * Chaque couple relit deux journées entières de `demand_snapshots` au premier
+ * appel — mesuré à 67 787 lignes pour le couple 05/08–06/08. Sept couples
+ * suffisent à voir une régularité hebdomadaire ; soixante feraient payer une
+ * minute au premier chargement de l'onglet pour un signal à peine plus net.
+ */
+const MAX_DIFFS_PATTERNS = 7
 
 /**
  * Jour LOCAL où une ligne a été écrite — la seule trace du fait qu'une photo a
@@ -357,14 +369,24 @@ export class DemandSnapshotService {
    * `null` s'il n'y a pas au moins deux photos.
    */
   async photosMessagesFenetre(fenetreJours: number): Promise<[string, string] | null> {
+    const dates = await this.datesPhotosMessages()
+    return photoLaPlusProche(dates, fenetreJours)
+  }
+
+  /**
+   * Les dates de photos de messages, du plus récent au plus ancien, plafonnées
+   * à `MAX_FENETRE_JOURS` — le même plafond que `fenetreValide` applique à la
+   * fenêtre demandée, pour qu'aucun appelant ne demande plus que ce que cette
+   * requête peut rendre.
+   */
+  private async datesPhotosMessages(): Promise<string[]> {
     const rows = await db
       .connection()
       .from('appro_message_snapshots')
       .distinct('snapshot_date')
       .orderBy('snapshot_date', 'desc')
-      .limit(62)
-    const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
-    return photoLaPlusProche(dates, fenetreJours)
+      .limit(MAX_FENETRE_JOURS)
+    return rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
   }
 
   /**
@@ -382,7 +404,7 @@ export class DemandSnapshotService {
       .from('demand_snapshots')
       .distinct('snapshot_date')
       .orderBy('snapshot_date', 'desc')
-      .limit(62)
+      .limit(MAX_FENETRE_JOURS)
     const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
     return photoLaPlusProche(dates, fenetreJours)
   }
@@ -390,38 +412,74 @@ export class DemandSnapshotService {
   /**
    * Patterns émergents sur une fenêtre (#138 lot 2) : articles volatils et
    * fournisseurs dont une part élevée des messages est liée à des réceptions
-   * glissées. Lit les photos de messages de la fenêtre et les explications du
-   * dernier diff de la fenêtre.
+   * glissées.
    *
-   * `null` si moins de deux photos dans la table — les patterns ont besoin
-   * d'historique, le diff J-1 seul ne suffit pas.
+   * La dominance d'une source se mesure sur PLUSIEURS diffs consécutifs, pas
+   * sur un diff unique étalé sur la fenêtre : « cet article reçoit toujours
+   * "avancer" à cause du stock » est une régularité dans le temps. Un diff
+   * J-21 vs J ne rend qu'une photo de plus, jamais une régularité.
+   *
+   * Chaque diff passe par `explainMessages`, mis en cache pour toujours sur son
+   * couple de jours : le premier appel paie les couples, les suivants non. Les
+   * couples dont la photo du besoin manque sont SAUTÉS, pas fatals — un trou au
+   * milieu de la fenêtre ne doit pas effacer l'analyse.
+   *
+   * `null` si moins de deux photos, ou si aucun couple n'est exploitable.
    */
   async patterns(fenetreJours: number): Promise<ApproPatterns | null> {
-    const photos = await this.photosMessagesFenetre(fenetreJours)
+    const dates = await this.datesPhotosMessages()
+    const photos = photoLaPlusProche(dates, fenetreJours)
     if (photos === null) return null
     const [apres, avant] = photos
-    const [lignes, explications] = await Promise.all([
-      db
-        .connection()
-        .from('appro_message_snapshots')
-        .where('snapshot_date', '<=', apres)
-        .andWhere('snapshot_date', '>=', avant),
-      this.explainMessages(apres, avant),
-    ])
-    if (explications === null) return null
-    const lignesTypées: ApproMessageSnapshotRow[] = lignes.map((r) => ({
-      snapshot_date: String(r.snapshot_date).slice(0, 10),
-      vcrnum: String(r.vcrnum),
-      vcrlin: Number(r.vcrlin),
-      vcrseq: String(r.vcrseq),
-      itmref: String(r.itmref),
-      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
-      mrpmes: Number(r.mrpmes),
-      mrpdat: r.mrpdat === null ? null : String(r.mrpdat).slice(0, 10),
-      enddat: r.enddat === null ? null : String(r.enddat).slice(0, 10),
-      quantity: Number(r.quantity),
-    }))
-    return detectPatterns(lignesTypées, explications.explications, fenetreJours)
+    const dansLaFenetre = dates.filter((d) => d <= apres && d >= avant)
+    // Couples consécutifs, du plus récent au plus ancien, plafonnés : chaque
+    // couple relit deux journées entières de `demand_snapshots` (~34 000 lignes
+    // chacune) au premier appel. Au-delà, le coût d'un cache froid dépasserait
+    // ce que la page peut attendre.
+    const couples: Array<[string, string]> = []
+    for (let i = 0; i + 1 < dansLaFenetre.length && couples.length < MAX_DIFFS_PATTERNS; i += 1) {
+      couples.push([dansLaFenetre[i], dansLaFenetre[i + 1]])
+    }
+    if (couples.length === 0) return null
+
+    // Caché comme les explications, et pour la même raison : deux photos sont
+    // immuables une fois écrites, donc leur agrégat aussi. La clé porte les
+    // deux bornes ET le nombre de couples — changer de fenêtre change la clé,
+    // et une photo nouvelle la change d'elle-même. Sans ce cache, chaque
+    // bascule vers l'onglet « Tendances » relisait toutes les lignes de messages
+    // de la fenêtre (16 000 pour 21 jours) pour un résultat identique.
+    const cached = await cacheNs('appro').getOrSetForever({
+      key: `appro:patterns:v1:${avant}:${apres}:${couples.length}`,
+      factory: async () => {
+        const [lignes, explicationsParDiff] = await Promise.all([
+          db
+            .connection()
+            .from('appro_message_snapshots')
+            .where('snapshot_date', '<=', apres)
+            .andWhere('snapshot_date', '>=', avant),
+          Promise.all(couples.map(([a, b]) => this.explainMessages(a, b))),
+        ])
+        const diffs = explicationsParDiff
+          .filter((e): e is NonNullable<typeof e> => e !== null)
+          .map((e) => e.explications)
+        if (diffs.length === 0) return null
+
+        const lignesTypées: ApproMessageSnapshotRow[] = lignes.map((r) => ({
+          snapshot_date: String(r.snapshot_date).slice(0, 10),
+          vcrnum: String(r.vcrnum),
+          vcrlin: Number(r.vcrlin),
+          vcrseq: String(r.vcrseq),
+          itmref: String(r.itmref),
+          fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+          mrpmes: Number(r.mrpmes),
+          mrpdat: r.mrpdat === null ? null : String(r.mrpdat).slice(0, 10),
+          enddat: r.enddat === null ? null : String(r.enddat).slice(0, 10),
+          quantity: Number(r.quantity),
+        }))
+        return detectPatterns(lignesTypées, diffs, fenetreJours)
+      },
+    })
+    return cached ?? null
   }
 
   /**

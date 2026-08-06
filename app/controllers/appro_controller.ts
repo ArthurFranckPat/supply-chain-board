@@ -9,8 +9,8 @@ import {
   cleLogiqueSuggestion,
   estCleMessage,
   isApproDecisionStatut,
+  autoEvaluation,
 } from '#app/domain/appro_decision'
-import { autoEvaluation } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
 import { fenetreValide } from '#app/domain/snapshot_couverture'
 
@@ -112,6 +112,17 @@ export default class ApproController {
       body.verdictPredit === null || body.verdictPredit === undefined
         ? null
         : String(body.verdictPredit)
+    // Le niveau est le SEUL des quatre que l'acheteur voit à l'écran : c'est
+    // celui qui rend l'auto-évaluation lisible (« les explications présentées
+    // comme sûres sont-elles moins contredites ? »). Liste fermée, pour qu'un
+    // client bavard ne crée pas des colonnes de tableau de bord fantômes.
+    const niveauxConnus = ['directe', 'probable', 'correlation', 'non_explique']
+    const niveauBrut =
+      body.niveauPredit === null || body.niveauPredit === undefined
+        ? null
+        : String(body.niveauPredit)
+    const niveauPredit: string | null =
+      niveauBrut !== null && niveauxConnus.includes(niveauBrut) ? niveauBrut : null
 
     if (nature === 'suggestion') {
       if (article === '') {
@@ -136,6 +147,7 @@ export default class ApproController {
       echeance,
       causePredit,
       confiancePredit,
+      niveauPredit,
       verdictPredit,
     })
     return ctx.response.json({ cleLogique, statut, decidedAt: row.decidedAt })
@@ -316,8 +328,16 @@ export default class ApproController {
         avant: null,
         fenetreJours: fenetre,
         joursCouverts: 0,
+        diffsAnalyses: 0,
         articles: [],
         fournisseurs: [],
+        qualite: {
+          messages: 0,
+          nonExpliques: 0,
+          tauxNonExplique: null,
+          couvertureMoyenne: null,
+          residuMoyen: null,
+        },
         message:
           'historique insuffisant — photos des messages manquantes, ou drivers indisponibles sur la fenêtre',
       })

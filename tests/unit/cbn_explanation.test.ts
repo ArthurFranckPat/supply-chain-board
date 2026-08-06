@@ -391,48 +391,86 @@ test.group('explainCbnMessages — scoring de confiance (lot 2)', () => {
   }) => {
     const [exp] = explainCbnMessages(
       [msgCode(2)],
-      // stock baisse (3) + demande ferme HAUSSE (3) → deux convergents pour avancer
+      // stock baisse de 460 (3) + demande ferme HAUSSE de 400 (3) → deux
+      // convergents pour avancer, aucune variation neutre
       [driver('stock', 1200, 740), driver('demande_ferme', 400, 800)]
     )
 
     assert.lengthOf(exp.correlations, 2)
     assert.equal(exp.couverture, 1)
+    assert.equal(exp.residuInexplique, 0)
     assert.equal(exp.niveau, 'directe')
-    // parts normalisées sur les convergents : 3/(3+3) = 0.5 chacune
-    assert.equal(exp.correlations[0].part + exp.correlations[1].part, 1)
+    // Parts normalisées sur l'AMPLITUDE, pas sur le poids de source :
+    // 460/(460+400) = 0,53 et 400/860 = 0,47.
+    assert.closeTo(exp.correlations[0].part + exp.correlations[1].part, 1, 0.02)
+    assert.equal(exp.correlations[0].amplitude, 460)
+    assert.equal(exp.correlations[0].part, 0.53)
     assert.isAtLeast(exp.correlations[0].confiance, 0.8)
     assert.match(exp.synthese, /stock/)
   })
 
-  test('contradiction à parité : couverture 0,5 et niveau corrélation', ({ assert }) => {
-    // stock baisse (convergent, 3) + demande baisse (contradictoire pour
-    // avancer, 3) → couverture 3/6 = 0.5
+  test('la plus grosse variation passe devant, même à poids de source égal', ({ assert }) => {
+    // Deux sources de poids 3 : c'est l'amplitude qui départage, sinon
+    // l'ordre d'entrée déciderait de ce que l'acheteur lit en premier.
     const [exp] = explainCbnMessages(
       [msgCode(2)],
-      [driver('stock', 1200, 740), driver('demande_ferme', 800, 400)]
+      [driver('stock', 1200, 1000), driver('demande_ferme', 100, 900)]
+    )
+
+    assert.equal(exp.correlations[0].source, 'demande_ferme')
+    assert.equal(exp.correlations[0].amplitude, 800)
+    assert.equal(exp.correlations[1].source, 'stock')
+  })
+
+  test('contradiction de même ampleur : couverture 0,5 et niveau corrélation', ({ assert }) => {
+    // stock baisse de 400 (convergent) + demande baisse de 400 (contradictoire
+    // pour avancer) → couverture 400/800 = 0,5
+    const [exp] = explainCbnMessages(
+      [msgCode(2)],
+      [driver('stock', 1200, 800), driver('demande_ferme', 800, 400)]
     )
 
     assert.lengthOf(exp.correlations, 1)
     assert.lengthOf(exp.contradictions, 1)
     assert.equal(exp.couverture, 0.5)
-    assert.equal(exp.niveau, 'correlation')
+    assert.equal(exp.niveau, 'probable')
     assert.match(exp.synthese, /contradiction/)
   })
 
-  test('contradiction minoritaire : couverture 0,75 → probable', ({ assert }) => {
-    // stock baisse (3) + demande hausse (3) convergent, demande_prevision
-    // baisse (2) contradictoire → couverture 6/8 = 0.75
+  test('contradiction minoritaire : couverture 0,75 → directe', ({ assert }) => {
+    // stock −400 et demande ferme +400 convergents, prévision −267
+    // contradictoire → couverture 800/1067 = 0,75
     const [exp] = explainCbnMessages(
       [msgCode(2)],
       [
-        driver('stock', 1200, 740),
+        driver('stock', 1200, 800),
         driver('demande_ferme', 400, 800),
-        driver('demande_prevision', 300, 100),
+        driver('demande_prevision', 400, 133),
       ]
     )
 
     assert.equal(exp.couverture, 0.75)
-    assert.equal(exp.niveau, 'probable')
+    assert.equal(exp.niveau, 'directe')
+  })
+
+  test('une variation neutre est au dénominateur : couverture partielle et résidu', ({
+    assert,
+  }) => {
+    // `of_suggestion` est écartée du catalogue (sortie du CBN, pas entrée) :
+    // elle est donc NEUTRE. Une neutre de 900 unités face à un stock de 100
+    // laisse 90 % de la variation de l'article sans explication — et la
+    // couverture doit le dire, au lieu d'annoncer 100 % faute de contradiction.
+    const [exp] = explainCbnMessages(
+      [msgCode(2)],
+      [driver('stock', 1200, 1100), driver('of_suggestion', 100, 1000)]
+    )
+
+    assert.lengthOf(exp.correlations, 1)
+    assert.lengthOf(exp.contradictions, 0)
+    assert.equal(exp.couverture, 0.1)
+    assert.equal(exp.residuInexplique, 0.9)
+    assert.equal(exp.niveau, 'correlation')
+    assert.match(exp.synthese, /inexpliquée/)
   })
 
   test('une contradiction abaisse la confiance de la corrélation', ({ assert }) => {

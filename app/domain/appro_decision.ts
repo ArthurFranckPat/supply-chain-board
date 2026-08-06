@@ -146,6 +146,22 @@ export interface OverrideParSource {
   overrides: number
   /** Taux 0-1, `null` si aucune décision. */
   taux: number | null
+  /**
+   * Concordance corrélation → action (0-1) : part des décisions « à passer »
+   * quand le moteur corrélait avec cette source. C'est la métrique de
+   * CONFIANCE de la feuille de route, distincte du taux d'override : ignorer
+   * un message que le moteur disait de surveiller n'est pas une contradiction,
+   * mais ce n'est pas non plus un acquiescement.
+   */
+  concordance: number | null
+}
+
+/** Même agrégat, par niveau de confiance affiché à l'acheteur. */
+export interface OverrideParNiveau {
+  niveau: string
+  total: number
+  overrides: number
+  taux: number | null
 }
 
 export interface AutoEvaluation {
@@ -155,42 +171,74 @@ export interface AutoEvaluation {
   /** Taux global 0-1, `null` si aucune décision. */
   tauxGlobal: number | null
   parSource: OverrideParSource[]
+  /**
+   * Agrégat par niveau (`directe` / `probable` / `correlation`) : la question
+   * de calibrage la plus directe — les explications que l'écran présente comme
+   * sûres sont-elles moins contredites que les autres ?
+   */
+  parNiveau: OverrideParNiveau[]
 }
+
+const taux2 = (n: number, d: number): number | null =>
+  d > 0 ? Math.round((n / d) * 100) / 100 : null
 
 export function autoEvaluation(
   rows: Array<{
     causePredit: string | null
     verdictPredit: string | null
+    niveauPredit?: string | null
     statut: ApproDecisionStatut
   }>
 ): AutoEvaluation {
   const avecCause = rows.filter((r) => r.causePredit !== null)
-  const parSource = new Map<string, { total: number; overrides: number }>()
+  const parSource = new Map<string, { total: number; overrides: number; aPasser: number }>()
+  const parNiveau = new Map<string, { total: number; overrides: number }>()
   let overrides = 0
   for (const r of avecCause) {
     const source = r.causePredit ?? ''
-    const agg = parSource.get(source) ?? { total: 0, overrides: 0 }
+    const agg = parSource.get(source) ?? { total: 0, overrides: 0, aPasser: 0 }
     agg.total += 1
-    if (estOverride(r.verdictPredit ?? undefined, r.statut)) {
+    if (r.statut === 'a_passer') agg.aPasser += 1
+    const contredit = estOverride(r.verdictPredit ?? undefined, r.statut)
+    if (contredit) {
       agg.overrides += 1
       overrides += 1
     }
     parSource.set(source, agg)
+
+    // Les décisions figées AVANT que le niveau soit tracé n'ont rien à dire
+    // ici : les compter sous un libellé « inconnu » polluerait la seule
+    // question que cet agrégat pose.
+    if (r.niveauPredit !== null && r.niveauPredit !== undefined && r.niveauPredit !== '') {
+      const aggN = parNiveau.get(r.niveauPredit) ?? { total: 0, overrides: 0 }
+      aggN.total += 1
+      if (contredit) aggN.overrides += 1
+      parNiveau.set(r.niveauPredit, aggN)
+    }
   }
   const liste: OverrideParSource[] = [...parSource.entries()]
     .map(([source, agg]) => ({
       source,
       total: agg.total,
       overrides: agg.overrides,
-      taux: agg.total > 0 ? Math.round((agg.overrides / agg.total) * 100) / 100 : null,
+      taux: taux2(agg.overrides, agg.total),
+      concordance: taux2(agg.aPasser, agg.total),
+    }))
+    .sort((a, b) => b.total - a.total)
+  const listeNiveaux: OverrideParNiveau[] = [...parNiveau.entries()]
+    .map(([niveau, agg]) => ({
+      niveau,
+      total: agg.total,
+      overrides: agg.overrides,
+      taux: taux2(agg.overrides, agg.total),
     }))
     .sort((a, b) => b.total - a.total)
   return {
     total: avecCause.length,
     overrides,
-    tauxGlobal:
-      avecCause.length > 0 ? Math.round((overrides / avecCause.length) * 100) / 100 : null,
+    tauxGlobal: taux2(overrides, avecCause.length),
     parSource: liste,
+    parNiveau: listeNiveaux,
   }
 }
 

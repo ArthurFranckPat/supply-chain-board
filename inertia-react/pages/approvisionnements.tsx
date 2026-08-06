@@ -174,7 +174,9 @@ interface CbnCorrelation {
   nature: string
   detail: string
   poids: number
-  /** Part relative de l'explication (0-1), normalisée sur les convergentes. */
+  /** Amplitude de la variation, en unités de l'article. */
+  amplitude: number
+  /** Part relative de l'explication (0-1), amplitude normalisée sur les convergentes. */
   part: number
   /** Confiance (0-1) de la corrélation. */
   confiance: number
@@ -192,6 +194,8 @@ interface CbnExplanation {
   contradictions: CbnCorrelation[]
   niveau: CbnNiveau
   couverture: number
+  /** Part de la variation de l'article que le catalogue ne relie pas au message. */
+  residuInexplique: number
   synthese: string
 }
 
@@ -228,10 +232,14 @@ interface ExplanationsResponse {
 /** Patterns émergents (#138 lot 2) — l'onglet « Tendances ». */
 interface PatternArticle {
   article: string
+  /** Messages DISTINCTS (clé stable) sur la fenêtre, pas lignes de photo. */
   nbMessages: number
+  joursSousMessage: number
   messagesSemaine: number
   sourceDominante: string | null
   partSourceDominante: number | null
+  /** Diffs de la fenêtre où l'article portait une corrélation. */
+  diffsExpliques: number
   volatilite: 'haute' | 'moyenne' | 'basse'
 }
 
@@ -241,18 +249,38 @@ interface PatternFournisseur {
   partReceptionsGlissees: number | null
 }
 
+/** Qualité mesurée du moteur sur le diff le plus récent de la fenêtre. */
+interface QualiteExplications {
+  messages: number
+  nonExpliques: number
+  tauxNonExplique: number | null
+  couvertureMoyenne: number | null
+  residuMoyen: number | null
+}
+
 interface PatternsResponse {
   apres: string | null
   avant: string | null
   fenetreJours: number
   joursCouverts: number
+  diffsAnalyses: number
   articles: PatternArticle[]
   fournisseurs: PatternFournisseur[]
+  qualite: QualiteExplications
   message?: string
 }
 
 interface OverrideParSource {
   source: string
+  total: number
+  overrides: number
+  taux: number | null
+  /** Part des décisions « à passer » — l'acheteur a suivi le moteur. */
+  concordance: number | null
+}
+
+interface OverrideParNiveau {
+  niveau: string
   total: number
   overrides: number
   taux: number | null
@@ -263,6 +291,7 @@ interface AutoEvaluationResponse {
   overrides: number
   tauxGlobal: number | null
   parSource: OverrideParSource[]
+  parNiveau: OverrideParNiveau[]
 }
 
 const VOLATILITE_LABEL: Record<PatternArticle['volatilite'], string> = {
@@ -432,7 +461,38 @@ function explicationsPour(
   return parCle.get(item.cleSnapshot)
 }
 
-function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) {
+/**
+ * Contexte historique d'un article (#138 lot 2, § 2.4) : ce que les patterns de
+ * la fenêtre disent de lui. Rendu seulement s'il apporte quelque chose — un
+ * article vu une fois, sans source dominante, n'a pas d'histoire à raconter.
+ */
+function ContexteHistorique({ pattern }: { pattern: PatternArticle | undefined }) {
+  if (pattern === undefined) return null
+  if (pattern.nbMessages <= 1 && pattern.sourceDominante === null) return null
+  return (
+    <div className="text-[10.5px] text-muted-foreground">
+      Historique : {pattern.nbMessages} message{pattern.nbMessages > 1 ? 's' : ''} sur{' '}
+      {pattern.joursSousMessage} jour{pattern.joursSousMessage > 1 ? 's' : ''} de photos
+      {pattern.sourceDominante !== null &&
+        ` · corrélation dominante ${pattern.sourceDominante}${
+          pattern.partSourceDominante === null
+            ? ''
+            : ` (${Math.round(pattern.partSourceDominante * 100)} % sur ${pattern.diffsExpliques} diff${
+                pattern.diffsExpliques > 1 ? 's' : ''
+              })`
+        }`}
+      {pattern.volatilite === 'haute' && ' · article volatil, bruit structurel'}
+    </div>
+  )
+}
+
+function ExplanationBlock({
+  explications,
+  patternsParArticle,
+}: {
+  explications: CbnExplanation[]
+  patternsParArticle?: Map<string, PatternArticle>
+}) {
   if (explications.length === 0) return null
   return (
     <div className="mt-2 rounded-md border border-[#e8e8e8] bg-[#fafaf8] px-3 py-2">
@@ -525,6 +585,7 @@ function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) 
               </ul>
             </details>
           )}
+          <ContexteHistorique pattern={patternsParArticle?.get(exp.article)} />
           <div className="text-[10px] text-muted-foreground/70">
             Corrélations, non causes — le CBN fait du netting par fenêtres.
           </div>
@@ -540,6 +601,7 @@ function ItemRow({
   etatEnvoi,
   onDecide,
   explications,
+  patternsParArticle,
 }: {
   item: ApproItem
   decisionActuelle: DecisionStatut | null
@@ -547,6 +609,7 @@ function ItemRow({
   etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
   explications?: CbnExplanation[]
+  patternsParArticle?: Map<string, PatternArticle>
 }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
@@ -627,7 +690,7 @@ function ItemRow({
       </div>
       {item.nature === 'message' && explications !== undefined && explications.length > 0 && (
         <div className="col-span-full">
-          <ExplanationBlock explications={explications} />
+          <ExplanationBlock explications={explications} patternsParArticle={patternsParArticle} />
         </div>
       )}
     </li>
@@ -670,12 +733,14 @@ function Feuille({
   envois,
   onDecide,
   explicationsParCle,
+  patternsParArticle,
 }: {
   vue: FeuilleVue
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
+  patternsParArticle?: Map<string, PatternArticle>
 }) {
   const { dossier, suggestions, messages } = vue
   const nbItems = suggestions.length + messages.length
@@ -688,6 +753,7 @@ function Feuille({
         etatEnvoi={envois[item.cle] ?? 'inerte'}
         onDecide={(statut) => onDecide(item, statut)}
         explications={explicationsPour(explicationsParCle, item)}
+        patternsParArticle={patternsParArticle}
       />
     ))
   return (
@@ -766,12 +832,14 @@ function DossiersTraités({
   envois,
   onDecide,
   explicationsParCle,
+  patternsParArticle,
 }: {
   vues: FeuilleVue[]
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, fournisseur: string, statut: DecisionStatut) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
+  patternsParArticle?: Map<string, PatternArticle>
 }) {
   if (vues.length === 0) return null
   return (
@@ -816,6 +884,7 @@ function DossiersTraités({
                     etatEnvoi={envois[item.cle] ?? 'inerte'}
                     onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
                     explications={explicationsPour(explicationsParCle, item)}
+                    patternsParArticle={patternsParArticle}
                   />
                 ))}
               </ul>
@@ -859,8 +928,55 @@ function TendancesPanel({
   patterns: PatternsResponse | null
   autoEval: AutoEvaluationResponse | null
 }) {
+  const qualite = patterns?.qualite
   return (
     <div className="space-y-4">
+      <section className="overflow-hidden rounded-lg border border-rule bg-card">
+        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
+          <h2 className="text-sm font-bold tracking-tight">Qualité des explications</h2>
+          <p className="text-1.5xs text-muted-foreground">
+            Mesurée sur le diff le plus récent de la fenêtre — les critères d'acceptation du lot 2,
+            pas une promesse.
+          </p>
+        </header>
+        {qualite === undefined || qualite.messages === 0 ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            {patterns?.message ?? 'Aucun message à mesurer sur la fenêtre.'}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-x-8 gap-y-2 px-5 py-4 text-xs">
+            <span>
+              <b className="font-bold tabular-nums text-foreground">{qualite.messages}</b> message
+              {qualite.messages > 1 ? 's' : ''} expliqué{qualite.messages > 1 ? 's' : ''}
+            </span>
+            <span>
+              non expliqués{' '}
+              <b className="font-bold tabular-nums text-foreground">
+                {qualite.nonExpliques}
+                {qualite.tauxNonExplique !== null &&
+                  ` (${Math.round(qualite.tauxNonExplique * 100)} %)`}
+              </b>
+            </span>
+            {qualite.couvertureMoyenne !== null && (
+              <span>
+                couverture moyenne{' '}
+                <b className="font-bold tabular-nums text-foreground">
+                  {Math.round(qualite.couvertureMoyenne * 100)} %
+                </b>
+              </span>
+            )}
+            {qualite.residuMoyen !== null && (
+              <span>
+                variation inexpliquée{' '}
+                <b className="font-bold tabular-nums text-foreground">
+                  {Math.round(qualite.residuMoyen * 100)} %
+                </b>
+              </span>
+            )}
+          </div>
+        )}
+      </section>
+
       <section className="overflow-hidden rounded-lg border border-rule bg-card">
         <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
           <h2 className="text-sm font-bold tracking-tight">Auto-évaluation du moteur</h2>
@@ -906,7 +1022,10 @@ function TendancesPanel({
                     <th className="py-1.5 pr-3 font-semibold">Source</th>
                     <th className="py-1.5 pr-3 font-semibold">Décisions</th>
                     <th className="py-1.5 pr-3 font-semibold">Overrides</th>
-                    <th className="py-1.5 font-semibold">Taux</th>
+                    <th className="py-1.5 pr-3 font-semibold">Taux</th>
+                    <th className="py-1.5 font-semibold" title="Part des décisions « à passer »">
+                      Concordance
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -915,13 +1034,32 @@ function TendancesPanel({
                       <td className="py-1.5 pr-3 font-medium">{c.source}</td>
                       <td className="py-1.5 pr-3 tabular-nums">{c.total}</td>
                       <td className="py-1.5 pr-3 tabular-nums">{c.overrides}</td>
-                      <td className="py-1.5">
+                      <td className="py-1.5 pr-3">
                         <TauxBar taux={c.taux} />
+                      </td>
+                      <td className="py-1.5 tabular-nums">
+                        {c.concordance === null ? '—' : `${Math.round(c.concordance * 100)} %`}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+            {autoEval.parNiveau.length > 0 && (
+              <div className="mt-4">
+                <h3 className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                  Par niveau affiché
+                </h3>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                  {autoEval.parNiveau.map((n) => (
+                    <span key={n.niveau} className="inline-flex items-center gap-1.5">
+                      {NIVEAU_META[n.niveau as CbnNiveau]?.label ?? n.niveau} ·{' '}
+                      <b className="font-bold tabular-nums text-foreground">{n.total}</b>
+                      <TauxBar taux={n.taux} />
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -949,7 +1087,10 @@ function TendancesPanel({
             <p className="mb-3 text-1.5xs text-muted-foreground">
               Fenêtre {fr(patterns.avant)} → {fr(patterns.apres)} · {patterns.joursCouverts} jour
               {patterns.joursCouverts > 1 ? 's' : ''} couvert{patterns.joursCouverts > 1 ? 's' : ''}{' '}
-              sur {patterns.fenetreJours} demandés.
+              sur {patterns.fenetreJours} demandés · {patterns.diffsAnalyses} diff
+              {patterns.diffsAnalyses > 1 ? 's' : ''} analysé
+              {patterns.diffsAnalyses > 1 ? 's' : ''} pour la dominance. Un message qui dure compte
+              une fois.
             </p>
             <table className="w-full text-left text-xs">
               <thead>
@@ -957,6 +1098,7 @@ function TendancesPanel({
                   <th className="py-1.5 pr-3 font-semibold">Article</th>
                   <th className="py-1.5 pr-3 font-semibold">Volatilité</th>
                   <th className="py-1.5 pr-3 font-semibold">Messages</th>
+                  <th className="py-1.5 pr-3 font-semibold">Jours</th>
                   <th className="py-1.5 pr-3 font-semibold">/semaine</th>
                   <th className="py-1.5 font-semibold">Source dominante</th>
                 </tr>
@@ -978,6 +1120,7 @@ function TendancesPanel({
                       </span>
                     </td>
                     <td className="py-1.5 pr-3 tabular-nums">{a.nbMessages}</td>
+                    <td className="py-1.5 pr-3 tabular-nums">{a.joursSousMessage}</td>
                     <td className="py-1.5 pr-3 tabular-nums">{a.messagesSemaine}</td>
                     <td className="py-1.5">
                       {a.sourceDominante === null ? (
@@ -987,7 +1130,8 @@ function TendancesPanel({
                           {a.sourceDominante}
                           {a.partSourceDominante !== null && (
                             <span className="ml-1 text-[10px] text-muted-foreground">
-                              {Math.round(a.partSourceDominante * 100)} %
+                              {Math.round(a.partSourceDominante * 100)} % · {a.diffsExpliques} diff
+                              {a.diffsExpliques > 1 ? 's' : ''}
                             </span>
                           )}
                         </span>
@@ -1009,9 +1153,18 @@ function TendancesPanel({
             CBN.
           </p>
         </header>
-        {patterns === null || patterns.fournisseurs.length === 0 ? (
+        {patterns === null || patterns.apres === null ? (
+          // Même cause, même phrase que la section au-dessus : dire « aucun
+          // fournisseur » quand l'historique manque était une contradiction
+          // avec le bloc « Articles volatils » sur le même écran.
           <div className="px-5 py-6 text-sm text-muted-foreground">
-            Aucun fournisseur avec messages sur la fenêtre.
+            {patterns?.message ??
+              'Historique insuffisant — les patterns demandent au moins deux photos.'}
+          </div>
+        ) : patterns.fournisseurs.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            Aucun fournisseur avec messages sur la fenêtre {fr(patterns.avant)} →{' '}
+            {fr(patterns.apres)}.
           </div>
         ) : (
           <div className="px-5 py-4">
@@ -1052,14 +1205,25 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   const explicationsHref =
     fenetre === 1 ? '/api/v1/appro/explanations' : `/api/v1/appro/explanations?fenetre=${fenetre}`
   const { data: explData } = useTimedFetch<ExplanationsResponse>(explicationsHref)
-  // Lot 2 : onglet « Tendances » — patterns émergents + auto-évaluation du
-  // ledger. Chargés à la demande (`url: null` = onglet inactif, aucun fetch),
-  // sur la fenêtre par défaut de 21 jours (3 semaines de maturation).
+  // Lot 2 : patterns émergents sur 21 jours (3 semaines de maturation). Chargés
+  // dans les DEUX vues, parce que le contexte historique d'un article
+  // (« 7 messages sur 12 jours de photos, corrélation dominante stock ») se lit
+  // sous l'explication de la ligne, pas seulement dans l'onglet Tendances. Un
+  // seul appel : le serveur le sert depuis le cache des photos.
   const [vue, setVue] = useState<'feuilles' | 'tendances'>('feuilles')
-  const tendancesHref = vue === 'tendances' ? '/api/v1/appro/patterns?fenetre=21' : null
-  const { data: patternsData } = useTimedFetch<PatternsResponse>(tendancesHref)
+  const { data: patternsData } = useTimedFetch<PatternsResponse>(
+    '/api/v1/appro/patterns?fenetre=21'
+  )
+  // L'auto-évaluation, elle, ne sert QUE l'onglet Tendances (`url: null` =
+  // onglet inactif, aucun fetch).
   const autoEvalHref = vue === 'tendances' ? '/api/v1/appro/auto-evaluation' : null
   const { data: autoEvalData } = useTimedFetch<AutoEvaluationResponse>(autoEvalHref)
+  const patternsParArticle = useMemo(() => {
+    if (patternsData === null || patternsData.articles.length === 0) return undefined
+    const m = new Map<string, PatternArticle>()
+    for (const a of patternsData.articles) m.set(a.article, a)
+    return m
+  }, [patternsData])
   const explicationsParCle = useMemo(() => {
     if (!explData || !explData.explications || explData.explications.length === 0) return undefined
     const m = new Map<string, CbnExplanation[]>()
@@ -1093,12 +1257,17 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
     // l'auto-évaluation (`cause_predit` etc.). Récupéré depuis l'explication
     // de CETTE ligne (`cleSnapshot`), jamais une autre.
     const explications = explicationsPour(explicationsParCle, item)
-    const principale = explications?.[0]?.correlations[0]
+    const explication = explications?.[0]
+    const principale = explication?.correlations[0]
     const predits =
-      item.nature === 'message' && principale !== undefined
+      item.nature === 'message' && explication !== undefined && principale !== undefined
         ? {
             causePredit: principale.source,
             confiancePredit: principale.confiance,
+            // Le niveau est le seul de ces champs que l'acheteur avait sous les
+            // yeux en décidant — sans lui, l'auto-évaluation ne peut pas dire
+            // si les explications présentées comme sûres tiennent mieux.
+            niveauPredit: explication.niveau,
             verdictPredit: item.triage?.verdict ?? null,
           }
         : {}
@@ -1400,6 +1569,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                             poster(item, feuille.dossier.fournisseur, statut)
                           }
                           explicationsParCle={explicationsParCle}
+                          patternsParArticle={patternsParArticle}
                         />
                       ))}
                     </div>
@@ -1409,6 +1579,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                       envois={envois}
                       onDecide={poster}
                       explicationsParCle={explicationsParCle}
+                      patternsParArticle={patternsParArticle}
                     />
                   </>
                 )}

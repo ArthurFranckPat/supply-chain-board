@@ -24,20 +24,43 @@ import type { DriverDiffEntry } from '#app/domain/cbn_driver_diff'
  *
  * ## Scoring de confiance (lot 2)
  *
- * Chaque corrélation porte une `part` (part relative de l'explication, poids
- * normalisé sur les corrélations convergentes) et une `confiance` (0-1) :
+ * Chaque corrélation porte une `amplitude` (la variation en unités qu'elle
+ * représente), une `part` (sa proportion de l'explication) et une `confiance`
+ * (0-1) :
  *
- * - base par poids de source : 3 → 0,85, 2 → 0,70, 1 → 0,55 ;
- * - corroboration : plusieurs facteurs convergents renforcent (+0,10) ;
- * - contradiction : un signal qui atténue le message baisse la confiance
- *   (−0,15) — c'est le chaînon manquant entre les lots 1 et 2 : le lot 1
- *   détectait déjà les contradictions, le lot 2 les fait peser.
+ * - `part` = amplitude de la corrélation / amplitude convergente totale. C'est
+ *   la règle de la feuille de route : « si le stock a baissé de 400 et qu'une
+ *   commande de 200 est apparue, le stock pèse ~67 % ». Normaliser sur le
+ *   POIDS DE SOURCE à la place rendrait 50/50 — deux sources de poids 3 — et
+ *   dirait donc l'inverse de la réalité.
+ * - `confiance` : base par poids de source (3 → 0,85, 2 → 0,70, 1 → 0,55),
+ *   +0,10 si plusieurs facteurs convergent (corroboration), −0,15 si un signal
+ *   contradictoire atténue le message.
  *
- * L'explication porte un `niveau` : `directe` / `probable` / `correlation` /
- * `non_explique`, et une `couverture` (0-1) : part pondérée de la variation
- * identifiée qui pousse dans le sens du message. Règle d'UI transverse :
- * jamais le mot « cause » sur une corrélation — les niveaux se lisent
- * « corrélation directe », « probable », « corrélation », « non expliqué ».
+ * ## Couverture et résidu inexpliqué
+ *
+ * `couverture` (0-1) = amplitude convergente / amplitude TOTALE des variations
+ * de l'article, contradictoires ET neutres comprises. Le dénominateur est le
+ * point clé : une variation neutre est une variation réelle que le catalogue
+ * ne sait pas relier à ce code de message — c'est exactement le « résidu non
+ * attribué » de la feuille de route, et il est rendu tel quel dans
+ * `residuInexplique`.
+ *
+ * Normaliser sur les seules variations classées (convergent + contradictoire)
+ * donnerait `couverture = 1` dès qu'aucune contradiction n'existe, quelle que
+ * soit la part de la variation que le moteur n'explique pas — et le critère
+ * d'acceptation « taux d'inexpliqué < 25 % » n'aurait aucun dénominateur.
+ *
+ * Amplitude d'une variation : `|quantité après − avant|` pour un changement de
+ * quantité, la quantité concernée pour une ligne apparue/disparue, et la
+ * quantité déplacée pour un glissement de date (aucune quantité ne change,
+ * c'est la ligne entière qui bouge). Toutes les sources d'un même article sont
+ * dans la même unité — la somme a un sens.
+ *
+ * L'explication porte enfin un `niveau` : `directe` / `probable` /
+ * `correlation` / `non_explique`. Règle d'UI transverse : jamais le mot
+ * « cause » sur une corrélation — les niveaux se lisent « corrélation
+ * directe », « probable », « corrélation », « non expliqué ».
  *
  * ## Ce que le moteur refuse d'expliquer
  *
@@ -60,9 +83,14 @@ export interface CbnCorrelation {
   detail: string
   poids: number
   /**
-   * Part relative de l'explication (0-1), poids normalisé sur les corrélations
-   * convergentes. 0 sur une corrélation contradictoire (elle n'explique pas,
-   * elle atténue).
+   * Amplitude de la variation, en unités de l'article — la matière du scoring
+   * (cf. docstring). Toujours ≥ 1 : une variation retenue par le diff a bougé.
+   */
+  amplitude: number
+  /**
+   * Part relative de l'explication (0-1) : amplitude de cette corrélation
+   * rapportée à l'amplitude convergente totale. 0 sur une corrélation
+   * contradictoire (elle n'explique pas, elle atténue).
    */
   part: number
   /** Confiance (0-1) de cette corrélation — cf. scoring dans la docstring. */
@@ -86,11 +114,16 @@ export interface CbnExplanation {
   /** Niveau de confiance de l'explication. */
   niveau: CbnNiveau
   /**
-   * Couverture (0-1) : part pondérée de la variation identifiée qui pousse
-   * dans le sens du message (`∑ convergent / ∑ convergent + contradictoire`).
-   * 0 = non expliqué.
+   * Couverture (0-1) : amplitude convergente / amplitude TOTALE des variations
+   * de l'article (contradictoires et neutres comprises). 0 = non expliqué.
    */
   couverture: number
+  /**
+   * Résidu inexpliqué (0-1) : part de la variation de l'article que le
+   * catalogue ne relie pas à ce code de message. C'est le `causesInexpliquees`
+   * de la feuille de route — la métrique « taux d'inexpliqué » se lit ici.
+   */
+  residuInexplique: number
   /** Phrase de synthèse pour l'UI. */
   synthese: string
 }
@@ -125,6 +158,38 @@ const confiance = (poids: number, nbConvergents: number, nbContradictions: numbe
       (nbConvergents >= 2 ? BONUS_CORROBORATION : 0) -
       (nbContradictions > 0 ? MALUS_CONTRADICTION : 0)
   )
+
+/**
+ * Seuils de niveau, exprimés sur la couverture réelle (amplitude convergente /
+ * amplitude totale). Plus bas que des seuils « part des variations classées » :
+ * un article dont la moitié de la variation est neutre peut porter une
+ * corrélation parfaitement lisible. À calibrer en atelier sur données réelles.
+ */
+const COUVERTURE_DIRECTE = 0.6
+const COUVERTURE_PROBABLE = 0.35
+/** Une confiance de source de poids 3 (0,85) est requise pour « directe ». */
+const CONFIANCE_DIRECTE = 0.8
+
+/**
+ * Amplitude d'une variation, en unités de l'article.
+ *
+ * `|| 1` en repli : une ligne apparue à quantité nulle, ou un glissement de
+ * date sans quantité des deux côtés, donnerait 0 — et une explication entière
+ * à amplitude 0 rendrait une couverture nulle alors que des corrélations
+ * existent. Le repli les compte pour une unité chacune : elles pèsent peu,
+ * jamais rien.
+ */
+const amplitudeDe = (d: DriverDiffEntry): number => {
+  const avant = d.quantiteAvant
+  const apres = d.quantiteApres
+  if (d.nature === 'quantite') return Math.abs((apres ?? 0) - (avant ?? 0)) || 1
+  if (d.nature === 'apparue') return Math.abs(apres ?? 0) || 1
+  if (d.nature === 'disparue') return Math.abs(avant ?? 0) || 1
+  // `date` : aucune quantité ne change, c'est la ligne entière qui se déplace.
+  return Math.abs(apres ?? avant ?? 0) || 1
+}
+
+const arrondi2 = (v: number): number => Math.round(v * 100) / 100
 
 function isConvergent(
   code: number | null,
@@ -351,6 +416,11 @@ export function explainCbnMessages(
 
     const convergent: CbnCorrelation[] = []
     const contradictoire: CbnCorrelation[] = []
+    // Amplitude des variations NEUTRES : elles ont bougé sur l'article sans que
+    // le catalogue sache les relier à ce code de message. Elles ne sont ni
+    // affichées ni scorées, mais elles restent au dénominateur de la couverture
+    // — c'est tout l'objet du résidu inexpliqué.
+    let amplitudeNeutre = 0
 
     for (const d of forArticle) {
       const brut = isConvergent(code, d)
@@ -360,13 +430,18 @@ export function explainCbnMessages(
           : brut === 'convergent'
             ? 'contradictoire'
             : 'convergent'
-      if (cls === 'neutre') continue
+      const amplitude = amplitudeDe(d)
+      if (cls === 'neutre') {
+        amplitudeNeutre += amplitude
+        continue
+      }
       const cor: CbnCorrelation = {
         source: d.source,
         nature: d.nature,
         detail: d.detail,
         poids: poidsDe(d.source),
-        // Remplis après le tri : `part` est un poids NORMALISÉ sur la liste
+        amplitude,
+        // Remplis après le tri : `part` normalise l'amplitude sur la liste
         // finale, `confiance` dépend du nombre de convergents/contradictions.
         part: 0,
         confiance: 0,
@@ -375,37 +450,37 @@ export function explainCbnMessages(
       else contradictoire.push(cor)
     }
 
-    convergent.sort((a, b) => b.poids - a.poids)
-    contradictoire.sort((a, b) => b.poids - a.poids)
+    const amplitudeConvergente = convergent.reduce((s, c) => s + c.amplitude, 0)
+    const amplitudeContradictoire = contradictoire.reduce((s, c) => s + c.amplitude, 0)
 
-    // Scoring de confiance (lot 2). La part est normalisée sur les seules
-    // corrélations convergentes : une contradictoire n'explique pas, elle
-    // atténue — sa part vaut 0 et elle ne dilue pas le poids des vraies.
-    const totalConvergent = convergent.reduce((s, c) => s + c.poids, 0)
-    const totalContradictoire = contradictoire.reduce((s, c) => s + c.poids, 0)
     for (const c of convergent) {
-      c.part = totalConvergent > 0 ? Math.round((c.poids / totalConvergent) * 100) / 100 : 0
+      c.part = amplitudeConvergente > 0 ? arrondi2(c.amplitude / amplitudeConvergente) : 0
       c.confiance = confiance(c.poids, convergent.length, contradictoire.length)
     }
-    // Les contradictoires gardent `confiance: 0` (valeur initiale) : elles ne
-    // sont que des avertissements dans l'UI, le bonus de corroboration ne leur
-    // est pas destiné — et aucune interface ne lit leur confiance.
+    // Les contradictoires gardent `part: 0` et `confiance: 0` : elles
+    // n'expliquent pas, elles atténuent — l'UI ne les lit que comme
+    // avertissements, et les inclure diluerait la part des vraies.
 
-    // Couverture : part pondérée de la variation identifiée qui pousse dans le
-    // sens du message. 1 si aucune contradiction — tout ce qu'on a vu va dans
-    // son sens. 0 si aucun convergent — non expliqué.
-    const couverture =
-      totalConvergent + totalContradictoire > 0
-        ? Math.round((totalConvergent / (totalConvergent + totalContradictoire)) * 100) / 100
-        : 0
+    // Tri par amplitude décroissante — ce que la feuille de route demande
+    // (« classer par amplitude relative »). Le poids de source ne départage
+    // plus que les ex æquo : deux variations de même ampleur, le stock passe
+    // devant une prévision.
+    const parAmpleur = (a: CbnCorrelation, b: CbnCorrelation): number =>
+      b.amplitude - a.amplitude || b.poids - a.poids
+    convergent.sort(parAmpleur)
+    contradictoire.sort(parAmpleur)
+
+    const amplitudeTotale = amplitudeConvergente + amplitudeContradictoire + amplitudeNeutre
+    const couverture = amplitudeTotale > 0 ? arrondi2(amplitudeConvergente / amplitudeTotale) : 0
+    const residuInexplique = amplitudeTotale > 0 ? arrondi2(amplitudeNeutre / amplitudeTotale) : 0
 
     const maxConfiance = convergent.length > 0 ? Math.max(...convergent.map((c) => c.confiance)) : 0
     const niveau: CbnNiveau =
       convergent.length === 0
         ? 'non_explique'
-        : couverture >= 0.8 && maxConfiance >= 0.8
+        : couverture >= COUVERTURE_DIRECTE && maxConfiance >= CONFIANCE_DIRECTE
           ? 'directe'
-          : couverture >= 0.6
+          : couverture >= COUVERTURE_PROBABLE
             ? 'probable'
             : 'correlation'
 
@@ -416,6 +491,9 @@ export function explainCbnMessages(
         : `Corrélation${convergent.length > 1 ? 's' : ''} ${sources} — couverture ${Math.round(couverture * 100)} %` +
           (contradictoire.length > 0
             ? `, ${contradictoire.length} contradiction${contradictoire.length > 1 ? 's' : ''}`
+            : '') +
+          (residuInexplique > 0
+            ? `, ${Math.round(residuInexplique * 100)} % de variation inexpliquée`
             : '') +
           '.'
 
@@ -429,6 +507,7 @@ export function explainCbnMessages(
       contradictions: contradictoire,
       niveau,
       couverture,
+      residuInexplique,
       synthese,
     }
   })

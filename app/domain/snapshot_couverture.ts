@@ -96,6 +96,18 @@ export function photoLaPlusProche(
 }
 
 /**
+ * Nombre maximal de photos qu'une recherche de fenêtre remonte, et donc plafond
+ * de `fenetre` en jours.
+ *
+ * Les deux DOIVENT être le même nombre : la requête ne lit que les N photos les
+ * plus récentes, donc demander une fenêtre plus longue que N jours ne peut rien
+ * rendre de plus. Séparés, `?fenetre=365` tronquait en silence à 62 photos et
+ * l'écran annonçait « 12 jours couverts sur 365 demandés » — un chiffre faux
+ * présenté comme une mesure.
+ */
+export const MAX_FENETRE_JOURS = 62
+
+/**
  * Normalise le paramètre `fenetre` d'un endpoint (#138 lot 2).
  *
  * Seuls les entiers strictement positifs sont acceptés (1, 7, 21, 30, …) ;
@@ -103,12 +115,16 @@ export function photoLaPlusProche(
  * l'endpoint retombe sur son défaut. Un `fenetre` négatif produirait sinon des
  * fréquences hebdomadaires négatives côté patterns et une fenêtre affichée
  * absurde.
+ *
+ * Au-delà de `MAX_FENETRE_JOURS`, la valeur est RABOTÉE à ce plafond plutôt que
+ * rejetée : l'endpoint rend alors la fenêtre réellement utilisée, que l'écran
+ * affiche telle quelle.
  */
 export function fenetreValide(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const n = Number(raw)
   if (!Number.isInteger(n) || n <= 0) return null
-  return n
+  return Math.min(n, MAX_FENETRE_JOURS)
 }
 
 /** Libellé d'un code `MRPMES_0`, pour un diagnostic lisible sans table de codes. */

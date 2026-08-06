@@ -6,6 +6,7 @@ import {
   joursManquants,
   libelleMessage,
   photoLaPlusProche,
+  MAX_FENETRE_JOURS,
 } from '#app/domain/snapshot_couverture'
 
 /**
@@ -181,6 +182,14 @@ test.group('fenetreValide', () => {
     assert.equal(fenetreValide(1), 1)
     assert.equal(fenetreValide(7), 7)
     assert.equal(fenetreValide('30'), 30)
+  })
+
+  test('rabote au plafond de photos que la requête peut rendre', ({ assert }) => {
+    // `?fenetre=365` tronquait en silence à 62 photos et l'écran annonçait
+    // « 12 jours couverts sur 365 demandés » — un chiffre faux.
+    assert.equal(fenetreValide(365), MAX_FENETRE_JOURS)
+    assert.equal(fenetreValide(MAX_FENETRE_JOURS), MAX_FENETRE_JOURS)
+    assert.equal(fenetreValide(30), 30)
   })
 
   test('rejette zéro, négatif, chaîne vide et non-numérique', ({ assert }) => {
