@@ -312,6 +312,16 @@ router
     // Diff inter-CBN des suggestions (photo #133) — apparues / disparues /
     // quantité ↑↓ / échéance décalée entre les deux dernières photos.
     router.get('/api/v1/appro/diff', '#controllers/appro_controller.diff').as('appro.diff')
+    // Diff messages (#138 lot 1) — apparue/disparue/intensifiée/atténuée/modifiée
+    router
+      .get('/api/v1/appro/messages-diff', '#controllers/appro_controller.messagesDiff')
+      .as('appro.messagesDiff')
+    router
+      .get('/api/v1/appro/drivers-diff', '#controllers/appro_controller.driversDiff')
+      .as('appro.driversDiff')
+    router
+      .get('/api/v1/appro/explanations', '#controllers/appro_controller.explanations')
+      .as('appro.explanations')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router

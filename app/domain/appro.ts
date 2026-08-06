@@ -41,6 +41,20 @@ export interface ApproItem {
    * doive survivre à la nuit tant que #112 n'a pas tranché.
    */
   cle: string
+  /**
+   * Identité COMPLÈTE d'un message dans la photo (`VCRNUM:VCRLIN:VCRSEQ`),
+   * `null` sur une suggestion. C'est la seule clé qui joigne exactement une
+   * ligne d'écran à son explication (#138 lot 1).
+   *
+   * Distincte de `cle` à dessein : `cle` est la clé du LEDGER (#134, déjà
+   * persistée en base sous la forme `M:VCRNUM:VCRLIN`), la changer périmerait
+   * les décisions enregistrées. `VCRSEQ_0` est pourtant la 4ᵉ composante de
+   * l'identité d'une ligne d'`ORDERS` : `COA2400006` ligne 1 porte cinq
+   * messages que seule la séquence distingue, et 141 articles portent plus
+   * d'un message (mesuré sur la photo du 06/08/2026). Sans cette clé, l'écran
+   * n'a aucun moyen d'attribuer la bonne explication à la bonne ligne.
+   */
+  cleSnapshot: string | null
   nature: 'suggestion' | 'message'
   /** `null` pour une suggestion, qui ne porte aucun message CBN. */
   message: MrpMessageCode | null
@@ -128,6 +142,7 @@ const itemFromSuggestion = (row: ApproSuggestionRow, todayIso: string): ApproIte
   const echeance = isoDay(row.date)
   return {
     cle: `S:${row.numero}`,
+    cleSnapshot: null,
     nature: 'suggestion',
     message: null,
     article: row.article,
@@ -148,6 +163,7 @@ const itemFromMessage = (row: ApproMessageRow, todayIso: string): ApproItem => {
   const proposee = isoDay(row.dateProposee)
   return {
     cle: `M:${row.numero}:${row.ligne}`,
+    cleSnapshot: `${row.numero}:${row.ligne}:${row.sequence}`,
     nature: 'message',
     message: row.message,
     article: row.article,

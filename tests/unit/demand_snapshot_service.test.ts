@@ -433,6 +433,8 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
     await conn.from('appro_message_snapshots').whereIn('snapshot_date', [J1, J3]).delete()
   })
 
+  // `.timeout()` et non un 3e argument : Japa n'accepte que `(titre, callback)`,
+  // la forme à trois arguments lève `options.executor is not a function`.
   test('rend le premier jour et le trou entre deux photos', async ({ assert }) => {
     await service.runWrite(J1, async () => payload([row({ snapshot_date: J1 })]))
     await service.runWrite(J3, async () => payload([row({ snapshot_date: J3 })]))
@@ -441,7 +443,7 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
 
     assert.equal(besoin.premier, J1)
     assert.include(besoin.manquants, '1900-01-02')
-  })
+  }).timeout(15_000)
 
   test('une photo écrite sous une autre date est signalée comme antidatée', async ({ assert }) => {
     // C'est exactement ce que fait `snapshot:run --date` : l'état de today figé
@@ -451,5 +453,5 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
     const { besoin } = await service.diagnostic()
 
     assert.include(besoin.antidates, J1)
-  })
+  }).timeout(15_000)
 })

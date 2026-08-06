@@ -191,13 +191,30 @@ export function triageDossier(dossier: ApproDossier): ApproTriageResult[] {
   )
 }
 
-/** Triage l'ensemble du payload. Clé = `ApproItem.cle`, unique par construction (#106 : `S:`/`M:` préfixés). */
+/**
+ * Clé d'INDEXATION d'un item — `cleSnapshot` quand elle existe, `cle` sinon.
+ *
+ * `ApproItem.cle` n'est pas unique et ne peut pas le devenir : c'est la clé du
+ * ledger (`M:VCRNUM:VCRLIN`), déjà persistée. Or `COA2400006` ligne 1 porte
+ * CINQ messages, que seule `VCRSEQ_0` distingue, avec des échéances allant du
+ * 21/09/2026 au 18/01/2027 — donc des scores d'urgence opposés. Indexer sur
+ * `cle` écrasait quatre verdicts sur cinq et recollait celui du dernier à
+ * toutes les lignes.
+ */
+export const cleTriage = (item: ApproItem): string => item.cleSnapshot ?? item.cle
+
+/** Triage l'ensemble du payload, indexé par `cleTriage` (unique, contrairement à `cle`). */
 export function triagePayload(payload: ApproPayload): Map<string, ApproTriageResult> {
   const resultats = new Map<string, ApproTriageResult>()
   for (const dossier of payload.dossiers) {
-    for (const resultat of triageDossier(dossier)) {
-      resultats.set(resultat.cle, resultat)
-    }
+    // `triageDossier` rend un résultat PAR item, dans l'ordre du dossier :
+    // l'appariement positionnel est ce qui permet d'indexer sur l'item plutôt
+    // que sur `resultat.cle`, qui reste la clé d'affichage/ledger.
+    const verdicts = triageDossier(dossier)
+    dossier.items.forEach((item, i) => {
+      const v = verdicts[i]
+      if (v !== undefined) resultats.set(cleTriage(item), v)
+    })
   }
   return resultats
 }
@@ -217,7 +234,7 @@ export function attacheTriage(payload: ApproPayload): ApproPayload {
       ...dossier,
       items: dossier.items.map((item) => ({
         ...item,
-        triage: triages.get(item.cle) ?? null,
+        triage: triages.get(cleTriage(item)) ?? null,
       })),
     })),
   }
