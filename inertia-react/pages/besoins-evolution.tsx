@@ -3,11 +3,16 @@
  * dense, ToolbarRow/Segment/PILL/RefreshPill, Card, DataTable, Select,
  * LoadingState), mêmes tokens que Réceptions et Conditionnements.
  *
- * Grammaire de la table (DESIGN.md) : statuts en point + petites capitales,
+ * Grammaire de la table (DESIGN.md) : natures en point + petites capitales,
  * jamais en boîte pleine — une boîte s'étire avec son libellé et détruit le
- * rythme vertical. Deux lignes par rangée au maximum. Aucune couleur hors
- * palette : les teintes de statut métier ne codent pas un axe qui n'est pas le
- * leur, seul `warning` sert, et pour de vrais avertissements.
+ * rythme vertical. Deux lignes par rangée au maximum. La couleur se limite au
+ * point et au chiffre de l'Écart : elle distingue les natures d'un coup d'œil
+ * sans jamais devenir un fond (cf. `NATURE_TONE`).
+ *
+ * Tous les filtres vivent dans la `ToolbarRow`, à leur place canonique. Une
+ * grille de 8 cartes posée au milieu de la page les a précédés : c'était un
+ * filtre déguisé en tuiles de KPI, la plupart affichant « — ». Ne pas la
+ * réintroduire — un filtre n'est pas une donnée.
  */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -15,7 +20,7 @@ import { AlertTriangle, CalendarRange, CloudOff, Info, Search } from 'lucide-rea
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
-import { Card, CardContent } from '@r/components/ui/card'
+import { Card } from '@r/components/ui/card'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import { DataTable, type ColumnDef } from '@r/components/ui/data-table'
 import {
@@ -29,7 +34,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@r/components/ui/select'
@@ -98,6 +105,31 @@ const NATURE_LABEL: Record<DriverNature, string> = {
   renumerotation: 'Renumérotée',
 }
 const NATURES: DriverNature[] = ['apparue', 'disparue', 'quantite', 'date', 'renumerotation']
+
+/** Sentinelle du Select : Base UI n'accepte pas `''` comme valeur d'item. */
+const TOUTES_SOURCES = '__toutes__'
+
+/**
+ * Teinte par nature, portée par le seul point de la colonne Nature et par le
+ * chiffre de l'Écart — deux surfaces de quelques pixels, jamais un fond.
+ *
+ * Les couleurs viennent de la palette du projet. DESIGN.md interdit de
+ * détourner les teintes de statut en accents DÉCORATIFS ; ici elles encodent un
+ * axe sémantique, et cette page n'affiche aucun statut d'OF (la colonne Source
+ * est du texte), donc aucune collision de vocabulaire à l'écran.
+ */
+const NATURE_TONE: Record<DriverNature, { dot: string; text: string }> = {
+  // Entrée dans le plan.
+  apparue: { dot: 'bg-ferme', text: 'text-ferme' },
+  // Sortie du plan.
+  disparue: { dot: 'bg-destructive', text: 'text-destructive' },
+  // Le volume bouge.
+  quantite: { dot: 'bg-warning', text: 'text-warning' },
+  // Le calendrier bouge.
+  date: { dot: 'bg-planifie', text: 'text-planifie' },
+  // Rien n'a bougé : point creux, aucune teinte.
+  renumerotation: { dot: '', text: 'text-muted-foreground' },
+}
 
 const fmtJJMMAAAA = (iso: string): string => {
   const [y, m, d] = iso.split('-')
@@ -357,13 +389,14 @@ export default function BesoinsEvolution() {
         cell: ({ row }) => {
           const n = row.original.nature
           const renum = n === 'renumerotation'
+          const tone = NATURE_TONE[n]
           return (
             <span className="flex items-center gap-1.5 whitespace-nowrap">
               <span
                 aria-hidden
                 className={cn(
                   'size-1.5 shrink-0 rounded-full',
-                  renum ? 'ring-1 ring-border' : 'bg-foreground'
+                  renum ? 'ring-1 ring-border' : tone.dot
                 )}
               />
               <span
@@ -396,7 +429,12 @@ export default function BesoinsEvolution() {
         header: 'Écart',
         accessorFn: (r) => ecartLabel(r),
         cell: ({ row }) => (
-          <span className="whitespace-nowrap font-mono text-xs font-semibold tabular-nums text-foreground">
+          <span
+            className={cn(
+              'whitespace-nowrap font-mono text-xs font-semibold tabular-nums',
+              NATURE_TONE[row.original.nature].text
+            )}
+          >
             {ecartLabel(row.original)}
           </span>
         ),
@@ -457,6 +495,46 @@ export default function BesoinsEvolution() {
                   {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          {/* Le filtre de source vit ici, à sa place canonique dans l'ordre de
+              `toolbar.tsx` (segments de filtre après la fenêtre de dates). Il
+              remplace une grille de 8 cartes posée au milieu de la page, qui
+              n'était qu'un filtre déguisé en tuiles de KPI — la plupart à
+              « — ». Un Select porte les mêmes compteurs sans occuper de bande. */}
+          <Select
+            value={sourceFilter ?? TOUTES_SOURCES}
+            onValueChange={(v) =>
+              setSourceFilter(v === TOUTES_SOURCES ? null : (v as DriverSource))
+            }
+          >
+            <SelectTrigger className="h-8 min-w-[172px] rounded-full border-border bg-card text-xs">
+              <SelectValue placeholder="Toutes les sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TOUTES_SOURCES}>Toutes les sources</SelectItem>
+              <SelectGroup>
+                <SelectLabel>Ce qui a changé dans la réalité</SelectLabel>
+                {SOURCES_REALITE.map((src) => (
+                  <SelectItem key={src} value={src}>
+                    {SOURCE_LABEL[src]}
+                    <span className="ml-2 tabular-nums text-muted-foreground">
+                      {parSource[src] ? fmtQte.format(parSource[src]) : '—'}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel>Ce que le CBN propose</SelectLabel>
+                {SOURCES_PROPOSITIONS.map((src) => (
+                  <SelectItem key={src} value={src}>
+                    {SOURCE_LABEL[src]}
+                    <span className="ml-2 tabular-nums text-muted-foreground">
+                      {parSource[src] ? fmtQte.format(parSource[src]) : '—'}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           <Segment>
@@ -583,106 +661,15 @@ export default function BesoinsEvolution() {
                   className="py-10"
                 />
               ) : (
-                <>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                        Ce qui a changé dans la réalité
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                        {SOURCES_REALITE.map((src) => {
-                          const count = parSource[src] ?? 0
-                          const active = sourceFilter === src
-                          return (
-                            <Card
-                              key={src}
-                              onClick={() => setSourceFilter((v) => (v === src ? null : src))}
-                              className={cn(
-                                'cursor-pointer p-3 transition',
-                                count === 0 && 'opacity-60',
-                                active && 'border-foreground bg-foreground text-card',
-                                !active && count > 0 && 'hover:border-foreground/15'
-                              )}
-                            >
-                              <CardContent className="p-0">
-                                <div
-                                  className={cn(
-                                    'text-xs font-semibold leading-tight',
-                                    active ? 'text-card' : 'text-foreground'
-                                  )}
-                                >
-                                  {SOURCE_LABEL[src]}
-                                </div>
-                                <div
-                                  className={cn(
-                                    'mt-0.5 font-mono text-[10px] tabular-nums',
-                                    active ? 'text-card/80' : 'text-muted-foreground'
-                                  )}
-                                >
-                                  {count === 0 ? '—' : fmtQte.format(count)}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                        Ce que le CBN propose
-                        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-warning">
-                          <span aria-hidden className="size-1 rounded-full bg-warning" />
-                          Sortie CBN
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        {SOURCES_PROPOSITIONS.map((src) => {
-                          const count = parSource[src] ?? 0
-                          const active = sourceFilter === src
-                          return (
-                            <Card
-                              key={src}
-                              onClick={() => setSourceFilter((v) => (v === src ? null : src))}
-                              className={cn(
-                                'cursor-pointer p-3 transition',
-                                count === 0 && 'opacity-60',
-                                active && 'border-foreground bg-foreground text-card',
-                                !active && 'hover:border-foreground/15'
-                              )}
-                            >
-                              <CardContent className="p-0">
-                                <div
-                                  className={cn(
-                                    'text-xs font-semibold leading-tight',
-                                    active ? 'text-card' : 'text-foreground'
-                                  )}
-                                >
-                                  {SOURCE_LABEL[src]}
-                                </div>
-                                <div
-                                  className={cn(
-                                    'mt-0.5 font-mono text-[10px] tabular-nums',
-                                    active ? 'text-card/80' : 'text-muted-foreground'
-                                  )}
-                                >
-                                  {count === 0 ? '—' : fmtQte.format(count)}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="space-y-3">
                   {total > entrees.length && (
-                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
+                    <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
                       <Info size={14} className="shrink-0 text-warning" /> {entrees.length} affichés
                       sur {fmtQte.format(total)} — affinez par source ou nature.
                     </div>
                   )}
 
-                  <div className="mt-3 flex items-center gap-2 border-b border-border/50 px-1 py-1.5">
+                  <div className="flex items-center gap-2 border-b border-border/50 px-1 py-1.5">
                     <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                       {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · tri ratio
                     </span>
@@ -702,7 +689,7 @@ export default function BesoinsEvolution() {
                   </div>
 
                   {total === 0 ? (
-                    <Card className="mt-4 p-8 text-center">
+                    <Card className="p-8 text-center">
                       <p className="text-sm font-semibold text-foreground">
                         Aucun mouvement au-delà des seuils
                       </p>
@@ -722,7 +709,7 @@ export default function BesoinsEvolution() {
                       </div>
                     </Card>
                   ) : (
-                    <div className="mt-4">
+                    <div>
                       <DataTable
                         columns={columns}
                         rows={filtered}
@@ -747,7 +734,7 @@ export default function BesoinsEvolution() {
                       </p>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
