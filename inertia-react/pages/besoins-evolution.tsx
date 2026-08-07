@@ -45,7 +45,13 @@ import {
 } from '@r/components/ui/select'
 import { cn } from '@r/lib/utils'
 
-type Photo = { date: string; lignes: number; sources: number; priseLe: number | null }
+type Photo = {
+  date: string
+  lignes: number
+  sources: number
+  sourceList?: string[]
+  priseLe: number | null
+}
 type DriverSource =
   | 'of_ferme'
   | 'of_planifie'
@@ -79,6 +85,7 @@ interface DriversDiffResponse {
   parSource?: Record<string, number>
   parNature?: Record<string, number>
   entrees: DriverDiffEntry[]
+  ecartes?: string[]
   message?: string
 }
 
@@ -809,6 +816,20 @@ export default function BesoinsEvolution() {
                 />
               ) : (
                 <div className="space-y-3">
+                  {diff?.ecartes !== undefined && diff.ecartes.length > 0 && (
+                    <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-[1.5] text-foreground">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                      <span>
+                        Comparaison sur périmètre restreint — absente(s) d&apos;une des deux
+                        photos :{' '}
+                        <span className="font-mono font-semibold tabular-nums">
+                          {diff.ecartes.map((s) => SOURCE_LABEL[s as DriverSource] ?? s).join(', ')}
+                        </span>
+                        . Ces sources sont écartées du diff (elles n&apos;apparaissent pas comme
+                        &laquo; apparues &raquo;).
+                      </span>
+                    </div>
+                  )}
                   {total > entrees.length && (
                     <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
                       <Info size={14} className="shrink-0 text-warning" /> {entrees.length} affichés

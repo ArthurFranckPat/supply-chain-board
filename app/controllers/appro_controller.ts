@@ -240,6 +240,7 @@ export default class ApproController {
       parSource,
       parNature,
       entrees: sliced,
+      ecartes: result.ecartes,
     })
   }
 

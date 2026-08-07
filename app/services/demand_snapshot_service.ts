@@ -345,12 +345,23 @@ export class DemandSnapshotService {
   /**
    * Liste des photos disponibles pour le sélecteur de dates (§5.1).
    * Tri décroissant (plus récente d'abord), avec décompte par photo.
+   *
+   * `sourceList` liste les sources réellement présentes (distinct `source`), pas
+   * seulement leur nombre : elle permet au diff de ne comparer que l'intersection
+   * (#145) — une source absente d'une photo sort du périmètre, jamais d'apparition
+   * de masse — et à l'UI d'afficher un bandeau nommant les sources écartées.
    */
   async listSnapshots(): Promise<
-    Array<{ date: string; lignes: number; sources: number; priseLe: number | null }>
+    Array<{
+      date: string
+      lignes: number
+      sources: number
+      sourceList: string[]
+      priseLe: number | null
+    }>
   > {
-    const rows = await db
-      .connection()
+    const conn = db.connection()
+    const rows = await conn
       .from('demand_snapshots')
       .select('snapshot_date')
       .count('* as lignes')
@@ -363,12 +374,31 @@ export class DemandSnapshotService {
       .min('created_at as prise_le')
       .groupBy('snapshot_date')
       .orderBy('snapshot_date', 'desc')
-    return rows.map((r: Record<string, unknown>) => ({
-      date: jourIso((r as { snapshot_date?: unknown }).snapshot_date),
-      lignes: Number(r.lignes),
-      sources: Number(r.sources),
-      priseLe: r.prise_le === null || r.prise_le === undefined ? null : Number(r.prise_le),
-    }))
+    // Liste des sources par photo — `COUNT DISTINCT` ne suffit plus (#145).
+    const distinctRows = await conn
+      .from('demand_snapshots')
+      .select('snapshot_date', 'source')
+      .groupBy('snapshot_date', 'source')
+      .orderBy('snapshot_date', 'desc')
+    const parDate = new Map<string, string[]>()
+    for (const r of distinctRows as Array<Record<string, unknown>>) {
+      const d = jourIso((r as { snapshot_date?: unknown }).snapshot_date)
+      const s = String((r as { source?: unknown }).source)
+      const arr = parDate.get(d)
+      if (arr) arr.push(s)
+      else parDate.set(d, [s])
+    }
+    return rows.map((r: Record<string, unknown>) => {
+      const date = jourIso((r as { snapshot_date?: unknown }).snapshot_date)
+      const list = (parDate.get(date) ?? []).slice().sort()
+      return {
+        date,
+        lignes: Number(r.lignes),
+        sources: Number(r.sources),
+        sourceList: list,
+        priseLe: r.prise_le === null || r.prise_le === undefined ? null : Number(r.prise_le),
+      }
+    })
   }
 
   /**
@@ -416,9 +446,14 @@ export class DemandSnapshotService {
   async diffDrivers(
     apresDay: string,
     avantDay: string
-  ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
+  ): Promise<{
+    avant: string
+    apres: string
+    entrees: DriverDiffEntry[]
+    ecartes: string[]
+  } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v9`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v10`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
@@ -436,8 +471,30 @@ export class DemandSnapshotService {
           date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
           fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
         })
-        const avant: DemandSnapshotRow[] = avantRows.map(toRow)
-        const apres: DemandSnapshotRow[] = apresRows.map(toRow)
+        // #145 — ne comparer que l'intersection des sources réellement présentes.
+        // Une source absente d'une photo n'a pas « zéro ligne ce jour-là », elle
+        // n'a pas été capturée : l'écart `avant:0, apres:5469` est un trou
+        // d'instrumentation, pas un fait métier. On la retire des deux côtés AVANT
+        // le diff et on la signale via `ecartes`.
+        const srcAvant = new Set(
+          avantRows.map((r) => String((r as Record<string, unknown>).source))
+        )
+        const srcApres = new Set(
+          apresRows.map((r) => String((r as Record<string, unknown>).source))
+        )
+        const ecartes = [...new Set([...srcAvant, ...srcApres])]
+          .filter((s) => !srcAvant.has(s) || !srcApres.has(s))
+          .sort()
+        const inter = new Set([...srcAvant].filter((s) => srcApres.has(s)))
+        const avantF = avantRows.filter((r) =>
+          inter.has(String((r as Record<string, unknown>).source))
+        )
+        const apresF = apresRows.filter((r) =>
+          inter.has(String((r as Record<string, unknown>).source))
+        )
+        // Deux photos non vides mais sans source commune → diff vide, pas faux.
+        const avant: DemandSnapshotRow[] = avantF.map(toRow)
+        const apres: DemandSnapshotRow[] = apresF.map(toRow)
         let entrees = diffCbnDrivers(avant, apres)
 
         if (entrees.length > 0) {
@@ -489,7 +546,7 @@ export class DemandSnapshotService {
         // amplitude décroissante (§5.3), et l'enrichissement comme le filtre Z
         // préservent l'ordre. Un second tri masquerait toute régression du
         // contrat d'ordre côté domaine.
-        return { avant: avantDay, apres: apresDay, entrees }
+        return { avant: avantDay, apres: apresDay, entrees, ecartes }
       },
     })
     if (cached === null) return null
@@ -498,6 +555,7 @@ export class DemandSnapshotService {
       avant: cached.avant,
       apres: cached.apres,
       entrees: [...cached.entrees] as DriverDiffEntry[],
+      ecartes: [...(cached.ecartes as string[])],
     }
   }
 
