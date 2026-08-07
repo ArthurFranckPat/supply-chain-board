@@ -37,6 +37,26 @@ export interface DriverDiffEntry {
   echeanceAvant: string | null
   echeanceApres: string | null
   detail: string
+  designation: string | null
+  famille: string | null
+}
+
+/**
+ * Amplitude relative d'une entrée pour le tri (§5.3 PRD : ratio, pas absolu).
+ * - `quantite` : |après-avant| / |min(avant,après)|
+ * - `apparue` / `disparue` : Infinity (toujours en tête, volume nouveau/disparu)
+ * - `date` : |jours de décalage| / TOLERANCE_ECHEANCE_JOURS
+ */
+export function driverDiffAmplitude(e: DriverDiffEntry): number {
+  if (e.nature === 'apparue' || e.nature === 'disparue') return Number.POSITIVE_INFINITY
+  if (e.nature === 'date') {
+    const d = joursEntre(e.echeanceAvant, e.echeanceApres)
+    if (d === null) return 0
+    return Math.abs(d) / TOLERANCE_ECHEANCE_JOURS
+  }
+  if (e.quantiteAvant === null || e.quantiteApres === null) return 0
+  const base = baseRatio(e.quantiteAvant, e.quantiteApres)
+  return Math.abs(e.quantiteApres - e.quantiteAvant) / base
 }
 
 const joursEntre = (deIso: string | null, aIso: string | null): number | null => {
@@ -154,6 +174,8 @@ export function diffCbnDrivers(
           echeanceAvant: null,
           echeanceApres: rowP.date_echeance,
           detail: `${source} apparue : ${qte(rowP.quantity)} unités${rowP.date_echeance ? `, échéance ${rowP.date_echeance}` : ''} — ${article}.`,
+          designation: null,
+          famille: null,
         })
       }
       continue
@@ -170,6 +192,8 @@ export function diffCbnDrivers(
           echeanceAvant: rowA.date_echeance,
           echeanceApres: null,
           detail: `${source} disparue : ${qte(rowA.quantity)} unités${rowA.date_echeance ? `, échéance ${rowA.date_echeance}` : ''} — ${article}.`,
+          designation: null,
+          famille: null,
         })
       }
       continue
@@ -192,6 +216,8 @@ export function diffCbnDrivers(
           echeanceAvant: null,
           echeanceApres: null,
           detail: `Stock ${qte(qa)} → ${qte(qp)} (${sens}${Math.round(ratio * 100)} %) — ${article}.`,
+          designation: null,
+          famille: null,
         })
       }
       continue
@@ -217,6 +243,8 @@ export function diffCbnDrivers(
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
           detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)} (${sens}${Math.round(ratio * 100)} %) — ${article}.`,
+          designation: null,
+          famille: null,
         })
       }
 
@@ -230,6 +258,8 @@ export function diffCbnDrivers(
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
           detail: `${source} échéance ${rowA.date_echeance ?? '—'} → ${rowP.date_echeance ?? '—'} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — ${article}.`,
+          designation: null,
+          famille: null,
         })
       }
     }
@@ -244,6 +274,8 @@ export function diffCbnDrivers(
         echeanceAvant: rowA.date_echeance,
         echeanceApres: null,
         detail: `${source} ligne disparue : ${qte(rowA.quantity)} unités, échéance ${rowA.date_echeance ?? '—'} — ${article}.`,
+        designation: null,
+        famille: null,
       })
     }
 
@@ -257,6 +289,8 @@ export function diffCbnDrivers(
         echeanceAvant: null,
         echeanceApres: rowP.date_echeance,
         detail: `${source} ligne apparue : ${qte(rowP.quantity)} unités, échéance ${rowP.date_echeance ?? '—'} — ${article}.`,
+        designation: null,
+        famille: null,
       })
     }
   }

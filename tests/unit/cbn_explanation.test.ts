@@ -171,6 +171,8 @@ test.group('explainCbnMessages — natures qui inversent le sens', () => {
     echeanceAvant: null,
     echeanceApres: null,
     detail: 'Stock 740 → 1 200 (+62 %) — A7399.',
+    designation: null,
+    famille: null,
   }
 
   const messageAvancer = (nature: string): CbnMessageDiffEntry => ({
@@ -263,6 +265,8 @@ test.group('explainCbnMessages — sorties du CBN écartées', () => {
     echeanceAvant: null,
     echeanceApres: '2026-08-20',
     detail: `${source} apparue.`,
+    designation: null,
+    famille: null,
   })
 
   test('ni corrélation ni contradiction sur of_suggestion et appro_suggestion', ({ assert }) => {
@@ -312,6 +316,8 @@ test.group('explainCbnMessages — asymétries comblées', () => {
     echeanceAvant: null,
     echeanceApres: '2026-08-12',
     detail: 'appro apparue : 800 unités.',
+    designation: null,
+    famille: null,
   }
 
   test('une réception NOUVELLE contredit un « avancer »', ({ assert }) => {
@@ -338,6 +344,8 @@ test.group('explainCbnMessages — asymétries comblées', () => {
       echeanceAvant: '2026-09-01',
       echeanceApres: '2026-09-01',
       detail: 'demande_ferme quantité 1 200 → 300.',
+      designation: null,
+      famille: null,
     }
     const [exp] = explainCbnMessages([msgCode(6)], [demandeReduite])
 

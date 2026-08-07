@@ -146,8 +146,16 @@ export default class ApproController {
     return ctx.response.json(result)
   }
 
+  /** GET /api/v1/appro/snapshots — liste des photos disponibles (§5.1). */
+  async snapshots(ctx: HttpContext) {
+    const photos = await demandSnapshotService.listSnapshots()
+    return ctx.response.json({ photos })
+  }
+
   /**
    * GET /api/v1/appro/drivers-diff — diff des drivers par article (#138 lot 1).
+   * Query: ?avant=YYYY-MM-DD&apres=YYYY-MM-DD&source=a,b&nature=x,y&limit=200
+   * Filtres et tri après cache (§5.3, §5.4) — total avant bornage.
    */
   async driversDiff(ctx: HttpContext) {
     const avantQ = ctx.request.input('avant') as string | undefined
@@ -167,6 +175,7 @@ export default class ApproController {
         return ctx.response.json({
           avant: null,
           apres: null,
+          total: 0,
           entrees: [],
           message: 'photo(s) drivers indisponible(s) — besoin de deux photos',
         })
@@ -178,11 +187,65 @@ export default class ApproController {
       return ctx.response.json({
         avant,
         apres,
+        total: 0,
         entrees: [],
         message: 'photo(s) illisible(s) — diff drivers indisponible',
       })
     }
-    return ctx.response.json(result)
+
+    // Filtres serveur (§5.3) — appliqués APRÈS le cache sur le résultat complet.
+    const sourceQ = ctx.request.input('source') as string | undefined
+    const natureQ = ctx.request.input('nature') as string | undefined
+    const limitQ = ctx.request.input('limit') as string | undefined
+
+    // Agrégats pour le bandeau (§6) — calculés sur le diff complet AVANT filtres,
+    // sinon les tuiles changeraient de valeur au clic (effet de filtre croisé).
+    const parSource: Record<string, number> = {}
+    const parNature: Record<string, number> = {}
+    for (const e of result.entrees) {
+      parSource[e.source] = (parSource[e.source] ?? 0) + 1
+      parNature[e.nature] = (parNature[e.nature] ?? 0) + 1
+    }
+
+    let entrees = result.entrees
+    if (sourceQ) {
+      const wanted = new Set(
+        sourceQ
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+      if (wanted.size > 0) entrees = entrees.filter((e) => wanted.has(e.source))
+    }
+    if (natureQ) {
+      const wanted = new Set(
+        natureQ
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+      if (wanted.size > 0) entrees = entrees.filter((e) => wanted.has(e.nature))
+    }
+
+    const total = entrees.length
+    let limit = limitQ !== undefined ? Number(limitQ) : 200
+    if (!Number.isFinite(limit) || limit <= 0) limit = 200
+    limit = Math.min(Math.max(Math.floor(limit), 1), 1000)
+    const sliced = entrees.slice(0, limit)
+
+    return ctx.response.json({
+      avant: result.avant,
+      apres: result.apres,
+      total,
+      parSource,
+      parNature,
+      entrees: sliced,
+    })
+  }
+
+  /** GET /besoins/evolution — page Évolution des besoins (§5.5). */
+  async evolution(ctx: HttpContext) {
+    return ctx.inertia.render('besoins-evolution' as never, {} as never)
   }
 
   /**

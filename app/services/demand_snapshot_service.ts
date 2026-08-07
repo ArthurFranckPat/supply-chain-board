@@ -13,7 +13,11 @@ import {
   type ApproSnapshotRow,
 } from '#app/domain/appro_snapshot_diff'
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
-import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import {
+  diffCbnDrivers,
+  driverDiffAmplitude,
+  type DriverDiffEntry,
+} from '#app/domain/cbn_driver_diff'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
 import {
   couverture,
@@ -343,6 +347,26 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Liste des photos disponibles pour le sélecteur de dates (§5.1).
+   * Tri décroissant (plus récente d'abord), avec décompte par photo.
+   */
+  async listSnapshots(): Promise<Array<{ date: string; lignes: number; sources: number }>> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .select('snapshot_date')
+      .count('* as lignes')
+      .countDistinct('source as sources')
+      .groupBy('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+    return rows.map((r: Record<string, unknown>) => ({
+      date: jourIso((r as { snapshot_date?: unknown }).snapshot_date),
+      lignes: Number(r.lignes),
+      sources: Number(r.sources),
+    }))
+  }
+
+  /**
    * Diff pur des messages entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque — pas de faux "tout est apparu".
    */
@@ -375,31 +399,81 @@ export class DemandSnapshotService {
   /**
    * Diff des drivers par article entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque.
+   * Mis en cache FOREVER par couple de jours : une photo est immuable une fois
+   * écrite, donc le diff l'est aussi. Enrichi (désignation/famille) et trié par
+   * amplitude décroissante AVANT le cache — les filtres/limites s'appliquent
+   * APRÈS, sur le résultat complet mémorisé (§5.3, §5.4).
    */
   async diffDrivers(
     apresDay: string,
     avantDay: string
   ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
-    const conn = db.connection()
-    const [avantRows, apresRows] = await Promise.all([
-      conn.from('demand_snapshots').where('snapshot_date', avantDay),
-      conn.from('demand_snapshots').where('snapshot_date', apresDay),
-    ])
-    if (avantRows.length === 0 || apresRows.length === 0) return null
-    const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
-      snapshot_date: String(r.snapshot_date).slice(0, 10),
-      source: String(r.source),
-      itmref: String(r.itmref),
-      vcrnum: r.vcrnum === null ? null : String(r.vcrnum),
-      vcrlin: r.vcrlin === null ? null : String(r.vcrlin),
-      quantity: Number(r.quantity),
-      date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
-      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+    const cached = await cacheNs('appro').getOrSetForever({
+      key: `appro:drivers:${avantDay}:${apresDay}`,
+      factory: async () => {
+        const conn = db.connection()
+        const [avantRows, apresRows] = await Promise.all([
+          conn.from('demand_snapshots').where('snapshot_date', avantDay),
+          conn.from('demand_snapshots').where('snapshot_date', apresDay),
+        ])
+        if (avantRows.length === 0 || apresRows.length === 0) return null
+        const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
+          snapshot_date: String(r.snapshot_date).slice(0, 10),
+          source: String(r.source),
+          itmref: String(r.itmref),
+          vcrnum: r.vcrnum === null ? null : String(r.vcrnum),
+          vcrlin: r.vcrlin === null ? null : String(r.vcrlin),
+          quantity: Number(r.quantity),
+          date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
+          fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+        })
+        const avant: DemandSnapshotRow[] = avantRows.map(toRow)
+        const apres: DemandSnapshotRow[] = apresRows.map(toRow)
+        let entrees = diffCbnDrivers(avant, apres)
+
+        // Enrichissement désignation/famille (§5.2) : jointure static_articles
+        // sur les seuls articles présents dans le diff, pas un LEFT JOIN sur
+        // toute la photo.
+        if (entrees.length > 0) {
+          const codes = [...new Set(entrees.map((e) => e.article))]
+          const chunkSize = 900
+          const map = new Map<string, { designation: string | null; famille: string | null }>()
+          for (let i = 0; i < codes.length; i += chunkSize) {
+            const chunk = codes.slice(i, i + chunkSize)
+            const rows = await conn
+              .from('static_articles')
+              .whereIn('code', chunk)
+              .select('code', 'description', 'famille')
+            for (const r of rows as Array<Record<string, unknown>>) {
+              const code = String((r as Record<string, unknown>).code)
+              const desc = (r as Record<string, unknown>).description
+              const fam = (r as Record<string, unknown>).famille
+              map.set(code, {
+                designation: desc === null || desc === undefined ? null : String(desc) || null,
+                famille: fam === null || fam === undefined ? null : String(fam) || null,
+              })
+            }
+          }
+          entrees = entrees.map((e) => {
+            const hit = map.get(e.article)
+            return {
+              ...e,
+              designation: hit?.designation ?? null,
+              famille: hit?.famille ?? null,
+            }
+          })
+        }
+
+        // Tri par amplitude relative décroissante (§5.3) AVANT tout bornage.
+        entrees = [...entrees].sort((a, b) => driverDiffAmplitude(b) - driverDiffAmplitude(a))
+
+        return { avant: avantDay, apres: apresDay, entrees }
+      },
     })
-    const avant: DemandSnapshotRow[] = avantRows.map(toRow)
-    const apres: DemandSnapshotRow[] = apresRows.map(toRow)
-    const entrees = diffCbnDrivers(avant, apres)
-    return { avant: avantDay, apres: apresDay, entrees }
+    if (cached === null) return null
+    // Valeur en lecture seule (cache_ns.ts) — copie défensive avant de la
+    // rendre à l'appelant qui pourrait filtrer/trier/slicer.
+    return { avant: cached.avant, apres: cached.apres, entrees: [...cached.entrees] }
   }
 
   /**

@@ -128,6 +128,9 @@ router
       .get('/approvisionnements', '#controllers/appro_controller.index')
       .as('approvisionnements.index')
     router
+      .get('/besoins/evolution', '#controllers/appro_controller.evolution')
+      .as('besoins.evolution')
+    router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
     router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
@@ -316,6 +319,9 @@ router
     router
       .get('/api/v1/appro/messages-diff', '#controllers/appro_controller.messagesDiff')
       .as('appro.messagesDiff')
+    router
+      .get('/api/v1/appro/snapshots', '#controllers/appro_controller.snapshots')
+      .as('appro.snapshots')
     router
       .get('/api/v1/appro/drivers-diff', '#controllers/appro_controller.driversDiff')
       .as('appro.driversDiff')
