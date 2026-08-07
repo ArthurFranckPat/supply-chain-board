@@ -330,5 +330,55 @@ export function diffCbnDrivers(
     }
   }
 
+  // Renumérotation : pour les pièces stables, une disparition compensée par une
+  // apparition même quantité/échéance n'est pas une évolution (ex: 3 OF planifiés
+  // recréés avec même 2520 et mêmes dates). On retire la paire.
+  const stables = new Set<DriverSource>([
+    'of_ferme',
+    'of_planifie',
+    'demande_ferme',
+    'demande_prevision',
+    'appro',
+    'stock',
+  ])
+  const toKeep: DriverDiffEntry[] = []
+  const byStableKey = new Map<string, DriverDiffEntry[]>()
+  for (const e of out) {
+    if (!stables.has(e.source) || (e.nature !== 'apparue' && e.nature !== 'disparue')) {
+      toKeep.push(e)
+      continue
+    }
+    const k = `${e.article}\u0001${e.source}`
+    const arr = byStableKey.get(k)
+    if (arr) arr.push(e)
+    else byStableKey.set(k, [e])
+  }
+  for (const [, group] of byStableKey) {
+    const apparues = group.filter((e) => e.nature === 'apparue')
+    const disparues = group.filter((e) => e.nature === 'disparue')
+    const usedA = new Set<number>()
+    const usedD = new Set<number>()
+    for (const [i, d] of disparues.entries()) {
+      let matched = -1
+      for (const [j, a] of apparues.entries()) {
+        if (usedA.has(j)) continue
+        if (a.quantiteApres === d.quantiteAvant && a.echeanceApres === d.echeanceAvant) {
+          matched = j
+          break
+        }
+      }
+      if (matched !== -1) {
+        usedD.add(i)
+        usedA.add(matched)
+      }
+    }
+    for (let i = 0; i < disparues.length; i++) if (!usedD.has(i)) toKeep.push(disparues[i])
+    for (let j = 0; j < apparues.length; j++) if (!usedA.has(j)) toKeep.push(apparues[j])
+  }
+  if (toKeep.length !== out.length) {
+    out.length = 0
+    out.push(...toKeep)
+  }
+
   return out
 }
