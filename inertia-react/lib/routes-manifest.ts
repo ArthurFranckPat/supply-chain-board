@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 117 routes nommées.
+ * 120 routes nommées.
  */
 
 export const MANIFEST = {
@@ -17,6 +17,9 @@ export const MANIFEST = {
   'agent.show': { method: 'GET', pattern: '/copilote' },
   'appro.decision': { method: 'POST', pattern: '/api/v1/appro/decision' },
   'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
+  'appro.driversDiff': { method: 'GET', pattern: '/api/v1/appro/drivers-diff' },
+  'appro.explanations': { method: 'GET', pattern: '/api/v1/appro/explanations' },
+  'appro.messagesDiff': { method: 'GET', pattern: '/api/v1/appro/messages-diff' },
   'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
   'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
@@ -176,6 +179,9 @@ export type RouteParams = {
   'agent.show': void
   'appro.decision': void
   'appro.diff': void
+  'appro.driversDiff': void
+  'appro.explanations': void
+  'appro.messagesDiff': void
   'appro.rows': void
   'approvisionnements.index': void
   'assets.css': void
