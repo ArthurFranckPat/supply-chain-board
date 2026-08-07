@@ -99,6 +99,7 @@ const baseRatio = (qa: number, qp: number): number => Math.abs(Math.min(qa, qp))
 
 const distEcheance = (a: string | null, b: string | null): number => {
   if (a === null && b === null) return 0
+  if (a === null || b === null) return Number.POSITIVE_INFINITY
   const d = joursEntre(a, b)
   return d === null ? Number.POSITIVE_INFINITY : Math.abs(d)
 }
@@ -123,11 +124,15 @@ function apparie(
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
+    let bestQtyDelta = Number.POSITIVE_INFINITY
     ps.forEach((rowP, idx) => {
       if (usedP.has(idx)) return
       const d = distEcheance(rowA.date_echeance, rowP.date_echeance)
-      if (d < bestDist) {
+      if (d === Number.POSITIVE_INFINITY) return
+      const qtyDelta = Math.abs(rowP.quantity - rowA.quantity)
+      if (d < bestDist || (d === bestDist && qtyDelta < bestQtyDelta)) {
         bestDist = d
+        bestQtyDelta = qtyDelta
         best = idx
       }
     })
@@ -349,6 +354,7 @@ export function diffCbnDrivers(
   ])
   const toKeep: DriverDiffEntry[] = []
   const byStableKey = new Map<string, DriverDiffEntry[]>()
+  let renumerotationRetiree = 0
   for (const e of out) {
     if (!stables.has(e.source) || (e.nature !== 'apparue' && e.nature !== 'disparue')) {
       toKeep.push(e)
@@ -380,8 +386,10 @@ export function diffCbnDrivers(
     }
     for (let i = 0; i < disparues.length; i++) if (!usedD.has(i)) toKeep.push(disparues[i])
     for (let j = 0; j < apparues.length; j++) if (!usedA.has(j)) toKeep.push(apparues[j])
+    renumerotationRetiree += usedA.size + usedD.size
   }
-  if (toKeep.length !== out.length) {
+  if (renumerotationRetiree > 0) {
+    toKeep.sort((a, b) => driverDiffAmplitude(b) - driverDiffAmplitude(a))
     out.length = 0
     out.push(...toKeep)
   }

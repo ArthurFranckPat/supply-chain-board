@@ -409,7 +409,7 @@ export class DemandSnapshotService {
     avantDay: string
   ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v6`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
@@ -484,54 +484,11 @@ export class DemandSnapshotService {
     })
     if (cached === null) return null
     // Valeur en lecture seule (cache_ns.ts) — copie défensive.
-    // Filtre de renumérotation post-cache pour corriger les anciennes entrées
-    // mises en cache avant le fix. `of_planifie` n'est plus concerné (groupé par article).
-    let entrees = [...cached.entrees] as DriverDiffEntry[]
-    const stables = new Set(['of_ferme', 'demande_ferme', 'demande_prevision', 'appro', 'stock'])
-    const hasStableApparueDisparue = entrees.some(
-      (e) => stables.has(e.source) && (e.nature === 'apparue' || e.nature === 'disparue')
-    )
-    if (hasStableApparueDisparue) {
-      const byKey = new Map<string, DriverDiffEntry[]>()
-      const keep: DriverDiffEntry[] = []
-      for (const e of entrees) {
-        if (!stables.has(e.source) || (e.nature !== 'apparue' && e.nature !== 'disparue')) {
-          keep.push(e)
-          continue
-        }
-        const k = `${e.article}\u0001${e.source}`
-        const arr = byKey.get(k)
-        if (arr) arr.push(e)
-        else byKey.set(k, [e])
-      }
-      for (const [, group] of byKey) {
-        const apparues = group.filter((e) => e.nature === 'apparue')
-        const disparues = group.filter((e) => e.nature === 'disparue')
-        const usedA = new Set<number>()
-        const usedD = new Set<number>()
-        for (const [i, disparue] of disparues.entries()) {
-          let matched = -1
-          for (const [j, apparue] of apparues.entries()) {
-            if (usedA.has(j)) continue
-            if (
-              apparue.quantiteApres === disparue.quantiteAvant &&
-              apparue.echeanceApres === disparue.echeanceAvant
-            ) {
-              matched = j
-              break
-            }
-          }
-          if (matched !== -1) {
-            usedD.add(i)
-            usedA.add(matched)
-          }
-        }
-        for (let i = 0; i < disparues.length; i++) if (!usedD.has(i)) keep.push(disparues[i])
-        for (let j = 0; j < apparues.length; j++) if (!usedA.has(j)) keep.push(apparues[j])
-      }
-      entrees = keep
+    return {
+      avant: cached.avant,
+      apres: cached.apres,
+      entrees: [...cached.entrees] as DriverDiffEntry[],
     }
-    return { avant: cached.avant, apres: cached.apres, entrees }
   }
 
   /**

@@ -126,3 +126,138 @@ test.group('diffCbnDrivers — stock négatif', () => {
     assert.lengthOf(out, 0)
   })
 })
+
+test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
+  test('of_planifie VCRNUM change → apparié par article, pas 2 lignes bruit', ({ assert }) => {
+    const a = [
+      row({
+        source: 'of_planifie',
+        itmref: 'P1',
+        vcrnum: 'F1',
+        vcrlin: '10',
+        quantity: 100,
+        date_echeance: '2026-09-01',
+      }),
+      row({
+        source: 'of_planifie',
+        itmref: 'P1',
+        vcrnum: 'F2',
+        vcrlin: '10',
+        quantity: 100,
+        date_echeance: '2026-09-08',
+      }),
+    ]
+    const p = [
+      row({
+        source: 'of_planifie',
+        itmref: 'P1',
+        vcrnum: 'F9',
+        vcrlin: '10',
+        quantity: 100,
+        date_echeance: '2026-09-01',
+      }),
+      row({
+        source: 'of_planifie',
+        itmref: 'P1',
+        vcrnum: 'F10',
+        vcrlin: '10',
+        quantity: 100,
+        date_echeance: '2026-09-08',
+      }),
+    ]
+    const diff = diffCbnDrivers(a, p)
+    // Groupé par (article,source) → apparie → 0 diff si même qte/date
+    assert.lengthOf(diff, 0)
+  })
+
+  test('of_planifie quantité modifiée → une entrée quantite', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [
+        row({
+          source: 'of_planifie',
+          itmref: 'P1',
+          vcrnum: 'F1',
+          quantity: 100,
+          date_echeance: '2026-09-01',
+        }),
+      ],
+      [
+        row({
+          source: 'of_planifie',
+          itmref: 'P1',
+          vcrnum: 'F9',
+          quantity: 150,
+          date_echeance: '2026-09-01',
+        }),
+      ]
+    )
+    assert.isTrue(diff.some((d) => d.source === 'of_planifie' && d.nature === 'quantite'))
+  })
+
+  test('of_ferme renumérotation même qte/date → filtrée', ({ assert }) => {
+    const a = [
+      row({
+        source: 'of_ferme',
+        itmref: 'F1',
+        vcrnum: 'OF1',
+        quantity: 50,
+        date_echeance: '2026-09-01',
+      }),
+    ]
+    const p = [
+      row({
+        source: 'of_ferme',
+        itmref: 'F1',
+        vcrnum: 'OF2',
+        quantity: 50,
+        date_echeance: '2026-09-01',
+      }),
+    ]
+    const diff = diffCbnDrivers(a, p)
+    // VCRNUM stable → 1 disparue + 1 apparue mêmes qte/date → filtre → 0
+    assert.lengthOf(diff, 0)
+  })
+
+  test('of_ferme renumérotation ne casse pas le tri amplitude', ({ assert }) => {
+    const a = [
+      row({
+        source: 'of_ferme',
+        itmref: 'F1',
+        vcrnum: 'OF1',
+        quantity: 50,
+        date_echeance: '2026-09-01',
+      }),
+      row({ source: 'stock', itmref: 'S1', quantity: 1000 }),
+    ]
+    const p = [
+      row({
+        source: 'of_ferme',
+        itmref: 'F1',
+        vcrnum: 'OF2',
+        quantity: 50,
+        date_echeance: '2026-09-01',
+      }),
+      row({ source: 'stock', itmref: 'S1', quantity: 100 }),
+    ]
+    const diff = diffCbnDrivers(a, p)
+    // Renumérotation filtrée, reste stock quantite trié en tête
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].source, 'stock')
+  })
+
+  test('apparie avec date null → surplus pas de crash', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [row({ source: 'appro', itmref: 'A1', vcrnum: 'R1', quantity: 10, date_echeance: null })],
+      [
+        row({
+          source: 'appro',
+          itmref: 'A1',
+          vcrnum: 'R1',
+          quantity: 10,
+          date_echeance: '2026-09-01',
+        }),
+      ]
+    )
+    assert.isTrue(diff.length >= 1)
+  })
+})
