@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { diffCbnDrivers } from '#app/domain/cbn_driver_diff'
+import { diffCbnDrivers, driverDiffAmplitude } from '#app/domain/cbn_driver_diff'
 import type { DemandSnapshotRow } from '#services/demand_snapshot_service'
 
 const row = (over: Partial<DemandSnapshotRow>): DemandSnapshotRow => ({
@@ -245,7 +245,7 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
     assert.equal(diff[0].source, 'stock')
   })
 
-  test('apparie avec date null → surplus pas de crash', ({ assert }) => {
+  test('échéance renseignée → une entrée date, pas disparue + apparue', ({ assert }) => {
     const diff = diffCbnDrivers(
       [row({ source: 'appro', itmref: 'A1', vcrnum: 'R1', quantity: 10, date_echeance: null })],
       [
@@ -258,6 +258,82 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
         }),
       ]
     )
-    assert.isTrue(diff.length >= 1)
+    // Même réception, même quantité : l'échéance est simplement renseignée.
+    // Deux lignes ici = le bruit que la passe 2 de `apparie()` supprime.
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].echeanceAvant, null)
+    assert.equal(diff[0].echeanceApres, '2026-09-01')
+    assert.notInclude(diff[0].detail, 'null')
+  })
+
+  test('échéance retirée → une entrée date aussi', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [
+        row({
+          source: 'appro',
+          itmref: 'A1',
+          vcrnum: 'R1',
+          quantity: 10,
+          date_echeance: '2026-09-01',
+        }),
+      ],
+      [row({ source: 'appro', itmref: 'A1', vcrnum: 'R1', quantity: 10, date_echeance: null })]
+    )
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].echeanceApres, null)
+  })
+})
+
+/**
+ * L'ordre de sortie fait partie du contrat : l'appelant borne la liste
+ * (`limit`), donc une sortie mal triée perd les mouvements les plus forts.
+ * Le tri doit être insensible à la présence d'une renumérotation dans les
+ * données — c'est exactement ce qui avait régressé.
+ */
+test.group('cbn_driver_diff — contrat de tri', () => {
+  const stockEffondre = {
+    a: row({ source: 'stock', itmref: 'S1', quantity: 1000 }),
+    p: row({ source: 'stock', itmref: 'S1', quantity: 10 }),
+  }
+  const demandeApparue = row({
+    source: 'demande_ferme',
+    itmref: 'D1',
+    vcrnum: 'C1',
+    quantity: 5,
+    date_echeance: '2026-09-01',
+  })
+
+  test('sans renumérotation, une apparue passe devant un stock effondré', ({ assert }) => {
+    const diff = diffCbnDrivers([stockEffondre.a], [stockEffondre.p, demandeApparue])
+
+    assert.lengthOf(diff, 2)
+    assert.equal(diff[0].nature, 'apparue')
+    assert.equal(diff[1].source, 'stock')
+  })
+
+  test('avec renumérotation, le même ordre tient', ({ assert }) => {
+    const renum = (vcrnum: string) =>
+      row({ source: 'of_ferme', itmref: 'F1', vcrnum, quantity: 50, date_echeance: '2026-09-01' })
+    const diff = diffCbnDrivers(
+      [stockEffondre.a, renum('OF1')],
+      [stockEffondre.p, demandeApparue, renum('OF2')]
+    )
+
+    // La renumérotation est filtrée, l'ordre des deux survivants est inchangé.
+    assert.lengthOf(diff, 2)
+    assert.equal(diff[0].nature, 'apparue')
+    assert.equal(diff[1].source, 'stock')
+  })
+
+  test('la liste est triée par amplitude décroissante', ({ assert }) => {
+    const diff = diffCbnDrivers([stockEffondre.a], [stockEffondre.p, demandeApparue])
+    const amplitudes = diff.map(driverDiffAmplitude)
+
+    assert.deepEqual(
+      amplitudes,
+      [...amplitudes].sort((x, y) => y - x)
+    )
   })
 })

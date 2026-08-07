@@ -49,7 +49,10 @@ export interface DriverDiffEntry {
  * - `apparue` / `disparue` : 1000 + log quantité (toujours en tête mais trié
  *   par volume et entrelacé apparue/disparue, sinon les 1000 premiers sont
  *   tous disparus car `Infinity` stable garde l'ordre d'insertion disparue-first)
- * - `date` : |jours de décalage| / TOLERANCE_ECHEANCE_JOURS
+ * - `date` : |jours de décalage| / TOLERANCE_ECHEANCE_JOURS, et `1` (soit la
+ *   tolérance exactement) pour une échéance renseignée ou retirée — pas de
+ *   delta calculable, mais l'événement n'est pas du bruit et ne doit pas
+ *   tomber en queue de tri avec un score de 0.
  */
 export function driverDiffAmplitude(e: DriverDiffEntry): number {
   if (e.nature === 'apparue' || e.nature === 'disparue') {
@@ -58,7 +61,7 @@ export function driverDiffAmplitude(e: DriverDiffEntry): number {
   }
   if (e.nature === 'date') {
     const d = joursEntre(e.echeanceAvant, e.echeanceApres)
-    if (d === null) return 0
+    if (d === null) return estTransitionEcheance(e.echeanceAvant, e.echeanceApres) ? 1 : 0
     return Math.abs(d) / TOLERANCE_ECHEANCE_JOURS
   }
   if (e.quantiteAvant === null || e.quantiteApres === null) return 0
@@ -97,6 +100,10 @@ const fmtFr = (iso: string | null): string => {
  */
 const baseRatio = (qa: number, qp: number): number => Math.abs(Math.min(qa, qp)) || 1
 
+/** Une seule des deux échéances est nulle : elle est renseignée ou retirée. */
+const estTransitionEcheance = (a: string | null, b: string | null): boolean =>
+  (a === null) !== (b === null)
+
 const distEcheance = (a: string | null, b: string | null): number => {
   if (a === null && b === null) return 0
   if (a === null || b === null) return Number.POSITIVE_INFINITY
@@ -121,6 +128,11 @@ function apparie(
   const usedP = new Set<number>()
   const paires: Array<[DemandSnapshotRow, DemandSnapshotRow]> = []
   const appariees = new Set<DemandSnapshotRow>()
+
+  // Passe 1 — appariement par échéance. Les couples non comparables (une seule
+  // des deux échéances nulle) sont écartés : `distEcheance` rend `Infinity` et
+  // le départage à quantité minimale les sélectionnerait sinon, `Infinity ===
+  // Infinity` étant vrai.
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
@@ -141,6 +153,33 @@ function apparie(
     appariees.add(rowA)
     paires.push([rowA, ps[best]])
   }
+
+  // Passe 2 — rattrapage à la quantité la plus proche.
+  //
+  // Une ligne dont l'échéance passe de nulle à renseignée (ou l'inverse) est
+  // incomparable en passe 1 : sans rattrapage elle ressort en `disparue` +
+  // `apparue`, soit deux lignes de bruit pour un seul événement — une réception
+  // qui reçoit sa date. La passe 1 ayant déjà apparié tout ce qui a deux
+  // échéances, les restes sont exactement ces transitions (et les écarts de
+  // cardinalité, qui n'ont par construction rien à apparier de l'autre côté).
+  for (const rowA of as) {
+    if (appariees.has(rowA)) continue
+    let best = -1
+    let bestQtyDelta = Number.POSITIVE_INFINITY
+    ps.forEach((rowP, idx) => {
+      if (usedP.has(idx)) return
+      const qtyDelta = Math.abs(rowP.quantity - rowA.quantity)
+      if (qtyDelta < bestQtyDelta) {
+        bestQtyDelta = qtyDelta
+        best = idx
+      }
+    })
+    if (best === -1) continue
+    usedP.add(best)
+    appariees.add(rowA)
+    paires.push([rowA, ps[best]])
+  }
+
   return {
     paires,
     surplusAvant: as.filter((r) => !appariees.has(r)),
@@ -151,7 +190,9 @@ function apparie(
 /**
  * Diff pur des drivers entre deux photos complètes.
  * `avant` = plus ancienne, `apres` = plus récente.
- * Rend une liste plate (un `filter` par article côté appelant suffit).
+ * Rend une liste plate (un `filter` par article côté appelant suffit), triée par
+ * `driverDiffAmplitude` décroissante — l'ordre fait partie du contrat, tout
+ * bornage côté appelant garde donc bien les mouvements les plus forts.
  */
 export function diffCbnDrivers(
   avant: DemandSnapshotRow[],
@@ -268,7 +309,13 @@ export function diffCbnDrivers(
         Math.abs(rowP.quantity - rowA.quantity) / baseRatio(rowA.quantity, rowP.quantity)
       const ecartJours = joursEntre(rowA.date_echeance, rowP.date_echeance)
       const qtyChanged = ratio > TOLERANCE_QUANTITE_RATIO
-      const dateChanged = ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS
+      // Une échéance qui apparaît ou disparaît est un changement de date à part
+      // entière : `joursEntre` rend `null` faute de delta calculable, mais le
+      // couple vient d'être apparié en passe 2 et l'événement doit ressortir.
+      const transitionEcheance = estTransitionEcheance(rowA.date_echeance, rowP.date_echeance)
+      const dateChanged =
+        transitionEcheance ||
+        (ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS)
 
       if (qtyChanged) {
         const sens = rowP.quantity > rowA.quantity ? '+' : '−'
@@ -297,7 +344,7 @@ export function diffCbnDrivers(
           quantiteApres: rowP.quantity,
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
-          detail: `${source} échéance ${fmtFr(rowA.date_echeance)} → ${fmtFr(rowP.date_echeance)} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — ${article}.`,
+          detail: `${source} échéance ${fmtFr(rowA.date_echeance)} → ${fmtFr(rowP.date_echeance)}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowA.vcrnum,
@@ -354,7 +401,6 @@ export function diffCbnDrivers(
   ])
   const toKeep: DriverDiffEntry[] = []
   const byStableKey = new Map<string, DriverDiffEntry[]>()
-  let renumerotationRetiree = 0
   for (const e of out) {
     if (!stables.has(e.source) || (e.nature !== 'apparue' && e.nature !== 'disparue')) {
       toKeep.push(e)
@@ -386,13 +432,12 @@ export function diffCbnDrivers(
     }
     for (let i = 0; i < disparues.length; i++) if (!usedD.has(i)) toKeep.push(disparues[i])
     for (let j = 0; j < apparues.length; j++) if (!usedA.has(j)) toKeep.push(apparues[j])
-    renumerotationRetiree += usedA.size + usedD.size
-  }
-  if (renumerotationRetiree > 0) {
-    toKeep.sort((a, b) => driverDiffAmplitude(b) - driverDiffAmplitude(a))
-    out.length = 0
-    out.push(...toKeep)
   }
 
-  return out
+  // Tri par amplitude décroissante, TOUJOURS : le regroupement ci-dessus renvoie
+  // les apparues/disparues en fin de liste, donc l'ordre de sortie dépendrait
+  // sinon de la présence ou non d'une renumérotation dans les données. C'est ici
+  // que vit le contrat d'ordre — les appelants ne re-trient pas.
+  toKeep.sort((a, b) => driverDiffAmplitude(b) - driverDiffAmplitude(a))
+  return toKeep
 }

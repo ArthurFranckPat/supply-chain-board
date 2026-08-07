@@ -13,11 +13,7 @@ import {
   type ApproSnapshotRow,
 } from '#app/domain/appro_snapshot_diff'
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
-import {
-  diffCbnDrivers,
-  driverDiffAmplitude,
-  type DriverDiffEntry,
-} from '#app/domain/cbn_driver_diff'
+import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
 import {
   couverture,
@@ -400,16 +396,20 @@ export class DemandSnapshotService {
    * Diff des drivers par article entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque.
    * Mis en cache FOREVER par couple de jours : une photo est immuable une fois
-   * écrite, donc le diff l'est aussi. Enrichi (désignation/famille) et trié par
-   * amplitude décroissante AVANT le cache — les filtres/limites s'appliquent
-   * APRÈS, sur le résultat complet mémorisé (§5.3, §5.4).
+   * écrite, donc le diff l'est aussi. Le tri par amplitude vient de
+   * `diffCbnDrivers` ; ici on enrichit (désignation/famille) et on écarte les
+   * articles de catégorie Z, les deux à ordre constant. Les filtres/limites
+   * s'appliquent APRÈS, sur le résultat complet mémorisé (§5.3, §5.4).
+   *
+   * La clé porte une version : toute évolution de la sémantique du diff doit
+   * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
    */
   async diffDrivers(
     apresDay: string,
     avantDay: string
   ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v6`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v7`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
@@ -476,9 +476,10 @@ export class DemandSnapshotService {
           })
         }
 
-        // Tri par amplitude relative décroissante (§5.3) AVANT tout bornage.
-        entrees = [...entrees].sort((a, b) => driverDiffAmplitude(b) - driverDiffAmplitude(a))
-
+        // Pas de tri ici : `diffCbnDrivers` rend déjà la liste triée par
+        // amplitude décroissante (§5.3), et l'enrichissement comme le filtre Z
+        // préservent l'ordre. Un second tri masquerait toute régression du
+        // contrat d'ordre côté domaine.
         return { avant: avantDay, apres: apresDay, entrees }
       },
     })
