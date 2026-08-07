@@ -1,4 +1,8 @@
-import { TOLERANCE_ECHEANCE_JOURS, TOLERANCE_QUANTITE_RATIO } from '#app/domain/appro_decision'
+import {
+  TOLERANCE_APPARIEMENT_JOURS,
+  TOLERANCE_ECHEANCE_JOURS,
+  TOLERANCE_QUANTITE_RATIO,
+} from '#app/domain/appro_decision'
 import type { DemandSnapshotRow } from '#app/domain/snapshot_rows'
 
 /**
@@ -146,6 +150,9 @@ function apparie(
   // des deux échéances nulle) sont écartés : `distEcheance` rend `Infinity` et
   // le départage à quantité minimale les sélectionnerait sinon, `Infinity ===
   // Infinity` étant vrai.
+  // Au-delà de TOLERANCE_APPARIEMENT_JOURS les deux lignes ne sont pas le même
+  // besoin (#144) : on ne marie pas une suggestion de septembre à une de février
+  // (+168 j) simplement parce que c'est ce qui reste de libre.
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
@@ -154,6 +161,7 @@ function apparie(
       if (usedP.has(idx)) return
       const d = distEcheance(rowA.date_echeance, rowP.date_echeance)
       if (d === Number.POSITIVE_INFINITY) return
+      if (d > TOLERANCE_APPARIEMENT_JOURS) return
       const qtyDelta = Math.abs(rowP.quantity - rowA.quantity)
       if (d < bestDist || (d === bestDist && qtyDelta < bestQtyDelta)) {
         bestDist = d
@@ -175,12 +183,19 @@ function apparie(
   // qui reçoit sa date. La passe 1 ayant déjà apparié tout ce qui a deux
   // échéances, les restes sont exactement ces transitions (et les écarts de
   // cardinalité, qui n'ont par construction rien à apparier de l'autre côté).
+  //
+  // Plafond #144 : même au rattrapage on ne marie pas deux lignes dont les
+  // échéances — quand elles existent des deux côtés — sont à plus de 30 j.
+  // Sans ce garde-fou la passe 2 réintroduit le défaut par la porte de service
+  // en mariant les orphelines lointaines sur la seule quantité.
   for (const rowA of as) {
     if (appariees.has(rowA)) continue
     let best = -1
     let bestQtyDelta = Number.POSITIVE_INFINITY
     ps.forEach((rowP, idx) => {
       if (usedP.has(idx)) return
+      const d = distEcheance(rowA.date_echeance, rowP.date_echeance)
+      if (d !== Number.POSITIVE_INFINITY && d > TOLERANCE_APPARIEMENT_JOURS) return
       const qtyDelta = Math.abs(rowP.quantity - rowA.quantity)
       if (qtyDelta < bestQtyDelta) {
         bestQtyDelta = qtyDelta

@@ -33,6 +33,17 @@ export const isApproDecisionStatut = (v: unknown): v is ApproDecisionStatut =>
 export const TOLERANCE_ECHEANCE_JOURS = 7
 export const TOLERANCE_QUANTITE_RATIO = 0.2
 
+/**
+ * Plafond d'appariement pour `cbn_driver_diff.apparie()` (#144).
+ *
+ * Au-delà de cette distance deux lignes ne sont pas le même besoin : la ligne
+ * « avant » part en `disparue`, la ligne « après » en `apparue`, au lieu d'être
+ * mariées en `date` à +N jours. Seuil mesuré sur le régime normal (six nuits
+ * consécutives sans appariement > 30 j), à la même enseigne que les deux
+ * tolérances ci-dessus — même statut, même besoin de calibrage.
+ */
+export const TOLERANCE_APPARIEMENT_JOURS = 30
+
 /** Jours consécutifs SANS voir une clé dans la file avant d'expirer sa décision (#112). */
 export const EXPIRATION_JOURS_ABSENCE = 3
 
