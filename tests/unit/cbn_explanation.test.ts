@@ -173,6 +173,8 @@ test.group('explainCbnMessages — natures qui inversent le sens', () => {
     detail: 'Stock 740 → 1 200 (+62 %) — A7399.',
     designation: null,
     famille: null,
+    vcrnum: null,
+    vcrlin: null,
   }
 
   const messageAvancer = (nature: string): CbnMessageDiffEntry => ({
@@ -267,6 +269,8 @@ test.group('explainCbnMessages — sorties du CBN écartées', () => {
     detail: `${source} apparue.`,
     designation: null,
     famille: null,
+    vcrnum: null,
+    vcrlin: null,
   })
 
   test('ni corrélation ni contradiction sur of_suggestion et appro_suggestion', ({ assert }) => {
@@ -318,6 +322,8 @@ test.group('explainCbnMessages — asymétries comblées', () => {
     detail: 'appro apparue : 800 unités.',
     designation: null,
     famille: null,
+    vcrnum: null,
+    vcrlin: null,
   }
 
   test('une réception NOUVELLE contredit un « avancer »', ({ assert }) => {
@@ -346,6 +352,8 @@ test.group('explainCbnMessages — asymétries comblées', () => {
       detail: 'demande_ferme quantité 1 200 → 300.',
       designation: null,
       famille: null,
+      vcrnum: null,
+      vcrlin: null,
     }
     const [exp] = explainCbnMessages([msgCode(6)], [demandeReduite])
 

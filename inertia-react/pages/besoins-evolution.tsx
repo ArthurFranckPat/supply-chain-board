@@ -54,6 +54,8 @@ interface DriverDiffEntry {
   detail: string
   designation: string | null
   famille: string | null
+  vcrnum: string | null
+  vcrlin: string | null
 }
 interface DriversDiffResponse {
   avant: string | null
@@ -247,6 +249,23 @@ export default function BesoinsEvolution() {
                 </span>
               )}
             </div>
+          )
+        },
+        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
+      },
+      {
+        id: 'piece',
+        header: 'Pièce',
+        accessorFn: (r) => r.vcrnum ?? '',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const r = row.original
+          if (!r.vcrnum) return <span className="font-mono text-xs text-muted-soft">—</span>
+          const label = r.vcrlin ? `${r.vcrnum} L${r.vcrlin}` : r.vcrnum
+          return (
+            <span className="font-mono text-xs tabular-nums text-foreground" title={label}>
+              {label}
+            </span>
           )
         },
         meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },

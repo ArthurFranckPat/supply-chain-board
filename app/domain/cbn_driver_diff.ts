@@ -39,6 +39,8 @@ export interface DriverDiffEntry {
   detail: string
   designation: string | null
   famille: string | null
+  vcrnum: string | null
+  vcrlin: string | null
 }
 
 /**
@@ -145,7 +147,7 @@ export function diffCbnDrivers(
   const index = (rows: DemandSnapshotRow[]): Map<string, DemandSnapshotRow[]> => {
     const m = new Map<string, DemandSnapshotRow[]>()
     for (const r of rows) {
-      const k = `${r.itmref}\u0001${r.source}`
+      const k = `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
       const list = m.get(k)
       if (list === undefined) m.set(k, [r])
       else list.push(r)
@@ -176,6 +178,8 @@ export function diffCbnDrivers(
           detail: `${source} apparue : ${qte(rowP.quantity)} unités${rowP.date_echeance ? `, échéance ${rowP.date_echeance}` : ''} — ${article}.`,
           designation: null,
           famille: null,
+          vcrnum: rowP.vcrnum,
+          vcrlin: rowP.vcrlin,
         })
       }
       continue
@@ -194,6 +198,8 @@ export function diffCbnDrivers(
           detail: `${source} disparue : ${qte(rowA.quantity)} unités${rowA.date_echeance ? `, échéance ${rowA.date_echeance}` : ''} — ${article}.`,
           designation: null,
           famille: null,
+          vcrnum: rowA.vcrnum,
+          vcrlin: rowA.vcrlin,
         })
       }
       continue
@@ -218,6 +224,8 @@ export function diffCbnDrivers(
           detail: `Stock ${qte(qa)} → ${qte(qp)} (${sens}${Math.round(ratio * 100)} %) — ${article}.`,
           designation: null,
           famille: null,
+          vcrnum: null,
+          vcrlin: null,
         })
       }
       continue
@@ -245,6 +253,8 @@ export function diffCbnDrivers(
           detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)} (${sens}${Math.round(ratio * 100)} %) — ${article}.`,
           designation: null,
           famille: null,
+          vcrnum: rowA.vcrnum,
+          vcrlin: rowA.vcrlin,
         })
       }
 
@@ -260,6 +270,8 @@ export function diffCbnDrivers(
           detail: `${source} échéance ${rowA.date_echeance ?? '—'} → ${rowP.date_echeance ?? '—'} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — ${article}.`,
           designation: null,
           famille: null,
+          vcrnum: rowA.vcrnum,
+          vcrlin: rowA.vcrlin,
         })
       }
     }
@@ -276,6 +288,8 @@ export function diffCbnDrivers(
         detail: `${source} ligne disparue : ${qte(rowA.quantity)} unités, échéance ${rowA.date_echeance ?? '—'} — ${article}.`,
         designation: null,
         famille: null,
+        vcrnum: rowA.vcrnum,
+        vcrlin: rowA.vcrlin,
       })
     }
 
@@ -291,6 +305,8 @@ export function diffCbnDrivers(
         detail: `${source} ligne apparue : ${qte(rowP.quantity)} unités, échéance ${rowP.date_echeance ?? '—'} — ${article}.`,
         designation: null,
         famille: null,
+        vcrnum: rowP.vcrnum,
+        vcrlin: rowP.vcrlin,
       })
     }
   }
