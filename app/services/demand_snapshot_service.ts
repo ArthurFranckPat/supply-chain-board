@@ -409,7 +409,7 @@ export class DemandSnapshotService {
     avantDay: string
   ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v2`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
@@ -431,29 +431,41 @@ export class DemandSnapshotService {
         const apres: DemandSnapshotRow[] = apresRows.map(toRow)
         let entrees = diffCbnDrivers(avant, apres)
 
-        // Enrichissement désignation/famille (§5.2) : jointure static_articles
-        // sur les seuls articles présents dans le diff, pas un LEFT JOIN sur
-        // toute la photo.
         if (entrees.length > 0) {
           const codes = [...new Set(entrees.map((e) => e.article))]
           const chunkSize = 900
-          const map = new Map<string, { designation: string | null; famille: string | null }>()
+          const map = new Map<
+            string,
+            { designation: string | null; famille: string | null; categorie: string | null }
+          >()
           for (let i = 0; i < codes.length; i += chunkSize) {
             const chunk = codes.slice(i, i + chunkSize)
             const rows = await conn
               .from('static_articles')
               .whereIn('code', chunk)
-              .select('code', 'description', 'famille')
+              .select('code', 'description', 'famille', 'category')
             for (const r of rows as Array<Record<string, unknown>>) {
               const code = String((r as Record<string, unknown>).code)
               const desc = (r as Record<string, unknown>).description
               const fam = (r as Record<string, unknown>).famille
+              const cat = (r as Record<string, unknown>).category
               map.set(code, {
                 designation: desc === null || desc === undefined ? null : String(desc) || null,
                 famille: fam === null || fam === undefined ? null : String(fam) || null,
+                categorie: cat === null || cat === undefined ? null : String(cat),
               })
             }
           }
+          // Exclure les articles dont la catégorie commence par Z (même règle que stock_valuation et BOM)
+          const zSet = new Set<string>()
+          for (const [code, v] of map.entries()) {
+            if (v.categorie !== null && v.categorie.startsWith('Z')) zSet.add(code)
+          }
+          if (zSet.size > 0) entrees = entrees.filter((e) => !zSet.has(e.article))
+
+          // Enrichissement désignation/famille (§5.2) : jointure static_articles
+          // sur les seuls articles présents dans le diff, pas un LEFT JOIN sur
+          // toute la photo.
           entrees = entrees.map((e) => {
             const hit = map.get(e.article)
             return {
