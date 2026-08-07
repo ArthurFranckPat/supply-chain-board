@@ -3,11 +3,14 @@
  * dense, ToolbarRow/Segment/PILL/RefreshPill, Card, DataTable, Select,
  * LoadingState), mêmes tokens que Réceptions et Conditionnements.
  *
- * Grammaire de la table (DESIGN.md) : natures en point + petites capitales,
- * jamais en boîte pleine — une boîte s'étire avec son libellé et détruit le
- * rythme vertical. Deux lignes par rangée au maximum. La couleur se limite au
- * point et au chiffre de l'Écart : elle distingue les natures d'un coup d'œil
- * sans jamais devenir un fond (cf. `NATURE_TONE`).
+ * Grammaire de la table : vocabulaire de diff de code, emprunté à Primer
+ * (GitHub). Signe en gouttière `+ − ± ~ =` doublé d'une teinte — la couleur ne
+ * porte jamais un état toute seule, elle doit survivre au gris et à
+ * l'impression. Les deux versants d'un mouvement sont teintés au niveau de la
+ * valeur (rouge ce qui part, vert ce qui arrive), jamais au niveau de la ligne :
+ * le blanc pur est le socle de ce système, 17 500 lignes teintées le
+ * retourneraient. Jamais de boîte pleine non plus — elle s'étire avec son
+ * libellé et détruit le rythme vertical. Deux lignes par rangée au maximum.
  *
  * Tous les filtres vivent dans la `ToolbarRow`, à leur place canonique. Une
  * grille de 8 cartes posée au milieu de la page les a précédés : c'était un
@@ -42,7 +45,7 @@ import {
 } from '@r/components/ui/select'
 import { cn } from '@r/lib/utils'
 
-type Photo = { date: string; lignes: number; sources: number }
+type Photo = { date: string; lignes: number; sources: number; priseLe: number | null }
 type DriverSource =
   | 'of_ferme'
   | 'of_planifie'
@@ -110,6 +113,17 @@ const NATURES: DriverNature[] = ['apparue', 'disparue', 'quantite', 'date', 'ren
 const TOUTES_SOURCES = '__toutes__'
 
 /**
+ * État de repos du filtre de nature : tout SAUF la renumérotation.
+ *
+ * Le CBN détruit et recrée ~17 500 documents par nuit (of_planifie,
+ * of_suggestion, appro_suggestion) pour une poignée de mouvements réels. Les
+ * afficher par défaut noierait la question posée par l'écran. Elles restent à un
+ * clic — écartées, jamais masquées en dur.
+ */
+const NATURES_PAR_DEFAUT = (): Set<DriverNature> =>
+  new Set(NATURES.filter((n) => n !== 'renumerotation'))
+
+/**
  * Teinte par nature, portée par le seul point de la colonne Nature et par le
  * chiffre de l'Écart — deux surfaces de quelques pixels, jamais un fond.
  *
@@ -118,17 +132,46 @@ const TOUTES_SOURCES = '__toutes__'
  * axe sémantique, et cette page n'affiche aucun statut d'OF (la colonne Source
  * est du texte), donc aucune collision de vocabulaire à l'écran.
  */
-const NATURE_TONE: Record<DriverNature, { dot: string; text: string }> = {
+const NATURE_TONE: Record<DriverNature, { text: string; signe: string }> = {
   // Entrée dans le plan.
-  apparue: { dot: 'bg-ferme', text: 'text-ferme' },
+  apparue: { text: 'text-ferme', signe: '+' },
   // Sortie du plan.
-  disparue: { dot: 'bg-destructive', text: 'text-destructive' },
+  disparue: { text: 'text-destructive', signe: '−' },
   // Le volume bouge.
-  quantite: { dot: 'bg-warning', text: 'text-warning' },
+  quantite: { text: 'text-warning', signe: '±' },
   // Le calendrier bouge.
-  date: { dot: 'bg-planifie', text: 'text-planifie' },
-  // Rien n'a bougé : point creux, aucune teinte.
-  renumerotation: { dot: '', text: 'text-muted-foreground' },
+  date: { text: 'text-planifie', signe: '~' },
+  // Rien n'a bougé : ni teinte ni signe orienté.
+  renumerotation: { text: 'text-muted-foreground', signe: '=' },
+}
+
+/**
+ * Paire avant/après à la manière d'un diff de code.
+ *
+ * Primer (GitHub) empile trois niveaux de teinte — gouttière, ligne, mot — et
+ * double toujours la couleur d'un signe en gouttière, parce que la couleur
+ * seule ne porte pas un état. On en garde deux niveaux sur trois : la teinte de
+ * mot sur les deux valeurs, et le signe. Pas de fond de ligne : le blanc pur
+ * est le socle de ce système, et 17 500 lignes teintées le retourneraient.
+ */
+function PaireDiff(props: { avant: string | null; apres: string | null }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs tabular-nums">
+      {props.avant !== null && (
+        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-destructive">
+          {props.avant}
+        </span>
+      )}
+      {props.avant !== null && props.apres !== null && (
+        <span aria-hidden className="text-muted-foreground">
+          →
+        </span>
+      )}
+      {props.apres !== null && (
+        <span className="rounded bg-ferme/10 px-1.5 py-0.5 text-ferme">{props.apres}</span>
+      )}
+    </span>
+  )
 }
 
 const fmtJJMMAAAA = (iso: string): string => {
@@ -137,6 +180,29 @@ const fmtJJMMAAAA = (iso: string): string => {
   return `${d}/${m}/${y}`
 }
 const fmtJJMM = (iso: string | null): string => (iso ? fmtJJMMAAAA(iso) : '—')
+
+/** Heure locale `HH:MM` d'une capture. */
+const fmtHeure = (ms: number | null): string | null => {
+  if (ms === null) return null
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return null
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * Durée réellement écoulée entre deux captures, en `Xh YY`.
+ *
+ * La photo porte la date du jour mais est prise à l'heure où le serveur est
+ * debout : entre deux photos consécutives l'intervalle observé va de 8 h à 40 h.
+ * « 06/08 → 07/08 » se lit comme une journée alors que ce peut être une nuit de
+ * 10 h — d'où un écran presque vide qu'on croit cassé.
+ */
+const fmtIntervalle = (deMs: number | null, aMs: number | null): string | null => {
+  if (deMs === null || aMs === null) return null
+  const min = Math.round((aMs - deMs) / 60_000)
+  if (!Number.isFinite(min) || min <= 0) return null
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`
+}
 const fmtQte = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 const fmtQteSigned = (n: number): string =>
   `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtQte.format(Math.abs(n))}`
@@ -165,17 +231,36 @@ const ecartLabel = (e: DriverDiffEntry): string => {
   }
   return '—'
 }
-const avantApresLabel = (e: DriverDiffEntry): string => {
-  if (e.nature === 'date') return `${fmtJJMM(e.echeanceAvant)} → ${fmtJJMM(e.echeanceApres)}`
-  // Renumérotation : la quantité est par définition la même des deux côtés.
-  // Écrire « 15 000 → 15 000 » donne à lire une transition là où il n'y en a
-  // pas ; on rend la valeur seule.
-  if (e.nature === 'renumerotation') {
-    return e.quantiteApres === null ? '—' : fmtQte.format(e.quantiteApres)
+/**
+ * Les deux versants d'un mouvement, prêts à teinter.
+ * `null` d'un côté = ce versant n'existe pas (apparition, disparition).
+ * Rend `null` tout court quand il n'y a rien à opposer — une renumérotation ne
+ * fait pas varier la quantité, « 15 000 → 15 000 » se lirait comme un changement.
+ */
+const paireValeurs = (
+  e: DriverDiffEntry
+): { avant: string | null; apres: string | null } | null => {
+  switch (e.nature) {
+    case 'date':
+      return { avant: fmtJJMM(e.echeanceAvant), apres: fmtJJMM(e.echeanceApres) }
+    case 'apparue':
+      return { avant: null, apres: fmtQte.format(e.quantiteApres ?? 0) }
+    case 'disparue':
+      return { avant: fmtQte.format(e.quantiteAvant ?? 0), apres: null }
+    case 'quantite':
+      return {
+        avant: e.quantiteAvant === null ? '—' : fmtQte.format(e.quantiteAvant),
+        apres: e.quantiteApres === null ? '—' : fmtQte.format(e.quantiteApres),
+      }
+    case 'renumerotation':
+      return null
   }
-  const av = e.quantiteAvant === null ? '—' : fmtQte.format(e.quantiteAvant)
-  const ap = e.quantiteApres === null ? '—' : fmtQte.format(e.quantiteApres)
-  return `${av} → ${ap}`
+}
+
+const avantApresLabel = (e: DriverDiffEntry): string => {
+  const p = paireValeurs(e)
+  if (p === null) return e.quantiteApres === null ? '—' : fmtQte.format(e.quantiteApres)
+  return `${p.avant ?? '—'} → ${p.apres ?? '—'}`
 }
 
 /**
@@ -217,7 +302,12 @@ export default function BesoinsEvolution() {
   const [diffLoading, setDiffLoading] = useState(false)
   const [diffError, setDiffError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<DriverSource | null>(null)
-  const [natureFilter, setNatureFilter] = useState<DriverNature | null>(null)
+  // Multi-sélection, et non un choix exclusif : la question posée à l'écran est
+  // « qu'est-ce qui a bougé cette nuit », pas « montre-moi une seule nature ».
+  // Tout est coché SAUF la renumérotation — le CBN en produit ~17 500 par nuit
+  // pour une poignée de vrais mouvements, elle noierait la première lecture.
+  // Elle reste à un clic, jamais masquée en dur.
+  const [natureFilters, setNatureFilters] = useState<Set<DriverNature>>(NATURES_PAR_DEFAUT)
   const [search, setSearch] = useState('')
   const [sheetArticle, setSheetArticle] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -249,12 +339,21 @@ export default function BesoinsEvolution() {
     reloadPhotos()
   }, [])
 
+  // Clé stable du jeu de natures : un `Set` change d'identité à chaque rendu et
+  // relancerait la requête en boucle s'il servait de dépendance d'effet.
+  const natureKey = [...natureFilters].sort().join(',')
+  const estNatureParDefaut = natureKey === [...NATURES_PAR_DEFAUT()].sort().join(',')
+
   const reloadDiff = async () => {
     if (!avant || !apres) return
     setDiffLoading(true)
     setDiffError(null)
     try {
-      const url = `/api/v1/appro/drivers-diff?avant=${encodeURIComponent(avant)}&apres=${encodeURIComponent(apres)}&limit=1000`
+      // Le filtre de nature part au serveur : sans lui, `total` compterait les
+      // ~17 500 renumérotations que l'écran n'affiche pas, et le bandeau
+      // « X affichés sur N » mentirait sur ce qui est réellement filtré.
+      const nature = natureKey ? `&nature=${encodeURIComponent(natureKey)}` : ''
+      const url = `/api/v1/appro/drivers-diff?avant=${encodeURIComponent(avant)}&apres=${encodeURIComponent(apres)}&limit=1000${nature}`
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = (await res.json()) as DriversDiffResponse
@@ -268,13 +367,13 @@ export default function BesoinsEvolution() {
   useEffect(() => {
     if (avant && apres) reloadDiff()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [avant, apres])
+  }, [avant, apres, natureKey])
 
   const filtered = useMemo(() => {
     if (!diff) return []
     let out = diff.entrees
     if (sourceFilter) out = out.filter((e) => e.source === sourceFilter)
-    if (natureFilter) out = out.filter((e) => e.nature === natureFilter)
+    out = out.filter((e) => natureFilters.has(e.nature))
     if (search.trim()) {
       const q = fold(search.trim())
       // Les deux références sont cherchables : sur une renumérotation, on part
@@ -288,7 +387,7 @@ export default function BesoinsEvolution() {
       )
     }
     return out
-  }, [diff, sourceFilter, natureFilter, search])
+  }, [diff, sourceFilter, natureFilters, search])
 
   const total = diff?.total ?? 0
   const entrees = diff?.entrees ?? []
@@ -298,8 +397,20 @@ export default function BesoinsEvolution() {
     () => [...photos].sort((a, b) => b.date.localeCompare(a.date)),
     [photos]
   )
+  // Libellé de la fenêtre comparée, à l'heure près. Les dates seules laissent
+  // croire à une journée pleine ; l'intervalle mesuré dit ce qui a réellement
+  // été observé, et rend deux couples comparables entre eux.
+  const photoDe = photos.find((p) => p.date === avant) ?? null
+  const photoA = photos.find((p) => p.date === apres) ?? null
+  const heureDe = fmtHeure(photoDe?.priseLe ?? null)
+  const heureA = fmtHeure(photoA?.priseLe ?? null)
+  const intervalle = fmtIntervalle(photoDe?.priseLe ?? null, photoA?.priseLe ?? null)
   const rangeLabel =
-    avant && apres ? `${fmtJJMMAAAA(avant)} → ${fmtJJMMAAAA(apres)}` : photosLoading ? '…' : '—'
+    avant && apres
+      ? `${fmtJJMMAAAA(avant)}${heureDe ? ` ${heureDe}` : ''} → ${fmtJJMMAAAA(apres)}${heureA ? ` ${heureA}` : ''}`
+      : photosLoading
+        ? '…'
+        : '—'
 
   const columns = useMemo<ColumnDef<DriverDiffEntry>[]>(
     () => [
@@ -339,15 +450,20 @@ export default function BesoinsEvolution() {
           // Renumérotation : la pièce a été remplacée. Les deux références sur la
           // même ligne — c'est l'information, pas une disparition suivie d'une
           // apparition.
+          // Une pièce remplacée EST un diff : ancienne référence retirée,
+          // nouvelle ajoutée. Même vocabulaire que la colonne Avant → Après,
+          // empilé parce que les références sont longues.
           if (r.vcrnumApres) {
             const apres = r.vcrlinApres ? `${r.vcrnumApres} L${r.vcrlinApres}` : r.vcrnumApres
             return (
               <span
-                className="flex flex-col whitespace-nowrap font-mono text-xs leading-tight tabular-nums"
+                className="flex flex-col items-start gap-0.5 whitespace-nowrap font-mono text-xs leading-tight tabular-nums"
                 title={`${avant} → ${apres}`}
               >
-                <span className="text-muted-foreground line-through">{avant}</span>
-                <span className="text-foreground">{apres}</span>
+                <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-destructive line-through">
+                  {avant}
+                </span>
+                <span className="rounded bg-ferme/10 px-1.5 py-0.5 text-ferme">{apres}</span>
               </span>
             )
           }
@@ -386,23 +502,28 @@ export default function BesoinsEvolution() {
         // mouvement réel, le point creux une renumérotation — la seule nature
         // où rien n'a bougé. Aucune teinte décorative : les couleurs de statut
         // métier ne sont pas détournées pour coder un axe qui n'est pas le leur.
+        // Signe en gouttière plutôt que pastille de couleur : c'est la règle que
+        // Primer et les guides de tables rappellent tous les deux — la couleur
+        // seule ne porte jamais un état. `+ − ± ~ =` restent lisibles en
+        // niveaux de gris, à l'impression et en vision déficiente.
         cell: ({ row }) => {
           const n = row.original.nature
-          const renum = n === 'renumerotation'
           const tone = NATURE_TONE[n]
           return (
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="flex items-center gap-2 whitespace-nowrap">
               <span
                 aria-hidden
                 className={cn(
-                  'size-1.5 shrink-0 rounded-full',
-                  renum ? 'ring-1 ring-border' : tone.dot
+                  'w-3 shrink-0 text-center font-mono text-xs font-bold leading-none',
+                  tone.text
                 )}
-              />
+              >
+                {tone.signe}
+              </span>
               <span
                 className={cn(
                   'text-[10px] font-semibold uppercase tracking-[0.08em]',
-                  renum ? 'text-muted-foreground' : 'text-foreground'
+                  n === 'renumerotation' ? 'text-muted-foreground' : 'text-foreground'
                 )}
               >
                 {NATURE_LABEL[n]}
@@ -417,11 +538,17 @@ export default function BesoinsEvolution() {
         header: 'Avant → Après',
         enableSorting: false,
         accessorFn: (r) => `${r.quantiteAvant ?? ''}->${r.quantiteApres ?? ''}`,
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-foreground">
-            {avantApresLabel(row.original)}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const p = paireValeurs(row.original)
+          if (p === null) {
+            return (
+              <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
+                {avantApresLabel(row.original)}
+              </span>
+            )
+          }
+          return <PaireDiff avant={p.avant} apres={p.apres} />
+        },
         meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
       },
       {
@@ -459,7 +586,7 @@ export default function BesoinsEvolution() {
           </div>
           <div className="font-mono text-[10px] tabular-nums text-muted-foreground">
             {diff
-              ? `${fmtQte.format(total)} mouvement${total > 1 ? 's' : ''}`
+              ? `${fmtQte.format(total)} mouvement${total > 1 ? 's' : ''}${intervalle ? ` · ${intervalle} écoulées` : ''}`
               : photosLoading
                 ? '…'
                 : '—'}
@@ -479,7 +606,8 @@ export default function BesoinsEvolution() {
             <SelectContent>
               {photoOptions.map((p) => (
                 <SelectItem key={p.date} value={p.date}>
-                  {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
+                  {fmtJJMMAAAA(p.date)}
+                  {fmtHeure(p.priseLe) ? ` ${fmtHeure(p.priseLe)}` : ''} · {fmtQte.format(p.lignes)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -492,7 +620,8 @@ export default function BesoinsEvolution() {
             <SelectContent>
               {photoOptions.map((p) => (
                 <SelectItem key={p.date} value={p.date}>
-                  {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
+                  {fmtJJMMAAAA(p.date)}
+                  {fmtHeure(p.priseLe) ? ` ${fmtHeure(p.priseLe)}` : ''} · {fmtQte.format(p.lignes)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -537,12 +666,24 @@ export default function BesoinsEvolution() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Segment>
+          <Segment ariaLabel="Natures affichées">
             {NATURES.map((n) => (
               <SegmentButton
                 key={n}
-                active={natureFilter === n}
-                onClick={() => setNatureFilter((v) => (v === n ? null : n))}
+                active={natureFilters.has(n)}
+                title={
+                  natureFilters.has(n)
+                    ? `Masquer les lignes « ${NATURE_LABEL[n]} »`
+                    : `Afficher les lignes « ${NATURE_LABEL[n]} »`
+                }
+                onClick={() =>
+                  setNatureFilters((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(n)) next.delete(n)
+                    else next.add(n)
+                    return next
+                  })
+                }
               >
                 {NATURE_LABEL[n]}
               </SegmentButton>
@@ -673,17 +814,21 @@ export default function BesoinsEvolution() {
                     <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                       {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · tri ratio
                     </span>
-                    {(sourceFilter || natureFilter || search) && (
+                    {(sourceFilter || !estNatureParDefaut || search) && (
                       <button
                         type="button"
+                        // « Réinitialiser » et non « Effacer » : l'état de repos
+                        // n'est pas « tout affiché » mais « tout sauf les
+                        // renumérotations ». Vider les filtres ferait revenir les
+                        // 17 500 lignes que le défaut écarte volontairement.
                         onClick={() => {
                           setSourceFilter(null)
-                          setNatureFilter(null)
+                          setNatureFilters(NATURES_PAR_DEFAUT())
                           setSearch('')
                         }}
                         className="ml-auto font-mono text-[10px] font-semibold text-muted-foreground hover:text-foreground"
                       >
-                        Effacer les filtres
+                        Réinitialiser les filtres
                       </button>
                     )}
                   </div>

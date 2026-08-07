@@ -346,19 +346,28 @@ export class DemandSnapshotService {
    * Liste des photos disponibles pour le sélecteur de dates (§5.1).
    * Tri décroissant (plus récente d'abord), avec décompte par photo.
    */
-  async listSnapshots(): Promise<Array<{ date: string; lignes: number; sources: number }>> {
+  async listSnapshots(): Promise<
+    Array<{ date: string; lignes: number; sources: number; priseLe: number | null }>
+  > {
     const rows = await db
       .connection()
       .from('demand_snapshots')
       .select('snapshot_date')
       .count('* as lignes')
       .countDistinct('source as sources')
+      // Heure RÉELLE de capture. La photo porte la date du jour, mais elle est
+      // prise quand le serveur applicatif est debout (cf. demand_snapshot_provider) :
+      // sur un poste qui dort, l'intervalle entre deux photos consécutives va de
+      // 8 h à 40 h. Sans cette heure, deux couples de dates ne sont pas comparables
+      // entre eux et un écran vide est indistinguable d'une nuit calme.
+      .min('created_at as prise_le')
       .groupBy('snapshot_date')
       .orderBy('snapshot_date', 'desc')
     return rows.map((r: Record<string, unknown>) => ({
       date: jourIso((r as { snapshot_date?: unknown }).snapshot_date),
       lignes: Number(r.lignes),
       sources: Number(r.sources),
+      priseLe: r.prise_le === null || r.prise_le === undefined ? null : Number(r.prise_le),
     }))
   }
 
