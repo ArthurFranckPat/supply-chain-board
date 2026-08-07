@@ -192,6 +192,20 @@ export default class ApproController {
         message: 'photo(s) illisible(s) — diff drivers indisponible',
       })
     }
+    // Aucune source commune aux deux photos (#145) : le diff est vide parce
+    // qu'il n'y avait RIEN à comparer. Le rendre comme un diff nominal ferait
+    // afficher « aucune source n'a bougé » sous un bandeau qui dit l'inverse.
+    if (result.message !== null) {
+      return ctx.response.json({
+        avant: result.avant,
+        apres: result.apres,
+        total: 0,
+        entrees: [],
+        sourcesEcartees: result.sourcesEcartees,
+        sourcesComparees: result.sourcesComparees,
+        message: result.message,
+      })
+    }
 
     // Filtres serveur (§5.3) — appliqués APRÈS le cache sur le résultat complet.
     const sourceQ = ctx.request.input('source') as string | undefined
@@ -240,6 +254,8 @@ export default class ApproController {
       parSource,
       parNature,
       entrees: sliced,
+      sourcesEcartees: result.sourcesEcartees,
+      sourcesComparees: result.sourcesComparees,
     })
   }
 
