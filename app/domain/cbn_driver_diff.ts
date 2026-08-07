@@ -1,4 +1,8 @@
-import { TOLERANCE_ECHEANCE_JOURS, TOLERANCE_QUANTITE_RATIO } from '#app/domain/appro_decision'
+import {
+  TOLERANCE_APPARIEMENT_JOURS,
+  TOLERANCE_ECHEANCE_JOURS,
+  TOLERANCE_QUANTITE_RATIO,
+} from '#app/domain/appro_decision'
 import type { DemandSnapshotRow } from '#app/domain/snapshot_rows'
 
 /**
@@ -124,14 +128,44 @@ const distEcheance = (a: string | null, b: string | null): number => {
   return d === null ? Number.POSITIVE_INFINITY : Math.abs(d)
 }
 
+/**
+ * Sources dont la clé d'index est `(article, source)` : le `VCRNUM` y est
+ * détruit et recréé chaque nuit par le CBN, donc `apparie()` DEVINE quelle
+ * ligne d'avant correspond à quelle ligne d'après. Ce sont les seules cibles
+ * légitimes des garde-fous d'appariement (#144).
+ *
+ * Partout ailleurs la clé porte déjà `(vcrnum, vcrlin)` : la pièce EST la clé,
+ * l'identité est certaine, il n'y a rien à départager — et donc rien à borner.
+ *
+ * Cette liste et le calcul de clé dans `index()` doivent rester d'accord : un
+ * garde-fou armé sur une source à identité certaine transforme une replanif en
+ * disparue + apparue (mesuré : 1250 OF fermes sur les photos 30/07 → 07/08).
+ */
+const SOURCES_IDENTITE_INFEREE = new Set<DriverSource>([
+  'of_suggestion',
+  'appro_suggestion',
+  'of_planifie',
+])
+
+/**
+ * @param plafondJours distance d'échéance au-delà de laquelle deux lignes ne
+ *   sont plus le même besoin. `Number.POSITIVE_INFINITY` = identité certaine,
+ *   aucun garde-fou (voir `SOURCES_IDENTITE_INFEREE`).
+ */
 function apparie(
   avant: DemandSnapshotRow[],
-  apres: DemandSnapshotRow[]
+  apres: DemandSnapshotRow[],
+  plafondJours: number
 ): {
   paires: Array<[DemandSnapshotRow, DemandSnapshotRow]>
   surplusAvant: DemandSnapshotRow[]
   surplusApres: DemandSnapshotRow[]
 } {
+  // Les deux garde-fous ci-dessous (plafond de distance en passe 1, ratio de
+  // quantité en passe 2) bornent une DEVINETTE. Un plafond infini signifie que
+  // l'appelant garantit l'identité des lignes : on ne borne alors rien, sous
+  // peine de casser des couples pourtant certains.
+  const identiteInferee = Number.isFinite(plafondJours)
   const as = [...avant].sort((x, y) =>
     (x.date_echeance ?? '9').localeCompare(y.date_echeance ?? '9')
   )
@@ -146,6 +180,11 @@ function apparie(
   // des deux échéances nulle) sont écartés : `distEcheance` rend `Infinity` et
   // le départage à quantité minimale les sélectionnerait sinon, `Infinity ===
   // Infinity` étant vrai.
+  // Au-delà de `plafondJours` les deux lignes ne sont pas le même besoin
+  // (#144) : on ne marie pas une suggestion de septembre à une de février
+  // (+168 j) simplement parce que c'est ce qui reste de libre. Le plafond
+  // s'applique à la valeur ABSOLUE de l'écart (cf. `distEcheance`) : il est
+  // donc symétrique, une avance de 60 j est écartée comme un retard de 60 j.
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
@@ -154,6 +193,7 @@ function apparie(
       if (usedP.has(idx)) return
       const d = distEcheance(rowA.date_echeance, rowP.date_echeance)
       if (d === Number.POSITIVE_INFINITY) return
+      if (d > plafondJours) return
       const qtyDelta = Math.abs(rowP.quantity - rowA.quantity)
       if (d < bestDist || (d === bestDist && qtyDelta < bestQtyDelta)) {
         bestDist = d
@@ -170,18 +210,34 @@ function apparie(
   // Passe 2 — rattrapage à la quantité la plus proche.
   //
   // Une ligne dont l'échéance passe de nulle à renseignée (ou l'inverse) est
-  // incomparable en passe 1 : sans rattrapage elle ressort en `disparue` +
-  // `apparue`, soit deux lignes de bruit pour un seul événement — une réception
-  // qui reçoit sa date. La passe 1 ayant déjà apparié tout ce qui a deux
-  // échéances, les restes sont exactement ces transitions (et les écarts de
-  // cardinalité, qui n'ont par construction rien à apparier de l'autre côté).
+  // incomparable en passe 1 : `distEcheance` rend `Infinity`. Sans rattrapage
+  // elle ressort en `disparue` + `apparue`, soit deux lignes de bruit pour un
+  // seul événement — une réception qui reçoit sa date.
+  //
+  // Ce que la passe 2 reçoit (depuis le plafond #144) : ces transitions, les
+  // écarts de cardinalité (rien à apparier de l'autre côté), ET les orphelines
+  // lointaines — deux échéances renseignées mais au-delà du plafond. Ces
+  // dernières se marieraient à n'importe quelle ligne sans échéance, puisque
+  // `Infinity` est exempté du plafond : c'est le défaut qui rentre par la porte
+  // de service, avec un `quantite(100 → 5000)` inventé à la clé.
+  //
+  // D'où deux garde-fous, armés seulement quand l'identité est inférée :
+  // - le plafond lui-même, sur les couples dont les DEUX échéances existent ;
+  // - un ratio de quantité (le même ±20 % que le seuil de bruit) sur tous les
+  //   couples : si la quantité a bougé au-delà du bruit EN PLUS de l'échéance,
+  //   rien n'atteste que c'est la même ligne, et deux faits indépendants se
+  //   disent mieux en disparue + apparue qu'en couple imaginé.
   for (const rowA of as) {
     if (appariees.has(rowA)) continue
     let best = -1
     let bestQtyDelta = Number.POSITIVE_INFINITY
     ps.forEach((rowP, idx) => {
       if (usedP.has(idx)) return
+      const d = distEcheance(rowA.date_echeance, rowP.date_echeance)
+      if (d !== Number.POSITIVE_INFINITY && d > plafondJours) return
       const qtyDelta = Math.abs(rowP.quantity - rowA.quantity)
+      const qtyRatio = qtyDelta / baseRatio(rowA.quantity, rowP.quantity)
+      if (identiteInferee && qtyRatio > TOLERANCE_QUANTITE_RATIO) return
       if (qtyDelta < bestQtyDelta) {
         bestQtyDelta = qtyDelta
         best = idx
@@ -226,12 +282,9 @@ export function diffCbnDrivers(
       // traité comme une suggestion métier — c'est une contrainte technique de clé, pas un
       // raccourci fonctionnel. Les autres sources restent par (article, source, vcrnum, vcrlin)
       // car la pièce y est stable et vérifiable (ex: `of_ferme` : 1535 VCRNUM stables).
-      const isSuggestion = r.source === 'of_suggestion' || r.source === 'appro_suggestion'
-      const isPlanifie = r.source === 'of_planifie'
-      const k =
-        isSuggestion || isPlanifie
-          ? `${r.itmref}\u0001${r.source}`
-          : `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
+      const k = SOURCES_IDENTITE_INFEREE.has(r.source as DriverSource)
+        ? `${r.itmref}\u0001${r.source}`
+        : `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
       const list = m.get(k)
       if (list === undefined) m.set(k, [r])
       else list.push(r)
@@ -321,7 +374,14 @@ export function diffCbnDrivers(
       continue
     }
 
-    const { paires, surplusAvant, surplusApres } = apparie(a, p)
+    // Le plafond ne s'arme que là où l'appariement DEVINE l'identité des
+    // lignes. Ailleurs la clé porte déjà la pièce : les deux lignes du couple
+    // sont le même document, quel que soit l'écart d'échéance — une réception
+    // retardée de 106 j reste un retard (#43), pas une disparition.
+    const plafondJours = SOURCES_IDENTITE_INFEREE.has(source)
+      ? TOLERANCE_APPARIEMENT_JOURS
+      : Number.POSITIVE_INFINITY
+    const { paires, surplusAvant, surplusApres } = apparie(a, p, plafondJours)
 
     for (const [rowA, rowP] of paires) {
       const ratio =

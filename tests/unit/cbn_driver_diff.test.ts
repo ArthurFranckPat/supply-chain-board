@@ -344,6 +344,149 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
 })
 
 /**
+ * Plafond d'appariement (#144) — `TOLERANCE_APPARIEMENT_JOURS`.
+ *
+ * Aucun test n'exerçait la règle : la CI serait restée verte avec un seuil de
+ * 3 j comme de 300 j. Ces cas verrouillent la borne, sa symétrie, et surtout le
+ * fait qu'elle ne s'applique QU'AUX sources dont l'identité de ligne est
+ * devinée par `apparie()`.
+ */
+test.group('cbn_driver_diff — plafond d’appariement', () => {
+  const sugg = (vcrnum: string, ech: string | null, quantity = 100) =>
+    row({ source: 'of_suggestion', itmref: 'S1', vcrnum, quantity, date_echeance: ech })
+
+  test('identité inférée : 30 j pile → apparié (borne incluse)', ({ assert }) => {
+    // 01/09 → 01/10 = 30 j exactement. Le code teste `> plafond`, donc 30 passe.
+    const diff = diffCbnDrivers([sugg('SG1', '2026-09-01')], [sugg('SG2', '2026-10-01')])
+
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].vcrnum, 'SG1')
+    assert.equal(diff[0].vcrnumApres, 'SG2')
+  })
+
+  test('identité inférée : 31 j → non apparié (disparue + apparue)', ({ assert }) => {
+    // 01/09 → 02/10 = 31 j : un jour de plus et ce ne sont plus deux états du
+    // même besoin.
+    const diff = diffCbnDrivers([sugg('SG1', '2026-09-01')], [sugg('SG2', '2026-10-02')])
+
+    assert.lengthOf(diff, 2)
+    assert.deepEqual(diff.map((d) => d.nature).sort(), ['apparue', 'disparue'])
+  })
+
+  /**
+   * `distEcheance` prend la valeur absolue de l'écart : le plafond est donc
+   * SYMÉTRIQUE. Une avance de 60 j n'est pas plus le même besoin qu'un retard
+   * de 60 j. Choix assumé, non écrit ailleurs que dans ce test.
+   */
+  test('le plafond est symétrique : −30 j apparié, −60 j non', ({ assert }) => {
+    const avance30 = diffCbnDrivers([sugg('SG1', '2026-10-01')], [sugg('SG2', '2026-09-01')])
+    assert.lengthOf(avance30, 1)
+    assert.equal(avance30[0].nature, 'date')
+
+    // 01/09 → 03/07 = −60 j.
+    const avance60 = diffCbnDrivers([sugg('SG1', '2026-09-01')], [sugg('SG2', '2026-07-03')])
+    assert.lengthOf(avance60, 2)
+    assert.deepEqual(avance60.map((d) => d.nature).sort(), ['apparue', 'disparue'])
+  })
+
+  /**
+   * Non-régression du défaut principal : le plafond ne doit PAS s'appliquer aux
+   * sources clefées par pièce (`of_ferme`, `demande_*`, `appro`). Là, la pièce
+   * EST la clé : l'identité est certaine, il n'y a rien à départager. Sur les
+   * photos réelles 30/07 → 07/08, l'armer partout basculait 1250 replanifs d'OF
+   * fermes en 1250 disparues + 1250 apparues, à VCRNUM et quantité identiques —
+   * et `driverDiffAmplitude` (1000+ pour apparue/disparue contre |j|/7 pour
+   * date) les faisait remonter en tête du `limit` de l'appelant.
+   */
+  test('appro à VCRNUM stable retardée de 106 j → date, pas disparue + apparue', ({ assert }) => {
+    // 01/09 → 16/12 = 106 j. Une réception très en retard reste un retard (#43).
+    const diff = diffCbnDrivers(
+      [
+        row({
+          source: 'appro',
+          itmref: 'R1',
+          vcrnum: 'REC1',
+          quantity: 500,
+          date_echeance: '2026-09-01',
+        }),
+      ],
+      [
+        row({
+          source: 'appro',
+          itmref: 'R1',
+          vcrnum: 'REC1',
+          quantity: 500,
+          date_echeance: '2026-12-16',
+        }),
+      ]
+    )
+
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].echeanceAvant, '2026-09-01')
+    assert.equal(diff[0].echeanceApres, '2026-12-16')
+  })
+
+  test('of_ferme à VCRNUM stable replanifié de 106 j → date', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [
+        row({
+          source: 'of_ferme',
+          itmref: 'F1',
+          vcrnum: 'OF1',
+          quantity: 50,
+          date_echeance: '2026-09-01',
+        }),
+      ],
+      [
+        row({
+          source: 'of_ferme',
+          itmref: 'F1',
+          vcrnum: 'OF1',
+          quantity: 50,
+          date_echeance: '2026-12-16',
+        }),
+      ]
+    )
+
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+  })
+
+  /**
+   * Passe 2 (rattrapage à la quantité) : l'exemption `Infinity` reposait sur
+   * l'invariant « la passe 1 a déjà apparié tout ce qui a deux échéances » —
+   * que le plafond invalide. Les orphelines lointaines retombent en passe 2 et
+   * se marieraient à n'importe quelle ligne sans échéance. Le garde-fou de
+   * quantité (mêmes ±20 % que le bruit) le refuse.
+   */
+  test('passe 2 : une orpheline lointaine ne se marie pas à une ligne sans échéance', ({
+    assert,
+  }) => {
+    const diff = diffCbnDrivers([sugg('SG1', '2026-09-09', 100)], [sugg('SG2', null, 5000)])
+
+    // Mariage inventé si le garde-fou manque : quantite(100 → 5000) +
+    // date(09/09/2026 → —).
+    assert.lengthOf(diff, 2)
+    assert.deepEqual(diff.map((d) => d.nature).sort(), ['apparue', 'disparue'])
+    assert.equal(diff.find((d) => d.nature === 'apparue')?.quantiteApres, 5000)
+    assert.equal(diff.find((d) => d.nature === 'disparue')?.quantiteAvant, 100)
+  })
+
+  test('passe 2 : la réception qui reçoit sa date reste rattrapée', ({ assert }) => {
+    // Quantité déplacée de 10 % seulement : c'est bien la même ligne, elle
+    // gagne son échéance. Le garde-fou ne doit pas la refuser.
+    const diff = diffCbnDrivers([sugg('SG1', null, 100)], [sugg('SG2', '2026-09-01', 110)])
+
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].echeanceAvant, null)
+    assert.equal(diff[0].echeanceApres, '2026-09-01')
+  })
+})
+
+/**
  * L'ordre de sortie fait partie du contrat : l'appelant borne la liste
  * (`limit`), donc une sortie mal triée perd les mouvements les plus forts.
  * Le tri doit être insensible à la présence d'une renumérotation dans les
