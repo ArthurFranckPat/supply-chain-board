@@ -46,11 +46,16 @@ export interface DriverDiffEntry {
 /**
  * Amplitude relative d'une entrée pour le tri (§5.3 PRD : ratio, pas absolu).
  * - `quantite` : |après-avant| / |min(avant,après)|
- * - `apparue` / `disparue` : Infinity (toujours en tête, volume nouveau/disparu)
+ * - `apparue` / `disparue` : 1000 + log quantité (toujours en tête mais trié
+ *   par volume et entrelacé apparue/disparue, sinon les 1000 premiers sont
+ *   tous disparus car `Infinity` stable garde l'ordre d'insertion disparue-first)
  * - `date` : |jours de décalage| / TOLERANCE_ECHEANCE_JOURS
  */
 export function driverDiffAmplitude(e: DriverDiffEntry): number {
-  if (e.nature === 'apparue' || e.nature === 'disparue') return Number.POSITIVE_INFINITY
+  if (e.nature === 'apparue' || e.nature === 'disparue') {
+    const q = e.nature === 'apparue' ? (e.quantiteApres ?? 0) : (e.quantiteAvant ?? 0)
+    return 1000 + Math.log10(Math.abs(q) + 1)
+  }
   if (e.nature === 'date') {
     const d = joursEntre(e.echeanceAvant, e.echeanceApres)
     if (d === null) return 0
@@ -147,7 +152,16 @@ export function diffCbnDrivers(
   const index = (rows: DemandSnapshotRow[]): Map<string, DemandSnapshotRow[]> => {
     const m = new Map<string, DemandSnapshotRow[]>()
     for (const r of rows) {
-      const k = `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
+      // Pour les suggestions CBN (of_suggestion, appro_suggestion), le VCRNUM est
+      // recréé chaque nuit (cf. appro_snapshot_diff.ts) : il n'est pas une clé stable.
+      // Les grouper par VCRNUM ferait apparaître chaque suggestion comme disparue/apparue
+      // à chaque photo, masquant les vrais mouvements de quantité/date. On garde donc
+      // (article, source) pour ces deux sources, et (article, source, vcrnum, vcrlin)
+      // pour les autres où la pièce est stable et vérifiable.
+      const isSuggestion = r.source === 'of_suggestion' || r.source === 'appro_suggestion'
+      const k = isSuggestion
+        ? `${r.itmref}\u0001${r.source}`
+        : `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
       const list = m.get(k)
       if (list === undefined) m.set(k, [r])
       else list.push(r)
