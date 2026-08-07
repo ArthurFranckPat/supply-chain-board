@@ -15,6 +15,7 @@ import {
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
+import { perimetreComparable, type SourceEcartee } from '#app/domain/snapshot_perimetre'
 import {
   couverture,
   jourIso,
@@ -346,22 +347,22 @@ export class DemandSnapshotService {
    * Liste des photos disponibles pour le sélecteur de dates (§5.1).
    * Tri décroissant (plus récente d'abord), avec décompte par photo.
    *
-   * `sourceList` liste les sources réellement présentes (distinct `source`), pas
-   * seulement leur nombre : elle permet au diff de ne comparer que l'intersection
-   * (#145) — une source absente d'une photo sort du périmètre, jamais d'apparition
-   * de masse — et à l'UI d'afficher un bandeau nommant les sources écartées.
+   * Le NOM des sources de chaque photo n'est délibérément pas rendu ici : seul
+   * le diff a besoin de savoir ce qui est comparable, il le calcule lui-même
+   * (#145, `diffDrivers`) et le rend avec son résultat. Le lister ici coûterait
+   * un `GROUP BY snapshot_date, source` sur toute la table à chaque chargement
+   * de page et à chaque rafraîchissement, pour une donnée que personne ne relit.
    */
   async listSnapshots(): Promise<
     Array<{
       date: string
       lignes: number
       sources: number
-      sourceList: string[]
       priseLe: number | null
     }>
   > {
-    const conn = db.connection()
-    const rows = await conn
+    const rows = await db
+      .connection()
       .from('demand_snapshots')
       .select('snapshot_date')
       .count('* as lignes')
@@ -374,31 +375,12 @@ export class DemandSnapshotService {
       .min('created_at as prise_le')
       .groupBy('snapshot_date')
       .orderBy('snapshot_date', 'desc')
-    // Liste des sources par photo — `COUNT DISTINCT` ne suffit plus (#145).
-    const distinctRows = await conn
-      .from('demand_snapshots')
-      .select('snapshot_date', 'source')
-      .groupBy('snapshot_date', 'source')
-      .orderBy('snapshot_date', 'desc')
-    const parDate = new Map<string, string[]>()
-    for (const r of distinctRows as Array<Record<string, unknown>>) {
-      const d = jourIso((r as { snapshot_date?: unknown }).snapshot_date)
-      const s = String((r as { source?: unknown }).source)
-      const arr = parDate.get(d)
-      if (arr) arr.push(s)
-      else parDate.set(d, [s])
-    }
-    return rows.map((r: Record<string, unknown>) => {
-      const date = jourIso((r as { snapshot_date?: unknown }).snapshot_date)
-      const list = (parDate.get(date) ?? []).slice().sort()
-      return {
-        date,
-        lignes: Number(r.lignes),
-        sources: Number(r.sources),
-        sourceList: list,
-        priseLe: r.prise_le === null || r.prise_le === undefined ? null : Number(r.prise_le),
-      }
-    })
+    return rows.map((r: Record<string, unknown>) => ({
+      date: jourIso((r as { snapshot_date?: unknown }).snapshot_date),
+      lignes: Number(r.lignes),
+      sources: Number(r.sources),
+      priseLe: r.prise_le === null || r.prise_le === undefined ? null : Number(r.prise_le),
+    }))
   }
 
   /**
@@ -442,6 +424,8 @@ export class DemandSnapshotService {
    *
    * La clé porte une version : toute évolution de la sémantique du diff doit
    * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
+   * `v11` — restriction du périmètre aux sources comparables (#145), par-dessus
+   * le plafond d'appariement de `v10` (#144).
    */
   async diffDrivers(
     apresDay: string,
@@ -450,10 +434,14 @@ export class DemandSnapshotService {
     avant: string
     apres: string
     entrees: DriverDiffEntry[]
-    ecartes: string[]
+    sourcesEcartees: SourceEcartee[]
+    /** Sources réellement comparées — ce que l'écran a le droit de dire couvert. */
+    sourcesComparees: string[]
+    /** Renseigné quand il n'y a RIEN à comparer : un diff vide n'est pas une nuit calme. */
+    message: string | null
   } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v10`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v11`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
@@ -471,30 +459,38 @@ export class DemandSnapshotService {
           date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
           fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
         })
-        // #145 — ne comparer que l'intersection des sources réellement présentes.
-        // Une source absente d'une photo n'a pas « zéro ligne ce jour-là », elle
-        // n'a pas été capturée : l'écart `avant:0, apres:5469` est un trou
-        // d'instrumentation, pas un fait métier. On la retire des deux côtés AVANT
-        // le diff et on la signale via `ecartes`.
-        const srcAvant = new Set(
-          avantRows.map((r) => String((r as Record<string, unknown>).source))
+        // #145 — ne comparer que le périmètre commun aux deux photos. Le jeu de
+        // sources a bougé dans le temps : une source ATTENDUE et absente d'une
+        // photo est très probablement un trou d'instrumentation, pas un plan qui
+        // s'est vidé, et la compter ferait apparaître 5 469 lignes d'un coup.
+        // La règle (et l'approximation qu'elle assume) vit dans
+        // `snapshot_perimetre.ts`, pure et testée hors base.
+        const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
+        const { comparees, sourcesEcartees } = perimetreComparable(
+          avantRows.map(nomSource),
+          apresRows.map(nomSource),
+          SOURCES_ATTENDUES
         )
-        const srcApres = new Set(
-          apresRows.map((r) => String((r as Record<string, unknown>).source))
-        )
-        const ecartes = [...new Set([...srcAvant, ...srcApres])]
-          .filter((s) => !srcAvant.has(s) || !srcApres.has(s))
-          .sort()
-        const inter = new Set([...srcAvant].filter((s) => srcApres.has(s)))
-        const avantF = avantRows.filter((r) =>
-          inter.has(String((r as Record<string, unknown>).source))
-        )
-        const apresF = apresRows.filter((r) =>
-          inter.has(String((r as Record<string, unknown>).source))
-        )
-        // Deux photos non vides mais sans source commune → diff vide, pas faux.
-        const avant: DemandSnapshotRow[] = avantF.map(toRow)
-        const apres: DemandSnapshotRow[] = apresF.map(toRow)
+        // Deux photos non vides sans AUCUNE source commune : le diff serait vide
+        // et indistinguable d'une nuit calme. On le dit plutôt que de le taire.
+        if (comparees.length === 0) {
+          return {
+            avant: avantDay,
+            apres: apresDay,
+            entrees: [] as DriverDiffEntry[],
+            sourcesEcartees,
+            sourcesComparees: comparees,
+            message:
+              'aucune source commune aux deux photos — il n’y a rien à comparer, pas « rien n’a bougé »',
+          }
+        }
+        const retenue = new Set(comparees)
+        const avant: DemandSnapshotRow[] = avantRows
+          .filter((r) => retenue.has(nomSource(r)))
+          .map(toRow)
+        const apres: DemandSnapshotRow[] = apresRows
+          .filter((r) => retenue.has(nomSource(r)))
+          .map(toRow)
         let entrees = diffCbnDrivers(avant, apres)
 
         if (entrees.length > 0) {
@@ -546,7 +542,14 @@ export class DemandSnapshotService {
         // amplitude décroissante (§5.3), et l'enrichissement comme le filtre Z
         // préservent l'ordre. Un second tri masquerait toute régression du
         // contrat d'ordre côté domaine.
-        return { avant: avantDay, apres: apresDay, entrees, ecartes }
+        return {
+          avant: avantDay,
+          apres: apresDay,
+          entrees,
+          sourcesEcartees,
+          sourcesComparees: comparees,
+          message: null,
+        }
       },
     })
     if (cached === null) return null
@@ -554,8 +557,10 @@ export class DemandSnapshotService {
     return {
       avant: cached.avant,
       apres: cached.apres,
-      entrees: [...cached.entrees] as DriverDiffEntry[],
-      ecartes: [...(cached.ecartes as string[])],
+      entrees: [...cached.entrees],
+      sourcesEcartees: [...cached.sourcesEcartees],
+      sourcesComparees: [...cached.sourcesComparees],
+      message: cached.message,
     }
   }
 
@@ -583,7 +588,13 @@ export class DemandSnapshotService {
     // rattraper, la clé change d'elle-même quand une nouvelle photo arrive.
     // Valeur en LECTURE SEULE (cf. `cache_ns.ts`) — personne ne la mute ici.
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:explications:${avantDay}:${apresDay}`,
+      // Version OBLIGATOIRE, au même titre que `appro:drivers` : cette valeur
+      // est DÉRIVÉE du diff des drivers. Sans bump, /approvisionnements
+      // continuerait de servir les corrélations tirées de l'ancien diff pendant
+      // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
+      // sur le même couple de photos, et un couple déjà en cache en PROD.
+      // `v2` — périmètre restreint aux sources comparables (#145).
+      key: `appro:explications:${avantDay}:${apresDay}:v2`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),

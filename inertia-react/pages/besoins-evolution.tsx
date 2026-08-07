@@ -49,7 +49,6 @@ type Photo = {
   date: string
   lignes: number
   sources: number
-  sourceList?: string[]
   priseLe: number | null
 }
 type DriverSource =
@@ -78,6 +77,16 @@ interface DriverDiffEntry {
   vcrnumApres: string | null
   vcrlinApres: string | null
 }
+/**
+ * Une source retirée de la comparaison (#145), et de QUELLE photo elle manque.
+ * Les deux cas se lisent à l'opposé : absente de la photo « avant » = source
+ * neuve, l'historique ne remonte pas plus loin ; absente de la photo « après » =
+ * capture perdue cette nuit-là.
+ */
+interface SourceEcartee {
+  source: string
+  manqueDans: 'avant' | 'apres'
+}
 interface DriversDiffResponse {
   avant: string | null
   apres: string | null
@@ -85,7 +94,9 @@ interface DriversDiffResponse {
   parSource?: Record<string, number>
   parNature?: Record<string, number>
   entrees: DriverDiffEntry[]
-  ecartes?: string[]
+  sourcesEcartees?: SourceEcartee[]
+  /** Sources réellement comparées — le seul périmètre que l'écran a le droit d'annoncer couvert. */
+  sourcesComparees?: string[]
   message?: string
 }
 
@@ -406,6 +417,36 @@ export default function BesoinsEvolution() {
   const entrees = diff?.entrees ?? []
   const parSource = diff?.parSource ?? {}
   const hasMessage = Boolean(diff?.message)
+  // Périmètre réellement comparé (#145). Deux usages, tous deux nécessaires
+  // pour que l'écran ne prétende pas avoir couvert ce qu'il n'a pas lu : le
+  // bandeau nomme les sources sorties du diff, et le compte des sources
+  // annoncé dans l'état vide vient du serveur, jamais d'un 8 en dur.
+  const sourcesEcartees = diff?.sourcesEcartees ?? []
+  const ecarteesParSource = new Map(sourcesEcartees.map((e) => [e.source, e.manqueDans]))
+  const nbComparees = diff?.sourcesComparees?.length ?? null
+  // Changer de couple de photos peut écarter la source sélectionnée : la garder
+  // laisserait une table vide sans que rien ne l'explique.
+  useEffect(() => {
+    if (sourceFilter !== null && ecarteesParSource.has(sourceFilter)) setSourceFilter(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diff])
+  const jourDuCote = (cote: 'avant' | 'apres'): string | null => (cote === 'avant' ? avant : apres)
+  /**
+   * Entrée du filtre de source. Une source écartée reste visible mais n'est pas
+   * sélectionnable : son compteur « — » se lirait comme « 0 mouvement » alors
+   * qu'elle n'a jamais été comparée.
+   */
+  const itemSource = (src: DriverSource) => {
+    const ecartee = ecarteesParSource.has(src)
+    return (
+      <SelectItem key={src} value={src} disabled={ecartee}>
+        {SOURCE_LABEL[src]}
+        <span className="ml-2 tabular-nums text-muted-foreground">
+          {ecartee ? '(écartée)' : parSource[src] ? fmtQte.format(parSource[src]) : '—'}
+        </span>
+      </SelectItem>
+    )
+  }
   const photoOptions = useMemo(
     () => [...photos].sort((a, b) => b.date.localeCompare(a.date)),
     [photos]
@@ -657,25 +698,11 @@ export default function BesoinsEvolution() {
               <SelectItem value={TOUTES_SOURCES}>Toutes les sources</SelectItem>
               <SelectGroup>
                 <SelectLabel>Ce qui a changé dans la réalité</SelectLabel>
-                {SOURCES_REALITE.map((src) => (
-                  <SelectItem key={src} value={src}>
-                    {SOURCE_LABEL[src]}
-                    <span className="ml-2 tabular-nums text-muted-foreground">
-                      {parSource[src] ? fmtQte.format(parSource[src]) : '—'}
-                    </span>
-                  </SelectItem>
-                ))}
+                {SOURCES_REALITE.map(itemSource)}
               </SelectGroup>
               <SelectGroup>
                 <SelectLabel>Ce que le CBN propose</SelectLabel>
-                {SOURCES_PROPOSITIONS.map((src) => (
-                  <SelectItem key={src} value={src}>
-                    {SOURCE_LABEL[src]}
-                    <span className="ml-2 tabular-nums text-muted-foreground">
-                      {parSource[src] ? fmtQte.format(parSource[src]) : '—'}
-                    </span>
-                  </SelectItem>
-                ))}
+                {SOURCES_PROPOSITIONS.map(itemSource)}
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -788,7 +815,11 @@ export default function BesoinsEvolution() {
                       <CloudOff size={16} className="text-warning" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">Photo indisponible</h3>
+                      {/* Couvre les deux cas : photo manquante ou illisible, et
+                          deux photos sans aucune source commune (#145). */}
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Comparaison indisponible
+                      </h3>
                       <p className="mt-1 text-sm leading-[1.5] text-muted-foreground">
                         {diff?.message}
                       </p>
@@ -816,17 +847,41 @@ export default function BesoinsEvolution() {
                 />
               ) : (
                 <div className="space-y-3">
-                  {diff?.ecartes !== undefined && diff.ecartes.length > 0 && (
-                    <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-[1.5] text-foreground">
-                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                  {/* Avertissement sur la VALIDITÉ de ce qui est affiché, et il
+                      apparaît/disparaît au changement de couple de photos sans
+                      rechargement : il doit être annoncé aux lecteurs d'écran. */}
+                  {sourcesEcartees.length > 0 && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-[1.5] text-foreground"
+                    >
+                      <AlertTriangle
+                        aria-hidden
+                        size={14}
+                        className="mt-0.5 shrink-0 text-warning"
+                      />
                       <span>
-                        Comparaison sur périmètre restreint — absente(s) d&apos;une des deux
-                        photos :{' '}
-                        <span className="font-mono font-semibold tabular-nums">
-                          {diff.ecartes.map((s) => SOURCE_LABEL[s as DriverSource] ?? s).join(', ')}
-                        </span>
-                        . Ces sources sont écartées du diff (elles n&apos;apparaissent pas comme
-                        &laquo; apparues &raquo;).
+                        Comparaison sur périmètre restreint.{' '}
+                        {(['avant', 'apres'] as const).map((cote) => {
+                          const noms = sourcesEcartees
+                            .filter((e) => e.manqueDans === cote)
+                            .map((e) => SOURCE_LABEL[e.source as DriverSource] ?? e.source)
+                          if (noms.length === 0) return null
+                          const jour = jourDuCote(cote)
+                          return (
+                            <span key={cote}>
+                              {noms.length > 1 ? 'Sources absentes' : 'Source absente'} de la photo
+                              du{' '}
+                              <span className="font-mono tabular-nums">
+                                {jour ? fmtJJMMAAAA(jour) : '—'}
+                              </span>{' '}
+                              : <span className="font-semibold">{noms.join(', ')}</span>.{' '}
+                            </span>
+                          )
+                        })}
+                        Elles sont écartées du diff — une source absente d&apos;une photo est
+                        presque toujours une capture manquée, jamais un plan qui s&apos;est vidé.
                       </span>
                     </div>
                   )}
@@ -874,7 +929,13 @@ export default function BesoinsEvolution() {
                         <span className="font-mono tabular-nums text-foreground">
                           {fmtJJMMAAAA(apres!)}
                         </span>
-                        , aucune des 8 sources n&apos;a bougé.
+                        ,{' '}
+                        {nbComparees === null
+                          ? 'aucune source n’a bougé'
+                          : nbComparees === 1
+                            ? 'la seule source comparée n’a pas bougé'
+                            : `aucune des ${nbComparees} sources comparées n’a bougé`}
+                        .
                       </p>
                       <div className="mt-3 inline-block rounded-lg border border-border bg-muted px-3 py-2 font-mono text-xs tabular-nums text-muted-foreground">
                         Seuils : quantité ±20 % · échéance ±7 j

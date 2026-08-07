@@ -455,3 +455,117 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
     assert.include(besoin.antidates, J1)
   }).timeout(15_000)
 })
+
+/**
+ * Périmètre comparable du diff des drivers (#145), bout en bout : la règle pure
+ * est testée dans `snapshot_perimetre.test.ts`, ici on vérifie qu'elle est bien
+ * CÂBLÉE — que `diffDrivers` filtre réellement les lignes, remonte les sources
+ * écartées et ne rend pas un diff vide indistinguable d'une nuit calme.
+ *
+ * Le cache est `getOrSetForever` sur le couple de jours : chaque test utilise
+ * donc un couple de dates sentinelles PROPRE, sinon le second test lirait le
+ * résultat du premier.
+ */
+test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (group) => {
+  const conn = db.connection()
+  const service = new ProbeService()
+  const jours: string[] = []
+
+  /** Deux jours sentinelles distincts par test, pour ne pas croiser le cache. */
+  const couple = (n: number): [string, string] => {
+    const a = `1900-02-${String(n * 2 + 1).padStart(2, '0')}`
+    const b = `1900-02-${String(n * 2 + 2).padStart(2, '0')}`
+    jours.push(a, b)
+    return [a, b]
+  }
+
+  group.each.teardown(async () => {
+    await conn.from('demand_snapshots').whereIn('snapshot_date', jours).delete()
+    await conn.from('appro_message_snapshots').whereIn('snapshot_date', jours).delete()
+    jours.length = 0
+  })
+
+  test('une source absente de la photo AVANT est écartée, jamais comptée « apparue »', async ({
+    assert,
+  }) => {
+    // Le cas de l'issue : `appro_suggestion` naît le 06/08, la photo du 04/08 ne
+    // la porte pas. Sans le périmètre, ses lignes remontent en bloc comme des
+    // apparitions — 5 469 fausses lignes en PROD.
+    const [avant, apres] = couple(1)
+    await service.runWrite(avant, async () =>
+      payload([
+        row({ snapshot_date: avant, source: 'stock', itmref: 'ART-1' }),
+        row({ snapshot_date: avant, source: 'of_ferme', itmref: 'ART-2' }),
+        row({ snapshot_date: avant, source: 'appro', itmref: 'ART-3' }),
+      ])
+    )
+    await service.runWrite(apres, async () =>
+      payload([
+        row({ snapshot_date: apres, source: 'stock', itmref: 'ART-1' }),
+        row({ snapshot_date: apres, source: 'of_ferme', itmref: 'ART-2' }),
+        row({ snapshot_date: apres, source: 'appro', itmref: 'ART-3' }),
+        row({ snapshot_date: apres, source: 'appro_suggestion', itmref: 'ART-4' }),
+      ])
+    )
+
+    const diff = await service.diffDrivers(apres, avant)
+
+    assert.isNotNull(diff)
+    assert.deepEqual(diff!.sourcesEcartees, [{ source: 'appro_suggestion', manqueDans: 'avant' }])
+    assert.deepEqual(diff!.sourcesComparees, ['appro', 'of_ferme', 'stock'])
+    assert.isNull(diff!.message)
+    // Aucune entrée sur la source écartée, et surtout aucune « apparue ».
+    assert.isEmpty(diff!.entrees.filter((e) => e.source === 'appro_suggestion'))
+    assert.isEmpty(diff!.entrees.filter((e) => e.article === 'ART-4'))
+  }).timeout(20_000)
+
+  test('deux photos sans aucune source commune : message explicite, pas un diff vide', async ({
+    assert,
+  }) => {
+    const [avant, apres] = couple(2)
+    await service.runWrite(avant, async () =>
+      payload([row({ snapshot_date: avant, source: 'stock', itmref: 'ART-1' })])
+    )
+    await service.runWrite(apres, async () =>
+      payload([row({ snapshot_date: apres, source: 'of_ferme', itmref: 'ART-1' })])
+    )
+
+    const diff = await service.diffDrivers(apres, avant)
+
+    assert.isNotNull(diff)
+    assert.isEmpty(diff!.sourcesComparees)
+    assert.isEmpty(diff!.entrees)
+    // Le point du test : un diff vide SANS message se lirait « rien n'a bougé ».
+    assert.isNotNull(diff!.message)
+    assert.include(diff!.message ?? '', 'aucune source commune')
+    assert.deepEqual(diff!.sourcesEcartees, [
+      { source: 'of_ferme', manqueDans: 'avant' },
+      { source: 'stock', manqueDans: 'apres' },
+    ])
+  }).timeout(20_000)
+
+  test('périmètre identique des deux côtés : aucune source écartée (le bandeau disparaît)', async ({
+    assert,
+  }) => {
+    const [avant, apres] = couple(3)
+    await service.runWrite(avant, async () =>
+      payload([
+        row({ snapshot_date: avant, source: 'stock', itmref: 'ART-1', quantity: 10 }),
+        row({ snapshot_date: avant, source: 'of_ferme', itmref: 'ART-2', quantity: 10 }),
+      ])
+    )
+    await service.runWrite(apres, async () =>
+      payload([
+        row({ snapshot_date: apres, source: 'stock', itmref: 'ART-1', quantity: 10 }),
+        row({ snapshot_date: apres, source: 'of_ferme', itmref: 'ART-2', quantity: 10 }),
+      ])
+    )
+
+    const diff = await service.diffDrivers(apres, avant)
+
+    assert.isNotNull(diff)
+    assert.isEmpty(diff!.sourcesEcartees)
+    assert.deepEqual(diff!.sourcesComparees, ['of_ferme', 'stock'])
+    assert.isNull(diff!.message)
+  }).timeout(20_000)
+})
