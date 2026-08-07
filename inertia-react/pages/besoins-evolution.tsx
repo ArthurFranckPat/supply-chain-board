@@ -217,7 +217,7 @@ function Tuile({
 }
 
 // ---------------------------------------------------------------------------
-// Page
+// Page — alignée sur Réceptions (dense + ToolbarRow + champ surface-soft)
 // ---------------------------------------------------------------------------
 
 export default function BesoinsEvolution() {
@@ -313,361 +313,416 @@ export default function BesoinsEvolution() {
     [photos]
   )
 
+  const rangeLabel =
+    avant && apres ? `${fmtJJMMAAAA(avant)} → ${fmtJJMMAAAA(apres)}` : photosLoading ? '…' : '—'
+
   return (
     <AppLayout
       active="besoins-evolution"
       subtitle="Évolution des besoins"
       title="Évolution des besoins — Supply Chain Board"
+      theme="airbnb"
+      dense
+      scrollable={false}
+      meta={
+        <>
+          <div className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
+            {rangeLabel}
+          </div>
+          <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {diff
+              ? `${fmtQte.format(total)} mouvement${total > 1 ? 's' : ''}`
+              : photosLoading
+                ? '…'
+                : '—'}
+          </div>
+        </>
+      }
     >
-      {/* Toolbar 48px — grammaire vision/toolbar, ordre canonique */}
-      <ToolbarRow>
-        <span className="hidden sm:inline font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          Photos
-        </span>
-        <Select value={avant ?? ''} onValueChange={(v) => setAvant(v || null)}>
-          <SelectTrigger className="h-8 min-w-[148px] rounded-full border-hairline bg-card font-mono text-xs tabular-nums">
-            <SelectValue placeholder="Référence" />
-          </SelectTrigger>
-          <SelectContent>
-            {photoOptions.map((p) => (
-              <SelectItem key={p.date} value={p.date}>
-                {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="font-mono text-xs text-muted-foreground">→</span>
-        <Select value={apres ?? ''} onValueChange={(v) => setApres(v || null)}>
-          <SelectTrigger className="h-8 min-w-[148px] rounded-full border-hairline bg-card font-mono text-xs tabular-nums">
-            <SelectValue placeholder="Comparée" />
-          </SelectTrigger>
-          <SelectContent>
-            {photoOptions.map((p) => (
-              <SelectItem key={p.date} value={p.date}>
-                {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {avant && apres && (
-          <span className="hidden lg:inline-flex items-center rounded-full border border-hairline bg-surface-soft px-3 py-1 font-mono text-xs tabular-nums text-muted-foreground">
-            {fmtJJMMAAAA(avant)} → {fmtJJMMAAAA(apres)}
+      <div className="flex h-full flex-col overflow-hidden">
+        {/* Toolbar 48px — ordre canonique : dates → Segment nature → Spacer → Search → Refresh */}
+        <ToolbarRow>
+          <span className="hidden sm:inline font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Photos
           </span>
-        )}
+          <Select value={avant ?? ''} onValueChange={(v) => setAvant(v || null)}>
+            <SelectTrigger className="h-8 min-w-[148px] rounded-full border-hairline bg-card font-mono text-xs tabular-nums">
+              <SelectValue placeholder="Référence" />
+            </SelectTrigger>
+            <SelectContent>
+              {photoOptions.map((p) => (
+                <SelectItem key={p.date} value={p.date}>
+                  {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="font-mono text-xs text-muted-foreground">→</span>
+          <Select value={apres ?? ''} onValueChange={(v) => setApres(v || null)}>
+            <SelectTrigger className="h-8 min-w-[148px] rounded-full border-hairline bg-card font-mono text-xs tabular-nums">
+              <SelectValue placeholder="Comparée" />
+            </SelectTrigger>
+            <SelectContent>
+              {photoOptions.map((p) => (
+                <SelectItem key={p.date} value={p.date}>
+                  {fmtJJMMAAAA(p.date)} · {fmtQte.format(p.lignes)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Segment>
-          {NATURES.map((n) => (
-            <SegmentButton
-              key={n}
-              active={natureFilter === n}
-              onClick={() => setNatureFilter((v) => (v === n ? null : n))}
-            >
-              {NATURE_LABEL[n]}
-            </SegmentButton>
-          ))}
-        </Segment>
+          <Segment>
+            {NATURES.map((n) => (
+              <SegmentButton
+                key={n}
+                active={natureFilter === n}
+                onClick={() => setNatureFilter((v) => (v === n ? null : n))}
+              >
+                {NATURE_LABEL[n]}
+              </SegmentButton>
+            ))}
+          </Segment>
 
-        <ToolbarSpacer />
+          <ToolbarSpacer />
 
-        <div className="relative hidden md:block">
-          <Search
-            size={14}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Article ou désignation"
-            className="h-8 w-[220px] rounded-full border-hairline bg-card pl-8 text-sm"
-          />
-        </div>
-
-        <span className="hidden xl:inline font-mono text-xs tabular-nums text-muted-foreground">
-          {filtered.length} / {entrees.length}
-          {total > entrees.length ? ` · ${fmtQte.format(total)} au total` : ''}
-        </span>
-
-        <RefreshPill
-          loading={photosLoading || diffLoading}
-          onClick={() => (avant && apres ? reloadDiff() : reloadPhotos())}
-        />
-      </ToolbarRow>
-
-      {/* Zone principale sur champ surface-soft — même langage que /approvisionnements */}
-      <div className="bg-surface-soft">
-        <div className="mx-auto max-w-[1280px] px-4 py-5 sm:px-6 lg:px-7">
-          {/* En-tête sobre, sans kicker */}
-          <div className="mb-4">
-            <h1 className="text-[20px] font-extrabold leading-none tracking-[-0.02em] text-foreground">
-              Évolution des besoins
-            </h1>
-            <p className="mt-1.5 max-w-[68ch] text-[13px] leading-[1.5] text-muted-foreground">
-              Ce que le CBN a vu bouger entre deux nuits — le besoin brut, pas le message. Le
-              bandeau dit où regarder, la table est triée par amplitude relative (ratio, pas
-              absolu).
-            </p>
+          <div className="relative hidden md:block">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Article ou désignation"
+              className="h-8 w-[220px] rounded-full border-hairline bg-card pl-8 text-sm"
+            />
           </div>
 
-          {photosError && (
-            <div className="mb-4 flex items-center gap-2 rounded-[8px] border border-danger/20 bg-danger/5 px-3 py-2 text-sm text-danger">
-              <AlertTriangle size={14} /> {photosError}
-            </div>
-          )}
+          <span className="hidden xl:inline font-mono text-xs tabular-nums text-muted-foreground">
+            {filtered.length} / {entrees.length}
+            {total > entrees.length ? ` · ${fmtQte.format(total)}` : ''}
+          </span>
 
-          {photosLoading ? null : photos.length < 2 ? (
-            <div className="rounded-[14px] border border-hairline bg-card p-8 text-center">
-              <div className="mx-auto flex max-w-[520px] flex-col items-center gap-3">
-                <div className="flex size-11 items-center justify-center rounded-full border border-hairline bg-card">
-                  <CalendarRange size={18} className="text-muted-foreground" />
-                </div>
-                <h2 className="text-[15px] font-semibold text-foreground">
-                  L&apos;historique commence
-                </h2>
-                <p className="text-sm leading-[1.5] text-muted-foreground">
-                  Une seconde photo est nécessaire — elle arrivera cette nuit.
-                  {photos.length === 1 && (
-                    <>
-                      <br />
-                      Photo existante :{' '}
-                      <span className="font-mono tabular-nums text-foreground">
-                        {fmtJJMMAAAA(photos[0].date)}
-                      </span>{' '}
-                      · {fmtQte.format(photos[0].lignes)} lignes
-                    </>
-                  )}
-                  {photos.length === 0 && ' Aucune photo disponible.'}
+          <RefreshPill
+            loading={photosLoading || diffLoading}
+            onClick={() => (avant && apres ? reloadDiff() : reloadPhotos())}
+          />
+        </ToolbarRow>
+
+        {/* En-tête imprimable */}
+        <div className="hidden flex-none items-baseline justify-between border-b border-rule px-7 pb-3 pt-1 print:flex">
+          <span className="text-[20px] font-semibold tracking-tight text-foreground">
+            Évolution des besoins{' '}
+            <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
+              {rangeLabel}
+            </span>
+          </span>
+          <span className="font-mono text-[12px] text-muted-foreground">
+            {fmtQte.format(total)} mouvements
+          </span>
+        </div>
+
+        {/* Champ surface-soft — même langage que /approvisionnements */}
+        <div className="flex flex-1 flex-col overflow-hidden bg-surface-soft">
+          <div className="flex-1 overflow-auto">
+            <div className="mx-auto max-w-[1280px] px-4 py-5 sm:px-6 lg:px-7">
+              <div className="mb-4">
+                <h1 className="text-[20px] font-extrabold leading-none tracking-[-0.02em] text-foreground">
+                  Évolution des besoins
+                </h1>
+                <p className="mt-1.5 max-w-[68ch] text-[13px] leading-[1.5] text-muted-foreground">
+                  Ce que le CBN a vu bouger entre deux nuits — le besoin brut, pas le message. Le
+                  bandeau dit où regarder, la table est triée par amplitude relative (ratio, pas
+                  absolu).
                 </p>
               </div>
-            </div>
-          ) : hasMessage ? (
-            <div className="rounded-[14px] border border-hairline bg-card p-6">
-              <div className="flex gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50">
-                  <CloudOff size={16} className="text-amber-700" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">Photo indisponible</h3>
-                  <p className="mt-1 text-sm leading-[1.5] text-muted-foreground">
-                    {diff?.message}
-                  </p>
-                  {avant && apres && (
-                    <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                      Couple demandé : {fmtJJMMAAAA(avant)} → {fmtJJMMAAAA(apres)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : diffError ? (
-            <div className="rounded-[14px] border border-danger/20 bg-danger/5 p-6">
-              <div className="flex gap-3">
-                <AlertTriangle size={18} className="text-danger" />
-                <div>
-                  <h3 className="text-sm font-semibold text-danger">Erreur de chargement</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{diffError}</p>
-                </div>
-              </div>
-            </div>
-          ) : diffLoading ? (
-            <LoadingState title="Comparaison des deux photos…" description="~73 000 lignes lues" />
-          ) : (
-            <>
-              {/* Bandeau synthèse — 8 tuiles sur champ, 2 groupes */}
-              <div className="space-y-3">
-                <div>
-                  <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    Ce qui a changé dans la réalité
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                    {SOURCES_REALITE.map((src) => (
-                      <Tuile
-                        key={src}
-                        source={src}
-                        count={parSource[src] ?? 0}
-                        active={sourceFilter === src}
-                        onClick={() => setSourceFilter((v) => (v === src ? null : src))}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    Ce que le CBN propose
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-amber-800">
-                      Sortie CBN
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {SOURCES_PROPOSITIONS.map((src) => (
-                      <Tuile
-                        key={src}
-                        source={src}
-                        count={parSource[src] ?? 0}
-                        active={sourceFilter === src}
-                        onClick={() => setSourceFilter((v) => (v === src ? null : src))}
-                        muted
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
 
-              {/* Recherche mobile (visible seulement < md) */}
-              <div className="mt-3 md:hidden">
-                <div className="relative">
-                  <Search
-                    size={14}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Article ou désignation"
-                    className="h-9 rounded-full border-hairline bg-card pl-8 text-sm"
-                  />
-                </div>
-              </div>
-
-              {total > entrees.length && (
-                <div className="mt-3 flex items-center gap-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  <Info size={14} /> {entrees.length} affichés sur {fmtQte.format(total)} — affinez
-                  par source ou nature.
+              {photosError && (
+                <div className="mb-4 flex items-center gap-2 rounded-[8px] border border-danger/20 bg-danger/5 px-3 py-2 text-sm text-danger">
+                  <AlertTriangle size={14} /> {photosError}
                 </div>
               )}
 
-              {total === 0 ? (
-                <div className="mt-4 rounded-[14px] border border-hairline bg-card p-8 text-center">
-                  <div className="mx-auto flex max-w-[560px] flex-col items-center gap-3">
-                    <p className="text-sm font-semibold text-foreground">
-                      Aucun mouvement au-delà des seuils
-                    </p>
+              {photosLoading ? null : photos.length < 2 ? (
+                <div className="rounded-[14px] border border-hairline bg-card p-8 text-center">
+                  <div className="mx-auto flex max-w-[520px] flex-col items-center gap-3">
+                    <div className="flex size-11 items-center justify-center rounded-full border border-hairline bg-card">
+                      <CalendarRange size={18} className="text-muted-foreground" />
+                    </div>
+                    <h2 className="text-[15px] font-semibold text-foreground">
+                      L&apos;historique commence
+                    </h2>
                     <p className="text-sm leading-[1.5] text-muted-foreground">
-                      Entre le{' '}
-                      <span className="font-mono tabular-nums text-foreground">
-                        {fmtJJMMAAAA(avant!)}
-                      </span>{' '}
-                      et le{' '}
-                      <span className="font-mono tabular-nums text-foreground">
-                        {fmtJJMMAAAA(apres!)}
-                      </span>
-                      , aucune des 8 sources n&apos;a bougé au-delà du bruit.
+                      Une seconde photo est nécessaire — elle arrivera cette nuit.
+                      {photos.length === 1 && (
+                        <>
+                          <br />
+                          Photo existante :{' '}
+                          <span className="font-mono tabular-nums text-foreground">
+                            {fmtJJMMAAAA(photos[0].date)}
+                          </span>{' '}
+                          · {fmtQte.format(photos[0].lignes)} lignes
+                        </>
+                      )}
+                      {photos.length === 0 && ' Aucune photo disponible.'}
                     </p>
-                    <div className="rounded-[8px] border border-hairline bg-surface-soft px-3 py-2 font-mono text-xs tabular-nums text-muted-foreground">
-                      Seuils : quantité ±20 % · échéance ±7 j
+                  </div>
+                </div>
+              ) : hasMessage ? (
+                <div className="rounded-[14px] border border-hairline bg-card p-6">
+                  <div className="flex gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50">
+                      <CloudOff size={16} className="text-amber-700" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Photo indisponible</h3>
+                      <p className="mt-1 text-sm leading-[1.5] text-muted-foreground">
+                        {diff?.message}
+                      </p>
+                      {avant && apres && (
+                        <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                          Couple demandé : {fmtJJMMAAAA(avant)} → {fmtJJMMAAAA(apres)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
-              ) : filtered.length === 0 ? (
-                <div className="mt-4 rounded-[14px] border border-hairline bg-card p-8 text-center">
-                  <p className="text-sm text-muted-foreground">Aucun résultat avec ces filtres.</p>
-                </div>
-              ) : (
-                <div className="mt-4 overflow-hidden rounded-[14px] border border-hairline bg-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[860px] border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-hairline bg-surface-soft">
-                          <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Article
-                          </th>
-                          <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Source
-                          </th>
-                          <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Nature
-                          </th>
-                          <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Avant → Après
-                          </th>
-                          <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Écart
-                          </th>
-                          <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Détail
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filtered.map((e, idx) => (
-                          <tr
-                            key={`${e.article}-${e.source}-${e.nature}-${idx}`}
-                            onClick={() => {
-                              setSheetArticle(e.article)
-                              setSheetOpen(true)
-                            }}
-                            className="cursor-pointer border-b border-hairline-soft last:border-0 hover:bg-surface-soft/60"
-                          >
-                            <td className="px-3 py-2.5">
-                              <div className="flex flex-col">
-                                <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
-                                  {e.article}
-                                </span>
-                                <span
-                                  className="max-w-[220px] truncate text-xs leading-tight text-muted-foreground"
-                                  title={e.designation ?? ''}
-                                >
-                                  {e.designation ?? (
-                                    <span className="italic text-muted-soft">sans désignation</span>
-                                  )}
-                                </span>
-                                {e.famille && (
-                                  <span className="font-mono text-[10px] tabular-nums text-muted-soft">
-                                    {e.famille}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <span className="inline-flex items-center rounded-full border border-hairline bg-surface-soft px-2 py-0.5 font-mono text-[11px] font-medium text-foreground">
-                                {SOURCE_LABEL[e.source]}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  'rounded-full font-mono text-[11px]',
-                                  e.nature === 'apparue' &&
-                                    'border-emerald-200 bg-emerald-50 text-emerald-800',
-                                  e.nature === 'disparue' &&
-                                    'border-hairline bg-surface-soft text-muted-foreground',
-                                  e.nature === 'quantite' &&
-                                    'border-amber-200 bg-amber-50 text-amber-900',
-                                  e.nature === 'date' && 'border-sky-200 bg-sky-50 text-sky-900'
-                                )}
-                              >
-                                {NATURE_LABEL[e.nature]}
-                              </Badge>
-                            </td>
-                            <td className="px-3 py-2.5 font-mono text-xs tabular-nums text-foreground">
-                              {avantApresLabel(e)}
-                            </td>
-                            <td className="px-3 py-2.5 font-mono text-xs tabular-nums font-semibold text-foreground">
-                              {ecartLabel(e)}
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <span
-                                className="line-clamp-2 max-w-[320px] text-xs leading-[1.4] text-muted-foreground"
-                                title={e.detail}
-                              >
-                                {e.detail}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              ) : diffError ? (
+                <div className="rounded-[14px] border border-danger/20 bg-danger/5 p-6">
+                  <div className="flex gap-3">
+                    <AlertTriangle size={18} className="text-danger" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-danger">Erreur de chargement</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">{diffError}</p>
+                    </div>
                   </div>
                 </div>
-              )}
+              ) : diffLoading ? (
+                <LoadingState
+                  title="Comparaison des deux photos…"
+                  description="~73 000 lignes lues"
+                  variant="orb"
+                  orbState="searching"
+                  className="py-10"
+                />
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                        Ce qui a changé dans la réalité
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                        {SOURCES_REALITE.map((src) => (
+                          <Tuile
+                            key={src}
+                            source={src}
+                            count={parSource[src] ?? 0}
+                            active={sourceFilter === src}
+                            onClick={() => setSourceFilter((v) => (v === src ? null : src))}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                        Ce que le CBN propose
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-amber-800">
+                          Sortie CBN
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        {SOURCES_PROPOSITIONS.map((src) => (
+                          <Tuile
+                            key={src}
+                            source={src}
+                            count={parSource[src] ?? 0}
+                            active={sourceFilter === src}
+                            onClick={() => setSourceFilter((v) => (v === src ? null : src))}
+                            muted
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-              <p className="mt-3 text-center font-mono text-[11px] text-muted-soft">
-                Tri par amplitude relative (ratio), pas absolu · Un article 10 → 0 passe avant un
-                stock qui bouge de 2 %.
-              </p>
-            </>
-          )}
+                  <div className="mt-3 md:hidden">
+                    <div className="relative">
+                      <Search
+                        size={14}
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Article ou désignation"
+                        className="h-9 rounded-full border-hairline bg-card pl-8 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {total > entrees.length && (
+                    <div className="mt-3 flex items-center gap-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <Info size={14} /> {entrees.length} affichés sur {fmtQte.format(total)} —
+                      affinez par source ou nature.
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center gap-2 border-b border-hairline-soft px-1 py-1.5">
+                    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · tri ratio
+                    </span>
+                    {(sourceFilter || natureFilter || search) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSourceFilter(null)
+                          setNatureFilter(null)
+                          setSearch('')
+                        }}
+                        className="ml-auto font-mono text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        Effacer les filtres
+                      </button>
+                    )}
+                  </div>
+
+                  {total === 0 ? (
+                    <div className="mt-4 rounded-[14px] border border-hairline bg-card p-8 text-center">
+                      <p className="text-sm font-semibold text-foreground">
+                        Aucun mouvement au-delà des seuils
+                      </p>
+                      <p className="mt-1 text-sm leading-[1.5] text-muted-foreground">
+                        Entre le{' '}
+                        <span className="font-mono tabular-nums text-foreground">
+                          {fmtJJMMAAAA(avant!)}
+                        </span>{' '}
+                        et le{' '}
+                        <span className="font-mono tabular-nums text-foreground">
+                          {fmtJJMMAAAA(apres!)}
+                        </span>
+                        , aucune des 8 sources n&apos;a bougé.
+                      </p>
+                      <div className="mt-3 inline-block rounded-[8px] border border-hairline bg-surface-soft px-3 py-2 font-mono text-xs tabular-nums text-muted-foreground">
+                        Seuils : quantité ±20 % · échéance ±7 j
+                      </div>
+                    </div>
+                  ) : filtered.length === 0 ? (
+                    <div className="mt-4 rounded-[14px] border border-hairline bg-card p-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Aucun résultat avec ces filtres.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 overflow-hidden rounded-[14px] border border-hairline bg-card">
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[860px] border-collapse text-sm">
+                          <thead>
+                            <tr className="border-b border-hairline bg-surface-soft">
+                              <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Article
+                              </th>
+                              <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Source
+                              </th>
+                              <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Nature
+                              </th>
+                              <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Avant → Après
+                              </th>
+                              <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Écart
+                              </th>
+                              <th className="px-3 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Détail
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.map((e, idx) => (
+                              <tr
+                                key={`${e.article}-${e.source}-${e.nature}-${idx}`}
+                                onClick={() => {
+                                  setSheetArticle(e.article)
+                                  setSheetOpen(true)
+                                }}
+                                className="cursor-pointer border-b border-hairline-soft last:border-0 hover:bg-surface-soft/60"
+                              >
+                                <td className="px-3 py-2.5">
+                                  <div className="flex flex-col">
+                                    <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                                      {e.article}
+                                    </span>
+                                    <span
+                                      className="max-w-[220px] truncate text-xs leading-tight text-muted-foreground"
+                                      title={e.designation ?? ''}
+                                    >
+                                      {e.designation ?? (
+                                        <span className="italic text-muted-soft">
+                                          sans désignation
+                                        </span>
+                                      )}
+                                    </span>
+                                    {e.famille && (
+                                      <span className="font-mono text-[10px] tabular-nums text-muted-soft">
+                                        {e.famille}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className="inline-flex items-center rounded-full border border-hairline bg-surface-soft px-2 py-0.5 font-mono text-[11px] font-medium text-foreground">
+                                    {SOURCE_LABEL[e.source]}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'rounded-full font-mono text-[11px]',
+                                      e.nature === 'apparue' &&
+                                        'border-emerald-200 bg-emerald-50 text-emerald-800',
+                                      e.nature === 'disparue' &&
+                                        'border-hairline bg-surface-soft text-muted-foreground',
+                                      e.nature === 'quantite' &&
+                                        'border-amber-200 bg-amber-50 text-amber-900',
+                                      e.nature === 'date' && 'border-sky-200 bg-sky-50 text-sky-900'
+                                    )}
+                                  >
+                                    {NATURE_LABEL[e.nature]}
+                                  </Badge>
+                                </td>
+                                <td className="px-3 py-2.5 font-mono text-xs tabular-nums text-foreground">
+                                  {avantApresLabel(e)}
+                                </td>
+                                <td className="px-3 py-2.5 font-mono text-xs tabular-nums font-semibold text-foreground">
+                                  {ecartLabel(e)}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span
+                                    className="line-clamp-2 max-w-[320px] text-xs leading-[1.4] text-muted-foreground"
+                                    title={e.detail}
+                                  >
+                                    {e.detail}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="mt-3 text-center font-mono text-[11px] text-muted-soft">
+                    Tri par amplitude relative (ratio), pas absolu · Un article 10 → 0 passe avant
+                    un stock qui bouge de 2 %.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
