@@ -200,6 +200,48 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
     assert.isTrue(diff.some((d) => d.source === 'of_planifie' && d.nature === 'quantite'))
   })
 
+  /**
+   * Cas réel A7370 (photos du 06 et 07/08/2026). Le CBN est régénératif : les
+   * 4 suggestions SGAE10656957463..466 sont supprimées et remplacées par
+   * SGAE10657196362..365. Un numéro de suggestion NE PEUT PAS survivre à deux
+   * runs — donc une ligne « échéance 14/06 → 31/05 » qui n'affiche que le
+   * numéro d'avant fait croire que CETTE pièce a bougé. Elle a été remplacée.
+   */
+  test('échéance décalée sur une pièce renumérotée → une ligne qui nomme les deux', ({
+    assert,
+  }) => {
+    const sugg = (vcrnum: string, ech: string) =>
+      row({
+        source: 'appro_suggestion',
+        itmref: 'A7370',
+        vcrnum,
+        quantity: 19200,
+        date_echeance: ech,
+      })
+    const diff = diffCbnDrivers(
+      [sugg('SGAE10656957466', '2027-06-14')],
+      [sugg('SGAE10657196365', '2027-05-31')]
+    )
+
+    // Une seule ligne : la renumérotation ne double pas le changement de date.
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].vcrnum, 'SGAE10656957466')
+    assert.equal(diff[0].vcrnumApres, 'SGAE10657196365')
+  })
+
+  test('échéance décalée sans renumérotation → pas de pièce d’après', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [row({ source: 'appro', itmref: 'R1', vcrnum: 'REC1', date_echeance: '2027-06-14' })],
+      [row({ source: 'appro', itmref: 'R1', vcrnum: 'REC1', date_echeance: '2027-05-31' })]
+    )
+
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'date')
+    assert.equal(diff[0].vcrnum, 'REC1')
+    assert.equal(diff[0].vcrnumApres, null)
+  })
+
   test('of_ferme renumérotation même qte/date → filtrée', ({ assert }) => {
     const a = [
       row({

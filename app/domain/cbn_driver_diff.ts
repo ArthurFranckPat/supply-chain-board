@@ -339,15 +339,18 @@ export function diffCbnDrivers(
       // La pièce a changé de numéro. Cas nominal pour les 3 populations que le
       // CBN détruit et recrée chaque nuit (of_planifie, of_suggestion,
       // appro_suggestion) : le couple est apparié parce qu'il porte le même
-      // article, mais ce n'est pas le même document. C'est un fait de la nuit,
-      // pas du bruit — on l'émet en UNE ligne « OF1 → OF2 » plutôt que de le
-      // taire ou de le rendre en disparue + apparue.
-      const piece = (r: DemandSnapshotRow) => `${r.vcrnum ?? ''}${r.vcrlin ?? ''}`
+      // article, mais ce n'est pas le même document.
+      const piece = (r: DemandSnapshotRow) => `${r.vcrnum ?? ''}${r.vcrlin ?? ''}`
       const renumerotee = piece(rowA) !== piece(rowP)
+      const ref = (n: string | null, l: string | null) => (n === null ? '—' : l ? `${n} L${l}` : n)
 
-      if (renumerotee) {
-        const ref = (n: string | null, l: string | null) =>
-          n === null ? '—' : l ? `${n} L${l}` : n
+      // `renumerotation` ne sort QUE si le numéro est le seul changement. Dès
+      // qu'une quantité ou une échéance bouge, ces lignes-là portent déjà la
+      // transition via `vcrnumApres` : une seconde ligne dirait deux fois le
+      // même fait, et comme les renumérotations sont décochées par défaut elle
+      // serait invisible — laissant croire que la pièce d'avant avait
+      // simplement changé de date.
+      if (renumerotee && !qtyChanged && !dateChanged) {
         out.push({
           article,
           source,
@@ -376,13 +379,13 @@ export function diffCbnDrivers(
           quantiteApres: rowP.quantity,
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
-          detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)} (${sens}${Math.round(ratio * 100)} %) — ${article}.`,
+          detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)} (${sens}${Math.round(ratio * 100)} %)${renumerotee ? ` — ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
-          vcrnumApres: null,
-          vcrlinApres: null,
+          vcrnumApres: renumerotee ? rowP.vcrnum : null,
+          vcrlinApres: renumerotee ? rowP.vcrlin : null,
         })
       }
 
@@ -395,13 +398,13 @@ export function diffCbnDrivers(
           quantiteApres: rowP.quantity,
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
-          detail: `${source} échéance ${fmtFr(rowA.date_echeance)} → ${fmtFr(rowP.date_echeance)}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`} — ${article}.`,
+          detail: `${source} échéance ${fmtFr(rowA.date_echeance)} → ${fmtFr(rowP.date_echeance)}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`}${renumerotee ? ` — ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
-          vcrnumApres: null,
-          vcrlinApres: null,
+          vcrnumApres: renumerotee ? rowP.vcrnum : null,
+          vcrlinApres: renumerotee ? rowP.vcrlin : null,
         })
       }
     }

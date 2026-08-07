@@ -273,15 +273,21 @@ const resumeLabel = (e: DriverDiffEntry): string => {
   const src = SOURCE_LABEL[e.source]
   const ech = e.echeanceApres ?? e.echeanceAvant
   const quand = ech ? `, échéance ${fmtJJMMAAAA(ech)}` : ''
+  // Sur une source régénérée, un mouvement s'accompagne presque toujours d'un
+  // numéro neuf : le dire, sinon la ligne se lit comme si LA pièce d'avant
+  // avait bougé, alors qu'elle a été supprimée et remplacée.
+  const remplacee = e.vcrnumApres
+    ? ` La pièce ${e.vcrnum ?? '—'} a été remplacée par ${e.vcrnumApres}.`
+    : ''
   switch (e.nature) {
     case 'apparue':
       return `${src} — ligne apparue : ${fmtQte.format(e.quantiteApres ?? 0)} unités${quand}.`
     case 'disparue':
       return `${src} — ligne disparue : ${fmtQte.format(e.quantiteAvant ?? 0)} unités${quand}.`
     case 'quantite':
-      return `${src} — quantité ${fmtQte.format(e.quantiteAvant ?? 0)} → ${fmtQte.format(e.quantiteApres ?? 0)}.`
+      return `${src} — quantité ${fmtQte.format(e.quantiteAvant ?? 0)} → ${fmtQte.format(e.quantiteApres ?? 0)}.${remplacee}`
     case 'date':
-      return `${src} — échéance ${fmtJJMM(e.echeanceAvant)} → ${fmtJJMM(e.echeanceApres)}.`
+      return `${src} — échéance ${fmtJJMM(e.echeanceAvant)} → ${fmtJJMM(e.echeanceApres)}.${remplacee}`
     case 'renumerotation':
       return `${src} — pièce remplacée : ${e.vcrnum ?? '—'} → ${e.vcrnumApres ?? '—'}, quantité et échéance inchangées.`
   }

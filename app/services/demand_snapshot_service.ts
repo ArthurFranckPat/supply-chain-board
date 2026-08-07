@@ -418,7 +418,7 @@ export class DemandSnapshotService {
     avantDay: string
   ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v8`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v9`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
