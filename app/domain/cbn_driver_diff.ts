@@ -26,7 +26,7 @@ export type DriverSource =
   | 'appro'
   | 'appro_suggestion'
 
-export type DriverDiffNature = 'apparue' | 'disparue' | 'quantite' | 'date'
+export type DriverDiffNature = 'apparue' | 'disparue' | 'quantite' | 'date' | 'renumerotation'
 
 export interface DriverDiffEntry {
   article: string
@@ -39,8 +39,16 @@ export interface DriverDiffEntry {
   detail: string
   designation: string | null
   famille: string | null
+  /** Pièce côté photo « avant ». Pour `apparue`, la pièce neuve (pas d'avant). */
   vcrnum: string | null
   vcrlin: string | null
+  /**
+   * Pièce côté photo « après », renseignée seulement quand elle DIFFÈRE de
+   * `vcrnum` — c'est-à-dire sur une renumérotation. Ailleurs `null` : la pièce
+   * n'a pas changé et `vcrnum` la décrit à lui seul.
+   */
+  vcrnumApres: string | null
+  vcrlinApres: string | null
 }
 
 /**
@@ -53,8 +61,13 @@ export interface DriverDiffEntry {
  *   tolérance exactement) pour une échéance renseignée ou retirée — pas de
  *   delta calculable, mais l'événement n'est pas du bruit et ne doit pas
  *   tomber en queue de tri avec un score de 0.
+ * - `renumerotation` : `0`, donc toujours en queue. Le CBN en produit ~17 500
+ *   par nuit (of_planifie, of_suggestion, appro_suggestion sont détruits et
+ *   recréés) : à amplitude non nulle elles enterreraient les vrais mouvements
+ *   sous le bornage de l'appelant.
  */
 export function driverDiffAmplitude(e: DriverDiffEntry): number {
+  if (e.nature === 'renumerotation') return 0
   if (e.nature === 'apparue' || e.nature === 'disparue') {
     const q = e.nature === 'apparue' ? (e.quantiteApres ?? 0) : (e.quantiteAvant ?? 0)
     return 1000 + Math.log10(Math.abs(q) + 1)
@@ -251,6 +264,8 @@ export function diffCbnDrivers(
           famille: null,
           vcrnum: rowP.vcrnum,
           vcrlin: rowP.vcrlin,
+          vcrnumApres: null,
+          vcrlinApres: null,
         })
       }
       continue
@@ -271,6 +286,8 @@ export function diffCbnDrivers(
           famille: null,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
+          vcrnumApres: null,
+          vcrlinApres: null,
         })
       }
       continue
@@ -297,6 +314,8 @@ export function diffCbnDrivers(
           famille: null,
           vcrnum: null,
           vcrlin: null,
+          vcrnumApres: null,
+          vcrlinApres: null,
         })
       }
       continue
@@ -317,6 +336,36 @@ export function diffCbnDrivers(
         transitionEcheance ||
         (ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS)
 
+      // La pièce a changé de numéro. Cas nominal pour les 3 populations que le
+      // CBN détruit et recrée chaque nuit (of_planifie, of_suggestion,
+      // appro_suggestion) : le couple est apparié parce qu'il porte le même
+      // article, mais ce n'est pas le même document. C'est un fait de la nuit,
+      // pas du bruit — on l'émet en UNE ligne « OF1 → OF2 » plutôt que de le
+      // taire ou de le rendre en disparue + apparue.
+      const piece = (r: DemandSnapshotRow) => `${r.vcrnum ?? ''}${r.vcrlin ?? ''}`
+      const renumerotee = piece(rowA) !== piece(rowP)
+
+      if (renumerotee) {
+        const ref = (n: string | null, l: string | null) =>
+          n === null ? '—' : l ? `${n} L${l}` : n
+        out.push({
+          article,
+          source,
+          nature: 'renumerotation',
+          quantiteAvant: rowA.quantity,
+          quantiteApres: rowP.quantity,
+          echeanceAvant: rowA.date_echeance,
+          echeanceApres: rowP.date_echeance,
+          detail: `${source} renumérotée : ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)} — ${article}.`,
+          designation: null,
+          famille: null,
+          vcrnum: rowA.vcrnum,
+          vcrlin: rowA.vcrlin,
+          vcrnumApres: rowP.vcrnum,
+          vcrlinApres: rowP.vcrlin,
+        })
+      }
+
       if (qtyChanged) {
         const sens = rowP.quantity > rowA.quantity ? '+' : '−'
         out.push({
@@ -332,6 +381,8 @@ export function diffCbnDrivers(
           famille: null,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
+          vcrnumApres: null,
+          vcrlinApres: null,
         })
       }
 
@@ -349,6 +400,8 @@ export function diffCbnDrivers(
           famille: null,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
+          vcrnumApres: null,
+          vcrlinApres: null,
         })
       }
     }
@@ -367,6 +420,8 @@ export function diffCbnDrivers(
         famille: null,
         vcrnum: rowA.vcrnum,
         vcrlin: rowA.vcrlin,
+        vcrnumApres: null,
+        vcrlinApres: null,
       })
     }
 
@@ -384,14 +439,22 @@ export function diffCbnDrivers(
         famille: null,
         vcrnum: rowP.vcrnum,
         vcrlin: rowP.vcrlin,
+        vcrnumApres: null,
+        vcrlinApres: null,
       })
     }
   }
 
-  // Renumérotation : pour les pièces stables (VCRNUM stable), une disparition
-  // compensée par une apparition même quantité/échéance n'est pas une évolution.
-  // `of_planifie` n'en fait plus partie : regroupé par (article,source), il passe
-  // par `apparie()` et ne produit plus de paires apparue/disparue parasites.
+  // Renumérotation des sources à VCRNUM stable. Elles sont clefées PAR pièce :
+  // un changement de numéro y tombe donc dans deux clés distinctes et ressort en
+  // disparue + apparue. On recolle la paire (même quantité, même échéance) et on
+  // l'émet en UNE ligne `renumerotation`, au lieu de la supprimer : « ce document
+  // a été remplacé par celui-là » est un fait de la nuit, au même titre qu'un
+  // changement de quantité.
+  //
+  // `of_planifie` et les suggestions ne passent pas ici : regroupées par
+  // (article, source), leurs renumérotations sont déjà appariées et émises dans
+  // la boucle des paires ci-dessus.
   const stables = new Set<DriverSource>([
     'of_ferme',
     'demande_ferme',
@@ -428,6 +491,25 @@ export function diffCbnDrivers(
       if (matched !== -1) {
         usedD.add(i)
         usedA.add(matched)
+        const a = apparues[matched]
+        const ref = (n: string | null, l: string | null) =>
+          n === null ? '—' : l ? `${n} L${l}` : n
+        toKeep.push({
+          article: d.article,
+          source: d.source,
+          nature: 'renumerotation',
+          quantiteAvant: d.quantiteAvant,
+          quantiteApres: a.quantiteApres,
+          echeanceAvant: d.echeanceAvant,
+          echeanceApres: a.echeanceApres,
+          detail: `${d.source} renumérotée : ${ref(d.vcrnum, d.vcrlin)} → ${ref(a.vcrnum, a.vcrlin)} — ${d.article}.`,
+          designation: null,
+          famille: null,
+          vcrnum: d.vcrnum,
+          vcrlin: d.vcrlin,
+          vcrnumApres: a.vcrnum,
+          vcrlinApres: a.vcrlin,
+        })
       }
     }
     for (let i = 0; i < disparues.length; i++) if (!usedD.has(i)) toKeep.push(disparues[i])

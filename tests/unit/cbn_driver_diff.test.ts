@@ -166,8 +166,14 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
       }),
     ]
     const diff = diffCbnDrivers(a, p)
-    // Groupé par (article,source) → apparie → 0 diff si même qte/date
-    assert.lengthOf(diff, 0)
+    // Groupé par (article,source) → apparié → une ligne par pièce remplacée,
+    // jamais 2 (disparue + apparue) et jamais 0 (suppression silencieuse).
+    assert.lengthOf(diff, 2)
+    assert.isTrue(diff.every((d) => d.nature === 'renumerotation'))
+    assert.deepEqual(
+      diff.map((d) => `${d.vcrnum}->${d.vcrnumApres}`).sort(),
+      ['F1->F9', 'F2->F10'].sort()
+    )
   })
 
   test('of_planifie quantité modifiée → une entrée quantite', ({ assert }) => {
@@ -214,8 +220,13 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
       }),
     ]
     const diff = diffCbnDrivers(a, p)
-    // VCRNUM stable → 1 disparue + 1 apparue mêmes qte/date → filtre → 0
-    assert.lengthOf(diff, 0)
+    // VCRNUM stable → la paire arrive en 2 clés distinctes (1 disparue +
+    // 1 apparue) → recollée en UNE ligne qui nomme les deux références.
+    assert.lengthOf(diff, 1)
+    assert.equal(diff[0].nature, 'renumerotation')
+    assert.equal(diff[0].vcrnum, 'OF1')
+    assert.equal(diff[0].vcrnumApres, 'OF2')
+    assert.include(diff[0].detail, 'OF1 → OF2')
   })
 
   test('of_ferme renumérotation ne casse pas le tri amplitude', ({ assert }) => {
@@ -240,9 +251,13 @@ test.group('cbn_driver_diff — of_planifie et renumérotation', () => {
       row({ source: 'stock', itmref: 'S1', quantity: 100 }),
     ]
     const diff = diffCbnDrivers(a, p)
-    // Renumérotation filtrée, reste stock quantite trié en tête
-    assert.lengthOf(diff, 1)
+    // La renumérotation est émise, mais à amplitude 0 : elle passe DERRIÈRE
+    // l'effondrement de stock, sinon les ~17 500 renumérotations nocturnes du
+    // CBN passeraient devant tous les vrais mouvements.
+    assert.lengthOf(diff, 2)
     assert.equal(diff[0].source, 'stock')
+    assert.equal(diff[0].nature, 'quantite')
+    assert.equal(diff[1].nature, 'renumerotation')
   })
 
   test('échéance renseignée → une entrée date, pas disparue + apparue', ({ assert }) => {
@@ -321,10 +336,12 @@ test.group('cbn_driver_diff — contrat de tri', () => {
       [stockEffondre.p, demandeApparue, renum('OF2')]
     )
 
-    // La renumérotation est filtrée, l'ordre des deux survivants est inchangé.
-    assert.lengthOf(diff, 2)
+    // La renumérotation est émise mais reléguée en queue : l'ordre des deux
+    // vrais mouvements est inchangé par sa présence.
+    assert.lengthOf(diff, 3)
     assert.equal(diff[0].nature, 'apparue')
     assert.equal(diff[1].source, 'stock')
+    assert.equal(diff[2].nature, 'renumerotation')
   })
 
   test('la liste est triée par amplitude décroissante', ({ assert }) => {

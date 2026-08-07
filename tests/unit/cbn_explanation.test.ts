@@ -175,6 +175,8 @@ test.group('explainCbnMessages — natures qui inversent le sens', () => {
     famille: null,
     vcrnum: null,
     vcrlin: null,
+    vcrnumApres: null,
+    vcrlinApres: null,
   }
 
   const messageAvancer = (nature: string): CbnMessageDiffEntry => ({
@@ -271,6 +273,8 @@ test.group('explainCbnMessages — sorties du CBN écartées', () => {
     famille: null,
     vcrnum: null,
     vcrlin: null,
+    vcrnumApres: null,
+    vcrlinApres: null,
   })
 
   test('ni corrélation ni contradiction sur of_suggestion et appro_suggestion', ({ assert }) => {
@@ -324,6 +328,8 @@ test.group('explainCbnMessages — asymétries comblées', () => {
     famille: null,
     vcrnum: null,
     vcrlin: null,
+    vcrnumApres: null,
+    vcrlinApres: null,
   }
 
   test('une réception NOUVELLE contredit un « avancer »', ({ assert }) => {
@@ -354,6 +360,8 @@ test.group('explainCbnMessages — asymétries comblées', () => {
       famille: null,
       vcrnum: null,
       vcrlin: null,
+      vcrnumApres: null,
+      vcrlinApres: null,
     }
     const [exp] = explainCbnMessages([msgCode(6)], [demandeReduite])
 

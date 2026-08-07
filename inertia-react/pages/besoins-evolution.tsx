@@ -42,7 +42,7 @@ type DriverSource =
   | 'stock'
   | 'appro'
   | 'appro_suggestion'
-type DriverNature = 'apparue' | 'disparue' | 'quantite' | 'date'
+type DriverNature = 'apparue' | 'disparue' | 'quantite' | 'date' | 'renumerotation'
 interface DriverDiffEntry {
   article: string
   source: DriverSource
@@ -56,6 +56,8 @@ interface DriverDiffEntry {
   famille: string | null
   vcrnum: string | null
   vcrlin: string | null
+  vcrnumApres: string | null
+  vcrlinApres: string | null
 }
 interface DriversDiffResponse {
   avant: string | null
@@ -90,8 +92,9 @@ const NATURE_LABEL: Record<DriverNature, string> = {
   disparue: 'Disparue',
   quantite: 'Qté',
   date: 'Date',
+  renumerotation: 'Renumérotée',
 }
-const NATURES: DriverNature[] = ['apparue', 'disparue', 'quantite', 'date']
+const NATURES: DriverNature[] = ['apparue', 'disparue', 'quantite', 'date', 'renumerotation']
 
 const fmtJJMMAAAA = (iso: string): string => {
   const [y, m, d] = iso.split('-')
@@ -110,6 +113,9 @@ const joursEntre = (a: string | null, b: string | null): number | null => {
   return Math.round((db - da) / 86_400_000)
 }
 const ecartLabel = (e: DriverDiffEntry): string => {
+  // Renumérotation : rien n'a bougé numériquement, la pièce a changé de numéro.
+  // L'écart appartient aux lignes `quantite`/`date` émises à côté s'il y en a.
+  if (e.nature === 'renumerotation') return '—'
   if (e.nature === 'apparue') return `+${fmtQte.format(e.quantiteApres ?? 0)}`
   if (e.nature === 'disparue') return `−${fmtQte.format(e.quantiteAvant ?? 0)}`
   if (e.nature === 'date') {
@@ -261,10 +267,25 @@ export default function BesoinsEvolution() {
         cell: ({ row }) => {
           const r = row.original
           if (!r.vcrnum) return <span className="font-mono text-xs text-muted-soft">—</span>
-          const label = r.vcrlin ? `${r.vcrnum} L${r.vcrlin}` : r.vcrnum
+          const avant = r.vcrlin ? `${r.vcrnum} L${r.vcrlin}` : r.vcrnum
+          // Renumérotation : la pièce a été remplacée. Les deux références sur la
+          // même ligne — c'est l'information, pas une disparition suivie d'une
+          // apparition.
+          if (r.vcrnumApres) {
+            const apres = r.vcrlinApres ? `${r.vcrnumApres} L${r.vcrlinApres}` : r.vcrnumApres
+            return (
+              <span
+                className="flex flex-col font-mono text-xs tabular-nums leading-tight"
+                title={`${avant} → ${apres}`}
+              >
+                <span className="text-muted-foreground line-through">{avant}</span>
+                <span className="text-foreground">↳ {apres}</span>
+              </span>
+            )
+          }
           return (
-            <span className="font-mono text-xs tabular-nums text-foreground" title={label}>
-              {label}
+            <span className="font-mono text-xs tabular-nums text-foreground" title={avant}>
+              {avant}
             </span>
           )
         },
@@ -296,7 +317,8 @@ export default function BesoinsEvolution() {
                 n === 'apparue' && 'border-emerald-200 bg-emerald-50 text-emerald-800',
                 n === 'disparue' && 'border-border bg-muted text-muted-foreground',
                 n === 'quantite' && 'border-amber-200 bg-amber-50 text-amber-900',
-                n === 'date' && 'border-sky-200 bg-sky-50 text-sky-900'
+                n === 'date' && 'border-sky-200 bg-sky-50 text-sky-900',
+                n === 'renumerotation' && 'border-violet-200 bg-violet-50 text-violet-900'
               )}
             >
               {NATURE_LABEL[n]}
