@@ -75,6 +75,11 @@ const joursEntre = (deIso: string | null, aIso: string | null): number | null =>
 }
 
 const qte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
+const fmtFr = (iso: string | null): string => {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : iso
+}
 
 /**
  * Référence du ratio de variation : la plus petite MAGNITUDE, jamais la plus
@@ -189,7 +194,7 @@ export function diffCbnDrivers(
           quantiteApres: rowP.quantity,
           echeanceAvant: null,
           echeanceApres: rowP.date_echeance,
-          detail: `${source} apparue : ${qte(rowP.quantity)} unités${rowP.date_echeance ? `, échéance ${rowP.date_echeance}` : ''} — ${article}.`,
+          detail: `${source} apparue : ${qte(rowP.quantity)} unités${rowP.date_echeance ? `, échéance ${fmtFr(rowP.date_echeance)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowP.vcrnum,
@@ -209,7 +214,7 @@ export function diffCbnDrivers(
           quantiteApres: null,
           echeanceAvant: rowA.date_echeance,
           echeanceApres: null,
-          detail: `${source} disparue : ${qte(rowA.quantity)} unités${rowA.date_echeance ? `, échéance ${rowA.date_echeance}` : ''} — ${article}.`,
+          detail: `${source} disparue : ${qte(rowA.quantity)} unités${rowA.date_echeance ? `, échéance ${fmtFr(rowA.date_echeance)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowA.vcrnum,
@@ -281,7 +286,7 @@ export function diffCbnDrivers(
           quantiteApres: rowP.quantity,
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
-          detail: `${source} échéance ${rowA.date_echeance ?? '—'} → ${rowP.date_echeance ?? '—'} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — ${article}.`,
+          detail: `${source} échéance ${fmtFr(rowA.date_echeance)} → ${fmtFr(rowP.date_echeance)} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowA.vcrnum,
@@ -299,7 +304,7 @@ export function diffCbnDrivers(
         quantiteApres: null,
         echeanceAvant: rowA.date_echeance,
         echeanceApres: null,
-        detail: `${source} ligne disparue : ${qte(rowA.quantity)} unités, échéance ${rowA.date_echeance ?? '—'} — ${article}.`,
+        detail: `${source} ligne disparue : ${qte(rowA.quantity)} unités, échéance ${fmtFr(rowA.date_echeance)} — ${article}.`,
         designation: null,
         famille: null,
         vcrnum: rowA.vcrnum,
@@ -316,7 +321,7 @@ export function diffCbnDrivers(
         quantiteApres: rowP.quantity,
         echeanceAvant: null,
         echeanceApres: rowP.date_echeance,
-        detail: `${source} ligne apparue : ${qte(rowP.quantity)} unités, échéance ${rowP.date_echeance ?? '—'} — ${article}.`,
+        detail: `${source} ligne apparue : ${qte(rowP.quantity)} unités, échéance ${fmtFr(rowP.date_echeance)} — ${article}.`,
         designation: null,
         famille: null,
         vcrnum: rowP.vcrnum,
