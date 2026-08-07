@@ -157,16 +157,22 @@ export function diffCbnDrivers(
   const index = (rows: DemandSnapshotRow[]): Map<string, DemandSnapshotRow[]> => {
     const m = new Map<string, DemandSnapshotRow[]>()
     for (const r of rows) {
-      // Pour les suggestions CBN (of_suggestion, appro_suggestion), le VCRNUM est
-      // recréé chaque nuit (cf. appro_snapshot_diff.ts) : il n'est pas une clé stable.
-      // Les grouper par VCRNUM ferait apparaître chaque suggestion comme disparue/apparue
-      // à chaque photo, masquant les vrais mouvements de quantité/date. On garde donc
-      // (article, source) pour ces deux sources, et (article, source, vcrnum, vcrlin)
-      // pour les autres où la pièce est stable et vérifiable.
+      // `VCRNUM` n'est pas une clé stable pour 3 populations :
+      // - `of_suggestion` / `appro_suggestion` : recréé chaque nuit (cf. appro_snapshot_diff.ts) ;
+      // - `of_planifie` : même constat en base (0 VCRNUM commun entre 06 et 07/08, 205 lignes
+      //   recréées) — sans regrouper par (article,source), chaque OF planifié apparaît
+      //   comme 1 disparue + 1 apparue, soit 410 lignes de bruit pour 205 OF.
+      // Les 3 sont donc groupés par (article, source) et comparés via `apparie()` (quantité/date),
+      // sans les confondre : `of_planifie` garde sa source et son tri propre, il n'est pas
+      // traité comme une suggestion métier — c'est une contrainte technique de clé, pas un
+      // raccourci fonctionnel. Les autres sources restent par (article, source, vcrnum, vcrlin)
+      // car la pièce y est stable et vérifiable (ex: `of_ferme` : 1535 VCRNUM stables).
       const isSuggestion = r.source === 'of_suggestion' || r.source === 'appro_suggestion'
-      const k = isSuggestion
-        ? `${r.itmref}\u0001${r.source}`
-        : `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
+      const isPlanifie = r.source === 'of_planifie'
+      const k =
+        isSuggestion || isPlanifie
+          ? `${r.itmref}\u0001${r.source}`
+          : `${r.itmref}\u0001${r.source}\u0001${r.vcrnum ?? ''}\u0001${r.vcrlin ?? ''}`
       const list = m.get(k)
       if (list === undefined) m.set(k, [r])
       else list.push(r)
@@ -330,12 +336,12 @@ export function diffCbnDrivers(
     }
   }
 
-  // Renumérotation : pour les pièces stables, une disparition compensée par une
-  // apparition même quantité/échéance n'est pas une évolution (ex: 3 OF planifiés
-  // recréés avec même 2520 et mêmes dates). On retire la paire.
+  // Renumérotation : pour les pièces stables (VCRNUM stable), une disparition
+  // compensée par une apparition même quantité/échéance n'est pas une évolution.
+  // `of_planifie` n'en fait plus partie : regroupé par (article,source), il passe
+  // par `apparie()` et ne produit plus de paires apparue/disparue parasites.
   const stables = new Set<DriverSource>([
     'of_ferme',
-    'of_planifie',
     'demande_ferme',
     'demande_prevision',
     'appro',

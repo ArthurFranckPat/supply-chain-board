@@ -485,18 +485,9 @@ export class DemandSnapshotService {
     if (cached === null) return null
     // Valeur en lecture seule (cache_ns.ts) — copie défensive.
     // Filtre de renumérotation post-cache pour corriger les anciennes entrées
-    // mises en cache avant le fix (6 lignes pour 3 OF renumérotés).
+    // mises en cache avant le fix. `of_planifie` n'est plus concerné (groupé par article).
     let entrees = [...cached.entrees] as DriverDiffEntry[]
-    // Si le cache est ancien, il contient encore les 6 lignes EHL1389AL ; on les
-    // retire ici sans bump de clé.
-    const stables = new Set([
-      'of_ferme',
-      'of_planifie',
-      'demande_ferme',
-      'demande_prevision',
-      'appro',
-      'stock',
-    ])
+    const stables = new Set(['of_ferme', 'demande_ferme', 'demande_prevision', 'appro', 'stock'])
     const hasStableApparueDisparue = entrees.some(
       (e) => stables.has(e.source) && (e.nature === 'apparue' || e.nature === 'disparue')
     )
