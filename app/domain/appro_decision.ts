@@ -33,6 +33,29 @@ export const isApproDecisionStatut = (v: unknown): v is ApproDecisionStatut =>
 export const TOLERANCE_ECHEANCE_JOURS = 7
 export const TOLERANCE_QUANTITE_RATIO = 0.2
 
+/**
+ * Plafond d'appariement pour `cbn_driver_diff.apparie()` (#144).
+ *
+ * Au-delà de cette distance deux lignes ne sont pas le même besoin : la ligne
+ * « avant » part en `disparue`, la ligne « après » en `apparue`, au lieu d'être
+ * mariées en `date` à +N jours. Seuil mesuré sur le régime normal (six nuits
+ * consécutives sans appariement > 30 j), à la même enseigne que les deux
+ * tolérances ci-dessus — même statut, même besoin de calibrage.
+ *
+ * **Unité : jour CALENDAIRE**, pas jour ouvré. L'écart est calculé par
+ * `joursEntre` (division par `86_400_000`), qui ignore le calendrier usine
+ * (#37). 30 j calendaires valent donc ~21 j ouvrés : à relire avant tout
+ * recalibrage, le seuil n'est pas exprimé dans l'unité de la charge.
+ *
+ * Le plafond porte sur la valeur ABSOLUE de l'écart : il est symétrique, une
+ * avance de 60 j est écartée comme un retard de 60 j.
+ *
+ * Il ne s'arme que sur les sources dont `cbn_driver_diff` DEVINE l'identité de
+ * ligne (suggestions et OF planifiés, recréés chaque nuit). Là où la clé porte
+ * déjà `(vcrnum, vcrlin)`, l'identité est certaine et rien n'est borné.
+ */
+export const TOLERANCE_APPARIEMENT_JOURS = 30
+
 /** Jours consécutifs SANS voir une clé dans la file avant d'expirer sa décision (#112). */
 export const EXPIRATION_JOURS_ABSENCE = 3
 
