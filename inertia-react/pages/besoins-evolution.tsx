@@ -1,9 +1,13 @@
 /**
- * Page « Évolution des besoins » — réécrite en réutilisant strictement les
- * composants existants (AppLayout dense, ToolbarRow/Segment/PILL/RefreshPill,
- * Card, DataTable, Badge, Select, LoadingState). Aucune tuile custom, aucun
- * style inventé : même tokens, mêmes primitives que Réceptions et
- * Conditionnements.
+ * Page « Évolution des besoins » — composants existants uniquement (AppLayout
+ * dense, ToolbarRow/Segment/PILL/RefreshPill, Card, DataTable, Select,
+ * LoadingState), mêmes tokens que Réceptions et Conditionnements.
+ *
+ * Grammaire de la table (DESIGN.md) : statuts en point + petites capitales,
+ * jamais en boîte pleine — une boîte s'étire avec son libellé et détruit le
+ * rythme vertical. Deux lignes par rangée au maximum. Aucune couleur hors
+ * palette : les teintes de statut métier ne codent pas un axe qui n'est pas le
+ * leur, seul `warning` sert, et pour de vrais avertissements.
  */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -11,7 +15,6 @@ import { AlertTriangle, CalendarRange, CloudOff, Info, Search } from 'lucide-rea
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
-import { Badge } from '@r/components/ui/badge'
 import { Card, CardContent } from '@r/components/ui/card'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import { DataTable, type ColumnDef } from '@r/components/ui/data-table'
@@ -132,9 +135,39 @@ const ecartLabel = (e: DriverDiffEntry): string => {
 }
 const avantApresLabel = (e: DriverDiffEntry): string => {
   if (e.nature === 'date') return `${fmtJJMM(e.echeanceAvant)} → ${fmtJJMM(e.echeanceApres)}`
+  // Renumérotation : la quantité est par définition la même des deux côtés.
+  // Écrire « 15 000 → 15 000 » donne à lire une transition là où il n'y en a
+  // pas ; on rend la valeur seule.
+  if (e.nature === 'renumerotation') {
+    return e.quantiteApres === null ? '—' : fmtQte.format(e.quantiteApres)
+  }
   const av = e.quantiteAvant === null ? '—' : fmtQte.format(e.quantiteAvant)
   const ap = e.quantiteApres === null ? '—' : fmtQte.format(e.quantiteApres)
   return `${av} → ${ap}`
+}
+
+/**
+ * Phrase de survol, reconstruite côté écran. Le `detail` du domaine porte les
+ * noms techniques des sources (`of_suggestion`, `appro_suggestion`…) : ils sont
+ * justes en base et illisibles à l'écran, où la colonne Source dit déjà
+ * « OF suggérés ». Le français d'atelier s'arrête ici, pas dans le domaine.
+ */
+const resumeLabel = (e: DriverDiffEntry): string => {
+  const src = SOURCE_LABEL[e.source]
+  const ech = e.echeanceApres ?? e.echeanceAvant
+  const quand = ech ? `, échéance ${fmtJJMMAAAA(ech)}` : ''
+  switch (e.nature) {
+    case 'apparue':
+      return `${src} — ligne apparue : ${fmtQte.format(e.quantiteApres ?? 0)} unités${quand}.`
+    case 'disparue':
+      return `${src} — ligne disparue : ${fmtQte.format(e.quantiteAvant ?? 0)} unités${quand}.`
+    case 'quantite':
+      return `${src} — quantité ${fmtQte.format(e.quantiteAvant ?? 0)} → ${fmtQte.format(e.quantiteApres ?? 0)}.`
+    case 'date':
+      return `${src} — échéance ${fmtJJMM(e.echeanceAvant)} → ${fmtJJMM(e.echeanceApres)}.`
+    case 'renumerotation':
+      return `${src} — pièce remplacée : ${e.vcrnum ?? '—'} → ${e.vcrnumApres ?? '—'}, quantité et échéance inchangées.`
+  }
 }
 const fold = (s: string): string =>
   s
@@ -212,8 +245,14 @@ export default function BesoinsEvolution() {
     if (natureFilter) out = out.filter((e) => e.nature === natureFilter)
     if (search.trim()) {
       const q = fold(search.trim())
+      // Les deux références sont cherchables : sur une renumérotation, on part
+      // aussi souvent du numéro disparu que du nouveau.
       out = out.filter(
-        (e) => fold(e.article).includes(q) || (e.designation && fold(e.designation).includes(q))
+        (e) =>
+          fold(e.article).includes(q) ||
+          (e.designation !== null && fold(e.designation).includes(q)) ||
+          (e.vcrnum !== null && fold(e.vcrnum).includes(q)) ||
+          (e.vcrnumApres !== null && fold(e.vcrnumApres).includes(q))
       )
     }
     return out
@@ -236,24 +275,21 @@ export default function BesoinsEvolution() {
         id: 'article',
         header: 'Article',
         accessorFn: (r) => r.article,
+        // Deux lignes, jamais trois : la famille rejoint la désignation en
+        // suffixe. Elle valait une ligne entière pour trois caractères, et
+        // c'est ce troisième niveau qui faisait respirer les rangées de façon
+        // inégale selon que l'article portait ou non une famille.
         cell: ({ row }) => {
           const r = row.original
           return (
-            <div className="flex flex-col">
-              <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+            <div className="flex max-w-[260px] flex-col" title={resumeLabel(r)}>
+              <span className="truncate font-mono text-xs font-semibold tabular-nums text-foreground">
                 {r.article}
               </span>
-              <span
-                className="max-w-[220px] truncate text-xs leading-tight text-muted-foreground"
-                title={r.designation ?? ''}
-              >
-                {r.designation ?? <span className="italic text-muted-soft">sans désignation</span>}
+              <span className="truncate text-xs leading-tight text-muted-foreground">
+                {r.designation ?? <span className="italic">sans désignation</span>}
+                {r.famille && <span className="tabular-nums"> · {r.famille}</span>}
               </span>
-              {r.famille && (
-                <span className="font-mono text-[10px] tabular-nums text-muted-soft">
-                  {r.famille}
-                </span>
-              )}
             </div>
           )
         },
@@ -266,7 +302,7 @@ export default function BesoinsEvolution() {
         enableSorting: false,
         cell: ({ row }) => {
           const r = row.original
-          if (!r.vcrnum) return <span className="font-mono text-xs text-muted-soft">—</span>
+          if (!r.vcrnum) return <span className="font-mono text-xs text-muted-foreground">—</span>
           const avant = r.vcrlin ? `${r.vcrnum} L${r.vcrlin}` : r.vcrnum
           // Renumérotation : la pièce a été remplacée. Les deux références sur la
           // même ligne — c'est l'information, pas une disparition suivie d'une
@@ -275,16 +311,19 @@ export default function BesoinsEvolution() {
             const apres = r.vcrlinApres ? `${r.vcrnumApres} L${r.vcrlinApres}` : r.vcrnumApres
             return (
               <span
-                className="flex flex-col font-mono text-xs tabular-nums leading-tight"
+                className="flex flex-col whitespace-nowrap font-mono text-xs leading-tight tabular-nums"
                 title={`${avant} → ${apres}`}
               >
                 <span className="text-muted-foreground line-through">{avant}</span>
-                <span className="text-foreground">↳ {apres}</span>
+                <span className="text-foreground">{apres}</span>
               </span>
             )
           }
           return (
-            <span className="font-mono text-xs tabular-nums text-foreground" title={avant}>
+            <span
+              className="whitespace-nowrap font-mono text-xs tabular-nums text-foreground"
+              title={avant}
+            >
               {avant}
             </span>
           )
@@ -296,35 +335,49 @@ export default function BesoinsEvolution() {
         header: 'Source',
         accessorFn: (r) => r.source,
         enableSorting: false,
+        // Texte nu, pas de pastille : une boîte s'étire avec son libellé et
+        // casse le rythme vertical dès qu'un libellé passe sur deux lignes.
         cell: ({ row }) => (
-          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 font-mono text-[11px] font-medium text-foreground">
+          <span className="whitespace-nowrap text-xs text-foreground">
             {SOURCE_LABEL[row.original.source]}
           </span>
         ),
+        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
       },
       {
         id: 'nature',
         header: 'Nature',
         accessorFn: (r) => r.nature,
         enableSorting: false,
+        // Point + petites capitales (DESIGN.md, Chips/Badges) : hauteur fixe,
+        // insensible à la longueur du libellé. Le point plein marque un
+        // mouvement réel, le point creux une renumérotation — la seule nature
+        // où rien n'a bougé. Aucune teinte décorative : les couleurs de statut
+        // métier ne sont pas détournées pour coder un axe qui n'est pas le leur.
         cell: ({ row }) => {
           const n = row.original.nature
+          const renum = n === 'renumerotation'
           return (
-            <Badge
-              variant="outline"
-              className={cn(
-                'rounded-full font-mono text-[11px]',
-                n === 'apparue' && 'border-emerald-200 bg-emerald-50 text-emerald-800',
-                n === 'disparue' && 'border-border bg-muted text-muted-foreground',
-                n === 'quantite' && 'border-amber-200 bg-amber-50 text-amber-900',
-                n === 'date' && 'border-sky-200 bg-sky-50 text-sky-900',
-                n === 'renumerotation' && 'border-violet-200 bg-violet-50 text-violet-900'
-              )}
-            >
-              {NATURE_LABEL[n]}
-            </Badge>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span
+                aria-hidden
+                className={cn(
+                  'size-1.5 shrink-0 rounded-full',
+                  renum ? 'ring-1 ring-border' : 'bg-foreground'
+                )}
+              />
+              <span
+                className={cn(
+                  'text-[10px] font-semibold uppercase tracking-[0.08em]',
+                  renum ? 'text-muted-foreground' : 'text-foreground'
+                )}
+              >
+                {NATURE_LABEL[n]}
+              </span>
+            </span>
           )
         },
+        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
       },
       {
         id: 'avantApres',
@@ -332,33 +385,22 @@ export default function BesoinsEvolution() {
         enableSorting: false,
         accessorFn: (r) => `${r.quantiteAvant ?? ''}->${r.quantiteApres ?? ''}`,
         cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums text-foreground">
+          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-foreground">
             {avantApresLabel(row.original)}
           </span>
         ),
+        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
       },
       {
         id: 'ecart',
         header: 'Écart',
         accessorFn: (r) => ecartLabel(r),
         cell: ({ row }) => (
-          <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+          <span className="whitespace-nowrap font-mono text-xs font-semibold tabular-nums text-foreground">
             {ecartLabel(row.original)}
           </span>
         ),
-      },
-      {
-        id: 'detail',
-        header: 'Détail',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span
-            className="line-clamp-2 max-w-[360px] text-xs leading-[1.4] text-muted-foreground"
-            title={row.original.detail}
-          >
-            {row.original.detail}
-          </span>
-        ),
+        meta: { tdClass: 'px-3 py-2 text-right', thClass: 'px-3 py-2 text-right' },
       },
     ],
     []
@@ -377,7 +419,7 @@ export default function BesoinsEvolution() {
           <div className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
             {rangeLabel}
           </div>
-          <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          <div className="font-mono text-[10px] tabular-nums text-muted-foreground">
             {diff
               ? `${fmtQte.format(total)} mouvement${total > 1 ? 's' : ''}`
               : photosLoading
@@ -433,7 +475,7 @@ export default function BesoinsEvolution() {
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
             <input
               className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="Article ou désignation"
+              placeholder="Article, désignation ou n° de pièce"
               type="text"
               autoComplete="off"
               value={search}
@@ -453,7 +495,7 @@ export default function BesoinsEvolution() {
         <div className="hidden flex-none items-baseline justify-between border-b border-border px-7 pb-3 pt-1 print:flex">
           <span className="text-[20px] font-semibold tracking-tight text-foreground">
             Évolution des besoins{' '}
-            <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
+            <span className="ml-3 font-mono text-sm font-normal text-muted-foreground">
               {rangeLabel}
             </span>
           </span>
@@ -469,7 +511,7 @@ export default function BesoinsEvolution() {
                 <h1 className="text-[20px] font-extrabold leading-none tracking-[-0.02em] text-foreground">
                   Évolution des besoins
                 </h1>
-                <p className="mt-1.5 max-w-[68ch] text-[13px] leading-[1.5] text-muted-foreground">
+                <p className="mt-1.5 max-w-[68ch] text-sm leading-[1.5] text-muted-foreground">
                   Ce que le CBN a vu bouger entre deux nuits — le besoin brut, pas le message. Le
                   bandeau dit où regarder, la table est triée par amplitude relative (ratio, pas
                   absolu).
@@ -488,7 +530,7 @@ export default function BesoinsEvolution() {
                     <div className="flex size-11 items-center justify-center rounded-full border border-border bg-card">
                       <CalendarRange size={18} className="text-muted-foreground" />
                     </div>
-                    <h2 className="text-[15px] font-semibold text-foreground">
+                    <h2 className="text-base font-semibold text-foreground">
                       L&apos;historique commence
                     </h2>
                     <p className="text-sm leading-[1.5] text-muted-foreground">
@@ -510,8 +552,8 @@ export default function BesoinsEvolution() {
               ) : hasMessage ? (
                 <Card className="p-6">
                   <div className="flex gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50">
-                      <CloudOff size={16} className="text-amber-700" />
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-warning/30 bg-warning/10">
+                      <CloudOff size={16} className="text-warning" />
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Photo indisponible</h3>
@@ -573,7 +615,7 @@ export default function BesoinsEvolution() {
                                 </div>
                                 <div
                                   className={cn(
-                                    'mt-0.5 font-mono text-[11px] tabular-nums',
+                                    'mt-0.5 font-mono text-[10px] tabular-nums',
                                     active ? 'text-card/80' : 'text-muted-foreground'
                                   )}
                                 >
@@ -588,7 +630,8 @@ export default function BesoinsEvolution() {
                     <div>
                       <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                         Ce que le CBN propose
-                        <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-amber-800">
+                        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-warning">
+                          <span aria-hidden className="size-1 rounded-full bg-warning" />
                           Sortie CBN
                         </span>
                       </div>
@@ -618,7 +661,7 @@ export default function BesoinsEvolution() {
                                 </div>
                                 <div
                                   className={cn(
-                                    'mt-0.5 font-mono text-[11px] tabular-nums',
+                                    'mt-0.5 font-mono text-[10px] tabular-nums',
                                     active ? 'text-card/80' : 'text-muted-foreground'
                                   )}
                                 >
@@ -633,14 +676,14 @@ export default function BesoinsEvolution() {
                   </div>
 
                   {total > entrees.length && (
-                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      <Info size={14} /> {entrees.length} affichés sur {fmtQte.format(total)} —
-                      affinez par source ou nature.
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
+                      <Info size={14} className="shrink-0 text-warning" /> {entrees.length} affichés
+                      sur {fmtQte.format(total)} — affinez par source ou nature.
                     </div>
                   )}
 
                   <div className="mt-3 flex items-center gap-2 border-b border-border/50 px-1 py-1.5">
-                    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                       {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · tri ratio
                     </span>
                     {(sourceFilter || natureFilter || search) && (
@@ -651,7 +694,7 @@ export default function BesoinsEvolution() {
                           setNatureFilter(null)
                           setSearch('')
                         }}
-                        className="ml-auto font-mono text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                        className="ml-auto font-mono text-[10px] font-semibold text-muted-foreground hover:text-foreground"
                       >
                         Effacer les filtres
                       </button>
@@ -698,7 +741,7 @@ export default function BesoinsEvolution() {
                           </div>
                         }
                       />
-                      <p className="mt-3 text-center font-mono text-[11px] text-muted-foreground">
+                      <p className="mt-3 text-center font-mono text-[10px] text-muted-foreground">
                         Tri par amplitude relative (ratio), pas absolu · Un article 10 → 0 passe
                         avant un stock qui bouge de 2 %.
                       </p>
