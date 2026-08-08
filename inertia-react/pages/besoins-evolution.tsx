@@ -84,6 +84,8 @@ interface DriverDiffEntry {
   detail: string
   designation: string | null
   famille: string | null
+  approvisionnement: 'ACHAT' | 'FABRICATION' | null
+  fournisseur: string | null
   vcrnum: string | null
   vcrlin: string | null
   vcrnumApres: string | null
@@ -110,6 +112,7 @@ interface ArticleFrise {
   article: string
   designation: string | null
   famille: string | null
+  approvisionnement: 'ACHAT' | 'FABRICATION' | null
   total: number
   /** Chronologique (jour croissant). */
   mouvements: MouvementFrise[]
@@ -151,7 +154,10 @@ const SOURCE_LABEL: Record<DriverSource, string> = {
   of_ferme: 'OF fermes',
   of_planifie: 'OF planifiés',
   of_suggestion: 'OF suggérés',
-  appro_suggestion: 'Suggestions CBN',
+  // « Suggestions CBN » était un faux générique : les OF suggérés viennent du
+  // CBN eux aussi (`ORDERS.ORI_0 = 6`). Ce qui distingue cette source, c'est
+  // `WIPTYP = 2` — Commande Fournisseur, menu local X3 306. Donc : achats.
+  appro_suggestion: 'Achats suggérés',
 }
 const SOURCES_REALITE: DriverSource[] = [
   'stock',
@@ -247,6 +253,18 @@ const fmtJour = (iso: string): string => {
   return `${d}/${m}`
 }
 const fmtJJMM = (iso: string | null): string => (iso ? fmtJJMMAAAA(iso) : '—')
+
+/**
+ * Échéance PORTÉE par le mouvement — celle d'après quand elle existe, celle
+ * d'avant sinon (une ligne disparue n'a plus d'après).
+ *
+ * Sans elle à l'écran, trois `APPARUE 8 064` se lisaient à l'identique alors
+ * qu'elles tombaient au 16/09/2026, au 15/10/2026 et au 29/04/2027 : une
+ * nouvelle à cinq semaines et une nouvelle à neuf mois n'appellent pas la même
+ * réaction. La donnée était déjà dans le payload, elle ne vivait que dans
+ * l'infobulle de survol.
+ */
+const echeancePortee = (e: DriverDiffEntry): string | null => e.echeanceApres ?? e.echeanceAvant
 
 /** Heure locale `HH:MM` d'une capture. */
 const fmtHeure = (ms: number | null): string | null => {
@@ -491,6 +509,22 @@ function EnteteArticle(props: { article: ArticleFrise }) {
       <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-foreground">
         {a.article}
       </span>
+      {/* Acheté ou fabriqué : ce que la colonne Source ne dit pas et qui décide
+          de la conduite à tenir — passer commande, ou lancer un OF. Neutre de
+          teinte, comme tout ce qui n'est pas la nature du mouvement : ce n'est
+          pas un statut, c'est une propriété de l'article. */}
+      {a.approvisionnement && (
+        <span
+          title={
+            a.approvisionnement === 'ACHAT'
+              ? 'Article acheté — une suggestion se solde par une commande fournisseur'
+              : 'Article fabriqué — une suggestion se solde par un ordre de fabrication'
+          }
+          className="shrink-0 rounded border px-1 font-mono text-[10px] uppercase leading-4 text-muted-foreground"
+        >
+          {a.approvisionnement === 'ACHAT' ? 'achat' : 'fab'}
+        </span>
+      )}
       <span className="truncate text-xs leading-tight text-muted-foreground">
         {a.designation ?? <span className="italic">sans désignation</span>}
         {a.famille && <span className="tabular-nums"> · {a.famille}</span>}
@@ -1112,6 +1146,9 @@ export default function BesoinsEvolution() {
                                 Nature
                               </th>
                               <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                Échéance
+                              </th>
+                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
                                 Avant → Après
                               </th>
                               <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
@@ -1130,7 +1167,7 @@ export default function BesoinsEvolution() {
                                   title="Voir la fiche article"
                                   className="cursor-pointer border-b bg-muted/40 transition-colors hover:bg-muted/60"
                                 >
-                                  <td colSpan={6} className="px-3 py-1.5">
+                                  <td colSpan={7} className="px-3 py-1.5">
                                     <EnteteArticle article={a} />
                                   </td>
                                 </tr>
@@ -1146,12 +1183,31 @@ export default function BesoinsEvolution() {
                                       <CellulePiece m={m} />
                                     </td>
                                     <td className="px-3 py-2">
-                                      <span className="whitespace-nowrap text-xs text-foreground">
-                                        {SOURCE_LABEL[m.source]}
-                                      </span>
+                                      <div className="flex flex-col leading-tight">
+                                        <span className="whitespace-nowrap text-xs text-foreground">
+                                          {SOURCE_LABEL[m.source]}
+                                        </span>
+                                        {/* Code tiers figé dans la photo. Brut :
+                                            la raison sociale vit dans BPARTNER,
+                                            côté X3, et cette page ne l'appelle
+                                            pas — elle ne lit que des photos. */}
+                                        {m.fournisseur && (
+                                          <span
+                                            title={`Fournisseur ${m.fournisseur} (code tiers X3)`}
+                                            className="whitespace-nowrap font-mono text-[10px] tabular-nums text-muted-foreground"
+                                          >
+                                            frs {m.fournisseur}
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="px-3 py-2">
                                       <CelluleNature nature={m.nature} />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
+                                        {fmtJJMM(echeancePortee(m))}
+                                      </span>
                                     </td>
                                     <td className="px-3 py-2">
                                       <CelluleAvantApres m={m} />

@@ -61,6 +61,12 @@ export interface ArticleFrise {
   article: string
   designation: string | null
   famille: string | null
+  /**
+   * Mode de réapprovisionnement de l'article, remonté au groupe : la conduite à
+   * tenir sur une suggestion dépend d'abord de lui (commander vs lancer un OF),
+   * et il ne varie pas d'un mouvement à l'autre du même article.
+   */
+  approvisionnement: 'ACHAT' | 'FABRICATION' | null
   total: number
   /** Chronologique (jour croissant), stable pour un même jour. */
   mouvements: MouvementFrise[]
@@ -120,6 +126,7 @@ export function compteurVide<T extends string>(cles: readonly T[]): Record<T, nu
 interface AccumulateurArticle {
   designation: string | null
   famille: string | null
+  approvisionnement: 'ACHAT' | 'FABRICATION' | null
   total: number
 }
 
@@ -185,12 +192,18 @@ export function construireFrise(pas: PasFrise[], options?: ConstruireFriseOption
       totalParSource[e.source] += 1
       let a = accum.get(e.article)
       if (a === undefined) {
-        a = { designation: e.designation, famille: e.famille, total: 0 }
+        a = {
+          designation: e.designation,
+          famille: e.famille,
+          approvisionnement: e.approvisionnement,
+          total: 0,
+        }
         accum.set(e.article, a)
         ordreApparition.push(e.article)
       } else {
         a.designation ??= e.designation
         a.famille ??= e.famille
+        a.approvisionnement ??= e.approvisionnement
       }
       a.total += 1
     }
@@ -245,6 +258,7 @@ export function construireFrise(pas: PasFrise[], options?: ConstruireFriseOption
       article,
       designation: a.designation,
       famille: a.famille,
+      approvisionnement: a.approvisionnement,
       total: a.total,
       // `cap` vaut `a.total` sans budget (posé plus haut) : le `slice` est un
       // no-op de valeur dans ce cas, pas une branche séparée à maintenir.
