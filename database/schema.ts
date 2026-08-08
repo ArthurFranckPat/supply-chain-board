@@ -10,7 +10,9 @@ import { DateTime } from 'luxon'
 export class ApproDecisionLedgerSchema extends BaseModel {
   static $columns = [
     'article',
+    'causePredit',
     'cleLogique',
+    'confiancePredit',
     'createdAt',
     'decidedAt',
     'echeance',
@@ -19,14 +21,20 @@ export class ApproDecisionLedgerSchema extends BaseModel {
     'id',
     'lastSeenAt',
     'nature',
+    'niveauPredit',
     'quantite',
     'statut',
+    'verdictPredit',
   ] as const
   $columns = ApproDecisionLedgerSchema.$columns
   @column()
   declare article: string
   @column()
+  declare causePredit: string | null
+  @column()
   declare cleLogique: string
+  @column()
+  declare confiancePredit: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
   @column.dateTime()
@@ -44,9 +52,13 @@ export class ApproDecisionLedgerSchema extends BaseModel {
   @column()
   declare nature: string
   @column()
+  declare niveauPredit: string | null
+  @column()
   declare quantite: number
   @column()
   declare statut: string
+  @column()
+  declare verdictPredit: string | null
 }
 
 export class ApproMessageSnapshotSchema extends BaseModel {

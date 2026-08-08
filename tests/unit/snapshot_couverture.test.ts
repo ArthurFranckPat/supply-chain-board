@@ -1,9 +1,12 @@
 import { test } from '@japa/runner'
 import {
   couverture,
+  fenetreValide,
   jourIso,
   joursManquants,
   libelleMessage,
+  photoLaPlusProche,
+  MAX_FENETRE_JOURS,
 } from '#app/domain/snapshot_couverture'
 
 /**
@@ -142,5 +145,60 @@ test.group('couverture — jours antidatés', () => {
       parSource
     )
     assert.deepEqual(c.antidates, ['2026-08-06'])
+  })
+})
+
+/**
+ * Sélecteur de fenêtre J-1/J-7/J-30 (#138 lot 2) : la photo la plus proche de
+ * la cible, jamais une date déduite — les trous (week-ends, pannes) sont
+ * tolérés en prenant la photo existante la plus proche.
+ */
+test.group('photoLaPlusProche', () => {
+  const dates = ['2026-08-20', '2026-08-15', '2026-08-08', '2026-08-01'] // desc
+
+  test('fenêtre J-7 : photo la plus proche de la cible, pas la précédente', ({ assert }) => {
+    // Cible = 20 - 7 = 13 ; la plus proche est le 15 (dist 2), pas le 08 (dist 5).
+    assert.deepEqual(photoLaPlusProche(dates, 7), ['2026-08-20', '2026-08-15'])
+  })
+
+  test('fenêtre J-1 : photo de la veille au plus proche', ({ assert }) => {
+    // Cible = 20 - 1 = 19 ; la plus proche est le 15 (dist 4).
+    assert.deepEqual(photoLaPlusProche(dates, 1), ['2026-08-20', '2026-08-15'])
+  })
+
+  test('fenêtre J-30 : cible hors table → la plus ancienne disponible', ({ assert }) => {
+    // Cible = 20 - 30 = 21/07, avant la première photo : le 01 est le plus proche.
+    assert.deepEqual(photoLaPlusProche(dates, 30), ['2026-08-20', '2026-08-01'])
+  })
+
+  test('moins de deux photos : null', ({ assert }) => {
+    assert.isNull(photoLaPlusProche(['2026-08-20'], 7))
+    assert.isNull(photoLaPlusProche([], 7))
+  })
+})
+
+test.group('fenetreValide', () => {
+  test('accepte les entiers strictement positifs', ({ assert }) => {
+    assert.equal(fenetreValide(1), 1)
+    assert.equal(fenetreValide(7), 7)
+    assert.equal(fenetreValide('30'), 30)
+  })
+
+  test('rabote au plafond de photos que la requête peut rendre', ({ assert }) => {
+    // `?fenetre=365` tronquait en silence à 62 photos et l'écran annonçait
+    // « 12 jours couverts sur 365 demandés » — un chiffre faux.
+    assert.equal(fenetreValide(365), MAX_FENETRE_JOURS)
+    assert.equal(fenetreValide(MAX_FENETRE_JOURS), MAX_FENETRE_JOURS)
+    assert.equal(fenetreValide(30), 30)
+  })
+
+  test('rejette zéro, négatif, chaîne vide et non-numérique', ({ assert }) => {
+    assert.isNull(fenetreValide(0))
+    assert.isNull(fenetreValide(-7))
+    assert.isNull(fenetreValide(''))
+    assert.isNull(fenetreValide(null))
+    assert.isNull(fenetreValide(undefined))
+    assert.isNull(fenetreValide('abc'))
+    assert.isNull(fenetreValide(1.5))
   })
 })
