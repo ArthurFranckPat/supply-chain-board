@@ -66,6 +66,22 @@ export interface DriverDiffEntry {
   detail: string
   designation: string | null
   famille: string | null
+  /**
+   * Mode de réapprovisionnement de l'ARTICLE (`static_articles.supply_type`,
+   * dérivé de `ITMMASTER.MFGFLG_0`), enrichi hors du diff comme
+   * `designation`/`famille`.
+   *
+   * C'est ce que la source ne dit pas : « Suggestions CBN » ne distingue pas un
+   * article acheté d'un article fabriqué, alors que la conduite à tenir n'a
+   * rien à voir — passer commande chez un fournisseur, ou lancer un OF.
+   */
+  approvisionnement: 'ACHAT' | 'FABRICATION' | null
+  /**
+   * Code tiers de la ligne (`ORDERS.BPRNUM_0`), figé dans la photo. Vide sur
+   * les sources de fabrication, qui n'ont pas de fournisseur. Code brut : la
+   * raison sociale vit dans `BPARTNER`, côté X3, et cette page ne l'appelle pas.
+   */
+  fournisseur: string | null
   /** Pièce côté photo « avant ». Pour `apparue`, la pièce neuve (pas d'avant). */
   vcrnum: string | null
   vcrlin: string | null
@@ -397,6 +413,8 @@ export function diffCbnDrivers(
           detail: `${source} apparue : ${qte(rowP.quantity)} unités${rowP.date_echeance ? `, échéance ${fmtFr(rowP.date_echeance)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: rowP.fournisseur,
           vcrnum: rowP.vcrnum,
           vcrlin: rowP.vcrlin,
           vcrnumApres: null,
@@ -419,6 +437,8 @@ export function diffCbnDrivers(
           detail: `${source} disparue : ${qte(rowA.quantity)} unités${rowA.date_echeance ? `, échéance ${fmtFr(rowA.date_echeance)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: rowA.fournisseur,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
           vcrnumApres: null,
@@ -446,6 +466,8 @@ export function diffCbnDrivers(
           detail: `Stock ${qte(qa)} → ${qte(qp)}${pctSuffixe(qa, qp)} — ${article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: p[0]?.fournisseur ?? a[0]?.fournisseur ?? null,
           vcrnum: null,
           vcrlin: null,
           vcrnumApres: null,
@@ -503,6 +525,8 @@ export function diffCbnDrivers(
           detail: `${source} renumérotée : ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)} — ${article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: rowP.fournisseur ?? rowA.fournisseur,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
           vcrnumApres: rowP.vcrnum,
@@ -522,6 +546,8 @@ export function diffCbnDrivers(
           detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)}${pctSuffixe(rowA.quantity, rowP.quantity)}${renumerotee ? ` — ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: rowP.fournisseur ?? rowA.fournisseur,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
           vcrnumApres: renumerotee ? rowP.vcrnum : null,
@@ -541,6 +567,8 @@ export function diffCbnDrivers(
           detail: `${source} échéance ${fmtFr(rowA.date_echeance)} → ${fmtFr(rowP.date_echeance)}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`}${renumerotee ? ` — ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: rowP.fournisseur ?? rowA.fournisseur,
           vcrnum: rowA.vcrnum,
           vcrlin: rowA.vcrlin,
           vcrnumApres: renumerotee ? rowP.vcrnum : null,
@@ -561,6 +589,8 @@ export function diffCbnDrivers(
         detail: `${source} ligne disparue : ${qte(rowA.quantity)} unités, échéance ${fmtFr(rowA.date_echeance)} — ${article}.`,
         designation: null,
         famille: null,
+        approvisionnement: null,
+        fournisseur: rowA.fournisseur,
         vcrnum: rowA.vcrnum,
         vcrlin: rowA.vcrlin,
         vcrnumApres: null,
@@ -580,6 +610,8 @@ export function diffCbnDrivers(
         detail: `${source} ligne apparue : ${qte(rowP.quantity)} unités, échéance ${fmtFr(rowP.date_echeance)} — ${article}.`,
         designation: null,
         famille: null,
+        approvisionnement: null,
+        fournisseur: rowP.fournisseur,
         vcrnum: rowP.vcrnum,
         vcrlin: rowP.vcrlin,
         vcrnumApres: null,
@@ -648,6 +680,8 @@ export function diffCbnDrivers(
           detail: `${d.source} renumérotée : ${ref(d.vcrnum, d.vcrlin)} → ${ref(a.vcrnum, a.vcrlin)} — ${d.article}.`,
           designation: null,
           famille: null,
+          approvisionnement: null,
+          fournisseur: a.fournisseur ?? d.fournisseur,
           vcrnum: d.vcrnum,
           vcrlin: d.vcrlin,
           vcrnumApres: a.vcrnum,

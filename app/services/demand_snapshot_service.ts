@@ -645,23 +645,35 @@ export class DemandSnapshotService {
           const chunkSize = 900
           const map = new Map<
             string,
-            { designation: string | null; famille: string | null; categorie: string | null }
+            {
+              designation: string | null
+              famille: string | null
+              categorie: string | null
+              approvisionnement: 'ACHAT' | 'FABRICATION' | null
+            }
           >()
           for (let i = 0; i < codes.length; i += chunkSize) {
             const chunk = codes.slice(i, i + chunkSize)
             const rows = await conn
               .from('static_articles')
               .whereIn('code', chunk)
-              .select('code', 'description', 'famille', 'category')
+              .select('code', 'description', 'famille', 'category', 'supply_type')
             for (const r of rows as Array<Record<string, unknown>>) {
               const code = String((r as Record<string, unknown>).code)
               const desc = (r as Record<string, unknown>).description
               const fam = (r as Record<string, unknown>).famille
               const cat = (r as Record<string, unknown>).category
+              // `supply_type` est écrit par `static_sync_service` depuis
+              // `ITMMASTER.MFGFLG_0` et ne vaut que `ACHAT` ou `FABRICATION`.
+              // Toute autre valeur (table jamais synchronisée, colonne vide)
+              // devient `null` : mieux vaut ne rien dire que dire « acheté »
+              // d'un article fabriqué.
+              const appro = String((r as Record<string, unknown>).supply_type ?? '')
               map.set(code, {
                 designation: desc === null || desc === undefined ? null : String(desc) || null,
                 famille: fam === null || fam === undefined ? null : String(fam) || null,
                 categorie: cat === null || cat === undefined ? null : String(cat),
+                approvisionnement: appro === 'ACHAT' || appro === 'FABRICATION' ? appro : null,
               })
             }
           }
@@ -681,6 +693,7 @@ export class DemandSnapshotService {
               ...e,
               designation: hit?.designation ?? null,
               famille: hit?.famille ?? null,
+              approvisionnement: hit?.approvisionnement ?? null,
             }
           })
         }

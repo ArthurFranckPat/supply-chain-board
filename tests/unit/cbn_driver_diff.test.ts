@@ -639,3 +639,39 @@ test.group('cbn_driver_diff — pourcentage affiché', () => {
     assert.equal(pourcentVariation(100, 83), -17)
   })
 })
+
+test.group('cbn_driver_diff — fournisseur porté par le mouvement', () => {
+  const sug = (over: Partial<DemandSnapshotRow>): DemandSnapshotRow =>
+    row({ source: 'appro_suggestion', itmref: 'A5495', fournisseur: '16012', ...over })
+
+  test('une quantité modifiée garde le code tiers de la photo', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [sug({ vcrnum: 'SGAE1', quantity: 16128, date_echeance: '2026-09-24' })],
+      [sug({ vcrnum: 'SGAE2', quantity: 8064, date_echeance: '2026-09-24' })]
+    )
+    const q = diff.find((e) => e.nature === 'quantite')
+    assert.equal(q?.fournisseur, '16012')
+  })
+
+  test('une ligne apparue porte le fournisseur du côté « après »', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [],
+      [sug({ vcrnum: 'SGAE9', quantity: 8064, date_echeance: '2027-04-29' })]
+    )
+    assert.equal(diff[0].nature, 'apparue')
+    assert.equal(diff[0].fournisseur, '16012')
+  })
+
+  /**
+   * `approvisionnement` est enrichi HORS du diff (jointure `static_articles`
+   * dans `demand_snapshot_service`), au même titre que désignation et famille.
+   * Le domaine doit donc le rendre `null`, pas le deviner depuis la source.
+   */
+  test('le mode d’appro n’est jamais deviné par le domaine', ({ assert }) => {
+    const diff = diffCbnDrivers(
+      [],
+      [sug({ vcrnum: 'SGAE9', quantity: 8064, date_echeance: '2027-04-29' })]
+    )
+    assert.isNull(diff[0].approvisionnement)
+  })
+})

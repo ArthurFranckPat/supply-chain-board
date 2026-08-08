@@ -24,6 +24,8 @@ const entree = (over: Partial<DriverDiffEntry> = {}): DriverDiffEntry => ({
   detail: '100 → 50',
   designation: null,
   famille: null,
+  approvisionnement: null,
+  fournisseur: null,
   vcrnum: null,
   vcrlin: null,
   vcrnumApres: null,
@@ -274,5 +276,27 @@ test.group('construireFrise — budget (#143 défaut 1)', () => {
     // Seul A1 est servi (budget = 1), mais son `total` reste 3, pas 1.
     assert.equal(borne.articles[0].total, 3)
     assert.lengthOf(borne.articles[0].mouvements, 1)
+  })
+})
+
+test.group('construireFrise — mode d’appro remonté au groupe', () => {
+  test('l’article porte l’appro de ses mouvements', ({ assert }) => {
+    const f = construireFrise(
+      [
+        pas('2026-08-07', '2026-08-08', [
+          entree({ article: 'A5495', approvisionnement: 'ACHAT' }),
+          entree({ article: 'A5495', nature: 'apparue' }),
+        ]),
+      ],
+      { budget: 10 }
+    )
+    assert.equal(f.articles[0].approvisionnement, 'ACHAT')
+  })
+
+  test('aucun mouvement enrichi → l’article ne prétend rien', ({ assert }) => {
+    const f = construireFrise([pas('2026-08-07', '2026-08-08', [entree({ article: 'A1' })])], {
+      budget: 10,
+    })
+    assert.isNull(f.articles[0].approvisionnement)
   })
 })
