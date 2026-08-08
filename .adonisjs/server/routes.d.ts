@@ -101,6 +101,7 @@ export type ScannedRoutes = {
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
     'appro.snapshots': { paramsTuple?: []; params?: {} }
     'appro.driversDiff': { paramsTuple?: []; params?: {} }
+    'appro.driversFrise': { paramsTuple?: []; params?: {} }
     'appro.explanations': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
@@ -196,6 +197,7 @@ export type ScannedRoutes = {
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
     'appro.snapshots': { paramsTuple?: []; params?: {} }
     'appro.driversDiff': { paramsTuple?: []; params?: {} }
+    'appro.driversFrise': { paramsTuple?: []; params?: {} }
     'appro.explanations': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
@@ -282,6 +284,7 @@ export type ScannedRoutes = {
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
     'appro.snapshots': { paramsTuple?: []; params?: {} }
     'appro.driversDiff': { paramsTuple?: []; params?: {} }
+    'appro.driversFrise': { paramsTuple?: []; params?: {} }
     'appro.explanations': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }

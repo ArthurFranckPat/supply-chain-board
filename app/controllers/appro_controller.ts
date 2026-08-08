@@ -11,6 +11,8 @@ import {
   isApproDecisionStatut,
 } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
+import { construireFrise } from '#app/domain/diff_frise'
+import type { DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 
 /**
  * Page « Approvisionnements » (issue #103) : ce que le CBN de X3 propose côté
@@ -256,6 +258,169 @@ export default class ApproController {
       entrees: sliced,
       sourcesEcartees: result.sourcesEcartees,
       sourcesComparees: result.sourcesComparees,
+    })
+  }
+
+  /**
+   * GET /api/v1/appro/drivers-frise — frise des drivers sur une plage (#143).
+   * Query: ?avant=YYYY-MM-DD&apres=YYYY-MM-DD&source=a,b&nature=x,y&limit=1000
+   *
+   * Chaîne les diffs de chaque paire consécutive de photos de la plage (au lieu
+   * de comparer les deux bornes : un besoin avancé puis reculé s'y lisait
+   * « inchangé ») et agrège le tout par article, daté du jour du pas.
+   * Les trous de la série (photo attendue manquante) sont rendus à part.
+   * Filtres et bornage après cache — mêmes sémantiques que `/drivers-diff`.
+   */
+  async driversFrise(ctx: HttpContext) {
+    const avantQ = ctx.request.input('avant') as string | undefined
+    const apresQ = ctx.request.input('apres') as string | undefined
+    let avant: string | null = avantQ ?? null
+    let apres: string | null = apresQ ?? null
+    if (avant === null || apres === null) {
+      const jours = await demandSnapshotService.deuxDernieresPhotosBesoin()
+      if (jours === null) {
+        return ctx.response.json({
+          avant: null,
+          apres: null,
+          total: 0,
+          pas: [],
+          trous: [],
+          articles: [],
+          message: 'photo(s) drivers indisponible(s) — la frise a besoin d’au moins deux photos',
+        })
+      }
+      ;[apres, avant] = jours
+    }
+    // Plage inversée (sélection avant > apres) : la frise est symétrique en
+    // temps — la chaîne va toujours de la photo la plus ancienne à la plus
+    // récente —, normaliser les bornes plutôt que de répondre « illisible »
+    // sur un `whereBetween` inversé.
+    if (avant !== null && apres !== null && avant > apres) {
+      ;[avant, apres] = [apres, avant]
+    }
+    const result = await demandSnapshotService.friseDrivers(apres, avant)
+    if (result === null) {
+      return ctx.response.json({
+        avant,
+        apres,
+        total: 0,
+        pas: [],
+        trous: [],
+        articles: [],
+        message: 'moins de deux photos dans la plage sélectionnée — frise indisponible',
+      })
+    }
+    if (result.message !== null) {
+      return ctx.response.json({
+        avant: result.avant,
+        apres: result.apres,
+        total: 0,
+        pas: [],
+        trous: result.trous,
+        articles: [],
+        message: result.message,
+      })
+    }
+
+    // Agrégats du bandeau, calculés sur la frise complète AVANT filtres, même
+    // convention que `/drivers-diff` (§6) : les compteurs ne changent pas au clic.
+    // Simple boucle : reconstruire `construireFrise` ici coûterait la Map
+    // articles entière (~800 000 mouvements sur une plage large) pour deux
+    // compteurs.
+    const parNatureGlobal: Record<string, number> = {}
+    const parSourceGlobal: Record<string, number> = {}
+    for (const p of result.pas) {
+      for (const e of p.entrees) {
+        parNatureGlobal[e.nature] = (parNatureGlobal[e.nature] ?? 0) + 1
+        parSourceGlobal[e.source] = (parSourceGlobal[e.source] ?? 0) + 1
+      }
+    }
+
+    const sourceQ = ctx.request.input('source') as string | undefined
+    const natureQ = ctx.request.input('nature') as string | undefined
+    const limitQ = ctx.request.input('limit') as string | undefined
+    // Ensembles construits UNE fois, pas par entrée : la frise d'une plage peut
+    // porter des dizaines de milliers de mouvements, recréer deux Set à chaque
+    // appel de `filtre` coûterait un split + trim + Set par mouvement.
+    const wantedSource = sourceQ
+      ? new Set(
+          sourceQ
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        )
+      : null
+    const wantedNature = natureQ
+      ? new Set(
+          natureQ
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        )
+      : null
+    const filtre = (e: DriverDiffEntry): boolean => {
+      if (wantedSource !== null && wantedSource.size > 0 && !wantedSource.has(e.source))
+        return false
+      if (wantedNature !== null && wantedNature.size > 0 && !wantedNature.has(e.nature))
+        return false
+      return true
+    }
+
+    const pasFiltres = result.pas.map((p) => ({ ...p, entrees: p.entrees.filter(filtre) }))
+    const frise = construireFrise(pasFiltres)
+
+    // Résumé par pas, sans les entrees (la frise agrégée les porte déjà).
+    // Calculé sur `pasFiltres` — même convention que les articles ci-dessous :
+    // le bandeau reste global (pré-filtres, `friseComplete`), tout le reste
+    // suit la sélection. Un clic sur `source=stock` doit resserrer la
+    // chronologie des pas comme il resserre la liste des articles.
+    const pas = pasFiltres.map((p) => {
+      const parNature: Record<string, number> = {}
+      const parSource: Record<string, number> = {}
+      for (const e of p.entrees) {
+        parNature[e.nature] = (parNature[e.nature] ?? 0) + 1
+        parSource[e.source] = (parSource[e.source] ?? 0) + 1
+      }
+      return {
+        avant: p.avant,
+        apres: p.apres,
+        total: p.entrees.length,
+        parNature,
+        parSource,
+        sourcesEcartees: p.sourcesEcartees,
+        sourcesComparees: p.sourcesComparees,
+        message: p.message,
+      }
+    })
+
+    // Bornage : budget de mouvements consommé article par article, dans l'ordre
+    // de la frise (les plus agités d'abord) — même sémantique que `limit` de
+    // `/drivers-diff` (total après filtres, avant bornage). Un article dont le
+    // budget est épuisé n'a plus aucun mouvement à montrer : l'écarter, sinon
+    // la réponse traînerait des milliers d'articles vides derrière les 200
+    // mouvements du budget (là où `/drivers-diff` tranche sa liste net).
+    let limit = limitQ !== undefined ? Number(limitQ) : 200
+    if (!Number.isFinite(limit) || limit <= 0) limit = 200
+    limit = Math.min(Math.max(Math.floor(limit), 1), 1000)
+    let restant = limit
+    const articles = frise.articles
+      .map((a) => {
+        const mouvements = restant > 0 ? a.mouvements.slice(0, restant) : []
+        restant = Math.max(restant - mouvements.length, 0)
+        return { ...a, mouvements }
+      })
+      .filter((a) => a.mouvements.length > 0)
+
+    return ctx.response.json({
+      avant: result.avant,
+      apres: result.apres,
+      total: frise.total,
+      parNature: parNatureGlobal,
+      parSource: parSourceGlobal,
+      pas,
+      trous: result.trous,
+      articles,
+      message: null,
     })
   }
 

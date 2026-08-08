@@ -1171,6 +1171,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'appro.driversFrise': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/drivers-frise'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'appro.explanations': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/appro/explanations'

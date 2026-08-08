@@ -1,16 +1,29 @@
 /**
- * Page « Évolution des besoins » — composants existants uniquement (AppLayout
- * dense, ToolbarRow/Segment/PILL/RefreshPill, Card, DataTable, Select,
- * LoadingState), mêmes tokens que Réceptions et Conditionnements.
+ * Page « Évolution des besoins » — la FRISE des drivers sur une plage (#143).
+ *
+ * Comparer deux bornes directement ignore tout ce qui s'est passé entre elles :
+ * un besoin avancé puis reculé s'y lit « inchangé ». Ici chaque mouvement est
+ * daté du JOUR où la paire de photos consécutives l'a observé (colonne Jour),
+ * et la page groupe les mouvements par article, en ordre chronologique. Le
+ * serveur rend déjà `articles` triés par nombre de mouvements décroissant —
+ * la question de l'écran est « quels articles bougent le plus », pas « quel
+ * est le plus fort mouvement ».
  *
  * Grammaire de la table : vocabulaire de diff de code, emprunté à Primer
  * (GitHub). Signe en gouttière `+ − ± ~ =` doublé d'une teinte — la couleur ne
  * porte jamais un état toute seule, elle doit survivre au gris et à
  * l'impression. Les deux versants d'un mouvement sont teintés au niveau de la
  * valeur (rouge ce qui part, vert ce qui arrive), jamais au niveau de la ligne :
- * le blanc pur est le socle de ce système, 17 500 lignes teintées le
+ * le blanc pur est le socle de ce système, 1 000 lignes teintées le
  * retourneraient. Jamais de boîte pleine non plus — elle s'étire avec son
  * libellé et détruit le rythme vertical. Deux lignes par rangée au maximum.
+ *
+ * Trois bandeaux parlent de la VALIDITÉ de la frise, jamais de ses données :
+ * - les TROUS de la série (une photo attendue manquante entre deux photos
+ *   consécutives) : le pas qui les enjambe existe, mais ses mouvements ne
+ *   sont pas localisables au jour près — signalé, jamais enjambé en silence ;
+ * - le périmètre restreint par pas (#145), agrégé sur toute la plage ;
+ * - la volumétrie (`limit=1000`) quand le serveur n'a pas tout renvoyé.
  *
  * Tous les filtres vivent dans la `ToolbarRow`, à leur place canonique. Une
  * grille de 8 cartes posée au milieu de la page les a précédés : c'était un
@@ -18,14 +31,13 @@
  * réintroduire — un filtre n'est pas une donnée.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CalendarRange, CloudOff, Info, Search } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Card } from '@r/components/ui/card'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
-import { DataTable, type ColumnDef } from '@r/components/ui/data-table'
 import {
   PILL,
   RefreshPill,
@@ -81,24 +93,54 @@ interface DriverDiffEntry {
  * Une source retirée de la comparaison (#145), et de QUELLE photo elle manque.
  * Les deux cas se lisent à l'opposé : absente de la photo « avant » = source
  * neuve, l'historique ne remonte pas plus loin ; absente de la photo « après » =
- * capture perdue cette nuit-là.
+ * capture perdue cette nuit-là. Dans la frise, ce périmètre est PROPRE À
+ * CHAQUE PAS — une source écartée sur un pas peut avoir bougé sur les autres.
  */
 interface SourceEcartee {
   source: string
   manqueDans: 'avant' | 'apres'
   raison?: 'echec' | 'vide' | 'inconnu'
 }
-interface DriversDiffResponse {
+/** Un mouvement de la frise : une entrée de diff datée du pas qui l'a vu. */
+interface MouvementFrise extends DriverDiffEntry {
+  /** Date de la photo « après » du pas — le jour où le mouvement a été observé. */
+  jour: string
+}
+interface ArticleFrise {
+  article: string
+  designation: string | null
+  famille: string | null
+  total: number
+  /** Chronologique (jour croissant). */
+  mouvements: MouvementFrise[]
+}
+interface PasFrise {
+  avant: string
+  apres: string
+  total: number
+  parNature?: Record<string, number>
+  parSource?: Record<string, number>
+  sourcesEcartees: SourceEcartee[]
+  sourcesComparees: string[]
+  /** Renseigné quand le pas n'a RIEN à comparer (photo illisible). */
+  message: string | null
+}
+/** Jours calendaires sans photo entre deux photos consécutives de la série. */
+interface TrouFrise {
+  entre: string
+  et: string
+  manquants: string[]
+}
+interface FriseResponse {
   avant: string | null
   apres: string | null
   total: number
   parSource?: Record<string, number>
   parNature?: Record<string, number>
-  entrees: DriverDiffEntry[]
-  sourcesEcartees?: SourceEcartee[]
-  /** Sources réellement comparées — le seul périmètre que l'écran a le droit d'annoncer couvert. */
-  sourcesComparees?: string[]
-  message?: string
+  pas: PasFrise[]
+  trous: TrouFrise[]
+  articles: ArticleFrise[]
+  message?: string | null
 }
 
 const SOURCE_LABEL: Record<DriverSource, string> = {
@@ -136,8 +178,8 @@ const TOUTES_SOURCES = '__toutes__'
  *
  * Le CBN détruit et recrée ~17 500 documents par nuit (of_planifie,
  * of_suggestion, appro_suggestion) pour une poignée de mouvements réels. Les
- * afficher par défaut noierait la question posée par l'écran. Elles restent à un
- * clic — écartées, jamais masquées en dur.
+ * afficher par défaut noierait la question posée par l'écran. Elles restent à
+ * un clic — écartées, jamais masquées en dur.
  */
 const NATURES_PAR_DEFAUT = (): Set<DriverNature> =>
   new Set(NATURES.filter((n) => n !== 'renumerotation'))
@@ -171,7 +213,7 @@ const NATURE_TONE: Record<DriverNature, { text: string; signe: string }> = {
  * double toujours la couleur d'un signe en gouttière, parce que la couleur
  * seule ne porte pas un état. On en garde deux niveaux sur trois : la teinte de
  * mot sur les deux valeurs, et le signe. Pas de fond de ligne : le blanc pur
- * est le socle de ce système, et 17 500 lignes teintées le retourneraient.
+ * est le socle de ce système, et 1 000 lignes teintées le retourneraient.
  */
 function PaireDiff(props: { avant: string | null; apres: string | null }) {
   return (
@@ -197,6 +239,12 @@ const fmtJJMMAAAA = (iso: string): string => {
   const [y, m, d] = iso.split('-')
   if (!y || !m || !d) return iso
   return `${d}/${m}/${y}`
+}
+/** Jour court `JJ/MM` — la colonne Jour de la frise ; l'année dans le survol. */
+const fmtJour = (iso: string): string => {
+  const [, m, d] = iso.split('-')
+  if (!m || !d) return iso
+  return `${d}/${m}`
 }
 const fmtJJMM = (iso: string | null): string => (iso ? fmtJJMMAAAA(iso) : '—')
 
@@ -317,15 +365,147 @@ const fold = (s: string): string =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 
+/**
+ * Une source écartée sur certains pas seulement, agrégée en vue du bandeau
+ * (#145) : clé `source | manqueDans | raison`, pas concernés listés.
+ */
+type GroupeEcartement = {
+  manqueDans: 'avant' | 'apres'
+  raison: 'echec' | 'vide' | 'inconnu'
+  sources: string[]
+  pas: { entre: string; et: string }[]
+}
+
+function CellulePiece(props: { m: MouvementFrise }) {
+  const r = props.m
+  if (!r.vcrnum) return <span className="font-mono text-xs text-muted-foreground">—</span>
+  const avant = r.vcrlin ? `${r.vcrnum} L${r.vcrlin}` : r.vcrnum
+  // Renumérotation : la pièce a été remplacée. Les deux références sur la
+  // même ligne — c'est l'information, pas une disparition suivie d'une
+  // apparition.
+  // Une pièce remplacée EST un diff : ancienne référence retirée, nouvelle
+  // ajoutée. Même vocabulaire que la colonne Avant → Après, empilé parce que
+  // les références sont longues.
+  if (r.vcrnumApres) {
+    const apres = r.vcrlinApres ? `${r.vcrnumApres} L${r.vcrlinApres}` : r.vcrnumApres
+    return (
+      <span
+        className="flex flex-col items-start gap-0.5 whitespace-nowrap font-mono text-xs leading-tight tabular-nums"
+        title={`${avant} → ${apres}`}
+      >
+        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-destructive line-through">
+          {avant}
+        </span>
+        <span className="rounded bg-ferme/10 px-1.5 py-0.5 text-ferme">{apres}</span>
+      </span>
+    )
+  }
+  return (
+    <span
+      className="whitespace-nowrap font-mono text-xs tabular-nums text-foreground"
+      title={avant}
+    >
+      {avant}
+    </span>
+  )
+}
+
+function CelluleNature(props: { nature: DriverNature }) {
+  const n = props.nature
+  const tone = NATURE_TONE[n]
+  // Point + petites capitales (DESIGN.md, Chips/Badges) : hauteur fixe,
+  // insensible à la longueur du libellé. Le point plein marque un mouvement
+  // réel, le point creux une renumérotation — la seule nature où rien n'a
+  // bougé. Aucune teinte décorative : les couleurs de statut métier ne sont
+  // pas détournées pour coder un axe qui n'est pas le leur.
+  // Signe en gouttière plutôt que pastille de couleur : c'est la règle que
+  // Primer et les guides de tables rappellent tous les deux — la couleur
+  // seule ne porte jamais un état. `+ − ± ~ =` restent lisibles en niveaux de
+  // gris, à l'impression et en vision déficiente.
+  return (
+    <span className="flex items-center gap-2 whitespace-nowrap">
+      <span
+        aria-hidden
+        className={cn(
+          'w-3 shrink-0 text-center font-mono text-xs font-bold leading-none',
+          tone.text
+        )}
+      >
+        {tone.signe}
+      </span>
+      <span
+        className={cn(
+          'text-[10px] font-semibold uppercase tracking-[0.08em]',
+          n === 'renumerotation' ? 'text-muted-foreground' : 'text-foreground'
+        )}
+      >
+        {NATURE_LABEL[n]}
+      </span>
+    </span>
+  )
+}
+
+function CelluleAvantApres(props: { m: MouvementFrise }) {
+  const p = paireValeurs(props.m)
+  if (p === null) {
+    return (
+      <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
+        {avantApresLabel(props.m)}
+      </span>
+    )
+  }
+  return <PaireDiff avant={p.avant} apres={p.apres} />
+}
+
+function CelluleEcart(props: { m: MouvementFrise }) {
+  const n = props.m.nature
+  return (
+    <span
+      className={cn(
+        'whitespace-nowrap font-mono text-xs font-semibold tabular-nums',
+        NATURE_TONE[n].text
+      )}
+    >
+      {ecartLabel(props.m)}
+    </span>
+  )
+}
+
+/**
+ * Ligne d'en-tête d'un groupe d'article : code + désignation + famille, et le
+ * nombre de mouvements — « X sur N » quand le serveur a tronqué l'article
+ * (budget `limit`) ou que la recherche n'en montre qu'une partie.
+ */
+function EnteteArticle(props: { article: ArticleFrise }) {
+  const a = props.article
+  const affiches = a.mouvements.length
+  const tronque = affiches < a.total
+  return (
+    <div className="flex min-w-0 items-baseline gap-2">
+      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-foreground">
+        {a.article}
+      </span>
+      <span className="truncate text-xs leading-tight text-muted-foreground">
+        {a.designation ?? <span className="italic">sans désignation</span>}
+        {a.famille && <span className="tabular-nums"> · {a.famille}</span>}
+      </span>
+      <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+        {fmtQte.format(affiches)} mouvement{affiches > 1 ? 's' : ''}
+        {tronque ? ` sur ${fmtQte.format(a.total)}` : ''}
+      </span>
+    </div>
+  )
+}
+
 export default function BesoinsEvolution() {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [photosLoading, setPhotosLoading] = useState(true)
   const [photosError, setPhotosError] = useState<string | null>(null)
   const [avant, setAvant] = useState<string | null>(null)
   const [apres, setApres] = useState<string | null>(null)
-  const [diff, setDiff] = useState<DriversDiffResponse | null>(null)
-  const [diffLoading, setDiffLoading] = useState(false)
-  const [diffError, setDiffError] = useState<string | null>(null)
+  const [frise, setFrise] = useState<FriseResponse | null>(null)
+  const [friseLoading, setFriseLoading] = useState(false)
+  const [friseError, setFriseError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<DriverSource | null>(null)
   // Multi-sélection, et non un choix exclusif : la question posée à l'écran est
   // « qu'est-ce qui a bougé cette nuit », pas « montre-moi une seule nature ».
@@ -369,85 +549,128 @@ export default function BesoinsEvolution() {
   const natureKey = [...natureFilters].sort().join(',')
   const estNatureParDefaut = natureKey === [...NATURES_PAR_DEFAUT()].sort().join(',')
 
-  const reloadDiff = async () => {
+  const reloadFrise = async () => {
     if (!avant || !apres) return
-    setDiffLoading(true)
-    setDiffError(null)
+    setFriseLoading(true)
+    setFriseError(null)
     try {
       // Le filtre de nature part au serveur : sans lui, `total` compterait les
       // ~17 500 renumérotations que l'écran n'affiche pas, et le bandeau
       // « X affichés sur N » mentirait sur ce qui est réellement filtré.
       const nature = natureKey ? `&nature=${encodeURIComponent(natureKey)}` : ''
-      const url = `/api/v1/appro/drivers-diff?avant=${encodeURIComponent(avant)}&apres=${encodeURIComponent(apres)}&limit=1000${nature}`
+      const url = `/api/v1/appro/drivers-frise?avant=${encodeURIComponent(avant)}&apres=${encodeURIComponent(apres)}&limit=1000${nature}`
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = (await res.json()) as DriversDiffResponse
-      setDiff(json)
+      const json = (await res.json()) as FriseResponse
+      setFrise(json)
     } catch (e) {
-      setDiffError(e instanceof Error ? e.message : String(e))
+      setFriseError(e instanceof Error ? e.message : String(e))
     } finally {
-      setDiffLoading(false)
+      setFriseLoading(false)
     }
   }
   useEffect(() => {
-    if (avant && apres) reloadDiff()
+    if (avant && apres) reloadFrise()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avant, apres, natureKey])
 
-  const filtered = useMemo(() => {
-    if (!diff) return []
-    let out = diff.entrees
-    if (sourceFilter) out = out.filter((e) => e.source === sourceFilter)
-    out = out.filter((e) => natureFilters.has(e.nature))
-    if (search.trim()) {
-      const q = fold(search.trim())
-      // Les deux références sont cherchables : sur une renumérotation, on part
-      // aussi souvent du numéro disparu que du nouveau.
-      out = out.filter(
-        (e) =>
-          fold(e.article).includes(q) ||
-          (e.designation !== null && fold(e.designation).includes(q)) ||
-          (e.vcrnum !== null && fold(e.vcrnum).includes(q)) ||
-          (e.vcrnumApres !== null && fold(e.vcrnumApres).includes(q))
-      )
+  // Filtres côté client : la source (le serveur ne connaît que le filtre de
+  // nature) et la recherche. La recherche parcourt les MOUVEMENTS, pas les
+  // articles : un article ne reste affiché que s'il a au moins un mouvement
+  // correspondant. Les deux références sont cherchables — sur une
+  // renumérotation, on part aussi souvent du numéro disparu que du nouveau.
+  const filteredArticles = useMemo(() => {
+    if (!frise) return []
+    const q = fold(search.trim())
+    const out: ArticleFrise[] = []
+    for (const a of frise.articles) {
+      let ms = a.mouvements
+      if (sourceFilter) ms = ms.filter((m) => m.source === sourceFilter)
+      if (q) {
+        ms = ms.filter(
+          (m) =>
+            fold(m.article).includes(q) ||
+            (m.designation !== null && fold(m.designation).includes(q)) ||
+            (m.vcrnum !== null && fold(m.vcrnum).includes(q)) ||
+            (m.vcrnumApres !== null && fold(m.vcrnumApres).includes(q))
+        )
+      }
+      if (ms.length > 0) out.push({ ...a, mouvements: ms })
     }
     return out
-  }, [diff, sourceFilter, natureFilters, search])
+  }, [frise, sourceFilter, search])
 
-  const total = diff?.total ?? 0
-  const entrees = diff?.entrees ?? []
-  const parSource = diff?.parSource ?? {}
-  const hasMessage = Boolean(diff?.message)
-  // Périmètre réellement comparé (#145). Deux usages, tous deux nécessaires
-  // pour que l'écran ne prétende pas avoir couvert ce qu'il n'a pas lu : le
-  // bandeau nomme les sources sorties du diff, et le compte des sources
-  // annoncé dans l'état vide vient du serveur, jamais d'un 8 en dur.
-  const sourcesEcartees = diff?.sourcesEcartees ?? []
-  const ecarteesParSource = new Map(sourcesEcartees.map((e) => [e.source, e.manqueDans]))
-  const nbComparees = diff?.sourcesComparees?.length ?? null
-  // Changer de couple de photos peut écarter la source sélectionnée : la garder
-  // laisserait une table vide sans que rien ne l'explique.
-  useEffect(() => {
-    if (sourceFilter !== null && ecarteesParSource.has(sourceFilter)) setSourceFilter(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diff])
-  const jourDuCote = (cote: 'avant' | 'apres'): string | null => (cote === 'avant' ? avant : apres)
+  const articles = frise?.articles ?? []
+  // Mouvements réellement rendus par le serveur (avant bornage `limit`, le
+  // budget peut tronquer les derniers articles à zéro mouvement) — la référence
+  // du bandeau de volumétrie.
+  const servis = articles.reduce((n, a) => n + a.mouvements.length, 0)
+  const mouvementsAffiches = filteredArticles.reduce((n, a) => n + a.mouvements.length, 0)
+
+  const total = frise?.total ?? 0
+  const parSource = frise?.parSource ?? {}
+  const hasMessage = Boolean(frise?.message)
+  const trous = frise?.trous ?? []
+  // Pas sans aucune source comparée (photo illisible) : défensif côté domaine,
+  // mais un pas annoncé indisponible ne doit pas passer en silence.
+  const pasIllisibles = useMemo(() => (frise?.pas ?? []).filter((p) => p.message !== null), [frise])
+
   /**
-   * Entrée du filtre de source. Une source écartée reste visible mais n'est pas
-   * sélectionnable : son compteur « — » se lirait comme « 0 mouvement » alors
-   * qu'elle n'a jamais été comparée.
+   * Périmètre réellement comparé (#145), agrégé sur toute la plage : une source
+   * écartée sur certains pas seulement reste affichée (elle a bougé ailleurs) —
+   * le bandeau nomme les sources sorties et les pas concernés.
    */
-  const itemSource = (src: DriverSource) => {
-    const ecartee = ecarteesParSource.has(src)
-    return (
-      <SelectItem key={src} value={src} disabled={ecartee}>
-        {SOURCE_LABEL[src]}
-        <span className="ml-2 tabular-nums text-muted-foreground">
-          {ecartee ? '(écartée)' : parSource[src] ? fmtQte.format(parSource[src]) : '—'}
-        </span>
-      </SelectItem>
-    )
-  }
+  const groupesEcartements = useMemo<GroupeEcartement[]>(() => {
+    const parCle = new Map<string, GroupeEcartement>()
+    for (const p of frise?.pas ?? []) {
+      for (const e of p.sourcesEcartees) {
+        const raison = e.raison ?? 'inconnu'
+        const cle = `${e.source}|${e.manqueDans}|${raison}`
+        let g = parCle.get(cle)
+        if (!g) {
+          g = { manqueDans: e.manqueDans, raison, sources: [], pas: [] }
+          parCle.set(cle, g)
+        }
+        if (!g.sources.includes(e.source)) g.sources.push(e.source)
+        const pasCle = `${p.avant}→${p.apres}`
+        if (!g.pas.some((x) => `${x.entre}→${x.et}` === pasCle)) {
+          g.pas.push({ entre: p.avant, et: p.apres })
+        }
+      }
+    }
+    // Ordre stable : avant d'abord (source neuve), puis raison, puis source.
+    return [...parCle.values()].sort((a, b) => {
+      if (a.manqueDans !== b.manqueDans) return a.manqueDans === 'avant' ? -1 : 1
+      if (a.raison !== b.raison) return a.raison < b.raison ? -1 : 1
+      return a.sources.join(',') < b.sources.join(',') ? -1 : 1
+    })
+  }, [frise])
+
+  // Le compte des sources réellement comparées, pour l'état vide : l'union
+  // sur tous les pas — une source comparée ne serait-ce qu'un jour compte.
+  const nbComparees = useMemo(() => {
+    if (!frise) return null
+    const union = new Set<string>()
+    for (const p of frise.pas) {
+      for (const s of p.sourcesComparees) union.add(s)
+    }
+    return union.size
+  }, [frise])
+
+  /**
+   * Entrée du filtre de source. Jamais désactivée : dans la frise, une source
+   * écartée sur un pas peut avoir bougé sur les autres — la griser
+   * masquerait des mouvements réels. Le bandeau de périmètre dit où elle
+   * manque, le compteur global vient du serveur.
+   */
+  const itemSource = (src: DriverSource) => (
+    <SelectItem key={src} value={src}>
+      {SOURCE_LABEL[src]}
+      <span className="ml-2 tabular-nums text-muted-foreground">
+        {parSource[src] ? fmtQte.format(parSource[src]) : '—'}
+      </span>
+    </SelectItem>
+  )
   const photoOptions = useMemo(
     () => [...photos].sort((a, b) => b.date.localeCompare(a.date)),
     [photos]
@@ -467,163 +690,18 @@ export default function BesoinsEvolution() {
         ? '…'
         : '—'
 
-  const columns = useMemo<ColumnDef<DriverDiffEntry>[]>(
-    () => [
-      {
-        id: 'article',
-        header: 'Article',
-        accessorFn: (r) => r.article,
-        // Deux lignes, jamais trois : la famille rejoint la désignation en
-        // suffixe. Elle valait une ligne entière pour trois caractères, et
-        // c'est ce troisième niveau qui faisait respirer les rangées de façon
-        // inégale selon que l'article portait ou non une famille.
-        cell: ({ row }) => {
-          const r = row.original
-          return (
-            <div className="flex max-w-[260px] flex-col" title={resumeLabel(r)}>
-              <span className="truncate font-mono text-xs font-semibold tabular-nums text-foreground">
-                {r.article}
-              </span>
-              <span className="truncate text-xs leading-tight text-muted-foreground">
-                {r.designation ?? <span className="italic">sans désignation</span>}
-                {r.famille && <span className="tabular-nums"> · {r.famille}</span>}
-              </span>
-            </div>
-          )
-        },
-        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
-      },
-      {
-        id: 'piece',
-        header: 'Pièce',
-        accessorFn: (r) => r.vcrnum ?? '',
-        enableSorting: false,
-        cell: ({ row }) => {
-          const r = row.original
-          if (!r.vcrnum) return <span className="font-mono text-xs text-muted-foreground">—</span>
-          const avant = r.vcrlin ? `${r.vcrnum} L${r.vcrlin}` : r.vcrnum
-          // Renumérotation : la pièce a été remplacée. Les deux références sur la
-          // même ligne — c'est l'information, pas une disparition suivie d'une
-          // apparition.
-          // Une pièce remplacée EST un diff : ancienne référence retirée,
-          // nouvelle ajoutée. Même vocabulaire que la colonne Avant → Après,
-          // empilé parce que les références sont longues.
-          if (r.vcrnumApres) {
-            const apres = r.vcrlinApres ? `${r.vcrnumApres} L${r.vcrlinApres}` : r.vcrnumApres
-            return (
-              <span
-                className="flex flex-col items-start gap-0.5 whitespace-nowrap font-mono text-xs leading-tight tabular-nums"
-                title={`${avant} → ${apres}`}
-              >
-                <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-destructive line-through">
-                  {avant}
-                </span>
-                <span className="rounded bg-ferme/10 px-1.5 py-0.5 text-ferme">{apres}</span>
-              </span>
-            )
-          }
-          return (
-            <span
-              className="whitespace-nowrap font-mono text-xs tabular-nums text-foreground"
-              title={avant}
-            >
-              {avant}
-            </span>
-          )
-        },
-        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
-      },
-      {
-        id: 'source',
-        header: 'Source',
-        accessorFn: (r) => r.source,
-        enableSorting: false,
-        // Texte nu, pas de pastille : une boîte s'étire avec son libellé et
-        // casse le rythme vertical dès qu'un libellé passe sur deux lignes.
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap text-xs text-foreground">
-            {SOURCE_LABEL[row.original.source]}
-          </span>
-        ),
-        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
-      },
-      {
-        id: 'nature',
-        header: 'Nature',
-        accessorFn: (r) => r.nature,
-        enableSorting: false,
-        // Point + petites capitales (DESIGN.md, Chips/Badges) : hauteur fixe,
-        // insensible à la longueur du libellé. Le point plein marque un
-        // mouvement réel, le point creux une renumérotation — la seule nature
-        // où rien n'a bougé. Aucune teinte décorative : les couleurs de statut
-        // métier ne sont pas détournées pour coder un axe qui n'est pas le leur.
-        // Signe en gouttière plutôt que pastille de couleur : c'est la règle que
-        // Primer et les guides de tables rappellent tous les deux — la couleur
-        // seule ne porte jamais un état. `+ − ± ~ =` restent lisibles en
-        // niveaux de gris, à l'impression et en vision déficiente.
-        cell: ({ row }) => {
-          const n = row.original.nature
-          const tone = NATURE_TONE[n]
-          return (
-            <span className="flex items-center gap-2 whitespace-nowrap">
-              <span
-                aria-hidden
-                className={cn(
-                  'w-3 shrink-0 text-center font-mono text-xs font-bold leading-none',
-                  tone.text
-                )}
-              >
-                {tone.signe}
-              </span>
-              <span
-                className={cn(
-                  'text-[10px] font-semibold uppercase tracking-[0.08em]',
-                  n === 'renumerotation' ? 'text-muted-foreground' : 'text-foreground'
-                )}
-              >
-                {NATURE_LABEL[n]}
-              </span>
-            </span>
-          )
-        },
-        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
-      },
-      {
-        id: 'avantApres',
-        header: 'Avant → Après',
-        enableSorting: false,
-        accessorFn: (r) => `${r.quantiteAvant ?? ''}->${r.quantiteApres ?? ''}`,
-        cell: ({ row }) => {
-          const p = paireValeurs(row.original)
-          if (p === null) {
-            return (
-              <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
-                {avantApresLabel(row.original)}
-              </span>
-            )
-          }
-          return <PaireDiff avant={p.avant} apres={p.apres} />
-        },
-        meta: { tdClass: 'px-3 py-2', thClass: 'px-3 py-2' },
-      },
-      {
-        id: 'ecart',
-        header: 'Écart',
-        accessorFn: (r) => ecartLabel(r),
-        cell: ({ row }) => (
-          <span
-            className={cn(
-              'whitespace-nowrap font-mono text-xs font-semibold tabular-nums',
-              NATURE_TONE[row.original.nature].text
-            )}
-          >
-            {ecartLabel(row.original)}
-          </span>
-        ),
-        meta: { tdClass: 'px-3 py-2 text-right', thClass: 'px-3 py-2 text-right' },
-      },
-    ],
-    []
+  const ouvrirArticle = (article: string) => {
+    setSheetArticle(article)
+    setSheetOpen(true)
+  }
+
+  const celluleJour = (m: MouvementFrise) => (
+    <span
+      className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground"
+      title={fmtJJMMAAAA(m.jour)}
+    >
+      {fmtJour(m.jour)}
+    </span>
   )
 
   return (
@@ -640,7 +718,7 @@ export default function BesoinsEvolution() {
             {rangeLabel}
           </div>
           <div className="font-mono text-[10px] tabular-nums text-muted-foreground">
-            {diff
+            {frise
               ? `${fmtQte.format(total)} mouvement${total > 1 ? 's' : ''}${intervalle ? ` · ${intervalle} écoulées` : ''}`
               : photosLoading
                 ? '…'
@@ -743,12 +821,12 @@ export default function BesoinsEvolution() {
             />
           </div>
           <span className="hidden xl:inline font-mono text-xs tabular-nums text-muted-foreground">
-            {filtered.length} / {entrees.length}
-            {total > entrees.length ? ` · ${fmtQte.format(total)}` : ''}
+            {mouvementsAffiches} / {servis}
+            {total > servis ? ` · ${fmtQte.format(total)}` : ''}
           </span>
           <RefreshPill
-            loading={photosLoading || diffLoading}
-            onClick={() => (avant && apres ? reloadDiff() : reloadPhotos())}
+            loading={photosLoading || friseLoading}
+            onClick={() => (avant && apres ? reloadFrise() : reloadPhotos())}
           />
         </ToolbarRow>
 
@@ -772,9 +850,10 @@ export default function BesoinsEvolution() {
                   Évolution des besoins
                 </h1>
                 <p className="mt-1.5 max-w-[68ch] text-sm leading-[1.5] text-muted-foreground">
-                  Ce que le CBN a vu bouger entre deux nuits — le besoin brut, pas le message. Le
-                  bandeau dit où regarder, la table est triée par amplitude relative (ratio, pas
-                  absolu).
+                  Ce que le CBN a vu bouger, nuit après nuit, sur la plage — chaque mouvement est
+                  daté du jour où la paire de photos l&apos;a observé, jamais le solde entre deux
+                  bornes. Un trou de la série est signalé : un mouvement observé sur un pas qui
+                  l&apos;enjambe n&apos;est pas localisable au jour près.
                 </p>
               </div>
 
@@ -816,42 +895,87 @@ export default function BesoinsEvolution() {
                       <CloudOff size={16} className="text-warning" />
                     </div>
                     <div>
-                      {/* Couvre les deux cas : photo manquante ou illisible, et
-                          deux photos sans aucune source commune (#145). */}
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Comparaison indisponible
-                      </h3>
+                      {/* Couvre les trois cas : pas assez de photos, photos
+                          illisibles, plage trop large pour la frise. */}
+                      <h3 className="text-sm font-semibold text-foreground">Frise indisponible</h3>
                       <p className="mt-1 text-sm leading-[1.5] text-muted-foreground">
-                        {diff?.message}
+                        {frise?.message}
                       </p>
                       {avant && apres && (
                         <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                          Couple demandé : {fmtJJMMAAAA(avant)} → {fmtJJMMAAAA(apres)}
+                          Plage demandée : {fmtJJMMAAAA(avant)} → {fmtJJMMAAAA(apres)}
                         </p>
                       )}
                     </div>
                   </div>
                 </Card>
-              ) : diffError ? (
+              ) : friseError ? (
                 <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
                   <AlertTriangle size={16} strokeWidth={1.75} className="text-destructive" />
                   <span className="font-bold">Erreur chargement :</span>
-                  <span className="font-mono">{diffError}</span>
+                  <span className="font-mono">{friseError}</span>
                 </div>
-              ) : diffLoading ? (
+              ) : friseLoading ? (
                 <LoadingState
-                  title="Comparaison des deux photos…"
-                  description="~73 000 lignes lues"
+                  title="Lecture de la frise…"
+                  description="diffs journaliers chaînés — un pas par nuit"
                   variant="orb"
                   orbState="searching"
                   className="py-10"
                 />
               ) : (
                 <div className="space-y-3">
-                  {/* Avertissement sur la VALIDITÉ de ce qui est affiché, et il
-                      apparaît/disparaît au changement de couple de photos sans
-                      rechargement : il doit être annoncé aux lecteurs d'écran. */}
-                  {sourcesEcartees.length > 0 && (
+                  {/* Trous de la série + pas illisibles. Avertissement sur la
+                      VALIDITÉ de la frise : il apparaît/disparaît au changement
+                      de plage sans rechargement — annoncé aux lecteurs d'écran.
+                      Jamais silencieux : un trou est un pas dont les mouvements
+                      ne sont pas localisables au jour près. */}
+                  {(trous.length > 0 || pasIllisibles.length > 0) && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-[1.5] text-foreground"
+                    >
+                      <AlertTriangle
+                        aria-hidden
+                        size={14}
+                        className="mt-0.5 shrink-0 text-warning"
+                      />
+                      <span className="space-y-1">
+                        {trous.map((t) => {
+                          const jours = t.manquants.map(fmtJour)
+                          const visibles = jours.slice(0, 6)
+                          const enPlus = jours.length - visibles.length
+                          return (
+                            <span key={t.entre} className="block">
+                              {jours.length === 1 ? 'Photo' : 'Photos'} du{' '}
+                              <span className="font-mono tabular-nums" title={jours.join(', ')}>
+                                {visibles.join(', ')}
+                                {enPlus > 0 ? ` … +${enPlus}` : ''}
+                              </span>{' '}
+                              manquante{jours.length > 1 ? 's' : ''} entre le{' '}
+                              <span className="font-mono tabular-nums">{fmtJour(t.entre)}</span> et
+                              le <span className="font-mono tabular-nums">{fmtJour(t.et)}</span> :
+                              les mouvements de ce pas ne sont pas localisés au jour près.
+                            </span>
+                          )
+                        })}
+                        {pasIllisibles.map((p) => (
+                          <span key={`${p.avant}-${p.apres}`} className="block">
+                            Pas du{' '}
+                            <span className="font-mono tabular-nums">{fmtJour(p.avant)}</span> au{' '}
+                            <span className="font-mono tabular-nums">{fmtJour(p.apres)}</span> :{' '}
+                            {p.message}.
+                          </span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Périmètre restreint (#145), agrégé sur toute la plage :
+                      une source écartée sur un pas reste présente sur les
+                      autres — le bandeau nomme les pas où elle manque. */}
+                  {groupesEcartements.length > 0 && (
                     <div
                       role="status"
                       aria-live="polite"
@@ -863,61 +987,54 @@ export default function BesoinsEvolution() {
                         className="mt-0.5 shrink-0 text-warning"
                       />
                       <span>
-                        Comparaison sur périmètre restreint.{' '}
-                        {(['avant', 'apres'] as const).map((cote) => {
-                          const parRaison = new Map<string, string[]>()
-                          for (const e of sourcesEcartees.filter((x) => x.manqueDans === cote)) {
-                            const r = e.raison ?? 'inconnu'
-                            const label = SOURCE_LABEL[e.source as DriverSource] ?? e.source
-                            const arr = parRaison.get(r)
-                            if (arr) arr.push(label)
-                            else parRaison.set(r, [label])
-                          }
-                          if (parRaison.size === 0) return null
-                          const jour = jourDuCote(cote)
-                          const jourEl = (
-                            <span className="font-mono tabular-nums">
-                              {jour ? fmtJJMMAAAA(jour) : '—'}
-                            </span>
-                          )
-                          const echec = parRaison.get('echec')
-                          const inconnu = parRaison.get('inconnu')
-                          // On rend une phrase par raison pour que le motif reste lisible.
+                        Comparaison sur périmètre restreint sur une partie de la plage.{' '}
+                        {groupesEcartements.map((g) => {
+                          const ranges = g.pas.map((p) => `${fmtJour(p.entre)} → ${fmtJour(p.et)}`)
+                          const visibles = ranges.slice(0, 6)
+                          const enPlus = ranges.length - visibles.length
+                          const phrase =
+                            g.raison === 'echec'
+                              ? 'capture perdue (extraction en échec)'
+                              : g.raison === 'inconnu'
+                                ? 'sans journal, écartée par prudence'
+                                : 'réellement vide'
                           return (
-                            <span key={cote}>
-                              {echec && echec.length > 0 && (
-                                <span>
-                                  {echec.length > 1 ? 'Sources' : 'Source'}{' '}
-                                  <span className="font-semibold">{echec.join(', ')}</span> —
-                                  capture perdue (extraction en échec) de la photo du {jourEl}.{' '}
-                                </span>
-                              )}
-                              {inconnu && inconnu.length > 0 && (
-                                <span>
-                                  {inconnu.length > 1 ? 'Sources absentes' : 'Source absente'} de la
-                                  photo du {jourEl} :{' '}
-                                  <span className="font-semibold">{inconnu.join(', ')}</span>.{' '}
-                                </span>
-                              )}
+                            <span
+                              key={`${g.manqueDans}|${g.raison}|${g.sources.join(',')}`}
+                              className="block"
+                            >
+                              {g.sources.length > 1 ? 'Sources' : 'Source'}{' '}
+                              <span className="font-semibold">{g.sources.join(', ')}</span> —{' '}
+                              {phrase} de la photo « {g.manqueDans === 'avant' ? 'avant' : 'après'}{' '}
+                              », sur {g.pas.length} pas :{' '}
+                              <span className="font-mono tabular-nums" title={ranges.join(', ')}>
+                                {visibles.join(', ')}
+                                {enPlus > 0 ? ` … +${enPlus}` : ''}
+                              </span>
+                              .
                             </span>
                           )
                         })}
-                        Elles sont écartées du diff — une source en échec n&apos;a pas été capturée,
-                        une source sans journal est écartée par prudence ; une source réellement
-                        vide, elle, reste comparée et sa disparition est affichée.
+                        <span className="block">
+                          Une source en échec n&apos;a pas été capturée ; une source sans journal
+                          est écartée par prudence ; une source réellement vide, elle, reste
+                          comparée et sa disparition est affichée.
+                        </span>
                       </span>
                     </div>
                   )}
-                  {total > entrees.length && (
+
+                  {total > servis && (
                     <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
-                      <Info size={14} className="shrink-0 text-warning" /> {entrees.length} affichés
-                      sur {fmtQte.format(total)} — affinez par source ou nature.
+                      <Info size={14} className="shrink-0 text-warning" /> {servis} affichés sur{' '}
+                      {fmtQte.format(total)} — affinez par source ou nature.
                     </div>
                   )}
 
                   <div className="flex items-center gap-2 border-b border-border/50 px-1 py-1.5">
                     <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                      {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · tri ratio
+                      {mouvementsAffiches} mouvement{mouvementsAffiches > 1 ? 's' : ''} · articles
+                      par nombre de mouvements décroissant
                     </span>
                     {(sourceFilter || !estNatureParDefaut || search) && (
                       <button
@@ -964,29 +1081,88 @@ export default function BesoinsEvolution() {
                         Seuils : quantité ±20 % · échéance ±7 j
                       </div>
                     </Card>
+                  ) : filteredArticles.length === 0 ? (
+                    <Card className="p-8 text-center">
+                      <span className="text-sm text-muted-foreground">
+                        Aucun résultat avec ces filtres.
+                      </span>
+                    </Card>
                   ) : (
                     <div>
-                      <DataTable
-                        columns={columns}
-                        rows={filtered}
-                        sorting={[]}
-                        onSortingChange={() => {}}
-                        getRowKey={(r) => `${r.article}-${r.source}-${r.nature}`}
-                        onRowClick={(r) => {
-                          setSheetArticle(r.article)
-                          setSheetOpen(true)
-                        }}
-                        emptyState={
-                          <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
-                            <span className="text-sm text-muted-foreground">
-                              Aucun résultat avec ces filtres.
-                            </span>
-                          </div>
-                        }
-                      />
+                      <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+                        <table className="w-full border-collapse text-left text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                Jour
+                              </th>
+                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                Pièce
+                              </th>
+                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                Source
+                              </th>
+                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                Nature
+                              </th>
+                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                Avant → Après
+                              </th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+                                Écart
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredArticles.map((a) => (
+                              <Fragment key={a.article}>
+                                {/* L'en-tête du groupe rappelle l'article sur
+                                    toute la largeur : on peut défiler 1 000
+                                    lignes sans perdre le contexte. */}
+                                <tr
+                                  onClick={() => ouvrirArticle(a.article)}
+                                  title="Voir la fiche article"
+                                  className="cursor-pointer border-b bg-muted/40 transition-colors hover:bg-muted/60"
+                                >
+                                  <td colSpan={6} className="px-3 py-1.5">
+                                    <EnteteArticle article={a} />
+                                  </td>
+                                </tr>
+                                {a.mouvements.map((m, mi) => (
+                                  <tr
+                                    key={`${a.article}#${mi}`}
+                                    title={resumeLabel(m)}
+                                    onClick={() => ouvrirArticle(a.article)}
+                                    className="cursor-pointer border-b transition-colors last:border-b-0 hover:bg-muted/50"
+                                  >
+                                    <td className="px-3 py-2">{celluleJour(m)}</td>
+                                    <td className="px-3 py-2">
+                                      <CellulePiece m={m} />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <span className="whitespace-nowrap text-xs text-foreground">
+                                        {SOURCE_LABEL[m.source]}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <CelluleNature nature={m.nature} />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <CelluleAvantApres m={m} />
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                      <CelluleEcart m={m} />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                       <p className="mt-3 text-center font-mono text-[10px] text-muted-foreground">
-                        Tri par amplitude relative (ratio), pas absolu · Un article 10 → 0 passe
-                        avant un stock qui bouge de 2 %.
+                        Articles triés par nombre de mouvements décroissant — les plus agités
+                        d&apos;abord · Mouvements du plus ancien au plus récent (jour croissant).
                       </p>
                     </div>
                   )}

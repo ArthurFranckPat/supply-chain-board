@@ -588,6 +588,12 @@ const routes = {
     tokens: [{"old":"/api/v1/appro/drivers-diff","type":0,"val":"api","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"drivers-diff","end":""}],
     types: placeholder as Registry['appro.driversDiff']['types'],
   },
+  'appro.driversFrise': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/drivers-frise',
+    tokens: [{"old":"/api/v1/appro/drivers-frise","type":0,"val":"api","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"drivers-frise","end":""}],
+    types: placeholder as Registry['appro.driversFrise']['types'],
+  },
   'appro.explanations': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/appro/explanations',

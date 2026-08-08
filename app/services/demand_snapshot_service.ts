@@ -14,6 +14,7 @@ import {
 } from '#app/domain/appro_snapshot_diff'
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import { detecterTrous, type PasFrise, type TrouFrise } from '#app/domain/diff_frise'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
 import {
   perimetreAvecJournal,
@@ -197,6 +198,9 @@ export interface SnapshotDiagnostic {
   besoin: CouverturePhotos
   messages: CouverturePhotos
 }
+
+/** Nombre maximal de pas (photos − 1) calculables en une frise (#143). */
+const MAX_PAS_FRISE = 45
 
 export class DemandSnapshotService {
   async run(date: Date = new Date(), source = 'manual'): Promise<SnapshotResult> {
@@ -588,6 +592,93 @@ export class DemandSnapshotService {
       sourcesComparees: [...cached.sourcesComparees],
       message: cached.message,
     }
+  }
+
+  /**
+   * Frise des drivers sur une plage (#143) : chaîne les diffs de chaque paire
+   * CONSECUTIVE de photos entre `avant` et `apres`, au lieu de comparer les
+   * deux bornes directement.
+   *
+   * Chaque pas réutilise `diffDrivers` et donc son cache `appro:drivers:*` :
+   * une photo est immuable une fois écrite, le diff d'une paire adjacente
+   * l'est aussi — il vaut pour n'importe quelle fenêtre le contenant, et la
+   * chaîne de N photos ne coûte que N−1 diffs calculés une fois.
+   *
+   * Un TROU dans la série (photos distantes de plus d'un jour) est détecté sur
+   * les dates RÉELLES des photos et rendu à part : le pas qui l'enjambe reste
+   * calculé, mais un mouvement qui y est observé n'est pas localisable au jour
+   * près, et la frise doit le dire — jamais enjamber en silence.
+   *
+   * Les pas sont calculés avec un petit pool : chaque diff lit deux journées
+   * entières de `demand_snapshots` (~73 000 lignes chacune), et sur une plage
+   * large la première computation les sérialiserait sinon.
+   */
+  async friseDrivers(
+    apresDay: string,
+    avantDay: string
+  ): Promise<{
+    avant: string
+    apres: string
+    pas: PasFrise[]
+    trous: TrouFrise[]
+    message: string | null
+  } | null> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .whereBetween('snapshot_date', [avantDay, apresDay])
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'asc')
+    if (rows.length < 2) return null
+    const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
+    const trous = detecterTrous(dates)
+
+    if (dates.length - 1 > MAX_PAS_FRISE) {
+      return {
+        avant: avantDay,
+        apres: apresDay,
+        pas: [],
+        trous,
+        message: `plage trop large — ${dates.length} photos dans la sélection, ${MAX_PAS_FRISE} pas au maximum. Resserrer la sélection.`,
+      }
+    }
+
+    const pas: PasFrise[] = []
+    let cursor = 0
+    const workers = Array.from({ length: Math.min(4, dates.length - 1) }, async () => {
+      while (cursor < dates.length - 1) {
+        const i = cursor++
+        const pasAvant = dates[i]
+        const pasApres = dates[i + 1]
+        const r = await this.diffDrivers(pasApres, pasAvant)
+        if (r === null) {
+          // Photo vide d'un côté — impossible en pratique : les dates viennent
+          // de la table, chaque date a au moins une ligne. Défensif : le pas
+          // reste présent, annoncé illisible, plutôt qu'absent en silence.
+          pas.push({
+            avant: pasAvant,
+            apres: pasApres,
+            entrees: [],
+            message: 'photo(s) illisible(s) — pas indisponible',
+            sourcesEcartees: [],
+            sourcesComparees: [],
+          })
+        } else {
+          pas.push({
+            avant: pasAvant,
+            apres: pasApres,
+            entrees: r.entrees,
+            message: r.message,
+            sourcesEcartees: r.sourcesEcartees,
+            sourcesComparees: r.sourcesComparees,
+          })
+        }
+      }
+    })
+    await Promise.all(workers)
+    pas.sort((a, b) => a.avant.localeCompare(b.avant))
+
+    return { avant: avantDay, apres: apresDay, pas, trous, message: null }
   }
 
   /**
