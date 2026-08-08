@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { diffCbnDrivers, driverDiffAmplitude } from '#app/domain/cbn_driver_diff'
+import { diffCbnDrivers, driverDiffAmplitude, pourcentVariation } from '#app/domain/cbn_driver_diff'
 import type { DemandSnapshotRow } from '#services/demand_snapshot_service'
 
 const row = (over: Partial<DemandSnapshotRow>): DemandSnapshotRow => ({
@@ -537,5 +537,105 @@ test.group('cbn_driver_diff — contrat de tri', () => {
       amplitudes,
       [...amplitudes].sort((x, y) => y - x)
     )
+  })
+})
+
+/**
+ * Reproduction réduite du défaut mesuré sur A5495 (photos 07/08 → 08/08 2026).
+ *
+ * Le CBN détruit et recrée les suggestions chaque nuit : `apparie()` doit
+ * DEVINER quelle ligne d'avant est quelle ligne d'après. La passe par
+ * proximité d'échéance est gloutonne dans l'ordre croissant — une ligne qui
+ * disparaît fait voler à sa voisine le jumeau exact de la suivante, et le
+ * décalage se propage jusqu'au bout de la liste.
+ *
+ * En vrai : 12 mouvements pour 15 lignes de diff, dont un couple
+ * `48 384 → 8 064 (+17 j)` alors que la ligne de 48 384 au 12/04/2027 existait
+ * à l'identique des deux côtés.
+ */
+test.group('cbn_driver_diff — cascade de décalage (passe 0)', () => {
+  const sug = (vcrnum: string, quantity: number, date_echeance: string): DemandSnapshotRow =>
+    row({ source: 'appro_suggestion', itmref: 'A5495', vcrnum, quantity, date_echeance })
+
+  const avant = [
+    sug('SGAE1000', 8064, '2027-01-23'),
+    sug('SGAE1001', 16128, '2027-01-25'),
+    sug('SGAE1002', 16128, '2027-04-07'),
+    sug('SGAE1003', 48384, '2027-04-12'),
+  ]
+  const apres = [
+    sug('SGAE2001', 16128, '2027-01-25'),
+    sug('SGAE2002', 16128, '2027-04-07'),
+    sug('SGAE2003', 48384, '2027-04-12'),
+    sug('SGAE2004', 8064, '2027-04-29'),
+  ]
+
+  test('les jumeaux exacts sont appariés avant toute devinette', ({ assert }) => {
+    const diff = diffCbnDrivers(avant, apres)
+
+    // Aucun mouvement de quantité ni d'échéance : les trois lignes conservées
+    // sont identiques des deux côtés, seul leur numéro a changé.
+    assert.deepEqual(
+      diff.filter((e) => e.nature === 'quantite' || e.nature === 'date'),
+      []
+    )
+    assert.lengthOf(
+      diff.filter((e) => e.nature === 'renumerotation'),
+      3
+    )
+  })
+
+  test('la ligne retirée et la ligne neuve se disent telles quelles', ({ assert }) => {
+    const diff = diffCbnDrivers(avant, apres)
+
+    const disparues = diff.filter((e) => e.nature === 'disparue')
+    const apparues = diff.filter((e) => e.nature === 'apparue')
+    assert.lengthOf(disparues, 1)
+    assert.equal(disparues[0].echeanceAvant, '2027-01-23')
+    assert.lengthOf(apparues, 1)
+    assert.equal(apparues[0].echeanceApres, '2027-04-29')
+  })
+
+  test('la ligne de 48 384 au 12/04/2027 est appariée à elle-même', ({ assert }) => {
+    const diff = diffCbnDrivers(avant, apres)
+
+    const paire = diff.find((e) => e.vcrnum === 'SGAE1003')
+    assert.equal(paire?.nature, 'renumerotation')
+    assert.equal(paire?.vcrnumApres, 'SGAE2003')
+    assert.equal(paire?.quantiteApres, 48384)
+    assert.equal(paire?.echeanceApres, '2027-04-12')
+  })
+})
+
+test.group('cbn_driver_diff — pourcentage affiché', () => {
+  test('une baisse ne dépasse pas −100 %', ({ assert }) => {
+    assert.equal(pourcentVariation(48384, 8064), -83)
+  })
+
+  test('une hausse se rapporte à avant, pas au minimum', ({ assert }) => {
+    assert.equal(pourcentVariation(8064, 48384), 500)
+  })
+
+  test('base nulle → pas de pourcentage', ({ assert }) => {
+    assert.isNull(pourcentVariation(0, 500))
+  })
+
+  test('le détail du stock porte le pourcentage lisible', ({ assert }) => {
+    const diff = diffCbnDrivers([row({ quantity: 48384 })], [row({ quantity: 8064 })])
+    // `toLocaleString('fr-FR')` sépare les milliers par une espace fine
+    // insécable (U+202F), pas par une espace ordinaire.
+    assert.include(diff[0].detail, '48 384 → 8 064 (−83 %)')
+  })
+
+  /**
+   * Le seuil de détection garde `baseRatio` (min de magnitude) : c'est lui qui
+   * rend les ±20 % symétriques sur un stock strict passé sous zéro. Seul
+   * l'AFFICHAGE change — les deux notions sont désormais distinctes, et une
+   * ligne peut donc s'annoncer sous les 20 % tout en ayant franchi le seuil.
+   */
+  test('le seuil de détection reste min-relatif', ({ assert }) => {
+    const diff = diffCbnDrivers([row({ quantity: 100 })], [row({ quantity: 83 })])
+    assert.lengthOf(diff, 1)
+    assert.equal(pourcentVariation(100, 83), -17)
   })
 })

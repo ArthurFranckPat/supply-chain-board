@@ -292,7 +292,13 @@ const ecartLabel = (e: DriverDiffEntry): string => {
   }
   if (e.quantiteAvant !== null && e.quantiteApres !== null) {
     const delta = e.quantiteApres - e.quantiteAvant
-    const base = Math.abs(Math.min(e.quantiteAvant, e.quantiteApres)) || 1
+    // Pourcentage rapporté à AVANT, pas à la plus petite des deux magnitudes.
+    // Le domaine se sert du min pour DÉTECTER (seuil symétrique sur un stock
+    // strict négatif) ; réutilisé ici pour AFFICHER, il annonçait 48 384 → 8 064
+    // à « −500 % » — une baisse ne peut pas dépasser −100 %, la vraie lecture
+    // est −83 %. Base nulle : pas de pourcentage, le delta brut se suffit.
+    const base = Math.abs(e.quantiteAvant)
+    if (base === 0) return fmtQteSigned(delta)
     const pct = Math.round((Math.abs(delta) / base) * 100)
     return `${fmtQteSigned(delta)} · ${delta > 0 ? '+' : '−'}${pct}%`
   }
