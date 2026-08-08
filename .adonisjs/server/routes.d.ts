@@ -29,6 +29,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'approvisionnements.index': { paramsTuple?: []; params?: {} }
+    'besoins.evolution': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
@@ -95,6 +96,13 @@ export type ScannedRoutes = {
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
     'appro.rows': { paramsTuple?: []; params?: {} }
+    'appro.decision': { paramsTuple?: []; params?: {} }
+    'appro.diff': { paramsTuple?: []; params?: {} }
+    'appro.messagesDiff': { paramsTuple?: []; params?: {} }
+    'appro.snapshots': { paramsTuple?: []; params?: {} }
+    'appro.driversDiff': { paramsTuple?: []; params?: {} }
+    'appro.driversFrise': { paramsTuple?: []; params?: {} }
+    'appro.explanations': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -144,6 +152,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'approvisionnements.index': { paramsTuple?: []; params?: {} }
+    'besoins.evolution': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
@@ -184,6 +193,12 @@ export type ScannedRoutes = {
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
     'appro.rows': { paramsTuple?: []; params?: {} }
+    'appro.diff': { paramsTuple?: []; params?: {} }
+    'appro.messagesDiff': { paramsTuple?: []; params?: {} }
+    'appro.snapshots': { paramsTuple?: []; params?: {} }
+    'appro.driversDiff': { paramsTuple?: []; params?: {} }
+    'appro.driversFrise': { paramsTuple?: []; params?: {} }
+    'appro.explanations': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -224,6 +239,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'approvisionnements.index': { paramsTuple?: []; params?: {} }
+    'besoins.evolution': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
@@ -264,6 +280,12 @@ export type ScannedRoutes = {
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
     'appro.rows': { paramsTuple?: []; params?: {} }
+    'appro.diff': { paramsTuple?: []; params?: {} }
+    'appro.messagesDiff': { paramsTuple?: []; params?: {} }
+    'appro.snapshots': { paramsTuple?: []; params?: {} }
+    'appro.driversDiff': { paramsTuple?: []; params?: {} }
+    'appro.driversFrise': { paramsTuple?: []; params?: {} }
+    'appro.explanations': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -299,6 +321,7 @@ export type ScannedRoutes = {
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
     'suivi.palette': { paramsTuple?: []; params?: {} }
     'suivi.retard_charge': { paramsTuple?: []; params?: {} }
+    'appro.decision': { paramsTuple?: []; params?: {} }
     'data.load': { paramsTuple?: []; params?: {} }
     'static_sync.sync': { paramsTuple?: []; params?: {} }
     'x3_writeback.save': { paramsTuple?: []; params?: {} }

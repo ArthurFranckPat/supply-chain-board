@@ -85,6 +85,9 @@ export interface ApiDefinition {
   approvisionnements: {
     index: typeof routes['approvisionnements.index']
   }
+  besoins: {
+    evolution: typeof routes['besoins.evolution']
+  }
   conditionnements: {
     index: typeof routes['conditionnements.index']
     rows: typeof routes['conditionnements.rows']
@@ -159,6 +162,13 @@ export interface ApiDefinition {
   }
   appro: {
     rows: typeof routes['appro.rows']
+    decision: typeof routes['appro.decision']
+    diff: typeof routes['appro.diff']
+    messagesDiff: typeof routes['appro.messagesDiff']
+    snapshots: typeof routes['appro.snapshots']
+    driversDiff: typeof routes['appro.driversDiff']
+    driversFrise: typeof routes['appro.driversFrise']
+    explanations: typeof routes['appro.explanations']
   }
   data: {
     load: typeof routes['data.load']

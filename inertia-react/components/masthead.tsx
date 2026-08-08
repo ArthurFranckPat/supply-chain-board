@@ -34,6 +34,7 @@ export type MastheadTab =
   | 'expeditions'
   | 'receptions'
   | 'approvisionnements'
+  | 'besoins-evolution'
   | 'conditionnements'
   | 'promesse'
   | 'copilote'
@@ -91,6 +92,11 @@ const LOGISTIQUE_GROUPS: TabGroup[] = [
         key: 'approvisionnements',
         label: 'Approvisionnements',
         href: route('approvisionnements.index'),
+      },
+      {
+        key: 'besoins-evolution',
+        label: 'Évolution des besoins',
+        href: route('besoins.evolution'),
       },
       { key: 'conditionnements', label: 'Conditionnements', href: route('conditionnements.index') },
     ],

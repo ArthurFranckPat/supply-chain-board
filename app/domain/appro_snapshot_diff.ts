@@ -1,4 +1,9 @@
-import { TOLERANCE_ECHEANCE_JOURS, TOLERANCE_QUANTITE_RATIO } from '#app/domain/appro_decision'
+import {
+  TOLERANCE_APPARIEMENT_JOURS,
+  TOLERANCE_ECHEANCE_JOURS,
+  TOLERANCE_QUANTITE_RATIO,
+} from '#app/domain/appro_decision'
+import { fmtFr } from '#app/utils/dates'
 
 /**
  * Diff inter-CBN des suggestions d'achat (#133, item « Not yet specified » #106).
@@ -54,18 +59,37 @@ const joursEntre = (deIso: string | null, aIso: string | null): number | null =>
 
 const qte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
 
+const baseRatio = (qa: number, qp: number): number => Math.abs(Math.min(qa, qp)) || 1
+
+const estTransitionEcheance = (a: string | null, b: string | null): boolean =>
+  (a === null) !== (b === null)
+
 /** Distance d'échéance pour l'appariement : deux échéances absentes s'apparient
  *  (une ligne sans date n'est pas une ligne différente), réel vs absent = jamais. */
 const distEcheance = (a: string | null, b: string | null): number => {
   if (a === null && b === null) return 0
+  if (a === null || b === null) return Number.POSITIVE_INFINITY
   const d = joursEntre(a, b)
   return d === null ? Number.POSITIVE_INFINITY : Math.abs(d)
 }
 
-/** Apparie les lignes de deux photos d'un même couple, par échéance la plus proche. */
+/**
+ * Apparie les lignes de deux photos d'un même couple, par échéance la plus proche.
+ *
+ * Miroir de `cbn_driver_diff.apparie()` adapté au grain (fournisseur × article)
+ * — plafond, départage et deux passes identiques (#144, #148). Toute évolution
+ * du plafond ou du garde-fou quantité doit être portée dans les deux fichiers.
+ *
+ * @param plafondJours distance au-delà de laquelle deux lignes ne sont pas le
+ *   même besoin. Requis, comme dans le miroir `cbn_driver_diff.apparie()` : un
+ *   défaut implicite laisserait un futur appelant oublier de trancher la
+ *   question, silencieusement. `Infinity` = identité certaine (jamais utilisé
+ *   ici : les suggestions sont régénératives, l'identité est toujours devinée).
+ */
 function apparie(
   avant: ApproSnapshotRow[],
-  apres: ApproSnapshotRow[]
+  apres: ApproSnapshotRow[],
+  plafondJours: number
 ): {
   paires: Array<[ApproSnapshotRow, ApproSnapshotRow]>
   surplusAvant: ApproSnapshotRow[]
@@ -78,14 +102,30 @@ function apparie(
   // Un couple porte quelques lignes au plus : le quadratique reste ici, borné
   // par la taille d'un couple, pas par celle de la photo.
   const appariees = new Set<ApproSnapshotRow>()
+
+  // Passe 1 — appariement par échéance la plus proche, borné par le plafond.
+  // Les couples non comparables (une seule échéance nulle → Infinity) sont
+  // écartés : sans ce garde-fou le départage à quantité minimale les
+  // sélectionnerait (`Infinity === Infinity`).
+  // Au-delà du plafond deux lignes ne sont pas le même besoin (#144) : on ne
+  // marie pas une suggestion de septembre à une de février (+168 j) simplement
+  // parce que c'est ce qui reste de libre.
+  // Pas de garde-fou quantité ici : deux lignes sans échéance (distance 0) se
+  // marient quelle que soit leur quantité — comportement assumé, verrouillé par
+  // test. Le départage quantité ne choisit que la plus proche, sans rejet.
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
+    let bestQtyDelta = Number.POSITIVE_INFINITY
     ps.forEach((rowP, idx) => {
       if (usedP.has(idx)) return
       const d = distEcheance(rowA.echeance, rowP.echeance)
-      if (d < bestDist) {
+      if (d === Number.POSITIVE_INFINITY) return
+      if (d > plafondJours) return
+      const qtyDelta = Math.abs(rowP.quantite - rowA.quantite)
+      if (d < bestDist || (d === bestDist && qtyDelta < bestQtyDelta)) {
         bestDist = d
+        bestQtyDelta = qtyDelta
         best = idx
       }
     })
@@ -94,6 +134,45 @@ function apparie(
     appariees.add(rowA)
     paires.push([rowA, ps[best]])
   }
+
+  // Passe 2 — rattrapage à la quantité la plus proche.
+  //
+  // Reçoit les transitions (null ↔ renseignée, incomparables en passe 1), les
+  // écarts de cardinalité, ET les orphelines lointaines (> plafond). Ces
+  // dernières se marieraient à n'importe quelle ligne sans échéance puisque
+  // `Infinity` est exempté du plafond : c'est le défaut qui rentre par la porte
+  // de service, avec un `quantite(100 → 5000)` inventé.
+  //
+  // Le garde-fou de quantité (±20 %, seuil de bruit) ne s'applique qu'à CETTE
+  // passe, pas à la passe 1 : il refuse le mariage quand la quantité a bougé
+  // au-delà du bruit EN PLUS d'une échéance incohérente (retraits des orphelines
+  // lointaines et transitions) — rien n'atteste alors que c'est la même ligne.
+  // Le plafond, lui, continue de borner les couples dont les DEUX échéances
+  // existent, armé quand l'identité est inférée (toujours ici : `plafondJours`
+  // fini).
+  const identiteInferee = Number.isFinite(plafondJours)
+  for (const rowA of as) {
+    if (appariees.has(rowA)) continue
+    let best = -1
+    let bestQtyDelta = Number.POSITIVE_INFINITY
+    ps.forEach((rowP, idx) => {
+      if (usedP.has(idx)) return
+      const d = distEcheance(rowA.echeance, rowP.echeance)
+      if (d !== Number.POSITIVE_INFINITY && d > plafondJours) return
+      const qtyDelta = Math.abs(rowP.quantite - rowA.quantite)
+      const qtyRatio = qtyDelta / baseRatio(rowA.quantite, rowP.quantite)
+      if (identiteInferee && qtyRatio > TOLERANCE_QUANTITE_RATIO) return
+      if (qtyDelta < bestQtyDelta) {
+        bestQtyDelta = qtyDelta
+        best = idx
+      }
+    })
+    if (best === -1) continue
+    usedP.add(best)
+    appariees.add(rowA)
+    paires.push([rowA, ps[best]])
+  }
+
   return {
     paires,
     surplusAvant: as.filter((rowA) => !appariees.has(rowA)),
@@ -140,7 +219,7 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowP.quantite,
           echeance: rowP.echeance,
-          detail: `Suggestion apparue : ${qte(rowP.quantite)} unités${rowP.echeance === null ? '' : `, échéance ${rowP.echeance}`}.`,
+          detail: `Suggestion apparue : ${qte(rowP.quantite)} unités${rowP.echeance === null ? '' : `, échéance ${fmtFr(rowP.echeance)}`}.`,
         })
       }
       continue
@@ -153,20 +232,23 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowA.quantite,
           echeance: rowA.echeance,
-          detail: `Suggestion disparue : ${qte(rowA.quantite)} unités${rowA.echeance === null ? '' : `, échéance ${rowA.echeance}`}.`,
+          detail: `Suggestion disparue : ${qte(rowA.quantite)} unités${rowA.echeance === null ? '' : `, échéance ${fmtFr(rowA.echeance)}`}.`,
         })
       }
       continue
     }
 
-    const { paires, surplusAvant, surplusApres } = apparie(a, p)
+    const { paires, surplusAvant, surplusApres } = apparie(a, p, TOLERANCE_APPARIEMENT_JOURS)
 
     for (const [rowA, rowP] of paires) {
-      const base = Math.min(rowA.quantite, rowP.quantite) || 1
+      const base = baseRatio(rowA.quantite, rowP.quantite)
       const ratio = Math.abs(rowP.quantite - rowA.quantite) / base
       const ecartJours = joursEntre(rowA.echeance, rowP.echeance)
       const qtyChanged = ratio > TOLERANCE_QUANTITE_RATIO
-      const dateChanged = ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS
+      const transitionEcheance = estTransitionEcheance(rowA.echeance, rowP.echeance)
+      const dateChanged =
+        transitionEcheance ||
+        (ecartJours !== null && Math.abs(ecartJours) > TOLERANCE_ECHEANCE_JOURS)
       if (qtyChanged) {
         const sens = rowP.quantite > rowA.quantite ? '+' : '−'
         out.push({
@@ -185,7 +267,7 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowP.quantite,
           echeance: rowP.echeance,
-          detail: `Échéance ${rowA.echeance} → ${rowP.echeance} (${ecartJours! > 0 ? '+' : ''}${ecartJours} j) — seuil ±${TOLERANCE_ECHEANCE_JOURS} j (#112).`,
+          detail: `Échéance ${fmtFr(rowA.echeance)} → ${fmtFr(rowP.echeance)}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`} — seuil ±${TOLERANCE_ECHEANCE_JOURS} j (#112).`,
         })
       }
     }
@@ -196,7 +278,7 @@ export function diffApproSnapshots(
         fournisseur: fournisseur || null,
         quantite: rowA.quantite,
         echeance: rowA.echeance,
-        detail: `Ligne disparue : ${qte(rowA.quantite)} unités, échéance ${rowA.echeance ?? 'inconnue'}.`,
+        detail: `Ligne disparue : ${qte(rowA.quantite)} unités, échéance ${rowA.echeance === null ? 'inconnue' : fmtFr(rowA.echeance)}.`,
       })
     }
     for (const rowP of surplusApres) {
@@ -206,7 +288,7 @@ export function diffApproSnapshots(
         fournisseur: fournisseur || null,
         quantite: rowP.quantite,
         echeance: rowP.echeance,
-        detail: `Ligne apparue : ${qte(rowP.quantite)} unités, échéance ${rowP.echeance ?? 'inconnue'}.`,
+        detail: `Ligne apparue : ${qte(rowP.quantite)} unités, échéance ${rowP.echeance === null ? 'inconnue' : fmtFr(rowP.echeance)}.`,
       })
     }
   }

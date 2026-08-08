@@ -156,6 +156,12 @@ const routes = {
     tokens: [{"old":"/approvisionnements","type":0,"val":"approvisionnements","end":""}],
     types: placeholder as Registry['approvisionnements.index']['types'],
   },
+  'besoins.evolution': {
+    methods: ["GET","HEAD"],
+    pattern: '/besoins/evolution',
+    tokens: [{"old":"/besoins/evolution","type":0,"val":"besoins","end":""},{"old":"/besoins/evolution","type":0,"val":"evolution","end":""}],
+    types: placeholder as Registry['besoins.evolution']['types'],
+  },
   'conditionnements.index': {
     methods: ["GET","HEAD"],
     pattern: '/conditionnements',
@@ -551,6 +557,48 @@ const routes = {
     pattern: '/api/v1/appro/rows',
     tokens: [{"old":"/api/v1/appro/rows","type":0,"val":"api","end":""},{"old":"/api/v1/appro/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/rows","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['appro.rows']['types'],
+  },
+  'appro.decision': {
+    methods: ["POST"],
+    pattern: '/api/v1/appro/decision',
+    tokens: [{"old":"/api/v1/appro/decision","type":0,"val":"api","end":""},{"old":"/api/v1/appro/decision","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/decision","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/decision","type":0,"val":"decision","end":""}],
+    types: placeholder as Registry['appro.decision']['types'],
+  },
+  'appro.diff': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/diff',
+    tokens: [{"old":"/api/v1/appro/diff","type":0,"val":"api","end":""},{"old":"/api/v1/appro/diff","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/diff","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/diff","type":0,"val":"diff","end":""}],
+    types: placeholder as Registry['appro.diff']['types'],
+  },
+  'appro.messagesDiff': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/messages-diff',
+    tokens: [{"old":"/api/v1/appro/messages-diff","type":0,"val":"api","end":""},{"old":"/api/v1/appro/messages-diff","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/messages-diff","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/messages-diff","type":0,"val":"messages-diff","end":""}],
+    types: placeholder as Registry['appro.messagesDiff']['types'],
+  },
+  'appro.snapshots': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/snapshots',
+    tokens: [{"old":"/api/v1/appro/snapshots","type":0,"val":"api","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"snapshots","end":""}],
+    types: placeholder as Registry['appro.snapshots']['types'],
+  },
+  'appro.driversDiff': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/drivers-diff',
+    tokens: [{"old":"/api/v1/appro/drivers-diff","type":0,"val":"api","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"drivers-diff","end":""}],
+    types: placeholder as Registry['appro.driversDiff']['types'],
+  },
+  'appro.driversFrise': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/drivers-frise',
+    tokens: [{"old":"/api/v1/appro/drivers-frise","type":0,"val":"api","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"drivers-frise","end":""}],
+    types: placeholder as Registry['appro.driversFrise']['types'],
+  },
+  'appro.explanations': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/explanations',
+    tokens: [{"old":"/api/v1/appro/explanations","type":0,"val":"api","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"explanations","end":""}],
+    types: placeholder as Registry['appro.explanations']['types'],
   },
   'conditionnements.rows': {
     methods: ["GET","HEAD"],

@@ -307,6 +307,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'besoins.evolution': {
+    methods: ["GET","HEAD"]
+    pattern: '/besoins/evolution'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'conditionnements.index': {
     methods: ["GET","HEAD"]
     pattern: '/conditionnements'
@@ -1090,6 +1102,90 @@ export interface Registry {
   'appro.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/appro/rows'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.decision': {
+    methods: ["POST"]
+    pattern: '/api/v1/appro/decision'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.diff': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/diff'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.messagesDiff': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/messages-diff'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.snapshots': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/snapshots'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.driversDiff': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/drivers-diff'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.driversFrise': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/drivers-frise'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.explanations': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/explanations'
     types: {
       body: {}
       paramsTuple: []

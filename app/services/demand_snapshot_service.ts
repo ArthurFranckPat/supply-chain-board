@@ -7,6 +7,7 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
 import { cacheNs } from '#services/cache_ns'
+import { ARTICLE_NON_UTILISABLE } from '#services/static_sync_service'
 import {
   diffApproSnapshots,
   type ApproDiffNature,
@@ -14,8 +15,15 @@ import {
 } from '#app/domain/appro_snapshot_diff'
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import { detecterTrous, type PasFrise, type TrouFrise } from '#app/domain/diff_frise'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
 import { detectPatterns, type ApproPatterns } from '#app/domain/cbn_patterns'
+import {
+  perimetreAvecJournal,
+  perimetreComparable,
+  type SourceEcartee,
+  type StatutSource,
+} from '#app/domain/snapshot_perimetre'
 import {
   couverture,
   jourIso,
@@ -204,6 +212,70 @@ export const SOURCES_ATTENDUES = Object.values(SOURCE)
 export interface SnapshotDiagnostic {
   besoin: CouverturePhotos
   messages: CouverturePhotos
+}
+
+/** Nombre maximal de pas (photos − 1) calculables en une frise (#143). */
+const MAX_PAS_FRISE = 45
+
+/**
+ * Capacité du memo de lectures de journée d'une frise (#143 défaut 2, borné
+ * en revue de code : un `Map` NON borné retenait jusqu'à 46 tableaux de
+ * ~73 000 lignes simultanément — un échange I/O contre mémoire sur
+ * l'endpoint qu'on cherchait précisément à alléger).
+ *
+ * `2 × pool.max` (pool à 4, `config/database.ts`) : la réutilisation entre
+ * pas est strictement LOCALE — `dates[i]` ne sert qu'aux pas `i-1` (comme
+ * `apres`) et `i` (comme `avant`), deux pas ADJACENTS. Avec 4 workers à
+ * curseur partagé, l'écart entre le plus avancé et le plus en retard reste de
+ * l'ordre d'un pas ; chacun retient jusqu'à 2 journées en vol (`avant` +
+ * `apres`), soit une fenêtre active d'environ `pool + 1` dates. Doubler le
+ * pool laisse une marge confortable pour la dérive sans revenir à retenir
+ * toute la frise.
+ */
+const CAPACITE_MEMO_JOURNEES = 8
+
+/**
+ * Fenêtre bornée des lectures de journée mémoïsées pour la durée d'une frise
+ * (#143 défaut 2). Éviction FIFO simple (la plus ANCIENNE entrée INSÉRÉE, pas
+ * la moins récemment lue) : suffisant ici, l'accès est déjà quasi séquentiel
+ * par construction (curseur croissant du pool).
+ *
+ * Évincer une clé pendant qu'une promesse est encore en vol NE CASSE RIEN :
+ * un appelant qui l'attend déjà détient sa PROPRE référence à la promesse,
+ * indépendante du memo (`Promise.all([this.loadDayRows(...), ...])` capture
+ * la valeur de retour avant tout `await`). Seul un NOUVEL appel sur la même
+ * journée après éviction déclenche une relecture — c'est le compromis
+ * assumé : la fenêtre capture la quasi-totalité du gain, pas la totalité.
+ *
+ * Exportée (et non une méthode privée de `DemandSnapshotService`) pour rester
+ * testable sans élargir l'API publique du service.
+ */
+export class MemoJourneesBorne {
+  private readonly capacite: number
+  private readonly entrees = new Map<string, Promise<Record<string, unknown>[]>>()
+
+  constructor(capacite: number = CAPACITE_MEMO_JOURNEES) {
+    this.capacite = capacite
+  }
+
+  get(jour: string): Promise<Record<string, unknown>[]> | undefined {
+    return this.entrees.get(jour)
+  }
+
+  set(jour: string, promesse: Promise<Record<string, unknown>[]>): void {
+    this.entrees.set(jour, promesse)
+    if (this.entrees.size > this.capacite) {
+      // `Map` préserve l'ordre d'INSERTION : la première clé de l'itérateur
+      // est donc la plus ancienne insérée, jamais réordonnée par une lecture.
+      const plusAncienne = this.entrees.keys().next().value
+      if (plusAncienne !== undefined) this.entrees.delete(plusAncienne)
+    }
+  }
+
+  /** Nombre d'entrées actuellement retenues — pour les tests. */
+  get taille(): number {
+    return this.entrees.size
+  }
 }
 
 export class DemandSnapshotService {
@@ -483,6 +555,46 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Liste des photos disponibles pour le sélecteur de dates (§5.1).
+   * Tri décroissant (plus récente d'abord), avec décompte par photo.
+   *
+   * Le NOM des sources de chaque photo n'est délibérément pas rendu ici : seul
+   * le diff a besoin de savoir ce qui est comparable, il le calcule lui-même
+   * (#145, `diffDrivers`) et le rend avec son résultat. Le lister ici coûterait
+   * un `GROUP BY snapshot_date, source` sur toute la table à chaque chargement
+   * de page et à chaque rafraîchissement, pour une donnée que personne ne relit.
+   */
+  async listSnapshots(): Promise<
+    Array<{
+      date: string
+      lignes: number
+      sources: number
+      priseLe: number | null
+    }>
+  > {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .select('snapshot_date')
+      .count('* as lignes')
+      .countDistinct('source as sources')
+      // Heure RÉELLE de capture. La photo porte la date du jour, mais elle est
+      // prise quand le serveur applicatif est debout (cf. demand_snapshot_provider) :
+      // sur un poste qui dort, l'intervalle entre deux photos consécutives va de
+      // 8 h à 40 h. Sans cette heure, deux couples de dates ne sont pas comparables
+      // entre eux et un écran vide est indistinguable d'une nuit calme.
+      .min('created_at as prise_le')
+      .groupBy('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+    return rows.map((r: Record<string, unknown>) => ({
+      date: jourIso((r as { snapshot_date?: unknown }).snapshot_date),
+      lignes: Number(r.lignes),
+      sources: Number(r.sources),
+      priseLe: r.prise_le === null || r.prise_le === undefined ? null : Number(r.prise_le),
+    }))
+  }
+
+  /**
    * Diff pur des messages entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque — pas de faux "tout est apparu".
    */
@@ -513,33 +625,375 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Lecture SQL brute d'une journée (`demand_snapshots`, toutes sources
+   * confondues) — extraite de `loadDayRows` pour rester COMPTABLE en test
+   * (une sous-classe de test peut l'intercepter pour vérifier le nombre RÉEL
+   * de lectures faites par une frise, cf. `demand_snapshot_service.test.ts`).
+   *
+   * Wrap explicite en promesse native (`.then`) : un query builder Lucid est
+   * un thenable réexécuté à chaque `.then()` — le mémoïser tel quel dans
+   * `loadDayRows` aurait relancé la requête à chaque lecture du memo au lieu
+   * d'une seule fois. Le `.then()` posé ICI, avant que `loadDayRows` ne pose
+   * le résultat dans le memo, exécute la requête une seule fois par appel ;
+   * tous les appelants qui partagent cette promesse attendent la même requête
+   * déjà en vol.
+   */
+  protected lireJourneeBrute(day: string): Promise<Record<string, unknown>[]> {
+    return db
+      .connection()
+      .from('demand_snapshots')
+      .where('snapshot_date', day)
+      .then((r) => r)
+  }
+
+  /**
+   * Lit la photo brute d'un jour. `memo`, s'il est fourni, mémoïse la lecture
+   * dans une FENÊTRE BORNÉE partagée par l'appelant (#143 défaut 2,
+   * `friseDrivers` / `MemoJourneesBorne`) : les pas adjacents d'une frise
+   * partagent une journée — le pas *i* lit `dates[i+1]`, le pas *i+1* la
+   * relit — et sans dédup, une frise de 45 pas relit deux fois chacune des 46
+   * journées (~90 lectures de ~73 000 lignes) là où 46 suffiraient.
+   *
+   * La fenêtre n'élimine PAS ce doublon à coup sûr dans tous les cas (une
+   * journée évincée avant sa seconde utilisation redéclenche une lecture),
+   * mais la réutilisation entre pas étant strictement LOCALE (cf.
+   * `MemoJourneesBorne`), elle capture la quasi-totalité du gain sans retenir
+   * toute la frise en mémoire.
+   *
+   * `diffDrivers` appelé seul (sans `memo`) n'a rien à dédupliquer : son
+   * propre cache PAR PAIRE (`appro:drivers:*`, forever) rend déjà cette
+   * lecture rarissime hors premier calcul du couple.
+   */
+  private loadDayRows(day: string, memo?: MemoJourneesBorne): Promise<Record<string, unknown>[]> {
+    if (memo === undefined) return this.lireJourneeBrute(day)
+    let promesse = memo.get(day)
+    if (promesse === undefined) {
+      promesse = this.lireJourneeBrute(day)
+      memo.set(day, promesse)
+    }
+    return promesse
+  }
+
+  /**
    * Diff des drivers par article entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque.
+   * Mis en cache FOREVER par couple de jours : une photo est immuable une fois
+   * écrite, donc le diff l'est aussi. Le tri par amplitude vient de
+   * `diffCbnDrivers` ; ici on enrichit (désignation/famille) et on écarte les
+   * articles de catégorie Z, les deux à ordre constant. Les filtres/limites
+   * s'appliquent APRÈS, sur le résultat complet mémorisé (§5.3, §5.4).
+   *
+   * La clé porte une version : toute évolution de la sémantique du diff doit
+   * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
+   * `v12` — périmètre via journal des sources capturées (#149), par-dessus la
+   * restriction aux sources comparables de `v11` (#145).
+   *
+   * @param memo Fenêtre bornée de mémoïsation des lectures de journée, portée
+   *   par l'appelant (`friseDrivers`, #143 défaut 2) — voir `loadDayRows` et
+   *   `MemoJourneesBorne`. Absent pour tout appel isolé (`/drivers-diff`,
+   *   `explainMessages`).
    */
   async diffDrivers(
     apresDay: string,
-    avantDay: string
-  ): Promise<{ avant: string; apres: string; entrees: DriverDiffEntry[] } | null> {
-    const conn = db.connection()
-    const [avantRows, apresRows] = await Promise.all([
-      conn.from('demand_snapshots').where('snapshot_date', avantDay),
-      conn.from('demand_snapshots').where('snapshot_date', apresDay),
-    ])
-    if (avantRows.length === 0 || apresRows.length === 0) return null
-    const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
-      snapshot_date: String(r.snapshot_date).slice(0, 10),
-      source: String(r.source),
-      itmref: String(r.itmref),
-      vcrnum: r.vcrnum === null ? null : String(r.vcrnum),
-      vcrlin: r.vcrlin === null ? null : String(r.vcrlin),
-      quantity: Number(r.quantity),
-      date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
-      fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+    avantDay: string,
+    memo?: MemoJourneesBorne
+  ): Promise<{
+    avant: string
+    apres: string
+    entrees: DriverDiffEntry[]
+    sourcesEcartees: SourceEcartee[]
+    /** Sources réellement comparées — ce que l'écran a le droit de dire couvert. */
+    sourcesComparees: string[]
+    /** Renseigné quand il n'y a RIEN à comparer : un diff vide n'est pas une nuit calme. */
+    message: string | null
+  } | null> {
+    const cached = await cacheNs('appro').getOrSetForever({
+      key: `appro:drivers:${avantDay}:${apresDay}:v12`,
+      factory: async () => {
+        const conn = db.connection()
+        const [avantRows, apresRows] = await Promise.all([
+          this.loadDayRows(avantDay, memo),
+          this.loadDayRows(apresDay, memo),
+        ])
+        // Garde-fou (#74), INCONDITIONNEL : une photo vide n'a rien à montrer,
+        // c'est une panne X3. Une photo 100 % vide MAIS journalisée ne peut pas
+        // exister : `write()` retourne `skipped-empty` sur `demand.length === 0`
+        // avant même d'ouvrir la transaction (cf. son commentaire), donc le
+        // journal comme les lignes sont absents ensemble. `avantRows.length ===
+        // 0` implique déjà `journalAvant === null` — la branche qui gardait la
+        // photo vide « si journalisée » ne s'exécutait jamais et ne faisait que
+        // payer un bump de cache pour rien (revue de code #149, second bump).
+        if (avantRows.length === 0 || apresRows.length === 0) return null
+        const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
+        const [journalAvant, journalApres] = await Promise.all([
+          this.lireJournal(avantDay),
+          this.lireJournal(apresDay),
+        ])
+        const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
+          snapshot_date: String(r.snapshot_date).slice(0, 10),
+          source: String(r.source),
+          itmref: String(r.itmref),
+          vcrnum: r.vcrnum === null ? null : String(r.vcrnum),
+          vcrlin: r.vcrlin === null ? null : String(r.vcrlin),
+          quantity: Number(r.quantity),
+          date_echeance: r.date_echeance === null ? null : String(r.date_echeance).slice(0, 10),
+          fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
+        })
+        // #145 — ne comparer que le périmètre commun aux deux photos. Le jeu de
+        // sources a bougé dans le temps : une source ATTENDUE et absente d'une
+        // photo est très probablement un trou d'instrumentation, pas un plan qui
+        // s'est vidé, et la compter ferait apparaître 5 469 lignes d'un coup.
+        // La règle (et l'approximation qu'elle assume) vit dans
+        // `snapshot_perimetre.ts`, pure et testée hors base.
+        const { comparees, sourcesEcartees } =
+          journalAvant !== null || journalApres !== null
+            ? perimetreAvecJournal(
+                avantRows.map(nomSource),
+                apresRows.map(nomSource),
+                journalAvant,
+                journalApres,
+                SOURCES_ATTENDUES
+              )
+            : perimetreComparable(
+                avantRows.map(nomSource),
+                apresRows.map(nomSource),
+                SOURCES_ATTENDUES
+              )
+        // Deux photos non vides sans AUCUNE source commune : le diff serait vide
+        // et indistinguable d'une nuit calme. On le dit plutôt que de le taire.
+        if (comparees.length === 0) {
+          return {
+            avant: avantDay,
+            apres: apresDay,
+            entrees: [] as DriverDiffEntry[],
+            sourcesEcartees,
+            sourcesComparees: comparees,
+            message:
+              'aucune source commune aux deux photos — il n’y a rien à comparer, pas « rien n’a bougé »',
+          }
+        }
+        const retenue = new Set(comparees)
+        const avant: DemandSnapshotRow[] = avantRows
+          .filter((r) => retenue.has(nomSource(r)))
+          .map(toRow)
+        const apres: DemandSnapshotRow[] = apresRows
+          .filter((r) => retenue.has(nomSource(r)))
+          .map(toRow)
+        let entrees = diffCbnDrivers(avant, apres)
+
+        if (entrees.length > 0) {
+          const codes = [...new Set(entrees.map((e) => e.article))]
+          const chunkSize = 900
+          const map = new Map<
+            string,
+            {
+              designation: string | null
+              famille: string | null
+              categorie: string | null
+              approvisionnement: 'ACHAT' | 'FABRICATION' | null
+              statut: number | null
+            }
+          >()
+          for (let i = 0; i < codes.length; i += chunkSize) {
+            const chunk = codes.slice(i, i + chunkSize)
+            const rows = await conn
+              .from('static_articles')
+              .whereIn('code', chunk)
+              // Lecture DÉLIBÉRÉMENT non filtrée sur le statut, là où
+              // `staticSync.readArticles()` ne rend que le parc vivant : cet
+              // enrichissement a besoin de VOIR les articles morts pour les
+              // écarter. Un article absent de la table ne peut être écarté par
+              // rien.
+              .select('code', 'description', 'famille', 'category', 'supply_type', 'status')
+            for (const r of rows as Array<Record<string, unknown>>) {
+              const code = String((r as Record<string, unknown>).code)
+              const desc = (r as Record<string, unknown>).description
+              const fam = (r as Record<string, unknown>).famille
+              const cat = (r as Record<string, unknown>).category
+              // `supply_type` est écrit par `static_sync_service` depuis
+              // `ITMMASTER.MFGFLG_0` et ne vaut que `ACHAT` ou `FABRICATION`.
+              // Toute autre valeur (table jamais synchronisée, colonne vide)
+              // devient `null` : mieux vaut ne rien dire que dire « acheté »
+              // d'un article fabriqué.
+              const appro = String((r as Record<string, unknown>).supply_type ?? '')
+              const statut = Number((r as Record<string, unknown>).status)
+              map.set(code, {
+                designation: desc === null || desc === undefined ? null : String(desc) || null,
+                famille: fam === null || fam === undefined ? null : String(fam) || null,
+                categorie: cat === null || cat === undefined ? null : String(cat),
+                approvisionnement: appro === 'ACHAT' || appro === 'FABRICATION' ? appro : null,
+                statut: Number.isFinite(statut) ? statut : null,
+              })
+            }
+          }
+          // Deux exclusions, une seule passe.
+          //
+          // - CATÉGORIE Z : même règle que `stock_valuation` et le lien BOM —
+          //   ce ne sont pas des composants à approvisionner.
+          // - STATUT « Non utilisable » : l'article est mort, ses mouvements
+          //   n'appellent aucune décision. Mesuré le 08/08/2026 : 112 OF fermes
+          //   de quantité 1, tous à la même échéance, repoussés EN BLOC
+          //   (06/06 → 01/08 → 16/08) sur des références `ET####` — 106 lignes
+          //   de frise pour du rebut ERP que personne ne solde.
+          //
+          // Un statut inconnu (`null`) n'exclut PAS : cette table peut n'avoir
+          // jamais été synchronisée, et une exclusion par défaut viderait la
+          // page en silence plutôt que de la salir visiblement.
+          const exclus = new Set<string>()
+          for (const [code, v] of map.entries()) {
+            if (v.categorie !== null && v.categorie.startsWith('Z')) exclus.add(code)
+            else if (v.statut === ARTICLE_NON_UTILISABLE) exclus.add(code)
+          }
+          if (exclus.size > 0) entrees = entrees.filter((e) => !exclus.has(e.article))
+
+          // Enrichissement désignation/famille (§5.2) : jointure static_articles
+          // sur les seuls articles présents dans le diff, pas un LEFT JOIN sur
+          // toute la photo.
+          entrees = entrees.map((e) => {
+            const hit = map.get(e.article)
+            return {
+              ...e,
+              designation: hit?.designation ?? null,
+              famille: hit?.famille ?? null,
+              approvisionnement: hit?.approvisionnement ?? null,
+            }
+          })
+        }
+
+        // Pas de tri ici : `diffCbnDrivers` rend déjà la liste triée par
+        // amplitude décroissante (§5.3), et l'enrichissement comme le filtre Z
+        // préservent l'ordre. Un second tri masquerait toute régression du
+        // contrat d'ordre côté domaine.
+        return {
+          avant: avantDay,
+          apres: apresDay,
+          entrees,
+          sourcesEcartees,
+          sourcesComparees: comparees,
+          message: null,
+        }
+      },
     })
-    const avant: DemandSnapshotRow[] = avantRows.map(toRow)
-    const apres: DemandSnapshotRow[] = apresRows.map(toRow)
-    const entrees = diffCbnDrivers(avant, apres)
-    return { avant: avantDay, apres: apresDay, entrees }
+    if (cached === null) return null
+    // Valeur en lecture seule (cache_ns.ts) — copie défensive.
+    return {
+      avant: cached.avant,
+      apres: cached.apres,
+      entrees: [...cached.entrees],
+      sourcesEcartees: [...cached.sourcesEcartees],
+      sourcesComparees: [...cached.sourcesComparees],
+      message: cached.message,
+    }
+  }
+
+  /**
+   * Frise des drivers sur une plage (#143) : chaîne les diffs de chaque paire
+   * CONSECUTIVE de photos entre `avant` et `apres`, au lieu de comparer les
+   * deux bornes directement.
+   *
+   * Chaque pas réutilise `diffDrivers` et donc son cache `appro:drivers:*` :
+   * une photo est immuable une fois écrite, le diff d'une paire adjacente
+   * l'est aussi — il vaut pour n'importe quelle fenêtre le contenant, et la
+   * chaîne de N photos ne coûte que N−1 diffs calculés une fois.
+   *
+   * Un TROU dans la série (photos distantes de plus d'un jour) est détecté sur
+   * les dates RÉELLES des photos et rendu à part : le pas qui l'enjambe reste
+   * calculé, mais un mouvement qui y est observé n'est pas localisable au jour
+   * près, et la frise doit le dire — jamais enjamber en silence.
+   *
+   * Les pas sont calculés avec un petit pool. Chaque diff lit deux journées
+   * entières de `demand_snapshots` (~73 000 lignes chacune) ; sans précaution,
+   * les pas ADJACENTS partagent une journée — le pas *i* lit `dates[i+1]`, le
+   * pas *i+1* la relit — et sur `MAX_PAS_FRISE = 45` pas ça fait ~90 lectures
+   * de journée là où 46 suffiraient (#143 défaut 2). `memoJournees`, une
+   * `MemoJourneesBorne` PARTAGÉE par tous les workers de CETTE frise,
+   * déduplique ces lectures via `loadDayRows` — SANS toucher au calcul de
+   * `diffDrivers` lui-même (même résultat, même cache par paire, seule l'I/O
+   * amont change).
+   *
+   * La fenêtre est BORNÉE (`CAPACITE_MEMO_JOURNEES`, pas « chaque journée
+   * chargée une seule fois pour toute la frise ») : un memo non borné a été
+   * signalé en revue de code — jusqu'à 46 tableaux de ~73 000 lignes retenus
+   * simultanément du début à la fin, un échange I/O contre mémoire sur
+   * l'endpoint qu'on allégeait. La réutilisation entre pas étant strictement
+   * LOCALE (une journée ne sert qu'à ses deux pas adjacents), une fenêtre
+   * glissante dimensionnée sur la localité réelle des accès capture la
+   * quasi-totalité du gain sans retenir toute la frise — voir
+   * `MemoJourneesBorne` pour le détail de la capacité et de son éviction.
+   *
+   * Pool à 4 : c'est `pool.max` de la connexion SQLite locale (config/database.ts)
+   * — au-delà, les workers supplémentaires n'obtiendraient pas plus de
+   * connexions et attendraient dans la file du pool plutôt que de paralléliser
+   * quoi que ce soit. La dédup ne change pas ce plafond : elle réduit le
+   * NOMBRE de lectures, pas la taille du pool qui les sert.
+   */
+  async friseDrivers(
+    apresDay: string,
+    avantDay: string
+  ): Promise<{
+    avant: string
+    apres: string
+    pas: PasFrise[]
+    trous: TrouFrise[]
+    message: string | null
+  } | null> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .whereBetween('snapshot_date', [avantDay, apresDay])
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'asc')
+    if (rows.length < 2) return null
+    const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
+    const trous = detecterTrous(dates)
+
+    if (dates.length - 1 > MAX_PAS_FRISE) {
+      return {
+        avant: avantDay,
+        apres: apresDay,
+        pas: [],
+        trous,
+        message: `plage trop large — ${dates.length} photos dans la sélection, ${MAX_PAS_FRISE} pas au maximum. Resserrer la sélection.`,
+      }
+    }
+
+    const memoJournees = new MemoJourneesBorne()
+    const pas: PasFrise[] = []
+    let cursor = 0
+    const workers = Array.from({ length: Math.min(4, dates.length - 1) }, async () => {
+      while (cursor < dates.length - 1) {
+        const i = cursor++
+        const pasAvant = dates[i]
+        const pasApres = dates[i + 1]
+        const r = await this.diffDrivers(pasApres, pasAvant, memoJournees)
+        if (r === null) {
+          // Photo vide d'un côté — impossible en pratique : les dates viennent
+          // de la table, chaque date a au moins une ligne. Défensif : le pas
+          // reste présent, annoncé illisible, plutôt qu'absent en silence.
+          pas.push({
+            avant: pasAvant,
+            apres: pasApres,
+            entrees: [],
+            message: 'photo(s) illisible(s) — pas indisponible',
+            sourcesEcartees: [],
+            sourcesComparees: [],
+          })
+        } else {
+          pas.push({
+            avant: pasAvant,
+            apres: pasApres,
+            entrees: r.entrees,
+            message: r.message,
+            sourcesEcartees: r.sourcesEcartees,
+            sourcesComparees: r.sourcesComparees,
+          })
+        }
+      }
+    })
+    await Promise.all(workers)
+    pas.sort((a, b) => a.avant.localeCompare(b.avant))
+
+    return { avant: avantDay, apres: apresDay, pas, trous, message: null }
   }
 
   /**
@@ -570,7 +1024,14 @@ export class DemandSnapshotService {
     // couverture, part, confiance). Sans lui, les entrées figées par le lot 1
     // pour les mêmes jours resteraient servies sans les nouveaux champs.
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:explications:v2:${avantDay}:${apresDay}`,
+      // Version OBLIGATOIRE, au même titre que `appro:drivers` : cette valeur
+      // est DÉRIVÉE du diff des drivers. Sans bump, /approvisionnements
+      // continuerait de servir les corrélations tirées de l'ancien diff pendant
+      // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
+      // sur le même couple de photos, et un couple déjà en cache en PROD.
+      // `v3` — périmètre via journal des sources capturées (#149), par-dessus
+      // `v2` (périmètre restreint aux sources comparables, #145).
+      key: `appro:explications:${avantDay}:${apresDay}:v3`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),
@@ -644,6 +1105,12 @@ export class DemandSnapshotService {
       // Les huit sources de `demand` viennent de quatre repositories distincts :
       // les voir TOUTES vides ne décrit aucun état réel du parc, c'est une panne.
       // On n'écrit alors rien du tout, messages compris — ils sortent du même run.
+      //
+      // Ce `return` est AVANT l'ouverture de la transaction : une photo 100 %
+      // vide n'est donc JAMAIS écrite, ni lignes ni journal (l'écriture du
+      // journal est plus bas, dans la transaction). `diffDrivers()` ne peut
+      // donc jamais rencontrer une photo vide MAIS journalisée — ne pas
+      // réintroduire de branche pour ce cas côté diff (cf. son commentaire).
       if (demand.length === 0) {
         logger.warn(
           { date: dateStr, source },
@@ -702,6 +1169,104 @@ export class DemandSnapshotService {
               )
           }
         }
+        // Journal des sources capturées (#149) — une ligne par (snapshot_date, source)
+        // avec le verdict du run : `capturee` | `vide` | `echec`. Écrit dans la
+        // MÊME transaction que les deux tables de photo pour que le journal décrive
+        // exactement ce qui a été figé — mais dans un SAVEPOINT (transaction
+        // imbriquée) séparé : sur SQLite, un statement en erreur n'abandonne PAS
+        // la transaction parente à lui seul. Sans ce savepoint, un `delete` du
+        // journal qui réussit suivi d'un `insert` qui échoue committerait quand
+        // même un journal VIDÉ pour cette date — un journal valide détruit en
+        // silence, que le repli sur `perimetreComparable` masquerait ensuite
+        // (revue de code #149). Le savepoint garantit qu'un échec ici ne
+        // rollback QUE le journal, jamais la photo déjà écrite plus haut.
+        try {
+          const sp = await trx.transaction()
+          try {
+            const counts = new Map<string, number>()
+            for (const r of demand) counts.set(r.source, (counts.get(r.source) ?? 0) + 1)
+
+            // Suppression SYMÉTRIQUE de celle de `demand_snapshots` ci-dessus
+            // (même `whereNotIn`) : une source en échec n'est pas réécrite dans
+            // la photo, sa ligne de journal du run précédent ne doit donc pas
+            // non plus disparaître — sinon le journal contredit des lignes qui,
+            // elles, ont bien survécu. Cas concret : run nocturne complet à 04 h
+            // qui fige 5 469 suggestions, puis `snapshot:run` relancé à la main
+            // à 15 h pendant qu'X3 sature — sans ce `whereNotIn`, le journal
+            // réécrivait `appro_suggestion = echec` sur des lignes réelles et
+            // intactes des deux côtés (revue de code #149, défaut bloquant).
+            const suppressionJournal = sp
+              .from('demand_snapshot_sources')
+              .where('snapshot_date', dateStr)
+            if (sourcesEnEchec.length > 0) suppressionJournal.whereNotIn('source', sourcesEnEchec)
+            await suppressionJournal.delete()
+
+            // Sources dont une ligne de journal a survécu à la suppression
+            // ci-dessus (un run antérieur du même jour l'a écrite et le
+            // `whereNotIn` l'a préservée) : ne pas leur substituer un `echec`,
+            // c'est précisément ce que la préservation ci-dessus visait à
+            // garder intact.
+            const survivantesRows = await sp
+              .from('demand_snapshot_sources')
+              .where('snapshot_date', dateStr)
+              .select('source')
+            const survivantes = new Set(
+              survivantesRows.map((r) => String((r as Record<string, unknown>).source))
+            )
+
+            const journalRows: Array<{
+              snapshot_date: string
+              source: string
+              statut: StatutSource
+              lignes: number
+              created_at: Date
+            }> = []
+            for (const src of SOURCES_ATTENDUES) {
+              if (sourcesEnEchec.includes(src)) {
+                // `echec` n'est inséré QUE si rien n'a survécu pour cette source
+                // (tout premier run du jour, en échec d'emblée) : sinon la ligne
+                // survivante décrit déjà correctement les lignes préservées.
+                if (!survivantes.has(src)) {
+                  journalRows.push({
+                    snapshot_date: dateStr,
+                    source: src,
+                    statut: 'echec',
+                    lignes: 0,
+                    created_at: new Date(),
+                  })
+                }
+                continue
+              }
+              const lignes = src === SOURCE.MESSAGE ? messages.length : (counts.get(src) ?? 0)
+              const statut: StatutSource = lignes > 0 ? 'capturee' : 'vide'
+              journalRows.push({
+                snapshot_date: dateStr,
+                source: src,
+                statut,
+                lignes,
+                created_at: new Date(),
+              })
+            }
+            for (let i = 0; i < journalRows.length; i += INSERT_CHUNK) {
+              await sp
+                .table('demand_snapshot_sources')
+                .insert(journalRows.slice(i, i + INSERT_CHUNK))
+            }
+            await sp.commit()
+          } catch (e) {
+            await sp.rollback()
+            throw e
+          }
+        } catch (e) {
+          const msg = (e as Error)?.message ?? String(e)
+          // Le journal est un composant OPTIONNEL : quelle que soit l'erreur
+          // (table absente en historique pré-migration, colonne manquante,
+          // contrainte, …), le run ne doit jamais échouer — ni faire perdre
+          // TOUTE la photo par un rollback — pour un journal. On avertit, et
+          // la photo reste écrite, sans journal (le savepoint ci-dessus a déjà
+          // annulé le journal lui-même, pas la photo).
+          logger.warn({ err: msg }, '[snapshot] journal indisponible — photo écrite sans journal')
+        }
         await trx.commit()
       } catch (error) {
         await trx.rollback()
@@ -735,6 +1300,28 @@ export class DemandSnapshotService {
         sourceBreakdown: {},
         error: message,
       }
+    }
+  }
+
+  private async lireJournal(dateStr: string): Promise<Map<string, StatutSource> | null> {
+    try {
+      const rows = await db
+        .connection()
+        .from('demand_snapshot_sources')
+        .where('snapshot_date', dateStr)
+        .select('source', 'statut')
+      if (rows.length === 0) return null
+      const m = new Map<string, StatutSource>()
+      for (const r of rows as Array<Record<string, unknown>>) {
+        const src = String((r as Record<string, unknown>).source)
+        const st = String((r as Record<string, unknown>).statut) as StatutSource
+        if (st === 'capturee' || st === 'vide' || st === 'echec') m.set(src, st)
+      }
+      return m.size > 0 ? m : null
+    } catch (e) {
+      const msg = (e as Error)?.message ?? String(e)
+      if (msg.includes('no such table') || msg.includes('no such column')) return null
+      throw e
     }
   }
 

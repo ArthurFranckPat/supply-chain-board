@@ -171,6 +171,23 @@ export class ConversationSchema extends BaseModel {
   declare userId: number
 }
 
+export class DemandSnapshotSourceSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'lignes', 'snapshotDate', 'source', 'statut'] as const
+  $columns = DemandSnapshotSourceSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lignes: number
+  @column.date()
+  declare snapshotDate: DateTime
+  @column()
+  declare source: string
+  @column()
+  declare statut: string
+}
+
 export class DemandSnapshotSchema extends BaseModel {
   static $columns = [
     'createdAt',
@@ -463,6 +480,7 @@ export class StaticArticleSchema extends BaseModel {
     'description',
     'famille',
     'reorderDelay',
+    'status',
     'supplyType',
     'syncedAt',
     'typologie',
@@ -479,6 +497,8 @@ export class StaticArticleSchema extends BaseModel {
   declare famille: string
   @column()
   declare reorderDelay: number
+  @column()
+  declare status: number
   @column()
   declare supplyType: string
   @column()

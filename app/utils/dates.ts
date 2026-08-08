@@ -19,6 +19,19 @@ export function isoDay(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * Échéance ISO (`YYYY-MM-DD`) → affichage jj/mm/aaaa. `—` si `null`.
+ * Règle du projet : jamais d'ISO brut à l'écran ; l'ISO reste correct côté
+ * machine (champs `echeance*` inchangés), seul le texte affiché passe par ici.
+ * Partagé par `cbn_driver_diff.ts` et `appro_snapshot_diff.ts` (#148) : ne pas
+ * dupliquer, les deux fichiers doivent consommer la même fonction.
+ */
+export const fmtFr = (iso: string | null): string => {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : iso
+}
+
 /** Numéro de semaine ISO (calcul sur la date civile locale, convention usuelle). */
 export function isoWeek(d: Date): number {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -34,4 +47,26 @@ export function mondayOf(d: Date): Date {
   const dow = (x.getDay() + 6) % 7 // 0 = lundi
   x.setDate(x.getDate() - dow)
   return x
+}
+
+/**
+ * Une chaîne est-elle une date ISO `YYYY-MM-DD` qui existe RÉELLEMENT (rejette
+ * `2026-02-30`, `2026-13-01`, etc.), pas seulement au bon format.
+ *
+ * Sert à valider les paramètres `avant`/`apres` des endpoints de diff (#143
+ * défaut 6) : `whereBetween`/`where` sur `snapshot_date` sont paramétrés (pas
+ * d'injection), mais une valeur absurde retombait silencieusement sur « moins
+ * de deux photos » — un message qui décrit un état des DONNÉES alors que
+ * c'est la REQUÊTE qui est mauvaise.
+ */
+export function estIsoDayValide(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  if (m === null) return false
+  const annee = Number(m[1])
+  const mois = Number(m[2])
+  const jour = Number(m[3])
+  const d = new Date(annee, mois - 1, jour)
+  // `Date` normalise les débordements (`2026-02-30` → `2026-03-02`) au lieu de
+  // lever : la relecture des trois composantes est ce qui les détecte.
+  return d.getFullYear() === annee && d.getMonth() === mois - 1 && d.getDate() === jour
 }

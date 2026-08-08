@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 122 routes nommées.
+ * 124 routes nommées.
  */
 
 export const MANIFEST = {
@@ -19,16 +19,19 @@ export const MANIFEST = {
   'appro.decision': { method: 'POST', pattern: '/api/v1/appro/decision' },
   'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
   'appro.driversDiff': { method: 'GET', pattern: '/api/v1/appro/drivers-diff' },
+  'appro.driversFrise': { method: 'GET', pattern: '/api/v1/appro/drivers-frise' },
   'appro.explanations': { method: 'GET', pattern: '/api/v1/appro/explanations' },
   'appro.messagesDiff': { method: 'GET', pattern: '/api/v1/appro/messages-diff' },
   'appro.patterns': { method: 'GET', pattern: '/api/v1/appro/patterns' },
   'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
+  'appro.snapshots': { method: 'GET', pattern: '/api/v1/appro/snapshots' },
   'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
   'assets.js': { method: 'GET', pattern: '/js/app.js' },
   'auth.attempt': { method: 'POST', pattern: '/login' },
   'auth.login': { method: 'GET', pattern: '/login' },
   'auth.logout': { method: 'POST', pattern: '/logout' },
+  'besoins.evolution': { method: 'GET', pattern: '/besoins/evolution' },
   'calendar_config.create_closure': { method: 'POST', pattern: '/api/v1/config/closures' },
   'calendar_config.delete_closure': { method: 'DELETE', pattern: '/api/v1/config/closures/:id' },
   'calendar_config.index': { method: 'GET', pattern: '/configuration/calendrier' },
@@ -183,16 +186,19 @@ export type RouteParams = {
   'appro.decision': void
   'appro.diff': void
   'appro.driversDiff': void
+  'appro.driversFrise': void
   'appro.explanations': void
   'appro.messagesDiff': void
   'appro.patterns': void
   'appro.rows': void
+  'appro.snapshots': void
   'approvisionnements.index': void
   'assets.css': void
   'assets.js': void
   'auth.attempt': void
   'auth.login': void
   'auth.logout': void
+  'besoins.evolution': void
   'calendar_config.create_closure': void
   'calendar_config.delete_closure': { id: string | number }
   'calendar_config.index': void
