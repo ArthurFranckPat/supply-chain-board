@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
 import {
   DemandSnapshotService,
+  MemoJourneesBorne,
   messageSnapshotRow,
   type ApproMessageSnapshotRow,
   type DemandSnapshotRow,
@@ -30,6 +31,20 @@ const SENTINEL_DATE = '1900-01-01'
 class ProbeService extends DemandSnapshotService {
   runWrite(dateStr: string, fetchRows: () => Promise<SnapshotPayload>) {
     return this.write(dateStr, 'test', fetchRows)
+  }
+}
+
+/**
+ * Compte les lectures RÉELLES de journée (#143 défaut 2, revue de code sur le
+ * memo borné) : `lireJourneeBrute` est le seul point d'I/O que `loadDayRows`
+ * appelle, l'intercepter ici mesure directement le gain de la mémoïsation
+ * sans instrumenter la connexion SQLite elle-même.
+ */
+class ProbeServiceCompteur extends ProbeService {
+  nbLectures = 0
+  protected lireJourneeBrute(day: string) {
+    this.nbLectures += 1
+    return super.lireJourneeBrute(day)
   }
 }
 
@@ -911,4 +926,93 @@ test.group('DemandSnapshotService — frise des drivers (#143)', (group) => {
     // ne dépend pas du calcul des pas qui, lui, est coupé court.
     assert.isAbove(frise!.trous.length, 0)
   }).timeout(20_000)
+
+  test('le memo borné déduplique bien les lectures : 6 photos (5 pas) → 6 lectures, pas 10 (défaut 2, revue de code)', async ({
+    assert,
+  }) => {
+    // Régression du memo NON borné signalé en revue de code : `friseDrivers`
+    // relisait chaque journée deux fois (le pas i lit dates[i+1], le pas i+1
+    // la relit). Une série de 6 photos tient largement dans la fenêtre
+    // (CAPACITE_MEMO_JOURNEES = 8) : le gain doit donc être ENTIER ici, pas
+    // seulement partiel — 6 lectures pour 6 dates distinctes, pas 10
+    // (2 × 5 pas) comme avant la mémoïsation.
+    const serviceCompteur = new ProbeServiceCompteur()
+    const jours = [
+      '1900-04-30',
+      '1900-05-01',
+      '1900-05-02',
+      '1900-05-03',
+      '1900-05-04',
+      '1900-05-05',
+    ]
+    dates.push(...jours)
+    for (const [i, j] of jours.entries()) {
+      await serviceCompteur.runWrite(j, async () =>
+        payload([row({ snapshot_date: j, source: 'stock', itmref: 'A1', quantity: 10 + i })])
+      )
+    }
+
+    const frise = await serviceCompteur.friseDrivers(jours[jours.length - 1], jours[0])
+
+    assert.isNotNull(frise)
+    assert.lengthOf(frise!.pas, 5)
+    assert.equal(serviceCompteur.nbLectures, 6)
+  }).timeout(20_000)
+})
+
+test.group('MemoJourneesBorne (#143 défaut 2, borné en revue de code)', () => {
+  const p = (n: number) => Promise.resolve([{ n }])
+
+  test('une même journée demandée deux fois ne déclenche qu’une lecture : `set` puis `get` rendent la MÊME promesse', ({
+    assert,
+  }) => {
+    const memo = new MemoJourneesBorne(4)
+    assert.isUndefined(memo.get('J1'))
+    const promesse = p(1)
+    memo.set('J1', promesse)
+    assert.strictEqual(memo.get('J1'), promesse)
+    // Un second `get` (ce que ferait un second appelant) rend la même
+    // référence : aucune seconde lecture ne serait déclenchée par l'appelant.
+    assert.strictEqual(memo.get('J1'), promesse)
+  })
+
+  test('la capacité est respectée : au-delà, la plus ANCIENNE entrée insérée est évincée (FIFO)', ({
+    assert,
+  }) => {
+    const memo = new MemoJourneesBorne(3)
+    memo.set('J1', p(1))
+    memo.set('J2', p(2))
+    memo.set('J3', p(3))
+    assert.equal(memo.taille, 3)
+
+    // J4 dépasse la capacité : J1 (la plus ancienne INSÉRÉE) est évincée,
+    // même si elle a été relue entre-temps (FIFO, pas LRU — cf. doc de la classe).
+    assert.isDefined(memo.get('J1'))
+    memo.set('J4', p(4))
+
+    assert.equal(memo.taille, 3)
+    assert.isUndefined(memo.get('J1'))
+    assert.isDefined(memo.get('J2'))
+    assert.isDefined(memo.get('J3'))
+    assert.isDefined(memo.get('J4'))
+  })
+
+  test('évincer une clé pendant qu’une promesse est en vol ne casse rien pour l’appelant qui la détient déjà', async ({
+    assert,
+  }) => {
+    const memo = new MemoJourneesBorne(1)
+    const promesseJ1 = p(1)
+    memo.set('J1', promesseJ1)
+    // Un appelant récupère sa référence AVANT l'éviction — c'est exactement
+    // ce que fait `loadDayRows` : `promesse = memo.get(day)` puis `return
+    // promesse`, jamais un accès différé au memo.
+    const referenceAppelant = memo.get('J1')
+    memo.set('J2', p(2)) // évince J1 (capacité 1)
+
+    assert.isUndefined(memo.get('J1'))
+    assert.isDefined(referenceAppelant)
+    // La promesse détenue par l'appelant résout normalement, indépendamment
+    // du memo qui ne la connaît plus.
+    assert.deepEqual(await referenceAppelant, [{ n: 1 }])
+  })
 })
