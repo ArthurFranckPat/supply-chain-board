@@ -21,17 +21,39 @@ import { fmtFr } from '#app/utils/dates'
  * Pur, sans I/O.
  */
 
-export type DriverSource =
-  | 'of_ferme'
-  | 'of_planifie'
-  | 'of_suggestion'
-  | 'demande_ferme'
-  | 'demande_prevision'
-  | 'stock'
-  | 'appro'
-  | 'appro_suggestion'
+/**
+ * Liste RUNTIME des sources, en un seul endroit — le type `DriverSource` en
+ * DÉRIVE (`(typeof DRIVER_SOURCES)[number]`) plutôt que l'inverse. Un
+ * consommateur qui doit énumérer les compteurs par source (revue de code
+ * #143 défaut 3 : `totalParNature`/`totalParSource` construits creux puis
+ * castés, une clé absente se lisant `undefined` sous un type qui promet
+ * `number`) a désormais une liste exhaustive à boucler sans la redupliquer —
+ * un ajout de source ici met à jour le type ET la liste d'un coup, là où deux
+ * littéraux séparés auraient pu diverger au premier renommage.
+ */
+export const DRIVER_SOURCES = [
+  'of_ferme',
+  'of_planifie',
+  'of_suggestion',
+  'demande_ferme',
+  'demande_prevision',
+  'stock',
+  'appro',
+  'appro_suggestion',
+] as const
 
-export type DriverDiffNature = 'apparue' | 'disparue' | 'quantite' | 'date' | 'renumerotation'
+export type DriverSource = (typeof DRIVER_SOURCES)[number]
+
+/** Même motif que `DRIVER_SOURCES` pour les natures de diff. */
+export const DRIVER_DIFF_NATURES = [
+  'apparue',
+  'disparue',
+  'quantite',
+  'date',
+  'renumerotation',
+] as const
+
+export type DriverDiffNature = (typeof DRIVER_DIFF_NATURES)[number]
 
 export interface DriverDiffEntry {
   article: string

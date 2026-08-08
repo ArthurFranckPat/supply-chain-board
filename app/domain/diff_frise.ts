@@ -1,4 +1,10 @@
-import type { DriverDiffEntry, DriverDiffNature, DriverSource } from '#app/domain/cbn_driver_diff'
+import {
+  DRIVER_DIFF_NATURES,
+  DRIVER_SOURCES,
+  type DriverDiffEntry,
+  type DriverDiffNature,
+  type DriverSource,
+} from '#app/domain/cbn_driver_diff'
 import type { SourceEcartee } from '#app/domain/snapshot_perimetre'
 
 /**
@@ -99,6 +105,44 @@ export function detecterTrous(datesPhotos: string[]): TrouFrise[] {
 }
 
 /**
+ * Compteur initialisé à 0 sur toutes les clés — jamais d'absence lue
+ * `undefined` (défaut 3). Exporté : le contrôleur (`appro_controller.ts`,
+ * `driversFrise`) construit les mêmes compteurs `parNature`/`parSource`
+ * (globaux et par pas) et doit rester d'accord sur les mêmes listes de clés.
+ */
+export function compteurVide<T extends string>(cles: readonly T[]): Record<T, number> {
+  const r = {} as Record<T, number>
+  for (const cle of cles) r[cle] = 0
+  return r
+}
+
+/** Méta + décompte d'un article, accumulés en passe 1 (sans mouvement matérialisé). */
+interface AccumulateurArticle {
+  designation: string | null
+  famille: string | null
+  total: number
+}
+
+export interface ConstruireFriseOptions {
+  /**
+   * Nombre maximal de MOUVEMENTS conservés dans la réponse, tous articles
+   * confondus (défaut 1). Consommé article par article dans l'ORDRE DE LA
+   * FRISE (nombre de mouvements décroissant, le plus agité d'abord) ; un
+   * article dont le budget tombe à zéro est écarté de la réponse plutôt que
+   * rendu avec `mouvements: []` — même sémantique que le bornage qu'appliquait
+   * jusqu'ici le contrôleur après coup.
+   *
+   * `total` par article et les compteurs globaux (`total`, `totalParNature`,
+   * `totalParSource`) restent EXACTS, calculés sur la totalité des entrées :
+   * seuls les mouvements RETENUS sont bornés. Contrat exploité tel quel par
+   * `besoins-evolution.tsx` (« X mouvements sur N ») — préservé à l'identique.
+   *
+   * Omis : tout est matérialisé, comportement historique inchangé.
+   */
+  budget?: number
+}
+
+/**
  * Agrège les pas d'une plage en frise par article.
  *
  * - un mouvement porte le `jour` du pas qui l'a observé (sa borne « après ») ;
@@ -109,46 +153,104 @@ export function detecterTrous(datesPhotos: string[]): TrouFrise[] {
  *   de l'écran est « quels articles bougent le plus sur la période », pas « le
  *   plus fort mouvement » ;
  * - les pas sans aucune entrée (y compris pour une raison annoncée) ne
- *   contribuent rien.
+ *   contribuent rien ;
+ * - désignation/famille se complètent au fil des entrées (`??=`), sans jamais
+ *   écraser une valeur déjà connue (défaut 4) — la première entrée vue pour un
+ *   article peut les porter nulles alors qu'une suivante les renseigne.
+ *
+ * Deux passes systématiques (défaut 1) : la première ne fait que COMPTER (une
+ * frise de 800 000 mouvements coûte alors 800 000 incréments, pas 800 000
+ * allocations d'objet) et détermine designation/famille/total par article — ce
+ * qui suffit à connaître l'ordre final ET, avec `options.budget`, quels
+ * articles seront réellement SERVIS avant de matérialiser quoi que ce soit. La
+ * seconde passe ne construit les tableaux `mouvements` que pour ces
+ * articles-là : sans budget, c'est tous ; avec budget, c'est au plus le
+ * nombre d'articles qu'un budget ≤ 1000 peut jamais servir — pas les dizaines
+ * de milliers d'articles inertes d'une plage large.
  */
-export function construireFrise(pas: PasFrise[]): FriseChaine {
-  const parArticle = new Map<string, ArticleFrise>()
-  const totalParNature: Record<string, number> = {}
-  const totalParSource: Record<string, number> = {}
+export function construireFrise(pas: PasFrise[], options?: ConstruireFriseOptions): FriseChaine {
+  const budget = options?.budget
+
+  // Passe 1 : comptages exacts + méta, aucun mouvement matérialisé.
+  const accum = new Map<string, AccumulateurArticle>()
+  const ordreApparition: string[] = []
+  const totalParNature = compteurVide(DRIVER_DIFF_NATURES)
+  const totalParSource = compteurVide(DRIVER_SOURCES)
   let total = 0
 
   for (const pasEntry of pas) {
     for (const e of pasEntry.entrees) {
-      const mouvement: MouvementFrise = { ...e, jour: pasEntry.apres }
       total += 1
-      totalParNature[e.nature] = (totalParNature[e.nature] ?? 0) + 1
-      totalParSource[e.source] = (totalParSource[e.source] ?? 0) + 1
-      let article = parArticle.get(e.article)
-      if (article === undefined) {
-        article = {
-          article: e.article,
-          designation: e.designation,
-          famille: e.famille,
-          total: 0,
-          mouvements: [],
-        }
-        parArticle.set(e.article, article)
+      totalParNature[e.nature] += 1
+      totalParSource[e.source] += 1
+      let a = accum.get(e.article)
+      if (a === undefined) {
+        a = { designation: e.designation, famille: e.famille, total: 0 }
+        accum.set(e.article, a)
+        ordreApparition.push(e.article)
+      } else {
+        a.designation ??= e.designation
+        a.famille ??= e.famille
       }
-      article.total += 1
-      article.mouvements.push(mouvement)
+      a.total += 1
     }
   }
 
-  for (const a of parArticle.values()) {
-    a.mouvements.sort((x, y) => x.jour.localeCompare(y.jour))
+  // Ordre final : nombre de mouvements décroissant, égalité départagée par
+  // l'ordre d'apparition — `Array.sort` est stable, même garantie que l'ancien
+  // tri sur les `values()` d'une Map remplie dans cet ordre.
+  const ordre = [...ordreApparition].sort((x, y) => accum.get(y)!.total - accum.get(x)!.total)
+
+  // Qui est servi, et par combien de mouvements — décidé sur les COMPTEURS
+  // seuls (passe 1), avant toute matérialisation. Sans budget, tout le monde
+  // est servi pour son total entier (pas de cap = pas de troncature en passe 2).
+  const capParArticle = new Map<string, number>()
+  if (budget === undefined) {
+    for (const article of ordre) capParArticle.set(article, accum.get(article)!.total)
+  } else {
+    let restant = budget
+    for (const article of ordre) {
+      if (restant <= 0) break
+      const pris = Math.min(restant, accum.get(article)!.total)
+      if (pris > 0) {
+        capParArticle.set(article, pris)
+        restant -= pris
+      }
+    }
   }
 
-  const articles = [...parArticle.values()].sort((a, b) => b.total - a.total)
-
-  return {
-    articles,
-    total,
-    totalParNature: totalParNature as Record<DriverDiffNature, number>,
-    totalParSource: totalParSource as Record<DriverSource, number>,
+  // Passe 2 : ne matérialise les mouvements QUE pour les articles retenus par
+  // `capParArticle` — le gros de la mémoire évitée quand un budget est fourni.
+  const mouvementsParArticle = new Map<string, MouvementFrise[]>()
+  for (const pasEntry of pas) {
+    for (const e of pasEntry.entrees) {
+      if (!capParArticle.has(e.article)) continue
+      let arr = mouvementsParArticle.get(e.article)
+      if (arr === undefined) {
+        arr = []
+        mouvementsParArticle.set(e.article, arr)
+      }
+      arr.push({ ...e, jour: pasEntry.apres })
+    }
   }
+
+  const articles: ArticleFrise[] = []
+  for (const article of ordre) {
+    const cap = capParArticle.get(article)
+    if (cap === undefined) continue
+    const a = accum.get(article)!
+    const mouvements = mouvementsParArticle.get(article) ?? []
+    mouvements.sort((x, y) => x.jour.localeCompare(y.jour))
+    articles.push({
+      article,
+      designation: a.designation,
+      famille: a.famille,
+      total: a.total,
+      // `cap` vaut `a.total` sans budget (posé plus haut) : le `slice` est un
+      // no-op de valeur dans ce cas, pas une branche séparée à maintenir.
+      mouvements: mouvements.slice(0, cap),
+    })
+  }
+
+  return { articles, total, totalParNature, totalParSource }
 }

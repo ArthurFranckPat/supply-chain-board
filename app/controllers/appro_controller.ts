@@ -11,8 +11,13 @@ import {
   isApproDecisionStatut,
 } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
-import { construireFrise } from '#app/domain/diff_frise'
-import type { DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import { compteurVide, construireFrise } from '#app/domain/diff_frise'
+import {
+  DRIVER_DIFF_NATURES,
+  DRIVER_SOURCES,
+  type DriverDiffEntry,
+} from '#app/domain/cbn_driver_diff'
+import { estIsoDayValide } from '#app/utils/dates'
 
 /**
  * Page « Approvisionnements » (issue #103) : ce que le CBN de X3 propose côté
@@ -162,6 +167,20 @@ export default class ApproController {
   async driversDiff(ctx: HttpContext) {
     const avantQ = ctx.request.input('avant') as string | undefined
     const apresQ = ctx.request.input('apres') as string | undefined
+    // Défaut 6 (#143) : un format absurde retombait silencieusement sur
+    // « moins de deux photos », un message qui décrit les DONNÉES alors que
+    // c'est le PARAMÈTRE qui est mauvais. Knex paramétrise déjà (pas
+    // d'injection) — ceci est une histoire de message honnête, pas de sécurité.
+    if (avantQ !== undefined && !estIsoDayValide(avantQ)) {
+      return ctx.response.badRequest({
+        error: `paramètre « avant » invalide : « ${avantQ} » — format attendu AAAA-MM-JJ`,
+      })
+    }
+    if (apresQ !== undefined && !estIsoDayValide(apresQ)) {
+      return ctx.response.badRequest({
+        error: `paramètre « apres » invalide : « ${apresQ} » — format attendu AAAA-MM-JJ`,
+      })
+    }
     let avant: string | null = avantQ ?? null
     let apres: string | null = apresQ ?? null
     if (avant === null || apres === null) {
@@ -274,6 +293,17 @@ export default class ApproController {
   async driversFrise(ctx: HttpContext) {
     const avantQ = ctx.request.input('avant') as string | undefined
     const apresQ = ctx.request.input('apres') as string | undefined
+    // Défaut 6 (#143) — même trou, même traitement que `/drivers-diff`.
+    if (avantQ !== undefined && !estIsoDayValide(avantQ)) {
+      return ctx.response.badRequest({
+        error: `paramètre « avant » invalide : « ${avantQ} » — format attendu AAAA-MM-JJ`,
+      })
+    }
+    if (apresQ !== undefined && !estIsoDayValide(apresQ)) {
+      return ctx.response.badRequest({
+        error: `paramètre « apres » invalide : « ${apresQ} » — format attendu AAAA-MM-JJ`,
+      })
+    }
     let avant: string | null = avantQ ?? null
     let apres: string | null = apresQ ?? null
     if (avant === null || apres === null) {
@@ -326,13 +356,14 @@ export default class ApproController {
     // convention que `/drivers-diff` (§6) : les compteurs ne changent pas au clic.
     // Simple boucle : reconstruire `construireFrise` ici coûterait la Map
     // articles entière (~800 000 mouvements sur une plage large) pour deux
-    // compteurs.
-    const parNatureGlobal: Record<string, number> = {}
-    const parSourceGlobal: Record<string, number> = {}
+    // compteurs. Défaut 3 : compteurs COMPLETS (toutes les clés à 0), jamais
+    // creux — mêmes listes que `diff_frise.ts`, importées pour ne pas diverger.
+    const parNatureGlobal = compteurVide(DRIVER_DIFF_NATURES)
+    const parSourceGlobal = compteurVide(DRIVER_SOURCES)
     for (const p of result.pas) {
       for (const e of p.entrees) {
-        parNatureGlobal[e.nature] = (parNatureGlobal[e.nature] ?? 0) + 1
-        parSourceGlobal[e.source] = (parSourceGlobal[e.source] ?? 0) + 1
+        parNatureGlobal[e.nature] += 1
+        parSourceGlobal[e.source] += 1
       }
     }
 
@@ -358,6 +389,9 @@ export default class ApproController {
             .filter(Boolean)
         )
       : null
+    const filtreActif =
+      (wantedSource !== null && wantedSource.size > 0) ||
+      (wantedNature !== null && wantedNature.size > 0)
     const filtre = (e: DriverDiffEntry): boolean => {
       if (wantedSource !== null && wantedSource.size > 0 && !wantedSource.has(e.source))
         return false
@@ -366,8 +400,29 @@ export default class ApproController {
       return true
     }
 
-    const pasFiltres = result.pas.map((p) => ({ ...p, entrees: p.entrees.filter(filtre) }))
-    const frise = construireFrise(pasFiltres)
+    // Défaut 1 (#143) : sans filtre actif, `filtre` est un no-op — recopier
+    // TOUS les tableaux d'entrées (`p.entrees.filter(filtre)`, qui alloue même
+    // quand rien n'est écarté) matérialisait la totalité de la plage à chaque
+    // chargement de page pour ensuite ne garder que `limit` mouvements plus
+    // bas. `result.pas` est réutilisé TEL QUEL : rien ci-dessous ne mute ni
+    // les pas ni leurs entrées (`construireFrise` ne fait que lire, le résumé
+    // par pas ne fait que lire) — sûr même si ces entrées viennent du cache
+    // `appro:drivers:*`, en LECTURE SEULE (`serialize: false`, cf. cache_ns.ts).
+    const pasFiltres = filtreActif
+      ? result.pas.map((p) => ({ ...p, entrees: p.entrees.filter(filtre) }))
+      : result.pas
+
+    // Bornage : budget de mouvements consommé article par article, dans
+    // l'ordre de la frise (les plus agités d'abord) — même sémantique que
+    // `limit` de `/drivers-diff` (total après filtres, avant bornage). Porté
+    // DANS `construireFrise` (`options.budget`, défaut 1) : la Map complète
+    // des articles avec TOUS leurs mouvements n'est plus jamais construite
+    // pour ensuite être tranchée ici — seuls les articles réellement servis
+    // par le budget voient leurs mouvements matérialisés.
+    let limit = limitQ !== undefined ? Number(limitQ) : 200
+    if (!Number.isFinite(limit) || limit <= 0) limit = 200
+    limit = Math.min(Math.max(Math.floor(limit), 1), 1000)
+    const frise = construireFrise(pasFiltres, { budget: limit })
 
     // Résumé par pas, sans les entrees (la frise agrégée les porte déjà).
     // Calculé sur `pasFiltres` — même convention que les articles ci-dessous :
@@ -375,11 +430,11 @@ export default class ApproController {
     // suit la sélection. Un clic sur `source=stock` doit resserrer la
     // chronologie des pas comme il resserre la liste des articles.
     const pas = pasFiltres.map((p) => {
-      const parNature: Record<string, number> = {}
-      const parSource: Record<string, number> = {}
+      const parNature = compteurVide(DRIVER_DIFF_NATURES)
+      const parSource = compteurVide(DRIVER_SOURCES)
       for (const e of p.entrees) {
-        parNature[e.nature] = (parNature[e.nature] ?? 0) + 1
-        parSource[e.source] = (parSource[e.source] ?? 0) + 1
+        parNature[e.nature] += 1
+        parSource[e.source] += 1
       }
       return {
         avant: p.avant,
@@ -393,23 +448,7 @@ export default class ApproController {
       }
     })
 
-    // Bornage : budget de mouvements consommé article par article, dans l'ordre
-    // de la frise (les plus agités d'abord) — même sémantique que `limit` de
-    // `/drivers-diff` (total après filtres, avant bornage). Un article dont le
-    // budget est épuisé n'a plus aucun mouvement à montrer : l'écarter, sinon
-    // la réponse traînerait des milliers d'articles vides derrière les 200
-    // mouvements du budget (là où `/drivers-diff` tranche sa liste net).
-    let limit = limitQ !== undefined ? Number(limitQ) : 200
-    if (!Number.isFinite(limit) || limit <= 0) limit = 200
-    limit = Math.min(Math.max(Math.floor(limit), 1), 1000)
-    let restant = limit
     const articles = frise.articles
-      .map((a) => {
-        const mouvements = restant > 0 ? a.mouvements.slice(0, restant) : []
-        restant = Math.max(restant - mouvements.length, 0)
-        return { ...a, mouvements }
-      })
-      .filter((a) => a.mouvements.length > 0)
 
     return ctx.response.json({
       avant: result.avant,

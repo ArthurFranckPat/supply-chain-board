@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
 import {
   DemandSnapshotService,
+  MemoJourneesBorne,
   messageSnapshotRow,
   type ApproMessageSnapshotRow,
   type DemandSnapshotRow,
@@ -30,6 +31,20 @@ const SENTINEL_DATE = '1900-01-01'
 class ProbeService extends DemandSnapshotService {
   runWrite(dateStr: string, fetchRows: () => Promise<SnapshotPayload>) {
     return this.write(dateStr, 'test', fetchRows)
+  }
+}
+
+/**
+ * Compte les lectures RÉELLES de journée (#143 défaut 2, revue de code sur le
+ * memo borné) : `lireJourneeBrute` est le seul point d'I/O que `loadDayRows`
+ * appelle, l'intercepter ici mesure directement le gain de la mémoïsation
+ * sans instrumenter la connexion SQLite elle-même.
+ */
+class ProbeServiceCompteur extends ProbeService {
+  nbLectures = 0
+  protected lireJourneeBrute(day: string) {
+    this.nbLectures += 1
+    return super.lireJourneeBrute(day)
   }
 }
 
@@ -783,4 +798,221 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
     assert.equal(journalRows[0].statut, 'echec')
     assert.equal(journalRows[0].lignes, 0)
   }).timeout(20_000)
+})
+
+/**
+ * Frise des drivers sur une plage (#143 défaut 5) : rien ne couvrait
+ * jusqu'ici `friseDrivers` lui-même — plafond `MAX_PAS_FRISE`, chaînage des
+ * pas, trous — la revue de code #143 n'avait que les 12 tests du domaine pur
+ * (`diff_frise.test.ts`) pour s'appuyer.
+ */
+test.group('DemandSnapshotService — frise des drivers (#143)', (group) => {
+  const conn = db.connection()
+  const service = new ProbeService()
+  const dates: string[] = []
+
+  group.each.teardown(async () => {
+    await conn.from('demand_snapshots').whereIn('snapshot_date', dates).delete()
+    await conn.from('appro_message_snapshots').whereIn('snapshot_date', dates).delete()
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', dates).delete()
+    } catch {}
+    dates.length = 0
+  })
+
+  test('une série de 3 photos → autant de pas que d’intervalles, en ordre chronologique', async ({
+    assert,
+  }) => {
+    const J1 = '1900-04-01'
+    const J2 = '1900-04-02'
+    const J3 = '1900-04-03'
+    dates.push(J1, J2, J3)
+    await service.runWrite(J1, async () =>
+      payload([row({ snapshot_date: J1, source: 'stock', itmref: 'A1', quantity: 10 })])
+    )
+    await service.runWrite(J2, async () =>
+      payload([row({ snapshot_date: J2, source: 'stock', itmref: 'A1', quantity: 20 })])
+    )
+    await service.runWrite(J3, async () =>
+      payload([row({ snapshot_date: J3, source: 'stock', itmref: 'A1', quantity: 30 })])
+    )
+
+    const frise = await service.friseDrivers(J3, J1)
+
+    assert.isNotNull(frise)
+    assert.isNull(frise!.message)
+    assert.isEmpty(frise!.trous)
+    assert.lengthOf(frise!.pas, 2)
+    assert.equal(frise!.pas[0].avant, J1)
+    assert.equal(frise!.pas[0].apres, J2)
+    assert.equal(frise!.pas[1].avant, J2)
+    assert.equal(frise!.pas[1].apres, J3)
+  }).timeout(20_000)
+
+  test('un trou dans la série est remonté dans trous, le pas qui l’enjambe existe quand même', async ({
+    assert,
+  }) => {
+    const J1 = '1900-04-10'
+    const J2 = '1900-04-13' // 2 jours de trou (11 et 12)
+    dates.push(J1, J2)
+    await service.runWrite(J1, async () =>
+      payload([row({ snapshot_date: J1, source: 'stock', itmref: 'A1', quantity: 10 })])
+    )
+    await service.runWrite(J2, async () =>
+      payload([row({ snapshot_date: J2, source: 'stock', itmref: 'A1', quantity: 20 })])
+    )
+
+    const frise = await service.friseDrivers(J2, J1)
+
+    assert.isNotNull(frise)
+    assert.deepEqual(frise!.trous, [{ entre: J1, et: J2, manquants: ['1900-04-11', '1900-04-12'] }])
+    // Le trou n'enjambe pas le pas en silence : le pas existe toujours.
+    assert.lengthOf(frise!.pas, 1)
+    assert.equal(frise!.pas[0].avant, J1)
+    assert.equal(frise!.pas[0].apres, J2)
+  }).timeout(20_000)
+
+  test('moins de deux photos dans la plage → null', async ({ assert }) => {
+    const J1 = '1900-04-20'
+    dates.push(J1)
+    await service.runWrite(J1, async () =>
+      payload([row({ snapshot_date: J1, source: 'stock', itmref: 'A1' })])
+    )
+
+    const frise = await service.friseDrivers(J1, J1)
+
+    assert.isNull(frise)
+  }).timeout(15_000)
+
+  test('plafond MAX_PAS_FRISE dépassé → message « plage trop large », pas: [], trous quand même renseigné', async ({
+    assert,
+  }) => {
+    // Le plafond se déclenche AVANT tout `diffDrivers` (juste sur le nombre de
+    // dates distinctes) : inutile de payer 47 écritures transactionnelles,
+    // une insertion directe minimale suffit à peupler `demand_snapshots`.
+    const JOUR_MS = 86_400_000
+    const debut = Date.UTC(1901, 0, 1)
+    const jours: string[] = []
+    // 44 jours consécutifs...
+    for (let i = 0; i < 44; i++) {
+      jours.push(new Date(debut + i * JOUR_MS).toISOString().slice(0, 10))
+    }
+    // ...puis un vrai trou de 3 jours avant les 3 dernières photos — 47 dates
+    // distinctes au total (46 pas > MAX_PAS_FRISE = 45), et un trou réel pour
+    // vérifier que `detecterTrous` tourne quand même avant le plafond.
+    const apresLeTrou = debut + (44 + 3) * JOUR_MS
+    for (let i = 0; i < 3; i++) {
+      jours.push(new Date(apresLeTrou + i * JOUR_MS).toISOString().slice(0, 10))
+    }
+    assert.lengthOf(jours, 47)
+    dates.push(...jours)
+
+    await conn.table('demand_snapshots').insert(
+      jours.map((d) => ({
+        snapshot_date: d,
+        source: 'stock',
+        itmref: 'A1',
+        quantity: 1,
+        created_at: new Date(),
+      }))
+    )
+
+    const frise = await service.friseDrivers(jours[jours.length - 1], jours[0])
+
+    assert.isNotNull(frise)
+    assert.deepEqual(frise!.pas, [])
+    assert.include(frise!.message ?? '', 'plage trop large')
+    // Le trou existe toujours dans la réponse malgré le plafond : la détection
+    // ne dépend pas du calcul des pas qui, lui, est coupé court.
+    assert.isAbove(frise!.trous.length, 0)
+  }).timeout(20_000)
+
+  test('le memo borné déduplique bien les lectures : 6 photos (5 pas) → 6 lectures, pas 10 (défaut 2, revue de code)', async ({
+    assert,
+  }) => {
+    // Régression du memo NON borné signalé en revue de code : `friseDrivers`
+    // relisait chaque journée deux fois (le pas i lit dates[i+1], le pas i+1
+    // la relit). Une série de 6 photos tient largement dans la fenêtre
+    // (CAPACITE_MEMO_JOURNEES = 8) : le gain doit donc être ENTIER ici, pas
+    // seulement partiel — 6 lectures pour 6 dates distinctes, pas 10
+    // (2 × 5 pas) comme avant la mémoïsation.
+    const serviceCompteur = new ProbeServiceCompteur()
+    const jours = [
+      '1900-04-30',
+      '1900-05-01',
+      '1900-05-02',
+      '1900-05-03',
+      '1900-05-04',
+      '1900-05-05',
+    ]
+    dates.push(...jours)
+    for (const [i, j] of jours.entries()) {
+      await serviceCompteur.runWrite(j, async () =>
+        payload([row({ snapshot_date: j, source: 'stock', itmref: 'A1', quantity: 10 + i })])
+      )
+    }
+
+    const frise = await serviceCompteur.friseDrivers(jours[jours.length - 1], jours[0])
+
+    assert.isNotNull(frise)
+    assert.lengthOf(frise!.pas, 5)
+    assert.equal(serviceCompteur.nbLectures, 6)
+  }).timeout(20_000)
+})
+
+test.group('MemoJourneesBorne (#143 défaut 2, borné en revue de code)', () => {
+  const p = (n: number) => Promise.resolve([{ n }])
+
+  test('une même journée demandée deux fois ne déclenche qu’une lecture : `set` puis `get` rendent la MÊME promesse', ({
+    assert,
+  }) => {
+    const memo = new MemoJourneesBorne(4)
+    assert.isUndefined(memo.get('J1'))
+    const promesse = p(1)
+    memo.set('J1', promesse)
+    assert.strictEqual(memo.get('J1'), promesse)
+    // Un second `get` (ce que ferait un second appelant) rend la même
+    // référence : aucune seconde lecture ne serait déclenchée par l'appelant.
+    assert.strictEqual(memo.get('J1'), promesse)
+  })
+
+  test('la capacité est respectée : au-delà, la plus ANCIENNE entrée insérée est évincée (FIFO)', ({
+    assert,
+  }) => {
+    const memo = new MemoJourneesBorne(3)
+    memo.set('J1', p(1))
+    memo.set('J2', p(2))
+    memo.set('J3', p(3))
+    assert.equal(memo.taille, 3)
+
+    // J4 dépasse la capacité : J1 (la plus ancienne INSÉRÉE) est évincée,
+    // même si elle a été relue entre-temps (FIFO, pas LRU — cf. doc de la classe).
+    assert.isDefined(memo.get('J1'))
+    memo.set('J4', p(4))
+
+    assert.equal(memo.taille, 3)
+    assert.isUndefined(memo.get('J1'))
+    assert.isDefined(memo.get('J2'))
+    assert.isDefined(memo.get('J3'))
+    assert.isDefined(memo.get('J4'))
+  })
+
+  test('évincer une clé pendant qu’une promesse est en vol ne casse rien pour l’appelant qui la détient déjà', async ({
+    assert,
+  }) => {
+    const memo = new MemoJourneesBorne(1)
+    const promesseJ1 = p(1)
+    memo.set('J1', promesseJ1)
+    // Un appelant récupère sa référence AVANT l'éviction — c'est exactement
+    // ce que fait `loadDayRows` : `promesse = memo.get(day)` puis `return
+    // promesse`, jamais un accès différé au memo.
+    const referenceAppelant = memo.get('J1')
+    memo.set('J2', p(2)) // évince J1 (capacité 1)
+
+    assert.isUndefined(memo.get('J1'))
+    assert.isDefined(referenceAppelant)
+    // La promesse détenue par l'appelant résout normalement, indépendamment
+    // du memo qui ne la connaît plus.
+    assert.deepEqual(await referenceAppelant, [{ n: 1 }])
+  })
 })
