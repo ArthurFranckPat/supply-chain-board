@@ -1016,3 +1016,61 @@ test.group('MemoJourneesBorne (#143 défaut 2, borné en revue de code)', () => 
     assert.deepEqual(await referenceAppelant, [{ n: 1 }])
   })
 })
+
+/**
+ * Deux exclusions du diff des drivers, une seule passe (08/08/2026).
+ *
+ * La règle de catégorie Z existait déjà, mais elle se résout via
+ * `static_articles` — table qui, jusqu'à cette date, ne contenait QUE les
+ * articles actifs. Un article passé « Non utilisable » en sortait donc, et
+ * devenait invisible au filtre censé l'écarter : 106 références `ET####`
+ * (catégorie `ZHE`, statut 6) traversaient la frise, porteuses de 112 OF fermes
+ * de quantité 1 repoussés en bloc depuis juin.
+ *
+ * Ces tests verrouillent les deux exclusions ET le cas qui ne doit pas exclure —
+ * un statut inconnu, faute de référentiel synchronisé.
+ */
+test.group('DemandSnapshotService — articles écartés du diff des drivers', (group) => {
+  const conn = db.connection()
+  const service = new ProbeService()
+  const J1 = '1900-01-01'
+  const J2 = '1900-01-02'
+  const CODES = ['ZZ-VIVANT', 'ZZ-CATZ', 'ZZ-MORT', 'ZZ-INCONNU']
+
+  group.each.setup(async () => {
+    await conn.table('static_articles').multiInsert([
+      { code: 'ZZ-VIVANT', description: 'Vivant', category: 'PF', status: 1, synced_at: 0 },
+      { code: 'ZZ-CATZ', description: 'Outillage', category: 'ZOU', status: 1, synced_at: 0 },
+      { code: 'ZZ-MORT', description: 'Mort', category: 'PF', status: 6, synced_at: 0 },
+    ])
+  })
+
+  group.each.teardown(async () => {
+    await conn.from('static_articles').whereIn('code', CODES).delete()
+    await conn.from('demand_snapshots').whereIn('snapshot_date', [J1, J2]).delete()
+    await conn.from('demand_snapshot_sources').whereIn('snapshot_date', [J1, J2]).delete()
+  })
+
+  /** Variation de stock franche : au-delà des ±20 %, elle sort du diff. */
+  const bouge = (jour: string, itmref: string, quantity: number): DemandSnapshotRow =>
+    row({ snapshot_date: jour, itmref, quantity })
+
+  test('statut « Non utilisable » et catégorie Z écartent ; l’inconnu reste', async ({
+    assert,
+  }) => {
+    await service.runWrite(J1, async () => payload(CODES.map((c) => bouge(J1, c, 1000))))
+    await service.runWrite(J2, async () => payload(CODES.map((c) => bouge(J2, c, 100))))
+
+    const r = await service.diffDrivers(J2, J1)
+    assert.isNotNull(r)
+    const articles = [...new Set(r!.entrees.map((e) => e.article))].sort()
+
+    // `ZZ-INCONNU` n'est dans aucun référentiel : il RESTE. Une table jamais
+    // synchronisée doit salir la page visiblement, pas la vider en silence.
+    assert.deepEqual(articles, ['ZZ-INCONNU', 'ZZ-VIVANT'])
+
+    const vivant = r!.entrees.find((e) => e.article === 'ZZ-VIVANT')
+    assert.equal(vivant?.designation, 'Vivant')
+    assert.equal(vivant?.nature, 'quantite')
+  })
+})

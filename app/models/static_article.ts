@@ -30,6 +30,16 @@ export default class StaticArticle extends BaseModel {
   @column({ columnName: 'us_par_palette' })
   declare usParPalette: number | null
 
+  /**
+   * `ITMMASTER.ITMSTA_0` — menu local 246 : 1 Actif, 2 Élaboration, 3 En
+   * rupture, 4 Non renouvelé, 5 Périmé, 6 Non utilisable.
+   *
+   * La table porte TOUS les statuts depuis 08/08/2026 (cf. migration) : filtrer
+   * sur `ARTICLE_ACTIF` là où l'on veut le seul parc vivant.
+   */
+  @column()
+  declare status: number
+
   @column({ columnName: 'synced_at' })
   declare syncedAt: number
 }
