@@ -1277,7 +1277,6 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   // comme « analysés » promettait des explications introuvables à l'écran ;
   // annoncés comme soldés, ils disent quelque chose d'utile à l'acheteur.
   const nbSoldes = explData?.explications.filter((e) => e.natureMessage === 'disparue').length ?? 0
-  const nbAffichables = (explData?.explications.length ?? 0) - nbSoldes
   const [filtre, setFiltre] = useState<Filtre>(null)
   // Décisions locales (ledger #134) — priorité sur le payload au re-rendu.
   const [decisions, setDecisions] = useState<Record<string, DecisionStatut>>({})
@@ -1404,6 +1403,25 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
     return nb
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, decisions])
+
+  /** Nombre de messages sur la page qui ont réellement une explication
+   *  corrélée (jointure sur cleSnapshot). Évite d'annoncer « 4 messages sur
+   *  cette page » quand aucun des 4 n'est dans les dossiers affichés. */
+  const nbExplSurPage = useMemo(() => {
+    if (data === null || explicationsParCle === undefined) return 0
+    const clesPage = new Set<string>()
+    for (const d of dossiersFiltres)
+      for (const i of d.items) if (i.cleSnapshot !== null) clesPage.add(i.cleSnapshot)
+    let nb = 0
+    for (const cles of explicationsParCle.values())
+      if (cles[0] && cles[0].natureMessage !== 'disparue')
+        for (const c of cles)
+          if (clesPage.has(c.cle)) {
+            nb++
+            break
+          }
+    return nb
+  }, [data, dossiersFiltres, explicationsParCle])
 
   const stats = data?.stats
 
@@ -1580,6 +1598,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                   explData.avant !== null &&
                   explData.apres !== null &&
                   explData.explications.length > 0 &&
+                  nbExplSurPage > 0 &&
                   !loading &&
                   error === null &&
                   data?.x3Error == null && (
@@ -1587,7 +1606,8 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                       <Info size={14} className="shrink-0" />
                       <span>
                         Explications corrélées {fr(explData.avant)} → {fr(explData.apres)} :{' '}
-                        {nbAffichables} message{nbAffichables > 1 ? 's' : ''} sur cette page
+                        {nbExplSurPage} message{nbExplSurPage > 1 ? 's' : ''} expliqué
+                        {nbExplSurPage > 1 ? 's' : ''} sur cette page
                         {nbSoldes > 0 && `, ${nbSoldes} soldé${nbSoldes > 1 ? 's' : ''} depuis`}
                       </span>
                     </div>
