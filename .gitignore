@@ -31,8 +31,11 @@ excalidraw.log
 .planning/
 .pi/
 .zcode/
-# Symlinks de skills pointant hors du repo (harness locaux)
-.claude/skills/carbon-react
+# Outillage perso de l'utilisateur, pas du projet : présent sur le disque, hors du dépôt.
+# Les skills MÉTIER (.agents/skills/supply-board) restent versionnés — ce sont eux que
+# .claude/skills/ pointe par symlink.
+.agents/skills/cavecrew/
+.agents/skills/caveman-*/
 # Bases SQLite locales
 *.sqlite
 # La réplique #98 : `database/db.sqlite3`, créée par les migrations réplique.
