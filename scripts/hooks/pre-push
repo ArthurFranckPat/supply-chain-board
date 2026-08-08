@@ -8,8 +8,17 @@
 # Budget : ~3 s à chaud. Trois leviers, parce qu'un gate qu'on subit finit contourné :
 #   - typecheck INCRÉMENTAL (cache dans node_modules/.cache/tsc) : 1,7 s au lieu de 10,7 s ;
 #   - lint sur les SEULS fichiers modifiés vs origin/master : 1,4 s au lieu de 6,3 s ;
-#   - les deux EN PARALLÈLE.
+#   - les trois contrôles EN PARALLÈLE (le 3e coûte donc ~0 s de plus au mur).
 # Premier push après un `npm ci` (cache froid) : ~10 s, une fois.
+#
+# Le 3e contrôle est la fraîcheur du manifeste de routes (npm run routes:check, 1,7 s).
+# Il est ici parce qu'il est la SEULE cause de CI rouge observée sur master : les 2 échecs
+# des 40 derniers runs sont tous deux l'étape « Manifeste de routes à jour », et
+# l'historique porte 4 commits purement correctifs (a179e9a, 3bff8b7, 1992642, daa29bd).
+# Un manifeste périmé est invisible au typecheck comme au lint.
+#
+# mcp:apps:check (4e étape du job Quality) reste en CI : 4,4 s pour un contrôle qui n'a
+# jamais échoué, le ratio ne justifie pas de le payer à chaque push.
 #
 # Les tests ne tournent PAS ici : la suite complète est interdite en local (cf. CLAUDE.md),
 # c'est le job CI « Tests unitaires » qui les porte. Surveiller le run après le push reste
@@ -30,9 +39,15 @@ BIN=node_modules/.bin
 #  - base trouvée + fichiers TS   → lint ciblé (~1 s) ;
 #  - base trouvée + aucun TS      → lint SAUTÉ (commit de doc, de conf…) ;
 #  - base introuvable (remote absent, 1er push) → périmètre complet, lent mais pas borgne.
+#
+# Le manifeste de routes est EXCLU du lint ciblé : il est régénéré en parallèle juste
+# en dessous, et eslint le lirait pendant son écriture. C'est un fichier généré, le job
+# Lint de la CI le couvre de toute façon.
+MANIFEST=inertia-react/lib/routes-manifest.ts
 BASE=$(git merge-base origin/master HEAD 2>/dev/null)
 if [ -n "$BASE" ]; then
-  FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- '*.ts' '*.tsx' | tr '\n' ' ')
+  FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- '*.ts' '*.tsx' |
+    grep -vxF "$MANIFEST" | tr '\n' ' ')
   LINT_SCOPE=cible
 else
   FILES=""
@@ -58,10 +73,17 @@ else
 fi
 LINT_PID=$!
 
+# Fraîcheur du manifeste : on régénère, puis on regarde si ça bouge le working tree.
+(node scripts/gen-routes-manifest.mjs && git diff --quiet -- "$MANIFEST") \
+  >/tmp/prepush-routes.log 2>&1 &
+ROUTES_PID=$!
+
 wait $TSC_PID
 TSC=$?
 wait $LINT_PID
 LINT=$?
+wait $ROUTES_PID
+ROUTES=$?
 
 if [ $TSC -ne 0 ]; then
   echo "❌ typecheck"
@@ -71,12 +93,18 @@ if [ $LINT -ne 0 ]; then
   echo "❌ lint"
   cat /tmp/prepush-lint.log
 fi
-if [ $TSC -ne 0 ] || [ $LINT -ne 0 ]; then
+if [ $ROUTES -ne 0 ]; then
+  echo "❌ manifeste de routes périmé (start/routes.ts a changé sans régénération)"
+  echo "   Il vient d'être régénéré dans le working tree — il reste à le committer :"
+  echo "     git add $MANIFEST && git commit --amend --no-edit"
+  cat /tmp/prepush-routes.log
+fi
+if [ $TSC -ne 0 ] || [ $LINT -ne 0 ] || [ $ROUTES -ne 0 ]; then
   echo ""
   echo "Push refusé. Corriger, ou forcer avec --no-verify en connaissance de cause."
   exit 1
 fi
 
-echo "✅ typecheck + lint OK. Push en cours…"
+echo "✅ typecheck + lint + manifeste de routes OK. Push en cours…"
 echo "   ⚠️  Surveiller le run CI ensuite : gh run watch"
 exit 0

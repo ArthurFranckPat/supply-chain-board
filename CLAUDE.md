@@ -31,16 +31,20 @@ et lancer `npm ci`. Sous Claude Code, le skill `worktree-setup` enchaîne ces é
 
 Après chaque tâche terminée (feature, fix, refacto), dans cet ordre :
 
-1. **Gate** : `npm run typecheck` **et** `npm run lint`. Les deux, systématiquement.
+1. **Gate** : `npm run typecheck` **et** `npm run lint`, systématiquement. Plus
+   `npm run routes:gen` dès que `start/routes.ts` a bougé — le manifeste de routes est
+   généré, et son décalage est invisible au typecheck comme au lint (voir « Fichiers
+   générés » plus bas).
 2. **Commit** en français, préfixe `feat(scope):` / `fix(scope):`, terminé par un trailer
    `Co-Authored-By:` **nommant le modèle qui a réellement fait le travail** — p. ex.
    `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
    Non négociable : sans lui, le travail de l'agent est attribué en totalité à l'utilisateur
    dans `git log`, `git blame` et sur GitHub. Et un trailer qui nomme le mauvais modèle est
    pire que pas de trailer : il attribue le travail à un tiers.
-3. **Push**. Le hook `pre-push` rejoue typecheck + lint en ~3 s et refuse le push s'ils
-   échouent. Il est versionné et actif via `core.hooksPath=scripts/hooks` — rien à installer,
-   y compris dans un nouveau worktree. Échappatoire assumée : `git push --no-verify`.
+3. **Push**. Le hook `pre-push` rejoue typecheck, lint et fraîcheur du manifeste de routes
+   en ~3,6 s, et refuse le push s'ils échouent. Il est versionné et actif via
+   `core.hooksPath=scripts/hooks` — rien à installer, y compris dans un nouveau worktree.
+   Échappatoire assumée : `git push --no-verify`.
 4. **Surveiller la CI** : `gh run watch` jusqu'à conclusion. Un push n'est pas une tâche
    terminée — master n'a aucun garde-fou GitHub (`enforce_admins=false`), la CI tourne après
    coup, et le hook ne couvre pas les tests.
@@ -72,6 +76,20 @@ c'est un autre chantier. Le dire, ne pas le reprendre.
 - Piège : `--suite=unit` **n'existe pas**. Les suites sont des arguments positionnels
   (`node ace test unit`) ; écrit en flag il est ignoré en silence et toutes les suites
   tournent, `functional` comprise.
+
+## Fichiers générés
+
+Deux fichiers sont dérivés d'une source et vérifiés en CI par « régénère puis
+`git diff --exit-code` ». Les modifier à la main ne sert à rien : le prochain run écrase.
+
+| Fichier généré                         | Source                       | Régénérer            |
+| -------------------------------------- | ---------------------------- | -------------------- |
+| `inertia-react/lib/routes-manifest.ts` | `start/routes.ts`            | `npm run routes:gen` |
+| `resources/mcp-apps/`                  | `scripts/build-mcp-apps.mjs` | `npm run mcp:apps`   |
+
+Le job CI `Quality` lance **quatre** contrôles : `lint`, `typecheck`, `routes:check`,
+`mcp:apps:check`. Le hook `pre-push` en couvre trois — `mcp:apps:check` (4,4 s) est laissé
+à la CI. Un oubli de `routes:gen` est la seule cause de CI rouge jamais observée sur master.
 
 ## Lint et formatage
 
