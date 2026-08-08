@@ -135,6 +135,36 @@ const qte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDi
  */
 const baseRatio = (qa: number, qp: number): number => Math.abs(Math.min(qa, qp)) || 1
 
+/**
+ * Pourcentage AFFICHÉ d'une variation de quantité — rapporté à `avant`, jamais
+ * à la plus petite magnitude.
+ *
+ * `baseRatio` sert à DÉTECTER (voir son docblock : le min de magnitude est ce
+ * qui rend le seuil symétrique sur un stock strict négatif). Réutilisé pour
+ * AFFICHER, il produit des nombres que personne ne peut lire : 48 384 → 8 064
+ * s'annonçait « −500 % », alors qu'une baisse ne peut pas dépasser −100 %. Le
+ * lecteur y voyait un effondrement cinq fois pire que la réalité, qui est −83 %.
+ *
+ * Les deux notions restent donc distinctes, et une ligne peut afficher −17 %
+ * tout en ayant été émise par un seuil min-relatif à 20 % : c'est le prix — et
+ * la contrepartie — de garder un seuil qui tient sur les quantités signées.
+ *
+ * Rend `null` quand `avant` vaut 0 : il n'existe pas de pourcentage d'une base
+ * nulle, la variation brute se suffit à elle-même.
+ */
+export function pourcentVariation(avant: number, apres: number): number | null {
+  const base = Math.abs(avant)
+  if (base === 0) return null
+  return Math.round(((apres - avant) / base) * 100)
+}
+
+/** ` (−83 %)`, ou la chaîne vide quand la base est nulle. */
+const pctSuffixe = (avant: number, apres: number): string => {
+  const pct = pourcentVariation(avant, apres)
+  if (pct === null) return ''
+  return ` (${pct > 0 ? '+' : '−'}${Math.abs(pct)} %)`
+}
+
 /** Une seule des deux échéances est nulle : elle est renseignée ou retirée. */
 const estTransitionEcheance = (a: string | null, b: string | null): boolean =>
   (a === null) !== (b === null)
@@ -194,6 +224,39 @@ function apparie(
   const paires: Array<[DemandSnapshotRow, DemandSnapshotRow]> = []
   const appariees = new Set<DemandSnapshotRow>()
 
+  // Passe 0 — jumeau EXACT (même échéance, même quantité), avant toute
+  // devinette.
+  //
+  // Sans elle, la passe 1 est gloutonne dans l'ordre des échéances croissantes
+  // et laisse une ligne d'avant VOLER le jumeau exact d'une ligne plus tardive.
+  // Une seule insertion ou suppression décale alors toute la queue de la liste,
+  // en cascade, chaque couple décalé produisant un faux `date` ou une fausse
+  // `quantite`.
+  //
+  // Mesuré sur A5495 (photos 07/08 → 08/08, 38 → 40 suggestions) : la
+  // disparition d'une ligne au 23/01/2027 propageait un décalage d'un cran
+  // jusqu'au 29/04/2027, avec au bout un couple 48 384 → 8 064 (+17 j) alors
+  // que la ligne de 48 384 au 12/04/2027 existait à l'identique des deux côtés.
+  // 15 lignes de diff émises pour 12 mouvements réels ; avec cette passe, 8
+  // lignes toutes réelles et plus aucune date inventée.
+  //
+  // S'applique à toutes les sources, y compris à identité certaine : y apparier
+  // deux lignes rigoureusement identiques ne peut rien casser, la passe 1 les
+  // aurait de toute façon mariées (distance 0, delta de quantité 0) — sauf
+  // quand une voisine les avait devancées.
+  for (const rowA of as) {
+    const best = ps.findIndex(
+      (rowP, idx) =>
+        !usedP.has(idx) &&
+        rowP.date_echeance === rowA.date_echeance &&
+        rowP.quantity === rowA.quantity
+    )
+    if (best === -1) continue
+    usedP.add(best)
+    appariees.add(rowA)
+    paires.push([rowA, ps[best]])
+  }
+
   // Passe 1 — appariement par échéance. Les couples non comparables (une seule
   // des deux échéances nulle) sont écartés : `distEcheance` rend `Infinity` et
   // le départage à quantité minimale les sélectionnerait sinon, `Infinity ===
@@ -204,6 +267,7 @@ function apparie(
   // s'applique à la valeur ABSOLUE de l'écart (cf. `distEcheance`) : il est
   // donc symétrique, une avance de 60 j est écartée comme un retard de 60 j.
   for (const rowA of as) {
+    if (appariees.has(rowA)) continue
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
     let bestQtyDelta = Number.POSITIVE_INFINITY
@@ -371,7 +435,6 @@ export function diffCbnDrivers(
       const qp = p[0]?.quantity ?? 0
       const ratio = Math.abs(qp - qa) / baseRatio(qa, qp)
       if (ratio > TOLERANCE_QUANTITE_RATIO) {
-        const sens = qp > qa ? '+' : '−'
         out.push({
           article,
           source,
@@ -380,7 +443,7 @@ export function diffCbnDrivers(
           quantiteApres: qp,
           echeanceAvant: null,
           echeanceApres: null,
-          detail: `Stock ${qte(qa)} → ${qte(qp)} (${sens}${Math.round(ratio * 100)} %) — ${article}.`,
+          detail: `Stock ${qte(qa)} → ${qte(qp)}${pctSuffixe(qa, qp)} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: null,
@@ -448,7 +511,6 @@ export function diffCbnDrivers(
       }
 
       if (qtyChanged) {
-        const sens = rowP.quantity > rowA.quantity ? '+' : '−'
         out.push({
           article,
           source,
@@ -457,7 +519,7 @@ export function diffCbnDrivers(
           quantiteApres: rowP.quantity,
           echeanceAvant: rowA.date_echeance,
           echeanceApres: rowP.date_echeance,
-          detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)} (${sens}${Math.round(ratio * 100)} %)${renumerotee ? ` — ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)}` : ''} — ${article}.`,
+          detail: `${source} quantité ${qte(rowA.quantity)} → ${qte(rowP.quantity)}${pctSuffixe(rowA.quantity, rowP.quantity)}${renumerotee ? ` — ${ref(rowA.vcrnum, rowA.vcrlin)} → ${ref(rowP.vcrnum, rowP.vcrlin)}` : ''} — ${article}.`,
           designation: null,
           famille: null,
           vcrnum: rowA.vcrnum,
