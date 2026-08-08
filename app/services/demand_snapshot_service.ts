@@ -15,7 +15,12 @@ import {
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
-import { perimetreComparable, type SourceEcartee } from '#app/domain/snapshot_perimetre'
+import {
+  perimetreAvecJournal,
+  perimetreComparable,
+  type SourceEcartee,
+  type StatutSource,
+} from '#app/domain/snapshot_perimetre'
 import {
   couverture,
   jourIso,
@@ -441,7 +446,7 @@ export class DemandSnapshotService {
     message: string | null
   } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v11`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v12`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
@@ -466,11 +471,24 @@ export class DemandSnapshotService {
         // La règle (et l'approximation qu'elle assume) vit dans
         // `snapshot_perimetre.ts`, pure et testée hors base.
         const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
-        const { comparees, sourcesEcartees } = perimetreComparable(
-          avantRows.map(nomSource),
-          apresRows.map(nomSource),
-          SOURCES_ATTENDUES
-        )
+        const [journalAvant, journalApres] = await Promise.all([
+          this.lireJournal(avantDay),
+          this.lireJournal(apresDay),
+        ])
+        const { comparees, sourcesEcartees } =
+          journalAvant !== null || journalApres !== null
+            ? perimetreAvecJournal(
+                avantRows.map(nomSource),
+                apresRows.map(nomSource),
+                journalAvant,
+                journalApres,
+                SOURCES_ATTENDUES
+              )
+            : perimetreComparable(
+                avantRows.map(nomSource),
+                apresRows.map(nomSource),
+                SOURCES_ATTENDUES
+              )
         // Deux photos non vides sans AUCUNE source commune : le diff serait vide
         // et indistinguable d'une nuit calme. On le dit plutôt que de le taire.
         if (comparees.length === 0) {
@@ -593,8 +611,8 @@ export class DemandSnapshotService {
       // continuerait de servir les corrélations tirées de l'ancien diff pendant
       // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
       // sur le même couple de photos, et un couple déjà en cache en PROD.
-      // `v2` — périmètre restreint aux sources comparables (#145).
-      key: `appro:explications:${avantDay}:${apresDay}:v2`,
+      // `v3` — périmètre via journal des sources capturées (#149), par-dessus `v2`.
+      key: `appro:explications:${avantDay}:${apresDay}:v3`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),
@@ -726,6 +744,57 @@ export class DemandSnapshotService {
               )
           }
         }
+        // Journal des sources capturées (#149) — une ligne par (snapshot_date, source)
+        // avec le verdict du run : `capturee` | `vide` | `echec`. Écrit dans la
+        // MÊME transaction que les deux tables de photo pour que le journal décrive
+        // exactement ce qui a été figé.
+        try {
+          const counts = new Map<string, number>()
+          for (const r of demand) counts.set(r.source, (counts.get(r.source) ?? 0) + 1)
+          const journalRows: Array<{
+            snapshot_date: string
+            source: string
+            statut: StatutSource
+            lignes: number
+            created_at: Date
+          }> = []
+          for (const src of SOURCES_ATTENDUES) {
+            if (sourcesEnEchec.includes(src)) {
+              journalRows.push({
+                snapshot_date: dateStr,
+                source: src,
+                statut: 'echec',
+                lignes: 0,
+                created_at: new Date(),
+              })
+              continue
+            }
+            const lignes = src === SOURCE.MESSAGE ? messages.length : (counts.get(src) ?? 0)
+            const statut: StatutSource = lignes > 0 ? 'capturee' : 'vide'
+            journalRows.push({
+              snapshot_date: dateStr,
+              source: src,
+              statut,
+              lignes,
+              created_at: new Date(),
+            })
+          }
+          await trx.from('demand_snapshot_sources').where('snapshot_date', dateStr).delete()
+          for (let i = 0; i < journalRows.length; i += INSERT_CHUNK) {
+            await trx
+              .table('demand_snapshot_sources')
+              .insert(journalRows.slice(i, i + INSERT_CHUNK))
+          }
+        } catch (e) {
+          const msg = (e as Error)?.message ?? String(e)
+          // Table absente en historique pré-migration : le run ne doit pas échouer
+          // pour un journal optionnel.
+          if (msg.includes('no such table') || msg.includes('no such column')) {
+            logger.warn({ err: msg }, '[snapshot] journal indisponible — photo écrite sans journal')
+          } else {
+            throw e
+          }
+        }
         await trx.commit()
       } catch (error) {
         await trx.rollback()
@@ -759,6 +828,28 @@ export class DemandSnapshotService {
         sourceBreakdown: {},
         error: message,
       }
+    }
+  }
+
+  private async lireJournal(dateStr: string): Promise<Map<string, StatutSource> | null> {
+    try {
+      const rows = await db
+        .connection()
+        .from('demand_snapshot_sources')
+        .where('snapshot_date', dateStr)
+        .select('source', 'statut')
+      if (rows.length === 0) return null
+      const m = new Map<string, StatutSource>()
+      for (const r of rows as Array<Record<string, unknown>>) {
+        const src = String((r as Record<string, unknown>).source)
+        const st = String((r as Record<string, unknown>).statut) as StatutSource
+        if (st === 'capturee' || st === 'vide' || st === 'echec') m.set(src, st)
+      }
+      return m.size > 0 ? m : null
+    } catch (e) {
+      const msg = (e as Error)?.message ?? String(e)
+      if (msg.includes('no such table') || msg.includes('no such column')) return null
+      throw e
     }
   }
 

@@ -77,6 +77,9 @@ test.group('DemandSnapshotService — write', (group) => {
   group.each.teardown(async () => {
     await conn.from('demand_snapshots').where('snapshot_date', SENTINEL_DATE).delete()
     await conn.from('appro_message_snapshots').where('snapshot_date', SENTINEL_DATE).delete()
+    try {
+      await conn.from('demand_snapshot_sources').where('snapshot_date', SENTINEL_DATE).delete()
+    } catch {}
   })
 
   test('insère les lignes et retourne un statut ok', async ({ assert }) => {
@@ -217,6 +220,9 @@ test.group('DemandSnapshotService — messages de replanification (#138 lot 0)',
   group.each.teardown(async () => {
     await conn.from('demand_snapshots').where('snapshot_date', SENTINEL_DATE).delete()
     await conn.from('appro_message_snapshots').where('snapshot_date', SENTINEL_DATE).delete()
+    try {
+      await conn.from('demand_snapshot_sources').where('snapshot_date', SENTINEL_DATE).delete()
+    } catch {}
   })
 
   test('fige les messages et les compte dans le détail par source', async ({ assert }) => {
@@ -431,6 +437,9 @@ test.group('DemandSnapshotService — diagnostic', (group) => {
   group.each.teardown(async () => {
     await conn.from('demand_snapshots').whereIn('snapshot_date', [J1, J3]).delete()
     await conn.from('appro_message_snapshots').whereIn('snapshot_date', [J1, J3]).delete()
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', [J1, J3]).delete()
+    } catch {}
   })
 
   // `.timeout()` et non un 3e argument : Japa n'accepte que `(titre, callback)`,
@@ -482,6 +491,9 @@ test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (g
   group.each.teardown(async () => {
     await conn.from('demand_snapshots').whereIn('snapshot_date', jours).delete()
     await conn.from('appro_message_snapshots').whereIn('snapshot_date', jours).delete()
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', jours).delete()
+    } catch {}
     jours.length = 0
   })
 
@@ -507,11 +519,17 @@ test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (g
         row({ snapshot_date: apres, source: 'appro_suggestion', itmref: 'ART-4' }),
       ])
     )
+    // Historique pré-#149 : pas de journal → retombe sur perimetreComparable (garde-fou).
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', [avant, apres]).delete()
+    } catch {}
 
     const diff = await service.diffDrivers(apres, avant)
 
     assert.isNotNull(diff)
-    assert.deepEqual(diff!.sourcesEcartees, [{ source: 'appro_suggestion', manqueDans: 'avant' }])
+    assert.deepEqual(diff!.sourcesEcartees, [
+      { source: 'appro_suggestion', manqueDans: 'avant', raison: 'inconnu' },
+    ])
     assert.deepEqual(diff!.sourcesComparees, ['appro', 'of_ferme', 'stock'])
     assert.isNull(diff!.message)
     // Aucune entrée sur la source écartée, et surtout aucune « apparue ».
@@ -529,6 +547,9 @@ test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (g
     await service.runWrite(apres, async () =>
       payload([row({ snapshot_date: apres, source: 'of_ferme', itmref: 'ART-1' })])
     )
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', [avant, apres]).delete()
+    } catch {}
 
     const diff = await service.diffDrivers(apres, avant)
 
@@ -539,8 +560,8 @@ test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (g
     assert.isNotNull(diff!.message)
     assert.include(diff!.message ?? '', 'aucune source commune')
     assert.deepEqual(diff!.sourcesEcartees, [
-      { source: 'of_ferme', manqueDans: 'avant' },
-      { source: 'stock', manqueDans: 'apres' },
+      { source: 'of_ferme', manqueDans: 'avant', raison: 'inconnu' },
+      { source: 'stock', manqueDans: 'apres', raison: 'inconnu' },
     ])
   }).timeout(20_000)
 
@@ -560,6 +581,9 @@ test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (g
         row({ snapshot_date: apres, source: 'of_ferme', itmref: 'ART-2', quantity: 10 }),
       ])
     )
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', [avant, apres]).delete()
+    } catch {}
 
     const diff = await service.diffDrivers(apres, avant)
 
@@ -567,5 +591,130 @@ test.group('DemandSnapshotService — périmètre comparable du diff (#145)', (g
     assert.isEmpty(diff!.sourcesEcartees)
     assert.deepEqual(diff!.sourcesComparees, ['of_ferme', 'stock'])
     assert.isNull(diff!.message)
+  }).timeout(20_000)
+})
+
+/**
+ * Journal des sources capturées par run (#149).
+ *
+ * Avant le journal, une source réellement vide (CBN à 0 OF suggéré) était
+ * confondue avec une source en échec : le périmètre l'écartait et la disparition
+ * de ~2 000 lignes restait invisible. Ces tests vérifient que write() persiste
+ * le verdict et que diffDrivers() le lit au lieu de déduire.
+ */
+test.group('DemandSnapshotService — journal des sources capturées (#149)', (group) => {
+  const conn = db.connection()
+  const service = new ProbeService()
+  const J1 = '1900-03-01'
+  const J2 = '1900-03-02'
+  const J3 = '1900-03-03'
+  const J4 = '1900-03-04'
+  const J5 = '1900-03-05'
+  const J6 = '1900-03-06'
+
+  group.each.teardown(async () => {
+    await conn.from('demand_snapshots').whereIn('snapshot_date', [J1, J2, J3, J4, J5, J6]).delete()
+    await conn
+      .from('appro_message_snapshots')
+      .whereIn('snapshot_date', [J1, J2, J3, J4, J5, J6])
+      .delete()
+    try {
+      await conn
+        .from('demand_snapshot_sources')
+        .whereIn('snapshot_date', [J1, J2, J3, J4, J5, J6])
+        .delete()
+    } catch {}
+  })
+
+  test('write persiste le journal : capturee / vide / echec avec lignes', async ({ assert }) => {
+    await service.runWrite(J1, async () =>
+      payload(
+        [row({ snapshot_date: J1, source: 'stock', itmref: 'A1' })],
+        [msg({ snapshot_date: J1, vcrnum: 'POF-1' })],
+        ['appro_suggestion', 'appro_message']
+      )
+    )
+
+    const rows = await conn
+      .from('demand_snapshot_sources')
+      .where('snapshot_date', J1)
+      .orderBy('source')
+    const bySource = new Map(rows.map((r: Record<string, unknown>) => [String(r.source), r]))
+    // capturee
+    assert.equal((bySource.get('stock') as Record<string, unknown>)?.statut, 'capturee')
+    assert.equal((bySource.get('stock') as Record<string, unknown>)?.lignes, 1)
+    // vide — aucune ligne pour of_ferme mais pas en échec
+    assert.equal((bySource.get('of_ferme') as Record<string, unknown>)?.statut, 'vide')
+    assert.equal((bySource.get('of_ferme') as Record<string, unknown>)?.lignes, 0)
+    // echec
+    assert.equal((bySource.get('appro_suggestion') as Record<string, unknown>)?.statut, 'echec')
+    assert.equal((bySource.get('appro_message') as Record<string, unknown>)?.statut, 'echec')
+    // Toutes les sources attendues sont tracées (8 demand + 1 message)
+    assert.lengthOf(rows, 9)
+  }).timeout(15_000)
+
+  test('une source réellement vide reste comparée : sa disparition est affichée', async ({
+    assert,
+  }) => {
+    // Avant : of_suggestion capturee avec une ligne. Après : vide (succès, 0 ligne).
+    await service.runWrite(J1, async () =>
+      payload([
+        row({ snapshot_date: J1, source: 'stock', itmref: 'S1', quantity: 10 }),
+        row({ snapshot_date: J1, source: 'of_suggestion', itmref: 'A1', quantity: 100 }),
+      ])
+    )
+    await service.runWrite(J2, async () =>
+      payload([row({ snapshot_date: J2, source: 'stock', itmref: 'S1', quantity: 10 })])
+    )
+
+    const diff = await service.diffDrivers(J2, J1)
+    assert.isNotNull(diff)
+    // of_suggestion est vide après, pas en échec -> COMPARÉE, pas écartée
+    assert.isTrue(diff!.sourcesComparees.includes('of_suggestion'))
+    assert.isEmpty(diff!.sourcesEcartees.filter((e) => e.source === 'of_suggestion'))
+    // La ligne disparue est bien rapportée, pas escamotée
+    assert.isTrue(diff!.entrees.some((e) => e.article === 'A1' && e.nature === 'disparue'))
+  }).timeout(20_000)
+
+  test('une source en échec est écartée avec raison echec', async ({ assert }) => {
+    await service.runWrite(J3, async () =>
+      payload([row({ snapshot_date: J3, source: 'stock', itmref: 'S1' })], [], ['of_suggestion'])
+    )
+    await service.runWrite(J4, async () =>
+      payload([
+        row({ snapshot_date: J4, source: 'stock', itmref: 'S1' }),
+        row({ snapshot_date: J4, source: 'of_suggestion', itmref: 'A1' }),
+      ])
+    )
+
+    const diff = await service.diffDrivers(J4, J3)
+    assert.isNotNull(diff)
+    assert.deepEqual(
+      diff!.sourcesEcartees.find((e) => e.source === 'of_suggestion'),
+      { source: 'of_suggestion', manqueDans: 'avant', raison: 'echec' }
+    )
+    assert.isFalse(diff!.sourcesComparees.includes('of_suggestion'))
+  }).timeout(20_000)
+
+  test('journal mixte : historique sans journal vs nuit vide -> disparition affichée', async ({
+    assert,
+  }) => {
+    // J5 sans journal (historique pré-#149) avec of_suggestion, J6 avec journal vide pour of_suggestion
+    // Simule en effaçant le journal de J5 après écriture
+    await service.runWrite(J5, async () =>
+      payload([
+        row({ snapshot_date: J5, source: 'stock', itmref: 'S1' }),
+        row({ snapshot_date: J5, source: 'of_suggestion', itmref: 'A1' }),
+      ])
+    )
+    await conn.from('demand_snapshot_sources').where('snapshot_date', J5).delete()
+    await service.runWrite(J6, async () =>
+      payload([row({ snapshot_date: J6, source: 'stock', itmref: 'S1' })])
+    )
+
+    const diff = await service.diffDrivers(J6, J5)
+    assert.isNotNull(diff)
+    assert.isTrue(diff!.sourcesComparees.includes('of_suggestion'))
+    assert.isTrue(diff!.entrees.some((e) => e.article === 'A1'))
   }).timeout(20_000)
 })
