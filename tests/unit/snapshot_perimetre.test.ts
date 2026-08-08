@@ -194,4 +194,27 @@ test.group('perimetreAvecJournal (#149)', () => {
     assert.deepEqual(r.comparees, ['stock'])
     assert.isEmpty(r.sourcesEcartees)
   })
+
+  test('echec des deux côtés : écartée avec manqueDans « apres » (convention)', ({ assert }) => {
+    // Convention documentée dans perimetreAvecJournal : quand les deux photos
+    // sont en échec pour la même source, une seule entrée est écartée, côté
+    // « apres » — l'essentiel est qu'elle sorte du diff, pas de quel côté.
+    const r = perimetreAvecJournal(
+      ['stock'],
+      ['stock'],
+      J([
+        ['stock', 'capturee'],
+        ['of_suggestion', 'echec'],
+      ]),
+      J([
+        ['stock', 'capturee'],
+        ['of_suggestion', 'echec'],
+      ]),
+      ATTENDUES
+    )
+    assert.deepEqual(r.comparees, ['stock'])
+    assert.deepEqual(r.sourcesEcartees, [
+      { source: 'of_suggestion', manqueDans: 'apres', raison: 'echec' },
+    ])
+  })
 })

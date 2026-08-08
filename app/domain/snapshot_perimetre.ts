@@ -223,25 +223,6 @@ export function perimetreAvecJournal(
       comparees.push(source)
       continue
     }
-    // Absente d'un côté et non attendue : déjà traité plus haut, mais garde-fou
-    // si allSources contenait une source attendue absente des deux deduits mais
-    // sans journal : elle n'est pas dans deduit, donc dansAvant/dansApres false,
-    // isAttendues true -> on l'écarte avec raison inconnu.
-    if (!isAttendues) {
-      comparees.push(source)
-      continue
-    }
-    // Si la source n'est dans aucun deduit (absente des deux photos) et
-    // attendue, elle n'est pas dans allSources via deduit, mais via attendues :
-    // alors dansAvant/dansApres false, on l'écarte. C'est le cas d'une source
-    // attendue manquante des deux côtés sans journal — elle n'a jamais été
-    // capturée, on ne peut rien comparer.
-    // Mais allSources inclut attendues, donc une source attendue absente des
-    // deux deduits et sans journal arrivera ici avec dansAvant=false/dansApres=false.
-    // On choisit de ne pas la compter ni en comparees ni en ecartees ? Le
-    // perimetreComparable original ne l'aurait pas vue non plus (union vide).
-    // Pour rester cohérent, on ne l'ajoute nulle part si absente des deux.
-    if (!dansAvant && !dansApres) continue
     sourcesEcartees.push({ source, manqueDans: dansAvant ? 'apres' : 'avant', raison: 'inconnu' })
   }
 

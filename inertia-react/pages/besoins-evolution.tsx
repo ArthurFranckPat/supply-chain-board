@@ -423,7 +423,7 @@ export default function BesoinsEvolution() {
   // bandeau nomme les sources sorties du diff, et le compte des sources
   // annoncé dans l'état vide vient du serveur, jamais d'un 8 en dur.
   const sourcesEcartees = diff?.sourcesEcartees ?? []
-  const ecarteesParSource = new Map(sourcesEcartees.map((e) => [e.source, e]))
+  const ecarteesParSource = new Map(sourcesEcartees.map((e) => [e.source, e.manqueDans]))
   const nbComparees = diff?.sourcesComparees?.length ?? null
   // Changer de couple de photos peut écarter la source sélectionnée : la garder
   // laisserait une table vide sans que rien ne l'explique.
@@ -882,9 +882,6 @@ export default function BesoinsEvolution() {
                           )
                           const echec = parRaison.get('echec')
                           const inconnu = parRaison.get('inconnu')
-                          // `vide` normalement jamais écartée (comparée), ne survient que
-                          // sur historique sans journal via l'ancien garde-fou.
-                          const vide = parRaison.get('vide')
                           // On rend une phrase par raison pour que le motif reste lisible.
                           return (
                             <span key={cote}>
@@ -900,13 +897,6 @@ export default function BesoinsEvolution() {
                                   {inconnu.length > 1 ? 'Sources absentes' : 'Source absente'} de la
                                   photo du {jourEl} :{' '}
                                   <span className="font-semibold">{inconnu.join(', ')}</span>.{' '}
-                                </span>
-                              )}
-                              {vide && vide.length > 0 && (
-                                <span>
-                                  {vide.length > 1 ? 'Sources' : 'Source'}{' '}
-                                  <span className="font-semibold">{vide.join(', ')}</span> — source
-                                  réellement vide le {jourEl}.{' '}
                                 </span>
                               )}
                             </span>

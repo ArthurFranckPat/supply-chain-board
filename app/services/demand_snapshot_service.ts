@@ -429,8 +429,9 @@ export class DemandSnapshotService {
    *
    * La clé porte une version : toute évolution de la sémantique du diff doit
    * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
-   * `v11` — restriction du périmètre aux sources comparables (#145), par-dessus
-   * le plafond d'appariement de `v10` (#144).
+   * `v12` — périmètre via journal des sources capturées (#149), par-dessus la
+   * restriction aux sources comparables de `v11` (#145).
+   * `v13` — photo 100 % vide mais journalisée reste comparable (fix #149).
    */
   async diffDrivers(
     apresDay: string,
@@ -446,14 +447,31 @@ export class DemandSnapshotService {
     message: string | null
   } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v12`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v13`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
           conn.from('demand_snapshots').where('snapshot_date', avantDay),
           conn.from('demand_snapshots').where('snapshot_date', apresDay),
         ])
-        if (avantRows.length === 0 || apresRows.length === 0) return null
+        // #149 — le journal est lu AVANT le garde-fou « photo vide » : une photo
+        // dont TOUTES les sources sont `vide` (journal présent) doit rester
+        // visible, c'est exactement le cas que le journal existe pour montrer.
+        const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
+        const [journalAvant, journalApres] = await Promise.all([
+          this.lireJournal(avantDay),
+          this.lireJournal(apresDay),
+        ])
+        // Garde-fou (#74) : une photo vide SANS journal n'a rien à montrer, c'est
+        // une panne X3. Avec journal, une photo 100 % vide reste comparable — les
+        // sources `vide` sont comparées, pas escamotées.
+        if (
+          (avantRows.length === 0 || apresRows.length === 0) &&
+          journalAvant === null &&
+          journalApres === null
+        ) {
+          return null
+        }
         const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
           snapshot_date: String(r.snapshot_date).slice(0, 10),
           source: String(r.source),
@@ -470,11 +488,6 @@ export class DemandSnapshotService {
         // s'est vidé, et la compter ferait apparaître 5 469 lignes d'un coup.
         // La règle (et l'approximation qu'elle assume) vit dans
         // `snapshot_perimetre.ts`, pure et testée hors base.
-        const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
-        const [journalAvant, journalApres] = await Promise.all([
-          this.lireJournal(avantDay),
-          this.lireJournal(apresDay),
-        ])
         const { comparees, sourcesEcartees } =
           journalAvant !== null || journalApres !== null
             ? perimetreAvecJournal(
@@ -611,8 +624,9 @@ export class DemandSnapshotService {
       // continuerait de servir les corrélations tirées de l'ancien diff pendant
       // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
       // sur le même couple de photos, et un couple déjà en cache en PROD.
-      // `v3` — périmètre via journal des sources capturées (#149), par-dessus `v2`.
-      key: `appro:explications:${avantDay}:${apresDay}:v3`,
+      // `v4` — photo 100 % vide mais journalisée reste comparable (fix #149),
+      // par-dessus `v3` (périmètre via journal, #149).
+      key: `appro:explications:${avantDay}:${apresDay}:v4`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),
@@ -787,13 +801,12 @@ export class DemandSnapshotService {
           }
         } catch (e) {
           const msg = (e as Error)?.message ?? String(e)
-          // Table absente en historique pré-migration : le run ne doit pas échouer
-          // pour un journal optionnel.
-          if (msg.includes('no such table') || msg.includes('no such column')) {
-            logger.warn({ err: msg }, '[snapshot] journal indisponible — photo écrite sans journal')
-          } else {
-            throw e
-          }
+          // Le journal est un composant OPTIONNEL : quelle que soit l'erreur
+          // (table absente en historique pré-migration, colonne manquante,
+          // contrainte, …), le run ne doit jamais échouer — ni faire perdre
+          // TOUTE la photo par un rollback — pour un journal. On avertit, et
+          // la photo reste écrite, sans journal.
+          logger.warn({ err: msg }, '[snapshot] journal indisponible — photo écrite sans journal')
         }
         await trx.commit()
       } catch (error) {
