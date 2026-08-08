@@ -12,6 +12,23 @@ import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
 import type { Workstation } from '#app/domain/models/workstation'
 
+/**
+ * Statuts article (`ITMMASTER.ITMSTA_0`, menu local 246).
+ *
+ * `static_articles` porte TOUS les statuts depuis le 08/08/2026 : le `WHERE
+ * ITMSTA_0 = 1` du sync faisait SORTIR du référentiel tout article passé
+ * « Non utilisable », ce qui rendait aveugle le filtre de catégorie Z — il se
+ * résout via cette table. Les 106 références `ET####` (catégorie `ZHE`, statut
+ * 6) traversaient la frise des drivers sans jamais être écartées.
+ *
+ * Conséquence : chaque lecture qui veut le seul parc vivant pose le filtre
+ * EXPLICITEMENT, via `actifsSeulement()`. Un filtre d'ingestion invisible
+ * depuis le code du consommateur est exactement ce qui a produit ce défaut.
+ */
+export const ARTICLE_ACTIF = 1
+/** « Non utilisable » — 6 331 articles en PROD le 08/08/2026, contre 6 548 actifs. */
+export const ARTICLE_NON_UTILISABLE = 6
+
 // Page size for SOAP keyset pagination (large datasets)
 const PAGE_SIZE_ARTICLES = 300
 const PAGE_SIZE_BOM = 200
@@ -103,12 +120,12 @@ export class StaticSyncService {
         // PCUSTUCOE_1 = US par palette (#119) — même colonne qu'aux repositories
         // expéditions/réceptions ; nullable, un article sans coefficient reste null.
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, OFS_0, PCUSTUCOE_1
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, ITMSTA_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, OFS_0, PCUSTUCOE_1
 FROM (
-  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, F.OFS_0, ITM.PCUSTUCOE_1
+  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.ITMSTA_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, F.OFS_0, ITM.PCUSTUCOE_1
   FROM ITMMASTER ITM
   LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = ITM.ITMREF_0 AND F.STOFCY_0 = 'AE1'
-  WHERE ITM.ITMSTA_0 = 1 ${keysetClause}
+  WHERE 1 = 1 ${keysetClause}
   ORDER BY ITM.ITMREF_0
 ) WHERE ROWNUM <= ${PAGE_SIZE_ARTICLES}`
 
@@ -145,6 +162,11 @@ FROM (
             : Number(r.OFS_0) || Number(r.PRPLTI_0) || DELAI_REPLI_ACHAT
 
         const usPal = Number(r.PCUSTUCOE_1)
+        // Statut hors 1..6 (colonne vide, valeur inconnue) → `ARTICLE_ACTIF` :
+        // un article dont on ne sait rien doit rester VISIBLE. L'inverse
+        // ferait disparaître du parc, en silence, tout article que X3 aurait
+        // renseigné autrement que prévu.
+        const statut = Number(r.ITMSTA_0)
         return {
           code,
           description,
@@ -154,6 +176,7 @@ FROM (
           typologie: String(r.TSICOD_4 ?? '').trim(),
           reorder_delay: delay,
           us_par_palette: Number.isFinite(usPal) && usPal > 0 ? usPal : null,
+          status: Number.isInteger(statut) && statut > 0 ? statut : ARTICLE_ACTIF,
           synced_at: now,
         }
       })
@@ -296,19 +319,28 @@ FROM (
       .from('static_nomenclatures as n')
       .join('static_articles as c', 'c.code', 'n.component_article')
       .distinct('n.parent_article as parent_article')
+      .where('c.status', ARTICLE_ACTIF)
       .where('c.typologie', 'BDH60')
     return new Set(rows.map((r: { parent_article: string }) => r.parent_article))
   }
 
   /** Bouches = articles TSICOD_4='BDH60' (produits sur PP_153/PP_128). */
   async readBoucheSet(): Promise<Set<string>> {
-    const rows = await db.from('static_articles').select('code').where('typologie', 'BDH60')
+    const rows = await db
+      .from('static_articles')
+      .select('code')
+      .where('status', ARTICLE_ACTIF)
+      .where('typologie', 'BDH60')
     return new Set(rows.map((r: { code: string }) => r.code))
   }
 
   /** Modules hygro = articles TSICOD_4='BDH10' (MH…, produits sur PP_146). */
   async readModulesHygroSet(): Promise<Set<string>> {
-    const rows = await db.from('static_articles').select('code').where('typologie', 'BDH10')
+    const rows = await db
+      .from('static_articles')
+      .select('code')
+      .where('status', ARTICLE_ACTIF)
+      .where('typologie', 'BDH10')
     return new Set(rows.map((r: { code: string }) => r.code))
   }
 
@@ -322,6 +354,8 @@ FROM (
       .join('static_articles as c', 'c.code', 'n.component_article')
       .join('static_articles as p', 'p.code', 'n.parent_article')
       .distinct('n.parent_article as parent_article')
+      .where('c.status', ARTICLE_ACTIF)
+      .where('p.status', ARTICLE_ACTIF)
       .where('c.typologie', 'BDH10')
       .where('p.typologie', 'BDH60')
     return new Set(rows.map((r: { parent_article: string }) => r.parent_article))
@@ -338,7 +372,10 @@ FROM (
   async readNomenclatures(): Promise<NomenclatureEntry[]> {
     const [rows, zArticles] = await Promise.all([
       StaticNomenclature.all(),
-      StaticArticle.query().where('category', 'like', 'Z%').select('code'),
+      StaticArticle.query()
+        .where('status', ARTICLE_ACTIF)
+        .where('category', 'like', 'Z%')
+        .select('code'),
     ])
     const exclus = new Set(zArticles.map((a) => a.code))
     return rows
@@ -355,9 +392,21 @@ FROM (
       }))
   }
 
-  /** Lecture locale articles (SQLite) */
+  /**
+   * Lecture locale articles (SQLite) — **parc vivant seulement**.
+   *
+   * Tous les appelants historiques (board, valorisation de stock, suivi,
+   * charge, contrôle prod) reposaient sur le `WHERE ITMSTA_0 = 1` de
+   * l'ingestion. Celui-ci ayant disparu, le filtre remonte ICI : le contrat de
+   * `readArticles()` est inchangé, et il est désormais lisible depuis la
+   * méthode plutôt que déduit d'une requête SOAP à 60 lignes de là.
+   *
+   * Une lecture qui veut aussi les articles morts interroge `StaticArticle`
+   * directement et dit pourquoi — c'est le cas de l'enrichissement de la frise
+   * des drivers, qui a besoin de les voir POUR les écarter.
+   */
   async readArticles(): Promise<Article[]> {
-    const rows = await StaticArticle.all()
+    const rows = await StaticArticle.query().where('status', ARTICLE_ACTIF)
     return rows.map((r) => ({
       code: r.code,
       description: r.description,

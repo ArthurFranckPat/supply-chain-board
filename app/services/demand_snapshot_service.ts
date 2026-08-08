@@ -7,6 +7,7 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
 import { cacheNs } from '#services/cache_ns'
+import { ARTICLE_NON_UTILISABLE } from '#services/static_sync_service'
 import {
   diffApproSnapshots,
   type ApproDiffNature,
@@ -650,6 +651,7 @@ export class DemandSnapshotService {
               famille: string | null
               categorie: string | null
               approvisionnement: 'ACHAT' | 'FABRICATION' | null
+              statut: number | null
             }
           >()
           for (let i = 0; i < codes.length; i += chunkSize) {
@@ -657,7 +659,12 @@ export class DemandSnapshotService {
             const rows = await conn
               .from('static_articles')
               .whereIn('code', chunk)
-              .select('code', 'description', 'famille', 'category', 'supply_type')
+              // Lecture DÉLIBÉRÉMENT non filtrée sur le statut, là où
+              // `staticSync.readArticles()` ne rend que le parc vivant : cet
+              // enrichissement a besoin de VOIR les articles morts pour les
+              // écarter. Un article absent de la table ne peut être écarté par
+              // rien.
+              .select('code', 'description', 'famille', 'category', 'supply_type', 'status')
             for (const r of rows as Array<Record<string, unknown>>) {
               const code = String((r as Record<string, unknown>).code)
               const desc = (r as Record<string, unknown>).description
@@ -669,20 +676,35 @@ export class DemandSnapshotService {
               // devient `null` : mieux vaut ne rien dire que dire « acheté »
               // d'un article fabriqué.
               const appro = String((r as Record<string, unknown>).supply_type ?? '')
+              const statut = Number((r as Record<string, unknown>).status)
               map.set(code, {
                 designation: desc === null || desc === undefined ? null : String(desc) || null,
                 famille: fam === null || fam === undefined ? null : String(fam) || null,
                 categorie: cat === null || cat === undefined ? null : String(cat),
                 approvisionnement: appro === 'ACHAT' || appro === 'FABRICATION' ? appro : null,
+                statut: Number.isFinite(statut) ? statut : null,
               })
             }
           }
-          // Exclure les articles dont la catégorie commence par Z (même règle que stock_valuation et BOM)
-          const zSet = new Set<string>()
+          // Deux exclusions, une seule passe.
+          //
+          // - CATÉGORIE Z : même règle que `stock_valuation` et le lien BOM —
+          //   ce ne sont pas des composants à approvisionner.
+          // - STATUT « Non utilisable » : l'article est mort, ses mouvements
+          //   n'appellent aucune décision. Mesuré le 08/08/2026 : 112 OF fermes
+          //   de quantité 1, tous à la même échéance, repoussés EN BLOC
+          //   (06/06 → 01/08 → 16/08) sur des références `ET####` — 106 lignes
+          //   de frise pour du rebut ERP que personne ne solde.
+          //
+          // Un statut inconnu (`null`) n'exclut PAS : cette table peut n'avoir
+          // jamais été synchronisée, et une exclusion par défaut viderait la
+          // page en silence plutôt que de la salir visiblement.
+          const exclus = new Set<string>()
           for (const [code, v] of map.entries()) {
-            if (v.categorie !== null && v.categorie.startsWith('Z')) zSet.add(code)
+            if (v.categorie !== null && v.categorie.startsWith('Z')) exclus.add(code)
+            else if (v.statut === ARTICLE_NON_UTILISABLE) exclus.add(code)
           }
-          if (zSet.size > 0) entrees = entrees.filter((e) => !zSet.has(e.article))
+          if (exclus.size > 0) entrees = entrees.filter((e) => !exclus.has(e.article))
 
           // Enrichissement désignation/famille (§5.2) : jointure static_articles
           // sur les seuls articles présents dans le diff, pas un LEFT JOIN sur
