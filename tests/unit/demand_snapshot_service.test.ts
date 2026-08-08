@@ -611,18 +611,16 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
   const J4 = '1900-03-04'
   const J5 = '1900-03-05'
   const J6 = '1900-03-06'
+  const J7 = '1900-03-07'
+  const J8 = '1900-03-08'
+
+  const DATES = [J1, J2, J3, J4, J5, J6, J7, J8]
 
   group.each.teardown(async () => {
-    await conn.from('demand_snapshots').whereIn('snapshot_date', [J1, J2, J3, J4, J5, J6]).delete()
-    await conn
-      .from('appro_message_snapshots')
-      .whereIn('snapshot_date', [J1, J2, J3, J4, J5, J6])
-      .delete()
+    await conn.from('demand_snapshots').whereIn('snapshot_date', DATES).delete()
+    await conn.from('appro_message_snapshots').whereIn('snapshot_date', DATES).delete()
     try {
-      await conn
-        .from('demand_snapshot_sources')
-        .whereIn('snapshot_date', [J1, J2, J3, J4, J5, J6])
-        .delete()
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', DATES).delete()
     } catch {}
   })
 
@@ -716,5 +714,73 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
     assert.isNotNull(diff)
     assert.isTrue(diff!.sourcesComparees.includes('of_suggestion'))
     assert.isTrue(diff!.entrees.some((e) => e.article === 'A1'))
+  }).timeout(20_000)
+
+  test('re-run en échec sur une source déjà capturée : le journal ne contredit pas les lignes préservées', async ({
+    assert,
+  }) => {
+    // Défaut bloquant (revue de code #149) : run nocturne complet à 04 h qui
+    // fige `appro_suggestion`, puis `snapshot:run` relancé à la main à 15 h
+    // pendant qu'X3 sature. L'appel CBN lève -> les lignes `appro_suggestion`
+    // de la nuit SURVIVENT (garde-fou par source), mais avant ce fix le
+    // journal était réécrit en `echec` pour la même source : le bandeau de
+    // /besoins/evolution affichait "capture perdue" sur des données réelles,
+    // présentes et valides des deux côtés. Le journal doit rester symétrique
+    // de `demand_snapshots` (même `whereNotIn`).
+    await service.runWrite(J7, async () =>
+      payload([
+        row({ snapshot_date: J7, source: 'stock', itmref: 'S1' }),
+        row({ snapshot_date: J7, source: 'appro_suggestion', itmref: 'A1' }),
+        row({ snapshot_date: J7, source: 'appro_suggestion', itmref: 'A2' }),
+      ])
+    )
+
+    const second = await service.runWrite(J7, async () =>
+      payload(
+        [row({ snapshot_date: J7, source: 'stock', itmref: 'S2' })],
+        [],
+        ['appro_suggestion', 'appro_message']
+      )
+    )
+    assert.equal(second.status, 'ok')
+
+    const journalRows = await conn
+      .from('demand_snapshot_sources')
+      .where('snapshot_date', J7)
+      .andWhere('source', 'appro_suggestion')
+    assert.lengthOf(journalRows, 1)
+    // Toujours `capturee`, avec le compte d'ORIGINE (2 lignes) — pas `echec`.
+    assert.equal(journalRows[0].statut, 'capturee')
+    assert.equal(journalRows[0].lignes, 2)
+
+    // Les lignes `demand_snapshots` de la source ont bien survécu au re-run.
+    const demandRows = await conn
+      .from('demand_snapshots')
+      .where('snapshot_date', J7)
+      .andWhere('source', 'appro_suggestion')
+      .orderBy('itmref')
+    assert.deepEqual(
+      demandRows.map((r) => r.itmref),
+      ['A1', 'A2']
+    )
+  }).timeout(20_000)
+
+  test('premier run du jour en échec d’emblée : la ligne de journal echec EST créée', async ({
+    assert,
+  }) => {
+    // Cas complémentaire : rien à préserver puisqu'aucun journal ne survit
+    // pour cette source sur cette date -> `echec` doit bien être écrit.
+    const result = await service.runWrite(J8, async () =>
+      payload([row({ snapshot_date: J8, source: 'stock', itmref: 'S1' })], [], ['appro_suggestion'])
+    )
+    assert.equal(result.status, 'ok')
+
+    const journalRows = await conn
+      .from('demand_snapshot_sources')
+      .where('snapshot_date', J8)
+      .andWhere('source', 'appro_suggestion')
+    assert.lengthOf(journalRows, 1)
+    assert.equal(journalRows[0].statut, 'echec')
+    assert.equal(journalRows[0].lignes, 0)
   }).timeout(20_000)
 })
