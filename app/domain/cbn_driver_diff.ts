@@ -4,6 +4,7 @@ import {
   TOLERANCE_QUANTITE_RATIO,
 } from '#app/domain/appro_decision'
 import type { DemandSnapshotRow } from '#app/domain/snapshot_rows'
+import { fmtFr } from '#app/utils/dates'
 
 /**
  * Diff des drivers du CBN par article (#138 lot 1).
@@ -117,11 +118,6 @@ const joursEntre = (deIso: string | null, aIso: string | null): number | null =>
 }
 
 const qte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
-const fmtFr = (iso: string | null): string => {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return y && m && d ? `${d}/${m}/${y}` : iso
-}
 
 /**
  * Référence du ratio de variation : la plus petite MAGNITUDE, jamais la plus

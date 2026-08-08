@@ -19,6 +19,19 @@ export function isoDay(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * Échéance ISO (`YYYY-MM-DD`) → affichage jj/mm/aaaa. `—` si `null`.
+ * Règle du projet : jamais d'ISO brut à l'écran ; l'ISO reste correct côté
+ * machine (champs `echeance*` inchangés), seul le texte affiché passe par ici.
+ * Partagé par `cbn_driver_diff.ts` et `appro_snapshot_diff.ts` (#148) : ne pas
+ * dupliquer, les deux fichiers doivent consommer la même fonction.
+ */
+export const fmtFr = (iso: string | null): string => {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : iso
+}
+
 /** Numéro de semaine ISO (calcul sur la date civile locale, convention usuelle). */
 export function isoWeek(d: Date): number {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))

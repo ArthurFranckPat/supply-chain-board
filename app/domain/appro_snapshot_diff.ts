@@ -3,6 +3,7 @@ import {
   TOLERANCE_ECHEANCE_JOURS,
   TOLERANCE_QUANTITE_RATIO,
 } from '#app/domain/appro_decision'
+import { fmtFr } from '#app/utils/dates'
 
 /**
  * Diff inter-CBN des suggestions d'achat (#133, item « Not yet specified » #106).
@@ -80,13 +81,15 @@ const distEcheance = (a: string | null, b: string | null): number => {
  * du plafond ou du garde-fou quantité doit être portée dans les deux fichiers.
  *
  * @param plafondJours distance au-delà de laquelle deux lignes ne sont pas le
- *   même besoin. `Infinity` = identité certaine (jamais utilisé ici : les
- *   suggestions sont régénératives, l'identité est toujours devinée).
+ *   même besoin. Requis, comme dans le miroir `cbn_driver_diff.apparie()` : un
+ *   défaut implicite laisserait un futur appelant oublier de trancher la
+ *   question, silencieusement. `Infinity` = identité certaine (jamais utilisé
+ *   ici : les suggestions sont régénératives, l'identité est toujours devinée).
  */
 function apparie(
   avant: ApproSnapshotRow[],
   apres: ApproSnapshotRow[],
-  plafondJours: number = TOLERANCE_APPARIEMENT_JOURS
+  plafondJours: number
 ): {
   paires: Array<[ApproSnapshotRow, ApproSnapshotRow]>
   surplusAvant: ApproSnapshotRow[]
@@ -216,7 +219,7 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowP.quantite,
           echeance: rowP.echeance,
-          detail: `Suggestion apparue : ${qte(rowP.quantite)} unités${rowP.echeance === null ? '' : `, échéance ${rowP.echeance}`}.`,
+          detail: `Suggestion apparue : ${qte(rowP.quantite)} unités${rowP.echeance === null ? '' : `, échéance ${fmtFr(rowP.echeance)}`}.`,
         })
       }
       continue
@@ -229,13 +232,13 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowA.quantite,
           echeance: rowA.echeance,
-          detail: `Suggestion disparue : ${qte(rowA.quantite)} unités${rowA.echeance === null ? '' : `, échéance ${rowA.echeance}`}.`,
+          detail: `Suggestion disparue : ${qte(rowA.quantite)} unités${rowA.echeance === null ? '' : `, échéance ${fmtFr(rowA.echeance)}`}.`,
         })
       }
       continue
     }
 
-    const { paires, surplusAvant, surplusApres } = apparie(a, p)
+    const { paires, surplusAvant, surplusApres } = apparie(a, p, TOLERANCE_APPARIEMENT_JOURS)
 
     for (const [rowA, rowP] of paires) {
       const base = baseRatio(rowA.quantite, rowP.quantite)
@@ -264,7 +267,7 @@ export function diffApproSnapshots(
           fournisseur: fournisseur || null,
           quantite: rowP.quantite,
           echeance: rowP.echeance,
-          detail: `Échéance ${rowA.echeance ?? '—'} → ${rowP.echeance ?? '—'}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`} — seuil ±${TOLERANCE_ECHEANCE_JOURS} j (#112).`,
+          detail: `Échéance ${fmtFr(rowA.echeance)} → ${fmtFr(rowP.echeance)}${ecartJours === null ? '' : ` (${ecartJours > 0 ? '+' : ''}${ecartJours} j)`} — seuil ±${TOLERANCE_ECHEANCE_JOURS} j (#112).`,
         })
       }
     }
@@ -275,7 +278,7 @@ export function diffApproSnapshots(
         fournisseur: fournisseur || null,
         quantite: rowA.quantite,
         echeance: rowA.echeance,
-        detail: `Ligne disparue : ${qte(rowA.quantite)} unités, échéance ${rowA.echeance ?? 'inconnue'}.`,
+        detail: `Ligne disparue : ${qte(rowA.quantite)} unités, échéance ${rowA.echeance === null ? 'inconnue' : fmtFr(rowA.echeance)}.`,
       })
     }
     for (const rowP of surplusApres) {
@@ -285,7 +288,7 @@ export function diffApproSnapshots(
         fournisseur: fournisseur || null,
         quantite: rowP.quantite,
         echeance: rowP.echeance,
-        detail: `Ligne apparue : ${qte(rowP.quantite)} unités, échéance ${rowP.echeance ?? 'inconnue'}.`,
+        detail: `Ligne apparue : ${qte(rowP.quantite)} unités, échéance ${rowP.echeance === null ? 'inconnue' : fmtFr(rowP.echeance)}.`,
       })
     }
   }

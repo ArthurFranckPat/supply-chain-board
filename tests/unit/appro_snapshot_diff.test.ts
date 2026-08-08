@@ -84,7 +84,7 @@ test.group('appro_snapshot_diff — variations dans les tolérances #112', () =>
     )
     assert.equal(diff.length, 1)
     assert.equal(diff[0].nature, 'date')
-    assert.isTrue(diff[0].detail.includes('2026-09-01 → 2026-09-16'))
+    assert.isTrue(diff[0].detail.includes('01/09/2026 → 16/09/2026'))
   })
 
   test('échéance décalée de 5 j (dans ±7 j) → rien', ({ assert }) => {
