@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 122 routes nommées.
+ * 123 routes nommées.
  */
 
 export const MANIFEST = {
@@ -18,6 +18,7 @@ export const MANIFEST = {
   'appro.decision': { method: 'POST', pattern: '/api/v1/appro/decision' },
   'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
   'appro.driversDiff': { method: 'GET', pattern: '/api/v1/appro/drivers-diff' },
+  'appro.driversFrise': { method: 'GET', pattern: '/api/v1/appro/drivers-frise' },
   'appro.explanations': { method: 'GET', pattern: '/api/v1/appro/explanations' },
   'appro.messagesDiff': { method: 'GET', pattern: '/api/v1/appro/messages-diff' },
   'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
@@ -182,6 +183,7 @@ export type RouteParams = {
   'appro.decision': void
   'appro.diff': void
   'appro.driversDiff': void
+  'appro.driversFrise': void
   'appro.explanations': void
   'appro.messagesDiff': void
   'appro.rows': void
