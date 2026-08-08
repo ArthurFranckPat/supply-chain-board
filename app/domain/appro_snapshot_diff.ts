@@ -107,6 +107,9 @@ function apparie(
   // Au-delà du plafond deux lignes ne sont pas le même besoin (#144) : on ne
   // marie pas une suggestion de septembre à une de février (+168 j) simplement
   // parce que c'est ce qui reste de libre.
+  // Pas de garde-fou quantité ici : deux lignes sans échéance (distance 0) se
+  // marient quelle que soit leur quantité — comportement assumé, verrouillé par
+  // test. Le départage quantité ne choisit que la plus proche, sans rejet.
   for (const rowA of as) {
     let best = -1
     let bestDist = Number.POSITIVE_INFINITY
@@ -137,12 +140,13 @@ function apparie(
   // `Infinity` est exempté du plafond : c'est le défaut qui rentre par la porte
   // de service, avec un `quantite(100 → 5000)` inventé.
   //
-  // D'où deux garde-fous, armés seulement quand l'identité est inférée
-  // (toujours ici : `plafondJours` fini) :
-  // - le plafond, sur les couples dont les DEUX échéances existent ;
-  // - un ratio de quantité (±20 %, seuil de bruit) sur tous les couples : si la
-  //   quantité a bougé au-delà du bruit EN PLUS de l'échéance, rien n'atteste
-  //   que c'est la même ligne.
+  // Le garde-fou de quantité (±20 %, seuil de bruit) ne s'applique qu'à CETTE
+  // passe, pas à la passe 1 : il refuse le mariage quand la quantité a bougé
+  // au-delà du bruit EN PLUS d'une échéance incohérente (retraits des orphelines
+  // lointaines et transitions) — rien n'atteste alors que c'est la même ligne.
+  // Le plafond, lui, continue de borner les couples dont les DEUX échéances
+  // existent, armé quand l'identité est inférée (toujours ici : `plafondJours`
+  // fini).
   const identiteInferee = Number.isFinite(plafondJours)
   for (const rowA of as) {
     if (appariees.has(rowA)) continue

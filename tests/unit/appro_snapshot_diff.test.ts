@@ -222,4 +222,17 @@ test.group('appro_snapshot_diff — plafond d’appariement (#148, miroir #144)'
     )
     assert.deepEqual(diff, [])
   })
+
+  test('passe 1 sans garde-fou quantité : sans échéance, 100 vs 5000 se marient', ({ assert }) => {
+    // Deux lignes sans échéance (distance 0) s'apparient en passe 1 quelle que
+    // soit leur quantité : le ratio ±20 % ne s'arme qu'en passe 2, jamais
+    // atteinte ici. Pas de disparue/apparue — une ligne sans date n'est pas une
+    // ligne différente — juste le `quantite` honnête sur le mariage assumé.
+    const diff = diffApproSnapshots(
+      [ligne({ echeance: null, quantite: 100 })],
+      [ligne({ echeance: null, quantite: 5000 })]
+    )
+    assert.equal(diff.length, 1)
+    assert.equal(diff[0].nature, 'quantite')
+  })
 })
