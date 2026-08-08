@@ -784,3 +784,131 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
     assert.equal(journalRows[0].lignes, 0)
   }).timeout(20_000)
 })
+
+/**
+ * Frise des drivers sur une plage (#143 défaut 5) : rien ne couvrait
+ * jusqu'ici `friseDrivers` lui-même — plafond `MAX_PAS_FRISE`, chaînage des
+ * pas, trous — la revue de code #143 n'avait que les 12 tests du domaine pur
+ * (`diff_frise.test.ts`) pour s'appuyer.
+ */
+test.group('DemandSnapshotService — frise des drivers (#143)', (group) => {
+  const conn = db.connection()
+  const service = new ProbeService()
+  const dates: string[] = []
+
+  group.each.teardown(async () => {
+    await conn.from('demand_snapshots').whereIn('snapshot_date', dates).delete()
+    await conn.from('appro_message_snapshots').whereIn('snapshot_date', dates).delete()
+    try {
+      await conn.from('demand_snapshot_sources').whereIn('snapshot_date', dates).delete()
+    } catch {}
+    dates.length = 0
+  })
+
+  test('une série de 3 photos → autant de pas que d’intervalles, en ordre chronologique', async ({
+    assert,
+  }) => {
+    const J1 = '1900-04-01'
+    const J2 = '1900-04-02'
+    const J3 = '1900-04-03'
+    dates.push(J1, J2, J3)
+    await service.runWrite(J1, async () =>
+      payload([row({ snapshot_date: J1, source: 'stock', itmref: 'A1', quantity: 10 })])
+    )
+    await service.runWrite(J2, async () =>
+      payload([row({ snapshot_date: J2, source: 'stock', itmref: 'A1', quantity: 20 })])
+    )
+    await service.runWrite(J3, async () =>
+      payload([row({ snapshot_date: J3, source: 'stock', itmref: 'A1', quantity: 30 })])
+    )
+
+    const frise = await service.friseDrivers(J3, J1)
+
+    assert.isNotNull(frise)
+    assert.isNull(frise!.message)
+    assert.isEmpty(frise!.trous)
+    assert.lengthOf(frise!.pas, 2)
+    assert.equal(frise!.pas[0].avant, J1)
+    assert.equal(frise!.pas[0].apres, J2)
+    assert.equal(frise!.pas[1].avant, J2)
+    assert.equal(frise!.pas[1].apres, J3)
+  }).timeout(20_000)
+
+  test('un trou dans la série est remonté dans trous, le pas qui l’enjambe existe quand même', async ({
+    assert,
+  }) => {
+    const J1 = '1900-04-10'
+    const J2 = '1900-04-13' // 2 jours de trou (11 et 12)
+    dates.push(J1, J2)
+    await service.runWrite(J1, async () =>
+      payload([row({ snapshot_date: J1, source: 'stock', itmref: 'A1', quantity: 10 })])
+    )
+    await service.runWrite(J2, async () =>
+      payload([row({ snapshot_date: J2, source: 'stock', itmref: 'A1', quantity: 20 })])
+    )
+
+    const frise = await service.friseDrivers(J2, J1)
+
+    assert.isNotNull(frise)
+    assert.deepEqual(frise!.trous, [{ entre: J1, et: J2, manquants: ['1900-04-11', '1900-04-12'] }])
+    // Le trou n'enjambe pas le pas en silence : le pas existe toujours.
+    assert.lengthOf(frise!.pas, 1)
+    assert.equal(frise!.pas[0].avant, J1)
+    assert.equal(frise!.pas[0].apres, J2)
+  }).timeout(20_000)
+
+  test('moins de deux photos dans la plage → null', async ({ assert }) => {
+    const J1 = '1900-04-20'
+    dates.push(J1)
+    await service.runWrite(J1, async () =>
+      payload([row({ snapshot_date: J1, source: 'stock', itmref: 'A1' })])
+    )
+
+    const frise = await service.friseDrivers(J1, J1)
+
+    assert.isNull(frise)
+  }).timeout(15_000)
+
+  test('plafond MAX_PAS_FRISE dépassé → message « plage trop large », pas: [], trous quand même renseigné', async ({
+    assert,
+  }) => {
+    // Le plafond se déclenche AVANT tout `diffDrivers` (juste sur le nombre de
+    // dates distinctes) : inutile de payer 47 écritures transactionnelles,
+    // une insertion directe minimale suffit à peupler `demand_snapshots`.
+    const JOUR_MS = 86_400_000
+    const debut = Date.UTC(1901, 0, 1)
+    const jours: string[] = []
+    // 44 jours consécutifs...
+    for (let i = 0; i < 44; i++) {
+      jours.push(new Date(debut + i * JOUR_MS).toISOString().slice(0, 10))
+    }
+    // ...puis un vrai trou de 3 jours avant les 3 dernières photos — 47 dates
+    // distinctes au total (46 pas > MAX_PAS_FRISE = 45), et un trou réel pour
+    // vérifier que `detecterTrous` tourne quand même avant le plafond.
+    const apresLeTrou = debut + (44 + 3) * JOUR_MS
+    for (let i = 0; i < 3; i++) {
+      jours.push(new Date(apresLeTrou + i * JOUR_MS).toISOString().slice(0, 10))
+    }
+    assert.lengthOf(jours, 47)
+    dates.push(...jours)
+
+    await conn.table('demand_snapshots').insert(
+      jours.map((d) => ({
+        snapshot_date: d,
+        source: 'stock',
+        itmref: 'A1',
+        quantity: 1,
+        created_at: new Date(),
+      }))
+    )
+
+    const frise = await service.friseDrivers(jours[jours.length - 1], jours[0])
+
+    assert.isNotNull(frise)
+    assert.deepEqual(frise!.pas, [])
+    assert.include(frise!.message ?? '', 'plage trop large')
+    // Le trou existe toujours dans la réponse malgré le plafond : la détection
+    // ne dépend pas du calcul des pas qui, lui, est coupé court.
+    assert.isAbove(frise!.trous.length, 0)
+  }).timeout(20_000)
+})

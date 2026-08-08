@@ -35,3 +35,25 @@ export function mondayOf(d: Date): Date {
   x.setDate(x.getDate() - dow)
   return x
 }
+
+/**
+ * Une chaîne est-elle une date ISO `YYYY-MM-DD` qui existe RÉELLEMENT (rejette
+ * `2026-02-30`, `2026-13-01`, etc.), pas seulement au bon format.
+ *
+ * Sert à valider les paramètres `avant`/`apres` des endpoints de diff (#143
+ * défaut 6) : `whereBetween`/`where` sur `snapshot_date` sont paramétrés (pas
+ * d'injection), mais une valeur absurde retombait silencieusement sur « moins
+ * de deux photos » — un message qui décrit un état des DONNÉES alors que
+ * c'est la REQUÊTE qui est mauvaise.
+ */
+export function estIsoDayValide(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  if (m === null) return false
+  const annee = Number(m[1])
+  const mois = Number(m[2])
+  const jour = Number(m[3])
+  const d = new Date(annee, mois - 1, jour)
+  // `Date` normalise les débordements (`2026-02-30` → `2026-03-02`) au lieu de
+  // lever : la relecture des trois composantes est ce qui les détecte.
+  return d.getFullYear() === annee && d.getMonth() === mois - 1 && d.getDate() === jour
+}

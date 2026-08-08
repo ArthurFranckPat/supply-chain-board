@@ -423,6 +423,44 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Lit la photo brute d'un jour (`demand_snapshots`, toutes sources
+   * confondues). `memo`, s'il est fourni, mémoïse la lecture pour la durée
+   * d'un appelant (#143 défaut 2, `friseDrivers`) : les pas adjacents d'une
+   * frise partagent une journée — le pas *i* lit `dates[i+1]`, le pas *i+1* la
+   * relit — et sans dédup, une frise de 45 pas relit deux fois chacune des 46
+   * journées (~90 lectures de ~73 000 lignes) là où 46 suffisent.
+   *
+   * `diffDrivers` appelé seul (sans `memo`) n'a rien à dédupliquer : son
+   * propre cache PAR PAIRE (`appro:drivers:*`, forever) rend déjà cette
+   * lecture rarissime hors premier calcul du couple.
+   *
+   * Wrap explicite en promesse native (`.then`) : un query builder Lucid est
+   * un thenable réexécuté à chaque `.then()` — le mémoïser tel quel aurait
+   * relancé la requête à chaque lecture du memo au lieu d'une seule fois pour
+   * toute la frise. Le `.then()` posé ICI, avant `memo.set`, exécute la
+   * requête une seule fois ; tous les appelants suivants attendent la même
+   * promesse déjà en vol.
+   */
+  private loadDayRows(
+    day: string,
+    memo?: Map<string, Promise<Record<string, unknown>[]>>
+  ): Promise<Record<string, unknown>[]> {
+    const lire = () =>
+      db
+        .connection()
+        .from('demand_snapshots')
+        .where('snapshot_date', day)
+        .then((r) => r)
+    if (memo === undefined) return lire()
+    let promesse = memo.get(day)
+    if (promesse === undefined) {
+      promesse = lire()
+      memo.set(day, promesse)
+    }
+    return promesse
+  }
+
+  /**
    * Diff des drivers par article entre deux photos (#138 lot 1).
    * `null` si l'une des deux photos manque.
    * Mis en cache FOREVER par couple de jours : une photo est immuable une fois
@@ -435,10 +473,15 @@ export class DemandSnapshotService {
    * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
    * `v12` — périmètre via journal des sources capturées (#149), par-dessus la
    * restriction aux sources comparables de `v11` (#145).
+   *
+   * @param memo Mémoïsation optionnelle des lectures de journée, portée par
+   *   l'appelant (`friseDrivers`, #143 défaut 2) — voir `loadDayRows`. Absent
+   *   pour tout appel isolé (`/drivers-diff`, `explainMessages`).
    */
   async diffDrivers(
     apresDay: string,
-    avantDay: string
+    avantDay: string,
+    memo?: Map<string, Promise<Record<string, unknown>[]>>
   ): Promise<{
     avant: string
     apres: string
@@ -454,8 +497,8 @@ export class DemandSnapshotService {
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
-          conn.from('demand_snapshots').where('snapshot_date', avantDay),
-          conn.from('demand_snapshots').where('snapshot_date', apresDay),
+          this.loadDayRows(avantDay, memo),
+          this.loadDayRows(apresDay, memo),
         ])
         // Garde-fou (#74), INCONDITIONNEL : une photo vide n'a rien à montrer,
         // c'est une panne X3. Une photo 100 % vide MAIS journalisée ne peut pas
@@ -609,9 +652,21 @@ export class DemandSnapshotService {
    * calculé, mais un mouvement qui y est observé n'est pas localisable au jour
    * près, et la frise doit le dire — jamais enjamber en silence.
    *
-   * Les pas sont calculés avec un petit pool : chaque diff lit deux journées
-   * entières de `demand_snapshots` (~73 000 lignes chacune), et sur une plage
-   * large la première computation les sérialiserait sinon.
+   * Les pas sont calculés avec un petit pool. Chaque diff lit deux journées
+   * entières de `demand_snapshots` (~73 000 lignes chacune) ; sans précaution,
+   * les pas ADJACENTS partagent une journée — le pas *i* lit `dates[i+1]`, le
+   * pas *i+1* la relit — et sur `MAX_PAS_FRISE = 45` pas ça fait ~90 lectures
+   * de journée là où 46 suffisent (#143 défaut 2). `memo`, partagé par tous
+   * les workers de CETTE frise, déduplique ces lectures via `loadDayRows` —
+   * chaque journée n'est donc plus jamais chargée qu'une fois, quel que soit
+   * le nombre de pas qui la touchent, SANS toucher au calcul de `diffDrivers`
+   * lui-même (même résultat, même cache par paire, seule l'I/O amont change).
+   *
+   * Pool à 4 : c'est `pool.max` de la connexion SQLite locale (config/database.ts)
+   * — au-delà, les workers supplémentaires n'obtiendraient pas plus de
+   * connexions et attendraient dans la file du pool plutôt que de paralléliser
+   * quoi que ce soit. La dédup ne change pas ce plafond : elle réduit le
+   * NOMBRE de lectures, pas la taille du pool qui les sert.
    */
   async friseDrivers(
     apresDay: string,
@@ -643,6 +698,7 @@ export class DemandSnapshotService {
       }
     }
 
+    const memoJournees = new Map<string, Promise<Record<string, unknown>[]>>()
     const pas: PasFrise[] = []
     let cursor = 0
     const workers = Array.from({ length: Math.min(4, dates.length - 1) }, async () => {
@@ -650,7 +706,7 @@ export class DemandSnapshotService {
         const i = cursor++
         const pasAvant = dates[i]
         const pasApres = dates[i + 1]
-        const r = await this.diffDrivers(pasApres, pasAvant)
+        const r = await this.diffDrivers(pasApres, pasAvant, memoJournees)
         if (r === null) {
           // Photo vide d'un côté — impossible en pratique : les dates viennent
           // de la table, chaque date a au moins une ligne. Défensif : le pas
