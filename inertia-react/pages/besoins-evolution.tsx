@@ -86,6 +86,7 @@ interface DriverDiffEntry {
 interface SourceEcartee {
   source: string
   manqueDans: 'avant' | 'apres'
+  raison?: 'echec' | 'vide' | 'inconnu'
 }
 interface DriversDiffResponse {
   avant: string | null
@@ -864,24 +865,46 @@ export default function BesoinsEvolution() {
                       <span>
                         Comparaison sur périmètre restreint.{' '}
                         {(['avant', 'apres'] as const).map((cote) => {
-                          const noms = sourcesEcartees
-                            .filter((e) => e.manqueDans === cote)
-                            .map((e) => SOURCE_LABEL[e.source as DriverSource] ?? e.source)
-                          if (noms.length === 0) return null
+                          const parRaison = new Map<string, string[]>()
+                          for (const e of sourcesEcartees.filter((x) => x.manqueDans === cote)) {
+                            const r = e.raison ?? 'inconnu'
+                            const label = SOURCE_LABEL[e.source as DriverSource] ?? e.source
+                            const arr = parRaison.get(r)
+                            if (arr) arr.push(label)
+                            else parRaison.set(r, [label])
+                          }
+                          if (parRaison.size === 0) return null
                           const jour = jourDuCote(cote)
+                          const jourEl = (
+                            <span className="font-mono tabular-nums">
+                              {jour ? fmtJJMMAAAA(jour) : '—'}
+                            </span>
+                          )
+                          const echec = parRaison.get('echec')
+                          const inconnu = parRaison.get('inconnu')
+                          // On rend une phrase par raison pour que le motif reste lisible.
                           return (
                             <span key={cote}>
-                              {noms.length > 1 ? 'Sources absentes' : 'Source absente'} de la photo
-                              du{' '}
-                              <span className="font-mono tabular-nums">
-                                {jour ? fmtJJMMAAAA(jour) : '—'}
-                              </span>{' '}
-                              : <span className="font-semibold">{noms.join(', ')}</span>.{' '}
+                              {echec && echec.length > 0 && (
+                                <span>
+                                  {echec.length > 1 ? 'Sources' : 'Source'}{' '}
+                                  <span className="font-semibold">{echec.join(', ')}</span> —
+                                  capture perdue (extraction en échec) de la photo du {jourEl}.{' '}
+                                </span>
+                              )}
+                              {inconnu && inconnu.length > 0 && (
+                                <span>
+                                  {inconnu.length > 1 ? 'Sources absentes' : 'Source absente'} de la
+                                  photo du {jourEl} :{' '}
+                                  <span className="font-semibold">{inconnu.join(', ')}</span>.{' '}
+                                </span>
+                              )}
                             </span>
                           )
                         })}
-                        Elles sont écartées du diff — une source absente d&apos;une photo est
-                        presque toujours une capture manquée, jamais un plan qui s&apos;est vidé.
+                        Elles sont écartées du diff — une source en échec n&apos;a pas été capturée,
+                        une source sans journal est écartée par prudence ; une source réellement
+                        vide, elle, reste comparée et sa disparition est affichée.
                       </span>
                     </div>
                   )}

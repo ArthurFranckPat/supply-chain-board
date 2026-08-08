@@ -15,7 +15,12 @@ import {
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
-import { perimetreComparable, type SourceEcartee } from '#app/domain/snapshot_perimetre'
+import {
+  perimetreAvecJournal,
+  perimetreComparable,
+  type SourceEcartee,
+  type StatutSource,
+} from '#app/domain/snapshot_perimetre'
 import {
   couverture,
   jourIso,
@@ -424,8 +429,8 @@ export class DemandSnapshotService {
    *
    * La clé porte une version : toute évolution de la sémantique du diff doit
    * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
-   * `v11` — restriction du périmètre aux sources comparables (#145), par-dessus
-   * le plafond d'appariement de `v10` (#144).
+   * `v12` — périmètre via journal des sources capturées (#149), par-dessus la
+   * restriction aux sources comparables de `v11` (#145).
    */
   async diffDrivers(
     apresDay: string,
@@ -441,14 +446,27 @@ export class DemandSnapshotService {
     message: string | null
   } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v11`,
+      key: `appro:drivers:${avantDay}:${apresDay}:v12`,
       factory: async () => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
           conn.from('demand_snapshots').where('snapshot_date', avantDay),
           conn.from('demand_snapshots').where('snapshot_date', apresDay),
         ])
+        // Garde-fou (#74), INCONDITIONNEL : une photo vide n'a rien à montrer,
+        // c'est une panne X3. Une photo 100 % vide MAIS journalisée ne peut pas
+        // exister : `write()` retourne `skipped-empty` sur `demand.length === 0`
+        // avant même d'ouvrir la transaction (cf. son commentaire), donc le
+        // journal comme les lignes sont absents ensemble. `avantRows.length ===
+        // 0` implique déjà `journalAvant === null` — la branche qui gardait la
+        // photo vide « si journalisée » ne s'exécutait jamais et ne faisait que
+        // payer un bump de cache pour rien (revue de code #149, second bump).
         if (avantRows.length === 0 || apresRows.length === 0) return null
+        const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
+        const [journalAvant, journalApres] = await Promise.all([
+          this.lireJournal(avantDay),
+          this.lireJournal(apresDay),
+        ])
         const toRow = (r: Record<string, unknown>): DemandSnapshotRow => ({
           snapshot_date: String(r.snapshot_date).slice(0, 10),
           source: String(r.source),
@@ -465,12 +483,20 @@ export class DemandSnapshotService {
         // s'est vidé, et la compter ferait apparaître 5 469 lignes d'un coup.
         // La règle (et l'approximation qu'elle assume) vit dans
         // `snapshot_perimetre.ts`, pure et testée hors base.
-        const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
-        const { comparees, sourcesEcartees } = perimetreComparable(
-          avantRows.map(nomSource),
-          apresRows.map(nomSource),
-          SOURCES_ATTENDUES
-        )
+        const { comparees, sourcesEcartees } =
+          journalAvant !== null || journalApres !== null
+            ? perimetreAvecJournal(
+                avantRows.map(nomSource),
+                apresRows.map(nomSource),
+                journalAvant,
+                journalApres,
+                SOURCES_ATTENDUES
+              )
+            : perimetreComparable(
+                avantRows.map(nomSource),
+                apresRows.map(nomSource),
+                SOURCES_ATTENDUES
+              )
         // Deux photos non vides sans AUCUNE source commune : le diff serait vide
         // et indistinguable d'une nuit calme. On le dit plutôt que de le taire.
         if (comparees.length === 0) {
@@ -593,8 +619,9 @@ export class DemandSnapshotService {
       // continuerait de servir les corrélations tirées de l'ancien diff pendant
       // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
       // sur le même couple de photos, et un couple déjà en cache en PROD.
-      // `v2` — périmètre restreint aux sources comparables (#145).
-      key: `appro:explications:${avantDay}:${apresDay}:v2`,
+      // `v3` — périmètre via journal des sources capturées (#149), par-dessus
+      // `v2` (périmètre restreint aux sources comparables, #145).
+      key: `appro:explications:${avantDay}:${apresDay}:v3`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),
@@ -668,6 +695,12 @@ export class DemandSnapshotService {
       // Les huit sources de `demand` viennent de quatre repositories distincts :
       // les voir TOUTES vides ne décrit aucun état réel du parc, c'est une panne.
       // On n'écrit alors rien du tout, messages compris — ils sortent du même run.
+      //
+      // Ce `return` est AVANT l'ouverture de la transaction : une photo 100 %
+      // vide n'est donc JAMAIS écrite, ni lignes ni journal (l'écriture du
+      // journal est plus bas, dans la transaction). `diffDrivers()` ne peut
+      // donc jamais rencontrer une photo vide MAIS journalisée — ne pas
+      // réintroduire de branche pour ce cas côté diff (cf. son commentaire).
       if (demand.length === 0) {
         logger.warn(
           { date: dateStr, source },
@@ -726,6 +759,104 @@ export class DemandSnapshotService {
               )
           }
         }
+        // Journal des sources capturées (#149) — une ligne par (snapshot_date, source)
+        // avec le verdict du run : `capturee` | `vide` | `echec`. Écrit dans la
+        // MÊME transaction que les deux tables de photo pour que le journal décrive
+        // exactement ce qui a été figé — mais dans un SAVEPOINT (transaction
+        // imbriquée) séparé : sur SQLite, un statement en erreur n'abandonne PAS
+        // la transaction parente à lui seul. Sans ce savepoint, un `delete` du
+        // journal qui réussit suivi d'un `insert` qui échoue committerait quand
+        // même un journal VIDÉ pour cette date — un journal valide détruit en
+        // silence, que le repli sur `perimetreComparable` masquerait ensuite
+        // (revue de code #149). Le savepoint garantit qu'un échec ici ne
+        // rollback QUE le journal, jamais la photo déjà écrite plus haut.
+        try {
+          const sp = await trx.transaction()
+          try {
+            const counts = new Map<string, number>()
+            for (const r of demand) counts.set(r.source, (counts.get(r.source) ?? 0) + 1)
+
+            // Suppression SYMÉTRIQUE de celle de `demand_snapshots` ci-dessus
+            // (même `whereNotIn`) : une source en échec n'est pas réécrite dans
+            // la photo, sa ligne de journal du run précédent ne doit donc pas
+            // non plus disparaître — sinon le journal contredit des lignes qui,
+            // elles, ont bien survécu. Cas concret : run nocturne complet à 04 h
+            // qui fige 5 469 suggestions, puis `snapshot:run` relancé à la main
+            // à 15 h pendant qu'X3 sature — sans ce `whereNotIn`, le journal
+            // réécrivait `appro_suggestion = echec` sur des lignes réelles et
+            // intactes des deux côtés (revue de code #149, défaut bloquant).
+            const suppressionJournal = sp
+              .from('demand_snapshot_sources')
+              .where('snapshot_date', dateStr)
+            if (sourcesEnEchec.length > 0) suppressionJournal.whereNotIn('source', sourcesEnEchec)
+            await suppressionJournal.delete()
+
+            // Sources dont une ligne de journal a survécu à la suppression
+            // ci-dessus (un run antérieur du même jour l'a écrite et le
+            // `whereNotIn` l'a préservée) : ne pas leur substituer un `echec`,
+            // c'est précisément ce que la préservation ci-dessus visait à
+            // garder intact.
+            const survivantesRows = await sp
+              .from('demand_snapshot_sources')
+              .where('snapshot_date', dateStr)
+              .select('source')
+            const survivantes = new Set(
+              survivantesRows.map((r) => String((r as Record<string, unknown>).source))
+            )
+
+            const journalRows: Array<{
+              snapshot_date: string
+              source: string
+              statut: StatutSource
+              lignes: number
+              created_at: Date
+            }> = []
+            for (const src of SOURCES_ATTENDUES) {
+              if (sourcesEnEchec.includes(src)) {
+                // `echec` n'est inséré QUE si rien n'a survécu pour cette source
+                // (tout premier run du jour, en échec d'emblée) : sinon la ligne
+                // survivante décrit déjà correctement les lignes préservées.
+                if (!survivantes.has(src)) {
+                  journalRows.push({
+                    snapshot_date: dateStr,
+                    source: src,
+                    statut: 'echec',
+                    lignes: 0,
+                    created_at: new Date(),
+                  })
+                }
+                continue
+              }
+              const lignes = src === SOURCE.MESSAGE ? messages.length : (counts.get(src) ?? 0)
+              const statut: StatutSource = lignes > 0 ? 'capturee' : 'vide'
+              journalRows.push({
+                snapshot_date: dateStr,
+                source: src,
+                statut,
+                lignes,
+                created_at: new Date(),
+              })
+            }
+            for (let i = 0; i < journalRows.length; i += INSERT_CHUNK) {
+              await sp
+                .table('demand_snapshot_sources')
+                .insert(journalRows.slice(i, i + INSERT_CHUNK))
+            }
+            await sp.commit()
+          } catch (e) {
+            await sp.rollback()
+            throw e
+          }
+        } catch (e) {
+          const msg = (e as Error)?.message ?? String(e)
+          // Le journal est un composant OPTIONNEL : quelle que soit l'erreur
+          // (table absente en historique pré-migration, colonne manquante,
+          // contrainte, …), le run ne doit jamais échouer — ni faire perdre
+          // TOUTE la photo par un rollback — pour un journal. On avertit, et
+          // la photo reste écrite, sans journal (le savepoint ci-dessus a déjà
+          // annulé le journal lui-même, pas la photo).
+          logger.warn({ err: msg }, '[snapshot] journal indisponible — photo écrite sans journal')
+        }
         await trx.commit()
       } catch (error) {
         await trx.rollback()
@@ -759,6 +890,28 @@ export class DemandSnapshotService {
         sourceBreakdown: {},
         error: message,
       }
+    }
+  }
+
+  private async lireJournal(dateStr: string): Promise<Map<string, StatutSource> | null> {
+    try {
+      const rows = await db
+        .connection()
+        .from('demand_snapshot_sources')
+        .where('snapshot_date', dateStr)
+        .select('source', 'statut')
+      if (rows.length === 0) return null
+      const m = new Map<string, StatutSource>()
+      for (const r of rows as Array<Record<string, unknown>>) {
+        const src = String((r as Record<string, unknown>).source)
+        const st = String((r as Record<string, unknown>).statut) as StatutSource
+        if (st === 'capturee' || st === 'vide' || st === 'echec') m.set(src, st)
+      }
+      return m.size > 0 ? m : null
+    } catch (e) {
+      const msg = (e as Error)?.message ?? String(e)
+      if (msg.includes('no such table') || msg.includes('no such column')) return null
+      throw e
     }
   }
 
