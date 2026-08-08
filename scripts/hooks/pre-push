@@ -15,8 +15,9 @@
 # c'est le job CI « Tests unitaires » qui les porte. Surveiller le run après le push reste
 # donc obligatoire.
 #
-# Installation (hook non versionné par git) :
-#   cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+# Installation : aucune. Ce hook est versionné et activé par la config du dépôt
+#   git config core.hooksPath scripts/hooks
+# (à rejouer une fois par CLONE — les worktrees héritent de la config du dépôt).
 #
 # Contournement : git push --no-verify (le run CI, lui, ne se contourne pas).
 

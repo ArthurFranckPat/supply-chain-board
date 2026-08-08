@@ -1,129 +1,97 @@
 # CLAUDE.md
 
-_Agent profile for this project._
+_Profil agent du projet. Français strict ; commandes, noms de fichiers et mots-clés verbatim._
 
-## Quick Start
+## Stack et pièges structurants
 
-See `.planning/PROJECT.md` for project overview.
+- AdonisJS 7 + Inertia + React 19, TypeScript.
+- **Toutes les queries X3 passent par SOAP**, Lucid ORM inclus — jamais de SQL direct.
+  Chaque appel coûte `ZSOAPSQL` en O(n²) : le nombre de lignes rendues ne dit rien du coût
+  (3 lignes ont déjà pris 19,7 s).
+- `REPLICA_READS` choisit une **architecture**, pas une option : `true` = lectures sur la
+  réplique SQLite, et alors **aucun préchauffage de cache** ; `false` = direct X3.
+  Les deux modes sont exclusifs.
+- Dates affichées en **jj/mm/aaaa**. L'ISO reste côté machine.
 
-## Création de worktree
+## Worktrees
 
-**JAMAIS de worktree à l'intérieur du repo** (donc jamais sous `.claude/worktrees/`).
-Les worktrees vivent dans le dossier frère :
+Jamais à l'intérieur du repo : le watcher (`node ace serve --hmr`) descend dans tout l'arbre
+sans honorer aucune exclusion, sature `kern.maxfilesperproc` et meurt en `EMFILE`.
+Toujours dans le dossier frère :
 
 ```bash
 git worktree add ../supply-chain-board-worktrees/<branche> <branche>
 ```
 
-Pourquoi : le watcher du dev server (`node ace serve --hmr`) parcourt tout l'arbre
-depuis la racine et n'honore aucune exclusion — l'`ignored` de l'assembler répond
-« ne pas ignorer » quand chokidar l'appelle sans `stats`, y compris pour
-`node_modules`. Deux worktrees dans le repo = 16 576 dossiers en plus, le watcher
-sature `kern.maxfilesperproc` et meurt en `EMFILE: too many open files, watch`.
-Hors du repo : 577 watchers au lieu de 30 579.
+Puis copier depuis le worktree source `.env` et `tmp/db.sqlite3` (gitignorés, indispensables),
+et lancer `npm ci`. Le skill `worktree-setup` enchaîne ces étapes.
 
-Après `git worktree add`, **toujours** :
+## Workflow : code → commit → push → CI verte
 
-1. Copier depuis le worktree source : `.env` et `tmp/db.sqlite3` (gitignorés, indispensables).
-2. Lancer `npm ci` dans le nouveau worktree.
+Après chaque tâche terminée (feature, fix, refacto), dans cet ordre :
 
-## Workflow obligatoire : code → commit → push
+1. **Gate** : `npm run typecheck` **et** `npm run lint`. Les deux, systématiquement.
+2. **Commit** en français, préfixe `feat(scope):` / `fix(scope):`, terminé par le trailer :
+   `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
+   Non négociable : sans lui, le travail de l'agent est attribué en totalité à l'utilisateur
+   dans `git log`, `git blame` et sur GitHub.
+3. **Push**. Le hook `pre-push` rejoue typecheck + lint en ~3 s et refuse le push s'ils
+   échouent. Il est versionné et actif via `core.hooksPath=scripts/hooks` — rien à installer,
+   y compris dans un nouveau worktree. Échappatoire assumée : `git push --no-verify`.
+4. **Surveiller la CI** : `gh run watch` jusqu'à conclusion. Un push n'est pas une tâche
+   terminée — master n'a aucun garde-fou GitHub (`enforce_admins=false`), la CI tourne après
+   coup, et le hook ne couvre pas les tests.
+   - Job rouge : `gh run view <id> --log-failed`, corriger, repousser.
+   - Annoncer l'état réel : « poussé, CI en cours », puis le résultat. Jamais « poussé »
+     présenté comme un aboutissement.
 
-**OBLIGATOIRE** : après chaque tâche terminée (feature, fix, refacto), tu DOIS :
+Vérifier l'état de la CI **avant** de merger dans master : merger dans une branche déjà rouge
+rend indémêlable ce qu'on vient de casser.
 
-1. **Commiter** avec un message clair (français, préfixe `feat(scope):` / `fix(scope):`),
-   terminé par le trailer `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
-   Non négociable : sans lui, le travail d'un agent est attribué en totalité à
-   l'utilisateur dans `git log`, `git blame` et sur GitHub. L'agent Cursor pose déjà
-   son `Co-authored-by`.
-2. **Pousser** immédiatement (`git push`).
-3. **Surveiller le run CI jusqu'à son terme** — voir ci-dessous.
+Ne jamais accumuler de travail non commité — working tree propre entre deux tâches.
+Exceptions : l'utilisateur dit explicitement « ne commit pas » ou « attends avant de pousser ».
 
-### Après le push : surveiller, puis corriger
+## Périmètre : ses propres fichiers uniquement
 
-Le push sur master ne passe par aucune PR : les checks requis de la protection de
-branche ne s'appliquent donc pas (`enforce_admins` est à `false`). La CI tourne
-**après** le push. Un push n'est pas une tâche terminée.
-
-Donc, systématiquement après un `git push` :
-
-1. `gh run watch` (ou `gh run list --branch master --limit 1`) jusqu'à conclusion.
-2. Si un job échoue : `gh run view <id> --log-failed`, corriger, repousser.
-3. **Ne jamais annoncer « poussé » comme un aboutissement tant que le run n'est pas
-   vert.** Annoncer l'état réel : « poussé, CI en cours » puis le résultat.
-4. Ne corriger que les erreurs issues de ses propres fichiers. Une CI déjà rouge
-   avant son push appartient à un autre chantier — le dire, ne pas le reprendre.
-
-Corollaire : **vérifier l'état de la CI AVANT de merger dans master**. Merger dans une
-branche déjà rouge rend indémêlable ce qu'on vient de casser.
-
-Le hook `pre-push` (`scripts/hooks/pre-push`) rejoue localement les jobs bloquants
-(typecheck + lint) et refuse le push s'ils échouent. **~3 s** : typecheck incrémental
-(cache `node_modules/.cache/tsc`), lint sur les seuls fichiers modifiés vs
-`origin/master`, les deux en parallèle. Premier push après un `npm ci` : ~8 s, une fois.
-Échappatoire assumée : `git push --no-verify` (le run CI, lui, ne se contourne pas).
-
-Il n'est pas versionné par git — l'installer dans chaque clone/worktree :
-
-```bash
-cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
-```
-
-Il ne couvre pas les tests (suite complète interdite en local) : le job
-« Tests unitaires » reste à surveiller après le push.
-
-Ne JAMAIS accumuler du travail non commité. Le working tree doit rester propre
-entre les tâches. Si l'utilisateur demande une nouvelle feature, le travail
-précédent doit déjà être commité et poussé.
-
-Exceptions : si l'utilisateur dit explicitement « ne commit pas » ou « attends
-avant de pousser ».
+Erreur de lint préexistante, test rouge ou CI déjà cassée dans un fichier qu'on ne touche pas :
+c'est un autre chantier. Le dire, ne pas le reprendre.
 
 ## Tests
 
-**NEVER run the full test suite** en local (`node ace test` sans filtre, `jest`, etc.).
+- **Jamais la suite complète en local** : ni `npm test` (= `node ace test` sans filtre), ni
+  `node ace test`, ni `jest`. La suite `unit` tourne en CI, c'est son rôle.
+- Tests ciblés seulement, noms de fichiers en **snake_case** (convention AdonisJS) :
 
-- Gate rapide : `npm run typecheck` **ET** `npm run lint`.
-  - Les deux, systématiquement, avant tout commit. Le typecheck ne voit ni le
-    formatage prettier ni les règles ESLint (`no-shadow`, etc.) : la CI a un job
-    `Lint` séparé qui bloque sur ces erreurs-là.
-  - Lint ciblé quand le diff est petit : `npx eslint <fichiers touchés>`.
-  - Corriger le formatage : `npx prettier --write <fichiers touchés>` — jamais
-    `npm run format` (réécrit tout le repo, y compris le travail des autres).
-  - Ne corriger QUE ses propres fichiers. Une erreur de lint préexistante dans un
-    fichier qu'on ne touche pas appartient à un autre chantier.
-- Tests ciblés uniquement : un seul fichier ou un grep précis.
-  - Ex. : `npx node ace test --files="recursive_diagnostic_checker"` (noms de
-    fichiers en **snake_case**, convention AdonisJS).
-- Pas de run global en local, même pour vérifier une régression.
-- La suite `unit` complète tourne **en CI**, c'est son rôle. Au premier run elle
-  a d'ailleurs levé 2 tests périmés depuis des semaines.
-- Piège : `--suite=unit` **n'existe pas**. Les suites sont des arguments
-  positionnels (`node ace test unit`) ; écrit en flag il est ignoré en silence
-  et toutes les suites tournent, `functional` comprise.
+  ```bash
+  npm test -- --files="recursive_diagnostic_checker"
+  ```
+
+- Piège : `--suite=unit` **n'existe pas**. Les suites sont des arguments positionnels
+  (`node ace test unit`) ; écrit en flag il est ignoré en silence et toutes les suites
+  tournent, `functional` comprise.
+
+## Lint et formatage
+
+- Diff petit : `npx eslint <fichiers touchés>`.
+- Formatage : `npx prettier --write <fichiers touchés>` — jamais `npm run format`, qui
+  réécrit tout le repo, travail des autres compris.
+- Le typecheck ne voit ni prettier ni les règles ESLint (`no-shadow`…) : la CI a un job
+  `Lint` séparé qui bloque dessus.
 
 ## Build
 
-`npm run typecheck` + `npm run lint` restent le gate par défaut : le dev server
-tourne déjà, et un build ne dit rien de plus dans la grande majorité des cas.
-
-Un build local est **autorisé quand il apporte ce que le typecheck ne voit pas**
-(assets Vite, `metaFiles`, résolution ESM au packaging) — à condition de
-**nettoyer derrière** :
+Le gate par défaut reste typecheck + lint. Un build local n'est justifié que pour ce que le
+typecheck ne voit pas (assets Vite, `metaFiles`, résolution ESM au packaging), et il faut
+nettoyer derrière :
 
 ```bash
 npm run build && rm -rf build public/assets
 ```
 
-- `node ace build` écrit dans `build/`, Vite dans `public/assets/` : les deux
-  sont gitignorés, mais les laisser traîner pollue le working tree et fausse le
-  dev server suivant.
-- Ne jamais lancer un build par réflexe « pour vérifier que ça compile ».
+Jamais de build par réflexe « pour vérifier que ça compile ».
 
-## Outils interdits
+## Interdit
 
-**JAMAIS de Playwright** — ni `npx playwright`, ni `playwright install`, ni screenshot/preview via Playwright.
-
-- Règle non négociable : l'utilisateur ne veut plus de cet outil dans ce projet.
-- Pour valider un rendu visuel : passer par le navigateur du user, pas par un headless.
-- Si un skill externe (huashu-design, etc.) recommande Playwright, **ne pas suivre cette partie**.
+**Playwright** — ni `npx playwright`, ni `playwright install`, ni screenshot ou preview
+headless. Pour valider un rendu visuel : le navigateur de l'utilisateur. Si un skill externe
+le recommande, ne pas suivre cette partie.
