@@ -285,11 +285,11 @@ export default class ApproController {
 
     // Agrégats pour le bandeau (§6) — calculés sur le diff complet AVANT filtres,
     // sinon les tuiles changeraient de valeur au clic (effet de filtre croisé).
-    const parSource: Record<string, number> = {}
-    const parNature: Record<string, number> = {}
+    const parSource = compteurVide(DRIVER_SOURCES)
+    const parNature = compteurVide(DRIVER_DIFF_NATURES)
     for (const e of result.entrees) {
-      parSource[e.source] = (parSource[e.source] ?? 0) + 1
-      parNature[e.nature] = (parNature[e.nature] ?? 0) + 1
+      parSource[e.source] += 1
+      parNature[e.nature] += 1
     }
 
     let entrees = result.entrees

@@ -31,6 +31,22 @@ import { getActiveX3EnvName } from '#config/x3'
 const READ_METHODS = new Set(['get', 'getOrSet', 'getOrSetForever'])
 
 /**
+ * Convention de version des clés `getOrSetForever`.
+ *
+ * Une clé `forever` n'a pas de TTL : sa valeur reste en cache jusqu'à invalidation
+ * manuelle ou changement de clé. Toute évolution sémantique de la valeur cachée
+ * (logique de filtrage, enrichissement, structure du résultat) DOIT incrémenter le
+ * suffixe de version dans la clé — ex. `appro:drivers:...:v12` → `v13`.
+ *
+ * Sans bump, la PROD sert l'ancienne valeur indéfiniment aux couples déjà cachés,
+ * et le correctif ne prend effet que sur les couples jamais calculés. Ce défaut a
+ * déjà eu lieu (commit f482355 : exclusion statut 6 ajoutée sans bumper v12 → v13).
+ *
+ * La version est suffixée à la clé, pas au namespace : deux versions coexistent
+ * le temps que les nouvelles clés remplacent les anciennes (graceful rollover).
+ */
+
+/**
  * Gel récursif. `seen` casse les cycles ; sans lui un graphe d'objets avec
  * référence arrière boucle indéfiniment.
  *

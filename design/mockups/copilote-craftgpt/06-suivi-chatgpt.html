@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Suivi · expérimentation ChatGPT UI</title>
+<style>
+/* Expé : /suivi (vue proactive) habillée en chrome ChatGPT light.
+   Table full-bleed (pas max 768 — densite métier). Composer = filtre NL. */
+
+:root {
+  --sidebar: #f9f9f9;
+  --main: #ffffff;
+  --ink: #0d0d0d;
+  --muted: #8f8f8f;
+  --muted-2: #5d5d5d;
+  --hover: rgba(0, 0, 0, 0.05);
+  --hover-strong: rgba(0, 0, 0, 0.09);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --send-bg: #0d0d0d;
+  --send-disabled: #d9d9d9;
+  --ok: #0d7a4f;
+  --warn: #b45309;
+  --bad: #c41e3a;
+  --info: #0f766e;
+  --sidebar-w: 260px;
+  --composer-r: 28px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--ink); background: var(--main);
+  -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.45;
+}
+button, input, textarea { font: inherit; color: inherit; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.app {
+  display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100%;
+}
+.app.sidebar-closed { grid-template-columns: 0 1fr; }
+.app.sidebar-closed .sidebar { opacity: 0; pointer-events: none; }
+
+/* ── Sidebar ChatGPT ── */
+.sidebar {
+  background: var(--sidebar); display: flex; flex-direction: column;
+  overflow: hidden; transition: opacity .15s;
+}
+.sb-top { display: flex; align-items: center; gap: 4px; padding: 12px 10px 8px; }
+.sb-icon {
+  width: 36px; height: 36px; border: 0; border-radius: 10px;
+  background: transparent; display: grid; place-items: center; cursor: pointer;
+}
+.sb-icon:hover { background: var(--hover); }
+.sb-new {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  height: 36px; padding: 0 10px; border: 0; border-radius: 10px;
+  background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; text-align: left;
+}
+.sb-new:hover { background: var(--hover); }
+.sb-search-wrap { padding: 0 10px 10px; position: relative; }
+.sb-search-wrap svg {
+  position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: var(--muted);
+}
+.sb-search {
+  width: 100%; height: 36px; padding: 0 12px 0 34px; border: 0; border-radius: 10px;
+  background: var(--hover); outline: none; font-size: 14px;
+}
+.sb-search::placeholder { color: var(--muted); }
+.sb-section {
+  padding: 8px 18px 4px; font-size: 12px; font-weight: 600; color: var(--muted-2);
+}
+.sb-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+.sb-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 36px; padding: 6px 10px; border: 0; border-radius: 10px;
+  background: transparent; cursor: pointer; font-size: 14px; text-align: left;
+}
+.sb-item:hover { background: var(--hover); }
+.sb-item.is-active { background: var(--hover-strong); }
+.sb-item__title { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sb-item__count {
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.sb-nav {
+  padding: 8px; border-top: 1px solid var(--border);
+}
+.sb-nav a {
+  display: flex; align-items: center; gap: 10px;
+  height: 34px; padding: 0 10px; border-radius: 10px;
+  color: var(--muted-2); text-decoration: none; font-size: 13.5px;
+}
+.sb-nav a:hover { background: var(--hover); color: var(--ink); }
+.sb-foot { padding: 8px 10px 12px; border-top: 1px solid var(--border); }
+.sb-user {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  height: 44px; padding: 0 8px; border: 0; border-radius: 10px;
+  background: transparent; cursor: pointer; text-align: left;
+}
+.sb-user:hover { background: var(--hover); }
+.sb-avatar {
+  width: 28px; height: 28px; border-radius: 50%; background: #0d0d0d; color: #fff;
+  display: grid; place-items: center; font-size: 11px; font-weight: 600; flex: none;
+}
+
+/* ── Main ── */
+.main { display: flex; flex-direction: column; min-width: 0; height: 100%; }
+.main-top {
+  display: flex; align-items: center; gap: 4px; padding: 8px 12px; flex: none; min-height: 52px;
+}
+.model-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 36px; padding: 0 10px; border: 0; border-radius: 10px;
+  background: transparent; cursor: pointer; font-size: 16px; font-weight: 600;
+}
+.model-btn:hover { background: var(--hover); }
+.model-btn span { font-weight: 400; color: var(--muted-2); font-size: 14px; margin-left: 4px; }
+.main-top__spacer { flex: 1; }
+.meta-pill {
+  height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong);
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted-2);
+  background: transparent;
+}
+.meta-pill b { color: var(--ink); font-weight: 600; }
+
+/* Toolbar — chips ChatGPT-like */
+.toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 0 16px 10px; flex: none;
+}
+.seg {
+  display: inline-flex; padding: 3px; border-radius: 12px; background: var(--hover);
+  gap: 2px;
+}
+.seg button {
+  height: 30px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted-2);
+}
+.seg button.is-on { background: #fff; color: var(--ink); box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(0,0,0,.04); }
+.chip {
+  height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong);
+  background: transparent; cursor: pointer; font-size: 13px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px; color: var(--ink);
+}
+.chip:hover { background: var(--hover); }
+.chip .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--ink); flex: none;
+}
+.search {
+  margin-left: auto; display: flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong);
+  min-width: 240px; background: #fff;
+}
+.search input {
+  border: 0; outline: none; flex: 1; background: transparent; font-size: 13px; min-width: 0;
+}
+.search input::placeholder { color: var(--muted); }
+.search svg { color: var(--muted); flex: none; }
+
+/* Table board */
+.board {
+  flex: 1; min-height: 0; overflow: auto;
+  border-top: 1px solid var(--border);
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: #fff; text-align: left;
+  padding: 10px 14px; font-size: 11.5px; font-weight: 600;
+  color: var(--muted-2); border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--hover); }
+tbody tr.is-selected { background: var(--hover-strong); }
+
+.bar {
+  width: 3px; height: 28px; border-radius: 2px; background: transparent;
+}
+.bar.bad { background: var(--bad); }
+.bar.warn { background: var(--warn); }
+.bar.info { background: var(--info); }
+.bar.ok { background: var(--ok); }
+
+.verdict {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 550;
+}
+.verdict i {
+  width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none;
+}
+.verdict.bad { color: var(--bad); } .verdict.bad i { background: var(--bad); }
+.verdict.warn { color: var(--warn); } .verdict.warn i { background: var(--warn); }
+.verdict.info { color: var(--info); } .verdict.info i { background: var(--info); }
+.verdict.ok { color: var(--ok); } .verdict.ok i { background: var(--ok); }
+
+.tag {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
+  border-radius: 6px; font-size: 10.5px; font-weight: 650;
+  background: var(--hover-strong); color: var(--muted-2);
+}
+.tag.wof { background: rgba(13,122,79,.12); color: var(--ok); }
+.tag.wop { background: rgba(15,118,110,.12); color: var(--info); }
+.tag.wos { background: rgba(180,83,9,.12); color: var(--warn); }
+
+.sub { color: var(--muted); font-size: 12px; }
+.comp { font-size: 12px; color: var(--muted-2); }
+.comp code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px; background: var(--hover); padding: 1px 5px; border-radius: 4px;
+}
+
+/* Composer dock */
+.dock {
+  flex: none; padding: 10px 16px 12px;
+  border-top: 1px solid var(--border); background: #fff;
+}
+.composer {
+  max-width: 920px; margin: 0 auto;
+  display: flex; align-items: flex-end; gap: 4px;
+  border: 1px solid var(--border-strong); border-radius: var(--composer-r);
+  padding: 8px 10px 8px 12px; background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,.04);
+}
+.composer:focus-within { border-color: rgba(0,0,0,.22); }
+.composer__plus, .composer__send {
+  width: 36px; height: 36px; border-radius: 50%; border: 0;
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.composer__plus { background: transparent; }
+.composer__plus:hover { background: var(--hover); }
+.composer__field {
+  flex: 1; border: 0; outline: none; resize: none; background: transparent;
+  font-size: 15px; line-height: 24px; max-height: 120px; padding: 6px 4px;
+}
+.composer__field::placeholder { color: var(--muted); }
+.composer__send { background: var(--send-bg); color: #fff; }
+.composer__send:disabled { background: var(--send-disabled); cursor: default; }
+.disclaimer {
+  text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px;
+}
+
+/* Detail panel (sheet-like, ChatGPT canvas side) */
+.detail {
+  position: absolute; top: 52px; right: 0; bottom: 0; width: min(380px, 100%);
+  background: #fff; border-left: 1px solid var(--border-strong);
+  transform: translateX(100%); transition: transform .2s ease;
+  display: flex; flex-direction: column; z-index: 10;
+}
+.detail.is-open { transform: translateX(0); }
+.detail-h {
+  display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+  border-bottom: 1px solid var(--border); font-weight: 600; font-size: 15px;
+}
+.detail-h button {
+  margin-left: auto; width: 32px; height: 32px; border: 0; border-radius: 8px;
+  background: transparent; cursor: pointer; display: grid; place-items: center;
+}
+.detail-h button:hover { background: var(--hover); }
+.detail-b { flex: 1; overflow-y: auto; padding: 16px; }
+.detail-b h3 { font-size: 12px; font-weight: 600; color: var(--muted-2); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+.detail-b h3:first-child { margin-top: 0; }
+.detail-b p { font-size: 14px; line-height: 1.55; margin-bottom: 8px; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { font-weight: 500; }
+
+.main-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+.note {
+  position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%);
+  background: #0d0d0d; color: #fff; font-size: 12px; padding: 8px 14px;
+  border-radius: 999px; z-index: 40; opacity: .92; pointer-events: none;
+  max-width: 90vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="sb-top">
+      <button type="button" class="sb-icon" id="sb-close" title="Fermer" aria-label="Fermer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <button type="button" class="sb-new">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+        Nouvelle vue
+      </button>
+      <button type="button" class="sb-icon" aria-label="Rechercher">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.2-4.2"/></svg>
+      </button>
+    </div>
+    <div class="sb-search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.2-4.2"/></svg>
+      <input class="sb-search" placeholder="Rechercher une vue…" />
+    </div>
+
+    <div class="sb-section">Vues sauvegardées</div>
+    <div class="sb-list">
+      <button type="button" class="sb-item is-active">
+        <span class="sb-item__title">Proactif · ouvertes</span>
+        <span class="sb-item__count">128</span>
+      </button>
+      <button type="button" class="sb-item">
+        <span class="sb-item__title">Bloquées + sans couverture</span>
+        <span class="sb-item__count">23</span>
+      </button>
+      <button type="button" class="sb-item">
+        <span class="sb-item__title">Retards 7 j · atelier MR</span>
+        <span class="sb-item__count">11</span>
+      </button>
+      <button type="button" class="sb-item">
+        <span class="sb-item__title">Réactif · à allouer</span>
+        <span class="sb-item__count">19</span>
+      </button>
+
+      <div class="sb-section" style="margin-top:12px">Récents</div>
+      <button type="button" class="sb-item">
+        <span class="sb-item__title">Pourquoi CDE-8841 bloquée ?</span>
+      </button>
+      <button type="button" class="sb-item">
+        <span class="sb-item__title">Impact A-742 sur le plan</span>
+      </button>
+    </div>
+
+    <nav class="sb-nav" aria-label="App">
+      <a href="#">Plan</a>
+      <a href="#">Charge</a>
+      <a href="#">Ruptures</a>
+      <a href="#" style="color:var(--ink);font-weight:600">Suivi</a>
+      <a href="#">Copilote</a>
+    </nav>
+
+    <div class="sb-foot">
+      <button type="button" class="sb-user">
+        <span class="sb-avatar">A</span>
+        <span style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500">arthur</div>
+          <div style="font-size:12px;color:var(--muted)">PROD · lecture</div>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <section class="main">
+    <div class="main-top">
+      <button type="button" class="sb-icon" id="sb-open" style="display:none" aria-label="Ouvrir">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <button type="button" class="model-btn">
+        Suivi <span>· Proactif</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="main-top__spacer"></div>
+      <span class="meta-pill"><b>128</b> lignes · réf. 01/08/2026</span>
+      <button type="button" class="sb-icon" title="Rafraîchir" aria-label="Rafraîchir">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.5 9A9 9 0 005.6 5.6L1 10M3.5 15a9 9 0 0014.9 3.4L23 14"/></svg>
+      </button>
+      <span class="sb-avatar" style="margin:0 6px">A</span>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" role="radiogroup" aria-label="Mode">
+        <button type="button">Réactif</button>
+        <button type="button" class="is-on">Proactif</button>
+      </div>
+      <button type="button" class="chip">1–8 août ▾</button>
+      <button type="button" class="chip"><span class="dot"></span>Filtres</button>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.2-4.2"/></svg>
+        <input placeholder="Commande, article, client, composant…" />
+      </div>
+    </div>
+
+    <div class="main-wrap">
+      <div class="board">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:16px;padding-right:0"></th>
+              <th>Commande · Client</th>
+              <th>Article · Désignation</th>
+              <th>Type</th>
+              <th>Exp.</th>
+              <th>Verdict</th>
+              <th>Couverture OF</th>
+              <th>Composants en rupture</th>
+              <th>Atelier</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-row>
+              <td><div class="bar bad"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-8841</span> <span class="sub">ATLANTIC</span></td>
+              <td><span class="mono" style="font-weight:700">PP_830_ESH</span> <span class="sub">Double flux 830</span></td>
+              <td><span class="tag">MTS</span></td>
+              <td class="tnum">04/08</td>
+              <td><span class="verdict bad"><i></i>Bloquée</span></td>
+              <td><span class="mono" style="font-weight:600;font-size:12px">OF-2508123</span> <span class="tag wof">WOF</span></td>
+              <td class="comp"><code>A-742</code> · besoin 200</td>
+              <td class="sub">MR</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar bad"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-8910</span> <span class="sub">ALDES FR</span></td>
+              <td><span class="mono" style="font-weight:700">BDH60_100</span> <span class="sub">Bouche hygro</span></td>
+              <td><span class="tag">MTO</span></td>
+              <td class="tnum">05/08</td>
+              <td><span class="verdict bad"><i></i>Sans couverture</span></td>
+              <td class="sub">—</td>
+              <td class="comp"><code>11016785</code></td>
+              <td class="sub">BDH</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar warn"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-8755</span> <span class="sub">DEXIS</span></td>
+              <td><span class="mono" style="font-weight:700">PP_830_ESH</span> <span class="sub">Double flux 830</span></td>
+              <td><span class="tag">MTS</span></td>
+              <td class="tnum">02/08</td>
+              <td><span class="verdict warn"><i></i>Retard</span></td>
+              <td><span class="mono" style="font-weight:600;font-size:12px">OF-2507901</span> <span class="tag wof">WOF</span></td>
+              <td class="comp">—</td>
+              <td class="sub">MR</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar info"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-9022</span> <span class="sub">VENTILAIR</span></td>
+              <td><span class="mono" style="font-weight:700">ESH_MOD_H</span> <span class="sub">Module hygro</span></td>
+              <td><span class="tag">NOR</span></td>
+              <td class="tnum">07/08</td>
+              <td><span class="verdict info"><i></i>À risque</span></td>
+              <td><span class="mono" style="font-weight:600;font-size:12px">OF-2508200</span> <span class="tag wop">WOP</span></td>
+              <td class="comp"><code>SE-441</code> (SE)</td>
+              <td class="sub">ESH</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar ok"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-9104</span> <span class="sub">ATLANTIC</span></td>
+              <td><span class="mono" style="font-weight:700">PP_470</span> <span class="sub">Simple flux</span></td>
+              <td><span class="tag">MTS</span></td>
+              <td class="tnum">08/08</td>
+              <td><span class="verdict ok"><i></i>OK délai</span></td>
+              <td><span class="mono" style="font-weight:600;font-size:12px">OF-2508311</span> <span class="tag wof">WOF</span></td>
+              <td class="comp">—</td>
+              <td class="sub">MR</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar bad"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-8660</span> <span class="sub">ALDES ES</span></td>
+              <td><span class="mono" style="font-weight:700">BDH10_80</span> <span class="sub">Module hygro</span></td>
+              <td><span class="tag">MTO</span></td>
+              <td class="tnum">03/08</td>
+              <td><span class="verdict bad"><i></i>Bloquée</span></td>
+              <td><span class="mono" style="font-weight:600;font-size:12px">OF-2507888</span> <span class="tag wos">WOS</span></td>
+              <td class="comp"><code>A-742</code> · <code>P-12</code></td>
+              <td class="sub">BDH</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar warn"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-8998</span> <span class="sub">UNELVENT</span></td>
+              <td><span class="mono" style="font-weight:700">PP_830_ESH</span> <span class="sub">Double flux 830</span></td>
+              <td><span class="tag">MTS</span></td>
+              <td class="tnum">06/08</td>
+              <td><span class="verdict warn"><i></i>Retard</span></td>
+              <td><span class="mono" style="font-weight:600;font-size:12px">OF-2508155</span> <span class="tag wof">WOF</span></td>
+              <td class="comp">—</td>
+              <td class="sub">MR</td>
+            </tr>
+            <tr data-row>
+              <td><div class="bar ok"></div></td>
+              <td><span class="mono" style="font-weight:700">CDE-9201</span> <span class="sub">DEXIS</span></td>
+              <td><span class="mono" style="font-weight:700">TUB_125</span> <span class="sub">Gaine flexible</span></td>
+              <td><span class="tag">NOR</span></td>
+              <td class="tnum">08/08</td>
+              <td><span class="verdict ok"><i></i>OK stock</span></td>
+              <td class="sub">—</td>
+              <td class="comp">—</td>
+              <td class="sub">EXP</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <aside class="detail" id="detail" aria-hidden="true">
+        <div class="detail-h">
+          Diagnostic
+          <button type="button" id="detail-close" aria-label="Fermer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="detail-b">
+          <h3>Ligne</h3>
+          <dl class="kv">
+            <dt>Commande</dt><dd class="mono" id="d-cde">CDE-8841</dd>
+            <dt>Client</dt><dd id="d-cli">ATLANTIC</dd>
+            <dt>Article</dt><dd class="mono" id="d-art">PP_830_ESH</dd>
+            <dt>Verdict</dt><dd><span class="verdict bad"><i></i>Bloquée</span></dd>
+          </dl>
+          <h3>Cause</h3>
+          <p>Composant <code class="mono" style="background:var(--hover);padding:1px 5px;border-radius:4px">A-742</code> manquant au verdict BOM pour l’OF <strong>2508123</strong>.</p>
+          <h3>Prochaine action</h3>
+          <p>Réception PO attendue <strong>14/08/2026</strong>. Demander au copilote l’impact sur les autres CDE du même composant.</p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="dock">
+      <div class="composer">
+        <button type="button" class="composer__plus" aria-label="Outils">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <textarea class="composer__field" id="nl" rows="1" placeholder="Filtrer ou expliquer… ex. « bloquées atelier MR »"></textarea>
+        <button type="button" class="composer__send" id="send" disabled aria-label="Envoyer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+      <p class="disclaimer">Expé UI — Suivi dans un chrome ChatGPT · le composer piloterait filtres / diagnostic</p>
+    </div>
+  </section>
+</div>
+
+<div class="note">Expérimentation visuelle — pas branché aux APIs</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var openBtn = document.getElementById('sb-open');
+  var detail = document.getElementById('detail');
+  var ta = document.getElementById('nl');
+  var send = document.getElementById('send');
+
+  document.getElementById('sb-close').onclick = function () {
+    app.classList.add('sidebar-closed'); openBtn.style.display = '';
+  };
+  openBtn.onclick = function () {
+    app.classList.remove('sidebar-closed'); openBtn.style.display = 'none';
+  };
+
+  document.querySelectorAll('[data-row]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      document.querySelectorAll('[data-row]').forEach(function (r) { r.classList.remove('is-selected'); });
+      tr.classList.add('is-selected');
+      detail.classList.add('is-open');
+      detail.setAttribute('aria-hidden', 'false');
+    });
+  });
+  document.getElementById('detail-close').onclick = function () {
+    detail.classList.remove('is-open');
+    detail.setAttribute('aria-hidden', 'true');
+  };
+
+  function sync() {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    send.disabled = ta.value.trim().length === 0;
+  }
+  ta.addEventListener('input', sync);
+  sync();
+
+  // hide note after a moment
+  setTimeout(function () {
+    var n = document.querySelector('.note');
+    if (n) n.style.opacity = '0';
+  }, 4500);
+})();
+</script>
+</body>
+</html>

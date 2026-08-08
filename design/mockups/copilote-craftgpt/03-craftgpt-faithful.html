@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Copilote · empty state (CraftGPT-faithful)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f3f3f5;
+    --ink: #111111;
+    --muted: #8a8a93;
+    --line: #e4e4e8;
+    --card: #ffffff;
+    --soft: #f7f7f9;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Soft multi-stop radial — CraftGPT signature */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 72% 58% at 50% 40%,
+        rgba(255, 228, 160, 0.62) 0%,
+        rgba(255, 190, 175, 0.48) 26%,
+        rgba(255, 175, 205, 0.32) 48%,
+        rgba(230, 210, 235, 0.14) 64%,
+        rgba(243, 243, 245, 0) 76%);
+    z-index: 0;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header: logo + 2 pills only ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .brand__mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #111;
+    display: grid;
+    place-items: center;
+  }
+
+  .brand__mark svg { display: block; }
+
+  .brand__name {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.72);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+  }
+
+  .pill:hover { background: #fff; border-color: #d0d0d6; }
+
+  .pill--mute { color: var(--muted); }
+
+  .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6a8dff, #c46bff);
+    flex: none;
+  }
+
+  /* ── Hero ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px 80px;
+  }
+
+  h1 {
+    font-size: clamp(28px, 3.6vw, 40px);
+    font-weight: 650;
+    letter-spacing: -0.045em;
+    line-height: 1.15;
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  /* Composer — floating white card */
+  .composer {
+    width: min(640px, 100%);
+    background: var(--card);
+    border-radius: 22px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.03),
+      0 12px 40px rgba(40, 20, 60, 0.07);
+    padding: 16px 16px 12px;
+  }
+
+  .composer textarea {
+    width: 100%;
+    border: 0;
+    outline: none;
+    resize: none;
+    font: inherit;
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: transparent;
+    min-height: 52px;
+  }
+
+  .composer textarea::placeholder { color: #b0b0b8; }
+
+  .composer__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+
+  .composer__left,
+  .composer__right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--soft);
+    font-size: 12px;
+    font-weight: 500;
+    color: #44444c;
+    cursor: pointer;
+  }
+
+  .chip svg { opacity: 0.7; }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: #8a8a93;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .icon-btn:hover { background: var(--soft); color: var(--ink); }
+
+  .send {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 0;
+    background: #111;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .send:hover { background: #2a2a2a; }
+
+  /* Examples — vertical stack, dashed, CraftGPT exact pattern */
+  .examples {
+    width: min(640px, 100%);
+    margin-top: 28px;
+  }
+
+  .examples__label {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .examples__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .example {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 18px;
+    border-radius: 999px;
+    border: 1px dashed #cfcfd6;
+    background: rgba(255, 255, 255, 0.35);
+    font-size: 13.5px;
+    font-weight: 450;
+    color: #3a3a42;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .example:hover {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: #b4b4bc;
+  }
+
+  .example__chev {
+    color: #a0a0a8;
+    font-weight: 400;
+    flex: none;
+  }
+
+  /* Footer — quiet, CraftGPT-like */
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px 20px;
+  }
+
+  .foot-icons {
+    display: flex;
+    gap: 14px;
+    color: #9a9aa2;
+  }
+
+  .foot-icons a {
+    color: inherit;
+    display: grid;
+    place-items: center;
+  }
+
+  .foot-icons a:hover { color: var(--ink); }
+
+  .foot-links {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .foot-links span { margin: 0 6px; opacity: 0.5; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="#">
+        <span class="brand__mark" aria-hidden="true">
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+            <circle cx="3.5" cy="5" r="2.4" stroke="#fff" stroke-width="1.6"/>
+            <circle cx="10.5" cy="5" r="2.4" stroke="#fff" stroke-width="1.6"/>
+          </svg>
+        </span>
+        <span class="brand__name">Copilote</span>
+      </a>
+      <div class="header-actions">
+        <button type="button" class="pill pill--mute" title="Environnement">
+          <span class="dot" aria-hidden="true"></span>
+          PROD
+        </button>
+        <button type="button" class="pill">Historique</button>
+      </div>
+    </header>
+
+    <main>
+      <h1>Que puis-je éclaircir&nbsp;?</h1>
+
+      <div class="composer">
+        <textarea rows="2" placeholder="Poser une question supply…"></textarea>
+        <div class="composer__bar">
+          <div class="composer__left">
+            <button type="button" class="chip" title="Modèle">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8"/></svg>
+              glm-5.2
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <button type="button" class="icon-btn" title="Lecture seule" aria-label="Lecture seule">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            </button>
+          </div>
+          <div class="composer__right">
+            <button type="button" class="icon-btn" title="Joindre" aria-label="Joindre">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.4 11.6l-8.5 8.5a5 5 0 01-7.1-7.1l9.2-9.2a3.2 3.2 0 014.5 4.5L9.2 18.1a1.4 1.4 0 01-2-2l8.1-8.1"/></svg>
+            </button>
+            <button type="button" class="send" aria-label="Envoyer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="examples">
+        <div class="examples__label">Exemples de questions :</div>
+        <div class="examples__list">
+          <button type="button" class="example">
+            <span>Pourquoi l'OF … est bloqué ?</span>
+            <span class="example__chev">›</span>
+          </button>
+          <button type="button" class="example">
+            <span>Date engageante pour 200 PP_830_ESH ?</span>
+            <span class="example__chev">›</span>
+          </button>
+          <button type="button" class="example">
+            <span>Retards clients prévus sur 14 jours</span>
+            <span class="example__chev">›</span>
+          </button>
+          <button type="button" class="example">
+            <span>Stock et réceptions pour le composant …</span>
+            <span class="example__chev">›</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="foot-icons" aria-label="Liens">
+        <a href="#" title="Plan" aria-label="Plan">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/></svg>
+        </a>
+        <a href="#" title="Charge" aria-label="Charge">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 20V10M12 20V4M17 20v-7"/></svg>
+        </a>
+        <a href="#" title="Ruptures" aria-label="Ruptures">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01M10.3 4.3L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/></svg>
+        </a>
+      </div>
+      <div class="foot-links">Lecture seule <span>/</span> Sources outils <span>/</span> Contexte</div>
+    </footer>
+  </div>
+</body>
+</html>

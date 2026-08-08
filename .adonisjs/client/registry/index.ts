@@ -600,6 +600,18 @@ const routes = {
     tokens: [{"old":"/api/v1/appro/explanations","type":0,"val":"api","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"explanations","end":""}],
     types: placeholder as Registry['appro.explanations']['types'],
   },
+  'appro.patterns': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/patterns',
+    tokens: [{"old":"/api/v1/appro/patterns","type":0,"val":"api","end":""},{"old":"/api/v1/appro/patterns","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/patterns","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/patterns","type":0,"val":"patterns","end":""}],
+    types: placeholder as Registry['appro.patterns']['types'],
+  },
+  'appro.autoEvaluation': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/appro/auto-evaluation',
+    tokens: [{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"api","end":""},{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"auto-evaluation","end":""}],
+    types: placeholder as Registry['appro.autoEvaluation']['types'],
+  },
   'conditionnements.rows': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/conditionnements/rows',

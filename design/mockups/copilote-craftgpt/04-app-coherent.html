@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Copilote · empty state — grammaire app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* Cohérent avec theme-airbnb + shell 04-focus-rail.
+   Empty state enrichi — PAS CraftGPT. */
+
+:root {
+  --background: #ffffff; --foreground: #222222; --card: #ffffff;
+  --primary: #ff385c; --primary-foreground: #ffffff;
+  --secondary: #f7f7f7; --secondary-foreground: #222222;
+  --muted: #f2f2f2; --muted-foreground: #6a6a6a;
+  --border: #dddddd; --rule-soft: #ebebeb;
+  --brand-soft: rgba(255, 56, 92, 0.10);
+  --color-rausch-active: #e00b41;
+  --color-babu: #00a699; --planifie: var(--color-babu);
+  --ferme: #008049;
+  --radius-sm: 8px; --radius: 14px; --radius-lg: 18px;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.06);
+  --font-sans: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', monospace;
+  --nav-w: 260px; --insp-w: 300px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app { display: flex; flex-direction: column; height: 100%; }
+
+/* Masthead — identique app */
+.masthead {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 24px; border-bottom: 1px solid var(--border); flex: none;
+}
+.masthead__brand {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: var(--primary);
+}
+.masthead__nav { display: flex; gap: 2px; margin-left: 8px; }
+.masthead__tab {
+  padding: 8px 14px; font-size: 13.5px; font-weight: 500;
+  color: var(--muted-foreground); text-decoration: none; border-radius: var(--radius-sm);
+}
+.masthead__tab:hover { color: var(--foreground); background: var(--secondary); }
+.masthead__tab.is-active { color: var(--foreground); font-weight: 600; }
+.masthead__meta { margin-left: auto; text-align: right; font-size: 11px; line-height: 1.25; color: var(--muted-foreground); }
+.masthead__meta strong { color: var(--foreground); font-weight: 700; }
+
+/* Shell 3 cols */
+.workspace {
+  flex: 1; display: grid; overflow: hidden;
+  grid-template-columns: var(--nav-w) 1fr var(--insp-w);
+  transition: grid-template-columns 220ms ease;
+}
+.workspace.nav-collapsed { grid-template-columns: 0 1fr var(--insp-w); }
+.workspace.insp-collapsed { grid-template-columns: var(--nav-w) 1fr 0; }
+.workspace.nav-collapsed.insp-collapsed { grid-template-columns: 0 1fr 0; }
+
+.nav, .insp {
+  overflow: hidden; transition: opacity 150ms;
+}
+.workspace.nav-collapsed .nav,
+.workspace.insp-collapsed .insp { opacity: 0; pointer-events: none; }
+
+.nav { background: var(--secondary); border-right: 1px solid var(--border); }
+.nav-inner { width: var(--nav-w); height: 100%; display: flex; flex-direction: column; }
+.insp { background: var(--card); border-left: 1px solid var(--border); }
+.insp-inner { width: var(--insp-w); height: 100%; display: flex; flex-direction: column; }
+
+.chat { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+/* Toolbar chat */
+.chat-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px; border-bottom: 1px solid var(--rule-soft); flex: none;
+}
+.icon-toggle {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--muted-foreground); cursor: pointer;
+}
+.icon-toggle:hover { border-color: var(--foreground); color: var(--foreground); }
+.chat-bar__title { flex: 1; text-align: center; font-size: 12.5px; color: var(--muted-foreground); }
+.chat-bar__title strong { color: var(--foreground); font-weight: 600; }
+.ctx-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); cursor: pointer; color: var(--foreground);
+}
+.ctx-btn:hover { border-color: var(--foreground); }
+
+/* ── EMPTY STATE (le vrai sujet) ── */
+.empty {
+  flex: 1; overflow-y: auto;
+  display: flex; justify-content: center;
+  padding: 48px 24px 32px;
+}
+.empty-inner { width: 100%; max-width: 640px; }
+
+.empty__mark {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--brand-soft); color: var(--primary);
+  display: grid; place-items: center; margin-bottom: 16px;
+}
+.empty__title {
+  font-size: 22px; font-weight: 700; letter-spacing: -0.025em;
+  margin: 0 0 6px;
+}
+.empty__sub {
+  font-size: 13.5px; color: var(--muted-foreground); line-height: 1.5;
+  margin: 0 0 28px; max-width: 42em;
+}
+
+.suggest-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+@media (max-width: 720px) { .suggest-grid { grid-template-columns: 1fr; } }
+
+.suggest {
+  text-align: left; cursor: pointer;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card);
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.suggest:hover {
+  border-color: var(--foreground);
+  box-shadow: var(--shadow-soft);
+  background: #fff;
+}
+.suggest__kicker {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  text-transform: uppercase; color: var(--primary); margin-bottom: 6px;
+}
+.suggest__kicker svg { flex: none; }
+.suggest__text {
+  font-size: 13.5px; font-weight: 500; line-height: 1.4; color: var(--foreground);
+}
+.suggest__hint {
+  margin-top: 8px; font-size: 11.5px; color: var(--muted-foreground);
+}
+
+.empty__tip {
+  margin-top: 22px; padding: 12px 14px;
+  border-radius: var(--radius-sm); background: var(--secondary);
+  font-size: 12px; color: var(--muted-foreground); line-height: 1.5;
+}
+.empty__tip code {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--primary); background: var(--brand-soft);
+  padding: 1px 5px; border-radius: 4px;
+}
+
+/* Sidebar bits */
+.nav-pad { padding: 14px; }
+.new-chat {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.new-chat:hover { border-color: var(--foreground); box-shadow: var(--shadow-soft); }
+.new-chat svg { color: var(--primary); }
+.nav-search {
+  margin-top: 10px; width: 100%; padding: 8px 10px 8px 32px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); font: inherit; font-size: 12.5px;
+}
+.nav-empty {
+  margin: 24px 14px; text-align: center; font-size: 12.5px; color: var(--muted-foreground);
+}
+.nav-foot {
+  margin-top: auto; padding: 12px 14px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--muted-foreground);
+}
+.nav-foot strong { color: var(--foreground); }
+.env { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 99px;
+  font-size: 10px; font-weight: 700; background: color-mix(in srgb, var(--ferme) 14%, transparent); color: var(--ferme); }
+
+/* Inspector idle */
+.insp-head {
+  padding: 14px 16px; border-bottom: 1px solid var(--rule-soft);
+  font-size: 12.5px; font-weight: 700;
+}
+.insp-idle {
+  flex: 1; display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; padding: 24px 18px; gap: 10px;
+}
+.insp-idle__title { font-size: 13.5px; font-weight: 650; }
+.insp-idle__text { font-size: 12.5px; color: var(--muted-foreground); line-height: 1.5; }
+.insp-idle__list { margin: 0; padding-left: 16px; font-size: 12px; color: var(--muted-foreground); line-height: 1.7; }
+
+/* Composer — tokens app (send = Rausch) */
+.composer-wrap {
+  border-top: 1px solid var(--rule-soft); background: var(--background);
+  padding: 12px 24px 14px; display: flex; justify-content: center; flex: none;
+}
+.composer-stack { width: 100%; max-width: 720px; }
+.composer {
+  border: 1px solid var(--border); border-radius: 24px; background: var(--background);
+  box-shadow: var(--shadow-soft);
+}
+.composer:focus-within {
+  border-color: var(--foreground);
+  box-shadow: 0 0 0 3px rgba(34,34,34,0.06);
+}
+.composer__textarea-row { padding: 13px 16px 2px; }
+.composer__input {
+  width: 100%; border: none; outline: none; background: none;
+  font: inherit; font-size: 15px; line-height: 1.55; resize: none;
+  min-height: 24px; max-height: 120px;
+}
+.composer__input::placeholder { color: var(--muted-foreground); }
+.composer__actionrow {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 12px;
+}
+.lock-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border: 1px solid var(--border); border-radius: 99px;
+  background: var(--card); font-size: 11.5px; font-weight: 600; color: var(--muted-foreground);
+}
+.composer__send {
+  margin-left: auto; width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: var(--primary); color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+.composer__send:hover { background: var(--color-rausch-active); }
+.composer__send:disabled { background: var(--border); cursor: not-allowed; }
+.composer__foot {
+  margin-top: 8px; padding: 0 6px; font-size: 11px; color: var(--muted-foreground); line-height: 1.5;
+}
+.composer__foot code {
+  font-family: var(--font-mono); background: var(--secondary);
+  padding: 1px 5px; border-radius: 4px; font-size: 10.5px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="masthead">
+    <div class="masthead__brand">Supply Board</div>
+    <nav class="masthead__nav">
+      <a class="masthead__tab" href="#">Plan</a>
+      <a class="masthead__tab" href="#">Charge</a>
+      <a class="masthead__tab" href="#">Ruptures</a>
+      <a class="masthead__tab is-active" href="#">Copilote</a>
+    </nav>
+    <div class="masthead__meta">
+      <strong>Agentique v1</strong><br />zai / glm-5.2
+    </div>
+  </header>
+
+  <div class="workspace" id="ws">
+    <!-- NAV -->
+    <aside class="nav">
+      <div class="nav-inner">
+        <div class="nav-pad">
+          <button type="button" class="new-chat">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Nouvelle conversation
+          </button>
+          <div style="position:relative">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a6a6a" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input class="nav-search" placeholder="Rechercher…" disabled />
+          </div>
+        </div>
+        <div class="nav-empty">Aucune conversation encore.<br />Pose la première question.</div>
+        <div class="nav-foot"><strong>arthur</strong><span class="env">PROD</span></div>
+      </div>
+    </aside>
+
+    <!-- CHAT -->
+    <section class="chat">
+      <div class="chat-bar">
+        <button type="button" class="icon-toggle" id="nav-toggle" title="Navigation" aria-pressed="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="6" height="16" rx="1"/><path d="M13 4h8M13 12h8M13 20h8"/></svg>
+        </button>
+        <div class="chat-bar__title"><strong>Copilote</strong> · lecture seule</div>
+        <button type="button" class="ctx-btn" id="ctx-toggle" aria-pressed="true">
+          Contexte
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="15" y="4" width="6" height="16" rx="1"/><path d="M3 4h8M3 12h8M3 20h8"/></svg>
+        </button>
+      </div>
+
+      <div class="empty">
+        <div class="empty-inner">
+          <div class="empty__mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a4 4 0 0 1 0 8h-1v1a4 4 0 0 1-8 0v-1H7a4 4 0 0 1 0-8h1V6a4 4 0 0 1 4-4Z"/><circle cx="12" cy="11" r="1.5" fill="currentColor"/></svg>
+          </div>
+          <h1 class="empty__title">Que veux-tu vérifier&nbsp;?</h1>
+          <p class="empty__sub">OF, ruptures, réceptions, dates engageantes — lecture seule, chiffres issus des outils supply.</p>
+
+          <div class="suggest-grid">
+            <button type="button" class="suggest" data-prompt="Pourquoi l'OF … est bloqué ?">
+              <div class="suggest__kicker">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                Blocage
+              </div>
+              <div class="suggest__text">Pourquoi l'OF … est bloqué&nbsp;?</div>
+              <div class="suggest__hint">Verdict BOM + composants manquants</div>
+            </button>
+            <button type="button" class="suggest" data-prompt="Date engageante pour 200 PP_830_ESH ?">
+              <div class="suggest__kicker">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                CTP
+              </div>
+              <div class="suggest__text">Date engageante pour 200 PP_830_ESH&nbsp;?</div>
+              <div class="suggest__hint">Promesse isolée article / qté</div>
+            </button>
+            <button type="button" class="suggest" data-prompt="Retards clients prévus sur 14 jours">
+              <div class="suggest__kicker">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/></svg>
+                Retards
+              </div>
+              <div class="suggest__text">Retards clients prévus sur 14 jours</div>
+              <div class="suggest__hint">Horizon glissant, impacts commande</div>
+            </button>
+            <button type="button" class="suggest" data-prompt="Stock et réceptions pour le composant …">
+              <div class="suggest__kicker">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                Couverture
+              </div>
+              <div class="suggest__text">Stock et réceptions pour le composant …</div>
+              <div class="suggest__hint">PO couvrantes via listerRuptures</div>
+            </button>
+          </div>
+
+          <div class="empty__tip">
+            Astuce&nbsp;: dans une réponse, clique un <code>[tool: …]</code> pour flasher la donnée citée dans le panneau Contexte.
+          </div>
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer-stack">
+          <div class="composer">
+            <div class="composer__textarea-row">
+              <textarea class="composer__input" id="input" rows="1" placeholder="Poser une question supply…"></textarea>
+            </div>
+            <div class="composer__actionrow">
+              <span class="lock-pill">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+                Lecture seule
+              </span>
+              <button type="button" class="composer__send" id="send" disabled aria-label="Envoyer">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="composer__foot">Chiffres issus des outils · pas d’écriture ERP · <code>↵</code> envoyer</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INSPECTOR idle -->
+    <aside class="insp">
+      <div class="insp-inner">
+        <div class="insp-head">Contexte</div>
+        <div class="insp-idle">
+          <div class="insp-idle__title">Rien à inspecter pour l’instant</div>
+          <p class="insp-idle__text">Dès qu’une réponse cite un outil, les cartes stock / CTP / OF apparaissent ici.</p>
+          <ul class="insp-idle__list">
+            <li>Stock &amp; couverture</li>
+            <li>Date engageante (CTP)</li>
+            <li>OF liés &amp; réceptions</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  var ws = document.getElementById('ws');
+  document.getElementById('nav-toggle').onclick = function () {
+    var open = !ws.classList.toggle('nav-collapsed');
+    this.setAttribute('aria-pressed', String(open));
+  };
+  document.getElementById('ctx-toggle').onclick = function () {
+    var open = !ws.classList.toggle('insp-collapsed');
+    this.setAttribute('aria-pressed', String(open));
+  };
+
+  var ta = document.getElementById('input');
+  var send = document.getElementById('send');
+  function sync() {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    send.disabled = ta.value.trim().length === 0;
+  }
+  ta.addEventListener('input', sync);
+  document.querySelectorAll('.suggest').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      ta.value = btn.getAttribute('data-prompt');
+      sync(); ta.focus();
+    });
+  });
+  sync();
+})();
+</script>
+</body>
+</html>

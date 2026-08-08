@@ -35,11 +35,11 @@ dernière ? »**
 
 ## 2. Utilisateur et question
 
-| | |
-|---|---|
-| **Utilisateur** | Approvisionneur, et responsable supply pour la lecture hebdomadaire |
-| **Question** | « Entre ces deux photos, quels articles ont vu leur besoin bouger, dans quel sens, de combien ? » |
-| **Fréquence** | Quotidienne (revue du matin) et hebdomadaire (revue de portefeuille) |
+|                     |                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Utilisateur**     | Approvisionneur, et responsable supply pour la lecture hebdomadaire                                                     |
+| **Question**        | « Entre ces deux photos, quels articles ont vu leur besoin bouger, dans quel sens, de combien ? »                       |
+| **Fréquence**       | Quotidienne (revue du matin) et hebdomadaire (revue de portefeuille)                                                    |
 | **Décision servie** | Où porter son attention avant d'ouvrir la pile fournisseur — et, en aval, comprendre pourquoi un message CBN est apparu |
 
 ---
@@ -48,11 +48,15 @@ dernière ? »**
 
 ### Dans le périmètre
 
-- Comparer **deux photos quelconques** de `demand_snapshots` (pas seulement les
-  deux dernières).
+- **Frise chaînée jour à jour** : enchaîne les diffs des paires de photos
+  consécutives sur une plage sélectionnée, agrégés par article. N'importe quelle
+  plage de photos de `demand_snapshots` est sélectionnable (pas seulement les
+  deux dernières) — la frise reconstruit le mouvement de chaque nuit entre les
+  bornes.
 - Les **8 sources** du diff : `stock`, `demande_ferme`, `demande_prevision`,
   `appro`, `of_ferme`, `of_planifie`, `of_suggestion`, `appro_suggestion`.
-- Les **4 natures** du moteur : `apparue`, `disparue`, `quantite`, `date`.
+- Les **5 natures** du moteur : `apparue`, `disparue`, `quantite`, `date`,
+  `renumerotation`.
 - Tri par amplitude, filtre par source, recherche par article.
 - Lien vers la fiche article existante (`stock-article-sheet.tsx`).
 
@@ -62,8 +66,11 @@ dernière ? »**
   et disponible même X3 éteint.
 - Pas de corrélation message ↔ driver : c'est l'objet de `/explanations`, déjà
   livré. Cet écran montre les besoins **bruts**.
-- Pas de graphe temporel multi-photos (une courbe par article sur 9 jours). Ça
-  vient en lot 2, une fois qu'on sait quelles séries valent le tracé.
+- Pas de **courbe** temporelle multi-photos (une courbe continue par article sur
+  9 jours). La frise montre les mouvements jour à jour entre les bornes — c'est
+  une analyse temporelle multi-photos, mais pas un graphe continu. La vraie série
+  chart (courbe) reste en lot 2, une fois qu'on sait quelles séries valent le
+  tracé.
 - Pas d'écriture, pas de décision, pas de ledger. Écran de lecture.
 
 ---
@@ -74,29 +81,29 @@ dernière ? »**
 
 `demand_snapshots` — 9 photos, 30/07 → 07/08. Une photo ≈ **36 600 lignes** :
 
-| Source | Lignes / photo |
-|---|---|
-| `of_suggestion` | 11 829 |
-| `demande_prevision` | 8 433 |
-| `stock` | 6 465 |
-| `appro_suggestion` | 5 469 |
-| `appro` | 1 884 |
-| `of_ferme` | 1 535 |
-| `demande_ferme` | 821 |
-| `of_planifie` | 205 |
+| Source              | Lignes / photo |
+| ------------------- | -------------- |
+| `of_suggestion`     | 11 829         |
+| `demande_prevision` | 8 433          |
+| `stock`             | 6 465          |
+| `appro_suggestion`  | 5 469          |
+| `appro`             | 1 884          |
+| `of_ferme`          | 1 535          |
+| `demande_ferme`     | 821            |
+| `of_planifie`       | 205            |
 
 ### Ce que rend un diff large (31/07 → 07/08, approximation SQL par article)
 
-| Source | Apparus | Disparus | Quantité bougée |
-|---|---|---|---|
-| `stock` | 54 | 363 | 2 354 |
-| `of_suggestion` | 102 | 64 | 682 |
-| `demande_prevision` | 29 | 53 | 495 |
-| `appro` | 125 | 170 | 241 |
-| `demande_ferme` | 130 | 149 | 185 |
-| `of_ferme` | 116 | 138 | 88 |
-| `appro_suggestion` | 866 | 0 | 0 |
-| `of_planifie` | 143 | 0 | 0 |
+| Source              | Apparus | Disparus | Quantité bougée |
+| ------------------- | ------- | -------- | --------------- |
+| `stock`             | 54      | 363      | 2 354           |
+| `of_suggestion`     | 102     | 64       | 682             |
+| `demande_prevision` | 29      | 53       | 495             |
+| `appro`             | 125     | 170      | 241             |
+| `demande_ferme`     | 130     | 149      | 185             |
+| `of_ferme`          | 116     | 138      | 88              |
+| `appro_suggestion`  | 866     | 0        | 0               |
+| `of_planifie`       | 143     | 0        | 0               |
 
 **≈ 6 500 entrées minimum** sur 7 jours d'écart, sans compter la nature `date`
 que cette approximation ne voit pas. Le vrai moteur apparie ligne à ligne : le
@@ -122,13 +129,13 @@ est une information, pas une panne. Cf. § 7, état « diff vide ».
 
 ### Existe et se réutilise tel quel
 
-| Composant | Fichier |
-|---|---|
-| Moteur de diff pur | `app/domain/cbn_driver_diff.ts` — `diffCbnDrivers(avant, apres)` |
-| Service | `demand_snapshot_service.diffDrivers(apresDay, avantDay)` |
-| Endpoint | `GET /api/v1/appro/drivers-diff?avant=&apres=` (`appro_controller.driversDiff`) |
-| Calendrier des photos | `deuxDernieresPhotosBesoin()`, `diagnostic()` |
-| Seuils de bruit | `TOLERANCE_ECHEANCE_JOURS`, `TOLERANCE_QUANTITE_RATIO` (`appro_decision.ts`) |
+| Composant             | Fichier                                                                         |
+| --------------------- | ------------------------------------------------------------------------------- |
+| Moteur de diff pur    | `app/domain/cbn_driver_diff.ts` — `diffCbnDrivers(avant, apres)`                |
+| Service               | `demand_snapshot_service.diffDrivers(apresDay, avantDay)`                       |
+| Endpoint              | `GET /api/v1/appro/drivers-diff?avant=&apres=` (`appro_controller.driversDiff`) |
+| Calendrier des photos | `deuxDernieresPhotosBesoin()`, `diagnostic()`                                   |
+| Seuils de bruit       | `TOLERANCE_ECHEANCE_JOURS`, `TOLERANCE_QUANTITE_RATIO` (`appro_decision.ts`)    |
 
 ### À ajouter
 
@@ -137,7 +144,7 @@ alimenter le sélecteur de dates. Adossé à `demandSnapshotService.diagnostic()
 qui rend déjà l'état de l'historique. Format :
 
 ```json
-{ "photos": [ { "date": "2026-08-07", "lignes": 36641, "sources": 8 } ] }
+{ "photos": [{ "date": "2026-08-07", "lignes": 36641, "sources": 8 }] }
 ```
 
 Sans ça, le front devine les dates ou n'offre que « les deux dernières » — ce
@@ -175,7 +182,7 @@ immuable une fois écrite, donc le diff de deux photos l'est aussi. Valeur en
 dans le groupe **Logistique** de `masthead.tsx`, juste après
 « Approvisionnements ».
 
-*Tranché :* page autonome plutôt qu'onglet de `/approvisionnements`. La pile
+_Tranché :_ page autonome plutôt qu'onglet de `/approvisionnements`. La pile
 fournisseur est une surface de décision ; celle-ci est une surface de lecture
 d'un autre grain (article × source, pas fournisseur × ligne). Les mélanger
 imposerait un sélecteur de dates à une page qui n'en a pas besoin.
@@ -189,20 +196,21 @@ imposerait un sélecteur de dates à une page qui n'en a pas besoin.
 1. **En-tête** — titre, et le **sélecteur de couple de photos** : deux dates
    parmi celles disponibles, défaut = les deux dernières. Dates en
    **jj/mm/aaaa**, jamais d'ISO à l'écran.
-2. **Bandeau de synthèse** — une tuile par source, avec le nombre de mouvements.
-   C'est le point d'entrée : on clique une tuile, elle filtre le tableau.
-   Une source à 0 reste affichée, grisée — l'absence de mouvement est une
-   information.
+2. **Sélecteur de plage et compteurs** — deux sélecteurs de dates (défault = les
+   deux photos les plus récentes) qui bornent la frise. Des compteurs globaux
+   (nombre de mouvements, total) s'affichent au-dessus des résultats. Le
+   filtrage par source et par nature se fait côté serveur via des query params,
+   pas par un bandeau de tuiles cliquables.
 3. **Tableau** — une ligne par entrée de diff :
 
-   | Colonne | Contenu |
-   |---|---|
-   | Article | `itmref` + désignation (`static_articles`) |
-   | Source | libellé métier, pas le code technique (« Commandes client », pas `demande_ferme`) |
-   | Nature | `apparue` / `disparue` / `quantité` / `date` |
-   | Avant → Après | quantités formatées `fr-FR`, ou les deux échéances si nature `date` |
-   | Écart | delta signé + ratio |
-   | Détail | le champ `detail` du moteur, déjà rédigé en clair |
+   | Colonne       | Contenu                                                                           |
+   | ------------- | --------------------------------------------------------------------------------- |
+   | Article       | `itmref` + désignation (`static_articles`)                                        |
+   | Source        | libellé métier, pas le code technique (« Commandes client », pas `demande_ferme`) |
+   | Nature        | `apparue` / `disparue` / `quantité` / `date`                                      |
+   | Avant → Après | quantités formatées `fr-FR`, ou les deux échéances si nature `date`               |
+   | Écart         | delta signé + ratio                                                               |
+   | Détail        | le champ `detail` du moteur, déjà rédigé en clair                                 |
 
 4. **Filtres** — source (via les tuiles ou un sélecteur), nature, recherche
    article/désignation. Filtrage client sur les entrées reçues ; le serveur
@@ -211,16 +219,16 @@ imposerait un sélecteur de dates à une page qui n'en a pas besoin.
 
 ### Libellés des sources (à l'écran, jamais le code)
 
-| Code | Libellé |
-|---|---|
-| `demande_ferme` | Commandes client |
-| `demande_prevision` | Prévisions |
-| `stock` | Stock strict |
-| `appro` | Réceptions attendues |
-| `of_ferme` | OF fermes |
-| `of_planifie` | OF planifiés |
-| `of_suggestion` | OF suggérés |
-| `appro_suggestion` | Suggestions d'achat CBN |
+| Code                | Libellé                 |
+| ------------------- | ----------------------- |
+| `demande_ferme`     | Commandes client        |
+| `demande_prevision` | Prévisions              |
+| `stock`             | Stock strict            |
+| `appro`             | Réceptions attendues    |
+| `of_ferme`          | OF fermes               |
+| `of_planifie`       | OF planifiés            |
+| `of_suggestion`     | OF suggérés             |
+| `appro_suggestion`  | Suggestions d'achat CBN |
 
 Ces trois dernières sont des **sorties** du CBN, pas des causes. Le PRD ne les
 retire pas — elles sont utiles pour voir le CBN se contredire d'une nuit à
@@ -233,13 +241,14 @@ cette séparation, un utilisateur lira « 866 suggestions d'achat apparues » co
 
 ## 7. États à couvrir
 
-| État | Cause | Ce que l'écran affiche |
-|---|---|---|
-| Moins de 2 photos | Première installation | « L'historique commence. Une seconde photo est nécessaire — elle arrivera cette nuit. » + date de la photo existante |
-| Photo illisible / absente sur un des deux jours | Extraction en échec (garde-fou par source, lot 0) | Le message du serveur, et le couple de dates demandé — jamais un écran vide muet |
-| **Diff vide** (0 mouvement) | Cas réel du 06→07 | « Aucun mouvement au-delà des seuils entre le 06/08 et le 07/08 » + rappel des seuils appliqués + suggestion d'élargir l'écart de dates |
-| Diff borné | > `limit` entrées | « 200 mouvements sur 6 547 — affinez par source ou par nature » |
-| Erreur réseau | | État d'erreur avec bouton relancer, jamais un tableau vide |
+| État                                            | Cause                                             | Ce que l'écran affiche                                                                                                                  |
+| ----------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Moins de 2 photos                               | Première installation                             | « L'historique commence. Une seconde photo est nécessaire — elle arrivera cette nuit. » + date de la photo existante                    |
+| Photo illisible / absente sur un des deux jours | Extraction en échec (garde-fou par source, lot 0) | Le message du serveur, et le couple de dates demandé — jamais un écran vide muet                                                        |
+| **Diff vide** (0 mouvement)                     | Cas réel du 06→07                                 | « Aucun mouvement au-delà des seuils entre le 06/08 et le 07/08 » + rappel des seuils appliqués + suggestion d'élargir l'écart de dates |
+| Diff borné                                      | > `limit` entrées                                 | « 200 mouvements sur 6 547 — affinez par source ou par nature »                                                                         |
+| Erreur réseau                                   |                                                   | État d'erreur avec bouton relancer, jamais un tableau vide                                                                              |
+| **Plage trop large**                            | > 45 photos dans la sélection                     | « Resserrer la sélection » — message du serveur indiquant le nombre maximum de pas                                                      |
 
 Le tableau vide sans explication est le défaut à éviter absolument : sur ce
 module, « rien à afficher » et « la photo manque » ont des conséquences
@@ -256,7 +265,7 @@ pas d'une page blanche.
 ### Séquence imposée
 
 1. **Contexte** — `node <skill-base-dir>/scripts/context.mjs --target
-   inertia-react/pages/besoins-evolution.tsx`, **cwd à la racine du projet**,
+inertia-react/pages/besoins-evolution.tsx`, **cwd à la racine du projet**,
    une seule fois par session. Charge `PRODUCT.md`, `DESIGN.md` et le brief de
    surface. Ne pas le relancer.
 2. **`shape`** — planifier l'UX avant d'écrire du code, avec ce PRD comme
@@ -300,28 +309,49 @@ esthétique.
 
 ## 9. Critères d'acceptation
 
-| # | Critère | Vérification |
-|---|---|---|
-| 1 | Le sélecteur propose les 9 photos disponibles, pas seulement les 2 dernières | Ouvrir l'écran, compter les dates offertes |
-| 2 | Un couple à 7 jours d'écart (31/07 → 07/08) affiche ≥ 6 000 mouvements, bornés à `limit` avec le total visible | Comparaison au tableau § 4 |
-| 3 | Un couple sans mouvement (06/08 → 07/08) affiche un état explicite, pas un tableau vide | Sélectionner ce couple |
-| 4 | Les sorties CBN (`*_suggestion`, `of_planifie`) sont visuellement séparées des besoins réels | Revue à l'écran |
-| 5 | Toutes les dates affichées sont en jj/mm/aaaa | Revue à l'écran |
-| 6 | Chaque ligne porte la désignation article, pas seulement le code | Revue à l'écran |
-| 7 | Aucun appel X3 : l'écran répond X3 éteint | Couper la connexion X3, recharger |
-| 8 | Réponse < 300 ms sur un couple déjà en cache, < 2 s à froid | Mesure navigateur |
-| 9 | Le tri par amplitude est relatif (ratio), pas absolu | Un article 10 → 0 apparaît avant un stock qui bouge de 2 % |
-| 10 | `npm run typecheck` et `npm run lint` verts | Gate projet |
+| #   | Critère                                                                                                                   | Vérification                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Le sélecteur propose les 9 photos disponibles, pas seulement les 2 dernières                                              | Ouvrir l'écran, compter les dates offertes                                                                                                                 |
+| 2   | Une plage d'une semaine affiche la frise chaînée jour à jour, agrégée par article, bornée à `limit` avec le total visible | Comparaison au tableau § 4                                                                                                                                 |
+| 3   | Un couple sans mouvement (06/08 → 07/08) affiche un état explicite, pas un tableau vide                                   | Sélectionner ce couple                                                                                                                                     |
+| 4   | Les sorties CBN (`*_suggestion`, `of_planifie`) sont visuellement séparées des besoins réels                              | Revue à l'écran. À vérifier sur le rendu livré — la séparation réalité/propositions est un critère de relecture navigateur                                 |
+| 5   | Toutes les dates affichées sont en jj/mm/aaaa                                                                             | Revue à l'écran                                                                                                                                            |
+| 6   | Chaque ligne porte la désignation article, pas seulement le code                                                          | Revue à l'écran                                                                                                                                            |
+| 7   | Aucun appel X3 : l'écran répond X3 éteint                                                                                 | Couper la connexion X3, recharger                                                                                                                          |
+| 8   | Réponse < 300 ms sur un **couple unique** (deux photos adjacentes) déjà en cache, < 2 s à froid                           | Mesure navigateur. Une frise large (plage de plusieurs semaines) au premier chargement peut dépasser 2 s — le cache par paire se construit progressivement |
+| 9   | Le tri par amplitude est relatif (ratio), pas absolu                                                                      | Un article 10 → 0 apparaît avant un stock qui bouge de 2 %                                                                                                 |
+| 10  | `npm run typecheck` et `npm run lint` verts                                                                               | Gate projet                                                                                                                                                |
+
+> **Note.** L'écran principal ne fait aucun appel X3. La fiche article ouverte au
+> clic (`stock-article-sheet`) appelle X3 avec repli gracieux — ce critère vaut
+> pour l'écran, pas pour la fiche préexistante.
+
+---
+
+## Évolution du périmètre — décision frise (#143)
+
+Le PRD initial spécifiait un diff direct entre deux bornes. L'implémentation a
+évolué vers une **frise chaînée jour à jour** (`/drivers-frise`, `diff_frise.ts`)
+pour deux motifs :
+
+1. Un besoin avancé puis reculé entre deux bornes se lit « inchangé » dans un
+   diff direct — la frise montre le mouvement de chaque nuit.
+2. Une ligne disparue en cours de route se marie de force à une ligne sans rapport
+   dans un diff direct — la frise préserve la chronologie.
+
+L'endpoint `/drivers-diff` (diff direct deux bornes) reste public et documenté
+(contrat §5.3) : il sert les clients API et reste le socle du service. L'UI
+consomme exclusivement `/drivers-frise`.
 
 ---
 
 ## 10. Découpage
 
-| Lot | Contenu | Estimation |
-|---|---|---|
-| **A — Backend** | `/api/v1/appro/snapshots`, enrichissement désignation, filtres + tri + bornage, cache `getOrSetForever`, tests unitaires sur le tri relatif et le bornage | 1 jour |
-| **B — Écran** | `impeccable shape` → page → `polish` + `audit`. Route, controller, entrée masthead, page React, états § 7 | 1,5 à 2 jours |
-| **C — Relecture** | Vérification navigateur par l'utilisateur, corrections en une passe batchée | 0,5 jour |
+| Lot               | Contenu                                                                                                                                                   | Estimation    |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| **A — Backend**   | `/api/v1/appro/snapshots`, enrichissement désignation, filtres + tri + bornage, cache `getOrSetForever`, tests unitaires sur le tri relatif et le bornage | 1 jour        |
+| **B — Écran**     | `impeccable shape` → page → `polish` + `audit`. Route, controller, entrée masthead, page React, états § 7                                                 | 1,5 à 2 jours |
+| **C — Relecture** | Vérification navigateur par l'utilisateur, corrections en une passe batchée                                                                               | 0,5 jour      |
 
 Total : **3 jours**. Aucune dépendance bloquante — la donnée est déjà là.
 
@@ -329,13 +359,13 @@ Total : **3 jours**. Aucune dépendance bloquante — la donnée est déjà là.
 
 ## 11. Risques
 
-| Risque | Impact | Mitigation |
-|---|---|---|
-| Le diff d'une nuit est presque toujours vide en environnement de dev | L'écran paraît cassé pendant tout le développement | Développer sur le couple 31/07 → 07/08, qui a du volume ; l'état vide est un livrable à part entière (§ 7) |
-| Payload non borné | 6 500+ entrées × désignation = plusieurs Mo | Bornage serveur obligatoire (§ 5.3), non négociable |
-| Confusion sorties CBN / besoins réels | L'utilisateur lit des propositions comme des besoins | Séparation visuelle imposée (§ 6), critère d'acceptation n° 4 |
-| Les seuils de tolérance masquent des mouvements réels | Diff faussement calme | Afficher les seuils appliqués dans l'état vide ; lot 2 : les rendre réglables |
-| Absence de valorisation | Impossible de trier par enjeu | Assumé en lot 1 ; le tri relatif (§ 5.3) est le meilleur proxy disponible |
+| Risque                                                               | Impact                                               | Mitigation                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Le diff d'une nuit est presque toujours vide en environnement de dev | L'écran paraît cassé pendant tout le développement   | Développer sur le couple 31/07 → 07/08, qui a du volume ; l'état vide est un livrable à part entière (§ 7) |
+| Payload non borné                                                    | 6 500+ entrées × désignation = plusieurs Mo          | Bornage serveur obligatoire (§ 5.3), non négociable                                                        |
+| Confusion sorties CBN / besoins réels                                | L'utilisateur lit des propositions comme des besoins | Séparation visuelle imposée (§ 6), critère d'acceptation n° 4                                              |
+| Les seuils de tolérance masquent des mouvements réels                | Diff faussement calme                                | Afficher les seuils appliqués dans l'état vide ; lot 2 : les rendre réglables                              |
+| Absence de valorisation                                              | Impossible de trier par enjeu                        | Assumé en lot 1 ; le tri relatif (§ 5.3) est le meilleur proxy disponible                                  |
 
 ---
 

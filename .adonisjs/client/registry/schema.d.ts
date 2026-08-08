@@ -1195,6 +1195,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'appro.patterns': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/patterns'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'appro.autoEvaluation': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/appro/auto-evaluation'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'conditionnements.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/conditionnements/rows'
