@@ -545,8 +545,8 @@ export class DemandSnapshotService {
    *
    * La clé porte une version : toute évolution de la sémantique du diff doit
    * l'incrémenter, `getOrSetForever` n'ayant aucun TTL pour le faire à sa place.
-   * `v12` — périmètre via journal des sources capturées (#149), par-dessus la
-   * restriction aux sources comparables de `v11` (#145).
+   * `v13` — exclusion statut 6 « Non utilisable » + catégorie Z (commit f482355),
+   * par-dessus `v12` (périmètre via journal des sources capturées, #149).
    *
    * @param memo Fenêtre bornée de mémoïsation des lectures de journée, portée
    *   par l'appelant (`friseDrivers`, #143 défaut 2) — voir `loadDayRows` et
@@ -568,8 +568,8 @@ export class DemandSnapshotService {
     message: string | null
   } | null> {
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:drivers:${avantDay}:${apresDay}:v12`,
-      factory: async () => {
+      key: `appro:drivers:${avantDay}:${apresDay}:v13`,
+      factory: async ({ skip }) => {
         const conn = db.connection()
         const [avantRows, apresRows] = await Promise.all([
           this.loadDayRows(avantDay, memo),
@@ -583,7 +583,7 @@ export class DemandSnapshotService {
         // 0` implique déjà `journalAvant === null` — la branche qui gardait la
         // photo vide « si journalisée » ne s'exécutait jamais et ne faisait que
         // payer un bump de cache pour rien (revue de code #149, second bump).
-        if (avantRows.length === 0 || apresRows.length === 0) return null
+        if (avantRows.length === 0 || apresRows.length === 0) return skip()
         const nomSource = (r: unknown) => String((r as Record<string, unknown>).source)
         const [journalAvant, journalApres] = await Promise.all([
           this.lireJournal(avantDay),
@@ -734,7 +734,7 @@ export class DemandSnapshotService {
         }
       },
     })
-    if (cached === null) return null
+    if (cached === undefined || cached === null) return null
     // Valeur en lecture seule (cache_ns.ts) — copie défensive.
     return {
       avant: cached.avant,
@@ -885,15 +885,15 @@ export class DemandSnapshotService {
       // continuerait de servir les corrélations tirées de l'ancien diff pendant
       // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
       // sur le même couple de photos, et un couple déjà en cache en PROD.
-      // `v3` — périmètre via journal des sources capturées (#149), par-dessus
-      // `v2` (périmètre restreint aux sources comparables, #145).
-      key: `appro:explications:${avantDay}:${apresDay}:v3`,
-      factory: async () => {
+      // `v4` — dérivée du diff `v13` (exclusion statut 6 + catégorie Z), par-dessus
+      // `v3` (périmètre via journal des sources capturées, #149).
+      key: `appro:explications:${avantDay}:${apresDay}:v4`,
+      factory: async ({ skip }) => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),
           this.diffDrivers(apresDay, avantDay),
         ])
-        if (m === null || d === null) return null
+        if (m === null || d === null) return skip()
         return {
           nbMessages: m.entrees.length,
           nbDrivers: d.entrees.length,
@@ -901,7 +901,7 @@ export class DemandSnapshotService {
         }
       },
     })
-    if (cached === null) return null
+    if (cached === undefined || cached === null) return null
     const { nbMessages, nbDrivers, explications } = cached
     // Les deux diffs bruts ne sortent PAS d'ici : `drivers` est le diff de
     // ~250 000 lignes de photo, et l'écran n'en lit que les corrélations déjà
@@ -1124,6 +1124,15 @@ export class DemandSnapshotService {
           logger.warn({ err: msg }, '[snapshot] journal indisponible — photo écrite sans journal')
         }
         await trx.commit()
+        // F3 — une photo réécrite rend obsolètes tous les diffs cachés qui
+        // la référencent. Le cache `forever` ne porte pas d'empreinte du contenu,
+        // il faut donc invalider explicitement. Coût négligeable : une écriture
+        // par jour.
+        try {
+          await cacheNs('appro').clear()
+        } catch {
+          logger.warn('[snapshot] cache invalidation échouée — caches potentiellement périmés')
+        }
       } catch (error) {
         await trx.rollback()
         throw error
