@@ -67,6 +67,23 @@ test.group('autoEvaluation — taux d’override par source', () => {
     assert.equal(stock.concordance, 0.5)
     assert.equal(stock.taux, 0.25)
   })
+
+  test('un « à passer » qui contredit « surveiller » n’est PAS une concordance', ({ assert }) => {
+    // estOverride définit a_passer vs surveiller comme un override : compter ce
+    // geste dans la concordance ET les overrides affichait 100 % des deux pour
+    // la même source — le moteur « suivi » et « contredit » à la fois.
+    const result = autoEvaluation([
+      decision({ causePredit: 'stock', verdictPredit: 'surveiller', statut: 'a_passer' }),
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'a_passer' }),
+      decision({ causePredit: 'stock', verdictPredit: 'replanifier', statut: 'a_passer' }),
+    ])
+
+    const stock = result.parSource[0]
+    assert.equal(stock.total, 3)
+    assert.equal(stock.overrides, 1)
+    assert.equal(stock.taux, 0.33)
+    assert.equal(stock.concordance, 0.67)
+  })
 })
 
 test.group('autoEvaluation — par niveau affiché', () => {

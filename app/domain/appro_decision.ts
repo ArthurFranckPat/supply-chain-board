@@ -171,10 +171,12 @@ export interface OverrideParSource {
   taux: number | null
   /**
    * Concordance corrélation → action (0-1) : part des décisions « à passer »
-   * quand le moteur corrélait avec cette source. C'est la métrique de
-   * CONFIANCE de la feuille de route, distincte du taux d'override : ignorer
-   * un message que le moteur disait de surveiller n'est pas une contradiction,
-   * mais ce n'est pas non plus un acquiescement.
+   * quand le moteur corrélait avec cette source, EXCLUES les décisions qui
+   * contredisent le verdict prédit (un « à passer » malgré « surveiller » est
+   * un override, pas un acquiescement). C'est la métrique de CONFIANCE de la
+   * feuille de route, distincte du taux d'override : ignorer un message que le
+   * moteur disait de surveiller n'est pas une contradiction, mais ce n'est pas
+   * non plus un acquiescement.
    */
   concordance: number | null
 }
@@ -221,8 +223,13 @@ export function autoEvaluation(
     const source = r.causePredit ?? ''
     const agg = parSource.get(source) ?? { total: 0, overrides: 0, aPasser: 0 }
     agg.total += 1
-    if (r.statut === 'a_passer') agg.aPasser += 1
     const contredit = estOverride(r.verdictPredit ?? undefined, r.statut)
+    // Un « à passer » qui CONTRAINT le verdict (« surveiller ») est un
+    // override — le compter aussi en concordance afficherait le même geste
+    // comme un acquiescement ET une contradiction : 100 % de concordance et
+    // 100 % d'overrides pour la même source (revue lot 2). La concordance ne
+    // compte que les actions conformes au verdict prédit.
+    if (r.statut === 'a_passer' && !contredit) agg.aPasser += 1
     if (contredit) {
       agg.overrides += 1
       overrides += 1

@@ -530,6 +530,29 @@ test.group('DemandSnapshotService — fenêtre de photos (lot 2)', (group) => {
     assert.equal(patterns.articles[0].nbMessages, 1)
     assert.equal(patterns.articles[0].joursSousMessage, 4)
   }).timeout(15_000)
+
+  test('patterns : un jour de photo SANS message reste dans la fenêtre', async ({ assert }) => {
+    // Le 15/01 n'a AUCUN message (source à zéro) mais sa photo du besoin
+    // existe. Le calendrier des patterns suit les PHOTOS du besoin : ce jour
+    // compte dans la fenêtre (joursCouverts 4), là où le calendrier des
+    // messages l'ignorait et étendait la fenêtre au-delà de la couverture
+    // réelle (revue lot 2). Les couples qui l'enjambent, eux, ne peuvent pas
+    // produire de diff (photo de messages manquante) : seul le couple
+    // (08, 01) est analysé.
+    for (const d of DATES) {
+      const aUnMessage = d !== '2099-01-15'
+      await service.runWrite(d, async () =>
+        payload([row({ snapshot_date: d })], aUnMessage ? [msg({ snapshot_date: d })] : [])
+      )
+    }
+
+    const patterns = (await service.patterns(30))!
+
+    assert.equal(patterns.avant, '2099-01-01')
+    assert.equal(patterns.apres, '2099-01-20')
+    assert.equal(patterns.joursCouverts, 4)
+    assert.equal(patterns.diffsAnalyses, 1)
+  }).timeout(15_000)
 })
 
 /**

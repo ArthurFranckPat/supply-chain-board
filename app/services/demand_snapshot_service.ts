@@ -106,6 +106,15 @@ const INSERT_CHUNK = 400
 const MAX_DIFFS_PATTERNS = 7
 
 /**
+ * Clé de l'horloge d'epoch des photos (cf. `epochPhotos` / `marquerReecriturePhoto`) :
+ * incrémentée à chaque RÉÉCRITURE d'une photo, jamais à l'écriture d'une date
+ * neuve. Figure dans les clés des caches dérivés des couples (explications,
+ * patterns) pour qu'une photo réécrite le même jour ne serve plus d'agrégats
+ * obsolètes indéfiniment.
+ */
+const APPRO_PHOTO_EPOCH_KEY = 'appro:photo-epoch:v1'
+
+/**
  * Jour LOCAL où une ligne a été écrite — la seule trace du fait qu'une photo a
  * été prise un autre jour que celui qu'elle prétend décrire (`snapshot:run
  * --date`, qui n'est pas un backfill : il fige l'état d'aujourd'hui sous une
@@ -462,6 +471,55 @@ export class DemandSnapshotService {
   }
 
   /**
+   * Les dates de photos du BESOIN, du plus récent au plus ancien, plafonnées à
+   * `MAX_FENETRE_JOURS`.
+   *
+   * Le calendrier des PATTERNS est celui du besoin (`demand_snapshots`), pas
+   * celui des messages : une photo du besoin sans AUCUN message (source à
+   * zéro) est un jour de fenêtre valide, et l'ignorer — ce que fait le
+   * calendrier des messages — étendait la fenêtre au-delà de la couverture
+   * réelle et gonflait la fréquence hebdomadaire des articles présents sur
+   * une seule photo (revue lot 2).
+   */
+  private async datesPhotosBesoin(): Promise<string[]> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+      .limit(MAX_FENETRE_JOURS)
+    return rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
+  }
+
+  /**
+   * Numéro d'epoch des PHOTOS — incrémenté à chaque réécriture d'une photo
+   * (`write()`), jamais lors d'une écriture normale (chaque nuit écrit une
+   * date NOUVELLE, qui change les clés par elle-même).
+   *
+   * Les caches dérivés des couples de photos (explications, patterns) sont
+   * `getOrSetForever` : sans cette horloge, une photo RÉÉCRITE le même jour
+   * (run nocturne à 04 h puis `snapshot:run` relancé à 15 h pendant une
+   * saturation X3) laissait des agrégats obsolètes servis indéfiniment. Elle
+   * figure dans leurs clés : au premier appel après une réécriture, toutes les
+   * entrées dérivées de la photo réécrite sont recalculées.
+   *
+   * L'epoch vit DANS le cache `appro`, cloisonné par environnement X3 comme le
+   * reste : un wipe du cache remet tout à zéro d'un même geste, et l'absence
+   * d'entrée vaut 0 — cohérent avec des clés d'epoch 0, elles aussi disparues.
+   */
+  private async epochPhotos(): Promise<number> {
+    const value = await cacheNs('appro').get<number>({ key: APPRO_PHOTO_EPOCH_KEY })
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0
+  }
+
+  private async marquerReecriturePhoto(): Promise<void> {
+    await cacheNs('appro').set({
+      key: APPRO_PHOTO_EPOCH_KEY,
+      value: (await this.epochPhotos()) + 1,
+    })
+  }
+
+  /**
    * La paire de photos couvrant une fenêtre de `fenetreJours` jours sur le
    * calendrier du BESOIN (`demand_snapshots`), `[apres, avant]` (#138 lot 2).
    *
@@ -499,7 +557,7 @@ export class DemandSnapshotService {
    * `null` si moins de deux photos, ou si aucun couple n'est exploitable.
    */
   async patterns(fenetreJours: number): Promise<ApproPatterns | null> {
-    const dates = await this.datesPhotosMessages()
+    const dates = await this.datesPhotosBesoin()
     const photos = photoLaPlusProche(dates, fenetreJours)
     if (photos === null) return null
     const [apres, avant] = photos
@@ -516,12 +574,16 @@ export class DemandSnapshotService {
 
     // Caché comme les explications, et pour la même raison : deux photos sont
     // immuables une fois écrites, donc leur agrégat aussi. La clé porte les
-    // deux bornes ET le nombre de couples — changer de fenêtre change la clé,
-    // et une photo nouvelle la change d'elle-même. Sans ce cache, chaque
-    // bascule vers l'onglet « Tendances » relisait toutes les lignes de messages
-    // de la fenêtre (16 000 pour 21 jours) pour un résultat identique.
+    // deux bornes, le nombre de couples ET la fenêtre demandée — deux fenêtres
+    // peuvent tomber sur la même paire de photos quand le calendrier est
+    // clairsemé, et la réponse porte `fenetreJours` (revue lot 2). L'epoch
+    // `e${…}` change quand une photo est RÉÉCRITE le même jour (`snapshot:run`
+    // relancé) : sans lui, un agrégat figé avant la réécriture serait servi
+    // indéfiniment. Sans ce cache, chaque bascule vers l'onglet « Tendances »
+    // relisait toutes les lignes de messages de la fenêtre (16 000 pour 21
+    // jours) pour un résultat identique.
     const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:patterns:v1:${avant}:${apres}:${couples.length}`,
+      key: `appro:patterns:v2:e${await this.epochPhotos()}:${fenetreJours}:${avant}:${apres}:${couples.length}`,
       factory: async () => {
         const [lignes, explicationsParDiff] = await Promise.all([
           db
@@ -548,7 +610,7 @@ export class DemandSnapshotService {
           enddat: r.enddat === null ? null : String(r.enddat).slice(0, 10),
           quantity: Number(r.quantity),
         }))
-        return detectPatterns(lignesTypées, diffs, fenetreJours)
+        return detectPatterns(lignesTypées, diffs, fenetreJours, dansLaFenetre)
       },
     })
     return cached ?? null
@@ -1031,7 +1093,12 @@ export class DemandSnapshotService {
       // sur le même couple de photos, et un couple déjà en cache en PROD.
       // `v3` — périmètre via journal des sources capturées (#149), par-dessus
       // `v2` (périmètre restreint aux sources comparables, #145).
-      key: `appro:explications:${avantDay}:${apresDay}:v3`,
+      //
+      // L'epoch (cf. `epochPhotos`) fait partie de la clé : une photo RÉÉCRITE
+      // le même jour doit invalider les explications qui la citent — sans lui,
+      // un `snapshot:run` relancé à la main laissait des corrélations obsolètes
+      // servies indéfiniment (revue lot 2).
+      key: `appro:explications:${avantDay}:${apresDay}:v3:e${await this.epochPhotos()}`,
       factory: async () => {
         const [m, d] = await Promise.all([
           this.diffMessages(apresDay, avantDay),
@@ -1276,6 +1343,14 @@ export class DemandSnapshotService {
       const sourceBreakdown: Record<string, number> = {}
       for (const r of demand) sourceBreakdown[r.source] = (sourceBreakdown[r.source] ?? 0) + 1
       if (ecritMessages) sourceBreakdown[SOURCE.MESSAGE] = messages.length
+
+      // La photo de `dateStr` vient d'être (ré)écrite : toute réécriture — run
+      // nocturne sur une date existante après échec partiel, `snapshot:run`
+      // relancé à la main — change la photo, donc invalide les caches dérivés
+      // des couples qui la citent. L'epoch est incrémentée après le commit :
+      // un lecteur concurrent qui lit avant ne voit jamais une photo mi-écrite,
+      // et un lecteur qui lit après recalcule (revue lot 2).
+      await this.marquerReecriturePhoto()
 
       const rows = demand.length + (ecritMessages ? messages.length : 0)
       const durationMs = Date.now() - start

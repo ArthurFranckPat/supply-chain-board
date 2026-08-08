@@ -56,8 +56,13 @@ export interface PatternFournisseur {
   /** Messages DISTINCTS portés par ce fournisseur sur la fenêtre. */
   nbMessages: number
   /**
-   * Part des messages distincts du fournisseur dont la source dominante de
-   * l'article est une réception (`appro`), `null` si aucune source connue.
+   * Part des messages distincts du fournisseur dont l'EXPLICATION PRINCIPALE
+   * du message (corrélation dominante, agrégée sur les diffs) est une
+   * réception (`appro`), sur TOUS les messages du fournisseur — expliqués ou
+   * non, un message sans explication compte dans le dénominateur (il ne peut
+   * pas être une réception glissée).
+   *
+   * `null` si aucun message du fournisseur n'a d'explication connue.
    */
   partReceptionsGlissees: number | null
 }
@@ -156,22 +161,38 @@ function mesureQualite(explications: CbnExplanation[]): QualiteExplications {
  * `lignes` : toutes les lignes de photos de messages dans la fenêtre.
  * `diffs` : les explications par couple de photos consécutif, du plus récent
  * au plus ancien — `diffs[0]` sert aussi de base aux métriques de qualité.
+ * `photosFenetre` : les jours de PHOTO de la fenêtre, du plus récent au plus
+ * ancien (calendrier des photos du besoin, PAS les dates des lignes de
+ * messages : un jour de photo sans aucun message est un jour de fenêtre comme
+ * un autre, et l'oublier ferait gonfler la fréquence hebdomadaire d'un article
+ * présent sur une seule photo — un événement rare deviendrait « haute
+ * volatilité »). C'est lui qui porte l'étendue calendaire du dénominateur.
  */
 export function detectPatterns(
   lignes: ApproMessageSnapshotRow[],
   diffs: CbnExplanation[][],
-  fenetreJours: number
+  fenetreJours: number,
+  photosFenetre: string[]
 ): ApproPatterns {
-  // 1. Dominance par article, agrégée sur TOUS les diffs de la fenêtre.
+  // 1. Dominance par article, agrégée sur TOUS les diffs de la fenêtre, et
+  //    par MESSAGE (clé stable) pour la part fournisseur — deux messages du
+  //    même article expliqués par des sources différentes ne partagent pas
+  //    l'explication de l'autre (revue lot 2).
   const sourcesParArticle = new Map<string, Map<string, number>>()
+  const sourcesParCle = new Map<string, Map<string, number>>()
   const diffsExpliquesParArticle = new Map<string, number>()
   for (const explications of diffs) {
     const vusDansCeDiff = new Set<string>()
     for (const e of explications) {
       if (e.correlations.length === 0) continue
       const compteur = sourcesParArticle.get(e.article) ?? new Map<string, number>()
-      for (const c of e.correlations) compteur.set(c.source, (compteur.get(c.source) ?? 0) + 1)
+      const compteurCle = sourcesParCle.get(e.cle) ?? new Map<string, number>()
+      for (const c of e.correlations) {
+        compteur.set(c.source, (compteur.get(c.source) ?? 0) + 1)
+        compteurCle.set(c.source, (compteurCle.get(c.source) ?? 0) + 1)
+      }
       sourcesParArticle.set(e.article, compteur)
+      sourcesParCle.set(e.cle, compteurCle)
       if (!vusDansCeDiff.has(e.article)) {
         vusDansCeDiff.add(e.article)
         diffsExpliquesParArticle.set(e.article, (diffsExpliquesParArticle.get(e.article) ?? 0) + 1)
@@ -191,18 +212,24 @@ export function detectPatterns(
       dominanteParArticle.set(article, { source: best.source, part: arrondi2(best.n / total) })
     }
   }
+  const dominanteParCle = new Map<string, string>()
+  for (const [cle, compteur] of sourcesParCle) {
+    let best: { source: string; n: number } | null = null
+    for (const [source, n] of compteur) {
+      if (best === null || n > best.n) best = { source, n }
+    }
+    if (best !== null) dominanteParCle.set(cle, best.source)
+  }
 
   // 2. Comptage des messages DISTINCTS, en une passe sur les lignes.
   const clesVues = new Set<string>()
   const messagesParArticle = new Map<string, { messages: number; jours: Set<string> }>()
   const messagesParFournisseur = new Map<
     string,
-    { messages: number; appro: number; sourcesConnues: number }
+    { messages: number; appro: number; avecSource: number }
   >()
-  const jours = new Set<string>()
 
   for (const l of lignes) {
-    jours.add(l.snapshot_date)
     const article = messagesParArticle.get(l.itmref) ?? { messages: 0, jours: new Set<string>() }
     article.jours.add(l.snapshot_date)
     messagesParArticle.set(l.itmref, article)
@@ -218,18 +245,22 @@ export function detectPatterns(
     const f = messagesParFournisseur.get(l.fournisseur) ?? {
       messages: 0,
       appro: 0,
-      sourcesConnues: 0,
+      avecSource: 0,
     }
     f.messages += 1
-    const dominante = dominanteParArticle.get(l.itmref)
-    if (dominante !== undefined) {
-      f.sourcesConnues += 1
-      if (dominante.source === 'appro') f.appro += 1
+    // Source de CE message, pas celle de son article : un article peut porter
+    // des messages expliqués par des sources différentes, et les leur
+    // substituer l'explication de l'autre fausserait la surveillance
+    // fournisseur (revue lot 2).
+    const sourceDuMessage = dominanteParCle.get(cle)
+    if (sourceDuMessage !== undefined) {
+      f.avecSource += 1
+      if (sourceDuMessage === 'appro') f.appro += 1
     }
     messagesParFournisseur.set(l.fournisseur, f)
   }
 
-  const datesTriees = [...jours].sort()
+  const datesTriees = [...photosFenetre].sort()
   const etendueJours = etendueCalendaire(datesTriees)
 
   const articles: PatternArticle[] = []
@@ -237,6 +268,9 @@ export function detectPatterns(
     // Fréquence normalisée sur l'étendue CALENDAIRE réelle (avant → apres),
     // pas sur la fenêtre demandée : avec des trous (week-ends, pannes),
     // diviser par la fenêtre demandée sous-estime la fréquence observée.
+    // L'étendue vient des jours de PHOTO couverts (tous, même sans message) :
+    // un article présent sur une seule photo au milieu d'une fenêtre de 21
+    // jours vaut ~0,33 message/semaine, pas 7 (revue lot 2).
     const messagesSemaine = (agg.messages / etendueJours) * 7
     const dominante = dominanteParArticle.get(article)
     articles.push({
@@ -257,7 +291,7 @@ export function detectPatterns(
     fournisseurs.push({
       fournisseur,
       nbMessages: f.messages,
-      partReceptionsGlissees: f.sourcesConnues > 0 ? arrondi2(f.appro / f.sourcesConnues) : null,
+      partReceptionsGlissees: f.avecSource > 0 ? arrondi2(f.appro / f.messages) : null,
     })
   }
   fournisseurs.sort(
@@ -267,10 +301,10 @@ export function detectPatterns(
   )
 
   return {
-    apres: datesTriees.at(-1) ?? '',
-    avant: datesTriees[0] ?? '',
+    apres: photosFenetre[0] ?? '',
+    avant: photosFenetre.at(-1) ?? '',
     fenetreJours,
-    joursCouverts: jours.size,
+    joursCouverts: photosFenetre.length,
     diffsAnalyses: diffs.length,
     articles,
     fournisseurs,

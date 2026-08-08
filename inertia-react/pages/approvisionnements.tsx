@@ -44,7 +44,7 @@
  * append-only côté serveur. Un dossier dont toutes les lignes visibles sont
  * décidées quitte la pile active pour l'index « Dossiers traités ».
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
 import {
   ArrowDown,
@@ -397,10 +397,13 @@ function DecisionControl({
   actuelle,
   etatEnvoi,
   onDecide,
+  desactivee = false,
 }: {
   actuelle: DecisionStatut | null
   etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
+  /** Blocage hors envoi : explications de la fenêtre active pas encore là. */
+  desactivee?: boolean
 }) {
   return (
     <div className="flex flex-col items-start gap-1 md:items-end">
@@ -410,7 +413,7 @@ function DecisionControl({
             key={statut}
             type="button"
             onClick={() => onDecide(statut)}
-            disabled={etatEnvoi === 'en-cours'}
+            disabled={etatEnvoi === 'en-cours' || desactivee}
             aria-pressed={actuelle === statut}
             className={cn(
               'rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap transition-colors duration-150 disabled:opacity-50',
@@ -602,6 +605,7 @@ function ItemRow({
   onDecide,
   explications,
   patternsParArticle,
+  explicationsEnChargement = false,
 }: {
   item: ApproItem
   decisionActuelle: DecisionStatut | null
@@ -610,6 +614,11 @@ function ItemRow({
   onDecide: (statut: DecisionStatut) => void
   explications?: CbnExplanation[]
   patternsParArticle?: Map<string, PatternArticle>
+  /** Vrai pendant un re-fetch des explications (changement de fenêtre). Les
+   *  décisions de MESSAGE sont alors bloquées : figer une prédiction de J-1
+   *  sous la fenêtre J-7, ou à null avant le premier chargement, corromprait
+   *  l'auto-évaluation sans recours possible (revue lot 2). */
+  explicationsEnChargement?: boolean
 }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
@@ -618,6 +627,7 @@ function ItemRow({
      encre — la commande n'est pas encore posée dans X3. */
   const traitee =
     decisionActuelle === 'vu' || decisionActuelle === 'ignorer' || etatEnvoi === 'en-cours'
+  const decisionsBloquees = item.nature === 'message' && explicationsEnChargement
   return (
     <li
       className={cn(
@@ -686,7 +696,12 @@ function ItemRow({
 
       {/* Décision acheteur (ledger #134) */}
       <div className="md:pt-0.5">
-        <DecisionControl actuelle={decisionActuelle} etatEnvoi={etatEnvoi} onDecide={onDecide} />
+        <DecisionControl
+          actuelle={decisionActuelle}
+          etatEnvoi={etatEnvoi}
+          onDecide={onDecide}
+          desactivee={decisionsBloquees}
+        />
       </div>
       {item.nature === 'message' && explications !== undefined && explications.length > 0 && (
         <div className="col-span-full">
@@ -734,6 +749,7 @@ function Feuille({
   onDecide,
   explicationsParCle,
   patternsParArticle,
+  explicationsEnChargement = false,
 }: {
   vue: FeuilleVue
   decisions: Record<string, DecisionStatut>
@@ -741,6 +757,7 @@ function Feuille({
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
   patternsParArticle?: Map<string, PatternArticle>
+  explicationsEnChargement?: boolean
 }) {
   const { dossier, suggestions, messages } = vue
   const nbItems = suggestions.length + messages.length
@@ -754,6 +771,7 @@ function Feuille({
         onDecide={(statut) => onDecide(item, statut)}
         explications={explicationsPour(explicationsParCle, item)}
         patternsParArticle={patternsParArticle}
+        explicationsEnChargement={explicationsEnChargement}
       />
     ))
   return (
@@ -833,6 +851,7 @@ function DossiersTraités({
   onDecide,
   explicationsParCle,
   patternsParArticle,
+  explicationsEnChargement = false,
 }: {
   vues: FeuilleVue[]
   decisions: Record<string, DecisionStatut>
@@ -840,6 +859,7 @@ function DossiersTraités({
   onDecide: (item: ApproItem, fournisseur: string, statut: DecisionStatut) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
   patternsParArticle?: Map<string, PatternArticle>
+  explicationsEnChargement?: boolean
 }) {
   if (vues.length === 0) return null
   return (
@@ -885,6 +905,7 @@ function DossiersTraités({
                     onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
                     explications={explicationsPour(explicationsParCle, item)}
                     patternsParArticle={patternsParArticle}
+                    explicationsEnChargement={explicationsEnChargement}
                   />
                 ))}
               </ul>
@@ -1204,7 +1225,21 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   const [fenetre, setFenetre] = useState<number>(1)
   const explicationsHref =
     fenetre === 1 ? '/api/v1/appro/explanations' : `/api/v1/appro/explanations?fenetre=${fenetre}`
-  const { data: explData } = useTimedFetch<ExplanationsResponse>(explicationsHref)
+  const { data: explData, loading: explLoading } =
+    useTimedFetch<ExplanationsResponse>(explicationsHref)
+  // La fenêtre qui a produit les explications actuellement en main. `useTimedFetch`
+  // GARDE la donnée précédente pendant un re-fetch : sans cette référence, une
+  // décision prise juste après un changement de fenêtre figerait la prédiction
+  // de J-1 sous la fenêtre J-7, et une décision prise avant le premier
+  // chargement figerait des prédictions à null — irrécupérables dans le ledger
+  // (revue lot 2). Tant que la réponse de la fenêtre active n'est pas là, les
+  // explications sont considérées absentes et les décisions de message bloquées.
+  const fenetreExplRef = useRef<number>(fenetre)
+  useEffect(() => {
+    if (!explLoading && explData !== null) fenetreExplRef.current = fenetre
+  }, [explLoading, explData, fenetre])
+  const explicationsValides =
+    !explLoading && explData !== null && fenetreExplRef.current === fenetre
   // Lot 2 : patterns émergents sur 21 jours (3 semaines de maturation). Chargés
   // dans les DEUX vues, parce que le contexte historique d'un article
   // (« 7 messages sur 12 jours de photos, corrélation dominante stock ») se lit
@@ -1225,7 +1260,8 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
     return m
   }, [patternsData])
   const explicationsParCle = useMemo(() => {
-    if (!explData || !explData.explications || explData.explications.length === 0) return undefined
+    if (!explicationsValides || !explData.explications || explData.explications.length === 0)
+      return undefined
     const m = new Map<string, CbnExplanation[]>()
     for (const e of explData.explications) {
       const list = m.get(e.cle)
@@ -1233,7 +1269,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
       else list.push(e)
     }
     return m
-  }, [explData])
+  }, [explicationsValides, explData])
   const maturationInfo =
     explData && explData.avant === null && explData.apres === null ? explData.message : null
   // Un message DISPARU n'existe plus dans X3, donc plus dans la file : son
@@ -1540,7 +1576,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                     </span>
                   </div>
                 )}
-                {explData !== null &&
+                {explicationsValides &&
                   explData.avant !== null &&
                   explData.apres !== null &&
                   explData.explications.length > 0 &&
@@ -1570,6 +1606,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                           }
                           explicationsParCle={explicationsParCle}
                           patternsParArticle={patternsParArticle}
+                          explicationsEnChargement={!explicationsValides}
                         />
                       ))}
                     </div>
@@ -1580,6 +1617,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                       onDecide={poster}
                       explicationsParCle={explicationsParCle}
                       patternsParArticle={patternsParArticle}
+                      explicationsEnChargement={!explicationsValides}
                     />
                   </>
                 )}
