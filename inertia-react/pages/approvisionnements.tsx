@@ -1278,6 +1278,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   // annoncés comme soldés, ils disent quelque chose d'utile à l'acheteur.
   const nbSoldes = explData?.explications.filter((e) => e.natureMessage === 'disparue').length ?? 0
   const [filtre, setFiltre] = useState<Filtre>(null)
+  const [filtreExpl, setFiltreExpl] = useState(false)
   // Décisions locales (ledger #134) — priorité sur le payload au re-rendu.
   const [decisions, setDecisions] = useState<Record<string, DecisionStatut>>({})
   // État du POST par ligne : un envoi refusé doit se voir, sans quoi l'acheteur
@@ -1349,11 +1350,22 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   // vide sous un filtre n'apprend rien et casse le comptage affiché.
   const dossiersFiltres = useMemo(() => {
     if (data === null) return []
-    if (filtre === null) return data.dossiers
-    return data.dossiers
-      .map((d) => ({ ...d, items: d.items.filter((i) => i.nature === filtre) }))
-      .filter((d) => d.items.length > 0)
-  }, [data, filtre])
+    let dossiers = data.dossiers
+    if (filtre !== null)
+      dossiers = dossiers
+        .map((d) => ({ ...d, items: d.items.filter((i) => i.nature === filtre) }))
+        .filter((d) => d.items.length > 0)
+    if (filtreExpl && explicationsParCle !== undefined) {
+      const cles = new Set(explicationsParCle.keys())
+      dossiers = dossiers
+        .map((d) => ({
+          ...d,
+          items: d.items.filter((i) => i.cleSnapshot !== null && cles.has(i.cleSnapshot)),
+        }))
+        .filter((d) => d.items.length > 0)
+    }
+    return dossiers
+  }, [data, filtre, filtreExpl, explicationsParCle])
 
   /** Feuilles préparées : lignes par échéance, pile active vs dossiers traités.
    *  Le tri d'affichage ne touche jamais la donnée serveur. */
@@ -1497,6 +1509,19 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
               </SegmentButton>
             ))}
           </Segment>
+
+          {vue === 'feuilles' && nbExplSurPage > 0 && (
+            <Segment ariaLabel="Filtre explication" label="Filtre">
+              <SegmentButton
+                active={filtreExpl}
+                onClick={() => setFiltreExpl(!filtreExpl)}
+                title="Ne montrer que les lignes avec une explication corrélée"
+              >
+                Expliqués
+                <span className="ml-1 opacity-60">{nbExplSurPage}</span>
+              </SegmentButton>
+            </Segment>
+          )}
 
           {vue === 'feuilles' && (
             <Segment role="radiogroup" ariaLabel="Fenêtre d'explication" label="Comparaison">
