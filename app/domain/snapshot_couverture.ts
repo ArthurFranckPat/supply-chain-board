@@ -63,6 +63,70 @@ export function joursManquants(jours: string[]): string[] {
   return out
 }
 
+/**
+ * La photo d'une liste triée (desc) la plus proche de `apres - fenetreJours`.
+ *
+ * C'est le cœur du sélecteur de fenêtre J-1/J-7/J-30 (#138 lot 2) : au lieu de
+ * déduire une date et d'exiger qu'une photo existe exactement ce jour-là, on
+ * prend la photo EXISTANTE la plus proche de la cible. Les week-ends, lundis et
+ * pannes cessent d'être des trous : la fenêtre réelle est celle des deux dates
+ * retenues, que l'écran affiche telles quelles — elle peut être plus courte OU
+ * plus longue que demandée selon les photos disponibles.
+ *
+ * `datesTrieesDesc` doit être triée du plus récent au plus ancien. Rend `null`
+ * s'il n'y a pas au moins deux photos (un diff a besoin de deux points).
+ */
+export function photoLaPlusProche(
+  datesTrieesDesc: string[],
+  fenetreJours: number
+): [string, string] | null {
+  if (datesTrieesDesc.length < 2) return null
+  const apres = datesTrieesDesc[0]
+  const cible = Date.parse(`${apres}T00:00:00Z`) - fenetreJours * 86_400_000
+  let avant = datesTrieesDesc[1]
+  let meilleureDistance = Number.POSITIVE_INFINITY
+  for (const d of datesTrieesDesc.slice(1)) {
+    const distance = Math.abs(Date.parse(`${d}T00:00:00Z`) - cible)
+    if (distance < meilleureDistance) {
+      meilleureDistance = distance
+      avant = d
+    }
+  }
+  return [apres, avant]
+}
+
+/**
+ * Nombre maximal de photos qu'une recherche de fenêtre remonte, et donc plafond
+ * de `fenetre` en jours.
+ *
+ * Les deux DOIVENT être le même nombre : la requête ne lit que les N photos les
+ * plus récentes, donc demander une fenêtre plus longue que N jours ne peut rien
+ * rendre de plus. Séparés, `?fenetre=365` tronquait en silence à 62 photos et
+ * l'écran annonçait « 12 jours couverts sur 365 demandés » — un chiffre faux
+ * présenté comme une mesure.
+ */
+export const MAX_FENETRE_JOURS = 62
+
+/**
+ * Normalise le paramètre `fenetre` d'un endpoint (#138 lot 2).
+ *
+ * Seuls les entiers strictement positifs sont acceptés (1, 7, 21, 30, …) ;
+ * toute autre valeur — `-7`, `0`, `abc`, chaîne vide — rend `null` et
+ * l'endpoint retombe sur son défaut. Un `fenetre` négatif produirait sinon des
+ * fréquences hebdomadaires négatives côté patterns et une fenêtre affichée
+ * absurde.
+ *
+ * Au-delà de `MAX_FENETRE_JOURS`, la valeur est RABOTÉE à ce plafond plutôt que
+ * rejetée : l'endpoint rend alors la fenêtre réellement utilisée, que l'écran
+ * affiche telle quelle.
+ */
+export function fenetreValide(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n <= 0) return null
+  return Math.min(n, MAX_FENETRE_JOURS)
+}
+
 /** Libellé d'un code `MRPMES_0`, pour un diagnostic lisible sans table de codes. */
 export function libelleMessage(code: number): string {
   if (code === MRP_MESSAGE.AVANCER) return 'avancer'

@@ -182,3 +182,47 @@ test.group('ApproDecisionRepository — présence et expiration', (group) => {
     assert.equal(parCle.get('TEST-9')?.statut, 'vu')
   })
 })
+
+test.group('ApproDecisionRepository — dernieresNonExpirees (auto-évaluation lot 2)', (group) => {
+  group.each.setup(nettoyer)
+  group.each.teardown(nettoyer)
+
+  const record = (cle: string, statut: 'vu' | 'ignorer', cause?: string) =>
+    repo.record({
+      cleLogique: cle,
+      nature: 'message',
+      statut,
+      article: 'A1',
+      fournisseur: 'F1',
+      quantite: 10,
+      echeance: null,
+      causePredit: cause ?? null,
+      confiancePredit: cause === undefined ? null : 0.9,
+      verdictPredit: 'replanifier',
+    })
+
+  test('une clé re-décidée n’est comptée qu’une fois, avec sa DERNIÈRE décision', async ({
+    assert,
+  }) => {
+    await record('TEST-AE-1', 'vu', 'stock')
+    await record('TEST-AE-1', 'ignorer', 'stock')
+
+    const lignes = await repo.dernieresNonExpirees()
+    const ae1 = lignes.filter((l) => l.cleLogique === 'TEST-AE-1')
+
+    // Append-only : deux lignes en base, mais une seule décision courante.
+    assert.equal(ae1.length, 1)
+    assert.equal(ae1[0].statut, 'ignorer')
+    assert.equal(ae1[0].causePredit, 'stock')
+  })
+
+  test('les clés distinctes sont toutes rendues', async ({ assert }) => {
+    await record('TEST-AE-2', 'vu', 'stock')
+    await record('TEST-AE-3', 'ignorer', 'appro')
+
+    const lignes = await repo.dernieresNonExpirees()
+
+    assert.equal(lignes.filter((l) => l.cleLogique === 'TEST-AE-2').length, 1)
+    assert.equal(lignes.filter((l) => l.cleLogique === 'TEST-AE-3').length, 1)
+  })
+})

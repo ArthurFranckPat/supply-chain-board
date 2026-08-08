@@ -169,6 +169,8 @@ export interface ApiDefinition {
     driversDiff: typeof routes['appro.driversDiff']
     driversFrise: typeof routes['appro.driversFrise']
     explanations: typeof routes['appro.explanations']
+    patterns: typeof routes['appro.patterns']
+    autoEvaluation: typeof routes['appro.autoEvaluation']
   }
   data: {
     load: typeof routes['data.load']

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Copilote · ChatGPT UX × charte Airbnb</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════════════════
+   ChatGPT UX (layout / rythme / empty / composer / messages)
+   × charte Supply Board Airbnb (Rausch, Jakarta, tokens métier)
+   Détail agentique : thinking, tools strip, payloads, busy orb
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --background: #ffffff;
+  --foreground: #222222;
+  --sidebar: #f7f7f7;
+  --card: #ffffff;
+  --primary: #ff385c;
+  --primary-foreground: #ffffff;
+  --secondary: #f7f7f7;
+  --muted: #f2f2f2;
+  --muted-foreground: #6a6a6a;
+  --border: #dddddd;
+  --rule-soft: #ebebeb;
+  --brand-soft: rgba(255, 56, 92, 0.10);
+  --rausch-active: #e00b41;
+  --ferme: #008049;
+  --planifie: #00a699;
+  --suggere: #fc642d;
+  --destructive: #c13515;
+  --hover: rgba(0, 0, 0, 0.04);
+  --hover-strong: rgba(0, 0, 0, 0.07);
+  --user-bubble: var(--brand-soft);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.06);
+  --font: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --sidebar-w: 260px;
+  --insp-w: 300px;
+  --content-max: 48rem;
+  --r-sm: 8px;
+  --r: 14px;
+  --r-composer: 24px;
+  --r-user: 18px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: var(--font);
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+  line-height: 1.5;
+}
+button, input, textarea { font: inherit; color: inherit; }
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr var(--insp-w);
+  height: 100%;
+  transition: grid-template-columns 200ms ease;
+}
+.app.no-insp { grid-template-columns: var(--sidebar-w) 1fr 0; }
+.app.no-side { grid-template-columns: 0 1fr var(--insp-w); }
+.app.no-side.no-insp { grid-template-columns: 0 1fr 0; }
+.app.no-side .sidebar,
+.app.no-insp .insp { opacity: 0; pointer-events: none; }
+
+/* ── Sidebar (ChatGPT structure × Airbnb surface) ── */
+.sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: opacity 150ms;
+}
+.sb-top { display: flex; align-items: center; gap: 4px; padding: 12px 10px 8px; }
+.sb-icon {
+  width: 34px; height: 34px; border: 0; border-radius: var(--r-sm);
+  background: transparent; display: grid; place-items: center; cursor: pointer;
+  color: var(--muted-foreground);
+}
+.sb-icon:hover { background: var(--hover-strong); color: var(--foreground); }
+.sb-new {
+  flex: 1; height: 34px; padding: 0 10px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--card);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.sb-new:hover { border-color: var(--foreground); box-shadow: var(--shadow-soft); }
+.sb-new svg { color: var(--primary); }
+.sb-search-wrap { position: relative; padding: 0 10px 10px; }
+.sb-search-wrap svg {
+  position: absolute; left: 22px; top: 50%; transform: translateY(-50%);
+  color: var(--muted-foreground); pointer-events: none;
+}
+.sb-search {
+  width: 100%; height: 34px; padding: 0 10px 0 32px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card); font-size: 12.5px; outline: none;
+}
+.sb-search::placeholder { color: var(--muted-foreground); }
+.sb-section {
+  padding: 8px 14px 4px; font-size: 11px; font-weight: 700;
+  color: var(--muted-foreground); letter-spacing: 0.02em; text-transform: uppercase;
+}
+.sb-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+.sb-item {
+  width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: var(--r-sm);
+  background: transparent; cursor: pointer; text-align: left;
+  font-size: 13px; display: flex; align-items: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.sb-item:hover { background: var(--hover-strong); }
+.sb-item.is-active { background: #fff; box-shadow: inset 0 0 0 1px var(--border); font-weight: 600; }
+.sb-foot { padding: 10px; border-top: 1px solid var(--border); }
+.sb-user {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 6px 8px; border: 0; border-radius: var(--r-sm);
+  background: transparent; cursor: pointer; text-align: left;
+}
+.sb-user:hover { background: var(--hover-strong); }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none;
+}
+.sb-user__name { font-size: 13px; font-weight: 600; }
+.sb-user__sub { font-size: 11px; color: var(--muted-foreground); }
+.env {
+  display: inline-block; margin-left: 4px; padding: 1px 6px; border-radius: 99px;
+  font-size: 10px; font-weight: 700;
+  background: color-mix(in srgb, var(--ferme) 14%, transparent); color: var(--ferme);
+}
+
+/* ── Main ── */
+.main { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.main-top {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rule-soft); flex: none; min-height: 52px;
+}
+.model-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 10px; border: 0; border-radius: var(--r-sm);
+  background: transparent; cursor: pointer;
+  font-size: 15px; font-weight: 700; letter-spacing: -0.02em;
+}
+.model-btn:hover { background: var(--hover); }
+.model-pill {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 99px;
+  color: #00736b; background: color-mix(in srgb, var(--planifie) 14%, transparent);
+}
+.lock-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 99px;
+  font-size: 11.5px; font-weight: 600; color: var(--muted-foreground); background: var(--card);
+}
+.main-top__spacer { flex: 1; }
+.ctx-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 11px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card); cursor: pointer; font-size: 12px; font-weight: 600;
+}
+.ctx-btn:hover { border-color: var(--foreground); }
+.ctx-btn.is-on { border-color: var(--foreground); }
+
+/* Empty */
+.empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px 16px 80px; gap: 22px;
+}
+.empty.is-hidden { display: none; }
+.empty__mark {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--brand-soft); color: var(--primary);
+  display: grid; place-items: center;
+}
+.empty__title {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.03em; text-align: center;
+}
+.empty__sub {
+  font-size: 13.5px; color: var(--muted-foreground); text-align: center;
+  max-width: 36em; margin-top: -10px;
+}
+.suggest-row {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  width: min(var(--content-max), 100%);
+}
+.suggest {
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 99px;
+  background: var(--card); font-size: 12.5px; font-weight: 500; cursor: pointer;
+}
+.suggest:hover { border-color: var(--foreground); background: var(--secondary); }
+
+/* Thread */
+.thread { flex: 1; overflow-y: auto; display: none; }
+.thread.is-visible { display: block; }
+.thread__inner {
+  width: 100%; max-width: var(--content-max);
+  margin: 0 auto; padding: 22px 18px 28px;
+  display: flex; flex-direction: column; gap: 28px;
+}
+
+.msg-user { display: flex; justify-content: flex-end; }
+.msg-user__bubble {
+  max-width: 75%;
+  background: var(--user-bubble);
+  border-radius: var(--r-user);
+  border-bottom-right-radius: 6px;
+  padding: 10px 14px;
+  font-size: 14.5px; line-height: 1.55;
+}
+
+.msg-asst { display: flex; gap: 12px; align-items: flex-start; }
+.asst-mark {
+  width: 28px; height: 28px; border-radius: 8px; flex: none; margin-top: 2px;
+  background: var(--brand-soft); color: var(--primary);
+  display: grid; place-items: center;
+}
+.asst-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.asst-head { display: flex; align-items: center; gap: 8px; }
+.asst-head__name { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ── Thinking / reasoning ── */
+.think {
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.think > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--muted-foreground);
+}
+.think > summary::-webkit-details-marker { display: none; }
+.think > summary:hover { color: var(--foreground); }
+.think[open] > summary { border-bottom: 1px solid var(--rule-soft); }
+.think__orb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffb3c1, var(--primary));
+  box-shadow: 0 0 0 2px var(--brand-soft);
+  animation: orb 1.4s ease-in-out infinite;
+  flex: none;
+}
+.think__orb[data-state="done"] { animation: none; opacity: 0.7; }
+.think__label { font-style: italic; font-weight: 500; }
+.think__chev { margin-left: auto; transition: transform 0.15s; }
+.think[open] .think__chev { transform: rotate(90deg); }
+.think__body {
+  padding: 10px 12px 12px;
+  font-size: 12.5px; font-style: italic; line-height: 1.55;
+  color: var(--muted-foreground); white-space: pre-wrap;
+}
+@keyframes orb {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.86); opacity: 0.65; }
+}
+
+/* ── Tools strip (existant copilote) ── */
+.tools { display: flex; flex-direction: column; gap: 4px; }
+.tools__row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.tools__label {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: var(--muted-foreground);
+}
+.tool-token {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.tool-token[data-status="done"] { color: var(--ferme); }
+.tool-token[data-status="running"] { color: var(--suggere); }
+.tool-token[data-status="error"] { color: var(--destructive); }
+.tool-token__name { color: color-mix(in srgb, var(--foreground) 80%, transparent); letter-spacing: -0.01em; }
+.tool-token[data-status="done"] .tool-token__name,
+.tool-token[data-status="running"] .tool-token__name { color: inherit; }
+.pulse {
+  width: 8px; height: 8px; border-radius: 50%; background: currentColor;
+  animation: orb 1.1s ease-in-out infinite;
+}
+.tools__detail > summary {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: var(--muted-foreground); padding: 2px 0;
+}
+.tools__detail > summary::-webkit-details-marker { display: none; }
+.tools__detail > summary:hover { color: var(--foreground); }
+.tools__detail[open] .chev { transform: rotate(90deg); }
+.chev { transition: transform 0.15s; }
+.tools__payloads { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.tp__head {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; margin-bottom: 4px;
+}
+.tp__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.tp__dot[data-status="done"] { background: var(--ferme); }
+.tp__dot[data-status="running"] { background: var(--suggere); }
+.tp__dot[data-status="error"] { background: var(--destructive); }
+.tp__name { font-weight: 700; }
+.tp__label { color: var(--muted-foreground); }
+.tp__ms { margin-left: auto; color: var(--muted-foreground); }
+.tp__pre {
+  margin: 0; max-height: 160px; overflow: auto;
+  padding: 10px 12px; border-radius: var(--r-sm); background: var(--secondary);
+  font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--muted-foreground);
+  white-space: pre-wrap; word-break: break-word;
+}
+.tp__pre .k { font-weight: 700; color: var(--foreground); }
+
+/* Answer prose */
+.prose { font-size: 14.5px; line-height: 1.65; }
+.prose p + p { margin-top: 10px; }
+.prose strong { font-weight: 700; }
+.source-tag {
+  display: inline-flex; align-items: center;
+  padding: 1px 6px; margin: 0 2px;
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  color: var(--primary); background: var(--brand-soft);
+  border: 0; border-radius: 5px; cursor: pointer; vertical-align: baseline;
+}
+.source-tag:hover { background: rgba(255,56,92,0.18); }
+
+.asst-actions {
+  display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s;
+}
+.msg-asst:hover .asst-actions { opacity: 1; }
+.asst-actions button {
+  width: 30px; height: 30px; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--muted-foreground);
+  display: grid; place-items: center; cursor: pointer;
+}
+.asst-actions button:hover { background: var(--secondary); color: var(--foreground); }
+
+/* Busy footer line (streaming) */
+.busy-line {
+  display: none; align-items: center; gap: 10px;
+  font-size: 13.5px; font-style: italic; color: var(--muted-foreground);
+}
+.busy-line.is-on { display: inline-flex; }
+.busy-orb {
+  width: 18px; height: 18px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 30% 30%, #ffc2ce, var(--primary));
+  animation: orb 1.2s ease-in-out infinite;
+}
+
+/* Composer */
+.dock {
+  flex: none; width: 100%; max-width: var(--content-max);
+  margin: 0 auto; padding: 0 16px 14px;
+}
+.empty .dock { width: min(var(--content-max), 100%); padding: 0; }
+.composer {
+  border: 1px solid var(--border); border-radius: var(--r-composer);
+  background: var(--card); box-shadow: var(--shadow-soft);
+  padding: 10px 10px 8px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.composer:focus-within {
+  border-color: var(--foreground);
+  box-shadow: 0 0 0 3px rgba(34,34,34,0.06);
+}
+.composer__input {
+  width: 100%; border: 0; outline: none; resize: none; background: transparent;
+  font-size: 15px; line-height: 1.5; min-height: 24px; max-height: 160px;
+  padding: 2px 4px;
+}
+.composer__input::placeholder { color: var(--muted-foreground); }
+.composer__bar { display: flex; align-items: center; gap: 6px; }
+.composer__bar .lock-chip { height: 28px; }
+.icon-round {
+  width: 32px; height: 32px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--muted-foreground);
+  display: grid; place-items: center; cursor: pointer;
+}
+.icon-round:hover { background: var(--secondary); color: var(--foreground); }
+.send {
+  margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: var(--primary); color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+.send:hover { background: var(--rausch-active); }
+.send:disabled { background: var(--border); cursor: not-allowed; }
+.disclaimer {
+  text-align: center; margin-top: 8px;
+  font-size: 11.5px; color: var(--muted-foreground);
+}
+
+/* Inspector */
+.insp {
+  border-left: 1px solid var(--border); background: var(--card);
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: opacity 150ms;
+}
+.insp-inner { width: var(--insp-w); height: 100%; display: flex; flex-direction: column; }
+.insp-head {
+  padding: 14px 16px; border-bottom: 1px solid var(--rule-soft);
+  font-size: 12.5px; font-weight: 700; display: flex; align-items: center;
+}
+.insp-head span { margin-left: auto; font-weight: 500; color: var(--muted-foreground); font-size: 11px; }
+.insp-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ctx-card {
+  border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px;
+  background: #fff; transition: box-shadow 0.2s, border-color 0.2s;
+}
+.ctx-card.is-flash {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.ctx-card__label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; color: #00736b; margin-bottom: 6px;
+}
+.ctx-card__value { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ctx-card__foot { font-size: 11px; color: var(--muted-foreground); margin-top: 4px; }
+.ctx-idle { padding: 24px 8px; color: var(--muted-foreground); font-size: 12.5px; line-height: 1.5; }
+
+/* Demo controls */
+.demo {
+  position: fixed; right: 14px; bottom: 14px; z-index: 40;
+  display: flex; flex-wrap: wrap; gap: 4px; max-width: 340px;
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 6px; box-shadow: var(--shadow-soft);
+}
+.demo button {
+  height: 30px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: transparent; cursor: pointer; font-size: 12px; font-weight: 600;
+  color: var(--muted-foreground);
+}
+.demo button:hover { background: var(--secondary); color: var(--foreground); }
+.demo button.is-on { background: var(--foreground); color: #fff; }
+
+.panel-hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <button type="button" class="sb-icon" id="side-close" title="Replier" aria-label="Replier">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <button type="button" class="sb-new" id="btn-new">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 13.5-13.5z"/></svg>
+        Nouvelle conversation
+      </button>
+    </div>
+    <div class="sb-search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.2-4.2"/></svg>
+      <input class="sb-search" placeholder="Rechercher…" />
+    </div>
+    <div class="sb-section">Aujourd'hui</div>
+    <div class="sb-list">
+      <button type="button" class="sb-item is-active" data-goto="done">OF 2508123 bloqué</button>
+      <button type="button" class="sb-item" data-goto="empty">Date engageante PP_830</button>
+      <div class="sb-section" style="margin-top:12px">Hier</div>
+      <button type="button" class="sb-item">Retards clients 14 j</button>
+      <button type="button" class="sb-item">Couverture A-742</button>
+    </div>
+    <div class="sb-foot">
+      <button type="button" class="sb-user">
+        <span class="avatar">A</span>
+        <span>
+          <div class="sb-user__name">arthur</div>
+          <div class="sb-user__sub">Agentique v1 <span class="env">PROD</span></div>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <section class="main">
+    <div class="main-top">
+      <button type="button" class="sb-icon" id="side-open" style="display:none" title="Navigation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <button type="button" class="model-btn">
+        Copilote
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <span class="model-pill">glm-5.2</span>
+      <span class="lock-chip">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+        Lecture seule
+      </span>
+      <div class="main-top__spacer"></div>
+      <button type="button" class="ctx-btn is-on" id="insp-toggle">
+        Contexte
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="15" y="4" width="6" height="16" rx="1"/><path d="M3 4h8M3 12h8M3 20h8"/></svg>
+      </button>
+    </div>
+
+    <!-- EMPTY -->
+    <div class="empty" id="empty">
+      <div class="empty__mark" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 2a4 4 0 014 4v1h1a4 4 0 010 8h-1v1a4 4 0 01-8 0v-1H7a4 4 0 010-8h1V6a4 4 0 014-4Z"/><circle cx="12" cy="11" r="1.5" fill="currentColor"/></svg>
+      </div>
+      <h1 class="empty__title">Que puis-je faire pour toi&nbsp;?</h1>
+      <p class="empty__sub">OF, ruptures, réceptions, dates engageantes — chiffres issus des outils, sans écriture ERP.</p>
+      <div class="suggest-row">
+        <button type="button" class="suggest" data-prompt="Pourquoi l'OF … est bloqué ?">OF bloqué</button>
+        <button type="button" class="suggest" data-prompt="Date engageante pour 200 PP_830_ESH ?">Date engageante</button>
+        <button type="button" class="suggest" data-prompt="Retards clients prévus sur 14 jours">Retards 14 j</button>
+        <button type="button" class="suggest" data-prompt="Stock et réceptions pour le composant …">Couverture</button>
+      </div>
+      <div class="dock">
+        <div class="composer" data-composer>
+          <textarea class="composer__input" rows="1" placeholder="Poser une question supply…" data-input></textarea>
+          <div class="composer__bar">
+            <button type="button" class="icon-round" title="Joindre" aria-label="Joindre">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <span class="lock-chip">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+              Lecture seule
+            </span>
+            <button type="button" class="send" disabled data-send aria-label="Envoyer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="disclaimer">Copilote peut se tromper · vérifie les infos critiques</p>
+      </div>
+    </div>
+
+    <!-- THREAD -->
+    <div class="thread" id="thread">
+      <div class="thread__inner">
+        <div class="msg-user">
+          <div class="msg-user__bubble">Pourquoi l'OF 2508123 est bloqué&nbsp;?</div>
+        </div>
+
+        <div class="msg-asst">
+          <div class="asst-mark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a4 4 0 014 4v1h1a4 4 0 010 8h-1v1a4 4 0 01-8 0v-1H7a4 4 0 010-8h1V6a4 4 0 014-4Z"/><circle cx="12" cy="11" r="1.5" fill="currentColor"/></svg>
+          </div>
+          <div class="asst-body">
+            <div class="asst-head">
+              <span class="asst-head__name">Copilote</span>
+              <span class="model-pill">glm-5.2</span>
+            </div>
+
+            <!-- THINKING — visible in thinking / tools / done -->
+            <details class="think panel" id="panel-think" open>
+              <summary>
+                <span class="think__orb" id="think-orb" data-state="running"></span>
+                <span class="think__label" id="think-label">Réflexion · analyse du blocage OF…</span>
+                <svg class="think__chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+              </summary>
+              <div class="think__body" id="think-body">1. Identifier l'OF 2508123 et son statut WIP.
+2. Descendre le verdict BOM — quel composant manque ?
+3. Chercher une réception couvrante (PO) via listerRuptures.
+4. Formuler la date engageante / impact si couverture trouvée.</div>
+            </details>
+
+            <!-- TOOLS — hidden until tools/done -->
+            <div class="tools panel-hidden" id="panel-tools">
+              <div class="tools__row" id="tools-row">
+                <span class="tools__label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76Z"/></svg>
+                  Outils
+                </span>
+                <!-- filled by JS per state -->
+              </div>
+              <details class="tools__detail" id="tools-detail">
+                <summary>
+                  <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
+                  détail des appels
+                </summary>
+                <div class="tools__payloads" id="tools-payloads"></div>
+              </details>
+            </div>
+
+            <!-- ANSWER — done only -->
+            <div class="panel-hidden" id="panel-answer">
+              <div class="prose">
+                <p>L'<strong>OF 2508123</strong> est bloqué faute du composant <code style="font-family:var(--mono);font-size:12px;background:var(--secondary);padding:1px 5px;border-radius:4px">A-742</code>
+                  <button type="button" class="source-tag" data-flash="ctx-verdict">[tool: getVerdict]</button>.</p>
+                <p>Prochaine réception couvrante&nbsp;: <strong>14/08/2026</strong>
+                  <button type="button" class="source-tag" data-flash="ctx-po">[tool: listerRuptures]</button>
+                  — PO-88421, fournisseur Aldes Components. Impact ligne d'assemblage à confirmer sur le poste suivant.</p>
+              </div>
+              <div class="asst-actions">
+                <button type="button" title="Copier"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                <button type="button" title="Bon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v10M14 21H8a2 2 0 01-2-2v-8l5-7a2 2 0 013.5 1.5V9h4.2a2 2 0 012 2.3l-1.2 7A2 2 0 0118 21h-4z"/></svg></button>
+                <button type="button" title="Mauvais"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 13V3M10 3h6a2 2 0 012 2v8l-5 7a2 2 0 01-3.5-1.5V15H5.3a2 2 0 01-2-2.3l1.2-7A2 2 0 016 3h4z"/></svg></button>
+              </div>
+            </div>
+
+            <div class="busy-line" id="busy-line">
+              <span class="busy-orb" aria-hidden="true"></span>
+              <span id="busy-label">Interroge les données…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dock panel-hidden" id="thread-dock">
+      <div class="composer" data-composer>
+        <textarea class="composer__input" rows="1" placeholder="Poser une question supply…" data-input></textarea>
+        <div class="composer__bar">
+          <button type="button" class="icon-round" title="Joindre" aria-label="Joindre">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <span class="lock-chip">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            Lecture seule
+          </span>
+          <button type="button" class="send" disabled data-send aria-label="Envoyer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="disclaimer">Chiffres issus des outils · pas d'écriture ERP · clique un <code style="font-family:var(--mono);font-size:10.5px;background:var(--brand-soft);color:var(--primary);padding:1px 4px;border-radius:3px">[tool: …]</code> pour flasher le contexte</p>
+    </div>
+  </section>
+
+  <!-- INSPECTOR -->
+  <aside class="insp">
+    <div class="insp-inner">
+      <div class="insp-head">Contexte <span id="insp-sub">en attente</span></div>
+      <div class="insp-body" id="insp-body">
+        <div class="ctx-idle" id="insp-idle">Rien à inspecter. Les cartes apparaissent quand une réponse cite un outil.</div>
+        <div class="ctx-card panel-hidden" id="ctx-verdict">
+          <div class="ctx-card__label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+            Verdict BOM
+          </div>
+          <div class="ctx-card__value" style="font-size:15px;font-weight:700">A-742 manquant</div>
+          <div class="ctx-card__foot">OF 2508123 · statut ferme · source getVerdict</div>
+        </div>
+        <div class="ctx-card panel-hidden" id="ctx-po">
+          <div class="ctx-card__label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Réception couvrante
+          </div>
+          <div class="ctx-card__value">14/08/2026</div>
+          <div class="ctx-card__foot">PO-88421 · Aldes Components · listerRuptures</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="demo" role="group" aria-label="États démo">
+  <button type="button" data-mode="empty" class="is-on">Empty</button>
+  <button type="button" data-mode="thinking">Thinking</button>
+  <button type="button" data-mode="tools">Tools…</button>
+  <button type="button" data-mode="done">Réponse</button>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var empty = document.getElementById('empty');
+  var thread = document.getElementById('thread');
+  var threadDock = document.getElementById('thread-dock');
+  var sideOpen = document.getElementById('side-open');
+
+  var TOOLS = [
+    {
+      name: 'listerOF',
+      label: 'Liste OF',
+      ms: '95 ms',
+      args: '{ id: "2508123" }',
+      result: '{ wipsta: 1, article: "PP_830_ESH", qty: 200 }'
+    },
+    {
+      name: 'getVerdict',
+      label: 'Verdict BOM',
+      ms: '180 ms',
+      args: '{ of: "2508123" }',
+      result: '{ missing: ["A-742"], status: "bloque" }'
+    },
+    {
+      name: 'listerRuptures',
+      label: 'Ruptures / PO',
+      ms: '210 ms',
+      args: '{ composant: "A-742" }',
+      result: '{ po: "PO-88421", date: "2026-08-14", fournisseur: "Aldes Components" }'
+    }
+  ];
+
+  function bindComposer(root) {
+    var ta = root.querySelector('[data-input]');
+    var send = root.querySelector('[data-send]');
+    if (!ta || !send) return;
+    function sync() {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+      send.disabled = ta.value.trim().length === 0;
+    }
+    ta.addEventListener('input', sync);
+    sync();
+  }
+  document.querySelectorAll('[data-composer]').forEach(bindComposer);
+
+  document.querySelectorAll('.suggest').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var ta = empty.querySelector('[data-input]');
+      ta.value = b.getAttribute('data-prompt');
+      ta.dispatchEvent(new Event('input'));
+      ta.focus();
+    });
+  });
+
+  function renderTools(partialCount, runningIdx) {
+    var row = document.getElementById('tools-row');
+    var payloads = document.getElementById('tools-payloads');
+    // keep label
+    var label = row.querySelector('.tools__label');
+    row.innerHTML = '';
+    row.appendChild(label);
+
+    TOOLS.forEach(function (t, i) {
+      if (i >= partialCount) return;
+      var status = (runningIdx === i) ? 'running' : 'done';
+      var el = document.createElement('span');
+      el.className = 'tool-token';
+      el.setAttribute('data-status', status);
+      el.innerHTML = status === 'running'
+        ? '<span class="pulse"></span><span class="tool-token__name">' + t.name + '</span>'
+        : '<span aria-hidden="true">✓</span><span class="tool-token__name">' + t.name + '</span>';
+      row.appendChild(el);
+    });
+
+    payloads.innerHTML = '';
+    TOOLS.forEach(function (t, i) {
+      if (i >= partialCount) return;
+      var status = (runningIdx === i) ? 'running' : 'done';
+      var div = document.createElement('div');
+      div.innerHTML =
+        '<div class="tp__head">' +
+          '<span class="tp__dot" data-status="' + status + '"></span>' +
+          '<span class="tp__name">' + t.name + '</span>' +
+          '<span class="tp__label">— ' + t.label + '</span>' +
+          (status === 'done' ? '<span class="tp__ms">' + t.ms + '</span>' : '<span class="tp__ms">en cours…</span>') +
+        '</div>' +
+        '<pre class="tp__pre"><span class="k">args</span>    ' + t.args +
+        (status === 'done' ? '\n<span class="k">résultat</span> ' + t.result : '\n<span class="k">résultat</span> …') +
+        '</pre>';
+      payloads.appendChild(div);
+    });
+  }
+
+  function setInsp(mode) {
+    var idle = document.getElementById('insp-idle');
+    var v = document.getElementById('ctx-verdict');
+    var po = document.getElementById('ctx-po');
+    var sub = document.getElementById('insp-sub');
+    if (mode === 'done') {
+      idle.classList.add('panel-hidden');
+      v.classList.remove('panel-hidden');
+      po.classList.remove('panel-hidden');
+      sub.textContent = '2 cartes';
+    } else {
+      idle.classList.remove('panel-hidden');
+      v.classList.add('panel-hidden');
+      po.classList.add('panel-hidden');
+      sub.textContent = mode === 'empty' ? 'en attente' : 'stream…';
+    }
+  }
+
+  function setMode(mode) {
+    document.querySelectorAll('.demo [data-mode]').forEach(function (b) {
+      b.classList.toggle('is-on', b.getAttribute('data-mode') === mode);
+    });
+
+    var isEmpty = mode === 'empty';
+    empty.classList.toggle('is-hidden', !isEmpty);
+    thread.classList.toggle('is-visible', !isEmpty);
+    threadDock.classList.toggle('panel-hidden', isEmpty);
+
+    var think = document.getElementById('panel-think');
+    var tools = document.getElementById('panel-tools');
+    var answer = document.getElementById('panel-answer');
+    var busy = document.getElementById('busy-line');
+    var orb = document.getElementById('think-orb');
+    var thinkLabel = document.getElementById('think-label');
+    var detail = document.getElementById('tools-detail');
+
+    think.classList.add('panel-hidden');
+    tools.classList.add('panel-hidden');
+    answer.classList.add('panel-hidden');
+    busy.classList.remove('is-on');
+    detail.open = false;
+
+    if (mode === 'thinking') {
+      think.classList.remove('panel-hidden');
+      think.open = true;
+      orb.setAttribute('data-state', 'running');
+      thinkLabel.textContent = 'Réflexion · analyse du blocage OF…';
+      busy.classList.add('is-on');
+      document.getElementById('busy-label').textContent = 'Analyse…';
+      setInsp('stream');
+    }
+
+    if (mode === 'tools') {
+      think.classList.remove('panel-hidden');
+      think.open = true;
+      orb.setAttribute('data-state', 'running');
+      thinkLabel.textContent = 'Réflexion · croisement stock / PO…';
+      tools.classList.remove('panel-hidden');
+      renderTools(3, 2); // 2 done, 3rd running
+      detail.open = true;
+      busy.classList.add('is-on');
+      document.getElementById('busy-label').textContent = 'Interroge les données…';
+      setInsp('stream');
+    }
+
+    if (mode === 'done') {
+      think.classList.remove('panel-hidden');
+      think.open = false;
+      orb.setAttribute('data-state', 'done');
+      thinkLabel.textContent = 'Réflexion · terminée';
+      tools.classList.remove('panel-hidden');
+      renderTools(3, -1);
+      answer.classList.remove('panel-hidden');
+      setInsp('done');
+    }
+
+    if (mode === 'empty') setInsp('empty');
+  }
+
+  document.querySelectorAll('.demo [data-mode]').forEach(function (b) {
+    b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); });
+  });
+  document.getElementById('btn-new').addEventListener('click', function () { setMode('empty'); });
+  document.querySelectorAll('[data-goto]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.sb-item').forEach(function (x) { x.classList.remove('is-active'); });
+      b.classList.add('is-active');
+      setMode(b.getAttribute('data-goto'));
+    });
+  });
+
+  document.getElementById('side-close').onclick = function () {
+    app.classList.add('no-side'); sideOpen.style.display = '';
+  };
+  sideOpen.onclick = function () {
+    app.classList.remove('no-side'); sideOpen.style.display = 'none';
+  };
+  document.getElementById('insp-toggle').onclick = function () {
+    var on = !app.classList.toggle('no-insp');
+    this.classList.toggle('is-on', on);
+    this.setAttribute('aria-pressed', String(on));
+  };
+
+  document.querySelectorAll('[data-flash]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      app.classList.remove('no-insp');
+      document.getElementById('insp-toggle').classList.add('is-on');
+      var card = document.getElementById(btn.getAttribute('data-flash'));
+      if (!card) return;
+      card.classList.remove('is-flash');
+      void card.offsetWidth;
+      card.classList.add('is-flash');
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+
+  setMode('empty');
+})();
+</script>
+</body>
+</html>

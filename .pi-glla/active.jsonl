@@ -1,0 +1,5 @@
+{"type":"session_rebound","value":{"reason":"reload"},"at":"2026-08-04T19:47:42.108Z"}
+{"type":"session_shutdown","value":{"reason":"new"},"at":"2026-08-04T21:15:01.400Z"}
+{"type":"session_rebound","value":{"reason":"new"},"at":"2026-08-04T21:15:03.067Z"}
+{"type":"rebind_resume","value":{"pid":16566},"at":"2026-08-04T21:15:03.074Z"}
+{"type":"session_shutdown","value":{"reason":"quit"},"at":"2026-08-05T12:13:20.023Z"}

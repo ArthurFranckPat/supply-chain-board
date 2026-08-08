@@ -44,7 +44,7 @@
  * append-only côté serveur. Un dossier dont toutes les lignes visibles sont
  * décidées quitte la pile active pour l'index « Dossiers traités ».
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
 import {
   ArrowDown,
@@ -174,7 +174,15 @@ interface CbnCorrelation {
   nature: string
   detail: string
   poids: number
+  /** Amplitude de la variation, en unités de l'article. */
+  amplitude: number
+  /** Part relative de l'explication (0-1), amplitude normalisée sur les convergentes. */
+  part: number
+  /** Confiance (0-1) de la corrélation. */
+  confiance: number
 }
+
+type CbnNiveau = 'directe' | 'probable' | 'correlation' | 'non_explique'
 
 interface CbnExplanation {
   cle: string
@@ -184,6 +192,31 @@ interface CbnExplanation {
   natureMessage: string
   correlations: CbnCorrelation[]
   contradictions: CbnCorrelation[]
+  niveau: CbnNiveau
+  couverture: number
+  /** Part de la variation de l'article que le catalogue ne relie pas au message. */
+  residuInexplique: number
+  synthese: string
+}
+
+/** Libellés des niveaux de confiance — jamais le mot « cause » (règle d'UI). */
+const NIVEAU_META: Record<CbnNiveau, { label: string; cls: string; bar: string }> = {
+  directe: {
+    label: 'Corrélation directe',
+    cls: 'bg-emerald-100 text-emerald-800',
+    bar: 'bg-emerald-600',
+  },
+  probable: { label: 'Probable', cls: 'bg-amber-100 text-amber-800', bar: 'bg-amber-500' },
+  correlation: {
+    label: 'Corrélation',
+    cls: 'bg-muted text-muted-foreground',
+    bar: 'bg-muted-foreground',
+  },
+  non_explique: {
+    label: 'Non expliqué',
+    cls: 'bg-[#c13515]/10 text-[#c13515]',
+    bar: 'bg-[#c13515]',
+  },
 }
 
 interface ExplanationsResponse {
@@ -194,6 +227,77 @@ interface ExplanationsResponse {
   nbDrivers: number
   explications: CbnExplanation[]
   message?: string
+}
+
+/** Patterns émergents (#138 lot 2) — l'onglet « Tendances ». */
+interface PatternArticle {
+  article: string
+  /** Messages DISTINCTS (clé stable) sur la fenêtre, pas lignes de photo. */
+  nbMessages: number
+  joursSousMessage: number
+  messagesSemaine: number
+  sourceDominante: string | null
+  partSourceDominante: number | null
+  /** Diffs de la fenêtre où l'article portait une corrélation. */
+  diffsExpliques: number
+  volatilite: 'haute' | 'moyenne' | 'basse'
+}
+
+interface PatternFournisseur {
+  fournisseur: string
+  nbMessages: number
+  partReceptionsGlissees: number | null
+}
+
+/** Qualité mesurée du moteur sur le diff le plus récent de la fenêtre. */
+interface QualiteExplications {
+  messages: number
+  nonExpliques: number
+  tauxNonExplique: number | null
+  couvertureMoyenne: number | null
+  residuMoyen: number | null
+}
+
+interface PatternsResponse {
+  apres: string | null
+  avant: string | null
+  fenetreJours: number
+  joursCouverts: number
+  diffsAnalyses: number
+  articles: PatternArticle[]
+  fournisseurs: PatternFournisseur[]
+  qualite: QualiteExplications
+  message?: string
+}
+
+interface OverrideParSource {
+  source: string
+  total: number
+  overrides: number
+  taux: number | null
+  /** Part des décisions « à passer » — l'acheteur a suivi le moteur. */
+  concordance: number | null
+}
+
+interface OverrideParNiveau {
+  niveau: string
+  total: number
+  overrides: number
+  taux: number | null
+}
+
+interface AutoEvaluationResponse {
+  total: number
+  overrides: number
+  tauxGlobal: number | null
+  parSource: OverrideParSource[]
+  parNiveau: OverrideParNiveau[]
+}
+
+const VOLATILITE_LABEL: Record<PatternArticle['volatilite'], string> = {
+  haute: 'Volatile',
+  moyenne: 'Moyen',
+  basse: 'Stable',
 }
 
 const NATURE_DIFF_LABEL: Record<string, string> = {
@@ -293,10 +397,13 @@ function DecisionControl({
   actuelle,
   etatEnvoi,
   onDecide,
+  desactivee = false,
 }: {
   actuelle: DecisionStatut | null
   etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
+  /** Blocage hors envoi : explications de la fenêtre active pas encore là. */
+  desactivee?: boolean
 }) {
   return (
     <div className="flex flex-col items-start gap-1 md:items-end">
@@ -306,7 +413,7 @@ function DecisionControl({
             key={statut}
             type="button"
             onClick={() => onDecide(statut)}
-            disabled={etatEnvoi === 'en-cours'}
+            disabled={etatEnvoi === 'en-cours' || desactivee}
             aria-pressed={actuelle === statut}
             className={cn(
               'rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap transition-colors duration-150 disabled:opacity-50',
@@ -357,7 +464,38 @@ function explicationsPour(
   return parCle.get(item.cleSnapshot)
 }
 
-function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) {
+/**
+ * Contexte historique d'un article (#138 lot 2, § 2.4) : ce que les patterns de
+ * la fenêtre disent de lui. Rendu seulement s'il apporte quelque chose — un
+ * article vu une fois, sans source dominante, n'a pas d'histoire à raconter.
+ */
+function ContexteHistorique({ pattern }: { pattern: PatternArticle | undefined }) {
+  if (pattern === undefined) return null
+  if (pattern.nbMessages <= 1 && pattern.sourceDominante === null) return null
+  return (
+    <div className="text-[10.5px] text-muted-foreground">
+      Historique : {pattern.nbMessages} message{pattern.nbMessages > 1 ? 's' : ''} sur{' '}
+      {pattern.joursSousMessage} jour{pattern.joursSousMessage > 1 ? 's' : ''} de photos
+      {pattern.sourceDominante !== null &&
+        ` · corrélation dominante ${pattern.sourceDominante}${
+          pattern.partSourceDominante === null
+            ? ''
+            : ` (${Math.round(pattern.partSourceDominante * 100)} % sur ${pattern.diffsExpliques} diff${
+                pattern.diffsExpliques > 1 ? 's' : ''
+              })`
+        }`}
+      {pattern.volatilite === 'haute' && ' · article volatil, bruit structurel'}
+    </div>
+  )
+}
+
+function ExplanationBlock({
+  explications,
+  patternsParArticle,
+}: {
+  explications: CbnExplanation[]
+  patternsParArticle?: Map<string, PatternArticle>
+}) {
   if (explications.length === 0) return null
   return (
     <div className="mt-2 rounded-md border border-[#e8e8e8] bg-[#fafaf8] px-3 py-2">
@@ -382,22 +520,57 @@ function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) 
             <span className="text-[10.5px] text-muted-foreground">
               {exp.article} · {exp.cle}
             </span>
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em]',
+                NIVEAU_META[exp.niveau]?.cls ?? 'bg-muted text-muted-foreground'
+              )}
+            >
+              {NIVEAU_META[exp.niveau]?.label ?? exp.niveau}
+            </span>
           </div>
           {exp.correlations.length > 0 ? (
-            <ul className="space-y-0.5">
-              {exp.correlations.map((c, i) => (
-                <li key={i} className="flex gap-1.5 text-[11px] leading-snug">
-                  <Info size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  <span>
-                    <span className="font-semibold">{c.source}</span> — {c.detail}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* La synthèse n'est rendue que dans cette branche : pour un
+                  « non expliqué » elle est déjà le texte du repli ci-dessous,
+                  la rendre deux fois doublerait l'information. */}
+              <div className="text-[11px] font-medium text-foreground">{exp.synthese}</div>
+              <ul className="space-y-0.5">
+                {exp.correlations.map((c, i) => {
+                  const meta = NIVEAU_META[exp.niveau]
+                  const largeur = Math.round((c.part ?? 0) * 100)
+                  return (
+                    <li key={i} className="text-[11px] leading-snug">
+                      <div className="flex items-baseline gap-1.5">
+                        <Info size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
+                        <span>
+                          <span className="font-semibold">{c.source}</span> — {c.detail}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 pl-[18px]">
+                        {/* Barre de part : poids normalisé de la corrélation dans
+                            l'explication (lot 2). */}
+                        <span className="h-1 w-24 overflow-hidden rounded-full bg-[#ebebeb]">
+                          <span
+                            className={cn(
+                              'block h-full rounded-full',
+                              meta?.bar ?? 'bg-muted-foreground'
+                            )}
+                            style={{ width: `${Math.max(4, Math.min(100, largeur))}%` }}
+                          />
+                        </span>
+                        <span className="text-[10px] tabular-nums text-muted-foreground">
+                          {largeur} % · confiance {Math.round((c.confiance ?? 0) * 100)} %
+                        </span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
           ) : (
             <div className="text-[11px] italic text-muted-foreground">
-              Non expliqué — aucune variation convergente au-delà des seuils (±20 % quantité, ±7 j)
-              sur cet article entre les deux photos.
+              {exp.synthese ?? 'Non expliqué'}
             </div>
           )}
           {exp.contradictions.length > 0 && (
@@ -415,6 +588,7 @@ function ExplanationBlock({ explications }: { explications: CbnExplanation[] }) 
               </ul>
             </details>
           )}
+          <ContexteHistorique pattern={patternsParArticle?.get(exp.article)} />
           <div className="text-[10px] text-muted-foreground/70">
             Corrélations, non causes — le CBN fait du netting par fenêtres.
           </div>
@@ -430,6 +604,8 @@ function ItemRow({
   etatEnvoi,
   onDecide,
   explications,
+  patternsParArticle,
+  explicationsEnChargement = false,
 }: {
   item: ApproItem
   decisionActuelle: DecisionStatut | null
@@ -437,6 +613,12 @@ function ItemRow({
   etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
   explications?: CbnExplanation[]
+  patternsParArticle?: Map<string, PatternArticle>
+  /** Vrai pendant un re-fetch des explications (changement de fenêtre). Les
+   *  décisions de MESSAGE sont alors bloquées : figer une prédiction de J-1
+   *  sous la fenêtre J-7, ou à null avant le premier chargement, corromprait
+   *  l'auto-évaluation sans recours possible (revue lot 2). */
+  explicationsEnChargement?: boolean
 }) {
   const meta = item.message === null ? null : MESSAGE_META[item.message]
   const Icon = meta?.icon ?? ShoppingCart
@@ -445,6 +627,7 @@ function ItemRow({
      encre — la commande n'est pas encore posée dans X3. */
   const traitee =
     decisionActuelle === 'vu' || decisionActuelle === 'ignorer' || etatEnvoi === 'en-cours'
+  const decisionsBloquees = item.nature === 'message' && explicationsEnChargement
   return (
     <li
       className={cn(
@@ -513,11 +696,16 @@ function ItemRow({
 
       {/* Décision acheteur (ledger #134) */}
       <div className="md:pt-0.5">
-        <DecisionControl actuelle={decisionActuelle} etatEnvoi={etatEnvoi} onDecide={onDecide} />
+        <DecisionControl
+          actuelle={decisionActuelle}
+          etatEnvoi={etatEnvoi}
+          onDecide={onDecide}
+          desactivee={decisionsBloquees}
+        />
       </div>
       {item.nature === 'message' && explications !== undefined && explications.length > 0 && (
         <div className="col-span-full">
-          <ExplanationBlock explications={explications} />
+          <ExplanationBlock explications={explications} patternsParArticle={patternsParArticle} />
         </div>
       )}
     </li>
@@ -560,12 +748,16 @@ function Feuille({
   envois,
   onDecide,
   explicationsParCle,
+  patternsParArticle,
+  explicationsEnChargement = false,
 }: {
   vue: FeuilleVue
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
+  patternsParArticle?: Map<string, PatternArticle>
+  explicationsEnChargement?: boolean
 }) {
   const { dossier, suggestions, messages } = vue
   const nbItems = suggestions.length + messages.length
@@ -578,6 +770,8 @@ function Feuille({
         etatEnvoi={envois[item.cle] ?? 'inerte'}
         onDecide={(statut) => onDecide(item, statut)}
         explications={explicationsPour(explicationsParCle, item)}
+        patternsParArticle={patternsParArticle}
+        explicationsEnChargement={explicationsEnChargement}
       />
     ))
   return (
@@ -656,12 +850,16 @@ function DossiersTraités({
   envois,
   onDecide,
   explicationsParCle,
+  patternsParArticle,
+  explicationsEnChargement = false,
 }: {
   vues: FeuilleVue[]
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, fournisseur: string, statut: DecisionStatut) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
+  patternsParArticle?: Map<string, PatternArticle>
+  explicationsEnChargement?: boolean
 }) {
   if (vues.length === 0) return null
   return (
@@ -706,6 +904,8 @@ function DossiersTraités({
                     etatEnvoi={envois[item.cle] ?? 'inerte'}
                     onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
                     explications={explicationsPour(explicationsParCle, item)}
+                    patternsParArticle={patternsParArticle}
+                    explicationsEnChargement={explicationsEnChargement}
                   />
                 ))}
               </ul>
@@ -717,12 +917,351 @@ function DossiersTraités({
   )
 }
 
+/** Barre de part d'une source dans l'auto-évaluation (lot 2). */
+function TauxBar({ taux }: { taux: number | null }) {
+  if (taux === null) return <span className="text-[10px] text-muted-foreground">—</span>
+  const pct = Math.round(taux * 100)
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="h-1 w-16 overflow-hidden rounded-full bg-[#ebebeb]">
+        <span
+          className={cn(
+            'block h-full rounded-full',
+            pct >= 50 ? 'bg-[#c13515]' : pct >= 25 ? 'bg-[#fc642d]' : 'bg-emerald-600'
+          )}
+          style={{ width: `${Math.max(4, Math.min(100, pct))}%` }}
+        />
+      </span>
+      <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">{pct} %</span>
+    </span>
+  )
+}
+
+/**
+ * Onglet « Tendances » (#138 lot 2) : patterns émergents (articles volatils,
+ * fournisseurs à réceptions glissées) et auto-évaluation du moteur par source
+ * prédite. Lecture seule — aucun appel X3, tout vient des photos et du ledger.
+ */
+function TendancesPanel({
+  patterns,
+  autoEval,
+}: {
+  patterns: PatternsResponse | null
+  autoEval: AutoEvaluationResponse | null
+}) {
+  const qualite = patterns?.qualite
+  return (
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-lg border border-rule bg-card">
+        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
+          <h2 className="text-sm font-bold tracking-tight">Qualité des explications</h2>
+          <p className="text-1.5xs text-muted-foreground">
+            Mesurée sur le diff le plus récent de la fenêtre — les critères d'acceptation du lot 2,
+            pas une promesse.
+          </p>
+        </header>
+        {qualite === undefined || qualite.messages === 0 ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            {patterns?.message ?? 'Aucun message à mesurer sur la fenêtre.'}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-x-8 gap-y-2 px-5 py-4 text-xs">
+            <span>
+              <b className="font-bold tabular-nums text-foreground">{qualite.messages}</b> message
+              {qualite.messages > 1 ? 's' : ''} expliqué{qualite.messages > 1 ? 's' : ''}
+            </span>
+            <span>
+              non expliqués{' '}
+              <b className="font-bold tabular-nums text-foreground">
+                {qualite.nonExpliques}
+                {qualite.tauxNonExplique !== null &&
+                  ` (${Math.round(qualite.tauxNonExplique * 100)} %)`}
+              </b>
+            </span>
+            {qualite.couvertureMoyenne !== null && (
+              <span>
+                couverture moyenne{' '}
+                <b className="font-bold tabular-nums text-foreground">
+                  {Math.round(qualite.couvertureMoyenne * 100)} %
+                </b>
+              </span>
+            )}
+            {qualite.residuMoyen !== null && (
+              <span>
+                variation inexpliquée{' '}
+                <b className="font-bold tabular-nums text-foreground">
+                  {Math.round(qualite.residuMoyen * 100)} %
+                </b>
+              </span>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-rule bg-card">
+        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
+          <h2 className="text-sm font-bold tracking-tight">Auto-évaluation du moteur</h2>
+          <p className="text-1.5xs text-muted-foreground">
+            Taux d'override du ledger par source prédite — le signal d'une règle fausse ou d'un
+            master data pourri (#106). Corrélations, jamais « causes ».
+          </p>
+        </header>
+        {autoEval === null ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            Aucune décision enregistrée avec source prédite — l'auto-évaluation se remplit quand
+            l'acheteur décide des lignes expliquées.
+          </div>
+        ) : (
+          <div className="px-5 py-4">
+            <div className="mb-3 flex flex-wrap gap-4 text-xs">
+              <span>
+                <b className="font-bold tabular-nums text-foreground">{autoEval.total}</b> décision
+                {autoEval.total > 1 ? 's' : ''} analysée
+                {autoEval.total > 1 ? 's' : ''}
+              </span>
+              <span>
+                <b className="font-bold tabular-nums text-foreground">{autoEval.overrides}</b>{' '}
+                override{autoEval.overrides > 1 ? 's' : ''}
+              </span>
+              {autoEval.tauxGlobal !== null && (
+                <span>
+                  taux global{' '}
+                  <b className="font-bold tabular-nums text-foreground">
+                    {Math.round(autoEval.tauxGlobal * 100)} %
+                  </b>
+                </span>
+              )}
+            </div>
+            {autoEval.parSource.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                Aucune source prédite agrégée pour l'instant.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[#ebebeb] text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                    <th className="py-1.5 pr-3 font-semibold">Source</th>
+                    <th className="py-1.5 pr-3 font-semibold">Décisions</th>
+                    <th className="py-1.5 pr-3 font-semibold">Overrides</th>
+                    <th className="py-1.5 pr-3 font-semibold">Taux</th>
+                    <th className="py-1.5 font-semibold" title="Part des décisions « à passer »">
+                      Concordance
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {autoEval.parSource.map((c) => (
+                    <tr key={c.source} className="border-b border-[#f2f2f0]">
+                      <td className="py-1.5 pr-3 font-medium">{c.source}</td>
+                      <td className="py-1.5 pr-3 tabular-nums">{c.total}</td>
+                      <td className="py-1.5 pr-3 tabular-nums">{c.overrides}</td>
+                      <td className="py-1.5 pr-3">
+                        <TauxBar taux={c.taux} />
+                      </td>
+                      <td className="py-1.5 tabular-nums">
+                        {c.concordance === null ? '—' : `${Math.round(c.concordance * 100)} %`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {autoEval.parNiveau.length > 0 && (
+              <div className="mt-4">
+                <h3 className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                  Par niveau affiché
+                </h3>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                  {autoEval.parNiveau.map((n) => (
+                    <span key={n.niveau} className="inline-flex items-center gap-1.5">
+                      {NIVEAU_META[n.niveau as CbnNiveau]?.label ?? n.niveau} ·{' '}
+                      <b className="font-bold tabular-nums text-foreground">{n.total}</b>
+                      <TauxBar taux={n.taux} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-rule bg-card">
+        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
+          <h2 className="text-sm font-bold tracking-tight">Articles volatils</h2>
+          <p className="text-1.5xs text-muted-foreground">
+            Fréquence de messages sur la fenêtre — le bruit structurel qu'il faut signaler plutôt
+            que laisser encombrer la file.
+          </p>
+        </header>
+        {patterns === null || patterns.apres === null ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            {patterns?.message ??
+              'Historique insuffisant — les patterns demandent au moins deux photos.'}
+          </div>
+        ) : patterns.articles.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            Aucun message sur la fenêtre {fr(patterns.avant)} → {fr(patterns.apres)}.
+          </div>
+        ) : (
+          <div className="px-5 py-4">
+            <p className="mb-3 text-1.5xs text-muted-foreground">
+              Fenêtre {fr(patterns.avant)} → {fr(patterns.apres)} · {patterns.joursCouverts} jour
+              {patterns.joursCouverts > 1 ? 's' : ''} couvert{patterns.joursCouverts > 1 ? 's' : ''}{' '}
+              sur {patterns.fenetreJours} demandés · {patterns.diffsAnalyses} diff
+              {patterns.diffsAnalyses > 1 ? 's' : ''} analysé
+              {patterns.diffsAnalyses > 1 ? 's' : ''} pour la dominance. Un message qui dure compte
+              une fois.
+            </p>
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#ebebeb] text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                  <th className="py-1.5 pr-3 font-semibold">Article</th>
+                  <th className="py-1.5 pr-3 font-semibold">Volatilité</th>
+                  <th className="py-1.5 pr-3 font-semibold">Messages</th>
+                  <th className="py-1.5 pr-3 font-semibold">Jours</th>
+                  <th className="py-1.5 pr-3 font-semibold">/semaine</th>
+                  <th className="py-1.5 font-semibold">Source dominante</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patterns.articles.slice(0, 20).map((a) => (
+                  <tr key={a.article} className="border-b border-[#f2f2f0]">
+                    <td className="py-1.5 pr-3 font-medium">{a.article}</td>
+                    <td className="py-1.5 pr-3">
+                      <span
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                          a.volatilite === 'haute' && 'bg-[#c13515]/10 text-[#c13515]',
+                          a.volatilite === 'moyenne' && 'bg-amber-100 text-amber-800',
+                          a.volatilite === 'basse' && 'bg-muted text-muted-foreground'
+                        )}
+                      >
+                        {VOLATILITE_LABEL[a.volatilite]}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-3 tabular-nums">{a.nbMessages}</td>
+                    <td className="py-1.5 pr-3 tabular-nums">{a.joursSousMessage}</td>
+                    <td className="py-1.5 pr-3 tabular-nums">{a.messagesSemaine}</td>
+                    <td className="py-1.5">
+                      {a.sourceDominante === null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span>
+                          {a.sourceDominante}
+                          {a.partSourceDominante !== null && (
+                            <span className="ml-1 text-[10px] text-muted-foreground">
+                              {Math.round(a.partSourceDominante * 100)} % · {a.diffsExpliques} diff
+                              {a.diffsExpliques > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-rule bg-card">
+        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
+          <h2 className="text-sm font-bold tracking-tight">Fournisseurs à surveiller</h2>
+          <p className="text-1.5xs text-muted-foreground">
+            Part des messages liés à des réceptions glissées — un signal fournisseur, pas un signal
+            CBN.
+          </p>
+        </header>
+        {patterns === null || patterns.apres === null ? (
+          // Même cause, même phrase que la section au-dessus : dire « aucun
+          // fournisseur » quand l'historique manque était une contradiction
+          // avec le bloc « Articles volatils » sur le même écran.
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            {patterns?.message ??
+              'Historique insuffisant — les patterns demandent au moins deux photos.'}
+          </div>
+        ) : patterns.fournisseurs.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            Aucun fournisseur avec messages sur la fenêtre {fr(patterns.avant)} →{' '}
+            {fr(patterns.apres)}.
+          </div>
+        ) : (
+          <div className="px-5 py-4">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#ebebeb] text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                  <th className="py-1.5 pr-3 font-semibold">Fournisseur</th>
+                  <th className="py-1.5 pr-3 font-semibold">Messages</th>
+                  <th className="py-1.5 font-semibold">Part réceptions glissées</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patterns.fournisseurs.slice(0, 20).map((f) => (
+                  <tr key={f.fournisseur} className="border-b border-[#f2f2f0]">
+                    <td className="py-1.5 pr-3 font-medium">{f.fournisseur}</td>
+                    <td className="py-1.5 pr-3 tabular-nums">{f.nbMessages}</td>
+                    <td className="py-1.5">
+                      <TauxBar taux={f.partReceptionsGlissees} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   const { data, loading, error, ms } = useTimedFetch<ApproResponse>(rowsHref)
-  // Lot 1 : explications corrélées (besoin de 2 photos). Indépendant du rowsHref.
-  const { data: explData } = useTimedFetch<ExplanationsResponse>('/api/v1/appro/explanations')
+  // Lot 2 : fenêtre de comparaison des explications (J-1 / J-7 / J-30). La
+  // fenêtre pilote l'URL de fetch : changer de fenêtre relance le fetch, et
+  // l'explication affichée correspond aux dates réelles des photos (trous
+  // week-ends/pannes gérés côté serveur, `photosMessagesFenetre`).
+  const [fenetre, setFenetre] = useState<number>(1)
+  const explicationsHref =
+    fenetre === 1 ? '/api/v1/appro/explanations' : `/api/v1/appro/explanations?fenetre=${fenetre}`
+  const { data: explData, loading: explLoading } =
+    useTimedFetch<ExplanationsResponse>(explicationsHref)
+  // La fenêtre qui a produit les explications actuellement en main. `useTimedFetch`
+  // GARDE la donnée précédente pendant un re-fetch : sans cette référence, une
+  // décision prise juste après un changement de fenêtre figerait la prédiction
+  // de J-1 sous la fenêtre J-7, et une décision prise avant le premier
+  // chargement figerait des prédictions à null — irrécupérables dans le ledger
+  // (revue lot 2). Tant que la réponse de la fenêtre active n'est pas là, les
+  // explications sont considérées absentes et les décisions de message bloquées.
+  const fenetreExplRef = useRef<number>(fenetre)
+  useEffect(() => {
+    if (!explLoading && explData !== null) fenetreExplRef.current = fenetre
+  }, [explLoading, explData, fenetre])
+  const explicationsValides =
+    !explLoading && explData !== null && fenetreExplRef.current === fenetre
+  // Lot 2 : patterns émergents sur 21 jours (3 semaines de maturation). Chargés
+  // dans les DEUX vues, parce que le contexte historique d'un article
+  // (« 7 messages sur 12 jours de photos, corrélation dominante stock ») se lit
+  // sous l'explication de la ligne, pas seulement dans l'onglet Tendances. Un
+  // seul appel : le serveur le sert depuis le cache des photos.
+  const [vue, setVue] = useState<'feuilles' | 'tendances'>('feuilles')
+  const { data: patternsData } = useTimedFetch<PatternsResponse>(
+    '/api/v1/appro/patterns?fenetre=21'
+  )
+  // L'auto-évaluation, elle, ne sert QUE l'onglet Tendances (`url: null` =
+  // onglet inactif, aucun fetch).
+  const autoEvalHref = vue === 'tendances' ? '/api/v1/appro/auto-evaluation' : null
+  const { data: autoEvalData } = useTimedFetch<AutoEvaluationResponse>(autoEvalHref)
+  const patternsParArticle = useMemo(() => {
+    if (patternsData === null || patternsData.articles.length === 0) return undefined
+    const m = new Map<string, PatternArticle>()
+    for (const a of patternsData.articles) m.set(a.article, a)
+    return m
+  }, [patternsData])
   const explicationsParCle = useMemo(() => {
-    if (!explData || !explData.explications || explData.explications.length === 0) return undefined
+    if (!explicationsValides || !explData.explications || explData.explications.length === 0)
+      return undefined
     const m = new Map<string, CbnExplanation[]>()
     for (const e of explData.explications) {
       const list = m.get(e.cle)
@@ -730,7 +1269,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
       else list.push(e)
     }
     return m
-  }, [explData])
+  }, [explicationsValides, explData])
   const maturationInfo =
     explData && explData.avant === null && explData.apres === null ? explData.message : null
   // Un message DISPARU n'existe plus dans X3, donc plus dans la file : son
@@ -749,6 +1288,25 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
 
   /** POST d'une décision — append-only côté serveur, mise à jour locale immédiate. */
   const poster = async (item: ApproItem, fournisseur: string, statut: DecisionStatut) => {
+    // Lot 2 : figer ce que le moteur disait au moment de la décision — la
+    // source dominante, sa confiance et le verdict du triage — pour
+    // l'auto-évaluation (`cause_predit` etc.). Récupéré depuis l'explication
+    // de CETTE ligne (`cleSnapshot`), jamais une autre.
+    const explications = explicationsPour(explicationsParCle, item)
+    const explication = explications?.[0]
+    const principale = explication?.correlations[0]
+    const predits =
+      item.nature === 'message' && explication !== undefined && principale !== undefined
+        ? {
+            causePredit: principale.source,
+            confiancePredit: principale.confiance,
+            // Le niveau est le seul de ces champs que l'acheteur avait sous les
+            // yeux en décidant — sans lui, l'auto-évaluation ne peut pas dire
+            // si les explications présentées comme sûres tiennent mieux.
+            niveauPredit: explication.niveau,
+            verdictPredit: item.triage?.verdict ?? null,
+          }
+        : {}
     const body =
       item.nature === 'message'
         ? {
@@ -758,6 +1316,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
             // que le serveur la recompose, c'est deux définitions d'un format.
             cle: item.cle,
             article: item.article,
+            ...predits,
           }
         : {
             nature: 'suggestion' as const,
@@ -879,6 +1438,28 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
           colonne toolbar + zone scrollable (même montage que /ruptures). */}
       <div className="flex h-full min-h-0 flex-col">
         <ToolbarRow>
+          <Segment ariaLabel="Vue" label="Vue">
+            {(
+              [
+                ['feuilles', 'Feuilles'],
+                ['tendances', 'Tendances'],
+              ] as Array<['feuilles' | 'tendances', string]>
+            ).map(([val, label]) => (
+              <SegmentButton
+                key={val}
+                active={vue === val}
+                onClick={() => setVue(val)}
+                title={
+                  val === 'feuilles'
+                    ? 'Feuilles de préparation fournisseur'
+                    : 'Patterns émergents et auto-évaluation (#138 lot 2)'
+                }
+              >
+                {label}
+              </SegmentButton>
+            ))}
+          </Segment>
+
           <Segment ariaLabel="Nature" label="Nature">
             {(
               [
@@ -898,6 +1479,28 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
               </SegmentButton>
             ))}
           </Segment>
+
+          {vue === 'feuilles' && (
+            <Segment role="radiogroup" ariaLabel="Fenêtre d'explication" label="Comparaison">
+              {(
+                [
+                  [1, 'J-1'],
+                  [7, 'J-7'],
+                  [30, 'J-30'],
+                ] as Array<[number, string]>
+              ).map(([val, label]) => (
+                <SegmentButton
+                  key={val}
+                  role="radio"
+                  active={fenetre === val}
+                  title={`Explications sur la fenêtre ${label} (trous week-ends/pannes tolérés)`}
+                  onClick={() => setFenetre(val)}
+                >
+                  {label}
+                </SegmentButton>
+              ))}
+            </Segment>
+          )}
 
           <Segment role="radiogroup" ariaLabel="Horizon" label="Horizon">
             {HORIZONS.map((h) => (
@@ -949,62 +1552,75 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
               </div>
             )}
 
-            {!loading &&
-              error === null &&
-              data?.x3Error == null &&
-              actives.length === 0 &&
-              traitees.length === 0 && (
-                <div className="flex items-center justify-center gap-3 rounded-lg border border-rule bg-card px-4 py-10 text-sm text-muted-foreground">
-                  <Inbox className="size-4 shrink-0" />
-                  <span>Rien à décider sur cet horizon.</span>
-                </div>
-              )}
-
-            {maturationInfo !== null && !loading && error === null && data?.x3Error == null && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-                <Info size={16} className="shrink-0" />
-                <span>
-                  {maturationInfo} — historique en cours de constitution (J+2 pour explications).
-                </span>
-              </div>
-            )}
-            {explData !== null &&
-              explData.avant !== null &&
-              explData.apres !== null &&
-              explData.explications.length > 0 &&
-              !loading &&
-              error === null &&
-              data?.x3Error == null && (
-                <div className="mb-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800">
-                  <Info size={14} className="shrink-0" />
-                  <span>
-                    Explications corrélées {fr(explData.avant)} → {fr(explData.apres)} :{' '}
-                    {nbAffichables} message{nbAffichables > 1 ? 's' : ''} sur cette page
-                    {nbSoldes > 0 && `, ${nbSoldes} soldé${nbSoldes > 1 ? 's' : ''} depuis`}
-                  </span>
-                </div>
-              )}
-            {!loading && error === null && data?.x3Error == null && (
+            {vue === 'tendances' ? (
+              <TendancesPanel patterns={patternsData} autoEval={autoEvalData} />
+            ) : (
               <>
-                <div className="space-y-3">
-                  {actives.map((vue) => (
-                    <Feuille
-                      key={vue.dossier.fournisseur || '∅'}
-                      vue={vue}
+                {!loading &&
+                  error === null &&
+                  data?.x3Error == null &&
+                  actives.length === 0 &&
+                  traitees.length === 0 && (
+                    <div className="flex items-center justify-center gap-3 rounded-lg border border-rule bg-card px-4 py-10 text-sm text-muted-foreground">
+                      <Inbox className="size-4 shrink-0" />
+                      <span>Rien à décider sur cet horizon.</span>
+                    </div>
+                  )}
+
+                {maturationInfo !== null && !loading && error === null && data?.x3Error == null && (
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                    <Info size={16} className="shrink-0" />
+                    <span>
+                      {maturationInfo} — historique en cours de constitution (J+2 pour
+                      explications).
+                    </span>
+                  </div>
+                )}
+                {explicationsValides &&
+                  explData.avant !== null &&
+                  explData.apres !== null &&
+                  explData.explications.length > 0 &&
+                  !loading &&
+                  error === null &&
+                  data?.x3Error == null && (
+                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800">
+                      <Info size={14} className="shrink-0" />
+                      <span>
+                        Explications corrélées {fr(explData.avant)} → {fr(explData.apres)} :{' '}
+                        {nbAffichables} message{nbAffichables > 1 ? 's' : ''} sur cette page
+                        {nbSoldes > 0 && `, ${nbSoldes} soldé${nbSoldes > 1 ? 's' : ''} depuis`}
+                      </span>
+                    </div>
+                  )}
+                {!loading && error === null && data?.x3Error == null && (
+                  <>
+                    <div className="space-y-3">
+                      {actives.map((feuille) => (
+                        <Feuille
+                          key={feuille.dossier.fournisseur || '∅'}
+                          vue={feuille}
+                          decisions={decisions}
+                          envois={envois}
+                          onDecide={(item, statut) =>
+                            poster(item, feuille.dossier.fournisseur, statut)
+                          }
+                          explicationsParCle={explicationsParCle}
+                          patternsParArticle={patternsParArticle}
+                          explicationsEnChargement={!explicationsValides}
+                        />
+                      ))}
+                    </div>
+                    <DossiersTraités
+                      vues={traitees}
                       decisions={decisions}
                       envois={envois}
-                      onDecide={(item, statut) => poster(item, vue.dossier.fournisseur, statut)}
+                      onDecide={poster}
                       explicationsParCle={explicationsParCle}
+                      patternsParArticle={patternsParArticle}
+                      explicationsEnChargement={!explicationsValides}
                     />
-                  ))}
-                </div>
-                <DossiersTraités
-                  vues={traitees}
-                  decisions={decisions}
-                  envois={envois}
-                  onDecide={poster}
-                  explicationsParCle={explicationsParCle}
-                />
+                  </>
+                )}
               </>
             )}
           </div>
