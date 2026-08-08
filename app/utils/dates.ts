@@ -70,3 +70,20 @@ export function estIsoDayValide(s: string): boolean {
   // lever : la relecture des trois composantes est ce qui les détecte.
   return d.getFullYear() === annee && d.getMonth() === mois - 1 && d.getDate() === jour
 }
+
+/**
+ * Écart en jours entiers entre deux dates ISO (`YYYY-MM-DD`). `null` si l'une
+ * des deux manque ou est inparseable. Toujours calculé sur UTC minuit pour
+ * l'indépendance du fuseau — l'appelant compare des jours, pas des instants.
+ *
+ * Maison unique pour `cbn_driver_diff`, `cbn_explanation`, `cbn_root_cause` :
+ * les trois avaient chacun leur copie privée identique (revue PR #158 point 15).
+ * Un futur passage remplacera les doublons par cet import.
+ */
+export const joursEntre = (deIso: string | null, aIso: string | null): number | null => {
+  if (deIso === null || aIso === null) return null
+  const de = Date.parse(`${deIso}T00:00:00Z`)
+  const a = Date.parse(`${aIso}T00:00:00Z`)
+  if (!Number.isFinite(de) || !Number.isFinite(a)) return null
+  return Math.round((a - de) / DAY_MS)
+}
