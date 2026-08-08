@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-_Profil agent du projet. Français strict ; commandes, noms de fichiers et mots-clés verbatim._
+_Profil agent du projet — commun à tous les agents (`AGENTS.md` est un lien vers ce fichier).
+Français strict ; commandes, noms de fichiers et mots-clés verbatim._
 
 ## Stack et pièges structurants
 
@@ -24,17 +25,19 @@ git worktree add ../supply-chain-board-worktrees/<branche> <branche>
 ```
 
 Puis copier depuis le worktree source `.env` et `tmp/db.sqlite3` (gitignorés, indispensables),
-et lancer `npm ci`. Le skill `worktree-setup` enchaîne ces étapes.
+et lancer `npm ci`. Sous Claude Code, le skill `worktree-setup` enchaîne ces étapes.
 
 ## Workflow : code → commit → push → CI verte
 
 Après chaque tâche terminée (feature, fix, refacto), dans cet ordre :
 
 1. **Gate** : `npm run typecheck` **et** `npm run lint`. Les deux, systématiquement.
-2. **Commit** en français, préfixe `feat(scope):` / `fix(scope):`, terminé par le trailer :
-   `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
+2. **Commit** en français, préfixe `feat(scope):` / `fix(scope):`, terminé par un trailer
+   `Co-Authored-By:` **nommant le modèle qui a réellement fait le travail** — p. ex.
+   `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
    Non négociable : sans lui, le travail de l'agent est attribué en totalité à l'utilisateur
-   dans `git log`, `git blame` et sur GitHub.
+   dans `git log`, `git blame` et sur GitHub. Et un trailer qui nomme le mauvais modèle est
+   pire que pas de trailer : il attribue le travail à un tiers.
 3. **Push**. Le hook `pre-push` rejoue typecheck + lint en ~3 s et refuse le push s'ils
    échouent. Il est versionné et actif via `core.hooksPath=scripts/hooks` — rien à installer,
    y compris dans un nouveau worktree. Échappatoire assumée : `git push --no-verify`.
