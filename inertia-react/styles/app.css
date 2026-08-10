@@ -158,13 +158,13 @@
   --chart-4: #6a6a6a;
   --chart-5: #222222;
   --radius: 0.875rem;                /* 14px — cards/dialogs (boutons = sm) */
-  --sidebar: #ffffff;
+  --sidebar: #f7f6f3;               /* Pulse/Notion — beige clair */
   --sidebar-foreground: #222222;
   --sidebar-primary: #ff385c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
+  --sidebar-accent: #efede8;       /* hover sidebar item */
   --sidebar-accent-foreground: #222222;
-  --sidebar-border: #dddddd;
+  --sidebar-border: #ebebeb;
   --sidebar-ring: #222222;
 
   /* ── Tokens métier (statuts OF) — portails inclus. ── */
@@ -205,13 +205,13 @@
   --chart-3: #fc642d;
   --chart-4: #6a6a6a;
   --chart-5: #222222;
-  --sidebar: #ffffff;
+  --sidebar: #f7f6f3;
   --sidebar-foreground: #222222;
   --sidebar-primary: #ff385c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
+  --sidebar-accent: #efede8;
   --sidebar-accent-foreground: #222222;
-  --sidebar-border: #dddddd;
+  --sidebar-border: #ebebeb;
   --sidebar-ring: #222222;
 }
 
@@ -398,14 +398,14 @@
   --font-heading: 'Plus Jakarta Sans Variable', sans-serif;
   --font-mono: 'Plus Jakarta Sans Variable', system-ui, sans-serif; /* tabular-nums pour OF/dates */
 
-  /* ── Sidebar — neutre, alignée sur le canvas ── */
-  --sidebar: #ffffff;
+  /* ── Sidebar — Pulse/Notion (#f7f6f3), hover #efede8 ── */
+  --sidebar: #f7f6f3;
   --sidebar-foreground: #222222;
   --sidebar-primary: #ff385c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
+  --sidebar-accent: #efede8;
   --sidebar-accent-foreground: #222222;
-  --sidebar-border: #dddddd;
+  --sidebar-border: #ebebeb;
   --sidebar-ring: #222222;
 
   /* ── Charts — Rausch + palette brand ── */
