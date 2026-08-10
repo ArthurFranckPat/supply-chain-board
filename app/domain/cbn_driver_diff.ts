@@ -9,7 +9,7 @@ import { fmtFr } from '#app/utils/dates'
 /**
  * Diff des drivers du CBN par article (#138 lot 1).
  *
- * Les 8 sources de `demand_snapshots` sont figées chaque nuit. Ce module
+ * Les 9 sources de `demand_snapshots` (dont `besoin_matiere`) sont figées chaque nuit. Ce module
  * compare deux photos d'un même article et isole ce qui a bougé au-delà du
  * bruit, pour que `cbn_explanation.ts` puisse le corréler à un message du
  * même article.

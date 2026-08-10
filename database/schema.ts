@@ -195,6 +195,7 @@ export class DemandSnapshotSchema extends BaseModel {
     'fournisseur',
     'id',
     'itmref',
+    'itmrefori',
     'quantity',
     'snapshotDate',
     'source',
@@ -212,6 +213,8 @@ export class DemandSnapshotSchema extends BaseModel {
   declare id: number
   @column()
   declare itmref: string
+  @column()
+  declare itmrefori: string | null
   @column()
   declare quantity: number
   @column.date()

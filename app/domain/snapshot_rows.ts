@@ -12,6 +12,8 @@ export type DemandSnapshotRow = {
   quantity: number
   date_echeance: string | null
   fournisseur: string | null
+  /** Article parent (pegging) — peuplé uniquement pour `besoin_matiere` (WIPTYP=6). */
+  itmrefori?: string | null
 }
 
 export type ApproMessageSnapshotRow = {

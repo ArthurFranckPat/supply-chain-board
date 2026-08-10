@@ -737,8 +737,10 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
     // echec
     assert.equal((bySource.get('appro_suggestion') as Record<string, unknown>)?.statut, 'echec')
     assert.equal((bySource.get('appro_message') as Record<string, unknown>)?.statut, 'echec')
-    // Toutes les sources attendues sont tracées (8 demand + 1 message)
-    assert.lengthOf(rows, 9)
+    // besoin_matiere — vide dans ce run (aucune ligne, pas en échec)
+    assert.equal((bySource.get('besoin_matiere') as Record<string, unknown>)?.statut, 'vide')
+    // Toutes les sources attendues sont tracées (9 demand + 1 message)
+    assert.lengthOf(rows, 10)
   }).timeout(15_000)
 
   test('une source réellement vide reste comparée : sa disparition est affichée', async ({
