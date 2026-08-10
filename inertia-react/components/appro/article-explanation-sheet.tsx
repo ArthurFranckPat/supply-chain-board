@@ -95,8 +95,8 @@ const fr = (iso: string | null): string => {
 
 const fmtJjMm = (iso: string | null): string => {
   if (!iso) return '—'
-  const [, m, d] = iso.split('-')
-  return m && d ? `${d}/${m}` : iso
+  const [, mm, dd] = iso.split('-')
+  return mm && dd ? `${dd}/${mm}` : iso
 }
 
 const fmtQte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
@@ -243,15 +243,18 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
               </div>
             </div>
           ) : data !== null && data.supporte === false ? (
-            <div className="mx-4 mt-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-              <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-amber-900">
-                  Explication non disponible pour ce type de message — hors périmètre V1
-                </p>
-                <p className="text-xs leading-snug text-amber-800">{data.raison}</p>
+            <>
+              <div className="mx-4 mt-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Explication non disponible pour ce type de message — hors périmètre V1
+                  </p>
+                  <p className="text-xs leading-snug text-amber-800">{data.raison}</p>
+                </div>
               </div>
-            </div>
+              {data.diff ? <DiffSection diff={data.diff} /> : null}
+            </>
           ) : data !== null && data.supporte === true ? (
             <>
               <SuccessContent data={data} />
@@ -264,9 +267,10 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
             </div>
           )}
 
-          {/* Slot secondaire conservé pour tests E2E / intégration未来 — contient désormais le diff
-              quand disponible, sinon vide (empty:hidden le masque). */}
-          {data === null || data.supporte !== true ? (
+          {/* Fallback vide quand aucun diff n'est affichable (état initial sans données).
+              DiffSection porte déjà data-slot quand il y a un diff ; ce fallback n'existe
+              que quand data === null pour garder un seul data-slot dans le DOM (empty:hidden). */}
+          {data === null && !loading && error === null && !isHorsPerimetre ? (
             <div
               data-slot="explanation-diff"
               className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4 empty:hidden"
@@ -299,6 +303,8 @@ function DiffSection({ diff }: { diff: DiffTemporel }) {
     <div
       data-slot="explanation-diff"
       className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4"
+      // DiffSection n'est jamais vide visuellement (titre + message ou liste) —
+      // empty:hidden inutile ici, réservé au fallback vide ci-dessus.
     >
       <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
         Depuis l&apos;apparition du message ({depuisJjMm}) :
@@ -310,7 +316,10 @@ function DiffSection({ diff }: { diff: DiffTemporel }) {
       ) : (
         <ul className="space-y-1.5">
           {diff.entrees.map((e, i) => (
-            <li key={`${e.source}-${e.jour}-${i}`} className="flex gap-2 text-xs">
+            <li
+              key={`${e.source}-${e.jour}-${e.detail.slice(0, 24)}-${i}`}
+              className="flex gap-2 text-xs"
+            >
               <span className="inline-flex h-5 shrink-0 items-center rounded bg-secondary px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {labelSource(e.source)}
               </span>

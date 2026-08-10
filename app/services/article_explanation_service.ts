@@ -24,14 +24,16 @@ import { isoDay } from '#app/utils/dates'
  * Budget p95 < 3 s : 2 SOAP étroits/article max (fetchArticleFutureFlows 3 colonnes +
  * pegging 5 colonnes), message row 1 ligne indexée. Colonne étroite conservée.
  *
- * REPLICA_READS=true (05, Q14) : live assumé documenté. Le drawer est le seul
- * appel X3 live d'une page servie en ~209 ms en mode réplique — c'est explicite
- * et déclenché UNIQUEMENT au clic, pas au chargement de la file. Le coût est
- * amorti par le cache journalier (2ᵉ clic = hit < 200 ms). 4ᵉ passe réplique
- * WIPTYP=6 envisagée (étendre WIPSTA_BY_WIPTYP Record<1|2|5|6> + syncOrdersFlux)
- * mais différée : ~3 972 lignes, bénéfice marginal quand le cache absorbe 90 %
- * des lectures, et la réplique ne serait pas plus fraîche que le TTL (même
- * run CBN). À réévaluer si p95 live dépasse 3 s en prod.
+ * REPLICA_READS=true (05, Q14) : live assumé documenté — pas de voie réplique
+ * ici, X3 direct volontaire (aucun `replicaGate.canRead` dans ce service).
+ * Le drawer est le seul appel X3 live d'une page servie en ~209 ms en mode
+ * réplique — c'est explicite et déclenché UNIQUEMENT au clic, pas au
+ * chargement de la file. Le coût est amorti par le cache journalier (2ᵉ clic
+ * = hit < 200 ms). 4ᵉ passe réplique WIPTYP=6 envisagée (étendre
+ * WIPSTA_BY_WIPTYP Record<1|2|5|6> + syncOrdersFlux) mais différée : ~3 972
+ * lignes, bénéfice marginal quand le cache absorbe 90 % des lectures, et la
+ * réplique ne serait pas plus fraîche que le TTL (même run CBN). À réévaluer
+ * si p95 live dépasse 3 s en prod.
  */
 
 const SITE = 'AE1'
@@ -43,8 +45,11 @@ export const DAY_MS = 86_400_000
 
 /**
  * Cache article-explanation (05).
- * Partage l'epoch `appro:photo-epoch:v1` avec demand_snapshot_service : toute
- * réécriture photo (snapshot:run relancé le même jour) invalide le cache dérivé.
+ * Partage l'epoch `appro:photo-epoch:v1` avec demand_snapshot_service
+ * (`APPRO_PHOTO_EPOCH_KEY`) : toute réécriture photo (snapshot:run relancé le
+ * même jour) invalide le cache dérivé. Les deux littéraux DOIVENT rester
+ * identiques — importer l'un depuis l'autre créerait un cycle, donc la
+ * synchronisation est contractuelle et vérifiée en revue.
  */
 export const EXPLICATION_CACHE_VERSION = 'v1'
 export const EXPLICATION_EPOCH_KEY = 'appro:photo-epoch:v1'
@@ -57,7 +62,10 @@ export function msUntilProchainRun(now: Date = new Date()): number {
 }
 
 export function buildExplicationCacheKey(article: string, jourRun: string, epoch: number): string {
-  const safe = article.replace(/:/g, '_')
+  // Articles X3 ne contiennent pas ':' mais '_' est légal en ITMREF ; encoder
+  // évite la collision `A:B` vs `A_B` qu'aurait `replace(':','_')` —
+  // `encodeURIComponent` est idempotent et stable par requête.
+  const safe = encodeURIComponent(article)
   return `appro:explication:${safe}:${jourRun}:e${epoch}:${EXPLICATION_CACHE_VERSION}`
 }
 
@@ -503,6 +511,10 @@ export class ArticleExplanationService {
     const v = await cacheNs('appro').get<number>({ key: EXPLICATION_EPOCH_KEY })
     return typeof v === 'number' && Number.isFinite(v) ? v : 0
   }
+  // epochPhotos est lu HORS getOrSet pour construire la clé. Un bump entre la
+  // lecture et l'écriture crée une entrée orpheline sous l'ancien `e` —
+  // inoffensif (clé orpheline jamais relue, TTL 04h la purge), pas de
+  // corruption.
 
   async explain(
     articleRaw: string,
@@ -515,8 +527,10 @@ export class ArticleExplanationService {
     const cle = parseCle(cleRaw.trim())
 
     // --- Cache par (article, date de run CBN) — Q14 ---
-    // Clé stable jour + epoch, TTL = prochain run 04 h. ORDERS inchangé entre runs.
-    // Le diff (SQLite) n'est PAS dans ce cache — il est recomposé côté controller.
+    // Clé stable jour + epoch, TTL = prochain run 04 h (absolu, pas de sliding :
+    // un hit ne rafraîchit pas le TTL, l'expiry reste calée sur 04h). ORDERS
+    // inchangé entre runs. Le diff (SQLite, lui-même getOrSetForever) n'est PAS
+    // dans ce cache CBN — il est recomposé côté controller.
     const refMid = atMidnightLocal(refDate)
     const jourRun = isoDay(refMid)
     const epoch = await this.epochPhotos()
