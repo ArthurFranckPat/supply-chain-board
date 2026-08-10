@@ -9,7 +9,7 @@ import {
 } from '@r/components/ui/sheet'
 import { cn } from '@r/lib/utils'
 
-/** Shape exact de `GET /api/v1/appro/article-explanation` (ticket 02). */
+/** Shape exact de `GET /api/v1/appro/article-explanation` (tickets 02 + 05). */
 interface GrillePeriode {
   index: number
   label: string
@@ -47,6 +47,17 @@ interface PeggingParent {
   echeance: string | null
 }
 
+interface DiffEntree {
+  source: string
+  detail: string
+  jour: string
+}
+
+interface DiffTemporel {
+  depuis: string | null
+  entrees: DiffEntree[]
+}
+
 interface ExplanationSuccess {
   supporte: true
   article: string
@@ -62,11 +73,16 @@ interface ExplanationSuccess {
     parents: PeggingParent[]
     suggestionOrigine: { numero: string; convertieLe: string | null } | null
   }
+  diff: DiffTemporel
 }
 
 interface ExplanationRefus {
   supporte: false
   raison: string
+  // Diff présent même en refus (depuis peut être null), mais entrees vide — ticket 05.
+  diff?: DiffTemporel
+  article?: string
+  cle?: string
 }
 
 type ExplanationResult = ExplanationSuccess | ExplanationRefus
@@ -77,7 +93,26 @@ const fr = (iso: string | null): string => {
   return y && m && d ? `${d}/${m}/${y}` : '—'
 }
 
+const fmtJjMm = (iso: string | null): string => {
+  if (!iso) return '—'
+  const [, m, d] = iso.split('-')
+  return m && d ? `${d}/${m}` : iso
+}
+
 const fmtQte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
+
+const SOURCE_LABEL: Record<string, string> = {
+  stock: 'stock',
+  demande_ferme: 'demande ferme',
+  demande_prevision: 'demande prévision',
+  appro: 'appro',
+  of_ferme: 'OF ferme',
+  besoin_matiere: 'besoin matière',
+}
+
+function labelSource(source: string): string {
+  return SOURCE_LABEL[source] ?? source
+}
 
 function useExplanation(article: string | null, cle: string | null, enabled: boolean) {
   const [data, setData] = useState<ExplanationResult | null>(null)
@@ -139,12 +174,12 @@ interface Props {
 }
 
 /**
- * Drawer d'explication CBN — question A primaire (ticket 03).
+ * Drawer d'explication CBN — question A primaire (ticket 03) + diff temporel (ticket 05).
  *
  * Pattern Sheet dédié (PAS StockArticleSheet — celui-ci rend le KPI Stock).
- * Clic « avancer » → grille time-phased + pegging natif WIPTYP=6.
+ * Clic « avancer » → grille time-phased + pegging natif WIPTYP=6 + section diff
+ * « Depuis l'apparition du message (JJ/MM) : » (ticket 05, Q14 cache journalier).
  * Clic 3/6 → refus explicite hors périmètre V1, jamais une grille lue à l'envers.
- * Prévoit un slot secondaire pour le diff temporel (ticket 05).
  */
 export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpenChange }: Props) {
   const isHorsPerimetre = messageCode === 3 || messageCode === 6
@@ -218,7 +253,10 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
               </div>
             </div>
           ) : data !== null && data.supporte === true ? (
-            <SuccessContent data={data} />
+            <>
+              <SuccessContent data={data} />
+              <DiffSection diff={data.diff} />
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 px-5 py-16 text-muted-foreground">
               <CalendarClock size={22} strokeWidth={1.5} />
@@ -226,13 +264,14 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
             </div>
           )}
 
-          {/* Slot secondaire — diff temporel (question B, ticket 05). Laissé vide
-              en ticket 03 mais présent dans le DOM pour l’intégration future
-              sans toucher au drawer. */}
-          <div
-            data-slot="explanation-diff"
-            className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4 empty:hidden"
-          />
+          {/* Slot secondaire conservé pour tests E2E / intégration未来 — contient désormais le diff
+              quand disponible, sinon vide (empty:hidden le masque). */}
+          {data === null || data.supporte !== true ? (
+            <div
+              data-slot="explanation-diff"
+              className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4 empty:hidden"
+            />
+          ) : null}
         </div>
 
         {/* Pied discret — étalon rappelé même hors scroll. */}
@@ -251,6 +290,39 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
         )}
       </SheetContent>
     </Sheet>
+  )
+}
+
+function DiffSection({ diff }: { diff: DiffTemporel }) {
+  const depuisJjMm = fmtJjMm(diff.depuis)
+  return (
+    <div
+      data-slot="explanation-diff"
+      className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4"
+    >
+      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        Depuis l&apos;apparition du message ({depuisJjMm}) :
+      </h3>
+      {diff.entrees.length === 0 ? (
+        <p className="text-xs leading-snug text-muted-foreground">
+          aucune entrée terrain n&apos;a bougé depuis l&apos;apparition
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {diff.entrees.map((e, i) => (
+            <li key={`${e.source}-${e.jour}-${i}`} className="flex gap-2 text-xs">
+              <span className="inline-flex h-5 shrink-0 items-center rounded bg-secondary px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {labelSource(e.source)}
+              </span>
+              <span className="leading-5 text-foreground">{e.detail}</span>
+              <span className="ml-auto whitespace-nowrap leading-5 text-[11px] tabular-nums text-muted-foreground">
+                {fr(e.jour)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
