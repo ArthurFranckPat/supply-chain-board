@@ -80,87 +80,71 @@ export function StockSparklineChart({ series }: { series: StockPoint[] }) {
   )
 }
 
-// ── Barres horizontales génériques (pill arrondi)
-type HBarItem = { label: string; heures: number; subLabel?: string }
-
-function HBarChart({
-  items,
-  ariaLabel,
-  palette,
-  valueSuffix = ' h',
-}: {
-  items: HBarItem[]
-  ariaLabel: string
-  palette: readonly string[]
-  valueSuffix?: string
-}) {
-  const data = useMemo(
+// ── Une barre fine pill (8× ∞) — un Chart par ligne garantit alignement libellé↔barre
+function RowBar({ value, max, fill }: { value: number; max: number; fill: string }) {
+  const data = useMemo(() => [{ y: 'r', x: value }], [value])
+  const def = useMemo(
     () =>
-      items.map((it, i) => ({
-        _y: it.label,
-        _x: it.heures,
-        _fill: palette[Math.min(i, palette.length - 1)] ?? palette[palette.length - 1],
-        _label: it.label,
-        _heures: it.heures,
-      })),
-    [items, palette]
+      defineChart({
+        marks: [
+          barX(data, {
+            x: 'x',
+            y: 'y',
+            fill,
+            radius: 999,
+            inset: 0,
+          }),
+        ],
+        x: {
+          scale: () => scaleLinear().domain([0, Math.max(1, max)]),
+          grid: false,
+          axis: false,
+        },
+        y: {
+          scale: () => scaleBand<string>().domain(['r']).padding(0),
+          axis: false,
+        },
+        tooltip,
+      }),
+    [data, fill, max]
   )
-
-  const max = useMemo(() => Math.max(1, ...items.map((i) => i.heures)), [items])
-
-  const def = useMemo(() => {
-    if (data.length === 0) return null
-    return defineChart({
-      marks: [
-        barX(data, {
-          x: '_x',
-          y: '_y',
-          fill: (d: (typeof data)[number]) => d._fill,
-          radius: 4,
-          inset: 0,
-          maxThickness: 10,
-        }),
-      ],
-      x: {
-        scale: () => scaleLinear().domain([0, max]).nice(2),
-        grid: false,
-        axis: false,
-      },
-      y: {
-        scale: () =>
-          scaleBand<string>()
-            .domain(data.map((d) => d._y))
-            .padding(0.28),
-        axis: false,
-      },
-      tooltip,
-    })
-  }, [data, max])
-
-  const h = Math.max(32, data.length * 30)
-
-  if (items.length === 0 || !def) return null
-
   return (
     <div
-      className="mt-1 overflow-hidden rounded-[6px]"
+      className="h-2 overflow-hidden rounded-full bg-secondary"
       style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}
     >
       <Chart
         definition={def}
-        ariaLabel={ariaLabel}
-        height={h}
+        ariaLabel={`${value}`}
+        height={8}
         className="w-full"
-        style={{ width: '100%' }}
+        style={{ width: '100%', display: 'block' }}
       />
-      <span className="sr-only">
-        {items.map((it) => `${it.label} ${it.heures}${valueSuffix}`).join(', ')}
-      </span>
     </div>
   )
 }
 
-// ── Charge en retard (par poste)
+// ── Barres horizontales génériques : libellé au-dessus de chaque barre (aligné 1:1)
+type HBarItem = { label: string; heures: number }
+
+function HBarList({ items, palette }: { items: HBarItem[]; palette: readonly string[] }) {
+  const max = useMemo(() => Math.max(1, ...items.map((i) => i.heures)), [items])
+  if (items.length === 0) return null
+  return (
+    <div className="mt-2 flex flex-col gap-3.5">
+      {items.map((it, i) => (
+        <div key={it.label}>
+          <div className="mb-1 hidden" aria-hidden />
+          <RowBar value={it.heures} max={max} fill={palette[Math.min(i, palette.length - 1)]!} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Les libellés (code·label + heures) sont déjà rendus par le parent dashboard.tsx
+// juste au-dessus de ce composant, dans le même ordre. On ne les duplique pas ici
+// pour éviter double-lecture ; HBarList ne rend que les barres, alignées par index.
 export function ChargeBars({
   postes,
 }: {
@@ -174,10 +158,9 @@ export function ChargeBars({
       })),
     [postes]
   )
-  return <HBarChart items={items} ariaLabel="Charge en retard par poste" palette={BAR_PALETTE} />
+  return <HBarList items={items} palette={BAR_PALETTE} />
 }
 
-// ── Profondeur (buckets)
 export function ProfondeurBars({
   buckets,
 }: {
@@ -191,10 +174,9 @@ export function ProfondeurBars({
       })),
     [buckets]
   )
-  return <HBarChart items={items} ariaLabel="Profondeur de retard" palette={BAR_PALETTE} />
+  return <HBarList items={items} palette={BAR_PALETTE} />
 }
 
-// ── Top catégories valorisation
 export function CategoriesBars({
   categories,
 }: {
@@ -208,12 +190,5 @@ export function CategoriesBars({
       })),
     [categories]
   )
-  return (
-    <HBarChart
-      items={items}
-      ariaLabel="Top catégories valorisation"
-      palette={BAR_PALETTE}
-      valueSuffix=" €"
-    />
-  )
+  return <HBarList items={items} palette={BAR_PALETTE} />
 }
