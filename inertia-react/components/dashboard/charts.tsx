@@ -80,43 +80,26 @@ export function StockSparklineChart({ series }: { series: StockPoint[] }) {
   )
 }
 
-// ── Pills h-2 via @tanstack/charts (barX) — proportion exacte, libellé 1:1
-//    Une barre fine h-2 par ligne, Chart TanStack par pill pour garder la
-//    demande de migration. Domaine x [0,max] partagé → 6.8h ≠ 3.7h.
+// ── Pills h-2 via @tanstack/charts : domaine partagé → 6.8h = 100%, 3.7h ≈ 54%
+//    Un Chart (barX) par ligne, même max → proportions exactes. Fini les div width%.
 
 type ChargeRow = { code: string; label: string; heures: number }
 type ProfRow = { id: string; label: string; nbLignes: number; heures: number }
 type CatRow = { categorie: string; valeur: number; part: number }
 
-function PillBar({ value, max, fill }: { value: number; max: number; fill: string }) {
+function PillRow({ value, max, fill }: { value: number; max: number; fill: string }) {
   const data = useMemo(() => [{ y: 'r' as const, x: value }], [value])
   const def = useMemo(
     () =>
       defineChart({
         margin: { top: 0, right: 0, bottom: 0, left: 0 },
-        marks: [
-          barX(data, {
-            x: 'x',
-            y: 'y',
-            fill,
-            radius: 4,
-            inset: 0,
-          }),
-        ],
-        x: {
-          scale: () => scaleLinear().domain([0, Math.max(1, max)]),
-          grid: false,
-          axis: false,
-        },
-        y: {
-          scale: () => scaleBand<string>().domain(['r']).padding(0),
-          axis: false,
-        },
+        marks: [barX(data, { x: 'x', y: 'y', fill, radius: 4, inset: 0 })],
+        x: { scale: () => scaleLinear().domain([0, Math.max(1, max)]), grid: false, axis: false },
+        y: { scale: () => scaleBand<string>().domain(['r']).padding(0), axis: false },
         tooltip,
       }),
     [data, fill, max]
   )
-
   return (
     <div
       className="h-2 overflow-hidden rounded-full bg-secondary"
@@ -152,7 +135,7 @@ export function ChargeBars({ postes }: { postes: ChargeRow[] }) {
               {p.heures} h
             </span>
           </div>
-          <PillBar
+          <PillRow
             value={p.heures}
             max={max}
             fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
@@ -181,7 +164,7 @@ export function ProfondeurBars({ buckets }: { buckets: ProfRow[] }) {
               {b.heures} h
             </span>
           </div>
-          <PillBar
+          <PillRow
             value={b.heures}
             max={max}
             fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
@@ -212,7 +195,7 @@ export function CategoriesBars({ categories }: { categories: CatRow[] }) {
               <span className="ml-1 text-[10px] text-muted-foreground/70">{c.part}%</span>
             </span>
           </div>
-          <PillBar
+          <PillRow
             value={c.valeur}
             max={max}
             fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
