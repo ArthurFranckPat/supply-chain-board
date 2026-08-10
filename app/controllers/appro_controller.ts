@@ -20,6 +20,10 @@ import {
   type DriverDiffEntry,
 } from '#app/domain/cbn_driver_diff'
 import { estIsoDayValide } from '#app/utils/dates'
+import articleExplanationService, {
+  ArticleExplanationBadRequest,
+  ArticleExplanationNotFound,
+} from '#services/article_explanation_service'
 
 /**
  * Page « Approvisionnements » (issue #103) : ce que le CBN de X3 propose côté
@@ -638,5 +642,32 @@ export default class ApproController {
     const repo = new ApproDecisionRepository()
     const lignes = await repo.dernieresNonExpirees()
     return ctx.response.json(autoEvaluation(lignes))
+  }
+
+  /**
+   * GET /api/v1/appro/article-explanation?article=V4254&cle=CG2600209:1000:1
+   * Grille time-phased + pegging natif (ticket 02, question A).
+   * Périmètre V1 : MRPMES_0=2 uniquement, sinon {supporte:false}.
+   */
+  async articleExplanation(ctx: HttpContext) {
+    const article = String(ctx.request.input('article') ?? '').trim()
+    const cle = String(ctx.request.input('cle') ?? '').trim()
+    if (!article || !cle) {
+      return ctx.response.badRequest({
+        error: 'article et cle requis (ex: ?article=V4254&cle=CG2600209:1000:1)',
+      })
+    }
+    try {
+      const result = await articleExplanationService.explain(article, cle)
+      return ctx.response.json(result)
+    } catch (e) {
+      if (e instanceof ArticleExplanationBadRequest) {
+        return ctx.response.badRequest({ error: e.message })
+      }
+      if (e instanceof ArticleExplanationNotFound) {
+        return ctx.response.notFound({ error: e.message })
+      }
+      throw e
+    }
   }
 }
