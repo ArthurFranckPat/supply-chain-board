@@ -151,6 +151,7 @@ test.group('construireFrise', () => {
       stock: 2,
       appro: 2,
       appro_suggestion: 0,
+      besoin_matiere: 0,
     })
   })
 
