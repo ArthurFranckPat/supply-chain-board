@@ -1248,8 +1248,9 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   // l'explication affichée correspond aux dates réelles des photos (trous
   // week-ends/pannes gérés côté serveur, `photosMessagesFenetre`).
   const [fenetre, setFenetre] = useState<number>(1)
-  const explicationsHref =
-    fenetre === 1 ? '/api/v1/appro/explanations' : `/api/v1/appro/explanations?fenetre=${fenetre}`
+  // Ancien moteur retiré ticket 07 — fetches désactivés pour stopper les 404.
+  // Le drawer article-explanation (02+04+05) est désormais la seule explication.
+  const explicationsHref: string | null = null
   const { data: explData, loading: explLoading } =
     useTimedFetch<ExplanationsResponse>(explicationsHref)
   // La fenêtre qui a produit les explications actuellement en main. `useTimedFetch`
@@ -1271,12 +1272,9 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   // sous l'explication de la ligne, pas seulement dans l'onglet Tendances. Un
   // seul appel : le serveur le sert depuis le cache des photos.
   const [vue, setVue] = useState<'feuilles' | 'tendances'>('feuilles')
-  const { data: patternsData } = useTimedFetch<PatternsResponse>(
-    '/api/v1/appro/patterns?fenetre=21'
-  )
-  // L'auto-évaluation, elle, ne sert QUE l'onglet Tendances (`url: null` =
-  // onglet inactif, aucun fetch).
-  const autoEvalHref = vue === 'tendances' ? '/api/v1/appro/auto-evaluation' : null
+  // Ancien moteur retiré — patterns/auto-evaluation désactivés (404 stoppés)
+  const { data: patternsData } = useTimedFetch<PatternsResponse>(null)
+  const autoEvalHref: string | null = null
   const { data: autoEvalData } = useTimedFetch<AutoEvaluationResponse>(autoEvalHref)
   const patternsParArticle = useMemo(() => {
     if (patternsData === null || patternsData.articles.length === 0) return undefined

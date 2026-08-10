@@ -1000,7 +1000,7 @@ export class DemandSnapshotService {
    * Les pas sont calculés avec un petit pool. Chaque diff lit deux journées
    * entières de `demand_snapshots` (~73 000 lignes chacune) ; sans précaution,
    * les pas ADJACENTS partagent une journée — le pas *i* lit `dates[i+1]`, le
-   * pas *i+1* la relit — et sur `MAX_PAS_FRISE = 45` pas ça fait ~90 lectures
+   * pas *i+1* la relit — et sur une frise de 45 pas ça fait ~90 lectures
    * de journée là où 46 suffiraient (#143 défaut 2). `memoJournees`, une
    * `MemoJourneesBorne` PARTAGÉE par tous les workers de CETTE frise,
    * déduplique ces lectures via `loadDayRows` — SANS toucher au calcul de
