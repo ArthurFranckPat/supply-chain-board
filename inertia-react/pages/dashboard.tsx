@@ -38,6 +38,12 @@ import {
 } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
+import {
+  StockSparklineChart,
+  ChargeBars,
+  ProfondeurBars,
+  CategoriesBars,
+} from '@r/components/dashboard/charts'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
 import { Card, CardContent } from '@r/components/ui/card'
 import { Badge } from '@r/components/ui/badge'
@@ -228,8 +234,6 @@ const EMPTY_STOCK: StockValuationKpi = {
  * l'ancienne famille terreuse legacy (brique/or/moutarde/sable).
  */
 const BAR_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
-/** Catégories de stock — même famille unique (cohérence Airbnb stricte). */
-const STOCK_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
 
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
 const WIDTH_CLASS: Record<KpiWidth, string> = {
@@ -534,61 +538,6 @@ function CardHeader({
  *  porte l'année ISO), sinon le label fourni (« janv. 26 »). */
 const periodDated = (p: StockValuationPoint) =>
   p.periode.includes('-W') ? `S${p.periode.slice(-2)} ${p.periode.slice(0, 4)}` : p.label
-
-/** Mini-graphique 12 mois en colonnes verticales (SVG inline, pas de lib).
- *  Hauteur ∝ valeur ; dernière colonne surlignée (mois courant). */
-function StockSparkline({ series }: { series: StockValuationPoint[] }) {
-  const W = 240
-  const H = 56
-  const PAD = 4
-  const innerH = H - PAD * 2
-  const max = useMemo(() => Math.max(1, ...series.map((s) => Math.abs(s.valeur))), [series])
-  const gap = 2
-  const barW = useMemo(() => {
-    const n = series.length || 1
-    return (W - gap * (n - 1) - PAD * 2) / n
-  }, [series.length])
-
-  return (
-    <div
-      className="mt-5"
-      style={
-        { 'WebkitPrintColorAdjust': 'exact', 'print-color-adjust': 'exact' } as React.CSSProperties
-      }
-    >
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
-        preserveAspectRatio="none"
-        style={{ height: '56px' }}
-      >
-        {series.map((pt, i) => {
-          const h = Math.max(2, (Math.abs(pt.valeur) / max) * innerH)
-          const x = PAD + i * (barW + gap)
-          const y = H - PAD - h
-          const isLast = i === series.length - 1
-          return (
-            <rect
-              key={pt.periode}
-              x={x}
-              y={y}
-              width={barW}
-              height={h}
-              rx={1.5}
-              fill={isLast ? '#222222' : '#dddddd'}
-            >
-              <title>{`${periodDated(pt)} · ${pt.valeur.toFixed(0)} €`}</title>
-            </rect>
-          )
-        })}
-      </svg>
-      <div className="mt-1 flex justify-between font-mono text-[8.5px] text-muted-foreground/70">
-        <span>{series[0] ? periodDated(series[0]) : null}</span>
-        <span>{series[series.length - 1] ? periodDated(series[series.length - 1]) : null}</span>
-      </div>
-    </div>
-  )
-}
 
 /** Placeholder pour un KPI masqué. En mode édition, il reste un tile réordonnable
  * (pour le replacer) ; hors édition, il est masqué à l'impression. */
@@ -960,22 +909,13 @@ export default function Dashboard(props: DashboardProps) {
   const otd = useMemo(() => (otdData.data ?? EMPTY_OTD).otd, [otdData.data])
   const x3Error = useMemo(() => (kpisData.data ?? EMPTY_KPIS).x3Error, [kpisData.data])
   const otdError = useMemo(() => (otdData.data ?? EMPTY_OTD).x3Error, [otdData.data])
-  const maxHeures = useMemo(() => Math.max(1, ...kpi.postes.map((p) => p.heures)), [kpi.postes])
   const profondeur = kpi.profondeur
-  const maxBucketHeures = useMemo(
-    () => Math.max(1, ...(profondeur?.buckets ?? []).map((b) => b.heures)),
-    [profondeur]
-  )
 
   const stock = useMemo(
     () => (stockData.data ?? { stockValuation: EMPTY_STOCK }).stockValuation,
     [stockData.data]
   )
   const stockError = useMemo(() => (stockData.data ?? { x3Error: null }).x3Error, [stockData.data])
-  const stockMaxCat = useMemo(
-    () => Math.max(1, ...stock.categories.map((c) => c.valeur)),
-    [stock.categories]
-  )
 
   // Stock categories
   const stockCategories = useMemo(() => {
@@ -1146,44 +1086,25 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
 
                       {kpi.postes.length > 0 ? (
-                        <div className="mt-6 flex flex-col gap-3.5">
-                          {kpi.postes.map((poste, i) => (
-                            <div key={poste.code}>
-                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
-                                <span
-                                  className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
-                                  title={poste.label}
-                                >
-                                  {poste.code}
-                                  {poste.label ? ` · ${poste.label}` : ''}
-                                </span>
-                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                  {poste.heures} h
-                                </span>
-                              </div>
-                              <div
-                                className="h-2 overflow-hidden rounded-full bg-secondary"
-                                style={
-                                  {
-                                    WebkitPrintColorAdjust: 'exact',
-                                    printColorAdjust: 'exact',
-                                  } as React.CSSProperties
-                                }
+                        <div className="mt-6">
+                          {kpi.postes.map((poste) => (
+                            <div
+                              key={poste.code}
+                              className="mb-1 flex items-baseline justify-between gap-2"
+                            >
+                              <span
+                                className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
+                                title={poste.label}
                               >
-                                <div
-                                  className="h-full rounded-full"
-                                  style={
-                                    {
-                                      width: `${Math.max(3, (poste.heures / maxHeures) * 100)}%`,
-                                      background: BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)],
-                                      WebkitPrintColorAdjust: 'exact',
-                                      printColorAdjust: 'exact',
-                                    } as React.CSSProperties
-                                  }
-                                />
-                              </div>
+                                {poste.code}
+                                {poste.label ? ` · ${poste.label}` : ''}
+                              </span>
+                              <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                {poste.heures} h
+                              </span>
                             </div>
                           ))}
+                          <ChargeBars postes={kpi.postes} />
                         </div>
                       ) : (
                         <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
@@ -1242,43 +1163,24 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
 
                       {(profondeur?.buckets ?? []).some((b) => b.nbLignes > 0) ? (
-                        <div className="mt-6 flex flex-col gap-3.5">
-                          {(profondeur?.buckets ?? []).map((bucket, i) => (
-                            <div key={bucket.id}>
-                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
-                                <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
-                                  {bucket.label}
-                                  <span className="ml-1.5 font-normal text-muted-foreground">
-                                    · {bucket.nbLignes} ligne{bucket.nbLignes > 1 ? 's' : ''}
-                                  </span>
+                        <div className="mt-6">
+                          {(profondeur?.buckets ?? []).map((bucket) => (
+                            <div
+                              key={bucket.id}
+                              className="mb-1 flex items-baseline justify-between gap-2"
+                            >
+                              <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+                                {bucket.label}
+                                <span className="ml-1.5 font-normal text-muted-foreground">
+                                  · {bucket.nbLignes} ligne{bucket.nbLignes > 1 ? 's' : ''}
                                 </span>
-                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                  {bucket.heures} h
-                                </span>
-                              </div>
-                              <div
-                                className="h-2 overflow-hidden rounded-full bg-secondary"
-                                style={
-                                  {
-                                    WebkitPrintColorAdjust: 'exact',
-                                    printColorAdjust: 'exact',
-                                  } as React.CSSProperties
-                                }
-                              >
-                                <div
-                                  className="h-full rounded-full"
-                                  style={
-                                    {
-                                      width: `${bucket.heures > 0 ? Math.max(3, (bucket.heures / maxBucketHeures) * 100) : 0}%`,
-                                      background: BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)],
-                                      WebkitPrintColorAdjust: 'exact',
-                                      printColorAdjust: 'exact',
-                                    } as React.CSSProperties
-                                  }
-                                />
-                              </div>
+                              </span>
+                              <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                {bucket.heures} h
+                              </span>
                             </div>
                           ))}
+                          <ProfondeurBars buckets={profondeur?.buckets ?? []} />
                         </div>
                       ) : (
                         <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
@@ -1618,52 +1520,30 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
 
                       {/* Mini-graphique */}
-                      <StockSparkline series={stock.series} />
+                      <StockSparklineChart series={stock.series} />
 
                       {/* Top 5 catégories */}
                       <div className="mt-5">
                         <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
                           Top catégories
                         </div>
-                        <div className="flex flex-col gap-3">
-                          {stock.categories.map((cat, i) => (
-                            <div key={cat.categorie}>
-                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
-                                <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
-                                  {cat.categorie}
-                                </span>
-                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                  {fmtEuro.format(cat.valeur)}
-                                  <span className="ml-1 text-[10px] text-muted-foreground/70">
-                                    {cat.part}%
-                                  </span>
-                                </span>
-                              </div>
-                              <div
-                                className="h-2 overflow-hidden rounded-full bg-secondary"
-                                style={
-                                  {
-                                    WebkitPrintColorAdjust: 'exact',
-                                    printColorAdjust: 'exact',
-                                  } as React.CSSProperties
-                                }
-                              >
-                                <div
-                                  className="h-full rounded-full"
-                                  style={
-                                    {
-                                      width: `${Math.max(3, (cat.valeur / stockMaxCat) * 100)}%`,
-                                      background:
-                                        STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
-                                      WebkitPrintColorAdjust: 'exact',
-                                      printColorAdjust: 'exact',
-                                    } as React.CSSProperties
-                                  }
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        {stock.categories.map((cat) => (
+                          <div
+                            key={cat.categorie}
+                            className="mb-1 flex items-baseline justify-between gap-2"
+                          >
+                            <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+                              {cat.categorie}
+                            </span>
+                            <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                              {fmtEuro.format(cat.valeur)}
+                              <span className="ml-1 text-[10px] text-muted-foreground/70">
+                                {cat.part}%
+                              </span>
+                            </span>
+                          </div>
+                        ))}
+                        <CategoriesBars categories={stock.categories} />
                       </div>
                     </>
                   )}
