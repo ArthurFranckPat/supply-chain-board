@@ -59,6 +59,7 @@ import {
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
+import { ArticleExplanationSheet } from '@r/components/appro/article-explanation-sheet'
 import {
   RefreshPill,
   SEG,
@@ -603,6 +604,7 @@ function ItemRow({
   decisionActuelle,
   etatEnvoi,
   onDecide,
+  onExplain,
   explications,
   patternsParArticle,
   explicationsEnChargement = false,
@@ -612,6 +614,7 @@ function ItemRow({
   /** État du dernier POST de décision sur cette ligne. */
   etatEnvoi: EtatEnvoi
   onDecide: (statut: DecisionStatut) => void
+  onExplain?: () => void
   explications?: CbnExplanation[]
   patternsParArticle?: Map<string, PatternArticle>
   /** Vrai pendant un re-fetch des explications (changement de fenêtre). Les
@@ -628,11 +631,15 @@ function ItemRow({
   const traitee =
     decisionActuelle === 'vu' || decisionActuelle === 'ignorer' || etatEnvoi === 'en-cours'
   const decisionsBloquees = item.nature === 'message' && explicationsEnChargement
+  const cliquable = item.nature === 'message' && onExplain !== undefined
   return (
     <li
+      onClick={cliquable ? onExplain : undefined}
+      title={cliquable ? 'Voir l’explication CBN — clic pour ouvrir le drawer' : undefined}
       className={cn(
-        'grid grid-cols-1 gap-x-4 gap-y-2 px-5 py-3 transition-opacity duration-200 hover:bg-secondary/60 md:grid-cols-[144px_minmax(0,1fr)_84px_148px_176px]',
-        traitee && 'opacity-55'
+        'grid grid-cols-1 gap-x-4 gap-y-2 px-5 py-3 transition-colors duration-200 hover:bg-secondary/60 md:grid-cols-[144px_minmax(0,1fr)_84px_148px_176px]',
+        traitee && 'opacity-55',
+        cliquable && 'cursor-pointer hover:bg-secondary/80'
       )}
     >
       {/* Nature + verdict */}
@@ -694,14 +701,26 @@ function ItemRow({
         )}
       </div>
 
-      {/* Décision acheteur (ledger #134) */}
-      <div className="md:pt-0.5">
+      {/* Décision acheteur (ledger #134) + action drawer */}
+      <div
+        className="flex flex-col items-start gap-1.5 md:items-end md:pt-0.5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DecisionControl
           actuelle={decisionActuelle}
           etatEnvoi={etatEnvoi}
           onDecide={onDecide}
           desactivee={decisionsBloquees}
         />
+        {cliquable && (
+          <button
+            type="button"
+            onClick={onExplain}
+            className="inline-flex items-center gap-1 rounded-md border border-rule bg-card px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            Expliquer <ChevronRight size={10} />
+          </button>
+        )}
       </div>
       {item.nature === 'message' && explications !== undefined && explications.length > 0 && (
         <div className="col-span-full">
@@ -747,6 +766,7 @@ function Feuille({
   decisions,
   envois,
   onDecide,
+  onExplain,
   explicationsParCle,
   patternsParArticle,
   explicationsEnChargement = false,
@@ -755,6 +775,7 @@ function Feuille({
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, statut: DecisionStatut) => void
+  onExplain?: (item: ApproItem) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
   patternsParArticle?: Map<string, PatternArticle>
   explicationsEnChargement?: boolean
@@ -769,6 +790,7 @@ function Feuille({
         decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
         etatEnvoi={envois[item.cle] ?? 'inerte'}
         onDecide={(statut) => onDecide(item, statut)}
+        onExplain={onExplain ? () => onExplain(item) : undefined}
         explications={explicationsPour(explicationsParCle, item)}
         patternsParArticle={patternsParArticle}
         explicationsEnChargement={explicationsEnChargement}
@@ -849,6 +871,7 @@ function DossiersTraités({
   decisions,
   envois,
   onDecide,
+  onExplain,
   explicationsParCle,
   patternsParArticle,
   explicationsEnChargement = false,
@@ -857,6 +880,7 @@ function DossiersTraités({
   decisions: Record<string, DecisionStatut>
   envois: Record<string, EtatEnvoi>
   onDecide: (item: ApproItem, fournisseur: string, statut: DecisionStatut) => void
+  onExplain?: (item: ApproItem) => void
   explicationsParCle?: Map<string, CbnExplanation[]>
   patternsParArticle?: Map<string, PatternArticle>
   explicationsEnChargement?: boolean
@@ -903,6 +927,7 @@ function DossiersTraités({
                     decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
                     etatEnvoi={envois[item.cle] ?? 'inerte'}
                     onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
+                    onExplain={onExplain ? () => onExplain(item) : undefined}
                     explications={explicationsPour(explicationsParCle, item)}
                     patternsParArticle={patternsParArticle}
                     explicationsEnChargement={explicationsEnChargement}
@@ -1285,6 +1310,18 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
   // repart en croyant avoir décidé — et le ledger étant append-only, chaque
   // nouvel essai qui passe écrit une ligne de plus.
   const [envois, setEnvois] = useState<Record<string, EtatEnvoi>>({})
+  // Drawer d'explication CBN (ticket 03) — grille time-phased + pegging WIPTYP=6.
+  const [explainSelection, setExplainSelection] = useState<{
+    article: string
+    cle: string
+    message: number | null
+  } | null>(null)
+  const [explainOpen, setExplainOpen] = useState(false)
+  const handleExplain = (item: ApproItem) => {
+    if (item.cleSnapshot === null) return
+    setExplainSelection({ article: item.article, cle: item.cleSnapshot, message: item.message })
+    setExplainOpen(true)
+  }
 
   /** POST d'une décision — append-only côté serveur, mise à jour locale immédiate. */
   const poster = async (item: ApproItem, fournisseur: string, statut: DecisionStatut) => {
@@ -1649,6 +1686,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                           onDecide={(item, statut) =>
                             poster(item, feuille.dossier.fournisseur, statut)
                           }
+                          onExplain={handleExplain}
                           explicationsParCle={explicationsParCle}
                           patternsParArticle={patternsParArticle}
                           explicationsEnChargement={!explicationsValides}
@@ -1660,6 +1698,7 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                       decisions={decisions}
                       envois={envois}
                       onDecide={poster}
+                      onExplain={handleExplain}
                       explicationsParCle={explicationsParCle}
                       patternsParArticle={patternsParArticle}
                       explicationsEnChargement={!explicationsValides}
@@ -1671,6 +1710,13 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
           </div>
         </div>
       </div>
+      <ArticleExplanationSheet
+        article={explainSelection?.article ?? null}
+        cle={explainSelection?.cle ?? null}
+        messageCode={explainSelection?.message ?? null}
+        open={explainOpen}
+        onOpenChange={setExplainOpen}
+      />
     </AppLayout>
   )
 }
