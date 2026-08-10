@@ -80,8 +80,17 @@ export function StockSparklineChart({ series }: { series: StockPoint[] }) {
   )
 }
 
-// ── Une barre fine pill (8× ∞) — un Chart par ligne garantit alignement libellé↔barre
+// ── Barre fine pill h-2 : un Chart par ligne, totalement aligné avec son libellé parent.
+//    Le parent (dashboard.tsx) rend déjà chaque libellé dans le même .map ; on ne duplique
+//    pas les textes ici — on rend uniquement la barre correspondante, index à index.
+
+type ChargeRow = { code: string; label: string; heures: number }
+type ProfRow = { id: string; label: string; nbLignes: number; heures: number }
+type CatRow = { categorie: string; valeur: number; part: number }
+
 function RowBar({ value, max, fill }: { value: number; max: number; fill: string }) {
+  // Une seule catégorie « r » + domaine x [0,max] → barre horizontale pleine largeur,
+  // sans bande complexe. h-2 = même hauteur que l'ancien div pill.
   const data = useMemo(() => [{ y: 'r', x: value }], [value])
   const def = useMemo(
     () =>
@@ -124,71 +133,92 @@ function RowBar({ value, max, fill }: { value: number; max: number; fill: string
   )
 }
 
-// ── Barres horizontales génériques : libellé au-dessus de chaque barre (aligné 1:1)
-type HBarItem = { label: string; heures: number }
-
-function HBarList({ items, palette }: { items: HBarItem[]; palette: readonly string[] }) {
-  const max = useMemo(() => Math.max(1, ...items.map((i) => i.heures)), [items])
-  if (items.length === 0) return null
+export function ChargeBars({ postes }: { postes: ChargeRow[] }) {
+  const max = useMemo(() => Math.max(1, ...postes.map((p) => p.heures)), [postes])
+  if (postes.length === 0) return null
   return (
-    <div className="mt-2 flex flex-col gap-3.5">
-      {items.map((it, i) => (
-        <div key={it.label}>
-          <div className="mb-1 hidden" aria-hidden />
-          <RowBar value={it.heures} max={max} fill={palette[Math.min(i, palette.length - 1)]!} />
+    <div className="flex flex-col gap-3.5">
+      {postes.map((p, i) => (
+        <div key={p.code}>
+          <div className="mb-[5px] flex items-baseline justify-between gap-2">
+            <span
+              className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
+              title={p.label}
+            >
+              {p.code}
+              {p.label ? ` · ${p.label}` : ''}
+            </span>
+            <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+              {p.heures} h
+            </span>
+          </div>
+          <RowBar
+            value={p.heures}
+            max={max}
+            fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
+          />
         </div>
       ))}
     </div>
   )
 }
 
-// Les libellés (code·label + heures) sont déjà rendus par le parent dashboard.tsx
-// juste au-dessus de ce composant, dans le même ordre. On ne les duplique pas ici
-// pour éviter double-lecture ; HBarList ne rend que les barres, alignées par index.
-export function ChargeBars({
-  postes,
-}: {
-  postes: { code: string; label: string; heures: number }[]
-}) {
-  const items: HBarItem[] = useMemo(
-    () =>
-      postes.map((p) => ({
-        label: p.label ? `${p.code} · ${p.label}` : p.code,
-        heures: p.heures,
-      })),
-    [postes]
+export function ProfondeurBars({ buckets }: { buckets: ProfRow[] }) {
+  const max = useMemo(() => Math.max(1, ...buckets.map((b) => b.heures)), [buckets])
+  if (buckets.length === 0) return null
+  return (
+    <div className="flex flex-col gap-3.5">
+      {buckets.map((b, i) => (
+        <div key={b.id}>
+          <div className="mb-[5px] flex items-baseline justify-between gap-2">
+            <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+              {b.label}
+              <span className="ml-1.5 font-normal text-muted-foreground">
+                · {b.nbLignes} ligne{b.nbLignes > 1 ? 's' : ''}
+              </span>
+            </span>
+            <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+              {b.heures} h
+            </span>
+          </div>
+          <RowBar
+            value={b.heures}
+            max={max}
+            fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
+          />
+        </div>
+      ))}
+    </div>
   )
-  return <HBarList items={items} palette={BAR_PALETTE} />
 }
 
-export function ProfondeurBars({
-  buckets,
-}: {
-  buckets: { id: string; label: string; nbLignes: number; heures: number }[]
-}) {
-  const items: HBarItem[] = useMemo(
-    () =>
-      buckets.map((b) => ({
-        label: `${b.label} · ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`,
-        heures: b.heures,
-      })),
-    [buckets]
+export function CategoriesBars({ categories }: { categories: CatRow[] }) {
+  const max = useMemo(() => Math.max(1, ...categories.map((c) => c.valeur)), [categories])
+  if (categories.length === 0) return null
+  return (
+    <div className="flex flex-col gap-3.5">
+      {categories.map((c, i) => (
+        <div key={c.categorie}>
+          <div className="mb-[5px] flex items-baseline justify-between gap-2">
+            <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+              {c.categorie}
+            </span>
+            <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+              {new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: 'EUR',
+                maximumFractionDigits: 0,
+              }).format(c.valeur)}
+              <span className="ml-1 text-[10px] text-muted-foreground/70">{c.part}%</span>
+            </span>
+          </div>
+          <RowBar
+            value={c.valeur}
+            max={max}
+            fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
+          />
+        </div>
+      ))}
+    </div>
   )
-  return <HBarList items={items} palette={BAR_PALETTE} />
-}
-
-export function CategoriesBars({
-  categories,
-}: {
-  categories: { categorie: string; valeur: number; part: number }[]
-}) {
-  const items: HBarItem[] = useMemo(
-    () =>
-      categories.map((c) => ({
-        label: c.categorie,
-        heures: c.valeur,
-      })),
-    [categories]
-  )
-  return <HBarList items={items} palette={BAR_PALETTE} />
 }

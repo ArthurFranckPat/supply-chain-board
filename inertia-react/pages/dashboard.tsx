@@ -1087,23 +1087,6 @@ export default function Dashboard(props: DashboardProps) {
 
                       {kpi.postes.length > 0 ? (
                         <div className="mt-6">
-                          {kpi.postes.map((poste) => (
-                            <div
-                              key={poste.code}
-                              className="mb-1 flex items-baseline justify-between gap-2"
-                            >
-                              <span
-                                className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
-                                title={poste.label}
-                              >
-                                {poste.code}
-                                {poste.label ? ` · ${poste.label}` : ''}
-                              </span>
-                              <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                {poste.heures} h
-                              </span>
-                            </div>
-                          ))}
                           <ChargeBars postes={kpi.postes} />
                         </div>
                       ) : (
@@ -1164,22 +1147,6 @@ export default function Dashboard(props: DashboardProps) {
 
                       {(profondeur?.buckets ?? []).some((b) => b.nbLignes > 0) ? (
                         <div className="mt-6">
-                          {(profondeur?.buckets ?? []).map((bucket) => (
-                            <div
-                              key={bucket.id}
-                              className="mb-1 flex items-baseline justify-between gap-2"
-                            >
-                              <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
-                                {bucket.label}
-                                <span className="ml-1.5 font-normal text-muted-foreground">
-                                  · {bucket.nbLignes} ligne{bucket.nbLignes > 1 ? 's' : ''}
-                                </span>
-                              </span>
-                              <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                {bucket.heures} h
-                              </span>
-                            </div>
-                          ))}
                           <ProfondeurBars buckets={profondeur?.buckets ?? []} />
                         </div>
                       ) : (
@@ -1527,22 +1494,6 @@ export default function Dashboard(props: DashboardProps) {
                         <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
                           Top catégories
                         </div>
-                        {stock.categories.map((cat) => (
-                          <div
-                            key={cat.categorie}
-                            className="mb-1 flex items-baseline justify-between gap-2"
-                          >
-                            <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
-                              {cat.categorie}
-                            </span>
-                            <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                              {fmtEuro.format(cat.valeur)}
-                              <span className="ml-1 text-[10px] text-muted-foreground/70">
-                                {cat.part}%
-                              </span>
-                            </span>
-                          </div>
-                        ))}
                         <CategoriesBars categories={stock.categories} />
                       </div>
                     </>
