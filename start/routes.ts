@@ -341,6 +341,9 @@ router
     router
       .get('/api/v1/appro/auto-evaluation', '#controllers/appro_controller.autoEvaluation')
       .as('appro.autoEvaluation')
+    router
+      .get('/api/v1/appro/article-explanation', '#controllers/appro_controller.articleExplanation')
+      .as('appro.articleExplanation')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router
