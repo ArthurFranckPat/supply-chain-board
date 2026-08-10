@@ -63,10 +63,24 @@ export function AppLayout({
   // Map MastheadTab → NavKey (même ensemble, alias)
   const navKey = active as unknown as NavKey
 
+  // Persistance de l'état replié : chaque navigation remonte un nouvel
+  // AppLayout (page différente) donc un Provider frais. Sans état
+  // contrôlé, `defaultOpen` ramène toujours en étendu — d'où le bug
+  // « clic sur icône en collapsed ré-ouvre en extended ». On lit
+  // `sidebar_state` (cookie posé par SidebarProvider) et on contrôle
+  // le Provider depuis le layout.
+  const [sidebarOpen, setSidebarOpen] = React.useState<boolean>(() => {
+    if (typeof document === 'undefined') return true
+    const m = document.cookie.match(/(?:^|; )sidebar_state=([^;]*)/)
+    if (m) return m[1] === 'true'
+    return true
+  })
+
   return (
     <TooltipProvider>
       <SidebarProvider
-        defaultOpen
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
         style={
           {
             '--sidebar-width': '16rem',
