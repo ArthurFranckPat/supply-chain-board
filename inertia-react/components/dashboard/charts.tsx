@@ -95,12 +95,13 @@ function RowBar({ value, max, fill }: { value: number; max: number; fill: string
   const def = useMemo(
     () =>
       defineChart({
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
         marks: [
           barX(data, {
             x: 'x',
             y: 'y',
             fill,
-            radius: 999,
+            radius: 4,
             inset: 0,
           }),
         ],
