@@ -16,7 +16,7 @@ import {
   type ApproSnapshotRow,
 } from '#app/domain/appro_snapshot_diff'
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
-import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/snapshot_driver_diff'
 import {
   entreesPourArticle,
   parseCle,
@@ -24,9 +24,6 @@ import {
   trouverDepuis,
   type TemporelEntree,
 } from '#app/domain/diff_temporel'
-import { detecterTrous, type PasFrise, type TrouFrise } from '#app/domain/diff_frise'
-import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
-import { detectPatterns, type ApproPatterns } from '#app/domain/cbn_patterns'
 import {
   perimetreAvecJournal,
   perimetreComparable,
@@ -103,17 +100,6 @@ export interface SnapshotPayload {
 }
 
 const INSERT_CHUNK = 400
-
-/**
- * Couples de photos consécutifs analysés au maximum pour la dominance des
- * patterns (#138 lot 2).
- *
- * Chaque couple relit deux journées entières de `demand_snapshots` au premier
- * appel — mesuré à 67 787 lignes pour le couple 05/08–06/08. Sept couples
- * suffisent à voir une régularité hebdomadaire ; soixante feraient payer une
- * minute au premier chargement de l'onglet pour un signal à peine plus net.
- */
-const MAX_DIFFS_PATTERNS = 7
 
 /**
  * Clé de l'horloge d'epoch des photos (cf. `epochPhotos` / `marquerReecriturePhoto`) :
@@ -234,9 +220,6 @@ export interface SnapshotDiagnostic {
   besoin: CouverturePhotos
   messages: CouverturePhotos
 }
-
-/** Nombre maximal de pas (photos − 1) calculables en une frise (#143). */
-const MAX_PAS_FRISE = 45
 
 /**
  * Capacité du memo de lectures de journée d'une frise (#143 défaut 2, borné
@@ -493,16 +476,6 @@ export class DemandSnapshotService {
    * réelle et gonflait la fréquence hebdomadaire des articles présents sur
    * une seule photo (revue lot 2).
    */
-  private async datesPhotosBesoin(): Promise<string[]> {
-    const rows = await db
-      .connection()
-      .from('demand_snapshots')
-      .distinct('snapshot_date')
-      .orderBy('snapshot_date', 'desc')
-      .limit(MAX_FENETRE_JOURS)
-    return rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
-  }
-
   /**
    * Numéro d'epoch des PHOTOS — incrémenté à chaque réécriture d'une photo
    * (`write()`), jamais lors d'une écriture normale (chaque nuit écrit une
@@ -677,66 +650,6 @@ export class DemandSnapshotService {
    *
    * `null` si moins de deux photos, ou si aucun couple n'est exploitable.
    */
-  async patterns(fenetreJours: number): Promise<ApproPatterns | null> {
-    const dates = await this.datesPhotosBesoin()
-    const photos = photoLaPlusProche(dates, fenetreJours)
-    if (photos === null) return null
-    const [apres, avant] = photos
-    const dansLaFenetre = dates.filter((d) => d <= apres && d >= avant)
-    // Couples consécutifs, du plus récent au plus ancien, plafonnés : chaque
-    // couple relit deux journées entières de `demand_snapshots` (~34 000 lignes
-    // chacune) au premier appel. Au-delà, le coût d'un cache froid dépasserait
-    // ce que la page peut attendre.
-    const couples: Array<[string, string]> = []
-    for (let i = 0; i + 1 < dansLaFenetre.length && couples.length < MAX_DIFFS_PATTERNS; i += 1) {
-      couples.push([dansLaFenetre[i], dansLaFenetre[i + 1]])
-    }
-    if (couples.length === 0) return null
-
-    // Caché comme les explications, et pour la même raison : deux photos sont
-    // immuables une fois écrites, donc leur agrégat aussi. La clé porte les
-    // deux bornes, le nombre de couples ET la fenêtre demandée — deux fenêtres
-    // peuvent tomber sur la même paire de photos quand le calendrier est
-    // clairsemé, et la réponse porte `fenetreJours` (revue lot 2). L'epoch
-    // `e${…}` change quand une photo est RÉÉCRITE le même jour (`snapshot:run`
-    // relancé) : sans lui, un agrégat figé avant la réécriture serait servi
-    // indéfiniment. Sans ce cache, chaque bascule vers l'onglet « Tendances »
-    // relisait toutes les lignes de messages de la fenêtre (16 000 pour 21
-    // jours) pour un résultat identique.
-    const cached = await cacheNs('appro').getOrSetForever({
-      key: `appro:patterns:v2:e${await this.epochPhotos()}:${fenetreJours}:${avant}:${apres}:${couples.length}`,
-      factory: async () => {
-        const [lignes, explicationsParDiff] = await Promise.all([
-          db
-            .connection()
-            .from('appro_message_snapshots')
-            .where('snapshot_date', '<=', apres)
-            .andWhere('snapshot_date', '>=', avant),
-          Promise.all(couples.map(([a, b]) => this.explainMessages(a, b))),
-        ])
-        const diffs = explicationsParDiff
-          .filter((e): e is NonNullable<typeof e> => e !== null)
-          .map((e) => e.explications)
-        if (diffs.length === 0) return null
-
-        const lignesTypées: ApproMessageSnapshotRow[] = lignes.map((r) => ({
-          snapshot_date: String(r.snapshot_date).slice(0, 10),
-          vcrnum: String(r.vcrnum),
-          vcrlin: Number(r.vcrlin),
-          vcrseq: String(r.vcrseq),
-          itmref: String(r.itmref),
-          fournisseur: r.fournisseur === null ? null : String(r.fournisseur),
-          mrpmes: Number(r.mrpmes),
-          mrpdat: r.mrpdat === null ? null : String(r.mrpdat).slice(0, 10),
-          enddat: r.enddat === null ? null : String(r.enddat).slice(0, 10),
-          quantity: Number(r.quantity),
-        }))
-        return detectPatterns(lignesTypées, diffs, fenetreJours, dansLaFenetre)
-      },
-    })
-    return cached ?? null
-  }
-
   /**
    * Liste des photos disponibles pour le sélecteur de dates (§5.1).
    * Tri décroissant (plus récente d'abord), avec décompte par photo.
@@ -1110,139 +1023,6 @@ export class DemandSnapshotService {
    * quoi que ce soit. La dédup ne change pas ce plafond : elle réduit le
    * NOMBRE de lectures, pas la taille du pool qui les sert.
    */
-  async friseDrivers(
-    apresDay: string,
-    avantDay: string
-  ): Promise<{
-    avant: string
-    apres: string
-    pas: PasFrise[]
-    trous: TrouFrise[]
-    message: string | null
-  } | null> {
-    const rows = await db
-      .connection()
-      .from('demand_snapshots')
-      .whereBetween('snapshot_date', [avantDay, apresDay])
-      .distinct('snapshot_date')
-      .orderBy('snapshot_date', 'asc')
-    if (rows.length < 2) return null
-    const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
-    const trous = detecterTrous(dates)
-
-    if (dates.length - 1 > MAX_PAS_FRISE) {
-      return {
-        avant: avantDay,
-        apres: apresDay,
-        pas: [],
-        trous,
-        message: `plage trop large — ${dates.length} photos dans la sélection, ${MAX_PAS_FRISE} pas au maximum. Resserrer la sélection.`,
-      }
-    }
-
-    const memoJournees = new MemoJourneesBorne()
-    const pas: PasFrise[] = []
-    let cursor = 0
-    const workers = Array.from({ length: Math.min(4, dates.length - 1) }, async () => {
-      while (cursor < dates.length - 1) {
-        const i = cursor++
-        const pasAvant = dates[i]
-        const pasApres = dates[i + 1]
-        const r = await this.diffDrivers(pasApres, pasAvant, memoJournees)
-        if (r === null) {
-          // Photo vide d'un côté — impossible en pratique : les dates viennent
-          // de la table, chaque date a au moins une ligne. Défensif : le pas
-          // reste présent, annoncé illisible, plutôt qu'absent en silence.
-          pas.push({
-            avant: pasAvant,
-            apres: pasApres,
-            entrees: [],
-            message: 'photo(s) illisible(s) — pas indisponible',
-            sourcesEcartees: [],
-            sourcesComparees: [],
-          })
-        } else {
-          pas.push({
-            avant: pasAvant,
-            apres: pasApres,
-            entrees: r.entrees,
-            message: r.message,
-            sourcesEcartees: r.sourcesEcartees,
-            sourcesComparees: r.sourcesComparees,
-          })
-        }
-      }
-    })
-    await Promise.all(workers)
-    pas.sort((a, b) => a.avant.localeCompare(b.avant))
-
-    return { avant: avantDay, apres: apresDay, pas, trous, message: null }
-  }
-
-  /**
-   * Explication : croise diff messages × diff drivers (#138 lot 1).
-   * `null` si l'une des deux photos manque côté messages ou côté besoin.
-   */
-  async explainMessages(
-    apresDay: string,
-    avantDay: string
-  ): Promise<{
-    avant: string
-    apres: string
-    nbMessages: number
-    nbDrivers: number
-    explications: CbnExplanation[]
-  } | null> {
-    // Mis en cache sur le COUPLE de jours : une photo est immuable une fois
-    // écrite, donc le croisement de deux photos l'est aussi. Sans cache, chaque
-    // chargement de la page relit deux journées entières de `demand_snapshots`
-    // — 67 787 lignes mesurées pour le couple 05/08–06/08 — pour rendre une
-    // liste de corrélations qui ne bougera plus jamais.
-    //
-    // `getOrSetForever` et non `getOrSet` : il n'y a pas de fraîcheur à
-    // rattraper, la clé change d'elle-même quand une nouvelle photo arrive.
-    // Valeur en LECTURE SEULE (cf. `cache_ns.ts`) — personne ne la mute ici.
-    //
-    // Suffixe `v2` : le lot 2 a changé la SHAPE de l'explication (niveau,
-    // couverture, part, confiance). Sans lui, les entrées figées par le lot 1
-    // pour les mêmes jours resteraient servies sans les nouveaux champs.
-    const cached = await cacheNs('appro').getOrSetForever({
-      // Version OBLIGATOIRE, au même titre que `appro:drivers` : cette valeur
-      // est DÉRIVÉE du diff des drivers. Sans bump, /approvisionnements
-      // continuerait de servir les corrélations tirées de l'ancien diff pendant
-      // que /besoins/evolution affiche le nouveau — deux écrans, deux vérités
-      // sur le même couple de photos, et un couple déjà en cache en PROD.
-      // `v4` — dérivée du diff `v13` (exclusion statut 6 + catégorie Z), par-dessus
-      // `v3` (périmètre via journal des sources capturées, #149).
-      //
-      // L'epoch (cf. `epochPhotos`) fait partie de la clé : une photo RÉÉCRITE
-      // le même jour doit invalider les explications qui la citent — sans lui,
-      // un `snapshot:run` relancé à la main laissait des corrélations obsolètes
-      // servies indéfiniment (revue lot 2).
-      key: `appro:explications:${avantDay}:${apresDay}:v4:e${await this.epochPhotos()}`,
-      factory: async ({ skip }) => {
-        const [m, d] = await Promise.all([
-          this.diffMessages(apresDay, avantDay),
-          this.diffDrivers(apresDay, avantDay),
-        ])
-        if (m === null || d === null) return skip()
-        return {
-          nbMessages: m.entrees.length,
-          nbDrivers: d.entrees.length,
-          explications: explainCbnMessages(m.entrees, d.entrees),
-        }
-      },
-    })
-    if (cached === undefined || cached === null) return null
-    const { nbMessages, nbDrivers, explications } = cached
-    // Les deux diffs bruts ne sortent PAS d'ici : `drivers` est le diff de
-    // ~250 000 lignes de photo, et l'écran n'en lit que les corrélations déjà
-    // rattachées à chaque message. Qui les veut a `/messages-diff` et
-    // `/drivers-diff`, faits pour ça. On ne garde que les décomptes, qui
-    // suffisent à dire « le diff a bien tourné ».
-    return { avant: avantDay, apres: apresDay, nbMessages, nbDrivers, explications }
-  }
-
   /**
    * État de l'historique des photos, pour `node ace snapshot:diagnose` (#138
    * lot 0). Aucun appel X3 : la question posée est « qu'a-t-on accumulé », pas

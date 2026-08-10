@@ -1,11 +1,48 @@
-import {
-  DRIVER_DIFF_NATURES,
-  DRIVER_SOURCES,
-  type DriverDiffEntry,
-  type DriverDiffNature,
-  type DriverSource,
-} from '#app/domain/cbn_driver_diff'
 import type { SourceEcartee } from '#app/domain/snapshot_perimetre'
+
+/** Sources drivers — extrait de l'ancien `cbn_driver_diff` (retiré ticket 07). */
+export const DRIVER_SOURCES = [
+  'of_ferme',
+  'of_planifie',
+  'of_suggestion',
+  'demande_ferme',
+  'demande_prevision',
+  'stock',
+  'appro',
+  'appro_suggestion',
+  'besoin_matiere',
+] as const
+
+export type DriverSource = (typeof DRIVER_SOURCES)[number]
+
+export const DRIVER_DIFF_NATURES = [
+  'apparue',
+  'disparue',
+  'quantite',
+  'date',
+  'renumerotation',
+] as const
+
+export type DriverDiffNature = (typeof DRIVER_DIFF_NATURES)[number]
+
+export interface DriverDiffEntry {
+  article: string
+  source: DriverSource
+  nature: DriverDiffNature
+  quantiteAvant: number | null
+  quantiteApres: number | null
+  echeanceAvant: string | null
+  echeanceApres: string | null
+  detail: string
+  designation: string | null
+  famille: string | null
+  approvisionnement: 'ACHAT' | 'FABRICATION' | null
+  fournisseur: string | null
+  vcrnum: string | null
+  vcrlin: string | null
+  vcrnumApres: string | null
+  vcrlinApres: string | null
+}
 
 /**
  * Chaînage des diffs jour à jour sur une plage (#143).
