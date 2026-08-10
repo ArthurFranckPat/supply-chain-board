@@ -23,9 +23,7 @@ export function StockSparklineChart({ series }: { series: StockPoint[] }) {
         key: pt.periode,
         label: pt.periode,
         valeur: pt.valeur,
-        // couleur selon dernière barre
         _fill: i === series.length - 1 ? '#222222' : '#dddddd',
-        // pour domaine x
         _x: pt.periode,
       })),
     [series]
@@ -108,6 +106,8 @@ function HBarChart({
     [items, palette]
   )
 
+  const max = useMemo(() => Math.max(1, ...items.map((i) => i.heures)), [items])
+
   const def = useMemo(() => {
     if (data.length === 0) return null
     return defineChart({
@@ -116,14 +116,13 @@ function HBarChart({
           x: '_x',
           y: '_y',
           fill: (d: (typeof data)[number]) => d._fill,
-          radius: 999,
-          inset: 1,
-          maxThickness: 8,
+          radius: 4,
+          inset: 0,
+          maxThickness: 10,
         }),
       ],
       x: {
-        scale: scaleLinear,
-        nice: true,
+        scale: () => scaleLinear().domain([0, max]).nice(2),
         grid: false,
         axis: false,
       },
@@ -131,25 +130,22 @@ function HBarChart({
         scale: () =>
           scaleBand<string>()
             .domain(data.map((d) => d._y))
-            .padding(0.35),
+            .padding(0.28),
         axis: false,
       },
       tooltip,
     })
-  }, [data])
+  }, [data, max])
 
-  // hauteur = N * rowHeight + padding ; rowHeight ~ 28 pour texte + barre 8
-  const h = Math.max(28, data.length * 28 + 8)
+  const h = Math.max(32, data.length * 30)
 
   if (items.length === 0 || !def) return null
 
   return (
     <div
+      className="mt-1 overflow-hidden rounded-[6px]"
       style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}
     >
-      {/* Légende custom au-dessus de chaque barre (labels fournis par le parent via overlay),
-          mais on garde aussi la grille Chart pour la longueur. On superpose les labels via
-          un petit header au-dessus du Chart pour rester fidèle à la maquette. */}
       <Chart
         definition={def}
         ariaLabel={ariaLabel}
@@ -157,7 +153,6 @@ function HBarChart({
         className="w-full"
         style={{ width: '100%' }}
       />
-      {/* Valeurs non duplicées — tooltip TanStack affiche déjà au hover. */}
       <span className="sr-only">
         {items.map((it) => `${it.label} ${it.heures}${valueSuffix}`).join(', ')}
       </span>
@@ -205,8 +200,6 @@ export function CategoriesBars({
 }: {
   categories: { categorie: string; valeur: number; part: number }[]
 }) {
-  // On mappe valeur → heures-like (même prop _x) pour réutiliser HBarChart,
-  // mais on veut formater en €. On garde heures = valeur brute.
   const items: HBarItem[] = useMemo(
     () =>
       categories.map((c) => ({
