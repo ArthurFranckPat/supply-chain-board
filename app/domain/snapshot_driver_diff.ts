@@ -1,3 +1,6 @@
+// Retained driver diff for diff_temporel after retrait ancien moteur (ticket 07)
+// Extrait de l'ancien cbn_driver_diff — seule la fonction pure diffCbnDrivers est conservée
+// pour le diff temporel Q12 (sources terrain). Le reste de l'ancien moteur est supprimé.
 import {
   TOLERANCE_APPARIEMENT_JOURS,
   TOLERANCE_ECHEANCE_JOURS,

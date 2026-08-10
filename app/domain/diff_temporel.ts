@@ -1,5 +1,5 @@
-import { driverDiffAmplitude, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
 import { jourIso } from '#app/domain/snapshot_couverture'
+import { TOLERANCE_ECHEANCE_JOURS } from '#app/domain/appro_decision'
 
 /**
  * Diff temporel backend — question B « pourquoi est-il apparu/changé ? »
@@ -12,7 +12,7 @@ import { jourIso } from '#app/domain/snapshot_couverture'
  * Sources diffées = entrées terrain stables uniquement (Q12) :
  *  stock, demande_ferme, demande_prevision, appro, of_ferme, besoin_matiere
  *  (WIPSTA=1). Exclus : of_planifie, of_suggestion, appro_suggestion et
- *  WIPTYP=6 WIPSTA 2/3 — jamais de diff de sorties CBN (cbn_explanation:66-76).
+ *  WIPTYP=6 WIPSTA 2/3 — jamais de diff de sorties CBN (ancien moteur, retiré ticket 07).
  *  WIPSTA 2/3 exclus implicitement : jamais photographiés (ticket 01).
  *
  * Lecture SQLite uniquement — latence négligeable ; trous (week-ends, pannes)
@@ -46,6 +46,49 @@ export interface DiffTemporelResult {
   entrees: TemporelEntree[]
   message?: string | null
 }
+
+/**
+ * Entrée minimale du diff drivers utilisée pour le tri temporel.
+ * Extrait de l'ancien `cbn_driver_diff.DriverDiffEntry` — conservé localement
+ * après retrait de l'ancien moteur (ticket 07).
+ */
+export interface DriverDiffEntryForTemporel {
+  article: string
+  source: string
+  nature: string
+  quantiteAvant: number | null
+  quantiteApres: number | null
+  echeanceAvant: string | null
+  echeanceApres: string | null
+  detail: string
+}
+
+function driverDiffAmplitude(e: DriverDiffEntryForTemporel): number {
+  if (e.nature === 'renumerotation') return 0
+  if (e.nature === 'apparue' || e.nature === 'disparue') {
+    const q = e.nature === 'apparue' ? (e.quantiteApres ?? 0) : (e.quantiteAvant ?? 0)
+    return 1000 + Math.log10(Math.abs(q) + 1)
+  }
+  if (e.nature === 'date') {
+    const d = joursEntreLocal(e.echeanceAvant, e.echeanceApres)
+    if (d === null) return estTransitionEcheance(e.echeanceAvant, e.echeanceApres) ? 1 : 0
+    return Math.abs(d) / TOLERANCE_ECHEANCE_JOURS
+  }
+  if (e.quantiteAvant === null || e.quantiteApres === null) return 0
+  const base = Math.abs(Math.min(e.quantiteAvant, e.quantiteApres)) || 1
+  return Math.abs(e.quantiteApres - e.quantiteAvant) / base
+}
+
+const joursEntreLocal = (deIso: string | null, aIso: string | null): number | null => {
+  if (deIso === null || aIso === null) return null
+  const de = Date.parse(`${deIso}T00:00:00Z`)
+  const a = Date.parse(`${aIso}T00:00:00Z`)
+  if (!Number.isFinite(de) || !Number.isFinite(a)) return null
+  return Math.round((a - de) / 86_400_000)
+}
+
+const estTransitionEcheance = (a: string | null, b: string | null): boolean =>
+  (a === null) !== (b === null)
 
 /**
  * Parse une clé stable `VCRNUM:VCRLIN:VCRSEQ`.
@@ -82,12 +125,12 @@ export function trouverDepuis(
  * Filtre les entrées du driver diff pour le diff temporel :
  * - `itmref === article`
  * - `source ∈ SOURCES_DIFF_TEMP`
- * Tri par `driverDiffAmplitude` décroissante (le plus fort d'abord) —
- * même tri que `/drivers-diff` (§5.4), bornage côté appelant garde le plus fort.
+ * Tri par amplitude décroissante (le plus fort d'abord) —
+ * même tri que l'ancien `/drivers-diff` (§5.4), bornage côté appelant garde le plus fort.
  * `jour` = `apres` (diff direct), pas le jour du pas (frise future).
  */
 export function entreesPourArticle(
-  entrees: DriverDiffEntry[],
+  entrees: DriverDiffEntryForTemporel[],
   article: string,
   jour: string
 ): TemporelEntree[] {

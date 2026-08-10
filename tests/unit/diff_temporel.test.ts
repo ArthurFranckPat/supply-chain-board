@@ -7,29 +7,24 @@ import {
   SOURCES_DIFF_TEMP,
   trouverDepuis,
 } from '#app/domain/diff_temporel'
-import type { DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import type { DriverDiffEntryForTemporel } from '#app/domain/diff_temporel'
 
 function driver(
-  over: Omit<Partial<DriverDiffEntry>, 'source' | 'article'> & { article: string; source: string }
-): DriverDiffEntry {
+  over: Omit<Partial<DriverDiffEntryForTemporel>, 'source' | 'article'> & {
+    article: string
+    source: string
+  }
+): DriverDiffEntryForTemporel {
   return {
     article: over.article,
-    source: over.source as unknown as DriverDiffEntry['source'],
-    nature: (over.nature ?? 'quantite') as DriverDiffEntry['nature'],
+    source: over.source as unknown as DriverDiffEntryForTemporel['source'],
+    nature: (over.nature ?? 'quantite') as DriverDiffEntryForTemporel['nature'],
     quantiteAvant: over.quantiteAvant ?? null,
     quantiteApres: over.quantiteApres ?? null,
     echeanceAvant: over.echeanceAvant ?? null,
     echeanceApres: over.echeanceApres ?? null,
     detail: over.detail ?? `${over.source} ${over.article}`,
-    designation: null,
-    famille: null,
-    approvisionnement: null,
-    fournisseur: null,
-    vcrnum: null,
-    vcrlin: null,
-    vcrnumApres: null,
-    vcrlinApres: null,
-  } as DriverDiffEntry
+  } as DriverDiffEntryForTemporel
 }
 
 test.group('diff_temporel — parseCle', () => {

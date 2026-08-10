@@ -322,25 +322,7 @@ router
     router
       .get('/api/v1/appro/snapshots', '#controllers/appro_controller.snapshots')
       .as('appro.snapshots')
-    router
-      .get('/api/v1/appro/drivers-diff', '#controllers/appro_controller.driversDiff')
-      .as('appro.driversDiff')
-    // Frise sur une plage (#143) : diffs chaînés jour à jour, agrégés par article.
-    router
-      .get('/api/v1/appro/drivers-frise', '#controllers/appro_controller.driversFrise')
-      .as('appro.driversFrise')
-    router
-      .get('/api/v1/appro/explanations', '#controllers/appro_controller.explanations')
-      .as('appro.explanations')
-    // Patterns émergents (#138 lot 2) — articles volatils, fournisseurs dont
-    // une part élevée des messages est liée à des réceptions glissées.
-    router
-      .get('/api/v1/appro/patterns', '#controllers/appro_controller.patterns')
-      .as('appro.patterns')
-    // Auto-évaluation (#138 lot 2) — taux d'override du ledger par cause prédite.
-    router
-      .get('/api/v1/appro/auto-evaluation', '#controllers/appro_controller.autoEvaluation')
-      .as('appro.autoEvaluation')
+
     // Article explanation — grille (02) + diff temporel (04) ; 05 fera la jonction.
     // Shape diff: { depuis: "2026-08-06", entrees: [{ source, detail, jour }] }
     router
