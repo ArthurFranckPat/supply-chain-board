@@ -633,6 +633,33 @@ export default class ApproController {
   }
 
   /**
+   * GET /api/v1/appro/article-explanation — explication d'un message (tickets 02+04).
+   * Ticket 04 porte le diff temporel `diff: { depuis, entrees }` ; ticket 02
+   * portera la grille + pegging. Ticket 05 fera la jonction finale.
+   * La réponse actuelle contient le diff seul, compatible merge : 02 ajoutera
+   * `grille` et `pegging` sans toucher ce champ.
+   * Shape merge-friendly documenté : 02 garde `diff` tel quel, ajoute `grille`
+   * et `pegging` ; un conflit de shape se résout en gardant les trois.
+   */
+  async articleExplanation(ctx: HttpContext) {
+    const article = String(ctx.request.input('article') ?? '').trim()
+    const cle = String(ctx.request.input('cle') ?? '').trim()
+    if (!article) return ctx.response.badRequest({ error: 'article requis' })
+    if (!cle) return ctx.response.badRequest({ error: 'cle requis (format VCRNUM:VCRLIN:VCRSEQ)' })
+    const diff = await demandSnapshotService.diffTemporel(article, cle)
+    if (diff === null) {
+      return ctx.response.badRequest({
+        error: `cle « ${cle} » invalide — format attendu VCRNUM:VCRLIN:VCRSEQ`,
+      })
+    }
+    return ctx.response.json({
+      article,
+      cle,
+      diff,
+    })
+  }
+
+  /**
    * GET /api/v1/appro/auto-evaluation — taux d'override du ledger par cause
    * prédite (#138 lot 2). Lit le ledger non expiré, agrège par
    * `cause_predit` ; un override = la décision contredit le verdict prédit

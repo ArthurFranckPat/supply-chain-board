@@ -341,6 +341,8 @@ router
     router
       .get('/api/v1/appro/auto-evaluation', '#controllers/appro_controller.autoEvaluation')
       .as('appro.autoEvaluation')
+    // Article explanation — grille (02) + diff temporel (04) ; 05 fera la jonction.
+    // Shape diff: { depuis: "2026-08-06", entrees: [{ source, detail, jour }] }
     router
       .get('/api/v1/appro/article-explanation', '#controllers/appro_controller.articleExplanation')
       .as('appro.articleExplanation')

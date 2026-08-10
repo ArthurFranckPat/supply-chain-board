@@ -17,6 +17,13 @@ import {
 } from '#app/domain/appro_snapshot_diff'
 import { diffApproMessageSnapshots, type CbnMessageDiffEntry } from '#app/domain/cbn_message_diff'
 import { diffCbnDrivers, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import {
+  entreesPourArticle,
+  parseCle,
+  plusProcheDe,
+  trouverDepuis,
+  type TemporelEntree,
+} from '#app/domain/diff_temporel'
 import { detecterTrous, type PasFrise, type TrouFrise } from '#app/domain/diff_frise'
 import { explainCbnMessages, type CbnExplanation } from '#app/domain/cbn_explanation'
 import { detectPatterns, type ApproPatterns } from '#app/domain/cbn_patterns'
@@ -542,6 +549,113 @@ export class DemandSnapshotService {
       .limit(MAX_FENETRE_JOURS)
     const dates = rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
     return photoLaPlusProche(dates, fenetreJours)
+  }
+
+  /**
+   * Historique d'une clé stable `VCRNUM:VCRLIN:VCRSEQ` (Q8).
+   * Lecture SQLite seule : `appro_message_snapshots` ordonné ASC, `depuis` =
+   * première ligne où `mrpmes != 1`. `null` si jamais apparu.
+   * Trous week-ends/pannes sautés côté demande via `photoLaPlusProche`.
+   */
+  async historiqueMessage(cle: string): Promise<string | null> {
+    const parsed = parseCle(cle)
+    if (parsed === null) return null
+    const rows = await db
+      .connection()
+      .from('appro_message_snapshots')
+      .where('vcrnum', parsed.vcrnum)
+      .andWhere('vcrlin', parsed.vcrlin)
+      .andWhere('vcrseq', parsed.vcrseq)
+      .select('snapshot_date', 'mrpmes')
+      .orderBy('snapshot_date', 'asc')
+    const histo = rows.map((r) => ({
+      snapshot_date: jourIso((r as { snapshot_date?: unknown }).snapshot_date),
+      mrpmes: Number((r as { mrpmes?: unknown }).mrpmes),
+    }))
+    return trouverDepuis(histo)
+  }
+
+  /**
+   * Dates de demande distinctes, DESC, sans plafond (pour le diff temporel).
+   * Le diff temporel peut remonter au-delà de `MAX_FENETRE_JOURS` (62 j) —
+   * le message est apparu il y a 5 jours dans le use case, mais un historique
+   * plus ancien reste possible. On lit sans LIMIT pour ne pas tronquer `depuis`.
+   */
+  private async datesDemandeDesc(): Promise<string[]> {
+    const rows = await db
+      .connection()
+      .from('demand_snapshots')
+      .distinct('snapshot_date')
+      .orderBy('snapshot_date', 'desc')
+    return rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
+  }
+
+  /**
+   * Diff temporel — question B « pourquoi est-il apparu/changé ? » (ticket 04).
+   *
+   * Période [depuis → aujourd'hui] où `depuis` = première photo où la clé
+   * stable porte `MRPMES_0 != 1` (Q8) via `appro_message_snapshots`.
+   * Sources diffées = entrées terrain stables (Q12) : `stock, demande_ferme,
+   * demande_prevision, appro, of_ferme, besoin_matiere` (WIPSTA=1 seul,
+   *  ticket 01). Exclus : `of_planifie/of_suggestion/appro_suggestion` +
+   *  WIPSTA 2/3 — jamais de diff de sorties CBN.
+   * Lecture SQLite uniquement ; trous sautés via `plusProcheDe` / `photoLaPlusProche`,
+   * périmètre `perimetreAvecJournal` (vide comparé, echec écarté).
+   * `entrees` triées par `driverDiffAmplitude` décroissante.
+   */
+  async diffTemporel(
+    article: string,
+    cle: string
+  ): Promise<{ depuis: string | null; entrees: TemporelEntree[]; message?: string | null } | null> {
+    const parsed = parseCle(cle)
+    if (parsed === null) return null
+    const depuisMessage = await this.historiqueMessage(cle)
+    if (depuisMessage === null) return { depuis: null, entrees: [] }
+
+    const apres = await this.latestSnapshotDay()
+    if (apres === null) {
+      return { depuis: depuisMessage, entrees: [], message: 'aucune photo demande disponible' }
+    }
+
+    // Trouver la photo demande la plus proche de `depuisMessage` — saute week-ends/pannes.
+    const datesDemande = await this.datesDemandeDesc()
+    if (datesDemande.length === 0) {
+      return { depuis: depuisMessage, entrees: [], message: 'aucune photo demande disponible' }
+    }
+    // `depuisDemande` = plus proche de la date d'apparition ; `apres` est déjà la plus récente.
+    // Si `depuisMessage` est après `apres` (message apparu aujourd'hui, pas encore photographié
+    // côté demande), on retombe sur `apres` lui-même — diff vide cohérent.
+    const depuisDemande = plusProcheDe(datesDemande, depuisMessage)
+    if (depuisDemande === null) {
+      return { depuis: depuisMessage, entrees: [], message: 'photo depuis indisponible' }
+    }
+    // La photo `depuisDemande` doit exister ; si elle vaut `apres`, le diff est vide par construction.
+    if (depuisDemande === apres) {
+      return { depuis: depuisMessage, entrees: [] }
+    }
+
+    // S'assurer que `depuisDemande <= apres` (plusProcheDe peut rendre une date postérieure à `depuisMessage`
+    // mais antérieure à `apres` — c'est la plus proche). On borne en prenant le plus ancien des deux
+    // quand l'ordre inverserait le diff. Le calendrier est DESC, donc `apres` est toujours >= `depuisDemande`
+    // par construction (plusProcheDe cherche le plus proche, pas le plus ancien), mais défensif :
+    // si `depuisMessage` est postérieur à `apres`, `plusProcheDe` rendra `apres` lui-même — géré ci-dessus.
+    const avant = depuisDemande
+    // `diffDrivers` gère le périmètre journal (vide comparé, echec écarté) et le cache forever.
+    // On le réutilise : même clé `v13:e...`, même périmètre, même garde-fou.
+    const diff = await this.diffDrivers(apres, avant)
+    if (diff === null) {
+      return {
+        depuis: depuisMessage,
+        entrees: [],
+        message: 'photo(s) illisible(s) — diff indisponible',
+      }
+    }
+    if (diff.message !== null) {
+      // Aucune source commune aux deux photos — `perimetreAvecJournal` l'a dit.
+      return { depuis: depuisMessage, entrees: [], message: diff.message }
+    }
+    const entrees = entreesPourArticle(diff.entrees, article, apres)
+    return { depuis: depuisMessage, entrees }
   }
 
   /**
