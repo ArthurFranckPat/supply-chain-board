@@ -6,6 +6,8 @@ import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
+import { X3Database } from '#app/x3/client/x3_database'
+import { parseX3Date } from '#app/x3/utils/parse_date'
 import { cacheNs } from '#services/cache_ns'
 import { ARTICLE_NON_UTILISABLE } from '#services/static_sync_service'
 import {
@@ -39,7 +41,7 @@ export type { DemandSnapshotRow, ApproMessageSnapshotRow } from '#app/domain/sna
  * Photo quotidienne du besoin (#74 lot 1, absorbé par #98 lot 4).
  *
  * X3 ne versionne rien côté prévisions — cf. commentaire de la migration
- * `demand_snapshots`. Ce service capture 4 populations à un instant T, via les
+ * `demand_snapshots`. Ce service capture 5 populations à un instant T, via les
  * repositories déjà en place (`board_dataset` pour OF/lignes de commande —
  * caches SWR existants, cf. #98 lots 1-2 — puis X3 direct pour stock/appros,
  * qui n'ont pas d'équivalent caché sans filtre d'article) :
@@ -52,6 +54,7 @@ export type { DemandSnapshotRow, ApproMessageSnapshotRow } from '#app/domain/sna
  *    (physique − alloué phys − alloué global), même convention que les
  *    moteurs de faisabilité
  *  - `appro` — `X3ReceptionRepository.getReceptionFlows()` (PORDERQ ouvertes)
+ *  - `besoin_matiere` — ORDERS WIPTYP=6 WIPSTA=1 (refonte CBN lot 0, ~4k lignes)
  *
  * S'y ajoute, dans une table dédiée `appro_message_snapshots` (#138 lot 0), la
  * photo des **messages de replanification** du CBN — la population que le
@@ -149,6 +152,8 @@ export const SOURCE = {
   STOCK: 'stock',
   APPRO: 'appro',
   APPRO_SUGGESTION: 'appro_suggestion',
+  /** Besoin matière ferme (WIPTYP=6, WIPSTA=1) — refonte CBN lot 0. ~4k lignes/nuit, ×1,1. */
+  BESOIN_MATIERE: 'besoin_matiere',
   /** Population de la table dédiée — pas une source de `demand_snapshots`. */
   MESSAGE: 'appro_message',
 } as const
@@ -208,8 +213,8 @@ export interface SnapshotResult {
 }
 
 /**
- * Ce qu'une photo COMPLÈTE contient (#138 lot 0) : huit sources dans
- * `demand_snapshots`, plus les messages dans leur table dédiée.
+ * Ce qu'une photo COMPLÈTE contient (#138 lot 0, étendu lot 0 refonte CBN) : neuf sources dans
+ * `demand_snapshots` (dont `besoin_matiere`), plus les messages dans leur table dédiée.
  *
  * Sert à dire « il en manque une ». Sans ce rapprochement, un CBN en échec
  * trente nuits d'affilée logge trente fois « ok, 28 000 lignes » sans que ni
@@ -1169,7 +1174,7 @@ export class DemandSnapshotService {
     try {
       const { demand, messages, sourcesEnEchec } = await fetchRows()
 
-      // Les huit sources de `demand` viennent de quatre repositories distincts :
+      // Les neuf sources de `demand` viennent de cinq repositories distincts :
       // les voir TOUTES vides ne décrit aucun état réel du parc, c'est une panne.
       // On n'écrit alors rien du tout, messages compris — ils sortent du même run.
       //
@@ -1468,6 +1473,44 @@ export class DemandSnapshotService {
       })
     }
 
+    // Besoin matière ferme (WIPTYP=6, WIPSTA=1) — refonte CBN lot 0, ticket 01.
+    // Seuls les fermes : WIPSTA 2/3 sont des sorties du CBN recréées chaque nuit
+    // (VCRNUM renouvelé, cf. lot 0 Volumétrie) → jamais photographiés, jamais diffés.
+    // Extraction ciblée : 5 colonnes, ~4k lignes, site AE1, RMNEXTQTY>0, ITMSTA=1.
+    // ZSOAPSQL O(n²) — garder étroite, pas d'horizon. Source ISOLÉE : un échec n'efface pas les autres.
+    try {
+      const dbB = new X3Database()
+      let besoinRows: Array<Record<string, string | null>> = []
+      try {
+        besoinRows = (await dbB.raw(besoinMatiereSql)) as Array<Record<string, string | null>>
+      } finally {
+        await dbB.destroy()
+      }
+      for (const row of besoinRows) {
+        const qty = Number.parseFloat(row.RMNEXTQTY_0 ?? '0') || 0
+        if (qty <= 0) continue
+        const itmref = (row.ITMREF_0 ?? '').trim()
+        if (!itmref) continue
+        out.push({
+          snapshot_date: dateStr,
+          source: SOURCE.BESOIN_MATIERE,
+          itmref,
+          vcrnum: (row.VCRNUM_0 ?? '').trim() || null,
+          vcrlin: null,
+          quantity: qty,
+          date_echeance: isoDayOrNull(parseX3Date(row.ENDDAT_0)),
+          fournisseur: null,
+          itmrefori: (row.ITMREFORI_0 ?? '').trim() || null,
+        })
+      }
+    } catch (error) {
+      sourcesEnEchec.push(SOURCE.BESOIN_MATIERE)
+      logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        '[snapshot] besoin_matiere indisponible — source non réécrite'
+      )
+    }
+
     // Deux populations CBN, un seul appel (`ApproRepository.fetch` les rend
     // ensemble) — horizon 18 mois, le même pour les deux (#138 : 777 messages
     // sur 777 tiennent sous cet horizon, il n'en coupe aucun).
@@ -1514,6 +1557,29 @@ export class DemandSnapshotService {
     return { demand: out, messages, sourcesEnEchec }
   }
 }
+
+/** Site de production — même convention que `appro_repository`. */
+const SITE = 'AE1'
+
+/**
+ * Besoin matière ferme (WIPTYP=6, WIPSTA=1) — refonte CBN lot 0.
+ * 5 colonnes, ~4k lignes/nuit, ×1,1 sur 36 638. WIPSTA 2/3 exclus (174k lignes
+ * recréées chaque nuit, VCRNUM instable). RMNEXTQTY_0>0, ITMSTA_0=1.
+ *
+ * Note réplique : `orders_flux_replica` est partitionné WIPTYP 1/2/5
+ * (`WIPSTA_BY_WIPTYP: Record<1|2|5,…>`). Ajouter WIPTYP=6 y est une 4e passe
+ * — tranché ticket 05, pas ici. La grille lira donc en live, le diff en photo.
+ */
+const besoinMatiereSql = `
+SELECT O.ITMREF_0, O.VCRNUM_0, O.ITMREFORI_0, O.RMNEXTQTY_0, O.ENDDAT_0
+FROM ORDERS O
+INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+WHERE O.WIPTYP_0 = 6
+  AND O.WIPSTA_0 = 1
+  AND O.STOFCY_0 = '${SITE}'
+  AND I.ITMSTA_0 = 1
+  AND O.RMNEXTQTY_0 > 0
+`
 
 /** Borne de la photo des suggestions : horizon 18 mois (#108, population complète). */
 const APPRO_SNAPSHOT_HORIZON_DAYS = 548
