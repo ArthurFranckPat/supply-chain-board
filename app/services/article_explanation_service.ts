@@ -4,15 +4,36 @@ import { parseX3Date } from '#app/x3/utils/parse_date'
 import boardDataset from '#services/board_dataset'
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
+import { cacheNs } from '#services/cache_ns'
 import { isoDay } from '#app/utils/dates'
 
 /**
- * Service d'explication article CBN — question A primaire (ticket 02).
+ * Service d'explication article CBN — question A primaire (ticket 02) + cache TTL (ticket 05).
  *
  * Grille time-phased hybride + pegging natif WIPTYP=6.
  * Lecture ORDERS telle que le CBN vient de la produire, pas de recalcul MRP.
  * Contrainte ZSOAPSQL O(n²) : `fetchArticleFutureFlows` reste à 3 colonnes,
  * seconde requête étroite WIPTYP=6 (ITMREFORI_0, VCRNUM_0, WIPSTA_0, ENDDAT_0, RMNEXTQTY_0).
+ *
+ * Cache (05, Q14) : par (article, date de run CBN) clé stable via `cacheNs()`
+ * jamais une clé qui bouge par requête. TTL = prochain run nocturne (04 h)
+ * car ORDERS inchangé entre deux runs. Invalidation sur réécriture photo via
+ * epochPhotos (même clé que demand_snapshot_service). Diff lit SQLite donc
+ * non mis en cache CBN — le cache ne porte que la grille + pegging.
+ *
+ * Budget p95 < 3 s : 2 SOAP étroits/article max (fetchArticleFutureFlows 3 colonnes +
+ * pegging 5 colonnes), message row 1 ligne indexée. Colonne étroite conservée.
+ *
+ * REPLICA_READS=true (05, Q14) : live assumé documenté — pas de voie réplique
+ * ici, X3 direct volontaire (aucun `replicaGate.canRead` dans ce service).
+ * Le drawer est le seul appel X3 live d'une page servie en ~209 ms en mode
+ * réplique — c'est explicite et déclenché UNIQUEMENT au clic, pas au
+ * chargement de la file. Le coût est amorti par le cache journalier (2ᵉ clic
+ * = hit < 200 ms). 4ᵉ passe réplique WIPTYP=6 envisagée (étendre
+ * WIPSTA_BY_WIPTYP Record<1|2|5|6> + syncOrdersFlux) mais différée : ~3 972
+ * lignes, bénéfice marginal quand le cache absorbe 90 % des lectures, et la
+ * réplique ne serait pas plus fraîche que le TTL (même run CBN). À réévaluer
+ * si p95 live dépasse 3 s en prod.
  */
 
 const SITE = 'AE1'
@@ -21,6 +42,32 @@ export const HORIZON_DAYS = 90
 export const SENTINEL_BEFORE = Date.UTC(2000, 0, 1)
 
 export const DAY_MS = 86_400_000
+
+/**
+ * Cache article-explanation (05).
+ * Partage l'epoch `appro:photo-epoch:v1` avec demand_snapshot_service
+ * (`APPRO_PHOTO_EPOCH_KEY`) : toute réécriture photo (snapshot:run relancé le
+ * même jour) invalide le cache dérivé. Les deux littéraux DOIVENT rester
+ * identiques — importer l'un depuis l'autre créerait un cycle, donc la
+ * synchronisation est contractuelle et vérifiée en revue.
+ */
+export const EXPLICATION_CACHE_VERSION = 'v1'
+export const EXPLICATION_EPOCH_KEY = 'appro:photo-epoch:v1'
+
+export function msUntilProchainRun(now: Date = new Date()): number {
+  const next = new Date(now)
+  next.setHours(4, 0, 0, 0)
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1)
+  return next.getTime() - now.getTime()
+}
+
+export function buildExplicationCacheKey(article: string, jourRun: string, epoch: number): string {
+  // Articles X3 ne contiennent pas ':' mais '_' est légal en ITMREF ; encoder
+  // évite la collision `A:B` vs `A_B` qu'aurait `replace(':','_')` —
+  // `encodeURIComponent` est idempotent et stable par requête.
+  const safe = encodeURIComponent(article)
+  return `appro:explication:${safe}:${jourRun}:e${epoch}:${EXPLICATION_CACHE_VERSION}`
+}
 
 export interface CleParsed {
   vcrnum: string
@@ -460,6 +507,15 @@ async function resolveSuggestionOrigine(
 }
 
 export class ArticleExplanationService {
+  private async epochPhotos(): Promise<number> {
+    const v = await cacheNs('appro').get<number>({ key: EXPLICATION_EPOCH_KEY })
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0
+  }
+  // epochPhotos est lu HORS getOrSet pour construire la clé. Un bump entre la
+  // lecture et l'écriture crée une entrée orpheline sous l'ancien `e` —
+  // inoffensif (clé orpheline jamais relue, TTL 04h la purge), pas de
+  // corruption.
+
   async explain(
     articleRaw: string,
     cleRaw: string,
@@ -470,60 +526,82 @@ export class ArticleExplanationService {
     if (!cleRaw?.trim()) throw new ArticleExplanationBadRequest('cle manquante')
     const cle = parseCle(cleRaw.trim())
 
-    const ligne = await fetchMessageRow(article, cle)
-    if (!ligne)
-      throw new ArticleExplanationNotFound(`message ${cleRaw} introuvable pour article ${article}`)
-
-    // Périmètre V1 : seuls les « avancer » (MRPMES_0=2) sont expliqués
-    if (ligne.message === 3 || ligne.message === 6) {
-      return { supporte: false, raison: 'message retarder/inutile — hors périmètre V1' }
-    }
-    if (ligne.message !== 2) {
-      // Tout autre code (dont 1 = pas de message) → même refus explicite côté grille : non supporté
-      return { supporte: false, raison: 'message retarder/inutile — hors périmètre V1' }
-    }
-
+    // --- Cache par (article, date de run CBN) — Q14 ---
+    // Clé stable jour + epoch, TTL = prochain run 04 h (absolu, pas de sliding :
+    // un hit ne rafraîchit pas le TTL, l'expiry reste calée sur 04h). ORDERS
+    // inchangé entre runs. Le diff (SQLite, lui-même getOrSetForever) n'est PAS
+    // dans ce cache CBN — il est recomposé côté controller.
     const refMid = atMidnightLocal(refDate)
-    const toIso = isoDay(new Date(refMid.getTime() + HORIZON_DAYS * DAY_MS))
+    const jourRun = isoDay(refMid)
+    const epoch = await this.epochPhotos()
+    const cacheKey = buildExplicationCacheKey(article, jourRun, epoch)
+    const ttl = msUntilProchainRun(refDate)
 
-    // Stock + flux + pegging en parallèle (2 SOAP)
-    const [stockInitial, flows, parents] = await Promise.all([
-      fetchCurrentStock(article),
-      (async () => {
-        const repo = new CombinedOrdersRepository()
-        const raw = await repo.fetchArticleFutureFlows(article, isoDay(refMid), toIso)
-        // raw already has kind/date/qty
-        return raw
-      })(),
-      fetchPeggingParents(article, toIso),
-    ])
+    return cacheNs('appro').getOrSet({
+      key: cacheKey,
+      ttl,
+      factory: async () => {
+        const ligne = await fetchMessageRow(article, cle)
+        if (!ligne)
+          throw new ArticleExplanationNotFound(
+            `message ${cleRaw} introuvable pour article ${article}`
+          )
 
-    const { periodes, premierePenurie, premierePenurieIndex } = buildGrille(
-      stockInitial,
-      flows,
-      refMid,
-      ligne,
-      HORIZON_DAYS
-    )
+        // Périmètre V1 : seuls les « avancer » (MRPMES_0=2) sont expliqués
+        if (ligne.message === 3 || ligne.message === 6) {
+          return {
+            supporte: false,
+            raison: 'message retarder/inutile — hors périmètre V1',
+          } as ExplanationResult
+        }
+        if (ligne.message !== 2) {
+          return {
+            supporte: false,
+            raison: 'message retarder/inutile — hors périmètre V1',
+          } as ExplanationResult
+        }
 
-    const suggestionOrigine = await resolveSuggestionOrigine(ligne.vcrnumori)
+        const toIso = isoDay(new Date(refMid.getTime() + HORIZON_DAYS * DAY_MS))
 
-    return {
-      supporte: true,
-      article,
-      designation: ligne.designation,
-      grille: {
-        periodes,
-        ligneMessage: ligne,
-        mrpdatCbn: ligne.mrpdat,
-        premierePenurie,
-        premierePenurieIndex,
+        // Stock + flux + pegging en parallèle (2 SOAP étroits max, budget p95 <3s)
+        const [stockInitial, flows, parents] = await Promise.all([
+          fetchCurrentStock(article),
+          (async () => {
+            const repo = new CombinedOrdersRepository()
+            const raw = await repo.fetchArticleFutureFlows(article, isoDay(refMid), toIso)
+            return raw
+          })(),
+          fetchPeggingParents(article, toIso),
+        ])
+
+        const { periodes, premierePenurie, premierePenurieIndex } = buildGrille(
+          stockInitial,
+          flows,
+          refMid,
+          ligne,
+          HORIZON_DAYS
+        )
+
+        const suggestionOrigine = await resolveSuggestionOrigine(ligne.vcrnumori)
+
+        return {
+          supporte: true,
+          article,
+          designation: ligne.designation,
+          grille: {
+            periodes,
+            ligneMessage: ligne,
+            mrpdatCbn: ligne.mrpdat,
+            premierePenurie,
+            premierePenurieIndex,
+          },
+          pegging: {
+            parents,
+            suggestionOrigine,
+          },
+        } as ExplanationResult
       },
-      pegging: {
-        parents,
-        suggestionOrigine,
-      },
-    }
+    })
   }
 }
 

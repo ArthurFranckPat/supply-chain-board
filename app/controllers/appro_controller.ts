@@ -633,11 +633,12 @@ export default class ApproController {
   }
 
   /**
-   * GET /api/v1/appro/article-explanation — explication d'un message (tickets 02+04).
-   * Compose grille time-phased + pegging (02, question A) et diff temporel (04, question B).
-   * Périmètre V1 : MRPMES_0=2 uniquement, sinon {supporte:false}. Ticket 05 fera
-   * la jonction cache/CacheNs et l'unification du service ; ici composition explicite
-   * pour éviter le conflit silencieux où l'un écrase l'autre (revue 04).
+   * GET /api/v1/appro/article-explanation — explication d'un message (tickets 02+04+05).
+   * Compose grille time-phased + pegging (02, question A, cache TTL 04h via
+   * article_explanation_service) et diff temporel SQLite (04, question B,
+   * lui-même getOrSetForever). Périmètre V1 : MRPMES_0=2 uniquement, sinon
+   * {supporte:false}. Composition explicite pour éviter le conflit silencieux
+   * où l'un écrase l'autre (revue 04) — 05 conserve la jonction.
    * Shape public `diff: { depuis, entrees }` sans `message` interne (revue 04).
    */
   async articleExplanation(ctx: HttpContext) {

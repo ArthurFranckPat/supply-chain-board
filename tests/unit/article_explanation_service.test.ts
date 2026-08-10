@@ -15,6 +15,12 @@ import { ArticleExplanationService } from '#services/article_explanation_service
 import { X3Database } from '#app/x3/client/x3_database'
 import { CombinedOrdersRepository } from '#app/repositories/combined_orders_repository'
 import boardDataset from '#services/board_dataset'
+import { cacheNs } from '#services/cache_ns'
+import {
+  buildExplicationCacheKey,
+  EXPLICATION_EPOCH_KEY,
+} from '#services/article_explanation_service'
+import { isoDay } from '#app/utils/dates'
 
 /**
  * Ticket 02 — grille time-phased + pegging natif.
@@ -289,6 +295,12 @@ test.group('article_explanation — pegging SQL étroite', () => {
 
 test.group('article_explanation — refus hors périmètre V1 (mock X3Database)', () => {
   test('MRPMES 3 et 6 rendent supporte:false', async ({ assert }) => {
+    // Cache 05 : vider la clé stable pour ce couple article/jour sinon hit sur test précédent
+    await cacheNs('appro').delete({ key: EXPLICATION_EPOCH_KEY })
+    await cacheNs('appro').delete({ key: buildExplicationCacheKey('V4254', '2026-08-05', 0) })
+    await cacheNs('appro').delete({
+      key: buildExplicationCacheKey('V4254', isoDay(new Date('2026-08-05T00:00:00')), 0),
+    })
     // Stub X3Database.raw pour la lookup message
     const origRaw = X3Database.prototype.raw as unknown as (sql: string) => Promise<unknown>
     const origGetStock = boardDataset.getStock
@@ -372,6 +384,9 @@ test.group('article_explanation — suggestionOrigine résolue contre photo', ()
     })
 
     const svc = new ArticleExplanationService()
+    // Vider cache 05 pour ce jour/article (même clé que le test précédent)
+    await cacheNs('appro').delete({ key: EXPLICATION_EPOCH_KEY })
+    await cacheNs('appro').delete({ key: buildExplicationCacheKey('V4254', '2026-08-05', 0) })
     const origRaw = X3Database.prototype.raw as unknown as (sql: string) => Promise<unknown>
     const origGetStock = boardDataset.getStock
     const origFetchFlows = CombinedOrdersRepository.prototype.fetchArticleFutureFlows
@@ -428,6 +443,9 @@ test.group('article_explanation — suggestionOrigine résolue contre photo', ()
 
     // Cas sans photo : autre numéro
     ;(msgRow as Record<string, string>).VCRNUMORI_0 = 'SGAE_INCONNU_999'
+    // Cacher 05 : le même couple article/jour est déjà en cache — purger pour que
+    // la seconde explication reflète la mutation de VCRNUMORI dans ce test unitaire.
+    await cacheNs('appro').delete({ key: buildExplicationCacheKey('V4254', '2026-08-05', 0) })
     const res2 = await svc.explain('V4254', 'CG2600209:1000:1', ref)
     assert.equal(res2.supporte, true)
     if (res2.supporte) {
@@ -440,6 +458,7 @@ test.group('article_explanation — suggestionOrigine résolue contre photo', ()
     ;(X3Database.prototype as unknown as Record<string, unknown>).raw = origRaw as unknown
     boardDataset.getStock = origGetStock
     CombinedOrdersRepository.prototype.fetchArticleFutureFlows = origFetchFlows
+    await cacheNs('appro').delete({ key: buildExplicationCacheKey('V4254', '2026-08-05', 0) })
     await db.connection().from('demand_snapshots').where('snapshot_date', sentinel).delete()
   })
 })
