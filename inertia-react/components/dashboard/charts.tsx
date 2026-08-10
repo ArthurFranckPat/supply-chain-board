@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { barX, barY, defineChart } from '@tanstack/charts'
+import { barY, defineChart } from '@tanstack/charts'
 import { scaleBand } from '@tanstack/charts/scales/band'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
 import { Chart } from '@tanstack/charts/react'
@@ -80,55 +80,29 @@ export function StockSparklineChart({ series }: { series: StockPoint[] }) {
   )
 }
 
-// ── Barre fine pill h-2 : un Chart par ligne, totalement aligné avec son libellé parent.
-//    Le parent (dashboard.tsx) rend déjà chaque libellé dans le même .map ; on ne duplique
-//    pas les textes ici — on rend uniquement la barre correspondante, index à index.
+// ── Pills h-2 : libellé 1:1 au-dessus de sa barre — div simple (proportion exacte)
+//    On garde TanStack pour la sparkline (vrai graphe) ; les pills sont des barres
+//    mono-dimensionnelles où un div width% est plus fiable que barX (évite l'effet
+//    lentille + domaine partagé). Le rendu reste identique à la maquette.
 
 type ChargeRow = { code: string; label: string; heures: number }
 type ProfRow = { id: string; label: string; nbLignes: number; heures: number }
 type CatRow = { categorie: string; valeur: number; part: number }
 
-function RowBar({ value, max, fill }: { value: number; max: number; fill: string }) {
-  // Une seule catégorie « r » + domaine x [0,max] → barre horizontale pleine largeur,
-  // sans bande complexe. h-2 = même hauteur que l'ancien div pill.
-  const data = useMemo(() => [{ y: 'r', x: value }], [value])
-  const def = useMemo(
-    () =>
-      defineChart({
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-        marks: [
-          barX(data, {
-            x: 'x',
-            y: 'y',
-            fill,
-            radius: 4,
-            inset: 0,
-          }),
-        ],
-        x: {
-          scale: () => scaleLinear().domain([0, Math.max(1, max)]),
-          grid: false,
-          axis: false,
-        },
-        y: {
-          scale: () => scaleBand<string>().domain(['r']).padding(0),
-          axis: false,
-        },
-        tooltip,
-      }),
-    [data, fill, max]
-  )
+function Pill({ value, max, fill }: { value: number; max: number; fill: string }) {
+  const pct = Math.max(3, (value / Math.max(1, max)) * 100)
   return (
-    <div
-      className="h-2 overflow-hidden rounded-full bg-secondary"
-      style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}
-    >
-      <Chart
-        definition={def}
-        ariaLabel={`${value}`}
-        height={8}
-        className="w-full"
-        style={{ width: '100%', display: 'block' }}
+    <div className="h-2 overflow-hidden rounded-full bg-secondary">
+      <div
+        className="h-full rounded-full"
+        style={
+          {
+            width: `${pct}%`,
+            background: fill,
+            WebkitPrintColorAdjust: 'exact',
+            printColorAdjust: 'exact',
+          } as React.CSSProperties
+        }
       />
     </div>
   )
@@ -153,7 +127,7 @@ export function ChargeBars({ postes }: { postes: ChargeRow[] }) {
               {p.heures} h
             </span>
           </div>
-          <RowBar
+          <Pill
             value={p.heures}
             max={max}
             fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
@@ -182,7 +156,7 @@ export function ProfondeurBars({ buckets }: { buckets: ProfRow[] }) {
               {b.heures} h
             </span>
           </div>
-          <RowBar
+          <Pill
             value={b.heures}
             max={max}
             fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
@@ -213,7 +187,7 @@ export function CategoriesBars({ categories }: { categories: CatRow[] }) {
               <span className="ml-1 text-[10px] text-muted-foreground/70">{c.part}%</span>
             </span>
           </div>
-          <RowBar
+          <Pill
             value={c.valeur}
             max={max}
             fill={BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)]!}
