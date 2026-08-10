@@ -77,8 +77,7 @@ const fr = (iso: string | null): string => {
   return y && m && d ? `${d}/${m}/${y}` : '—'
 }
 
-const fmtQte = (n: number): string =>
-  n === 0 ? '—' : n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
+const fmtQte = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })
 
 function useExplanation(article: string | null, cle: string | null, enabled: boolean) {
   const [data, setData] = useState<ExplanationResult | null>(null)
@@ -86,7 +85,12 @@ function useExplanation(article: string | null, cle: string | null, enabled: boo
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!enabled || !article || !cle) return
+    if (!enabled || !article || !cle) {
+      setData(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -228,9 +232,7 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
           <div
             data-slot="explanation-diff"
             className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4 empty:hidden"
-          >
-            {/* Ticket 05 branchera ici le diff « depuis l’apparition du message ». */}
-          </div>
+          />
         </div>
 
         {/* Pied discret — étalon rappelé même hors scroll. */}
@@ -298,15 +300,30 @@ function SuccessContent({ data }: { data: ExplanationSuccess }) {
         </h3>
         <div className="overflow-x-auto rounded-lg border border-rule">
           <table className="w-full min-w-[520px] text-left text-xs">
+            <caption className="sr-only">Grille time-phased de l’article</caption>
             <thead>
               <tr className="border-b border-rule bg-secondary/50 text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                <th className="px-2 py-1.5 font-semibold">Période</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Stock début</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Demande</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Besoin mat.</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Réception</th>
-                <th className="px-2 py-1.5 text-right font-semibold">OF</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Stock fin</th>
+                <th scope="col" className="px-2 py-1.5 font-semibold">
+                  Période
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Stock début
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Demande
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Besoin mat.
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Réception
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  OF
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Stock fin
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule/60">
