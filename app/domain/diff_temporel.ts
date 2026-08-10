@@ -1,4 +1,5 @@
 import { driverDiffAmplitude, type DriverDiffEntry } from '#app/domain/cbn_driver_diff'
+import { jourIso } from '#app/domain/snapshot_couverture'
 
 /**
  * Diff temporel backend — question B « pourquoi est-il apparu/changé ? »
@@ -52,11 +53,13 @@ export interface DiffTemporelResult {
  * Retourne `null` si la forme n'est pas `a:b:c` avec `b` entier.
  */
 export function parseCle(cle: string): { vcrnum: string; vcrlin: number; vcrseq: string } | null {
-  const parts = cle.split(':')
+  const parts = cle.trim().split(':')
   if (parts.length !== 3) return null
-  const [vcrnum, vcrlinRaw, vcrseq] = parts
+  const [vcrnumRaw, vcrlinRaw, vcrseqRaw] = parts
+  const vcrnum = vcrnumRaw.trim()
+  const vcrseq = vcrseqRaw.trim()
   if (!vcrnum || !vcrseq) return null
-  const vcrlin = Number(vcrlinRaw)
+  const vcrlin = Number(vcrlinRaw.trim())
   if (!Number.isInteger(vcrlin)) return null
   return { vcrnum, vcrlin, vcrseq }
 }
@@ -67,10 +70,10 @@ export function parseCle(cle: string): { vcrnum: string; vcrlin: number; vcrseq:
  * `null` si la clé n'a jamais porté de message (jamais apparu).
  */
 export function trouverDepuis(
-  rows: Array<{ snapshot_date: string; mrpmes: number }>
+  rows: Array<{ snapshot_date: string | unknown; mrpmes: number }>
 ): string | null {
   for (const r of rows) {
-    if (r.mrpmes !== 1) return r.snapshot_date.slice(0, 10)
+    if (r.mrpmes !== 1) return jourIso(r.snapshot_date)
   }
   return null
 }
@@ -108,21 +111,35 @@ export function estSourceDiffTemporel(source: string): source is SourceDiffTempo
 }
 
 /**
- * Trouve la date de demande la plus proche de `cible` dans une liste triée DESC.
+ * Date de demande la plus proche de `cible` SANS DÉPASSER `cible` (plancher).
  * Retourne `null` si la liste est vide.
- * Distance = |date - cible| en jours — plus petite distance d'abord.
- * Utilisé pour sauter week-ends/pannes sans casser le diff.
+ * Si aucune date ≤ cible (trou avant la première photo), retombe sur la plus
+ * proche au sens |distance| — documenté, car le mouvement 06→07 serait alors
+ * perdu mais le diff reste défini plutôt que `null` (spec : trous sautés,
+ * jamais en faux `apparue` en bloc). Préfère le passé : trou 04–07 encadrant
+ * 06 → rend 04 (1j avant) plutôt que 07 (1j après).
  */
 export function plusProcheDe(datesDesc: string[], cible: string): string | null {
   if (datesDesc.length === 0) return null
-  let best = datesDesc[0]
-  let bestDist = Math.abs(Date.parse(`${best}T00:00:00Z`) - Date.parse(`${cible}T00:00:00Z`))
+  const cibleMs = Date.parse(`${cible}T00:00:00Z`)
+  let floor: string | null = null
+  let floorDist = Number.POSITIVE_INFINITY
+  let nearest = datesDesc[0]
+  let nearestDist = Math.abs(Date.parse(`${nearest}T00:00:00Z`) - cibleMs)
   for (const d of datesDesc) {
-    const dist = Math.abs(Date.parse(`${d}T00:00:00Z`) - Date.parse(`${cible}T00:00:00Z`))
-    if (dist < bestDist) {
-      bestDist = dist
-      best = d
+    const ms = Date.parse(`${d}T00:00:00Z`)
+    const dist = Math.abs(ms - cibleMs)
+    if (dist < nearestDist) {
+      nearestDist = dist
+      nearest = d
+    }
+    if (ms <= cibleMs) {
+      const fDist = cibleMs - ms
+      if (fDist < floorDist) {
+        floorDist = fDist
+        floor = d
+      }
     }
   }
-  return best
+  return floor ?? nearest
 }

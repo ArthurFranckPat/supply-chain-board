@@ -40,6 +40,7 @@ export const DRIVER_SOURCES = [
   'stock',
   'appro',
   'appro_suggestion',
+  'besoin_matiere',
 ] as const
 
 export type DriverSource = (typeof DRIVER_SOURCES)[number]

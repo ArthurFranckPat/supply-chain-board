@@ -634,29 +634,43 @@ export default class ApproController {
 
   /**
    * GET /api/v1/appro/article-explanation — explication d'un message (tickets 02+04).
-   * Ticket 04 porte le diff temporel `diff: { depuis, entrees }` ; ticket 02
-   * portera la grille + pegging. Ticket 05 fera la jonction finale.
-   * La réponse actuelle contient le diff seul, compatible merge : 02 ajoutera
-   * `grille` et `pegging` sans toucher ce champ.
-   * Shape merge-friendly documenté : 02 garde `diff` tel quel, ajoute `grille`
-   * et `pegging` ; un conflit de shape se résout en gardant les trois.
+   * Compose grille time-phased + pegging (02, question A) et diff temporel (04, question B).
+   * Périmètre V1 : MRPMES_0=2 uniquement, sinon {supporte:false}. Ticket 05 fera
+   * la jonction cache/CacheNs et l'unification du service ; ici composition explicite
+   * pour éviter le conflit silencieux où l'un écrase l'autre (revue 04).
+   * Shape public `diff: { depuis, entrees }` sans `message` interne (revue 04).
    */
   async articleExplanation(ctx: HttpContext) {
     const article = String(ctx.request.input('article') ?? '').trim()
     const cle = String(ctx.request.input('cle') ?? '').trim()
     if (!article) return ctx.response.badRequest({ error: 'article requis' })
     if (!cle) return ctx.response.badRequest({ error: 'cle requis (format VCRNUM:VCRLIN:VCRSEQ)' })
-    const diff = await demandSnapshotService.diffTemporel(article, cle)
-    if (diff === null) {
+    // Diff temporel (04) — validation cle via parseCle ; null = format invalide.
+    const diffRaw = await demandSnapshotService.diffTemporel(article, cle)
+    if (diffRaw === null) {
       return ctx.response.badRequest({
         error: `cle « ${cle} » invalide — format attendu VCRNUM:VCRLIN:VCRSEQ`,
       })
     }
-    return ctx.response.json({
-      article,
-      cle,
-      diff,
-    })
+    // Shape public strict : {depuis, entrees} — message interne non exposé (revue 04).
+    const diff = { depuis: diffRaw.depuis, entrees: diffRaw.entrees }
+    // Grille + pegging (02) — peut lever BadRequest/NotFound, on les propage ; diff reste joint.
+    try {
+      const grilleResult = await articleExplanationService.explain(article, cle)
+      // grilleResult est soit {supporte:false, raison} soit {supporte:true, ...}
+      if ((grilleResult as { supporte: boolean }).supporte === false) {
+        return ctx.response.json({ ...grilleResult, article, cle, diff })
+      }
+      return ctx.response.json({ ...(grilleResult as object), diff })
+    } catch (e) {
+      if (e instanceof ArticleExplanationBadRequest) {
+        return ctx.response.badRequest({ error: e.message })
+      }
+      if (e instanceof ArticleExplanationNotFound) {
+        return ctx.response.notFound({ error: e.message })
+      }
+      throw e
+    }
   }
 
   /**
@@ -669,32 +683,5 @@ export default class ApproController {
     const repo = new ApproDecisionRepository()
     const lignes = await repo.dernieresNonExpirees()
     return ctx.response.json(autoEvaluation(lignes))
-  }
-
-  /**
-   * GET /api/v1/appro/article-explanation?article=V4254&cle=CG2600209:1000:1
-   * Grille time-phased + pegging natif (ticket 02, question A).
-   * Périmètre V1 : MRPMES_0=2 uniquement, sinon {supporte:false}.
-   */
-  async articleExplanation(ctx: HttpContext) {
-    const article = String(ctx.request.input('article') ?? '').trim()
-    const cle = String(ctx.request.input('cle') ?? '').trim()
-    if (!article || !cle) {
-      return ctx.response.badRequest({
-        error: 'article et cle requis (ex: ?article=V4254&cle=CG2600209:1000:1)',
-      })
-    }
-    try {
-      const result = await articleExplanationService.explain(article, cle)
-      return ctx.response.json(result)
-    } catch (e) {
-      if (e instanceof ArticleExplanationBadRequest) {
-        return ctx.response.badRequest({ error: e.message })
-      }
-      if (e instanceof ArticleExplanationNotFound) {
-        return ctx.response.notFound({ error: e.message })
-      }
-      throw e
-    }
   }
 }

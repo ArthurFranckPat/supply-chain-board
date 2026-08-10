@@ -161,13 +161,13 @@ test.group('diff_temporel — entreesPourArticle', () => {
 })
 
 test.group('diff_temporel — plusProcheDe (trous)', () => {
-  test('saute week-ends/pannes — prend la plus proche', ({ assert }) => {
+  test('saute week-ends/pannes — plancher <= cible (floor)', ({ assert }) => {
     // Photos dispo : ven 06, lun 09 (week-end troué), mar 10
     const dates = ['2026-08-10', '2026-08-09', '2026-08-06']
-    // cible = samedi 07 (trou) → plus proche = ven 06 (1j) vs lun 09 (2j)
+    // cible = samedi 07 (trou) → plancher = ven 06 (1j avant), pas lun 09 (futur)
     assert.equal(plusProcheDe(dates, '2026-08-07'), '2026-08-06')
-    // cible = dim 08 → lun 09 plus proche (1j) que ven 06 (2j)
-    assert.equal(plusProcheDe(dates, '2026-08-08'), '2026-08-09')
+    // cible = dim 08 → plancher = ven 06 (2j avant), pas lun 09 (futur) — évite de perdre 06→07
+    assert.equal(plusProcheDe(dates, '2026-08-08'), '2026-08-06')
   })
 
   test('cible exacte rendue telle quelle', ({ assert }) => {

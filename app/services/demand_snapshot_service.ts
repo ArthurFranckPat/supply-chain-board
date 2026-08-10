@@ -576,10 +576,11 @@ export class DemandSnapshotService {
   }
 
   /**
-   * Dates de demande distinctes, DESC, sans plafond (pour le diff temporel).
+   * Dates de demande distinctes, DESC, borne défensive 500 (pour le diff temporel).
    * Le diff temporel peut remonter au-delà de `MAX_FENETRE_JOURS` (62 j) —
    * le message est apparu il y a 5 jours dans le use case, mais un historique
-   * plus ancien reste possible. On lit sans LIMIT pour ne pas tronquer `depuis`.
+   * plus ancien reste possible. Sans LIMIT, 3 ans = scan ; 500 = ~1,3 an, suffisant
+   * pour l'historique et indexé sur `snapshot_date`.
    */
   private async datesDemandeDesc(): Promise<string[]> {
     const rows = await db
@@ -587,6 +588,7 @@ export class DemandSnapshotService {
       .from('demand_snapshots')
       .distinct('snapshot_date')
       .orderBy('snapshot_date', 'desc')
+      .limit(500)
     return rows.map((r) => jourIso((r as { snapshot_date?: unknown }).snapshot_date))
   }
 
