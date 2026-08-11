@@ -455,16 +455,11 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   Thème « Cursor » — tokens PRODUIT light (extrait live user 2026-08-11).
+   Thème « Cursor » — produit light (:root extrait 2026-08-11).
 
-   Source : variables CSS résolues du produit Cursor (pas marketing getdesign).
-   Rôles :
-   • --sidebar #f3f3f3     → sidebar
-   • --chrome  #f8f8f8     → fond page / topbar
-   • --editor  #fcfcfc     → cards / surfaces content
-   • --base    #141414     → encre / CTA filled
-   • --brand   #f54e00     → accent marque (rare)
-   • --accent  #2778c1     → focus / liens UI
+   Source : cursor/product-tokens-light.css + DESIGN.md
+   Surfaces : sidebar #f3f3f3 · chrome #f8f8f8 · editor/elevated #fcfcfc
+   CTA : --bg-neutral #141414 · brand #f54e00 rare · accent/focus #2778c1
    ──────────────────────────────────────────────────────────── */
 .theme-cursor {
   --cursor-sidebar: #f3f3f3;
@@ -478,19 +473,18 @@
   --cursor-danger: #be1744;
   --cursor-shadow-primary: #0000000f;
   --cursor-shadow-secondary: #00000009;
+  --cursor-shadow-tertiary: #00000005;
 
-  /* Alias legacy boutons hover */
   --color-rausch: #f54e00;
   --color-rausch-active: #cd4500;
-  --color-rausch-soft: color-mix(in srgb, #f54e00 12%, transparent);
+  --color-rausch-soft: color-mix(in oklab, #f54e00 12%, transparent);
   --color-rausch-logo: #f54e00;
-  --color-rausch-disabled: #e8e8e8;
+  --color-rausch-disabled: color-mix(in oklab, #141414 8%, #f8f8f8);
   --color-babu: #007041;
   --color-arches: #cd4500;
   --color-hof: #141414;
-  --color-foggy: #666666;
+  --color-foggy: color-mix(in oklab, #141414 60%, transparent);
 
-  /* CTA filled produit = base (noir), pas orange */
   --primary: #141414;
   --primary-foreground: #fcfcfc;
   --ring: #2778c1;
@@ -502,26 +496,26 @@
   --popover: #fcfcfc;
   --popover-foreground: #141414;
 
-  --secondary: #f3f3f3;
+  --secondary: color-mix(in oklab, #141414 8%, #f8f8f8);
   --secondary-foreground: #141414;
-  --muted: #f3f3f3;
-  --muted-foreground: #666666;
-  --accent: #eeeeee;
+  --muted: color-mix(in oklab, #141414 6%, #f8f8f8);
+  --muted-foreground: color-mix(in oklab, #141414 74%, transparent);
+  --accent: color-mix(in oklab, #141414 8%, transparent);
   --accent-foreground: #141414;
 
-  --border: #e8e8e8;
-  --input: #d4d4d4;
+  --border: color-mix(in oklab, #141414 8%, transparent);
+  --input: color-mix(in oklab, #141414 12%, transparent);
 
   --destructive: #be1744;
   --destructive-foreground: #fcfcfc;
 
-  --radius: 0.5rem; /* 8px = --cursor-radius-lg */
+  --radius: 0.5rem; /* 8px = radius-lg cards */
 
   --shadow-xs: none;
-  --shadow-sm: 0 2px 8px 0 var(--cursor-shadow-secondary);
+  --shadow-sm: 0 2px 8px 0 #00000009;
   --shadow-float:
-    0 0 0 1px #e8e8e8, 0 0 4px 0 var(--cursor-shadow-secondary),
-    0 8px 24px -2px var(--cursor-shadow-secondary);
+    0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 4px 0 #00000009,
+    0 8px 24px -2px #00000009;
   --shadow-overlay: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter Variable', sans-serif;
@@ -535,28 +529,28 @@
   --sidebar-foreground: #141414;
   --sidebar-primary: #f54e00;
   --sidebar-primary-foreground: #fcfcfc;
-  --sidebar-accent: #eeeeee;
+  --sidebar-accent: color-mix(in oklab, #141414 8%, transparent);
   --sidebar-accent-foreground: #141414;
-  --sidebar-selected: #e8e8e8;
-  --sidebar-border: #e8e8e8;
+  --sidebar-selected: color-mix(in oklab, #141414 16%, transparent);
+  --sidebar-border: color-mix(in oklab, #141414 8%, transparent);
   --sidebar-ring: #2778c1;
 
   --chart-1: #141414;
-  --chart-2: #666666;
+  --chart-2: color-mix(in oklab, #141414 60%, transparent);
   --chart-3: #f54e00;
   --chart-4: #007041;
   --chart-5: #2778c1;
 
   --brand: #f54e00;
-  --brand-soft: color-mix(in srgb, #f54e00 12%, transparent);
+  --brand-soft: color-mix(in oklab, #f54e00 12%, transparent);
   --rule: var(--border);
-  --rule-soft: #f0f0f0;
+  --rule-soft: color-mix(in oklab, #141414 4%, transparent);
   --ferme: #007041;
   --planifie: #007041;
   --suggere: #a46700;
   --warning: #a46700;
   --color-brand: #f54e00;
-  --color-brand-soft: color-mix(in srgb, #f54e00 12%, transparent);
+  --color-brand-soft: color-mix(in oklab, #f54e00 12%, transparent);
   --color-planifie: #007041;
   --color-suggere: #a46700;
   --color-ferme: #007041;
@@ -567,11 +561,11 @@
   font-family: var(--font-sans);
   font-feature-settings: 'tnum' 1;
   letter-spacing: -0.08px;
-  font-size: 0.8125rem; /* --font-size-base produit */
+  font-size: 0.8125rem;
 }
 
 .theme-cursor ::selection {
-  background: color-mix(in srgb, #2778c1 18%, transparent);
+  background: color-mix(in oklab, #141414 14%, transparent);
 }
 
 .theme-cursor h1,
@@ -584,17 +578,17 @@
 
 .theme-cursor [data-slot='card'] {
   background-color: #fcfcfc;
-  border-color: #e8e8e8;
+  border-color: color-mix(in oklab, #141414 8%, transparent);
   border-radius: 8px;
   box-shadow: none;
 }
 .theme-cursor [data-slot='card']:hover {
-  border-color: #e8e8e8;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
   box-shadow: none;
 }
 
 .theme-cursor [data-slot='button'] {
-  border-radius: 6px; /* --cursor-radius-base */
+  border-radius: 6px;
   font-weight: 500;
   letter-spacing: -0.08px;
 }
@@ -607,7 +601,7 @@
 
 .theme-cursor [data-sidebar='menu-button'][data-active],
 .theme-cursor [data-slot='sidebar-menu-button'][data-active] {
-  background-color: var(--sidebar-selected, #e8e8e8) !important;
+  background-color: color-mix(in oklab, #141414 16%, transparent) !important;
   color: #141414 !important;
   border-color: transparent !important;
   box-shadow: none !important;
@@ -615,7 +609,7 @@
 }
 .theme-cursor [data-sidebar='sidebar'] {
   background-color: #f3f3f3;
-  border-color: #e8e8e8;
+  border-color: color-mix(in oklab, #141414 8%, transparent);
 }
 .theme-cursor [data-sidebar='menu-button'] {
   border-radius: 6px;

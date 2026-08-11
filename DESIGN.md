@@ -1,19 +1,19 @@
 ---
 name: Supply Chain Board
-description: Design system Cursor PRODUIT light — tokens CSS extraits live (2026-08-11)
+description: Design system Cursor PRODUIT light — extrait :root complet (2026-08-11)
 source: product-css-extract
 extracted: '2026-08-11'
 authority: product
-# ── Surfaces & chrome ──
+file: cursor/product-tokens-light.css
 colors:
-  sidebar: '#f3f3f3'
-  chrome: '#f8f8f8'
-  editor: '#fcfcfc'
   base: '#141414'
-  accent: '#2778c1'
-  actionLabel: '#fcfcfc'
+  chrome: '#f8f8f8'
+  sidebar: '#f3f3f3'
+  editor: '#fcfcfc'
   brand: '#f54e00'
+  accent: '#2778c1'
   focus: '#2778c1'
+  actionLabel: '#fcfcfc'
   success: '#007041'
   warn: '#a46700'
   danger: '#be1744'
@@ -21,64 +21,15 @@ colors:
   modified: '#a46700'
   removed: '#be1744'
   untracked: '#176c74'
-  red: '#be1744'
-  orange: '#cd4500'
-  yellow: '#a46700'
-  green: '#007041'
-  cyan: '#176c74'
-  blue: '#2778c1'
-  magenta: '#92156a'
-  purple: '#7565cc'
-  diff-added-line: '#00af6624'
-  diff-added-text: '#00b06838'
-  diff-removed-line: '#ff617b38'
-  diff-removed-text: '#ff617b57'
-  shadow-primary: '#0000000f'
-  shadow-secondary: '#00000009'
-  shadow-tertiary: '#00000005'
-  # react-tooltip (rt-*) présents dans le même extrait
-  rt-white: '#ffffff'
-  rt-dark: '#222222'
-  rt-success: '#8dc572'
-  rt-error: '#be6464'
-  rt-warning: '#f0ad4e'
-  rt-info: '#337ab7'
 typography:
   sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-  mono: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
-  diffs: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+  mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
   weight-normal: 418
   weight-medium: 500
   weight-semibold: 600
   weight-bold: 700
-  width-normal: 4.7
-  size-xs: '0.6875rem'
-  size-sm: '0.75rem'
-  size-base: '0.8125rem'
-  size-lg: '1rem'
-  size-xl: '1.25rem'
-  line-height-xs: '0.875rem'
-  line-height-sm: '1rem'
-  line-height-base: '1.125rem'
-  line-height-lg: '1.5rem'
-  line-height-xl: '1.75rem'
-  letter-spacing-xs: '0.07px'
-  letter-spacing-sm: '0px'
-  letter-spacing-base: '-0.08px'
-  letter-spacing-lg: '-0.15px'
-  letter-spacing-xl: '0.08px'
-  letter-spacing-2xl: '-0.46px'
-  letter-spacing-3xl: '-0.26px'
-  web-text-sm: '0.75rem'
-  web-text-base: '0.8125rem'
-  text-xs: '0.75rem'
-  text-base: '1rem'
-  text-md: '1.375rem'
-  text-lg: '2.25rem'
-  text-xl: '3.25rem'
-  diffs-font-size: '12px'
+  size-base: '13px'
 rounded:
-  none: '0px'
   xs: '2px'
   sm: '4px'
   base: '6px'
@@ -87,495 +38,2261 @@ rounded:
   '2xl': '14px'
   '3xl': '16px'
   full: '9999px'
-spacing:
-  '0-25': '1px'
-  '0-5': '2px'
-  '0-75': '3px'
-  '1': '4px'
-  '1-25': '5px'
-  '1-5': '6px'
-  '1-75': '7px'
-  '2': '8px'
-  '2-25': '9px'
-  '2-5': '10px'
-  '2-75': '11px'
-  '3': '12px'
-  '3-25': '13px'
-  '3-5': '14px'
-  '3-75': '15px'
-  '4': '16px'
-  '4-25': '17px'
-  '4-5': '18px'
-  '4-75': '19px'
-  '5': '20px'
-  '5-5': '22px'
-  '6': '24px'
-  '6-5': '26px'
-  '7': '28px'
-  '7-5': '30px'
-  '8': '32px'
-  '8-5': '34px'
-  '9': '36px'
-  '9-5': '38px'
-  '10': '40px'
-  '11': '44px'
-  '12': '48px'
-  '13': '52px'
-  '14': '56px'
-  '15': '60px'
-  '16': '64px'
-  '17': '68px'
-  '18': '72px'
-  '19': '76px'
-  '20': '80px'
-height:
-  xs: '20px'
-  sm: '24px'
-  base: '28px'
-  lg: '32px'
-motion:
-  duration-instant: '50ms'
-  duration-fast: '100ms'
-  duration-normal: '150ms'
-  duration-slow: '200ms'
-  duration-slower: '300ms'
-  easing-default: 'ease'
-  easing-in: 'ease-in'
-  easing-out: 'ease-out'
-  easing-in-out: 'ease-in-out'
-  easing-in-strong: 'cubic-bezier(0.895, 0.03, 0.685, 0.22)'
-  easing-out-strong: 'cubic-bezier(0.165, 0.84, 0.44, 1)'
-  easing-out-quint: 'cubic-bezier(0.16, 1, 0.3, 1)'
-  easing-in-out-strong: 'cubic-bezier(0.77, 0, 0.175, 1)'
 ---
 
 # Design System: Supply Chain Board
 
-**Autorité :** tokens CSS **produit Cursor light** collés par l’utilisateur (2026-08-11).  
-**Hors scope :** marketing getdesign (`cursor/DESIGN.md`), DESIGN éditoriaux tiers, approximations.
+**Autorité unique :** extrait `:root` produit Cursor light (collage navigateur 2026-08-11).  
+**Fichier brut :** [`cursor/product-tokens-light.css`](cursor/product-tokens-light.css) — 865 propriétés.  
+**Hors scope :** marketing getdesign, DESIGN éditoriaux tiers.
 
-Implémentation runtime : `.theme-cursor` dans `inertia-react/styles/app.css`, activé sur le dashboard via `theme="cursor"`.
+Runtime board : `.theme-cursor` (`inertia-react/styles/app.css`) mappe ces tokens sur shadcn.
 
 ---
 
 ## 1. Visual Theme & Atmosphere
 
-Interface produit light, dense, système. Fond chrome clair, sidebar légèrement plus grise, surfaces éditeur quasi-blanches. Encre `--base` `#141414` (pas le warm `#26251e` marketing). Accent UI bleu `--accent` `#2778c1` pour focus/liens. Marque orange `--brand` `#f54e00` rare. Typo UI système 13 px (`--font-size-base`), poids normal atypique **418**. Radius compacts (6–8 px). Ombres très légères via `--shadow-*`.
+Produit light dense. Trois plans opaques structurants :
 
-**Key Characteristics:**
+| Plan              | Token                                        | Hex       |
+| ----------------- | -------------------------------------------- | --------- |
+| Sidebar           | `--sidebar` / `--bg-sidebar`                 | `#f3f3f3` |
+| Chrome            | `--chrome` / `--bg-chrome`                   | `#f8f8f8` |
+| Editor / elevated | `--editor` / `--bg-editor` / `--bg-elevated` | `#fcfcfc` |
 
-- Trois surfaces structurantes : `sidebar` / `chrome` / `editor`
-- CTA filled = `base` + `actionLabel` (noir / clair), pas brand orange
-- Focus ring = `focus` / `accent` bleu `#2778c1`
-- Brand orange `#f54e00` = marque, pas fill de surface
-- Échelle spacing 4 px + sous-pas 1 px ; radius xs→3xl + full
+Encre `--base` `#141414`. CTA filled `--bg-neutral` / `--cursor-button-background` `#141414` + `--actionLabel` `#fcfcfc`. Accent UI bleu `--accent` `#2778c1`. Marque `--brand` `#f54e00`. Typo UI 13px / weight 418. Radius 6–8px.
 
----
+**Attention :** `--cursor-sidebar: #181818` coexiste dans l’extrait (valeur sombre) — **ne pas l’utiliser** pour le shell light ; prendre `--sidebar` / `--bg-sidebar` `#f3f3f3`.
 
-## 2. Color Palette & Roles
-
-### Chrome & surfaces (extrait résolu)
-
-| Token CSS       | Hex       | Rôle                            |
-| --------------- | --------- | ------------------------------- |
-| `--sidebar`     | `#f3f3f3` | Fond sidebar                    |
-| `--chrome`      | `#f8f8f8` | Chrome app / fond page          |
-| `--editor`      | `#fcfcfc` | Surface éditeur / cards content |
-| `--base`        | `#141414` | Encre primaire, CTA filled bg   |
-| `--actionLabel` | `#fcfcfc` | Texte sur CTA filled            |
-| `--accent`      | `#2778c1` | Accent UI (liens, highlights)   |
-| `--brand`       | `#f54e00` | Marque Cursor                   |
-| `--focus`       | `#2778c1` | Focus ring                      |
-
-### Sémantique produit
-
-| Token         | Hex       | Rôle            |
-| ------------- | --------- | --------------- |
-| `--success`   | `#007041` | Succès          |
-| `--warn`      | `#a46700` | Avertissement   |
-| `--danger`    | `#be1744` | Danger / erreur |
-| `--added`     | `#007041` | Git added       |
-| `--modified`  | `#a46700` | Git modified    |
-| `--removed`   | `#be1744` | Git removed     |
-| `--untracked` | `#176c74` | Git untracked   |
-
-### Couleurs nommées
-
-| Token       | Hex       |
-| ----------- | --------- |
-| `--red`     | `#be1744` |
-| `--orange`  | `#cd4500` |
-| `--yellow`  | `#a46700` |
-| `--green`   | `#007041` |
-| `--cyan`    | `#176c74` |
-| `--blue`    | `#2778c1` |
-| `--magenta` | `#92156a` |
-| `--purple`  | `#7565cc` |
-
-### Diffs
-
-| Token                 | Hex         |
-| --------------------- | ----------- |
-| `--diff-added-line`   | `#00af6624` |
-| `--diff-added-text`   | `#00b06838` |
-| `--diff-removed-line` | `#ff617b38` |
-| `--diff-removed-text` | `#ff617b57` |
-
-### Shadows (hex alpha)
-
-| Token                | Hex         |
-| -------------------- | ----------- |
-| `--shadow-primary`   | `#0000000f` |
-| `--shadow-secondary` | `#00000009` |
-| `--shadow-tertiary`  | `#00000005` |
-
-### React-tooltip (`--rt-*`) — même extrait page
-
-| Token                           | Hex       |
-| ------------------------------- | --------- |
-| `--rt-color-white`              | `#ffffff` |
-| `--rt-color-dark`               | `#222222` |
-| `--rt-color-success`            | `#8dc572` |
-| `--rt-color-error`              | `#be6464` |
-| `--rt-color-warning`            | `#f0ad4e` |
-| `--rt-color-info`               | `#337ab7` |
-| `--rt-opacity`                  | `0.9`     |
-| `--rt-transition-show-delay`    | `0.15s`   |
-| `--rt-transition-closing-delay` | `0.15s`   |
-| `--rt-arrow-size`               | `8px`     |
-
-### Syntax highlighting
-
-| Token                        | Valeur      |
-| ---------------------------- | ----------- |
-| `--syntax-foreground`        | `#141414eb` |
-| `--syntax-background`        | `#fcfcfc`   |
-| `--syntax-keyword`           | `#b3003f`   |
-| `--syntax-string`            | `#8f84e0`   |
-| `--syntax-function`          | `#db704b`   |
-| `--syntax-number`            | `#b8448b`   |
-| `--syntax-comment`           | `#141414ad` |
-| `--syntax-constant`          | `#206595`   |
-| `--syntax-parameter`         | `#141414eb` |
-| `--syntax-punctuation`       | `#141414ad` |
-| `--syntax-link`              | `#3c7cab`   |
-| `--syntax-string-expression` | `#8f84e0`   |
-
-### Mapping alias `--cursor-*` → tokens produit
-
-Extrait structurel (alias) — les hex viennent des tokens résolus ci-dessus.
-
-| Alias Cursor                                                        | Résout vers                    | Hex (light)                                                        |
-| ------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------ |
-| `--cursor-bg-sidebar`                                               | `--bg-sidebar` / `--sidebar`   | `#f3f3f3`                                                          |
-| `--cursor-bg-chrome`                                                | `--bg-chrome` / `--chrome`     | `#f8f8f8`                                                          |
-| `--cursor-bg-editor` / `--cursor-bg-elevated` / `--cursor-bg-input` | `--bg-elevated` / `--editor`   | `#fcfcfc`                                                          |
-| `--cursor-bg-card`                                                  | `--bg-quaternary`              | _(alias — surface card = editor `#fcfcfc` en pratique board)_      |
-| `--cursor-bg-primary` … `--cursor-bg-quinary`                       | `--bg-primary` …               | _(non résolus dans le collé hex — utiliser chrome/sidebar/editor)_ |
-| `--cursor-bg-active` / `--cursor-bg-focused`                        | `--bg-active` / `--bg-focused` | _(alias)_                                                          |
-| `--cursor-text-primary` / active / focused                          | `--text-primary`               | ≈ `--base` `#141414`                                               |
-| `--cursor-text-secondary` … quaternary                              | `--text-secondary` …           | _(alias)_                                                          |
-| `--cursor-text-invert`                                              | `--text-inverted`              | ≈ `--actionLabel` `#fcfcfc`                                        |
-| `--cursor-text-link`                                                | `--text-blue`                  | ≈ `--blue` `#2778c1`                                               |
-| `--cursor-accent`                                                   | `--accent`                     | `#2778c1`                                                          |
-| `--cursor-base`                                                     | `--base`                       | `#141414`                                                          |
-| `--cursor-blue` / purple / success / warn / danger / focus          | tokens homonymes               | voir tables                                                        |
-| `--cursor-stroke-*`                                                 | `--border-*`                   | _(alias)_                                                          |
-| `--cursor-shadow-*`                                                 | `--shadow-*`                   | voir shadows                                                       |
-| `--cursor-button-background`                                        | `--bg-neutral`                 | ≈ `--base`                                                         |
-| `--cursor-button-foreground`                                        | `--text-inverted`              | `#fcfcfc`                                                          |
-| `--cursor-button-hover-background`                                  | `--bg-neutral-hover`           | _(alias)_                                                          |
-| `--cursor-button-secondary-background`                              | `--bg-tertiary`                | _(alias)_                                                          |
-| `--cursor-button-secondary-foreground`                              | `--text-primary`               | `#141414`                                                          |
-| `--cursor-button-secondary-hover-background`                        | `--bg-quaternary`              | _(alias)_                                                          |
-
-**Note board :** quand un alias n’a pas de hex collé, on mappe aux trois surfaces résolues (`sidebar` / `chrome` / `editor`) + `base` / `brand` / `accent`.
+**Cards :** `--cursor-bg-card` / `--bg-quaternary` = `color-mix(in oklab, #141414 6%, transparent)` (wash). Surfaces opaques type panneau : `--bg-elevated` / `--editor` `#fcfcfc` ou `--bg-quaternary-opaque` / `--bg-quaternary-opaque-elevated`.
 
 ---
 
-## 3. Typography
+## 2. Board mapping (Supply Chain)
 
-### Families
-
-```text
---cursor-font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
---cursor-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace
---diffs-font-family: (même stack mono)
---diffs-font-size: 12px
-```
-
-### Weights & width
-
-| Token                                                              | Valeur |
-| ------------------------------------------------------------------ | ------ |
-| `--font-weight-normal` / `--cursor-font-weight-normal` / `regular` | `418`  |
-| `--font-weight-medium`                                             | `500`  |
-| `--font-weight-semibold`                                           | `600`  |
-| `--font-weight-bold`                                               | `700`  |
-| `--font-width-normal`                                              | `4.7`  |
-
-### UI sizes (rem)
-
-| Token              | rem         | px ≈ |
-| ------------------ | ----------- | ---- |
-| `--font-size-xs`   | `0.6875rem` | 11   |
-| `--font-size-sm`   | `0.75rem`   | 12   |
-| `--font-size-base` | `0.8125rem` | 13   |
-| `--font-size-lg`   | `1rem`      | 16   |
-| `--font-size-xl`   | `1.25rem`   | 20   |
-
-### Line heights
-
-| Token                | Valeur     |
-| -------------------- | ---------- |
-| `--line-height-xs`   | `0.875rem` |
-| `--line-height-sm`   | `1rem`     |
-| `--line-height-base` | `1.125rem` |
-| `--line-height-lg`   | `1.5rem`   |
-| `--line-height-xl`   | `1.75rem`  |
-
-### Cursor component type scale
-
-| Token                       | Valeur |
-| --------------------------- | ------ |
-| `--cursor-font-size-xs`     | `11px` |
-| `--cursor-font-size-sm`     | `12px` |
-| `--cursor-font-size-base`   | `13px` |
-| `--cursor-font-size-lg`     | `14px` |
-| `--cursor-line-height-xs`   | `14px` |
-| `--cursor-line-height-sm`   | `16px` |
-| `--cursor-line-height-base` | `18px` |
-| `--cursor-line-height-lg`   | `22px` |
-
-### Letter-spacing
-
-| Token                          | Valeur    |
-| ------------------------------ | --------- |
-| `--cursor-letter-spacing-xs`   | `0.07px`  |
-| `--cursor-letter-spacing-sm`   | `0px`     |
-| `--cursor-letter-spacing-base` | `-0.08px` |
-| `--cursor-letter-spacing-lg`   | `-0.15px` |
-| `--cursor-letter-spacing-xl`   | `0.08px`  |
-| `--cursor-letter-spacing-2xl`  | `-0.46px` |
-| `--cursor-letter-spacing-3xl`  | `-0.26px` |
-
-### Web / marketing-adjacent text tokens (même extrait)
-
-| Token             | Valeur                                |
-| ----------------- | ------------------------------------- |
-| `--web-text-sm`   | `var(--font-size-sm)` → `0.75rem`     |
-| `--web-text-base` | `var(--font-size-base)` → `0.8125rem` |
-| `--text-xs`       | `0.75rem`                             |
-| `--text-base`     | `1rem`                                |
-| `--text-md`       | `1.375rem`                            |
-| `--text-lg`       | `2.25rem`                             |
-| `--text-xl`       | `3.25rem`                             |
-
-### Principles
-
-- UI courante = **13 px** / weight **418–500** / tracking **-0.08px**
-- Mono pour diffs / code = stack système, **12 px**
-- Pas de CursorGothic / jjannon dans cet extrait produit — stack système uniquement
+| Élément                | Token produit                                                 | Valeur                                          |
+| ---------------------- | ------------------------------------------------------------- | ----------------------------------------------- |
+| AppSidebar             | `--bg-sidebar`                                                | `#f3f3f3`                                       |
+| Page / TopBar          | `--bg-chrome`                                                 | `#f8f8f8`                                       |
+| Card KPI               | `--bg-elevated` / `--editor`                                  | `#fcfcfc`                                       |
+| Texte                  | `--text-primary` / `--base`                                   | `#141414`                                       |
+| Texte secondaire       | `--text-secondary`                                            | `color-mix(in oklab, #141414 74%, transparent)` |
+| Texte tertiaire        | `--text-tertiary`                                             | `color-mix(in oklab, #141414 60%, transparent)` |
+| CTA filled             | `--cursor-button-background` + `--cursor-button-foreground`   | `#141414` / `#fcfcfc`                           |
+| CTA hover              | `--cursor-button-hover-background`                            | `color-mix(in oklab, #f8f8f8 10%, #141414)`     |
+| CTA secondary          | `--cursor-button-secondary-*`                                 | wash 8% / base                                  |
+| Wordmark / alerte rare | `--brand`                                                     | `#f54e00`                                       |
+| Focus / ring           | `--focus` / `--border-focus`                                  | `#2778c1` / mix 15%                             |
+| Border défaut          | `--border-tertiary` / `--cursor-stroke-tertiary`              | mix base 8%                                     |
+| Border fort            | `--border-primary`                                            | mix base 20%                                    |
+| Item actif nav         | `--bg-active`                                                 | mix base 16%                                    |
+| Hover chrome           | `--bg-tertiary`                                               | mix base 8%                                     |
+| Success                | `--success`                                                   | `#007041`                                       |
+| Warn                   | `--warn`                                                      | `#a46700`                                       |
+| Danger                 | `--danger`                                                    | `#be1744`                                       |
+| Radius bouton          | `--cursor-radius-base`                                        | `6px`                                           |
+| Radius card            | `--cursor-radius-lg`                                          | `8px`                                           |
+| Ombre card/workbench   | `--cursor-box-shadow-workbench` / `--color-theme-shadow-card` | voir § shadows                                  |
 
 ---
 
-## 4. Spacing
+## 3. Core primitives (hex solides)
 
-### Layout chrome
-
-| Token                        | Valeur                     |
-| ---------------------------- | -------------------------- |
-| `--navbar-height`            | `2.75rem`                  |
-| `--file-list-item-py`        | `0.25rem`                  |
-| `--file-list-item-content-h` | `1rem`                     |
-| `--file-list-item-h`         | `calc(content-h + 2 * py)` |
-| `--file-list-visible-count`  | `7.5`                      |
-| `--file-list-max-vh`         | `30vh`                     |
-
-### `--cursor-spacing-*` (positif)
-
-| Token           | px                                         |
-| --------------- | ------------------------------------------ |
-| `0-25` … `0-75` | 1, 2, 3                                    |
-| `1` … `1-75`    | 4, 5, 6, 7                                 |
-| `2` … `2-75`    | 8, 9, 10, 11                               |
-| `3` … `3-75`    | 12, 13, 14, 15                             |
-| `4` … `4-75`    | 16, 17, 18, 19                             |
-| `5` / `5-5`     | 20 / 22                                    |
-| `6` / `6-5`     | 24 / 26                                    |
-| `7` / `7-5`     | 28 / 30                                    |
-| `8` / `8-5`     | 32 / 34                                    |
-| `9` / `9-5`     | 36 / 38                                    |
-| `10` … `20`     | 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80 |
-
-### `--cursor-spacing-ne-*` (négatif)
-
-Miroir négatif : `ne-0-25` = `-1px` … `ne-5` = `-20px` (tous les pas collés dans l’extrait).
-
-### Control heights
-
-| Token                  | Valeur |
-| ---------------------- | ------ |
-| `--cursor-height-xs`   | `20px` |
-| `--cursor-height-sm`   | `24px` |
-| `--cursor-height-base` | `28px` |
-| `--cursor-height-lg`   | `32px` |
-
----
-
-## 5. Radius
-
-| Token                  | Valeur   |
-| ---------------------- | -------- |
-| `--cursor-radius-none` | `0px`    |
-| `--cursor-radius-xs`   | `2px`    |
-| `--cursor-radius-sm`   | `4px`    |
-| `--cursor-radius-base` | `6px`    |
-| `--cursor-radius-lg`   | `8px`    |
-| `--cursor-radius-xl`   | `12px`   |
-| `--cursor-radius-2xl`  | `14px`   |
-| `--cursor-radius-3xl`  | `16px`   |
-| `--cursor-radius-full` | `9999px` |
-
-**Board :** boutons `base` 6px ; cards `lg` 8px.
+| Token                   | Valeur    |
+| ----------------------- | --------- |
+| `--base`                | `#141414` |
+| `--chrome`              | `#f8f8f8` |
+| `--sidebar`             | `#f3f3f3` |
+| `--editor`              | `#fcfcfc` |
+| `--brand`               | `#f54e00` |
+| `--accent`              | `#2778c1` |
+| `--focus`               | `#2778c1` |
+| `--actionLabel`         | `#fcfcfc` |
+| `--success`             | `#007041` |
+| `--warn`                | `#a46700` |
+| `--danger`              | `#be1744` |
+| `--added`               | `#007041` |
+| `--modified`            | `#a46700` |
+| `--removed`             | `#be1744` |
+| `--untracked`           | `#176c74` |
+| `--black`               | `#000`    |
+| `--white`               | `#fff`    |
+| `--blue`                | `#2778c1` |
+| `--orange`              | `#cd4500` |
+| `--yellow`              | `#a46700` |
+| `--green`               | `#007041` |
+| `--cyan`                | `#176c74` |
+| `--red`                 | `#be1744` |
+| `--magenta`             | `#92156a` |
+| `--purple`              | `#7565cc` |
+| `--bg-chrome`           | `#f8f8f8` |
+| `--bg-sidebar`          | `#f3f3f3` |
+| `--bg-editor`           | `#fcfcfc` |
+| `--bg-elevated`         | `#fcfcfc` |
+| `--bg-neutral`          | `#141414` |
+| `--bg-brand`            | `#f54e00` |
+| `--bg-accent`           | `#2778c1` |
+| `--bg-success`          | `#007041` |
+| `--bg-warn`             | `#a46700` |
+| `--bg-danger`           | `#be1744` |
+| `--bg-luminous`         | `#fff`    |
+| `--bg-scrim`            | `#0006`   |
+| `--bg-unified-elevated` | `#fcfcfc` |
+| `--light-grey-wash`     | `#f5f5f5` |
+| `--borders`             | `#ccc`    |
 
 ---
 
-## 6. Elevation, shadows & strokes
+## 4. Text
 
-### Box shadows (extrait)
-
-```css
---cursor-box-shadow-sm: 0 2px 8px 0px var(--cursor-shadow-secondary);
---cursor-box-shadow-base:
-  0 0 0 1px var(--border-tertiary), 0 0 4px 0px var(--shadow-secondary),
-  0 8px 24px -2px var(--shadow-secondary);
---cursor-box-shadow-soft: 0 0 8px 2px var(--cursor-shadow-tertiary);
---cursor-box-shadow-popup: 0 8px 16px 0 var(--widget-shadow, rgba(20, 20, 20, 0.12));
---cursor-box-shadow-lg:
-  0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 3px 0 var(--cursor-shadow-secondary),
-  0 16px 24px 0 var(--cursor-shadow-tertiary);
---cursor-box-shadow-xl:
-  0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 6px 8px var(--cursor-shadow-secondary),
-  0 24px 16px 6px var(--cursor-shadow-tertiary);
---cursor-box-shadow-workbench: var(--color-theme-shadow-card);
-```
-
-### Stroke aliases
-
-`--cursor-stroke-primary|secondary|tertiary|quaternary|focused` → `--border-*`  
-Strokes sémantiques rouge/jaune/vert/magenta/cyan/orange → `--border-*-secondary|tertiary`  
-Git strokes → `--border-added-secondary` / `--border-removed-secondary`
-
-### Elevations
-
-| Token                  | Valeur |
-| ---------------------- | ------ |
-| `--cursor-elevation-1` | `1`    |
-| `--cursor-elevation-2` | `2`    |
-
-**Board :** cards KPI = flat + hairline `#e8e8e8` (dérivé chrome) ; overlays = `box-shadow-popup` / `base`.
+| Token                           | Valeur                                          |
+| ------------------------------- | ----------------------------------------------- |
+| `--cursor-foreground`           | `#141414`                                       |
+| `--cursor-text-invert`          | `#fcfcfc`                                       |
+| `--cursor-text-link`            | `#2778c1`                                       |
+| `--cursor-text-primary`         | `#141414`                                       |
+| `--cursor-text-quaternary`      | `color-mix(in oklab, #141414 36%, transparent)` |
+| `--cursor-text-secondary`       | `color-mix(in oklab, #141414 74%, transparent)` |
+| `--cursor-text-tertiary`        | `color-mix(in oklab, #141414 60%, transparent)` |
+| `--text-accent`                 | `#2778c1`                                       |
+| `--text-accent-quaternary`      | `color-mix(in oklab, #2778c1 40%, transparent)` |
+| `--text-accent-secondary`       | `color-mix(in oklab, #2778c1 78%, transparent)` |
+| `--text-accent-tertiary`        | `color-mix(in oklab, #2778c1 64%, transparent)` |
+| `--text-actionLabel`            | `#fcfcfc`                                       |
+| `--text-actionLabel-quaternary` | `color-mix(in oklab, #fcfcfc 32%, transparent)` |
+| `--text-actionLabel-secondary`  | `color-mix(in oklab, #fcfcfc 70%, transparent)` |
+| `--text-actionLabel-tertiary`   | `color-mix(in oklab, #fcfcfc 48%, transparent)` |
+| `--text-added`                  | `#007041`                                       |
+| `--text-added-quaternary`       | `color-mix(in oklab, #007041 40%, transparent)` |
+| `--text-added-secondary`        | `color-mix(in oklab, #007041 78%, transparent)` |
+| `--text-added-tertiary`         | `color-mix(in oklab, #007041 64%, transparent)` |
+| `--text-base`                   | `1rem`                                          |
+| `--text-blue`                   | `#2778c1`                                       |
+| `--text-blue-quaternary`        | `color-mix(in oklab, #2778c1 40%, transparent)` |
+| `--text-blue-secondary`         | `color-mix(in oklab, #2778c1 78%, transparent)` |
+| `--text-blue-tertiary`          | `color-mix(in oklab, #2778c1 64%, transparent)` |
+| `--text-brand`                  | `#f54e00`                                       |
+| `--text-brand-quaternary`       | `color-mix(in oklab, #f54e00 40%, transparent)` |
+| `--text-brand-secondary`        | `color-mix(in oklab, #f54e00 78%, transparent)` |
+| `--text-brand-tertiary`         | `color-mix(in oklab, #f54e00 64%, transparent)` |
+| `--text-cyan`                   | `#176c74`                                       |
+| `--text-cyan-quaternary`        | `color-mix(in oklab, #176c74 40%, transparent)` |
+| `--text-cyan-secondary`         | `color-mix(in oklab, #176c74 78%, transparent)` |
+| `--text-cyan-tertiary`          | `color-mix(in oklab, #176c74 64%, transparent)` |
+| `--text-danger`                 | `#be1744`                                       |
+| `--text-danger-quaternary`      | `color-mix(in oklab, #be1744 40%, transparent)` |
+| `--text-danger-secondary`       | `color-mix(in oklab, #be1744 78%, transparent)` |
+| `--text-danger-tertiary`        | `color-mix(in oklab, #be1744 64%, transparent)` |
+| `--text-gray-100`               | `#e6e6e6`                                       |
+| `--text-gray-200`               | `#ccc`                                          |
+| `--text-gray-300`               | `#b3b3b3`                                       |
+| `--text-gray-400`               | `#999`                                          |
+| `--text-gray-500`               | `#888`                                          |
+| `--text-gray-600`               | `#666`                                          |
+| `--text-gray-700`               | `#4d4d4d`                                       |
+| `--text-gray-800`               | `#333`                                          |
+| `--text-gray-900`               | `#1a1a1a`                                       |
+| `--text-green`                  | `#007041`                                       |
+| `--text-green-quaternary`       | `color-mix(in oklab, #007041 40%, transparent)` |
+| `--text-green-secondary`        | `color-mix(in oklab, #007041 78%, transparent)` |
+| `--text-green-tertiary`         | `color-mix(in oklab, #007041 64%, transparent)` |
+| `--text-inverted`               | `#fcfcfc`                                       |
+| `--text-inverted-quaternary`    | `color-mix(in oklab, #fcfcfc 32%, transparent)` |
+| `--text-inverted-secondary`     | `color-mix(in oklab, #fcfcfc 70%, transparent)` |
+| `--text-inverted-tertiary`      | `color-mix(in oklab, #fcfcfc 48%, transparent)` |
+| `--text-lg`                     | `2.25rem`                                       |
+| `--text-luminous`               | `#fff`                                          |
+| `--text-luminous-quaternary`    | `#ffffff52`                                     |
+| `--text-luminous-secondary`     | `#ffffffb3`                                     |
+| `--text-luminous-tertiary`      | `#ffffff7a`                                     |
+| `--text-magenta`                | `#92156a`                                       |
+| `--text-magenta-quaternary`     | `color-mix(in oklab, #92156a 40%, transparent)` |
+| `--text-magenta-secondary`      | `color-mix(in oklab, #92156a 78%, transparent)` |
+| `--text-magenta-tertiary`       | `color-mix(in oklab, #92156a 64%, transparent)` |
+| `--text-md`                     | `1.375rem`                                      |
+| `--text-orange`                 | `#cd4500`                                       |
+| `--text-orange-quaternary`      | `color-mix(in oklab, #cd4500 40%, transparent)` |
+| `--text-orange-secondary`       | `color-mix(in oklab, #cd4500 78%, transparent)` |
+| `--text-orange-tertiary`        | `color-mix(in oklab, #cd4500 64%, transparent)` |
+| `--text-primary`                | `#141414`                                       |
+| `--text-purple`                 | `#7565cc`                                       |
+| `--text-purple-quaternary`      | `color-mix(in oklab, #7565cc 40%, transparent)` |
+| `--text-purple-secondary`       | `color-mix(in oklab, #7565cc 78%, transparent)` |
+| `--text-purple-tertiary`        | `color-mix(in oklab, #7565cc 64%, transparent)` |
+| `--text-quaternary`             | `color-mix(in oklab, #141414 36%, transparent)` |
+| `--text-red`                    | `#be1744`                                       |
+| `--text-red-quaternary`         | `color-mix(in oklab, #be1744 40%, transparent)` |
+| `--text-red-secondary`          | `color-mix(in oklab, #be1744 78%, transparent)` |
+| `--text-red-tertiary`           | `color-mix(in oklab, #be1744 64%, transparent)` |
+| `--text-removed`                | `#be1744`                                       |
+| `--text-removed-quaternary`     | `color-mix(in oklab, #be1744 40%, transparent)` |
+| `--text-removed-secondary`      | `color-mix(in oklab, #be1744 78%, transparent)` |
+| `--text-removed-tertiary`       | `color-mix(in oklab, #be1744 64%, transparent)` |
+| `--text-secondary`              | `color-mix(in oklab, #141414 74%, transparent)` |
+| `--text-success`                | `#007041`                                       |
+| `--text-success-quaternary`     | `color-mix(in oklab, #007041 40%, transparent)` |
+| `--text-success-secondary`      | `color-mix(in oklab, #007041 78%, transparent)` |
+| `--text-success-tertiary`       | `color-mix(in oklab, #007041 64%, transparent)` |
+| `--text-tertiary`               | `color-mix(in oklab, #141414 60%, transparent)` |
+| `--text-warn`                   | `#a46700`                                       |
+| `--text-warn-quaternary`        | `color-mix(in oklab, #a46700 40%, transparent)` |
+| `--text-warn-secondary`         | `color-mix(in oklab, #a46700 78%, transparent)` |
+| `--text-warn-tertiary`          | `color-mix(in oklab, #a46700 64%, transparent)` |
+| `--text-xl`                     | `3.25rem`                                       |
+| `--text-xs`                     | `.75rem`                                        |
+| `--text-yellow`                 | `#a46700`                                       |
+| `--text-yellow-quaternary`      | `color-mix(in oklab, #a46700 40%, transparent)` |
+| `--text-yellow-secondary`       | `color-mix(in oklab, #a46700 78%, transparent)` |
+| `--text-yellow-tertiary`        | `color-mix(in oklab, #a46700 64%, transparent)` |
 
 ---
 
-## 7. Motion
+## 5. Icon
+
+| Token                                    | Valeur                                          |
+| ---------------------------------------- | ----------------------------------------------- |
+| `--cursor-icon-accent-primary`           | `#2778c1`                                       |
+| `--cursor-icon-accent-secondary`         | `color-mix(in oklab, #2778c1 70%, transparent)` |
+| `--cursor-icon-blue-primary`             | `#2778c1`                                       |
+| `--cursor-icon-blue-secondary`           | `color-mix(in srgb, #2778c1 70%, transparent)`  |
+| `--cursor-icon-cyan-primary`             | `#176c74`                                       |
+| `--cursor-icon-cyan-secondary`           | `color-mix(in oklab, #176c74 70%, transparent)` |
+| `--cursor-icon-git-added-primary`        | `#007041`                                       |
+| `--cursor-icon-git-added-quaternary`     | `color-mix(in srgb, #007041 32%, transparent)`  |
+| `--cursor-icon-git-added-secondary`      | `color-mix(in srgb, #007041 70%, transparent)`  |
+| `--cursor-icon-git-added-tertiary`       | `color-mix(in srgb, #007041 56%, transparent)`  |
+| `--cursor-icon-git-modified-primary`     | `#a46700`                                       |
+| `--cursor-icon-git-modified-quaternary`  | `color-mix(in srgb, #a46700 32%, transparent)`  |
+| `--cursor-icon-git-modified-secondary`   | `color-mix(in srgb, #a46700 70%, transparent)`  |
+| `--cursor-icon-git-modified-tertiary`    | `color-mix(in srgb, #a46700 56%, transparent)`  |
+| `--cursor-icon-git-removed-primary`      | `#be1744`                                       |
+| `--cursor-icon-git-removed-quaternary`   | `color-mix(in srgb, #be1744 32%, transparent)`  |
+| `--cursor-icon-git-removed-secondary`    | `color-mix(in srgb, #be1744 70%, transparent)`  |
+| `--cursor-icon-git-removed-tertiary`     | `color-mix(in srgb, #be1744 56%, transparent)`  |
+| `--cursor-icon-git-untracked-primary`    | `#176c74`                                       |
+| `--cursor-icon-git-untracked-quaternary` | `color-mix(in srgb, #176c74 32%, transparent)`  |
+| `--cursor-icon-git-untracked-secondary`  | `color-mix(in srgb, #176c74 70%, transparent)`  |
+| `--cursor-icon-git-untracked-tertiary`   | `color-mix(in srgb, #176c74 56%, transparent)`  |
+| `--cursor-icon-green-primary`            | `#007041`                                       |
+| `--cursor-icon-green-secondary`          | `color-mix(in oklab, #007041 70%, transparent)` |
+| `--cursor-icon-magenta-primary`          | `#92156a`                                       |
+| `--cursor-icon-magenta-secondary`        | `color-mix(in oklab, #92156a 70%, transparent)` |
+| `--cursor-icon-orange-primary`           | `#cd4500`                                       |
+| `--cursor-icon-orange-secondary`         | `color-mix(in oklab, #cd4500 70%, transparent)` |
+| `--cursor-icon-primary`                  | `#141414`                                       |
+| `--cursor-icon-purple-primary`           | `#7565cc`                                       |
+| `--cursor-icon-purple-secondary`         | `color-mix(in oklab, #7565cc 70%, transparent)` |
+| `--cursor-icon-quaternary`               | `color-mix(in oklab, #141414 28%, transparent)` |
+| `--cursor-icon-red-primary`              | `#be1744`                                       |
+| `--cursor-icon-red-secondary`            | `color-mix(in oklab, #be1744 70%, transparent)` |
+| `--cursor-icon-secondary`                | `color-mix(in oklab, #141414 66%, transparent)` |
+| `--cursor-icon-tertiary`                 | `color-mix(in oklab, #141414 52%, transparent)` |
+| `--cursor-icon-yellow-primary`           | `#a46700`                                       |
+| `--cursor-icon-yellow-secondary`         | `color-mix(in oklab, #a46700 70%, transparent)` |
+| `--icon-accent`                          | `#2778c1`                                       |
+| `--icon-accent-quaternary`               | `color-mix(in oklab, #2778c1 32%, transparent)` |
+| `--icon-accent-secondary`                | `color-mix(in oklab, #2778c1 70%, transparent)` |
+| `--icon-accent-tertiary`                 | `color-mix(in oklab, #2778c1 56%, transparent)` |
+| `--icon-actionLabel`                     | `#fcfcfc`                                       |
+| `--icon-actionLabel-quaternary`          | `color-mix(in oklab, #fcfcfc 24%, transparent)` |
+| `--icon-actionLabel-secondary`           | `color-mix(in oklab, #fcfcfc 62%, transparent)` |
+| `--icon-actionLabel-tertiary`            | `color-mix(in oklab, #fcfcfc 40%, transparent)` |
+| `--icon-blue`                            | `#2778c1`                                       |
+| `--icon-blue-quaternary`                 | `color-mix(in oklab, #2778c1 32%, transparent)` |
+| `--icon-blue-secondary`                  | `color-mix(in oklab, #2778c1 70%, transparent)` |
+| `--icon-blue-tertiary`                   | `color-mix(in oklab, #2778c1 56%, transparent)` |
+| `--icon-brand`                           | `#f54e00`                                       |
+| `--icon-brand-quaternary`                | `color-mix(in oklab, #f54e00 32%, transparent)` |
+| `--icon-brand-secondary`                 | `color-mix(in oklab, #f54e00 70%, transparent)` |
+| `--icon-brand-tertiary`                  | `color-mix(in oklab, #f54e00 56%, transparent)` |
+| `--icon-cyan`                            | `#176c74`                                       |
+| `--icon-cyan-quaternary`                 | `color-mix(in oklab, #176c74 32%, transparent)` |
+| `--icon-cyan-secondary`                  | `color-mix(in oklab, #176c74 70%, transparent)` |
+| `--icon-cyan-tertiary`                   | `color-mix(in oklab, #176c74 56%, transparent)` |
+| `--icon-danger`                          | `#be1744`                                       |
+| `--icon-danger-quaternary`               | `color-mix(in oklab, #be1744 32%, transparent)` |
+| `--icon-danger-secondary`                | `color-mix(in oklab, #be1744 70%, transparent)` |
+| `--icon-danger-tertiary`                 | `color-mix(in oklab, #be1744 56%, transparent)` |
+| `--icon-green`                           | `#007041`                                       |
+| `--icon-green-quaternary`                | `color-mix(in oklab, #007041 32%, transparent)` |
+| `--icon-green-secondary`                 | `color-mix(in oklab, #007041 70%, transparent)` |
+| `--icon-green-tertiary`                  | `color-mix(in oklab, #007041 56%, transparent)` |
+| `--icon-inverted`                        | `#fcfcfc`                                       |
+| `--icon-inverted-quaternary`             | `color-mix(in oklab, #fcfcfc 24%, transparent)` |
+| `--icon-inverted-secondary`              | `color-mix(in oklab, #fcfcfc 62%, transparent)` |
+| `--icon-inverted-tertiary`               | `color-mix(in oklab, #fcfcfc 40%, transparent)` |
+| `--icon-luminous`                        | `#fff`                                          |
+| `--icon-luminous-quaternary`             | `#ffffff3d`                                     |
+| `--icon-luminous-secondary`              | `#ffffff9e`                                     |
+| `--icon-luminous-tertiary`               | `#fff6`                                         |
+| `--icon-magenta`                         | `#92156a`                                       |
+| `--icon-magenta-quaternary`              | `color-mix(in oklab, #92156a 32%, transparent)` |
+| `--icon-magenta-secondary`               | `color-mix(in oklab, #92156a 70%, transparent)` |
+| `--icon-magenta-tertiary`                | `color-mix(in oklab, #92156a 56%, transparent)` |
+| `--icon-orange`                          | `#cd4500`                                       |
+| `--icon-orange-quaternary`               | `color-mix(in oklab, #cd4500 32%, transparent)` |
+| `--icon-orange-secondary`                | `color-mix(in oklab, #cd4500 70%, transparent)` |
+| `--icon-orange-tertiary`                 | `color-mix(in oklab, #cd4500 56%, transparent)` |
+| `--icon-primary`                         | `#141414`                                       |
+| `--icon-purple`                          | `#7565cc`                                       |
+| `--icon-purple-quaternary`               | `color-mix(in oklab, #7565cc 32%, transparent)` |
+| `--icon-purple-secondary`                | `color-mix(in oklab, #7565cc 70%, transparent)` |
+| `--icon-purple-tertiary`                 | `color-mix(in oklab, #7565cc 56%, transparent)` |
+| `--icon-quaternary`                      | `color-mix(in oklab, #141414 28%, transparent)` |
+| `--icon-red`                             | `#be1744`                                       |
+| `--icon-red-quaternary`                  | `color-mix(in oklab, #be1744 32%, transparent)` |
+| `--icon-red-secondary`                   | `color-mix(in oklab, #be1744 70%, transparent)` |
+| `--icon-red-tertiary`                    | `color-mix(in oklab, #be1744 56%, transparent)` |
+| `--icon-secondary`                       | `color-mix(in oklab, #141414 66%, transparent)` |
+| `--icon-success`                         | `#007041`                                       |
+| `--icon-success-quaternary`              | `color-mix(in oklab, #007041 32%, transparent)` |
+| `--icon-success-secondary`               | `color-mix(in oklab, #007041 70%, transparent)` |
+| `--icon-success-tertiary`                | `color-mix(in oklab, #007041 56%, transparent)` |
+| `--icon-tertiary`                        | `color-mix(in oklab, #141414 52%, transparent)` |
+| `--icon-warn`                            | `#a46700`                                       |
+| `--icon-warn-quaternary`                 | `color-mix(in oklab, #a46700 32%, transparent)` |
+| `--icon-warn-secondary`                  | `color-mix(in oklab, #a46700 70%, transparent)` |
+| `--icon-warn-tertiary`                   | `color-mix(in oklab, #a46700 56%, transparent)` |
+| `--icon-yellow`                          | `#a46700`                                       |
+| `--icon-yellow-quaternary`               | `color-mix(in oklab, #a46700 32%, transparent)` |
+| `--icon-yellow-secondary`                | `color-mix(in oklab, #a46700 70%, transparent)` |
+| `--icon-yellow-tertiary`                 | `color-mix(in oklab, #a46700 56%, transparent)` |
+
+---
+
+## 6. Background (`--bg-*` + `--cursor-bg-*`)
+
+| Token                                  | Valeur                                          |
+| -------------------------------------- | ----------------------------------------------- |
+| `--bg-accent`                          | `#2778c1`                                       |
+| `--bg-accent-hover`                    | `color-mix(in oklab, #141414 10%, #2778c1)`     |
+| `--bg-accent-quaternary`               | `color-mix(in oklab, #2778c1 8%, transparent)`  |
+| `--bg-accent-secondary`                | `color-mix(in oklab, #2778c1 24%, transparent)` |
+| `--bg-accent-tertiary`                 | `color-mix(in oklab, #2778c1 12%, transparent)` |
+| `--bg-active`                          | `color-mix(in oklab, #141414 16%, transparent)` |
+| `--bg-added`                           | `color-mix(in oklab, #007041 92%, transparent)` |
+| `--bg-added-quaternary`                | `color-mix(in oklab, #007041 8%, transparent)`  |
+| `--bg-added-secondary`                 | `color-mix(in oklab, #007041 24%, transparent)` |
+| `--bg-added-tertiary`                  | `color-mix(in oklab, #007041 12%, transparent)` |
+| `--bg-blue`                            | `color-mix(in oklab, #2778c1 92%, transparent)` |
+| `--bg-blue-quaternary`                 | `color-mix(in oklab, #2778c1 8%, transparent)`  |
+| `--bg-blue-secondary`                  | `color-mix(in oklab, #2778c1 24%, transparent)` |
+| `--bg-blue-tertiary`                   | `color-mix(in oklab, #2778c1 12%, transparent)` |
+| `--bg-brand`                           | `#f54e00`                                       |
+| `--bg-brand-hover`                     | `color-mix(in oklab, #141414 10%, #f54e00)`     |
+| `--bg-brand-quaternary`                | `color-mix(in oklab, #f54e00 8%, transparent)`  |
+| `--bg-brand-secondary`                 | `color-mix(in oklab, #f54e00 24%, transparent)` |
+| `--bg-brand-tertiary`                  | `color-mix(in oklab, #f54e00 12%, transparent)` |
+| `--bg-chrome`                          | `#f8f8f8`                                       |
+| `--bg-cyan`                            | `color-mix(in oklab, #176c74 92%, transparent)` |
+| `--bg-cyan-quaternary`                 | `color-mix(in oklab, #176c74 8%, transparent)`  |
+| `--bg-cyan-secondary`                  | `color-mix(in oklab, #176c74 24%, transparent)` |
+| `--bg-cyan-tertiary`                   | `color-mix(in oklab, #176c74 12%, transparent)` |
+| `--bg-danger`                          | `#be1744`                                       |
+| `--bg-danger-hover`                    | `color-mix(in oklab, #141414 10%, #be1744)`     |
+| `--bg-danger-quaternary`               | `color-mix(in oklab, #be1744 8%, transparent)`  |
+| `--bg-danger-secondary`                | `color-mix(in oklab, #be1744 24%, transparent)` |
+| `--bg-danger-tertiary`                 | `color-mix(in oklab, #be1744 12%, transparent)` |
+| `--bg-editor`                          | `#fcfcfc`                                       |
+| `--bg-elevated`                        | `#fcfcfc`                                       |
+| `--bg-focused`                         | `color-mix(in oklab, #141414 22%, transparent)` |
+| `--bg-green`                           | `color-mix(in oklab, #007041 92%, transparent)` |
+| `--bg-green-quaternary`                | `color-mix(in oklab, #007041 8%, transparent)`  |
+| `--bg-green-secondary`                 | `color-mix(in oklab, #007041 24%, transparent)` |
+| `--bg-green-tertiary`                  | `color-mix(in oklab, #007041 12%, transparent)` |
+| `--bg-luminous`                        | `#fff`                                          |
+| `--bg-luminous-quaternary`             | `#ffffff0a`                                     |
+| `--bg-luminous-secondary`              | `#fff3`                                         |
+| `--bg-luminous-tertiary`               | `#ffffff14`                                     |
+| `--bg-magenta`                         | `color-mix(in oklab, #92156a 92%, transparent)` |
+| `--bg-magenta-quaternary`              | `color-mix(in oklab, #92156a 8%, transparent)`  |
+| `--bg-magenta-secondary`               | `color-mix(in oklab, #92156a 24%, transparent)` |
+| `--bg-magenta-tertiary`                | `color-mix(in oklab, #92156a 12%, transparent)` |
+| `--bg-neutral`                         | `#141414`                                       |
+| `--bg-neutral-hover`                   | `color-mix(in oklab, #f8f8f8 10%, #141414)`     |
+| `--bg-neutral-secondary`               | `color-mix(in oklab, #141414 24%, transparent)` |
+| `--bg-orange`                          | `color-mix(in oklab, #cd4500 92%, transparent)` |
+| `--bg-orange-quaternary`               | `color-mix(in oklab, #cd4500 8%, transparent)`  |
+| `--bg-orange-secondary`                | `color-mix(in oklab, #cd4500 24%, transparent)` |
+| `--bg-orange-tertiary`                 | `color-mix(in oklab, #cd4500 12%, transparent)` |
+| `--bg-primary`                         | `color-mix(in oklab, #141414 20%, transparent)` |
+| `--bg-primary-opaque`                  | `color-mix(in oklab, #141414 20%, #f8f8f8)`     |
+| `--bg-purple`                          | `color-mix(in oklab, #7565cc 92%, transparent)` |
+| `--bg-purple-quaternary`               | `color-mix(in oklab, #7565cc 8%, transparent)`  |
+| `--bg-purple-secondary`                | `color-mix(in oklab, #7565cc 24%, transparent)` |
+| `--bg-purple-tertiary`                 | `color-mix(in oklab, #7565cc 12%, transparent)` |
+| `--bg-quaternary`                      | `color-mix(in oklab, #141414 6%, transparent)`  |
+| `--bg-quaternary-opaque`               | `color-mix(in oklab, #141414 6%, #f8f8f8)`      |
+| `--bg-quaternary-opaque-elevated`      | `color-mix(in oklab, #141414 6%, #fcfcfc)`      |
+| `--bg-quinary`                         | `color-mix(in oklab, #141414 4%, transparent)`  |
+| `--bg-quinary-opaque`                  | `color-mix(in oklab, #141414 4%, #f8f8f8)`      |
+| `--bg-red`                             | `color-mix(in oklab, #be1744 92%, transparent)` |
+| `--bg-red-quaternary`                  | `color-mix(in oklab, #be1744 8%, transparent)`  |
+| `--bg-red-secondary`                   | `color-mix(in oklab, #be1744 24%, transparent)` |
+| `--bg-red-tertiary`                    | `color-mix(in oklab, #be1744 12%, transparent)` |
+| `--bg-removed`                         | `color-mix(in oklab, #be1744 92%, transparent)` |
+| `--bg-removed-quaternary`              | `color-mix(in oklab, #be1744 8%, transparent)`  |
+| `--bg-removed-secondary`               | `color-mix(in oklab, #be1744 24%, transparent)` |
+| `--bg-removed-tertiary`                | `color-mix(in oklab, #be1744 12%, transparent)` |
+| `--bg-scrim`                           | `#0006`                                         |
+| `--bg-secondary`                       | `color-mix(in oklab, #141414 14%, transparent)` |
+| `--bg-secondary-opaque`                | `color-mix(in oklab, #141414 14%, #f8f8f8)`     |
+| `--bg-sidebar`                         | `#f3f3f3`                                       |
+| `--bg-success`                         | `#007041`                                       |
+| `--bg-success-hover`                   | `color-mix(in oklab, #141414 10%, #007041)`     |
+| `--bg-success-quaternary`              | `color-mix(in oklab, #007041 8%, transparent)`  |
+| `--bg-success-secondary`               | `color-mix(in oklab, #007041 24%, transparent)` |
+| `--bg-success-tertiary`                | `color-mix(in oklab, #007041 12%, transparent)` |
+| `--bg-tertiary`                        | `color-mix(in oklab, #141414 8%, transparent)`  |
+| `--bg-tertiary-opaque`                 | `color-mix(in oklab, #141414 8%, #f8f8f8)`      |
+| `--bg-unified-elevated`                | `#fcfcfc`                                       |
+| `--bg-warn`                            | `#a46700`                                       |
+| `--bg-warn-hover`                      | `color-mix(in oklab, #141414 10%, #a46700)`     |
+| `--bg-warn-quaternary`                 | `color-mix(in oklab, #a46700 8%, transparent)`  |
+| `--bg-warn-secondary`                  | `color-mix(in oklab, #a46700 24%, transparent)` |
+| `--bg-warn-tertiary`                   | `color-mix(in oklab, #a46700 12%, transparent)` |
+| `--bg-yellow`                          | `color-mix(in oklab, #a46700 92%, transparent)` |
+| `--bg-yellow-quaternary`               | `color-mix(in oklab, #a46700 8%, transparent)`  |
+| `--bg-yellow-secondary`                | `color-mix(in oklab, #a46700 24%, transparent)` |
+| `--bg-yellow-tertiary`                 | `color-mix(in oklab, #a46700 12%, transparent)` |
+| `--cursor-bg-accent`                   | `#2778c1`                                       |
+| `--cursor-bg-accent-hover`             | `color-mix(in oklab, #141414 10%, #2778c1)`     |
+| `--cursor-bg-accent-quaternary`        | `color-mix(in srgb, #2778c1 8%, transparent)`   |
+| `--cursor-bg-accent-secondary`         | `color-mix(in srgb, #2778c1 24%, transparent)`  |
+| `--cursor-bg-accent-tertiary`          | `color-mix(in srgb, #2778c1 12%, transparent)`  |
+| `--cursor-bg-active`                   | `color-mix(in oklab, #141414 16%, transparent)` |
+| `--cursor-bg-blue-primary`             | `#2778c1`                                       |
+| `--cursor-bg-blue-secondary`           | `color-mix(in srgb, #2778c1 12%, transparent)`  |
+| `--cursor-bg-card`                     | `color-mix(in oklab, #141414 6%, transparent)`  |
+| `--cursor-bg-chrome`                   | `#f8f8f8`                                       |
+| `--cursor-bg-cyan-primary`             | `#176c74`                                       |
+| `--cursor-bg-cyan-secondary`           | `color-mix(in oklab, #176c74 12%, transparent)` |
+| `--cursor-bg-diff-inserted`            | `#00af6624`                                     |
+| `--cursor-bg-diff-removed`             | `#ff617b38`                                     |
+| `--cursor-bg-editor`                   | `#fcfcfc`                                       |
+| `--cursor-bg-elevated`                 | `#fcfcfc`                                       |
+| `--cursor-bg-focused`                  | `color-mix(in oklab, #141414 22%, transparent)` |
+| `--cursor-bg-git-added-hover`          | `color-mix(in srgb, #141414 10%, #007041)`      |
+| `--cursor-bg-git-added-primary`        | `#007041`                                       |
+| `--cursor-bg-git-added-quaternary`     | `color-mix(in srgb, #007041 8%, transparent)`   |
+| `--cursor-bg-git-added-secondary`      | `color-mix(in srgb, #007041 24%, transparent)`  |
+| `--cursor-bg-git-added-tertiary`       | `color-mix(in srgb, #007041 12%, transparent)`  |
+| `--cursor-bg-git-modified-hover`       | `color-mix(in srgb, #141414 10%, #a46700)`      |
+| `--cursor-bg-git-modified-primary`     | `#a46700`                                       |
+| `--cursor-bg-git-modified-quaternary`  | `color-mix(in srgb, #a46700 8%, transparent)`   |
+| `--cursor-bg-git-modified-secondary`   | `color-mix(in srgb, #a46700 24%, transparent)`  |
+| `--cursor-bg-git-modified-tertiary`    | `color-mix(in srgb, #a46700 12%, transparent)`  |
+| `--cursor-bg-git-removed-hover`        | `color-mix(in srgb, #141414 10%, #be1744)`      |
+| `--cursor-bg-git-removed-primary`      | `#be1744`                                       |
+| `--cursor-bg-git-removed-quaternary`   | `color-mix(in srgb, #be1744 8%, transparent)`   |
+| `--cursor-bg-git-removed-secondary`    | `color-mix(in srgb, #be1744 24%, transparent)`  |
+| `--cursor-bg-git-removed-tertiary`     | `color-mix(in srgb, #be1744 12%, transparent)`  |
+| `--cursor-bg-git-untracked-hover`      | `color-mix(in srgb, #141414 10%, #176c74)`      |
+| `--cursor-bg-git-untracked-primary`    | `#176c74`                                       |
+| `--cursor-bg-git-untracked-quaternary` | `color-mix(in srgb, #176c74 8%, transparent)`   |
+| `--cursor-bg-git-untracked-secondary`  | `color-mix(in srgb, #176c74 24%, transparent)`  |
+| `--cursor-bg-git-untracked-tertiary`   | `color-mix(in srgb, #176c74 12%, transparent)`  |
+| `--cursor-bg-green-primary`            | `#007041`                                       |
+| `--cursor-bg-green-secondary`          | `color-mix(in oklab, #007041 12%, transparent)` |
+| `--cursor-bg-input`                    | `#fcfcfc`                                       |
+| `--cursor-bg-input-surface`            | `color-mix(in oklab, #141414 6%, transparent)`  |
+| `--cursor-bg-magenta-primary`          | `#92156a`                                       |
+| `--cursor-bg-magenta-secondary`        | `color-mix(in oklab, #92156a 12%, transparent)` |
+| `--cursor-bg-orange-primary`           | `#cd4500`                                       |
+| `--cursor-bg-orange-secondary`         | `color-mix(in oklab, #cd4500 12%, transparent)` |
+| `--cursor-bg-primary`                  | `color-mix(in oklab, #141414 20%, transparent)` |
+| `--cursor-bg-purple-primary`           | `#7565cc`                                       |
+| `--cursor-bg-purple-secondary`         | `color-mix(in oklab, #7565cc 12%, transparent)` |
+| `--cursor-bg-purple-tertiary`          | `color-mix(in oklab, #7565cc 8%, transparent)`  |
+| `--cursor-bg-quaternary`               | `color-mix(in oklab, #141414 6%, transparent)`  |
+| `--cursor-bg-quinary`                  | `color-mix(in oklab, #141414 4%, transparent)`  |
+| `--cursor-bg-red-primary`              | `#be1744`                                       |
+| `--cursor-bg-red-secondary`            | `color-mix(in oklab, #be1744 12%, transparent)` |
+| `--cursor-bg-secondary`                | `color-mix(in oklab, #141414 14%, transparent)` |
+| `--cursor-bg-sidebar`                  | `#f3f3f3`                                       |
+| `--cursor-bg-tertiary`                 | `color-mix(in oklab, #141414 8%, transparent)`  |
+| `--cursor-bg-yellow-primary`           | `#a46700`                                       |
+| `--cursor-bg-yellow-secondary`         | `color-mix(in oklab, #a46700 12%, transparent)` |
+
+---
+
+## 7. Border / stroke
+
+| Token                               | Valeur                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `--border-accent`                   | `color-mix(in oklab, #2778c1 92%, transparent)`                                   |
+| `--border-accent-quaternary`        | `color-mix(in oklab, #2778c1 28%, transparent)`                                   |
+| `--border-accent-secondary`         | `color-mix(in oklab, #2778c1 56%, transparent)`                                   |
+| `--border-accent-tertiary`          | `color-mix(in oklab, #2778c1 32%, transparent)`                                   |
+| `--border-added`                    | `color-mix(in oklab, #007041 92%, transparent)`                                   |
+| `--border-added-quaternary`         | `color-mix(in oklab, #007041 28%, transparent)`                                   |
+| `--border-added-secondary`          | `color-mix(in oklab, #007041 56%, transparent)`                                   |
+| `--border-added-tertiary`           | `color-mix(in oklab, #007041 32%, transparent)`                                   |
+| `--border-blue`                     | `color-mix(in oklab, #2778c1 92%, transparent)`                                   |
+| `--border-blue-quaternary`          | `color-mix(in oklab, #2778c1 28%, transparent)`                                   |
+| `--border-blue-secondary`           | `color-mix(in oklab, #2778c1 56%, transparent)`                                   |
+| `--border-blue-tertiary`            | `color-mix(in oklab, #2778c1 32%, transparent)`                                   |
+| `--border-brand`                    | `color-mix(in oklab, #f54e00 92%, transparent)`                                   |
+| `--border-brand-quaternary`         | `color-mix(in oklab, #f54e00 28%, transparent)`                                   |
+| `--border-brand-secondary`          | `color-mix(in oklab, #f54e00 56%, transparent)`                                   |
+| `--border-brand-tertiary`           | `color-mix(in oklab, #f54e00 32%, transparent)`                                   |
+| `--border-cyan`                     | `color-mix(in oklab, #176c74 92%, transparent)`                                   |
+| `--border-cyan-quaternary`          | `color-mix(in oklab, #176c74 28%, transparent)`                                   |
+| `--border-cyan-secondary`           | `color-mix(in oklab, #176c74 56%, transparent)`                                   |
+| `--border-cyan-tertiary`            | `color-mix(in oklab, #176c74 32%, transparent)`                                   |
+| `--border-danger`                   | `color-mix(in oklab, #be1744 92%, transparent)`                                   |
+| `--border-danger-quaternary`        | `color-mix(in oklab, #be1744 28%, transparent)`                                   |
+| `--border-danger-secondary`         | `color-mix(in oklab, #be1744 56%, transparent)`                                   |
+| `--border-danger-tertiary`          | `color-mix(in oklab, #be1744 32%, transparent)`                                   |
+| `--border-focus`                    | `color-mix(in oklab, #2778c1 15%, transparent)`                                   |
+| `--border-green`                    | `color-mix(in oklab, #007041 92%, transparent)`                                   |
+| `--border-green-quaternary`         | `color-mix(in oklab, #007041 28%, transparent)`                                   |
+| `--border-green-secondary`          | `color-mix(in oklab, #007041 56%, transparent)`                                   |
+| `--border-green-tertiary`           | `color-mix(in oklab, #007041 32%, transparent)`                                   |
+| `--border-magenta`                  | `color-mix(in oklab, #92156a 92%, transparent)`                                   |
+| `--border-magenta-quaternary`       | `color-mix(in oklab, #92156a 28%, transparent)`                                   |
+| `--border-magenta-secondary`        | `color-mix(in oklab, #92156a 56%, transparent)`                                   |
+| `--border-magenta-tertiary`         | `color-mix(in oklab, #92156a 32%, transparent)`                                   |
+| `--border-neutral`                  | `color-mix(in oklab, #141414 80%, transparent)`                                   |
+| `--border-orange`                   | `color-mix(in oklab, #cd4500 92%, transparent)`                                   |
+| `--border-orange-quaternary`        | `color-mix(in oklab, #cd4500 28%, transparent)`                                   |
+| `--border-orange-secondary`         | `color-mix(in oklab, #cd4500 56%, transparent)`                                   |
+| `--border-orange-tertiary`          | `color-mix(in oklab, #cd4500 32%, transparent)`                                   |
+| `--border-primary`                  | `color-mix(in oklab, #141414 20%, transparent)`                                   |
+| `--border-purple`                   | `color-mix(in oklab, #7565cc 92%, transparent)`                                   |
+| `--border-purple-quaternary`        | `color-mix(in oklab, #7565cc 28%, transparent)`                                   |
+| `--border-purple-secondary`         | `color-mix(in oklab, #7565cc 56%, transparent)`                                   |
+| `--border-purple-tertiary`          | `color-mix(in oklab, #7565cc 32%, transparent)`                                   |
+| `--border-quaternary`               | `color-mix(in oklab, #141414 4%, transparent)`                                    |
+| `--border-quaternary-opaque`        | `color-mix(in oklab, color-mix(in oklab, #141414 4%, transparent) 100%, #fcfcfc)` |
+| `--border-red`                      | `color-mix(in oklab, #be1744 92%, transparent)`                                   |
+| `--border-red-quaternary`           | `color-mix(in oklab, #be1744 28%, transparent)`                                   |
+| `--border-red-secondary`            | `color-mix(in oklab, #be1744 56%, transparent)`                                   |
+| `--border-red-tertiary`             | `color-mix(in oklab, #be1744 32%, transparent)`                                   |
+| `--border-removed`                  | `color-mix(in oklab, #be1744 92%, transparent)`                                   |
+| `--border-removed-quaternary`       | `color-mix(in oklab, #be1744 28%, transparent)`                                   |
+| `--border-removed-secondary`        | `color-mix(in oklab, #be1744 56%, transparent)`                                   |
+| `--border-removed-tertiary`         | `color-mix(in oklab, #be1744 32%, transparent)`                                   |
+| `--border-secondary`                | `color-mix(in oklab, #141414 12%, transparent)`                                   |
+| `--border-success`                  | `color-mix(in oklab, #007041 92%, transparent)`                                   |
+| `--border-success-quaternary`       | `color-mix(in oklab, #007041 28%, transparent)`                                   |
+| `--border-success-secondary`        | `color-mix(in oklab, #007041 56%, transparent)`                                   |
+| `--border-success-tertiary`         | `color-mix(in oklab, #007041 32%, transparent)`                                   |
+| `--border-tertiary`                 | `color-mix(in oklab, #141414 8%, transparent)`                                    |
+| `--border-tertiary-opaque`          | `color-mix(in oklab, color-mix(in oklab, #141414 8%, transparent) 100%, #fcfcfc)` |
+| `--border-warn`                     | `color-mix(in oklab, #a46700 92%, transparent)`                                   |
+| `--border-warn-quaternary`          | `color-mix(in oklab, #a46700 28%, transparent)`                                   |
+| `--border-warn-secondary`           | `color-mix(in oklab, #a46700 56%, transparent)`                                   |
+| `--border-warn-tertiary`            | `color-mix(in oklab, #a46700 32%, transparent)`                                   |
+| `--border-yellow`                   | `color-mix(in oklab, #a46700 92%, transparent)`                                   |
+| `--border-yellow-quaternary`        | `color-mix(in oklab, #a46700 28%, transparent)`                                   |
+| `--border-yellow-secondary`         | `color-mix(in oklab, #a46700 56%, transparent)`                                   |
+| `--border-yellow-tertiary`          | `color-mix(in oklab, #a46700 32%, transparent)`                                   |
+| `--borders`                         | `#ccc`                                                                            |
+| `--cursor-stroke-blue-primary`      | `color-mix(in srgb, #2778c1 56%, transparent)`                                    |
+| `--cursor-stroke-blue-secondary`    | `color-mix(in srgb, #2778c1 32%, transparent)`                                    |
+| `--cursor-stroke-cyan-primary`      | `color-mix(in oklab, #176c74 56%, transparent)`                                   |
+| `--cursor-stroke-cyan-secondary`    | `color-mix(in oklab, #176c74 32%, transparent)`                                   |
+| `--cursor-stroke-focused`           | `color-mix(in oklab, #2778c1 15%, transparent)`                                   |
+| `--cursor-stroke-git-added`         | `color-mix(in oklab, #007041 56%, transparent)`                                   |
+| `--cursor-stroke-git-modified`      | `color-mix(in srgb, #a46700 56%, transparent)`                                    |
+| `--cursor-stroke-git-removed`       | `color-mix(in oklab, #be1744 56%, transparent)`                                   |
+| `--cursor-stroke-git-untracked`     | `color-mix(in srgb, #176c74 56%, transparent)`                                    |
+| `--cursor-stroke-green-primary`     | `color-mix(in oklab, #007041 56%, transparent)`                                   |
+| `--cursor-stroke-green-secondary`   | `color-mix(in oklab, #007041 32%, transparent)`                                   |
+| `--cursor-stroke-high-contrast`     | `color-mix(in srgb, #141414 0%, transparent)`                                     |
+| `--cursor-stroke-magenta-primary`   | `color-mix(in oklab, #92156a 56%, transparent)`                                   |
+| `--cursor-stroke-magenta-secondary` | `color-mix(in oklab, #92156a 32%, transparent)`                                   |
+| `--cursor-stroke-orange-primary`    | `color-mix(in oklab, #cd4500 56%, transparent)`                                   |
+| `--cursor-stroke-orange-secondary`  | `color-mix(in oklab, #cd4500 32%, transparent)`                                   |
+| `--cursor-stroke-primary`           | `color-mix(in oklab, #141414 20%, transparent)`                                   |
+| `--cursor-stroke-quaternary`        | `color-mix(in oklab, #141414 4%, transparent)`                                    |
+| `--cursor-stroke-red-primary`       | `color-mix(in oklab, #be1744 56%, transparent)`                                   |
+| `--cursor-stroke-red-secondary`     | `color-mix(in oklab, #be1744 32%, transparent)`                                   |
+| `--cursor-stroke-secondary`         | `color-mix(in oklab, #141414 12%, transparent)`                                   |
+| `--cursor-stroke-tertiary`          | `color-mix(in oklab, #141414 8%, transparent)`                                    |
+| `--cursor-stroke-tertiary-opaque`   | `color-mix(in srgb, #141414 8%, #f8f8f8)`                                         |
+| `--cursor-stroke-yellow-primary`    | `color-mix(in oklab, #a46700 56%, transparent)`                                   |
+| `--cursor-stroke-yellow-secondary`  | `color-mix(in oklab, #a46700 32%, transparent)`                                   |
+
+---
+
+## 8. Buttons
+
+| Token                                        | Valeur                                         |
+| -------------------------------------------- | ---------------------------------------------- |
+| `--cursor-button-background`                 | `#141414`                                      |
+| `--cursor-button-foreground`                 | `#fcfcfc`                                      |
+| `--cursor-button-hover-background`           | `color-mix(in oklab, #f8f8f8 10%, #141414)`    |
+| `--cursor-button-secondary-background`       | `color-mix(in oklab, #141414 8%, transparent)` |
+| `--cursor-button-secondary-foreground`       | `#141414`                                      |
+| `--cursor-button-secondary-hover-background` | `color-mix(in oklab, #141414 6%, transparent)` |
+
+---
+
+## 9. Shadows & elevation
+
+| Token                           | Valeur                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--color-theme-shadow-card`     | `0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`                                                              |
+| `--color-theme-shadow-command`  | `0 25px 50px -12px #00000040, 0 12px 24px -8px #00000026`                                                  |
+| `--color-theme-shadow-dialog`   | `0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`      |
+| `--color-theme-shadow-elevated` | `0 8px 32px #0003`                                                                                         |
+| `--color-theme-shadow-popover`  | `0 10px 15px -3px #0000001a, 0 4px 6px -2px #0000000d`                                                     |
+| `--cursor-box-shadow-base`      | `0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 4px 0px #00000009, 0 8px 24px -2px #00000009` |
+| `--cursor-box-shadow-lg`        | `0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 3px 0 #00000009, 0 16px 24px 0 #00000005`                  |
+| `--cursor-box-shadow-popup`     | `0 8px 16px 0 rgba(20, 20, 20, 0.12)`                                                                      |
+| `--cursor-box-shadow-sm`        | `0 2px 8px 0px #00000009`                                                                                  |
+| `--cursor-box-shadow-soft`      | `0 0 8px 2px #00000005`                                                                                    |
+| `--cursor-box-shadow-workbench` | `0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`                                                              |
+| `--cursor-box-shadow-xl`        | `0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 6px 8px #00000009, 0 24px 16px 6px #00000005`              |
+| `--cursor-elevation-1`          | `1`                                                                                                        |
+| `--cursor-elevation-2`          | `2`                                                                                                        |
+| `--cursor-scrollbar-shadow`     | `#0000000f`                                                                                                |
+| `--cursor-shadow-primary`       | `#0000000f`                                                                                                |
+| `--cursor-shadow-secondary`     | `#00000009`                                                                                                |
+| `--cursor-shadow-tertiary`      | `#00000005`                                                                                                |
+| `--cursor-shadow-workbench`     | `0px 0px 8px 2px color-mix(in srgb, #0000000f 40%, transparent)`                                           |
+| `--shadow-primary`              | `#0000000f`                                                                                                |
+| `--shadow-secondary`            | `#00000009`                                                                                                |
+| `--shadow-tertiary`             | `#00000005`                                                                                                |
+| `--tw-ring-offset-shadow`       | `0 0 #0000`                                                                                                |
+| `--tw-ring-shadow`              | `0 0 #0000`                                                                                                |
+| `--tw-shadow`                   | `0 0 #0000`                                                                                                |
+| `--tw-shadow-colored`           | `0 0 #0000`                                                                                                |
+
+---
+
+## 10. Typography & layout chrome
+
+| Token                           | Valeur                                                                                               |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--cursor-font-family-mono`     | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace` |
+| `--cursor-font-family-sans`     | `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`                                          |
+| `--cursor-font-size-base`       | `13px`                                                                                               |
+| `--cursor-font-size-lg`         | `14px`                                                                                               |
+| `--cursor-font-size-sm`         | `12px`                                                                                               |
+| `--cursor-font-size-xs`         | `11px`                                                                                               |
+| `--cursor-font-weight-bold`     | `700`                                                                                                |
+| `--cursor-font-weight-medium`   | `500`                                                                                                |
+| `--cursor-font-weight-normal`   | `418`                                                                                                |
+| `--cursor-font-weight-regular`  | `418`                                                                                                |
+| `--cursor-font-weight-semibold` | `600`                                                                                                |
+| `--cursor-height-base`          | `28px`                                                                                               |
+| `--cursor-height-lg`            | `32px`                                                                                               |
+| `--cursor-height-sm`            | `24px`                                                                                               |
+| `--cursor-height-xs`            | `20px`                                                                                               |
+| `--cursor-letter-spacing-2xl`   | `-0.46px`                                                                                            |
+| `--cursor-letter-spacing-3xl`   | `-0.26px`                                                                                            |
+| `--cursor-letter-spacing-base`  | `-0.08px`                                                                                            |
+| `--cursor-letter-spacing-lg`    | `-0.15px`                                                                                            |
+| `--cursor-letter-spacing-sm`    | `0px`                                                                                                |
+| `--cursor-letter-spacing-xl`    | `0.08px`                                                                                             |
+| `--cursor-letter-spacing-xs`    | `0.07px`                                                                                             |
+| `--cursor-line-height-base`     | `18px`                                                                                               |
+| `--cursor-line-height-lg`       | `22px`                                                                                               |
+| `--cursor-line-height-sm`       | `16px`                                                                                               |
+| `--cursor-line-height-xs`       | `14px`                                                                                               |
+| `--diffs-font-family`           | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace` |
+| `--diffs-font-size`             | `12px`                                                                                               |
+| `--dvh-safe`                    | `100dvh`                                                                                             |
+| `--file-list-item-content-h`    | `1rem`                                                                                               |
+| `--file-list-item-h`            | `calc(1rem + 2 * .25rem)`                                                                            |
+| `--file-list-item-py`           | `.25rem`                                                                                             |
+| `--file-list-max-vh`            | `30vh`                                                                                               |
+| `--file-list-visible-count`     | `7.5`                                                                                                |
+| `--font-size-base`              | `.8125rem`                                                                                           |
+| `--font-size-lg`                | `1rem`                                                                                               |
+| `--font-size-sm`                | `.75rem`                                                                                             |
+| `--font-size-xl`                | `1.25rem`                                                                                            |
+| `--font-size-xs`                | `.6875rem`                                                                                           |
+| `--font-weight-bold`            | `700`                                                                                                |
+| `--font-weight-medium`          | `500`                                                                                                |
+| `--font-weight-normal`          | `418`                                                                                                |
+| `--font-weight-semibold`        | `600`                                                                                                |
+| `--font-width-normal`           | `4.7`                                                                                                |
+| `--line-height-base`            | `1.125rem`                                                                                           |
+| `--line-height-lg`              | `1.5rem`                                                                                             |
+| `--line-height-sm`              | `1rem`                                                                                               |
+| `--line-height-xl`              | `1.75rem`                                                                                            |
+| `--line-height-xs`              | `.875rem`                                                                                            |
+| `--navbar-height`               | `4rem`                                                                                               |
+| `--text-base`                   | `1rem`                                                                                               |
+| `--text-lg`                     | `2.25rem`                                                                                            |
+| `--text-md`                     | `1.375rem`                                                                                           |
+| `--text-xl`                     | `3.25rem`                                                                                            |
+| `--text-xs`                     | `.75rem`                                                                                             |
+| `--web-text-base`               | `.8125rem`                                                                                           |
+| `--web-text-sm`                 | `.75rem`                                                                                             |
+
+---
+
+## 11. Spacing & radius
+
+| Token                      | Valeur   |
+| -------------------------- | -------- |
+| `--cursor-radius-2xl`      | `14px`   |
+| `--cursor-radius-3xl`      | `16px`   |
+| `--cursor-radius-base`     | `6px`    |
+| `--cursor-radius-full`     | `9999px` |
+| `--cursor-radius-lg`       | `8px`    |
+| `--cursor-radius-none`     | `0px`    |
+| `--cursor-radius-sm`       | `4px`    |
+| `--cursor-radius-xl`       | `12px`   |
+| `--cursor-radius-xs`       | `2px`    |
+| `--cursor-spacing-0-25`    | `1px`    |
+| `--cursor-spacing-0-5`     | `2px`    |
+| `--cursor-spacing-0-75`    | `3px`    |
+| `--cursor-spacing-1`       | `4px`    |
+| `--cursor-spacing-1-25`    | `5px`    |
+| `--cursor-spacing-1-5`     | `6px`    |
+| `--cursor-spacing-1-75`    | `7px`    |
+| `--cursor-spacing-10`      | `40px`   |
+| `--cursor-spacing-11`      | `44px`   |
+| `--cursor-spacing-12`      | `48px`   |
+| `--cursor-spacing-13`      | `52px`   |
+| `--cursor-spacing-14`      | `56px`   |
+| `--cursor-spacing-15`      | `60px`   |
+| `--cursor-spacing-16`      | `64px`   |
+| `--cursor-spacing-17`      | `68px`   |
+| `--cursor-spacing-18`      | `72px`   |
+| `--cursor-spacing-19`      | `76px`   |
+| `--cursor-spacing-2`       | `8px`    |
+| `--cursor-spacing-2-25`    | `9px`    |
+| `--cursor-spacing-2-5`     | `10px`   |
+| `--cursor-spacing-2-75`    | `11px`   |
+| `--cursor-spacing-20`      | `80px`   |
+| `--cursor-spacing-3`       | `12px`   |
+| `--cursor-spacing-3-25`    | `13px`   |
+| `--cursor-spacing-3-5`     | `14px`   |
+| `--cursor-spacing-3-75`    | `15px`   |
+| `--cursor-spacing-4`       | `16px`   |
+| `--cursor-spacing-4-25`    | `17px`   |
+| `--cursor-spacing-4-5`     | `18px`   |
+| `--cursor-spacing-4-75`    | `19px`   |
+| `--cursor-spacing-5`       | `20px`   |
+| `--cursor-spacing-5-5`     | `22px`   |
+| `--cursor-spacing-6`       | `24px`   |
+| `--cursor-spacing-6-5`     | `26px`   |
+| `--cursor-spacing-7`       | `28px`   |
+| `--cursor-spacing-7-5`     | `30px`   |
+| `--cursor-spacing-8`       | `32px`   |
+| `--cursor-spacing-8-5`     | `34px`   |
+| `--cursor-spacing-9`       | `36px`   |
+| `--cursor-spacing-9-5`     | `38px`   |
+| `--cursor-spacing-ne-0-25` | `-1px`   |
+| `--cursor-spacing-ne-0-5`  | `-2px`   |
+| `--cursor-spacing-ne-0-75` | `-3px`   |
+| `--cursor-spacing-ne-1`    | `-4px`   |
+| `--cursor-spacing-ne-1-25` | `-5px`   |
+| `--cursor-spacing-ne-1-5`  | `-6px`   |
+| `--cursor-spacing-ne-1-75` | `-7px`   |
+| `--cursor-spacing-ne-2`    | `-8px`   |
+| `--cursor-spacing-ne-2-25` | `-9px`   |
+| `--cursor-spacing-ne-2-5`  | `-10px`  |
+| `--cursor-spacing-ne-2-75` | `-11px`  |
+| `--cursor-spacing-ne-3`    | `-12px`  |
+| `--cursor-spacing-ne-3-25` | `-13px`  |
+| `--cursor-spacing-ne-3-5`  | `-14px`  |
+| `--cursor-spacing-ne-3-75` | `-15px`  |
+| `--cursor-spacing-ne-4`    | `-16px`  |
+| `--cursor-spacing-ne-4-25` | `-17px`  |
+| `--cursor-spacing-ne-4-5`  | `-18px`  |
+| `--cursor-spacing-ne-4-75` | `-19px`  |
+| `--cursor-spacing-ne-5`    | `-20px`  |
+
+---
+
+## 12. Motion
 
 | Token                           | Valeur                                   |
 | ------------------------------- | ---------------------------------------- |
-| `--cursor-duration-instant`     | `50ms`                                   |
 | `--cursor-duration-fast`        | `100ms`                                  |
+| `--cursor-duration-instant`     | `50ms`                                   |
 | `--cursor-duration-normal`      | `150ms`                                  |
 | `--cursor-duration-slow`        | `200ms`                                  |
 | `--cursor-duration-slower`      | `300ms`                                  |
 | `--cursor-easing-default`       | `ease`                                   |
 | `--cursor-easing-in`            | `ease-in`                                |
-| `--cursor-easing-out`           | `ease-out`                               |
 | `--cursor-easing-in-out`        | `ease-in-out`                            |
-| `--cursor-easing-in-strong`     | `cubic-bezier(0.895, 0.03, 0.685, 0.22)` |
-| `--cursor-easing-out-strong`    | `cubic-bezier(0.165, 0.84, 0.44, 1)`     |
-| `--cursor-easing-out-quint`     | `cubic-bezier(0.16, 1, 0.3, 1)`          |
 | `--cursor-easing-in-out-strong` | `cubic-bezier(0.77, 0, 0.175, 1)`        |
+| `--cursor-easing-in-strong`     | `cubic-bezier(0.895, 0.03, 0.685, 0.22)` |
+| `--cursor-easing-out`           | `ease-out`                               |
+| `--cursor-easing-out-quint`     | `cubic-bezier(0.16, 1, 0.3, 1)`          |
+| `--cursor-easing-out-strong`    | `cubic-bezier(0.165, 0.84, 0.44, 1)`     |
+| `--rt-transition-closing-delay` | `0.15s`                                  |
+| `--rt-transition-show-delay`    | `0.15s`                                  |
 
 ---
 
-## 8. Scrollbar
+## 13. Syntax, diffs, terminal, editor chrome
 
-| Token                                        | Valeur                                             |
-| -------------------------------------------- | -------------------------------------------------- |
-| `--cursor-scrollbar-vertical-size`           | `14px`                                             |
-| `--cursor-scrollbar-horizontal-size`         | `12px`                                             |
-| `--cursor-scrollbar-thumb-background`        | `color-mix(in srgb, var(--base) 14%, transparent)` |
-| `--cursor-scrollbar-thumb-hover-background`  | `color-mix(in srgb, var(--base) 22%, transparent)` |
-| `--cursor-scrollbar-thumb-active-background` | `color-mix(in srgb, var(--base) 26%, transparent)` |
+| Token                                             | Valeur                                                                                               |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--cursor-bg-diff-inserted`                       | `#00af6624`                                                                                          |
+| `--cursor-bg-diff-removed`                        | `#ff617b38`                                                                                          |
+| `--cursor-diff-added-line-background`             | `#3fa26633`                                                                                          |
+| `--cursor-diff-added-text-background`             | `#3fa26622`                                                                                          |
+| `--cursor-diff-removed-line-background`           | `#b8004933`                                                                                          |
+| `--cursor-diff-removed-text-background`           | `#b8004922`                                                                                          |
+| `--cursor-editor-bracket-match-background`        | `color-mix(in srgb, #007041 22%, transparent)`                                                       |
+| `--cursor-editor-bracket-match-border`            | `color-mix(in srgb, #141414 52%, transparent)`                                                       |
+| `--cursor-editor-cursor-foreground`               | `#141414`                                                                                            |
+| `--cursor-editor-find-match-background`           | `color-mix(in srgb, #a46700 72%, transparent)`                                                       |
+| `--cursor-editor-find-match-highlight-background` | `color-mix(in srgb, #a46700 32%, transparent)`                                                       |
+| `--cursor-editor-foreground`                      | `#141414`                                                                                            |
+| `--cursor-editor-gutter-background`               | `#fcfcfc`                                                                                            |
+| `--cursor-editor-inactive-selection-background`   | `color-mix(in srgb, #2778c1 30%, transparent)`                                                       |
+| `--cursor-editor-indent-guide-active-background`  | `color-mix(in srgb, #141414 40%, transparent)`                                                       |
+| `--cursor-editor-indent-guide-background`         | `color-mix(in srgb, #141414 22%, transparent)`                                                       |
+| `--cursor-editor-line-highlight-background`       | `color-mix(in srgb, #141414 8%, transparent)`                                                        |
+| `--cursor-editor-line-number-active-foreground`   | `#141414`                                                                                            |
+| `--cursor-editor-line-number-foreground`          | `color-mix(in oklab, #141414 60%, transparent)`                                                      |
+| `--cursor-editor-selection-background`            | `color-mix(in srgb, #2778c1 42%, transparent)`                                                       |
+| `--cursor-editor-selection-highlight-background`  | `color-mix(in srgb, #2778c1 32%, transparent)`                                                       |
+| `--cursor-editor-whitespace-foreground`           | `color-mix(in srgb, #141414 22%, transparent)`                                                       |
+| `--cursor-editor-widget-background`               | `#fcfcfc`                                                                                            |
+| `--cursor-editor-widget-border`                   | `color-mix(in oklab, #141414 12%, transparent)`                                                      |
+| `--cursor-editor-widget-foreground`               | `#141414`                                                                                            |
+| `--cursor-syntax-background`                      | `#fcfcfc`                                                                                            |
+| `--cursor-syntax-comment`                         | `#141414ad`                                                                                          |
+| `--cursor-syntax-constant`                        | `#206595`                                                                                            |
+| `--cursor-syntax-foreground`                      | `#141414eb`                                                                                          |
+| `--cursor-syntax-function`                        | `#db704b`                                                                                            |
+| `--cursor-syntax-keyword`                         | `#b3003f`                                                                                            |
+| `--cursor-syntax-link`                            | `#3c7cab`                                                                                            |
+| `--cursor-syntax-number`                          | `#b8448b`                                                                                            |
+| `--cursor-syntax-parameter`                       | `#141414eb`                                                                                          |
+| `--cursor-syntax-punctuation`                     | `#141414ad`                                                                                          |
+| `--cursor-syntax-string`                          | `#8f84e0`                                                                                            |
+| `--cursor-syntax-string-expression`               | `#8f84e0`                                                                                            |
+| `--cursor-terminal-ansi-black`                    | `#242424`                                                                                            |
+| `--cursor-terminal-ansi-blue`                     | `#81a1c1`                                                                                            |
+| `--cursor-terminal-ansi-bright-black`             | `#f0f0f099`                                                                                          |
+| `--cursor-terminal-ansi-bright-blue`              | `#87a6c4`                                                                                            |
+| `--cursor-terminal-ansi-bright-cyan`              | `#88c0d0`                                                                                            |
+| `--cursor-terminal-ansi-bright-green`             | `#70b489`                                                                                            |
+| `--cursor-terminal-ansi-bright-magenta`           | `#b48ead`                                                                                            |
+| `--cursor-terminal-ansi-bright-red`               | `#fc6b83`                                                                                            |
+| `--cursor-terminal-ansi-bright-white`             | `#f0f0f0`                                                                                            |
+| `--cursor-terminal-ansi-bright-yellow`            | `#f1b467`                                                                                            |
+| `--cursor-terminal-ansi-cyan`                     | `#88c0d0`                                                                                            |
+| `--cursor-terminal-ansi-green`                    | `#3fa266`                                                                                            |
+| `--cursor-terminal-ansi-magenta`                  | `#b48ead`                                                                                            |
+| `--cursor-terminal-ansi-red`                      | `#fc6b83`                                                                                            |
+| `--cursor-terminal-ansi-white`                    | `#f0f0f0`                                                                                            |
+| `--cursor-terminal-ansi-yellow`                   | `#d2943e`                                                                                            |
+| `--cursor-terminal-background`                    | `#f8f8f8`                                                                                            |
+| `--cursor-terminal-foreground`                    | `#141414`                                                                                            |
+| `--cursor-terminal-selection-background`          | `color-mix(in srgb, #141414 12%, transparent)`                                                       |
+| `--diff-added-line`                               | `#00af6624`                                                                                          |
+| `--diff-added-text`                               | `#00b06838`                                                                                          |
+| `--diff-removed-line`                             | `#ff617b38`                                                                                          |
+| `--diff-removed-text`                             | `#ff617b57`                                                                                          |
+| `--diffs-addition-color-override`                 | `#007041`                                                                                            |
+| `--diffs-bg`                                      | `#fcfcfc`                                                                                            |
+| `--diffs-bg-addition-override`                    | `#00af6624`                                                                                          |
+| `--diffs-bg-deletion-override`                    | `#ff617b38`                                                                                          |
+| `--diffs-bg-selection-background-override`        | `transparent`                                                                                        |
+| `--diffs-bg-selection-number-background-override` | `transparent`                                                                                        |
+| `--diffs-bg-selection-number-override`            | `transparent`                                                                                        |
+| `--diffs-bg-selection-override`                   | `transparent`                                                                                        |
+| `--diffs-deletion-color-override`                 | `#be1744`                                                                                            |
+| `--diffs-font-family`                             | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace` |
+| `--diffs-font-size`                               | `12px`                                                                                               |
+| `--diffs-selection-color-override`                | `transparent`                                                                                        |
+| `--inactive-selection-background`                 | `#0000000f`                                                                                          |
+| `--selection-background`                          | `color-mix(in oklab, #141414 14%, transparent)`                                                      |
+| `--syntax-background`                             | `#fcfcfc`                                                                                            |
+| `--syntax-comment`                                | `#141414ad`                                                                                          |
+| `--syntax-constant`                               | `#206595`                                                                                            |
+| `--syntax-foreground`                             | `#141414eb`                                                                                          |
+| `--syntax-function`                               | `#db704b`                                                                                            |
+| `--syntax-keyword`                                | `#b3003f`                                                                                            |
+| `--syntax-link`                                   | `#3c7cab`                                                                                            |
+| `--syntax-number`                                 | `#b8448b`                                                                                            |
+| `--syntax-parameter`                              | `#141414eb`                                                                                          |
+| `--syntax-punctuation`                            | `#141414ad`                                                                                          |
+| `--syntax-string`                                 | `#8f84e0`                                                                                            |
+| `--syntax-string-expression`                      | `#8f84e0`                                                                                            |
+| `--terminal-ansi-blue`                            | `#055180`                                                                                            |
+| `--terminal-ansi-green`                           | `#005c42`                                                                                            |
+| `--terminal-ansi-red`                             | `#a33900`                                                                                            |
+| `--terminal-ansi-yellow`                          | `#a16900`                                                                                            |
 
 ---
 
-## 9. Text / icon / bg semantic aliases (structure)
+## 14. Dashboard analytics / bugbot / theme shadows
 
-Tous présents dans l’extrait alias (hex via tables §2 quand résolus) :
-
-- **Text :** `--cursor-text-primary|secondary|tertiary|quaternary|invert|active|focused` + `text-{red,yellow,green,magenta,cyan,orange}-{primary,secondary}` + `text-link`
-- **Icon :** `--cursor-icon-primary|secondary|tertiary|quaternary` + mêmes familles couleur + `icon-accent-*` + `icon-purple-*`
-- **Bg :** `--cursor-bg-primary` … `quinary`, `elevated`, `card`, `input`, `editor`, `sidebar`, `diff-*`, `active`, `focused`, `chrome`, + `bg-{color}-primary|secondary|tertiary`
-- **Git / diffs bg :** `--cursor-bg-diff-inserted` / `removed` → overrides diffs
+| Token                                    | Valeur                                                                                                |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--color-dashboard-analytics-gray`       | `#8a7a6a`                                                                                             |
+| `--color-dashboard-analytics-quaternary` | `#c25728e0`                                                                                           |
+| `--color-dashboard-analytics-quinary`    | `#b89428e0`                                                                                           |
+| `--color-dashboard-analytics-tertiary`   | `#e9b33be0`                                                                                           |
+| `--color-dashboard-bugbot-legend-found`  | `#d06ba6`                                                                                             |
+| `--color-dashboard-bugbot-legend-high`   | `#db704b`                                                                                             |
+| `--color-dashboard-bugbot-legend-low`    | `#3c7cab`                                                                                             |
+| `--color-dashboard-bugbot-legend-medium` | `#a16900`                                                                                             |
+| `--color-dashboard-bugbot-primary`       | `#005c42`                                                                                             |
+| `--color-dashboard-bugbot-quaternary`    | `#89045e`                                                                                             |
+| `--color-dashboard-bugbot-quinary`       | `#1f8a65`                                                                                             |
+| `--color-dashboard-bugbot-secondary`     | `#1f8a65`                                                                                             |
+| `--color-dashboard-bugbot-status-merged` | `#8250df`                                                                                             |
+| `--color-dashboard-bugbot-status-open`   | `#1f883d`                                                                                             |
+| `--color-dashboard-bugbot-tertiary`      | `#a33900`                                                                                             |
+| `--color-dashboard-chart-1`              | `#1f8a65e0`                                                                                           |
+| `--color-dashboard-chart-1-muted`        | `#70b0d8e0`                                                                                           |
+| `--color-dashboard-chart-10`             | `#4c566a`                                                                                             |
+| `--color-dashboard-chart-2`              | `#81a1c1`                                                                                             |
+| `--color-dashboard-chart-3`              | `#5e81ac`                                                                                             |
+| `--color-dashboard-chart-4`              | `#b48ead`                                                                                             |
+| `--color-dashboard-chart-5`              | `#a3be8c`                                                                                             |
+| `--color-dashboard-chart-6`              | `#ebcb8b`                                                                                             |
+| `--color-dashboard-chart-7`              | `#d08770`                                                                                             |
+| `--color-dashboard-chart-8`              | `#bf616a`                                                                                             |
+| `--color-dashboard-chart-9`              | `#8fbcbb`                                                                                             |
+| `--color-dashboard-highlight`            | `#00000014`                                                                                           |
+| `--color-dashboard-usage-accent`         | `#81a1c1`                                                                                             |
+| `--color-dashboard-usage-accent-10`      | `color-mix(in oklab, #81a1c1 10%, transparent)`                                                       |
+| `--color-dashboard-usage-accent-60`      | `color-mix(in oklab, #81a1c1 60%, transparent)`                                                       |
+| `--color-theme-accent`                   | `#f54e00`                                                                                             |
+| `--color-theme-accent-hover`             | `color-mix(in oklab, #f54e00 85%, black)`                                                             |
+| `--color-theme-shadow-card`              | `0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`                                                         |
+| `--color-theme-shadow-command`           | `0 25px 50px -12px #00000040, 0 12px 24px -8px #00000026`                                             |
+| `--color-theme-shadow-dialog`            | `0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f` |
+| `--color-theme-shadow-elevated`          | `0 8px 32px #0003`                                                                                    |
+| `--color-theme-shadow-popover`           | `0 10px 15px -3px #0000001a, 0 4px 6px -2px #0000000d`                                                |
+| `--color-theme-tooltip-bg`               | `#fff`                                                                                                |
+| `--dashboard-bg-error-primary`           | `#dc2626`                                                                                             |
+| `--dashboard-bg-error-primary-hover`     | `#b91c1c`                                                                                             |
+| `--dashboard-text-error-on-primary`      | `#fff`                                                                                                |
+| `--dashboard-text-error-prominent`       | `#e06c75`                                                                                             |
 
 ---
 
-## 10. Component mapping — Supply Chain Board
+## 15. Command center, titlebar, toolbar, progress, scrollbar, UI misc
 
-| Élément board                     | Token produit                             | Hex                   |
-| --------------------------------- | ----------------------------------------- | --------------------- |
-| AppSidebar fond                   | `--sidebar`                               | `#f3f3f3`             |
-| Page / TopBar                     | `--chrome`                                | `#f8f8f8`             |
-| Card KPI                          | `--editor`                                | `#fcfcfc`             |
-| Texte / chiffres                  | `--base`                                  | `#141414`             |
-| CTA filled                        | `--base` + `--actionLabel`                | `#141414` / `#fcfcfc` |
-| Wordmark AERECO / pastille alerte | `--brand`                                 | `#f54e00`             |
-| Focus / ring                      | `--focus`                                 | `#2778c1`             |
-| OK / planifié                     | `--success` / `--green`                   | `#007041`             |
-| Warning                           | `--warn`                                  | `#a46700`             |
-| Erreur                            | `--danger`                                | `#be1744`             |
-| Radius bouton                     | `--cursor-radius-base`                    | `6px`                 |
-| Radius card                       | `--cursor-radius-lg`                      | `8px`                 |
-| Type UI                           | `--font-size-base` + weight normal/medium | `13px` / `418`–`500`  |
+| Token                                         | Valeur                                          |
+| --------------------------------------------- | ----------------------------------------------- |
+| `--cursor-command-center-active-background`   | `color-mix(in oklab, #141414 14%, transparent)` |
+| `--cursor-command-center-active-border`       | `color-mix(in oklab, #141414 20%, transparent)` |
+| `--cursor-command-center-active-foreground`   | `color-mix(in oklab, #141414 74%, transparent)` |
+| `--cursor-command-center-background`          | `color-mix(in oklab, #141414 8%, transparent)`  |
+| `--cursor-command-center-border`              | `color-mix(in oklab, #141414 12%, transparent)` |
+| `--cursor-command-center-foreground`          | `color-mix(in oklab, #141414 74%, transparent)` |
+| `--cursor-command-center-inactive-border`     | `color-mix(in oklab, #141414 12%, transparent)` |
+| `--cursor-command-center-inactive-foreground` | `color-mix(in oklab, #141414 60%, transparent)` |
+| `--cursor-progress-bar-background`            | `#2778c1`                                       |
+| `--cursor-scrollbar-horizontal-size`          | `12px`                                          |
+| `--cursor-scrollbar-shadow`                   | `#0000000f`                                     |
+| `--cursor-scrollbar-thumb-active-background`  | `color-mix(in srgb, #141414 26%, transparent)`  |
+| `--cursor-scrollbar-thumb-background`         | `color-mix(in srgb, #141414 14%, transparent)`  |
+| `--cursor-scrollbar-thumb-hover-background`   | `color-mix(in srgb, #141414 22%, transparent)`  |
+| `--cursor-scrollbar-vertical-size`            | `14px`                                          |
+| `--cursor-titlebar-active-foreground`         | `color-mix(in oklab, #141414 74%, transparent)` |
+| `--cursor-titlebar-inactive-foreground`       | `color-mix(in oklab, #141414 60%, transparent)` |
+| `--cursor-toolbar-hover-background`           | `color-mix(in oklab, #141414 8%, transparent)`  |
+| `--rt-arrow-size`                             | `8px`                                           |
+| `--rt-color-dark`                             | `#222`                                          |
+| `--rt-color-error`                            | `#be6464`                                       |
+| `--rt-color-info`                             | `#337ab7`                                       |
+| `--rt-color-success`                          | `#8dc572`                                       |
+| `--rt-color-warning`                          | `#f0ad4e`                                       |
+| `--rt-color-white`                            | `#fff`                                          |
+| `--rt-opacity`                                | `0.9`                                           |
+| `--ui-press-scale`                            | `.98`                                           |
+| `--ui-tool-call-card-bg`                      | `#fcfcfc`                                       |
 
 ---
 
-## 11. Do / Don’t
+## 16. Cursor-* aliases (reste)
+
+| Token                                             | Valeur                                                                                                     |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--cursor-accent`                                 | `#2778c1`                                                                                                  |
+| `--cursor-action-label`                           | `#fcfcfc`                                                                                                  |
+| `--cursor-added`                                  | `#007041`                                                                                                  |
+| `--cursor-base`                                   | `#141414`                                                                                                  |
+| `--cursor-bg-accent`                              | `#2778c1`                                                                                                  |
+| `--cursor-bg-accent-hover`                        | `color-mix(in oklab, #141414 10%, #2778c1)`                                                                |
+| `--cursor-bg-accent-quaternary`                   | `color-mix(in srgb, #2778c1 8%, transparent)`                                                              |
+| `--cursor-bg-accent-secondary`                    | `color-mix(in srgb, #2778c1 24%, transparent)`                                                             |
+| `--cursor-bg-accent-tertiary`                     | `color-mix(in srgb, #2778c1 12%, transparent)`                                                             |
+| `--cursor-bg-active`                              | `color-mix(in oklab, #141414 16%, transparent)`                                                            |
+| `--cursor-bg-blue-primary`                        | `#2778c1`                                                                                                  |
+| `--cursor-bg-blue-secondary`                      | `color-mix(in srgb, #2778c1 12%, transparent)`                                                             |
+| `--cursor-bg-card`                                | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-bg-chrome`                              | `#f8f8f8`                                                                                                  |
+| `--cursor-bg-cyan-primary`                        | `#176c74`                                                                                                  |
+| `--cursor-bg-cyan-secondary`                      | `color-mix(in oklab, #176c74 12%, transparent)`                                                            |
+| `--cursor-bg-diff-inserted`                       | `#00af6624`                                                                                                |
+| `--cursor-bg-diff-removed`                        | `#ff617b38`                                                                                                |
+| `--cursor-bg-editor`                              | `#fcfcfc`                                                                                                  |
+| `--cursor-bg-elevated`                            | `#fcfcfc`                                                                                                  |
+| `--cursor-bg-focused`                             | `color-mix(in oklab, #141414 22%, transparent)`                                                            |
+| `--cursor-bg-git-added-hover`                     | `color-mix(in srgb, #141414 10%, #007041)`                                                                 |
+| `--cursor-bg-git-added-primary`                   | `#007041`                                                                                                  |
+| `--cursor-bg-git-added-quaternary`                | `color-mix(in srgb, #007041 8%, transparent)`                                                              |
+| `--cursor-bg-git-added-secondary`                 | `color-mix(in srgb, #007041 24%, transparent)`                                                             |
+| `--cursor-bg-git-added-tertiary`                  | `color-mix(in srgb, #007041 12%, transparent)`                                                             |
+| `--cursor-bg-git-modified-hover`                  | `color-mix(in srgb, #141414 10%, #a46700)`                                                                 |
+| `--cursor-bg-git-modified-primary`                | `#a46700`                                                                                                  |
+| `--cursor-bg-git-modified-quaternary`             | `color-mix(in srgb, #a46700 8%, transparent)`                                                              |
+| `--cursor-bg-git-modified-secondary`              | `color-mix(in srgb, #a46700 24%, transparent)`                                                             |
+| `--cursor-bg-git-modified-tertiary`               | `color-mix(in srgb, #a46700 12%, transparent)`                                                             |
+| `--cursor-bg-git-removed-hover`                   | `color-mix(in srgb, #141414 10%, #be1744)`                                                                 |
+| `--cursor-bg-git-removed-primary`                 | `#be1744`                                                                                                  |
+| `--cursor-bg-git-removed-quaternary`              | `color-mix(in srgb, #be1744 8%, transparent)`                                                              |
+| `--cursor-bg-git-removed-secondary`               | `color-mix(in srgb, #be1744 24%, transparent)`                                                             |
+| `--cursor-bg-git-removed-tertiary`                | `color-mix(in srgb, #be1744 12%, transparent)`                                                             |
+| `--cursor-bg-git-untracked-hover`                 | `color-mix(in srgb, #141414 10%, #176c74)`                                                                 |
+| `--cursor-bg-git-untracked-primary`               | `#176c74`                                                                                                  |
+| `--cursor-bg-git-untracked-quaternary`            | `color-mix(in srgb, #176c74 8%, transparent)`                                                              |
+| `--cursor-bg-git-untracked-secondary`             | `color-mix(in srgb, #176c74 24%, transparent)`                                                             |
+| `--cursor-bg-git-untracked-tertiary`              | `color-mix(in srgb, #176c74 12%, transparent)`                                                             |
+| `--cursor-bg-green-primary`                       | `#007041`                                                                                                  |
+| `--cursor-bg-green-secondary`                     | `color-mix(in oklab, #007041 12%, transparent)`                                                            |
+| `--cursor-bg-input`                               | `#fcfcfc`                                                                                                  |
+| `--cursor-bg-input-surface`                       | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-bg-magenta-primary`                     | `#92156a`                                                                                                  |
+| `--cursor-bg-magenta-secondary`                   | `color-mix(in oklab, #92156a 12%, transparent)`                                                            |
+| `--cursor-bg-orange-primary`                      | `#cd4500`                                                                                                  |
+| `--cursor-bg-orange-secondary`                    | `color-mix(in oklab, #cd4500 12%, transparent)`                                                            |
+| `--cursor-bg-primary`                             | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--cursor-bg-purple-primary`                      | `#7565cc`                                                                                                  |
+| `--cursor-bg-purple-secondary`                    | `color-mix(in oklab, #7565cc 12%, transparent)`                                                            |
+| `--cursor-bg-purple-tertiary`                     | `color-mix(in oklab, #7565cc 8%, transparent)`                                                             |
+| `--cursor-bg-quaternary`                          | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-bg-quinary`                             | `color-mix(in oklab, #141414 4%, transparent)`                                                             |
+| `--cursor-bg-red-primary`                         | `#be1744`                                                                                                  |
+| `--cursor-bg-red-secondary`                       | `color-mix(in oklab, #be1744 12%, transparent)`                                                            |
+| `--cursor-bg-secondary`                           | `color-mix(in oklab, #141414 14%, transparent)`                                                            |
+| `--cursor-bg-sidebar`                             | `#f3f3f3`                                                                                                  |
+| `--cursor-bg-tertiary`                            | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-bg-yellow-primary`                      | `#a46700`                                                                                                  |
+| `--cursor-bg-yellow-secondary`                    | `color-mix(in oklab, #a46700 12%, transparent)`                                                            |
+| `--cursor-blue`                                   | `#2778c1`                                                                                                  |
+| `--cursor-box-shadow-base`                        | `0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 4px 0px #00000009, 0 8px 24px -2px #00000009` |
+| `--cursor-box-shadow-lg`                          | `0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 3px 0 #00000009, 0 16px 24px 0 #00000005`                  |
+| `--cursor-box-shadow-popup`                       | `0 8px 16px 0 rgba(20, 20, 20, 0.12)`                                                                      |
+| `--cursor-box-shadow-sm`                          | `0 2px 8px 0px #00000009`                                                                                  |
+| `--cursor-box-shadow-soft`                        | `0 0 8px 2px #00000005`                                                                                    |
+| `--cursor-box-shadow-workbench`                   | `0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`                                                              |
+| `--cursor-box-shadow-xl`                          | `0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 6px 8px #00000009, 0 24px 16px 6px #00000005`              |
+| `--cursor-brand`                                  | `#f54e00`                                                                                                  |
+| `--cursor-button-background`                      | `#141414`                                                                                                  |
+| `--cursor-button-foreground`                      | `#fcfcfc`                                                                                                  |
+| `--cursor-button-hover-background`                | `color-mix(in oklab, #f8f8f8 10%, #141414)`                                                                |
+| `--cursor-button-secondary-background`            | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-button-secondary-foreground`            | `#141414`                                                                                                  |
+| `--cursor-button-secondary-hover-background`      | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-chrome`                                 | `#f8f8f8`                                                                                                  |
+| `--cursor-command-center-active-background`       | `color-mix(in oklab, #141414 14%, transparent)`                                                            |
+| `--cursor-command-center-active-border`           | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--cursor-command-center-active-foreground`       | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-command-center-background`              | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-command-center-border`                  | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-command-center-foreground`              | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-command-center-inactive-border`         | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-command-center-inactive-foreground`     | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-cyan`                                   | `#81a1c1`                                                                                                  |
+| `--cursor-danger`                                 | `#be1744`                                                                                                  |
+| `--cursor-diff-added-line-background`             | `#3fa26633`                                                                                                |
+| `--cursor-diff-added-text-background`             | `#3fa26622`                                                                                                |
+| `--cursor-diff-removed-line-background`           | `#b8004933`                                                                                                |
+| `--cursor-diff-removed-text-background`           | `#b8004922`                                                                                                |
+| `--cursor-duration-fast`                          | `100ms`                                                                                                    |
+| `--cursor-duration-instant`                       | `50ms`                                                                                                     |
+| `--cursor-duration-normal`                        | `150ms`                                                                                                    |
+| `--cursor-duration-slow`                          | `200ms`                                                                                                    |
+| `--cursor-duration-slower`                        | `300ms`                                                                                                    |
+| `--cursor-easing-default`                         | `ease`                                                                                                     |
+| `--cursor-easing-in`                              | `ease-in`                                                                                                  |
+| `--cursor-easing-in-out`                          | `ease-in-out`                                                                                              |
+| `--cursor-easing-in-out-strong`                   | `cubic-bezier(0.77, 0, 0.175, 1)`                                                                          |
+| `--cursor-easing-in-strong`                       | `cubic-bezier(0.895, 0.03, 0.685, 0.22)`                                                                   |
+| `--cursor-easing-out`                             | `ease-out`                                                                                                 |
+| `--cursor-easing-out-quint`                       | `cubic-bezier(0.16, 1, 0.3, 1)`                                                                            |
+| `--cursor-easing-out-strong`                      | `cubic-bezier(0.165, 0.84, 0.44, 1)`                                                                       |
+| `--cursor-editor`                                 | `#fcfcfc`                                                                                                  |
+| `--cursor-editor-bracket-match-background`        | `color-mix(in srgb, #007041 22%, transparent)`                                                             |
+| `--cursor-editor-bracket-match-border`            | `color-mix(in srgb, #141414 52%, transparent)`                                                             |
+| `--cursor-editor-cursor-foreground`               | `#141414`                                                                                                  |
+| `--cursor-editor-find-match-background`           | `color-mix(in srgb, #a46700 72%, transparent)`                                                             |
+| `--cursor-editor-find-match-highlight-background` | `color-mix(in srgb, #a46700 32%, transparent)`                                                             |
+| `--cursor-editor-foreground`                      | `#141414`                                                                                                  |
+| `--cursor-editor-gutter-background`               | `#fcfcfc`                                                                                                  |
+| `--cursor-editor-inactive-selection-background`   | `color-mix(in srgb, #2778c1 30%, transparent)`                                                             |
+| `--cursor-editor-indent-guide-active-background`  | `color-mix(in srgb, #141414 40%, transparent)`                                                             |
+| `--cursor-editor-indent-guide-background`         | `color-mix(in srgb, #141414 22%, transparent)`                                                             |
+| `--cursor-editor-line-highlight-background`       | `color-mix(in srgb, #141414 8%, transparent)`                                                              |
+| `--cursor-editor-line-number-active-foreground`   | `#141414`                                                                                                  |
+| `--cursor-editor-line-number-foreground`          | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-editor-selection-background`            | `color-mix(in srgb, #2778c1 42%, transparent)`                                                             |
+| `--cursor-editor-selection-highlight-background`  | `color-mix(in srgb, #2778c1 32%, transparent)`                                                             |
+| `--cursor-editor-whitespace-foreground`           | `color-mix(in srgb, #141414 22%, transparent)`                                                             |
+| `--cursor-editor-widget-background`               | `#fcfcfc`                                                                                                  |
+| `--cursor-editor-widget-border`                   | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-editor-widget-foreground`               | `#141414`                                                                                                  |
+| `--cursor-elevation-1`                            | `1`                                                                                                        |
+| `--cursor-elevation-2`                            | `2`                                                                                                        |
+| `--cursor-focus`                                  | `#2778c1`                                                                                                  |
+| `--cursor-font-family-mono`                       | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace`       |
+| `--cursor-font-family-sans`                       | `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`                                                |
+| `--cursor-font-size-base`                         | `13px`                                                                                                     |
+| `--cursor-font-size-lg`                           | `14px`                                                                                                     |
+| `--cursor-font-size-sm`                           | `12px`                                                                                                     |
+| `--cursor-font-size-xs`                           | `11px`                                                                                                     |
+| `--cursor-font-weight-bold`                       | `700`                                                                                                      |
+| `--cursor-font-weight-medium`                     | `500`                                                                                                      |
+| `--cursor-font-weight-normal`                     | `418`                                                                                                      |
+| `--cursor-font-weight-regular`                    | `418`                                                                                                      |
+| `--cursor-font-weight-semibold`                   | `600`                                                                                                      |
+| `--cursor-foreground`                             | `#141414`                                                                                                  |
+| `--cursor-green`                                  | `#3fa266`                                                                                                  |
+| `--cursor-height-base`                            | `28px`                                                                                                     |
+| `--cursor-height-lg`                              | `32px`                                                                                                     |
+| `--cursor-height-sm`                              | `24px`                                                                                                     |
+| `--cursor-height-xs`                              | `20px`                                                                                                     |
+| `--cursor-icon-accent-primary`                    | `#2778c1`                                                                                                  |
+| `--cursor-icon-accent-secondary`                  | `color-mix(in oklab, #2778c1 70%, transparent)`                                                            |
+| `--cursor-icon-blue-primary`                      | `#2778c1`                                                                                                  |
+| `--cursor-icon-blue-secondary`                    | `color-mix(in srgb, #2778c1 70%, transparent)`                                                             |
+| `--cursor-icon-cyan-primary`                      | `#176c74`                                                                                                  |
+| `--cursor-icon-cyan-secondary`                    | `color-mix(in oklab, #176c74 70%, transparent)`                                                            |
+| `--cursor-icon-git-added-primary`                 | `#007041`                                                                                                  |
+| `--cursor-icon-git-added-quaternary`              | `color-mix(in srgb, #007041 32%, transparent)`                                                             |
+| `--cursor-icon-git-added-secondary`               | `color-mix(in srgb, #007041 70%, transparent)`                                                             |
+| `--cursor-icon-git-added-tertiary`                | `color-mix(in srgb, #007041 56%, transparent)`                                                             |
+| `--cursor-icon-git-modified-primary`              | `#a46700`                                                                                                  |
+| `--cursor-icon-git-modified-quaternary`           | `color-mix(in srgb, #a46700 32%, transparent)`                                                             |
+| `--cursor-icon-git-modified-secondary`            | `color-mix(in srgb, #a46700 70%, transparent)`                                                             |
+| `--cursor-icon-git-modified-tertiary`             | `color-mix(in srgb, #a46700 56%, transparent)`                                                             |
+| `--cursor-icon-git-removed-primary`               | `#be1744`                                                                                                  |
+| `--cursor-icon-git-removed-quaternary`            | `color-mix(in srgb, #be1744 32%, transparent)`                                                             |
+| `--cursor-icon-git-removed-secondary`             | `color-mix(in srgb, #be1744 70%, transparent)`                                                             |
+| `--cursor-icon-git-removed-tertiary`              | `color-mix(in srgb, #be1744 56%, transparent)`                                                             |
+| `--cursor-icon-git-untracked-primary`             | `#176c74`                                                                                                  |
+| `--cursor-icon-git-untracked-quaternary`          | `color-mix(in srgb, #176c74 32%, transparent)`                                                             |
+| `--cursor-icon-git-untracked-secondary`           | `color-mix(in srgb, #176c74 70%, transparent)`                                                             |
+| `--cursor-icon-git-untracked-tertiary`            | `color-mix(in srgb, #176c74 56%, transparent)`                                                             |
+| `--cursor-icon-green-primary`                     | `#007041`                                                                                                  |
+| `--cursor-icon-green-secondary`                   | `color-mix(in oklab, #007041 70%, transparent)`                                                            |
+| `--cursor-icon-magenta-primary`                   | `#92156a`                                                                                                  |
+| `--cursor-icon-magenta-secondary`                 | `color-mix(in oklab, #92156a 70%, transparent)`                                                            |
+| `--cursor-icon-orange-primary`                    | `#cd4500`                                                                                                  |
+| `--cursor-icon-orange-secondary`                  | `color-mix(in oklab, #cd4500 70%, transparent)`                                                            |
+| `--cursor-icon-primary`                           | `#141414`                                                                                                  |
+| `--cursor-icon-purple-primary`                    | `#7565cc`                                                                                                  |
+| `--cursor-icon-purple-secondary`                  | `color-mix(in oklab, #7565cc 70%, transparent)`                                                            |
+| `--cursor-icon-quaternary`                        | `color-mix(in oklab, #141414 28%, transparent)`                                                            |
+| `--cursor-icon-red-primary`                       | `#be1744`                                                                                                  |
+| `--cursor-icon-red-secondary`                     | `color-mix(in oklab, #be1744 70%, transparent)`                                                            |
+| `--cursor-icon-secondary`                         | `color-mix(in oklab, #141414 66%, transparent)`                                                            |
+| `--cursor-icon-tertiary`                          | `color-mix(in oklab, #141414 52%, transparent)`                                                            |
+| `--cursor-icon-yellow-primary`                    | `#a46700`                                                                                                  |
+| `--cursor-icon-yellow-secondary`                  | `color-mix(in oklab, #a46700 70%, transparent)`                                                            |
+| `--cursor-input-border`                           | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-input-placeholder-foreground`           | `color-mix(in oklab, #141414 36%, transparent)`                                                            |
+| `--cursor-letter-spacing-2xl`                     | `-0.46px`                                                                                                  |
+| `--cursor-letter-spacing-3xl`                     | `-0.26px`                                                                                                  |
+| `--cursor-letter-spacing-base`                    | `-0.08px`                                                                                                  |
+| `--cursor-letter-spacing-lg`                      | `-0.15px`                                                                                                  |
+| `--cursor-letter-spacing-sm`                      | `0px`                                                                                                      |
+| `--cursor-letter-spacing-xl`                      | `0.08px`                                                                                                   |
+| `--cursor-letter-spacing-xs`                      | `0.07px`                                                                                                   |
+| `--cursor-line-height-base`                       | `18px`                                                                                                     |
+| `--cursor-line-height-lg`                         | `22px`                                                                                                     |
+| `--cursor-line-height-sm`                         | `16px`                                                                                                     |
+| `--cursor-line-height-xs`                         | `14px`                                                                                                     |
+| `--cursor-magenta`                                | `#b48ead`                                                                                                  |
+| `--cursor-modified`                               | `#a46700`                                                                                                  |
+| `--cursor-orange`                                 | `#d08770`                                                                                                  |
+| `--cursor-progress-bar-background`                | `#2778c1`                                                                                                  |
+| `--cursor-purple`                                 | `#7565cc`                                                                                                  |
+| `--cursor-radius-2xl`                             | `14px`                                                                                                     |
+| `--cursor-radius-3xl`                             | `16px`                                                                                                     |
+| `--cursor-radius-base`                            | `6px`                                                                                                      |
+| `--cursor-radius-full`                            | `9999px`                                                                                                   |
+| `--cursor-radius-lg`                              | `8px`                                                                                                      |
+| `--cursor-radius-none`                            | `0px`                                                                                                      |
+| `--cursor-radius-sm`                              | `4px`                                                                                                      |
+| `--cursor-radius-xl`                              | `12px`                                                                                                     |
+| `--cursor-radius-xs`                              | `2px`                                                                                                      |
+| `--cursor-red`                                    | `#fc6b83`                                                                                                  |
+| `--cursor-removed`                                | `#be1744`                                                                                                  |
+| `--cursor-scrollbar-horizontal-size`              | `12px`                                                                                                     |
+| `--cursor-scrollbar-shadow`                       | `#0000000f`                                                                                                |
+| `--cursor-scrollbar-thumb-active-background`      | `color-mix(in srgb, #141414 26%, transparent)`                                                             |
+| `--cursor-scrollbar-thumb-background`             | `color-mix(in srgb, #141414 14%, transparent)`                                                             |
+| `--cursor-scrollbar-thumb-hover-background`       | `color-mix(in srgb, #141414 22%, transparent)`                                                             |
+| `--cursor-scrollbar-vertical-size`                | `14px`                                                                                                     |
+| `--cursor-shadow-primary`                         | `#0000000f`                                                                                                |
+| `--cursor-shadow-secondary`                       | `#00000009`                                                                                                |
+| `--cursor-shadow-tertiary`                        | `#00000005`                                                                                                |
+| `--cursor-shadow-workbench`                       | `0px 0px 8px 2px color-mix(in srgb, #0000000f 40%, transparent)`                                           |
+| `--cursor-sidebar`                                | `#181818`                                                                                                  |
+| `--cursor-spacing-0-25`                           | `1px`                                                                                                      |
+| `--cursor-spacing-0-5`                            | `2px`                                                                                                      |
+| `--cursor-spacing-0-75`                           | `3px`                                                                                                      |
+| `--cursor-spacing-1`                              | `4px`                                                                                                      |
+| `--cursor-spacing-1-25`                           | `5px`                                                                                                      |
+| `--cursor-spacing-1-5`                            | `6px`                                                                                                      |
+| `--cursor-spacing-1-75`                           | `7px`                                                                                                      |
+| `--cursor-spacing-10`                             | `40px`                                                                                                     |
+| `--cursor-spacing-11`                             | `44px`                                                                                                     |
+| `--cursor-spacing-12`                             | `48px`                                                                                                     |
+| `--cursor-spacing-13`                             | `52px`                                                                                                     |
+| `--cursor-spacing-14`                             | `56px`                                                                                                     |
+| `--cursor-spacing-15`                             | `60px`                                                                                                     |
+| `--cursor-spacing-16`                             | `64px`                                                                                                     |
+| `--cursor-spacing-17`                             | `68px`                                                                                                     |
+| `--cursor-spacing-18`                             | `72px`                                                                                                     |
+| `--cursor-spacing-19`                             | `76px`                                                                                                     |
+| `--cursor-spacing-2`                              | `8px`                                                                                                      |
+| `--cursor-spacing-2-25`                           | `9px`                                                                                                      |
+| `--cursor-spacing-2-5`                            | `10px`                                                                                                     |
+| `--cursor-spacing-2-75`                           | `11px`                                                                                                     |
+| `--cursor-spacing-20`                             | `80px`                                                                                                     |
+| `--cursor-spacing-3`                              | `12px`                                                                                                     |
+| `--cursor-spacing-3-25`                           | `13px`                                                                                                     |
+| `--cursor-spacing-3-5`                            | `14px`                                                                                                     |
+| `--cursor-spacing-3-75`                           | `15px`                                                                                                     |
+| `--cursor-spacing-4`                              | `16px`                                                                                                     |
+| `--cursor-spacing-4-25`                           | `17px`                                                                                                     |
+| `--cursor-spacing-4-5`                            | `18px`                                                                                                     |
+| `--cursor-spacing-4-75`                           | `19px`                                                                                                     |
+| `--cursor-spacing-5`                              | `20px`                                                                                                     |
+| `--cursor-spacing-5-5`                            | `22px`                                                                                                     |
+| `--cursor-spacing-6`                              | `24px`                                                                                                     |
+| `--cursor-spacing-6-5`                            | `26px`                                                                                                     |
+| `--cursor-spacing-7`                              | `28px`                                                                                                     |
+| `--cursor-spacing-7-5`                            | `30px`                                                                                                     |
+| `--cursor-spacing-8`                              | `32px`                                                                                                     |
+| `--cursor-spacing-8-5`                            | `34px`                                                                                                     |
+| `--cursor-spacing-9`                              | `36px`                                                                                                     |
+| `--cursor-spacing-9-5`                            | `38px`                                                                                                     |
+| `--cursor-spacing-ne-0-25`                        | `-1px`                                                                                                     |
+| `--cursor-spacing-ne-0-5`                         | `-2px`                                                                                                     |
+| `--cursor-spacing-ne-0-75`                        | `-3px`                                                                                                     |
+| `--cursor-spacing-ne-1`                           | `-4px`                                                                                                     |
+| `--cursor-spacing-ne-1-25`                        | `-5px`                                                                                                     |
+| `--cursor-spacing-ne-1-5`                         | `-6px`                                                                                                     |
+| `--cursor-spacing-ne-1-75`                        | `-7px`                                                                                                     |
+| `--cursor-spacing-ne-2`                           | `-8px`                                                                                                     |
+| `--cursor-spacing-ne-2-25`                        | `-9px`                                                                                                     |
+| `--cursor-spacing-ne-2-5`                         | `-10px`                                                                                                    |
+| `--cursor-spacing-ne-2-75`                        | `-11px`                                                                                                    |
+| `--cursor-spacing-ne-3`                           | `-12px`                                                                                                    |
+| `--cursor-spacing-ne-3-25`                        | `-13px`                                                                                                    |
+| `--cursor-spacing-ne-3-5`                         | `-14px`                                                                                                    |
+| `--cursor-spacing-ne-3-75`                        | `-15px`                                                                                                    |
+| `--cursor-spacing-ne-4`                           | `-16px`                                                                                                    |
+| `--cursor-spacing-ne-4-25`                        | `-17px`                                                                                                    |
+| `--cursor-spacing-ne-4-5`                         | `-18px`                                                                                                    |
+| `--cursor-spacing-ne-4-75`                        | `-19px`                                                                                                    |
+| `--cursor-spacing-ne-5`                           | `-20px`                                                                                                    |
+| `--cursor-stroke-blue-primary`                    | `color-mix(in srgb, #2778c1 56%, transparent)`                                                             |
+| `--cursor-stroke-blue-secondary`                  | `color-mix(in srgb, #2778c1 32%, transparent)`                                                             |
+| `--cursor-stroke-cyan-primary`                    | `color-mix(in oklab, #176c74 56%, transparent)`                                                            |
+| `--cursor-stroke-cyan-secondary`                  | `color-mix(in oklab, #176c74 32%, transparent)`                                                            |
+| `--cursor-stroke-focused`                         | `color-mix(in oklab, #2778c1 15%, transparent)`                                                            |
+| `--cursor-stroke-git-added`                       | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--cursor-stroke-git-modified`                    | `color-mix(in srgb, #a46700 56%, transparent)`                                                             |
+| `--cursor-stroke-git-removed`                     | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--cursor-stroke-git-untracked`                   | `color-mix(in srgb, #176c74 56%, transparent)`                                                             |
+| `--cursor-stroke-green-primary`                   | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--cursor-stroke-green-secondary`                 | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--cursor-stroke-high-contrast`                   | `color-mix(in srgb, #141414 0%, transparent)`                                                              |
+| `--cursor-stroke-magenta-primary`                 | `color-mix(in oklab, #92156a 56%, transparent)`                                                            |
+| `--cursor-stroke-magenta-secondary`               | `color-mix(in oklab, #92156a 32%, transparent)`                                                            |
+| `--cursor-stroke-orange-primary`                  | `color-mix(in oklab, #cd4500 56%, transparent)`                                                            |
+| `--cursor-stroke-orange-secondary`                | `color-mix(in oklab, #cd4500 32%, transparent)`                                                            |
+| `--cursor-stroke-primary`                         | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--cursor-stroke-quaternary`                      | `color-mix(in oklab, #141414 4%, transparent)`                                                             |
+| `--cursor-stroke-red-primary`                     | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--cursor-stroke-red-secondary`                   | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--cursor-stroke-secondary`                       | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-stroke-tertiary`                        | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-stroke-tertiary-opaque`                 | `color-mix(in srgb, #141414 8%, #f8f8f8)`                                                                  |
+| `--cursor-stroke-yellow-primary`                  | `color-mix(in oklab, #a46700 56%, transparent)`                                                            |
+| `--cursor-stroke-yellow-secondary`                | `color-mix(in oklab, #a46700 32%, transparent)`                                                            |
+| `--cursor-success`                                | `#007041`                                                                                                  |
+| `--cursor-syntax-background`                      | `#fcfcfc`                                                                                                  |
+| `--cursor-syntax-comment`                         | `#141414ad`                                                                                                |
+| `--cursor-syntax-constant`                        | `#206595`                                                                                                  |
+| `--cursor-syntax-foreground`                      | `#141414eb`                                                                                                |
+| `--cursor-syntax-function`                        | `#db704b`                                                                                                  |
+| `--cursor-syntax-keyword`                         | `#b3003f`                                                                                                  |
+| `--cursor-syntax-link`                            | `#3c7cab`                                                                                                  |
+| `--cursor-syntax-number`                          | `#b8448b`                                                                                                  |
+| `--cursor-syntax-parameter`                       | `#141414eb`                                                                                                |
+| `--cursor-syntax-punctuation`                     | `#141414ad`                                                                                                |
+| `--cursor-syntax-string`                          | `#8f84e0`                                                                                                  |
+| `--cursor-syntax-string-expression`               | `#8f84e0`                                                                                                  |
+| `--cursor-terminal-ansi-black`                    | `#242424`                                                                                                  |
+| `--cursor-terminal-ansi-blue`                     | `#81a1c1`                                                                                                  |
+| `--cursor-terminal-ansi-bright-black`             | `#f0f0f099`                                                                                                |
+| `--cursor-terminal-ansi-bright-blue`              | `#87a6c4`                                                                                                  |
+| `--cursor-terminal-ansi-bright-cyan`              | `#88c0d0`                                                                                                  |
+| `--cursor-terminal-ansi-bright-green`             | `#70b489`                                                                                                  |
+| `--cursor-terminal-ansi-bright-magenta`           | `#b48ead`                                                                                                  |
+| `--cursor-terminal-ansi-bright-red`               | `#fc6b83`                                                                                                  |
+| `--cursor-terminal-ansi-bright-white`             | `#f0f0f0`                                                                                                  |
+| `--cursor-terminal-ansi-bright-yellow`            | `#f1b467`                                                                                                  |
+| `--cursor-terminal-ansi-cyan`                     | `#88c0d0`                                                                                                  |
+| `--cursor-terminal-ansi-green`                    | `#3fa266`                                                                                                  |
+| `--cursor-terminal-ansi-magenta`                  | `#b48ead`                                                                                                  |
+| `--cursor-terminal-ansi-red`                      | `#fc6b83`                                                                                                  |
+| `--cursor-terminal-ansi-white`                    | `#f0f0f0`                                                                                                  |
+| `--cursor-terminal-ansi-yellow`                   | `#d2943e`                                                                                                  |
+| `--cursor-terminal-background`                    | `#f8f8f8`                                                                                                  |
+| `--cursor-terminal-foreground`                    | `#141414`                                                                                                  |
+| `--cursor-terminal-selection-background`          | `color-mix(in srgb, #141414 12%, transparent)`                                                             |
+| `--cursor-text-accent`                            | `#2778c1`                                                                                                  |
+| `--cursor-text-active`                            | `#141414`                                                                                                  |
+| `--cursor-text-blue-primary`                      | `#2778c1`                                                                                                  |
+| `--cursor-text-blue-secondary`                    | `color-mix(in srgb, #2778c1 78%, transparent)`                                                             |
+| `--cursor-text-code-block-background`             | `#fcfcfc`                                                                                                  |
+| `--cursor-text-cyan-primary`                      | `#176c74`                                                                                                  |
+| `--cursor-text-cyan-secondary`                    | `color-mix(in oklab, #176c74 78%, transparent)`                                                            |
+| `--cursor-text-focused`                           | `#141414`                                                                                                  |
+| `--cursor-text-git-added-primary`                 | `#007041`                                                                                                  |
+| `--cursor-text-git-added-quaternary`              | `color-mix(in srgb, #007041 40%, transparent)`                                                             |
+| `--cursor-text-git-added-secondary`               | `color-mix(in srgb, #007041 78%, transparent)`                                                             |
+| `--cursor-text-git-added-tertiary`                | `color-mix(in srgb, #007041 64%, transparent)`                                                             |
+| `--cursor-text-git-modified-primary`              | `#a46700`                                                                                                  |
+| `--cursor-text-git-modified-quaternary`           | `color-mix(in srgb, #a46700 40%, transparent)`                                                             |
+| `--cursor-text-git-modified-secondary`            | `color-mix(in srgb, #a46700 78%, transparent)`                                                             |
+| `--cursor-text-git-modified-tertiary`             | `color-mix(in srgb, #a46700 64%, transparent)`                                                             |
+| `--cursor-text-git-removed-primary`               | `#be1744`                                                                                                  |
+| `--cursor-text-git-removed-quaternary`            | `color-mix(in srgb, #be1744 40%, transparent)`                                                             |
+| `--cursor-text-git-removed-secondary`             | `color-mix(in srgb, #be1744 78%, transparent)`                                                             |
+| `--cursor-text-git-removed-tertiary`              | `color-mix(in srgb, #be1744 64%, transparent)`                                                             |
+| `--cursor-text-git-untracked-primary`             | `#176c74`                                                                                                  |
+| `--cursor-text-git-untracked-quaternary`          | `color-mix(in srgb, #176c74 40%, transparent)`                                                             |
+| `--cursor-text-git-untracked-secondary`           | `color-mix(in srgb, #176c74 78%, transparent)`                                                             |
+| `--cursor-text-git-untracked-tertiary`            | `color-mix(in srgb, #176c74 64%, transparent)`                                                             |
+| `--cursor-text-green-primary`                     | `#007041`                                                                                                  |
+| `--cursor-text-green-secondary`                   | `color-mix(in oklab, #007041 78%, transparent)`                                                            |
+| `--cursor-text-invert`                            | `#fcfcfc`                                                                                                  |
+| `--cursor-text-link`                              | `#2778c1`                                                                                                  |
+| `--cursor-text-link-active`                       | `#2778c1`                                                                                                  |
+| `--cursor-text-magenta-primary`                   | `#92156a`                                                                                                  |
+| `--cursor-text-magenta-secondary`                 | `color-mix(in oklab, #92156a 78%, transparent)`                                                            |
+| `--cursor-text-orange-primary`                    | `#cd4500`                                                                                                  |
+| `--cursor-text-orange-secondary`                  | `color-mix(in oklab, #cd4500 78%, transparent)`                                                            |
+| `--cursor-text-primary`                           | `#141414`                                                                                                  |
+| `--cursor-text-purple-primary`                    | `#7565cc`                                                                                                  |
+| `--cursor-text-purple-secondary`                  | `color-mix(in srgb, #7565cc 78%, transparent)`                                                             |
+| `--cursor-text-quaternary`                        | `color-mix(in oklab, #141414 36%, transparent)`                                                            |
+| `--cursor-text-red-primary`                       | `#be1744`                                                                                                  |
+| `--cursor-text-red-secondary`                     | `color-mix(in oklab, #be1744 78%, transparent)`                                                            |
+| `--cursor-text-secondary`                         | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-text-tertiary`                          | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-text-yellow-primary`                    | `#a46700`                                                                                                  |
+| `--cursor-text-yellow-secondary`                  | `color-mix(in oklab, #a46700 78%, transparent)`                                                            |
+| `--cursor-titlebar-active-foreground`             | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-titlebar-inactive-foreground`           | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-toolbar-hover-background`               | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-untracked`                              | `#176c74`                                                                                                  |
+| `--cursor-warn`                                   | `#a46700`                                                                                                  |
+| `--cursor-yellow`                                 | `#f1b467`                                                                                                  |
+
+---
+
+## 17. Inventaire alphabétique complet
+
+Total : **865** propriétés (hors `--tw-*` vides).
+
+| Token                                             | Valeur                                                                                                     |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--accent`                                        | `#2778c1`                                                                                                  |
+| `--actionLabel`                                   | `#fcfcfc`                                                                                                  |
+| `--added`                                         | `#007041`                                                                                                  |
+| `--base`                                          | `#141414`                                                                                                  |
+| `--bg-accent`                                     | `#2778c1`                                                                                                  |
+| `--bg-accent-hover`                               | `color-mix(in oklab, #141414 10%, #2778c1)`                                                                |
+| `--bg-accent-quaternary`                          | `color-mix(in oklab, #2778c1 8%, transparent)`                                                             |
+| `--bg-accent-secondary`                           | `color-mix(in oklab, #2778c1 24%, transparent)`                                                            |
+| `--bg-accent-tertiary`                            | `color-mix(in oklab, #2778c1 12%, transparent)`                                                            |
+| `--bg-active`                                     | `color-mix(in oklab, #141414 16%, transparent)`                                                            |
+| `--bg-added`                                      | `color-mix(in oklab, #007041 92%, transparent)`                                                            |
+| `--bg-added-quaternary`                           | `color-mix(in oklab, #007041 8%, transparent)`                                                             |
+| `--bg-added-secondary`                            | `color-mix(in oklab, #007041 24%, transparent)`                                                            |
+| `--bg-added-tertiary`                             | `color-mix(in oklab, #007041 12%, transparent)`                                                            |
+| `--bg-blue`                                       | `color-mix(in oklab, #2778c1 92%, transparent)`                                                            |
+| `--bg-blue-quaternary`                            | `color-mix(in oklab, #2778c1 8%, transparent)`                                                             |
+| `--bg-blue-secondary`                             | `color-mix(in oklab, #2778c1 24%, transparent)`                                                            |
+| `--bg-blue-tertiary`                              | `color-mix(in oklab, #2778c1 12%, transparent)`                                                            |
+| `--bg-brand`                                      | `#f54e00`                                                                                                  |
+| `--bg-brand-hover`                                | `color-mix(in oklab, #141414 10%, #f54e00)`                                                                |
+| `--bg-brand-quaternary`                           | `color-mix(in oklab, #f54e00 8%, transparent)`                                                             |
+| `--bg-brand-secondary`                            | `color-mix(in oklab, #f54e00 24%, transparent)`                                                            |
+| `--bg-brand-tertiary`                             | `color-mix(in oklab, #f54e00 12%, transparent)`                                                            |
+| `--bg-chrome`                                     | `#f8f8f8`                                                                                                  |
+| `--bg-cyan`                                       | `color-mix(in oklab, #176c74 92%, transparent)`                                                            |
+| `--bg-cyan-quaternary`                            | `color-mix(in oklab, #176c74 8%, transparent)`                                                             |
+| `--bg-cyan-secondary`                             | `color-mix(in oklab, #176c74 24%, transparent)`                                                            |
+| `--bg-cyan-tertiary`                              | `color-mix(in oklab, #176c74 12%, transparent)`                                                            |
+| `--bg-danger`                                     | `#be1744`                                                                                                  |
+| `--bg-danger-hover`                               | `color-mix(in oklab, #141414 10%, #be1744)`                                                                |
+| `--bg-danger-quaternary`                          | `color-mix(in oklab, #be1744 8%, transparent)`                                                             |
+| `--bg-danger-secondary`                           | `color-mix(in oklab, #be1744 24%, transparent)`                                                            |
+| `--bg-danger-tertiary`                            | `color-mix(in oklab, #be1744 12%, transparent)`                                                            |
+| `--bg-editor`                                     | `#fcfcfc`                                                                                                  |
+| `--bg-elevated`                                   | `#fcfcfc`                                                                                                  |
+| `--bg-focused`                                    | `color-mix(in oklab, #141414 22%, transparent)`                                                            |
+| `--bg-green`                                      | `color-mix(in oklab, #007041 92%, transparent)`                                                            |
+| `--bg-green-quaternary`                           | `color-mix(in oklab, #007041 8%, transparent)`                                                             |
+| `--bg-green-secondary`                            | `color-mix(in oklab, #007041 24%, transparent)`                                                            |
+| `--bg-green-tertiary`                             | `color-mix(in oklab, #007041 12%, transparent)`                                                            |
+| `--bg-luminous`                                   | `#fff`                                                                                                     |
+| `--bg-luminous-quaternary`                        | `#ffffff0a`                                                                                                |
+| `--bg-luminous-secondary`                         | `#fff3`                                                                                                    |
+| `--bg-luminous-tertiary`                          | `#ffffff14`                                                                                                |
+| `--bg-magenta`                                    | `color-mix(in oklab, #92156a 92%, transparent)`                                                            |
+| `--bg-magenta-quaternary`                         | `color-mix(in oklab, #92156a 8%, transparent)`                                                             |
+| `--bg-magenta-secondary`                          | `color-mix(in oklab, #92156a 24%, transparent)`                                                            |
+| `--bg-magenta-tertiary`                           | `color-mix(in oklab, #92156a 12%, transparent)`                                                            |
+| `--bg-neutral`                                    | `#141414`                                                                                                  |
+| `--bg-neutral-hover`                              | `color-mix(in oklab, #f8f8f8 10%, #141414)`                                                                |
+| `--bg-neutral-secondary`                          | `color-mix(in oklab, #141414 24%, transparent)`                                                            |
+| `--bg-orange`                                     | `color-mix(in oklab, #cd4500 92%, transparent)`                                                            |
+| `--bg-orange-quaternary`                          | `color-mix(in oklab, #cd4500 8%, transparent)`                                                             |
+| `--bg-orange-secondary`                           | `color-mix(in oklab, #cd4500 24%, transparent)`                                                            |
+| `--bg-orange-tertiary`                            | `color-mix(in oklab, #cd4500 12%, transparent)`                                                            |
+| `--bg-primary`                                    | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--bg-primary-opaque`                             | `color-mix(in oklab, #141414 20%, #f8f8f8)`                                                                |
+| `--bg-purple`                                     | `color-mix(in oklab, #7565cc 92%, transparent)`                                                            |
+| `--bg-purple-quaternary`                          | `color-mix(in oklab, #7565cc 8%, transparent)`                                                             |
+| `--bg-purple-secondary`                           | `color-mix(in oklab, #7565cc 24%, transparent)`                                                            |
+| `--bg-purple-tertiary`                            | `color-mix(in oklab, #7565cc 12%, transparent)`                                                            |
+| `--bg-quaternary`                                 | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--bg-quaternary-opaque`                          | `color-mix(in oklab, #141414 6%, #f8f8f8)`                                                                 |
+| `--bg-quaternary-opaque-elevated`                 | `color-mix(in oklab, #141414 6%, #fcfcfc)`                                                                 |
+| `--bg-quinary`                                    | `color-mix(in oklab, #141414 4%, transparent)`                                                             |
+| `--bg-quinary-opaque`                             | `color-mix(in oklab, #141414 4%, #f8f8f8)`                                                                 |
+| `--bg-red`                                        | `color-mix(in oklab, #be1744 92%, transparent)`                                                            |
+| `--bg-red-quaternary`                             | `color-mix(in oklab, #be1744 8%, transparent)`                                                             |
+| `--bg-red-secondary`                              | `color-mix(in oklab, #be1744 24%, transparent)`                                                            |
+| `--bg-red-tertiary`                               | `color-mix(in oklab, #be1744 12%, transparent)`                                                            |
+| `--bg-removed`                                    | `color-mix(in oklab, #be1744 92%, transparent)`                                                            |
+| `--bg-removed-quaternary`                         | `color-mix(in oklab, #be1744 8%, transparent)`                                                             |
+| `--bg-removed-secondary`                          | `color-mix(in oklab, #be1744 24%, transparent)`                                                            |
+| `--bg-removed-tertiary`                           | `color-mix(in oklab, #be1744 12%, transparent)`                                                            |
+| `--bg-scrim`                                      | `#0006`                                                                                                    |
+| `--bg-secondary`                                  | `color-mix(in oklab, #141414 14%, transparent)`                                                            |
+| `--bg-secondary-opaque`                           | `color-mix(in oklab, #141414 14%, #f8f8f8)`                                                                |
+| `--bg-sidebar`                                    | `#f3f3f3`                                                                                                  |
+| `--bg-success`                                    | `#007041`                                                                                                  |
+| `--bg-success-hover`                              | `color-mix(in oklab, #141414 10%, #007041)`                                                                |
+| `--bg-success-quaternary`                         | `color-mix(in oklab, #007041 8%, transparent)`                                                             |
+| `--bg-success-secondary`                          | `color-mix(in oklab, #007041 24%, transparent)`                                                            |
+| `--bg-success-tertiary`                           | `color-mix(in oklab, #007041 12%, transparent)`                                                            |
+| `--bg-tertiary`                                   | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--bg-tertiary-opaque`                            | `color-mix(in oklab, #141414 8%, #f8f8f8)`                                                                 |
+| `--bg-unified-elevated`                           | `#fcfcfc`                                                                                                  |
+| `--bg-warn`                                       | `#a46700`                                                                                                  |
+| `--bg-warn-hover`                                 | `color-mix(in oklab, #141414 10%, #a46700)`                                                                |
+| `--bg-warn-quaternary`                            | `color-mix(in oklab, #a46700 8%, transparent)`                                                             |
+| `--bg-warn-secondary`                             | `color-mix(in oklab, #a46700 24%, transparent)`                                                            |
+| `--bg-warn-tertiary`                              | `color-mix(in oklab, #a46700 12%, transparent)`                                                            |
+| `--bg-yellow`                                     | `color-mix(in oklab, #a46700 92%, transparent)`                                                            |
+| `--bg-yellow-quaternary`                          | `color-mix(in oklab, #a46700 8%, transparent)`                                                             |
+| `--bg-yellow-secondary`                           | `color-mix(in oklab, #a46700 24%, transparent)`                                                            |
+| `--bg-yellow-tertiary`                            | `color-mix(in oklab, #a46700 12%, transparent)`                                                            |
+| `--black`                                         | `#000`                                                                                                     |
+| `--blue`                                          | `#2778c1`                                                                                                  |
+| `--border-accent`                                 | `color-mix(in oklab, #2778c1 92%, transparent)`                                                            |
+| `--border-accent-quaternary`                      | `color-mix(in oklab, #2778c1 28%, transparent)`                                                            |
+| `--border-accent-secondary`                       | `color-mix(in oklab, #2778c1 56%, transparent)`                                                            |
+| `--border-accent-tertiary`                        | `color-mix(in oklab, #2778c1 32%, transparent)`                                                            |
+| `--border-added`                                  | `color-mix(in oklab, #007041 92%, transparent)`                                                            |
+| `--border-added-quaternary`                       | `color-mix(in oklab, #007041 28%, transparent)`                                                            |
+| `--border-added-secondary`                        | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--border-added-tertiary`                         | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--border-blue`                                   | `color-mix(in oklab, #2778c1 92%, transparent)`                                                            |
+| `--border-blue-quaternary`                        | `color-mix(in oklab, #2778c1 28%, transparent)`                                                            |
+| `--border-blue-secondary`                         | `color-mix(in oklab, #2778c1 56%, transparent)`                                                            |
+| `--border-blue-tertiary`                          | `color-mix(in oklab, #2778c1 32%, transparent)`                                                            |
+| `--border-brand`                                  | `color-mix(in oklab, #f54e00 92%, transparent)`                                                            |
+| `--border-brand-quaternary`                       | `color-mix(in oklab, #f54e00 28%, transparent)`                                                            |
+| `--border-brand-secondary`                        | `color-mix(in oklab, #f54e00 56%, transparent)`                                                            |
+| `--border-brand-tertiary`                         | `color-mix(in oklab, #f54e00 32%, transparent)`                                                            |
+| `--border-cyan`                                   | `color-mix(in oklab, #176c74 92%, transparent)`                                                            |
+| `--border-cyan-quaternary`                        | `color-mix(in oklab, #176c74 28%, transparent)`                                                            |
+| `--border-cyan-secondary`                         | `color-mix(in oklab, #176c74 56%, transparent)`                                                            |
+| `--border-cyan-tertiary`                          | `color-mix(in oklab, #176c74 32%, transparent)`                                                            |
+| `--border-danger`                                 | `color-mix(in oklab, #be1744 92%, transparent)`                                                            |
+| `--border-danger-quaternary`                      | `color-mix(in oklab, #be1744 28%, transparent)`                                                            |
+| `--border-danger-secondary`                       | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--border-danger-tertiary`                        | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--border-focus`                                  | `color-mix(in oklab, #2778c1 15%, transparent)`                                                            |
+| `--border-green`                                  | `color-mix(in oklab, #007041 92%, transparent)`                                                            |
+| `--border-green-quaternary`                       | `color-mix(in oklab, #007041 28%, transparent)`                                                            |
+| `--border-green-secondary`                        | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--border-green-tertiary`                         | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--border-magenta`                                | `color-mix(in oklab, #92156a 92%, transparent)`                                                            |
+| `--border-magenta-quaternary`                     | `color-mix(in oklab, #92156a 28%, transparent)`                                                            |
+| `--border-magenta-secondary`                      | `color-mix(in oklab, #92156a 56%, transparent)`                                                            |
+| `--border-magenta-tertiary`                       | `color-mix(in oklab, #92156a 32%, transparent)`                                                            |
+| `--border-neutral`                                | `color-mix(in oklab, #141414 80%, transparent)`                                                            |
+| `--border-orange`                                 | `color-mix(in oklab, #cd4500 92%, transparent)`                                                            |
+| `--border-orange-quaternary`                      | `color-mix(in oklab, #cd4500 28%, transparent)`                                                            |
+| `--border-orange-secondary`                       | `color-mix(in oklab, #cd4500 56%, transparent)`                                                            |
+| `--border-orange-tertiary`                        | `color-mix(in oklab, #cd4500 32%, transparent)`                                                            |
+| `--border-primary`                                | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--border-purple`                                 | `color-mix(in oklab, #7565cc 92%, transparent)`                                                            |
+| `--border-purple-quaternary`                      | `color-mix(in oklab, #7565cc 28%, transparent)`                                                            |
+| `--border-purple-secondary`                       | `color-mix(in oklab, #7565cc 56%, transparent)`                                                            |
+| `--border-purple-tertiary`                        | `color-mix(in oklab, #7565cc 32%, transparent)`                                                            |
+| `--border-quaternary`                             | `color-mix(in oklab, #141414 4%, transparent)`                                                             |
+| `--border-quaternary-opaque`                      | `color-mix(in oklab, color-mix(in oklab, #141414 4%, transparent) 100%, #fcfcfc)`                          |
+| `--border-red`                                    | `color-mix(in oklab, #be1744 92%, transparent)`                                                            |
+| `--border-red-quaternary`                         | `color-mix(in oklab, #be1744 28%, transparent)`                                                            |
+| `--border-red-secondary`                          | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--border-red-tertiary`                           | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--border-removed`                                | `color-mix(in oklab, #be1744 92%, transparent)`                                                            |
+| `--border-removed-quaternary`                     | `color-mix(in oklab, #be1744 28%, transparent)`                                                            |
+| `--border-removed-secondary`                      | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--border-removed-tertiary`                       | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--border-secondary`                              | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--border-success`                                | `color-mix(in oklab, #007041 92%, transparent)`                                                            |
+| `--border-success-quaternary`                     | `color-mix(in oklab, #007041 28%, transparent)`                                                            |
+| `--border-success-secondary`                      | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--border-success-tertiary`                       | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--border-tertiary`                               | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--border-tertiary-opaque`                        | `color-mix(in oklab, color-mix(in oklab, #141414 8%, transparent) 100%, #fcfcfc)`                          |
+| `--border-warn`                                   | `color-mix(in oklab, #a46700 92%, transparent)`                                                            |
+| `--border-warn-quaternary`                        | `color-mix(in oklab, #a46700 28%, transparent)`                                                            |
+| `--border-warn-secondary`                         | `color-mix(in oklab, #a46700 56%, transparent)`                                                            |
+| `--border-warn-tertiary`                          | `color-mix(in oklab, #a46700 32%, transparent)`                                                            |
+| `--border-yellow`                                 | `color-mix(in oklab, #a46700 92%, transparent)`                                                            |
+| `--border-yellow-quaternary`                      | `color-mix(in oklab, #a46700 28%, transparent)`                                                            |
+| `--border-yellow-secondary`                       | `color-mix(in oklab, #a46700 56%, transparent)`                                                            |
+| `--border-yellow-tertiary`                        | `color-mix(in oklab, #a46700 32%, transparent)`                                                            |
+| `--borders`                                       | `#ccc`                                                                                                     |
+| `--brand`                                         | `#f54e00`                                                                                                  |
+| `--chrome`                                        | `#f8f8f8`                                                                                                  |
+| `--color-dashboard-analytics-gray`                | `#8a7a6a`                                                                                                  |
+| `--color-dashboard-analytics-quaternary`          | `#c25728e0`                                                                                                |
+| `--color-dashboard-analytics-quinary`             | `#b89428e0`                                                                                                |
+| `--color-dashboard-analytics-tertiary`            | `#e9b33be0`                                                                                                |
+| `--color-dashboard-bugbot-legend-found`           | `#d06ba6`                                                                                                  |
+| `--color-dashboard-bugbot-legend-high`            | `#db704b`                                                                                                  |
+| `--color-dashboard-bugbot-legend-low`             | `#3c7cab`                                                                                                  |
+| `--color-dashboard-bugbot-legend-medium`          | `#a16900`                                                                                                  |
+| `--color-dashboard-bugbot-primary`                | `#005c42`                                                                                                  |
+| `--color-dashboard-bugbot-quaternary`             | `#89045e`                                                                                                  |
+| `--color-dashboard-bugbot-quinary`                | `#1f8a65`                                                                                                  |
+| `--color-dashboard-bugbot-secondary`              | `#1f8a65`                                                                                                  |
+| `--color-dashboard-bugbot-status-merged`          | `#8250df`                                                                                                  |
+| `--color-dashboard-bugbot-status-open`            | `#1f883d`                                                                                                  |
+| `--color-dashboard-bugbot-tertiary`               | `#a33900`                                                                                                  |
+| `--color-dashboard-chart-1`                       | `#1f8a65e0`                                                                                                |
+| `--color-dashboard-chart-1-muted`                 | `#70b0d8e0`                                                                                                |
+| `--color-dashboard-chart-10`                      | `#4c566a`                                                                                                  |
+| `--color-dashboard-chart-2`                       | `#81a1c1`                                                                                                  |
+| `--color-dashboard-chart-3`                       | `#5e81ac`                                                                                                  |
+| `--color-dashboard-chart-4`                       | `#b48ead`                                                                                                  |
+| `--color-dashboard-chart-5`                       | `#a3be8c`                                                                                                  |
+| `--color-dashboard-chart-6`                       | `#ebcb8b`                                                                                                  |
+| `--color-dashboard-chart-7`                       | `#d08770`                                                                                                  |
+| `--color-dashboard-chart-8`                       | `#bf616a`                                                                                                  |
+| `--color-dashboard-chart-9`                       | `#8fbcbb`                                                                                                  |
+| `--color-dashboard-highlight`                     | `#00000014`                                                                                                |
+| `--color-dashboard-usage-accent`                  | `#81a1c1`                                                                                                  |
+| `--color-dashboard-usage-accent-10`               | `color-mix(in oklab, #81a1c1 10%, transparent)`                                                            |
+| `--color-dashboard-usage-accent-60`               | `color-mix(in oklab, #81a1c1 60%, transparent)`                                                            |
+| `--color-theme-accent`                            | `#f54e00`                                                                                                  |
+| `--color-theme-accent-hover`                      | `color-mix(in oklab, #f54e00 85%, black)`                                                                  |
+| `--color-theme-shadow-card`                       | `0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`                                                              |
+| `--color-theme-shadow-command`                    | `0 25px 50px -12px #00000040, 0 12px 24px -8px #00000026`                                                  |
+| `--color-theme-shadow-dialog`                     | `0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`      |
+| `--color-theme-shadow-elevated`                   | `0 8px 32px #0003`                                                                                         |
+| `--color-theme-shadow-popover`                    | `0 10px 15px -3px #0000001a, 0 4px 6px -2px #0000000d`                                                     |
+| `--color-theme-tooltip-bg`                        | `#fff`                                                                                                     |
+| `--cursor-accent`                                 | `#2778c1`                                                                                                  |
+| `--cursor-action-label`                           | `#fcfcfc`                                                                                                  |
+| `--cursor-added`                                  | `#007041`                                                                                                  |
+| `--cursor-base`                                   | `#141414`                                                                                                  |
+| `--cursor-bg-accent`                              | `#2778c1`                                                                                                  |
+| `--cursor-bg-accent-hover`                        | `color-mix(in oklab, #141414 10%, #2778c1)`                                                                |
+| `--cursor-bg-accent-quaternary`                   | `color-mix(in srgb, #2778c1 8%, transparent)`                                                              |
+| `--cursor-bg-accent-secondary`                    | `color-mix(in srgb, #2778c1 24%, transparent)`                                                             |
+| `--cursor-bg-accent-tertiary`                     | `color-mix(in srgb, #2778c1 12%, transparent)`                                                             |
+| `--cursor-bg-active`                              | `color-mix(in oklab, #141414 16%, transparent)`                                                            |
+| `--cursor-bg-blue-primary`                        | `#2778c1`                                                                                                  |
+| `--cursor-bg-blue-secondary`                      | `color-mix(in srgb, #2778c1 12%, transparent)`                                                             |
+| `--cursor-bg-card`                                | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-bg-chrome`                              | `#f8f8f8`                                                                                                  |
+| `--cursor-bg-cyan-primary`                        | `#176c74`                                                                                                  |
+| `--cursor-bg-cyan-secondary`                      | `color-mix(in oklab, #176c74 12%, transparent)`                                                            |
+| `--cursor-bg-diff-inserted`                       | `#00af6624`                                                                                                |
+| `--cursor-bg-diff-removed`                        | `#ff617b38`                                                                                                |
+| `--cursor-bg-editor`                              | `#fcfcfc`                                                                                                  |
+| `--cursor-bg-elevated`                            | `#fcfcfc`                                                                                                  |
+| `--cursor-bg-focused`                             | `color-mix(in oklab, #141414 22%, transparent)`                                                            |
+| `--cursor-bg-git-added-hover`                     | `color-mix(in srgb, #141414 10%, #007041)`                                                                 |
+| `--cursor-bg-git-added-primary`                   | `#007041`                                                                                                  |
+| `--cursor-bg-git-added-quaternary`                | `color-mix(in srgb, #007041 8%, transparent)`                                                              |
+| `--cursor-bg-git-added-secondary`                 | `color-mix(in srgb, #007041 24%, transparent)`                                                             |
+| `--cursor-bg-git-added-tertiary`                  | `color-mix(in srgb, #007041 12%, transparent)`                                                             |
+| `--cursor-bg-git-modified-hover`                  | `color-mix(in srgb, #141414 10%, #a46700)`                                                                 |
+| `--cursor-bg-git-modified-primary`                | `#a46700`                                                                                                  |
+| `--cursor-bg-git-modified-quaternary`             | `color-mix(in srgb, #a46700 8%, transparent)`                                                              |
+| `--cursor-bg-git-modified-secondary`              | `color-mix(in srgb, #a46700 24%, transparent)`                                                             |
+| `--cursor-bg-git-modified-tertiary`               | `color-mix(in srgb, #a46700 12%, transparent)`                                                             |
+| `--cursor-bg-git-removed-hover`                   | `color-mix(in srgb, #141414 10%, #be1744)`                                                                 |
+| `--cursor-bg-git-removed-primary`                 | `#be1744`                                                                                                  |
+| `--cursor-bg-git-removed-quaternary`              | `color-mix(in srgb, #be1744 8%, transparent)`                                                              |
+| `--cursor-bg-git-removed-secondary`               | `color-mix(in srgb, #be1744 24%, transparent)`                                                             |
+| `--cursor-bg-git-removed-tertiary`                | `color-mix(in srgb, #be1744 12%, transparent)`                                                             |
+| `--cursor-bg-git-untracked-hover`                 | `color-mix(in srgb, #141414 10%, #176c74)`                                                                 |
+| `--cursor-bg-git-untracked-primary`               | `#176c74`                                                                                                  |
+| `--cursor-bg-git-untracked-quaternary`            | `color-mix(in srgb, #176c74 8%, transparent)`                                                              |
+| `--cursor-bg-git-untracked-secondary`             | `color-mix(in srgb, #176c74 24%, transparent)`                                                             |
+| `--cursor-bg-git-untracked-tertiary`              | `color-mix(in srgb, #176c74 12%, transparent)`                                                             |
+| `--cursor-bg-green-primary`                       | `#007041`                                                                                                  |
+| `--cursor-bg-green-secondary`                     | `color-mix(in oklab, #007041 12%, transparent)`                                                            |
+| `--cursor-bg-input`                               | `#fcfcfc`                                                                                                  |
+| `--cursor-bg-input-surface`                       | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-bg-magenta-primary`                     | `#92156a`                                                                                                  |
+| `--cursor-bg-magenta-secondary`                   | `color-mix(in oklab, #92156a 12%, transparent)`                                                            |
+| `--cursor-bg-orange-primary`                      | `#cd4500`                                                                                                  |
+| `--cursor-bg-orange-secondary`                    | `color-mix(in oklab, #cd4500 12%, transparent)`                                                            |
+| `--cursor-bg-primary`                             | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--cursor-bg-purple-primary`                      | `#7565cc`                                                                                                  |
+| `--cursor-bg-purple-secondary`                    | `color-mix(in oklab, #7565cc 12%, transparent)`                                                            |
+| `--cursor-bg-purple-tertiary`                     | `color-mix(in oklab, #7565cc 8%, transparent)`                                                             |
+| `--cursor-bg-quaternary`                          | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-bg-quinary`                             | `color-mix(in oklab, #141414 4%, transparent)`                                                             |
+| `--cursor-bg-red-primary`                         | `#be1744`                                                                                                  |
+| `--cursor-bg-red-secondary`                       | `color-mix(in oklab, #be1744 12%, transparent)`                                                            |
+| `--cursor-bg-secondary`                           | `color-mix(in oklab, #141414 14%, transparent)`                                                            |
+| `--cursor-bg-sidebar`                             | `#f3f3f3`                                                                                                  |
+| `--cursor-bg-tertiary`                            | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-bg-yellow-primary`                      | `#a46700`                                                                                                  |
+| `--cursor-bg-yellow-secondary`                    | `color-mix(in oklab, #a46700 12%, transparent)`                                                            |
+| `--cursor-blue`                                   | `#2778c1`                                                                                                  |
+| `--cursor-box-shadow-base`                        | `0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 4px 0px #00000009, 0 8px 24px -2px #00000009` |
+| `--cursor-box-shadow-lg`                          | `0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 3px 0 #00000009, 0 16px 24px 0 #00000005`                  |
+| `--cursor-box-shadow-popup`                       | `0 8px 16px 0 rgba(20, 20, 20, 0.12)`                                                                      |
+| `--cursor-box-shadow-sm`                          | `0 2px 8px 0px #00000009`                                                                                  |
+| `--cursor-box-shadow-soft`                        | `0 0 8px 2px #00000005`                                                                                    |
+| `--cursor-box-shadow-workbench`                   | `0 0 2px 0 #0000000f, 0 6px 16px 0 #0000000f`                                                              |
+| `--cursor-box-shadow-xl`                          | `0 0 4px 0 rgba(255, 255, 255, 0.05) inset, 0 0 6px 8px #00000009, 0 24px 16px 6px #00000005`              |
+| `--cursor-brand`                                  | `#f54e00`                                                                                                  |
+| `--cursor-button-background`                      | `#141414`                                                                                                  |
+| `--cursor-button-foreground`                      | `#fcfcfc`                                                                                                  |
+| `--cursor-button-hover-background`                | `color-mix(in oklab, #f8f8f8 10%, #141414)`                                                                |
+| `--cursor-button-secondary-background`            | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-button-secondary-foreground`            | `#141414`                                                                                                  |
+| `--cursor-button-secondary-hover-background`      | `color-mix(in oklab, #141414 6%, transparent)`                                                             |
+| `--cursor-chrome`                                 | `#f8f8f8`                                                                                                  |
+| `--cursor-command-center-active-background`       | `color-mix(in oklab, #141414 14%, transparent)`                                                            |
+| `--cursor-command-center-active-border`           | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--cursor-command-center-active-foreground`       | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-command-center-background`              | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-command-center-border`                  | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-command-center-foreground`              | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-command-center-inactive-border`         | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-command-center-inactive-foreground`     | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-cyan`                                   | `#81a1c1`                                                                                                  |
+| `--cursor-danger`                                 | `#be1744`                                                                                                  |
+| `--cursor-diff-added-line-background`             | `#3fa26633`                                                                                                |
+| `--cursor-diff-added-text-background`             | `#3fa26622`                                                                                                |
+| `--cursor-diff-removed-line-background`           | `#b8004933`                                                                                                |
+| `--cursor-diff-removed-text-background`           | `#b8004922`                                                                                                |
+| `--cursor-duration-fast`                          | `100ms`                                                                                                    |
+| `--cursor-duration-instant`                       | `50ms`                                                                                                     |
+| `--cursor-duration-normal`                        | `150ms`                                                                                                    |
+| `--cursor-duration-slow`                          | `200ms`                                                                                                    |
+| `--cursor-duration-slower`                        | `300ms`                                                                                                    |
+| `--cursor-easing-default`                         | `ease`                                                                                                     |
+| `--cursor-easing-in`                              | `ease-in`                                                                                                  |
+| `--cursor-easing-in-out`                          | `ease-in-out`                                                                                              |
+| `--cursor-easing-in-out-strong`                   | `cubic-bezier(0.77, 0, 0.175, 1)`                                                                          |
+| `--cursor-easing-in-strong`                       | `cubic-bezier(0.895, 0.03, 0.685, 0.22)`                                                                   |
+| `--cursor-easing-out`                             | `ease-out`                                                                                                 |
+| `--cursor-easing-out-quint`                       | `cubic-bezier(0.16, 1, 0.3, 1)`                                                                            |
+| `--cursor-easing-out-strong`                      | `cubic-bezier(0.165, 0.84, 0.44, 1)`                                                                       |
+| `--cursor-editor`                                 | `#fcfcfc`                                                                                                  |
+| `--cursor-editor-bracket-match-background`        | `color-mix(in srgb, #007041 22%, transparent)`                                                             |
+| `--cursor-editor-bracket-match-border`            | `color-mix(in srgb, #141414 52%, transparent)`                                                             |
+| `--cursor-editor-cursor-foreground`               | `#141414`                                                                                                  |
+| `--cursor-editor-find-match-background`           | `color-mix(in srgb, #a46700 72%, transparent)`                                                             |
+| `--cursor-editor-find-match-highlight-background` | `color-mix(in srgb, #a46700 32%, transparent)`                                                             |
+| `--cursor-editor-foreground`                      | `#141414`                                                                                                  |
+| `--cursor-editor-gutter-background`               | `#fcfcfc`                                                                                                  |
+| `--cursor-editor-inactive-selection-background`   | `color-mix(in srgb, #2778c1 30%, transparent)`                                                             |
+| `--cursor-editor-indent-guide-active-background`  | `color-mix(in srgb, #141414 40%, transparent)`                                                             |
+| `--cursor-editor-indent-guide-background`         | `color-mix(in srgb, #141414 22%, transparent)`                                                             |
+| `--cursor-editor-line-highlight-background`       | `color-mix(in srgb, #141414 8%, transparent)`                                                              |
+| `--cursor-editor-line-number-active-foreground`   | `#141414`                                                                                                  |
+| `--cursor-editor-line-number-foreground`          | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-editor-selection-background`            | `color-mix(in srgb, #2778c1 42%, transparent)`                                                             |
+| `--cursor-editor-selection-highlight-background`  | `color-mix(in srgb, #2778c1 32%, transparent)`                                                             |
+| `--cursor-editor-whitespace-foreground`           | `color-mix(in srgb, #141414 22%, transparent)`                                                             |
+| `--cursor-editor-widget-background`               | `#fcfcfc`                                                                                                  |
+| `--cursor-editor-widget-border`                   | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-editor-widget-foreground`               | `#141414`                                                                                                  |
+| `--cursor-elevation-1`                            | `1`                                                                                                        |
+| `--cursor-elevation-2`                            | `2`                                                                                                        |
+| `--cursor-focus`                                  | `#2778c1`                                                                                                  |
+| `--cursor-font-family-mono`                       | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace`       |
+| `--cursor-font-family-sans`                       | `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`                                                |
+| `--cursor-font-size-base`                         | `13px`                                                                                                     |
+| `--cursor-font-size-lg`                           | `14px`                                                                                                     |
+| `--cursor-font-size-sm`                           | `12px`                                                                                                     |
+| `--cursor-font-size-xs`                           | `11px`                                                                                                     |
+| `--cursor-font-weight-bold`                       | `700`                                                                                                      |
+| `--cursor-font-weight-medium`                     | `500`                                                                                                      |
+| `--cursor-font-weight-normal`                     | `418`                                                                                                      |
+| `--cursor-font-weight-regular`                    | `418`                                                                                                      |
+| `--cursor-font-weight-semibold`                   | `600`                                                                                                      |
+| `--cursor-foreground`                             | `#141414`                                                                                                  |
+| `--cursor-green`                                  | `#3fa266`                                                                                                  |
+| `--cursor-height-base`                            | `28px`                                                                                                     |
+| `--cursor-height-lg`                              | `32px`                                                                                                     |
+| `--cursor-height-sm`                              | `24px`                                                                                                     |
+| `--cursor-height-xs`                              | `20px`                                                                                                     |
+| `--cursor-icon-accent-primary`                    | `#2778c1`                                                                                                  |
+| `--cursor-icon-accent-secondary`                  | `color-mix(in oklab, #2778c1 70%, transparent)`                                                            |
+| `--cursor-icon-blue-primary`                      | `#2778c1`                                                                                                  |
+| `--cursor-icon-blue-secondary`                    | `color-mix(in srgb, #2778c1 70%, transparent)`                                                             |
+| `--cursor-icon-cyan-primary`                      | `#176c74`                                                                                                  |
+| `--cursor-icon-cyan-secondary`                    | `color-mix(in oklab, #176c74 70%, transparent)`                                                            |
+| `--cursor-icon-git-added-primary`                 | `#007041`                                                                                                  |
+| `--cursor-icon-git-added-quaternary`              | `color-mix(in srgb, #007041 32%, transparent)`                                                             |
+| `--cursor-icon-git-added-secondary`               | `color-mix(in srgb, #007041 70%, transparent)`                                                             |
+| `--cursor-icon-git-added-tertiary`                | `color-mix(in srgb, #007041 56%, transparent)`                                                             |
+| `--cursor-icon-git-modified-primary`              | `#a46700`                                                                                                  |
+| `--cursor-icon-git-modified-quaternary`           | `color-mix(in srgb, #a46700 32%, transparent)`                                                             |
+| `--cursor-icon-git-modified-secondary`            | `color-mix(in srgb, #a46700 70%, transparent)`                                                             |
+| `--cursor-icon-git-modified-tertiary`             | `color-mix(in srgb, #a46700 56%, transparent)`                                                             |
+| `--cursor-icon-git-removed-primary`               | `#be1744`                                                                                                  |
+| `--cursor-icon-git-removed-quaternary`            | `color-mix(in srgb, #be1744 32%, transparent)`                                                             |
+| `--cursor-icon-git-removed-secondary`             | `color-mix(in srgb, #be1744 70%, transparent)`                                                             |
+| `--cursor-icon-git-removed-tertiary`              | `color-mix(in srgb, #be1744 56%, transparent)`                                                             |
+| `--cursor-icon-git-untracked-primary`             | `#176c74`                                                                                                  |
+| `--cursor-icon-git-untracked-quaternary`          | `color-mix(in srgb, #176c74 32%, transparent)`                                                             |
+| `--cursor-icon-git-untracked-secondary`           | `color-mix(in srgb, #176c74 70%, transparent)`                                                             |
+| `--cursor-icon-git-untracked-tertiary`            | `color-mix(in srgb, #176c74 56%, transparent)`                                                             |
+| `--cursor-icon-green-primary`                     | `#007041`                                                                                                  |
+| `--cursor-icon-green-secondary`                   | `color-mix(in oklab, #007041 70%, transparent)`                                                            |
+| `--cursor-icon-magenta-primary`                   | `#92156a`                                                                                                  |
+| `--cursor-icon-magenta-secondary`                 | `color-mix(in oklab, #92156a 70%, transparent)`                                                            |
+| `--cursor-icon-orange-primary`                    | `#cd4500`                                                                                                  |
+| `--cursor-icon-orange-secondary`                  | `color-mix(in oklab, #cd4500 70%, transparent)`                                                            |
+| `--cursor-icon-primary`                           | `#141414`                                                                                                  |
+| `--cursor-icon-purple-primary`                    | `#7565cc`                                                                                                  |
+| `--cursor-icon-purple-secondary`                  | `color-mix(in oklab, #7565cc 70%, transparent)`                                                            |
+| `--cursor-icon-quaternary`                        | `color-mix(in oklab, #141414 28%, transparent)`                                                            |
+| `--cursor-icon-red-primary`                       | `#be1744`                                                                                                  |
+| `--cursor-icon-red-secondary`                     | `color-mix(in oklab, #be1744 70%, transparent)`                                                            |
+| `--cursor-icon-secondary`                         | `color-mix(in oklab, #141414 66%, transparent)`                                                            |
+| `--cursor-icon-tertiary`                          | `color-mix(in oklab, #141414 52%, transparent)`                                                            |
+| `--cursor-icon-yellow-primary`                    | `#a46700`                                                                                                  |
+| `--cursor-icon-yellow-secondary`                  | `color-mix(in oklab, #a46700 70%, transparent)`                                                            |
+| `--cursor-input-border`                           | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-input-placeholder-foreground`           | `color-mix(in oklab, #141414 36%, transparent)`                                                            |
+| `--cursor-letter-spacing-2xl`                     | `-0.46px`                                                                                                  |
+| `--cursor-letter-spacing-3xl`                     | `-0.26px`                                                                                                  |
+| `--cursor-letter-spacing-base`                    | `-0.08px`                                                                                                  |
+| `--cursor-letter-spacing-lg`                      | `-0.15px`                                                                                                  |
+| `--cursor-letter-spacing-sm`                      | `0px`                                                                                                      |
+| `--cursor-letter-spacing-xl`                      | `0.08px`                                                                                                   |
+| `--cursor-letter-spacing-xs`                      | `0.07px`                                                                                                   |
+| `--cursor-line-height-base`                       | `18px`                                                                                                     |
+| `--cursor-line-height-lg`                         | `22px`                                                                                                     |
+| `--cursor-line-height-sm`                         | `16px`                                                                                                     |
+| `--cursor-line-height-xs`                         | `14px`                                                                                                     |
+| `--cursor-magenta`                                | `#b48ead`                                                                                                  |
+| `--cursor-modified`                               | `#a46700`                                                                                                  |
+| `--cursor-orange`                                 | `#d08770`                                                                                                  |
+| `--cursor-progress-bar-background`                | `#2778c1`                                                                                                  |
+| `--cursor-purple`                                 | `#7565cc`                                                                                                  |
+| `--cursor-radius-2xl`                             | `14px`                                                                                                     |
+| `--cursor-radius-3xl`                             | `16px`                                                                                                     |
+| `--cursor-radius-base`                            | `6px`                                                                                                      |
+| `--cursor-radius-full`                            | `9999px`                                                                                                   |
+| `--cursor-radius-lg`                              | `8px`                                                                                                      |
+| `--cursor-radius-none`                            | `0px`                                                                                                      |
+| `--cursor-radius-sm`                              | `4px`                                                                                                      |
+| `--cursor-radius-xl`                              | `12px`                                                                                                     |
+| `--cursor-radius-xs`                              | `2px`                                                                                                      |
+| `--cursor-red`                                    | `#fc6b83`                                                                                                  |
+| `--cursor-removed`                                | `#be1744`                                                                                                  |
+| `--cursor-scrollbar-horizontal-size`              | `12px`                                                                                                     |
+| `--cursor-scrollbar-shadow`                       | `#0000000f`                                                                                                |
+| `--cursor-scrollbar-thumb-active-background`      | `color-mix(in srgb, #141414 26%, transparent)`                                                             |
+| `--cursor-scrollbar-thumb-background`             | `color-mix(in srgb, #141414 14%, transparent)`                                                             |
+| `--cursor-scrollbar-thumb-hover-background`       | `color-mix(in srgb, #141414 22%, transparent)`                                                             |
+| `--cursor-scrollbar-vertical-size`                | `14px`                                                                                                     |
+| `--cursor-shadow-primary`                         | `#0000000f`                                                                                                |
+| `--cursor-shadow-secondary`                       | `#00000009`                                                                                                |
+| `--cursor-shadow-tertiary`                        | `#00000005`                                                                                                |
+| `--cursor-shadow-workbench`                       | `0px 0px 8px 2px color-mix(in srgb, #0000000f 40%, transparent)`                                           |
+| `--cursor-sidebar`                                | `#181818`                                                                                                  |
+| `--cursor-spacing-0-25`                           | `1px`                                                                                                      |
+| `--cursor-spacing-0-5`                            | `2px`                                                                                                      |
+| `--cursor-spacing-0-75`                           | `3px`                                                                                                      |
+| `--cursor-spacing-1`                              | `4px`                                                                                                      |
+| `--cursor-spacing-1-25`                           | `5px`                                                                                                      |
+| `--cursor-spacing-1-5`                            | `6px`                                                                                                      |
+| `--cursor-spacing-1-75`                           | `7px`                                                                                                      |
+| `--cursor-spacing-10`                             | `40px`                                                                                                     |
+| `--cursor-spacing-11`                             | `44px`                                                                                                     |
+| `--cursor-spacing-12`                             | `48px`                                                                                                     |
+| `--cursor-spacing-13`                             | `52px`                                                                                                     |
+| `--cursor-spacing-14`                             | `56px`                                                                                                     |
+| `--cursor-spacing-15`                             | `60px`                                                                                                     |
+| `--cursor-spacing-16`                             | `64px`                                                                                                     |
+| `--cursor-spacing-17`                             | `68px`                                                                                                     |
+| `--cursor-spacing-18`                             | `72px`                                                                                                     |
+| `--cursor-spacing-19`                             | `76px`                                                                                                     |
+| `--cursor-spacing-2`                              | `8px`                                                                                                      |
+| `--cursor-spacing-2-25`                           | `9px`                                                                                                      |
+| `--cursor-spacing-2-5`                            | `10px`                                                                                                     |
+| `--cursor-spacing-2-75`                           | `11px`                                                                                                     |
+| `--cursor-spacing-20`                             | `80px`                                                                                                     |
+| `--cursor-spacing-3`                              | `12px`                                                                                                     |
+| `--cursor-spacing-3-25`                           | `13px`                                                                                                     |
+| `--cursor-spacing-3-5`                            | `14px`                                                                                                     |
+| `--cursor-spacing-3-75`                           | `15px`                                                                                                     |
+| `--cursor-spacing-4`                              | `16px`                                                                                                     |
+| `--cursor-spacing-4-25`                           | `17px`                                                                                                     |
+| `--cursor-spacing-4-5`                            | `18px`                                                                                                     |
+| `--cursor-spacing-4-75`                           | `19px`                                                                                                     |
+| `--cursor-spacing-5`                              | `20px`                                                                                                     |
+| `--cursor-spacing-5-5`                            | `22px`                                                                                                     |
+| `--cursor-spacing-6`                              | `24px`                                                                                                     |
+| `--cursor-spacing-6-5`                            | `26px`                                                                                                     |
+| `--cursor-spacing-7`                              | `28px`                                                                                                     |
+| `--cursor-spacing-7-5`                            | `30px`                                                                                                     |
+| `--cursor-spacing-8`                              | `32px`                                                                                                     |
+| `--cursor-spacing-8-5`                            | `34px`                                                                                                     |
+| `--cursor-spacing-9`                              | `36px`                                                                                                     |
+| `--cursor-spacing-9-5`                            | `38px`                                                                                                     |
+| `--cursor-spacing-ne-0-25`                        | `-1px`                                                                                                     |
+| `--cursor-spacing-ne-0-5`                         | `-2px`                                                                                                     |
+| `--cursor-spacing-ne-0-75`                        | `-3px`                                                                                                     |
+| `--cursor-spacing-ne-1`                           | `-4px`                                                                                                     |
+| `--cursor-spacing-ne-1-25`                        | `-5px`                                                                                                     |
+| `--cursor-spacing-ne-1-5`                         | `-6px`                                                                                                     |
+| `--cursor-spacing-ne-1-75`                        | `-7px`                                                                                                     |
+| `--cursor-spacing-ne-2`                           | `-8px`                                                                                                     |
+| `--cursor-spacing-ne-2-25`                        | `-9px`                                                                                                     |
+| `--cursor-spacing-ne-2-5`                         | `-10px`                                                                                                    |
+| `--cursor-spacing-ne-2-75`                        | `-11px`                                                                                                    |
+| `--cursor-spacing-ne-3`                           | `-12px`                                                                                                    |
+| `--cursor-spacing-ne-3-25`                        | `-13px`                                                                                                    |
+| `--cursor-spacing-ne-3-5`                         | `-14px`                                                                                                    |
+| `--cursor-spacing-ne-3-75`                        | `-15px`                                                                                                    |
+| `--cursor-spacing-ne-4`                           | `-16px`                                                                                                    |
+| `--cursor-spacing-ne-4-25`                        | `-17px`                                                                                                    |
+| `--cursor-spacing-ne-4-5`                         | `-18px`                                                                                                    |
+| `--cursor-spacing-ne-4-75`                        | `-19px`                                                                                                    |
+| `--cursor-spacing-ne-5`                           | `-20px`                                                                                                    |
+| `--cursor-stroke-blue-primary`                    | `color-mix(in srgb, #2778c1 56%, transparent)`                                                             |
+| `--cursor-stroke-blue-secondary`                  | `color-mix(in srgb, #2778c1 32%, transparent)`                                                             |
+| `--cursor-stroke-cyan-primary`                    | `color-mix(in oklab, #176c74 56%, transparent)`                                                            |
+| `--cursor-stroke-cyan-secondary`                  | `color-mix(in oklab, #176c74 32%, transparent)`                                                            |
+| `--cursor-stroke-focused`                         | `color-mix(in oklab, #2778c1 15%, transparent)`                                                            |
+| `--cursor-stroke-git-added`                       | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--cursor-stroke-git-modified`                    | `color-mix(in srgb, #a46700 56%, transparent)`                                                             |
+| `--cursor-stroke-git-removed`                     | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--cursor-stroke-git-untracked`                   | `color-mix(in srgb, #176c74 56%, transparent)`                                                             |
+| `--cursor-stroke-green-primary`                   | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--cursor-stroke-green-secondary`                 | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--cursor-stroke-high-contrast`                   | `color-mix(in srgb, #141414 0%, transparent)`                                                              |
+| `--cursor-stroke-magenta-primary`                 | `color-mix(in oklab, #92156a 56%, transparent)`                                                            |
+| `--cursor-stroke-magenta-secondary`               | `color-mix(in oklab, #92156a 32%, transparent)`                                                            |
+| `--cursor-stroke-orange-primary`                  | `color-mix(in oklab, #cd4500 56%, transparent)`                                                            |
+| `--cursor-stroke-orange-secondary`                | `color-mix(in oklab, #cd4500 32%, transparent)`                                                            |
+| `--cursor-stroke-primary`                         | `color-mix(in oklab, #141414 20%, transparent)`                                                            |
+| `--cursor-stroke-quaternary`                      | `color-mix(in oklab, #141414 4%, transparent)`                                                             |
+| `--cursor-stroke-red-primary`                     | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--cursor-stroke-red-secondary`                   | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--cursor-stroke-secondary`                       | `color-mix(in oklab, #141414 12%, transparent)`                                                            |
+| `--cursor-stroke-tertiary`                        | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-stroke-tertiary-opaque`                 | `color-mix(in srgb, #141414 8%, #f8f8f8)`                                                                  |
+| `--cursor-stroke-yellow-primary`                  | `color-mix(in oklab, #a46700 56%, transparent)`                                                            |
+| `--cursor-stroke-yellow-secondary`                | `color-mix(in oklab, #a46700 32%, transparent)`                                                            |
+| `--cursor-success`                                | `#007041`                                                                                                  |
+| `--cursor-syntax-background`                      | `#fcfcfc`                                                                                                  |
+| `--cursor-syntax-comment`                         | `#141414ad`                                                                                                |
+| `--cursor-syntax-constant`                        | `#206595`                                                                                                  |
+| `--cursor-syntax-foreground`                      | `#141414eb`                                                                                                |
+| `--cursor-syntax-function`                        | `#db704b`                                                                                                  |
+| `--cursor-syntax-keyword`                         | `#b3003f`                                                                                                  |
+| `--cursor-syntax-link`                            | `#3c7cab`                                                                                                  |
+| `--cursor-syntax-number`                          | `#b8448b`                                                                                                  |
+| `--cursor-syntax-parameter`                       | `#141414eb`                                                                                                |
+| `--cursor-syntax-punctuation`                     | `#141414ad`                                                                                                |
+| `--cursor-syntax-string`                          | `#8f84e0`                                                                                                  |
+| `--cursor-syntax-string-expression`               | `#8f84e0`                                                                                                  |
+| `--cursor-terminal-ansi-black`                    | `#242424`                                                                                                  |
+| `--cursor-terminal-ansi-blue`                     | `#81a1c1`                                                                                                  |
+| `--cursor-terminal-ansi-bright-black`             | `#f0f0f099`                                                                                                |
+| `--cursor-terminal-ansi-bright-blue`              | `#87a6c4`                                                                                                  |
+| `--cursor-terminal-ansi-bright-cyan`              | `#88c0d0`                                                                                                  |
+| `--cursor-terminal-ansi-bright-green`             | `#70b489`                                                                                                  |
+| `--cursor-terminal-ansi-bright-magenta`           | `#b48ead`                                                                                                  |
+| `--cursor-terminal-ansi-bright-red`               | `#fc6b83`                                                                                                  |
+| `--cursor-terminal-ansi-bright-white`             | `#f0f0f0`                                                                                                  |
+| `--cursor-terminal-ansi-bright-yellow`            | `#f1b467`                                                                                                  |
+| `--cursor-terminal-ansi-cyan`                     | `#88c0d0`                                                                                                  |
+| `--cursor-terminal-ansi-green`                    | `#3fa266`                                                                                                  |
+| `--cursor-terminal-ansi-magenta`                  | `#b48ead`                                                                                                  |
+| `--cursor-terminal-ansi-red`                      | `#fc6b83`                                                                                                  |
+| `--cursor-terminal-ansi-white`                    | `#f0f0f0`                                                                                                  |
+| `--cursor-terminal-ansi-yellow`                   | `#d2943e`                                                                                                  |
+| `--cursor-terminal-background`                    | `#f8f8f8`                                                                                                  |
+| `--cursor-terminal-foreground`                    | `#141414`                                                                                                  |
+| `--cursor-terminal-selection-background`          | `color-mix(in srgb, #141414 12%, transparent)`                                                             |
+| `--cursor-text-accent`                            | `#2778c1`                                                                                                  |
+| `--cursor-text-active`                            | `#141414`                                                                                                  |
+| `--cursor-text-blue-primary`                      | `#2778c1`                                                                                                  |
+| `--cursor-text-blue-secondary`                    | `color-mix(in srgb, #2778c1 78%, transparent)`                                                             |
+| `--cursor-text-code-block-background`             | `#fcfcfc`                                                                                                  |
+| `--cursor-text-cyan-primary`                      | `#176c74`                                                                                                  |
+| `--cursor-text-cyan-secondary`                    | `color-mix(in oklab, #176c74 78%, transparent)`                                                            |
+| `--cursor-text-focused`                           | `#141414`                                                                                                  |
+| `--cursor-text-git-added-primary`                 | `#007041`                                                                                                  |
+| `--cursor-text-git-added-quaternary`              | `color-mix(in srgb, #007041 40%, transparent)`                                                             |
+| `--cursor-text-git-added-secondary`               | `color-mix(in srgb, #007041 78%, transparent)`                                                             |
+| `--cursor-text-git-added-tertiary`                | `color-mix(in srgb, #007041 64%, transparent)`                                                             |
+| `--cursor-text-git-modified-primary`              | `#a46700`                                                                                                  |
+| `--cursor-text-git-modified-quaternary`           | `color-mix(in srgb, #a46700 40%, transparent)`                                                             |
+| `--cursor-text-git-modified-secondary`            | `color-mix(in srgb, #a46700 78%, transparent)`                                                             |
+| `--cursor-text-git-modified-tertiary`             | `color-mix(in srgb, #a46700 64%, transparent)`                                                             |
+| `--cursor-text-git-removed-primary`               | `#be1744`                                                                                                  |
+| `--cursor-text-git-removed-quaternary`            | `color-mix(in srgb, #be1744 40%, transparent)`                                                             |
+| `--cursor-text-git-removed-secondary`             | `color-mix(in srgb, #be1744 78%, transparent)`                                                             |
+| `--cursor-text-git-removed-tertiary`              | `color-mix(in srgb, #be1744 64%, transparent)`                                                             |
+| `--cursor-text-git-untracked-primary`             | `#176c74`                                                                                                  |
+| `--cursor-text-git-untracked-quaternary`          | `color-mix(in srgb, #176c74 40%, transparent)`                                                             |
+| `--cursor-text-git-untracked-secondary`           | `color-mix(in srgb, #176c74 78%, transparent)`                                                             |
+| `--cursor-text-git-untracked-tertiary`            | `color-mix(in srgb, #176c74 64%, transparent)`                                                             |
+| `--cursor-text-green-primary`                     | `#007041`                                                                                                  |
+| `--cursor-text-green-secondary`                   | `color-mix(in oklab, #007041 78%, transparent)`                                                            |
+| `--cursor-text-invert`                            | `#fcfcfc`                                                                                                  |
+| `--cursor-text-link`                              | `#2778c1`                                                                                                  |
+| `--cursor-text-link-active`                       | `#2778c1`                                                                                                  |
+| `--cursor-text-magenta-primary`                   | `#92156a`                                                                                                  |
+| `--cursor-text-magenta-secondary`                 | `color-mix(in oklab, #92156a 78%, transparent)`                                                            |
+| `--cursor-text-orange-primary`                    | `#cd4500`                                                                                                  |
+| `--cursor-text-orange-secondary`                  | `color-mix(in oklab, #cd4500 78%, transparent)`                                                            |
+| `--cursor-text-primary`                           | `#141414`                                                                                                  |
+| `--cursor-text-purple-primary`                    | `#7565cc`                                                                                                  |
+| `--cursor-text-purple-secondary`                  | `color-mix(in srgb, #7565cc 78%, transparent)`                                                             |
+| `--cursor-text-quaternary`                        | `color-mix(in oklab, #141414 36%, transparent)`                                                            |
+| `--cursor-text-red-primary`                       | `#be1744`                                                                                                  |
+| `--cursor-text-red-secondary`                     | `color-mix(in oklab, #be1744 78%, transparent)`                                                            |
+| `--cursor-text-secondary`                         | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-text-tertiary`                          | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-text-yellow-primary`                    | `#a46700`                                                                                                  |
+| `--cursor-text-yellow-secondary`                  | `color-mix(in oklab, #a46700 78%, transparent)`                                                            |
+| `--cursor-titlebar-active-foreground`             | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--cursor-titlebar-inactive-foreground`           | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--cursor-toolbar-hover-background`               | `color-mix(in oklab, #141414 8%, transparent)`                                                             |
+| `--cursor-untracked`                              | `#176c74`                                                                                                  |
+| `--cursor-warn`                                   | `#a46700`                                                                                                  |
+| `--cursor-yellow`                                 | `#f1b467`                                                                                                  |
+| `--cyan`                                          | `#176c74`                                                                                                  |
+| `--danger`                                        | `#be1744`                                                                                                  |
+| `--dashboard-bg-error-primary`                    | `#dc2626`                                                                                                  |
+| `--dashboard-bg-error-primary-hover`              | `#b91c1c`                                                                                                  |
+| `--dashboard-text-error-on-primary`               | `#fff`                                                                                                     |
+| `--dashboard-text-error-prominent`                | `#e06c75`                                                                                                  |
+| `--diff-added-line`                               | `#00af6624`                                                                                                |
+| `--diff-added-text`                               | `#00b06838`                                                                                                |
+| `--diff-removed-line`                             | `#ff617b38`                                                                                                |
+| `--diff-removed-text`                             | `#ff617b57`                                                                                                |
+| `--diffs-addition-color-override`                 | `#007041`                                                                                                  |
+| `--diffs-bg`                                      | `#fcfcfc`                                                                                                  |
+| `--diffs-bg-addition-override`                    | `#00af6624`                                                                                                |
+| `--diffs-bg-deletion-override`                    | `#ff617b38`                                                                                                |
+| `--diffs-bg-selection-background-override`        | `transparent`                                                                                              |
+| `--diffs-bg-selection-number-background-override` | `transparent`                                                                                              |
+| `--diffs-bg-selection-number-override`            | `transparent`                                                                                              |
+| `--diffs-bg-selection-override`                   | `transparent`                                                                                              |
+| `--diffs-deletion-color-override`                 | `#be1744`                                                                                                  |
+| `--diffs-font-family`                             | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`       |
+| `--diffs-font-size`                               | `12px`                                                                                                     |
+| `--diffs-selection-color-override`                | `transparent`                                                                                              |
+| `--dvh-safe`                                      | `100dvh`                                                                                                   |
+| `--editor`                                        | `#fcfcfc`                                                                                                  |
+| `--file-list-item-content-h`                      | `1rem`                                                                                                     |
+| `--file-list-item-h`                              | `calc(1rem + 2 * .25rem)`                                                                                  |
+| `--file-list-item-py`                             | `.25rem`                                                                                                   |
+| `--file-list-max-vh`                              | `30vh`                                                                                                     |
+| `--file-list-visible-count`                       | `7.5`                                                                                                      |
+| `--focus`                                         | `#2778c1`                                                                                                  |
+| `--font-size-base`                                | `.8125rem`                                                                                                 |
+| `--font-size-lg`                                  | `1rem`                                                                                                     |
+| `--font-size-sm`                                  | `.75rem`                                                                                                   |
+| `--font-size-xl`                                  | `1.25rem`                                                                                                  |
+| `--font-size-xs`                                  | `.6875rem`                                                                                                 |
+| `--font-weight-bold`                              | `700`                                                                                                      |
+| `--font-weight-medium`                            | `500`                                                                                                      |
+| `--font-weight-normal`                            | `418`                                                                                                      |
+| `--font-weight-semibold`                          | `600`                                                                                                      |
+| `--font-width-normal`                             | `4.7`                                                                                                      |
+| `--green`                                         | `#007041`                                                                                                  |
+| `--icon-accent`                                   | `#2778c1`                                                                                                  |
+| `--icon-accent-quaternary`                        | `color-mix(in oklab, #2778c1 32%, transparent)`                                                            |
+| `--icon-accent-secondary`                         | `color-mix(in oklab, #2778c1 70%, transparent)`                                                            |
+| `--icon-accent-tertiary`                          | `color-mix(in oklab, #2778c1 56%, transparent)`                                                            |
+| `--icon-actionLabel`                              | `#fcfcfc`                                                                                                  |
+| `--icon-actionLabel-quaternary`                   | `color-mix(in oklab, #fcfcfc 24%, transparent)`                                                            |
+| `--icon-actionLabel-secondary`                    | `color-mix(in oklab, #fcfcfc 62%, transparent)`                                                            |
+| `--icon-actionLabel-tertiary`                     | `color-mix(in oklab, #fcfcfc 40%, transparent)`                                                            |
+| `--icon-blue`                                     | `#2778c1`                                                                                                  |
+| `--icon-blue-quaternary`                          | `color-mix(in oklab, #2778c1 32%, transparent)`                                                            |
+| `--icon-blue-secondary`                           | `color-mix(in oklab, #2778c1 70%, transparent)`                                                            |
+| `--icon-blue-tertiary`                            | `color-mix(in oklab, #2778c1 56%, transparent)`                                                            |
+| `--icon-brand`                                    | `#f54e00`                                                                                                  |
+| `--icon-brand-quaternary`                         | `color-mix(in oklab, #f54e00 32%, transparent)`                                                            |
+| `--icon-brand-secondary`                          | `color-mix(in oklab, #f54e00 70%, transparent)`                                                            |
+| `--icon-brand-tertiary`                           | `color-mix(in oklab, #f54e00 56%, transparent)`                                                            |
+| `--icon-cyan`                                     | `#176c74`                                                                                                  |
+| `--icon-cyan-quaternary`                          | `color-mix(in oklab, #176c74 32%, transparent)`                                                            |
+| `--icon-cyan-secondary`                           | `color-mix(in oklab, #176c74 70%, transparent)`                                                            |
+| `--icon-cyan-tertiary`                            | `color-mix(in oklab, #176c74 56%, transparent)`                                                            |
+| `--icon-danger`                                   | `#be1744`                                                                                                  |
+| `--icon-danger-quaternary`                        | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--icon-danger-secondary`                         | `color-mix(in oklab, #be1744 70%, transparent)`                                                            |
+| `--icon-danger-tertiary`                          | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--icon-green`                                    | `#007041`                                                                                                  |
+| `--icon-green-quaternary`                         | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--icon-green-secondary`                          | `color-mix(in oklab, #007041 70%, transparent)`                                                            |
+| `--icon-green-tertiary`                           | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--icon-inverted`                                 | `#fcfcfc`                                                                                                  |
+| `--icon-inverted-quaternary`                      | `color-mix(in oklab, #fcfcfc 24%, transparent)`                                                            |
+| `--icon-inverted-secondary`                       | `color-mix(in oklab, #fcfcfc 62%, transparent)`                                                            |
+| `--icon-inverted-tertiary`                        | `color-mix(in oklab, #fcfcfc 40%, transparent)`                                                            |
+| `--icon-luminous`                                 | `#fff`                                                                                                     |
+| `--icon-luminous-quaternary`                      | `#ffffff3d`                                                                                                |
+| `--icon-luminous-secondary`                       | `#ffffff9e`                                                                                                |
+| `--icon-luminous-tertiary`                        | `#fff6`                                                                                                    |
+| `--icon-magenta`                                  | `#92156a`                                                                                                  |
+| `--icon-magenta-quaternary`                       | `color-mix(in oklab, #92156a 32%, transparent)`                                                            |
+| `--icon-magenta-secondary`                        | `color-mix(in oklab, #92156a 70%, transparent)`                                                            |
+| `--icon-magenta-tertiary`                         | `color-mix(in oklab, #92156a 56%, transparent)`                                                            |
+| `--icon-orange`                                   | `#cd4500`                                                                                                  |
+| `--icon-orange-quaternary`                        | `color-mix(in oklab, #cd4500 32%, transparent)`                                                            |
+| `--icon-orange-secondary`                         | `color-mix(in oklab, #cd4500 70%, transparent)`                                                            |
+| `--icon-orange-tertiary`                          | `color-mix(in oklab, #cd4500 56%, transparent)`                                                            |
+| `--icon-primary`                                  | `#141414`                                                                                                  |
+| `--icon-purple`                                   | `#7565cc`                                                                                                  |
+| `--icon-purple-quaternary`                        | `color-mix(in oklab, #7565cc 32%, transparent)`                                                            |
+| `--icon-purple-secondary`                         | `color-mix(in oklab, #7565cc 70%, transparent)`                                                            |
+| `--icon-purple-tertiary`                          | `color-mix(in oklab, #7565cc 56%, transparent)`                                                            |
+| `--icon-quaternary`                               | `color-mix(in oklab, #141414 28%, transparent)`                                                            |
+| `--icon-red`                                      | `#be1744`                                                                                                  |
+| `--icon-red-quaternary`                           | `color-mix(in oklab, #be1744 32%, transparent)`                                                            |
+| `--icon-red-secondary`                            | `color-mix(in oklab, #be1744 70%, transparent)`                                                            |
+| `--icon-red-tertiary`                             | `color-mix(in oklab, #be1744 56%, transparent)`                                                            |
+| `--icon-secondary`                                | `color-mix(in oklab, #141414 66%, transparent)`                                                            |
+| `--icon-success`                                  | `#007041`                                                                                                  |
+| `--icon-success-quaternary`                       | `color-mix(in oklab, #007041 32%, transparent)`                                                            |
+| `--icon-success-secondary`                        | `color-mix(in oklab, #007041 70%, transparent)`                                                            |
+| `--icon-success-tertiary`                         | `color-mix(in oklab, #007041 56%, transparent)`                                                            |
+| `--icon-tertiary`                                 | `color-mix(in oklab, #141414 52%, transparent)`                                                            |
+| `--icon-warn`                                     | `#a46700`                                                                                                  |
+| `--icon-warn-quaternary`                          | `color-mix(in oklab, #a46700 32%, transparent)`                                                            |
+| `--icon-warn-secondary`                           | `color-mix(in oklab, #a46700 70%, transparent)`                                                            |
+| `--icon-warn-tertiary`                            | `color-mix(in oklab, #a46700 56%, transparent)`                                                            |
+| `--icon-yellow`                                   | `#a46700`                                                                                                  |
+| `--icon-yellow-quaternary`                        | `color-mix(in oklab, #a46700 32%, transparent)`                                                            |
+| `--icon-yellow-secondary`                         | `color-mix(in oklab, #a46700 70%, transparent)`                                                            |
+| `--icon-yellow-tertiary`                          | `color-mix(in oklab, #a46700 56%, transparent)`                                                            |
+| `--inactive-selection-background`                 | `#0000000f`                                                                                                |
+| `--light-grey-wash`                               | `#f5f5f5`                                                                                                  |
+| `--line-height-base`                              | `1.125rem`                                                                                                 |
+| `--line-height-lg`                                | `1.5rem`                                                                                                   |
+| `--line-height-sm`                                | `1rem`                                                                                                     |
+| `--line-height-xl`                                | `1.75rem`                                                                                                  |
+| `--line-height-xs`                                | `.875rem`                                                                                                  |
+| `--magenta`                                       | `#92156a`                                                                                                  |
+| `--modified`                                      | `#a46700`                                                                                                  |
+| `--navbar-height`                                 | `4rem`                                                                                                     |
+| `--orange`                                        | `#cd4500`                                                                                                  |
+| `--purple`                                        | `#7565cc`                                                                                                  |
+| `--red`                                           | `#be1744`                                                                                                  |
+| `--removed`                                       | `#be1744`                                                                                                  |
+| `--rt-arrow-size`                                 | `8px`                                                                                                      |
+| `--rt-color-dark`                                 | `#222`                                                                                                     |
+| `--rt-color-error`                                | `#be6464`                                                                                                  |
+| `--rt-color-info`                                 | `#337ab7`                                                                                                  |
+| `--rt-color-success`                              | `#8dc572`                                                                                                  |
+| `--rt-color-warning`                              | `#f0ad4e`                                                                                                  |
+| `--rt-color-white`                                | `#fff`                                                                                                     |
+| `--rt-opacity`                                    | `0.9`                                                                                                      |
+| `--rt-transition-closing-delay`                   | `0.15s`                                                                                                    |
+| `--rt-transition-show-delay`                      | `0.15s`                                                                                                    |
+| `--selection-background`                          | `color-mix(in oklab, #141414 14%, transparent)`                                                            |
+| `--shadow-primary`                                | `#0000000f`                                                                                                |
+| `--shadow-secondary`                              | `#00000009`                                                                                                |
+| `--shadow-tertiary`                               | `#00000005`                                                                                                |
+| `--sidebar`                                       | `#f3f3f3`                                                                                                  |
+| `--success`                                       | `#007041`                                                                                                  |
+| `--syntax-background`                             | `#fcfcfc`                                                                                                  |
+| `--syntax-comment`                                | `#141414ad`                                                                                                |
+| `--syntax-constant`                               | `#206595`                                                                                                  |
+| `--syntax-foreground`                             | `#141414eb`                                                                                                |
+| `--syntax-function`                               | `#db704b`                                                                                                  |
+| `--syntax-keyword`                                | `#b3003f`                                                                                                  |
+| `--syntax-link`                                   | `#3c7cab`                                                                                                  |
+| `--syntax-number`                                 | `#b8448b`                                                                                                  |
+| `--syntax-parameter`                              | `#141414eb`                                                                                                |
+| `--syntax-punctuation`                            | `#141414ad`                                                                                                |
+| `--syntax-string`                                 | `#8f84e0`                                                                                                  |
+| `--syntax-string-expression`                      | `#8f84e0`                                                                                                  |
+| `--terminal-ansi-blue`                            | `#055180`                                                                                                  |
+| `--terminal-ansi-green`                           | `#005c42`                                                                                                  |
+| `--terminal-ansi-red`                             | `#a33900`                                                                                                  |
+| `--terminal-ansi-yellow`                          | `#a16900`                                                                                                  |
+| `--text-accent`                                   | `#2778c1`                                                                                                  |
+| `--text-accent-quaternary`                        | `color-mix(in oklab, #2778c1 40%, transparent)`                                                            |
+| `--text-accent-secondary`                         | `color-mix(in oklab, #2778c1 78%, transparent)`                                                            |
+| `--text-accent-tertiary`                          | `color-mix(in oklab, #2778c1 64%, transparent)`                                                            |
+| `--text-actionLabel`                              | `#fcfcfc`                                                                                                  |
+| `--text-actionLabel-quaternary`                   | `color-mix(in oklab, #fcfcfc 32%, transparent)`                                                            |
+| `--text-actionLabel-secondary`                    | `color-mix(in oklab, #fcfcfc 70%, transparent)`                                                            |
+| `--text-actionLabel-tertiary`                     | `color-mix(in oklab, #fcfcfc 48%, transparent)`                                                            |
+| `--text-added`                                    | `#007041`                                                                                                  |
+| `--text-added-quaternary`                         | `color-mix(in oklab, #007041 40%, transparent)`                                                            |
+| `--text-added-secondary`                          | `color-mix(in oklab, #007041 78%, transparent)`                                                            |
+| `--text-added-tertiary`                           | `color-mix(in oklab, #007041 64%, transparent)`                                                            |
+| `--text-base`                                     | `1rem`                                                                                                     |
+| `--text-blue`                                     | `#2778c1`                                                                                                  |
+| `--text-blue-quaternary`                          | `color-mix(in oklab, #2778c1 40%, transparent)`                                                            |
+| `--text-blue-secondary`                           | `color-mix(in oklab, #2778c1 78%, transparent)`                                                            |
+| `--text-blue-tertiary`                            | `color-mix(in oklab, #2778c1 64%, transparent)`                                                            |
+| `--text-brand`                                    | `#f54e00`                                                                                                  |
+| `--text-brand-quaternary`                         | `color-mix(in oklab, #f54e00 40%, transparent)`                                                            |
+| `--text-brand-secondary`                          | `color-mix(in oklab, #f54e00 78%, transparent)`                                                            |
+| `--text-brand-tertiary`                           | `color-mix(in oklab, #f54e00 64%, transparent)`                                                            |
+| `--text-cyan`                                     | `#176c74`                                                                                                  |
+| `--text-cyan-quaternary`                          | `color-mix(in oklab, #176c74 40%, transparent)`                                                            |
+| `--text-cyan-secondary`                           | `color-mix(in oklab, #176c74 78%, transparent)`                                                            |
+| `--text-cyan-tertiary`                            | `color-mix(in oklab, #176c74 64%, transparent)`                                                            |
+| `--text-danger`                                   | `#be1744`                                                                                                  |
+| `--text-danger-quaternary`                        | `color-mix(in oklab, #be1744 40%, transparent)`                                                            |
+| `--text-danger-secondary`                         | `color-mix(in oklab, #be1744 78%, transparent)`                                                            |
+| `--text-danger-tertiary`                          | `color-mix(in oklab, #be1744 64%, transparent)`                                                            |
+| `--text-gray-100`                                 | `#e6e6e6`                                                                                                  |
+| `--text-gray-200`                                 | `#ccc`                                                                                                     |
+| `--text-gray-300`                                 | `#b3b3b3`                                                                                                  |
+| `--text-gray-400`                                 | `#999`                                                                                                     |
+| `--text-gray-500`                                 | `#888`                                                                                                     |
+| `--text-gray-600`                                 | `#666`                                                                                                     |
+| `--text-gray-700`                                 | `#4d4d4d`                                                                                                  |
+| `--text-gray-800`                                 | `#333`                                                                                                     |
+| `--text-gray-900`                                 | `#1a1a1a`                                                                                                  |
+| `--text-green`                                    | `#007041`                                                                                                  |
+| `--text-green-quaternary`                         | `color-mix(in oklab, #007041 40%, transparent)`                                                            |
+| `--text-green-secondary`                          | `color-mix(in oklab, #007041 78%, transparent)`                                                            |
+| `--text-green-tertiary`                           | `color-mix(in oklab, #007041 64%, transparent)`                                                            |
+| `--text-inverted`                                 | `#fcfcfc`                                                                                                  |
+| `--text-inverted-quaternary`                      | `color-mix(in oklab, #fcfcfc 32%, transparent)`                                                            |
+| `--text-inverted-secondary`                       | `color-mix(in oklab, #fcfcfc 70%, transparent)`                                                            |
+| `--text-inverted-tertiary`                        | `color-mix(in oklab, #fcfcfc 48%, transparent)`                                                            |
+| `--text-lg`                                       | `2.25rem`                                                                                                  |
+| `--text-luminous`                                 | `#fff`                                                                                                     |
+| `--text-luminous-quaternary`                      | `#ffffff52`                                                                                                |
+| `--text-luminous-secondary`                       | `#ffffffb3`                                                                                                |
+| `--text-luminous-tertiary`                        | `#ffffff7a`                                                                                                |
+| `--text-magenta`                                  | `#92156a`                                                                                                  |
+| `--text-magenta-quaternary`                       | `color-mix(in oklab, #92156a 40%, transparent)`                                                            |
+| `--text-magenta-secondary`                        | `color-mix(in oklab, #92156a 78%, transparent)`                                                            |
+| `--text-magenta-tertiary`                         | `color-mix(in oklab, #92156a 64%, transparent)`                                                            |
+| `--text-md`                                       | `1.375rem`                                                                                                 |
+| `--text-orange`                                   | `#cd4500`                                                                                                  |
+| `--text-orange-quaternary`                        | `color-mix(in oklab, #cd4500 40%, transparent)`                                                            |
+| `--text-orange-secondary`                         | `color-mix(in oklab, #cd4500 78%, transparent)`                                                            |
+| `--text-orange-tertiary`                          | `color-mix(in oklab, #cd4500 64%, transparent)`                                                            |
+| `--text-primary`                                  | `#141414`                                                                                                  |
+| `--text-purple`                                   | `#7565cc`                                                                                                  |
+| `--text-purple-quaternary`                        | `color-mix(in oklab, #7565cc 40%, transparent)`                                                            |
+| `--text-purple-secondary`                         | `color-mix(in oklab, #7565cc 78%, transparent)`                                                            |
+| `--text-purple-tertiary`                          | `color-mix(in oklab, #7565cc 64%, transparent)`                                                            |
+| `--text-quaternary`                               | `color-mix(in oklab, #141414 36%, transparent)`                                                            |
+| `--text-red`                                      | `#be1744`                                                                                                  |
+| `--text-red-quaternary`                           | `color-mix(in oklab, #be1744 40%, transparent)`                                                            |
+| `--text-red-secondary`                            | `color-mix(in oklab, #be1744 78%, transparent)`                                                            |
+| `--text-red-tertiary`                             | `color-mix(in oklab, #be1744 64%, transparent)`                                                            |
+| `--text-removed`                                  | `#be1744`                                                                                                  |
+| `--text-removed-quaternary`                       | `color-mix(in oklab, #be1744 40%, transparent)`                                                            |
+| `--text-removed-secondary`                        | `color-mix(in oklab, #be1744 78%, transparent)`                                                            |
+| `--text-removed-tertiary`                         | `color-mix(in oklab, #be1744 64%, transparent)`                                                            |
+| `--text-secondary`                                | `color-mix(in oklab, #141414 74%, transparent)`                                                            |
+| `--text-success`                                  | `#007041`                                                                                                  |
+| `--text-success-quaternary`                       | `color-mix(in oklab, #007041 40%, transparent)`                                                            |
+| `--text-success-secondary`                        | `color-mix(in oklab, #007041 78%, transparent)`                                                            |
+| `--text-success-tertiary`                         | `color-mix(in oklab, #007041 64%, transparent)`                                                            |
+| `--text-tertiary`                                 | `color-mix(in oklab, #141414 60%, transparent)`                                                            |
+| `--text-warn`                                     | `#a46700`                                                                                                  |
+| `--text-warn-quaternary`                          | `color-mix(in oklab, #a46700 40%, transparent)`                                                            |
+| `--text-warn-secondary`                           | `color-mix(in oklab, #a46700 78%, transparent)`                                                            |
+| `--text-warn-tertiary`                            | `color-mix(in oklab, #a46700 64%, transparent)`                                                            |
+| `--text-xl`                                       | `3.25rem`                                                                                                  |
+| `--text-xs`                                       | `.75rem`                                                                                                   |
+| `--text-yellow`                                   | `#a46700`                                                                                                  |
+| `--text-yellow-quaternary`                        | `color-mix(in oklab, #a46700 40%, transparent)`                                                            |
+| `--text-yellow-secondary`                         | `color-mix(in oklab, #a46700 78%, transparent)`                                                            |
+| `--text-yellow-tertiary`                          | `color-mix(in oklab, #a46700 64%, transparent)`                                                            |
+| `--tw-border-spacing-x`                           | `0`                                                                                                        |
+| `--tw-border-spacing-y`                           | `0`                                                                                                        |
+| `--tw-ring-color`                                 | `#3b82f680`                                                                                                |
+| `--tw-ring-offset-color`                          | `#fff`                                                                                                     |
+| `--tw-ring-offset-shadow`                         | `0 0 #0000`                                                                                                |
+| `--tw-ring-offset-width`                          | `0px`                                                                                                      |
+| `--tw-ring-shadow`                                | `0 0 #0000`                                                                                                |
+| `--tw-rotate`                                     | `0`                                                                                                        |
+| `--tw-scale-x`                                    | `1`                                                                                                        |
+| `--tw-scale-y`                                    | `1`                                                                                                        |
+| `--tw-scroll-snap-strictness`                     | `proximity`                                                                                                |
+| `--tw-shadow`                                     | `0 0 #0000`                                                                                                |
+| `--tw-shadow-colored`                             | `0 0 #0000`                                                                                                |
+| `--tw-skew-x`                                     | `0`                                                                                                        |
+| `--tw-skew-y`                                     | `0`                                                                                                        |
+| `--tw-translate-x`                                | `0`                                                                                                        |
+| `--tw-translate-y`                                | `0`                                                                                                        |
+| `--ui-press-scale`                                | `.98`                                                                                                      |
+| `--ui-tool-call-card-bg`                          | `#fcfcfc`                                                                                                  |
+| `--untracked`                                     | `#176c74`                                                                                                  |
+| `--warn`                                          | `#a46700`                                                                                                  |
+| `--web-text-base`                                 | `.8125rem`                                                                                                 |
+| `--web-text-sm`                                   | `.75rem`                                                                                                   |
+| `--white`                                         | `#fff`                                                                                                     |
+| `--yellow`                                        | `#a46700`                                                                                                  |
+
+---
+
+## 18. Do / Don’t
 
 **Do**
 
-- Utiliser `sidebar` / `chrome` / `editor` pour les trois plans
-- CTA noir `base`, brand orange rare
-- Focus bleu `accent`/`focus`
-- Radius 6/8, type 13 px système
+- Shell light : `--bg-sidebar` `#f3f3f3`, `--bg-chrome` `#f8f8f8`, panels `--bg-elevated` `#fcfcfc`
+- CTA : `--cursor-button-*` (noir / clair)
+- Focus : `--focus` `#2778c1`
+- Brand orange rare : `--brand`
+- Borders : `--border-tertiary` / `--border-secondary` / `--border-primary`
 
 **Don’t**
 
-- Substituer le crème marketing `#f7f7f4` / ink `#26251e` à ces tokens produit
-- Remplir les surfaces en orange brand
-- Inventer des hex non présents dans les collages (sauf dérivés hairline documentés dans le code comme `#e8e8e8` / `#eeeeee` pour hover/selected à partir de chrome/sidebar)
+- Utiliser `--cursor-sidebar: #181818` pour le light shell
+- Remplir les surfaces en `--brand`
+- Réintroduire crème marketing `#f7f7f4` / ink `#26251e` à la place de ces tokens
+- Traiter les `--tw-*` vides comme tokens design
 
 ---
 
-## 12. Inventory — extrait brut (checklist)
-
-### Résolus hex collés
-
-`sidebar`, `chrome`, `editor`, `base`, `accent`, `actionLabel`, `brand`, `focus`, `success`, `warn`, `danger`, `added`, `modified`, `removed`, `untracked`, `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta`, `purple`, `diff-added-line|text`, `diff-removed-line|text`, `shadow-primary|secondary|tertiary`, syntax `*`, `rt-color-*`
-
-### Typo / layout collés
-
-`font-weight-*`, `font-width-normal`, `font-size-*`, `line-height-*`, `web-text-*`, `text-*`, `diffs-font-*`, `navbar-height`, `file-list-*`
-
-### Échelles Cursor collées
-
-`cursor-spacing-*` (pos + ne), `cursor-radius-*`, `cursor-height-*`, `cursor-font-size-*`, `cursor-line-height-*`, `cursor-letter-spacing-*`, `cursor-duration-*`, `cursor-easing-*`, `cursor-box-shadow-*`, `cursor-scrollbar-*`, `cursor-elevation-*`, `cursor-font-family-*`
-
-### Alias structurels collés (sans hex)
-
-Toute la famille `--cursor-bg|text|icon|stroke|shadow|button|syntax|*` pointant vers `--bg-*`, `--text-*`, `--border-*`, `--icon-*`, etc.
-
----
-
-_Fin du DESIGN.md — produit Cursor light uniquement, tel que collé._
+_Source : collage navigateur `:root` — archivé dans `cursor/product-tokens-light.css`._
