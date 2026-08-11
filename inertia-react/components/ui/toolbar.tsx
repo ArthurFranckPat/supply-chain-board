@@ -1,9 +1,9 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import { RefreshCw } from "lucide-react"
+import * as React from 'react'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { RefreshCw } from 'lucide-react'
 
-import { cn } from "@r/lib/utils"
-import { DynamicIcon } from "./dynamic-icon"
+import { cn } from '@r/lib/utils'
+import { DynamicIcon } from './dynamic-icon'
 
 // Toolbar — composant unifié pour les barres de filtrage au-dessus des pages
 // métier (dashboard, suivi, ruptures, expeditions, receptions, etc.).
@@ -33,31 +33,26 @@ import { DynamicIcon } from "./dynamic-icon"
    Conteneur. Flex-wrap, gap-2.5, border-bottom hairline. Aligne les
    enfants sur une seule rangée tant que la largeur le permet. */
 
-interface ToolbarProps extends React.ComponentProps<"div"> {
+interface ToolbarProps extends React.ComponentProps<'div'> {
   /** Gap entre les enfants. Défaut '2.5' (10px). */
-  gap?: "2" | "2.5" | "3"
+  gap?: '2' | '2.5' | '3'
   /** Padding vertical. Défaut '2' (8px). */
-  py?: "1.5" | "2" | "2.5"
+  py?: '1.5' | '2' | '2.5'
 }
 
-function Toolbar({
-  className,
-  gap = "2.5",
-  py = "2",
-  ...props
-}: ToolbarProps) {
+function Toolbar({ className, gap = '2.5', py = '2', ...props }: ToolbarProps) {
   return (
     <div
       data-slot="toolbar"
       className={cn(
-        "flex flex-none flex-wrap items-center border-b border-border bg-background",
-        "px-4",
-        gap === "2" && "gap-2",
-        gap === "2.5" && "gap-2.5",
-        gap === "3" && "gap-3",
-        py === "1.5" && "py-1.5",
-        py === "2" && "py-2",
-        py === "2.5" && "py-2.5",
+        'flex flex-none flex-wrap items-center border-b border-border bg-background',
+        'px-4',
+        gap === '2' && 'gap-2',
+        gap === '2.5' && 'gap-2.5',
+        gap === '3' && 'gap-3',
+        py === '1.5' && 'py-1.5',
+        py === '2' && 'py-2',
+        py === '2.5' && 'py-2.5',
         className
       )}
       {...props}
@@ -68,14 +63,11 @@ function Toolbar({
 /* ─── ToolbarGroup ───────────────────────────────────────────────────────
    Groupement logique d'éléments (ex. filtres verdict). */
 
-function ToolbarGroup({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function ToolbarGroup({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="toolbar-group"
-      className={cn("flex items-center gap-1.5", className)}
+      className={cn('flex items-center gap-1.5', className)}
       {...props}
     />
   )
@@ -88,48 +80,44 @@ function ToolbarGroup({
    muted et le border hairline. */
 
 const segmentedItemVariants = cva(
-  "rounded-[4px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors",
+  'rounded-[4px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
   {
     variants: {
       active: {
-        true: "bg-primary text-primary-foreground",
-        false: "text-muted-foreground hover:text-foreground",
+        true: 'bg-primary text-primary-foreground',
+        false: 'text-muted-foreground hover:text-foreground',
       },
       // Variante soft (sobre) — actif sur fond brand-soft + ink au lieu de Rausch.
       // Utile pour les filtres secondaires.
       tone: {
-        solid: "",
-        soft: "",
+        solid: '',
+        soft: '',
       },
     },
     compoundVariants: [
       {
         active: true,
-        tone: "soft",
-        class: "bg-[var(--brand-soft,rgba(255,56,92,0.10))] text-primary",
+        tone: 'soft',
+        class: 'bg-[var(--brand-soft,rgba(255,56,92,0.10))] text-primary',
       },
     ],
     defaultVariants: {
-      tone: "solid",
+      tone: 'solid',
     },
   }
 )
 
-interface ToolbarSegmentedProps extends React.ComponentProps<"div"> {
-  tone?: VariantProps<typeof segmentedItemVariants>["tone"]
+interface ToolbarSegmentedProps extends React.ComponentProps<'div'> {
+  tone?: VariantProps<typeof segmentedItemVariants>['tone']
 }
 
-function ToolbarSegmented({
-  className,
-  tone = "solid",
-  ...props
-}: ToolbarSegmentedProps) {
+function ToolbarSegmented({ className, tone = 'solid', ...props }: ToolbarSegmentedProps) {
   return (
     <div
       data-slot="toolbar-segmented"
       role="tablist"
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5",
+        'inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5',
         className
       )}
       {...props}
@@ -137,25 +125,25 @@ function ToolbarSegmented({
   )
 }
 
-interface ToolbarSegmentProps
-  extends Omit<React.ComponentProps<"button">, "tone"> {
+interface ToolbarSegmentProps extends Omit<React.ComponentProps<'button'>, 'tone'> {
   active?: boolean
-  tone?: VariantProps<typeof segmentedItemVariants>["tone"]
+  tone?: VariantProps<typeof segmentedItemVariants>['tone']
 }
 
 function ToolbarSegment({
   className,
   active = false,
-  tone = "solid",
+  tone = 'solid',
   type,
   ...props
 }: ToolbarSegmentProps) {
   return (
     <button
-      type={type ?? "button"}
+      type={type ?? 'button'}
       data-slot="toolbar-segment"
       role="tab"
       aria-selected={active}
+      data-active={active ? 'true' : undefined}
       className={cn(segmentedItemVariants({ active, tone }), className)}
       {...props}
     />
@@ -166,8 +154,7 @@ function ToolbarSegment({
    Champ de recherche pill (DESIGN.md search-bar-pill, version compacte
    30px de haut pour la toolbar — vs 64px pour la search bar hero). */
 
-interface ToolbarSearchProps
-  extends Omit<React.ComponentProps<"input">, "onChange"> {
+interface ToolbarSearchProps extends Omit<React.ComponentProps<'input'>, 'onChange'> {
   value: string
   onChange: (value: string) => void
   placeholder?: string
@@ -178,16 +165,16 @@ function ToolbarSearch({
   className,
   value,
   onChange,
-  placeholder = "Rechercher…",
-  icon = "search",
+  placeholder = 'Rechercher…',
+  icon = 'search',
   ...props
 }: ToolbarSearchProps) {
   return (
     <div
       data-slot="toolbar-search"
       className={cn(
-        "flex h-[30px] items-center gap-1.5 rounded-full border border-border bg-card px-3",
-        "transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25",
+        'flex h-[30px] items-center gap-1.5 rounded-full border border-border bg-card px-3',
+        'transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25',
         className
       )}
     >
@@ -209,7 +196,7 @@ function ToolbarSearch({
    Bouton Actualiser avec spinner intégré. DESIGN.md button-pill-rausch
    sobriété : outline card par défaut, passe à ink primary au hover. */
 
-interface ToolbarRefreshProps extends React.ComponentProps<"button"> {
+interface ToolbarRefreshProps extends React.ComponentProps<'button'> {
   loading?: boolean
   /** Label textuel. Par défaut vide (l'icône refresh est explicite).
    *  Passer une chaîne pour afficher un label à côté de l'icône. */
@@ -226,14 +213,14 @@ function ToolbarRefresh({
 }: ToolbarRefreshProps) {
   return (
     <button
-      type={type ?? "button"}
+      type={type ?? 'button'}
       disabled={disabled || loading}
       title="Recharger les données X3"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-border bg-card p-2",
-        "text-foreground transition-colors",
-        "hover:border-primary disabled:opacity-50",
-        label && "px-3 py-1 text-[11px] font-semibold",
+        'inline-flex items-center gap-1 rounded-full border border-border bg-card p-2',
+        'text-foreground transition-colors',
+        'hover:border-primary disabled:opacity-50',
+        label && 'px-3 py-1 text-[11px] font-semibold',
         className
       )}
       {...props}
@@ -241,10 +228,7 @@ function ToolbarRefresh({
       <RefreshCw
         size={14}
         strokeWidth={1.75}
-        className={cn(
-          "text-muted-foreground",
-          loading && "animate-spin"
-        )}
+        className={cn('text-muted-foreground', loading && 'animate-spin')}
         aria-hidden="true"
       />
       {label}
@@ -255,14 +239,11 @@ function ToolbarRefresh({
 /* ─── ToolbarSeparator ───────────────────────────────────────────────────
    Séparateur vertical entre groupes. */
 
-function ToolbarSeparator({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
+function ToolbarSeparator({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
       aria-hidden="true"
-      className={cn("mx-1 h-5 w-px self-center bg-border", className)}
+      className={cn('mx-1 h-5 w-px self-center bg-border', className)}
       {...props}
     />
   )
