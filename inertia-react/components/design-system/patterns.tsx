@@ -485,7 +485,7 @@ const MIGRATION: { nom: string; etat: 'cursor' | 'partiel' | 'airbnb'; reste: st
   { nom: 'Dialog', etat: 'airbnb', reste: 'rayon, ombre --color-theme-shadow-dialog' },
   { nom: 'AlertDialog', etat: 'airbnb', reste: 'suit Dialog' },
   { nom: 'Sheet', etat: 'airbnb', reste: 'rayon 14, ombre popup' },
-  { nom: 'Tooltip', etat: 'airbnb', reste: 'rayon 6, fond neutre, 11 px' },
+  { nom: 'Tooltip', etat: 'cursor', reste: '—' },
   { nom: 'Toolbar', etat: 'airbnb', reste: 'segments en rayon plein → 6 px' },
   { nom: 'Calendar', etat: 'airbnb', reste: 'densité des cellules' },
   { nom: 'Spinner', etat: 'airbnb', reste: 'ton brand → neutre' },

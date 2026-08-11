@@ -764,6 +764,16 @@
   background-color: color-mix(in oklab, #141414 8%, transparent);
 }
 
+/* ── Lot 3 — Tooltip ──────────────────────────────────────── */
+.theme-cursor [data-slot='tooltip-content'] {
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.07px;
+  box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12); /* --cursor-box-shadow-popup */
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

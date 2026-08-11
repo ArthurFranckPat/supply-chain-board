@@ -1079,7 +1079,7 @@ export function OverlaysSection() {
       <Fiche
         nom="Tooltip"
         from="@r/components/ui/tooltip"
-        etat="airbnb"
+        etat="cursor"
         note={
           <>
             Précise, jamais indispensable : ce qui est nécessaire à la compréhension doit être
