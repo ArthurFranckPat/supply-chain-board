@@ -9,7 +9,7 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
-import { Segment, SegmentButton, DateWindowPill } from '@r/components/vision/toolbar'
+import { Segment, DateWindowPill } from '@r/components/vision/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
   GRID_COLS,
@@ -49,6 +49,7 @@ import { Card, CardContent } from '@r/components/ui/card'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
 import { Separator } from '@r/components/ui/separator'
+import { ToolbarSegmented, ToolbarSegment } from '@r/components/ui/toolbar'
 import {
   InputGroup,
   InputGroupAddon,
@@ -1251,22 +1252,20 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </div>
                     {/* Toggle mode */}
-                    <Segment role="radiogroup" ariaLabel="Mode d'OTD">
-                      <SegmentButton
-                        role="radio"
+                    <ToolbarSegmented>
+                      <ToolbarSegment
                         active={otdMode === 'demandee'}
                         onClick={() => setOtdMode('demandee')}
                       >
                         Demandée
-                      </SegmentButton>
-                      <SegmentButton
-                        role="radio"
+                      </ToolbarSegment>
+                      <ToolbarSegment
                         active={otdMode === 'acceptee'}
                         onClick={() => setOtdMode('acceptee')}
                       >
                         Acceptée
-                      </SegmentButton>
-                    </Segment>
+                      </ToolbarSegment>
+                    </ToolbarSegmented>
                   </div>
 
                   {otdData.loading ? (
@@ -1448,22 +1447,20 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </div>
                     {/* Toggle maille */}
-                    <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
-                      <SegmentButton
-                        role="radio"
+                    <ToolbarSegmented>
+                      <ToolbarSegment
                         active={stockGrain === 'mois'}
                         onClick={() => setStockGrain('mois')}
                       >
                         Mois
-                      </SegmentButton>
-                      <SegmentButton
-                        role="radio"
+                      </ToolbarSegment>
+                      <ToolbarSegment
                         active={stockGrain === 'semaine'}
                         onClick={() => setStockGrain('semaine')}
                       >
                         Sem.
-                      </SegmentButton>
-                    </Segment>
+                      </ToolbarSegment>
+                    </ToolbarSegmented>
                   </div>
 
                   {stockData.loading ? (
