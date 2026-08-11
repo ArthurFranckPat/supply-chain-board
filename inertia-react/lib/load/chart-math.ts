@@ -140,8 +140,6 @@ export const segsOf = (d: LoadPeriod): [keyof LoadPeriod, number, string][] => [
   ['fi', d.fi, HATCH_FERME],
 ]
 
-import type { SegmentCharge } from '@r/components/ui/chart'
-
 /** Segments TanStack d'une clé de charge, selon la vue (OF : statut ; Commande : nature). */
 export function segmentDeCle(k: keyof LoadPeriod, view: LoadView): SegmentCharge {
   switch (k) {

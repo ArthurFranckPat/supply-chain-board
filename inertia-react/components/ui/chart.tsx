@@ -678,22 +678,27 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
             return `${fmtPeriodeLongue(String(d.label))} · ${format(Number(d.valeur))}`
           return ''
         },
-        formatGroup:
-          formatTooltip ??
-          ((points: readonly { datum: LigneCharge }[]) => {
-            const premier = points[0]?.datum
-            if (!premier) return ''
-            const total = points.reduce((somme, p) => somme + p.datum.valeur, 0)
-            const lignes = points.map((p) => `${p.datum.serieLabel} ${format(p.datum.valeur)}`)
-            const plafond =
-              premier.capacite !== null ? ` · capacité ${format(premier.capacite)}` : ''
-            const sat =
-              premier.capacite !== null && premier.capacite > 0
-                ? ` · saturation ${fmtPourcent(Math.round((total / premier.capacite) * 100))}`
-                : ''
-            const clic = onSelectPeriode ? '\nClic : détail de la période' : ''
-            return `${fmtPeriodeLongue(premier.label)} — ${format(total)}${plafond}${sat}\n${lignes.join(' · ')}${clic}`
-          }),
+        formatGroup: (points: readonly { datum: unknown }[]) => {
+          if (formatTooltip) return formatTooltip(points as readonly { datum: LigneCharge }[])
+          const premier = points[0]?.datum as LigneCharge | undefined
+          if (!premier) return ''
+          const total = points.reduce(
+            (somme, p) => somme + ((p.datum as LigneCharge).valeur ?? 0),
+            0
+          )
+          const lignes = points.map(
+            (p) =>
+              `${(p.datum as LigneCharge).serieLabel} ${format((p.datum as LigneCharge).valeur)}`
+          )
+          const plafond =
+            premier.capacite !== null ? ` · capacité ${format(premier.capacite)}` : ''
+          const sat =
+            premier.capacite !== null && premier.capacite > 0
+              ? ` · saturation ${fmtPourcent(Math.round((total / premier.capacite) * 100))}`
+              : ''
+          const clic = onSelectPeriode ? '\nClic : détail de la période' : ''
+          return `${fmtPeriodeLongue(premier.label)} — ${format(total)}${plafond}${sat}\n${lignes.join(' · ')}${clic}`
+        },
       },
     })
   }, [
