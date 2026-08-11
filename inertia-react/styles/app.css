@@ -774,6 +774,71 @@
   box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12); /* --cursor-box-shadow-popup */
 }
 
+/* ── Lot 4 — overlays ─────────────────────────────────────── */
+.theme-cursor [data-slot='dialog-content'],
+.theme-cursor [data-slot='alert-dialog-content'] {
+  border-radius: 12px;
+  padding: 16px;
+  gap: 12px;
+  background-color: #fcfcfc;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, #141414 8%, transparent),
+    0 0 2px 0 #0000000f,
+    0 6px 16px 0 #0000000f; /* --color-theme-shadow-dialog */
+}
+.theme-cursor [data-slot='dialog-overlay'],
+.theme-cursor [data-slot='alert-dialog-overlay'],
+.theme-cursor [data-slot='sheet-overlay'] {
+  background-color: #0006; /* --bg-scrim */
+}
+.theme-cursor [data-slot='dialog-title'],
+.theme-cursor [data-slot='alert-dialog-title'] {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.15px;
+  color: #141414;
+}
+.theme-cursor [data-slot='dialog-description'],
+.theme-cursor [data-slot='alert-dialog-description'],
+.theme-cursor [data-slot='sheet-description'] {
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  color: color-mix(in oklab, #141414 74%, transparent);
+}
+.theme-cursor [data-slot='dialog-footer'],
+.theme-cursor [data-slot='alert-dialog-footer'] {
+  background-color: transparent;
+  border-top-color: color-mix(in oklab, #141414 4%, transparent);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.theme-cursor [data-slot='sheet-content'] {
+  background-color: #fcfcfc;
+  border-color: color-mix(in oklab, #141414 8%, transparent);
+  box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
+}
+.theme-cursor [data-slot='sheet-content'][data-side='right'],
+.theme-cursor [data-slot='sheet-content'][data-side='left'] {
+  border-radius: 0;
+}
+.theme-cursor [data-slot='sheet-content'][data-side='bottom'] {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+.theme-cursor [data-slot='sheet-content'][data-side='top'] {
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+.theme-cursor [data-slot='sheet-title'] {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.15px;
+  color: #141414;
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

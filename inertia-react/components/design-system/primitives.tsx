@@ -988,7 +988,7 @@ export function OverlaysSection() {
       <Fiche
         nom="Dialog"
         from="@r/components/ui/dialog"
-        etat="airbnb"
+        etat="cursor"
         note="Modale courte, largeur 440 px. Un titre, une description, deux actions au plus."
       >
         <Demo label="Dialog">
@@ -1013,7 +1013,7 @@ export function OverlaysSection() {
       <Fiche
         nom="AlertDialog"
         from="@r/components/ui/alert-dialog"
-        etat="airbnb"
+        etat="cursor"
         note="Réservé à l'irréversible. Le bouton de confirmation nomme l'action — jamais « OK »."
       >
         <Demo label="AlertDialog">
@@ -1039,7 +1039,7 @@ export function OverlaysSection() {
       <Fiche
         nom="Sheet"
         from="@r/components/ui/sheet"
-        etat="airbnb"
+        etat="cursor"
         note="Panneau latéral pour le détail d'un objet — fiche article, engagement d'un poste. Quatre côtés d'ancrage."
       >
         <Demo label="Sheet" spec="side = right | left | top | bottom">
