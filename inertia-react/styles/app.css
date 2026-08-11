@@ -1147,12 +1147,34 @@
   background-color: #fcfcfc;
   padding: 1px;
 }
+/* Chips libres (panneau de filtres) : pas de boîte, chaque chip porte son état. */
+.theme-cursor [data-slot='toolbar-segmented'][data-flat='true'] {
+  border-color: transparent;
+  background-color: transparent;
+  padding: 0;
+  gap: 4px;
+}
+.theme-cursor [data-slot='toolbar-segmented'][data-flat='true'] [data-slot='toolbar-segment'] {
+  height: 22px;
+  padding-inline: 8px;
+}
+.theme-cursor
+  [data-slot='toolbar-segmented'][data-flat='true']
+  [data-slot='toolbar-segment']:not([data-active='true']):hover {
+  background-color: color-mix(in oklab, #141414 6%, transparent);
+}
+/* La recette d'origine est un micro-label Airbnb : mono, 10 px, capitales,
+   tracking large. Sous cursor, ces trois-là restaient et le contrôle le plus
+   visible de la page criait en capitales monospace au milieu d'une rangée en
+   13 px sans. Ce sont des libellés, pas des étiquettes techniques. */
 .theme-cursor [data-slot='toolbar-segment'] {
   height: 20px;
   border-radius: 4px;
   padding-inline: 10px;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
+  text-transform: none;
   letter-spacing: -0.08px;
 }
 .theme-cursor [data-slot='toolbar-segment'][data-active='true'] {

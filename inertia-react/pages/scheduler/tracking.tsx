@@ -461,8 +461,8 @@ export default function Tracking(props: SuiviPageProps) {
     count !== undefined && count > 0 ? (
       <span
         className={cn(
-          'rounded-full px-1.5 py-px text-[8px] font-bold leading-none tabular-nums',
-          on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'
+          'ml-1 text-2xs font-medium leading-none tabular-nums',
+          on ? 'text-foreground' : 'text-muted-foreground'
         )}
       >
         {count}
@@ -756,7 +756,7 @@ export default function Tracking(props: SuiviPageProps) {
                     {mode === 'reactif' && (
                       <>
                         <div className={SECTION_LABEL}>Statut</div>
-                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
                           {statusChip('all', 'Tous', view.total)}
                           {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
                           {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
@@ -768,7 +768,7 @@ export default function Tracking(props: SuiviPageProps) {
                     {mode === 'proactif' && (
                       <>
                         <div className={SECTION_LABEL}>Verdict</div>
-                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
                           {verdictChip('all', 'Tous', proView.total)}
                           {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
                           {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
@@ -777,7 +777,7 @@ export default function Tracking(props: SuiviPageProps) {
                         </ToolbarSegmented>
                         <Separator className="my-2" />
                         <div className={SECTION_LABEL}>Composants en rupture</div>
-                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
                           <ToolbarSegment
                             active={showSubAssemblies}
                             onClick={() => setShowSubAssemblies((v) => !v)}
@@ -797,7 +797,7 @@ export default function Tracking(props: SuiviPageProps) {
                       </>
                     )}
                     <div className={SECTION_LABEL}>Type</div>
-                    <ToolbarSegmented semantics="toggles" className="w-full justify-between">
+                    <ToolbarSegmented semantics="toggles" flat className="w-full">
                       {DEFAULT_TYPES.map((t) => (
                         <ToolbarSegment
                           key={t}
@@ -828,7 +828,7 @@ export default function Tracking(props: SuiviPageProps) {
                             </Button>
                           )}
                         </div>
-                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
                           {ateliers.map((a) => (
                             <ToolbarSegment
                               key={a.code}

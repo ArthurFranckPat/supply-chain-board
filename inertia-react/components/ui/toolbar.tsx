@@ -122,21 +122,32 @@ const SegmentedSemanticsContext = React.createContext<SegmentedSemantics>('tabs'
 interface ToolbarSegmentedProps extends React.ComponentProps<'div'> {
   tone?: VariantProps<typeof segmentedItemVariants>['tone']
   semantics?: SegmentedSemantics
+  /**
+   * Sans boîte : jeu de chips libres au lieu d'un segmented control.
+   * Un segmented control qui passe à la ligne est une contradiction — le cadre
+   * promet une rangée de choix adjacents. Dès que les chips s'enroulent (types,
+   * ateliers, verdicts d'un panneau de filtres), le cadre doit tomber et chaque
+   * chip se signaler seule par son remplissage.
+   */
+  flat?: boolean
 }
 
 function ToolbarSegmented({
   className,
   tone = 'solid',
   semantics = 'tabs',
+  flat = false,
   ...props
 }: ToolbarSegmentedProps) {
   return (
     <SegmentedSemanticsContext.Provider value={semantics}>
       <div
         data-slot="toolbar-segmented"
+        data-flat={flat ? 'true' : undefined}
         role={semantics === 'tabs' ? 'tablist' : 'group'}
         className={cn(
           'inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5',
+          flat && 'gap-1 border-transparent bg-transparent p-0',
           className
         )}
         {...props}
