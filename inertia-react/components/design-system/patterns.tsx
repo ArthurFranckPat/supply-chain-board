@@ -470,7 +470,7 @@ const MIGRATION: { nom: string; etat: 'cursor' | 'partiel' | 'airbnb'; reste: st
   { nom: 'Card', etat: 'cursor', reste: '—' },
   { nom: 'DataTable', etat: 'cursor', reste: '—' },
   { nom: 'Sidebar', etat: 'cursor', reste: 'items non actifs encore en rayon 8' },
-  { nom: 'Button', etat: 'partiel', reste: 'hauteurs 48/40/32/56 → 28/24/20/32, paddings' },
+  { nom: 'Button', etat: 'cursor', reste: '—' },
   { nom: 'Select', etat: 'cursor', reste: '—' },
   { nom: 'Badge', etat: 'cursor', reste: '—' },
   { nom: 'Pill', etat: 'cursor', reste: '—' },

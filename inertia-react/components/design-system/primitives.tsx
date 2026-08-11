@@ -142,10 +142,10 @@ import { Caption, Demo, Fiche, Grid, Panel, Rule, Section, SpecTable, Sub, Tok }
 /* ── 10 Boutons ─────────────────────────────────────────────── */
 
 const BUTTON_SIZES = [
-  { size: 'xs' as const, h: 32, cible: 20 },
-  { size: 'sm' as const, h: 40, cible: 24 },
-  { size: 'default' as const, h: 48, cible: 28 },
-  { size: 'lg' as const, h: 56, cible: 32 },
+  { size: 'xs' as const, h: 20, cible: 20 },
+  { size: 'sm' as const, h: 24, cible: 24 },
+  { size: 'default' as const, h: 28, cible: 28 },
+  { size: 'lg' as const, h: 32, cible: 32 },
 ]
 
 export function BoutonsSection() {
@@ -157,21 +157,21 @@ export function BoutonsSection() {
       intro={
         <>
           Une action par écran mérite le bouton plein ; tout le reste est secondaire, fantôme ou
-          textuel. Le skin Cursor a déjà repris le rayon (6 px) et la graisse (500) — pas encore les
-          hauteurs, qui restent en densité Airbnb.
+          textuel. Le skin Cursor a repris le rayon (6 px), la graisse (500) et les hauteurs
+          (20/24/28/32 px).
         </>
       }
     >
       <Fiche
         nom="Button"
         from="@r/components/ui/button"
-        etat="partiel"
+        etat="cursor"
         note={
           <>
             Six variantes, huit tailles. Sous <Tok>.theme-cursor</Tok>, le sélecteur{' '}
-            <Tok>[data-slot=&apos;button&apos;]</Tok> force <Tok>border-radius: 6px</Tok> et{' '}
-            <Tok>font-weight: 500</Tok> ; les hauteurs et les paddings restent ceux de la grammaire
-            d’origine.
+            <Tok>[data-slot=&apos;button&apos;]</Tok> force <Tok>border-radius: 6px</Tok>,{' '}
+            <Tok>font-weight: 500</Tok>, les hauteurs (20/24/28/32 px), les paddings, les icônes 14
+            px et les tons des variantes.
           </>
         }
       >
@@ -197,7 +197,7 @@ export function BoutonsSection() {
             <Button variant="link">Voir le détail</Button>
           </Demo>
 
-          <Demo label="Tailles" spec="xs 32 · sm 40 · default 48 · lg 56 (px)">
+          <Demo label="Tailles" spec="xs 20 · sm 24 · default 28 · lg 32 (px)">
             <Button size="xs">XS</Button>
             <Button size="sm">SM</Button>
             <Button>Default</Button>
