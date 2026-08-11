@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { CalendarClock, CircleX, Package, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { CourbeProjection, type PointProjection } from '@r/components/ui/chart'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { X3Link } from '@r/components/x3-link'
 
@@ -100,11 +101,6 @@ const COL_STOCK = 'var(--color-foreground)'
 const COL_ENTREE = '#00a699'
 const COL_SORTIE = '#ff385c'
 
-/** Plancher de hauteur des barres de flux, en px : un flux non nul reste
- *  visible même quand il pèse une fraction de pourcent du maximum de sa
- *  moitié. */
-const MIN_BAR = 1.75
-
 const fmtQty = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 const fmtQtyDec = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 const fmtEuro = new Intl.NumberFormat('fr-FR', {
@@ -134,21 +130,6 @@ const fmtAxis = (v: number, unit: Unit): string =>
 
 const fmtVal = (v: number, unit: Unit): string =>
   unit === 'valeur' ? fmtEuro.format(v) : fmtQtyDec.format(v)
-
-/**
- * Borne d'axe « ronde » immédiatement au-dessus de `v` : 1, 2, 2,5 ou 5 × 10^k.
- * Sans ça, un maximum de 25 800 donnait une graduation à 27 865 et une médiane
- * à 13 933 — des nombres qu'on ne lit pas.
- */
-const niceCeil = (v: number): number => {
-  if (!Number.isFinite(v) || v <= 0) return 1
-  const exp = Math.floor(Math.log10(v))
-  const pow = Math.pow(10, exp)
-  const mant = v / pow
-  const step = mant <= 1 ? 1 : mant <= 2 ? 2 : mant <= 2.5 ? 2.5 : mant <= 5 ? 5 : 10
-  return step * pow
-}
-
 /** Ratio (0.123) → « 12,3 % ». */
 const fmtPct = (v: number): string =>
   `${(Math.round(v * 1000) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '')} %`
@@ -157,120 +138,31 @@ const fmtPct = (v: number): string =>
  *  chaque mention de semaine (axe, tooltip, plage affichée). */
 const weekYear = (periode: string) => periode.slice(0, 4)
 const weekNo = (periode: string) => periode.slice(-2)
-const fmtWeekAxis = (p: { periode: string }) => `S${weekNo(p.periode)} ${weekYear(p.periode)}`
-const fmtWeekFull = (p: { periode: string }) =>
-  `Semaine ${weekNo(p.periode)} · ${weekYear(p.periode)}`
-
-/** Ligne du tooltip : pastille (trait pour la courbe, carré pour les barres),
- *  label mono uppercase, valeur tabular alignée à droite. */
-function TooltipRow({
-  swatch = 'square',
-  color,
-  label,
-  value,
-  strong,
-}: {
-  swatch?: 'square' | 'line'
-  color: string
-  label: string
-  value: string
-  strong?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={cn(
-          'shrink-0',
-          swatch === 'line' ? 'h-[2px] w-3 rounded-full' : 'size-2 rounded-[2px]'
-        )}
-        style={{ background: color }}
-      />
-      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </span>
-      <span
-        className={cn(
-          'ml-auto pl-4 font-mono text-[11px] tabular-nums',
-          strong ? 'font-bold text-foreground' : 'text-secondary-foreground'
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  )
-}
+const fmtWeek = (cle: string) => `S${weekNo(cle)} ${weekYear(cle)}`
 
 /** Valeurs lues par le graphe selon l'unité active. */
 const lineValOf = (p: StockHistoryPoint, unit: Unit) => (unit === 'qte' ? p.qte : p.valeur)
 const inValOf = (p: StockHistoryPoint, unit: Unit) => (unit === 'qte' ? p.entreeQte : p.entreeVal)
 const outValOf = (p: StockHistoryPoint, unit: Unit) => (unit === 'qte' ? p.sortieQte : p.sortieVal)
 
-const REDUCED_MOTION =
-  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-/**
- * Interpole les valeurs TRACÉES (fractions 0-1 de leur échelle) vers leur
- * cible — easeOutCubic ~450 ms, requestAnimationFrame.
- *
- * Les échelles restent calculées sur les valeurs cibles (axes stables) ; seule
- * la géométrie s'anime. Deux effets : à l'arrivée, courbe et barres montent
- * depuis leur ligne de base ; au changement d'article, l'ancienne forme MORPHE
- * vers la nouvelle au lieu de disparaître. Saut direct si
- * prefers-reduced-motion.
- */
-function useAnimatedFracs(target: number[][]): number[][] {
-  const [display, setDisplay] = useState<number[][]>(() =>
-    REDUCED_MOTION ? target : target.map((t) => t.map(() => 0))
-  )
-  const displayRef = useRef(display)
-  displayRef.current = display
-
-  useEffect(() => {
-    if (REDUCED_MOTION) {
-      setDisplay(target)
-      return
-    }
-    const from = displayRef.current
-    // Longueurs différentes (cas théorique) : on repart de la ligne de base.
-    const start = from.length === target.length ? from : target.map((t) => t.map(() => 0))
-    const t0 = performance.now()
-    let raf = 0
-    const tick = (now: number) => {
-      const k = Math.min(1, (now - t0) / 450)
-      const e = 1 - Math.pow(1 - k, 3)
-      setDisplay(
-        target.map((tv, i) =>
-          tv.map((v, j) => (start[i]?.[j] ?? 0) + (v - (start[i]?.[j] ?? 0)) * e)
-        )
-      )
-      if (k < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target])
-
-  return display
-}
-
 /** Point tracé — historique (stock réel + flux passés) ou futur (stock
- *  projeté + besoins/ressources). Même géométrie pour les deux moitiés :
- *  `line` = niveau de stock, `inn` = barre au-dessus de l'axe, `out` = barre
- *  en dessous. */
-interface ChartPoint {
-  periode: string
-  kind: 'hist' | 'fut'
-  line: number
-  inn: number
-  out: number
+ *  projeté + besoins/ressources). La courbe porte le niveau, le flux le
+ *  mouvement ; les valeurs réelles vivent dans les datums, l'affichage
+ *  normalise les flux par moitié (cf. CourbeProjection). */
+interface PointFilStock extends PointProjection {
+  entree: number
+  sortie: number
 }
 
 /** Graphe stock + flux sur 105 semaines : 53 semaines d'historique (courbe
  *  pleine + entrées/sorties) puis 52 semaines de projection (courbe pointillée
- *  + ressources attendues/besoins), séparées par la ligne « auj. ». SVG inline
- *  responsive (ResizeObserver), légende dessinée dans le graphe. Le guide de
- *  survol et le point de lecture glissent en transition CSS ; le tooltip
- *  (HTML) suit l'unité active, les valeurs animées, et adapte ses libellés à
- *  la moitié survolée. */
+ *  + ressources attendues/besoins), séparées par la ligne « auj. ». Tout passe
+ *  par CourbeProjection (@tanstack/charts) — courbe, miroir des flux, rupture
+ *  et charnière. Légende en HTML au-dessus du graphe.
+ *
+ *  Ce qui a été perdu en route : l'animation de montée/morphing et l'aire en
+ *  dégradé sous la courbe historique. Les valeurs, elles, sont toutes là — au
+ *  survol et dans les totaux du verdict. */
 function HistoryChart({
   series,
   future,
@@ -284,566 +176,115 @@ function HistoryChart({
    *  pour relier les deux lectures. */
   rupturePeriode?: string | null
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const [dim, setDim] = useState({ w: 900, h: 300 })
-  // Semaine survolée (index dans `points`) — null = aucun. Remis à zéro quand
-  // les données changent (autre article) pour éviter un index hors bornes.
-  const [hover, setHover] = useState<number | null>(null)
-  // Dernier index survolé : le tooltip reste positionné pendant son fondu.
-  const lastHoverRef = useRef(0)
-  if (hover !== null) lastHoverRef.current = hover
-
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0) setDim({ w: Math.round(r.width), h: Math.round(r.height) })
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+  const hasFuture = future.length > 0
+  const histLen = series.length
 
   // ----- Points combinés (historique + projection) -----
-  const points = useMemo<ChartPoint[]>(() => {
-    const hist: ChartPoint[] = series.map((p) => ({
-      periode: p.periode,
-      kind: 'hist',
-      line: lineValOf(p, unit),
-      inn: inValOf(p, unit),
-      out: outValOf(p, unit),
+  const points = useMemo<PointFilStock[]>(() => {
+    const hist: PointFilStock[] = series.map((p) => ({
+      cle: p.periode,
+      label: fmtWeek(p.periode),
+      valeur: lineValOf(p, unit),
+      projete: false,
+      entree: inValOf(p, unit),
+      sortie: outValOf(p, unit),
     }))
-    const fut: ChartPoint[] = future.map((p) => ({
-      periode: p.periode,
-      kind: 'fut',
-      line: unit === 'qte' ? p.stockQte : p.stockVal,
-      inn: unit === 'qte' ? p.ressourceQte : p.ressourceVal,
-      out: unit === 'qte' ? p.besoinQte : p.besoinVal,
+    const fut: PointFilStock[] = future.map((p) => ({
+      cle: p.periode,
+      label: fmtWeek(p.periode),
+      valeur: unit === 'qte' ? p.stockQte : p.stockVal,
+      projete: true,
+      entree: unit === 'qte' ? p.ressourceQte : p.ressourceVal,
+      sortie: unit === 'qte' ? p.besoinQte : p.besoinVal,
     }))
     return [...hist, ...fut]
   }, [series, future, unit])
 
-  const histLen = series.length
-  useEffect(() => setHover(null), [points])
-
-  // ----- Échelles stables (valeurs cibles) + géométrie animée (fractions) -----
-  const targets = useMemo(() => points.map((p) => [p.line, p.inn, p.out]), [points])
-  // Borne ronde plutôt que « max × 1,08 » : elle sert de graduation lisible et
-  // fournit la même marge haute.
-  const lineMax = useMemo(() => niceCeil(Math.max(1, ...targets.map((t) => t[0]))), [targets])
-  // Deux échelles de flux, une par moitié. Le journal de stock (mouvements
-  // hebdomadaires réels : réceptions, sorties de production) et le carnet à
-  // venir (demande client, besoin matière, réceptions attendues) sont deux
-  // populations d'ordres de grandeur très différents — typiquement 30 000
-  // pièces brassées par semaine côté passé face à 200 pièces de besoin
-  // composant côté futur. Avec une échelle unique, la projection tombe sous le
-  // pixel et se lit « besoins à 0 » alors que la donnée existe.
-  const flowMaxHist = useMemo(
-    () => Math.max(1, ...targets.slice(0, histLen).map((t) => Math.max(t[1], t[2]))),
-    [targets, histLen]
-  )
-  const flowMaxFut = useMemo(
-    () => Math.max(1, ...targets.slice(histLen).map((t) => Math.max(t[1], t[2]))),
-    [targets, histLen]
-  )
-  const targetFracs = useMemo(
-    () =>
-      targets.map((t, i) => {
-        const fm = i < histLen ? flowMaxHist : flowMaxFut
-        return [t[0] / lineMax, t[1] / fm, t[2] / fm]
-      }),
-    [targets, lineMax, flowMaxHist, flowMaxFut, histLen]
-  )
-  const fracs = useAnimatedFracs(targetFracs)
-
-  const geom = useMemo(() => {
-    const W = dim.w
-    const H = dim.h
-    const padL = 46
-    const padR = 14
-    const padT = 30 // bande haute réservée à la légende
-    const padB = 22
-    const innerW = Math.max(10, W - padL - padR)
-    const innerH = Math.max(10, H - padT - padB)
-
-    const n = points.length || 1
-    const slot = innerW / n
-    const x = (i: number) => padL + (i + 0.5) * slot
-
-    // Courbe : 62 % du haut ; flux : axe miroir à 80 %, amplitude ±17 %.
-    const lineBase = padT + innerH * 0.62
-    const flowAxis = padT + innerH * 0.8
-    const flowAmp = innerH * 0.17
-
-    // La géométrie lit les FRACTIONS animées (0-1), pas les valeurs brutes :
-    // c'est ce qui donne la montée à l'arrivée et le morphing entre articles.
-    const yLine = (frac: number) => lineBase - frac * (lineBase - padT)
-
-    // Courbe historique (pleine) + aire, puis projection (pointillée) qui
-    // démarre du dernier point réel pour la continuité visuelle.
-    let histPath = ''
-    let histArea = ''
-    let futPath = ''
-    if (fracs.length > 0 && histLen > 0) {
-      const hpts = fracs.slice(0, histLen).map((f, i) => `${x(i)},${yLine(f[0] ?? 0)}`)
-      histPath = `M ${hpts.join(' L ')}`
-      histArea = `${histPath} L ${x(histLen - 1)},${lineBase} L ${x(0)},${lineBase} Z`
-      const fpts = fracs
-        .slice(histLen - 1)
-        .map((f, j) => `${x(histLen - 1 + j)},${yLine(f[0] ?? 0)}`)
-      if (fpts.length > 1) futPath = `M ${fpts.join(' L ')}`
-    }
-
-    const barW = Math.max(1.5, slot * 0.58)
-    const tickStep = Math.max(1, Math.ceil(n / 7))
-    // Charnière passé/futur : bord gauche du premier seau futur.
-    const nowX = padL + histLen * slot
-
-    return {
-      W,
-      H,
-      padL,
-      padR,
-      padT,
-      padB,
-      innerH,
-      slot,
-      x,
-      lineBase,
-      flowAxis,
-      flowAmp,
-      yLine,
-      histPath,
-      histArea,
-      futPath,
-      barW,
-      tickStep,
-      nowX,
-    }
-  }, [dim, fracs, points.length, histLen])
+  const flux = useMemo(() => {
+    const m = new Map<string, { entree: number; sortie: number }>()
+    for (const p of points) m.set(p.cle, { entree: p.entree, sortie: p.sortie })
+    return (cle: string) => m.get(cle) ?? null
+  }, [points])
 
   const lastIdx = points.length - 1
 
-  // Index lu par le tooltip : le dernier survolé tant que la souris est partie
-  // (le fondu de sortie reste positionné au bon endroit).
-  const hi = hover ?? lastHoverRef.current
-  const hPoint = points[hi]
-  const hFrac = fracs[hi] ?? [0, 0, 0]
+  // Charnière passé/futur : la ligne « auj. » tombe sur le dernier point réel.
+  const charniere = hasFuture && histLen > 0 ? series[histLen - 1].periode : null
 
-  // Position du tooltip : ancré à la semaine lue, retourné près des bords pour
-  // rester dans le panneau. Le viewBox du SVG vaut les pixels mesurés du
-  // conteneur (rapport 1:1) — les coordonnées SVG sont des CSS pixels.
-  const tooltipStyle = hPoint
-    ? (() => {
-        const x = geom.x(hi)
-        const nearRight = x > geom.W - 120
-        const nearLeft = x < 120
-        return {
-          left: nearRight ? x - 10 : nearLeft ? x + 10 : x,
-          transform: nearRight ? 'translateX(-100%)' : nearLeft ? undefined : 'translateX(-50%)',
-        }
-      })()
-    : undefined
-
-  // Valeurs affichées dans le tooltip = fractions animées × échelles : les
-  // chiffres « montent » avec la courbe à l'arrivée.
-  const hFlowMax = hi < histLen ? flowMaxHist : flowMaxFut
-  const hLineVal = hFrac[0] * lineMax
-  const hInVal = hFrac[1] * hFlowMax
-  const hOutVal = hFrac[2] * hFlowMax
-
-  // Point « maintenant » (dernier point réel) — ancre du pulse et de la
-  // charnière passé/futur.
-  const nowFrac = fracs[histLen - 1] ?? [0, 0, 0]
-  const hasFuture = future.length > 0
-
-  // Index du seau de rupture dans `points` — cherché côté futur uniquement,
-  // les clés de semaine ISO pouvant se répéter entre passé et projection.
-  const ruptureIdx = useMemo(() => {
-    if (!rupturePeriode) return null
-    const i = points.findIndex((p) => p.kind === 'fut' && p.periode === rupturePeriode)
-    return i >= 0 ? i : null
-  }, [points, rupturePeriode])
+  // La rupture est cherchée côté projection uniquement : les clés de semaine
+  // ISO peuvent se répéter entre passé et prévision.
+  const ruptureCle =
+    rupturePeriode !== null &&
+    rupturePeriode !== undefined &&
+    future.some((p) => p.periode === rupturePeriode)
+      ? rupturePeriode
+      : null
+  const ruptureIdx = ruptureCle ? points.findIndex((p) => p.cle === ruptureCle) : -1
 
   return (
-    <div ref={wrapRef} className="relative h-full w-full">
-      <svg
-        viewBox={`0 0 ${geom.W} ${geom.H}`}
-        className="block h-full w-full"
-        onMouseLeave={() => setHover(null)}
-      >
-        {/* Légende — dans le graphe, attachée à ce qu'elle décrit (convention
-            DetailChart). Décalages mono 9.5px (~5,7 px/caractère). Avec la
-            projection : 4 items (stock réel/projeté, ressources, besoins). */}
-        <g fontFamily="var(--font-mono)" fontSize={9.5} fontWeight={600}>
-          <line
-            x1={geom.padL}
-            y1={14}
-            x2={geom.padL + 14}
-            y2={14}
-            stroke={COL_STOCK}
-            strokeWidth={1.5}
+    <div className="relative h-full w-full">
+      {/* Légende au-dessus du graphe, attachée à ce qu'elle décrit — en HTML,
+          sélectionnable et imprimable (règle design-system § 22). */}
+      <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[9.5px] font-semibold text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block h-[2px] w-3.5 rounded-full"
+            style={{ background: COL_STOCK }}
           />
-          <text x={geom.padL + 20} y={17} fill="var(--color-muted-foreground)">
-            {hasFuture ? 'Stock' : 'Stock fin de semaine'}
-          </text>
-          {hasFuture ? (
-            <>
-              <line
-                x1={geom.padL + 62}
-                y1={14}
-                x2={geom.padL + 76}
-                y2={14}
-                stroke={COL_STOCK}
-                strokeWidth={1.5}
-                strokeDasharray="3 2"
-              />
-              <text x={geom.padL + 82} y={17} fill="var(--color-muted-foreground)">
-                Projeté
-              </text>
-              <rect x={geom.padL + 132} y={10} width={8} height={8} rx={1} fill={COL_ENTREE} />
-              <text x={geom.padL + 144} y={17} fill="var(--color-muted-foreground)">
-                Entrées &amp; ressources
-              </text>
-              <rect x={geom.padL + 266} y={10} width={8} height={8} rx={1} fill={COL_SORTIE} />
-              <text x={geom.padL + 278} y={17} fill="var(--color-muted-foreground)">
-                Sorties &amp; besoins
-              </text>
-            </>
-          ) : (
-            <>
-              <rect x={geom.padL + 144} y={10} width={8} height={8} rx={1} fill={COL_ENTREE} />
-              <text x={geom.padL + 156} y={17} fill="var(--color-muted-foreground)">
-                Entrées
-              </text>
-              <rect x={geom.padL + 206} y={10} width={8} height={8} rx={1} fill={COL_SORTIE} />
-              <text x={geom.padL + 218} y={17} fill="var(--color-muted-foreground)">
-                Sorties
-              </text>
-            </>
-          )}
-          {/* Plage couverte (historique + projection), à droite */}
-          {points.length > 0 && (
-            <text
-              x={geom.W - geom.padR}
-              y={17}
-              textAnchor="end"
-              fill="var(--color-muted-foreground)"
-              opacity={0.75}
-            >
-              {fmtWeekAxis(points[0])} → {fmtWeekAxis(points[lastIdx])}
-              {hasFuture && ' · flux : une échelle par moitié'}
-            </text>
-          )}
-        </g>
-
-        {/* Grille + axe gauche (échelle du stock) */}
-        <g fontFamily="var(--font-mono)" fontSize={9} fontWeight={600}>
-          {[0, 0.5, 1].map((t) => {
-            const y = geom.yLine(t)
-            return (
-              <g key={t}>
-                <line
-                  x1={geom.padL}
-                  y1={y}
-                  x2={geom.W - geom.padR}
-                  y2={y}
-                  stroke="var(--color-rule-soft)"
-                  strokeWidth={1}
-                  strokeDasharray={t === 0 ? undefined : '2 3'}
-                />
-                <text
-                  x={geom.padL - 6}
-                  y={y + 3}
-                  textAnchor="end"
-                  fill="var(--color-muted-foreground)"
-                >
-                  {fmtAxis(lineMax * t, unit)}
-                </text>
-              </g>
-            )
-          })}
-        </g>
-
-        {/* Axe miroir des flux */}
-        <line
-          x1={geom.padL}
-          y1={geom.flowAxis}
-          x2={geom.W - geom.padR}
-          y2={geom.flowAxis}
-          stroke="var(--color-rule-soft)"
-          strokeWidth={1}
-        />
-
-        {/* Barres de flux (miroir : entrées/ressources au-dessus de l'axe,
-            sorties/besoins en dessous). Hauteurs lues sur les fractions
-            animées — elles poussent depuis l'axe à l'arrivée. */}
-        {points.map((p, i) => {
-          const f = fracs[i] ?? [0, 0, 0]
-          // Présence décidée sur la valeur CIBLE, hauteur lue sur la valeur
-          // animée : un flux non nul garde un plancher visible (MIN_BAR) au
-          // lieu de disparaître sous l'antialiasing quand il est petit face au
-          // maximum de sa moitié. Une barre absente signifie donc « zéro », pas
-          // « trop petit pour être tracé ».
-          const t = targetFracs[i] ?? [0, 0, 0]
-          const hIn = t[1] > 0 ? Math.max(MIN_BAR, (f[1] ?? 0) * geom.flowAmp) : 0
-          const hOut = t[2] > 0 ? Math.max(MIN_BAR, (f[2] ?? 0) * geom.flowAmp) : 0
-          const bx = geom.x(i) - geom.barW / 2
-          const op = hover === null || hover === i ? 0.85 : 0.4
-          return (
-            <g key={p.periode}>
-              {hIn > 0 && (
-                <rect
-                  x={bx}
-                  y={geom.flowAxis - hIn}
-                  width={geom.barW}
-                  height={hIn}
-                  rx={1}
-                  fill={COL_ENTREE}
-                  opacity={op}
-                  style={{ transition: 'opacity 160ms ease-out' }}
-                />
-              )}
-              {hOut > 0 && (
-                <rect
-                  x={bx}
-                  y={geom.flowAxis}
-                  width={geom.barW}
-                  height={hOut}
-                  rx={1}
-                  fill={COL_SORTIE}
-                  opacity={op}
-                  style={{ transition: 'opacity 160ms ease-out' }}
-                />
-              )}
-            </g>
-          )
-        })}
-
-        {/* Courbe de stock : historique plein + aire en dégradé (profondeur
-            sans bruit), projection en pointillés dans son prolongement. */}
-        {histLen > 0 && (
-          <>
-            <defs>
-              <linearGradient id="stock-history-area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" style={{ stopColor: COL_STOCK, stopOpacity: 0.16 }} />
-                <stop offset="100%" style={{ stopColor: COL_STOCK, stopOpacity: 0.01 }} />
-              </linearGradient>
-            </defs>
-            <path d={geom.histArea} fill="url(#stock-history-area)" />
-            <path
-              d={geom.histPath}
-              fill="none"
-              stroke={COL_STOCK}
-              strokeWidth={1.75}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            {geom.futPath && (
-              <path
-                d={geom.futPath}
-                fill="none"
-                stroke={COL_STOCK}
-                strokeWidth={1.75}
-                strokeDasharray="5 4"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                opacity={0.75}
-              />
-            )}
-            {/* Point « maintenant » (dernier réel) : plein + halo pulsé (SMIL,
-                coupé si prefers-reduced-motion) */}
-            <circle
-              cx={geom.x(histLen - 1)}
-              cy={geom.yLine(nowFrac[0] ?? 0)}
-              r={3}
-              fill={COL_STOCK}
-            />
-            {!REDUCED_MOTION && (
-              <circle
-                cx={geom.x(histLen - 1)}
-                cy={geom.yLine(nowFrac[0] ?? 0)}
-                r={3}
-                fill="none"
-                stroke={COL_STOCK}
-                strokeWidth={1}
-              >
-                <animate attributeName="r" values="3;9" dur="2.4s" repeatCount="indefinite" />
-                <animate
-                  attributeName="opacity"
-                  values="0.35;0"
-                  dur="2.4s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-            )}
-          </>
-        )}
-
-        {/* Repère de rupture — ancre visuelle du verdict sur la courbe.
-            Nécessaire parce que le stock projeté est borné à 0 : le plateau
-            plat qui suit se lit « on se maintient » alors qu'il masque un
-            manque non servi. */}
-        {ruptureIdx !== null && (
-          <g pointerEvents="none">
-            <line
-              x1={geom.x(ruptureIdx)}
-              x2={geom.x(ruptureIdx)}
-              y1={geom.padT}
-              y2={geom.flowAxis}
-              stroke={COL_SORTIE}
-              strokeWidth={1.25}
-              strokeDasharray="4 3"
-              opacity={0.85}
-            />
-            <text
-              x={geom.x(ruptureIdx)}
-              y={geom.padT - 4}
-              textAnchor="middle"
-              fontFamily="var(--font-mono)"
-              fontSize={8.5}
-              fontWeight={700}
-              letterSpacing="0.08em"
-              fill={COL_SORTIE}
-            >
-              RUPTURE
-            </text>
-          </g>
-        )}
-
-        {/* Charnière passé/futur — ligne verticale « auj. » */}
+          {hasFuture ? 'Stock' : 'Stock fin de semaine'}
+        </span>
         {hasFuture && (
-          <g pointerEvents="none">
-            <line
-              x1={geom.nowX}
-              x2={geom.nowX}
-              y1={geom.padT}
-              y2={geom.padT + geom.innerH}
-              stroke="var(--color-muted-foreground)"
-              opacity={0.5}
-              strokeDasharray="2 3"
-            />
-            <text
-              x={geom.nowX}
-              y={geom.H - geom.padB + 13}
-              textAnchor="middle"
-              fontFamily="var(--font-mono)"
-              fontSize={9}
-              fontWeight={700}
-              fill="var(--color-muted-foreground)"
-            >
-              auj.
-            </text>
-          </g>
-        )}
-
-        {/* Labels de semaines (année ISO incluse — les 105 points couvrent
-            ~2 ans, passés et futurs) */}
-        <g fontFamily="var(--font-mono)" fontSize={9} fontWeight={600}>
-          {points.map((p, i) =>
-            i % geom.tickStep === 0 || i === lastIdx ? (
-              <text
-                key={p.periode}
-                x={geom.x(i)}
-                y={geom.H - geom.padB + 13}
-                textAnchor="middle"
-                fill="var(--color-muted-foreground)"
-                opacity={0.75}
-              >
-                {fmtWeekAxis(p)}
-              </text>
-            ) : null
-          )}
-        </g>
-
-        {/* Zones de survol — une par semaine, pleine hauteur. Pilotent le
-            tooltip HTML (rendu hors SVG, cf. plus bas). */}
-        {points.map((p, i) => (
-          <rect
-            key={p.periode}
-            x={geom.x(i) - geom.slot / 2}
-            y={geom.padT}
-            width={geom.slot}
-            height={geom.innerH}
-            fill="transparent"
-            className="cursor-crosshair"
-            onMouseEnter={() => setHover(i)}
-          />
-        ))}
-
-        {/* Indicateur de survol : guide vertical + point de lecture. Rendus
-            dans des groupes translatés en CSS (transition sur transform) pour
-            glisser de semaine en semaine au lieu de sauter. */}
-        {hover !== null && points[hover] && (
           <>
-            <g
-              pointerEvents="none"
-              style={{
-                transform: `translate(${geom.x(hover)}px, 0px)`,
-                transition: 'transform 170ms cubic-bezier(0.2, 0.7, 0.2, 1)',
-              }}
-            >
-              <line
-                x1={0}
-                x2={0}
-                y1={geom.padT}
-                y2={geom.padT + geom.innerH}
-                stroke="var(--color-foreground)"
-                opacity={0.28}
-                strokeDasharray="3 3"
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-0 w-3.5 border-t-2 border-dashed"
+                style={{ borderColor: COL_STOCK }}
               />
-            </g>
-            <g
-              pointerEvents="none"
-              style={{
-                transform: `translate(${geom.x(hover)}px, ${geom.yLine((fracs[hover] ?? [0])[0] ?? 0)}px)`,
-                transition: 'transform 170ms cubic-bezier(0.2, 0.7, 0.2, 1)',
-              }}
-            >
-              <circle r={4.5} fill={COL_STOCK} stroke="var(--color-card)" strokeWidth={2} />
-            </g>
+              Projeté
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-[2px]" style={{ background: COL_ENTREE }} />
+              Entrées &amp; ressources
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-[2px]" style={{ background: COL_SORTIE }} />
+              Sorties &amp; besoins
+            </span>
           </>
         )}
-      </svg>
+        {/* Plage couverte (historique + projection), à droite */}
+        {points.length > 0 && (
+          <span className="ml-auto opacity-75">
+            {fmtWeek(points[0].cle)} → {fmtWeek(points[lastIdx].cle)}
+            {hasFuture && ' · flux : une échelle par moitié'}
+          </span>
+        )}
+      </div>
 
-      {/* Tooltip — HTML plutôt que <title> natif : lecture instantanée, mis en
-          page, suit l'unité active et les valeurs animées. Toujours monté dès
-          qu'il y a une série : il glisse entre semaines (left/transform) et
-          apparaît/disparaît en fondu (opacity). */}
-      {hPoint && (
-        <div
-          className={cn(
-            'pointer-events-none absolute top-8 z-10 min-w-[10.5rem] rounded-md border border-rule bg-popover px-3 py-2 shadow-float transition-[left,transform,opacity] duration-150 ease-out',
-            hover === null && 'opacity-0'
-          )}
-          style={tooltipStyle}
+      <CourbeProjection
+        points={points}
+        charniere={charniere}
+        regleX={ruptureCle}
+        flux={flux}
+        afficherFluxMiroir
+        couleurEntree={COL_ENTREE}
+        couleurSortie={COL_SORTIE}
+        hauteur={300}
+        format={(v) => fmtAxis(v, unit)}
+        largeurInitiale={800}
+        ariaLabel={`Stock hebdomadaire : ${histLen} semaines passées puis ${future.length} projetées`}
+        ariaDescription={`Stock et mouvements, en ${unit === 'qte' ? 'quantités' : 'valeur'}. Rupture${rupturePeriode ? ` en ${rupturePeriode}` : ''}.`}
+      />
+
+      {/* Repère de rupture — la ligne vient de la règle de la lib, l'étiquette
+          reste du HTML posé sur le band de la semaine concernée. */}
+      {ruptureIdx >= 0 && (
+        <span
+          className="pointer-events-none absolute top-0 -translate-x-1/2 font-mono text-[8.5px] font-bold tracking-[0.08em]"
+          style={{ left: `${((ruptureIdx + 0.5) / points.length) * 100}%`, color: COL_SORTIE }}
         >
-          <div className="mb-1.5 font-mono text-[10px] font-bold tracking-wide text-foreground">
-            {fmtWeekFull(hPoint)}
-            {hPoint.kind === 'fut' && (
-              <span className="ml-1.5 font-medium italic text-muted-foreground">· proj.</span>
-            )}
-          </div>
-          <div className="space-y-1">
-            <TooltipRow
-              swatch="line"
-              color={COL_STOCK}
-              label={hPoint.kind === 'fut' ? 'Stock projeté' : 'Stock'}
-              value={fmtVal(hLineVal, unit)}
-              strong
-            />
-            <TooltipRow
-              color={COL_ENTREE}
-              label={hPoint.kind === 'fut' ? 'Ressources' : 'Entrées'}
-              value={`+ ${fmtVal(hInVal, unit)}`}
-            />
-            <TooltipRow
-              color={COL_SORTIE}
-              label={hPoint.kind === 'fut' ? 'Besoins' : 'Sorties'}
-              value={`− ${fmtVal(hOutVal, unit)}`}
-            />
-          </div>
-        </div>
+          RUPTURE
+        </span>
       )}
     </div>
   )
