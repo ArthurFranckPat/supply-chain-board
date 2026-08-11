@@ -43,6 +43,7 @@ import {
   ToolbarRefresh,
   ToolbarSpacer,
   ToolbarFilterChip,
+  ToolbarMetric,
 } from '@r/components/ui/toolbar'
 import { Pill } from '@r/components/ui/pill'
 import { Button } from '@r/components/ui/button'
@@ -255,6 +256,7 @@ export default function Tracking(props: SuiviPageProps) {
     error: rowsError,
     ms: rowsMs,
     elapsed,
+    at: rowsAt,
   } = useTimedFetch<SuiviRowsResponse>(rowsUrl)
   const view = data ?? EMPTY
 
@@ -264,6 +266,7 @@ export default function Tracking(props: SuiviPageProps) {
     error: proError,
     ms: proMs,
     elapsed: proElapsed,
+    at: proAt,
   } = useTimedFetch<ProactiveRowsResponse>(proUrl)
   const proView = proData ?? PROACTIVE_EMPTY
 
@@ -456,7 +459,30 @@ export default function Tracking(props: SuiviPageProps) {
   const loading = mode === 'reactif' ? rowsLoading : proLoading
   const lastMs = mode === 'reactif' ? rowsMs : proMs
   const liveElapsed = mode === 'reactif' ? elapsed : proElapsed
-  const shownMs = loading ? liveElapsed : lastMs
+  const lastAt = mode === 'reactif' ? rowsAt : proAt
+
+  /**
+   * Fraîcheur, pas chronomètre.
+   *
+   * La rangée affichait « 320ms » en permanence : une durée de chargement est
+   * un instrument de développeur, pas une information d'exploitation — personne
+   * ne décide de rien avec. Ce qu'un planificateur devant un écran ouvert toute
+   * la journée a besoin de savoir, c'est de QUAND date ce qu'il lit. La durée
+   * reste utile pendant le chargement (elle dit que ça travaille encore) et au
+   * survol (pour diagnostiquer une lenteur X3).
+   */
+  const freshness = loading
+    ? fmtMs(liveElapsed)
+    : lastAt
+      ? new Date(lastAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      : null
+  const freshnessTitle = loading
+    ? 'Chargement X3 en cours'
+    : lastAt
+      ? `Données chargées à ${new Date(lastAt).toLocaleTimeString('fr-FR')}${
+          lastMs !== null ? ` · durée ${fmtMs(lastMs)}` : ''
+        }`
+      : undefined
 
   // Les chips de statut et de verdict portent leur propre gravité : le point
   // dit la sévérité, le nombre dit le volume. C'est ce qui permet à la
@@ -562,11 +588,11 @@ export default function Tracking(props: SuiviPageProps) {
       theme="cursor"
       dense
       scrollable={false}
-      meta={
-        <span className="whitespace-nowrap">
-          <span className="font-medium text-foreground">{totalCount}</span> lignes ouvertes
-        </span>
-      }
+      // Pas de `meta` : le volume appartient à la rangée, où il est le résultat
+      // des contrôles qui l'entourent et change quand on les touche. Ici il
+      // disait « 675 lignes ouvertes » pendant que la rangée disait « 12 / 675 »
+      // — le même nombre à deux endroits, dans deux formats, dont celui-ci
+      // devenait faux dès qu'un filtre était posé.
     >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
@@ -811,21 +837,26 @@ export default function Tracking(props: SuiviPageProps) {
             onChange={setQuery}
             placeholder="Commande, article, client…"
           />
-          {/* Compteur filtré */}
-          {isFiltered && (
-            <span className="font-mono text-xs font-medium tabular-nums text-foreground">
-              {filteredCount} <span className="text-muted-foreground">/ {totalCount}</span>
-            </span>
-          )}
-          {/* Durée de chargement X3 — live pendant le fetch, dernier résultat ensuite. */}
-          {shownMs !== null && (
-            <span
-              className="font-mono text-xs tabular-nums text-muted-foreground"
-              title={loading ? 'Chargement X3 en cours' : 'Durée dernier chargement X3'}
-            >
-              {fmtMs(shownMs)}
-            </span>
-          )}
+          {/* Volume — TOUJOURS affiché, et une seule fois dans toute la page.
+              Le masthead portait « 675 lignes ouvertes » pendant que la rangée
+              portait « 12 / 675 » : le même nombre à deux endroits, dans deux
+              formats, dont l'un devenait faux dès qu'un filtre était posé. */}
+          <ToolbarMetric
+            emphasis
+            title={isFiltered ? `sur ${totalCount} lignes ouvertes` : undefined}
+          >
+            {isFiltered ? (
+              <>
+                {filteredCount}{' '}
+                <span className="font-normal text-muted-foreground">/ {totalCount}</span>
+              </>
+            ) : (
+              <>
+                {totalCount} <span className="font-normal text-muted-foreground">lignes</span>
+              </>
+            )}
+          </ToolbarMetric>
+          {freshness && <ToolbarMetric title={freshnessTitle}>{freshness}</ToolbarMetric>}
           <ToolbarRefresh loading={loading} onClick={refresh} />
         </Toolbar>
 

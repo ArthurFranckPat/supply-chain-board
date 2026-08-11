@@ -106,7 +106,7 @@ function ToolbarCanonique() {
       <ToolbarMetric emphasis>
         12 <span className="font-normal text-muted-foreground">/ 675</span>
       </ToolbarMetric>
-      <ToolbarMetric title="Durée du dernier chargement X3">320ms</ToolbarMetric>
+      <ToolbarMetric title="Données chargées à 14:32:07 · durée 320ms">14:32</ToolbarMetric>
       <ToolbarRefresh
         loading={chargement}
         onClick={() => {
@@ -152,7 +152,7 @@ function ToolbarReceptions() {
       </ToolbarGroup>
       <ToolbarSpacer />
       <ToolbarSearch value={q} onChange={setQ} placeholder="Article, fournisseur…" />
-      <ToolbarMetric title="Durée du dernier chargement X3">1.2s</ToolbarMetric>
+      <ToolbarMetric title="Données chargées à 14:28:41 · durée 1.2s">14:28</ToolbarMetric>
       <Pill size="sm" variant="outline" className="gap-1.5">
         <Printer size={13} strokeWidth={1.75} />
         Imprimer
@@ -424,7 +424,7 @@ export function ToolbarSection() {
             ],
             ['Recherche', <Tok key="5">ToolbarSearch</Tok>, '03', '10'],
             ['Compteur filtré', <Tok key="6">ToolbarMetric</Tok>, '04', '9'],
-            ['Fraîcheur du chargement', <Tok key="7">ToolbarMetric</Tok>, '04', '4'],
+            ['Fraîcheur de la donnée', <Tok key="7">ToolbarMetric</Tok>, '04', '4'],
             ['Actualiser', <Tok key="8">ToolbarRefresh</Tok>, '04', '10'],
             ['Action primaire', <Tok key="9">Pill</Tok>, '04', '4'],
             ['Impression', <Tok key="10">data-print-keep</Tok>, '—', '12 (structurel)'],
@@ -445,6 +445,17 @@ export function ToolbarSection() {
         <Rule kind="do">
           Laisser les chips du panneau porter leur gravité : un point coloré et un volume. C'est ce
           qui rend le clic d'ouverture rentable.
+        </Rule>
+        <Rule kind="dont">
+          Afficher une durée de chargement en permanence. « 320 ms » est un instrument de
+          développeur — personne ne décide de rien avec. Ce qui se décide, c'est de QUAND date ce
+          qu'on lit : une heure. La durée reste au survol, et pendant le chargement où elle dit que
+          ça travaille encore.
+        </Rule>
+        <Rule kind="dont">
+          Compter deux fois. Un volume affiché à la fois dans le masthead et dans la rangée, c'est
+          le même nombre dans deux formats — et celui du masthead devient faux dès qu'un filtre est
+          posé. Le volume appartient là où on le fait varier.
         </Rule>
         <Rule kind="dont">
           Passer la barre en <Tok>children</Tok> d'AppLayout. La prop <Tok>toolbar</Tok> existe et

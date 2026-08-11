@@ -18,6 +18,15 @@ export function useTimedFetch<T>(url: string | null) {
   const [error, setError] = useState<Error | null>(null)
   const [ms, setMs] = useState<number | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  /**
+   * Horodatage du dernier chargement réussi.
+   *
+   * `ms` répond « est-ce que c'était lent ? » — une question de développeur.
+   * `at` répond « est-ce que ce que je regarde est encore vrai ? », qui est la
+   * seule des deux dont un planificateur ait besoin devant un écran ouvert
+   * toute la journée.
+   */
+  const [at, setAt] = useState<number | null>(null)
 
   useEffect(() => {
     if (url === null) {
@@ -39,6 +48,7 @@ export function useTimedFetch<T>(url: string | null) {
       .then((json) => {
         if (cancelled) return
         setMs(Date.now() - t0)
+        setAt(Date.now())
         setData(json)
       })
       .catch((e: Error) => {
@@ -55,5 +65,5 @@ export function useTimedFetch<T>(url: string | null) {
     }
   }, [url])
 
-  return { data, loading, error, ms, elapsed }
+  return { data, loading, error, ms, elapsed, at }
 }
