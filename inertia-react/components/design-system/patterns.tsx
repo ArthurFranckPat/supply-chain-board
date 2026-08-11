@@ -405,7 +405,7 @@ export function LiensSection() {
       <Fiche
         nom="X3Link"
         from="@r/components/x3-link"
-        etat="airbnb"
+        etat="cursor"
         note={
           <>
             Deux formes. Si le numéro porte déjà une action interne (ouverture d’un panneau), X3
@@ -515,7 +515,7 @@ const MIGRATION: LigneMigration[] = [
   { nom: 'Bubble', etat: 'cursor', reste: '—' },
   { nom: 'Separator', etat: 'cursor', reste: '—' },
   { nom: 'BoardCard', etat: 'airbnb', reste: 'bande Listing, liseré 3 px, ombre au survol' },
-  { nom: 'X3Link', etat: 'airbnb', reste: 'hover brand → accent' },
+  { nom: 'X3Link', etat: 'cursor', reste: '—' },
 ]
 
 export function MigrationSection() {

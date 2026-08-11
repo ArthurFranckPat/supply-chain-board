@@ -50,7 +50,7 @@ export function X3Link(props: {
       onClick={(e) => e.stopPropagation()}
       className={cn(
         'inline-flex items-center gap-1 underline-offset-2 transition-colors',
-        'hover:text-brand hover:underline focus-visible:outline-none focus-visible:ring-2',
+        'hover:text-[#2778c1] hover:underline focus-visible:outline-none focus-visible:ring-2',
         'focus-visible:ring-brand/40 rounded-sm',
         props.className
       )}
