@@ -36,6 +36,7 @@ import {
 } from '@r/components/ui/sheet'
 import {
   Toolbar,
+  ToolbarGroup,
   ToolbarSegmented,
   ToolbarSegment,
   ToolbarSearch,
@@ -105,6 +106,10 @@ function formatWindowLabel(from?: Date, to?: Date): string {
   if (!t) return f
   return `${f} → ${t}`
 }
+
+/** Libellé de section du panneau Filtres — source unique (5 usages). */
+const SECTION_LABEL =
+  'px-0.5 pb-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'
 
 interface DateRange {
   start: Date | null
@@ -281,12 +286,13 @@ export default function Tracking(props: SuiviPageProps) {
   const loading = mode === 'reactif' ? rowsLoading : proLoading
   const lastMs = mode === 'reactif' ? rowsMs : proMs
   const liveElapsed = mode === 'reactif' ? elapsed : proElapsed
+  const shownMs = loading ? liveElapsed : lastMs
 
   const chipCount = (on: boolean, count?: number) =>
     count !== undefined && count > 0 ? (
       <span
         className={cn(
-          'rounded-full px-1.5 py-px text-[8px] font-extrabold leading-none tabular-nums',
+          'rounded-full px-1.5 py-px text-[8px] font-bold leading-none tabular-nums',
           on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'
         )}
       >
@@ -364,210 +370,204 @@ export default function Tracking(props: SuiviPageProps) {
           et la table déborde hors de l'écran sans scroll possible. */}
       <div className="flex h-full min-h-0 flex-col">
         {/* ═══ Toolbar ═══ */}
-        <Toolbar data-print-toolbar className="select-none flex-nowrap px-7 py-2 min-h-[48px]">
-          {/* Bascule Réactif / Proactif */}
-          <ToolbarSegmented>
-            <ToolbarSegment
-              active={mode === 'reactif'}
-              onClick={() => setMode('reactif')}
-              title="Suivi as-is : statuts allocation/expédition + causes de retard"
-            >
-              Réactif
-            </ToolbarSegment>
-            <ToolbarSegment
-              active={mode === 'proactif'}
-              onClick={() => setMode('proactif')}
-              title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
-            >
-              Proactif
-            </ToolbarSegment>
-          </ToolbarSegmented>
+        <Toolbar data-print-toolbar className="select-none flex-nowrap px-5 py-2 min-h-[48px]">
+          {/* Contrôles de vue : bascule de mode, fenêtre, filtres — groupe
+              serré (gap-1.5), séparé de la recherche/actions par le spacer. */}
+          <ToolbarGroup>
+            {/* Bascule Réactif / Proactif */}
+            <ToolbarSegmented>
+              <ToolbarSegment
+                active={mode === 'reactif'}
+                onClick={() => setMode('reactif')}
+                title="Suivi as-is : statuts allocation/expédition + causes de retard"
+              >
+                Réactif
+              </ToolbarSegment>
+              <ToolbarSegment
+                active={mode === 'proactif'}
+                onClick={() => setMode('proactif')}
+                title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
+              >
+                Proactif
+              </ToolbarSegment>
+            </ToolbarSegmented>
 
-          {/* Fenêtre — sélecteur de plage (filtre client, pas de re-fetch). */}
-          <Popover.Root open={dateOpen} onOpenChange={setDateOpen}>
-            <Popover.Trigger
-              render={
-                <Pill
-                  variant="outline"
-                  className="gap-1.5"
-                  data-print-keep
-                  title="Filtrer par plage de dates d'expédition (les lignes en retard restent toujours visibles)"
-                  aria-label={`Fenêtre : ${formatWindowLabel(
-                    dateRange.start ?? undefined,
-                    dateRange.end ?? undefined
-                  )}`}
-                >
-                  <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
-                  <span className="whitespace-nowrap font-mono tabular-nums">
-                    {formatWindowLabel(dateRange.start ?? undefined, dateRange.end ?? undefined)}
-                  </span>
-                  <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
-                </Pill>
-              }
-            />
-            {/* Positioner base-ui = évitement de collision natif : le panneau ne sort
+            {/* Fenêtre — sélecteur de plage (filtre client, pas de re-fetch). */}
+            <Popover.Root open={dateOpen} onOpenChange={setDateOpen}>
+              <Popover.Trigger
+                render={
+                  <Pill
+                    variant="outline"
+                    className="gap-1.5"
+                    data-print-keep
+                    title="Filtrer par plage de dates d'expédition (les lignes en retard restent toujours visibles)"
+                    aria-label={`Fenêtre : ${formatWindowLabel(
+                      dateRange.start ?? undefined,
+                      dateRange.end ?? undefined
+                    )}`}
+                  >
+                    <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
+                    <span className="whitespace-nowrap font-mono tabular-nums">
+                      {formatWindowLabel(dateRange.start ?? undefined, dateRange.end ?? undefined)}
+                    </span>
+                    <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                  </Pill>
+                }
+              />
+              {/* Positioner base-ui = évitement de collision natif : le panneau ne sort
                 plus du viewport (l'ancien `absolute right-0` rognait le 1er mois sur
                 écran étroit). `--available-width` + overflow = filet de sécurité. */}
-            <Popover.Portal>
-              <Popover.Positioner
-                side="bottom"
-                align="end"
-                sideOffset={8}
-                collisionPadding={8}
-                className="z-50"
-              >
-                <Popover.Popup
-                  data-slot="popover-content"
-                  className="max-w-(--available-width) overflow-x-auto rounded-lg border border-rule bg-popover shadow-float"
+              <Popover.Portal>
+                <Popover.Positioner
+                  side="bottom"
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={8}
+                  className="z-50"
                 >
-                  <Calendar
-                    mode="range"
-                    locale={fr}
-                    numberOfMonths={2}
-                    selected={rangeCal.selected}
-                    onSelect={rangeCal.onSelect}
-                  />
-                </Popover.Popup>
-              </Popover.Positioner>
-            </Popover.Portal>
-          </Popover.Root>
+                  <Popover.Popup
+                    data-slot="popover-content"
+                    className="max-w-(--available-width) overflow-x-auto rounded-lg border border-rule bg-popover shadow-float"
+                  >
+                    <Calendar
+                      mode="range"
+                      locale={fr}
+                      numberOfMonths={2}
+                      selected={rangeCal.selected}
+                      onSelect={rangeCal.onSelect}
+                    />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
 
-          {/* Filtres — déclencheur unique (Statut/Verdict selon la vue +
+            {/* Filtres — déclencheur unique (Statut/Verdict selon la vue +
               Type + Atelier). Consolider derrière un seul pill évite
               l'empilement de segmented controls dans la rangée, qui
               forçait un scroll horizontal. */}
-          <Popover.Root open={filterOpen} onOpenChange={setFilterOpen}>
-            <Popover.Trigger
-              render={
-                <Pill
-                  variant={filtersActive ? 'active' : 'outline'}
-                  className="gap-1.5"
-                  title="Filtres"
+            <Popover.Root open={filterOpen} onOpenChange={setFilterOpen}>
+              <Popover.Trigger
+                render={
+                  <Pill
+                    variant={filtersActive ? 'active' : 'outline'}
+                    className="gap-1.5"
+                    title="Filtres"
+                  >
+                    <SlidersHorizontal
+                      size={14}
+                      strokeWidth={1.75}
+                      className="text-muted-foreground"
+                    />
+                    Filtres
+                    {filtersActive ? (
+                      <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+                    ) : null}
+                    <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                  </Pill>
+                }
+              />
+              <Popover.Portal>
+                <Popover.Positioner
+                  side="bottom"
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={8}
+                  className="z-50"
                 >
-                  <SlidersHorizontal
-                    size={14}
-                    strokeWidth={1.75}
-                    className="text-muted-foreground"
-                  />
-                  Filtres
-                  {filtersActive ? (
-                    <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
-                  ) : null}
-                  <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
-                </Pill>
-              }
-            />
-            <Popover.Portal>
-              <Popover.Positioner
-                side="bottom"
-                align="end"
-                sideOffset={8}
-                collisionPadding={8}
-                className="z-50"
-              >
-                <Popover.Popup data-slot="filter-menu-panel" className="w-[280px] p-2.5">
-                  {mode === 'reactif' && (
-                    <>
-                      <div className="px-0.5 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Statut
-                      </div>
-                      <ToolbarSegmented className="w-full flex-wrap">
-                        {statusChip('all', 'Tous', view.total)}
-                        {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
-                        {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
-                        {statusChip('exp', 'À expédier', view.statusCounts.A_EXPEDIER)}
-                      </ToolbarSegmented>
-                      <Separator className="my-2.5" />
-                    </>
-                  )}
-                  {mode === 'proactif' && (
-                    <>
-                      <div className="px-0.5 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Verdict
-                      </div>
-                      <ToolbarSegmented className="w-full flex-wrap">
-                        {verdictChip('all', 'Tous', proView.total)}
-                        {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
-                        {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
-                        {verdictChip('late', 'Retard', proView.verdictCounts.late)}
-                        {verdictChip('risk', 'À risque', proView.verdictCounts.risk)}
-                      </ToolbarSegmented>
-                      <Separator className="my-2.5" />
-                      <div className="px-0.5 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Composants en rupture
-                      </div>
-                      <ToolbarSegmented className="w-full flex-wrap">
-                        <ToolbarSegment
-                          active={showSubAssemblies}
-                          onClick={() => setShowSubAssemblies((v) => !v)}
-                          title="Inclure les sous-ensembles (semi-finis) fabriqués en rupture, en plus des composants achetés"
-                        >
-                          Sous-ensembles
-                        </ToolbarSegment>
-                        <ToolbarSegment
-                          active={searchBom}
-                          onClick={() => setSearchBom((v) => !v)}
-                          title="Étendre la recherche à toute la nomenclature de l'article : remonte les commandes qui EMBARQUENT le composant cherché, même s'il n'est pas en rupture"
-                        >
-                          Nomenclature complète
-                        </ToolbarSegment>
-                      </ToolbarSegmented>
-                      <Separator className="my-2.5" />
-                    </>
-                  )}
-                  <div className="px-0.5 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Type
-                  </div>
-                  <ToolbarSegmented className="w-full justify-between">
-                    {DEFAULT_TYPES.map((t) => (
-                      <ToolbarSegment
-                        key={t}
-                        active={typeFilter.has(t)}
-                        onClick={() => toggleType(t)}
-                      >
-                        {t}
-                      </ToolbarSegment>
-                    ))}
-                  </ToolbarSegmented>
-                  {/* Filtre atelier (#36) — chips STOLOC. Transverse aux 2 vues. */}
-                  {ateliers.length > 0 && (
-                    <>
-                      <Separator className="my-2.5" />
-                      <div className="flex items-center justify-between">
-                        <div className="px-0.5 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Atelier
-                        </div>
-                        {atelierFilter.size > 0 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-                            onClick={() => setAtelierFilter(new Set())}
-                            title="Réinitialiser le filtre atelier"
-                          >
-                            ✕
-                          </Button>
-                        )}
-                      </div>
-                      <ToolbarSegmented className="w-full flex-wrap">
-                        {ateliers.map((a) => (
+                  <Popover.Popup data-slot="filter-menu-panel" className="w-[280px] p-2">
+                    {mode === 'reactif' && (
+                      <>
+                        <div className={SECTION_LABEL}>Statut</div>
+                        <ToolbarSegmented className="w-full flex-wrap">
+                          {statusChip('all', 'Tous', view.total)}
+                          {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
+                          {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
+                          {statusChip('exp', 'À expédier', view.statusCounts.A_EXPEDIER)}
+                        </ToolbarSegmented>
+                        <Separator className="my-2" />
+                      </>
+                    )}
+                    {mode === 'proactif' && (
+                      <>
+                        <div className={SECTION_LABEL}>Verdict</div>
+                        <ToolbarSegmented className="w-full flex-wrap">
+                          {verdictChip('all', 'Tous', proView.total)}
+                          {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
+                          {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
+                          {verdictChip('late', 'Retard', proView.verdictCounts.late)}
+                          {verdictChip('risk', 'À risque', proView.verdictCounts.risk)}
+                        </ToolbarSegmented>
+                        <Separator className="my-2" />
+                        <div className={SECTION_LABEL}>Composants en rupture</div>
+                        <ToolbarSegmented className="w-full flex-wrap">
                           <ToolbarSegment
-                            key={a.code}
-                            active={atelierFilter.has(a.code)}
-                            onClick={() => toggleAtelier(a.code)}
-                            title={a.label}
+                            active={showSubAssemblies}
+                            onClick={() => setShowSubAssemblies((v) => !v)}
+                            title="Inclure les sous-ensembles (semi-finis) fabriqués en rupture, en plus des composants achetés"
                           >
-                            {a.label.replace(/^ATELIER\s+/i, '')}
+                            Sous-ensembles
                           </ToolbarSegment>
-                        ))}
-                      </ToolbarSegmented>
-                    </>
-                  )}
-                </Popover.Popup>
-              </Popover.Positioner>
-            </Popover.Portal>
-          </Popover.Root>
+                          <ToolbarSegment
+                            active={searchBom}
+                            onClick={() => setSearchBom((v) => !v)}
+                            title="Étendre la recherche à toute la nomenclature de l'article : remonte les commandes qui EMBARQUENT le composant cherché, même s'il n'est pas en rupture"
+                          >
+                            Nomenclature complète
+                          </ToolbarSegment>
+                        </ToolbarSegmented>
+                        <Separator className="my-2" />
+                      </>
+                    )}
+                    <div className={SECTION_LABEL}>Type</div>
+                    <ToolbarSegmented className="w-full justify-between">
+                      {DEFAULT_TYPES.map((t) => (
+                        <ToolbarSegment
+                          key={t}
+                          active={typeFilter.has(t)}
+                          onClick={() => toggleType(t)}
+                        >
+                          {t}
+                        </ToolbarSegment>
+                      ))}
+                    </ToolbarSegmented>
+                    {/* Filtre atelier (#36) — chips STOLOC. Transverse aux 2 vues. */}
+                    {ateliers.length > 0 && (
+                      <>
+                        <Separator className="my-2" />
+                        <div className="flex items-center justify-between">
+                          <div className={SECTION_LABEL}>Atelier</div>
+                          {atelierFilter.size > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                              onClick={() => setAtelierFilter(new Set())}
+                              title="Réinitialiser le filtre atelier"
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                        <ToolbarSegmented className="w-full flex-wrap">
+                          {ateliers.map((a) => (
+                            <ToolbarSegment
+                              key={a.code}
+                              active={atelierFilter.has(a.code)}
+                              onClick={() => toggleAtelier(a.code)}
+                              title={a.label}
+                            >
+                              {a.label.replace(/^ATELIER\s+/i, '')}
+                            </ToolbarSegment>
+                          ))}
+                        </ToolbarSegmented>
+                      </>
+                    )}
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          </ToolbarGroup>
 
           <ToolbarSpacer />
 
@@ -586,18 +586,13 @@ export default function Tracking(props: SuiviPageProps) {
               {filteredCount} <span className="text-muted-foreground">/ {totalCount}</span>
             </span>
           )}
-          {/* Durée de chargement X3 */}
-          {loading && (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {fmtMs(liveElapsed)}
-            </span>
-          )}
-          {!loading && lastMs !== null && (
+          {/* Durée de chargement X3 — live pendant le fetch, dernier résultat ensuite. */}
+          {shownMs !== null && (
             <span
-              className="font-mono text-xs tabular-nums text-muted-foreground/60"
-              title="Durée dernier chargement X3"
+              className="font-mono text-xs tabular-nums text-muted-foreground"
+              title={loading ? 'Chargement X3 en cours' : 'Durée dernier chargement X3'}
             >
-              {fmtMs(lastMs)}
+              {fmtMs(shownMs)}
             </span>
           )}
           <ToolbarRefresh loading={loading} onClick={() => setBust((b) => b + 1)} />

@@ -55,9 +55,8 @@ export function createReactiveColumns({
         </>
       ),
       meta: {
-        thClass:
-          'w-[150px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[150px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -74,9 +73,8 @@ export function createReactiveColumns({
         </div>
       ),
       meta: {
-        thClass:
-          'w-[200px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[200px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -97,9 +95,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[56px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[56px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -124,9 +121,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[90px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[90px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -145,9 +141,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[100px] px-4 py-[6px] text-right font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'whitespace-nowrap px-4 py-[5px] text-right align-middle',
+        thClass: 'w-[100px] text-right! font-sans tracking-wider',
+        tdClass: 'whitespace-nowrap text-right align-middle',
       },
     },
     {
@@ -180,10 +175,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[76px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass:
-          'whitespace-nowrap px-4 py-[5px] align-middle font-mono text-[12.5px] font-semibold',
+        thClass: 'w-[76px] text-left font-sans tracking-wider',
+        tdClass: 'whitespace-nowrap align-middle font-mono font-semibold',
       },
     },
     {
@@ -274,9 +267,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[300px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[300px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -315,9 +307,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[130px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[130px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -360,9 +351,8 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[280px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[5px] align-middle',
+        thClass: 'w-[280px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
   ]
@@ -372,11 +362,10 @@ export function createReactiveColumns({
 export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> {
   return {
     headerLabel: 'N°',
-    thClass:
-      'w-[38px] px-4 py-[6px] text-left font-mono text-[11px] font-semibold text-muted-foreground border-b border-rule',
+    thClass: 'w-[38px] text-left font-mono font-semibold',
     tdClass: (row: SuiviDisplayRow) =>
       cn(
-        'px-4 py-[5px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
+        'align-middle font-sans font-bold tracking-tight tabular-nums',
         LATE_TONE.bar(row.lateSeverity)
       ),
   }

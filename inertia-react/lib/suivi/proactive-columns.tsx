@@ -59,9 +59,8 @@ export function createProactiveColumns({
         </>
       ),
       meta: {
-        thClass:
-          'w-[150px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[150px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -78,9 +77,8 @@ export function createProactiveColumns({
         </div>
       ),
       meta: {
-        thClass:
-          'w-[200px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[200px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -101,9 +99,8 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[56px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[56px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -128,9 +125,8 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[90px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[90px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -143,9 +139,8 @@ export function createProactiveColumns({
         </span>
       ),
       meta: {
-        thClass:
-          'w-[100px] px-4 py-[7px] text-right font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'whitespace-nowrap px-4 py-[7px] text-right align-middle',
+        thClass: 'w-[100px] text-right! font-sans tracking-wider',
+        tdClass: 'whitespace-nowrap text-right align-middle',
       },
     },
     {
@@ -178,10 +173,8 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[76px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass:
-          'whitespace-nowrap px-4 py-[7px] align-middle font-mono text-cell-lg font-semibold text-foreground',
+        thClass: 'w-[76px] text-left font-sans tracking-wider',
+        tdClass: 'whitespace-nowrap align-middle font-mono font-semibold',
       },
     },
     {
@@ -282,9 +275,8 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[150px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[150px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -303,9 +295,8 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[120px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[120px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
     {
@@ -321,10 +312,8 @@ export function createProactiveColumns({
         return <>{Math.round(total * 10) / 10}h</>
       },
       meta: {
-        thClass:
-          'w-[70px] px-4 py-[7px] text-right font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass:
-          'whitespace-nowrap px-4 py-[7px] text-right align-middle font-mono text-cell-lg font-semibold text-secondary-foreground',
+        thClass: 'w-[70px] text-right! font-sans tracking-wider',
+        tdClass: 'whitespace-nowrap text-right align-middle font-mono font-semibold',
       },
     },
     {
@@ -558,9 +547,8 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass:
-          'w-[300px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[7px] align-middle',
+        thClass: 'w-[300px] text-left font-sans tracking-wider',
+        tdClass: 'align-middle',
       },
     },
   ]
@@ -570,8 +558,7 @@ export function createProactiveColumns({
 export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplayRow> {
   return {
     headerLabel: 'N°',
-    thClass:
-      'w-[38px] px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule',
+    thClass: 'w-[38px] text-left font-sans tracking-wider',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -579,10 +566,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
         row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
           ? ('critical' as const)
           : row.lateSeverity
-      return cn(
-        'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
-        LATE_TONE.bar(s)
-      )
+      return cn('align-middle font-sans font-bold tracking-tight tabular-nums', LATE_TONE.bar(s))
     },
   }
 }
