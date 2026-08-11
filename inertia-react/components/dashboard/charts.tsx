@@ -56,7 +56,8 @@ function Rangée({
   libellé: string
   /** Borne haute de la jauge — partagée par toutes les rangées de la liste. */
   max: number
-  couleur: string
+  /** Couleur forcée (facultative) — absente : palier par défaut de la Jauge. */
+  couleur?: string
   ariaLabel: string
   ariaDescription: string
 }) {
@@ -81,8 +82,8 @@ function Rangée({
 
 /**
  * Charge en retard par poste — le motif « Jauge » de la vitrine, branché sur
- * les données du KPI. Encre (pas de palier) : un classement de postes « en
- * retard » ne se peint pas en vert (règle de la section Graphiques).
+ * les données du KPI. Couleurs du palier par défaut (comme la démo de la
+ * section Graphiques) : la jauge se teinte selon son taux face à la borne.
  */
 export const ChargeBars = memo(function ChargeBars({ postes }: { postes: ChargeRow[] }) {
   const max = useMemo(() => Math.max(1, ...postes.map((p) => p.heures)), [postes])
@@ -96,7 +97,6 @@ export const ChargeBars = memo(function ChargeBars({ postes }: { postes: ChargeR
           valeur={p.heures}
           libellé={fmtHeures(p.heures)}
           max={max}
-          couleur={SERIE.encre}
           ariaLabel={`Charge en retard du poste ${p.code}`}
           ariaDescription={`${fmtHeures(p.heures)} sur ${fmtHeures(max)}`}
         />
@@ -135,7 +135,7 @@ export const ProfondeurBars = memo(function ProfondeurBars({ buckets }: { bucket
 
 type CatRow = { categorie: string; valeur: number; part: number }
 
-/** Top catégories de stock — jauges en encre, le rang porte le sens. */
+/** Top catégories de stock — jauges aux couleurs du palier, comme la démo. */
 export const CategoriesBars = memo(function CategoriesBars({
   categories,
 }: {
@@ -152,7 +152,6 @@ export const CategoriesBars = memo(function CategoriesBars({
           valeur={c.valeur}
           libellé={`${fmtEuro(c.valeur)} · ${c.part} %`}
           max={max}
-          couleur={SERIE.encre}
           ariaLabel={`Valorisation de la catégorie ${c.categorie}`}
           ariaDescription={`${fmtEuro(c.valeur)}, ${c.part} % du stock`}
         />
