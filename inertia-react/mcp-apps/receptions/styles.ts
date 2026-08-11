@@ -8,6 +8,8 @@
  * seul fichier HTML.
  */
 
+import { CHART_CSS } from '../chart-bridge'
+
 export const APP_CSS = `
 :root { color-scheme: light dark; }
 * { box-sizing: border-box; }
@@ -51,32 +53,12 @@ p { margin: 0; }
 
 /* ── Histogramme ── */
 .chart-wrap { position: relative; }
-.chart { width: 100%; height: 190px; display: block; overflow: visible; }
-.app.plein .chart { height: 300px; }
-.axis { stroke: var(--color-border-primary, rgba(0,0,0,.16)); stroke-width: 1; }
-.grid { stroke: var(--color-border-secondary, rgba(0,0,0,.08)); stroke-width: 1; }
-.bar { fill: var(--color-background-info, #3b82f6); opacity: .85; }
-.bar.pic { fill: var(--color-background-warning, #f59e0b); }
-.aujourdhui { stroke: var(--color-text-secondary, #6b6b6b); stroke-width: 1; stroke-dasharray: 3 3; }
-.curseur { stroke: var(--color-text-secondary, #6b6b6b); stroke-width: 1; opacity: .5; }
-.curseur-bar { fill: var(--color-text-primary, #1a1a1a); opacity: .25; }
-.tick { font-size: 9px; fill: var(--color-text-tertiary, #8a8a8a); }
-
-.tip {
-  position: absolute; pointer-events: none;
-  background: var(--color-background-inverse, #1a1a1a);
-  color: var(--color-text-inverse, #fff);
-  border-radius: var(--border-radius-sm, 6px);
-  padding: 5px 8px; font-size: var(--font-text-xs-size, 10px);
-  display: flex; flex-direction: column; gap: 1px; white-space: nowrap;
-  transform: translate(-50%, -100%);
-}
 
 .legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--font-text-xs-size, 11px); color: var(--color-text-secondary, #6b6b6b); }
 .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 8px; vertical-align: middle; }
 .legend .key:first-child { margin-left: 0; }
-.bar-key { background: var(--color-background-info, #3b82f6); }
-.pic-key { background: var(--color-background-warning, #f59e0b); }
+.bar-key { background: var(--color-background-success, #16a34a); }
+.pic-key { background: var(--color-text-tertiary, #8a8a8a); }
 .auj-key { width: 12px; height: 0; border-top: 2px dashed var(--color-text-secondary, #6b6b6b); border-radius: 0; }
 
 /* ── Détail lignes (plein écran) ── */
@@ -108,4 +90,6 @@ p { margin: 0; }
   background: var(--color-background-warning, rgba(245,158,11,.16));
   color: var(--color-text-warning, #92400e);
 }
+
+${CHART_CSS}
 `

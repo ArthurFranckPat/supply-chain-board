@@ -7,6 +7,8 @@
  * seul fichier HTML.
  */
 
+import { CHART_CSS } from '../chart-bridge'
+
 export const APP_CSS = `
 :root { color-scheme: light dark; }
 * { box-sizing: border-box; }
@@ -65,24 +67,9 @@ p { margin: 0; }
 .rang-id span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .barre {
-  position: relative; display: block; height: 16px;
-  background: var(--color-background-secondary, rgba(0,0,0,.05));
+  position: relative; display: flex; align-items: center; height: 16px;
   border-radius: var(--border-radius-xs, 3px);
   overflow: hidden;
-}
-.remplissage {
-  position: absolute; inset: 0 auto 0 0;
-  border-radius: inherit;
-}
-.rang.retard .remplissage { background: var(--color-background-warning, #f59e0b); opacity: .85; }
-.rang.infeasible .remplissage {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--color-background-danger, #dc2626),
-    var(--color-background-danger, #dc2626) 5px,
-    rgba(220,38,38,.55) 5px,
-    rgba(220,38,38,.55) 10px
-  );
 }
 .qte {
   position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
@@ -114,4 +101,6 @@ p { margin: 0; }
 .cell.num span:not(.muted):not(.danger) { font-variant-numeric: tabular-nums; }
 .cell.principal strong { font-weight: var(--font-weight-medium, 500); }
 .ligne.infeasible { background: var(--color-background-danger, rgba(220,38,38,.05)); }
+
+${CHART_CSS}
 `

@@ -16,6 +16,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react'
+import { HistogrammeCharge, Jauge } from '../../components/ui/chart'
+import { SERIE } from '../../lib/charts/theme'
 import { APP_CSS } from './styles'
 
 interface SemaineCharge {
@@ -190,7 +192,7 @@ export function ChargeApp() {
       {callError && <p className="err">{callError}</p>}
 
       {detail ? (
-        <DetailPoste poste={postes[0]} />
+        <DetailPoste poste={postes[0]} plein={plein} />
       ) : (
         <Annuaire postes={postes} pending={pending} onOuvrir={ouvrirPoste} />
       )}
@@ -209,7 +211,7 @@ function Shell({ children, plein }: { children: ReactNode; plein?: boolean }) {
   )
 }
 
-/** Annuaire : une barre par poste, capacité en repère. */
+/** Annuaire : un poste par ligne, charge face à capacité — Jauge (@tanstack/charts). */
 function Annuaire({
   postes,
   pending,
@@ -252,19 +254,14 @@ function Annuaire({
                 </span>
               </span>
 
-              <span
-                className="jauge"
-                role="img"
-                aria-label={`${fmtH(p.totalHeures)} sur ${fmtH(p.totalCapacite)}`}
-              >
-                <span
-                  className={t !== null && t > 1 ? 'barre sature' : 'barre'}
-                  style={{ width: `${(p.totalHeures / max) * 100}%` }}
-                />
-                {p.totalCapacite > 0 && (
-                  <span className="seuil" style={{ left: `${(p.totalCapacite / max) * 100}%` }} />
-                )}
-              </span>
+              <Jauge
+                valeur={p.totalHeures}
+                max={max}
+                seuil={p.totalCapacite > 0 ? p.totalCapacite : null}
+                couleur={t !== null && t > 1 ? SERIE.alerte : SERIE.encre}
+                epaisseur={14}
+                ariaLabel={`${fmtH(p.totalHeures)} sur ${fmtH(p.totalCapacite)}`}
+              />
 
               <span className="chiffres">
                 <span className="taux">{t === null ? '—' : `${Math.round(t * 100)} %`}</span>
@@ -286,9 +283,8 @@ function Annuaire({
 }
 
 /** Détail hebdomadaire d'un poste : histogramme + seuil de capacité par semaine. */
-function DetailPoste({ poste }: { poste: PosteCharge }) {
+function DetailPoste({ poste, plein }: { poste: PosteCharge; plein: boolean }) {
   const semaines = poste.semaines ?? []
-  const [survol, setSurvol] = useState<number | null>(null)
 
   // Une seule échelle pour charge ET capacité : le seuil doit rester comparable
   // à la barre qu'il juge (leçon de l'issue #88 sur les doubles échelles).
@@ -309,42 +305,24 @@ function DetailPoste({ poste }: { poste: PosteCharge }) {
         {poste.semainesSaturees > 1 ? 's' : ''}
       </p>
 
-      <div className="chart">
-        {semaines.map((s, i) => {
-          const hCharge = (s.charge / max) * 100
-          const hCap = (s.capacite / max) * 100
-          return (
-            <div
-              key={`${s.semaine}-${i}`}
-              className="col"
-              onMouseEnter={() => setSurvol(i)}
-              onMouseLeave={() => setSurvol((cur) => (cur === i ? null : cur))}
-            >
-              <div className="plot">
-                <div
-                  className={s.sature ? 'bar sature' : 'bar'}
-                  // Plancher visible : une barre absente doit vouloir dire zéro,
-                  // jamais « trop petit pour être tracé » (issue #88).
-                  style={{ height: s.charge > 0 ? `max(${hCharge}%, 2px)` : '0' }}
-                />
-                {s.capacite > 0 && <div className="cap" style={{ bottom: `${hCap}%` }} />}
-                {survol === i && (
-                  <div className="tip">
-                    <strong>{s.semaine}</strong>
-                    <span>charge {fmtH(s.charge)}</span>
-                    <span>capacité {fmtH(s.capacite)}</span>
-                    {s.sature && <span className="tip-sature">saturé</span>}
-                  </div>
-                )}
-              </div>
-              <span className="xlabel">{s.semaine}</span>
-            </div>
-          )
-        })}
-      </div>
+      <HistogrammeCharge
+        periodes={semaines.map((s) => ({
+          cle: s.semaine,
+          label: s.semaine,
+          valeurs: { charge: s.charge },
+          capacite: s.capacite > 0 ? s.capacite : null,
+        }))}
+        segments={[{ cle: 'charge', serie: 'ferme', label: 'Charge' }]}
+        max={max}
+        hauteur={plein ? 300 : 190}
+        format={fmtH}
+        largeurInitiale={700}
+        ariaLabel={`Charge hebdomadaire de ${poste.poste}`}
+        ariaDescription={`${fmtH(totalCharge)} pour ${fmtH(totalCapacite)} de capacité sur l'horizon`}
+      />
+
       <p className="legend">
         <span className="key bar-key" /> charge <span className="key cap-key" /> capacité
-        <span className="key sature-key" /> semaine saturée
       </p>
     </section>
   )

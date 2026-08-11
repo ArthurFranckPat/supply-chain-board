@@ -122,6 +122,12 @@ for (const app of apps) {
   await build({
     configFile: false,
     root: app.dir,
+    // Les primitives de graphiques vivent dans le kit partagé (`@r/…`) : le
+    // même alias que le build principal, sinon chart.tsx ne résoudrait pas
+    // ses imports en « @r/lib/charts/theme ».
+    resolve: {
+      alias: [{ find: '@r', replacement: path.join(ROOT, 'inertia-react') }],
+    },
     // Chemins relatifs : le HTML est lu depuis une iframe sandbox sans origine
     // stable, un chemin absolu `/assets/...` n'y voudrait rien dire.
     base: './',

@@ -11,6 +11,8 @@
  * le thème Airbnb. Une palette codée en dur jurerait dans au moins un des deux.
  */
 
+import { CHART_CSS } from '../chart-bridge'
+
 export const APP_CSS = `
 :root {
   color-scheme: light dark;
@@ -30,7 +32,6 @@ body {
 html, body { height: 100%; }
 .app.plein { min-height: 100vh; }
 .app.plein .detail { flex: 1; min-height: 0; }
-.app.plein .chart { height: auto; flex: 1; min-height: 240px; }
 h1 { font-size: var(--font-heading-sm-size, 15px); margin: 0; font-weight: var(--font-weight-semibold, 600); }
 h2 { font-size: var(--font-text-md-size, 14px); margin: 0 0 2px; font-weight: var(--font-weight-semibold, 600); }
 p { margin: 0; }
@@ -78,26 +79,6 @@ button:focus-visible { outline: 2px solid var(--color-ring-primary, #3b82f6); ou
 .poste-id span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .poste-id strong { font-weight: var(--font-weight-medium, 500); }
 
-.jauge {
-  position: relative;
-  display: block;
-  height: 14px;
-  background: var(--color-background-secondary, rgba(0,0,0,.05));
-  border-radius: var(--border-radius-xs, 3px);
-  overflow: hidden;
-}
-.barre {
-  position: absolute; inset: 0 auto 0 0;
-  background: var(--color-background-info, #3b82f6);
-  border-radius: inherit;
-}
-.barre.sature { background: var(--color-background-danger, #dc2626); }
-/* Repère de capacité : un trait, pas une barre — il juge, il ne s'additionne pas. */
-.seuil {
-  position: absolute; top: -1px; bottom: -1px; width: 2px;
-  background: var(--color-text-primary, #1a1a1a);
-  opacity: .65;
-}
 .chiffres { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; white-space: nowrap; }
 .taux { font-variant-numeric: tabular-nums; font-weight: var(--font-weight-semibold, 600); }
 .badge {
@@ -110,46 +91,12 @@ button:focus-visible { outline: 2px solid var(--color-ring-primary, #3b82f6); ou
 
 /* ── Détail hebdo ── */
 .detail { display: flex; flex-direction: column; gap: 8px; }
-.chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 190px;
-  padding-top: 4px;
-  overflow-x: auto;
-}
-.col { flex: 1 1 0; min-width: 26px; display: flex; flex-direction: column; gap: 4px; height: 100%; }
-.plot { position: relative; flex: 1; display: flex; align-items: flex-end; }
-.bar { width: 100%; background: var(--color-background-info, #3b82f6); border-radius: var(--border-radius-xs, 3px) var(--border-radius-xs, 3px) 0 0; }
-.bar.sature { background: var(--color-background-danger, #dc2626); }
-.cap { position: absolute; left: -1px; right: -1px; height: 2px; background: var(--color-text-primary, #1a1a1a); opacity: .6; }
-.xlabel {
-  font-size: var(--font-text-xs-size, 10px);
-  color: var(--color-text-tertiary, #8a8a8a);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tip {
-  position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -4px);
-  display: flex; flex-direction: column; gap: 1px;
-  padding: 5px 8px;
-  white-space: nowrap;
-  z-index: 2;
-  font-size: var(--font-text-xs-size, 11px);
-  color: var(--color-text-inverse, #fff);
-  background: var(--color-background-inverse, #1a1a1a);
-  border-radius: var(--border-radius-sm, 6px);
-  box-shadow: var(--shadow-md, 0 2px 8px rgba(0,0,0,.2));
-  pointer-events: none;
-}
-.tip-sature { color: var(--color-text-warning, #fbbf24); }
 
 .legend { display: flex; align-items: center; gap: 6px; color: var(--color-text-tertiary, #8a8a8a); font-size: var(--font-text-xs-size, 11px); }
 .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 8px; }
 .legend .key:first-child { margin-left: 0; }
-.bar-key { background: var(--color-background-info, #3b82f6); }
+.bar-key { background: var(--color-background-success, #16a34a); }
 .cap-key { height: 2px; border-radius: 0; background: var(--color-text-primary, #1a1a1a); opacity: .6; }
-.sature-key { background: var(--color-background-danger, #dc2626); }
+
+${CHART_CSS}
 `

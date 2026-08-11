@@ -23,6 +23,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react'
+import { Jauge } from '../../components/ui/chart'
+import { SERIE } from '../../lib/charts/theme'
 import { APP_CSS } from './styles'
 
 interface Retard {
@@ -152,8 +154,8 @@ export function RetardsApp() {
       )}
       {!payload.truncated && payload.demandsScanned !== undefined && (
         <p className="muted small">
-          {payload.demandsScanned} demande(s) scannée(s), {payload.demandsEvaluated ?? retards.length}{' '}
-          évaluée(s).
+          {payload.demandsScanned} demande(s) scannée(s),{' '}
+          {payload.demandsEvaluated ?? retards.length} évaluée(s).
         </p>
       )}
 
@@ -195,7 +197,9 @@ function Kpis({ retards }: { retards: Retard[] }) {
         <span className="k-label">Retard moyen</span>
         <span className="k-value">{chiffres.length > 0 ? `${nf1.format(retardMoy)} j` : '—'}</span>
         <span className="k-note">
-          {chiffres.length > 0 ? `max ${nf.format(retardMax)} j (hors irréalisables)` : 'hors irréalisables'}
+          {chiffres.length > 0
+            ? `max ${nf.format(retardMax)} j (hors irréalisables)`
+            : 'hors irréalisables'}
         </span>
       </div>
     </section>
@@ -206,6 +210,7 @@ function Kpis({ retards }: { retards: Retard[] }) {
  * Barres horizontales de retard, classées décroissant.
  * Les infeasibles (9999 j) sont capées visuellement et marqués « jamais » :
  * à l'échelle des retards chiffrés, ils seraient écrasés et deviendraient invisibles.
+ * Barre = Jauge (@tanstack/charts) : le rang porte le sens, la couleur le statut.
  */
 function Classement({ retards, plein }: { retards: Retard[]; plein: boolean }) {
   const tries = useMemo(() => {
@@ -235,41 +240,39 @@ function Classement({ retards, plein }: { retards: Retard[]; plein: boolean }) {
 
   return (
     <ul className="classement">
-      {affichees.map((r) => {
-        const largeur = r.infeasible ? CAP_INFEASIBLE : r.retardJours
-        const pct = Math.min(100, (largeur / maxChiffre) * 100)
-        return (
-          <li
-            key={`${r.orderId}-${r.ligne ?? ''}-${r.article}`}
-            className={`rang ${r.infeasible ? 'infeasible' : 'retard'}`}
-          >
-            <span className="rang-id">
-              <strong>{r.article}</strong>
-              <span className="muted">
-                {r.orderId}
-                {r.customer ? ` · ${r.customer}` : ''}
-                {r.ligne ? ` · L${r.ligne}` : ''}
-              </span>
+      {affichees.map((r) => (
+        <li
+          key={`${r.orderId}-${r.ligne ?? ''}-${r.article}`}
+          className={`rang ${r.infeasible ? 'infeasible' : 'retard'}`}
+        >
+          <span className="rang-id">
+            <strong>{r.article}</strong>
+            <span className="muted">
+              {r.orderId}
+              {r.customer ? ` · ${r.customer}` : ''}
+              {r.ligne ? ` · L${r.ligne}` : ''}
             </span>
-            <span
-              className="barre"
-              role="img"
-              aria-label={
+          </span>
+          <span className="barre">
+            <Jauge
+              valeur={r.infeasible ? CAP_INFEASIBLE : r.retardJours}
+              max={maxChiffre}
+              couleur={r.infeasible ? SERIE.alerte : SERIE.suggere}
+              epaisseur={12}
+              ariaLabel={
                 r.infeasible ? 'irréalisable' : `${nf.format(r.retardJours)} jours de retard`
               }
-            >
-              <span className="remplissage" style={{ width: `${pct}%` }} />
-              <span className="qte">{r.infeasible ? 'jamais' : `${nf.format(r.retardJours)} j`}</span>
+            />
+            <span className="qte">{r.infeasible ? 'jamais' : `${nf.format(r.retardJours)} j`}</span>
+          </span>
+          <span className="rang-meta">
+            <span>besoin {fmtDateFr(r.dateBesoin)}</span>
+            <span className="muted">
+              promesse {r.infeasible ? '—' : fmtDateFr(r.promiseEngageante)}
             </span>
-            <span className="rang-meta">
-              <span>besoin {fmtDateFr(r.dateBesoin)}</span>
-              <span className="muted">
-                promesse {r.infeasible ? '—' : fmtDateFr(r.promiseEngageante)}
-              </span>
-            </span>
-          </li>
-        )
-      })}
+          </span>
+        </li>
+      ))}
       {!plein && tries.length > affichees.length && (
         <li className="rang-suite muted small">
           +{tries.length - affichees.length} autre(s) — agrandir pour le détail
@@ -322,7 +325,13 @@ function DetailRetards({ retards }: { retards: Retard[] }) {
             </div>
             <div className="cell">
               <span className="muted">Promesse</span>
-              <span>{r.infeasible ? <span className="danger">jamais</span> : fmtDateFr(r.promiseEngageante)}</span>
+              <span>
+                {r.infeasible ? (
+                  <span className="danger">jamais</span>
+                ) : (
+                  fmtDateFr(r.promiseEngageante)
+                )}
+              </span>
             </div>
             <div className="cell num">
               <span className="muted">Retard</span>

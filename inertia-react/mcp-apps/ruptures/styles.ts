@@ -7,6 +7,8 @@
  * seul fichier HTML.
  */
 
+import { CHART_CSS } from '../chart-bridge'
+
 export const APP_CSS = `
 :root { color-scheme: light dark; }
 * { box-sizing: border-box; }
@@ -79,21 +81,10 @@ p { margin: 0; }
 .rang-id span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .barre {
-  position: relative; display: block; height: 16px;
-  background: var(--color-background-secondary, rgba(0,0,0,.05));
+  position: relative; display: flex; align-items: center; height: 16px;
   border-radius: var(--border-radius-xs, 3px);
   overflow: hidden;
 }
-.remplissage {
-  position: absolute; inset: 0 auto 0 0;
-  background: var(--color-background-info, #3b82f6);
-  border-radius: inherit;
-}
-.rang.sans_couverture .remplissage { background: var(--color-background-danger, #dc2626); }
-.rang.retard .remplissage { background: var(--color-background-warning, #f59e0b); }
-.rang.a_risque .remplissage { background: var(--color-background-warning, #f59e0b); opacity: .8; }
-.rang.sous_ensemble .remplissage { background: var(--color-background-tertiary, #8a8a8a); }
-.rang.couvert .remplissage { background: var(--color-background-success, #16a34a); opacity: .7; }
 .qte {
   position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
   font-size: var(--font-text-xs-size, 11px); font-variant-numeric: tabular-nums;
@@ -135,4 +126,6 @@ p { margin: 0; }
 .cell span:not(.muted):not(.tag) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell.num span:not(.muted):not(.tag) { font-variant-numeric: tabular-nums; }
 .cell.principal strong { font-weight: var(--font-weight-medium, 500); }
+
+${CHART_CSS}
 `

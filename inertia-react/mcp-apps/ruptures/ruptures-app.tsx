@@ -21,6 +21,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react'
+import { Jauge } from '../../components/ui/chart'
+import { SERIE } from '../../lib/charts/theme'
 import { APP_CSS } from './styles'
 
 type Verdict = 'couvert' | 'a_risque' | 'retard' | 'sans_couverture' | 'sous_ensemble'
@@ -236,6 +238,7 @@ function Kpis({
 /**
  * Barres horizontales classées par sévérité. Largeur ∝ quantité manquante,
  * couleur par verdict : deux canaux, deux infos.
+ * Barre = Jauge (@tanstack/charts) : le rang porte le sens, la couleur le verdict.
  */
 function Classement({ ruptures, plein }: { ruptures: Rupture[]; plein: boolean }) {
   const tries = useMemo(() => {
@@ -250,10 +253,15 @@ function Classement({ ruptures, plein }: { ruptures: Rupture[]; plein: boolean }
     return copie
   }, [ruptures])
 
-  const max = useMemo(
-    () => Math.max(...tries.map((r) => r.qteManquante), 1),
-    [tries]
-  )
+  const max = useMemo(() => Math.max(...tries.map((r) => r.qteManquante), 1), [tries])
+
+  /** Encre de la barre selon le verdict — mêmes familles que les pastilles. */
+  const couleurVerdict = (r: Rupture): string => {
+    if (r.verdict === 'sans_couverture') return SERIE.alerte
+    if (r.verdict === 'retard' || r.verdict === 'a_risque') return SERIE.suggere
+    if (r.verdict === 'sous_ensemble') return SERIE.neutre
+    return SERIE.ferme
+  }
 
   const limite = plein ? tries.length : Math.min(12, tries.length)
   const affichees = tries.slice(0, limite)
@@ -265,19 +273,21 @@ function Classement({ ruptures, plein }: { ruptures: Rupture[]; plein: boolean }
   return (
     <ul className="classement">
       {affichees.map((r) => (
-        <li key={`${r.composant}-${r.numOf ?? ''}-${r.numCommande ?? ''}`} className={`rang ${r.verdict}`}>
+        <li
+          key={`${r.composant}-${r.numOf ?? ''}-${r.numCommande ?? ''}`}
+          className={`rang ${r.verdict}`}
+        >
           <span className="rang-id">
             <strong>{r.composant}</strong>
             <span className="muted">{r.composantDesc ?? ''}</span>
           </span>
-          <span
-            className="barre"
-            role="img"
-            aria-label={`${nf.format(r.qteManquante)} manquants · ${verdictLabel(r.verdict)}`}
-          >
-            <span
-              className="remplissage"
-              style={{ width: `${(r.qteManquante / max) * 100}%` }}
+          <span className="barre">
+            <Jauge
+              valeur={r.qteManquante}
+              max={max}
+              couleur={couleurVerdict(r)}
+              epaisseur={12}
+              ariaLabel={`${nf.format(r.qteManquante)} manquants · ${verdictLabel(r.verdict)}`}
             />
             <span className="qte">{nf.format(r.qteManquante)}</span>
           </span>

@@ -22,6 +22,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react'
+import { HistogrammeCharge } from '../../components/ui/chart'
 import { APP_CSS } from './styles'
 
 interface ChargeJour {
@@ -65,7 +66,14 @@ interface LigneReception {
 interface ReceptionsPayload {
   _source?: string
   note?: string
-  filtres?: { from?: string; to?: string; horizonDays?: number; fournisseur?: string | null; article?: string | null; criticite?: boolean }
+  filtres?: {
+    from?: string
+    to?: string
+    horizonDays?: number
+    fournisseur?: string | null
+    article?: string | null
+    criticite?: boolean
+  }
   totalMatching?: number
   truncated?: boolean
   criticiteError?: string | null
@@ -170,7 +178,9 @@ export function ReceptionsApp() {
 
       <Histogramme charge={charge} picJour={stats?.picJour ?? null} plein={plein} />
 
-      {payload.criticiteError && <p className="warn">Criticité indisponible : {payload.criticiteError}</p>}
+      {payload.criticiteError && (
+        <p className="warn">Criticité indisponible : {payload.criticiteError}</p>
+      )}
 
       {payload.truncated && (
         <p className="muted small">
@@ -234,6 +244,7 @@ function Kpis({ stats }: { stats: StatsFenetre }) {
 /**
  * Histogramme palette/jour. Une barre par jour, pic surligné, repère « aujourd’hui ».
  * Ancré à zéro : les palettes s'additionnent, une base tronquée mentirait sur le pic.
+ * Barres, axes, survol : HistogrammeCharge (@tanstack/charts).
  */
 function Histogramme({
   charge,
@@ -244,131 +255,51 @@ function Histogramme({
   picJour: string | null
   plein: boolean
 }) {
-  const [survol, setSurvol] = useState<number | null>(null)
-
   if (charge.length === 0) {
     return <p className="muted">Aucune réception attendue sur la fenêtre.</p>
   }
 
   const max = Math.max(...charge.map((c) => c.palettes), 1)
   const aujourdhui = new Date().toISOString().split('T')[0]
-  const H = plein ? 300 : 190
-  const W = 1000
-  const PAD_L = 38
-  const PAD_R = 8
-  const PAD_T = 8
-  const PAD_B = 22
-
-  const x = (i: number) => PAD_L + (i / Math.max(1, charge.length - 1)) * (W - PAD_L - PAD_R)
-  const y = (v: number) => PAD_T + (1 - v / max) * (H - PAD_T - PAD_B)
-  const bw = Math.max(2, ((W - PAD_L - PAD_R) / Math.max(1, charge.length - 1)) * 0.62)
-
-  const idxPic = picJour ? charge.findIndex((c) => c.jour.split('T')[0] === picJour.split('T')[0]) : -1
   const idxAujourdhui = charge.findIndex((c) => c.jour.split('T')[0] >= aujourdhui)
-
-  const grad = [0, 0.5, 1].map((f) => ({ v: max * f, yy: y(max * f) }))
-  const pas = Math.max(1, Math.round(charge.length / 8))
-  const ticks = charge.map((c, i) => ({ c, i })).filter(({ i }) => i % pas === 0)
-  const survolJour = survol !== null ? charge[survol] : null
+  const cleAujourdhui = idxAujourdhui >= 0 ? charge[idxAujourdhui].jour : null
+  const idxPic = picJour
+    ? charge.findIndex((c) => c.jour.split('T')[0] === picJour.split('T')[0])
+    : -1
+  const fmtPal = (v: number) => `${nf1.format(v)} pal.`
 
   return (
     <div className="chart-wrap">
-      <svg
-        className="chart"
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Charge palettes par jour sur ${charge.length} jours`}
-        onMouseLeave={() => setSurvol(null)}
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect()
-          const ratio = (e.clientX - rect.left) / rect.width
-          const px = ratio * W
-          const i = Math.round(((px - PAD_L) / (W - PAD_L - PAD_R)) * Math.max(1, charge.length - 1))
-          setSurvol(Math.min(charge.length - 1, Math.max(0, i)))
+      <HistogrammeCharge
+        periodes={charge.map((c) => ({
+          cle: c.jour,
+          label: fmtCourt(c.jour),
+          valeurs: { pal: c.palettes },
+        }))}
+        segments={[{ cle: 'pal', serie: 'ferme', label: 'Palettes' }]}
+        max={max}
+        hauteur={plein ? 300 : 190}
+        format={fmtPal}
+        regleX={cleAujourdhui}
+        pic={idxPic >= 0}
+        formatTooltip={(points) => {
+          const premier = points[0]?.datum
+          if (!premier) return ''
+          const total = points.reduce((s, p) => s + p.datum.valeur, 0)
+          const jour = charge.find((c) => c.jour === premier.cle)
+          const extra = jour ? ` · ${jour.lignes} ligne(s) · ${jour.fournisseurs} four.` : ''
+          return `${fmtDateFr(premier.cle)} — ${nf1.format(total)} pal.${extra}`
         }}
-      >
-        {grad.map((g) => (
-          <g key={g.v}>
-            <line className="grid" x1={PAD_L} x2={W - PAD_R} y1={g.yy} y2={g.yy} />
-            <text className="tick" x={PAD_L - 4} y={g.yy + 3} textAnchor="end">
-              {nf.format(g.v)}
-            </text>
-          </g>
-        ))}
-
-        {charge.map((c, i) => {
-          const isPic = i === idxPic
-          return (
-            <rect
-              key={`${c.jour}-${i}`}
-              className={isPic ? 'bar pic' : 'bar'}
-              x={x(i) - bw / 2}
-              y={y(c.palettes)}
-              width={bw}
-              height={Math.max(0, y(0) - y(c.palettes))}
-            />
-          )
-        })}
-
-        {idxAujourdhui >= 0 && (
-          <line
-            className="aujourdhui"
-            x1={x(idxAujourdhui)}
-            x2={x(idxAujourdhui)}
-            y1={PAD_T}
-            y2={H - PAD_B}
-          />
-        )}
-
-        <line className="axis" x1={PAD_L} x2={W - PAD_R} y1={y(0)} y2={y(0)} />
-
-        {ticks.map(({ c, i }) => (
-          <text key={`${c.jour}-${i}`} className="tick" x={x(i)} y={H - 6} textAnchor="middle">
-            {fmtCourt(c.jour)}
-          </text>
-        ))}
-
-        {survol !== null && survolJour && (
-          <>
-            <line
-              className="curseur"
-              x1={x(survol)}
-              x2={x(survol)}
-              y1={PAD_T}
-              y2={H - PAD_B}
-            />
-            <rect
-              className="curseur-bar"
-              x={x(survol) - bw / 2}
-              y={y(survolJour.palettes)}
-              width={bw}
-              height={Math.max(0, y(0) - y(survolJour.palettes))}
-            />
-          </>
-        )}
-      </svg>
-
-      {survol !== null && survolJour && (
-        <div
-          className="tip"
-          style={{
-            left: `${(x(survol) / W) * 100}%`,
-            top: `${(y(survolJour.palettes) / H) * 100}%`,
-          }}
-        >
-          <strong>{fmtDateFr(survolJour.jour)}</strong>
-          <span>{nf1.format(survolJour.palettes)} pal.</span>
-          <span>{survolJour.lignes} ligne(s) · {survolJour.fournisseurs} four.</span>
-        </div>
-      )}
+        largeurInitiale={700}
+        ariaLabel={`Charge palettes par jour sur ${charge.length} jours`}
+      />
 
       <p className="legend">
         <span className="key bar-key" /> palettes / jour
         {idxPic >= 0 ? <span className="key pic-key" /> : null}
         {idxPic >= 0 ? 'pic' : null}
-        {idxAujourdhui >= 0 ? <span className="key auj-key" /> : null}
-        {idxAujourdhui >= 0 ? "aujourd’hui" : null}
+        {cleAujourdhui !== null ? <span className="key auj-key" /> : null}
+        {cleAujourdhui !== null ? 'aujourd’hui' : null}
       </p>
     </div>
   )

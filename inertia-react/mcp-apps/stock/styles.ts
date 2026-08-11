@@ -7,6 +7,8 @@
  * resource n'autorise aucun domaine et le bundle doit tenir dans un seul HTML.
  */
 
+import { CHART_CSS } from '../chart-bridge'
+
 export const APP_CSS = `
 :root { color-scheme: light dark; }
 * { box-sizing: border-box; }
@@ -57,33 +59,6 @@ p { margin: 0; }
 
 /* ── Graphe ── */
 .chart-wrap { position: relative; }
-.chart { width: 100%; height: 200px; display: block; overflow: visible; }
-.app.plein .chart { height: 340px; }
-.axis { stroke: var(--color-border-primary, rgba(0,0,0,.16)); stroke-width: 1; }
-.grid { stroke: var(--color-border-secondary, rgba(0,0,0,.08)); stroke-width: 1; }
-.aire-passe { fill: var(--color-background-info, #3b82f6); opacity: .13; }
-.aire-futur { fill: var(--color-background-info, #3b82f6); opacity: .07; }
-.trace-passe { fill: none; stroke: var(--color-text-primary, #1a1a1a); stroke-width: 1.6; opacity: .75; }
-.trace-futur { fill: none; stroke: var(--color-background-info, #3b82f6); stroke-width: 1.8; }
-.secu { stroke: var(--color-background-warning, #f59e0b); stroke-width: 1.4; stroke-dasharray: 5 3; }
-.rupture { stroke: var(--color-background-danger, #dc2626); stroke-width: 1.4; }
-.aujourdhui { stroke: var(--color-text-secondary, #6b6b6b); stroke-width: 1; stroke-dasharray: 3 3; }
-.tick { font-size: 9px; fill: var(--color-text-tertiary, #8a8a8a); }
-.curseur { stroke: var(--color-text-secondary, #6b6b6b); stroke-width: 1; }
-.point { fill: var(--color-background-info, #3b82f6); }
-
-.flux-bar { fill: var(--color-background-success, #16a34a); opacity: .8; }
-.flux-bar.besoin { fill: var(--color-background-danger, #dc2626); opacity: .65; }
-
-.tip {
-  position: absolute; pointer-events: none;
-  background: var(--color-background-inverse, #1a1a1a);
-  color: var(--color-text-inverse, #fff);
-  border-radius: var(--border-radius-sm, 6px);
-  padding: 5px 8px; font-size: var(--font-text-xs-size, 10px);
-  display: flex; flex-direction: column; gap: 1px; white-space: nowrap;
-  transform: translate(-50%, -100%);
-}
 
 .legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--font-text-xs-size, 10px); color: var(--color-text-secondary, #6b6b6b); }
 .key { width: 14px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
@@ -95,4 +70,6 @@ p { margin: 0; }
 /* ── Logistique (plein écran) ── */
 .logi { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px 14px; }
 .logi div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--color-border-secondary, rgba(0,0,0,.12)); padding: 2px 0; }
+
+${CHART_CSS}
 `
