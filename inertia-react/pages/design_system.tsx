@@ -35,6 +35,7 @@ import {
   StatutsSection,
 } from '@r/components/design-system/patterns'
 import { GraphiquesSection } from '@r/components/design-system/graphiques'
+import { ToolbarSection } from '@r/components/design-system/toolbar'
 
 /**
  * Design system — catalogue complet de l'interface, rendu sous `.theme-cursor`.
@@ -74,19 +75,20 @@ const NAV: NavGroupe[] = [
       { id: 'surfaces', n: '14', label: 'Surfaces & tableaux' },
       { id: 'overlays', n: '15', label: 'Overlays' },
       { id: 'navigation', n: '16', label: 'Navigation' },
-      { id: 'etats', n: '17', label: 'États' },
-      { id: 'conversation', n: '18', label: 'Conversation' },
+      { id: 'toolbar', n: '17', label: "Barre d'outils" },
+      { id: 'etats', n: '18', label: 'États' },
+      { id: 'conversation', n: '19', label: 'Conversation' },
     ],
   },
   {
     titre: 'Motifs',
     items: [
-      { id: 'statuts', n: '19', label: 'Alphabets de statut' },
-      { id: 'board-card', n: '20', label: 'Carte de board' },
-      { id: 'kpi', n: '21', label: 'Indicateurs' },
-      { id: 'graphiques', n: '22', label: 'Graphiques' },
-      { id: 'liens', n: '23', label: 'Liens externes' },
-      { id: 'migration', n: '24', label: 'État de la migration' },
+      { id: 'statuts', n: '20', label: 'Alphabets de statut' },
+      { id: 'board-card', n: '21', label: 'Carte de board' },
+      { id: 'kpi', n: '22', label: 'Indicateurs' },
+      { id: 'graphiques', n: '23', label: 'Graphiques' },
+      { id: 'liens', n: '24', label: 'Liens externes' },
+      { id: 'migration', n: '25', label: 'État de la migration' },
     ],
   },
 ]
@@ -210,6 +212,7 @@ export default function DesignSystem() {
               <SurfacesSection />
               <OverlaysSection />
               <NavigationSection />
+              <ToolbarSection />
               <EtatsSection />
               <ConversationSection />
 

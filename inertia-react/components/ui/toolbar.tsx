@@ -1,9 +1,15 @@
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { RefreshCw } from 'lucide-react'
+import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
+import { Popover } from '@base-ui/react/popover'
+import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { fr } from 'react-day-picker/locale'
 
 import { cn } from '@r/lib/utils'
 import { DynamicIcon } from './dynamic-icon'
+import { Pill } from './pill'
+import { Calendar } from './calendar'
+import { useRangeCalendar } from '@r/lib/use-range-calendar'
 
 // Toolbar — composant unifié pour les barres de filtrage au-dessus des pages
 // métier (dashboard, suivi, ruptures, expeditions, receptions, etc.).
@@ -292,6 +298,261 @@ function ToolbarSpacer() {
   return <div className="ml-auto" aria-hidden="true" />
 }
 
+/* ─── Fenêtre de dates ───────────────────────────────────────────────────
+   Rôle « portée temporelle ». Existait en trois exemplaires : DateWindowPill
+   (vision/toolbar, 5 pages), une réimplémentation Popover dans /suivi, et le
+   format de libellé recopié dans les deux. Une seule maison ici, format de
+   libellé compris. */
+
+const MOIS_COURTS_FR = [
+  'janv.',
+  'févr.',
+  'mars',
+  'avr.',
+  'mai',
+  'juin',
+  'juil.',
+  'août',
+  'sept.',
+  'oct.',
+  'nov.',
+  'déc.',
+]
+
+/** « 11 août → 18 août ». Tableau statique plutôt qu'Intl : déterministe, pas
+ *  de coût de chargement de locale par rendu. */
+function formatWindowLabel(from?: Date, to?: Date): string {
+  const f = from
+    ? `${String(from.getDate()).padStart(2, '0')} ${MOIS_COURTS_FR[from.getMonth()]}`
+    : null
+  const t = to ? `${String(to.getDate()).padStart(2, '0')} ${MOIS_COURTS_FR[to.getMonth()]}` : null
+  if (!f && !t) return '—'
+  if (!f) return t as string
+  if (!t) return f
+  return `${f} → ${t}`
+}
+
+interface ToolbarDateWindowProps {
+  value: DayPickerRange | undefined
+  /** Appelé UNIQUEMENT avec une plage complète (deux clics). */
+  onCommit: (range: DayPickerRange) => void
+  numberOfMonths?: number
+  align?: 'start' | 'end'
+  title?: string
+  disabled?: boolean
+}
+
+function ToolbarDateWindow({
+  value,
+  onCommit,
+  numberOfMonths = 2,
+  align = 'start',
+  title = "Filtrer par plage de dates d'expédition",
+  disabled,
+}: ToolbarDateWindowProps) {
+  const [open, setOpen] = React.useState(false)
+  const label = formatWindowLabel(value?.from, value?.to)
+  const cal = useRangeCalendar({
+    open,
+    value,
+    onCommit: (r) => {
+      onCommit(r)
+      setOpen(false)
+    },
+  })
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        render={
+          <Pill
+            variant="outline"
+            className="gap-1.5"
+            disabled={disabled}
+            // Une feuille imprimée doit dire de quelle fenêtre elle est l'extrait :
+            // c'est le seul contrôle que l'impression conserve.
+            data-print-keep
+            title={title}
+            aria-label={`Fenêtre : ${label}`}
+          >
+            <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
+            <span className="whitespace-nowrap font-mono tabular-nums">{label}</span>
+            <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
+          </Pill>
+        }
+      />
+      {/* Positioner Base UI = évitement de collision natif : le panneau ne sort
+          pas du viewport, contrairement à un `absolute right-0` qui rognait le
+          premier mois sur écran étroit. */}
+      <Popover.Portal>
+        <Popover.Positioner
+          side="bottom"
+          align={align}
+          sideOffset={8}
+          collisionPadding={8}
+          className="z-50"
+        >
+          <Popover.Popup
+            data-slot="popover-content"
+            className="max-w-(--available-width) overflow-x-auto rounded-lg border border-rule bg-popover shadow-float"
+          >
+            <Calendar
+              mode="range"
+              locale={fr}
+              numberOfMonths={numberOfMonths}
+              selected={cal.selected}
+              onSelect={cal.onSelect}
+            />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
+/* ─── Filtres secondaires ────────────────────────────────────────────────
+   Déclencheur UNIQUE. Empiler les segmented controls dans la rangée force un
+   scroll horizontal ; tout ce qui n'est ni la portée ni la recherche vit ici.
+   Le nombre de filtres actifs est porté par le déclencheur : « des filtres
+   sont actifs » n'aide personne à savoir s'il en reste un ou quatre à défaire. */
+
+interface ToolbarFilterMenuProps {
+  label?: string
+  /** Nombre de filtres qui S'ÉCARTENT du défaut (0 = aucun). */
+  activeCount?: number
+  width?: number
+  align?: 'start' | 'end'
+  children: React.ReactNode
+}
+
+function ToolbarFilterMenu({
+  label = 'Filtres',
+  activeCount = 0,
+  width = 280,
+  align = 'end',
+  children,
+}: ToolbarFilterMenuProps) {
+  const actif = activeCount > 0
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        render={
+          <Pill
+            variant={actif ? 'active' : 'outline'}
+            className="gap-1.5"
+            title={
+              actif
+                ? `${activeCount} filtre${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}`
+                : label
+            }
+          >
+            <SlidersHorizontal size={14} strokeWidth={1.75} className="text-muted-foreground" />
+            {label}
+            {actif ? (
+              <span className="rounded-full bg-brand px-1.5 py-px text-3xs font-semibold leading-none text-white tabular-nums">
+                {activeCount}
+              </span>
+            ) : null}
+            <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
+          </Pill>
+        }
+      />
+      <Popover.Portal>
+        <Popover.Positioner
+          side="bottom"
+          align={align}
+          sideOffset={8}
+          collisionPadding={8}
+          className="z-50"
+        >
+          <Popover.Popup
+            data-slot="filter-menu-panel"
+            className="p-2"
+            style={{ width: `${width}px` }}
+          >
+            {children}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
+/** Libellé de section dans le panneau de filtres. */
+function ToolbarFilterSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-0.5 pb-1 font-mono text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+      {children}
+    </div>
+  )
+}
+
+/* ─── Raccourcis de gravité ──────────────────────────────────────────────
+   Un point, un nombre, un mot. Ce sont les compteurs qui décident du scan :
+   enfermés dans le panneau de filtres, ils coûtent un clic à chaque coup d'œil.
+   Règle : uniquement les paliers NON VIDES, trois au maximum. */
+
+const STAT_DOT: Record<'critical' | 'warning' | 'ok' | 'neutral', string> = {
+  critical: 'bg-destructive',
+  warning: 'bg-suggere',
+  ok: 'bg-ferme',
+  neutral: 'bg-muted-foreground',
+}
+
+interface ToolbarStatProps {
+  count: number
+  label: string
+  tone?: keyof typeof STAT_DOT
+  active?: boolean
+  onClick?: () => void
+  title?: string
+}
+
+function ToolbarStat({ count, label, tone = 'neutral', active, onClick, title }: ToolbarStatProps) {
+  return (
+    <Pill
+      size="sm"
+      variant={active ? 'active' : 'ghost'}
+      dot
+      dotClassName={STAT_DOT[tone]}
+      aria-pressed={onClick ? !!active : undefined}
+      onClick={onClick}
+      disabled={!onClick}
+      title={title ?? (onClick ? `Ne garder que les lignes ${label}` : label)}
+    >
+      <span className="font-mono font-semibold tabular-nums">{count}</span>
+      <span className="text-muted-foreground">{label}</span>
+    </Pill>
+  )
+}
+
+/* ─── Indicateur en lecture seule ────────────────────────────────────────
+   Compteur filtré, fraîcheur, durée de chargement. Jamais cliquable : un
+   chiffre qui répond au survol comme un bouton est une promesse non tenue. */
+
+function ToolbarMetric({
+  children,
+  title,
+  emphasis,
+}: {
+  children: React.ReactNode
+  title?: string
+  emphasis?: boolean
+}) {
+  return (
+    <span
+      data-slot="toolbar-metric"
+      title={title}
+      className={cn(
+        'whitespace-nowrap font-mono text-xs tabular-nums',
+        emphasis ? 'font-medium text-foreground' : 'text-muted-foreground'
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
 export {
   Toolbar,
   ToolbarGroup,
@@ -301,4 +562,10 @@ export {
   ToolbarRefresh,
   ToolbarSeparator,
   ToolbarSpacer,
+  ToolbarDateWindow,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarStat,
+  ToolbarMetric,
+  formatWindowLabel,
 }

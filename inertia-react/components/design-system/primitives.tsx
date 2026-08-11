@@ -106,16 +106,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@r/components/ui/toolti
 import { Calendar } from '@r/components/ui/calendar'
 import { SearchBar } from '@r/components/ui/search-bar'
 import {
-  Toolbar,
-  ToolbarGroup,
-  ToolbarRefresh,
-  ToolbarSearch,
-  ToolbarSegment,
-  ToolbarSegmented,
-  ToolbarSeparator,
-  ToolbarSpacer,
-} from '@r/components/ui/toolbar'
-import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -1124,9 +1114,6 @@ const NAV_ITEMS = [
 ]
 
 export function NavigationSection() {
-  const [seg, setSeg] = useState('tous')
-  const [q, setQ] = useState('')
-
   return (
     <Section
       id="navigation"
@@ -1180,31 +1167,9 @@ export function NavigationSection() {
         </SidebarProvider>
       </Fiche>
 
-      <Fiche
-        nom="Toolbar"
-        from="@r/components/ui/toolbar"
-        etat="cursor"
-        orphelin
-        note="Segments, recherche, rafraîchissement. Aucune page ne la rend : /programme et /vision ont chacune leur propre barre d'outils, écrite à la main. C'est un doublon non résolu, pas un composant abandonné."
-      >
-        <Panel padding="sm">
-          <Toolbar gap="2.5" py="2">
-            <ToolbarGroup>
-              <ToolbarSegmented>
-                {['tous', 'retard', 'bloqués'].map((s) => (
-                  <ToolbarSegment key={s} active={seg === s} onClick={() => setSeg(s)}>
-                    {s}
-                  </ToolbarSegment>
-                ))}
-              </ToolbarSegmented>
-            </ToolbarGroup>
-            <ToolbarSeparator />
-            <ToolbarSearch value={q} onChange={setQ} placeholder="OF, article…" />
-            <ToolbarSpacer />
-            <ToolbarRefresh label="Actualiser" />
-          </Toolbar>
-        </Panel>
-      </Fiche>
+      {/* La fiche Toolbar vivait ici, coincée entre Sidebar et DynamicIcon. Une
+          barre d'outils n'est pas un détail de navigation : elle a sa propre
+          section (17), avec l'inventaire des 17 pages qui la justifie. */}
 
       <Fiche
         nom="DynamicIcon"
@@ -1241,7 +1206,7 @@ export function EtatsSection() {
   return (
     <Section
       id="etats"
-      n="17"
+      n="18"
       title="États"
       intro={
         <>
@@ -1356,7 +1321,7 @@ export function ConversationSection() {
   return (
     <Section
       id="conversation"
-      n="18"
+      n="19"
       title="Conversation"
       intro={
         <>

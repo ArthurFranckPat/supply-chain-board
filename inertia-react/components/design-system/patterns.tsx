@@ -75,7 +75,7 @@ export function StatutsSection() {
   return (
     <Section
       id="statuts"
-      n="19"
+      n="20"
       title="Alphabets de statut"
       intro={
         <>
@@ -186,7 +186,7 @@ export function BoardCardSection() {
   return (
     <Section
       id="board-card"
-      n="20"
+      n="21"
       title="Carte de board"
       intro={
         <>
@@ -316,7 +316,7 @@ export function KpiSection() {
   return (
     <Section
       id="kpi"
-      n="21"
+      n="22"
       title="Indicateurs"
       intro={
         <>
@@ -393,7 +393,7 @@ export function LiensSection() {
   return (
     <Section
       id="liens"
-      n="23"
+      n="24"
       title="Liens externes"
       intro={
         <>
@@ -508,7 +508,12 @@ const MIGRATION: LigneMigration[] = [
   { nom: 'AlertDialog', etat: 'cursor', reste: '—' },
   { nom: 'Sheet', etat: 'cursor', reste: '—' },
   { nom: 'Tooltip', etat: 'cursor', reste: '—' },
-  { nom: 'Toolbar', etat: 'cursor', orphelin: true, reste: 'les pages ont leurs propres barres' },
+  {
+    nom: 'Toolbar',
+    etat: 'cursor',
+    orphelin: true,
+    reste: 'standard proposé (§17) ; 14 pages encore sur vision/toolbar',
+  },
   { nom: 'Calendar', etat: 'cursor', reste: '—' },
   { nom: 'Spinner', etat: 'cursor', reste: '—' },
   { nom: 'Skeleton', etat: 'cursor', reste: '—' },
@@ -531,7 +536,7 @@ export function MigrationSection() {
   return (
     <Section
       id="migration"
-      n="24"
+      n="25"
       title="État de la migration"
       last
       intro={
