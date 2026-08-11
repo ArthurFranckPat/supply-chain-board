@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 
-import { BarresClassement, Sparkline, type LigneClassement } from '@r/components/ui/chart'
+import { Jauge, Sparkline } from '@r/components/ui/chart'
 import { SERIE, fmtEuro, fmtEuroCompact, fmtHeures } from '@r/lib/charts/theme'
 
 // Type local (évite import circulaire depuis dashboard.tsx)
@@ -39,88 +39,124 @@ export const StockSparklineChart = memo(function StockSparklineChart({
 
 type ChargeRow = { code: string; label: string; heures: number }
 
+/** Rangée de la vitrine : libellé + valeur, puis Jauge au domaine partagé. */
+function Rangée({
+  label,
+  valeur,
+  libellé,
+  max,
+  couleur,
+  ariaLabel,
+  ariaDescription,
+}: {
+  label: string
+  /** Valeur numérique de la jauge. */
+  valeur: number
+  /** Libellé de valeur affiché à droite (déjà formaté). */
+  libellé: string
+  /** Borne haute de la jauge — partagée par toutes les rangées de la liste. */
+  max: number
+  couleur: string
+  ariaLabel: string
+  ariaDescription: string
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-[13px] text-foreground" title={label}>
+          {label}
+        </span>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{libellé}</span>
+      </div>
+      <Jauge
+        valeur={valeur}
+        max={max}
+        couleur={couleur}
+        ariaLabel={ariaLabel}
+        ariaDescription={ariaDescription}
+      />
+    </div>
+  )
+}
+
 /**
- * Charge en retard par poste — la forme « BarresClassement » de la vitrine,
- * branchée sur les données du KPI.
+ * Charge en retard par poste — le motif « Jauge » de la vitrine, branché sur
+ * les données du KPI. Encre (pas de palier) : un classement de postes « en
+ * retard » ne se peint pas en vert (règle de la section Graphiques).
  */
 export const ChargeBars = memo(function ChargeBars({ postes }: { postes: ChargeRow[] }) {
-  const lignes: LigneClassement[] = useMemo(
-    () =>
-      postes.map((p) => ({
-        cle: p.code,
-        label: p.label ? `${p.code} · ${p.label}` : p.code,
-        valeur: p.heures,
-      })),
-    [postes]
-  )
-  if (lignes.length === 0) return null
-
+  const max = useMemo(() => Math.max(1, ...postes.map((p) => p.heures)), [postes])
+  if (postes.length === 0) return null
   return (
-    <BarresClassement
-      lignes={lignes}
-      format={fmtHeures}
-      couleur={SERIE.encre}
-      ariaLabel="Charge en retard par poste de charge"
-    />
+    <div className="flex flex-col gap-2">
+      {postes.map((p) => (
+        <Rangée
+          key={p.code}
+          label={p.label ? `${p.code} · ${p.label}` : p.code}
+          valeur={p.heures}
+          libellé={fmtHeures(p.heures)}
+          max={max}
+          couleur={SERIE.encre}
+          ariaLabel={`Charge en retard du poste ${p.code}`}
+          ariaDescription={`${fmtHeures(p.heures)} sur ${fmtHeures(max)}`}
+        />
+      ))}
+    </div>
   )
 })
 
 type ProfRow = { id: string; label: string; nbLignes: number; heures: number }
 
 /**
- * Profondeur de retard — classement par ancienneté, sévérité en couleur
- * (≤ 7 j = alerte douce, au-delà = danger ; mêmes seuils que la colonne J+
- * des lignes en retard).
+ * Profondeur de retard — jauges par ancienneté, sévérité en couleur (≤ 7 j =
+ * alerte douce, au-delà = danger ; mêmes seuils que la colonne J+ des lignes).
  */
 export const ProfondeurBars = memo(function ProfondeurBars({ buckets }: { buckets: ProfRow[] }) {
   const visible = useMemo(() => buckets.filter((b) => b.nbLignes > 0 || b.heures > 0), [buckets])
-  const lignes: LigneClassement[] = useMemo(
-    () =>
-      visible.map((b) => ({
-        cle: b.id,
-        label: `${b.label} · ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`,
-        valeur: b.heures,
-        couleur: b.id === '1-7' ? SERIE.suggere : SERIE.alerte,
-      })),
-    [visible]
-  )
-  if (lignes.length === 0) return null
-
+  const max = useMemo(() => Math.max(1, ...visible.map((b) => b.heures)), [visible])
+  if (visible.length === 0) return null
   return (
-    <BarresClassement
-      lignes={lignes}
-      format={fmtHeures}
-      hauteurLigne={24}
-      ariaLabel="Profondeur de retard — répartition par ancienneté"
-    />
+    <div className="flex flex-col gap-2">
+      {visible.map((b) => (
+        <Rangée
+          key={b.id}
+          label={`${b.label} · ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`}
+          valeur={b.heures}
+          libellé={fmtHeures(b.heures)}
+          max={max}
+          couleur={b.id === '1-7' ? SERIE.suggere : SERIE.alerte}
+          ariaLabel={`Profondeur de retard — ${b.label}`}
+          ariaDescription={`${fmtHeures(b.heures)} sur ${fmtHeures(max)}, ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`}
+        />
+      ))}
+    </div>
   )
 })
 
 type CatRow = { categorie: string; valeur: number; part: number }
 
-/** Top catégories de stock — la forme « BarresClassement » de la vitrine. */
+/** Top catégories de stock — jauges en encre, le rang porte le sens. */
 export const CategoriesBars = memo(function CategoriesBars({
   categories,
 }: {
   categories: CatRow[]
 }) {
-  const lignes: LigneClassement[] = useMemo(
-    () =>
-      categories.map((c) => ({
-        cle: c.categorie,
-        label: `${c.categorie} · ${c.part} %`,
-        valeur: c.valeur,
-      })),
-    [categories]
-  )
-  if (lignes.length === 0) return null
-
+  const max = useMemo(() => Math.max(1, ...categories.map((c) => c.valeur)), [categories])
+  if (categories.length === 0) return null
   return (
-    <BarresClassement
-      lignes={lignes}
-      format={fmtEuro}
-      hauteurLigne={24}
-      ariaLabel="Valorisation du stock par catégorie"
-    />
+    <div className="flex flex-col gap-2">
+      {categories.map((c) => (
+        <Rangée
+          key={c.categorie}
+          label={c.categorie}
+          valeur={c.valeur}
+          libellé={`${fmtEuro(c.valeur)} · ${c.part} %`}
+          max={max}
+          couleur={SERIE.encre}
+          ariaLabel={`Valorisation de la catégorie ${c.categorie}`}
+          ariaDescription={`${fmtEuro(c.valeur)}, ${c.part} % du stock`}
+        />
+      ))}
+    </div>
   )
 })
