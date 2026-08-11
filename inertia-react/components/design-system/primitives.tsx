@@ -395,7 +395,7 @@ export function ChampsSection() {
         <Grid min={280}>
           <Demo label="Input">
             <div className="w-full">
-              <Label htmlFor="ds-input" className="mb-2 block text-xs">
+              <Label htmlFor="ds-input" className="mb-2 block">
                 Recherche
               </Label>
               <Input id="ds-input" placeholder="Article, OF, commande…" />
@@ -403,7 +403,7 @@ export function ChampsSection() {
           </Demo>
           <Demo label="Input désactivé">
             <div className="w-full">
-              <Label htmlFor="ds-input-d" className="mb-2 block text-xs">
+              <Label htmlFor="ds-input-d" className="mb-2 block">
                 Site
               </Label>
               <Input id="ds-input-d" defaultValue="AE1" disabled />
@@ -411,7 +411,7 @@ export function ChampsSection() {
           </Demo>
           <Demo label="Textarea">
             <div className="w-full">
-              <Label htmlFor="ds-ta" className="mb-2 block text-xs">
+              <Label htmlFor="ds-ta" className="mb-2 block">
                 Commentaire d’arbitrage
               </Label>
               <Textarea id="ds-ta" placeholder="Motif du décalage…" rows={3} />
@@ -419,7 +419,7 @@ export function ChampsSection() {
           </Demo>
           <Demo label="État invalide" spec="aria-invalid → bordure destructive">
             <div className="w-full">
-              <Label htmlFor="ds-input-e" className="mb-2 block text-xs">
+              <Label htmlFor="ds-input-e" className="mb-2 block">
                 Quantité
               </Label>
               <Input id="ds-input-e" defaultValue="-12" aria-invalid />
@@ -585,19 +585,19 @@ export function ChampsSection() {
         <Demo label="Switch">
           <div className="flex items-center gap-2">
             <Switch id="ds-switch" defaultChecked />
-            <Label htmlFor="ds-switch" className="cursor-pointer text-sm">
+            <Label htmlFor="ds-switch" className="cursor-pointer">
               Masquer les OF terminés
             </Label>
           </div>
           <div className="flex items-center gap-2">
             <Switch id="ds-switch-off" />
-            <Label htmlFor="ds-switch-off" className="cursor-pointer text-sm">
+            <Label htmlFor="ds-switch-off" className="cursor-pointer">
               Inclure les prévisions
             </Label>
           </div>
           <div className="flex items-center gap-2">
             <Switch id="ds-switch-d" disabled />
-            <Label htmlFor="ds-switch-d" className="text-sm opacity-50">
+            <Label htmlFor="ds-switch-d" className="opacity-50">
               Désactivé
             </Label>
           </div>
@@ -772,7 +772,7 @@ const ofColumns: ColumnDef<OfRow>[] = [
     accessorKey: 'of',
     header: 'OF',
     cell: ({ getValue }) => (
-      <span className="font-mono text-base font-medium text-foreground">{String(getValue())}</span>
+      <span className="font-mono font-medium text-foreground">{String(getValue())}</span>
     ),
   },
   {
@@ -780,7 +780,7 @@ const ofColumns: ColumnDef<OfRow>[] = [
     accessorKey: 'article',
     header: 'Article',
     cell: ({ getValue }) => (
-      <span className="font-mono text-base text-muted-foreground">{String(getValue())}</span>
+      <span className="font-mono text-muted-foreground">{String(getValue())}</span>
     ),
   },
   {
