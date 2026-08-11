@@ -545,10 +545,13 @@ function ToolbarMetric({
   children,
   title,
   emphasis,
+  tone,
 }: {
   children: React.ReactNode
   title?: string
   emphasis?: boolean
+  /** `warning` : l'indicateur ne parle que pour signaler un écart (péremption). */
+  tone?: 'warning'
 }) {
   return (
     <span
@@ -556,7 +559,11 @@ function ToolbarMetric({
       title={title}
       className={cn(
         'whitespace-nowrap font-mono text-xs tabular-nums',
-        emphasis ? 'font-medium text-foreground' : 'text-muted-foreground'
+        tone === 'warning'
+          ? 'font-medium text-suggere'
+          : emphasis
+            ? 'font-medium text-foreground'
+            : 'text-muted-foreground'
       )}
     >
       {children}

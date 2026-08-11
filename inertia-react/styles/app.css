@@ -1236,10 +1236,14 @@
   border-color: color-mix(in oklab, #141414 12%, transparent);
   background-color: #fcfcfc;
 }
-/* Icône seule : carré 24×24, pas de padding latéral hérité du `p-2`. */
+/* Icône seule : carré 24×24, padding nul, et l'icône CENTRÉE. Le composant ne
+   porte que `items-center` (axe vertical) : sans `justify-content`, l'icône se
+   posait au départ de la boîte, décalée à gauche dans son carré. */
 .theme-cursor [data-slot='toolbar-refresh']:not([data-labeled]) {
   width: 24px;
   padding: 0;
+  justify-content: center;
+  gap: 0;
 }
 .theme-cursor [data-slot='toolbar-refresh']:hover:not(:disabled) {
   background-color: color-mix(in oklab, #141414 8%, transparent);

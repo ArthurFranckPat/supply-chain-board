@@ -65,6 +65,10 @@ const DEFAULT_FORWARD_DAYS = 7
  *  vide qu'il faut savoir expliquer autrement que par « aucun résultat ». */
 const SERVER_FORWARD_DAYS = 30
 
+/** Au-delà, la donnée affichée est signalée comme périmée. En deçà, aucun
+ *  indicateur : un écran qui commente son bon fonctionnement fait du bruit. */
+const PEREMPTION_MIN = 5
+
 const TODAY = startOfDay(new Date())
 const TODAY_ISO = toIso(TODAY)
 const addDays = (n: number) => {
@@ -462,21 +466,30 @@ export default function Tracking(props: SuiviPageProps) {
   const lastAt = mode === 'reactif' ? rowsAt : proAt
 
   /**
-   * Fraîcheur, pas chronomètre.
+   * Péremption — et rien tant que la donnée est fraîche.
    *
-   * La rangée affichait « 320ms » en permanence : une durée de chargement est
-   * un instrument de développeur, pas une information d'exploitation — personne
-   * ne décide de rien avec. Ce qu'un planificateur devant un écran ouvert toute
-   * la journée a besoin de savoir, c'est de QUAND date ce qu'il lit. La durée
-   * reste utile pendant le chargement (elle dit que ça travaille encore) et au
-   * survol (pour diagnostiquer une lenteur X3).
+   * Trois formulations ont été essayées avant celle-ci : la durée du chargement
+   * (« 320ms », un instrument de développeur, personne ne décide rien avec) puis
+   * l'heure du chargement (« 22:58 » — l'utilisateur connaît l'heure qu'il est,
+   * c'est à lui de faire la soustraction). La seule chose qu'un indicateur de
+   * fraîcheur doive dire est : « ce que tu lis n'est plus d'actualité ». Donc il
+   * ne dit rien tant que ça l'est, et parle en âge quand ça ne l'est plus.
+   * L'heure exacte et la durée restent au survol, pour le diagnostic.
    */
-  const freshness = loading
+  const [maintenant, setMaintenant] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setMaintenant(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const ageMin = lastAt === null ? null : Math.floor((maintenant - lastAt) / 60_000)
+  const perime = ageMin !== null && ageMin >= PEREMPTION_MIN
+  const staleness = loading
     ? fmtMs(liveElapsed)
-    : lastAt
-      ? new Date(lastAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : perime
+      ? `il y a ${ageMin! < 60 ? `${ageMin} min` : `${Math.floor(ageMin! / 60)} h`}`
       : null
-  const freshnessTitle = loading
+  const stalenessTitle = loading
     ? 'Chargement X3 en cours'
     : lastAt
       ? `Données chargées à ${new Date(lastAt).toLocaleTimeString('fr-FR')}${
@@ -837,26 +850,20 @@ export default function Tracking(props: SuiviPageProps) {
             onChange={setQuery}
             placeholder="Commande, article, client…"
           />
-          {/* Volume — TOUJOURS affiché, et une seule fois dans toute la page.
-              Le masthead portait « 675 lignes ouvertes » pendant que la rangée
-              portait « 12 / 675 » : le même nombre à deux endroits, dans deux
-              formats, dont l'un devenait faux dès qu'un filtre était posé. */}
-          <ToolbarMetric
-            emphasis
-            title={isFiltered ? `sur ${totalCount} lignes ouvertes` : undefined}
-          >
-            {isFiltered ? (
-              <>
-                {filteredCount}{' '}
-                <span className="font-normal text-muted-foreground">/ {totalCount}</span>
-              </>
-            ) : (
-              <>
-                {totalCount} <span className="font-normal text-muted-foreground">lignes</span>
-              </>
-            )}
-          </ToolbarMetric>
-          {freshness && <ToolbarMetric title={freshnessTitle}>{freshness}</ToolbarMetric>}
+          {/* Volume — uniquement sous filtre, et sans le total. Le total ne se
+              décide pas : il ne bouge pas, il n'apprend rien, et il occupait la
+              rangée en permanence. Ce qui compte est ce que le filtrage a
+              laissé. */}
+          {isFiltered && (
+            <ToolbarMetric emphasis title={`sur ${totalCount} lignes ouvertes`}>
+              {filteredCount} <span className="font-normal text-muted-foreground">lignes</span>
+            </ToolbarMetric>
+          )}
+          {staleness && (
+            <ToolbarMetric title={stalenessTitle} tone={perime ? 'warning' : undefined}>
+              {staleness}
+            </ToolbarMetric>
+          )}
           <ToolbarRefresh loading={loading} onClick={refresh} />
         </Toolbar>
 
