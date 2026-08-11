@@ -4,9 +4,17 @@
  * même JSX cellule que Solid).
  */
 import { cn } from '@r/lib/utils'
+import { Badge } from '@r/components/ui/badge'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
-import { BADGE_TONE, BADGE_DOT, BADGE_TEXT, LATE_TONE, empKey, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
+import {
+  BADGE_TONE,
+  BADGE_DOT,
+  BADGE_TEXT,
+  LATE_TONE,
+  empKey,
+  getRelativeDateLabel,
+} from '@r/lib/suivi/tracking-shared'
 import { FlaskConical, Hourglass } from 'lucide-react'
 import { X3Link } from '../../components/x3-link'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
@@ -83,12 +91,9 @@ export function createReactiveColumns({
               ? 'Make To Order — Fabriqué à la commande client'
               : 'Normal — Ligne standard'
         return (
-          <span
-            className="cursor-help rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
-            title={title}
-          >
+          <Badge variant="secondary" className="cursor-help font-mono" title={title}>
             {val}
-          </span>
+          </Badge>
         )
       },
       meta: {
@@ -109,12 +114,13 @@ export function createReactiveColumns({
             </span>
           )
         return (
-          <span
-            className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
+          <Badge
+            variant="secondary"
+            className="cursor-help font-mono"
             title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
           >
             {code}
-          </span>
+          </Badge>
         )
       },
       meta: {
@@ -132,7 +138,9 @@ export function createReactiveColumns({
         return (
           <span className="font-mono text-[13px] font-bold leading-none tracking-tight text-foreground tabular-nums">
             {restante}
-            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">/ {commandee}</span>
+            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">
+              / {commandee}
+            </span>
           </span>
         )
       },
@@ -149,7 +157,9 @@ export function createReactiveColumns({
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
           <div className="leading-tight">
-            <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
+            <div className="font-mono text-[11px] font-semibold text-foreground">
+              {(getValue() as string) || '—'}
+            </div>
             {rel && (
               <div
                 className={cn(
@@ -286,13 +296,14 @@ export function createReactiveColumns({
             {/* Stock sous statut Q : compté disponible, mais rien ne part tant que le
                 contrôle n'est pas levé → marqueur saillant + action nommée. */}
             {o.cq && (
-              <span
+              <Badge
+                variant="warning"
+                className="gap-1"
                 title={`${o.allocCq} u. de ${o.article} en statut Q (contrôle qualité).\nAction : contacter le contrôle réception pour faire libérer le stock.`}
-                className="inline-flex items-center gap-1 rounded bg-warning/15 px-1 py-px text-[9px] font-semibold text-warning"
               >
                 <FlaskConical size={10} strokeWidth={2} className="leading-none" />
                 CQ
-              </span>
+              </Badge>
             )}
             {o.attenteLignes && (
               <span className="inline-flex items-center gap-1 text-[9px] font-medium text-muted-foreground">

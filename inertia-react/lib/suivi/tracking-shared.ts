@@ -141,9 +141,9 @@ export const LATE_TONE = {
   bg: (s: 'tolerance' | 'critical' | null) => 'hover:bg-foreground/[0.07]',
   bar: (s: 'tolerance' | 'critical' | null) =>
     s === 'critical'
-      ? '[box-shadow:inset_3px_0_#c13515]' // destructive grammaire
+      ? '[box-shadow:inset_3px_0_var(--destructive)]' // destructive grammaire
       : s === 'tolerance'
-        ? '[box-shadow:inset_3px_0_#fc642d]' // suggere grammaire
+        ? '[box-shadow:inset_3px_0_var(--suggere)]' // suggere grammaire
         : '',
 }
 

@@ -5,13 +5,14 @@
  */
 import { useState } from 'react'
 
-import { cn } from '@r/lib/utils'
-import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
+import { TriangleAlert, CircleX, FilterX } from 'lucide-react'
 import { SkeletonRow } from '@r/components/ui/skeleton'
+import { Card } from '@r/components/ui/card'
+import { Button } from '@r/components/ui/button'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@r/lib/suivi/types'
-import { sortRows, LATE_TONE, suiviRowKey } from '@r/lib/suivi/tracking-shared'
+import { sortRows, suiviRowKey } from '@r/lib/suivi/tracking-shared'
 import { createProactiveColumns, createProactiveIndexCol } from '@r/lib/suivi/proactive-columns'
 
 export interface ProactiveViewProps {
@@ -62,54 +63,54 @@ export function ProactiveView(props: ProactiveViewProps) {
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden p-5">
-          <DataTable
-            columns={columns}
-            rows={rows}
-            sorting={sorting}
-            onSortingChange={setSorting}
-            indexColumn={indexCol}
-            getRowClass={(row: ProactiveDisplayRow) => {
-              const k = row.verdictKey
-              const s = k === 'blocked' || k === 'uncov' ? ('critical' as const) : row.lateSeverity
-              return cn(
-                'border-t border-rule-soft transition-colors even:bg-foreground/[0.015]',
-                LATE_TONE.bg(s)
-              )
-            }}
-            tableClass="min-w-[1252px] table-fixed"
-            scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
-            theadRowClass="sticky top-0 z-10 bg-secondary"
-            onRowClick={props.onRowClick}
-            selectedRowKey={props.selectedRowKey}
-            getRowKey={suiviRowKey}
-            emptyState={
-              <div className="flex flex-1 items-center justify-center p-12 text-center">
-                <div className="flex flex-col items-center">
-                  <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                    <DynamicIcon name={props.view.x3Error ? 'cloud_off' : 'search_off'} size={28} strokeWidth={1.75} />
+          <Card padding="none" className="h-full overflow-hidden">
+            <DataTable
+              columns={columns}
+              rows={rows}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              indexColumn={indexCol}
+              getRowClass={() => 'group/row'}
+              tableClass="min-w-[1252px] table-fixed"
+              scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none"
+              theadRowClass="sticky top-0 z-10 bg-transparent"
+              onRowClick={props.onRowClick}
+              selectedRowKey={props.selectedRowKey}
+              getRowKey={suiviRowKey}
+              emptyState={
+                <div className="flex flex-1 items-center justify-center p-12 text-center">
+                  <div className="flex flex-col items-center">
+                    <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
+                      <DynamicIcon
+                        name={props.view.x3Error ? 'cloud_off' : 'search_off'}
+                        size={28}
+                        strokeWidth={1.75}
+                      />
+                    </div>
+                    <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
+                      {props.view.x3Error ? 'Erreur de connexion Sage X3' : 'Aucun résultat trouvé'}
+                    </h3>
+                    <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
+                      {props.view.x3Error
+                        ? 'Impossible de récupérer les dernières données de réalisabilité depuis le serveur ERP Sage X3.'
+                        : 'Aucune ligne de commande ne correspond aux filtres ou à la recherche actuels.'}
+                    </p>
+                    {!props.view.x3Error && props.onResetFilters && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => props.onResetFilters?.()}
+                      >
+                        <FilterX size={13} strokeWidth={1.75} />
+                        Réinitialiser les filtres
+                      </Button>
+                    )}
                   </div>
-                  <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
-                    {props.view.x3Error ? 'Erreur de connexion Sage X3' : 'Aucun résultat trouvé'}
-                  </h3>
-                  <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
-                    {props.view.x3Error
-                      ? 'Impossible de récupérer les dernières données de réalisabilité depuis le serveur ERP Sage X3.'
-                      : 'Aucune ligne de commande ne correspond aux filtres ou à la recherche actuels.'}
-                  </p>
-                  {!props.view.x3Error && props.onResetFilters && (
-                    <button
-                      type="button"
-                      onClick={() => props.onResetFilters?.()}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-4 py-1.5 font-sans text-[11px] font-bold text-foreground transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand"
-                    >
-                      <FilterX size={13} strokeWidth={1.75} className="leading-none" />
-                      Réinitialiser les filtres
-                    </button>
-                  )}
                 </div>
-              </div>
-            }
-          />
+              }
+            />
+          </Card>
         </div>
       )}
     </>

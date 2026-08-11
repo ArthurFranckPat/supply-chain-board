@@ -3,10 +3,22 @@
  * inertia/components/tracking/suivi-detail-sheet.tsx.
  */
 import { cn } from '@r/lib/utils'
-import { Receipt, Factory, Package, BookmarkCheck, Truck, Clock, CalendarX, CornerDownRight, CircleCheck } from 'lucide-react'
+import {
+  Receipt,
+  Factory,
+  Package,
+  BookmarkCheck,
+  Truck,
+  Clock,
+  CalendarX,
+  CornerDownRight,
+  CircleCheck,
+} from 'lucide-react'
 import { X3Link } from '@r/components/x3-link'
 import { DynamicIcon } from '../ui/dynamic-icon'
-import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
+import { Badge } from '@r/components/ui/badge'
+import { Card } from '@r/components/ui/card'
+import { OF_STATUT } from '@r/lib/suivi/tracking-shared'
 import type { SuiviDisplayRow, ProactiveDisplayRow } from '@r/lib/suivi/types'
 
 interface SuiviDetailSheetProps {
@@ -20,8 +32,7 @@ type StepState = 'green' | 'amber' | 'gray' | 'purple'
 // suggere #fc642d, planifie #00a699 (ex-« purple » CQ : pas de violet dans
 // la grammaire, replié sur l'accent secondaire teal).
 const STEP_CIRCLE: Record<StepState, string> = {
-  green:
-    'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
+  green: 'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
   amber:
     'bg-suggere text-white animate-pulse shadow-[0_0_12px_rgba(252,100,45,0.3)] border border-suggere',
   purple:
@@ -100,9 +111,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
   // Quantity bar
   const strictVal = isReactif ? reactiveRow.allocStrict : proactiveRow.qteAllouee
   const cqVal = isReactif ? reactiveRow.allocCq : 0
-  const reliquatVal = isReactif
-    ? Math.max(0, total - strictVal - cqVal)
-    : proactiveRow.reliquat
+  const reliquatVal = isReactif ? Math.max(0, total - strictVal - cqVal) : proactiveRow.reliquat
 
   const pctStrict = Math.round((strictVal / total) * 100)
   const pctCq = Math.round((cqVal / total) * 100)
@@ -229,7 +238,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 2. Header Card (Fiche Commande) — carte plate grammaire :
           rayon 14, hairline, pas de gradient ni de blur. */}
-      <div className="relative overflow-hidden rounded-lg border border-rule bg-card p-5">
+      <Card padding="default" className="relative overflow-hidden">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -252,9 +261,9 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             )}
           </div>
           <div className="shrink-0">
-            <span className="rounded-full border border-brand/20 bg-brand-soft/80 px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase tracking-wide text-brand">
+            <Badge variant="secondary" className="font-mono uppercase tracking-wide">
               {row.type}
-            </span>
+            </Badge>
           </div>
         </div>
 
@@ -291,7 +300,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             {row.designation || '—'}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* 3. Alert Notification (Recommandation) */}
       <div
@@ -303,10 +312,19 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         )}
       >
         <div className="absolute right-0 top-0 -translate-y-3 translate-x-3 opacity-[0.04]">
-          <DynamicIcon name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'} size={72} strokeWidth={1.75} className="leading-none" />
+          <DynamicIcon
+            name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
+            size={72}
+            strokeWidth={1.75}
+            className="leading-none"
+          />
         </div>
         <div className="flex items-center gap-2">
-          <DynamicIcon name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'} size={18} strokeWidth={1.75} />
+          <DynamicIcon
+            name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
+            size={18}
+            strokeWidth={1.75}
+          />
           <span className="text-[10px] font-extrabold uppercase tracking-wider">
             Recommandation Supply-Chain
           </span>
@@ -316,37 +334,47 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 4. Expé & Délais */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex h-20 flex-col justify-between rounded-lg border border-rule bg-card p-4">
+        <Card padding="sm" className="h-20 justify-between">
           <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
             Date d'Expédition
           </span>
           <div className="font-mono text-[16px] font-black text-foreground">
             {row.dateExp || '—'}
           </div>
-        </div>
-        <div className="flex h-20 flex-col justify-between rounded-lg border border-rule bg-card p-4">
+        </Card>
+        <Card padding="sm" className="h-20 justify-between">
           <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
             État de Livraison
           </span>
           <div className="flex flex-col gap-0.5">
             {isReactif ? (
-              <span
-                className={cn(
-                  'inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
-                  BADGE_TONE[reactiveRow.statusKey]
-                )}
+              <Badge
+                variant={
+                  reactiveRow.statusKey === 'exp'
+                    ? 'success'
+                    : reactiveRow.statusKey === 'alc'
+                      ? 'warning'
+                      : reactiveRow.statusKey === 'ret'
+                        ? 'destructive'
+                        : 'secondary'
+                }
+                className="w-fit uppercase tracking-wide"
               >
                 {reactiveRow.statusLabel}
-              </span>
+              </Badge>
             ) : (
-              <span
-                className={cn(
-                  'inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
-                  VERDICT_TONE[proactiveRow.verdictKey]
-                )}
+              <Badge
+                variant={
+                  proactiveRow.verdictKey === 'late'
+                    ? 'warning'
+                    : proactiveRow.verdictKey === 'blocked' || proactiveRow.verdictKey === 'uncov'
+                      ? 'destructive'
+                      : 'success'
+                }
+                className="w-fit uppercase tracking-wide"
               >
                 {proactiveRow.verdictLabel}
-              </span>
+              </Badge>
             )}
             {late && (
               <span className="mt-0.5 flex items-center gap-0.5 text-[10.5px] font-bold text-destructive">
@@ -355,11 +383,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               </span>
             )}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* 5. Gauge Visuelle & Répartition des Quantités */}
-      <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-5">
+      <Card padding="default" className="gap-4">
         <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
           Répartition des Quantités
         </h4>
@@ -373,9 +401,18 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             </span>
           </div>
           <div className="relative flex h-3 w-full overflow-hidden rounded-full border border-rule-soft bg-secondary/50">
-            <div className="h-full bg-ferme transition-all duration-500" style={{ width: `${pctStrict}%` }} />
-            <div className="h-full bg-planifie transition-all duration-500" style={{ width: `${pctCq}%` }} />
-            <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${pctReliquat}%` }} />
+            <div
+              className="h-full bg-ferme transition-all duration-500"
+              style={{ width: `${pctStrict}%` }}
+            />
+            <div
+              className="h-full bg-planifie transition-all duration-500"
+              style={{ width: `${pctCq}%` }}
+            />
+            <div
+              className="h-full bg-secondary transition-all duration-500"
+              style={{ width: `${pctReliquat}%` }}
+            />
           </div>
         </div>
 
@@ -416,11 +453,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             </>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* 6. Composants en rupture & Approvisionnements (BOM) */}
       {!isReactif && proactiveRow.composants.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
+        <Card padding="sm" className="gap-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
             Composants en rupture
           </h4>
@@ -431,10 +468,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 className="flex flex-col gap-2 border-b border-rule-soft pb-4 last:border-0 last:pb-0"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[12.5px] font-bold text-destructive">{c.art}</span>
-                  <span className="rounded bg-destructive/10 px-2 py-0.5 font-mono text-[10px] font-extrabold text-destructive">
-                    −{c.qty} manquants
+                  <span className="font-mono text-[12.5px] font-bold text-destructive">
+                    {c.art}
                   </span>
+                  <Badge variant="destructive" className="font-mono">
+                    −{c.qty} manquants
+                  </Badge>
                 </div>
                 <div className="text-[12px] font-medium leading-normal text-secondary-foreground">
                   {c.desc}
@@ -450,16 +489,20 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                           c.reception.overdue ? 'text-destructive' : 'text-brand'
                         )}
                       >
-                        <DynamicIcon name={c.reception.overdue ? 'warning' : 'local_shipping'} size={16} strokeWidth={1.75} />
+                        <DynamicIcon
+                          name={c.reception.overdue ? 'warning' : 'local_shipping'}
+                          size={16}
+                          strokeWidth={1.75}
+                        />
                         <span>
                           {c.reception.overdue
                             ? `Retard d'approvisionnement (+${c.reception.retardJ}j)`
                             : 'Acheminement en cours'}
                         </span>
                       </div>
-                      <span className="rounded border border-rule-soft bg-secondary px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      <Badge variant="secondary" className="font-mono">
                         PO: {c.reception.po}
-                      </span>
+                      </Badge>
                     </div>
 
                     {/* Delivery Timeline Track */}
@@ -480,9 +523,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                         <span
                           className={cn(
                             'text-[8px] font-extrabold uppercase',
-                            c.reception.overdue
-                              ? 'font-bold text-destructive'
-                              : 'text-ferme'
+                            c.reception.overdue ? 'font-bold text-destructive' : 'text-ferme'
                           )}
                         >
                           Transit
@@ -566,7 +607,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                                     p.reception.overdue ? 'text-destructive' : 'text-foreground/75'
                                   )}
                                 >
-                                  <DynamicIcon name={p.reception.overdue ? 'warning' : 'local_shipping'} size={12} strokeWidth={1.75} />
+                                  <DynamicIcon
+                                    name={p.reception.overdue ? 'warning' : 'local_shipping'}
+                                    size={12}
+                                    strokeWidth={1.75}
+                                  />
                                   <span>
                                     {p.reception.overdue
                                       ? `Retard +${p.reception.retardJ}j`
@@ -598,12 +643,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* 7. Ordres de Fabrication Associés */}
       {!isReactif && proactiveRow.ofs.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
+        <Card padding="sm" className="gap-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
             Ordres de Fabrication ({proactiveRow.ofs.length})
           </h4>
@@ -669,7 +714,9 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       </div>
                     </div>
                     <div>
-                      <span className="font-semibold text-foreground/60">État de faisabilité :</span>
+                      <span className="font-semibold text-foreground/60">
+                        État de faisabilité :
+                      </span>
                       <div className="mt-0.5">
                         <span
                           className={cn(
@@ -677,7 +724,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                             of.feasible ? 'text-ferme' : 'text-destructive'
                           )}
                         >
-                          <DynamicIcon name={of.feasible ? 'check_circle' : 'cancel'} size={13} strokeWidth={1.75} className="leading-none" />
+                          <DynamicIcon
+                            name={of.feasible ? 'check_circle' : 'cancel'}
+                            size={13}
+                            strokeWidth={1.75}
+                            className="leading-none"
+                          />
                           {of.feasible === null ? '—' : of.feasible ? 'Prêt à produire' : 'Bloqué'}
                         </span>
                       </div>
@@ -691,12 +743,9 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {of.missingComponents.map((mc) => (
-                          <span
-                            key={mc.art}
-                            className="rounded border border-destructive/10 bg-destructive/5 px-2 py-0.5 font-mono text-[9px] font-semibold text-destructive"
-                          >
+                          <Badge key={mc.art} variant="destructive" className="font-mono">
                             {mc.art} (−{mc.qty})
-                          </span>
+                          </Badge>
                         ))}
                       </div>
                     </div>
@@ -705,12 +754,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               )
             })}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* 8. Emplacements de Stock */}
       {isReactif && reactiveRow.emplacements.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
+        <Card padding="sm" className="gap-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
             Emplacements &amp; Palettes de Stock
           </h4>
@@ -722,7 +771,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               >
                 <div className="flex items-center gap-3">
                   <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground/75">
-                    <DynamicIcon name={e.source === 'STOALL' ? 'inventory' : 'shelves'} size={18} strokeWidth={1.75} />
+                    <DynamicIcon
+                      name={e.source === 'STOALL' ? 'inventory' : 'shelves'}
+                      size={18}
+                      strokeWidth={1.75}
+                    />
                   </div>
                   <div>
                     <div className="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>
@@ -738,17 +791,14 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 </div>
                 <div className="flex items-center gap-3">
                   {e.dateMiseEnStock && (
-                    <span
-                      className="rounded-lg border border-rule-soft bg-secondary/55 px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
-                      title="Date d'entrée en stock"
-                    >
+                    <Badge variant="secondary" className="font-mono" title="Date d'entrée en stock">
                       Entrée: {e.dateMiseEnStock}
-                    </span>
+                    </Badge>
                   )}
                   {e.hum && (
-                    <span className="rounded-lg border border-rule-soft bg-secondary/55 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    <Badge variant="secondary" className="font-mono">
                       HU: {e.hum}
-                    </span>
+                    </Badge>
                   )}
                   <span className="rounded border border-rule-soft bg-secondary/30 px-2 py-1 font-mono text-[12.5px] font-extrabold text-foreground">
                     {Math.round(e.qte)} u
@@ -757,7 +807,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )

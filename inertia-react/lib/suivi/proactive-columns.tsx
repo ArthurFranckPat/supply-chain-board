@@ -4,6 +4,7 @@
  * même JSX cellule que Solid).
  */
 import { cn } from '@r/lib/utils'
+import { Badge } from '@r/components/ui/badge'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import {
@@ -94,12 +95,9 @@ export function createProactiveColumns({
               ? 'Make To Order — Fabriqué à la commande client'
               : 'Normal — Ligne standard'
         return (
-          <span
-            className="cursor-help rounded bg-secondary px-[7px] py-0.5 font-mono text-2xs font-semibold text-muted-foreground"
-            title={title}
-          >
+          <Badge variant="secondary" className="cursor-help font-mono" title={title}>
             {val}
-          </span>
+          </Badge>
         )
       },
       meta: {
@@ -120,12 +118,13 @@ export function createProactiveColumns({
             </span>
           )
         return (
-          <span
-            className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-2xs font-semibold text-muted-foreground"
+          <Badge
+            variant="secondary"
+            className="cursor-help font-mono"
             title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
           >
             {code}
-          </span>
+          </Badge>
         )
       },
       meta: {
@@ -235,11 +234,9 @@ export function createProactiveColumns({
                       </span>
                     )}
                     {st && (
-                      <span
-                        className={cn(
-                          'shrink-0 cursor-help rounded px-1 py-px font-mono text-4xs font-bold leading-none',
-                          st.tone
-                        )}
+                      <Badge
+                        variant={st.tag === 'WOF' || st.tag === 'WOP' ? 'success' : 'warning'}
+                        className="cursor-help font-mono"
                         title={
                           st.tag === 'WOF'
                             ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
@@ -249,7 +246,7 @@ export function createProactiveColumns({
                         }
                       >
                         {st.tag}
-                      </span>
+                      </Badge>
                     )}
                     {of.estDebuté && of.piecesFaites != null && of.piecesTotalOf && (
                       <span
@@ -267,8 +264,9 @@ export function createProactiveColumns({
         }
         const isGood = v === 'Stock' || v === 'Achat'
         return isGood ? (
-          <span
-            className="inline-flex cursor-help items-center gap-1 rounded-md border border-transparent bg-secondary px-2 py-0.5 font-mono text-1.5xs font-semibold text-muted-foreground"
+          <Badge
+            variant="secondary"
+            className="cursor-help font-mono"
             title={
               v === 'Stock'
                 ? 'Couvert par le stock disponible'
@@ -276,7 +274,7 @@ export function createProactiveColumns({
             }
           >
             {v}
-          </span>
+          </Badge>
         ) : (
           <span className="break-all font-mono text-1.5xs font-semibold leading-snug text-secondary-foreground">
             {v}
@@ -372,9 +370,9 @@ export function createProactiveColumns({
                   )}
                   {/* Un SE couvert par production n'est PAS en manque : pas de signe « − »,
                       qui se lirait comme une rupture. */}
-                  <span className="ml-auto shrink-0 rounded bg-secondary px-1 font-mono text-2xs font-semibold text-muted-foreground tabular-nums">
+                  <Badge variant="secondary" className="ml-auto font-mono tabular-nums">
                     {c.couvertParOf ? c.qty : `−${c.qty}`}
-                  </span>
+                  </Badge>
                 </div>
                 {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
                     soit les feuilles réellement bloquantes avec leur réception. La lentille
