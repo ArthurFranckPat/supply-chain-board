@@ -7,10 +7,10 @@
  * toolbar + switch) — le rendu de chaque mode vit dans
  * components/tracking/*-view.tsx (issue #52).
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { fr } from 'react-day-picker/locale'
-import { CalendarDays, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { CalendarDays, ChevronDown, SlidersHorizontal, X } from 'lucide-react'
 import { Popover } from '@base-ui/react/popover'
 
 import type {
@@ -58,19 +58,21 @@ import OfDetailSheet from '@r/components/of/of-detail-sheet'
 // par plage est un filtre CLIENT sur ces données déjà chargées, pas un re-fetch.
 const LATE_LOOKBACK_DAYS = 90
 const DEFAULT_FORWARD_DAYS = 7
+/** Miroir de SUIVI_FORWARD_DAYS (app/services/suivi_service.ts) : au-delà, le
+ *  serveur n'a jamais chargé la donnée — une plage plus lointaine rend une table
+ *  vide qu'il faut savoir expliquer autrement que par « aucun résultat ». */
+const SERVER_FORWARD_DAYS = 30
 
 const TODAY = startOfDay(new Date())
 const TODAY_ISO = toIso(TODAY)
-const LATE_FLOOR_ISO = (() => {
+const addDays = (n: number) => {
   const d = new Date(TODAY)
-  d.setDate(d.getDate() - LATE_LOOKBACK_DAYS)
-  return toIso(d)
-})()
-const DEFAULT_RANGE_END = (() => {
-  const d = new Date(TODAY)
-  d.setDate(d.getDate() + DEFAULT_FORWARD_DAYS)
+  d.setDate(d.getDate() + n)
   return d
-})()
+}
+const LATE_FLOOR_ISO = toIso(addDays(-LATE_LOOKBACK_DAYS))
+const SERVER_CEILING_ISO = toIso(addDays(SERVER_FORWARD_DAYS))
+const DEFAULT_RANGE_END = addDays(DEFAULT_FORWARD_DAYS)
 
 /** Types de commande cochés au chargement — SOURCE UNIQUE (état initial + réinitialisation). */
 const DEFAULT_TYPES = ['MTS', 'MTO', 'NOR'] as const
@@ -109,20 +111,142 @@ function formatWindowLabel(from?: Date, to?: Date): string {
 
 /** Libellé de section du panneau Filtres — source unique (5 usages). */
 const SECTION_LABEL =
-  'px-0.5 pb-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'
+  'px-0.5 pb-1 font-mono text-2xs font-medium uppercase tracking-wide text-muted-foreground'
 
 interface DateRange {
   start: Date | null
   end: Date | null
 }
 
+/**
+ * État de la page dans l'URL — ce que l'on regarde doit survivre à un F5 et
+ * pouvoir se transmettre à un collègue (« regarde ces 12 bloquées sur l'atelier
+ * BDH »). Sans ça, chaque rechargement ramenait Proactif / fenêtre +7 j / filtres
+ * par défaut, et aucune vue n'était partageable.
+ *
+ * Seuls les écarts au défaut sont écrits : une page non filtrée garde une URL nue.
+ * Dates en ISO — côté machine, jamais à l'écran (l'écran reste en jj/mm/aaaa).
+ */
+interface UrlState {
+  mode: 'reactif' | 'proactif'
+  query: string
+  statusFilter: SuiviStatusKey | 'all'
+  verdictFilter: ProactiveVerdictKey | 'all'
+  types: Set<string>
+  ateliers: Set<string>
+  showSubAssemblies: boolean
+  searchBom: boolean
+  range: DateRange
+}
+
+const DEFAULT_URL_STATE = (): UrlState => ({
+  mode: 'proactif',
+  query: '',
+  statusFilter: 'all',
+  verdictFilter: 'all',
+  types: new Set(DEFAULT_TYPES),
+  ateliers: new Set(),
+  showSubAssemblies: true,
+  searchBom: false,
+  range: { start: TODAY, end: DEFAULT_RANGE_END },
+})
+
+const parseIsoDate = (v: string | null): Date | null => {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null
+  const d = new Date(`${v}T00:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function readUrlState(): UrlState {
+  const s = DEFAULT_URL_STATE()
+  if (typeof window === 'undefined') return s
+  const p = new URLSearchParams(window.location.search)
+
+  if (p.get('vue') === 'reactif' || p.get('vue') === 'proactif')
+    s.mode = p.get('vue') as UrlState['mode']
+  s.query = p.get('q') ?? ''
+  const statut = p.get('statut')
+  if (statut === 'exp' || statut === 'alc' || statut === 'ret' || statut === 'ras')
+    s.statusFilter = statut
+  const verdict = p.get('verdict')
+  if (['time', 'stock', 'late', 'blocked', 'uncov', 'risk'].includes(verdict ?? ''))
+    s.verdictFilter = verdict as ProactiveVerdictKey
+  const types = p.get('type')
+  if (types !== null) s.types = new Set(types.split(',').filter(Boolean))
+  const ateliers = p.get('atelier')
+  if (ateliers !== null) s.ateliers = new Set(ateliers.split(',').filter(Boolean))
+  if (p.get('se') === '0') s.showSubAssemblies = false
+  if (p.get('bom') === '1') s.searchBom = true
+  const du = parseIsoDate(p.get('du'))
+  const au = parseIsoDate(p.get('au'))
+  if (du || au) s.range = { start: du, end: au }
+
+  return s
+}
+
+function writeUrlState(s: UrlState) {
+  if (typeof window === 'undefined') return
+  const d = DEFAULT_URL_STATE()
+  const p = new URLSearchParams()
+
+  if (s.mode !== d.mode) p.set('vue', s.mode)
+  if (s.query.trim()) p.set('q', s.query.trim())
+  if (s.statusFilter !== 'all') p.set('statut', s.statusFilter)
+  if (s.verdictFilter !== 'all') p.set('verdict', s.verdictFilter)
+  if (!sameSet(s.types, d.types)) p.set('type', [...s.types].join(','))
+  if (s.ateliers.size > 0) p.set('atelier', [...s.ateliers].join(','))
+  if (!s.showSubAssemblies) p.set('se', '0')
+  if (s.searchBom) p.set('bom', '1')
+  const du = s.range.start ? toIso(s.range.start) : null
+  const au = s.range.end ? toIso(s.range.end) : null
+  if (du !== toIso(d.range.start!) || au !== toIso(d.range.end!)) {
+    if (du) p.set('du', du)
+    if (au) p.set('au', au)
+  }
+
+  const qs = p.toString()
+  // `replaceState` et pas `pushState` : régler un filtre n'est pas une
+  // navigation, et empiler 40 entrées d'historique rendrait le bouton Retour
+  // inutilisable pour sortir de la page.
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${window.location.pathname}${qs ? `?${qs}` : ''}`
+  )
+}
+
+const sameSet = (a: Set<string>, b: Set<string>) =>
+  a.size === b.size && [...a].every((v) => b.has(v))
+
 export default function Tracking(props: SuiviPageProps) {
+  // Tout l'état de filtrage est amorcé depuis l'URL : recharger la page ou
+  // ouvrir un lien reçu doit rendre EXACTEMENT la même vue.
+  const [initial] = useState(readUrlState)
+
   // Calcul lourd différé : fetch client-side, relancé au bust (bouton refresh
   // → ?refresh=N invalide le cache serveur).
   const [bust, setBust] = useState(0)
 
-  const rowsUrl = `${props.rowsHref}${bust ? `?refresh=${bust}` : ''}`
-  const proUrl = `${props.proactiveRowsHref}${bust ? `?refresh=${bust}` : ''}`
+  // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
+  // Vue par défaut : c'est celle qui porte la réalisabilité, donc l'usage quotidien.
+  const [mode, setMode] = useState<'reactif' | 'proactif'>(initial.mode)
+
+  /**
+   * Chargement décalé du mode non affiché.
+   *
+   * Les deux endpoints partaient en parallèle au montage — deux calculs X3 (donc
+   * deux `ZSOAPSQL` en O(n²)) en concurrence, pour une seule vue regardée. Ici le
+   * mode actif part seul ; l'autre est préchargé une fois le premier rendu, ce qui
+   * garde la bascule instantanée sans faire payer deux fois le premier écran.
+   */
+  const [prefetchOther, setPrefetchOther] = useState(false)
+  const [visited, setVisited] = useState<Set<string>>(new Set([initial.mode]))
+  const wants = (m: 'reactif' | 'proactif') => visited.has(m) || prefetchOther
+
+  const rowsUrl = wants('reactif') ? `${props.rowsHref}${bust ? `?refresh=${bust}` : ''}` : null
+  const proUrl = wants('proactif')
+    ? `${props.proactiveRowsHref}${bust ? `?refresh=${bust}` : ''}`
+    : null
 
   const {
     data,
@@ -133,9 +257,6 @@ export default function Tracking(props: SuiviPageProps) {
   } = useTimedFetch<SuiviRowsResponse>(rowsUrl)
   const view = data ?? EMPTY
 
-  // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
-  // Vue par défaut : c'est celle qui porte la réalisabilité, donc l'usage quotidien.
-  const [mode, setMode] = useState<'reactif' | 'proactif'>('proactif')
   const {
     data: proData,
     loading: proLoading,
@@ -145,13 +266,22 @@ export default function Tracking(props: SuiviPageProps) {
   } = useTimedFetch<ProactiveRowsResponse>(proUrl)
   const proView = proData ?? PROACTIVE_EMPTY
 
+  const activeLoaded = mode === 'reactif' ? data !== null : proData !== null
+  useEffect(() => {
+    if (!activeLoaded || prefetchOther) return
+    const id = window.setTimeout(() => setPrefetchOther(true), 1000)
+    return () => window.clearTimeout(id)
+  }, [activeLoaded, prefetchOther])
+
+  const switchMode = (m: 'reactif' | 'proactif') => {
+    setMode(m)
+    setVisited((prev) => (prev.has(m) ? prev : new Set(prev).add(m)))
+  }
+
   // Plage de dates d'expédition affichée — filtre CLIENT pur (pas de re-fetch).
   // Les lignes déjà en retard restent TOUJOURS visibles hors plage, plafonnées
   // à -90j depuis aujourd'hui.
-  const [dateRange, setDateRange] = useState<DateRange>({
-    start: TODAY,
-    end: DEFAULT_RANGE_END,
-  })
+  const [dateRange, setDateRange] = useState<DateRange>(initial.range)
   const inRangeOrLate = (dateExpIso: string | null): boolean => {
     if (!dateExpIso) return true
     const { start, end } = dateRange
@@ -165,19 +295,46 @@ export default function Tracking(props: SuiviPageProps) {
 
   // Filtres côté client. Recherche/type/atelier transverses aux 2 vues ;
   // statut/verdict spécifiques à leur mode.
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<SuiviStatusKey | 'all'>('all')
-  const [verdictFilter, setVerdictFilter] = useState<ProactiveVerdictKey | 'all'>('all')
+  const [query, setQuery] = useState(initial.query)
+  const [statusFilter, setStatusFilter] = useState<SuiviStatusKey | 'all'>(initial.statusFilter)
+  const [verdictFilter, setVerdictFilter] = useState<ProactiveVerdictKey | 'all'>(
+    initial.verdictFilter
+  )
   // Vue proactif : inclure les sous-ensembles (semi-finis) dans la colonne « Composants en
   // rupture ». Défaut ON — un SE suspendu à un OF bloque la commande autant qu'un acheté.
-  const [showSubAssemblies, setShowSubAssemblies] = useState(true)
+  const [showSubAssemblies, setShowSubAssemblies] = useState(initial.showSubAssemblies)
   // Étend la recherche à TOUTE la nomenclature de l'article (« quelles commandes embarquent ce
   // composant ? »). Défaut OFF : sans lui, un résultat veut dire « ce composant bloque cette
   // commande » — fondre les deux rendrait la réponse ambiguë.
-  const [searchBom, setSearchBom] = useState(false)
-  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(DEFAULT_TYPES))
+  const [searchBom, setSearchBom] = useState(initial.searchBom)
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(initial.types)
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
-  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
+  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(initial.ateliers)
+
+  // Reflet de l'état dans l'URL, à chaque changement de filtre.
+  useEffect(() => {
+    writeUrlState({
+      mode,
+      query,
+      statusFilter,
+      verdictFilter,
+      types: typeFilter,
+      ateliers: atelierFilter,
+      showSubAssemblies,
+      searchBom,
+      range: dateRange,
+    })
+  }, [
+    mode,
+    query,
+    statusFilter,
+    verdictFilter,
+    typeFilter,
+    atelierFilter,
+    showSubAssemblies,
+    searchBom,
+    dateRange,
+  ])
 
   const [selectedRow, setSelectedRow] = useState<{
     type: 'reactif' | 'proactif'
@@ -187,10 +344,22 @@ export default function Tracking(props: SuiviPageProps) {
   // Détail OF (faisabilité) au clic sur un n° d'OF (colonne Couverture, proactif).
   const [selectedOf, setSelectedOf] = useState<string | null>(null)
   const [ofDetailOpen, setOfDetailOpen] = useState(false)
-  const onSelectOf = (numOf: string) => {
+
+  // Rappels stables : ils entrent dans les dépendances du `useMemo` qui construit
+  // les colonnes. Recréés à chaque rendu, ils rendraient cette mémoïsation nulle.
+  const onSelectOf = useCallback((numOf: string) => {
     setSelectedOf(numOf)
     setOfDetailOpen(true)
-  }
+  }, [])
+  const openReactiveRow = useCallback(
+    (row: SuiviDisplayRow) => setSelectedRow({ type: 'reactif', row }),
+    []
+  )
+  const openProactiveRow = useCallback(
+    (row: ProactiveDisplayRow) => setSelectedRow({ type: 'proactif', row }),
+    []
+  )
+  const refresh = useCallback(() => setBust((b) => b + 1), [])
 
   const toggleType = (t: string) =>
     setTypeFilter((prev) => {
@@ -321,29 +490,132 @@ export default function Tracking(props: SuiviPageProps) {
   }
 
   // Filtres secondaires uniquement (hors recherche, qui reste toujours
-  // visible dans la rangée) — pilote la pastille du déclencheur Filtres.
+  // visible dans la rangée) — pilote le compteur du déclencheur Filtres.
   // Un filtre est « actif » quand il s'ÉCARTE du défaut — pas quand il est simplement coché.
   // Sous-ensembles et NOR étant activés au chargement, c'est leur décochage qui compte.
-  const filtersActive =
-    (mode === 'reactif' && statusFilter !== 'all') ||
-    (mode === 'proactif' && verdictFilter !== 'all') ||
-    (mode === 'proactif' && !showSubAssemblies) ||
-    (mode === 'proactif' && searchBom) ||
-    DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ||
-    atelierFilter.size > 0
+  // Un COMPTE et non un point : « des filtres sont actifs » n'aide personne à
+  // savoir s'il en reste un ou quatre à défaire.
+  const activeFilterCount =
+    (mode === 'reactif' && statusFilter !== 'all' ? 1 : 0) +
+    (mode === 'proactif' && verdictFilter !== 'all' ? 1 : 0) +
+    (mode === 'proactif' && !showSubAssemblies ? 1 : 0) +
+    (mode === 'proactif' && searchBom ? 1 : 0) +
+    (DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ? 1 : 0) +
+    (atelierFilter.size > 0 ? 1 : 0)
+  const filtersActive = activeFilterCount > 0
   const isFiltered = !!query.trim() || filtersActive
   const filteredCount = mode === 'reactif' ? reactiveFilteredRows.length : proFilteredRows.length
   const totalCount = mode === 'reactif' ? view.total : proView.total
 
+  // La plage demandée commence après la dernière date que le serveur charge :
+  // la table sera vide, mais ce n'est pas « aucun résultat », c'est « hors
+  // fenêtre ». Les deux se réparent différemment.
+  const horsFenetre = !!dateRange.start && toIso(dateRange.start) > SERVER_CEILING_ISO
+
+  /**
+   * Raccourcis de gravité, ramenés dans la rangée : la distribution des verdicts
+   * était la porte d'entrée du scan avant d'être enfermée dans le panneau. Seuls
+   * les paliers critiques NON VIDES apparaissent (jamais plus de trois), le
+   * panneau garde la liste complète.
+   */
+  const alertes: {
+    key: string
+    label: string
+    count: number
+    dot: string
+    on: boolean
+    toggle: () => void
+  }[] =
+    mode === 'proactif'
+      ? (
+          [
+            {
+              key: 'blocked',
+              label: 'bloquées',
+              count: proView.verdictCounts.blocked,
+              dot: 'bg-destructive',
+            },
+            {
+              key: 'uncov',
+              label: 'sans couverture',
+              count: proView.verdictCounts.uncov,
+              dot: 'bg-destructive',
+            },
+            {
+              key: 'late',
+              label: 'en retard',
+              count: proView.verdictCounts.late,
+              dot: 'bg-suggere',
+            },
+          ] as const
+        )
+          .filter((a) => a.count > 0)
+          .map((a) => ({
+            ...a,
+            on: verdictFilter === a.key,
+            toggle: () =>
+              setVerdictFilter((prev) => (prev === a.key ? 'all' : (a.key as ProactiveVerdictKey))),
+          }))
+      : (
+          [
+            {
+              key: 'ret',
+              label: 'en retard',
+              count: view.statusCounts.RETARD_PROD,
+              dot: 'bg-destructive',
+            },
+            {
+              key: 'alc',
+              label: 'à allouer',
+              count: view.statusCounts.ALLOCATION_A_FAIRE,
+              dot: 'bg-suggere',
+            },
+          ] as const
+        )
+          .filter((a) => a.count > 0)
+          .map((a) => ({
+            ...a,
+            on: statusFilter === a.key,
+            toggle: () =>
+              setStatusFilter((prev) => (prev === a.key ? 'all' : (a.key as SuiviStatusKey))),
+          }))
+
   const resetFilters = () => {
-    setQuery('')
-    setStatusFilter('all')
-    setVerdictFilter('all')
-    setShowSubAssemblies(true)
-    setSearchBom(false)
-    setTypeFilter(new Set(DEFAULT_TYPES))
-    setAtelierFilter(new Set())
+    const d = DEFAULT_URL_STATE()
+    setQuery(d.query)
+    setStatusFilter(d.statusFilter)
+    setVerdictFilter(d.verdictFilter)
+    setShowSubAssemblies(d.showSubAssemblies)
+    setSearchBom(d.searchBom)
+    setTypeFilter(new Set(d.types))
+    setAtelierFilter(new Set(d.ateliers))
+    // La fenêtre de dates EST un filtre. L'oublier ici laissait « Réinitialiser
+    // les filtres » rendre une table toujours vide, sans rien dire.
+    setDateRange(d.range)
   }
+
+  /** Récapitulatif imprimé : une feuille doit dire de quoi elle est l'extrait. */
+  const printContext = (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-rule pb-2 font-mono text-2xs text-foreground">
+      <span className="font-semibold uppercase tracking-wide">
+        Suivi · {mode === 'proactif' ? 'Réalisabilité' : 'Allocation & expédition'}
+      </span>
+      <span>{refLabel}</span>
+      <span>
+        Fenêtre {formatWindowLabel(dateRange.start ?? undefined, dateRange.end ?? undefined)}
+      </span>
+      {query.trim() && <span>Recherche « {query.trim()} »</span>}
+      {mode === 'reactif' && statusFilter !== 'all' && <span>Statut {statusFilter}</span>}
+      {mode === 'proactif' && verdictFilter !== 'all' && <span>Verdict {verdictFilter}</span>}
+      {DEFAULT_TYPES.some((t) => !typeFilter.has(t)) && (
+        <span>Types {[...typeFilter].join(', ') || 'aucun'}</span>
+      )}
+      {atelierFilter.size > 0 && <span>Ateliers {[...atelierFilter].join(', ')}</span>}
+      <span className="ml-auto tabular-nums">
+        {filteredCount} / {totalCount} lignes
+      </span>
+    </div>
+  )
 
   return (
     <AppLayout
@@ -355,10 +627,10 @@ export default function Tracking(props: SuiviPageProps) {
       scrollable={false}
       meta={
         <>
-          <div className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-brand">
+          <div className="font-mono text-1.5xs font-medium uppercase tracking-[0.14em] text-brand">
             {refLabel}
           </div>
-          <div className="text-[12px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{totalCount}</span> lignes ouvertes
           </div>
         </>
@@ -378,14 +650,14 @@ export default function Tracking(props: SuiviPageProps) {
             <ToolbarSegmented>
               <ToolbarSegment
                 active={mode === 'reactif'}
-                onClick={() => setMode('reactif')}
+                onClick={() => switchMode('reactif')}
                 title="Suivi as-is : statuts allocation/expédition + causes de retard"
               >
                 Réactif
               </ToolbarSegment>
               <ToolbarSegment
                 active={mode === 'proactif'}
-                onClick={() => setMode('proactif')}
+                onClick={() => switchMode('proactif')}
                 title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
               >
                 Proactif
@@ -451,7 +723,11 @@ export default function Tracking(props: SuiviPageProps) {
                   <Pill
                     variant={filtersActive ? 'active' : 'outline'}
                     className="gap-1.5"
-                    title="Filtres"
+                    title={
+                      filtersActive
+                        ? `${activeFilterCount} filtre${activeFilterCount > 1 ? 's' : ''} actif${activeFilterCount > 1 ? 's' : ''}`
+                        : 'Filtres'
+                    }
                   >
                     <SlidersHorizontal
                       size={14}
@@ -460,7 +736,9 @@ export default function Tracking(props: SuiviPageProps) {
                     />
                     Filtres
                     {filtersActive ? (
-                      <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+                      <span className="rounded-full bg-brand px-1.5 py-px text-3xs font-semibold leading-none text-white tabular-nums">
+                        {activeFilterCount}
+                      </span>
                     ) : null}
                     <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
                   </Pill>
@@ -478,7 +756,7 @@ export default function Tracking(props: SuiviPageProps) {
                     {mode === 'reactif' && (
                       <>
                         <div className={SECTION_LABEL}>Statut</div>
-                        <ToolbarSegmented className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
                           {statusChip('all', 'Tous', view.total)}
                           {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
                           {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
@@ -490,7 +768,7 @@ export default function Tracking(props: SuiviPageProps) {
                     {mode === 'proactif' && (
                       <>
                         <div className={SECTION_LABEL}>Verdict</div>
-                        <ToolbarSegmented className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
                           {verdictChip('all', 'Tous', proView.total)}
                           {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
                           {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
@@ -499,7 +777,7 @@ export default function Tracking(props: SuiviPageProps) {
                         </ToolbarSegmented>
                         <Separator className="my-2" />
                         <div className={SECTION_LABEL}>Composants en rupture</div>
-                        <ToolbarSegmented className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
                           <ToolbarSegment
                             active={showSubAssemblies}
                             onClick={() => setShowSubAssemblies((v) => !v)}
@@ -519,7 +797,7 @@ export default function Tracking(props: SuiviPageProps) {
                       </>
                     )}
                     <div className={SECTION_LABEL}>Type</div>
-                    <ToolbarSegmented className="w-full justify-between">
+                    <ToolbarSegmented semantics="toggles" className="w-full justify-between">
                       {DEFAULT_TYPES.map((t) => (
                         <ToolbarSegment
                           key={t}
@@ -541,15 +819,16 @@ export default function Tracking(props: SuiviPageProps) {
                               type="button"
                               variant="ghost"
                               size="xs"
-                              className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                              className="text-muted-foreground hover:text-foreground"
                               onClick={() => setAtelierFilter(new Set())}
                               title="Réinitialiser le filtre atelier"
+                              aria-label="Réinitialiser le filtre atelier"
                             >
-                              ✕
+                              <X size={12} strokeWidth={2} aria-hidden="true" />
                             </Button>
                           )}
                         </div>
-                        <ToolbarSegmented className="w-full flex-wrap">
+                        <ToolbarSegmented semantics="toggles" className="w-full flex-wrap">
                           {ateliers.map((a) => (
                             <ToolbarSegment
                               key={a.code}
@@ -567,6 +846,30 @@ export default function Tracking(props: SuiviPageProps) {
                 </Popover.Positioner>
               </Popover.Portal>
             </Popover.Root>
+
+            {/* Raccourcis de gravité — les compteurs qui décidaient du scan
+                étaient devenus un contenu de popover. Ils reviennent dans la
+                rangée sous leur forme la plus courte : un point, un nombre, un
+                mot. Masqués sous xl, où la rangée n'a plus la place. */}
+            {alertes.length > 0 && (
+              <div className="ml-1 hidden items-center gap-1 xl:flex">
+                {alertes.map((a) => (
+                  <Pill
+                    key={a.key}
+                    size="sm"
+                    variant={a.on ? 'active' : 'ghost'}
+                    dot
+                    dotClassName={a.dot}
+                    aria-pressed={a.on}
+                    onClick={a.toggle}
+                    title={`Ne garder que les lignes ${a.label}`}
+                  >
+                    <span className="font-mono font-semibold tabular-nums">{a.count}</span>
+                    <span className="text-muted-foreground">{a.label}</span>
+                  </Pill>
+                ))}
+              </div>
+            )}
           </ToolbarGroup>
 
           <ToolbarSpacer />
@@ -595,7 +898,7 @@ export default function Tracking(props: SuiviPageProps) {
               {fmtMs(shownMs)}
             </span>
           )}
-          <ToolbarRefresh loading={loading} onClick={() => setBust((b) => b + 1)} />
+          <ToolbarRefresh loading={loading} onClick={refresh} />
         </Toolbar>
 
         {mode === 'reactif' ? (
@@ -604,9 +907,13 @@ export default function Tracking(props: SuiviPageProps) {
             filteredRows={reactiveFilteredRows}
             loading={rowsLoading}
             error={!!rowsError}
+            onRetry={refresh}
+            isFiltered={isFiltered}
+            horsFenetre={horsFenetre}
             onResetFilters={resetFilters}
-            onRowClick={(row) => setSelectedRow({ type: 'reactif', row })}
+            onRowClick={openReactiveRow}
             selectedRowKey={selectedRowKey}
+            printContext={printContext}
           />
         ) : (
           <ProactiveView
@@ -614,11 +921,15 @@ export default function Tracking(props: SuiviPageProps) {
             filteredRows={proFilteredRows}
             loading={proLoading}
             error={!!proError}
+            onRetry={refresh}
+            isFiltered={isFiltered}
+            horsFenetre={horsFenetre}
             onResetFilters={resetFilters}
-            onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
+            onRowClick={openProactiveRow}
             selectedRowKey={selectedRowKey}
             onSelectOf={onSelectOf}
             showSubAssemblies={showSubAssemblies}
+            printContext={printContext}
           />
         )}
       </div>

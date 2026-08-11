@@ -1,25 +1,24 @@
 /**
- * Vue proactive du Suivi — port React de
- * inertia/components/tracking/proactive-view.tsx (issue #52) :
- * réalisabilité projetée des commandes (moteur de consommation séquentielle).
+ * Vue proactive du Suivi — réalisabilité projetée des commandes (moteur de
+ * consommation séquentielle). Le cadre (erreur, chargement, Card, table, état
+ * vide) vit dans TrackingTableShell ; ici ne restent que les colonnes et le tri.
  */
-import { useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
-import { TriangleAlert, CircleX, FilterX } from 'lucide-react'
-import { SkeletonRow } from '@r/components/ui/skeleton'
-import { Card } from '@r/components/ui/card'
-import { Button } from '@r/components/ui/button'
-import { DynamicIcon } from '../ui/dynamic-icon'
-import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@r/lib/suivi/types'
 import { sortRows, suiviRowKey } from '@r/lib/suivi/tracking-shared'
 import { createProactiveColumns, createProactiveIndexCol } from '@r/lib/suivi/proactive-columns'
+import { TrackingTableShell } from './tracking-table-shell'
+import { type SortingState } from '@r/components/ui/data-table'
 
 export interface ProactiveViewProps {
   view: ProactiveRowsResponse
   filteredRows: ProactiveDisplayRow[]
   loading: boolean
   error: boolean
+  onRetry?: () => void
+  isFiltered: boolean
+  horsFenetre?: boolean
   onResetFilters?: () => void
   onRowClick?: (row: ProactiveDisplayRow) => void
   selectedRowKey?: string | null
@@ -27,92 +26,52 @@ export interface ProactiveViewProps {
   onSelectOf?: (numOf: string) => void
   /** Inclure les sous-ensembles (semi-finis) en rupture dans la colonne « Composants en rupture ». */
   showSubAssemblies?: boolean
+  printContext?: ReactNode
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
   const [sorting, setSorting] = useState<SortingState[]>([{ id: 'joursRetard', desc: true }])
 
-  const rows = sortRows(props.filteredRows, sorting)
-
-  const columns = createProactiveColumns({
-    referenceDate: props.view.referenceDate,
-    onSelectOf: props.onSelectOf,
-    showSubAssemblies: props.showSubAssemblies,
-  })
-  const indexCol = createProactiveIndexCol()
+  // Tri et colonnes étaient recalculés à CHAQUE rendu — or `useTimedFetch`
+  // pousse son chrono toutes les 200 ms tant que l'autre vue charge : la table
+  // était re-triée 5 fois par seconde pendant un chargement.
+  const rows = useMemo(() => sortRows(props.filteredRows, sorting), [props.filteredRows, sorting])
+  const columns = useMemo(
+    () =>
+      createProactiveColumns({
+        referenceDate: props.view.referenceDate,
+        onSelectOf: props.onSelectOf,
+        showSubAssemblies: props.showSubAssemblies,
+        onOpenRow: props.onRowClick,
+      }),
+    [props.view.referenceDate, props.onSelectOf, props.showSubAssemblies, props.onRowClick]
+  )
+  const indexCol = useMemo(() => createProactiveIndexCol(), [])
 
   return (
-    <>
-      {/* ═══ Proactif : X3 injoignable ═══ */}
-      {props.view.x3Error && (
-        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-          <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
-          <span className="font-bold">Erreur chargement réalisabilité :</span>
-          <span className="font-mono">{props.view.x3Error}</span>
-        </div>
-      )}
-
-      {props.loading ? (
-        <div className="flex-1 overflow-hidden p-5">
-          <SkeletonRow count={6} />
-        </div>
-      ) : props.error ? (
-        <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-          <CircleX size={20} strokeWidth={1.75} />
-          Échec du calcul de réalisabilité.
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-hidden p-5">
-          <Card padding="none" className="h-full overflow-hidden">
-            <DataTable
-              columns={columns}
-              rows={rows}
-              sorting={sorting}
-              onSortingChange={setSorting}
-              indexColumn={indexCol}
-              getRowClass={() => 'group/row'}
-              tableClass="min-w-[1252px] table-fixed"
-              scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none"
-              theadRowClass="sticky top-0 z-10 bg-transparent"
-              onRowClick={props.onRowClick}
-              selectedRowKey={props.selectedRowKey}
-              getRowKey={suiviRowKey}
-              emptyState={
-                <div className="flex flex-1 items-center justify-center p-12 text-center">
-                  <div className="flex flex-col items-center">
-                    <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                      <DynamicIcon
-                        name={props.view.x3Error ? 'cloud_off' : 'search_off'}
-                        size={28}
-                        strokeWidth={1.75}
-                      />
-                    </div>
-                    <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
-                      {props.view.x3Error ? 'Erreur de connexion Sage X3' : 'Aucun résultat trouvé'}
-                    </h3>
-                    <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
-                      {props.view.x3Error
-                        ? 'Impossible de récupérer les dernières données de réalisabilité depuis le serveur ERP Sage X3.'
-                        : 'Aucune ligne de commande ne correspond aux filtres ou à la recherche actuels.'}
-                    </p>
-                    {!props.view.x3Error && props.onResetFilters && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => props.onResetFilters?.()}
-                      >
-                        <FilterX size={13} strokeWidth={1.75} />
-                        Réinitialiser les filtres
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              }
-            />
-          </Card>
-        </div>
-      )}
-    </>
+    <TrackingTableShell
+      x3Error={props.view.x3Error}
+      sujet="de la réalisabilité"
+      rows={rows}
+      columns={columns}
+      indexColumn={indexCol}
+      sorting={sorting}
+      onSortingChange={setSorting}
+      loading={props.loading}
+      error={props.error}
+      onRetry={props.onRetry}
+      tableClass="min-w-[1252px] table-fixed"
+      // Une ligne proactive porte jusqu'à 4 composants avec descente BOM : la
+      // fourchette réelle va de 56 px à plus de 200. 96 est le compromis qui
+      // limite les sauts de barre de défilement avant mesure.
+      estimateRowSize={96}
+      onRowClick={props.onRowClick}
+      selectedRowKey={props.selectedRowKey}
+      getRowKey={suiviRowKey}
+      isFiltered={props.isFiltered}
+      horsFenetre={props.horsFenetre}
+      onResetFilters={props.onResetFilters}
+      printContext={props.printContext}
+    />
   )
 }

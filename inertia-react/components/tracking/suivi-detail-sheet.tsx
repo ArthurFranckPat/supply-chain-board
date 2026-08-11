@@ -28,16 +28,17 @@ interface SuiviDetailSheetProps {
 
 type StepState = 'green' | 'amber' | 'gray' | 'purple'
 
-// Pastilles d'étape — hex grammaire (airbnb-grammar.html) : ferme #008049,
-// suggere #fc642d, planifie #00a699 (ex-« purple » CQ : pas de violet dans
-// la grammaire, replié sur l'accent secondaire teal).
+// Pastilles d'étape — tokens du thème uniquement. Les halos hex d'origine
+// (rgba figés sur la palette Airbnb : #008049 / #fc642d / #00a699) peignaient
+// une lueur à décalage nul, décorative, et fausse sous le thème cursor où
+// --ferme vaut #007041. Une étape en cours se signale par un anneau, pas par
+// une lueur ni par un `animate-pulse` permanent : sur un écran regardé toute
+// la journée, ce qui clignote sans fin cesse d'être lu comme un signal.
 const STEP_CIRCLE: Record<StepState, string> = {
-  green: 'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
-  amber:
-    'bg-suggere text-white animate-pulse shadow-[0_0_12px_rgba(252,100,45,0.3)] border border-suggere',
-  purple:
-    'bg-planifie text-white animate-pulse shadow-[0_0_12px_rgba(0,166,153,0.3)] border border-planifie',
-  gray: 'bg-secondary text-muted-foreground border border-rule',
+  green: 'border border-ferme bg-ferme text-white',
+  amber: 'border border-suggere bg-suggere text-white ring-2 ring-suggere/25',
+  purple: 'border border-planifie bg-planifie text-white ring-2 ring-planifie/25',
+  gray: 'border border-rule bg-secondary text-muted-foreground',
 }
 
 export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
@@ -133,14 +134,14 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
             className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
+              'flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all',
               STEP_CIRCLE.green
             )}
             title="Commande enregistrée et validée dans l'ERP."
           >
             <Receipt size={16} strokeWidth={1.75} />
           </div>
-          <span className="text-center text-[8.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-center text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Saisie
           </span>
         </div>
@@ -149,7 +150,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
             className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
+              'flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all',
               STEP_CIRCLE[stepAppro]
             )}
             title={
@@ -162,7 +163,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           >
             <Factory size={16} strokeWidth={1.75} />
           </div>
-          <span className="text-center text-[8.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-center text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Couverture
           </span>
         </div>
@@ -171,7 +172,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
             className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
+              'flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all',
               STEP_CIRCLE[stepDispo]
             )}
             title={
@@ -184,7 +185,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           >
             <Package size={16} strokeWidth={1.75} />
           </div>
-          <span className="text-center text-[8.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-center text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Disponible
           </span>
         </div>
@@ -193,7 +194,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
             className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
+              'flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all',
               STEP_CIRCLE[stepAlloc]
             )}
             title={
@@ -206,7 +207,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           >
             <BookmarkCheck size={16} strokeWidth={1.75} />
           </div>
-          <span className="text-center text-[8.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-center text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Alloué
           </span>
         </div>
@@ -215,7 +216,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
             className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
+              'flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all',
               STEP_CIRCLE[stepExp]
             )}
             title={
@@ -230,7 +231,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           >
             <Truck size={16} strokeWidth={1.75} />
           </div>
-          <span className="text-center text-[8.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-center text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Zone Expé
           </span>
         </div>
@@ -246,16 +247,16 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 fonction="GESSOH"
                 cle={row.numCommande}
                 title={`Ouvrir la commande ${row.numCommande} dans Sage X3`}
-                className="rounded-lg border border-rule bg-foreground/[0.05] px-2.5 py-0.5 font-mono text-[13px] font-semibold tracking-tight text-foreground"
+                className="rounded-lg border border-rule bg-foreground/[0.05] px-2.5 py-0.5 font-mono text-cell-lg font-semibold tracking-tight text-foreground"
               >
                 {row.numCommande}
               </X3Link>
-              <span className="font-sans text-[11px] font-bold text-muted-foreground/75">
+              <span className="font-sans text-1.5xs font-bold text-muted-foreground">
                 • Commande client
               </span>
             </div>
             {row.refCommandeClient && (
-              <div className="mt-2 font-mono text-[10.5px] font-medium text-muted-foreground">
+              <div className="mt-2 font-mono text-2xs font-medium text-muted-foreground">
                 Réf ext: <span className="text-foreground/80">{row.refCommandeClient}</span>
               </div>
             )}
@@ -269,34 +270,36 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-rule-soft/60 pt-4">
           <div>
-            <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
               Client
             </span>
-            <div className="mt-0.5 text-[13px] font-bold text-foreground">{row.client}</div>
+            <div className="mt-0.5 text-cell-lg font-semibold leading-snug text-foreground">
+              {row.client}
+            </div>
           </div>
           <div>
-            <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
               Atelier / Ligne
             </span>
-            <div className="mt-0.5 text-[13px] font-bold text-foreground">
+            <div className="mt-0.5 text-cell-lg font-semibold leading-snug text-foreground">
               {row.atelierLabel || '—'}
             </div>
           </div>
         </div>
 
         <div className="mt-4 border-t border-rule-soft/60 pt-4">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
+          <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
             Article &amp; Désignation
           </span>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-mono text-[12.5px] font-bold text-brand">{row.article}</span>
+            <span className="font-mono text-xs font-bold text-brand">{row.article}</span>
             {row.refArticleClient && row.refArticleClient !== row.article && (
-              <span className="rounded bg-secondary/40 px-1.5 py-px font-mono text-[10px] text-muted-foreground">
+              <span className="rounded bg-secondary/40 px-1.5 py-px font-mono text-2xs text-muted-foreground">
                 (Client: {row.refArticleClient})
               </span>
             )}
           </div>
-          <div className="mt-1 text-[12.5px] font-medium leading-relaxed text-secondary-foreground">
+          <div className="mt-1 text-xs font-medium leading-relaxed text-secondary-foreground">
             {row.designation || '—'}
           </div>
         </div>
@@ -325,25 +328,25 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             size={18}
             strokeWidth={1.75}
           />
-          <span className="text-[10px] font-semibold uppercase tracking-wider">
+          <span className="text-2xs font-medium uppercase tracking-wide">
             Recommandation Supply-Chain
           </span>
         </div>
-        <p className="text-[13px] font-bold leading-relaxed text-foreground">{action.label}</p>
+        <p className="text-cell-lg font-bold leading-relaxed text-foreground">{action.label}</p>
       </div>
 
       {/* 4. Expé & Délais */}
       <div className="grid grid-cols-2 gap-4">
         <Card padding="sm" className="h-20 justify-between">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
+          <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
             Date d'Expédition
           </span>
-          <div className="font-mono text-[16px] font-semibold text-foreground">
+          <div className="font-mono text-base font-semibold text-foreground">
             {row.dateExp || '—'}
           </div>
         </Card>
         <Card padding="sm" className="h-20 justify-between">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
+          <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
             État de Livraison
           </span>
           <div className="flex flex-col gap-0.5">
@@ -377,7 +380,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               </Badge>
             )}
             {late && (
-              <span className="mt-0.5 flex items-center gap-0.5 text-[10.5px] font-bold text-destructive">
+              <span className="mt-0.5 flex items-center gap-0.5 text-2xs font-bold text-destructive">
                 <Clock size={12} strokeWidth={1.75} className="leading-none" />
                 Retard: +{lateDays} jour{lateDays > 1 ? 's' : ''}
               </span>
@@ -388,13 +391,13 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 5. Gauge Visuelle & Répartition des Quantités */}
       <Card padding="default" className="gap-4">
-        <h4 className="border-b border-rule-soft pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+        <h4 className="border-b border-rule-soft pb-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
           Répartition des Quantités
         </h4>
 
         {/* Stacked Progress Bar */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-foreground/85">
+          <div className="flex items-center justify-between text-1.5xs font-semibold text-foreground/85">
             <span>Rapport d'allocation</span>
             <span>
               {strictVal + cqVal} / {total} u ({pctStrict + pctCq}%)
@@ -418,22 +421,20 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
         <div className="mt-2 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-            <div className="text-[9.5px] font-semibold text-muted-foreground">Reste à livrer</div>
-            <div className="mt-0.5 font-mono text-[16px] font-semibold text-foreground">
-              {total}
-            </div>
+            <div className="text-2xs font-semibold text-muted-foreground">Reste à livrer</div>
+            <div className="mt-0.5 font-mono text-base font-semibold text-foreground">{total}</div>
           </div>
           {isReactif ? (
             <>
               <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-ferme">Strict</div>
-                <div className="mt-0.5 font-mono text-[16px] font-semibold text-ferme">
+                <div className="text-2xs font-semibold text-ferme">Strict</div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-ferme">
                   {reactiveRow.allocStrict}
                 </div>
               </div>
               <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-planifie">Sous CQ</div>
-                <div className="mt-0.5 font-mono text-[16px] font-semibold text-planifie">
+                <div className="text-2xs font-semibold text-planifie">Sous CQ</div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-planifie">
                   {reactiveRow.allocCq}
                 </div>
               </div>
@@ -441,14 +442,14 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           ) : (
             <>
               <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-ferme">Alloué</div>
-                <div className="mt-0.5 font-mono text-[16px] font-semibold text-ferme">
+                <div className="text-2xs font-semibold text-ferme">Alloué</div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-ferme">
                   {proactiveRow.qteAllouee}
                 </div>
               </div>
               <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-muted-foreground">Reliquat</div>
-                <div className="mt-0.5 font-mono text-[16px] font-semibold text-foreground">
+                <div className="text-2xs font-semibold text-muted-foreground">Reliquat</div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-foreground">
                   {proactiveRow.reliquat}
                 </div>
               </div>
@@ -460,7 +461,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
       {/* 6. Composants en rupture & Approvisionnements (BOM) */}
       {!isReactif && proactiveRow.composants.length > 0 && (
         <Card padding="sm" className="gap-4">
-          <h4 className="border-b border-rule-soft pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+          <h4 className="border-b border-rule-soft pb-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
             Composants en rupture
           </h4>
           <div className="flex flex-col gap-4">
@@ -470,14 +471,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 className="flex flex-col gap-2 border-b border-rule-soft pb-4 last:border-0 last:pb-0"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[12.5px] font-bold text-destructive">
-                    {c.art}
-                  </span>
+                  <span className="font-mono text-xs font-bold text-destructive">{c.art}</span>
                   <Badge variant="destructive" className="font-mono">
                     −{c.qty} manquants
                   </Badge>
                 </div>
-                <div className="text-[12px] font-medium leading-normal text-secondary-foreground">
+                <div className="text-xs font-medium leading-normal text-secondary-foreground">
                   {c.desc}
                 </div>
 
@@ -487,7 +486,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     <div className="flex items-center justify-between">
                       <div
                         className={cn(
-                          'flex items-center gap-1.5 text-[11px] font-bold',
+                          'flex items-center gap-1.5 text-1.5xs font-bold',
                           c.reception.overdue ? 'text-destructive' : 'text-brand'
                         )}
                       >
@@ -511,7 +510,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     <div className="mt-1 flex items-center gap-2 px-1">
                       <div className="flex flex-1 flex-col gap-1">
                         <div className="h-1.5 rounded-full bg-ferme" />
-                        <span className="text-[8px] font-semibold uppercase text-ferme">
+                        <span className="text-2xs font-semibold uppercase text-ferme">
                           Commandé
                         </span>
                       </div>
@@ -524,7 +523,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                         />
                         <span
                           className={cn(
-                            'text-[8px] font-semibold uppercase',
+                            'text-2xs font-semibold uppercase',
                             c.reception.overdue ? 'font-bold text-destructive' : 'text-ferme'
                           )}
                         >
@@ -540,7 +539,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                         />
                         <span
                           className={cn(
-                            'text-[8px] font-semibold uppercase',
+                            'text-2xs font-semibold uppercase',
                             c.reception.overdue
                               ? 'font-bold text-destructive'
                               : 'text-muted-foreground'
@@ -551,7 +550,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       </div>
                     </div>
 
-                    <div className="mt-1 flex flex-col gap-0.5 border-t border-rule-soft/60 pt-2 text-[11px] text-muted-foreground">
+                    <div className="mt-1 flex flex-col gap-0.5 border-t border-rule-soft/60 pt-2 text-1.5xs text-muted-foreground">
                       <div>
                         <span className="font-semibold text-foreground/80">Fournisseur :</span>{' '}
                         {c.reception.supplier}
@@ -560,7 +559,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                   </div>
                 ) : (
                   !c.descente && (
-                    <div className="flex w-fit items-center gap-1 rounded-lg border border-destructive/10 bg-destructive/5 px-2.5 py-1 font-mono text-[10px] font-bold text-destructive/80">
+                    <div className="flex w-fit items-center gap-1 rounded-lg border border-destructive/10 bg-destructive/5 px-2.5 py-1 font-mono text-2xs font-bold text-destructive/80">
                       <CalendarX size={13} strokeWidth={1.75} className="leading-none" />
                       Aucune réception d'achat de couverture prévue.
                     </div>
@@ -570,39 +569,39 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 {/* Descente de Nomenclature (Niveau Cascade) */}
                 {c.descente && (
                   <div className="flex flex-col gap-2 rounded-lg border border-rule-soft bg-secondary/15 p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
+                    <div className="flex items-center gap-1.5 text-1.5xs font-bold text-foreground">
                       <CornerDownRight size={14} strokeWidth={1.75} />
                       <span>Nomenclature sous-ensemble</span>
                     </div>
                     {c.descente.statut === 'se_a_lancer' ? (
-                      <div className="flex items-center gap-1 pl-3.5 text-[11px] font-bold text-ferme">
+                      <div className="flex items-center gap-1 pl-3.5 text-1.5xs font-bold text-ferme">
                         <CircleCheck size={14} strokeWidth={1.75} />
                         Composants disponibles — OF du sous-ensemble prêt à lancer
                       </div>
                     ) : (
                       <div className="mt-1 ml-2 flex flex-col gap-2.5 border-l-2 border-dotted border-destructive/20 pl-3">
-                        <div className="text-[9.5px] font-semibold uppercase tracking-wide text-destructive">
+                        <div className="text-2xs font-semibold uppercase tracking-wide text-destructive">
                           Composants parents bloquants :
                         </div>
                         {c.descente.par.map((p) => (
                           <div
                             key={p.art}
-                            className="relative flex flex-col gap-1 pl-2 text-[11px] text-muted-foreground"
+                            className="relative flex flex-col gap-1 pl-2 text-1.5xs text-muted-foreground"
                           >
                             <div className="absolute left-0 top-1.5 size-1.5 -translate-x-[15px] rounded-full bg-destructive/40" />
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="text-foreground/80">
-                                <b className="font-mono text-[11.5px] font-bold text-destructive">
+                                <b className="font-mono text-1.5xs font-bold text-destructive">
                                   {p.art}
                                 </b>{' '}
-                                <span className="text-[10px] opacity-80">({p.desc})</span>
+                                <span className="text-2xs opacity-80">({p.desc})</span>
                               </span>
                               <span className="shrink-0 font-mono font-bold text-destructive">
                                 −{p.manque}
                               </span>
                             </div>
                             {p.reception ? (
-                              <div className="mt-0.5 flex flex-col gap-0.5 rounded border border-rule-soft bg-secondary/40 p-2.5 text-[10px]">
+                              <div className="mt-0.5 flex flex-col gap-0.5 rounded border border-rule-soft bg-secondary/40 p-2.5 text-2xs">
                                 <div
                                   className={cn(
                                     'flex items-center gap-1 font-semibold',
@@ -631,7 +630,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex w-fit items-center gap-0.5 rounded bg-destructive/5 px-2 py-0.5 text-[9.5px] font-bold text-destructive/80">
+                              <div className="flex w-fit items-center gap-0.5 rounded bg-destructive/5 px-2 py-0.5 text-2xs font-bold text-destructive/80">
                                 <CalendarX size={11} strokeWidth={1.75} className="leading-none" />
                                 Aucune couverture
                               </div>
@@ -651,7 +650,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
       {/* 7. Ordres de Fabrication Associés */}
       {!isReactif && proactiveRow.ofs.length > 0 && (
         <Card padding="sm" className="gap-4">
-          <h4 className="border-b border-rule-soft pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+          <h4 className="border-b border-rule-soft pb-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
             Ordres de Fabrication ({proactiveRow.ofs.length})
           </h4>
           <div className="flex flex-col gap-4">
@@ -664,7 +663,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="rounded border border-rule bg-card px-2.5 py-0.5 font-mono text-[13px] font-bold text-foreground shadow-sm">
+                      <span className="rounded border border-rule bg-card px-2.5 py-0.5 font-mono text-cell-lg font-bold text-foreground shadow-sm">
                         {of.numOf}
                       </span>
                       {of.estDebuté && (
@@ -679,14 +678,14 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {of.estDebuté && (
-                        <span className="rounded border border-brand/10 bg-brand-soft px-2 py-0.5 font-sans text-[8.5px] font-semibold uppercase text-brand">
+                        <span className="rounded border border-brand/10 bg-brand-soft px-2 py-0.5 font-sans text-2xs font-semibold uppercase text-brand">
                           En cours
                         </span>
                       )}
                       {st && (
                         <span
                           className={cn(
-                            'rounded border border-transparent px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider',
+                            'rounded border border-transparent px-2 py-0.5 font-mono text-2xs font-medium uppercase tracking-wide',
                             st.tone
                           )}
                         >
@@ -696,7 +695,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-t border-rule-soft/60 pt-3 text-[11px] text-muted-foreground">
+                  <div className="grid grid-cols-2 gap-3 border-t border-rule-soft/60 pt-3 text-1.5xs text-muted-foreground">
                     <div>
                       <span className="font-semibold text-foreground/60">Composant de tête :</span>
                       <div className="mt-0.5 font-mono font-semibold text-foreground">
@@ -722,7 +721,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       <div className="mt-0.5">
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 text-[11px] font-bold',
+                            'inline-flex items-center gap-1 text-1.5xs font-bold',
                             of.feasible ? 'text-ferme' : 'text-destructive'
                           )}
                         >
@@ -740,7 +739,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
                   {of.missingComponents.length > 0 && (
                     <div className="mt-1 flex flex-col gap-1.5 border-t border-rule-soft/60 pt-3">
-                      <div className="text-[9.5px] font-bold uppercase tracking-wide text-destructive">
+                      <div className="text-2xs font-medium uppercase tracking-wide text-destructive">
                         Composants manquants :
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -762,7 +761,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
       {/* 8. Emplacements de Stock */}
       {isReactif && reactiveRow.emplacements.length > 0 && (
         <Card padding="sm" className="gap-4">
-          <h4 className="border-b border-rule-soft pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+          <h4 className="border-b border-rule-soft pb-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
             Emplacements &amp; Palettes de Stock
           </h4>
           <div className="flex flex-col gap-2.5">
@@ -772,7 +771,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 className="flex items-center justify-between rounded-lg border border-rule-soft/60 bg-secondary/5 p-3 transition-all hover:bg-secondary/15"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground/75">
+                  <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground">
                     <DynamicIcon
                       name={e.source === 'STOALL' ? 'inventory' : 'shelves'}
                       size={18}
@@ -780,10 +779,10 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     />
                   </div>
                   <div>
-                    <div className="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>
+                    <div className="font-mono text-xs font-bold text-foreground">{e.nom}</div>
                     <div
                       className={cn(
-                        'mt-0.5 text-[9px] font-semibold uppercase tracking-wider',
+                        'mt-0.5 text-2xs font-medium uppercase tracking-wide',
                         e.source === 'STOALL' ? 'text-ferme' : 'text-suggere'
                       )}
                     >
@@ -802,7 +801,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       HU: {e.hum}
                     </Badge>
                   )}
-                  <span className="rounded border border-rule-soft bg-secondary/30 px-2 py-1 font-mono text-[12.5px] font-semibold text-foreground">
+                  <span className="rounded border border-rule-soft bg-secondary/30 px-2 py-1 font-mono text-xs font-semibold text-foreground">
                     {Math.round(e.qte)} u
                   </span>
                 </div>

@@ -60,6 +60,12 @@ export interface DataTableProps<TRow> {
    * `renderDetailRow`. Défaut true.
    */
   virtualize?: boolean
+  /**
+   * Hauteur de ligne supposée avant mesure réelle (défaut 56). Trop basse sur
+   * des lignes hautes, le virtualiseur sous-estime la taille totale et la barre
+   * de défilement saute à chaque mesure.
+   */
+  estimateRowSize?: number
   /** Ligne de détail insérée après une ligne (colSpan complet) — uniquement pris en compte si virtualize=false. */
   renderDetailRow?: (row: TRow, rowKey: string) => ReactNode
 }
@@ -81,6 +87,7 @@ export function DataTable<TRow>({
   getRowKey,
   emptyState,
   virtualize = true,
+  estimateRowSize = 56,
   renderDetailRow,
 }: DataTableProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -88,7 +95,7 @@ export function DataTable<TRow>({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 56,
+    estimateSize: () => estimateRowSize,
     overscan: 12,
   })
 
@@ -116,7 +123,9 @@ export function DataTable<TRow>({
   const totalSize = rowVirtualizer.getTotalSize()
   const topPad = virtualize && virtualItems.length > 0 ? virtualItems[0].start : 0
   const bottomPad =
-    virtualize && virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0
+    virtualize && virtualItems.length > 0
+      ? totalSize - virtualItems[virtualItems.length - 1].end
+      : 0
 
   const colCount = columns.length + (indexColumn ? 1 : 0)
 
@@ -152,7 +161,11 @@ export function DataTable<TRow>({
     const sorted = sorting.find((s) => s.id === colId(col))
     if (!sorted) {
       return (
-        <ChevronsUpDown size={12} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
+        <ChevronsUpDown
+          size={12}
+          strokeWidth={1.75}
+          className="leading-none text-muted-foreground/50"
+        />
       )
     }
     return sorted.desc ? (
@@ -229,13 +242,13 @@ export function DataTable<TRow>({
               const row = rows[index]
               if (!row) return null
 
-              const isSelected =
-                selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
+              const isSelected = selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
               const rowKey = uniqueKeys[index] ?? index
               const rowStyle: CSSProperties | undefined = onRowClick
                 ? { cursor: 'pointer' }
                 : undefined
-              const detail = !virtualize && renderDetailRow ? renderDetailRow(row, String(rowKey)) : null
+              const detail =
+                !virtualize && renderDetailRow ? renderDetailRow(row, String(rowKey)) : null
 
               return (
                 <Fragment key={rowKey}>

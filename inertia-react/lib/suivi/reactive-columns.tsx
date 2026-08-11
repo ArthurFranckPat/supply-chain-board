@@ -8,7 +8,6 @@ import { Badge } from '@r/components/ui/badge'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
 import {
-  BADGE_TONE,
   BADGE_DOT,
   BADGE_TEXT,
   LATE_TONE,
@@ -23,12 +22,21 @@ export interface ReactiveColumnsDeps {
   expandedEmps: Set<string>
   toggleEmp: (key: string) => void
   referenceDate: string
+  /**
+   * Ouvre le diagnostic de la ligne. Le clic de LIGNE fait déjà ça (cible large
+   * à la souris) mais un `<tr onClick>` n'est atteignable ni au clavier ni au
+   * lecteur d'écran. Le numéro de commande porte donc le MÊME geste dans un vrai
+   * `<button>` : pas de rôle ARIA menteur sur la rangée, et la sémantique de
+   * tableau reste intacte.
+   */
+  onOpenRow?: (row: SuiviDisplayRow) => void
 }
 
 export function createReactiveColumns({
   expandedEmps,
   toggleEmp,
   referenceDate,
+  onOpenRow,
 }: ReactiveColumnsDeps): ColumnDef<SuiviDisplayRow>[] {
   return [
     {
@@ -39,9 +47,18 @@ export function createReactiveColumns({
       // côté plutôt que de lui voler le clic (revue #118).
       cell: ({ row, getValue }) => (
         <>
-          <span className="font-mono text-[12px] font-bold tracking-tight text-foreground">
+          <button
+            type="button"
+            className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
+            disabled={!onOpenRow}
+            title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenRow?.(row.original)
+            }}
+          >
             {getValue() as string}
-          </span>
+          </button>
           <X3Link
             fonction="GESSOH"
             cle={getValue() as string}
@@ -49,14 +66,13 @@ export function createReactiveColumns({
             iconOnly
             className="ml-1 align-middle text-muted-foreground hover:text-brand"
           />
-          <span className="ml-1.5 text-[10px] text-muted-foreground">
+          <span className="ml-1.5 text-2xs text-muted-foreground">
             {row.original.client || '—'}
           </span>
         </>
       ),
       meta: {
         thClass: 'w-[150px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -64,17 +80,16 @@ export function createReactiveColumns({
       header: 'Article · Désignation',
       cell: ({ row, getValue }) => (
         <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="shrink-0 font-mono text-[12px] font-bold tracking-tight text-foreground">
+          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="truncate text-[10px] text-muted-foreground/70">
+          <span className="truncate text-2xs text-muted-foreground">
             {row.original.designation || '—'}
           </span>
         </div>
       ),
       meta: {
         thClass: 'w-[200px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -96,7 +111,6 @@ export function createReactiveColumns({
       },
       meta: {
         thClass: 'w-[56px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -106,7 +120,7 @@ export function createReactiveColumns({
         const code = getValue() as string
         if (!code)
           return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
               —
             </span>
           )
@@ -122,7 +136,6 @@ export function createReactiveColumns({
       },
       meta: {
         thClass: 'w-[90px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -132,17 +145,15 @@ export function createReactiveColumns({
         const restante = getValue() as number
         const commandee = row.original.qteCommandee
         return (
-          <span className="font-mono text-[13px] font-bold leading-none tracking-tight text-foreground tabular-nums">
+          <span className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums">
             {restante}
-            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">
-              / {commandee}
-            </span>
+            <span className="ml-0.5 text-3xs font-medium text-muted-foreground">/ {commandee}</span>
           </span>
         )
       },
       meta: {
         thClass: 'w-[100px] text-right! font-sans tracking-wider',
-        tdClass: 'whitespace-nowrap text-right align-middle',
+        tdClass: 'whitespace-nowrap text-right',
       },
     },
     {
@@ -152,13 +163,13 @@ export function createReactiveColumns({
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
           <div className="leading-tight">
-            <div className="font-mono text-[11px] font-semibold text-foreground">
+            <div className="font-mono text-1.5xs font-semibold text-foreground">
               {(getValue() as string) || '—'}
             </div>
             {rel && (
               <div
                 className={cn(
-                  'font-sans text-[9px] font-semibold',
+                  'font-sans text-3xs font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
                     : rel.label === "Aujourd'hui"
@@ -176,7 +187,7 @@ export function createReactiveColumns({
       },
       meta: {
         thClass: 'w-[76px] text-left font-sans tracking-wider',
-        tdClass: 'whitespace-nowrap align-middle font-mono font-semibold',
+        tdClass: 'whitespace-nowrap font-mono font-semibold',
       },
     },
     {
@@ -188,7 +199,7 @@ export function createReactiveColumns({
         const emps = r.emplacements
         if (emps.length === 0)
           return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
               —
             </span>
           )
@@ -203,7 +214,7 @@ export function createReactiveColumns({
               <span
                 key={`${e.nom}-${e.hum}-${i}`}
                 className={cn(
-                  'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-[10.5px] leading-[1.4]',
+                  'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-2xs leading-[1.4]',
                   e.source === 'STOALL'
                     ? 'border-foreground/15 bg-secondary text-secondary-foreground'
                     : 'border-transparent bg-secondary text-secondary-foreground',
@@ -224,7 +235,7 @@ export function createReactiveColumns({
                     strokeWidth={1.75}
                     className={cn(
                       'leading-none',
-                      e.source === 'STOALL' ? 'text-foreground' : 'text-muted-foreground/70'
+                      e.source === 'STOALL' ? 'text-foreground' : 'text-muted-foreground'
                     )}
                   />
                   <span className="font-semibold">{e.nom}</span>
@@ -232,7 +243,7 @@ export function createReactiveColumns({
                 <span className="flex-1" />
                 {e.hum && (
                   <span
-                    className="shrink-0 rounded bg-card/60 px-1.5 py-px font-mono text-[9.5px] font-bold text-foreground"
+                    className="shrink-0 rounded bg-card/60 px-1.5 py-px font-mono text-3xs font-bold text-foreground"
                     title={`Numéro de palette : ${e.hum}`}
                   >
                     {e.hum.length > 8 ? `...${e.hum.slice(-6)}` : e.hum}
@@ -246,7 +257,8 @@ export function createReactiveColumns({
             {hidden > 0 && (
               <button
                 type="button"
-                className="flex w-full items-center justify-between rounded border border-rule-soft bg-secondary/50 px-2.5 py-1 font-sans text-[10px] font-bold tracking-wide text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+                className="flex w-full items-center justify-between rounded border border-rule-soft bg-secondary/50 px-2.5 py-1 font-sans text-2xs font-medium text-muted-foreground outline-ring transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+                aria-expanded={expanded}
                 onClick={(e) => {
                   e.stopPropagation()
                   toggleEmp(key)
@@ -268,7 +280,6 @@ export function createReactiveColumns({
       },
       meta: {
         thClass: 'w-[300px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -281,7 +292,7 @@ export function createReactiveColumns({
           <div className="flex flex-col items-start gap-1">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <span className={cn('size-1.5 shrink-0 rounded-full', BADGE_DOT[o.statusKey])} />
-              <span className={cn('text-[10px] font-semibold', BADGE_TEXT[o.statusKey])}>
+              <span className={cn('text-2xs font-semibold', BADGE_TEXT[o.statusKey])}>
                 {o.statusLabel}
               </span>
             </span>
@@ -298,7 +309,7 @@ export function createReactiveColumns({
               </Badge>
             )}
             {o.attenteLignes && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-3xs font-medium text-muted-foreground">
                 <Hourglass size={10} strokeWidth={1.75} className="leading-none" />
                 Attente
               </span>
@@ -308,7 +319,6 @@ export function createReactiveColumns({
       },
       meta: {
         thClass: 'w-[130px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -319,31 +329,31 @@ export function createReactiveColumns({
         const cause = row.original.cause
         if (!cause)
           return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
               —
             </span>
           )
         return (
           <>
-            <div className="text-[12px] leading-snug text-secondary-foreground">{cause.label}</div>
+            <div className="text-xs leading-snug text-secondary-foreground">{cause.label}</div>
             {cause.comps.length > 0 && (
-              <span className="mt-[3px] block font-mono text-[10px] font-bold text-foreground">
+              <span className="mt-[3px] block font-mono text-2xs font-bold text-foreground">
                 {cause.comps.map((c) => `${c.art} −${c.qty}`).join(' · ')}
               </span>
             )}
             {cause.reception && (
-              <span className="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="mt-[2px] block font-mono text-2xs font-medium text-muted-foreground">
                 arrive {cause.reception.eta} · {cause.reception.po}
               </span>
             )}
             {cause.retro?.composant && (
-              <span className="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="mt-[2px] block font-mono text-2xs font-medium text-muted-foreground">
                 {cause.retro.composant.art} dispo {cause.retro.composant.dispoA}
                 {cause.retro.composant.cq && <> (CQ)</>}
               </span>
             )}
             {cause.retro?.affermissement && (
-              <span className="mt-[1px] block font-mono text-[10px] text-muted-foreground/70">
+              <span className="mt-[1px] block font-mono text-2xs text-muted-foreground">
                 OF {cause.retro.ofPegue} affermi {cause.retro.affermissement}
               </span>
             )}
@@ -352,7 +362,6 @@ export function createReactiveColumns({
       },
       meta: {
         thClass: 'w-[280px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
   ]
@@ -364,9 +373,6 @@ export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> 
     headerLabel: 'N°',
     thClass: 'w-[38px] text-left font-mono font-semibold',
     tdClass: (row: SuiviDisplayRow) =>
-      cn(
-        'align-middle font-sans font-bold tracking-tight tabular-nums',
-        LATE_TONE.bar(row.lateSeverity)
-      ),
+      cn('font-sans font-bold tracking-tight tabular-nums', LATE_TONE.bar(row.lateSeverity)),
   }
 }

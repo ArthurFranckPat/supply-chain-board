@@ -9,7 +9,6 @@ import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-tabl
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import {
   OF_STATUT,
-  VERDICT_TONE,
   VERDICT_DOT,
   VERDICT_TEXT,
   LATE_TONE,
@@ -29,12 +28,21 @@ export interface ProactiveColumnsDeps {
    * sont affichés. Les SE fabriqués sont identifiés par `descente !== null`.
    */
   showSubAssemblies?: boolean
+  /**
+   * Ouvre le diagnostic de la ligne. Le clic de LIGNE fait déjà ça (cible large
+   * à la souris) mais un `<tr onClick>` n'est atteignable ni au clavier ni au
+   * lecteur d'écran. Le numéro de commande porte donc le MÊME geste dans un vrai
+   * `<button>` : pas de rôle ARIA menteur sur la rangée, et la sémantique de
+   * tableau reste intacte.
+   */
+  onOpenRow?: (row: ProactiveDisplayRow) => void
 }
 
 export function createProactiveColumns({
   referenceDate,
   onSelectOf,
   showSubAssemblies = false,
+  onOpenRow,
 }: ProactiveColumnsDeps): ColumnDef<ProactiveDisplayRow>[] {
   return [
     {
@@ -43,9 +51,18 @@ export function createProactiveColumns({
       // Idem réactif : le clic de ligne ouvre la sheet, X3 est à côté.
       cell: ({ row, getValue }) => (
         <>
-          <span className="font-mono text-xs font-bold tracking-tight text-foreground">
+          <button
+            type="button"
+            className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
+            disabled={!onOpenRow}
+            title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenRow?.(row.original)
+            }}
+          >
             {getValue() as string}
-          </span>
+          </button>
           <X3Link
             fonction="GESSOH"
             cle={getValue() as string}
@@ -60,7 +77,6 @@ export function createProactiveColumns({
       ),
       meta: {
         thClass: 'w-[150px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -71,14 +87,13 @@ export function createProactiveColumns({
           <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="truncate text-2xs text-muted-foreground/70">
+          <span className="truncate text-2xs text-muted-foreground">
             {row.original.designation || '—'}
           </span>
         </div>
       ),
       meta: {
         thClass: 'w-[200px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -100,7 +115,6 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[56px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -110,7 +124,7 @@ export function createProactiveColumns({
         const code = getValue() as string
         if (!code)
           return (
-            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
               —
             </span>
           )
@@ -126,7 +140,6 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[90px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -135,12 +148,12 @@ export function createProactiveColumns({
       cell: ({ getValue }) => (
         <span className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums">
           {getValue() as number}
-          <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
+          <span className="ml-0.5 text-3xs font-medium text-muted-foreground">u</span>
         </span>
       ),
       meta: {
         thClass: 'w-[100px] text-right! font-sans tracking-wider',
-        tdClass: 'whitespace-nowrap text-right align-middle',
+        tdClass: 'whitespace-nowrap text-right',
       },
     },
     {
@@ -174,7 +187,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[76px] text-left font-sans tracking-wider',
-        tdClass: 'whitespace-nowrap align-middle font-mono font-semibold',
+        tdClass: 'whitespace-nowrap font-mono font-semibold',
       },
     },
     {
@@ -276,7 +289,6 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[150px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -296,7 +308,6 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[120px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
     {
@@ -313,7 +324,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[70px] text-right! font-sans tracking-wider',
-        tdClass: 'whitespace-nowrap text-right align-middle font-mono font-semibold',
+        tdClass: 'whitespace-nowrap text-right font-mono font-semibold',
       },
     },
     {
@@ -328,7 +339,7 @@ export function createProactiveColumns({
         const comps = showSubAssemblies ? all : all.filter((c) => !c.descente && !c.couvertParOf)
         if (comps.length === 0)
           return (
-            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground/70">
+            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
               —
             </span>
           )
@@ -376,7 +387,7 @@ export function createProactiveColumns({
                         <CornerDownRight
                           size={10}
                           strokeWidth={1.75}
-                          className="leading-none text-muted-foreground/60"
+                          className="leading-none text-muted-foreground/80"
                         />
                         <span>
                           <span className="font-bold text-foreground">{c.qc}</span> en statut Q
@@ -390,7 +401,7 @@ export function createProactiveColumns({
                             <CornerDownRight
                               size={10}
                               strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/60"
+                              className="leading-none text-muted-foreground/80"
                             />
                             <span>
                               <span className="font-bold text-foreground">
@@ -405,7 +416,7 @@ export function createProactiveColumns({
                             <CornerDownRight
                               size={10}
                               strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/60"
+                              className="leading-none text-muted-foreground/80"
                             />
                             <span>
                               <span className="font-bold text-foreground">
@@ -432,7 +443,7 @@ export function createProactiveColumns({
                             <CornerDownRight
                               size={10}
                               strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/60"
+                              className="leading-none text-muted-foreground/80"
                             />
                             <span>
                               Bloqué par <span className="font-bold text-foreground">{p.art}</span>{' '}
@@ -462,11 +473,11 @@ export function createProactiveColumns({
                               </span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-0.5 pl-3.5 text-3xs font-medium text-muted-foreground/60">
+                            <div className="flex items-center gap-0.5 pl-3.5 text-3xs font-medium text-muted-foreground">
                               <CalendarX
                                 size={10}
                                 strokeWidth={1.75}
-                                className="leading-none text-muted-foreground/50"
+                                className="leading-none text-muted-foreground/80"
                               />
                               Aucune couverture prévue
                             </div>
@@ -474,7 +485,7 @@ export function createProactiveColumns({
                         </div>
                       ))}
                       {c.descente.par.length > 3 && (
-                        <div className="pl-3.5 font-mono text-3xs font-medium text-muted-foreground/70">
+                        <div className="pl-3.5 font-mono text-3xs font-medium text-muted-foreground">
                           +{c.descente.par.length - 3} autre(s)
                         </div>
                       )}
@@ -512,11 +523,11 @@ export function createProactiveColumns({
                     </span>
                   </div>
                 ) : (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground/60">
+                  <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground">
                     <CalendarX
                       size={11}
                       strokeWidth={1.75}
-                      className="leading-none text-muted-foreground/50"
+                      className="leading-none text-muted-foreground/80"
                     />
                     Aucune couverture prévue
                   </div>
@@ -528,7 +539,7 @@ export function createProactiveColumns({
                     <CornerDownRight
                       size={10}
                       strokeWidth={1.75}
-                      className="leading-none text-muted-foreground/60"
+                      className="leading-none text-muted-foreground/80"
                     />
                     <span>
                       dont <span className="font-bold text-foreground">{c.qc}</span> en statut Q
@@ -539,7 +550,7 @@ export function createProactiveColumns({
               </div>
             ))}
             {comps.length > 4 && (
-              <span className="font-mono text-2xs font-medium text-muted-foreground/70">
+              <span className="font-mono text-2xs font-medium text-muted-foreground">
                 +{comps.length - 4} autre(s)
               </span>
             )}
@@ -548,7 +559,6 @@ export function createProactiveColumns({
       },
       meta: {
         thClass: 'w-[300px] text-left font-sans tracking-wider',
-        tdClass: 'align-middle',
       },
     },
   ]
@@ -566,7 +576,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
         row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
           ? ('critical' as const)
           : row.lateSeverity
-      return cn('align-middle font-sans font-bold tracking-tight tabular-nums', LATE_TONE.bar(s))
+      return cn('font-sans font-bold tracking-tight tabular-nums', LATE_TONE.bar(s))
     },
   }
 }

@@ -47,13 +47,9 @@ export const PROACTIVE_EMPTY: ProactiveRowsResponse = {
   referenceDate: '',
 }
 
-/** Couleur du badge par statut (grammar uniforme ui/badge — un seul shape). */
-export const BADGE_TONE: Record<SuiviStatusKey, string> = {
-  exp: 'bg-ferme/15 text-ferme',
-  alc: 'bg-suggere/15 text-suggere',
-  ret: 'bg-destructive/10 text-destructive',
-  ras: 'bg-secondary text-muted-foreground',
-}
+/* BADGE_TONE / VERDICT_TONE (fonds pastel des anciens badges statut et verdict)
+   ont été retirés : le rendu compact ne pose plus qu'un point coloré et un
+   libellé, les deux tables étaient importées sans être lues. */
 
 /** Dot statut réactif (mode compact). */
 export const BADGE_DOT: Record<SuiviStatusKey, string> = {
@@ -84,22 +80,13 @@ export const OF_STATUT: Record<number, { tag: string; tone: string }> = {
 }
 
 /**
- * Couleur du badge verdict (vue proactive). `late` (retard déjà constaté, calcul de date)
- * et `risk` (préventif : OF pas démarré, échéance proche, date encore bonne) étaient
- * confondus sous le même ambre `suggere` — 2 sémantiques différentes rendues identiques.
- * `risk` utilise désormais `planifie` (teal Babu #00a699, déjà porté par le
- * tag WOP) pour les distinguer.
+ * Dot verdict (mode compact) — couleur pleine, pas de fond.
+ *
+ * `late` (retard déjà constaté) et `risk` (préventif : OF pas démarré, échéance
+ * proche, date encore bonne) étaient confondus sous le même ambre : deux
+ * sémantiques rendues identiques. `risk` prend `planifie`, déjà porté par le
+ * tag WOP.
  */
-export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
-  time: 'bg-ferme/15 text-ferme',
-  stock: 'bg-ferme/15 text-ferme',
-  late: 'bg-suggere/15 text-suggere',
-  blocked: 'bg-destructive/10 text-destructive',
-  uncov: 'bg-destructive/10 text-destructive',
-  risk: 'bg-planifie/15 text-planifie',
-}
-
-/** Dot verdict (mode compact) — couleur pleine, pas de fond. */
 export const VERDICT_DOT: Record<ProactiveVerdictKey, string> = {
   time: 'bg-ferme',
   stock: 'bg-ferme',
@@ -120,25 +107,20 @@ export const VERDICT_TEXT: Record<ProactiveVerdictKey, string> = {
 }
 
 /**
- * Teinte du background de ligne quand la commande est en retard.
+ * Gravité du retard d'une ligne — barre latérale 3 px sur la colonne d'index.
  *
- * Principe : NEUTRE par défaut, couleur UNIQUEMENT sur retard. Sinon la moitié
- * du tableau (lignes en retard) se retrouve colorée et la hiérarchie s'effondre
- * — la tolérance doit trancher sur du neutre pour être visible.
+ *  - 'critical'  : rouge destructive
+ *  - 'tolerance' : ambre suggere (≤ 1 jour ouvré)
+ *  - null        : rien
  *
- *  - 'tolerance' (≤ 1 jour ouvré) : orange doux (12%) + barre ambre
- *  - 'critical' (au-delà)         : rouge doux  (10%) + barre rouge
- *  - null (pas en retard)         : neutre + hover
- *
- * Opacités volontairement faibles (10-12%) : la couleur signale, le contraste
- * avec le neutre fait le travail. Inutile de saturer — la barre latérale porte
- * la moitié du signal.
- *
- * `bg()`  → background de ligne (getRowClass)
- * `bar()` → barre latérale gauche (index column tdClass)
+ * UN seul signal, et il tient dans 3 px. Les fonds de ligne teintés (10-12 %)
+ * d'origine coloraient la moitié du tableau — sur un écran où le retard est la
+ * norme, une couleur partout n'est plus un signal. Le `bg()` qui les portait a
+ * été vidé de son contenu sans être retiré : il ne rendait plus que le hover et
+ * plus personne ne l'appelait, mais son commentaire décrivait encore des fonds
+ * disparus. Ne pas le réintroduire : le hover appartient au DataTable.
  */
 export const LATE_TONE = {
-  bg: (s: 'tolerance' | 'critical' | null) => 'hover:bg-foreground/[0.07]',
   bar: (s: 'tolerance' | 'critical' | null) =>
     s === 'critical'
       ? '[box-shadow:inset_3px_0_var(--destructive)]' // destructive grammaire
@@ -149,11 +131,16 @@ export const LATE_TONE = {
 
 export const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
 
-/** Calcule le libellé temporel relatif d'une date d'expédition par rapport à la date de référence. */
+/**
+ * Libellé temporel relatif d'une date d'expédition par rapport à la date de
+ * référence. Ne rend que le libellé : la teinte est décidée par la colonne qui
+ * l'affiche (les deux vues la recalculaient déjà, le `tone` rendu ici n'était lu
+ * nulle part).
+ */
 export function getRelativeDateLabel(
   dateExpIso: string | null,
   referenceDateStr: string
-): { label: string; tone: string } | null {
+): { label: string } | null {
   if (!dateExpIso || !referenceDateStr) return null
   try {
     const refDate = new Date(referenceDateStr + 'T00:00:00')
@@ -162,20 +149,11 @@ export function getRelativeDateLabel(
     const diffTime = expDate.getTime() - refDate.getTime()
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
 
-    if (diffDays === 0) {
-      return {
-        label: "Aujourd'hui",
-        tone: 'bg-ferme/10 text-ferme',
-      }
-    } else if (diffDays === 1) {
-      return { label: 'Demain', tone: 'bg-planifie/10 text-planifie' }
-    } else if (diffDays === -1) {
-      return { label: 'Hier', tone: 'bg-destructive/10 text-destructive' }
-    } else if (diffDays < -1) {
-      return { label: `Retard ${diffDays} j`, tone: 'bg-destructive/10 text-destructive font-bold' }
-    } else {
-      return { label: `J+${diffDays}`, tone: 'bg-secondary text-muted-foreground' }
-    }
+    if (diffDays === 0) return { label: "Aujourd'hui" }
+    if (diffDays === 1) return { label: 'Demain' }
+    if (diffDays === -1) return { label: 'Hier' }
+    if (diffDays < -1) return { label: `Retard ${diffDays} j` }
+    return { label: `J+${diffDays}` }
   } catch (e) {
     return null
   }

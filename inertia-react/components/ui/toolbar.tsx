@@ -80,7 +80,7 @@ function ToolbarGroup({ className, ...props }: React.ComponentProps<'div'>) {
    muted et le border hairline. */
 
 const segmentedItemVariants = cva(
-  'rounded-[4px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+  'rounded-[4px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors outline-ring focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1',
   {
     variants: {
       active: {
@@ -107,21 +107,41 @@ const segmentedItemVariants = cva(
   }
 )
 
+/**
+ * Sémantique du groupe — le même dessin sert deux contrats différents :
+ *  • `tabs` (défaut)  : choix EXCLUSIF, un seul actif → tablist/tab + aria-selected.
+ *  • `toggles`        : cases à cocher indépendantes (type de commande, ateliers…)
+ *                       → group + bouton à `aria-pressed`.
+ * Habiller des cases à cocher en onglets fait annoncer « onglet » par le lecteur
+ * d'écran, promet un `tabpanel` qui n'existe pas, et un tablist multi-sélectionné
+ * est invalide. Le contrat se déclare sur le conteneur, les segments le lisent.
+ */
+type SegmentedSemantics = 'tabs' | 'toggles'
+const SegmentedSemanticsContext = React.createContext<SegmentedSemantics>('tabs')
+
 interface ToolbarSegmentedProps extends React.ComponentProps<'div'> {
   tone?: VariantProps<typeof segmentedItemVariants>['tone']
+  semantics?: SegmentedSemantics
 }
 
-function ToolbarSegmented({ className, tone = 'solid', ...props }: ToolbarSegmentedProps) {
+function ToolbarSegmented({
+  className,
+  tone = 'solid',
+  semantics = 'tabs',
+  ...props
+}: ToolbarSegmentedProps) {
   return (
-    <div
-      data-slot="toolbar-segmented"
-      role="tablist"
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5',
-        className
-      )}
-      {...props}
-    />
+    <SegmentedSemanticsContext.Provider value={semantics}>
+      <div
+        data-slot="toolbar-segmented"
+        role={semantics === 'tabs' ? 'tablist' : 'group'}
+        className={cn(
+          'inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5',
+          className
+        )}
+        {...props}
+      />
+    </SegmentedSemanticsContext.Provider>
   )
 }
 
@@ -137,12 +157,15 @@ function ToolbarSegment({
   type,
   ...props
 }: ToolbarSegmentProps) {
+  const semantics = React.useContext(SegmentedSemanticsContext)
+  const isTab = semantics === 'tabs'
   return (
     <button
       type={type ?? 'button'}
       data-slot="toolbar-segment"
-      role="tab"
-      aria-selected={active}
+      role={isTab ? 'tab' : undefined}
+      aria-selected={isTab ? active : undefined}
+      aria-pressed={isTab ? undefined : active}
       data-active={active ? 'true' : undefined}
       className={cn(segmentedItemVariants({ active, tone }), className)}
       {...props}
@@ -214,6 +237,8 @@ function ToolbarRefresh({
   return (
     <button
       type={type ?? 'button'}
+      data-slot="toolbar-refresh"
+      data-labeled={label ? 'true' : undefined}
       disabled={disabled || loading}
       title="Recharger les données X3"
       className={cn(

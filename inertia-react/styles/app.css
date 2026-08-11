@@ -608,6 +608,16 @@
 .theme-cursor table thead {
   background-color: #fcfcfc; /* bg-elevated sous sticky */
 }
+/* En-tête collant : même fond que la Card et filet à 4 % — rien ne le sépare
+   des lignes qui défilent dessous. Une ombre courte le décolle sans peser.
+   Ciblé sur les tables qui déclarent explicitement leur rangée d'en-tête
+   collante (`theadRowClass="sticky …"`, cf. /suivi) : ailleurs, la table ne
+   défile pas sous son en-tête et l'ombre serait gratuite. */
+.theme-cursor table thead:has(tr.sticky) {
+  box-shadow:
+    0 1px 0 0 color-mix(in oklab, #141414 8%, transparent),
+    0 4px 8px -6px #0000001f;
+}
 .theme-cursor table thead tr {
   border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent); /* border-quaternary */
   background-color: transparent !important;
@@ -1127,14 +1137,18 @@
 }
 
 /* ── Lot 11 — barres d'outils & recherche ─────────────────── */
+/* Hauteur unique 24 px sur toute la rangée : segmented (20 + 2×1 padding +
+   2×1 filet), pill, recherche et refresh. Quatre hauteurs différentes sur une
+   même ligne se lisent comme un défaut d'alignement, jamais comme une
+   convention — même quand chaque valeur est défendable isolément. */
 .theme-cursor [data-slot='toolbar-segmented'] {
   border-radius: 6px;
   border-color: color-mix(in oklab, #141414 12%, transparent);
   background-color: #fcfcfc;
-  padding: 2px;
+  padding: 1px;
 }
 .theme-cursor [data-slot='toolbar-segment'] {
-  height: 22px;
+  height: 20px;
   border-radius: 4px;
   padding-inline: 10px;
   font-size: 12px;
@@ -1146,10 +1160,29 @@
   color: #141414;
 }
 .theme-cursor [data-slot='toolbar-search'] {
-  height: 28px;
+  height: 24px;
   border-radius: 6px;
   border-color: color-mix(in oklab, #141414 12%, transparent);
   background-color: #fcfcfc;
+}
+/* Sans `data-slot`, ce bouton était le seul élément que les règles cursor ne
+   pouvaient pas atteindre : il restait en `rounded-full` 32 px, seule capsule
+   d'une rangée de rectangles à 6 px. */
+.theme-cursor [data-slot='toolbar-refresh'] {
+  height: 24px;
+  padding-inline: 10px;
+  border-radius: 6px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+}
+/* Icône seule : carré 24×24, pas de padding latéral hérité du `p-2`. */
+.theme-cursor [data-slot='toolbar-refresh']:not([data-labeled]) {
+  width: 24px;
+  padding: 0;
+}
+.theme-cursor [data-slot='toolbar-refresh']:hover:not(:disabled) {
+  background-color: color-mix(in oklab, #141414 8%, transparent);
+  border-color: color-mix(in oklab, #141414 12%, transparent);
 }
 .theme-cursor [data-slot='toolbar-search'] input {
   font-size: 13px;
