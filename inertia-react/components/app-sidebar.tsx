@@ -112,7 +112,7 @@ export function AppSidebar({
                           cursor ? 'h-8 rounded-[8px] font-normal' : 'h-7 font-medium',
                           isActive &&
                             (cursor
-                              ? 'border-0 bg-[var(--sidebar-selected,#e6e5e0)] text-foreground shadow-none hover:bg-[var(--sidebar-selected,#e6e5e0)] hover:text-foreground data-active:bg-[var(--sidebar-selected,#e6e5e0)]'
+                              ? 'border-0 bg-[var(--sidebar-selected,#e8e8e8)] text-foreground shadow-none hover:bg-[var(--sidebar-selected,#e8e8e8)] hover:text-foreground data-active:bg-[var(--sidebar-selected,#e8e8e8)]'
                               : 'border border-border bg-white text-foreground shadow-sm hover:bg-white hover:text-foreground data-active:bg-white')
                         )}
                       >

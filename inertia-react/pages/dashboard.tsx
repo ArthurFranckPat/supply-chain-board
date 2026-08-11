@@ -77,8 +77,8 @@ import { Switch } from '@r/components/ui/switch'
  * <!--
  * THESIS: régie KPI calme sur crème Cursor — hiérarchie par poids 400 et
  *   tracking, pas par Rausch ni ombres ; refuse le dashboard « cards flottantes ».
- * OWN-WORLD: canvas #f7f7f4, cards #ffffff, ink #26251e, primary #f54e00
- *   (tokens getdesign cursor/DESIGN.md — rôles canvas vs card respectés).
+ * OWN-WORLD: produit Cursor light — sidebar #f3f3f3, chrome #f8f8f8,
+ *   editor/cards #fcfcfc, base #141414, brand #f54e00 rare, accent #2778c1.
  *   Inter Variable, hairlines #e6e5e0, radius 8, pilules ink.
  * STORY: l’ordonnancer lit la charge et la profondeur sans bruit de chrome.
  * FIRST VIEWPORT: sidebar crème + TopBar quiet + grille KPI à héros 36/400.
@@ -246,10 +246,10 @@ const EMPTY_STOCK: StockValuationKpi = {
  */
 const BAR_PALETTE = [
   'var(--color-brand, #f54e00)',
-  'var(--foreground, #26251e)',
-  'var(--color-ferme, #1f8a65)',
-  'var(--muted-foreground, #807d72)',
-  'var(--border, #e6e5e0)',
+  'var(--foreground, #141414)',
+  'var(--color-ferme, #007041)',
+  'var(--muted-foreground, #666666)',
+  'var(--border, #e8e8e8)',
 ]
 
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
@@ -512,10 +512,10 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
 ]
 
 function otdColor(taux: number, nbTotal: number): string {
-  if (nbTotal === 0) return 'var(--muted-foreground, #807d72)'
-  if (taux >= 95) return 'var(--color-ferme, #1f8a65)'
-  if (taux >= 85) return 'var(--color-suggere, #f54e00)'
-  return 'var(--destructive, #cf2d56)'
+  if (nbTotal === 0) return 'var(--muted-foreground, #666666)'
+  if (taux >= 95) return 'var(--color-ferme, #007041)'
+  if (taux >= 85) return 'var(--color-suggere, #a46700)'
+  return 'var(--destructive, #be1744)'
 }
 
 /** Chiffre héros KPI — encre (quieter). */
@@ -1242,7 +1242,7 @@ export default function Dashboard(props: DashboardProps) {
                       style={{
                         background:
                           otd.length > 0 && otd.every((p) => p.nbTotal === 0 || p.tauxOtif >= 95)
-                            ? 'var(--color-ferme, #1f8a65)'
+                            ? 'var(--color-ferme, #007041)'
                             : otd.some((p) => p.nbTotal > 0)
                               ? 'var(--color-brand, #f54e00)'
                               : 'color-mix(in srgb, var(--foreground) 20%, transparent)',
@@ -1527,7 +1527,7 @@ export default function Dashboard(props: DashboardProps) {
                                   color:
                                     stock.deltaPct > 0
                                       ? 'var(--color-brand, #f54e00)'
-                                      : 'var(--color-ferme, #1f8a65)',
+                                      : 'var(--color-ferme, #007041)',
                                 }}
                               >
                                 {stock.deltaPct > 0 ? '+' : ''}

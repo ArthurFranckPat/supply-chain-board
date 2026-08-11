@@ -455,173 +455,170 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   Thème « Cursor » — tokens getdesign (cursor/DESIGN.md).
+   Thème « Cursor » — tokens PRODUIT light (extrait live user 2026-08-11).
 
-   Rôles (ne pas inverser) :
-   • canvas #f7f7f4     → fond page + sidebar
-   • surface-card #fff  → cards
-   • surface-strong     → badges / secondaires
-   • ink #26251e        → texte
-   • primary #f54e00    → CTA + wordmark (rare)
-   • hairline #e6e5e0   → filets
-
-   Substitut typo : Inter Variable (CursorGothic non licencié ici).
-   Pages hors dashboard restent sur .theme-airbnb.
+   Source : variables CSS résolues du produit Cursor (pas marketing getdesign).
+   Rôles :
+   • --sidebar #f3f3f3     → sidebar
+   • --chrome  #f8f8f8     → fond page / topbar
+   • --editor  #fcfcfc     → cards / surfaces content
+   • --base    #141414     → encre / CTA filled
+   • --brand   #f54e00     → accent marque (rare)
+   • --accent  #2778c1     → focus / liens UI
    ──────────────────────────────────────────────────────────── */
 .theme-cursor {
-  --color-canvas: #f7f7f4;
-  --color-canvas-soft: #fafaf7;
-  --color-surface-card: #ffffff;
-  --color-surface-strong: #e6e5e0;
-  --color-hairline: #e6e5e0;
-  --color-hairline-soft: #efeee8;
-  --color-hairline-strong: #cfcdc4;
-  --color-ink: #26251e;
-  --color-body: #5a5852;
-  --color-muted-token: #807d72;
-  --color-muted-soft: #a09c92;
-  --color-primary: #f54e00;
-  --color-primary-active: #d04200;
-  --color-on-primary: #ffffff;
-  --color-semantic-error: #cf2d56;
-  --color-semantic-success: #1f8a65;
+  --cursor-sidebar: #f3f3f3;
+  --cursor-chrome: #f8f8f8;
+  --cursor-editor: #fcfcfc;
+  --cursor-base: #141414;
+  --cursor-brand: #f54e00;
+  --cursor-accent: #2778c1;
+  --cursor-success: #007041;
+  --cursor-warn: #a46700;
+  --cursor-danger: #be1744;
+  --cursor-shadow-primary: #0000000f;
+  --cursor-shadow-secondary: #00000009;
 
-  /* Alias legacy boutons hover → primary-active Cursor */
+  /* Alias legacy boutons hover */
   --color-rausch: #f54e00;
-  --color-rausch-active: #d04200;
+  --color-rausch-active: #cd4500;
   --color-rausch-soft: color-mix(in srgb, #f54e00 12%, transparent);
   --color-rausch-logo: #f54e00;
-  --color-rausch-disabled: #efeee8;
-  --color-babu: #1f8a65;
-  --color-arches: #f54e00;
-  --color-hof: #5a5852;
-  --color-foggy: #807d72;
+  --color-rausch-disabled: #e8e8e8;
+  --color-babu: #007041;
+  --color-arches: #cd4500;
+  --color-hof: #141414;
+  --color-foggy: #666666;
 
-  --primary: #f54e00;
-  --primary-foreground: #ffffff;
-  --ring: #26251e;
+  /* CTA filled produit = base (noir), pas orange */
+  --primary: #141414;
+  --primary-foreground: #fcfcfc;
+  --ring: #2778c1;
 
-  --background: #f7f7f4;
-  --foreground: #26251e;
-  --card: #ffffff;
-  --card-foreground: #26251e;
-  --popover: #ffffff;
-  --popover-foreground: #26251e;
+  --background: #f8f8f8;
+  --foreground: #141414;
+  --card: #fcfcfc;
+  --card-foreground: #141414;
+  --popover: #fcfcfc;
+  --popover-foreground: #141414;
 
-  --secondary: #e6e5e0;
-  --secondary-foreground: #26251e;
-  --muted: #efeee8;
-  --muted-foreground: #807d72;
-  --accent: #efeee8;
-  --accent-foreground: #26251e;
+  --secondary: #f3f3f3;
+  --secondary-foreground: #141414;
+  --muted: #f3f3f3;
+  --muted-foreground: #666666;
+  --accent: #eeeeee;
+  --accent-foreground: #141414;
 
-  --border: #e6e5e0;
-  --input: #cfcdc4;
+  --border: #e8e8e8;
+  --input: #d4d4d4;
 
-  --destructive: #cf2d56;
-  --destructive-foreground: #ffffff;
+  --destructive: #be1744;
+  --destructive-foreground: #fcfcfc;
 
-  --radius: 0.75rem; /* rounded.lg = 12px cards */
+  --radius: 0.5rem; /* 8px = --cursor-radius-lg */
 
   --shadow-xs: none;
-  --shadow-sm: none;
-  --shadow-float: none;
-  --shadow-overlay: 0 16px 40px color-mix(in srgb, #26251e 12%, transparent);
+  --shadow-sm: 0 2px 8px 0 var(--cursor-shadow-secondary);
+  --shadow-float:
+    0 0 0 1px #e8e8e8, 0 0 4px 0 var(--cursor-shadow-secondary),
+    0 8px 24px -2px var(--cursor-shadow-secondary);
+  --shadow-overlay: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
 
-  --font-sans: 'Inter Variable', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-heading: 'Inter Variable', system-ui, sans-serif;
-  --font-mono: 'Inter Variable', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter Variable', sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter Variable', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
 
-  --sidebar: #f7f7f4;
-  --sidebar-canvas: #f7f7f4;
-  --sidebar-foreground: #26251e;
+  --sidebar: #f3f3f3;
+  --sidebar-canvas: #f8f8f8;
+  --sidebar-foreground: #141414;
   --sidebar-primary: #f54e00;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #efeee8;
-  --sidebar-accent-foreground: #26251e;
-  --sidebar-selected: #e6e5e0;
-  --sidebar-border: #e6e5e0;
-  --sidebar-ring: #26251e;
+  --sidebar-primary-foreground: #fcfcfc;
+  --sidebar-accent: #eeeeee;
+  --sidebar-accent-foreground: #141414;
+  --sidebar-selected: #e8e8e8;
+  --sidebar-border: #e8e8e8;
+  --sidebar-ring: #2778c1;
 
-  --chart-1: #26251e;
-  --chart-2: #807d72;
+  --chart-1: #141414;
+  --chart-2: #666666;
   --chart-3: #f54e00;
-  --chart-4: #1f8a65;
-  --chart-5: #c08532;
+  --chart-4: #007041;
+  --chart-5: #2778c1;
 
   --brand: #f54e00;
   --brand-soft: color-mix(in srgb, #f54e00 12%, transparent);
   --rule: var(--border);
-  --rule-soft: #efeee8;
-  --ferme: #1f8a65;
-  --planifie: #1f8a65;
-  --suggere: #f54e00;
-  --warning: #f54e00;
+  --rule-soft: #f0f0f0;
+  --ferme: #007041;
+  --planifie: #007041;
+  --suggere: #a46700;
+  --warning: #a46700;
   --color-brand: #f54e00;
   --color-brand-soft: color-mix(in srgb, #f54e00 12%, transparent);
-  --color-planifie: #1f8a65;
-  --color-suggere: #f54e00;
-  --color-ferme: #1f8a65;
-  --color-warning: #f54e00;
+  --color-planifie: #007041;
+  --color-suggere: #a46700;
+  --color-ferme: #007041;
+  --color-warning: #a46700;
 
   color: var(--foreground);
   background-color: var(--background);
   font-family: var(--font-sans);
   font-feature-settings: 'tnum' 1;
-  letter-spacing: -0.011em;
+  letter-spacing: -0.08px;
+  font-size: 0.8125rem; /* --font-size-base produit */
 }
 
 .theme-cursor ::selection {
-  background: var(--brand-soft);
+  background: color-mix(in srgb, #2778c1 18%, transparent);
 }
 
-/* Display Cursor : weight 400 */
 .theme-cursor h1,
 .theme-cursor h2,
 .theme-cursor h3 {
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.15px;
   line-height: 1.2;
 }
 
 .theme-cursor [data-slot='card'] {
-  background-color: #ffffff;
-  border-color: #e6e5e0;
-  border-radius: 12px;
+  background-color: #fcfcfc;
+  border-color: #e8e8e8;
+  border-radius: 8px;
   box-shadow: none;
 }
 .theme-cursor [data-slot='card']:hover {
-  border-color: #e6e5e0;
+  border-color: #e8e8e8;
   box-shadow: none;
 }
 
-/* CTA : radius 8px (rounded.md), pas pilule full */
 .theme-cursor [data-slot='button'] {
-  border-radius: 8px;
+  border-radius: 6px; /* --cursor-radius-base */
   font-weight: 500;
-  letter-spacing: 0;
+  letter-spacing: -0.08px;
 }
 
 .theme-cursor [aria-label="Fil d'Ariane"] .font-semibold,
 .theme-cursor [aria-label="Fil d'Ariane"] .font-normal {
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.08px;
 }
 
 .theme-cursor [data-sidebar='menu-button'][data-active],
 .theme-cursor [data-slot='sidebar-menu-button'][data-active] {
-  background-color: var(--sidebar-selected, #e6e5e0) !important;
-  color: #26251e !important;
+  background-color: var(--sidebar-selected, #e8e8e8) !important;
+  color: #141414 !important;
   border-color: transparent !important;
   box-shadow: none !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
 }
 .theme-cursor [data-sidebar='sidebar'] {
-  background-color: #f7f7f4;
-  border-color: #e6e5e0;
+  background-color: #f3f3f3;
+  border-color: #e8e8e8;
 }
 .theme-cursor [data-sidebar='menu-button'] {
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 /* Distinction test/prod — fidèle à la palette Airbnb.

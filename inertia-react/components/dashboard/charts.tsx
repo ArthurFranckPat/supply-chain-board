@@ -12,10 +12,10 @@ import { cn } from '@r/lib/utils'
 export type StockPoint = { periode: string; label: string; valeur: number; qte: number }
 
 /** Encre + vert succès (grammaire dashboard Cursor produit). */
-const INK = 'var(--foreground, #26251e)'
-const INK_SOFT = 'color-mix(in srgb, var(--foreground, #26251e) 55%, white)'
-const PLANIFIE = 'var(--color-ferme, #1f8a65)'
-const PLANIFIE_SOFT = 'color-mix(in srgb, var(--color-ferme, #1f8a65) 18%, transparent)'
+const INK = 'var(--foreground, #141414)'
+const INK_SOFT = 'color-mix(in srgb, var(--foreground, #141414) 55%, white)'
+const PLANIFIE = 'var(--color-ferme, #007041)'
+const PLANIFIE_SOFT = 'color-mix(in srgb, var(--color-ferme, #007041) 18%, transparent)'
 
 const periodDated = (p: StockPoint) =>
   p.periode.includes('-W') ? `S${p.periode.slice(-2)} ${p.periode.slice(0, 4)}` : p.label
