@@ -866,8 +866,8 @@ export function EtatsInteractifsSection() {
         />
         <EtatDemo
           label="Focus clavier"
-          spec="ring 3px accent 50% + bordure accent pleine"
-          className="bg-transparent shadow-[0_0_0_1px_#2778c1,0_0_0_4px_color-mix(in_oklab,#2778c1_50%,transparent)]"
+          spec="bordure accent pleine + halo 3px --border-focus (15 %)"
+          className="bg-transparent shadow-[0_0_0_1px_#2778c1,0_0_0_4px_color-mix(in_oklab,#2778c1_15%,transparent)]"
         />
         <EtatDemo
           label="Invalide"
@@ -904,7 +904,7 @@ export function EtatsInteractifsSection() {
               'Focus clavier',
               'anneau',
               <span className="font-mono text-[12px] text-[#141414]">
-                ring 3 px · accent #2778c1 à 50 %
+                bordure #2778c1 pleine + halo 3 px --border-focus (mix 15 %)
               </span>,
             ],
             [
