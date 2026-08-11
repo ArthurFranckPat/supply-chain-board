@@ -340,7 +340,10 @@ export function GraphiquesSection() {
           <>
             Le passé est plein, le futur est pointillé — deux marques, pas deux teintes, pour rester
             lisible en noir et blanc. <Tok>seuil</Tok> trace le point de rupture,{' '}
-            <Tok>charniere</Tok> la bascule vers le calculé.
+            <Tok>charniere</Tok> la bascule vers le calculé. Avec <Tok>afficherFluxMiroir</Tok>, les
+            entrées/ressources et sorties/besoins s'ajoutent en barres miroir sous la courbe — une
+            échelle de flux par moitié (passé et projection brassent des ordres de grandeur sans
+            rapport), les valeurs réelles vivant dans le tooltip.
           </>
         }
       >
@@ -407,7 +410,8 @@ export function GraphiquesSection() {
         <Rule kind="dont">
           Forcer un diagramme d’étapes dans un graphique. Le cycle de vie d’une commande et le
           chemin critique d’une promesse n’ont ni axe ni valeur continue : ce sont des steppers, ils
-          restent en HTML.
+          restent en HTML — idem pour la frise des expéditions, un planning de créneaux camion
+          (début/fin), pas une visualisation de valeurs.
         </Rule>
       </div>
     </Section>
