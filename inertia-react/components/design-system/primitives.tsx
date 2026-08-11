@@ -513,7 +513,7 @@ export function ChampsSection() {
       <Fiche
         nom="Select"
         from="@r/components/ui/select"
-        etat="partiel"
+        etat="cursor"
         note="Le seul contrôle déjà à la densité Cursor : déclencheur à 32 px (28 px en taille sm), panneau à rayon 12 px."
       >
         <Grid min={280}>
@@ -551,7 +551,7 @@ export function ChampsSection() {
       <Fiche
         nom="Combobox"
         from="@r/components/ui/combobox"
-        etat="airbnb"
+        etat="cursor"
         note="Sélection avec filtrage au clavier. À préférer au Select dès que la liste dépasse une dizaine d'entrées."
       >
         <Demo label="Combobox">

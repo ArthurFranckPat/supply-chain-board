@@ -839,6 +839,52 @@
   color: #141414;
 }
 
+/* ── Lot 5 — menus ────────────────────────────────────────── */
+.theme-cursor [data-slot='select-content'],
+.theme-cursor [data-slot='combobox-content'] {
+  border-radius: 8px;
+  border-color: color-mix(in oklab, #141414 8%, transparent);
+  background-color: #fcfcfc;
+  padding: 4px;
+  box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
+}
+.theme-cursor [data-slot='select-item'],
+.theme-cursor [data-slot='combobox-item'] {
+  min-height: 24px;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  color: color-mix(in oklab, #141414 74%, transparent);
+}
+.theme-cursor [data-slot='select-item'][data-highlighted],
+.theme-cursor [data-slot='combobox-item'][data-highlighted] {
+  background-color: color-mix(in oklab, #141414 8%, transparent);
+  color: #141414;
+}
+.theme-cursor [data-slot='select-item'][data-selected],
+.theme-cursor [data-slot='combobox-item'][data-selected] {
+  background-color: color-mix(in oklab, #141414 16%, transparent);
+  color: #141414;
+}
+.theme-cursor [data-slot='select-label'],
+.theme-cursor [data-slot='combobox-label'] {
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.07px;
+  color: color-mix(in oklab, #141414 60%, transparent);
+}
+.theme-cursor [data-slot='select-trigger'] {
+  border-radius: 6px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+  font-size: 13px;
+  letter-spacing: -0.08px;
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)
