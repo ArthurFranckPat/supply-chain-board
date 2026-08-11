@@ -6,7 +6,19 @@ import { Badge } from '@r/components/ui/badge'
 import { Card, CardContent } from '@r/components/ui/card'
 import { cn } from '@r/lib/utils'
 
-import { Caption, Etat, Fiche, Grid, Panel, Rule, Section, SpecTable, Sub, Tok } from './kit'
+import {
+  Caption,
+  Etat,
+  Fiche,
+  Grid,
+  Orphelin,
+  Panel,
+  Rule,
+  Section,
+  SpecTable,
+  Sub,
+  Tok,
+} from './kit'
 
 /**
  * Motifs applicatifs : les compositions qui portent le sens métier.
@@ -466,27 +478,36 @@ export function LiensSection() {
 
 /* ── 23 État de la migration ────────────────────────────────── */
 
-const MIGRATION: { nom: string; etat: 'cursor' | 'partiel' | 'airbnb'; reste: string }[] = [
+type LigneMigration = {
+  nom: string
+  etat: 'cursor' | 'partiel' | 'airbnb'
+  /** Aucune page de production ne rend ce composant (recensé le 11/08/2026). */
+  orphelin?: boolean
+  reste: string
+}
+
+const MIGRATION: LigneMigration[] = [
   { nom: 'Card', etat: 'cursor', reste: '—' },
   { nom: 'DataTable', etat: 'cursor', reste: '—' },
   { nom: 'Sidebar', etat: 'cursor', reste: 'items non actifs encore en rayon 8' },
   { nom: 'Button', etat: 'cursor', reste: '—' },
   { nom: 'Select', etat: 'cursor', reste: '—' },
   { nom: 'Badge', etat: 'cursor', reste: '—' },
-  { nom: 'Pill', etat: 'cursor', reste: '—' },
+  { nom: 'Pill', etat: 'cursor', orphelin: true, reste: 'adopter ou supprimer' },
   { nom: 'Input', etat: 'cursor', reste: '—' },
-  { nom: 'Textarea', etat: 'cursor', reste: '—' },
+  { nom: 'Textarea', etat: 'cursor', orphelin: true, reste: 'adopter ou supprimer' },
   { nom: 'TextField', etat: 'cursor', reste: '—' },
-  { nom: 'Field', etat: 'cursor', reste: '—' },
+  { nom: 'Label', etat: 'cursor', orphelin: true, reste: 'seule /print-test la rend' },
+  { nom: 'Field', etat: 'cursor', orphelin: true, reste: 'adopter ou supprimer' },
   { nom: 'InputGroup', etat: 'cursor', reste: '—' },
   { nom: 'Combobox', etat: 'cursor', reste: '—' },
   { nom: 'Switch', etat: 'cursor', reste: '—' },
-  { nom: 'SearchBar', etat: 'cursor', reste: '—' },
-  { nom: 'Dialog', etat: 'cursor', reste: '—' },
+  { nom: 'SearchBar', etat: 'cursor', orphelin: true, reste: 'adopter ou supprimer' },
+  { nom: 'Dialog', etat: 'cursor', orphelin: true, reste: 'le board utilise Sheet partout' },
   { nom: 'AlertDialog', etat: 'cursor', reste: '—' },
   { nom: 'Sheet', etat: 'cursor', reste: '—' },
   { nom: 'Tooltip', etat: 'cursor', reste: '—' },
-  { nom: 'Toolbar', etat: 'cursor', reste: '—' },
+  { nom: 'Toolbar', etat: 'cursor', orphelin: true, reste: 'les pages ont leurs propres barres' },
   { nom: 'Calendar', etat: 'cursor', reste: '—' },
   { nom: 'Spinner', etat: 'cursor', reste: '—' },
   { nom: 'Skeleton', etat: 'cursor', reste: '—' },
@@ -503,6 +524,7 @@ export function MigrationSection() {
     partiel: MIGRATION.filter((m) => m.etat === 'partiel').length,
     airbnb: MIGRATION.filter((m) => m.etat === 'airbnb').length,
   }
+  const orphelins = MIGRATION.filter((m) => m.orphelin).length
   const total = MIGRATION.length
 
   return (
@@ -514,9 +536,9 @@ export function MigrationSection() {
       intro={
         <>
           Le thème Cursor est appliqué composant par composant, sous le scope{' '}
-          <Tok>.theme-cursor</Tok> dans <Tok>inertia-react/styles/app.css</Tok>. Ce tableau dit ce
-          qui est fait et ce qui reste — il se lit comme une file de travail, du plus structurant au
-          plus cosmétique.
+          <Tok>.theme-cursor</Tok> dans <Tok>inertia-react/styles/app.css</Tok>. Le tableau se lit
+          sur deux axes indépendants : l’état de migration, et le fait qu’une page de production
+          rende réellement le composant.
         </>
       }
     >
@@ -542,18 +564,47 @@ export function MigrationSection() {
             </div>
           </Panel>
         ))}
+        <Panel padding="sm">
+          <div className="flex items-center justify-between">
+            <Caption>Sans usage</Caption>
+            <Orphelin />
+          </div>
+          <div className="mt-2 text-[28px] font-medium leading-none tracking-[-0.46px] tabular-nums text-[#141414]">
+            {orphelins}
+            <span className="text-[14px] text-[color-mix(in_oklab,#141414_36%,transparent)]">
+              {' '}
+              / {total}
+            </span>
+          </div>
+        </Panel>
       </Grid>
 
       <Panel padding="none">
         <SpecTable
-          head={['Composant', 'État', 'Ce qui reste']}
+          head={['Composant', 'État', 'Usage', 'Ce qui reste']}
           rows={MIGRATION.map((m) => [
             <span className="text-[13px] font-medium text-[#141414]">{m.nom}</span>,
             <Etat v={m.etat} />,
+            m.orphelin ? (
+              <Orphelin />
+            ) : (
+              <span className="text-[12px] text-[color-mix(in_oklab,#141414_36%,transparent)]">
+                en production
+              </span>
+            ),
             m.reste,
           ])}
         />
       </Panel>
+
+      <div className="mt-6">
+        <Rule kind="dont">
+          Présenter comme partie du langage un composant que <strong>rien ne rend</strong>. Les sept
+          entrées « Sans usage » ci-dessus ont été retargetées pour rien tant qu’aucune page ne les
+          adopte : elles sont soit à câbler, soit à supprimer — et ce choix se tranche avant le
+          prochain chantier, pas après.
+        </Rule>
+      </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Rule kind="do">

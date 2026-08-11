@@ -390,7 +390,7 @@ export function ChampsSection() {
         nom="Input · Textarea · Label"
         from="@r/components/ui/input · textarea · label"
         etat="cursor"
-        note="Input à 56 px de haut, rayon 8 px, bordure qui s'épaissit au focus. La cible Cursor est un champ de 28 px à rayon 6 px avec un anneau de focus accent — l'écart est le plus important du catalogue."
+        note="Champ ramené à 28 px et rayon 6 px par le lot 9 — c'était l'écart le plus important du catalogue. Des trois, seul Input a des consommateurs en production : Textarea n'est rendu nulle part, et Label seulement par la page /print-test."
       >
         <Grid min={280}>
           <Demo label="Input">
@@ -448,7 +448,8 @@ export function ChampsSection() {
         nom="Field"
         from="@r/components/ui/field"
         etat="cursor"
-        note="La structure complète d'un champ de formulaire : légende, libellé, aide, erreur, séparateur. Trois orientations."
+        orphelin
+        note="La structure complète d'un champ de formulaire : légende, libellé, aide, erreur, séparateur. Trois orientations. Aucune page ne l'utilise — les formulaires existants composent Label et Input à la main."
       >
         <Panel>
           <FieldSet>
@@ -607,7 +608,8 @@ export function ChampsSection() {
         nom="SearchBar"
         from="@r/components/ui/search-bar"
         etat="cursor"
-        note="Barre de recherche segmentée à 64 px, rayon plein, ombre au repos — l'objet le plus marqué « Airbnb » du catalogue. À reconsidérer entièrement pour Cursor."
+        orphelin
+        note="Barre de recherche segmentée, ramenée à 36 px par le lot 11. Aucune page ne la rend : la recherche de l'application passe par TopBar (« Go to… » ⌘K) et par ToolbarSearch. Ce composant est un vestige de la maquette Airbnb."
       >
         <Demo label="SearchBar segmentée">
           <div className="w-full">
@@ -991,7 +993,8 @@ export function OverlaysSection() {
         nom="Dialog"
         from="@r/components/ui/dialog"
         etat="cursor"
-        note="Modale courte, largeur 440 px. Un titre, une description, deux actions au plus."
+        orphelin
+        note="Modale courte, largeur 440 px. Un titre, une description, deux actions au plus. Aucune page ne l'utilise : le board fait tout passer par Sheet, y compris ce qui relèverait d'une modale."
       >
         <Demo label="Dialog">
           <Dialog>
@@ -1181,7 +1184,8 @@ export function NavigationSection() {
         nom="Toolbar"
         from="@r/components/ui/toolbar"
         etat="cursor"
-        note="Segments, recherche, rafraîchissement. L'ordre est stable d'une page à l'autre : segments à gauche, actions à droite."
+        orphelin
+        note="Segments, recherche, rafraîchissement. Aucune page ne la rend : /programme et /vision ont chacune leur propre barre d'outils, écrite à la main. C'est un doublon non résolu, pas un composant abandonné."
       >
         <Panel padding="sm">
           <Toolbar gap="2.5" py="2">

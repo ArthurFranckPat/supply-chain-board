@@ -263,13 +263,24 @@ export function Rule({ kind, children }: { kind: 'do' | 'dont'; children: React.
  */
 export type EtatMigration = 'cursor' | 'partiel' | 'airbnb'
 
-const ETAT_META: Record<EtatMigration, { label: string; fg: string; bg: string }> = {
-  cursor: { label: 'Cursor', fg: '#007041', bg: 'color-mix(in oklab, #007041 10%, transparent)' },
-  partiel: { label: 'Partiel', fg: '#a46700', bg: 'color-mix(in oklab, #a46700 12%, transparent)' },
+const ETAT_META: Record<EtatMigration, { label: string; fg: string; bg: string; titre: string }> = {
+  cursor: {
+    label: 'Cursor',
+    fg: '#007041',
+    bg: 'color-mix(in oklab, #007041 10%, transparent)',
+    titre: 'Retargetée sous .theme-cursor',
+  },
+  partiel: {
+    label: 'Partiel',
+    fg: '#a46700',
+    bg: 'color-mix(in oklab, #a46700 12%, transparent)',
+    titre: 'Partiellement retargetée — reste des valeurs Airbnb',
+  },
   airbnb: {
     label: 'À migrer',
     fg: 'color-mix(in oklab, #141414 60%, transparent)',
     bg: 'color-mix(in oklab, #141414 6%, transparent)',
+    titre: 'Encore en grammaire Airbnb',
   },
 }
 
@@ -279,15 +290,26 @@ export function Etat({ v }: { v: EtatMigration }) {
     <span
       className="inline-flex h-5 shrink-0 items-center rounded-full px-2 font-mono text-[10px] font-medium uppercase tracking-[0.04em]"
       style={{ color: m.fg, background: m.bg }}
-      title={
-        v === 'cursor'
-          ? 'Retargetée sous .theme-cursor'
-          : v === 'partiel'
-            ? 'Partiellement retargetée — reste des valeurs Airbnb'
-            : 'Encore en grammaire Airbnb'
-      }
+      title={m.titre}
     >
       {m.label}
+    </span>
+  )
+}
+
+/**
+ * Axe indépendant de la migration : le composant existe, il est peut-être même
+ * déjà retargeté, mais **aucune page de production ne le rend**. Un design
+ * system qui présente ces composants comme partie du langage ment.
+ */
+export function Orphelin() {
+  return (
+    <span
+      className="inline-flex h-5 shrink-0 items-center rounded-full px-2 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-[color-mix(in_oklab,#141414_60%,transparent)]"
+      style={{ boxShadow: 'inset 0 0 0 1px color-mix(in oklab, #141414 20%, transparent)' }}
+      title="Aucun consommateur en production — seules react_lab et cette vitrine le rendent"
+    >
+      Sans usage
     </span>
   )
 }
@@ -297,12 +319,15 @@ export function Fiche({
   nom,
   from,
   etat,
+  orphelin,
   note,
   children,
 }: {
   nom: string
   from: string
   etat: EtatMigration
+  /** Aucune page de production ne rend ce composant. */
+  orphelin?: boolean
   note?: React.ReactNode
   children: React.ReactNode
 }) {
@@ -311,6 +336,7 @@ export function Fiche({
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         <h3 className="text-[13px] font-medium tracking-[-0.08px] text-[#141414]">{nom}</h3>
         <Etat v={etat} />
+        {orphelin ? <Orphelin /> : null}
         <code className="font-mono text-[11px] text-[color-mix(in_oklab,#141414_36%,transparent)]">
           {from}
         </code>

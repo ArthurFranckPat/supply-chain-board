@@ -889,16 +889,53 @@ réalignement.
 La migration est terminée quand, sur `/design-system` section 23, les compteurs affichent
 **28 / 28 en « Cursor »** et que la colonne « Ce qui reste » ne contient plus que des `—`.
 
-Trois choses restent alors hors de ce plan, et doivent faire l'objet de chantiers distincts :
+Quatre choses restent alors hors de ce plan, et doivent faire l'objet de chantiers distincts :
 
-1. **`BoardCard`** — refonte de composant, pas retarget de thème. La bande « Listing » et le liseré
+1. **Les sept composants sans consommateur** — voir §5.1 ci-dessous. C'est la décision la plus
+   urgente : elle conditionne ce que le design system prétend décrire.
+2. **`BoardCard`** — refonte de composant, pas retarget de thème. La bande « Listing » et le liseré
    de 3 px sont des choix de composition à rejouer, pas des valeurs à remplacer.
-2. **`X3Link`** — le survol passe de `brand` à `accent` : une ligne, mais qui touche la sémantique
+3. **`X3Link`** — le survol passe de `brand` à `accent` : une ligne, mais qui touche la sémantique
    du lien. À traiter avec la question « le brand a-t-il encore un rôle d'interaction ? ».
-3. **Nettoyage** — une fois les 28 composants passés, les tokens Airbnb résiduels de `app.css`
+4. **Nettoyage** — une fois les 28 composants passés, les tokens Airbnb résiduels de `app.css`
    (`--color-rausch*`, `--color-babu`, `--color-arches`, `--color-hof`, `--color-foggy`) peuvent
    être retirés du bloc `.theme-cursor`, où ils ne servent plus que de repli. **Pas avant** : ils
    sont encore lus par des composants non migrés.
+
+### 5.1 Composants sans consommateur
+
+Recensement du **11/08/2026** (`grep` des imports `@r/components/ui/*` hors `components/ui/`,
+hors vitrine et hors pages de laboratoire `react_lab` / `print-test` / `diagnostic-test` /
+`writeback-test`).
+
+Sept primitives ont été retargetées par ce plan alors qu'**aucune page de production ne les
+rend** :
+
+| Composant   | Seul endroit qui le rend | Pourquoi il est mort                                              |
+| ----------- | ------------------------ | ----------------------------------------------------------------- |
+| `SearchBar` | `react_lab`              | la recherche passe par `TopBar` (⌘K) et `ToolbarSearch`           |
+| `Toolbar`   | `react_lab`              | `/programme` et `/vision` ont chacune leur barre écrite à la main |
+| `Pill`      | `react_lab`              | les segments de filtre sont écrits dans les toolbars maison       |
+| `Dialog`    | `react_lab`              | le board fait tout passer par `Sheet`                             |
+| `Field`     | `react_lab`              | les formulaires composent `Label` + `Input` à la main             |
+| `Textarea`  | rien du tout             | jamais adopté                                                     |
+| `Label`     | `print-test`             | page de test, pas de production                                   |
+
+**Ce n'est pas un détail de ménage.** Un design system qui présente ces composants comme partie du
+langage décrit une interface qui n'existe pas — et le prochain développeur qui ouvre `/design-system`
+croira que `Toolbar` est la barre d'outils de l'application, alors que la vraie est ailleurs.
+
+Trois issues possibles, à trancher **composant par composant** :
+
+- **Adopter** — câbler le composant là où son doublon manuel existe. Pertinent surtout pour
+  `Toolbar` (deux barres maison à remplacer) et `Field` (formulaires composés à la main).
+- **Supprimer** — retirer le fichier de `components/ui/` et son bloc CSS du thème. Pertinent pour
+  `SearchBar`, qui est un vestige de la maquette Airbnb sans équivalent dans le produit.
+- **Garder en réserve assumée** — le composant reste, mais la vitrine le marque « Sans usage ».
+  C'est l'état actuel, et c'est acceptable **tant que le marquage est visible**.
+
+Aucune de ces trois issues ne se décide dans un lot de migration : c'est une décision produit.
+Ne pas la prendre en passant.
 
 ---
 
