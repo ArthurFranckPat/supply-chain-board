@@ -395,15 +395,26 @@ function OfListingCard(p: OfCardProps) {
         p.className
       )}
     >
-      {/* Bandeau = tag de statut plat (la COULEUR porte l'état) : wash 24 % du
-          ton, sans dégradé ni motif. overflow-hidden + coins arrondis pour ne
-          pas rogner les badges saillants (faisabilité/retard). */}
+      {/* Bandeau = tag de statut (la COULEUR porte l'état) portant la réf.
+          article en mono (le « sujet » de la carte) : wash plat 24 % du ton,
+          sans dégradé ni motif. overflow-hidden + coins arrondis pour ne pas
+          rogner les badges saillants (faisabilité/retard). */}
       <div
-        className="h-7 overflow-hidden rounded-t-[11px]"
+        className="flex h-7 items-center overflow-hidden rounded-t-[11px] px-2.5"
+        title={p.articleRef ?? undefined}
         style={{
           backgroundColor: `color-mix(in oklab, ${tone} 24%, #fcfcfc)`,
         }}
-      />
+      >
+        {p.articleRef && (
+          <span
+            className="truncate font-mono text-2xs font-medium leading-none"
+            style={{ color: tone }}
+          >
+            {p.articleRef}
+          </span>
+        )}
+      </div>
 
       {/* Badges saillants, positionnés sur la bande. */}
       {p.feas === 'ok' && <CornerBadge color={FEAS_COLOR.ok} icon="check" />}
@@ -470,12 +481,6 @@ function OfListingCard(p: OfCardProps) {
             </X3Link>
           )}
         </div>
-        {/* Réf. article PF, relue en mono sous le n° OF (ex-bandeau). */}
-        {p.articleRef && (
-          <div className="mt-0.5 truncate font-mono text-2xs leading-tight text-muted-foreground">
-            {p.articleRef}
-          </div>
-        )}
         {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
         <div
           className="mt-0.5 truncate text-xs leading-tight text-muted-foreground"
