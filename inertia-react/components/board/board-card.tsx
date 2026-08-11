@@ -15,12 +15,13 @@ import { DynamicIcon } from '../ui/dynamic-icon'
  *
  * Refonte « Cursor » (chantier BoardCard, 2026-08-11) : le motif « bande
  * Listing » de la variante OF est conservé comme concept (bande de statut
- * tenant lieu de « photo », motif code produit) mais rejoué sur la grammaire
- * Cursor — tons succès/alerte/danger/marque, bande en washs (12 % → 24 %),
- * survol en wash (mix 6 %, token --cursor-bg-card) au lieu du flottement,
- * liseré haut de la variante commande réduit de 3 px à 1 px (filet en ton du
- * statut). Tous les signaux existants sont préservés : faisabilité au coin,
- * cours → point pulsant, terminé → atténué, bloqué → rouge + alerte rupture.
+ * tenant lieu de « photo ») mais rejoué sur la grammaire Cursor — tons
+ * succès/alerte/danger/marque, bande plate en wash 24 % du ton (dégradé et
+ * motif code produit retirés), survol en wash (mix 6 %, token
+ * --cursor-bg-card) au lieu du flottement, liseré haut de la variante
+ * commande réduit de 3 px à 1 px (filet en ton du statut). Tous les signaux
+ * existants sont préservés : faisabilité au coin, cours → point pulsant,
+ * terminé → atténué, bloqué → rouge + alerte rupture.
  *
  * Statut → ton : ferme/planifié = succès (le thème Cursor fait déjà
  * `--planifie: #007041` — collapse acté), suggéré = alerte, cours = marque
@@ -364,15 +365,17 @@ function CommandeBody(p: CommandeBodyProps) {
   )
 }
 
-/* ── Variante OF — carte « Listing » (motif conservé, refonte Cursor) ──
+/* ── Variante OF — carte « Listing » (bande plate, refonte Cursor) ──
  *
- * Bande de statut en guise de « photo » (washs du ton, 12 % → 24 % — échelle
- * --bg-*-tertiary / --bg-*-secondary de DESIGN.md), motif = code produit en
- * mono translucide, puis hiérarchie claire : n° OF en emphase, désignation,
- * progression, alerte, et l'heure de charge en ancre au pied. Survol = wash
- * mix 6 % (token --cursor-bg-card) — pas d'élévation. Tous les signaux
- * existants sont préservés : faisabilité, point cours, badge retard, tampon
- * BDH, typologie, progression, alerte rupture.
+ * Bande de statut en guise de « photo » : wash plat 24 % du ton (échelle
+ * --bg-*-secondary de DESIGN.md), sans dégradé ni motif. Le statut vit dans
+ * la couleur de la bande ET dans la pastille à côté du n° OF ; la réf.
+ * article, elle, est relue en mono dans le corps, sous le n° OF. Puis
+ * hiérarchie claire : n° OF en emphase, désignation, progression, alerte, et
+ * l'heure de charge en ancre au pied. Survol = wash mix 6 % (token
+ * --cursor-bg-card) — pas d'élévation. Tous les signaux existants sont
+ * préservés : faisabilité, point cours, badge retard, tampon BDH, typologie,
+ * progression, alerte rupture.
  */
 function OfListingCard(p: OfCardProps) {
   const typo = p.typologie ? TYPO_META[p.typologie] : undefined
@@ -381,12 +384,6 @@ function OfListingCard(p: OfCardProps) {
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
       : 0
-  // Code produit porté par le bandeau (le « sujet » de la carte, lisible). Le
-  // statut vit dans la couleur du bandeau, pas dans un libellé. Rendu en SVG
-  // auto-ajusté (preserveAspectRatio meet) → texte TOUJOURS complet, jamais
-  // tronqué, quelle que soit la largeur de colonne. Sans réf. → bande de statut.
-  const ghost = p.articleRef
-  const ghostW = Math.max(1, ghost?.length ?? 0) * 12
 
   return (
     <div
@@ -398,47 +395,15 @@ function OfListingCard(p: OfCardProps) {
         p.className
       )}
     >
-      {/* Bandeau = tag de statut (la COULEUR porte l'état) portant le code produit
-          en TEXTE lisible (le SUJET = réf. article ; ni le poste, ni un pill de
-          statut). Rendu en SVG auto-ajusté (preserveAspectRatio meet) : le texte
-          est mis à l'échelle pour tenir la largeur → TOUJOURS complet, JAMAIS
-          tronqué, de 108 px à pleine largeur. Sans réf. article, le bandeau reste
-          une simple bande de statut. overflow-hidden + coins arrondis pour ne pas
-          rogner les badges saillants (faisabilité/retard). */}
+      {/* Bandeau = tag de statut plat (la COULEUR porte l'état) : wash 24 % du
+          ton, sans dégradé ni motif. overflow-hidden + coins arrondis pour ne
+          pas rogner les badges saillants (faisabilité/retard). */}
       <div
-        className="relative h-7 overflow-hidden rounded-t-[11px]"
-        title={ghost ?? undefined}
+        className="h-7 overflow-hidden rounded-t-[11px]"
         style={{
-          background: `linear-gradient(135deg, color-mix(in oklab, ${tone} 12%, #fcfcfc), color-mix(in oklab, ${tone} 24%, #fcfcfc))`,
+          backgroundColor: `color-mix(in oklab, ${tone} 24%, #fcfcfc)`,
         }}
-      >
-        {ghost && (
-          <svg
-            aria-hidden
-            viewBox={`0 0 ${ghostW} 24`}
-            preserveAspectRatio="xMinYMid meet"
-            className="absolute inset-y-0 left-2 right-2"
-          >
-            {/* `textLength` + `lengthAdjust` : la largeur du viewBox est une ESTIMATION
-                (12 px/caractère) ; sans contrainte, une police mono un peu plus large
-                déborde et le SVG rogne la fin de la réf (bug observé : « VA65046 » rendu
-                « VA6504 »). Forcer la longueur rend le texte toujours entier, au prix
-                d'un resserrement de quelques % invisible à l'œil. */}
-            <text
-              x="0"
-              y="17"
-              textLength={ghostW}
-              lengthAdjust="spacingAndGlyphs"
-              fontFamily="var(--font-mono)"
-              fontWeight={600}
-              fontSize="20"
-              fill={tone}
-            >
-              {ghost}
-            </text>
-          </svg>
-        )}
-      </div>
+      />
 
       {/* Badges saillants, positionnés sur la bande. */}
       {p.feas === 'ok' && <CornerBadge color={FEAS_COLOR.ok} icon="check" />}
@@ -473,30 +438,43 @@ function OfListingCard(p: OfCardProps) {
             BDH
           </span>
         )}
-        {/* N° OF (ancre). Réserve à droite la place du tampon BDH si présent.
-            OF suggéré : pas de MFGNUM, pas de lien (#118). */}
-        {p.status === 'suggere' ? (
-          <div
-            title={p.article}
-            className={cn(
-              'truncate font-mono text-[13px] font-medium leading-tight text-foreground',
-              p.consommeBouche && 'pr-9'
-            )}
-          >
-            {p.article}
+        {/* N° OF (ancre) + pastille de statut. Réserve à droite la place du
+            tampon BDH si présent. OF suggéré : pas de MFGNUM, pas de lien (#118). */}
+        <div className="flex items-center gap-1.5">
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: tone }}
+            aria-hidden
+          />
+          {p.status === 'suggere' ? (
+            <div
+              title={p.article}
+              className={cn(
+                'truncate font-mono text-[13px] font-medium leading-tight text-foreground',
+                p.consommeBouche && 'pr-9'
+              )}
+            >
+              {p.article}
+            </div>
+          ) : (
+            <X3Link
+              fonction="GESMFG"
+              cle={p.article}
+              title={`Ouvrir l'OF ${p.article} dans Sage X3`}
+              className={cn(
+                'truncate font-mono text-[13px] font-medium leading-tight text-foreground',
+                p.consommeBouche && 'pr-9'
+              )}
+            >
+              {p.article}
+            </X3Link>
+          )}
+        </div>
+        {/* Réf. article PF, relue en mono sous le n° OF (ex-bandeau). */}
+        {p.articleRef && (
+          <div className="mt-0.5 truncate font-mono text-2xs leading-tight text-muted-foreground">
+            {p.articleRef}
           </div>
-        ) : (
-          <X3Link
-            fonction="GESMFG"
-            cle={p.article}
-            title={`Ouvrir l'OF ${p.article} dans Sage X3`}
-            className={cn(
-              'truncate font-mono text-[13px] font-medium leading-tight text-foreground',
-              p.consommeBouche && 'pr-9'
-            )}
-          >
-            {p.article}
-          </X3Link>
         )}
         {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
         <div

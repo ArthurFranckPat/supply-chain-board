@@ -200,7 +200,7 @@ export function BoardCardSection() {
         nom="BoardCard — variante OF"
         from="@r/components/board/board-card"
         etat="cursor"
-        note="Carte « Listing » : la bande de statut en washs du ton (succès/alerte/danger) tient lieu de photo, le n° d'OF est l'ancre, la charge se lit au pied. Badge de faisabilité au coin."
+        note="Carte « Listing » : la bande de statut en wash plat du ton (succès/alerte/danger) tient lieu de photo, le n° d'OF est l'ancre, la charge se lit au pied. Badge de faisabilité au coin."
       >
         <div
           className="grid gap-3"
