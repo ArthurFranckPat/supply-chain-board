@@ -2,8 +2,6 @@ import { memo, useMemo } from 'react'
 
 import { barX, barY, defineChart, dot, lineY, ruleX, ruleY, stack, text } from '@tanstack/charts'
 import { Chart } from '@tanstack/charts/react'
-import { controlledSignal } from '@tanstack/charts/interaction/signal'
-import { keyedSelection, type KeyedSelectionChange } from '@tanstack/charts/selection'
 import { scaleBand } from '@tanstack/charts/scales/band'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
 import { tooltip } from '@tanstack/charts/tooltip'
@@ -258,14 +256,6 @@ export type BarresClassementProps = SocleProps & {
   /** Hauteur d'une ligne. 28 px — la hauteur de contrôle par défaut du produit. */
   hauteurLigne?: number
   couleur?: string
-  /**
-   * Sélection contrôlée par clé — la ligne sélectionnée reste pleine, les
-   * autres sont atténuées ; clic à côté efface. Sans `onSelection`, la prop
-   * est sans effet (les lignes ne sont pas cliquables).
-   */
-  selection?: string | null
-  /** Rappel de changement de sélection (clic sur une ligne, ou à côté pour effacer). */
-  onSelection?: (cle: string | null) => void
 }
 
 /**
@@ -279,13 +269,10 @@ export const BarresClassement = memo(function BarresClassement({
   format = fmtNombre,
   hauteurLigne = 28,
   couleur = SERIE.reel,
-  selection,
-  onSelection,
   ariaLabel,
   ariaDescription,
   className,
 }: BarresClassementProps) {
-  const selectable = onSelection !== undefined
   const definition = useMemo(() => {
     if (lignes.length === 0) return null
     const reelles = lignes.filter((l) => !l.horsEchelle).map((l) => l.valeur)
@@ -295,23 +282,8 @@ export const BarresClassement = memo(function BarresClassement({
       tracee: l.horsEchelle ? borne : Math.min(l.valeur, borne),
     }))
 
-    // Sélection contrôlée : le signal est recréé quand la prop change ; les
-    // clics (pointer) remontent via onChange → onSelection → état React.
-    const signal = selectable
-      ? controlledSignal<string | null, KeyedSelectionChange<(typeof rows)[number], string>>(
-          selection ?? null,
-          (_v, ctx) => {
-            const next = ctx.reason.type === 'select' ? ctx.reason.value : null
-            onSelection?.(next)
-          }
-        )
-      : null
-    const controller =
-      selectable && signal ? keyedSelection({ selected: signal, key: (d) => d.cle }) : null
-
     return defineChart({
       svgAnimation: false,
-      selection: controller ?? undefined,
       marks: [
         barX(rows, {
           x: 'tracee',
@@ -320,20 +292,10 @@ export const BarresClassement = memo(function BarresClassement({
           inset: hauteurLigne > 20 ? 5 : 2,
           // `fillOpacity` est une constante, pas un canal : la nuance des
           // valeurs hors échelle passe donc par la couleur elle-même.
-          fill: (d: (typeof rows)[number]) => {
-            if (d.horsEchelle) {
-              return 'color-mix(in oklab, var(--serie-alerte) 45%, transparent)'
-            }
-            if (
-              selectable &&
-              selection !== null &&
-              selection !== undefined &&
-              d.cle !== selection
-            ) {
-              return `color-mix(in oklab, ${d.couleur ?? couleur} 45%, transparent)`
-            }
-            return d.couleur ?? couleur
-          },
+          fill: (d: (typeof rows)[number]) =>
+            d.horsEchelle
+              ? 'color-mix(in oklab, var(--serie-alerte) 45%, transparent)'
+              : (d.couleur ?? couleur),
         }),
       ],
       x: { scale: () => scaleLinear().domain([0, borne]), axis: false, grid: false },
@@ -354,7 +316,7 @@ export const BarresClassement = memo(function BarresClassement({
           `${point.datum.label} · ${format(point.datum.valeur)}${point.datum.horsEchelle ? ' (hors échelle)' : ''}`,
       },
     })
-  }, [lignes, format, hauteurLigne, couleur, selectable, selection, onSelection])
+  }, [lignes, format, hauteurLigne, couleur])
 
   if (!definition) return null
 
@@ -584,9 +546,6 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
       : null
 
     return defineChart({
-      // Sans axes ni grille, la zone de tracé EST le conteneur : les overlays
-      // HTML calés en pourcentages (coupure, pastilles, trous) tombent juste.
-      margin: afficherAxes ? undefined : 0,
       marks: [
         barY(rows, {
           x: 'cle',
@@ -801,47 +760,17 @@ export type CourbeProjectionProps = SocleProps & {
    * n'est que le niveau : le mouvement qui l'explique.
    */
   flux?: (cle: string) => { entree: number; sortie: number } | null
-  /**
-   * Barres miroir des flux : entrées/ressources au-dessus de l'axe, sorties/
-   * besoins en dessous. Une échelle de flux PAR MOITIÉ (passé et projection
-   * brassent des ordres de grandeur sans rapport) — les valeurs d'affichage
-   * sont normalisées par moitié, les valeurs réelles vivent dans le tooltip.
-   */
-  afficherFluxMiroir?: boolean
-  couleurEntree?: string
-  couleurSortie?: string
   hauteur?: number
   format?: (valeur: number) => string
   /** Largeur au premier rendu — une vignette MCP n'est pas mesurée à 640 px. */
   largeurInitiale?: number
 }
 
-/** Borne « ronde » immédiatement au-dessus de `v` (1, 2, 2,5 ou 5 × 10^k) —
- *  l'axe reste gradué en valeurs que l'œil lit. */
-function niceCeil(v: number): number {
-  if (!Number.isFinite(v) || v <= 0) return 1
-  const exp = Math.floor(Math.log10(v))
-  const pow = Math.pow(10, exp)
-  const mant = v / pow
-  const step = mant <= 1 ? 1 : mant <= 2 ? 2 : mant <= 2.5 ? 2.5 : mant <= 5 ? 5 : 10
-  return step * pow
-}
-
-/** Ligne de flux du miroir — mêmes coordonnées que le tracé : les barres
- *  d'entrée/sortie sont des données normées, les réelles vivent dans le datum. */
-type LigneFlux = { cle: string; label: string; valeur: number; dispo: number }
-
 /**
  * Un niveau dans le temps : stock constaté puis projeté, carnet, encours.
  *
  * Le passé est plein, le futur est pointillé — la distinction est portée par
  * deux marques et non par une couleur, pour rester lisible à l'impression.
- *
- * Avec `afficherFluxMiroir`, la courbe occupe le haut et les flux le bas, sur
- * le modèle de HistoryChart : le zéro du stock à 62 % de la hauteur, l'axe des
- * flux à 80 %, l'amplitude ±17 %. Une seule échelle porte le tout — les flux
- * y entrent normés par moitié (chacune à son maximum), et c'est la lecture
- * d'une moitié contre l'autre qui serait fausse si on les mélangeait.
  */
 export const CourbeProjection = memo(function CourbeProjection({
   points,
@@ -849,9 +778,6 @@ export const CourbeProjection = memo(function CourbeProjection({
   charniere = null,
   regleX = null,
   flux,
-  afficherFluxMiroir = false,
-  couleurEntree = SERIE.ferme,
-  couleurSortie = SERIE.alerte,
   hauteur = 200,
   format = fmtNombre,
   largeurInitiale = 640,
@@ -868,72 +794,8 @@ export const CourbeProjection = memo(function CourbeProjection({
     const futur = points.filter((p) => p.projete)
     const futurContinu = dernierPasse ? [dernierPasse, ...futur] : futur
 
-    const miroir = afficherFluxMiroir && flux !== undefined
-
-    // Le miroir impose un domaine déclaré : le zéro du stock monte à 62 %, la
-    // plage négative reçoit les flux (voir la note de la primitive).
-    const maxStock = miroir
-      ? niceCeil(Math.max(1, ...points.map((p) => p.valeur), seuil ?? 0))
-      : null
-    const x0 = maxStock !== null ? -(maxStock * 0.62) / 0.38 : 0
-    const x1 = maxStock ?? 0
-    const flowZero = miroir ? 0.8 * (x1 - x0) + x0 : 0
-    const flowAmp = miroir ? (0.8 + 0.17) * (x1 - x0) + x0 - flowZero : 0
-
-    // Maximum de flux par moitié : le journal passé (dizaines de milliers de
-    // pièces) et le carnet à venir (quelques centaines) n'ont rien à voir.
-    const fluxParMoitie = (projete: boolean) => {
-      let m = 1
-      for (const p of points)
-        if (p.projete === projete) {
-          const f = flux!(p.cle)
-          if (f) m = Math.max(m, f.entree, f.sortie)
-        }
-      return m
-    }
-    const fluxMaxPasse = miroir ? fluxParMoitie(false) : 0
-    const fluxMaxFutur = miroir ? fluxParMoitie(true) : 0
-
-    const lignesFlux = (sens: 'entree' | 'sortie'): LigneFlux[] => {
-      if (!miroir) return []
-      const out: LigneFlux[] = []
-      for (const p of points) {
-        const f = flux!(p.cle)
-        if (!f) continue
-        const v = f[sens]
-        if (v <= 0) continue
-        const moitie = p.projete ? fluxMaxFutur : fluxMaxPasse
-        out.push({
-          cle: p.cle,
-          label: `${p.label} · ${sens === 'entree' ? 'Entrées' : 'Sorties'}`,
-          valeur: v,
-          dispo: flowZero + (sens === 'entree' ? 1 : -1) * (v / moitie) * flowAmp,
-        })
-      }
-      return out
-    }
-
     return defineChart({
       marks: [
-        ...(miroir
-          ? [
-              barY(lignesFlux('entree'), {
-                x: 'cle',
-                y: 'dispo',
-                radius: 1,
-                inset: 0.5,
-                fill: couleurEntree,
-              }),
-              barY(lignesFlux('sortie'), {
-                x: 'cle',
-                y: 'dispo',
-                radius: 1,
-                inset: 0.5,
-                fill: couleurSortie,
-              }),
-              ruleY([flowZero], { stroke: AXE.grille, strokeWidth: 1, id: 'axe-flux' }),
-            ]
-          : []),
         ...(passe.length > 0
           ? [lineY(passe, { x: 'cle', y: 'valeur', stroke: SERIE.reel, strokeWidth: 1.75 })]
           : []),
@@ -983,27 +845,15 @@ export const CourbeProjection = memo(function CourbeProjection({
         },
       },
       y: {
-        // Sans miroir, l'échelle est inférée. Avec, le domaine est exact —
-        // les constantes de mise en page (62 %/80 %/±17 %) en dépendent.
-        scale: miroir ? () => scaleLinear().domain([x0, x1]) : scaleLinear,
-        nice: !miroir,
+        scale: scaleLinear,
+        nice: true,
         grid: true,
-        axis: {
-          line: false,
-          ticks: {
-            size: 0,
-            // La plage négative porte les flux, pas du stock : pas d'étiquette.
-            format: (v: number) => (miroir && v < 0 ? '' : format(v)),
-          },
-          tickLabels: TICKS,
-        },
+        axis: { line: false, ticks: { size: 0, format: format }, tickLabels: TICKS },
       },
       tooltip: {
         ...TOOLTIP_FR,
-        format: (point: { datum: PointProjection | LigneFlux }) => {
+        format: (point: { datum: PointProjection }) => {
           const d = point.datum
-          if ('dispo' in d)
-            return `${d.label} · ${format(d.valeur)}${d.cle && points.find((p) => p.cle === d.cle)?.projete ? ' (projeté)' : ''}`
           const fluxLigne = flux
             ? (() => {
                 const f = flux(d.cle)
@@ -1015,17 +865,7 @@ export const CourbeProjection = memo(function CourbeProjection({
         },
       },
     })
-  }, [
-    points,
-    seuil,
-    charniere,
-    regleX,
-    flux,
-    afficherFluxMiroir,
-    couleurEntree,
-    couleurSortie,
-    format,
-  ])
+  }, [points, seuil, charniere, regleX, flux, format])
 
   if (!definition) return null
 

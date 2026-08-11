@@ -41,21 +41,9 @@ type ChargeRow = { code: string; label: string; heures: number }
 
 /**
  * Charge en retard par poste — la forme « BarresClassement » de la vitrine,
- * avec la sélection contrôlée du filtre croisé (clic sur un poste → lignes ;
- * re-clic ou clic à côté → tout).
+ * branchée sur les données du KPI.
  */
-export const ChargeBars = memo(function ChargeBars({
-  postes,
-  onSelectPoste,
-  onClear,
-  selectedPoste = null,
-}: {
-  postes: ChargeRow[]
-  onSelectPoste?: (code: string) => void
-  /** Efface le filtre croisé (re-clic sur le poste sélectionné ou clic à côté). */
-  onClear?: () => void
-  selectedPoste?: string | null
-}) {
+export const ChargeBars = memo(function ChargeBars({ postes }: { postes: ChargeRow[] }) {
   const lignes: LigneClassement[] = useMemo(
     () =>
       postes.map((p) => ({
@@ -67,21 +55,11 @@ export const ChargeBars = memo(function ChargeBars({
   )
   if (lignes.length === 0) return null
 
-  const handleSelection = (cle: string | null) => {
-    if (cle === null || cle === selectedPoste) {
-      onClear?.()
-    } else {
-      onSelectPoste?.(cle)
-    }
-  }
-
   return (
     <BarresClassement
       lignes={lignes}
       format={fmtHeures}
       couleur={SERIE.encre}
-      selection={selectedPoste}
-      onSelection={handleSelection}
       ariaLabel="Charge en retard par poste de charge"
     />
   )

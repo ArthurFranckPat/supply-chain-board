@@ -861,8 +861,6 @@ export default function Dashboard(props: DashboardProps) {
   const [stockCalendarOpen, setStockCalendarOpen] = useState(false)
   // Article ouvert dans la sheet de détail (null = fermé).
   const [stockArticle, setStockArticle] = useState<string | null>(null)
-  /** Filtre croisé Charge → Lignes : code poste sélectionné. */
-  const [posteFilter, setPosteFilter] = useState<string | null>(null)
 
   // Ref pour le contenu imprimable
   const contentElRef = useRef<HTMLDivElement>(null)
@@ -939,24 +937,6 @@ export default function Dashboard(props: DashboardProps) {
   const x3Error = useMemo(() => (kpisData.data ?? EMPTY_KPIS).x3Error, [kpisData.data])
   const otdError = useMemo(() => (otdData.data ?? EMPTY_OTD).x3Error, [otdData.data])
   const profondeur = kpi.profondeur
-
-  const filteredRetardLignes = useMemo(() => {
-    if (!posteFilter) return kpi.lignes
-    return kpi.lignes.filter((l) => l.postes.includes(posteFilter))
-  }, [kpi.lignes, posteFilter])
-
-  const focusLignesForPoste = useCallback(
-    (code: string) => {
-      setPosteFilter(code)
-      if (!isVisible('lignes')) setVisible('lignes', true)
-      requestAnimationFrame(() => {
-        document
-          .getElementById('kpi-lignes')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      })
-    },
-    [isVisible, setVisible]
-  )
 
   const stock = useMemo(
     () => (stockData.data ?? { stockValuation: EMPTY_STOCK }).stockValuation,
@@ -1144,12 +1124,7 @@ export default function Dashboard(props: DashboardProps) {
 
                       {kpi.postes.length > 0 ? (
                         <div className="mt-4">
-                          <ChargeBars
-                            postes={kpi.postes}
-                            selectedPoste={posteFilter}
-                            onSelectPoste={focusLignesForPoste}
-                            onClear={() => setPosteFilter(null)}
-                          />
+                          <ChargeBars postes={kpi.postes} />
                         </div>
                       ) : null}
                     </>
@@ -1566,43 +1541,19 @@ export default function Dashboard(props: DashboardProps) {
                 >
                   <CardHeader
                     title="Lignes en retard"
-                    meta={
-                      posteFilter
-                        ? `${filteredRetardLignes.length}/${kpi.nbLignes} · ${posteFilter}`
-                        : `${kpi.nbLignes}`
-                    }
+                    meta={`${kpi.nbLignes}`}
                     alert={kpi.nbLignes > 0}
                   />
-                  {posteFilter && (
-                    <div className="mb-2 flex items-center gap-2 print:hidden">
-                      <Badge variant="secondary" className="font-mono text-[10px] font-medium">
-                        Poste {posteFilter}
-                      </Badge>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-9 gap-1 px-2 text-xs text-muted-foreground"
-                        onClick={() => setPosteFilter(null)}
-                        aria-label="Effacer le filtre poste"
-                      >
-                        <X size={12} />
-                        Toutes les lignes
-                      </Button>
-                    </div>
-                  )}
                   {kpisData.loading ? (
                     <Spinner />
                   ) : x3Error ? (
                     <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
-                  ) : filteredRetardLignes.length === 0 ? (
-                    <p className="text-sm font-normal text-muted-foreground">
-                      {posteFilter ? `Aucune ligne · ${posteFilter}` : 'Aucune ligne'}
-                    </p>
+                  ) : kpi.lignes.length === 0 ? (
+                    <p className="text-sm font-normal text-muted-foreground">Aucune ligne</p>
                   ) : (
                     <DataTable
                       columns={retardLigneColumns}
-                      rows={filteredRetardLignes}
+                      rows={kpi.lignes}
                       sorting={retardSorting}
                       onSortingChange={setRetardSorting}
                       virtualize={false}
