@@ -13,69 +13,61 @@ import { DynamicIcon } from '../ui/dynamic-icon'
  *  • of       — board ordonnancement (OF, progression qty fait/lancé, poste,
  *               alerte rupture quand bloqué).
  *
- * La variante OF est une carte « Listing » (grammaire Airbnb, validée 2026-07-20) :
- * bande de statut en dégradé doux tenant lieu de « photo », motif code produit,
- * n° OF en ancre, heure de charge au pied, flottement au survol. La variante
- * commande garde la coquille historique (liseré 3 px). Badge faisabilité au coin,
- * cours → point pulsant, terminé → atténuée, bloqué → rouge + alerte rupture.
+ * Refonte « Cursor » (chantier BoardCard, 2026-08-11) : le motif « bande
+ * Listing » de la variante OF est conservé comme concept (bande de statut
+ * tenant lieu de « photo », motif code produit) mais rejoué sur la grammaire
+ * Cursor — tons succès/alerte/danger/marque, bande en washs (12 % → 24 %),
+ * survol en wash (mix 6 %, token --cursor-bg-card) au lieu du flottement,
+ * liseré haut de la variante commande réduit de 3 px à 1 px (filet en ton du
+ * statut). Tous les signaux existants sont préservés : faisabilité au coin,
+ * cours → point pulsant, terminé → atténué, bloqué → rouge + alerte rupture.
  *
- * Statut → ton : ferme / planifié / suggéré / cours(brand) / terminé(muted) /
- * bloqué(destructive). Maquette : design/showcase/airbnb-composants.html (§03).
+ * Statut → ton : ferme/planifié = succès (le thème Cursor fait déjà
+ * `--planifie: #007041` — collapse acté), suggéré = alerte, cours = marque
+ * (rare), terminé = encre secondaire, bloqué = danger.
  */
 
 export type CardStatus = 'ferme' | 'planifie' | 'suggere' | 'cours' | 'termine' | 'bloque'
 
-/** Liseré supérieur (3 px) = ton du statut. */
-const TONE_BORDER: Record<CardStatus, string> = {
-  ferme: 'border-t-ferme',
-  planifie: 'border-t-planifie',
-  suggere: 'border-t-suggere',
-  cours: 'border-t-brand',
-  termine: 'border-t-muted-foreground',
-  bloque: 'border-t-destructive',
-}
-/** Remplissage (barre de progression, point poste) = ton du statut. */
-const TONE_FILL: Record<CardStatus, string> = {
-  ferme: 'bg-ferme',
-  planifie: 'bg-planifie',
-  suggere: 'bg-suggere',
-  cours: 'bg-brand',
-  termine: 'bg-muted-foreground',
-  bloque: 'bg-destructive',
-}
 /**
- * Ton CSS du bandeau « Listing » (variante OF) — décliné en dégradé doux via
- * color-mix dans OfListingCard. Le bandeau remplace le liseré 3 px : c'est la
- * « photo » de la carte, façon annonce Airbnb.
+ * Ton du statut — grammaire Cursor (DESIGN.md) : succès / alerte / danger,
+ * marque rare, encre secondaire pour le soldé. Un seul alphabet sert au
+ * filet haut (variante commande), à la barre de progression et à la bande
+ * « Listing » (variante OF).
  */
-const BAND_TONE: Record<CardStatus, string> = {
-  ferme: 'var(--ferme, #008049)',
-  planifie: 'var(--planifie, #00a699)',
-  suggere: 'var(--suggere, #fc642d)',
-  cours: 'var(--color-brand, #ff385c)',
-  termine: 'var(--color-muted-foreground, #717171)',
-  bloque: 'var(--color-destructive, #ff385c)',
+const TONE: Record<CardStatus, string> = {
+  ferme: '#007041' /* --success */,
+  planifie: '#007041' /* --success — collapse acté par le thème Cursor */,
+  suggere: '#a46700' /* --warn */,
+  cours: '#f54e00' /* --brand, rare : point pulsant + bande */,
+  termine: 'color-mix(in oklab, #141414 74%, transparent)' /* encre secondaire */,
+  bloque: '#be1744' /* --danger */,
+}
+/** Badge faisabilité (coin haut-droit) — tons Cursor pleins, icône claire. */
+const FEAS_COLOR: Record<'ok' | 'qc' | 'bad', string> = {
+  ok: '#007041',
+  qc: '#a46700',
+  bad: '#be1744',
 }
 /**
- * Type commande → couleur (MTS/MTO/NOR). Tokens de statut sémantiques
- * (retargetés par thème ; sous Airbnb = brand book ferme/suggere/planifie),
- * avec fallback hex pour les thèmes qui ne définiraient pas la variable :
- *  • MTS (Make To Stock)   → ferme    (production sur stock, stable)
- *  • MTO (Make To Order)   → suggere  (production sur commande spécifique)
- *  • NOR (standard)        → planifie (mode normal)
- * Type inconnu → pastille neutre (secondary) par défaut.
+ * Type commande → chip lavé (MTS/MTO/NOR). Reprend l'alphabet statut décliné
+ * en recette badge Cursor : fond mix 12 %, texte ton plein (lot 2).
+ *  • MTS (Make To Stock)   → succès (production sur stock, stable)
+ *  • MTO (Make To Order)   → alerte (production sur commande spécifique)
+ *  • NOR (standard)        → succès (mode normal)
+ * Type inconnu → pastille neutre (wash 8 % + encre secondaire).
  */
 const TYPE_META: Record<string, { background: string; color: string }> = {
-  MTS: { background: 'var(--ferme, #008049)', color: '#ffffff' },
-  MTO: { background: 'var(--suggere, #fc642d)', color: '#ffffff' },
-  NOR: { background: 'var(--planifie, #00a699)', color: '#ffffff' },
+  MTS: { background: 'color-mix(in oklab, #007041 12%, transparent)', color: '#007041' },
+  MTO: { background: 'color-mix(in oklab, #a46700 12%, transparent)', color: '#a46700' },
+  NOR: { background: 'color-mix(in oklab, #007041 12%, transparent)', color: '#007041' },
 }
 
-/** Pastille statut OF alloué (même alphabet que filtre OF / bandeau Listing). */
+/** Pastille statut OF alloué (même alphabet que filtre OF / bande Listing). */
 const OF_STATUS_DOT: Record<'ferme' | 'planifie' | 'suggere', string> = {
-  ferme: 'bg-ferme',
-  planifie: 'bg-planifie',
-  suggere: 'bg-suggere',
+  ferme: '#007041',
+  planifie: '#007041',
+  suggere: '#a46700',
 }
 const OF_STATUS_LABEL: Record<'ferme' | 'planifie' | 'suggere', string> = {
   ferme: 'ferme',
@@ -158,53 +150,57 @@ export type OfCardProps = Common & {
 export type BoardCardProps = CommandeCardProps | OfCardProps
 
 export function BoardCard(props: BoardCardProps) {
-  // Variante OF = carte « Listing » (grammaire Airbnb, validée 2026-07-20 —
-  // variante A de la maquette design/showcase/airbnb-composants.html). La
-  // variante commande garde la coquille historique (non touchée).
   return props.variant === 'of' ? <OfListingCard {...props} /> : <CommandeCard {...props} />
 }
 
-/* ── Coquille historique (variante commande) ── */
+/* ── Variante commande — coquille refondue Cursor ── */
 function CommandeCard(props: CommandeCardProps) {
-  // commande modifiée (override local) → liseré terra autour de la carte
+  // commande modifiée (override local) → anneau marque autour de la carte
   const ring = props.mod
-  // carte induite (ghost) → fond hachuré terra
+  // carte induite (ghost) → fond hachuré neutre
   const ghost = props.induit
 
   return (
     <div
       className={cn(
-        'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5',
-        TONE_BORDER[props.status],
+        'relative w-full rounded-[12px] border border-border bg-card px-3 pb-2 pt-2.5',
+        'border-t transition-shadow duration-100',
+        'hover:shadow-[inset_0_0_0_999px_color-mix(in_oklab,#141414_6%,transparent)]',
+        ring && 'shadow-[0_0_0_1px_#f54e00]',
         props.status === 'termine' && 'opacity-60',
         props.className
       )}
-      style={
-        ring
-          ? { boxShadow: '0 0 0 1.5px var(--color-brand), 0 1px 2px rgba(0,0,0,.05)' }
-          : ghost
-            ? {
-                backgroundColor: 'rgba(0,0,0,.07)',
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(0,0,0,.12) 0 2px, transparent 2px 8px)',
-              }
-            : undefined
-      }
+      style={{
+        // Filet haut 1 px en ton du statut (réinterprétation du liseré 3 px).
+        borderTopColor: TONE[props.status],
+        ...(ghost
+          ? {
+              backgroundColor: 'color-mix(in oklab, #141414 4%, transparent)',
+              backgroundImage:
+                'repeating-linear-gradient(45deg, color-mix(in oklab, #141414 8%, transparent) 0 2px, transparent 2px 8px)',
+            }
+          : undefined),
+      }}
     >
       {/* coin haut-droit : faisabilité, ou coche terminé */}
-      {props.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
+      {props.feas === 'ok' && <CornerBadge color={FEAS_COLOR.ok} icon="check" />}
       {props.feas === 'qc' && (
         <CornerBadge
-          cls="bg-warning"
+          color={FEAS_COLOR.qc}
           icon="science"
           title={qcBadgeTitle(props.feasQcComponents)}
         />
       )}
-      {props.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
-      {!props.feas && props.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
-      {/* cours : point terra pulsant (intérieur) */}
+      {props.feas === 'bad' && <CornerBadge color={FEAS_COLOR.bad} icon="priority_high" />}
+      {!props.feas && props.status === 'termine' && (
+        <CornerBadge color={TONE.termine} icon="check" />
+      )}
+      {/* cours : point marque pulsant (intérieur) */}
       {props.status === 'cours' && (
-        <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
+        <span
+          className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full"
+          style={{ backgroundColor: TONE.cours }}
+        />
       )}
       <CommandeBody
         article={props.article}
@@ -259,11 +255,11 @@ function CommandeBody(p: CommandeBodyProps) {
       <div className="flex items-center gap-1.5 overflow-hidden" title={p.article}>
         {p.type && (
           <span
-            className="shrink-0 rounded px-1 py-0.5 font-mono text-3xs font-bold uppercase tracking-wider"
+            className="shrink-0 rounded px-1 py-0.5 font-mono text-3xs font-medium uppercase tracking-wider"
             style={
               typeMeta ?? {
-                background: 'var(--color-secondary)',
-                color: 'var(--color-secondary-foreground)',
+                background: 'color-mix(in oklab, #141414 8%, transparent)',
+                color: 'color-mix(in oklab, #141414 74%, transparent)',
               }
             }
           >
@@ -272,7 +268,8 @@ function CommandeBody(p: CommandeBodyProps) {
         )}
         {p.ofStatus && (
           <span
-            className={cn('size-1.5 shrink-0 rounded-full', OF_STATUS_DOT[p.ofStatus])}
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: OF_STATUS_DOT[p.ofStatus] }}
             title={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
             aria-label={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
           />
@@ -282,7 +279,7 @@ function CommandeBody(p: CommandeBodyProps) {
             Cartes sans lien : induite (pas de commande réelle) et prévision
             (cf. peutOuvrirCommande). */}
         {p.induit || !peutOuvrirCommande(p.nature) ? (
-          <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
+          <span className="shrink-0 whitespace-nowrap font-mono text-xs font-medium leading-tight text-foreground">
             {cmd}
           </span>
         ) : (
@@ -290,7 +287,7 @@ function CommandeBody(p: CommandeBodyProps) {
             fonction="GESSOH"
             cle={cmd}
             title={`Ouvrir la commande ${cmd} dans Sage X3`}
-            className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground"
+            className="shrink-0 whitespace-nowrap font-mono text-xs font-medium leading-tight text-foreground"
           >
             {cmd}
           </X3Link>
@@ -305,17 +302,17 @@ function CommandeBody(p: CommandeBodyProps) {
       {(p.ord || p.consommeBouche) && (
         <div className="mt-1 flex items-center justify-between gap-1.5">
           <div
-            className="truncate font-mono text-xs font-semibold leading-tight text-brand"
+            className="truncate font-mono text-xs font-medium leading-tight text-foreground"
             title={p.ord}
           >
             {p.ord}
           </div>
           {p.consommeBouche && (
             <span
-              className="shrink-0 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-xs font-black uppercase tracking-wider opacity-70"
+              className="shrink-0 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-2xs font-bold uppercase tracking-wider opacity-70"
               style={{
-                color: 'var(--color-brand)',
-                borderColor: 'var(--color-brand)',
+                color: '#f54e00',
+                borderColor: '#f54e00',
                 textShadow: '0 0 1px rgba(0,0,0,.35)',
               }}
             >
@@ -324,25 +321,23 @@ function CommandeBody(p: CommandeBodyProps) {
           )}
         </div>
       )}
-      <div className="truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+      <div className="truncate text-xs leading-tight text-muted-foreground" title={p.title}>
         {p.title}
       </div>
       {p.client && (
-        <div className="mt-0.5 truncate font-fraunces text-xs italic text-muted-foreground">
-          {p.client}
-        </div>
+        <div className="mt-0.5 truncate text-xs italic text-muted-foreground">{p.client}</div>
       )}
       {p.alert && (
-        <div className="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-2xs font-bold text-destructive">
+        <div className="mt-1.5 flex items-center gap-1 rounded-full bg-destructive/10 px-1.5 py-[3px] font-mono text-3xs font-medium text-destructive">
           <TriangleAlert size={12} strokeWidth={1.75} />
           {p.alert}
         </div>
       )}
       {/* Footer V1 (issue #42) : pastille typo pleine + type (gauche), qté mise en
           avant + heures (droite). flex-wrap pour éviter l'overflow horizontal. */}
-      <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-rule-soft pt-1.5">
+      <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-[color-mix(in_oklab,#141414_4%,transparent)] pt-1.5">
         {p.mod && (
-          <span className="inline-flex items-center gap-0.5 font-mono text-3xs font-semibold uppercase tracking-wider text-suggere">
+          <span className="inline-flex items-center gap-0.5 font-mono text-3xs font-semibold uppercase tracking-wider text-[#a46700]">
             <Pencil size={12} strokeWidth={1.75} />
           </span>
         )}
@@ -356,29 +351,32 @@ function CommandeBody(p: CommandeBodyProps) {
         )}
         <span className="ml-auto flex items-baseline gap-1">
           {p.qty !== undefined && (
-            <span className="font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
+            <span className="text-[14px] font-medium leading-none tabular-nums text-foreground">
               {p.qty}
             </span>
           )}
-          <span className="text-2xs font-medium tabular-nums text-muted-foreground">{p.hours}h</span>
+          <span className="text-2xs font-medium tabular-nums text-muted-foreground">
+            {p.hours}h
+          </span>
         </span>
       </div>
     </>
   )
 }
 
-/* ── Variante OF — carte « Listing » (grammaire Airbnb, variante A) ──
+/* ── Variante OF — carte « Listing » (motif conservé, refonte Cursor) ──
  *
- * Bande de statut en guise de « photo » (dégradé doux du ton, motif = code
- * produit/poste en mono translucide), puis hiérarchie claire : n° OF en gras,
- * désignation, progression, alerte, et l'heure de charge en ancre au pied.
- * Survol = léger flottement (comportement annonce Airbnb). Tous les signaux
+ * Bande de statut en guise de « photo » (washs du ton, 12 % → 24 % — échelle
+ * --bg-*-tertiary / --bg-*-secondary de DESIGN.md), motif = code produit en
+ * mono translucide, puis hiérarchie claire : n° OF en emphase, désignation,
+ * progression, alerte, et l'heure de charge en ancre au pied. Survol = wash
+ * mix 6 % (token --cursor-bg-card) — pas d'élévation. Tous les signaux
  * existants sont préservés : faisabilité, point cours, badge retard, tampon
  * BDH, typologie, progression, alerte rupture.
  */
 function OfListingCard(p: OfCardProps) {
   const typo = p.typologie ? TYPO_META[p.typologie] : undefined
-  const tone = BAND_TONE[p.status]
+  const tone = TONE[p.status]
   const pct =
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
@@ -393,9 +391,9 @@ function OfListingCard(p: OfCardProps) {
   return (
     <div
       className={cn(
-        'relative w-full rounded-lg border border-border bg-card',
-        ' transition-all duration-150',
-        'hover:-translate-y-0.5 hover:shadow-float',
+        'relative w-full rounded-[12px] border border-border bg-card',
+        'transition-shadow duration-100',
+        'hover:shadow-[inset_0_0_0_999px_color-mix(in_oklab,#141414_6%,transparent)]',
         p.status === 'termine' && 'opacity-60',
         p.className
       )}
@@ -408,10 +406,10 @@ function OfListingCard(p: OfCardProps) {
           une simple bande de statut. overflow-hidden + coins arrondis pour ne pas
           rogner les badges saillants (faisabilité/retard). */}
       <div
-        className="relative h-7 overflow-hidden rounded-t-[7px]"
+        className="relative h-7 overflow-hidden rounded-t-[11px]"
         title={ghost ?? undefined}
         style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 14%, var(--card)), color-mix(in srgb, ${tone} 28%, var(--card)))`,
+          background: `linear-gradient(135deg, color-mix(in oklab, ${tone} 12%, #fcfcfc), color-mix(in oklab, ${tone} 24%, #fcfcfc))`,
         }}
       >
         {ghost && (
@@ -432,7 +430,7 @@ function OfListingCard(p: OfCardProps) {
               textLength={ghostW}
               lengthAdjust="spacingAndGlyphs"
               fontFamily="var(--font-mono)"
-              fontWeight={700}
+              fontWeight={600}
               fontSize="20"
               fill={tone}
             >
@@ -442,16 +440,20 @@ function OfListingCard(p: OfCardProps) {
         )}
       </div>
 
-      {/* Badges saillants, positionnés sur la bande (inchangés). */}
-      {p.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
+      {/* Badges saillants, positionnés sur la bande. */}
+      {p.feas === 'ok' && <CornerBadge color={FEAS_COLOR.ok} icon="check" />}
       {p.feas === 'qc' && (
-        <CornerBadge cls="bg-warning" icon="science" title={qcBadgeTitle(p.feasQcComponents)} />
+        <CornerBadge
+          color={FEAS_COLOR.qc}
+          icon="science"
+          title={qcBadgeTitle(p.feasQcComponents)}
+        />
       )}
-      {p.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
-      {!p.feas && p.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
+      {p.feas === 'bad' && <CornerBadge color={FEAS_COLOR.bad} icon="priority_high" />}
+      {!p.feas && p.status === 'termine' && <CornerBadge color={TONE.termine} icon="check" />}
       {/* Issue #23 : badge retard « +N j » (chevauche le haut de la bande). */}
       {(p.retardJours ?? null) !== null && p.retardJours! > 0 && (
-        <span className="absolute -top-1.5 left-2 z-10 flex h-4 items-center justify-center rounded-full border-2 border-card bg-destructive px-1 font-mono text-3xs font-bold tabular-nums text-card">
+        <span className="absolute -top-1.5 left-2 z-10 flex h-4 items-center justify-center rounded-full bg-[#be1744] px-1 font-mono text-2xs font-medium tabular-nums text-[#fcfcfc]">
           +{p.retardJours}j
         </span>
       )}
@@ -461,10 +463,10 @@ function OfListingCard(p: OfCardProps) {
         {/* Tampon « BDH » (issue #42) — dans le corps, sous la bande. */}
         {p.consommeBouche && (
           <span
-            className="absolute right-1.5 top-1 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-2xs font-black uppercase tracking-wider opacity-70"
+            className="absolute right-1.5 top-1 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-2xs font-bold uppercase tracking-wider opacity-70"
             style={{
-              color: 'var(--color-brand)',
-              borderColor: 'var(--color-brand)',
+              color: '#f54e00',
+              borderColor: '#f54e00',
               textShadow: '0 0 1px rgba(0,0,0,.35)',
             }}
           >
@@ -477,7 +479,7 @@ function OfListingCard(p: OfCardProps) {
           <div
             title={p.article}
             className={cn(
-              'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
+              'truncate font-mono text-[13px] font-medium leading-tight text-foreground',
               p.consommeBouche && 'pr-9'
             )}
           >
@@ -489,7 +491,7 @@ function OfListingCard(p: OfCardProps) {
             cle={p.article}
             title={`Ouvrir l'OF ${p.article} dans Sage X3`}
             className={cn(
-              'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
+              'truncate font-mono text-[13px] font-medium leading-tight text-foreground',
               p.consommeBouche && 'pr-9'
             )}
           >
@@ -497,43 +499,49 @@ function OfListingCard(p: OfCardProps) {
           </X3Link>
         )}
         {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
-        <div className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+        <div
+          className="mt-0.5 truncate text-xs leading-tight text-muted-foreground"
+          title={p.title}
+        >
           {p.title}
         </div>
         {p.progress && (
           <div className="mt-1.5 flex items-center gap-1.5">
-            <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-rule-soft">
+            <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_oklab,#141414_6%,transparent)]">
               <span
-                className={cn('block h-full rounded-full', TONE_FILL[p.status])}
-                style={{ width: `${pct}%` }}
+                className="block h-full rounded-full"
+                style={{ backgroundColor: tone, width: `${pct}%` }}
               />
             </span>
-            <span className="font-mono text-3xs font-bold text-secondary-foreground">
+            <span className="font-mono text-3xs font-medium text-secondary-foreground">
               {p.progress.done}/{p.progress.total}
             </span>
           </div>
         )}
         {p.alert && (
-          <div className="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-3xs font-bold text-destructive">
+          <div className="mt-1.5 flex items-center gap-1 rounded-full bg-destructive/10 px-1.5 py-[3px] font-mono text-3xs font-medium text-destructive">
             <TriangleAlert size={12} strokeWidth={1.75} />
             {p.alert}
           </div>
         )}
         {/* Pied : typologie à gauche, heure de charge en ancre à droite (le
             « prix » de l'annonce). */}
-        <div className="mt-1.5 flex items-baseline justify-between gap-1.5 border-t border-rule-soft pt-1">
+        <div className="mt-1.5 flex items-baseline justify-between gap-1.5 border-t border-[color-mix(in_oklab,#141414_4%,transparent)] pt-1">
           {typo ? (
             <span
               title={typo.label}
-              className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase text-secondary-foreground"
+              className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-medium uppercase text-secondary-foreground"
             >
-              <span className="size-[8px] shrink-0 rounded-[2px]" style={{ background: typo.color }} />
+              <span
+                className="size-[8px] shrink-0 rounded-[2px]"
+                style={{ background: typo.color }}
+              />
               <span className="truncate">{typo.label}</span>
             </span>
           ) : (
             <span className="min-w-0" />
           )}
-          <span className="shrink-0 font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
+          <span className="shrink-0 text-[14px] font-medium leading-none tabular-nums text-foreground">
             {p.hours}
             <span className="ml-0.5 text-2xs font-medium text-muted-foreground">h</span>
           </span>
@@ -544,7 +552,7 @@ function OfListingCard(p: OfCardProps) {
 }
 
 interface CornerBadgeProps {
-  cls: string
+  color: string
   icon: string
   /** Infobulle native (aucun portail : la carte est draggable, un Tooltip casserait le drag). */
   title?: string
@@ -572,10 +580,8 @@ function CornerBadge(p: CornerBadgeProps) {
   return (
     <span
       title={p.title}
-      className={cn(
-        'absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full border-2 border-card text-card',
-        p.cls
-      )}
+      className="absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full text-card"
+      style={{ backgroundColor: p.color }}
     >
       <DynamicIcon name={p.icon} size={12} strokeWidth={1.75} />
     </span>

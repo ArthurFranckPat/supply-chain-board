@@ -89,8 +89,8 @@ export function StatutsSection() {
       <Fiche
         nom="Statut d’ordre"
         from="board/board-card · CardStatus"
-        etat="airbnb"
-        note="Porté par le liseré supérieur de la carte (3 px) et par la bande « Listing » de la variante OF."
+        etat="cursor"
+        note="Porté par le filet haut de 1 px de la variante commande et par la bande « Listing » de la variante OF."
       >
         <Panel padding="none">
           <SpecTable
@@ -199,8 +199,8 @@ export function BoardCardSection() {
       <Fiche
         nom="BoardCard — variante OF"
         from="@r/components/board/board-card"
-        etat="airbnb"
-        note="Carte « Listing » : la bande colorée en haut tient lieu de photo, le n° d'OF est l'ancre, la charge se lit au pied. Badge de faisabilité au coin."
+        etat="cursor"
+        note="Carte « Listing » : la bande de statut en washs du ton (succès/alerte/danger) tient lieu de photo, le n° d'OF est l'ancre, la charge se lit au pied. Badge de faisabilité au coin."
       >
         <div
           className="grid gap-3"
@@ -230,11 +230,12 @@ export function BoardCardSection() {
       <Fiche
         nom="BoardCard — variante commande"
         from="@r/components/board/board-card"
-        etat="airbnb"
+        etat="cursor"
         note={
           <>
-            Coquille historique à liseré de 3 px. La prop <Tok>nature</Tok> est obligatoire : sans
-            elle, le lien X3 tomberait en silence, et l’oubli doit se voir au typecheck.
+            Coquille à filet haut de 1 px en ton du statut. La prop <Tok>nature</Tok> est
+            obligatoire : sans elle, le lien X3 tomberait en silence, et l’oubli doit se voir au
+            typecheck.
           </>
         }
       >
@@ -514,7 +515,7 @@ const MIGRATION: LigneMigration[] = [
   { nom: 'LoadingState', etat: 'cursor', reste: '—' },
   { nom: 'Bubble', etat: 'cursor', reste: '—' },
   { nom: 'Separator', etat: 'cursor', reste: '—' },
-  { nom: 'BoardCard', etat: 'airbnb', reste: 'bande Listing, liseré 3 px, ombre au survol' },
+  { nom: 'BoardCard', etat: 'cursor', reste: '—' },
   { nom: 'X3Link', etat: 'cursor', reste: '—' },
 ]
 
