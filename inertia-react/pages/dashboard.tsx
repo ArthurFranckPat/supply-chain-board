@@ -1118,8 +1118,8 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   elevation="flat"
-                  padding="default"
-                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none"
+                  padding="sm"
+                  className="h-full gap-3 overflow-auto border-0 shadow-none hover:shadow-none"
                 >
                   <CardHeader title="Charge en retard" alert={kpi.totalHeures > 0} />
                   {kpisData.loading ? (
@@ -1184,8 +1184,8 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   elevation="flat"
-                  padding="default"
-                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none"
+                  padding="sm"
+                  className="h-full gap-3 overflow-auto border-0 shadow-none hover:shadow-none"
                 >
                   <CardHeader title="Profondeur" alert={(profondeur?.maxJours ?? 0) > 0} />
                   {kpisData.loading ? (
@@ -1233,8 +1233,8 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   elevation="flat"
-                  padding="default"
-                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  padding="sm"
+                  className="h-full gap-3 overflow-auto border-0 shadow-none hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -1443,8 +1443,8 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   elevation="flat"
-                  padding="default"
-                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  padding="sm"
+                  className="h-full gap-3 overflow-auto border-0 shadow-none hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="size-1.5 shrink-0 rounded-full bg-foreground/20" />
@@ -1574,8 +1574,8 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   elevation="flat"
-                  padding="default"
-                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none"
+                  padding="sm"
+                  className="h-full gap-3 overflow-auto border-0 shadow-none hover:shadow-none"
                 >
                   <CardHeader
                     title="Lignes en retard"
@@ -1649,8 +1649,8 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   elevation="flat"
-                  padding="default"
-                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  padding="sm"
+                  className="h-full gap-3 overflow-auto border-0 shadow-none hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
                 >
                   <CardHeader
                     title="Articles"

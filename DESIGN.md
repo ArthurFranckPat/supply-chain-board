@@ -70,11 +70,27 @@ Encre `--base` `#141414`. CTA filled `--bg-neutral` / `--cursor-button-backgroun
 
 ## 2. Board mapping (Supply Chain)
 
+### Card KPI — recipe DOM Cursor (pricing Pro+)
+
+```html
+<div
+  class="rounded-[12px] bg-elevated shadow-[0_0_0_1px_var(--border-quaternary)] h-full p-4"
+></div>
+```
+
+| Propriété | Classe / token                                                                         | Valeur                                |
+| --------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
+| Radius    | `rounded-[12px]`                                                                       | `12px` (`--cursor-radius-xl`)         |
+| Fond      | `bg-elevated`                                                                          | `#fcfcfc`                             |
+| Filet     | `shadow-[0_0_0_1px_var(--border-quaternary)]`                                          | ring 1px via **shadow**, pas `border` |
+| Padding   | `p-4`                                                                                  | `16px`                                |
+| CTA       | `bg-neutral text-inverted hover:bg-neutral-hover h-7 rounded-md text-base font-medium` | `#141414` / `#fcfcfc`                 |
+
 | Élément                | Token produit                                                 | Valeur                                          |
 | ---------------------- | ------------------------------------------------------------- | ----------------------------------------------- |
 | AppSidebar             | `--bg-sidebar`                                                | `#f3f3f3`                                       |
 | Page / TopBar          | `--bg-chrome`                                                 | `#f8f8f8`                                       |
-| Card KPI               | `--bg-elevated` / `--editor`                                  | `#fcfcfc`                                       |
+| Card KPI               | `--bg-elevated` + ring `--border-quaternary`                  | `#fcfcfc` + shadow 1px                          |
 | Texte                  | `--text-primary` / `--base`                                   | `#141414`                                       |
 | Texte secondaire       | `--text-secondary`                                            | `color-mix(in oklab, #141414 74%, transparent)` |
 | Texte tertiaire        | `--text-tertiary`                                             | `color-mix(in oklab, #141414 60%, transparent)` |
@@ -90,8 +106,8 @@ Encre `--base` `#141414`. CTA filled `--bg-neutral` / `--cursor-button-backgroun
 | Success                | `--success`                                                   | `#007041`                                       |
 | Warn                   | `--warn`                                                      | `#a46700`                                       |
 | Danger                 | `--danger`                                                    | `#be1744`                                       |
-| Radius bouton          | `--cursor-radius-base`                                        | `6px`                                           |
-| Radius card            | `--cursor-radius-lg`                                          | `8px`                                           |
+| Radius bouton          | `--cursor-radius-base` / `rounded-md`                         | `6px`                                           |
+| Radius card            | `rounded-[12px]` / `--cursor-radius-xl`                       | `12px`                                          |
 | Ombre card/workbench   | `--cursor-box-shadow-workbench` / `--color-theme-shadow-card` | voir § shadows                                  |
 
 ---

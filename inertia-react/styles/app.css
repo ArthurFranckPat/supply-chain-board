@@ -577,14 +577,17 @@
 }
 
 .theme-cursor [data-slot='card'] {
-  background-color: #fcfcfc;
-  border-color: color-mix(in oklab, #141414 8%, transparent);
-  border-radius: 8px;
-  box-shadow: none;
+  /* Recipe Cursor Pro+ card :
+     rounded-[12px] bg-elevated shadow-[0_0_0_1px_var(--border-quaternary)] p-4 */
+  background-color: #fcfcfc; /* --bg-elevated */
+  border-color: transparent;
+  border-width: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 4%, transparent); /* --border-quaternary */
 }
 .theme-cursor [data-slot='card']:hover {
-  border-color: color-mix(in oklab, #141414 12%, transparent);
-  box-shadow: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 4%, transparent);
 }
 
 .theme-cursor [data-slot='button'] {
