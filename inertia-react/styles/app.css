@@ -885,6 +885,27 @@
   letter-spacing: -0.08px;
 }
 
+/* ── Lot 6 — Switch ───────────────────────────────────────── */
+.theme-cursor [data-slot='switch'] {
+  height: 16px;
+  width: 28px;
+  border-width: 0;
+  background-color: color-mix(in oklab, #141414 20%, transparent);
+}
+.theme-cursor [data-slot='switch'][data-checked] {
+  background-color: #141414;
+}
+.theme-cursor [data-slot='switch-thumb'] {
+  height: 12px;
+  width: 12px;
+  margin-inline: 2px;
+  background-color: #fcfcfc;
+  box-shadow: 0 1px 2px 0 #0000001a;
+}
+.theme-cursor [data-slot='switch'][data-checked] [data-slot='switch-thumb'] {
+  transform: translateX(12px);
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

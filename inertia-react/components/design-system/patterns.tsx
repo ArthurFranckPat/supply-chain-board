@@ -480,7 +480,7 @@ const MIGRATION: { nom: string; etat: 'cursor' | 'partiel' | 'airbnb'; reste: st
   { nom: 'Field', etat: 'airbnb', reste: 'espacements et tailles de libellé' },
   { nom: 'InputGroup', etat: 'airbnb', reste: 'suit Input' },
   { nom: 'Combobox', etat: 'cursor', reste: '—' },
-  { nom: 'Switch', etat: 'airbnb', reste: 'dimensions et ton actif' },
+  { nom: 'Switch', etat: 'cursor', reste: '—' },
   { nom: 'SearchBar', etat: 'airbnb', reste: '64 px + ombre au repos — à repenser entièrement' },
   { nom: 'Dialog', etat: 'cursor', reste: '—' },
   { nom: 'AlertDialog', etat: 'cursor', reste: '—' },

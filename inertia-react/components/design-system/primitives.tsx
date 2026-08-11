@@ -576,7 +576,7 @@ export function ChampsSection() {
       <Fiche
         nom="Switch"
         from="@r/components/ui/switch"
-        etat="airbnb"
+        etat="cursor"
         note="Effet immédiat, sans validation. Si le changement nécessite un « Appliquer », c'est une case à cocher qu'il faut, pas un interrupteur."
       >
         <Demo label="Switch">
