@@ -240,18 +240,6 @@ const EMPTY_STOCK: StockValuationKpi = {
   nbArticles: 0,
 }
 
-/**
- * Palette catégorielle — accent orange (rang saillant), puis ink, muted
- * chaud, gris. Sous `.theme-cursor` les tokens suivent l’identité Cursor.
- */
-const BAR_PALETTE = [
-  'var(--color-brand, #f54e00)',
-  'var(--foreground, #141414)',
-  'var(--color-ferme, #007041)',
-  'var(--muted-foreground, #666666)',
-  'var(--border, #e8e8e8)',
-]
-
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
 const WIDTH_CLASS: Record<KpiWidth, string> = {
   1: 'lg:col-span-1',

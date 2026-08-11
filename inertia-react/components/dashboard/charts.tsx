@@ -111,6 +111,10 @@ export const ProfondeurBars = memo(function ProfondeurBars({ buckets }: { bucket
   const visible = useMemo(() => buckets.filter((b) => b.nbLignes > 0 || b.heures > 0), [buckets])
   const max = useMemo(() => Math.max(1, ...visible.map((b) => b.heures)), [visible])
   if (visible.length === 0) return null
+  // Sévérité ordinale : la profondeur est le seul KPI du dashboard où les
+  // lignes ne sont pas du même statut. ≤ 7 j = alerte douce (mêmes seuils
+  // que la colonne J+ des lignes en retard) ; au-delà = danger.
+  const couleur = (id: string) => (id === '1-7' ? SERIE.suggere : SERIE.alerte)
   return (
     <div className="flex flex-col gap-2">
       {visible.map((b) => (
@@ -129,7 +133,7 @@ export const ProfondeurBars = memo(function ProfondeurBars({ buckets }: { bucket
           <Jauge
             valeur={b.heures}
             max={max}
-            couleur={SERIE.encre}
+            couleur={couleur(b.id)}
             epaisseur={4}
             ariaLabel={`Profondeur de retard — ${b.label}`}
             ariaDescription={`${fmtHeures(b.heures)} sur ${fmtHeures(max)}, ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`}
