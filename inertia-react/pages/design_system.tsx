@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react'
 
 import { TooltipProvider } from '@r/components/ui/tooltip'
+import { useThemeBody } from '@r/lib/theme-body'
 import { cn } from '@r/lib/utils'
 
 import { useScrollSpy } from '@r/components/design-system/kit'
@@ -94,6 +95,10 @@ const IDS = NAV.flatMap((g) => g.items.map((i) => i.id))
 
 export default function DesignSystem() {
   const active = useScrollSpy(IDS)
+
+  // Portails Base UI (Dialog, Sheet, Select, Tooltip…) rendent dans
+  // document.body : la classe de thème doit y être posée aussi.
+  useThemeBody('theme-cursor')
 
   return (
     <>

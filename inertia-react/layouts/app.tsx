@@ -5,6 +5,7 @@ import { cn } from '@r/lib/utils'
 import { type NavKey } from '@r/lib/nav'
 import { AppSidebar } from '@r/components/app-sidebar'
 import { TopBar } from '@r/components/top-bar'
+import { useThemeBody } from '@r/lib/theme-body'
 import { SidebarProvider, SidebarInset } from '@r/components/ui/sidebar'
 import { TooltipProvider } from '@r/components/ui/tooltip'
 
@@ -63,6 +64,10 @@ export function AppLayout({
 }: AppLayoutProps) {
   // Map MastheadTab → NavKey (même ensemble, alias)
   const navKey = active as unknown as NavKey
+
+  // Les portails Base UI rendent dans document.body : le thème doit y être
+  // posé aussi, sinon Dialog/Sheet/Select/Tooltip retombent sur Airbnb.
+  useThemeBody(THEME_SCOPE[theme])
 
   // Persistance de l'état replié : chaque navigation remonte un nouvel
   // AppLayout (page différente) donc un Provider frais. Sans état
