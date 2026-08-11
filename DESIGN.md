@@ -86,6 +86,21 @@ Encre `--base` `#141414`. CTA filled `--bg-neutral` / `--cursor-button-backgroun
 | Padding   | `p-4`                                                                                  | `16px`                                |
 | CTA       | `bg-neutral text-inverted hover:bg-neutral-hover h-7 rounded-md text-base font-medium` | `#141414` / `#fcfcfc`                 |
 
+### DataTable — recipe CSS (markup TanStack inchangé)
+
+Source : table API keys produit Cursor. Overrides sous `.theme-cursor table` uniquement — pas de remplacement du composant `DataTable` par un `<table>` ad hoc.
+
+| Élément | Recipe Cursor | CSS board |
+| ------- | ------------- | --------- |
+| `thead tr` | `border-b border-quaternary` | filet mix base 4% |
+| `th` | `px-4 py-3 text-xs font-normal text-tertiary` | padding 12×16, weight 400, tertiary |
+| `th` trié | — | `aria-sort` → primary, weight 500 |
+| `tbody tr` | `border-b border-quaternary last:border-b-0` | idem ; hover `bg-quaternary` (mix 6%) |
+| `td` | `px-4 py-3` + `text-base text-secondary` | padding 12×16, 13px, secondary |
+| Emphase cellule | `font-medium text-primary` | `.text-foreground` → `#141414` |
+
+Dashboard : `theadRowClass="bg-transparent"`, `getRowClass={() => 'group/row'}` (pas de zebra / `border-t` Airbnb).
+
 | Élément                | Token produit                                                 | Valeur                                          |
 | ---------------------- | ------------------------------------------------------------- | ----------------------------------------------- |
 | AppSidebar             | `--bg-sidebar`                                                | `#f3f3f3`                                       |

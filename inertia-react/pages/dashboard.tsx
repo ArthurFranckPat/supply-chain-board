@@ -1403,10 +1403,8 @@ export default function Dashboard(props: DashboardProps) {
                                   virtualize={false}
                                   tableClass="w-full border-collapse text-left"
                                   scrollContainerClass="-mx-2 mt-4 max-h-[160px] overflow-auto rounded-none border-0 shadow-none"
-                                  theadRowClass="sticky top-0 z-10 bg-secondary"
-                                  getRowClass={() =>
-                                    'border-t border-border/60 transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-                                  }
+                                  theadRowClass="bg-transparent"
+                                  getRowClass={() => 'group/row'}
                                   getRowKey={(l) =>
                                     `${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`
                                   }
@@ -1621,10 +1619,8 @@ export default function Dashboard(props: DashboardProps) {
                       virtualize={false}
                       tableClass="w-full border-collapse text-left"
                       scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
-                      theadRowClass="sticky top-0 z-10 bg-secondary"
-                      getRowClass={() =>
-                        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-                      }
+                      theadRowClass="bg-transparent"
+                      getRowClass={() => 'group/row'}
                       getRowKey={(l) =>
                         `${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`
                       }
@@ -1734,10 +1730,8 @@ export default function Dashboard(props: DashboardProps) {
                         virtualize={false}
                         tableClass="w-full border-collapse text-left"
                         scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
-                        theadRowClass="sticky top-0 z-10 bg-secondary"
-                        getRowClass={() =>
-                          'cursor-pointer border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-                        }
+                        theadRowClass="bg-transparent"
+                        getRowClass={() => 'group/row cursor-pointer'}
                         onRowClick={(a) => setStockArticle(a.article)}
                         getRowKey={(a) => `${a.article}::${a.categorie}`}
                       />

@@ -596,6 +596,62 @@
   letter-spacing: -0.08px;
 }
 
+/*
+ * DataTable (TanStack markup inchangé) — recipe table Cursor API keys :
+ * thead border-quaternary, th text-xs font-normal text-tertiary,
+ * td px-4 py-3, rows border-b border-quaternary last:border-b-0.
+ */
+.theme-cursor table {
+  border-collapse: collapse;
+  text-align: left;
+}
+.theme-cursor table thead {
+  background-color: #fcfcfc; /* bg-elevated sous sticky */
+}
+.theme-cursor table thead tr {
+  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent); /* border-quaternary */
+  background-color: transparent !important;
+}
+.theme-cursor table th {
+  padding: 0.75rem 1rem; /* px-4 py-3 */
+  text-align: left;
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem;
+  font-weight: 400 !important; /* font-normal */
+  color: color-mix(in oklab, #141414 60%, transparent) !important; /* text-tertiary */
+  border-radius: 0;
+}
+.theme-cursor table th[aria-sort] {
+  color: #141414 !important; /* sorted → primary */
+  font-weight: 500 !important;
+}
+.theme-cursor table tbody tr {
+  border-top: 0 !important;
+  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent) !important;
+  background-image: none !important;
+  background-color: transparent !important;
+}
+.theme-cursor table tbody tr:last-child {
+  border-bottom-width: 0 !important;
+}
+.theme-cursor table tbody tr:hover {
+  background-color: color-mix(in oklab, #141414 6%, transparent) !important; /* bg-quaternary */
+}
+.theme-cursor table tbody tr.ring-2 {
+  background-color: color-mix(in oklab, #141414 4%, transparent) !important;
+}
+.theme-cursor table td {
+  padding: 0.75rem 1rem; /* px-4 py-3 */
+  vertical-align: top;
+  font-size: 0.8125rem; /* text-base produit */
+  line-height: 1.125rem;
+  color: color-mix(in oklab, #141414 74%, transparent); /* text-secondary défaut */
+}
+.theme-cursor table td .text-foreground,
+.theme-cursor table td a.text-foreground {
+  color: #141414; /* text-primary quand emphase */
+}
+
 .theme-cursor [aria-label="Fil d'Ariane"] .font-semibold,
 .theme-cursor [aria-label="Fil d'Ariane"] .font-normal {
   font-weight: 500;
