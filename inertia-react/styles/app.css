@@ -906,6 +906,27 @@
   transform: translateX(12px);
 }
 
+/* ── Lot 7 — états & conversation ─────────────────────────── */
+/* Le brand orange n'a pas à signaler une attente : elle est neutre. */
+.theme-cursor [data-slot='spinner'] {
+  color: color-mix(in oklab, #141414 60%, transparent);
+}
+.theme-cursor [data-slot='skeleton'],
+.theme-cursor [data-slot='skeleton-card'] {
+  background-color: color-mix(in oklab, #141414 6%, transparent);
+  border-radius: 6px;
+  animation-duration: 2s;
+}
+.theme-cursor [data-slot='loading-state'] {
+  color: color-mix(in oklab, #141414 74%, transparent);
+}
+.theme-cursor [data-slot='bubble'] {
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

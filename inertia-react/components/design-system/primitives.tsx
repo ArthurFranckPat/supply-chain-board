@@ -1248,7 +1248,7 @@ export function EtatsSection() {
       <Fiche
         nom="Spinner"
         from="@r/components/ui/spinner"
-        etat="airbnb"
+        etat="cursor"
         note="Cinq tailles, cinq tons. Le seul élément de l'interface autorisé à s'animer en boucle."
       >
         <Grid min={280}>
@@ -1273,7 +1273,7 @@ export function EtatsSection() {
       <Fiche
         nom="Skeleton"
         from="@r/components/ui/skeleton"
-        etat="airbnb"
+        etat="cursor"
         note="Quatre formes prêtes : ligne, badge, graphe, carte. Le squelette doit avoir la taille exacte du contenu attendu."
       >
         <Grid min={280}>
@@ -1304,7 +1304,7 @@ export function EtatsSection() {
       <Fiche
         nom="LoadingState"
         from="@r/components/ui/loading-state"
-        etat="airbnb"
+        etat="cursor"
         note="Attente pleine page, avec un titre qui dit ce qu'on attend. Variante orb réservée au copilote."
       >
         <Grid min={280}>
@@ -1363,7 +1363,7 @@ export function ConversationSection() {
       <Fiche
         nom="Bubble"
         from="@r/components/ui/bubble"
-        etat="airbnb"
+        etat="cursor"
         note="Sept tons, deux alignements. L'utilisateur à droite, le copilote à gauche — jamais l'inverse."
       >
         <Panel>
