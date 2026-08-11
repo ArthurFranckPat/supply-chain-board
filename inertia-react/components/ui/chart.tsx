@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 
-import { barX, barY, defineChart, lineY, ruleX, ruleY, stack } from '@tanstack/charts'
+import { barX, barY, defineChart, dot, lineY, ruleX, ruleY, stack, text } from '@tanstack/charts'
 import { Chart } from '@tanstack/charts/react'
 import { scaleBand } from '@tanstack/charts/scales/band'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
@@ -336,16 +336,32 @@ export const BarresClassement = memo(function BarresClassement({
 /* ── 4. Histogramme de charge ────────────────────────────────── */
 
 export type SegmentCharge = {
+  /** Clé de pile — identité du segment pour l'empilement. Par défaut : `serie`. */
+  cle?: string
   serie: NomSerie
   label: string
+  /** Encre du segment — court-circuite SERIE[serie] (hachure, série dérivée). */
+  couleur?: string
 }
 
 export type PeriodeCharge = {
   cle: string
   label: string
-  /** Valeur par série, dans l'ordre de la pile. */
-  valeurs: Partial<Record<NomSerie, number>>
+  /** Valeur par segment, indexée par la clé du segment (`cle` ?? `serie`). */
+  valeurs: Partial<Record<string, number>>
   capacite?: number | null
+}
+
+/** Ligne longue du format : une (période × segment), l'empilement se déduit des clés répétées. */
+export type LigneCharge = {
+  cle: string
+  label: string
+  segment: string
+  serie: NomSerie
+  serieLabel: string
+  valeur: number
+  capacite: number | null
+  couleur?: string
 }
 
 export type HistogrammeChargeProps = SocleProps & {
@@ -353,11 +369,57 @@ export type HistogrammeChargeProps = SocleProps & {
   /** Ordre de la pile, du bas vers le haut. Porte aussi la légende. */
   segments: SegmentCharge[]
   hauteur?: number
-  /** Trace le plafond de capacité et surligne le dépassement. */
+  /**
+   * Borne haute de l'échelle y. À déclarer dès que plusieurs graphiques doivent
+   * être comparables (board, annuaire MCP) : deux histogrammes côte à côte
+   * finissent sinon chacun sur son propre maximum. Passé, le domaine est
+   * `[0, max]` exact — la marge haute (totaux au sommet, pastille de pic)
+   * reste à la charge de l'appelant.
+   */
+  max?: number | null
+  /** Trace le plafond de capacité — courbe quand il varie d'une période à l'autre. */
   afficherCapacite?: boolean
+  /** Inscrit la valeur dans chaque segment — seulement s'il dépasse ~15 % du total. */
+  labelsEnBarre?: boolean
+  /** Inscrit le total au sommet de chaque barre (encre d'alerte au-delà de la capacité). */
+  totaux?: boolean
+  /** Fenêtre de la moyenne mobile (en périodes), tracée en SERIE.tendance. */
+  moyenneMobile?: number | null
+  /** Pastille sur le total maximum — le pic à anticiper. */
+  pic?: boolean
+  /** Axes et grille — `false` pour une tuile (mini-carte, en-tête de board). */
+  afficherAxes?: boolean
+  /** Taille des graduations d'axe. 8 pour un axe semaine dense, 11 par défaut. */
+  tailleTicks?: number
+  /** Règles horizontales supplémentaires (moyenne, seuil…), en SERIE.tendance. */
+  regles?: { valeur: number; serie?: NomSerie }[]
+  /** Repère vertical à la période `cle` (aujourd'hui, rupture, livraison…). */
+  regleX?: string | null
+  /** Surcharge le libellé d'axe d'une période (totaux, unités). */
+  libelleAxe?: (periode: PeriodeCharge) => string
+  /** Surcharge le contenu du tooltip de groupe. */
+  formatTooltip?: (points: readonly { datum: LigneCharge }[]) => string
   unite?: string
   format?: (valeur: number) => string
+  /** Largeur au premier rendu — une tuile de 190 px ne doit pas être mesurée à 640. */
+  largeurInitiale?: number
   onSelectPeriode?: (cle: string) => void
+}
+
+/** Moyenne mobile centrée-tronquée sur `fenetre` points — le lissage de la charge. */
+function mobileAvg(totaux: number[], fenetre: number): number[] {
+  const r: number[] = []
+  for (let i = 0; i < totaux.length; i++) {
+    let s = 0
+    let c = 0
+    for (let k = i - fenetre + 1; k <= i; k++)
+      if (k >= 0) {
+        s += totaux[k]
+        c++
+      }
+    r.push(c ? s / c : 0)
+  }
+  return r
 }
 
 /**
@@ -366,57 +428,141 @@ export type HistogrammeChargeProps = SocleProps & {
  * Cette forme existait en six exemplaires dans le produit — SVG à la main,
  * divs empilées, widgets MCP — chacun avec sa propre arithmétique d'échelle.
  * Un seul moteur désormais : l'empilement est déduit des `x` répétés, le
- * plafond est une règle horizontale, le dépassement se lit à la couleur.
+ * plafond est une courbe, le dépassement se lit au total inscrit.
  */
 export const HistogrammeCharge = memo(function HistogrammeCharge({
   periodes,
   segments,
   hauteur = 240,
+  max = null,
   afficherCapacite = true,
+  labelsEnBarre = false,
+  totaux = false,
+  moyenneMobile = null,
+  pic = false,
+  afficherAxes = true,
+  tailleTicks = AXE.tickFontSize,
+  regles = [],
+  regleX = null,
+  libelleAxe,
+  formatTooltip,
   format = fmtDecimal,
   ariaLabel,
   ariaDescription,
   className,
+  largeurInitiale = 640,
   onSelectPeriode,
 }: HistogrammeChargeProps) {
   const definition = useMemo(() => {
     if (periodes.length === 0) return null
 
-    // Format long : une ligne par (période × série). Les `x` répétés empilent.
-    const rows = periodes.flatMap((p) =>
+    const cleSeg = (s: SegmentCharge) => s.cle ?? s.serie
+
+    // Format long : une ligne par (période × segment). Les `x` répétés empilent.
+    const rows: LigneCharge[] = periodes.flatMap((p) =>
       segments
         .map((s) => ({
           cle: p.cle,
           label: p.label,
+          segment: cleSeg(s),
           serie: s.serie,
           serieLabel: s.label,
-          valeur: p.valeurs[s.serie] ?? 0,
+          couleur: s.couleur,
+          valeur: p.valeurs[cleSeg(s)] ?? 0,
           capacite: p.capacite ?? null,
         }))
         .filter((r) => r.valeur > 0)
     )
 
-    const capacites = periodes
-      .map((p) => p.capacite)
-      .filter((c): c is number => typeof c === 'number' && c > 0)
-    const capacite = capacites.length > 0 ? Math.max(...capacites) : null
+    // Totaux par période — la somme des segments DESSINÉS, pas des données.
+    const totauxParCle = new Map<string, { total: number; cap: number | null }>()
+    for (const r of rows) {
+      const t = totauxParCle.get(r.cle)
+      if (t) t.total += r.valeur
+      else totauxParCle.set(r.cle, { total: r.valeur, cap: r.capacite })
+    }
+
+    // Capacité : courbe quand elle varie, ligne plate sinon — un seul rendu.
+    const capPoints = afficherCapacite
+      ? periodes
+          .filter((p) => p.capacite != null && p.capacite > 0)
+          .map((p) => ({
+            cle: p.cle,
+            label: p.label,
+            valeur: p.capacite as number,
+          }))
+      : []
+
+    // Valeurs inscrites dans les segments — cumul bas→haut, même ordre que la pile.
+    const labels = labelsEnBarre
+      ? periodes.flatMap((p) => {
+          const total = totauxParCle.get(p.cle)?.total ?? 0
+          let acc = 0
+          const out: {
+            cle: string
+            label: string
+            valeur: number
+            texte: string
+            sombre: boolean
+          }[] = []
+          for (const s of segments) {
+            const v = p.valeurs[cleSeg(s)] ?? 0
+            if (v <= 0) continue
+            if (v / total >= 0.15)
+              out.push({
+                cle: p.cle,
+                label: p.label,
+                valeur: acc + v / 2,
+                texte: format(v),
+                // Encre sombre sur les segments clairs (suggéré, induit) :
+                // blanc sur ambre ne se lit pas.
+                sombre: s.serie === 'suggere' || s.serie === 'induit',
+              })
+            acc += v
+          }
+          return out
+        })
+      : []
+
+    const totaux = [...totauxParCle.entries()].map(([cle, t]) => ({
+      cle,
+      label: periodes.find((p) => p.cle === cle)?.label ?? cle,
+      valeur: t.total,
+      depasse: t.cap !== null && t.total > t.cap,
+    }))
+
+    const moy = moyenneMobile
+      ? mobileAvg(
+          periodes.map((p) => totauxParCle.get(p.cle)?.total ?? 0),
+          moyenneMobile
+        ).map((v, i) => ({ cle: periodes[i].cle, label: periodes[i].label, valeur: v }))
+      : []
+
+    const picPoint = pic
+      ? totaux.reduce<{ cle: string; label: string; valeur: number } | null>(
+          (m, t) => (m === null || t.valeur > m.valeur ? t : m),
+          null
+        )
+      : null
 
     return defineChart({
       marks: [
         barY(rows, {
           x: 'cle',
           y: 'valeur',
-          z: 'serie',
+          z: 'segment',
           radius: 2,
           inset: 1,
           // L'ordre de la pile est déclaré, jamais laissé au hasard des
           // données : c'est lui qui rend deux périodes comparables à l'œil.
-          layout: stack({ order: segments.map((s) => s.serie) }),
-          fill: (d: (typeof rows)[number]) => SERIE[d.serie],
+          layout: stack({ order: segments.map(cleSeg) }),
+          fill: (d: LigneCharge) => d.couleur ?? SERIE[d.serie],
         }),
-        ...(afficherCapacite && capacite !== null
+        ...(capPoints.length > 0
           ? [
-              ruleY([capacite], {
+              lineY(capPoints, {
+                x: 'cle',
+                y: 'valeur',
                 stroke: SERIE.capacite,
                 strokeWidth: 1.5,
                 strokeDasharray: '4 3',
@@ -426,37 +572,147 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
               }),
             ]
           : []),
+        ...regles.flatMap((r, i) => [
+          ruleY([r.valeur], {
+            stroke: SERIE[r.serie ?? 'tendance'],
+            strokeWidth: 1.25,
+            strokeDasharray: '4 3',
+            strokeOpacity: 1,
+            id: `regle-${i}`,
+          }),
+        ]),
+        ...(regleX !== null
+          ? [ruleX([regleX], { stroke: AXE.grille, strokeWidth: 1, id: 'regle-x' })]
+          : []),
+        ...(moy.length > 1
+          ? [
+              lineY(moy, {
+                x: 'cle',
+                y: 'valeur',
+                stroke: SERIE.tendance,
+                strokeWidth: 1.5,
+                strokeDasharray: '4 3',
+              }),
+            ]
+          : []),
+        ...(labels.length > 0
+          ? [
+              text(labels, {
+                x: 'cle',
+                y: 'valeur',
+                text: 'texte',
+                anchor: 'middle',
+                fontSize: 9,
+                fontWeight: 700,
+                fill: (d: (typeof labels)[number]) =>
+                  d.sombre ? 'currentColor' : 'var(--color-card, #fff)',
+              }),
+            ]
+          : []),
+        ...(totaux.length > 0
+          ? [
+              text(totaux, {
+                x: 'cle',
+                y: 'valeur',
+                text: (d: (typeof totaux)[number]) => format(d.valeur),
+                anchor: 'middle',
+                dy: -5,
+                fontSize: 10,
+                fontWeight: 700,
+                fill: (d: (typeof totaux)[number]) => (d.depasse ? SERIE.alerte : 'currentColor'),
+              }),
+            ]
+          : []),
+        ...(picPoint !== null
+          ? [
+              dot([picPoint], {
+                x: 'cle',
+                y: 'valeur',
+                r: 4,
+                fill: SERIE.tendance,
+              }),
+            ]
+          : []),
       ],
       x: {
         scale: () => scaleBand<string>().padding(0.24),
-        axis: {
-          line: false,
-          ticks: {
-            size: 0,
-            format: (cle: string) => periodes.find((p) => p.cle === cle)?.label ?? cle,
-          },
-          tickLabels: { ...TICKS, thin: { minGap: 8, priority: 'ends' } },
-        },
+        axis: afficherAxes
+          ? {
+              line: false,
+              ticks: {
+                size: 0,
+                format: (cle: string) => {
+                  const p = periodes.find((pr) => pr.cle === cle)
+                  if (!p) return cle
+                  if (libelleAxe) return libelleAxe(p)
+                  return p.label.replace(/\n/g, ' ')
+                },
+              },
+              tickLabels: {
+                ...TICKS,
+                fontSize: tailleTicks,
+                thin: { minGap: 8, priority: 'ends' },
+              },
+            }
+          : false,
       },
       y: {
-        scale: scaleLinear,
-        nice: true,
-        grid: true,
-        axis: { line: false, ticks: { size: 0, format: format }, tickLabels: TICKS },
+        scale: max !== null ? () => scaleLinear().domain([0, max]) : scaleLinear,
+        nice: max === null,
+        grid: afficherAxes,
+        axis: afficherAxes
+          ? {
+              line: false,
+              ticks: { size: 0, format: format },
+              tickLabels: { ...TICKS, fontSize: tailleTicks },
+            }
+          : false,
       },
       tooltip: {
         ...TOOLTIP_FR,
-        formatGroup: (points: readonly { datum: (typeof rows)[number] }[]) => {
-          const premier = points[0]?.datum
-          if (!premier) return ''
-          const total = points.reduce((somme, p) => somme + p.datum.valeur, 0)
-          const lignes = points.map((p) => `${p.datum.serieLabel} ${format(p.datum.valeur)}`)
-          const plafond = premier.capacite !== null ? ` · capacité ${format(premier.capacite)}` : ''
-          return `${fmtPeriodeLongue(premier.label)} — ${format(total)}${plafond}\n${lignes.join(' · ')}`
+        // Une marque décorative (valeur inscrite, plafond, moyenne) reste un
+        // point survolable : ce repli lui donne un contenu plutôt qu'un trou.
+        format: (point: { datum: unknown }) => {
+          const d = point.datum as Partial<LigneCharge>
+          if (typeof d === 'object' && d !== null && d.label && d.valeur !== undefined)
+            return `${fmtPeriodeLongue(String(d.label))} · ${format(Number(d.valeur))}`
+          return ''
         },
+        formatGroup:
+          formatTooltip ??
+          ((points: readonly { datum: LigneCharge }[]) => {
+            const premier = points[0]?.datum
+            if (!premier) return ''
+            const total = points.reduce((somme, p) => somme + p.datum.valeur, 0)
+            const lignes = points.map((p) => `${p.datum.serieLabel} ${format(p.datum.valeur)}`)
+            const plafond =
+              premier.capacite !== null ? ` · capacité ${format(premier.capacite)}` : ''
+            const sat =
+              premier.capacite !== null && premier.capacite > 0
+                ? ` · saturation ${fmtPourcent(Math.round((total / premier.capacite) * 100))}`
+                : ''
+            const clic = onSelectPeriode ? '\nClic : détail de la période' : ''
+            return `${fmtPeriodeLongue(premier.label)} — ${format(total)}${plafond}${sat}\n${lignes.join(' · ')}${clic}`
+          }),
       },
     })
-  }, [periodes, segments, afficherCapacite, format])
+  }, [
+    periodes,
+    segments,
+    max,
+    afficherCapacite,
+    labelsEnBarre,
+    moyenneMobile,
+    pic,
+    afficherAxes,
+    tailleTicks,
+    regles,
+    regleX,
+    libelleAxe,
+    formatTooltip,
+    format,
+    onSelectPeriode,
+  ])
 
   if (!definition) return null
 
@@ -467,7 +723,7 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
       ariaLabel={ariaLabel}
       ariaDescription={ariaDescription}
       height={hauteur}
-      initialWidth={640}
+      initialWidth={largeurInitiale}
       className={cn('w-full', className)}
       onSelect={
         onSelectPeriode
@@ -493,8 +749,17 @@ export type CourbeProjectionProps = SocleProps & {
   seuil?: number | null
   /** Clé du point où bascule la projection — trace la charnière « aujourd'hui ». */
   charniere?: string | null
+  /** Repère vertical à la clé d'un point (rupture prévue, livraison…). */
+  regleX?: string | null
+  /**
+   * Flux du point (entrées / sorties) — enrichit le tooltip quand la courbe
+   * n'est que le niveau : le mouvement qui l'explique.
+   */
+  flux?: (cle: string) => { entree: number; sortie: number } | null
   hauteur?: number
   format?: (valeur: number) => string
+  /** Largeur au premier rendu — une vignette MCP n'est pas mesurée à 640 px. */
+  largeurInitiale?: number
 }
 
 /**
@@ -507,8 +772,11 @@ export const CourbeProjection = memo(function CourbeProjection({
   points,
   seuil = null,
   charniere = null,
+  regleX = null,
+  flux,
   hauteur = 200,
   format = fmtNombre,
+  largeurInitiale = 640,
   ariaLabel,
   ariaDescription,
   className,
@@ -549,6 +817,17 @@ export const CourbeProjection = memo(function CourbeProjection({
             ]
           : []),
         ...(charniere !== null ? [ruleX([charniere], { stroke: AXE.grille, strokeWidth: 1 })] : []),
+        ...(regleX !== null
+          ? [
+              ruleX([regleX], {
+                stroke: SERIE.alerte,
+                strokeWidth: 1.25,
+                strokeDasharray: '4 3',
+                strokeOpacity: 0.85,
+                id: 'rupture',
+              }),
+            ]
+          : []),
       ],
       x: {
         scale: () => scaleBand<string>().padding(0.1),
@@ -569,11 +848,20 @@ export const CourbeProjection = memo(function CourbeProjection({
       },
       tooltip: {
         ...TOOLTIP_FR,
-        format: (point: { datum: PointProjection }) =>
-          `${point.datum.label} · ${format(point.datum.valeur)}${point.datum.projete ? ' (projeté)' : ''}`,
+        format: (point: { datum: PointProjection }) => {
+          const d = point.datum
+          const fluxLigne = flux
+            ? (() => {
+                const f = flux(d.cle)
+                if (!f) return ''
+                return `\nentrées ${format(f.entree)} · sorties ${format(f.sortie)}`
+              })()
+            : ''
+          return `${d.label} · ${format(d.valeur)}${d.projete ? ' (projeté)' : ''}${fluxLigne}`
+        },
       },
     })
-  }, [points, seuil, charniere, format])
+  }, [points, seuil, charniere, regleX, flux, format])
 
   if (!definition) return null
 
@@ -584,7 +872,7 @@ export const CourbeProjection = memo(function CourbeProjection({
       ariaLabel={ariaLabel}
       ariaDescription={ariaDescription}
       height={hauteur}
-      initialWidth={640}
+      initialWidth={largeurInitiale}
       className={cn('w-full', className)}
     />
   )
@@ -612,7 +900,7 @@ export function Legende({ segments, className }: LegendeProps) {
           <span
             aria-hidden
             className="size-2 shrink-0 rounded-[2px]"
-            style={{ background: SERIE[s.serie] }}
+            style={{ background: s.couleur ?? SERIE[s.serie] }}
           />
           {s.label}
         </li>

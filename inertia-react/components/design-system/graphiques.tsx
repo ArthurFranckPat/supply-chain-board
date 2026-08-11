@@ -300,8 +300,12 @@ export function GraphiquesSection() {
         note={
           <>
             L’empilement est déclaré par <Tok>segments</Tok>, jamais laissé à l’ordre des données :
-            c’est lui qui rend deux périodes comparables. Le plafond de capacité est une règle
-            horizontale en pointillé. Le survol donne le total, le détail par série et la capacité.
+            c’est lui qui rend deux périodes comparables. Le plafond de capacité est une courbe —
+            plate quand la capacité est constante, épousant ses variations sinon. Le survol donne le
+            total, le détail par série, la capacité et la saturation. En option : valeurs inscrites
+            (<Tok>labelsEnBarre</Tok>), totaux au sommet (<Tok>totaux</Tok>), moyenne mobile (
+            <Tok>moyenneMobile</Tok>), pic (<Tok>pic</Tok>) et domaine partagé (<Tok>max</Tok>) —
+            c’est lui qui rend deux histogrammes côte à côte comparables.
           </>
         }
       >
@@ -310,13 +314,18 @@ export function GraphiquesSection() {
             periodes={CHARGE}
             segments={SEGMENTS}
             format={fmtDecimal}
+            labelsEnBarre
+            totaux
+            moyenneMobile={2}
+            pic
             ariaLabel="Charge hebdomadaire du poste PP_139, empilée par statut"
             ariaDescription="Six semaines, de S32 à S37, face à une capacité de 420 heures. La part ferme décroît de 318 à 12 heures pendant que le suggéré monte de 0 à 177."
           />
           <Legende segments={SEGMENTS} className="mt-3" />
           <Caption className="mt-2">
             La bascule du ferme vers le suggéré au fil des semaines est la lecture attendue d’un
-            planificateur : ce qui est loin n’est pas encore lancé.
+            planificateur : ce qui est loin n’est pas encore lancé. La pastille marque le pic, la
+            courbe pointillée la moyenne mobile.
           </Caption>
         </Panel>
       </Fiche>
