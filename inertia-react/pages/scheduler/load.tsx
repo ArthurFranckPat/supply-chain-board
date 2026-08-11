@@ -469,6 +469,7 @@ export default function Load(props: LoadPageProps) {
                       key={line.code}
                       line={line}
                       months={props.months}
+                      view={view}
                       selected={selected === line.code}
                       showCapacity={showCapacity}
                       onSelect={() => setSelected(line.code)}

@@ -1,21 +1,27 @@
 import { useMemo } from 'react'
+import { HistogrammeCharge, type PeriodeCharge } from '@r/components/ui/chart'
 import { cn } from '@r/lib/utils'
-import type { LoadLine } from '@r/lib/load/types'
-import { DANGER, FG, BRAND, rtop, satColor, satRate, segsOf, total } from '@r/lib/load/chart-math'
+import type { LoadLine, LoadView } from '@r/lib/load/types'
+import { satColor, satRate, segmentsDeVue, total } from '@r/lib/load/chart-math'
 
 /**
  * Mini-graphe (carte poste) de la vue « Projection de charge » (issue #52 —
  * extrait de scheduler/load.tsx).
+ *
+ * Les barres passent par HistogrammeCharge (@tanstack/charts), muet : ni axe ni
+ * grille dans une tuile de 190 px. La capacité est la courbe, le pic la
+ * pastille ; la lecture chiffrée vit dans le texte sous le graphe.
  */
 interface MiniCardProps {
   line: LoadLine
   months: string[]
+  view: LoadView
   selected: boolean
   showCapacity: boolean
   onSelect: () => void
 }
 
-export function MiniCard({ line, months, selected, showCapacity, onSelect }: MiniCardProps) {
+export function MiniCard({ line, months, view, selected, showCapacity, onSelect }: MiniCardProps) {
   const totals = useMemo(() => line.monthly.map(total), [line.monthly])
   const sum = useMemo(() => totals.reduce((a, b) => a + b, 0), [totals])
 
@@ -29,48 +35,26 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
     return satRate(totals[peakIdx] ?? 0, caps[peakIdx] ?? 0)
   }, [totals, caps, peakIdx])
 
-  const bars = useMemo(() => {
-    const W = 160
-    const H = 44
-    const pad = 2
-    const t = totals
-    const c = caps
-    const n = t.length || 1
-    const slot = (W - 2 * pad) / n
-    const bw = slot * 0.55
-    const max = Math.max(...t, ...c, 0) * 1.1 || 1
-    const yy = (v: number) => H - pad - (v / max) * (H - 2 * pad)
-    const out: {
-      kind: 'rect' | 'path'
-      x: number
-      y: number
-      w: number
-      h: number
-      fill: string
-    }[] = []
-    const peakDots: { cx: number; cy: number }[] = []
-    const overRects: { x: number; y: number; w: number; h: number }[] = []
-    const capPts: { x: number; y: number }[] = []
+  const segments = useMemo(() => segmentsDeVue(view), [view])
 
-    line.monthly.forEach((d, i) => {
-      const cx = pad + slot * i + slot / 2
-      const x = cx - bw / 2
-      const segs = segsOf(d).filter(([, v]) => v > 0)
-      const topIdx = segs.length - 1
-      let acc = 0
-      segs.forEach(([, v, col], idx) => {
-        const yTop = yy(acc + v)
-        const h = yy(acc) - yTop
-        out.push({ kind: idx === topIdx ? 'path' : 'rect', x, y: yTop, w: bw, h, fill: col })
-        acc += v
-      })
-      if (c[i] > 0 && t[i] > c[i]) overRects.push({ x, y: yy(t[i]), w: bw, h: yy(c[i]) - yy(t[i]) })
-      if (c[i] > 0) capPts.push({ x: cx, y: yy(c[i]) })
-      if (i === peakIdx) peakDots.push({ cx, cy: yy(t[i]) })
-    })
-    const capPath = capPts.map((pt, i) => `${i ? 'L' : 'M'}${pt.x} ${pt.y}`).join(' ')
-    return { out, peakDots, overRects, capPath }
-  }, [line.monthly, totals, caps, peakIdx])
+  const periodes = useMemo<PeriodeCharge[]>(
+    () =>
+      line.monthly.map((d, i) => ({
+        cle: `m${i}`,
+        label: months[i] ?? '',
+        valeurs: Object.fromEntries(
+          segments.map((s) => {
+            const k = s.cle ?? s.serie
+            return [k, k in d ? d[k as keyof typeof d] : 0]
+          })
+        ),
+        capacite: caps[i] > 0 ? caps[i] : null,
+      })),
+    [line.monthly, months, caps, segments]
+  )
+
+  // Borne de la tuile : max de l'horizon avec marge haute pour la pastille de pic.
+  const max = useMemo(() => Math.max(...totals, ...caps, 0) * 1.1 || 1, [totals, caps])
 
   return (
     <button
@@ -92,42 +76,18 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
           <div className="truncate font-sans text-[10px] text-muted-foreground">{line.name}</div>
         </div>
       </div>
-      <svg viewBox={`0 0 160 44`} className="block h-[44px] w-full">
-        {bars.out.map((b, i) =>
-          b.kind === 'path' ? (
-            <path key={i} d={rtop(b.x, b.y, b.w, b.h, Math.min(b.w / 3, 5))} fill={b.fill} />
-          ) : (
-            <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} fill={b.fill} />
-          )
-        )}
-        {showCapacity && (
-          <>
-            {bars.overRects.map((r, i) => (
-              <rect
-                key={`over-${i}`}
-                x={r.x}
-                y={r.y}
-                width={r.w}
-                height={r.h}
-                fill={DANGER}
-                opacity="0.22"
-              />
-            ))}
-            <path
-              d={bars.capPath}
-              fill="none"
-              stroke={FG}
-              strokeOpacity="0.6"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </>
-        )}
-        {bars.peakDots.map((pk, i) => (
-          <circle key={`peak-${i}`} cx={pk.cx} cy={pk.cy} r="2.5" fill={BRAND} />
-        ))}
-      </svg>
+      <HistogrammeCharge
+        periodes={periodes}
+        segments={segments}
+        hauteur={44}
+        max={max}
+        afficherCapacite={showCapacity}
+        afficherAxes={false}
+        pic
+        largeurInitiale={160}
+        ariaLabel={`Charge mensuelle de ${line.code}`}
+        ariaDescription={`${sum} heures sur l'horizon, pic ${months[peakIdx] ?? ''} à ${totals[peakIdx] ?? 0} heures`}
+      />
       <div className="mt-1.5 flex items-baseline justify-between">
         <span className="font-fraunces text-[16px] font-extrabold tracking-tight">{sum}h</span>
         <span

@@ -2,6 +2,7 @@
  * Dérivations pures + constantes de rendu des graphes de charge (issue #52 —
  * extrait de scheduler/load.tsx). Partagées entre MiniCard et DetailChart.
  */
+import type { SegmentCharge } from '@r/components/ui/chart'
 import type { LoadPeriod, LoadView } from '@r/lib/load/types'
 
 export type Gran = 'month' | 'week'
@@ -138,3 +139,31 @@ export const segsOf = (d: LoadPeriod): [keyof LoadPeriod, number, string][] => [
   ['f', d.f, FERME],
   ['fi', d.fi, HATCH_FERME],
 ]
+
+import type { SegmentCharge } from '@r/components/ui/chart'
+
+/** Segments TanStack d'une clé de charge, selon la vue (OF : statut ; Commande : nature). */
+export function segmentDeCle(k: keyof LoadPeriod, view: LoadView): SegmentCharge {
+  switch (k) {
+    case 'fi':
+      return { cle: 'fi', serie: 'induit', label: 'Induit (ferme)', couleur: HATCH_FERME }
+    case 'si':
+      return { cle: 'si', serie: 'induit', label: 'Induit (prévision)', couleur: HATCH_SUGGERE }
+    case 'f':
+      return { cle: 'f', serie: 'ferme', label: view === 'of' ? 'Ferme' : 'Commande' }
+    case 'p':
+      return { cle: 'p', serie: 'planifie', label: 'Planifié' }
+    case 's':
+      return { cle: 's', serie: 'suggere', label: view === 'of' ? 'Suggéré' : 'Prévision' }
+  }
+}
+
+/**
+ * Segments de la pile pour un graphe de charge : le jeu complet de la vue, ou
+ * seulement ceux dont l'option est active (`actifs` porte les ids d'options).
+ */
+export function segmentsDeVue(view: LoadView, actifs?: ReadonlySet<string>): SegmentCharge[] {
+  return segOptions(view)
+    .filter((o) => !actifs || actifs.has(o.id))
+    .flatMap((o) => o.keys.map((k) => segmentDeCle(k, view)))
+}
