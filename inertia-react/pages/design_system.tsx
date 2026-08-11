@@ -33,6 +33,7 @@ import {
   MigrationSection,
   StatutsSection,
 } from '@r/components/design-system/patterns'
+import { GraphiquesSection } from '@r/components/design-system/graphiques'
 
 /**
  * Design system — catalogue complet de l'interface, rendu sous `.theme-cursor`.
@@ -82,8 +83,9 @@ const NAV: NavGroupe[] = [
       { id: 'statuts', n: '19', label: 'Alphabets de statut' },
       { id: 'board-card', n: '20', label: 'Carte de board' },
       { id: 'kpi', n: '21', label: 'Indicateurs' },
-      { id: 'liens', n: '22', label: 'Liens externes' },
-      { id: 'migration', n: '23', label: 'État de la migration' },
+      { id: 'graphiques', n: '22', label: 'Graphiques' },
+      { id: 'liens', n: '23', label: 'Liens externes' },
+      { id: 'migration', n: '24', label: 'État de la migration' },
     ],
   },
 ]
@@ -157,7 +159,7 @@ export default function DesignSystem() {
                   Le langage visuel de l’application
                 </h1>
                 <p className="mt-4 text-[14px] leading-[22px] tracking-[-0.15px] text-[color-mix(in_oklab,#141414_74%,transparent)]">
-                  Vingt-huit primitives, leurs fondations et les motifs métier qui les assemblent —
+                  Vingt-neuf primitives, leurs fondations et les motifs métier qui les assemblent —
                   tous rendus sous le scope{' '}
                   <code className="rounded-[4px] bg-[color-mix(in_oklab,#141414_6%,transparent)] px-1.5 py-0.5 font-mono text-[12px] text-[#141414]">
                     .theme-cursor
@@ -210,6 +212,7 @@ export default function DesignSystem() {
               <StatutsSection />
               <BoardCardSection />
               <KpiSection />
+              <GraphiquesSection />
               <LiensSection />
               <MigrationSection />
 

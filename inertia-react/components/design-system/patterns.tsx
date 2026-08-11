@@ -393,7 +393,7 @@ export function LiensSection() {
   return (
     <Section
       id="liens"
-      n="22"
+      n="23"
       title="Liens externes"
       intro={
         <>
@@ -531,7 +531,7 @@ export function MigrationSection() {
   return (
     <Section
       id="migration"
-      n="23"
+      n="24"
       title="État de la migration"
       last
       intro={

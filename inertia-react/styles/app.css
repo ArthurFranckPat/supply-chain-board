@@ -1465,3 +1465,78 @@
     transform: scaleY(1);
   }
 }
+
+/* ── Graphiques (@tanstack/charts) ────────────────────────────────────────
+   Toute visualisation du produit passe par TanStack Charts. La librairie
+   hérite de `currentColor` et lit six variables de palette `--ts-chart-*` :
+   on les alias sur les tokens du thème posé au-dessus, si bien qu'un
+   graphique change de thème sans recompiler sa définition.
+
+   `--serie-*` porte le sens métier (le vocabulaire de la section « Alphabets
+   de statut »), `--ts-chart-*` sert de repli catégoriel quand une série n'a
+   pas de sens métier — répartitions, top N, catégories d'articles. */
+
+[data-slot='chart'] {
+  --ts-chart-1: var(--chart-1);
+  --ts-chart-2: var(--chart-2);
+  --ts-chart-3: var(--chart-3);
+  --ts-chart-4: var(--chart-4);
+  --ts-chart-5: var(--chart-5);
+  --ts-chart-6: var(--muted-foreground);
+
+  /* Un graphique est un enfant de grille ou de flex : sans cette ligne, il ne
+     peut pas rétrécir et la mesure de conteneur ne redescend jamais. */
+  min-width: 0;
+}
+
+/* Séries métier — repli sur les tokens de statut du thème courant. */
+:root,
+.theme-airbnb,
+.theme-cursor {
+  --serie-ferme: var(--ferme);
+  --serie-suggere: var(--suggere);
+  --serie-reel: var(--foreground);
+  --serie-projete: color-mix(in oklab, var(--foreground) 45%, transparent);
+  --serie-capacite: color-mix(in oklab, var(--foreground) 45%, transparent);
+  --serie-tendance: var(--chart-5);
+  --serie-neutre: color-mix(in oklab, var(--foreground) 32%, transparent);
+  --serie-encre: color-mix(in oklab, var(--foreground) 55%, transparent);
+  --serie-alerte: var(--destructive);
+  --serie-grille: color-mix(in oklab, var(--foreground) 6%, transparent);
+  --serie-piste: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.theme-airbnb {
+  --serie-planifie: var(--planifie);
+  --serie-induit: color-mix(in oklab, var(--planifie) 38%, transparent);
+}
+
+/* Sous .theme-cursor, `--ferme` et `--planifie` valent le même vert : deux
+   segments empilés seraient indiscernables. La série « planifié » est donc
+   éclaircie ici, et le sens reste porté par l'ordre de la pile + la légende. */
+.theme-cursor {
+  --serie-planifie: color-mix(in oklab, var(--ferme) 42%, transparent);
+  --serie-induit: color-mix(in oklab, var(--suggere) 38%, transparent);
+}
+
+/* Le tooltip natif de la librairie, à la grammaire des popovers du produit. */
+.chart-tooltip {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--popover);
+  box-shadow: var(--shadow-sm, 0 4px 12px rgb(0 0 0 / 8%));
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--popover-foreground, var(--foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+/* À l'impression, la couleur d'un graphique porte l'information : elle ne peut
+   pas être supprimée par le mode économie du navigateur. */
+@media print {
+  [data-slot='chart'] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
