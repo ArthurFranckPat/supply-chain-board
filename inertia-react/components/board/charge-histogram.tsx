@@ -1,15 +1,19 @@
 import { useMemo } from 'react'
+import { HistogrammeCharge, type PeriodeCharge, type SegmentCharge } from '@r/components/ui/chart'
 import { cn } from '@r/lib/utils'
 
 /**
  * ChargeHistogram — charge d'un poste (hebdo, empilé Ferme/Planifié/Suggéré).
  *
  *  • variant="full" (défaut, design system) : hero total + moyenne h/sem,
- *    barres avec valeurs inscrites, ligne pointillée terra = moyenne, axe total.
+ *    barres avec valeurs inscrites, ligne pointillée = moyenne, totaux sous l'axe.
  *  • variant="line" (en-tête de poste du board) : plus grand, SANS labels in-bar
- *    ni moyenne (anti-fouillis), axe = n° de semaine seul.
+ *    ni moyenne (anti-fouillis), charge hebdo sous le n° de semaine.
  *
- * Heures absolues, hauteur proportionnelle à `maxHours`.
+ * Les barres passent par HistogrammeCharge (@tanstack/charts) : le domaine
+ * `[0, maxHours]` est déclaré et partagé entre tous les postes du board — c'est
+ * lui qui rend deux colonnes comparables. Hero et axe restent du HTML : ce sont
+ * des textes, pas des marques.
  */
 
 export type ChargeWeek = {
@@ -29,25 +33,27 @@ export type ChargeHistogramProps = {
   class?: string
 }
 
-/** Seuil (part du total) en-dessous duquel on n'inscrit pas la charge. */
-const LABEL_MIN = 0.18
 /** Heures à 2 décimales (virgule FR). */
 const fmt = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
 
-interface SegProps {
-  bg: string
-  h: number
-  label: string | null
-  ink: string
+/** Segments de la pile, du bas vers le haut — l'induit n'existe que s'il pèse. */
+function segments(weeks: ChargeWeek[]): SegmentCharge[] {
+  const base: SegmentCharge[] = [
+    { cle: 'ferme', serie: 'ferme', label: 'Ferme' },
+    { cle: 'planifie', serie: 'planifie', label: 'Planifié' },
+    { cle: 'suggere', serie: 'suggere', label: 'Suggéré' },
+  ]
+  if (weeks.some((w) => w.induit > 0))
+    base.push({ cle: 'induit', serie: 'induit', label: 'Induit' })
+  return base
 }
 
-function Seg({ bg, h, label, ink }: SegProps) {
-  return (
-    <div className={cn('flex w-full items-center justify-center', bg)} style={{ height: `${h}%` }}>
-      {label && <span className={cn('font-mono text-[8px] font-bold leading-none', ink)}>{label}</span>}
-    </div>
-  )
-}
+const periodes = (weeks: ChargeWeek[]): PeriodeCharge[] =>
+  weeks.map((w) => ({
+    cle: String(w.week),
+    label: `S${w.week}`,
+    valeurs: { ferme: w.ferme, planifie: w.planifie, suggere: w.suggere, induit: w.induit },
+  }))
 
 export function ChargeHistogram(props: ChargeHistogramProps) {
   const variant = props.variant ?? 'full'
@@ -58,21 +64,11 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
     const fermeTotal = props.weeks.reduce((s, w) => s + w.ferme, 0)
     const induitTotal = props.weeks.reduce((s, w) => s + w.induit, 0)
     const moyenne = props.weeks.length ? total / props.weeks.length : 0
-    const moyH = props.maxHours ? (moyenne / props.maxHours) * 100 : 0
-    return { total, fermeTotal, induitTotal, moyenne, moyH }
-  }, [props.weeks, props.maxHours])
+    return { total, fermeTotal, induitTotal, moyenne }
+  }, [props.weeks])
 
-  // 'line' : barres flexibles (remplissent la colonne « Poste », largeur variable
-  // selon le nombre de semaines) -> jamais de débordement hors de l'en-tête.
-  // 'full' : largeur fixe (composant autonome du design system).
-  const barW = line ? 'min-w-0 flex-1 basis-0 max-w-[44px]' : 'w-[34px] shrink-0'
-  const barH = line ? 'h-[72px]' : 'h-[56px]'
-  const gap = line ? 'gap-2' : 'gap-[22px]'
-
-  const lab = (v: number, t: number) =>
-    line || t <= 0 || v / t < LABEL_MIN ? null : `${fmt(v)}h`
-  const pct = (v: number, t: number) => (t > 0 ? (v / t) * 100 : 0)
-
+  const axe = line ? 'text-[10px]' : 'text-[8px]'
+  const totalSem = (w: ChargeWeek) => w.ferme + w.planifie + w.suggere + w.induit
   return (
     <div className={cn('flex flex-col gap-1.5', props.class)}>
       {/* Hero : total horizon (+ moyenne h/sem en 'full') */}
@@ -110,86 +106,39 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
         )}
       </div>
 
-      {/* Barres empilées arrondies */}
-      <div
-        className={cn(
-          'relative flex items-end justify-center border-b border-rule-soft px-1',
-          barH,
-          gap
-        )}
-      >
-        {!line && (
-          <div
-            className="pointer-events-none absolute bottom-0 left-1 right-1 border-t-[1.5px] border-dashed border-brand"
-            style={{ bottom: `${totals.moyH}%` }}
-          >
-            <span className="absolute right-0 -top-[7px] bg-card px-1 font-mono text-[7px] font-bold text-brand">
-              {fmt(totals.moyenne)} h
-            </span>
-          </div>
-        )}
-        {props.weeks.map((w) => {
-          const t = w.ferme + w.planifie + w.suggere + w.induit
-          const barHeight = props.maxHours ? (t / props.maxHours) * 100 : 0
-          return (
-            <div
-              key={w.week}
-              className={cn('flex flex-col justify-end overflow-hidden rounded-t-[6px]', barW)}
-              style={{ height: `${barHeight}%` }}
-            >
-              {/* Induit (besoin brut depth-1) — hachuré terra, en haut de la barre. */}
-              {w.induit > 0 && (
-                <span
-                  className="flex w-full items-center justify-center"
-                  style={{
-                    height: `${pct(w.induit, t)}%`,
-                    backgroundColor: 'rgba(0,0,0,.12)',
-                    backgroundImage:
-                      'repeating-linear-gradient(45deg, rgba(0,0,0,.4) 0 1.5px, transparent 1.5px 5px)',
-                  }}
-                >
-                  {lab(w.induit, t) && (
-                    <span className="font-mono text-[8px] font-bold leading-none text-brand">
-                      {lab(w.induit, t)}
-                    </span>
-                  )}
-                </span>
-              )}
-              <Seg
-                bg="bg-suggere"
-                h={pct(w.suggere, t)}
-                label={lab(w.suggere, t)}
-                ink="text-foreground"
-              />
-              <Seg
-                bg="bg-planifie"
-                h={pct(w.planifie, t)}
-                label={lab(w.planifie, t)}
-                ink="text-card"
-              />
-              <Seg bg="bg-ferme" h={pct(w.ferme, t)} label={lab(w.ferme, t)} ink="text-card" />
-            </div>
-          )
-        })}
-      </div>
+      {/* Barres empilées — domaine partagé, axes muets (l'axe est en HTML dessous). */}
+      <HistogrammeCharge
+        periodes={periodes(props.weeks)}
+        segments={segments(props.weeks)}
+        max={props.maxHours}
+        hauteur={line ? 72 : 56}
+        afficherAxes={false}
+        afficherCapacite={false}
+        labelsEnBarre={!line}
+        format={(v) => `${fmt(v)}h`}
+        regles={line ? [] : [{ valeur: totals.moyenne }]}
+        largeurInitiale={line ? 220 : 300}
+        ariaLabel={`Charge hebdomadaire du poste, ${fmt(totals.total)} heures sur l'horizon`}
+      />
 
-      {/* Axe : n° de semaine (+ total en 'full') */}
-      <div className={cn('flex justify-center px-1', gap)}>
+      {/* Axe : n° de semaine (+ total en 'full', charge hebdo en 'line').
+          Sans gap : les centres des colonnes doivent tomber exactement sous
+          les bandes du graphe — un `gap` HTML les décale progressivement. */}
+      <div className="flex overflow-hidden px-1">
         {props.weeks.map((w) => (
           <span
             key={w.week}
             className={cn(
-              'text-center font-mono font-bold text-muted-foreground',
-              barW,
-              line ? 'text-[10px]' : 'text-[8px]'
+              'min-w-0 flex-1 basis-0 text-center font-mono font-bold text-muted-foreground',
+              axe
             )}
           >
             S{w.week}
-            {!line && ` · ${fmt(w.ferme + w.planifie + w.suggere + w.induit)}h`}
+            {!line && ` · ${fmt(totalSem(w))}h`}
             {/* En-tête de poste (line) : charge hebdo sous le n° de semaine. */}
             {line && (
-              <span className="block text-[9px] font-bold tabular-nums text-foreground">
-                {fmt(w.ferme + w.planifie + w.suggere + w.induit)} h
+              <span className="block truncate text-[9px] font-bold tabular-nums text-foreground">
+                {fmt(totalSem(w))} h
               </span>
             )}
           </span>
