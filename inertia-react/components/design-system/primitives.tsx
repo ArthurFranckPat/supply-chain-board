@@ -329,10 +329,12 @@ export function BadgesSection() {
         nom="Pill"
         from="@r/components/ui/pill"
         etat="cursor"
+        orphelin
         note={
           <>
             Toujours rendue en <Tok>&lt;button&gt;</Tok> — ce n’est pas un composant polymorphique.
-            Utilisée pour les filtres de barre d’outils et les sélecteurs de fenêtre.
+            Prévue pour les filtres de barre d’outils, mais aucune page ne la rend : les toolbars
+            réelles utilisent leurs propres segments.
           </>
         }
       >
@@ -604,7 +606,7 @@ export function ChampsSection() {
       <Fiche
         nom="SearchBar"
         from="@r/components/ui/search-bar"
-        etat="airbnb"
+        etat="cursor"
         note="Barre de recherche segmentée à 64 px, rayon plein, ombre au repos — l'objet le plus marqué « Airbnb » du catalogue. À reconsidérer entièrement pour Cursor."
       >
         <Demo label="SearchBar segmentée">
@@ -1178,7 +1180,7 @@ export function NavigationSection() {
       <Fiche
         nom="Toolbar"
         from="@r/components/ui/toolbar"
-        etat="airbnb"
+        etat="cursor"
         note="Segments, recherche, rafraîchissement. L'ordre est stable d'une page à l'autre : segments à gauche, actions à droite."
       >
         <Panel padding="sm">
