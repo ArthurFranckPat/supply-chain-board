@@ -13,7 +13,7 @@ import {
   ToolbarDateWindow,
   ToolbarFilterMenu,
   ToolbarFilterSection,
-  ToolbarStat,
+  ToolbarFilterChip,
   ToolbarMetric,
 } from '@r/components/ui/toolbar'
 import { Pill } from '@r/components/ui/pill'
@@ -70,18 +70,22 @@ function ToolbarCanonique() {
         <ToolbarFilterMenu activeCount={actifs}>
           <ToolbarFilterSection>Verdict</ToolbarFilterSection>
           <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
-            {[
-              ['blocked', 'Bloquée'],
-              ['uncov', 'Sans couverture'],
-              ['late', 'Retard'],
-            ].map(([k, l]) => (
-              <ToolbarSegment
+            {(
+              [
+                ['blocked', 'Bloquée', 'critical', 174],
+                ['uncov', 'Sans couverture', 'critical', 40],
+                ['late', 'Retard', 'warning', 5],
+                ['risk', 'À risque', 'warning', 23],
+              ] as const
+            ).map(([k, l, tone, n]) => (
+              <ToolbarFilterChip
                 key={k}
+                label={l}
+                count={n}
+                tone={tone}
                 active={verdict === k}
                 onClick={() => setVerdict(verdict === k ? null : k)}
-              >
-                {l}
-              </ToolbarSegment>
+              />
             ))}
           </ToolbarSegmented>
           <Separator className="my-2" />
@@ -94,28 +98,6 @@ function ToolbarCanonique() {
             ))}
           </ToolbarSegmented>
         </ToolbarFilterMenu>
-
-        <ToolbarStat
-          count={174}
-          label="bloquées"
-          tone="critical"
-          active={verdict === 'blocked'}
-          onClick={() => setVerdict(verdict === 'blocked' ? null : 'blocked')}
-        />
-        <ToolbarStat
-          count={40}
-          label="sans couverture"
-          tone="critical"
-          active={verdict === 'uncov'}
-          onClick={() => setVerdict(verdict === 'uncov' ? null : 'uncov')}
-        />
-        <ToolbarStat
-          count={5}
-          label="en retard"
-          tone="warning"
-          active={verdict === 'late'}
-          onClick={() => setVerdict(verdict === 'late' ? null : 'late')}
-        />
       </ToolbarGroup>
 
       <ToolbarSpacer />
@@ -154,14 +136,19 @@ function ToolbarReceptions() {
           ))}
         </ToolbarSegmented>
         <ToolbarDateWindow value={range} onCommit={setRange} />
-        <ToolbarFilterMenu activeCount={1}>
+        <ToolbarFilterMenu activeCount={2}>
+          <ToolbarFilterSection>Criticité</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+            <ToolbarFilterChip label="Critiques" count={9} tone="critical" active />
+            <ToolbarFilterChip label="En retard" count={31} tone="warning" />
+          </ToolbarSegmented>
+          <Separator className="my-2" />
           <ToolbarFilterSection>Regroupement</ToolbarFilterSection>
           <ToolbarSegmented semantics="toggles" flat className="w-full">
             <ToolbarSegment active>Jour</ToolbarSegment>
             <ToolbarSegment>Fournisseur</ToolbarSegment>
           </ToolbarSegmented>
         </ToolbarFilterMenu>
-        <ToolbarStat count={9} label="critiques" tone="critical" onClick={() => {}} />
       </ToolbarGroup>
       <ToolbarSpacer />
       <ToolbarSearch value={q} onChange={setQ} placeholder="Article, fournisseur…" />
@@ -265,7 +252,7 @@ export function ToolbarSection() {
           <Zone
             n="02"
             titre="Filtres"
-            role="Un déclencheur unique portant le nombre de filtres actifs, puis les raccourcis de gravité non vides (trois au plus)."
+            role="Un déclencheur unique, et rien d'autre. TOUT ce qui filtre vit dessous — verdicts, statuts, types, ateliers. Le nombre d'actifs est porté par le déclencheur."
           />
           <Zone
             n="03"
@@ -286,12 +273,14 @@ export function ToolbarSection() {
         etat="cursor"
         note={
           <>
-            La rangée canonique avec les dix rôles inventoriés. Tout est vivant : le calendrier
-            s'ouvre, les filtres comptent, les raccourcis filtrent, le rafraîchissement tourne.
+            La rangée canonique. Cinq contrôles, pas un de plus : ce qu'on regarde à gauche, ce
+            qu'on en fait à droite, et tout le filtrage replié derrière un seul déclencheur.
+            Ouvrez-le : les chips y portent leur gravité et leur volume, ce que trois pills dans la
+            rangée disaient moins bien en prenant quatre fois la place.
           </>
         }
       >
-        <Demo spec="Toolbar › ToolbarGroup(ToolbarSegmented · ToolbarDateWindow · ToolbarFilterMenu · ToolbarStat×3) › ToolbarSpacer › ToolbarSearch · ToolbarMetric×2 · ToolbarRefresh">
+        <Demo spec="Toolbar › ToolbarGroup(ToolbarSegmented · ToolbarDateWindow · ToolbarFilterMenu) › ToolbarSpacer › ToolbarSearch · ToolbarMetric×2 · ToolbarRefresh">
           <div className="w-full min-w-0 overflow-x-auto">
             <ToolbarCanonique />
           </div>
@@ -356,25 +345,69 @@ export function ToolbarSection() {
             ['Gap intra-groupe', 'gap-1.5 (6 px)', 'gap-1.5', '—'],
             ['Gap inter-groupe', 'gap-2.5 (10 px)', 'gap-2.5', '—'],
             [
-              'Dégradation en largeur',
-              'aucune règle',
-              'sous 1440 px, les raccourcis de gravité se replient',
-              'ils sont déjà dans le panneau de filtres — replier ne perd rien',
+              'Nombre de contrôles',
+              'jusqu’à 8 dans la rangée',
+              '5 au plus',
+              'tout filtre supplémentaire descend dans le panneau, pas à côté',
+            ],
+          ]}
+        />
+      </Panel>
+      <Sub
+        title="Hiérarchie chromatique"
+        hint="Trois niveaux, pas un de plus. Une rangée monochrome met tout à égalité ; une rangée bariolée aussi."
+        className="mt-8"
+      />
+      <Panel padding="none" className="mb-3">
+        <SpecTable
+          head={['Niveau', 'Ce qu’il porte', 'Traitement', 'Pourquoi']}
+          rows={[
+            [
+              <span key="1" className="font-medium text-[#141414]">
+                Encre
+              </span>,
+              'Ce que la page montre en ce moment : le segment actif',
+              'pouce #fcfcfc élevé sur piste creusée, texte #141414',
+              'le seul état que l’œil doit trouver sans chercher',
+            ],
+            [
+              <span key="2" style={{ color: '#cd4500', fontWeight: 500 }}>
+                Marque
+              </span>,
+              'Un contrôle engagé : la vue est filtrée',
+              'fond #f54e00 à 10 %, filet à 26 %, encre #cd4500',
+              'change la lecture de tout ce qui est en dessous — c’est le seul avertissement qui compte dans la rangée',
+            ],
+            [
+              <span key="3" style={{ color: 'color-mix(in oklab, #141414 60%, transparent)' }}>
+                Tertiaire
+              </span>,
+              'Ce qui se lit sans agir : compteurs, durées, segments au repos',
+              '#141414 à 60 %, mono, tabulaire',
+              'un chiffre ne réclame pas d’attention, il attend qu’on le cherche',
+            ],
+            [
+              <span key="4" className="text-[#be1744]">
+                Gravité
+              </span>,
+              'La sévérité d’un palier — uniquement DANS le panneau',
+              'point de 6 px : destructive, suggere, ferme',
+              'dans la rangée, quatre couleurs de statut annulent les trois niveaux ci-dessus',
             ],
           ]}
         />
       </Panel>
       <p className="mb-4 max-w-[620px] text-[13px] leading-[18px] text-[color-mix(in_oklab,#141414_74%,transparent)]">
-        La rangée canonique ci-dessus déborde volontairement sa cellule de démonstration : dix rôles
-        ne tiennent pas dans 1 000 px. C'est la contrainte réelle, pas un défaut de la vitrine — et
-        c'est ce qui fait de la règle de dégradation une partie du standard, pas un correctif
-        d'après-coup. Une barre ne s'enroule jamais sur deux lignes : elle abandonne des rôles, dans
-        un ordre décidé à l'avance.
+        Le segment actif était rendu par un lavis gris plus sombre que sa piste blanche : l'état
+        sélectionné se lisait comme un creux, pas comme un relief. La piste est maintenant creusée
+        et le pouce élevé — la hiérarchie passe par l'élévation, comme partout ailleurs dans le
+        thème, et la marque reste disponible pour la seule chose qui la mérite.
       </p>
 
       <Sub
-        title="Les dix rôles"
+        title="Les neuf rôles"
         hint="Inventoriés sur les 17 pages. Un rôle = un composant = une zone. Rien d’autre n’entre dans la rangée."
+        className="mt-8"
       />
       <Panel padding="none" className="mb-4">
         <SpecTable
@@ -383,7 +416,12 @@ export function ToolbarSection() {
             ['Bascule de vue', <Tok key="1">ToolbarSegmented</Tok>, '01', '9'],
             ['Fenêtre de dates', <Tok key="2">ToolbarDateWindow</Tok>, '01', '5'],
             ['Filtres secondaires', <Tok key="3">ToolbarFilterMenu</Tok>, '02', '11'],
-            ['Raccourcis de gravité', <Tok key="4">ToolbarStat</Tok>, '02', '1 (à généraliser)'],
+            [
+              'Chip de filtre à gravité',
+              <Tok key="4">ToolbarFilterChip</Tok>,
+              'panneau',
+              'remplace les raccourcis en rangée',
+            ],
             ['Recherche', <Tok key="5">ToolbarSearch</Tok>, '03', '10'],
             ['Compteur filtré', <Tok key="6">ToolbarMetric</Tok>, '04', '9'],
             ['Fraîcheur du chargement', <Tok key="7">ToolbarMetric</Tok>, '04', '4'],
@@ -396,17 +434,17 @@ export function ToolbarSection() {
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <Rule kind="do">
-          Une seule rangée. Les contrôles propres à une sous-vue descendent dans la vue, pas dans
-          une deuxième bande — deux rangées, c'est deux paddings verticaux qui divergent le jour
-          même.
+          Tout ce qui filtre descend sous le déclencheur « Filtres ». La rangée ne garde que la
+          portée, la recherche et l'état — cinq contrôles au plus.
         </Rule>
         <Rule kind="dont">
-          Empiler des segmented controls permanents dans la rangée. Au-delà de deux, tout ce qui
-          n'est ni la portée ni la recherche va derrière le déclencheur de filtres.
+          Sortir un filtre du panneau parce qu'il est « important ». Le compteur du déclencheur dit
+          déjà qu'il y en a ; le panneau dit lesquels. Deux endroits pour un même réglage, c'est
+          deux endroits à tenir d'accord.
         </Rule>
         <Rule kind="do">
-          Remonter dans la rangée les compteurs qui décident du scan, mais seulement les paliers non
-          vides et jamais plus de trois.
+          Laisser les chips du panneau porter leur gravité : un point coloré et un volume. C'est ce
+          qui rend le clic d'ouverture rentable.
         </Rule>
         <Rule kind="dont">
           Passer la barre en <Tok>children</Tok> d'AppLayout. La prop <Tok>toolbar</Tok> existe et

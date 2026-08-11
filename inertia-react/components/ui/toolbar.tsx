@@ -487,42 +487,53 @@ function ToolbarFilterSection({ children }: { children: React.ReactNode }) {
   )
 }
 
-/* ─── Raccourcis de gravité ──────────────────────────────────────────────
-   Un point, un nombre, un mot. Ce sont les compteurs qui décident du scan :
-   enfermés dans le panneau de filtres, ils coûtent un clic à chaque coup d'œil.
-   Règle : uniquement les paliers NON VIDES, trois au maximum. */
+/* ─── Chip de filtre à gravité ───────────────────────────────────────────
+   Vit DANS le panneau, jamais dans la rangée. Un point coloré, un libellé, un
+   compte : le point porte la gravité, le compte porte le volume, et les deux
+   restent lisibles sur une chip de 22 px. */
 
-const STAT_DOT: Record<'critical' | 'warning' | 'ok' | 'neutral', string> = {
+const GRAVITE_POINT: Record<'critical' | 'warning' | 'ok' | 'neutral', string> = {
   critical: 'bg-destructive',
   warning: 'bg-suggere',
   ok: 'bg-ferme',
-  neutral: 'bg-muted-foreground',
+  neutral: 'bg-muted-foreground/50',
 }
 
-interface ToolbarStatProps {
-  count: number
+interface ToolbarFilterChipProps {
   label: string
-  tone?: keyof typeof STAT_DOT
+  count?: number
+  tone?: keyof typeof GRAVITE_POINT
   active?: boolean
   onClick?: () => void
   title?: string
 }
 
-function ToolbarStat({ count, label, tone = 'neutral', active, onClick, title }: ToolbarStatProps) {
+function ToolbarFilterChip({
+  label,
+  count,
+  tone = 'neutral',
+  active,
+  onClick,
+  title,
+}: ToolbarFilterChipProps) {
   return (
-    <Pill
-      size="sm"
-      variant={active ? 'active' : 'ghost'}
-      dot
-      dotClassName={STAT_DOT[tone]}
-      aria-pressed={onClick ? !!active : undefined}
-      onClick={onClick}
-      disabled={!onClick}
-      title={title ?? (onClick ? `Ne garder que les lignes ${label}` : label)}
-    >
-      <span className="font-mono font-semibold tabular-nums">{count}</span>
-      <span className="text-muted-foreground">{label}</span>
-    </Pill>
+    <ToolbarSegment active={active} onClick={onClick} title={title}>
+      <span
+        aria-hidden="true"
+        className={cn('size-1.5 shrink-0 rounded-full', GRAVITE_POINT[tone])}
+      />
+      {label}
+      {count !== undefined && count > 0 ? (
+        <span
+          className={cn(
+            'text-2xs tabular-nums',
+            active ? 'text-foreground' : 'text-muted-foreground'
+          )}
+        >
+          {count}
+        </span>
+      ) : null}
+    </ToolbarSegment>
   )
 }
 
@@ -565,7 +576,7 @@ export {
   ToolbarDateWindow,
   ToolbarFilterMenu,
   ToolbarFilterSection,
-  ToolbarStat,
+  ToolbarFilterChip,
   ToolbarMetric,
   formatWindowLabel,
 }

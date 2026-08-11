@@ -42,6 +42,7 @@ import {
   ToolbarSearch,
   ToolbarRefresh,
   ToolbarSpacer,
+  ToolbarFilterChip,
 } from '@r/components/ui/toolbar'
 import { Pill } from '@r/components/ui/pill'
 import { Button } from '@r/components/ui/button'
@@ -457,35 +458,39 @@ export default function Tracking(props: SuiviPageProps) {
   const liveElapsed = mode === 'reactif' ? elapsed : proElapsed
   const shownMs = loading ? liveElapsed : lastMs
 
-  const chipCount = (on: boolean, count?: number) =>
-    count !== undefined && count > 0 ? (
-      <span
-        className={cn(
-          'ml-1 text-2xs font-medium leading-none tabular-nums',
-          on ? 'text-foreground' : 'text-muted-foreground'
-        )}
-      >
-        {count}
-      </span>
-    ) : null
+  // Les chips de statut et de verdict portent leur propre gravité : le point
+  // dit la sévérité, le nombre dit le volume. C'est ce qui permet à la
+  // distribution de rester lisible sans occuper la rangée.
+  type Gravite = 'critical' | 'warning' | 'ok' | 'neutral'
 
-  const statusChip = (k: SuiviStatusKey | 'all', label: string, count?: number) => {
+  const statusChip = (k: SuiviStatusKey | 'all', label: string, tone: Gravite, count?: number) => {
     const on = statusFilter === k
     return (
-      <ToolbarSegment active={on} onClick={() => setStatusFilter(on ? 'all' : k)}>
-        {label}
-        {chipCount(on, count)}
-      </ToolbarSegment>
+      <ToolbarFilterChip
+        label={label}
+        count={count}
+        tone={tone}
+        active={on}
+        onClick={() => setStatusFilter(on ? 'all' : k)}
+      />
     )
   }
 
-  const verdictChip = (k: ProactiveVerdictKey | 'all', label: string, count?: number) => {
+  const verdictChip = (
+    k: ProactiveVerdictKey | 'all',
+    label: string,
+    tone: Gravite,
+    count?: number
+  ) => {
     const on = verdictFilter === k
     return (
-      <ToolbarSegment active={on} onClick={() => setVerdictFilter(on ? 'all' : k)}>
-        {label}
-        {chipCount(on, count)}
-      </ToolbarSegment>
+      <ToolbarFilterChip
+        label={label}
+        count={count}
+        tone={tone}
+        active={on}
+        onClick={() => setVerdictFilter(on ? 'all' : k)}
+      />
     )
   }
 
@@ -511,74 +516,6 @@ export default function Tracking(props: SuiviPageProps) {
   // la table sera vide, mais ce n'est pas « aucun résultat », c'est « hors
   // fenêtre ». Les deux se réparent différemment.
   const horsFenetre = !!dateRange.start && toIso(dateRange.start) > SERVER_CEILING_ISO
-
-  /**
-   * Raccourcis de gravité, ramenés dans la rangée : la distribution des verdicts
-   * était la porte d'entrée du scan avant d'être enfermée dans le panneau. Seuls
-   * les paliers critiques NON VIDES apparaissent (jamais plus de trois), le
-   * panneau garde la liste complète.
-   */
-  const alertes: {
-    key: string
-    label: string
-    count: number
-    dot: string
-    on: boolean
-    toggle: () => void
-  }[] =
-    mode === 'proactif'
-      ? (
-          [
-            {
-              key: 'blocked',
-              label: 'bloquées',
-              count: proView.verdictCounts.blocked,
-              dot: 'bg-destructive',
-            },
-            {
-              key: 'uncov',
-              label: 'sans couverture',
-              count: proView.verdictCounts.uncov,
-              dot: 'bg-destructive',
-            },
-            {
-              key: 'late',
-              label: 'en retard',
-              count: proView.verdictCounts.late,
-              dot: 'bg-suggere',
-            },
-          ] as const
-        )
-          .filter((a) => a.count > 0)
-          .map((a) => ({
-            ...a,
-            on: verdictFilter === a.key,
-            toggle: () =>
-              setVerdictFilter((prev) => (prev === a.key ? 'all' : (a.key as ProactiveVerdictKey))),
-          }))
-      : (
-          [
-            {
-              key: 'ret',
-              label: 'en retard',
-              count: view.statusCounts.RETARD_PROD,
-              dot: 'bg-destructive',
-            },
-            {
-              key: 'alc',
-              label: 'à allouer',
-              count: view.statusCounts.ALLOCATION_A_FAIRE,
-              dot: 'bg-suggere',
-            },
-          ] as const
-        )
-          .filter((a) => a.count > 0)
-          .map((a) => ({
-            ...a,
-            on: statusFilter === a.key,
-            toggle: () =>
-              setStatusFilter((prev) => (prev === a.key ? 'all' : (a.key as SuiviStatusKey))),
-          }))
 
   const resetFilters = () => {
     const d = DEFAULT_URL_STATE()
@@ -621,19 +558,14 @@ export default function Tracking(props: SuiviPageProps) {
     <AppLayout
       title="Suivi"
       active="tracking"
-      subtitle="Suivi · Allocation & expédition"
+      subtitle={`Suivi · ${mode === 'proactif' ? 'Réalisabilité' : 'Allocation & expédition'}`}
       theme="cursor"
       dense
       scrollable={false}
       meta={
-        <>
-          <div className="font-mono text-1.5xs font-medium uppercase tracking-[0.14em] text-brand">
-            {refLabel}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{totalCount}</span> lignes ouvertes
-          </div>
-        </>
+        <span className="whitespace-nowrap">
+          <span className="font-medium text-foreground">{totalCount}</span> lignes ouvertes
+        </span>
       }
     >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
@@ -757,10 +689,15 @@ export default function Tracking(props: SuiviPageProps) {
                       <>
                         <div className={SECTION_LABEL}>Statut</div>
                         <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
-                          {statusChip('all', 'Tous', view.total)}
-                          {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
-                          {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
-                          {statusChip('exp', 'À expédier', view.statusCounts.A_EXPEDIER)}
+                          {statusChip('all', 'Tous', 'neutral', view.total)}
+                          {statusChip('ret', 'Retard', 'critical', view.statusCounts.RETARD_PROD)}
+                          {statusChip(
+                            'alc',
+                            'À allouer',
+                            'warning',
+                            view.statusCounts.ALLOCATION_A_FAIRE
+                          )}
+                          {statusChip('exp', 'À expédier', 'ok', view.statusCounts.A_EXPEDIER)}
                         </ToolbarSegmented>
                         <Separator className="my-2" />
                       </>
@@ -769,11 +706,21 @@ export default function Tracking(props: SuiviPageProps) {
                       <>
                         <div className={SECTION_LABEL}>Verdict</div>
                         <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
-                          {verdictChip('all', 'Tous', proView.total)}
-                          {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
-                          {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
-                          {verdictChip('late', 'Retard', proView.verdictCounts.late)}
-                          {verdictChip('risk', 'À risque', proView.verdictCounts.risk)}
+                          {verdictChip('all', 'Tous', 'neutral', proView.total)}
+                          {verdictChip(
+                            'blocked',
+                            'Bloquée',
+                            'critical',
+                            proView.verdictCounts.blocked
+                          )}
+                          {verdictChip(
+                            'uncov',
+                            'Sans couverture',
+                            'critical',
+                            proView.verdictCounts.uncov
+                          )}
+                          {verdictChip('late', 'Retard', 'warning', proView.verdictCounts.late)}
+                          {verdictChip('risk', 'À risque', 'warning', proView.verdictCounts.risk)}
                         </ToolbarSegmented>
                         <Separator className="my-2" />
                         <div className={SECTION_LABEL}>Composants en rupture</div>
@@ -847,29 +794,10 @@ export default function Tracking(props: SuiviPageProps) {
               </Popover.Portal>
             </Popover.Root>
 
-            {/* Raccourcis de gravité — les compteurs qui décidaient du scan
-                étaient devenus un contenu de popover. Ils reviennent dans la
-                rangée sous leur forme la plus courte : un point, un nombre, un
-                mot. Masqués sous xl, où la rangée n'a plus la place. */}
-            {alertes.length > 0 && (
-              <div className="ml-1 hidden items-center gap-1 xl:flex">
-                {alertes.map((a) => (
-                  <Pill
-                    key={a.key}
-                    size="sm"
-                    variant={a.on ? 'active' : 'ghost'}
-                    dot
-                    dotClassName={a.dot}
-                    aria-pressed={a.on}
-                    onClick={a.toggle}
-                    title={`Ne garder que les lignes ${a.label}`}
-                  >
-                    <span className="font-mono font-semibold tabular-nums">{a.count}</span>
-                    <span className="text-muted-foreground">{a.label}</span>
-                  </Pill>
-                ))}
-              </div>
-            )}
+            {/* Aucun raccourci de filtre dans la rangée : TOUT ce qui filtre vit
+                sous le déclencheur « Filtres ». Les compteurs de gravité y sont
+                portés par les chips elles-mêmes (point + libellé + volume) — la
+                rangée n'a plus qu'à dire ce qu'on regarde et ce qu'on en fait. */}
           </ToolbarGroup>
 
           <ToolbarSpacer />
@@ -881,7 +809,7 @@ export default function Tracking(props: SuiviPageProps) {
           <ToolbarSearch
             value={query}
             onChange={setQuery}
-            placeholder="Commande, article, client, composant…"
+            placeholder="Commande, article, client…"
           />
           {/* Compteur filtré */}
           {isFiltered && (

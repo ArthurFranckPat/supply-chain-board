@@ -759,10 +759,20 @@
   color: #141414;
   box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
 }
+/* Un contrôle ENGAGÉ (vue filtrée) est le seul endroit de la rangée où la
+   marque a quelque chose à dire : c'est l'état qui change la lecture de tout
+   ce qui est en dessous. Encre #cd4500 et non #f54e00 — la marque pure sur
+   fond clair plafonne à 3,4:1, sous le seuil AA pour du 13 px. */
 .theme-cursor [data-slot='pill'][data-variant='active'] {
-  background-color: color-mix(in oklab, #141414 16%, transparent);
-  color: #141414;
-  box-shadow: none;
+  background-color: color-mix(in oklab, #f54e00 10%, transparent);
+  color: #cd4500;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, #f54e00 26%, transparent);
+}
+.theme-cursor [data-slot='pill'][data-variant='active']:hover {
+  background-color: color-mix(in oklab, #f54e00 16%, transparent);
+}
+.theme-cursor [data-slot='pill'][data-variant='active'] svg {
+  color: #cd4500;
 }
 .theme-cursor [data-slot='pill'][data-variant='ghost'],
 .theme-cursor [data-slot='pill'][data-variant='soft'] {
@@ -1141,11 +1151,15 @@
    2×1 filet), pill, recherche et refresh. Quatre hauteurs différentes sur une
    même ligne se lisent comme un défaut d'alignement, jamais comme une
    convention — même quand chaque valeur est défendable isolément. */
+/* Piste CREUSÉE, pouce ÉLEVÉ. La recette d'origine faisait l'inverse — piste
+   blanche, segment actif en lavis gris — donc l'état sélectionné était plus
+   sombre que le fond : un trou, pas un relief. Le contraste passe par
+   l'élévation, comme partout ailleurs dans le thème. */
 .theme-cursor [data-slot='toolbar-segmented'] {
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
-  background-color: #fcfcfc;
-  padding: 1px;
+  border-color: transparent;
+  background-color: color-mix(in oklab, #141414 6%, transparent);
+  padding: 2px;
 }
 /* Chips libres (panneau de filtres) : pas de boîte, chaque chip porte son état. */
 .theme-cursor [data-slot='toolbar-segmented'][data-flat='true'] {
@@ -1168,18 +1182,43 @@
    visible de la page criait en capitales monospace au milieu d'une rangée en
    13 px sans. Ce sont des libellés, pas des étiquettes techniques. */
 .theme-cursor [data-slot='toolbar-segment'] {
+  /* `inline-flex` + `line-height: 1` + padding vertical nul : la recette de base
+     porte un `py-1` qui, dans une boîte à hauteur fixe, poussait le texte vers le
+     bas au lieu de le centrer. Le centrage optique se fait par le flex, jamais par
+     un padding dans une hauteur imposée. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   height: 20px;
-  border-radius: 4px;
+  padding-block: 0;
   padding-inline: 10px;
+  border-radius: 4px;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1;
   text-transform: none;
   letter-spacing: -0.08px;
+  color: color-mix(in oklab, #141414 60%, transparent); /* tertiaire au repos */
+}
+.theme-cursor [data-slot='toolbar-segment']:not([data-active='true']):hover {
+  color: #141414;
 }
 .theme-cursor [data-slot='toolbar-segment'][data-active='true'] {
-  background-color: color-mix(in oklab, #141414 16%, transparent);
+  background-color: #fcfcfc;
   color: #141414;
+  box-shadow:
+    0 1px 2px 0 rgba(20, 20, 20, 0.08),
+    0 0 0 1px color-mix(in oklab, #141414 6%, transparent);
+}
+/* Dans un jeu de chips libres, le pouce élevé n'a pas de piste où se détacher :
+   l'état actif redevient un lavis, avec l'encre pleine pour le porter. */
+.theme-cursor
+  [data-slot='toolbar-segmented'][data-flat='true']
+  [data-slot='toolbar-segment'][data-active='true'] {
+  background-color: color-mix(in oklab, #141414 10%, transparent);
+  box-shadow: none;
 }
 .theme-cursor [data-slot='toolbar-search'] {
   height: 24px;
