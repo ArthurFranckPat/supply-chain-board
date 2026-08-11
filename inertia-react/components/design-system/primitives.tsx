@@ -623,7 +623,7 @@ export function ChampsSection() {
       <Fiche
         nom="Separator"
         from="@r/components/ui/separator"
-        etat="airbnb"
+        etat="cursor"
         note="Filet de 1 px. À n'utiliser que quand un changement de surface ne suffit pas."
       >
         <Panel>

@@ -496,7 +496,7 @@ const MIGRATION: { nom: string; etat: 'cursor' | 'partiel' | 'airbnb'; reste: st
   { nom: 'Skeleton', etat: 'airbnb', reste: 'rayon et amplitude du shimmer' },
   { nom: 'LoadingState', etat: 'airbnb', reste: 'suit Spinner' },
   { nom: 'Bubble', etat: 'airbnb', reste: 'rayon et tons' },
-  { nom: 'Separator', etat: 'airbnb', reste: 'passer en --border-quaternary' },
+  { nom: 'Separator', etat: 'cursor', reste: '—' },
   { nom: 'BoardCard', etat: 'airbnb', reste: 'bande Listing, liseré 3 px, ombre au survol' },
   { nom: 'X3Link', etat: 'airbnb', reste: 'hover brand → accent' },
 ]

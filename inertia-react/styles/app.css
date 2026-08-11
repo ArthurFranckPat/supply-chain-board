@@ -674,6 +674,17 @@
   border-radius: 6px;
 }
 
+/* ── Lot 1 — filets & séparateurs ─────────────────────────── */
+.theme-cursor [data-slot='separator'] {
+  background-color: color-mix(in oklab, #141414 8%, transparent); /* --border-tertiary */
+}
+.theme-cursor [data-slot='field-separator'],
+.theme-cursor [data-slot='sidebar-separator'],
+.theme-cursor [data-slot='select-separator'],
+.theme-cursor [data-slot='combobox-separator'] {
+  background-color: color-mix(in oklab, #141414 8%, transparent);
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)
