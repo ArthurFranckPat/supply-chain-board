@@ -43,6 +43,8 @@ export interface TrackingTableShellProps<TRow> {
   tableClass: string
   /** Hauteur de ligne estimée par le virtualiseur avant mesure réelle. */
   estimateRowSize?: number
+  /** Colonnes de tête figées au scroll horizontal (colonne d'index comprise). */
+  stickyCols?: number
   onRowClick?: (row: TRow) => void
   selectedRowKey?: string | null
   getRowKey: (row: TRow) => string
@@ -128,6 +130,7 @@ export function TrackingTableShell<TRow>(props: TrackingTableShellProps<TRow>) {
               indexColumn={props.indexColumn}
               getRowClass={() => 'group/row'}
               tableClass={props.tableClass}
+              stickyCols={props.stickyCols}
               scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none print:h-auto print:overflow-visible"
               theadRowClass="sticky top-0 z-10 bg-transparent"
               onRowClick={props.onRowClick}

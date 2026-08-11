@@ -10,7 +10,7 @@ import type { SuiviRowsResponse, SuiviDisplayRow } from '@r/lib/suivi/types'
 import { sortRows, suiviRowKey } from '@r/lib/suivi/tracking-shared'
 import { createReactiveColumns, createReactiveIndexCol } from '@r/lib/suivi/reactive-columns'
 import { TrackingTableShell } from './tracking-table-shell'
-import { type SortingState } from '@r/components/ui/data-table'
+import { columnId, type SortingState } from '@r/components/ui/data-table'
 
 export interface ReactiveViewProps {
   view: SuiviRowsResponse
@@ -24,6 +24,8 @@ export interface ReactiveViewProps {
   onRowClick?: (row: SuiviDisplayRow) => void
   selectedRowKey?: string | null
   printContext?: ReactNode
+  /** Ids des colonnes à afficher (menu « Colonnes ») — undefined = toutes. */
+  visibleColumnIds?: string[]
 }
 
 export function ReactiveView(props: ReactiveViewProps) {
@@ -48,8 +50,8 @@ export function ReactiveView(props: ReactiveViewProps) {
         toggleEmp,
         referenceDate: props.view.referenceDate,
         onOpenRow: props.onRowClick,
-      }),
-    [expandedEmps, props.view.referenceDate, props.onRowClick]
+      }).filter((c) => !props.visibleColumnIds || props.visibleColumnIds.includes(columnId(c))),
+    [expandedEmps, props.view.referenceDate, props.onRowClick, props.visibleColumnIds]
   )
   const indexCol = useMemo(() => createReactiveIndexCol(), [])
 
@@ -67,6 +69,7 @@ export function ReactiveView(props: ReactiveViewProps) {
       onRetry={props.onRetry}
       tableClass="min-w-[1342px] table-fixed"
       estimateRowSize={64}
+      stickyCols={2}
       onRowClick={props.onRowClick}
       selectedRowKey={props.selectedRowKey}
       getRowKey={suiviRowKey}

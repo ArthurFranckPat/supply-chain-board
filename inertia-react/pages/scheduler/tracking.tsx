@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { fr } from 'react-day-picker/locale'
-import { CalendarDays, ChevronDown, SlidersHorizontal, X } from 'lucide-react'
+import { CalendarDays, ChevronDown, Columns3, Lock, SlidersHorizontal, X } from 'lucide-react'
 import { Popover } from '@base-ui/react/popover'
 
 import type {
@@ -23,7 +23,7 @@ import type {
   ProactiveDisplayRow,
 } from '@r/lib/suivi/types'
 import { toIso, startOfDay } from '@r/lib/vision/date-utils'
-import { EMPTY, PROACTIVE_EMPTY, fmtMs, suiviRowKey } from '@r/lib/suivi/tracking-shared'
+import { EMPTY, PROACTIVE_EMPTY, PROACTIVE_COLUMNS, REACTIVE_COLUMNS, fmtMs, suiviRowKey, type SuiviColumnMeta } from '@r/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -75,6 +75,13 @@ const addDays = (n: number) => {
   const d = new Date(TODAY)
   d.setDate(d.getDate() + n)
   return d
+}
+
+/** Visibilité des colonnes (menu « Colonnes ») — clé localStorage versionnée. */
+const COLUMNS_KEY = 'scb.suivi.columns.v1'
+const COLUMN_CATALOGS: Record<'proactif' | 'reactif', SuiviColumnMeta[]> = {
+  proactif: PROACTIVE_COLUMNS,
+  reactif: REACTIVE_COLUMNS,
 }
 const LATE_FLOOR_ISO = toIso(addDays(-LATE_LOOKBACK_DAYS))
 const SERVER_CEILING_ISO = toIso(addDays(SERVER_FORWARD_DAYS))
@@ -458,6 +465,71 @@ export default function Tracking(props: SuiviPageProps) {
   // Panneau Filtres (Statut/Verdict, Composants en rupture, Type, Atelier).
   const [filterOpen, setFilterOpen] = useState(false)
 
+  // ── Visibilité des colonnes (menu « Colonnes ») ──
+  // Persistée par mode, versionnée. Les colonnes verrouillées (identité de
+  // ligne) restent toujours présentes, quel que soit l'état sauvegardé.
+  const loadColumnVisibility = (): Record<'proactif' | 'reactif', string[]> => {
+    const all = (catalog: SuiviColumnMeta[]) => catalog.map((c) => c.id)
+    const fallback = {
+      proactif: all(PROACTIVE_COLUMNS),
+      reactif: all(REACTIVE_COLUMNS),
+    }
+    if (typeof window === 'undefined') return fallback
+    try {
+      const raw = window.localStorage.getItem(COLUMNS_KEY)
+      if (!raw) return fallback
+      const parsed = JSON.parse(raw) as Partial<Record<'proactif' | 'reactif', unknown>>
+      const sanitize = (catalog: SuiviColumnMeta[], saved: unknown): string[] => {
+        const wanted =
+          Array.isArray(saved) && saved.length > 0
+            ? (saved.filter((x) => typeof x === 'string') as string[])
+            : all(catalog)
+        // Les colonnes verrouillées (identité de ligne) sont toujours présentes,
+        // même si le stockage est corrompu ou périmé.
+        return catalog
+          .filter((c) => wanted.includes(c.id) || c.locked)
+          .map((c) => c.id)
+      }
+      return {
+        proactif: sanitize(PROACTIVE_COLUMNS, parsed.proactif),
+        reactif: sanitize(REACTIVE_COLUMNS, parsed.reactif),
+      }
+    } catch {
+      return fallback
+    }
+  }
+
+  const [colVis, setColVis] = useState<Record<'proactif' | 'reactif', string[]>>(loadColumnVisibility)
+  const [colOpen, setColOpen] = useState(false)
+
+  // Sauvegarde différée (250 ms) — les verrouillées sont ré-injectées au load,
+  // inutile de les stocker deux fois.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        window.localStorage.setItem(COLUMNS_KEY, JSON.stringify(colVis))
+      } catch {
+        /* localStorage indisponible : la préférence ne persiste pas */
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [colVis])
+
+  const toggleColumn = (id: string) => {
+    setColVis((prev) => {
+      const order = COLUMN_CATALOGS[mode].map((c) => c.id)
+      const cur = prev[mode]
+      const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
+      return { ...prev, [mode]: order.filter((x) => next.includes(x)) }
+    })
+  }
+
+  const resetColumns = () =>
+    setColVis((prev) => ({
+      ...prev,
+      [mode]: COLUMN_CATALOGS[mode].map((c) => c.id),
+    }))
+
   const selectedRowKey = selectedRow ? suiviRowKey(selectedRow.row) : null
 
   const loading = mode === 'reactif' ? rowsLoading : proLoading
@@ -574,7 +646,7 @@ export default function Tracking(props: SuiviPageProps) {
   const printContext = (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-rule pb-2 font-mono text-2xs text-foreground">
       <span className="font-semibold uppercase tracking-wide">
-        Suivi · {mode === 'proactif' ? 'Réalisabilité' : 'Allocation & expédition'}
+        Suivi Commandes
       </span>
       <span>{refLabel}</span>
       <span>
@@ -597,7 +669,7 @@ export default function Tracking(props: SuiviPageProps) {
     <AppLayout
       title="Suivi"
       active="tracking"
-      subtitle={`Suivi · ${mode === 'proactif' ? 'Réalisabilité' : 'Allocation & expédition'}`}
+      subtitle="Suivi Commandes"
       theme="cursor"
       dense
       scrollable={false}
@@ -833,6 +905,85 @@ export default function Tracking(props: SuiviPageProps) {
               </Popover.Portal>
             </Popover.Root>
 
+            {/* Colonnes — visibilité. La colonne d'index (N°) est toujours
+                rendue ; l'identité de ligne (Commande · Client) est verrouillée.
+                Préférence persistée par mode (localStorage versionné). */}
+            <Popover.Root open={colOpen} onOpenChange={setColOpen}>
+              <Popover.Trigger
+                render={
+                  <Pill
+                    variant="outline"
+                    className="gap-1.5"
+                    title="Afficher ou masquer des colonnes"
+                    aria-label="Colonnes visibles"
+                  >
+                    <Columns3 size={14} strokeWidth={1.75} className="text-muted-foreground" />
+                    Colonnes
+                  </Pill>
+                }
+              />
+              <Popover.Portal>
+                <Popover.Positioner
+                  side="bottom"
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={8}
+                  className="z-50"
+                >
+                  <Popover.Popup data-slot="filter-menu-panel" className="w-[280px] p-2">
+                    <div className={SECTION_LABEL}>Colonnes visibles</div>
+                    <div className="flex flex-col">
+                      {COLUMN_CATALOGS[mode].map((c) => {
+                        const checked = colVis[mode].includes(c.id)
+                        return (
+                          <label
+                            key={c.id}
+                            className={cn(
+                              'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted',
+                              c.locked && 'cursor-default opacity-70 hover:bg-transparent'
+                            )}
+                            title={
+                              c.locked
+                                ? 'Toujours affichée — identité de ligne'
+                                : c.label
+                            }
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={c.locked}
+                              onChange={() => toggleColumn(c.id)}
+                              style={{ accentColor: 'var(--accent)' }}
+                              className="size-3.5"
+                            />
+                            <span className="flex-1 truncate">{c.label}</span>
+                            {c.locked && (
+                              <Lock
+                                size={10}
+                                strokeWidth={2}
+                                className="text-muted-foreground/60"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <Separator className="my-2" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="w-full justify-start text-muted-foreground hover:text-foreground"
+                      onClick={resetColumns}
+                    >
+                      Réinitialiser les colonnes
+                    </Button>
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+
             {/* Aucun raccourci de filtre dans la rangée : TOUT ce qui filtre vit
                 sous le déclencheur « Filtres ». Les compteurs de gravité y sont
                 portés par les chips elles-mêmes (point + libellé + volume) — la
@@ -879,6 +1030,7 @@ export default function Tracking(props: SuiviPageProps) {
             onResetFilters={resetFilters}
             onRowClick={openReactiveRow}
             selectedRowKey={selectedRowKey}
+            visibleColumnIds={colVis.reactif}
             printContext={printContext}
           />
         ) : (
@@ -895,6 +1047,7 @@ export default function Tracking(props: SuiviPageProps) {
             selectedRowKey={selectedRowKey}
             onSelectOf={onSelectOf}
             showSubAssemblies={showSubAssemblies}
+            visibleColumnIds={colVis.proactif}
             printContext={printContext}
           />
         )}

@@ -650,6 +650,43 @@
 .theme-cursor table tbody tr.ring-2 {
   background-color: color-mix(in oklab, #141414 4%, transparent) !important;
 }
+/* ── Colonnes figées (has-sticky, cf. DataTable stickyCols) ──
+   border-collapse:separate OBLIGATOIRE : en collapse, les cellules sticky
+   perdent bordures/fonds quand elles collent (CSSWG #3136, Mozilla 1658119).
+   Les bordures quittent les <tr> (ignorées en separate) pour les cellules.
+   Scope limité aux tables qui déclarent has-sticky : ailleurs, pas de
+   régression (collapse conservé). */
+.theme-cursor table.has-sticky {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.theme-cursor table.has-sticky thead tr {
+  border-bottom: 0 !important;
+}
+.theme-cursor table.has-sticky th {
+  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent);
+}
+.theme-cursor table.has-sticky tbody tr {
+  border-bottom: 0 !important;
+}
+.theme-cursor table.has-sticky tbody tr:last-child td {
+  border-bottom-width: 0 !important;
+}
+.theme-cursor table.has-sticky td {
+  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent);
+}
+/* Cellules figées : fond opaque (même plan que la Card) pour masquer le
+   contenu qui défile dessous, et synchro avec hover/sélection des lignes. */
+.theme-cursor table.has-sticky thead th.sticky,
+.theme-cursor table.has-sticky tbody td.sticky {
+  background-color: #fcfcfc !important;
+}
+.theme-cursor table.has-sticky tbody tr:hover td.sticky {
+  background-color: color-mix(in oklab, #141414 6%, transparent) !important;
+}
+.theme-cursor table.has-sticky tbody tr.ring-2 td.sticky {
+  background-color: color-mix(in oklab, #141414 4%, transparent) !important;
+}
 .theme-cursor table td {
   padding: 0.75rem 1rem; /* px-4 py-3 */
   vertical-align: top;

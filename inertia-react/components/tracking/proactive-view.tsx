@@ -9,7 +9,7 @@ import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@r/lib/suivi/ty
 import { sortRows, suiviRowKey } from '@r/lib/suivi/tracking-shared'
 import { createProactiveColumns, createProactiveIndexCol } from '@r/lib/suivi/proactive-columns'
 import { TrackingTableShell } from './tracking-table-shell'
-import { type SortingState } from '@r/components/ui/data-table'
+import { columnId, type SortingState } from '@r/components/ui/data-table'
 
 export interface ProactiveViewProps {
   view: ProactiveRowsResponse
@@ -27,10 +27,15 @@ export interface ProactiveViewProps {
   /** Inclure les sous-ensembles (semi-finis) en rupture dans la colonne « Composants en rupture ». */
   showSubAssemblies?: boolean
   printContext?: ReactNode
+  /** Ids des colonnes à afficher (menu « Colonnes ») — undefined = toutes. */
+  visibleColumnIds?: string[]
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
-  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'joursRetard', desc: true }])
+  // Tri par défaut : expédition la plus ancienne d'abord = « le plus en retard
+  // en premier » (joursRetard desc ≈ dateExp asc). L'id `dateExp` matche une
+  // colonne : l'indicateur de tri et l'aria-sort s'affichent dès le 1er rendu.
+  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'dateExp', desc: false }])
 
   // Tri et colonnes étaient recalculés à CHAQUE rendu — or `useTimedFetch`
   // pousse son chrono toutes les 200 ms tant que l'autre vue charge : la table
@@ -43,8 +48,14 @@ export function ProactiveView(props: ProactiveViewProps) {
         onSelectOf: props.onSelectOf,
         showSubAssemblies: props.showSubAssemblies,
         onOpenRow: props.onRowClick,
-      }),
-    [props.view.referenceDate, props.onSelectOf, props.showSubAssemblies, props.onRowClick]
+      }).filter((c) => !props.visibleColumnIds || props.visibleColumnIds.includes(columnId(c))),
+    [
+      props.view.referenceDate,
+      props.onSelectOf,
+      props.showSubAssemblies,
+      props.onRowClick,
+      props.visibleColumnIds,
+    ]
   )
   const indexCol = useMemo(() => createProactiveIndexCol(), [])
 
@@ -65,6 +76,7 @@ export function ProactiveView(props: ProactiveViewProps) {
       // fourchette réelle va de 56 px à plus de 200. 96 est le compromis qui
       // limite les sauts de barre de défilement avant mesure.
       estimateRowSize={96}
+      stickyCols={2}
       onRowClick={props.onRowClick}
       selectedRowKey={props.selectedRowKey}
       getRowKey={suiviRowKey}

@@ -129,6 +129,43 @@ export const LATE_TONE = {
         : '',
 }
 
+/**
+ * Catalogue des colonnes par vue — pilote le menu « Colonnes » (visibilité)
+ * et le filtrage des colonnes rendues. `locked` = non masquable (l'identité
+ * de ligne reste toujours affichée). Les ids doivent matcher `columnId()`
+ * des ColumnDef (id ?? accessorKey) de proactive/reactive-columns.
+ */
+export interface SuiviColumnMeta {
+  id: string
+  label: string
+  locked?: boolean
+}
+
+export const PROACTIVE_COLUMNS: SuiviColumnMeta[] = [
+  { id: 'numCommande', label: 'Commande · Client', locked: true },
+  { id: 'article', label: 'Article · Désignation' },
+  { id: 'type', label: 'Type' },
+  { id: 'poste', label: 'Poste' },
+  { id: 'qteRestante', label: 'Qté' },
+  { id: 'dateExp', label: 'Expé' },
+  { id: 'couverture', label: 'Couverture' },
+  { id: 'verdictKey', label: 'Verdict' },
+  { id: 'chargeHeures', label: 'Charge' },
+  { id: 'composants', label: 'Composants en rupture' },
+]
+
+export const REACTIVE_COLUMNS: SuiviColumnMeta[] = [
+  { id: 'numCommande', label: 'Commande · Client', locked: true },
+  { id: 'article', label: 'Article · Désignation' },
+  { id: 'type', label: 'Type' },
+  { id: 'poste', label: 'Poste' },
+  { id: 'qteRestante', label: 'Qté' },
+  { id: 'dateExp', label: 'Expé' },
+  { id: 'emplacements', label: 'Emplacement' },
+  { id: 'statusKey', label: 'Statut' },
+  { id: 'cause', label: 'Cause du retard' },
+]
+
 export const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
 
 /**

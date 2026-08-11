@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
@@ -34,6 +34,10 @@ export interface DataTableIndexColumn<TRow> {
   tdClass: (row: TRow, virtualIndex: number) => string
 }
 
+/** Identifiant stable d'une colonne : `id` explicite sinon `accessorKey`. */
+export const columnId = <TRow,>(col: ColumnDef<TRow>): string =>
+  col.id ?? (col.accessorKey as string)
+
 export interface SortingState {
   id: string
   desc: boolean
@@ -66,6 +70,13 @@ export interface DataTableProps<TRow> {
    * de défilement saute à chaque mesure.
    */
   estimateRowSize?: number
+  /**
+   * Nombre de colonnes de tête figées au scroll horizontal, colonne d'index
+   * comprise (0 = aucune). Nécessite des largeurs stables (table-fixed).
+   * Bascule la table en `border-collapse: separate` (classe `has-sticky`) :
+   * en `collapse`, les cellules sticky perdent bordures/fonds (CSSWG #3136).
+   */
+  stickyCols?: number
   /** Ligne de détail insérée après une ligne (colSpan complet) — uniquement pris en compte si virtualize=false. */
   renderDetailRow?: (row: TRow, rowKey: string) => ReactNode
 }
@@ -88,6 +99,7 @@ export function DataTable<TRow>({
   emptyState,
   virtualize = true,
   estimateRowSize = 56,
+  stickyCols = 0,
   renderDetailRow,
 }: DataTableProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -129,7 +141,39 @@ export function DataTable<TRow>({
 
   const colCount = columns.length + (indexColumn ? 1 : 0)
 
-  const colId = (col: ColumnDef<TRow>): string => col.id ?? (col.accessorKey as string)
+  const colId = columnId
+
+  // ── Colonnes figées : largeurs mesurées une fois par jeu de colonnes, puis
+  //    `left` en cascade (la 2e se cale sur la largeur de la 1re…). L'ombre de
+  //    bord n'apparaît que quand le conteneur est réellement défilé.
+  const [pinnedLeft, setPinnedLeft] = useState<number[]>([])
+  const [pinnedScrolled, setPinnedScrolled] = useState(false)
+
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current
+    if (!scroller || stickyCols <= 0) {
+      setPinnedLeft([])
+      return
+    }
+    const ths = Array.from(scroller.querySelectorAll('thead th')) as HTMLElement[]
+    const offsets: number[] = []
+    let acc = 0
+    for (let i = 0; i < Math.min(stickyCols, ths.length); i++) {
+      offsets.push(acc)
+      acc += ths[i].offsetWidth
+    }
+    setPinnedLeft(offsets)
+  }, [stickyCols, columns, indexColumn])
+
+  const pinnedStyle = (i: number): CSSProperties | undefined => {
+    if (i >= pinnedLeft.length) return undefined
+    const style: CSSProperties = { left: pinnedLeft[i] }
+    if (pinnedScrolled && i === stickyCols - 1) {
+      style.boxShadow = '6px 0 8px -6px rgba(20,20,20,0.28)'
+    }
+    return style
+  }
+  const pinnedClass = (i: number) => (i < pinnedLeft.length ? 'sticky z-[3] bg-card' : '')
 
   const toggleSorting = (columnId: string) => {
     const existing = sorting.find((s) => s.id === columnId)
@@ -160,39 +204,53 @@ export function DataTable<TRow>({
     if (col.enableSorting === false) return null
     const sorted = sorting.find((s) => s.id === colId(col))
     if (!sorted) {
+      // Chevron discret au survol uniquement (Material) — un chevron permanent
+      // sur toutes les colonnes triables est du bruit sur 11 colonnes.
       return (
         <ChevronsUpDown
           size={12}
           strokeWidth={1.75}
-          className="leading-none text-muted-foreground/50"
+          aria-hidden="true"
+          className="leading-none text-muted-foreground/50 opacity-0 transition-opacity duration-100 group-hover/th:opacity-100"
         />
       )
     }
     return sorted.desc ? (
-      <ArrowDown size={12} strokeWidth={1.75} className="leading-none text-primary" />
+      <ArrowDown size={12} strokeWidth={1.75} aria-hidden="true" className="leading-none text-primary" />
     ) : (
-      <ArrowUp size={12} strokeWidth={1.75} className="leading-none text-primary" />
+      <ArrowUp size={12} strokeWidth={1.75} aria-hidden="true" className="leading-none text-primary" />
     )
   }
 
   return (
-    <div className={cn(DEFAULT_SCROLL_CLASS, scrollContainerClass)} ref={scrollRef}>
+    <div
+      className={cn(DEFAULT_SCROLL_CLASS, scrollContainerClass)}
+      ref={scrollRef}
+      onScroll={(e) => setPinnedScrolled(e.currentTarget.scrollLeft > 0)}
+    >
       {rows.length > 0 ? (
-        <table className={cn('w-full border-collapse text-left text-sm', tableClass)}>
+        <table
+          className={cn('w-full border-collapse text-left text-sm', stickyCols > 0 && 'has-sticky', tableClass)}
+          aria-rowcount={rows.length}
+          aria-colcount={colCount}
+        >
           <thead className="sticky top-0 z-10 bg-card">
             <tr className={cn('border-b', theadRowClass)}>
               {indexColumn && (
                 <th
                   className={cn(
                     'px-3 py-2 text-xs font-medium text-muted-foreground',
-                    indexColumn.thClass
+                    indexColumn.thClass,
+                    pinnedClass(0)
                   )}
+                  style={pinnedStyle(0)}
                 >
                   {indexColumn.headerLabel}
                 </th>
               )}
-              {columns.map((col) => {
+              {columns.map((col, ci) => {
                 const columnId = colId(col)
+                const cellIndex = (indexColumn ? 1 : 0) + ci
                 const isSorted = sorting.some((s) => s.id === columnId)
                 const canSort = col.enableSorting !== false
 
@@ -209,11 +267,13 @@ export function DataTable<TRow>({
                         : undefined
                     }
                     className={cn(
-                      'px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
+                      'group/th px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
                       col.meta?.thClass,
                       canSort && 'cursor-pointer transition-colors hover:text-foreground',
-                      isSorted && 'font-bold text-foreground'
+                      isSorted && 'font-bold text-foreground',
+                      pinnedClass(cellIndex)
                     )}
+                    style={pinnedStyle(cellIndex)}
                     onClick={() => canSort && toggleSorting(columnId)}
                     onKeyDown={(e) => {
                       if (canSort && (e.key === 'Enter' || e.key === ' ')) {
@@ -255,6 +315,7 @@ export function DataTable<TRow>({
                   <tr
                     ref={virtualize ? rowVirtualizer.measureElement : undefined}
                     data-index={virtualize ? index : undefined}
+                    aria-rowindex={index + 1}
                     className={cn(
                       'border-b transition-colors last:border-b-0 hover:bg-muted/50',
                       getRowClass?.(row, index),
@@ -264,16 +325,21 @@ export function DataTable<TRow>({
                     style={rowStyle}
                   >
                     {indexColumn && (
-                      <td className={cn('px-3 py-2', indexColumn.tdClass(row, index))}>
+                      <td className={cn('px-3 py-2', indexColumn.tdClass(row, index), pinnedClass(0))} style={pinnedStyle(0)}>
                         {String(index + 1).padStart(2, '0')}
                       </td>
                     )}
-                    {columns.map((col) => {
+                    {columns.map((col, ci) => {
                       const columnId = colId(col)
+                      const cellIndex = (indexColumn ? 1 : 0) + ci
                       const val = getValue(row, col)
 
                       return (
-                        <td key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
+                        <td
+                          key={columnId}
+                          className={cn('px-3 py-2', col.meta?.tdClass, pinnedClass(cellIndex))}
+                          style={pinnedStyle(cellIndex)}
+                        >
                           {col.cell
                             ? col.cell({
                                 row: { original: row },
