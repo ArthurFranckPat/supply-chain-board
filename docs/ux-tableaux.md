@@ -497,3 +497,57 @@
 - Chrome TablesNG : https://developer.chrome.com/blog/tablesng
 - Mozilla bug 1450584 / 1866715 : https://bugzilla.mozilla.org/show_bug.cgi?id=1450584
 - Stack Overflow (fix border-collapse: separate) : https://stackoverflow.com/questions/50361698/border-style-do-not-work-with-sticky-position-element
+
+---
+
+## 10. Hiérarchie visuelle, icônes, alignement (le rendu, pas la mécanique)
+
+> Chapitre ajouté a posteriori — le brief initial de recherche couvrait la
+> mécanique de table (tri, colonnes, figées, clavier), pas la matière visuelle.
+> C'est un défaut de cadrage : la direction visuelle venait des mockups, ce
+> chapitre la documente et la durcit. Sources : NNG (visual hierarchy),
+> Material Design 3 (iconography, data tables), Carbon (data table).
+
+### 10.1 Hiérarchie visuelle
+
+- **3 niveaux de lecture posés par V3** (NNG : « une hiérarchie est ce qui fait
+  que l'œil lit dans le bon ordre ») :
+  1. **Le signal** — verdict (icône + couleur + semibold) + retard relatif en
+     rouge. C'est ce qu'on scanne en premier.
+  2. **L'identité** — codes mono gras (commande, article). C'est ce qu'on
+     rattache à une ligne connue.
+  3. **Le contexte** — muted (client, désignation, libellés, couverture).
+- **Emphase par poids/couleur, jamais par taille** (Material) : la seule
+  dérogation est la Qté en 13 px gras — justifiée (quantité = donnée lue).
+- **Le header ne se détache pas par le poids** (12 px/500, même graisse que le
+  contenu) : c'est le filet 4 % + l'ombre du sticky thead qui font la
+  séparation. Acceptable, à surveiller sur des tables sans thead sticky.
+
+### 10.2 Icônes
+
+- Règle Material : **une famille, un trait, une grille optique**. Vérifié :
+  lucide, trait 1.75 partout, grille 14 px verdict / 11 px causes / 9 px X3.
+- **Corrigé (alignement maquette↔code)** : les icônes de cause passaient en
+  10 px dans les blocs indentés (descente BOM) — la maquette V3 spécifie
+  **11 px pour toute la famille des causes**. Unifié à 11 px.
+- Espacement icône-texte : gap ≈ 43 % de la taille de l'icône (6 px/14 px,
+  7 px/16 px ≈) — constante optique tenue.
+- Double codage forme + couleur (verdict) : requis (daltoniens), pas une
+  redondance à supprimer.
+
+### 10.3 Alignement
+
+- **Nombres à droite, tabulaire partout** (Qté, Charge, quantités de rupture,
+  heures) ✓ — règle NNG/Carbon.
+- **Expé reste à gauche** : choix assumé — la colonne porte date + libellé
+  relatif (2 lignes), l'alignement droite rendrait le libellé irrégulier.
+- **Quantité de rupture en `ml-auto`** : cale au bord droit d'une cellule
+  large (300 px) → un trou visuel entre la désignation et le chiffre sur les
+  lignes courtes. À rejuger sur données réelles (option : coller la quantité
+  à la désignation, ou rail droit réservé).
+- **Baselines** : `vertical-align: top` partout ; les cellules 2 lignes
+  alignent leur ligne 1 avec les cellules 1 ligne ✓. La colonne rupture
+  commence parfois par une cause (pas de ligne art) — ligne 1 légèrement
+  décalée, acceptable.
+- Padding horizontal uniforme 12 px (px-3) ✓ ; colonne d'index 38 px avec
+  barre de sévérité 3 px — offset optique de la barre vs texte à vérifier.

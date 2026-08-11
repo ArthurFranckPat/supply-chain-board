@@ -393,7 +393,7 @@ export function createProactiveColumns({
                     {c.qc > 0 && (
                       <div className="flex items-center gap-1">
                         <ClipboardCheck
-                          size={10}
+                          size={11}
                           strokeWidth={1.75}
                           className="leading-none text-muted-foreground/80"
                         />
@@ -407,7 +407,7 @@ export function createProactiveColumns({
                       ? c.couvertParOf.parOf > 0 && (
                           <div className="flex items-center gap-1">
                             <CornerDownRight
-                              size={10}
+                              size={11}
                               strokeWidth={1.75}
                               className="leading-none text-muted-foreground/80"
                             />
@@ -422,7 +422,7 @@ export function createProactiveColumns({
                       : c.couvertParOf.ofs.map((of) => (
                           <div key={of.numOf} className="flex items-center gap-1">
                             <CornerDownRight
-                              size={10}
+                              size={11}
                               strokeWidth={1.75}
                               className="leading-none text-muted-foreground/80"
                             />
@@ -449,7 +449,7 @@ export function createProactiveColumns({
                         >
                           <div className="flex items-center gap-1">
                             <CircleSlash
-                              size={10}
+                              size={11}
                               strokeWidth={1.75}
                               className="leading-none text-muted-foreground/80"
                             />
@@ -469,9 +469,9 @@ export function createProactiveColumns({
                               title={p.reception.supplier}
                             >
                               {p.reception.overdue ? (
-                                <TriangleAlert size={10} strokeWidth={1.75} className="leading-none opacity-80" />
+                                <TriangleAlert size={11} strokeWidth={1.75} className="leading-none opacity-80" />
                               ) : (
-                                <Truck size={10} strokeWidth={1.75} className="leading-none opacity-80" />
+                                <Truck size={11} strokeWidth={1.75} className="leading-none opacity-80" />
                               )}
                               <span>
                                 {p.reception.overdue
@@ -482,7 +482,7 @@ export function createProactiveColumns({
                           ) : (
                             <div className="flex items-center gap-0.5 pl-3.5 text-3xs font-medium text-muted-foreground">
                               <CalendarX
-                                size={10}
+                                size={11}
                                 strokeWidth={1.75}
                                 className="leading-none text-muted-foreground/80"
                               />
@@ -543,7 +543,7 @@ export function createProactiveColumns({
                 {!c.couvertParOf && c.qc > 0 && (
                   <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground">
                     <ClipboardCheck
-                      size={10}
+                      size={11}
                       strokeWidth={1.75}
                       className="leading-none text-muted-foreground/80"
                     />
