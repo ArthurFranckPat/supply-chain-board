@@ -671,7 +671,7 @@ export function CalendrierSection() {
       <Fiche
         nom="Calendar"
         from="@r/components/ui/calendar"
-        etat="airbnb"
+        etat="cursor"
         note={
           <>
             Bâti sur <Tok>react-day-picker</Tok>. Le mode plage passe obligatoirement par{' '}

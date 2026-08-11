@@ -487,7 +487,7 @@ const MIGRATION: { nom: string; etat: 'cursor' | 'partiel' | 'airbnb'; reste: st
   { nom: 'Sheet', etat: 'cursor', reste: '—' },
   { nom: 'Tooltip', etat: 'cursor', reste: '—' },
   { nom: 'Toolbar', etat: 'airbnb', reste: 'segments en rayon plein → 6 px' },
-  { nom: 'Calendar', etat: 'airbnb', reste: 'densité des cellules' },
+  { nom: 'Calendar', etat: 'cursor', reste: '—' },
   { nom: 'Spinner', etat: 'cursor', reste: '—' },
   { nom: 'Skeleton', etat: 'cursor', reste: '—' },
   { nom: 'LoadingState', etat: 'cursor', reste: '—' },

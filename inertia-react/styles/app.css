@@ -927,6 +927,25 @@
   letter-spacing: -0.08px;
 }
 
+/* ── Lot 8 — Calendrier ───────────────────────────────────── */
+.theme-cursor [data-slot='calendar'] {
+  font-size: 12px;
+  line-height: 16px;
+}
+.theme-cursor [data-slot='calendar'] button {
+  border-radius: 6px;
+}
+.theme-cursor [data-slot='calendar'] table th {
+  padding: 4px 0;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  color: color-mix(in oklab, #141414 60%, transparent);
+}
+.theme-cursor [data-slot='calendar'] table td {
+  padding: 0;
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)
