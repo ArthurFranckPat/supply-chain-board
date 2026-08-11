@@ -1,8 +1,7 @@
 import { memo, useMemo } from 'react'
 
-import { Jauge, Sparkline } from '@r/components/ui/chart'
+import { BarresClassement, Sparkline, type LigneClassement } from '@r/components/ui/chart'
 import { SERIE, fmtEuro, fmtEuroCompact, fmtHeures } from '@r/lib/charts/theme'
-import { cn } from '@r/lib/utils'
 
 // Type local (évite import circulaire depuis dashboard.tsx)
 export type StockPoint = { periode: string; label: string; valeur: number; qte: number }
@@ -39,141 +38,111 @@ export const StockSparklineChart = memo(function StockSparklineChart({
 })
 
 type ChargeRow = { code: string; label: string; heures: number }
-type ProfRow = { id: string; label: string; nbLignes: number; heures: number }
-type CatRow = { categorie: string; valeur: number; part: number }
 
+/**
+ * Charge en retard par poste — la forme « BarresClassement » de la vitrine,
+ * avec la sélection contrôlée du filtre croisé (clic sur un poste → lignes ;
+ * re-clic ou clic à côté → tout).
+ */
 export const ChargeBars = memo(function ChargeBars({
   postes,
   onSelectPoste,
+  onClear,
   selectedPoste = null,
 }: {
   postes: ChargeRow[]
   onSelectPoste?: (code: string) => void
+  /** Efface le filtre croisé (re-clic sur le poste sélectionné ou clic à côté). */
+  onClear?: () => void
   selectedPoste?: string | null
 }) {
-  const max = useMemo(() => Math.max(1, ...postes.map((p) => p.heures)), [postes])
-  if (postes.length === 0) return null
+  const lignes: LigneClassement[] = useMemo(
+    () =>
+      postes.map((p) => ({
+        cle: p.code,
+        label: p.label ? `${p.code} · ${p.label}` : p.code,
+        valeur: p.heures,
+      })),
+    [postes]
+  )
+  if (lignes.length === 0) return null
+
+  const handleSelection = (cle: string | null) => {
+    if (cle === null || cle === selectedPoste) {
+      onClear?.()
+    } else {
+      onSelectPoste?.(cle)
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-2">
-      {postes.map((p) => {
-        const selected = selectedPoste === p.code
-        const rowLabel = `${p.code}${p.label ? ` · ${p.label}` : ''}`
-        const inner = (
-          <>
-            <div className="mb-1 flex items-baseline justify-between gap-2">
-              <span
-                className="min-w-0 truncate text-xs font-medium text-foreground"
-                title={p.label || p.code}
-              >
-                {rowLabel}
-              </span>
-              <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">
-                {fmtHeures(p.heures)}
-              </span>
-            </div>
-            {/* `max` est partagé par toutes les rangées : c'est lui qui rend le
-                classement lisible d'un coup d'œil, et non la largeur du rendu. */}
-            <Jauge
-              valeur={p.heures}
-              max={max}
-              couleur={SERIE.encre}
-              epaisseur={4}
-              ariaLabel={`Charge en retard du poste ${rowLabel}`}
-              ariaDescription={`${fmtHeures(p.heures)} sur ${fmtHeures(max)}`}
-            />
-          </>
-        )
-        if (!onSelectPoste) {
-          return <div key={p.code}>{inner}</div>
-        }
-        return (
-          <button
-            key={p.code}
-            type="button"
-            onClick={() => onSelectPoste(p.code)}
-            className={cn(
-              'w-full min-h-9 rounded-lg px-1.5 py-1.5 text-left transition-colors',
-              'hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
-              selected && 'bg-foreground/[0.04] ring-1 ring-foreground/10'
-            )}
-            aria-pressed={selected}
-            aria-label={`Voir les lignes en retard du poste ${p.code}`}
-          >
-            {inner}
-          </button>
-        )
-      })}
-    </div>
+    <BarresClassement
+      lignes={lignes}
+      format={fmtHeures}
+      couleur={SERIE.encre}
+      selection={selectedPoste}
+      onSelection={handleSelection}
+      ariaLabel="Charge en retard par poste de charge"
+    />
   )
 })
 
+type ProfRow = { id: string; label: string; nbLignes: number; heures: number }
+
+/**
+ * Profondeur de retard — classement par ancienneté, sévérité en couleur
+ * (≤ 7 j = alerte douce, au-delà = danger ; mêmes seuils que la colonne J+
+ * des lignes en retard).
+ */
 export const ProfondeurBars = memo(function ProfondeurBars({ buckets }: { buckets: ProfRow[] }) {
   const visible = useMemo(() => buckets.filter((b) => b.nbLignes > 0 || b.heures > 0), [buckets])
-  const max = useMemo(() => Math.max(1, ...visible.map((b) => b.heures)), [visible])
-  if (visible.length === 0) return null
-  // Sévérité ordinale : la profondeur est le seul KPI du dashboard où les
-  // lignes ne sont pas du même statut. ≤ 7 j = alerte douce (mêmes seuils
-  // que la colonne J+ des lignes en retard) ; au-delà = danger.
-  const couleur = (id: string) => (id === '1-7' ? SERIE.suggere : SERIE.alerte)
+  const lignes: LigneClassement[] = useMemo(
+    () =>
+      visible.map((b) => ({
+        cle: b.id,
+        label: `${b.label} · ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`,
+        valeur: b.heures,
+        couleur: b.id === '1-7' ? SERIE.suggere : SERIE.alerte,
+      })),
+    [visible]
+  )
+  if (lignes.length === 0) return null
+
   return (
-    <div className="flex flex-col gap-2">
-      {visible.map((b) => (
-        <div key={b.id}>
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <span className="min-w-0 truncate text-xs font-medium text-foreground">
-              {b.label}
-              <span className="ml-1.5 font-normal text-muted-foreground">
-                · {b.nbLignes} ligne{b.nbLignes > 1 ? 's' : ''}
-              </span>
-            </span>
-            <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">
-              {fmtHeures(b.heures)}
-            </span>
-          </div>
-          <Jauge
-            valeur={b.heures}
-            max={max}
-            couleur={couleur(b.id)}
-            epaisseur={4}
-            ariaLabel={`Profondeur de retard — ${b.label}`}
-            ariaDescription={`${fmtHeures(b.heures)} sur ${fmtHeures(max)}, ${b.nbLignes} ligne${b.nbLignes > 1 ? 's' : ''}`}
-          />
-        </div>
-      ))}
-    </div>
+    <BarresClassement
+      lignes={lignes}
+      format={fmtHeures}
+      hauteurLigne={24}
+      ariaLabel="Profondeur de retard — répartition par ancienneté"
+    />
   )
 })
 
+type CatRow = { categorie: string; valeur: number; part: number }
+
+/** Top catégories de stock — la forme « BarresClassement » de la vitrine. */
 export const CategoriesBars = memo(function CategoriesBars({
   categories,
 }: {
   categories: CatRow[]
 }) {
-  const max = useMemo(() => Math.max(1, ...categories.map((c) => c.valeur)), [categories])
-  if (categories.length === 0) return null
+  const lignes: LigneClassement[] = useMemo(
+    () =>
+      categories.map((c) => ({
+        cle: c.categorie,
+        label: `${c.categorie} · ${c.part} %`,
+        valeur: c.valeur,
+      })),
+    [categories]
+  )
+  if (lignes.length === 0) return null
+
   return (
-    <div className="flex flex-col gap-2">
-      {categories.map((c) => (
-        <div key={c.categorie}>
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <span className="min-w-0 truncate text-xs font-medium text-foreground">
-              {c.categorie}
-            </span>
-            <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">
-              {fmtEuro(c.valeur)}
-              <span className="ml-1 text-[10px] text-muted-foreground">{c.part}%</span>
-            </span>
-          </div>
-          <Jauge
-            valeur={c.valeur}
-            max={max}
-            couleur={SERIE.encre}
-            epaisseur={4}
-            ariaLabel={`Valorisation de la catégorie ${c.categorie}`}
-            ariaDescription={`${fmtEuro(c.valeur)}, ${c.part} % du stock`}
-          />
-        </div>
-      ))}
-    </div>
+    <BarresClassement
+      lignes={lignes}
+      format={fmtEuro}
+      hauteurLigne={24}
+      ariaLabel="Valorisation du stock par catégorie"
+    />
   )
 })

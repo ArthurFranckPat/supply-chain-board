@@ -1148,6 +1148,7 @@ export default function Dashboard(props: DashboardProps) {
                             postes={kpi.postes}
                             selectedPoste={posteFilter}
                             onSelectPoste={focusLignesForPoste}
+                            onClear={() => setPosteFilter(null)}
                           />
                         </div>
                       ) : null}
