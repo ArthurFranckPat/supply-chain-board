@@ -408,7 +408,7 @@ function OfListingCard(p: OfCardProps) {
       >
         {p.articleRef && (
           <span
-            className="truncate font-mono text-2xs font-medium leading-none"
+            className="truncate font-mono text-[13px] font-semibold leading-none"
             style={{ color: tone }}
           >
             {p.articleRef}
