@@ -685,6 +685,85 @@
   background-color: color-mix(in oklab, #141414 8%, transparent);
 }
 
+/* ── Lot 2 — Badge & Pill ─────────────────────────────────── */
+.theme-cursor [data-slot='badge'] {
+  height: 20px;
+  border-radius: 9999px;
+  border-color: transparent;
+  padding-inline: 8px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.07px;
+}
+.theme-cursor [data-slot='badge'][data-variant='default'] {
+  background-color: #141414;
+  color: #fcfcfc;
+}
+.theme-cursor [data-slot='badge'][data-variant='secondary'] {
+  background-color: color-mix(in oklab, #141414 8%, transparent);
+  color: color-mix(in oklab, #141414 74%, transparent);
+}
+.theme-cursor [data-slot='badge'][data-variant='outline'] {
+  background-color: transparent;
+  color: #141414;
+  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+}
+.theme-cursor [data-slot='badge'][data-variant='success'] {
+  background-color: color-mix(in oklab, #007041 12%, transparent);
+  color: #007041;
+}
+.theme-cursor [data-slot='badge'][data-variant='warning'] {
+  background-color: color-mix(in oklab, #a46700 12%, transparent);
+  color: #a46700;
+}
+.theme-cursor [data-slot='badge'][data-variant='destructive'] {
+  background-color: color-mix(in oklab, #be1744 12%, transparent);
+  color: #be1744;
+}
+
+/* La pill est un contrôle de filtre, pas une étiquette : rayon 6, pas plein rond. */
+.theme-cursor [data-slot='pill'] {
+  border-radius: 6px;
+  border-color: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.08px;
+  transition: background-color 100ms ease;
+}
+.theme-cursor [data-slot='pill'][data-size='sm'] {
+  height: 20px;
+  padding-inline: 8px;
+}
+.theme-cursor [data-slot='pill'][data-size='default'] {
+  height: 24px;
+  padding-inline: 10px;
+}
+.theme-cursor [data-slot='pill'][data-size='lg'] {
+  height: 28px;
+  padding-inline: 12px;
+}
+.theme-cursor [data-slot='pill'][data-variant='default'],
+.theme-cursor [data-slot='pill'][data-variant='outline'] {
+  background-color: #fcfcfc;
+  color: #141414;
+  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+}
+.theme-cursor [data-slot='pill'][data-variant='active'] {
+  background-color: color-mix(in oklab, #141414 16%, transparent);
+  color: #141414;
+  box-shadow: none;
+}
+.theme-cursor [data-slot='pill'][data-variant='ghost'],
+.theme-cursor [data-slot='pill'][data-variant='soft'] {
+  background-color: transparent;
+  color: color-mix(in oklab, #141414 74%, transparent);
+  box-shadow: none;
+}
+.theme-cursor [data-slot='pill']:hover {
+  background-color: color-mix(in oklab, #141414 8%, transparent);
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

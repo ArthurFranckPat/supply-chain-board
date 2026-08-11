@@ -292,7 +292,7 @@ export function BadgesSection() {
       <Fiche
         nom="Badge"
         from="@r/components/ui/badge"
-        etat="airbnb"
+        etat="cursor"
         note="Hauteur fixe 20 px, rayon plein, texte 12 px medium. Huit variantes — dont trois sémantiques qui portent l'alphabet de statut du board."
       >
         <Grid min={300}>
@@ -328,7 +328,7 @@ export function BadgesSection() {
       <Fiche
         nom="Pill"
         from="@r/components/ui/pill"
-        etat="airbnb"
+        etat="cursor"
         note={
           <>
             Toujours rendue en <Tok>&lt;button&gt;</Tok> — ce n’est pas un composant polymorphique.
