@@ -946,6 +946,88 @@
   padding: 0;
 }
 
+/* ── Lot 9 — champs de saisie ─────────────────────────────── */
+.theme-cursor [data-slot='input'],
+.theme-cursor [data-slot='sidebar-input'] {
+  height: 28px;
+  border-radius: 6px;
+  border-width: 1px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  transition: border-color 100ms ease;
+}
+.theme-cursor [data-slot='textarea'] {
+  min-height: 64px;
+  border-radius: 6px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+}
+.theme-cursor [data-slot='input']:hover,
+.theme-cursor [data-slot='textarea']:hover {
+  border-color: color-mix(in oklab, #141414 20%, transparent);
+}
+.theme-cursor [data-slot='input']:focus-visible,
+.theme-cursor [data-slot='textarea']:focus-visible {
+  border-width: 1px;
+  border-color: #2778c1;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #2778c1 15%, transparent); /* --border-focus */
+}
+.theme-cursor [data-slot='input'][aria-invalid='true'],
+.theme-cursor [data-slot='textarea'][aria-invalid='true'] {
+  border-width: 1px;
+  border-color: #be1744;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #be1744 20%, transparent);
+}
+.theme-cursor [data-slot='label'],
+.theme-cursor [data-slot='field-label'],
+.theme-cursor [data-slot='text-field-label'] {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #141414;
+}
+.theme-cursor [data-slot='field-description'] {
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in oklab, #141414 60%, transparent);
+}
+.theme-cursor [data-slot='field-error'] {
+  font-size: 12px;
+  line-height: 16px;
+  color: #be1744;
+}
+.theme-cursor [data-slot='field-legend'] {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  letter-spacing: -0.08px;
+  color: #141414;
+}
+.theme-cursor [data-slot='input-group'] {
+  border-radius: 6px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+}
+/* Correction documentée : le contrôle interne d'InputGroup porte
+   data-slot="input-group-control" (input-group.tsx) — le data-slot="input"
+   codé en dur dans input.tsx est écrasé par le spread de props. Le sélecteur
+   original « [data-slot='input-group'] [data-slot='input'] » ne matchait
+   rien et laissait le contrôle à 56 px dans un groupe de 32 px. */
+.theme-cursor [data-slot='input-group'] [data-slot='input-group-control'] {
+  height: 26px;
+  border: 0;
+  box-shadow: none;
+  background-color: transparent;
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

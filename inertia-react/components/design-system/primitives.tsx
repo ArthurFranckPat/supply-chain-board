@@ -387,7 +387,7 @@ export function ChampsSection() {
       <Fiche
         nom="Input · Textarea · Label"
         from="@r/components/ui/input · textarea · label"
-        etat="airbnb"
+        etat="cursor"
         note="Input à 56 px de haut, rayon 8 px, bordure qui s'épaissit au focus. La cible Cursor est un champ de 28 px à rayon 6 px avec un anneau de focus accent — l'écart est le plus important du catalogue."
       >
         <Grid min={280}>
@@ -429,7 +429,7 @@ export function ChampsSection() {
       <Fiche
         nom="TextField"
         from="@r/components/ui/text-field"
-        etat="airbnb"
+        etat="cursor"
         note="Composition contrôlée libellé + champ, quand le libellé doit rester solidaire de la saisie."
       >
         <Demo label="TextField">
@@ -445,7 +445,7 @@ export function ChampsSection() {
       <Fiche
         nom="Field"
         from="@r/components/ui/field"
-        etat="airbnb"
+        etat="cursor"
         note="La structure complète d'un champ de formulaire : légende, libellé, aide, erreur, séparateur. Trois orientations."
       >
         <Panel>
@@ -478,7 +478,7 @@ export function ChampsSection() {
       <Fiche
         nom="InputGroup"
         from="@r/components/ui/input-group"
-        etat="airbnb"
+        etat="cursor"
         note="Un champ augmenté d'affixes : unité, préfixe, bouton d'action. Quatre positions d'ancrage."
       >
         <Grid min={300}>
