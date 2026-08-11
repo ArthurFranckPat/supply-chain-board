@@ -137,6 +137,9 @@ export function DashboardGrid({
   className,
 }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // 0 tant que non mesuré — avec colWidth=0 les tuiles font (w-1)*gap px
+  // (~112 px pour w=8) puis explosent à la vraie largeur. Mesure en
+  // useLayoutEffect (avant paint) et on n'affiche qu'une fois prêt.
   const [width, setWidth] = useState(0)
 
   const gestureRef = useRef<Gesture | null>(null)
@@ -158,15 +161,18 @@ export function DashboardGrid({
   /** 'drag' ou l'axe de resize — porte le curseur sur le conteneur pendant le geste. */
   const [gestureCursor, setGestureCursor] = useState<string | null>(null)
 
-  // ----- Largeur du conteneur -----
-  useEffect(() => {
+  // ----- Largeur du conteneur (avant paint pour éviter le CLS) -----
+  useLayoutEffect(() => {
     const node = containerRef.current
     if (!node) return
-    setWidth(node.offsetWidth)
+    const apply = (w: number) => {
+      if (w > 0) setWidth((prev) => (prev === w ? prev : w))
+    }
+    apply(node.getBoundingClientRect().width)
     if (typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0]
-      if (entry) setWidth(entry.contentRect.width)
+      if (entry) apply(entry.contentRect.width)
     })
     ro.observe(node)
     return () => ro.disconnect()
@@ -473,13 +479,18 @@ export function DashboardGrid({
       ref={containerRef}
       className={cn('dashboard-grid', activeId && 'is-gesturing', className)}
       data-gesture={gestureCursor ?? undefined}
-      style={{ position: 'relative', height: Math.max(height, 0) }}
+      style={{
+        position: 'relative',
+        height: Math.max(height, 0),
+        // Pas de tuiles à (w-1)*gap tant que la largeur réelle n'est pas connue.
+        visibility: width > 0 ? 'visible' : 'hidden',
+      }}
       onPointerDown={onPointerDown}
     >
-      {activeItem && (
+      {width > 0 && activeItem && (
         <div className="dashboard-grid-placeholder" style={{ position: 'absolute', ...toBox(activeItem) }} />
       )}
-      {tiles}
+      {width > 0 ? tiles : null}
     </div>
   )
 }

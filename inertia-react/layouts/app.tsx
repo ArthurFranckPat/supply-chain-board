@@ -9,19 +9,16 @@ import { SidebarProvider, SidebarInset } from '@r/components/ui/sidebar'
 import { TooltipProvider } from '@r/components/ui/tooltip'
 
 /**
- * AppLayout — shell applicatif Sidebar (Pulse/Notion).
+ * AppLayout — shell applicatif Sidebar.
  *
- * Palette : sidebar #f7f6f3, accent hover #efede8, border #ebebeb,
- * wrapper #f7f6f3, carte principale blanche arrondie (via SidebarInset variant inset).
- * Basé sur shadcn Sidebar (SidebarProvider + Sidebar collapsible icon + SidebarInset).
- *
- * Masthead.tsx conservé mais non rendu (compat rollback).
- * Props inchangées pour les pages existantes.
+ * Sidebar `offcanvas` : fermée = absente (seul le SidebarTrigger reste).
+ * Thèmes : `airbnb` (défaut pages legacy), `cursor` (dashboard pilot).
+ * Surfaces via tokens `--sidebar` / `--sidebar-canvas`.
  */
 
 import type { MastheadTab } from '@r/components/masthead'
 
-type ThemeVariant = 'airbnb' | 'stock' | 'navy'
+type ThemeVariant = 'airbnb' | 'cursor' | 'stock' | 'navy'
 
 interface AppLayoutProps {
   active: MastheadTab
@@ -35,12 +32,15 @@ interface AppLayoutProps {
   dense?: boolean
   scrollable?: boolean
   maxWidth?: '7xl' | 'full'
+  /** Board Operate : TopBar sans Go to / notifs factices. */
+  quietChrome?: boolean
   title?: string
   children: React.ReactNode
 }
 
 const THEME_SCOPE: Record<ThemeVariant, string> = {
   airbnb: 'theme-airbnb',
+  cursor: 'theme-cursor',
   stock: '',
   navy: 'theme-navy',
 }
@@ -57,6 +57,7 @@ export function AppLayout({
   dense = false,
   scrollable = true,
   maxWidth = '7xl',
+  quietChrome = false,
   title,
   children,
 }: AppLayoutProps) {
@@ -75,6 +76,13 @@ export function AppLayout({
     if (m) return m[1] === 'true'
     return true
   })
+  // Pas de transition width au premier paint : sinon le gap sidebar anime
+  // 16rem ↔ 3rem et la grille KPI grossit frame par frame.
+  const [sidebarMotion, setSidebarMotion] = React.useState(false)
+  React.useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setSidebarMotion(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   return (
     <TooltipProvider>
@@ -87,33 +95,45 @@ export function AppLayout({
             '--sidebar-width-icon': '3rem',
           } as React.CSSProperties
         }
-        className={cn(THEME_SCOPE[theme], dense && 'print:h-auto print:overflow-visible')}
+        className={cn(
+          THEME_SCOPE[theme],
+          dense && 'print:h-auto print:overflow-visible',
+          !sidebarMotion &&
+            '**:data-[slot=sidebar-gap]:transition-none **:data-[slot=sidebar-container]:transition-none'
+        )}
       >
         {title && <Head title={title} />}
-        <AppSidebar active={navKey} />
+        <AppSidebar active={navKey} tone={theme === 'cursor' ? 'cursor' : 'default'} />
 
         <SidebarInset
           data-app-layout="sidebar"
           data-app-layout-inset
           className={cn(
-            'flex min-h-svh flex-1 flex-col overflow-hidden bg-background',
+            'flex min-h-svh flex-1 flex-col overflow-hidden bg-[var(--sidebar-canvas)]',
             dense && 'print:h-auto print:overflow-visible',
             'print:m-0 print:rounded-none print:shadow-none'
           )}
         >
-          <TopBar active={navKey} subtitle={subtitle} meta={meta} actions={mastheadActions} />
+          <TopBar
+            active={navKey}
+            subtitle={subtitle}
+            meta={meta}
+            actions={mastheadActions}
+            quiet={quietChrome || dense}
+          />
 
           {toolbar && (
-            <div className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-4 py-2.5 print:hidden">
+            <div className="flex min-h-12 flex-none items-center gap-3 border-b border-sidebar-border bg-[var(--sidebar-canvas)] px-6 py-2 print:hidden">
               {toolbar}
             </div>
           )}
 
           <main
             className={cn(
-              'flex flex-1 min-h-0 flex-col',
+              'flex min-h-0 flex-1 flex-col bg-[var(--sidebar-canvas)]',
               scrollable ? 'overflow-y-auto' : 'overflow-hidden',
-              !dense && 'px-4 py-3',
+              !dense && maxWidth === 'full' && !scrollable && 'px-6 pt-3 pb-4',
+              !dense && !(maxWidth === 'full' && !scrollable) && 'px-6 py-4',
               dense && 'overflow-hidden p-0'
             )}
           >
@@ -121,7 +141,8 @@ export function AppLayout({
               className={cn(
                 'mx-auto w-full flex-1 min-h-0',
                 maxWidth === '7xl' && !dense && 'max-w-7xl',
-                dense && 'max-w-none h-full'
+                maxWidth === 'full' && 'max-w-none',
+                (dense || maxWidth === 'full') && !scrollable && 'h-full'
               )}
             >
               {children}
@@ -129,7 +150,7 @@ export function AppLayout({
           </main>
 
           {!hideFooter && !dense && (
-            <footer className="flex h-8 flex-none items-center justify-between border-t border-border bg-background px-4 text-[11px] text-muted-foreground print:hidden">
+            <footer className="flex h-9 flex-none items-center justify-between border-t border-sidebar-border bg-[var(--sidebar-canvas)] px-6 text-xs text-muted-foreground print:hidden">
               {footer ?? <DefaultFooter />}
             </footer>
           )}

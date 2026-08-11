@@ -58,20 +58,20 @@ export interface DashboardLayout {
 }
 
 /**
- * Layout par défaut — colonne gauche 1/3 (charge, profondeur, OTD, valorisation)
- * + colonne droite 2/3 (lignes en retard, stock par article).
+ * Layout par défaut — Fold A : retard au-dessus du pli (charge + profondeur
+ * à gauche, lignes à droite), OTIF / stock / articles sous le pli en 3 colonnes.
  */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   version: LAYOUT_VERSION,
   items: [
-    { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 10 },
-    { id: 'profondeur', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
-    { id: 'otd', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
-    { id: 'stock', visible: true, width: 1, x: 0, y: 30, w: 8, h: 10 },
+    { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 7 },
+    { id: 'profondeur', visible: true, width: 1, x: 0, y: 7, w: 8, h: 7 },
     { id: 'lignes', visible: true, width: 2, x: 8, y: 0, w: 16, h: 14 },
-    { id: 'stockTable', visible: true, width: 2, x: 8, y: 14, w: 16, h: 16 },
+    { id: 'otd', visible: true, width: 1, x: 0, y: 14, w: 8, h: 8 },
+    { id: 'stock', visible: true, width: 1, x: 8, y: 14, w: 8, h: 8 },
+    { id: 'stockTable', visible: true, width: 1, x: 16, y: 14, w: 8, h: 10 },
   ],
-  printOrder: ['charge', 'profondeur', 'otd', 'stock', 'lignes', 'stockTable'],
+  printOrder: ['charge', 'profondeur', 'lignes', 'otd', 'stock', 'stockTable'],
 }
 
 /** Vérifie qu'un `unknown` est un `KpiId` valide. */
@@ -93,7 +93,7 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
   // le double aujourd'hui. On ne met à l'échelle que les valeurs réellement
   // fournies — les valeurs de repli sont déjà exprimées en v2.
   const version = typeof obj.version === 'number' ? obj.version : 1
-  const scale = version >= LAYOUT_VERSION ? 1 : 2
+  const scale = version < 2 ? 2 : 1
 
   // items : on reconstruit dans l'ordre canonique, en écrasant avec les valeurs
   // valides trouvées dans le payload. Les doublons/inconnus sont ignorés.

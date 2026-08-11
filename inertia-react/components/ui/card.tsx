@@ -1,7 +1,7 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from 'react'
+import { cva, type VariantProps } from 'class-variance-authority'
 
-import { cn } from "@r/lib/utils"
+import { cn } from '@r/lib/utils'
 
 // Card — alignée sur Airbnb DESIGN.md `property-card` / `reservation-card` /
 // `host-card`. Toutes les cartes de l'app utilisent les mêmes tokens :
@@ -15,25 +15,24 @@ import { cn } from "@r/lib/utils"
 // les tokens, sans toucher aux pages.
 
 const cardVariants = cva(
-  "flex flex-col gap-2 rounded-lg border bg-card text-card-foreground transition-all duration-200 ease-out hover:border-border/90 hover:shadow-md",
+  'flex flex-col gap-2 rounded-lg border bg-card text-card-foreground transition-[box-shadow,border-color] duration-200 ease-out hover:border-border/90 hover:shadow-md',
   {
     variants: {
       // elevation — Airbnb a UN seul shadow tier.
       elevation: {
-        flat: "",
-        raised:
-          "shadow-float",
+        flat: '',
+        raised: 'shadow-float',
       },
       padding: {
-        none: "",
-        sm: "p-4",
-        default: "p-5",
-        lg: "p-6",
+        none: '',
+        sm: 'p-4',
+        default: 'p-5',
+        lg: 'p-6',
       },
     },
     defaultVariants: {
-      elevation: "flat",
-      padding: "none",
+      elevation: 'flat',
+      padding: 'none',
     },
   }
 )
@@ -43,7 +42,7 @@ function Card({
   elevation,
   padding,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof cardVariants>) {
+}: React.ComponentProps<'div'> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
@@ -53,62 +52,36 @@ function Card({
   )
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-header"
-      className={cn("flex flex-col gap-1", className)}
-      {...props}
-    />
-  )
+function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-header" className={cn('flex flex-col gap-1', className)} {...props} />
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
+function CardTitle({ className, ...props }: React.ComponentProps<'h3'>) {
   return (
     <h3
       data-slot="card-title"
-      className={cn("text-base font-semibold leading-tight tracking-tight", className)}
+      className={cn('text-base font-semibold leading-tight tracking-tight', className)}
       {...props}
     />
   )
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
+function CardDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
     <p
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn('text-sm text-muted-foreground', className)}
       {...props}
     />
   )
 }
 
-function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn("flex-1", className)}
-      {...props}
-    />
-  )
+function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-content" className={cn('flex-1', className)} {...props} />
 }
 
-function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-footer"
-      className={cn("flex items-center", className)}
-      {...props}
-    />
-  )
+function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-footer" className={cn('flex items-center', className)} {...props} />
 }
 
-export {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  cardVariants,
-}
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, cardVariants }

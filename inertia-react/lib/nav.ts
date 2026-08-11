@@ -60,7 +60,7 @@ export type NavSection = {
  */
 export const NAV_SECTIONS: NavSection[] = [
   {
-    label: 'Overview',
+    label: "Vue d'ensemble",
     items: [
       {
         key: 'dashboard',

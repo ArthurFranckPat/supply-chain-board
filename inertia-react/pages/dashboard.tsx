@@ -73,6 +73,19 @@ import { Switch } from '@r/components/ui/switch'
  *
  * Port React du Solid inertia/pages/dashboard.tsx — structure identique
  * (sous-composants inline), store zustand pour le layout, DnD HTML5 natif.
+ *
+ * <!--
+ * THESIS: régie KPI calme sur crème Cursor — hiérarchie par poids 400 et
+ *   tracking, pas par Rausch ni ombres ; refuse le dashboard « cards flottantes ».
+ * OWN-WORLD: canvas #f7f7f4, cards #ffffff, ink #26251e, primary #f54e00
+ *   (tokens getdesign cursor/DESIGN.md — rôles canvas vs card respectés).
+ *   Inter Variable, hairlines #e6e5e0, radius 8, pilules ink.
+ * STORY: l’ordonnancer lit la charge et la profondeur sans bruit de chrome.
+ * FIRST VIEWPORT: sidebar crème + TopBar quiet + grille KPI à héros 36/400.
+ * FORM: identité Cursor pinée (remplace Airbnb sur cette surface) — seed n/a.
+ * FINISH: unreviewed and undocumented is unfinished; this build ends with the
+ *   finish review, the verdict, and DESIGN.md
+ * -->
  */
 
 // ═════════════════════════════════════════════════════════════════════════ Types
@@ -228,12 +241,16 @@ const EMPTY_STOCK: StockValuationKpi = {
 }
 
 /**
- * Palette Airbnb « stricte » — une seule famille pour toutes les séries
- * catégorielles (choix utilisateur 2026-07-20) : Rausch en accent (rang le plus
- * chargé / valeur saillante), puis ink, teal Babu, rampe de gris. Remplace
- * l'ancienne famille terreuse legacy (brique/or/moutarde/sable).
+ * Palette catégorielle — accent orange (rang saillant), puis ink, muted
+ * chaud, gris. Sous `.theme-cursor` les tokens suivent l’identité Cursor.
  */
-const BAR_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
+const BAR_PALETTE = [
+  'var(--color-brand, #f54e00)',
+  'var(--foreground, #26251e)',
+  'var(--color-ferme, #1f8a65)',
+  'var(--muted-foreground, #807d72)',
+  'var(--border, #e6e5e0)',
+]
 
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
 const WIDTH_CLASS: Record<KpiWidth, string> = {
@@ -271,7 +288,7 @@ const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
           fonction="GESSOH"
           cle={l.numCommande}
           title={`Ouvrir la commande ${l.numCommande} dans Sage X3`}
-          className="font-mono text-[11px] font-bold text-foreground"
+          className="font-mono text-xs font-medium text-foreground"
         >
           {l.numCommande}
         </X3Link>
@@ -283,7 +300,7 @@ const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
     accessorKey: 'article',
     header: () => 'Article',
     cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] font-semibold text-brand">{getValue() as string}</span>
+      <span className="font-mono text-xs font-medium text-brand">{getValue() as string}</span>
     ),
   },
   {
@@ -292,11 +309,11 @@ const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
     header: () => 'Poste',
     cell: ({ row: { original: l } }) =>
       l.posteDeCharge ? (
-        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.06em] text-secondary-foreground">
           {l.posteDeCharge}
         </span>
       ) : (
-        <span className="font-sans text-[10px] text-muted-foreground/70">—</span>
+        <span className="font-sans text-[10px] text-muted-foreground">—</span>
       ),
   },
   {
@@ -310,7 +327,7 @@ const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
     ),
     meta: {
       thClass: 'text-right',
-      tdClass: 'whitespace-nowrap text-right font-mono text-[11px] text-muted-foreground',
+      tdClass: 'whitespace-nowrap text-right font-mono text-xs text-muted-foreground',
     },
   },
 ]
@@ -320,7 +337,7 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
     accessorKey: 'dateExp',
     header: () => 'Expé',
     cell: ({ getValue }) => (
-      <span className="font-mono text-[12px] font-semibold text-destructive">
+      <span className="font-mono text-xs font-medium text-destructive">
         {(getValue() as string) || '—'}
       </span>
     ),
@@ -328,12 +345,25 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
   },
   {
     accessorKey: 'joursRetard',
-    header: () => 'J. retard',
-    cell: ({ row: { original: l } }) => (
-      <span className="font-mono text-[12px] font-bold tabular-nums text-destructive">
-        {(l.joursRetard ?? 0) > 0 ? `${l.joursRetard} j` : '—'}
-      </span>
-    ),
+    header: () => 'J+',
+    cell: ({ row: { original: l } }) => {
+      const j = l.joursRetard ?? 0
+      if (j <= 0) return <span className="text-muted-foreground">—</span>
+      return (
+        <span
+          className={cn(
+            'text-xs font-medium tabular-nums',
+            j > 7
+              ? 'text-destructive'
+              : j > 3
+                ? 'text-[color:var(--color-suggere)]'
+                : 'text-foreground'
+          )}
+        >
+          {j}
+        </span>
+      )
+    },
     meta: { thClass: 'text-right', tdClass: 'whitespace-nowrap text-right' },
   },
   {
@@ -345,11 +375,11 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
           fonction="GESSOH"
           cle={l.numCommande}
           title={`Ouvrir la commande ${l.numCommande} dans Sage X3`}
-          className="font-mono text-[12px] font-bold text-foreground"
+          className="font-mono text-xs font-medium text-foreground"
         >
           {l.numCommande}
         </X3Link>
-        <div className="font-sans text-[11px] text-muted-foreground">{l.client}</div>
+        <div className="font-sans text-xs text-muted-foreground">{l.client}</div>
       </>
     ),
   },
@@ -358,8 +388,8 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
     header: () => 'Article · Désignation',
     cell: ({ row: { original: l } }) => (
       <>
-        <div className="font-mono text-[12px] font-semibold text-brand">{l.article}</div>
-        <div className="font-sans text-[11px] leading-snug text-secondary-foreground">
+        <div className="font-mono text-xs font-medium text-brand">{l.article}</div>
+        <div className="font-sans text-xs leading-snug text-secondary-foreground">
           {l.designation || '—'}
         </div>
       </>
@@ -376,14 +406,14 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
             <Badge
               key={p}
               variant="secondary"
-              className="font-mono text-[10px] font-bold tracking-wide"
+              className="font-mono text-[10px] font-medium tracking-[0.06em]"
             >
               {p}
             </Badge>
           ))}
         </div>
       ) : (
-        <span className="font-sans text-[11px] text-muted-foreground/70">—</span>
+        <span className="font-sans text-xs text-muted-foreground">—</span>
       ),
   },
   {
@@ -392,7 +422,7 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
     header: () => 'Qté',
     cell: ({ row: { original: l } }) => (
       <span
-        className="whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-foreground"
+        className="whitespace-nowrap font-mono text-xs font-medium tabular-nums text-foreground"
         title={[
           `Commandée : ${l.qteCommandee}`,
           `Déjà couvert : ${l.qteCommandee - l.qteRestante}`,
@@ -415,7 +445,7 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
     accessorKey: 'heures',
     header: () => 'Charge',
     cell: ({ row: { original: l } }) => (
-      <span className="whitespace-nowrap font-mono text-[12px] font-bold tabular-nums text-foreground">
+      <span className="whitespace-nowrap font-mono text-xs font-medium tabular-nums text-foreground">
         {l.heures > 0 ? `${l.heures} h` : '—'}
       </span>
     ),
@@ -428,14 +458,14 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
     accessorKey: 'article',
     header: () => 'Article',
     cell: ({ getValue }) => (
-      <span className="font-mono text-[12px] font-semibold text-brand">{getValue() as string}</span>
+      <span className="font-mono text-xs font-medium text-brand">{getValue() as string}</span>
     ),
   },
   {
     accessorKey: 'designation',
     header: () => 'Désignation',
     cell: ({ getValue }) => (
-      <span className="font-sans text-[11px] leading-snug text-secondary-foreground">
+      <span className="font-sans text-xs leading-snug text-secondary-foreground">
         {(getValue() as string) || '—'}
       </span>
     ),
@@ -444,7 +474,7 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
     accessorKey: 'categorie',
     header: () => 'Cat.',
     cell: ({ getValue }) => (
-      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.06em] text-secondary-foreground">
         {getValue() as string}
       </span>
     ),
@@ -453,7 +483,7 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
     accessorKey: 'stock',
     header: () => 'Stock',
     cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] tabular-nums text-foreground">
+      <span className="font-mono text-xs tabular-nums text-foreground">
         {fmtQtyDec.format(getValue() as number)}
       </span>
     ),
@@ -463,7 +493,7 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
     accessorKey: 'pmp',
     header: () => 'PMP',
     cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
         {fmtPmp.format(getValue() as number)}
       </span>
     ),
@@ -473,7 +503,7 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
     accessorKey: 'valeur',
     header: () => 'Valeur',
     cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] font-bold tabular-nums text-foreground">
+      <span className="font-mono text-xs font-medium tabular-nums text-foreground">
         {fmtEuro.format(getValue() as number)}
       </span>
     ),
@@ -482,54 +512,63 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
 ]
 
 function otdColor(taux: number, nbTotal: number): string {
-  if (nbTotal === 0) return 'var(--color-muted-foreground)'
-  if (taux >= 95) return 'var(--color-ferme, #008049)'
-  if (taux >= 85) return 'var(--color-planifie, #d97706)'
-  return 'var(--color-destructive, #ff385c)'
+  if (nbTotal === 0) return 'var(--muted-foreground, #807d72)'
+  if (taux >= 95) return 'var(--color-ferme, #1f8a65)'
+  if (taux >= 85) return 'var(--color-suggere, #f54e00)'
+  return 'var(--destructive, #cf2d56)'
+}
+
+/** Chiffre héros KPI — encre (quieter). */
+function KpiHero({
+  value,
+  unit,
+  decimals = 0,
+}: {
+  value: number
+  unit: string
+  decimals?: number
+}) {
+  const label =
+    decimals > 0
+      ? value.toLocaleString('fr-FR', {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        })
+      : String(Math.round(value))
+  return (
+    <div className="text-[36px] font-normal leading-none tracking-[-0.04em] tabular-nums text-foreground">
+      {label}
+      <span className="ml-1 text-[13px] font-normal tracking-normal text-muted-foreground">
+        {unit}
+      </span>
+    </div>
+  )
 }
 
 // ═════════════════════════════════════════════════════════════════════════ Components
-/** En-tête de card lisible : pastille d'accent + titre Fraunces + suffixe mono optionnel. */
+/** Titre de KPI : pastille + nom + méta optionnelle. */
 function CardHeader({
   title,
-  suffix,
-  tone,
-  onHide,
+  meta,
+  alert = false,
 }: {
   title: string
-  suffix?: string
-  tone?: string
-  onHide?: () => void
+  meta?: string
+  /** Pastille accent (orange Cursor) si alerte, neutre sinon. */
+  alert?: boolean
 }) {
   return (
-    <div className="mb-4 flex items-center gap-2.5 border-b border-border/60 pb-3">
+    <div className="flex items-center gap-2">
       <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ background: tone ?? 'var(--color-destructive, #ff385c)' }}
+        className={cn('size-1.5 shrink-0 rounded-full', alert ? 'bg-brand' : 'bg-foreground/20')}
+        aria-hidden
       />
-      <h2 className="font-heading text-base font-semibold leading-none tracking-tight text-foreground">
+      <h2 className="min-w-0 truncate text-sm font-normal tracking-[-0.02em] text-foreground">
         {title}
       </h2>
-      <div className="ml-auto flex items-center gap-2">
-        {suffix && (
-          <Badge variant="secondary" className="font-mono text-[10px] uppercase font-bold">
-            {suffix}
-          </Badge>
-        )}
-        {onHide && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={onHide}
-            className="size-6 text-muted-foreground hover:text-foreground print:hidden"
-            title="Masquer ce KPI"
-            aria-label={`Masquer le KPI ${title}`}
-          >
-            <Eye size={14} />
-          </Button>
-        )}
-      </div>
+      {meta ? (
+        <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">{meta}</span>
+      ) : null}
     </div>
   )
 }
@@ -561,16 +600,16 @@ function HiddenTile({
         { order: screenRank ?? 999, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties
       }
     >
-      <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-all duration-200 hover:border-brand/40 hover:bg-secondary/50 print:hidden">
+      <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-[border-color,background-color] duration-200 hover:border-brand/40 hover:bg-secondary/50 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
-        <span className="font-mono text-[10px] font-semibold text-muted-foreground">
+        <span className="font-mono text-[10px] font-medium text-muted-foreground">
           {KPI_TITLES[id]}
         </span>
-        <span className="font-fraunces text-[12px] italic text-muted-foreground/70">— masqué</span>
+        <span className="text-xs text-muted-foreground">— masqué</span>
         <button
           type="button"
           onClick={onShow}
-          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold text-muted-foreground transition-all duration-150 active:scale-95 hover:bg-secondary hover:text-foreground"
+          className="ml-auto flex min-h-9 items-center gap-1 rounded px-3 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <Eye size={13} />
           <span>Afficher</span>
@@ -615,10 +654,10 @@ function Tile({
           bord haut (z-40). Elle-même est `pointer-events-none`, donc seuls ses
           boutons captent le pointeur — ailleurs le geste de resize passe. */}
       {editMode && (
-        <div className="pointer-events-none absolute -top-3 left-3 z-[45] flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
+        <div className="pointer-events-none absolute -top-3 left-3 z-[45] flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-1 shadow-sm print:hidden">
           <span
             data-grid-drag
-            className="pointer-events-auto cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-brand"
+            className="pointer-events-auto flex size-9 items-center justify-center cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-brand"
             title="Cliquer et glisser cette poignée pour réordonner la carte"
           >
             <GripVertical size={14} />
@@ -630,7 +669,7 @@ function Tile({
               type="button"
               onClick={() => onWidth(1)}
               className={cn(
-                'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
+                'min-h-9 min-w-9 px-2 font-mono text-[10px] font-medium transition-colors',
                 width === 1
                   ? 'bg-brand text-brand-foreground rounded-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -643,7 +682,7 @@ function Tile({
               type="button"
               onClick={() => onWidth(2)}
               className={cn(
-                'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
+                'min-h-9 min-w-9 px-2 font-mono text-[10px] font-medium transition-colors',
                 width === 2
                   ? 'bg-brand text-brand-foreground rounded-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -656,7 +695,7 @@ function Tile({
               type="button"
               onClick={() => onWidth(3)}
               className={cn(
-                'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
+                'min-h-9 min-w-9 px-2 font-mono text-[10px] font-medium transition-colors',
                 width === 3
                   ? 'bg-brand text-brand-foreground rounded-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -671,7 +710,7 @@ function Tile({
           {onPrintMove && (
             <div className="pointer-events-auto flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
               <span
-                className="px-1 font-mono text-[9px] text-muted-foreground"
+                className="px-1 font-mono text-[10px] text-muted-foreground"
                 title="Ordre impression"
               >
                 🖨️ #{printRank + 1}
@@ -679,7 +718,7 @@ function Tile({
               <button
                 type="button"
                 onClick={() => onPrintMove(-1)}
-                className="p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                className="flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                 title="Monter dans l'impression"
               >
                 <ArrowUp size={11} />
@@ -687,7 +726,7 @@ function Tile({
               <button
                 type="button"
                 onClick={() => onPrintMove(1)}
-                className="p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                className="flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                 title="Descendre dans l'impression"
               >
                 <ArrowDown size={11} />
@@ -698,7 +737,7 @@ function Tile({
           <button
             type="button"
             onClick={onHide}
-            className="pointer-events-auto p-0.5 text-muted-foreground transition-colors hover:text-destructive"
+            className="pointer-events-auto flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
             title="Masquer la carte"
           >
             <EyeOff size={13} />
@@ -709,7 +748,7 @@ function Tile({
       {/* Ordre d'impression */}
       {!editMode && (
         <span
-          className="absolute right-3 top-3 z-10 hidden rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[9px] font-bold tabular-nums text-muted-foreground print:block"
+          className="absolute right-3 top-3 z-10 hidden rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground print:block"
           title="Ordre d'impression"
         >
           {printRank + 1}
@@ -834,6 +873,8 @@ export default function Dashboard(props: DashboardProps) {
   const [stockCalendarOpen, setStockCalendarOpen] = useState(false)
   // Article ouvert dans la sheet de détail (null = fermé).
   const [stockArticle, setStockArticle] = useState<string | null>(null)
+  /** Filtre croisé Charge → Lignes : code poste sélectionné. */
+  const [posteFilter, setPosteFilter] = useState<string | null>(null)
 
   // Ref pour le contenu imprimable
   const contentElRef = useRef<HTMLDivElement>(null)
@@ -911,6 +952,24 @@ export default function Dashboard(props: DashboardProps) {
   const otdError = useMemo(() => (otdData.data ?? EMPTY_OTD).x3Error, [otdData.data])
   const profondeur = kpi.profondeur
 
+  const filteredRetardLignes = useMemo(() => {
+    if (!posteFilter) return kpi.lignes
+    return kpi.lignes.filter((l) => l.postes.includes(posteFilter))
+  }, [kpi.lignes, posteFilter])
+
+  const focusLignesForPoste = useCallback(
+    (code: string) => {
+      setPosteFilter(code)
+      if (!isVisible('lignes')) setVisible('lignes', true)
+      requestAnimationFrame(() => {
+        document
+          .getElementById('kpi-lignes')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    },
+    [isVisible, setVisible]
+  )
+
   const stock = useMemo(
     () => (stockData.data ?? { stockValuation: EMPTY_STOCK }).stockValuation,
     [stockData.data]
@@ -976,62 +1035,63 @@ export default function Dashboard(props: DashboardProps) {
     <AppLayout
       title="Tableau de bord"
       active="dashboard"
-      subtitle="Tableau de bord · Overview"
-      theme="airbnb"
+      subtitle="Tableau de bord"
+      theme="cursor"
       scrollable={false}
-      maxWidth="7xl"
+      maxWidth="full"
+      hideFooter
+      quietChrome
+      mastheadActions={
+        <div className="flex items-center gap-1">
+          {editMode && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
+              className="text-muted-foreground hover:text-foreground"
+              title="Revenir au layout Fold par défaut"
+            >
+              <RotateCcw size={14} strokeWidth={1.75} />
+              <span className="hidden sm:inline">Réinitialiser</span>
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setEditMode((v) => !v)}
+            className={cn(
+              editMode
+                ? 'font-semibold text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            aria-pressed={editMode}
+            title={editMode ? 'Quitter la personnalisation' : 'Réordonner et masquer des KPI'}
+          >
+            <SlidersHorizontal size={14} strokeWidth={1.75} />
+            {editMode ? 'Terminé' : 'Personnaliser'}
+          </Button>
+        </div>
+      }
     >
       <div ref={contentElRef} className="h-full overflow-auto print:overflow-visible">
         {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
         <div
           data-print-header
-          className="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex"
+          className="mb-6 hidden items-baseline justify-between border-b border-rule pb-4 print:flex"
         >
-          <span className="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
-            Supply Chain <span className="font-medium italic text-brand">AERECO</span>
-            <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
+          <span className="text-xl font-semibold tracking-tight text-foreground">
+            Supply Chain <span className="font-normal text-brand">AERECO</span>
+            <span className="ml-3 font-mono text-sm font-normal text-muted-foreground">
               Tableau de bord
             </span>
           </span>
-          <span className="font-mono text-[12px] text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(
               new Date(props.referenceDate)
             )}
           </span>
-        </div>
-
-        {/* Barre d'outils édition */}
-        <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
-          {editMode && (
-            <span className="font-mono text-xs font-medium text-muted-foreground">
-              Personnalisation — glissez les KPI, ajustez la poignée ou choisissez une largeur,
-              masquez-en.
-            </span>
-          )}
-          <div className="ml-auto flex items-center gap-2">
-            {editMode && (
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
-                className="font-mono text-xs font-semibold text-muted-foreground hover:text-foreground"
-              >
-                <RotateCcw size={13} className="mr-1" />
-                Réinitialiser
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant={editMode ? 'default' : 'outline'}
-              size="xs"
-              onClick={() => setEditMode((v) => !v)}
-              className="font-mono text-xs font-semibold"
-            >
-              <SlidersHorizontal size={13} className="mr-1" />
-              {editMode ? 'Terminé' : 'Personnaliser'}
-            </Button>
-          </div>
         </div>
 
         <DashboardGrid
@@ -1056,44 +1116,53 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('charge', false)}
                 onPrintMove={(dir) => movePrint('charge', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                  <CardHeader
-                    title="Charge en retard"
-                    suffix="par poste"
-                    onHide={() => setVisible('charge', false)}
-                  />
+                <Card
+                  elevation="flat"
+                  padding="default"
+                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none"
+                >
+                  <CardHeader title="Charge en retard" alert={kpi.totalHeures > 0} />
                   {kpisData.loading ? (
                     <Spinner />
                   ) : x3Error ? (
-                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                      {x3Error}
-                    </p>
+                    <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
+                  ) : kpi.totalHeures === 0 && kpi.postes.length === 0 ? (
+                    <>
+                      <KpiHero value={0} unit="h" />
+                      <p className="mt-1 text-sm font-normal text-muted-foreground">Aucun retard</p>
+                    </>
                   ) : (
                     <>
                       <div className="flex items-end justify-between gap-3">
-                        <div className="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                          {kpi.totalHeures}
-                          <span className="ml-1 font-mono text-[18px] font-bold text-muted-foreground">
-                            h
-                          </span>
-                        </div>
-                        <div className="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                          <b className="text-[13px] text-foreground">{kpi.nbLignes}</b> ligne
+                        <KpiHero
+                          value={kpi.totalHeures}
+                          unit="h"
+                          decimals={Number.isInteger(kpi.totalHeures) ? 0 : 1}
+                        />
+                        <div className="pb-1.5 text-right text-xs font-normal leading-tight text-muted-foreground">
+                          <span className="font-medium tabular-nums text-foreground">
+                            {kpi.nbLignes}
+                          </span>{' '}
+                          ligne
                           {kpi.nbLignes > 1 ? 's' : ''}
-                          <br />
-                          en retard
+                          <span className="mx-1 text-muted-foreground">·</span>
+                          <span className="font-medium tabular-nums text-foreground">
+                            {kpi.postes.length}
+                          </span>{' '}
+                          poste
+                          {kpi.postes.length > 1 ? 's' : ''}
                         </div>
                       </div>
 
                       {kpi.postes.length > 0 ? (
-                        <div className="mt-6">
-                          <ChargeBars postes={kpi.postes} />
+                        <div className="mt-4">
+                          <ChargeBars
+                            postes={kpi.postes}
+                            selectedPoste={posteFilter}
+                            onSelectPoste={focusLignesForPoste}
+                          />
                         </div>
-                      ) : (
-                        <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
-                          Aucune charge en retard — rien à rattraper.
-                        </p>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </Card>
@@ -1113,47 +1182,36 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('profondeur', false)}
                 onPrintMove={(dir) => movePrint('profondeur', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                  <CardHeader
-                    title="Profondeur de retard"
-                    suffix="jours"
-                    onHide={() => setVisible('profondeur', false)}
-                  />
+                <Card
+                  elevation="flat"
+                  padding="default"
+                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none"
+                >
+                  <CardHeader title="Profondeur" alert={(profondeur?.maxJours ?? 0) > 0} />
                   {kpisData.loading ? (
                     <Spinner />
                   ) : x3Error ? (
-                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                      {x3Error}
-                    </p>
+                    <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
+                  ) : (profondeur?.maxJours ?? 0) === 0 ? (
+                    <KpiHero value={0} unit="j" />
                   ) : (
                     <>
                       <div className="flex items-end justify-between gap-3">
-                        <div className="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                          {profondeur?.maxJours ?? 0}
-                          <span className="ml-1 font-mono text-[18px] font-bold text-muted-foreground">
-                            j
-                          </span>
-                        </div>
-                        <div className="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                        <KpiHero value={profondeur?.maxJours ?? 0} unit="j" />
+                        <div className="pb-1.5 text-right text-xs font-normal leading-tight text-muted-foreground">
                           moy.{' '}
-                          <b className="text-[13px] text-foreground">
+                          <span className="font-medium tabular-nums text-foreground">
                             {profondeur?.moyennePondereeHeures ?? 0}
-                          </b>{' '}
+                          </span>{' '}
                           j
-                          <br />
-                          pondérée h
                         </div>
                       </div>
 
                       {(profondeur?.buckets ?? []).some((b) => b.nbLignes > 0) ? (
-                        <div className="mt-6">
+                        <div className="mt-4">
                           <ProfondeurBars buckets={profondeur?.buckets ?? []} />
                         </div>
-                      ) : (
-                        <p className="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
-                          Aucun retard — profondeur nulle.
-                        </p>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </Card>
@@ -1173,11 +1231,25 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('otd', false)}
                 onPrintMove={(dir) => movePrint('otd', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                  <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                    <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
-                    <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
-                      OTD
+                <Card
+                  elevation="flat"
+                  padding="default"
+                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="size-1.5 shrink-0 rounded-full"
+                      style={{
+                        background:
+                          otd.length > 0 && otd.every((p) => p.nbTotal === 0 || p.tauxOtif >= 95)
+                            ? 'var(--color-ferme, #1f8a65)'
+                            : otd.some((p) => p.nbTotal > 0)
+                              ? 'var(--color-brand, #f54e00)'
+                              : 'color-mix(in srgb, var(--foreground) 20%, transparent)',
+                      }}
+                    />
+                    <h2 className="text-sm font-normal leading-none tracking-[-0.02em] text-foreground">
+                      OTIF
                     </h2>
                     {/* Sélecteur de plage */}
                     <div className="ml-auto flex items-center gap-1">
@@ -1231,32 +1303,19 @@ export default function Dashboard(props: DashboardProps) {
                         Acceptée
                       </SegmentButton>
                     </Segment>
-                    <button
-                      type="button"
-                      onClick={() => setVisible('otd', false)}
-                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                      title="Masquer ce KPI"
-                      aria-label="Masquer le KPI OTD"
-                    >
-                      <Eye size={15} />
-                    </button>
                   </div>
 
                   {otdData.loading ? (
                     <Spinner />
                   ) : otdError ? (
-                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                      {otdError}
-                    </p>
+                    <p className="text-sm font-medium leading-snug text-destructive">{otdError}</p>
                   ) : otd.length === 0 ? (
-                    <p className="font-fraunces text-[13px] italic text-muted-foreground">
-                      Aucune donnée OTD.
-                    </p>
+                    <p className="text-sm font-normal text-muted-foreground">Aucune donnée</p>
                   ) : (
                     <>
                       {/* Filtre client + toggle détails */}
-                      <div className="mb-3 flex items-center gap-1.5">
-                        <InputGroup className="h-8 flex-1">
+                      <div className="mb-2 flex items-center gap-1.5">
+                        <InputGroup className="h-9 flex-1">
                           <InputGroupAddon align="inline-start">
                             <Search size={13} className="text-muted-foreground" />
                           </InputGroupAddon>
@@ -1266,7 +1325,7 @@ export default function Dashboard(props: DashboardProps) {
                             onChange={(e) => setClientFilter(e.target.value)}
                             placeholder="Filtrer par client"
                             aria-label="Filtrer les lignes par client"
-                            className="h-8 text-xs"
+                            className="h-9 text-xs"
                           />
                           {clientFilter && (
                             <InputGroupAddon align="inline-end">
@@ -1284,7 +1343,7 @@ export default function Dashboard(props: DashboardProps) {
                         <Button
                           type="button"
                           variant="outline"
-                          size="xs"
+                          size="sm"
                           onClick={() => setDetailsOpen((v) => !v)}
                           title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
                         >
@@ -1300,33 +1359,38 @@ export default function Dashboard(props: DashboardProps) {
                       {otd.map((p, i) => (
                         <div
                           key={p.label}
-                          className={cn('mt-5 border-t border-rule-soft pt-5', i > 0)}
+                          className={cn(
+                            'mt-4 border-t border-border/60 pt-4',
+                            i === 0 && 'mt-0 border-t-0 pt-0'
+                          )}
                         >
-                          <div className="mb-2 font-mono text-[10px] font-semibold text-muted-foreground">
+                          <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.04em] text-muted-foreground">
                             {p.label}
                           </div>
 
                           {p.nbTotal === 0 ? (
-                            <p className="font-fraunces text-[12px] italic text-muted-foreground">
-                              Aucune ligne à expédier.
+                            <p className="text-sm font-normal text-muted-foreground">
+                              Rien à traiter
                             </p>
                           ) : (
                             <>
                               <div className="flex items-end justify-between gap-3">
                                 <div
-                                  className="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums"
+                                  className="text-2xl font-normal leading-none tracking-[-0.04em] tabular-nums"
                                   style={{ color: otdColor(p.tauxOtif, p.nbTotal) }}
                                 >
                                   {p.tauxOtif}
-                                  <span className="ml-0.5 font-mono text-[16px] font-bold text-muted-foreground">
+                                  <span className="ml-0.5 text-sm font-medium text-muted-foreground">
                                     %
                                   </span>
                                 </div>
-                                <div className="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                                  <b className="text-[13px] text-foreground">{p.nbOtif}</b>/
-                                  {p.nbTotal}
+                                <div className="pb-1 text-right text-xs font-normal leading-tight text-muted-foreground">
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {p.nbOtif}
+                                  </span>
+                                  /{p.nbTotal}
                                   <br />
-                                  lignes OTIF
+                                  hors délai : {p.nbTotal - p.nbOtif}
                                 </div>
                               </div>
 
@@ -1341,7 +1405,7 @@ export default function Dashboard(props: DashboardProps) {
                                   scrollContainerClass="-mx-2 mt-4 max-h-[160px] overflow-auto rounded-none border-0 shadow-none"
                                   theadRowClass="sticky top-0 z-10 bg-secondary"
                                   getRowClass={() =>
-                                    'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
+                                    'border-t border-border/60 transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
                                   }
                                   getRowKey={(l) =>
                                     `${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`
@@ -1350,8 +1414,8 @@ export default function Dashboard(props: DashboardProps) {
                               )}
 
                               {detailsOpen && p.lignesNon.length === 0 && (
-                                <p className="mt-4 font-fraunces text-[12px] italic text-muted-foreground">
-                                  Toutes les lignes sont OTIF.
+                                <p className="mt-2 text-sm font-normal text-muted-foreground">
+                                  Rien à traiter
                                 </p>
                               )}
                             </>
@@ -1377,14 +1441,15 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('stock', false)}
                 onPrintMove={(dir) => movePrint('stock', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                  <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: '#00a699' }}
-                    />
-                    <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
-                      Valorisation stock
+                <Card
+                  elevation="flat"
+                  padding="default"
+                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="size-1.5 shrink-0 rounded-full bg-foreground/20" />
+                    <h2 className="text-sm font-normal leading-none tracking-[-0.02em] text-foreground">
+                      Stock
                     </h2>
                     <div className="ml-auto flex items-center gap-1">
                       <DateWindowPill
@@ -1437,40 +1502,33 @@ export default function Dashboard(props: DashboardProps) {
                         Sem.
                       </SegmentButton>
                     </Segment>
-                    <button
-                      type="button"
-                      onClick={() => setVisible('stock', false)}
-                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                      title="Masquer ce KPI"
-                      aria-label="Masquer le KPI Valorisation stock"
-                    >
-                      <Eye size={15} />
-                    </button>
                   </div>
 
                   {stockData.loading ? (
                     <Spinner />
                   ) : stockError ? (
-                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                    <p className="text-sm font-medium leading-snug text-destructive">
                       {stockError}
                     </p>
                   ) : stock.series.length === 0 ? (
-                    <p className="font-fraunces text-[13px] italic text-muted-foreground">
-                      Aucune donnée de valorisation.
-                    </p>
+                    <p className="text-sm font-normal text-muted-foreground">—</p>
                   ) : (
                     <>
-                      {/* Valeur actuelle + delta */}
                       <div className="flex items-end justify-between gap-3">
                         <div>
-                          <div className="font-fraunces text-[40px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                          <div className="text-[36px] font-normal leading-none tracking-[-0.04em] tabular-nums text-foreground">
                             {fmtEuro.format(stock.totalActuel)}
                           </div>
-                          <div className="mt-1.5 flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground">
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
                             {stock.deltaPct !== 0 && (
                               <span
-                                className="font-bold tabular-nums"
-                                style={{ color: stock.deltaPct > 0 ? '#ff385c' : '#008049' }}
+                                className="font-medium tabular-nums"
+                                style={{
+                                  color:
+                                    stock.deltaPct > 0
+                                      ? 'var(--color-brand, #f54e00)'
+                                      : 'var(--color-ferme, #1f8a65)',
+                                }}
                               >
                                 {stock.deltaPct > 0 ? '+' : ''}
                                 {stock.deltaPct}%
@@ -1479,19 +1537,18 @@ export default function Dashboard(props: DashboardProps) {
                             <span>vs début de plage</span>
                           </div>
                         </div>
-                        <div className="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                          <b className="text-[13px] text-foreground">{stock.nbArticles}</b> art.
-                          <br />
-                          valorisés
+                        <div className="pb-1 text-right text-xs font-normal leading-tight text-muted-foreground">
+                          <span className="font-medium tabular-nums text-foreground">
+                            {stock.nbArticles}
+                          </span>{' '}
+                          art.
                         </div>
                       </div>
 
-                      {/* Mini-graphique */}
                       <StockSparklineChart series={stock.series} />
 
-                      {/* Top 5 catégories */}
-                      <div className="mt-5">
-                        <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
+                      <div className="mt-4">
+                        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.04em] text-muted-foreground">
                           Top catégories
                         </div>
                         <CategoriesBars categories={stock.categories} />
@@ -1505,7 +1562,7 @@ export default function Dashboard(props: DashboardProps) {
 
           {/* ═════ KPI #4 — Lignes en retard ═════ */}
           {isVisible('lignes') && (
-            <div key="lignes">
+            <div key="lignes" id="kpi-lignes">
               <Tile
                 id="lignes"
                 editMode={editMode}
@@ -1515,26 +1572,50 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('lignes', false)}
                 onPrintMove={(dir) => movePrint('lignes', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  elevation="flat"
+                  padding="default"
+                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none"
+                >
                   <CardHeader
                     title="Lignes en retard"
-                    suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
-                    onHide={() => setVisible('lignes', false)}
+                    meta={
+                      posteFilter
+                        ? `${filteredRetardLignes.length}/${kpi.nbLignes} · ${posteFilter}`
+                        : `${kpi.nbLignes}`
+                    }
+                    alert={kpi.nbLignes > 0}
                   />
+                  {posteFilter && (
+                    <div className="mb-2 flex items-center gap-2 print:hidden">
+                      <Badge variant="secondary" className="font-mono text-[10px] font-medium">
+                        Poste {posteFilter}
+                      </Badge>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-9 gap-1 px-2 text-xs text-muted-foreground"
+                        onClick={() => setPosteFilter(null)}
+                        aria-label="Effacer le filtre poste"
+                      >
+                        <X size={12} />
+                        Toutes les lignes
+                      </Button>
+                    </div>
+                  )}
                   {kpisData.loading ? (
                     <Spinner />
                   ) : x3Error ? (
-                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
-                      {x3Error}
-                    </p>
-                  ) : kpi.lignes.length === 0 ? (
-                    <p className="font-fraunces text-[13px] italic text-muted-foreground">
-                      Aucune ligne en retard.
+                    <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
+                  ) : filteredRetardLignes.length === 0 ? (
+                    <p className="text-sm font-normal text-muted-foreground">
+                      {posteFilter ? `Aucune ligne · ${posteFilter}` : 'Aucune ligne'}
                     </p>
                   ) : (
                     <DataTable
                       columns={retardLigneColumns}
-                      rows={kpi.lignes}
+                      rows={filteredRetardLignes}
                       sorting={retardSorting}
                       onSortingChange={setRetardSorting}
                       virtualize={false}
@@ -1566,24 +1647,26 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('stockTable', false)}
                 onPrintMove={(dir) => movePrint('stockTable', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  elevation="flat"
+                  padding="default"
+                  className="h-full gap-3 overflow-auto border-border bg-card shadow-none hover:border-border hover:shadow-none [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                >
                   <CardHeader
-                    title="Stock par article"
-                    suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}
-                    tone="#00a699"
-                    onHide={() => setVisible('stockTable', false)}
+                    title="Articles"
+                    meta={`${filteredArticles.length}/${stock.nbArticles}`}
                   />
                   {stockData.loading ? (
                     <Spinner />
                   ) : stockError ? (
-                    <p className="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                    <p className="text-sm font-medium leading-snug text-destructive">
                       {stockError}
                     </p>
                   ) : (
                     <>
                       {/* Barre de filtres */}
-                      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                        <InputGroup className="h-8 flex-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                        <InputGroup className="h-9 flex-1">
                           <InputGroupAddon align="inline-start">
                             <Search size={13} className="text-muted-foreground" />
                           </InputGroupAddon>
@@ -1593,7 +1676,7 @@ export default function Dashboard(props: DashboardProps) {
                             onChange={(e) => setStockSearch(e.target.value)}
                             placeholder="Article ou désignation"
                             aria-label="Filtrer les articles"
-                            className="h-8 text-xs"
+                            className="h-9 text-xs"
                           />
                           {stockSearch && (
                             <InputGroupAddon align="inline-end">
@@ -1616,7 +1699,7 @@ export default function Dashboard(props: DashboardProps) {
                         >
                           <SelectTrigger
                             size="sm"
-                            className="h-8 border-border bg-card font-mono text-[11px] font-semibold text-foreground"
+                            className="h-9 border-border bg-card font-mono text-xs font-medium text-foreground"
                           >
                             <SelectValue placeholder="Toutes cat." />
                           </SelectTrigger>
@@ -1633,7 +1716,7 @@ export default function Dashboard(props: DashboardProps) {
                           type="button"
                           onClick={() => setStockHideZero((v) => !v)}
                           className={cn(
-                            'h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold transition-colors',
+                            'min-h-9 rounded-[8px] border px-2.5 font-mono text-xs font-medium transition-colors',
                             stockHideZero
                               ? 'border-brand/40 bg-brand-soft text-brand'
                               : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
@@ -1668,8 +1751,8 @@ export default function Dashboard(props: DashboardProps) {
 
         {/* Section cartes masquées en mode édition */}
         {editMode && items.some((it) => !it.visible) && (
-          <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border pt-4 print:hidden">
-            <span className="font-mono text-xs font-semibold text-muted-foreground">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-6 print:hidden">
+            <span className="font-mono text-xs font-normal text-muted-foreground">
               Cartes masquées :
             </span>
             {items
@@ -1679,7 +1762,7 @@ export default function Dashboard(props: DashboardProps) {
                   key={it.id}
                   type="button"
                   variant="outline"
-                  size="xs"
+                  size="sm"
                   onClick={() => setVisible(it.id, true)}
                   className="font-mono text-xs"
                 >

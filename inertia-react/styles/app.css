@@ -44,15 +44,15 @@
      les badges « font-mono text-2xs uppercase » du board retombent à 16px
      et l'uppercase devient agressif (effet « police trop haute » signalé
      sur /programme). Valeurs identiques au runtime Solid pour parité. */
-  --text-2xs: 0.625rem;            /* 10px */
+  --text-2xs: 0.625rem; /* 10px */
   --text-2xs--line-height: 1.2;
-  --text-3xs: 0.5625rem;           /* 9px — décoratif uniquement */
+  --text-3xs: 0.5625rem; /* 9px — décoratif uniquement */
   --text-3xs--line-height: 1.1;
-  --text-4xs: 0.5rem;              /* 8px — tags OF, badges quantité (tableau dense) */
+  --text-4xs: 0.5rem; /* 8px — tags OF, badges quantité (tableau dense) */
   --text-4xs--line-height: 1.1;
-  --text-1.5xs: 0.6875rem;         /* 11px — valeurs secondaires (couverture, dates) */
+  --text-1.5xs: 0.6875rem; /* 11px — valeurs secondaires (couverture, dates) */
   --text-1.5xs--line-height: 1.25;
-  --text-cell-lg: 0.8125rem;       /* 13px — valeurs emphase (qté, charge, expé) */
+  --text-cell-lg: 0.8125rem; /* 13px — valeurs emphase (qté, charge, expé) */
   --text-cell-lg--line-height: 1;
 
   /* ── Fraunces — NEUTRALISÉ sous le runtime React (thème Airbnb). ──
@@ -110,12 +110,12 @@
      airbnb-grammar.html) : le swap des oklch stock vers les hex métier
      a été fait le 21/07/2026 — ne pas revenir aux oklch. */
   --color-brand: var(--primary);
-  --color-brand-soft: rgba(255, 56, 92, 0.10); /* Rausch soft */
+  --color-brand-soft: rgba(255, 56, 92, 0.1); /* Rausch soft */
   --color-rule: var(--border);
-  --color-rule-soft: #ebebeb;                  /* hairline-soft */
-  --color-ferme: #008049;                      /* green-700 (statut OF ferme) */
-  --color-planifie: #00a699;                   /* Babu teal (statut planifié) */
-  --color-suggere: #fc642d;                    /* Arches orange (statut suggéré) */
+  --color-rule-soft: #ebebeb; /* hairline-soft */
+  --color-ferme: #008049; /* green-700 (statut OF ferme) */
+  --color-planifie: #00a699; /* Babu teal (statut planifié) */
+  --color-suggere: #fc642d; /* Arches orange (statut suggéré) */
   --color-warning: #fc642d;
 }
 
@@ -134,42 +134,43 @@
 :root {
   /* ── Grammaire Airbnb (valeurs identiques au bloc .theme-airbnb) ── */
   --background: #ffffff;
-  --foreground: #222222;             /* ink — jamais de noir pur */
+  --foreground: #222222; /* ink — jamais de noir pur */
   --card: #ffffff;
   --card-foreground: #222222;
   --popover: #ffffff;
   --popover-foreground: #222222;
-  --primary: #ff385c;                /* Rausch — CTA marque */
+  --primary: #ff385c; /* Rausch — CTA marque */
   --primary-foreground: #ffffff;
-  --secondary: #f7f7f7;              /* surface-soft */
+  --secondary: #f7f7f7; /* surface-soft */
   --secondary-foreground: #222222;
-  --muted: #f2f2f2;                  /* surface-strong */
+  --muted: #f2f2f2; /* surface-strong */
   --muted-foreground: #6a6a6a;
   --accent: #f7f7f7;
   --accent-foreground: #222222;
-  --destructive: #c13515;            /* error ≠ Rausch (grammaire overlays) */
+  --destructive: #c13515; /* error ≠ Rausch (grammaire overlays) */
   --destructive-foreground: #ffffff;
-  --border: #dddddd;                 /* hairline */
-  --input: #c1c1c1;                  /* border-strong */
-  --ring: #222222;                   /* focus = ink, pas brand */
-  --chart-1: #ff385c;                /* Rausch */
-  --chart-2: #00a699;                /* Babu teal */
-  --chart-3: #fc642d;                /* Arches orange */
+  --border: #dddddd; /* hairline */
+  --input: #c1c1c1; /* border-strong */
+  --ring: #222222; /* focus = ink, pas brand */
+  --chart-1: #ff385c; /* Rausch */
+  --chart-2: #00a699; /* Babu teal */
+  --chart-3: #fc642d; /* Arches orange */
   --chart-4: #6a6a6a;
   --chart-5: #222222;
-  --radius: 0.875rem;                /* 14px — cards/dialogs (boutons = sm) */
-  --sidebar: #f7f6f3;               /* Pulse/Notion — beige clair */
+  --radius: 0.875rem; /* 14px — cards/dialogs (boutons = sm) */
+  --sidebar: #f7f6f3; /* Pulse/Notion — beige clair */
+  --sidebar-canvas: #fbfaf8; /* pages : teinte sidebar éclaircie */
   --sidebar-foreground: #222222;
   --sidebar-primary: #ff385c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #efede8;       /* hover sidebar item */
+  --sidebar-accent: #efede8; /* hover sidebar item */
   --sidebar-accent-foreground: #222222;
   --sidebar-border: #ebebeb;
   --sidebar-ring: #222222;
 
   /* ── Tokens métier (statuts OF) — portails inclus. ── */
   --brand: var(--primary);
-  --brand-soft: rgba(255, 56, 92, 0.10);
+  --brand-soft: rgba(255, 56, 92, 0.1);
   --rule: var(--border);
   --rule-soft: #ebebeb;
   --ferme: #008049;
@@ -206,6 +207,7 @@
   --chart-4: #6a6a6a;
   --chart-5: #222222;
   --sidebar: #f7f6f3;
+  --sidebar-canvas: #fbfaf8;
   --sidebar-foreground: #222222;
   --sidebar-primary: #ff385c;
   --sidebar-primary-foreground: #ffffff;
@@ -244,7 +246,11 @@
    Porté depuis resources/css/app.css (runtime Solid). */
 .kpi-tile {
   order: var(--screen-order, 0);
-  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  transition:
+    transform 250ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
   will-change: transform, opacity;
 }
 
@@ -338,17 +344,17 @@
      Exposées pour usage ponctuel volontaire. Le DESIGN.md précise que
      Babu/Arches ne sont pas en mainline marketing — on ne les câble à
      aucun token sémantique pour ne pas inonder l'UI. */
-  --color-rausch: #ff385c;       /* marque principale (UI réelle) */
-  --color-rausch-logo: #ff5a5f;  /* variante logo marketing */
-  --color-rausch-active: #e00b41;/* press state (DESIGN.md) */
+  --color-rausch: #ff385c; /* marque principale (UI réelle) */
+  --color-rausch-logo: #ff5a5f; /* variante logo marketing */
+  --color-rausch-active: #e00b41; /* press state (DESIGN.md) */
   --color-rausch-disabled: #ffd1da;
-  --color-babu: #00a699;         /* teal — info / CTA secondaire */
-  --color-arches: #fc642d;       /* orange — énergie / alerte chaude */
-  --color-hof: #484848;          /* ink marketing */
-  --color-foggy: #767676;        /* muted marketing */
-  --color-luxe: #460479;         /* sub-brand Luxe (DESIGN.md) */
-  --color-plus: #92174d;         /* sub-brand Plus (DESIGN.md) */
-  --color-legal-link: #428bff;   /* liens légaux uniquement (DESIGN.md) */
+  --color-babu: #00a699; /* teal — info / CTA secondaire */
+  --color-arches: #fc642d; /* orange — énergie / alerte chaude */
+  --color-hof: #484848; /* ink marketing */
+  --color-foggy: #767676; /* muted marketing */
+  --color-luxe: #460479; /* sub-brand Luxe (DESIGN.md) */
+  --color-plus: #92174d; /* sub-brand Plus (DESIGN.md) */
+  --color-legal-link: #428bff; /* liens légaux uniquement (DESIGN.md) */
 
   /* ── Surfaces — blanc clinique ── */
   --background: #ffffff;
@@ -359,33 +365,33 @@
   --popover-foreground: #222222;
 
   /* ── Neutres — surfaces douces ── */
-  --secondary: #f7f7f7;          /* surface-soft (DESIGN.md) */
+  --secondary: #f7f7f7; /* surface-soft (DESIGN.md) */
   --secondary-foreground: #222222;
-  --muted: #f2f2f2;              /* surface-strong (DESIGN.md) */
-  --muted-foreground: #6a6a6a;   /* muted (DESIGN.md) */
+  --muted: #f2f2f2; /* surface-strong (DESIGN.md) */
+  --muted-foreground: #6a6a6a; /* muted (DESIGN.md) */
   --accent: #f7f7f7;
   --accent-foreground: #222222;
 
   /* ── Hairlines & bordures ── */
-  --border: #dddddd;             /* hairline (DESIGN.md) */
-  --input: #c1c1c1;              /* border-strong sur focus (DESIGN.md) */
+  --border: #dddddd; /* hairline (DESIGN.md) */
+  --input: #c1c1c1; /* border-strong sur focus (DESIGN.md) */
 
   /* ── Sémantique — error ≠ Rausch (Airbnb utilise un rouge plus sombre) ── */
-  --destructive: #c13515;        /* primary-error-text (DESIGN.md) */
+  --destructive: #c13515; /* primary-error-text (DESIGN.md) */
   --destructive-foreground: #ffffff;
 
   /* ── Pas de dark mode Airbnb — on pointe vers le light pour sécurité ── */
 
   /* ── Radius — l'échelle signature ── */
-  --radius: 0.875rem;            /* 14px — cards (rounded.md Airbnb) */
+  --radius: 0.875rem; /* 14px — cards (rounded.md Airbnb) */
   /* Les dérivés (sm/md/lg/xl/2xl/3xl/4xl) sont calculés dans @theme inline */
 
   /* ── Une seule ombre — card hover float (DESIGN.md Elevation) ──
      Surcharge des --shadow-* utilisés par shadcn. On écrase les niveaux
      par la même définition : aucun cas de l'app n'a besoin de tiers
      progressifs, et le DESIGN.md est explicite (« one shadow tier »). */
-  --shadow-xs: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
-  --shadow-sm: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
+  --shadow-xs: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.1);
 
   /* ── Typo — Plus Jakarta Sans Variable, substitut de Cereal VF ──
      Choix utilisateur (2026-07-20) : Plus Jakarta Sans est le substitut
@@ -400,6 +406,7 @@
 
   /* ── Sidebar — Pulse/Notion (#f7f6f3), hover #efede8 ── */
   --sidebar: #f7f6f3;
+  --sidebar-canvas: #fbfaf8;
   --sidebar-foreground: #222222;
   --sidebar-primary: #ff385c;
   --sidebar-primary-foreground: #ffffff;
@@ -409,11 +416,11 @@
   --sidebar-ring: #222222;
 
   /* ── Charts — Rausch + palette brand ── */
-  --chart-1: #ff385c;            /* Rausch */
-  --chart-2: #00a699;            /* Babu teal */
-  --chart-3: #fc642d;            /* Arches orange */
-  --chart-4: #6a6a6a;            /* muted */
-  --chart-5: #222222;            /* ink */
+  --chart-1: #ff385c; /* Rausch */
+  --chart-2: #00a699; /* Babu teal */
+  --chart-3: #fc642d; /* Arches orange */
+  --chart-4: #6a6a6a; /* muted */
+  --chart-5: #222222; /* ink */
 
   /* ── Tokens métier (portés depuis .theme-navy Solid) ──
      Les pages migrées utilisent la grammaire brand/rule/ferme/planifie/suggere.
@@ -421,12 +428,12 @@
      restent sémantiques (sens métier — Airbnb lui-même préserve des couleurs
      sémantiques au-delà du Rausch). */
   --brand: var(--primary);
-  --brand-soft: rgba(255, 56, 92, 0.10);
+  --brand-soft: rgba(255, 56, 92, 0.1);
   --rule: var(--border);
-  --rule-soft: #ebebeb;          /* hairline-soft (DESIGN.md) */
-  --ferme: #008049;              /* green-700 — lisible sur blanc */
+  --rule-soft: #ebebeb; /* hairline-soft (DESIGN.md) */
+  --ferme: #008049; /* green-700 — lisible sur blanc */
   --planifie: var(--color-babu); /* Babu teal — info, aligné sur le brand book */
-  --suggere: var(--color-arches);/* Arches orange — warning chaud, brand book */
+  --suggere: var(--color-arches); /* Arches orange — warning chaud, brand book */
   --warning: var(--color-arches);
 
   color: var(--foreground);
@@ -445,6 +452,176 @@
 .theme-airbnb h2,
 .theme-airbnb h3 {
   line-height: 1.2;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Thème « Cursor » — tokens getdesign (cursor/DESIGN.md).
+
+   Rôles (ne pas inverser) :
+   • canvas #f7f7f4     → fond page + sidebar
+   • surface-card #fff  → cards
+   • surface-strong     → badges / secondaires
+   • ink #26251e        → texte
+   • primary #f54e00    → CTA + wordmark (rare)
+   • hairline #e6e5e0   → filets
+
+   Substitut typo : Inter Variable (CursorGothic non licencié ici).
+   Pages hors dashboard restent sur .theme-airbnb.
+   ──────────────────────────────────────────────────────────── */
+.theme-cursor {
+  --color-canvas: #f7f7f4;
+  --color-canvas-soft: #fafaf7;
+  --color-surface-card: #ffffff;
+  --color-surface-strong: #e6e5e0;
+  --color-hairline: #e6e5e0;
+  --color-hairline-soft: #efeee8;
+  --color-hairline-strong: #cfcdc4;
+  --color-ink: #26251e;
+  --color-body: #5a5852;
+  --color-muted-token: #807d72;
+  --color-muted-soft: #a09c92;
+  --color-primary: #f54e00;
+  --color-primary-active: #d04200;
+  --color-on-primary: #ffffff;
+  --color-semantic-error: #cf2d56;
+  --color-semantic-success: #1f8a65;
+
+  /* Alias legacy boutons hover → primary-active Cursor */
+  --color-rausch: #f54e00;
+  --color-rausch-active: #d04200;
+  --color-rausch-soft: color-mix(in srgb, #f54e00 12%, transparent);
+  --color-rausch-logo: #f54e00;
+  --color-rausch-disabled: #efeee8;
+  --color-babu: #1f8a65;
+  --color-arches: #f54e00;
+  --color-hof: #5a5852;
+  --color-foggy: #807d72;
+
+  --primary: #f54e00;
+  --primary-foreground: #ffffff;
+  --ring: #26251e;
+
+  --background: #f7f7f4;
+  --foreground: #26251e;
+  --card: #ffffff;
+  --card-foreground: #26251e;
+  --popover: #ffffff;
+  --popover-foreground: #26251e;
+
+  --secondary: #e6e5e0;
+  --secondary-foreground: #26251e;
+  --muted: #efeee8;
+  --muted-foreground: #807d72;
+  --accent: #efeee8;
+  --accent-foreground: #26251e;
+
+  --border: #e6e5e0;
+  --input: #cfcdc4;
+
+  --destructive: #cf2d56;
+  --destructive-foreground: #ffffff;
+
+  --radius: 0.75rem; /* rounded.lg = 12px cards */
+
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-float: none;
+  --shadow-overlay: 0 16px 40px color-mix(in srgb, #26251e 12%, transparent);
+
+  --font-sans: 'Inter Variable', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-heading: 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'Inter Variable', ui-monospace, Menlo, Monaco, Consolas, monospace;
+
+  --sidebar: #f7f7f4;
+  --sidebar-canvas: #f7f7f4;
+  --sidebar-foreground: #26251e;
+  --sidebar-primary: #f54e00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efeee8;
+  --sidebar-accent-foreground: #26251e;
+  --sidebar-selected: #e6e5e0;
+  --sidebar-border: #e6e5e0;
+  --sidebar-ring: #26251e;
+
+  --chart-1: #26251e;
+  --chart-2: #807d72;
+  --chart-3: #f54e00;
+  --chart-4: #1f8a65;
+  --chart-5: #c08532;
+
+  --brand: #f54e00;
+  --brand-soft: color-mix(in srgb, #f54e00 12%, transparent);
+  --rule: var(--border);
+  --rule-soft: #efeee8;
+  --ferme: #1f8a65;
+  --planifie: #1f8a65;
+  --suggere: #f54e00;
+  --warning: #f54e00;
+  --color-brand: #f54e00;
+  --color-brand-soft: color-mix(in srgb, #f54e00 12%, transparent);
+  --color-planifie: #1f8a65;
+  --color-suggere: #f54e00;
+  --color-ferme: #1f8a65;
+  --color-warning: #f54e00;
+
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.011em;
+}
+
+.theme-cursor ::selection {
+  background: var(--brand-soft);
+}
+
+/* Display Cursor : weight 400 */
+.theme-cursor h1,
+.theme-cursor h2,
+.theme-cursor h3 {
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.theme-cursor [data-slot='card'] {
+  background-color: #ffffff;
+  border-color: #e6e5e0;
+  border-radius: 12px;
+  box-shadow: none;
+}
+.theme-cursor [data-slot='card']:hover {
+  border-color: #e6e5e0;
+  box-shadow: none;
+}
+
+/* CTA : radius 8px (rounded.md), pas pilule full */
+.theme-cursor [data-slot='button'] {
+  border-radius: 8px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.theme-cursor [aria-label="Fil d'Ariane"] .font-semibold,
+.theme-cursor [aria-label="Fil d'Ariane"] .font-normal {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.theme-cursor [data-sidebar='menu-button'][data-active],
+.theme-cursor [data-slot='sidebar-menu-button'][data-active] {
+  background-color: var(--sidebar-selected, #e6e5e0) !important;
+  color: #26251e !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+}
+.theme-cursor [data-sidebar='sidebar'] {
+  background-color: #f7f7f4;
+  border-color: #e6e5e0;
+}
+.theme-cursor [data-sidebar='menu-button'] {
+  border-radius: 8px;
 }
 
 /* Distinction test/prod — fidèle à la palette Airbnb.
@@ -572,8 +749,11 @@
  * Le CSS ne fait que l'animation d'atterrissage, le rendu du geste en cours et
  * la poignée de redimensionnement. */
 .dashboard-grid-item {
-  transition: left 180ms cubic-bezier(0.16, 1, 0.3, 1), top 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    width 180ms cubic-bezier(0.16, 1, 0.3, 1), height 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    left 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    top 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 180ms cubic-bezier(0.16, 1, 0.3, 1);
   /* La tuile est positionnée en absolu et dimensionnée explicitement : sa mise
    * en page interne n'influence rien au dehors. Le dire au navigateur lui évite
    * de remonter le reflow au document à chaque frame de redimensionnement.
@@ -625,7 +805,11 @@
   border-radius: 0.75rem;
   z-index: 1;
   pointer-events: none;
-  transition: left 120ms ease, top 120ms ease, width 120ms ease, height 120ms ease;
+  transition:
+    left 120ms ease,
+    top 120ms ease,
+    width 120ms ease,
+    height 120ms ease;
 }
 
 /* Poignées de redimensionnement : les 4 bords plus le coin bas-droit (2 axes).

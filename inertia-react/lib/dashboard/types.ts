@@ -48,17 +48,18 @@ export interface DashboardLayout {
   printOrder: KpiId[]
 }
 
+/** Fold A : retard au-dessus du pli, OTIF/stock/articles en dessous. */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   version: LAYOUT_VERSION,
   items: [
-    { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 10 },
-    { id: 'profondeur', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
-    { id: 'otd', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
-    { id: 'stock', visible: true, width: 1, x: 0, y: 30, w: 8, h: 10 },
+    { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 7 },
+    { id: 'profondeur', visible: true, width: 1, x: 0, y: 7, w: 8, h: 7 },
     { id: 'lignes', visible: true, width: 2, x: 8, y: 0, w: 16, h: 14 },
-    { id: 'stockTable', visible: true, width: 2, x: 8, y: 14, w: 16, h: 16 },
+    { id: 'otd', visible: true, width: 1, x: 0, y: 14, w: 8, h: 8 },
+    { id: 'stock', visible: true, width: 1, x: 8, y: 14, w: 8, h: 8 },
+    { id: 'stockTable', visible: true, width: 1, x: 16, y: 14, w: 8, h: 10 },
   ],
-  printOrder: ['charge', 'profondeur', 'otd', 'stock', 'lignes', 'stockTable'],
+  printOrder: ['charge', 'profondeur', 'lignes', 'otd', 'stock', 'stockTable'],
 }
 
 export function isKpiId(v: unknown): v is KpiId {
@@ -79,7 +80,7 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
   // le double aujourd'hui. On ne met à l'échelle que les valeurs réellement
   // fournies — les valeurs de repli sont déjà exprimées en v2.
   const version = typeof obj.version === 'number' ? obj.version : 1
-  const scale = version >= LAYOUT_VERSION ? 1 : 2
+  const scale = version < 2 ? 2 : 1
 
   if (Array.isArray(obj.items)) {
     const seen = new Set<KpiId>()
