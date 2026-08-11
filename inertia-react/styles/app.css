@@ -1237,6 +1237,14 @@
   box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
 }
 
+/* ── Dashboard — filet léger sur les cartes KPI ────────────── */
+/* La recette Card pose un anneau 4 % en ombre, sans bordure. Les cartes du
+   dashboard portent un vrai filet de 1 px (--border-tertiary) par-dessus. */
+.theme-cursor [data-slot='card'].dashboard-card {
+  border-width: 1px;
+  border-color: color-mix(in oklab, #141414 8%, transparent); /* --border-tertiary */
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)

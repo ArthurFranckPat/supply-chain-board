@@ -1085,7 +1085,7 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('charge', false)}
                 onPrintMove={(dir) => movePrint('charge', dir)}
               >
-                <Card padding="sm" className="h-full overflow-auto">
+                <Card padding="sm" className="dashboard-card h-full overflow-auto">
                   <CardHeader title="Charge en retard" alert={kpi.totalHeures > 0} />
                   {kpisData.loading ? (
                     <Spinner />
@@ -1143,7 +1143,7 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('profondeur', false)}
                 onPrintMove={(dir) => movePrint('profondeur', dir)}
               >
-                <Card padding="sm" className="h-full overflow-auto">
+                <Card padding="sm" className="dashboard-card h-full overflow-auto">
                   <CardHeader title="Profondeur" alert={(profondeur?.maxJours ?? 0) > 0} />
                   {kpisData.loading ? (
                     <Spinner />
@@ -1190,7 +1190,7 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   padding="sm"
-                  className="h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  className="dashboard-card h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -1395,7 +1395,7 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   padding="sm"
-                  className="h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  className="dashboard-card h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="size-1.5 shrink-0 rounded-full bg-foreground/20" />
@@ -1521,7 +1521,7 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('lignes', false)}
                 onPrintMove={(dir) => movePrint('lignes', dir)}
               >
-                <Card padding="sm" className="h-full overflow-auto">
+                <Card padding="sm" className="dashboard-card h-full overflow-auto">
                   <CardHeader
                     title="Lignes en retard"
                     meta={`${kpi.nbLignes}`}
@@ -1568,7 +1568,7 @@ export default function Dashboard(props: DashboardProps) {
               >
                 <Card
                   padding="sm"
-                  className="h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  className="dashboard-card h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
                 >
                   <CardHeader
                     title="Articles"
