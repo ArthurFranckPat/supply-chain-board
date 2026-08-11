@@ -23,6 +23,7 @@
 import { useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { DateWindowPill } from '@r/components/vision/toolbar'
+import { HistogrammeCharge, type PeriodeCharge, type SegmentCharge } from '@r/components/ui/chart'
 import { cn } from '@r/lib/utils'
 import type { EngagementRow } from '@r/lib/board/engagement-format'
 
@@ -145,6 +146,24 @@ export function lundiIso(iso: string): string {
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n)
+
+/** Les deux segments du fil : le constaté en brand pleine, l'engagé en brand
+ *  éclaircie — la maquette V3 distinguait par le rempli contre la hachure, la
+ *  lib ne hachure pas ; la couleur porte la coupure, la légende l'explique. */
+const SEGMENTS_FIL: SegmentCharge[] = [
+  {
+    cle: 'constate',
+    serie: 'reel',
+    label: 'Constaté',
+    couleur: 'color-mix(in oklab, var(--color-brand) 80%, transparent)',
+  },
+  {
+    cle: 'engage',
+    serie: 'projete',
+    label: 'Engagé',
+    couleur: 'color-mix(in oklab, var(--color-brand) 42%, transparent)',
+  },
+]
 
 /** « S JJ/MM » à partir d'un lundi ISO — même style que l'axe actuel. */
 function semaineCourte(lundiIso: string): string {
@@ -495,6 +514,19 @@ export function LeFil(props: LeFilProps) {
   const max = Math.max(...all.map((b) => b.v ?? 0), capMax) * 1.06 || 1
   const nPasse = serie.passe.length
 
+  /** Périodes de la lib : une par barre du fil, une seule série par période
+   *  (constaté OU engagé), capacité calendaire portée par période. */
+  const periodes = useMemo<PeriodeCharge[]>(
+    () =>
+      [...serie.passe, ...serie.futur].map((b, i) => ({
+        cle: `p${i}`,
+        label: b.tooltipLab,
+        valeurs: b.v !== null && b.v > 0 ? { [b.futur ? 'engage' : 'constate']: b.v } : {},
+        capacite: b.cap !== null && b.cap > 0 ? b.cap : null,
+      })),
+    [serie.passe, serie.futur]
+  )
+
   const UNITE_LAB: Record<Mesure, string> = { h: 'h', pc: 'pc', pal: 'pal' }
   const libMesure = { h: 'heures pointées', pc: 'pièces déclarées', pal: 'palettes' }[mesure]
   const libMaille = { jour: 'par jour', semaine: 'par semaine', mois: 'par mois' }[maille]
@@ -608,7 +640,10 @@ export function LeFil(props: LeFilProps) {
           granularité Jour produit plus d'une centaine de barres. */}
       <div className="mx-5 mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-rule-soft py-2.5 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-[10px] w-3 rounded-[2px] bg-brand opacity-80" />
+          <span
+            className="inline-block h-[10px] w-3 rounded-[2px]"
+            style={{ backgroundColor: 'color-mix(in oklab, var(--color-brand) 80%, transparent)' }}
+          />
           Constaté · pointages
         </span>
         {/* En mesure palettes, ni la capacité (capMesure → null) ni les OF
@@ -616,7 +651,12 @@ export function LeFil(props: LeFilProps) {
             légende pas des marques inexistantes (revue #119, round 4). */}
         {serie.futur.some((b) => b.v !== null) && (
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-[10px] w-3 rounded-[2px] border-[1.5px] border-brand [background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-brand) 16%,transparent)_0_3px,transparent_3px_6px)]" />
+            <span
+              className="inline-block h-[10px] w-3 rounded-[2px]"
+              style={{
+                backgroundColor: 'color-mix(in oklab, var(--color-brand) 42%, transparent)',
+              }}
+            />
             Engagé · OF fermes
           </span>
         )}
@@ -628,69 +668,72 @@ export function LeFil(props: LeFilProps) {
         )}
       </div>
 
-      {/* Le fil */}
+      {/* Le fil — barres, capacité et coupure par HistogrammeCharge
+          (@tanstack/charts) ; trous, respiration, pastilles d'anomalies et
+          étiquettes en overlay HTML calé sur les mêmes proportions. */}
       <div className="px-5 pb-1 pt-4">
         <div className="relative h-[190px]">
-          <div className="absolute inset-0 flex items-end gap-0.5">
-            {all.map((b, i) => {
-              const pct =
-                b.v === null ? 0 : Math.max(b.v === 0 && b.futur ? 3 : 5, (b.v / max) * 100)
-              const sat = b.cap !== null && b.cap > 0 && b.v !== null ? b.v / b.cap : 0
-              const tooltipAlign = tooltipAlignClass(i, all.length)
-              const tooltipPlacement = tooltipPlacementClass(pct)
-              const status = b.futur ? 'Engagé' : 'Constaté'
+          <HistogrammeCharge
+            periodes={periodes}
+            segments={SEGMENTS_FIL}
+            max={max}
+            hauteur={190}
+            afficherAxes={false}
+            afficherCapacite
+            regleX={nPasse > 0 && nPasse < all.length ? `p${nPasse}` : null}
+            largeurInitiale={700}
+            format={fmt}
+            formatTooltip={(points) => {
+              const premier = points[0]?.datum
+              if (!premier) return ''
+              const b = all[Number(premier.cle.slice(1))]
+              if (!b) return ''
               const detail = b.vide
                 ? 'Aucune heure engagée'
                 : b.v === null
                   ? 'Équivalent palette indisponible'
                   : `${fmt(b.v)} ${UNITE_LAB[mesure]}`
-              return (
-                <div
-                  key={`${maille}-${mesure}-${i}`}
-                  tabIndex={0}
-                  aria-label={`${b.lab} · ${status} · ${detail}`}
-                  onClick={() => setTipOpen(tipOpen === `bar-${i}` ? '' : `bar-${i}`)}
-                  className={cn(
-                    'group relative min-w-[2px] flex-1 cursor-pointer origin-bottom rounded-t-[3px] outline-none animate-[fil-grow_300ms_cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none after:absolute after:inset-x-[-4px] after:bottom-0 after:top-[-12px] after:content-[""] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    b.v === null
-                      ? 'border-b-2 border-dotted border-muted-foreground/40' // trou : donnée absente
-                      : b.futur
-                        ? b.vide
-                          ? 'border border-dashed border-brand/50'
-                          : 'border-[1.5px] border-b-0 border-brand [background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-brand) 16%,transparent)_0_3px,transparent_3px_6px)]'
-                        : 'bg-brand opacity-80 hover:opacity-100'
-                  )}
-                  style={{ height: `${pct}%` }}
-                >
-                  <span
-                    role="tooltip"
-                    className={cn(
-                      'pointer-events-none absolute z-30 hidden min-w-[150px] rounded-lg border border-white/10 bg-foreground px-3 py-2 text-left text-[10px] text-white shadow-float group-hover:block group-focus-visible:block',
-                      tipOpen === `bar-${i}` && '!block',
-                      tooltipAlign,
-                      tooltipPlacement
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-3 border-b border-white/15 pb-1 font-semibold">
-                      <span>{b.tooltipLab}</span>
-                      <span className={b.futur ? 'text-brand' : 'text-white/85'}>{status}</span>
-                    </span>
-                    <span className="mt-1 block font-mono font-bold tabular-nums">{detail}</span>
-                    {!b.vide && b.v !== null && (
-                      <span className="mt-0.5 block text-white/85">
-                        {Math.round(sat * 100)} % de la capacité
-                      </span>
-                    )}
-                  </span>
-                </div>
-              )
-            })}
+              const statut = b.futur ? 'Engagé' : 'Constaté'
+              const sat =
+                b.cap !== null && b.cap > 0 && b.v !== null
+                  ? ` · ${Math.round((b.v / b.cap) * 100)} % de la capacité`
+                  : ''
+              return `${b.tooltipLab} — ${statut}\n${detail}${sat}`
+            }}
+            ariaLabel={`Le fil du poste — ${serie.passe.length} périodes constatées et ${serie.futur.length} engagées`}
+            ariaDescription={`${fmt(capMax)} de capacité au plafond, en ${libMesure} ${libMaille}`}
+          />
+
+          {/* Trous : donnée absente — un marqueur au sol, jamais un zéro. */}
+          <div className="pointer-events-none absolute inset-0 z-[2]">
+            {all.map((b, i) =>
+              b.v === null ? (
+                <span
+                  key={`trou-${i}`}
+                  className="absolute bottom-0 h-[3px] w-[2px] -translate-x-1/2 border-b-2 border-dotted border-muted-foreground/40"
+                  style={{ left: `${((i + 0.5) / all.length) * 100}%` }}
+                />
+              ) : null
+            )}
           </div>
 
-          {/* Ligne de capacité — top calculé depuis l'échelle, jamais en dur. */}
+          {/* Respiration : semaine engagée à zéro heure. */}
+          <div className="pointer-events-none absolute inset-0 z-[2]">
+            {all.map((b, i) =>
+              b.vide && b.futur ? (
+                <span
+                  key={`vide-${i}`}
+                  className="absolute bottom-0 h-[5px] w-[6px] -translate-x-1/2 rounded-[2px] border border-dashed border-brand/50"
+                  style={{ left: `${((i + 0.5) / all.length) * 100}%` }}
+                />
+              ) : null
+            )}
+          </div>
+
+          {/* Étiquette de capacité — le trait est la courbe de la lib. */}
           {capMax > 0 && (
             <div
-              className="absolute left-0 right-0 z-[3] border-t-2 border-dashed border-input"
+              className="pointer-events-none absolute left-0 right-0 z-[3]"
               style={{ top: `${(1 - capMax / max) * 100}%` }}
             >
               <span className="absolute -top-2 right-0 bg-card px-1.5 text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -701,11 +744,12 @@ export function LeFil(props: LeFilProps) {
             </div>
           )}
 
-          {/* Coupure aujourd'hui : frontière passé/futur. */}
+          {/* Coupure aujourd'hui : la ligne vient de la règle de la lib, la
+              pastille reste du HTML posé sur le premier band futur. */}
           {nPasse > 0 && nPasse < all.length && (
             <div
-              className="absolute bottom-0 top-[-6px] z-[4] border-l-2 border-foreground"
-              style={{ left: `${(nPasse / all.length) * 100}%` }}
+              className="pointer-events-none absolute inset-y-0 z-[4]"
+              style={{ left: `${((nPasse + 0.5) / all.length) * 100}%` }}
             >
               <span className="absolute left-1/2 top-[-18px] -translate-x-1/2 whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-white">
                 Aujourd'hui
