@@ -4,19 +4,17 @@
  * même JSX cellule que Solid).
  */
 import { cn } from '@r/lib/utils'
-import { Badge } from '@r/components/ui/badge'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import {
   OF_STATUT,
-  VERDICT_DOT,
+  VERDICT_ICON,
   VERDICT_TEXT,
   LATE_TONE,
   getRelativeDateLabel,
 } from '@r/lib/suivi/tracking-shared'
-import { CalendarX, CornerDownRight } from 'lucide-react'
+import { CalendarX, CircleSlash, ClipboardCheck, CornerDownRight, TriangleAlert, Truck } from 'lucide-react'
 import { X3Link } from '../../components/x3-link'
-import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 export interface ProactiveColumnsDeps {
   referenceDate: string
@@ -49,31 +47,35 @@ export function createProactiveColumns({
       accessorKey: 'numCommande',
       header: 'Commande · Client',
       // Idem réactif : le clic de ligne ouvre la sheet, X3 est à côté.
+      // Design V3 : deux lignes — commande (mono gras, icône X3) / client
+      // (muted, clamp + titre complet) — fini la troncature en plein mot.
       cell: ({ row, getValue }) => (
-        <>
-          <button
-            type="button"
-            className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
-            disabled={!onOpenRow}
-            title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenRow?.(row.original)
-            }}
-          >
-            {getValue() as string}
-          </button>
-          <X3Link
-            fonction="GESSOH"
-            cle={getValue() as string}
-            title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
-            iconOnly
-            className="ml-1 align-middle text-muted-foreground hover:text-brand"
-          />
-          <span className="ml-1.5 text-2xs text-muted-foreground">
+        <span className="flex min-w-0 flex-col gap-px">
+          <span className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
+              disabled={!onOpenRow}
+              title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenRow?.(row.original)
+              }}
+            >
+              {getValue() as string}
+            </button>
+            <X3Link
+              fonction="GESSOH"
+              cle={getValue() as string}
+              title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
+              iconOnly
+              className="align-middle text-muted-foreground hover:text-brand"
+            />
+          </span>
+          <span className="truncate text-2xs text-muted-foreground">
             {row.original.client || '—'}
           </span>
-        </>
+        </span>
       ),
       meta: {
         thClass: 'w-[150px] text-left font-sans tracking-wider',
@@ -82,25 +84,34 @@ export function createProactiveColumns({
     {
       accessorKey: 'article',
       header: 'Article · Désignation',
+      // Design V3 : deux lignes — code article (mono gras, JAMAIS tronqué) /
+      // désignation (clamp-1 pleine largeur, titre complet en secours).
       cell: ({ row, getValue }) => (
-        <div className="flex items-baseline gap-1.5 min-w-0">
+        <span className="flex min-w-0 flex-col gap-px">
           <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="truncate text-2xs text-muted-foreground">
+          <span
+            className="truncate text-2xs text-muted-foreground"
+            title={row.original.designation || undefined}
+          >
             {row.original.designation || '—'}
           </span>
-        </div>
+        </span>
       ),
       meta: {
         thClass: 'w-[200px] text-left font-sans tracking-wider',
       },
     },
     {
+      // Fusion Type · Poste (design V3) : deux codes courts en deux colonnes
+      // étroites → une cellule « NOR · PP_139 ». Les filtres Type et Poste
+      // restent séparés (le panneau Filtres ne lit pas cette colonne).
       accessorKey: 'type',
-      header: 'Type',
-      cell: ({ getValue }) => {
+      header: 'Type · Poste',
+      cell: ({ row, getValue }) => {
         const val = getValue() as string
+        const poste = row.original.poste
         const title =
           val === 'MTS'
             ? 'Make To Stock — Fabriqué pour le stock'
@@ -108,47 +119,37 @@ export function createProactiveColumns({
               ? 'Make To Order — Fabriqué à la commande client'
               : 'Normal — Ligne standard'
         return (
-          <Badge variant="secondary" className="cursor-help font-mono" title={title}>
-            {val}
-          </Badge>
-        )
-      },
-      meta: {
-        thClass: 'w-[56px] text-left font-sans tracking-wider',
-      },
-    },
-    {
-      accessorKey: 'poste',
-      header: 'Poste',
-      cell: ({ row, getValue }) => {
-        const code = getValue() as string
-        if (!code)
-          return (
-            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
-              —
-            </span>
-          )
-        return (
-          <Badge
-            variant="secondary"
-            className="cursor-help font-mono"
-            title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
+          <span
+            className="cursor-help font-mono text-[11px] font-semibold leading-snug text-muted-foreground"
+            title={
+              poste && row.original.posteLabel
+                ? `${title} — ${poste} (${row.original.posteLabel})`
+                : title
+            }
           >
-            {code}
-          </Badge>
+            {val}
+            {poste && (
+              <>
+                <span className="text-muted-foreground/60"> · </span>
+                {poste}
+              </>
+            )}
+          </span>
         )
       },
       meta: {
-        thClass: 'w-[90px] text-left font-sans tracking-wider',
+        thClass: 'w-[110px] text-left font-sans tracking-wider',
       },
     },
     {
       accessorKey: 'qteRestante',
       header: 'Qté',
       cell: ({ getValue }) => (
-        <span className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums">
+        <span
+          className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums"
+          title="unités"
+        >
           {getValue() as number}
-          <span className="ml-0.5 text-3xs font-medium text-muted-foreground">u</span>
         </span>
       ),
       meta: {
@@ -240,9 +241,11 @@ export function createProactiveColumns({
                       </span>
                     )}
                     {st && (
-                      <Badge
-                        variant={st.tag === 'WOF' || st.tag === 'WOP' ? 'success' : 'warning'}
-                        className="cursor-help font-mono"
+                      <span
+                        className={cn(
+                          'shrink-0 font-mono text-[9px] font-semibold',
+                          st.tag === 'WOF' || st.tag === 'WOP' ? 'text-muted-foreground/60' : 'text-suggere'
+                        )}
                         title={
                           st.tag === 'WOF'
                             ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
@@ -252,7 +255,7 @@ export function createProactiveColumns({
                         }
                       >
                         {st.tag}
-                      </Badge>
+                      </span>
                     )}
                     {of.estDebuté && of.piecesFaites != null && of.piecesTotalOf && (
                       <span
@@ -270,9 +273,8 @@ export function createProactiveColumns({
         }
         const isGood = v === 'Stock' || v === 'Achat'
         return isGood ? (
-          <Badge
-            variant="secondary"
-            className="cursor-help font-mono"
+          <span
+            className="cursor-help font-mono text-[10.5px] font-semibold text-muted-foreground"
             title={
               v === 'Stock'
                 ? 'Couvert par le stock disponible'
@@ -280,7 +282,7 @@ export function createProactiveColumns({
             }
           >
             {v}
-          </Badge>
+          </span>
         ) : (
           <span className="break-all font-mono text-1.5xs font-semibold leading-snug text-secondary-foreground">
             {v}
@@ -297,10 +299,15 @@ export function createProactiveColumns({
       header: 'Verdict',
       cell: ({ row }) => {
         const o = row.original
+        const VerdictIcon = VERDICT_ICON[o.verdictKey]
         return (
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
-            <span className={cn('text-2xs font-semibold', VERDICT_TEXT[o.verdictKey])}>
+            {/* Icône dessinée : la FORME code le verdict (lecture daltonien-safe),
+                la couleur suit VERDICT_TEXT. */}
+            <span className={cn('shrink-0', VERDICT_TEXT[o.verdictKey])} aria-hidden="true">
+              <VerdictIcon size={14} strokeWidth={1.75} />
+            </span>
+            <span className={cn('text-1.5xs font-semibold', VERDICT_TEXT[o.verdictKey])}>
               {o.verdictLabel}
             </span>
           </span>
@@ -347,7 +354,7 @@ export function createProactiveColumns({
           <div className="flex flex-col gap-1">
             {comps.slice(0, 4).map((c) => (
               <div key={c.art} className="flex flex-col gap-px">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
                   {/* Sous-ensemble fabriqué (descente BOM ou couvert par production) en teal :
                       il se traite à l'atelier, pas aux achats — la distinction doit sauter aux
                       yeux dans une colonne qui mélange les deux. */}
@@ -369,10 +376,11 @@ export function createProactiveColumns({
                     </span>
                   )}
                   {/* Un SE couvert par production n'est PAS en manque : pas de signe « − »,
-                      qui se lirait comme une rupture. */}
-                  <Badge variant="secondary" className="ml-auto font-mono tabular-nums">
+                      qui se lirait comme une rupture. Quantité en texte mono (design V3),
+                      plus de badge pill. */}
+                  <span className="ml-auto shrink-0 font-mono text-[9.5px] font-bold leading-none tabular-nums text-foreground">
                     {c.couvertParOf ? c.qty : `−${c.qty}`}
-                  </Badge>
+                  </span>
                 </div>
                 {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
                     soit les feuilles réellement bloquantes avec leur réception. La lentille
@@ -384,7 +392,7 @@ export function createProactiveColumns({
                         contrôle réception, pas par la production. */}
                     {c.qc > 0 && (
                       <div className="flex items-center gap-1">
-                        <CornerDownRight
+                        <ClipboardCheck
                           size={10}
                           strokeWidth={1.75}
                           className="leading-none text-muted-foreground/80"
@@ -440,7 +448,7 @@ export function createProactiveColumns({
                           title={p.desc}
                         >
                           <div className="flex items-center gap-1">
-                            <CornerDownRight
+                            <CircleSlash
                               size={10}
                               strokeWidth={1.75}
                               className="leading-none text-muted-foreground/80"
@@ -455,17 +463,16 @@ export function createProactiveColumns({
                               className={cn(
                                 'flex items-center gap-0.5 pl-3.5 text-3xs font-medium',
                                 p.reception.overdue
-                                  ? 'font-bold text-foreground'
+                                  ? 'font-bold text-destructive'
                                   : 'text-muted-foreground/80'
                               )}
                               title={p.reception.supplier}
                             >
-                              <DynamicIcon
-                                name={p.reception.overdue ? 'warning' : 'local_shipping'}
-                                size={10}
-                                strokeWidth={1.75}
-                                className="leading-none opacity-80"
-                              />
+                              {p.reception.overdue ? (
+                                <TriangleAlert size={10} strokeWidth={1.75} className="leading-none opacity-80" />
+                              ) : (
+                                <Truck size={10} strokeWidth={1.75} className="leading-none opacity-80" />
+                              )}
                               <span>
                                 {p.reception.overdue
                                   ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
@@ -505,17 +512,16 @@ export function createProactiveColumns({
                     className={cn(
                       'mt-0.5 flex items-center gap-1 font-mono text-3xs leading-none',
                       c.reception.overdue
-                        ? 'font-bold text-foreground'
+                        ? 'font-bold text-destructive'
                         : 'font-medium text-muted-foreground'
                     )}
                     title={`Fournisseur: ${c.reception.supplier}`}
                   >
-                    <DynamicIcon
-                      name={c.reception.overdue ? 'warning' : 'local_shipping'}
-                      size={11}
-                      strokeWidth={1.75}
-                      className="leading-none opacity-80"
-                    />
+                    {c.reception.overdue ? (
+                      <TriangleAlert size={11} strokeWidth={1.75} className="leading-none opacity-80" />
+                    ) : (
+                      <Truck size={11} strokeWidth={1.75} className="leading-none opacity-80" />
+                    )}
                     <span>
                       {c.reception.overdue
                         ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
@@ -536,7 +542,7 @@ export function createProactiveColumns({
                     porte déjà la sienne dans son bloc `couvertParOf`. */}
                 {!c.couvertParOf && c.qc > 0 && (
                   <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground">
-                    <CornerDownRight
+                    <ClipboardCheck
                       size={10}
                       strokeWidth={1.75}
                       className="leading-none text-muted-foreground/80"

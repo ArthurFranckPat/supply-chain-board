@@ -46,30 +46,32 @@ export function createReactiveColumns({
       // reste le déclencheur naturel de ce drill-down, X3 prend une icône à
       // côté plutôt que de lui voler le clic (revue #118).
       cell: ({ row, getValue }) => (
-        <>
-          <button
-            type="button"
-            className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
-            disabled={!onOpenRow}
-            title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenRow?.(row.original)
-            }}
-          >
-            {getValue() as string}
-          </button>
-          <X3Link
-            fonction="GESSOH"
-            cle={getValue() as string}
-            title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
-            iconOnly
-            className="ml-1 align-middle text-muted-foreground hover:text-brand"
-          />
-          <span className="ml-1.5 text-2xs text-muted-foreground">
+        <span className="flex min-w-0 flex-col gap-px">
+          <span className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
+              disabled={!onOpenRow}
+              title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenRow?.(row.original)
+              }}
+            >
+              {getValue() as string}
+            </button>
+            <X3Link
+              fonction="GESSOH"
+              cle={getValue() as string}
+              title={`Ouvrir la commande ${getValue() as string} dans Sage X3`}
+              iconOnly
+              className="align-middle text-muted-foreground hover:text-brand"
+            />
+          </span>
+          <span className="truncate text-2xs text-muted-foreground">
             {row.original.client || '—'}
           </span>
-        </>
+        </span>
       ),
       meta: {
         thClass: 'w-[150px] text-left font-sans tracking-wider',
@@ -79,24 +81,29 @@ export function createReactiveColumns({
       accessorKey: 'article',
       header: 'Article · Désignation',
       cell: ({ row, getValue }) => (
-        <div className="flex items-baseline gap-1.5 min-w-0">
+        <span className="flex min-w-0 flex-col gap-px">
           <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="truncate text-2xs text-muted-foreground">
+          <span
+            className="truncate text-2xs text-muted-foreground"
+            title={row.original.designation || undefined}
+          >
             {row.original.designation || '—'}
           </span>
-        </div>
+        </span>
       ),
       meta: {
         thClass: 'w-[200px] text-left font-sans tracking-wider',
       },
     },
     {
+      // Fusion Type · Poste (design V3) — les filtres restent séparés.
       accessorKey: 'type',
-      header: 'Type',
-      cell: ({ getValue }) => {
+      header: 'Type · Poste',
+      cell: ({ row, getValue }) => {
         const val = getValue() as string
+        const poste = row.original.poste
         const title =
           val === 'MTS'
             ? 'Make To Stock — Fabriqué pour le stock'
@@ -104,38 +111,26 @@ export function createReactiveColumns({
               ? 'Make To Order — Fabriqué à la commande client'
               : 'Normal — Ligne standard'
         return (
-          <Badge variant="secondary" className="cursor-help font-mono" title={title}>
-            {val}
-          </Badge>
-        )
-      },
-      meta: {
-        thClass: 'w-[56px] text-left font-sans tracking-wider',
-      },
-    },
-    {
-      accessorKey: 'poste',
-      header: 'Poste',
-      cell: ({ row, getValue }) => {
-        const code = getValue() as string
-        if (!code)
-          return (
-            <span className="font-sans text-xs font-medium leading-snug text-muted-foreground">
-              —
-            </span>
-          )
-        return (
-          <Badge
-            variant="secondary"
-            className="cursor-help font-mono"
-            title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
+          <span
+            className="cursor-help font-mono text-[11px] font-semibold leading-snug text-muted-foreground"
+            title={
+              poste && row.original.posteLabel
+                ? `${title} — ${poste} (${row.original.posteLabel})`
+                : title
+            }
           >
-            {code}
-          </Badge>
+            {val}
+            {poste && (
+              <>
+                <span className="text-muted-foreground/60"> · </span>
+                {poste}
+              </>
+            )}
+          </span>
         )
       },
       meta: {
-        thClass: 'w-[90px] text-left font-sans tracking-wider',
+        thClass: 'w-[110px] text-left font-sans tracking-wider',
       },
     },
     {
@@ -147,7 +142,7 @@ export function createReactiveColumns({
         return (
           <span className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums">
             {restante}
-            <span className="ml-0.5 text-3xs font-medium text-muted-foreground">/ {commandee}</span>
+            <span className="ml-1 text-3xs font-medium text-muted-foreground">/ {commandee}</span>
           </span>
         )
       },

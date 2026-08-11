@@ -2,6 +2,14 @@
  * Dérivations pures + constantes partagées entre la vue réactive et la vue
  * proactive de la page Suivi (issue #52 — extrait de scheduler/tracking.tsx).
  */
+import {
+  CircleCheck,
+  CircleSlash,
+  Clock,
+  OctagonX,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react'
 import type {
   SuiviRowsResponse,
   SuiviStatusKey,
@@ -96,6 +104,23 @@ export const VERDICT_DOT: Record<ProactiveVerdictKey, string> = {
   risk: 'bg-planifie',
 }
 
+/**
+ * Icône dessinée par verdict (design V3) — la FORME code le verdict
+ * indépendamment de la couleur (lecture daltonien-safe) : cercle ✓ = en stock,
+ * horloge = en retard (problème de temps), octogone barré = bloquée (stop),
+ * cercle barré = sans couverture (vide), triangle = à risque (alerte).
+ * Même famille lucide que le reste de l'app, trait 1.75. Composants (rendus
+ * dans la cellule .tsx avec la classe couleur de VERDICT_TEXT).
+ */
+export const VERDICT_ICON: Record<ProactiveVerdictKey, LucideIcon> = {
+  time: CircleCheck,
+  stock: CircleCheck,
+  late: Clock,
+  blocked: OctagonX,
+  uncov: CircleSlash,
+  risk: TriangleAlert,
+}
+
 /** Texte verdict (mode compact) — couleur seule, pas de pill. */
 export const VERDICT_TEXT: Record<ProactiveVerdictKey, string> = {
   time: 'text-ferme',
@@ -103,7 +128,10 @@ export const VERDICT_TEXT: Record<ProactiveVerdictKey, string> = {
   late: 'text-suggere',
   blocked: 'text-destructive',
   uncov: 'text-destructive',
-  risk: 'text-planifie',
+  // À risque en accent (bleu) : le vert planifie précédent entrait en collision
+  // avec « En stock » — un risque qui ressemblait à un OK. (validation métier
+  // actée lors de l'adoption du design V3)
+  risk: 'text-accent',
 }
 
 /**
@@ -144,8 +172,8 @@ export interface SuiviColumnMeta {
 export const PROACTIVE_COLUMNS: SuiviColumnMeta[] = [
   { id: 'numCommande', label: 'Commande · Client', locked: true },
   { id: 'article', label: 'Article · Désignation' },
-  { id: 'type', label: 'Type' },
-  { id: 'poste', label: 'Poste' },
+  // Type et Poste fusionnés à l'affichage (design V3) — les filtres restent séparés.
+  { id: 'type', label: 'Type · Poste' },
   { id: 'qteRestante', label: 'Qté' },
   { id: 'dateExp', label: 'Expé' },
   { id: 'couverture', label: 'Couverture' },
@@ -157,8 +185,8 @@ export const PROACTIVE_COLUMNS: SuiviColumnMeta[] = [
 export const REACTIVE_COLUMNS: SuiviColumnMeta[] = [
   { id: 'numCommande', label: 'Commande · Client', locked: true },
   { id: 'article', label: 'Article · Désignation' },
-  { id: 'type', label: 'Type' },
-  { id: 'poste', label: 'Poste' },
+  // Type et Poste fusionnés à l'affichage (design V3) — les filtres restent séparés.
+  { id: 'type', label: 'Type · Poste' },
   { id: 'qteRestante', label: 'Qté' },
   { id: 'dateExp', label: 'Expé' },
   { id: 'emplacements', label: 'Emplacement' },
