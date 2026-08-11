@@ -38,7 +38,12 @@ export function useTimedFetch<T>(url: string | null) {
     setError(null)
     setElapsed(0)
     const t0 = Date.now()
-    const tick = setInterval(() => setElapsed(Date.now() - t0), 200)
+    // 1 000 ms (au lieu de 200) : le chrono live n'alimente qu'un compteur
+    // « X.Xs » dans la toolbar pendant le chargement. À 200 ms, la page (et le
+    // DataTable visible de l'autre vue) était re-rendue 5×/s pendant des fetch
+    // X3 de plusieurs secondes. Une durée < 1 s est du bruit (cf. commentaire
+    // de péremption dans tracking.tsx) : une mise à jour par seconde suffit.
+    const tick = setInterval(() => setElapsed(Date.now() - t0), 1000)
 
     fetch(url, { headers: { accept: 'application/json' } })
       .then((res) => {
