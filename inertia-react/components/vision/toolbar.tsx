@@ -56,7 +56,12 @@ export function Segment(props: {
   children: ReactNode
 }) {
   return (
-    <div className={cn(SEG, props.className)} role={props.role} aria-label={props.ariaLabel}>
+    <div
+      data-slot="toolbar-seg"
+      className={cn(SEG, props.className)}
+      role={props.role}
+      aria-label={props.ariaLabel}
+    >
       {props.label && <span className={SEG_LBL}>{props.label}</span>}
       {props.children}
     </div>
@@ -75,6 +80,7 @@ export function SegmentButton(props: {
     <button
       type="button"
       role={props.role}
+      data-active={props.active ? 'true' : undefined}
       aria-checked={props.role === 'radio' ? props.active : undefined}
       aria-pressed={props.role !== 'radio' ? props.active : undefined}
       title={props.title}
@@ -149,6 +155,7 @@ export function DateWindowPill(props: {
     <Popover.Root open={props.open} onOpenChange={props.onOpenChange}>
       <div data-print-keep className="relative">
         <Popover.Trigger
+          data-slot="toolbar-pill"
           aria-label={`Fenêtre : ${label}${props.open ? ' — fermer' : ' — ouvrir'}`}
           title={props.title}
           className={PILL}
@@ -209,7 +216,13 @@ export function RefreshPill(props: {
   )
   if (props.href) {
     return (
-      <Link href={props.href} className={PILL} title={title} aria-label="Actualiser">
+      <Link
+        data-slot="toolbar-pill"
+        href={props.href}
+        className={PILL}
+        title={title}
+        aria-label="Actualiser"
+      >
         {icon}
       </Link>
     )
@@ -217,6 +230,7 @@ export function RefreshPill(props: {
   return (
     <button
       type="button"
+      data-slot="toolbar-pill"
       disabled={props.loading}
       onClick={props.onClick}
       className={cn(PILL, 'disabled:opacity-60')}
@@ -272,6 +286,7 @@ export function FilterMenu(props: {
       className="relative"
     >
       <summary
+        data-slot="toolbar-pill"
         className={cn(
           PILL,
           'cursor-pointer list-none [&::-webkit-details-marker]:hidden',
@@ -286,6 +301,7 @@ export function FilterMenu(props: {
       </summary>
 
       <div
+        data-slot="filter-menu-panel"
         className={cn(
           'absolute top-full z-50 mt-1.5 w-[280px] rounded-lg border border-rule bg-popover p-2.5 shadow-lg',
           align === 'right' ? 'right-0' : 'left-0',

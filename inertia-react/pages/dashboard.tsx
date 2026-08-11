@@ -300,7 +300,7 @@ const otdLigneColumns: ColumnDef<OtdLigneDtl>[] = [
     accessorKey: 'article',
     header: () => 'Article',
     cell: ({ getValue }) => (
-      <span className="font-mono text-xs font-medium text-brand">{getValue() as string}</span>
+      <span className="font-mono text-xs font-medium text-foreground">{getValue() as string}</span>
     ),
   },
   {
@@ -388,7 +388,7 @@ const retardLigneColumns: ColumnDef<RetardLigne>[] = [
     header: () => 'Article · Désignation',
     cell: ({ row: { original: l } }) => (
       <>
-        <div className="font-mono text-xs font-medium text-brand">{l.article}</div>
+        <div className="font-mono text-xs font-medium text-foreground">{l.article}</div>
         <div className="font-sans text-xs leading-snug text-secondary-foreground">
           {l.designation || '—'}
         </div>
@@ -458,7 +458,7 @@ const stockArticleColumns: ColumnDef<StockArticleRow>[] = [
     accessorKey: 'article',
     header: () => 'Article',
     cell: ({ getValue }) => (
-      <span className="font-mono text-xs font-medium text-brand">{getValue() as string}</span>
+      <span className="font-mono text-xs font-medium text-foreground">{getValue() as string}</span>
     ),
   },
   {
@@ -600,7 +600,7 @@ function HiddenTile({
         { order: screenRank ?? 999, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties
       }
     >
-      <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-[border-color,background-color] duration-200 hover:border-brand/40 hover:bg-secondary/50 print:hidden">
+      <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-[border-color,background-color] duration-200 hover:border-[#2778c1]/40 hover:bg-secondary/50 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
         <span className="font-mono text-[10px] font-medium text-muted-foreground">
           {KPI_TITLES[id]}
@@ -657,7 +657,7 @@ function Tile({
         <div className="pointer-events-none absolute -top-3 left-3 z-[45] flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-1 shadow-sm print:hidden">
           <span
             data-grid-drag
-            className="pointer-events-auto flex size-9 items-center justify-center cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-brand"
+            className="pointer-events-auto flex size-9 items-center justify-center cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-[#2778c1]"
             title="Cliquer et glisser cette poignée pour réordonner la carte"
           >
             <GripVertical size={14} />
@@ -671,7 +671,7 @@ function Tile({
               className={cn(
                 'min-h-9 min-w-9 px-2 font-mono text-[10px] font-medium transition-colors',
                 width === 1
-                  ? 'bg-brand text-brand-foreground rounded-xs'
+                  ? 'bg-foreground/16 text-foreground rounded-[4px]'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               title="Largeur 1/3 (4 colonnes)"
@@ -684,7 +684,7 @@ function Tile({
               className={cn(
                 'min-h-9 min-w-9 px-2 font-mono text-[10px] font-medium transition-colors',
                 width === 2
-                  ? 'bg-brand text-brand-foreground rounded-xs'
+                  ? 'bg-foreground/16 text-foreground rounded-[4px]'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               title="Largeur 2/3 (8 colonnes)"
@@ -697,7 +697,7 @@ function Tile({
               className={cn(
                 'min-h-9 min-w-9 px-2 font-mono text-[10px] font-medium transition-colors',
                 width === 3
-                  ? 'bg-brand text-brand-foreground rounded-xs'
+                  ? 'bg-foreground/16 text-foreground rounded-[4px]'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               title="Pleine largeur (12 colonnes)"
@@ -765,7 +765,7 @@ function Spinner() {
     <div className="flex h-[180px] w-full flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-28" />
-        <Skeleton className="h-4 w-12 rounded-full" />
+        <Skeleton className="h-4 w-12" />
       </div>
       <div className="flex flex-1 items-end gap-2 pt-2">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -1714,7 +1714,7 @@ export default function Dashboard(props: DashboardProps) {
                           className={cn(
                             'min-h-9 rounded-[8px] border px-2.5 font-mono text-xs font-medium transition-colors',
                             stockHideZero
-                              ? 'border-brand/40 bg-brand-soft text-brand'
+                              ? 'border-foreground/20 bg-foreground/16 text-foreground'
                               : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
                           )}
                         >

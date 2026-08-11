@@ -1171,6 +1171,72 @@
   color: color-mix(in oklab, #141414 60%, transparent);
 }
 
+/* ── Pages — toolbar maison ─────────────────────────── */
+/* Toolbar de vision (vision/toolbar.tsx) — barres écrites à la main sur
+   /programme, /charge, /suivi, /ruptures et le dashboard. Règle : aucune
+   retouche de classe dans le composant (partagé avec les pages Airbnb) ;
+   le retarget se fait ici, via les crochets data-slot additifs. */
+.theme-cursor [data-slot='toolbar-seg'] {
+  border-radius: 6px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+  padding: 2px;
+}
+.theme-cursor [data-slot='toolbar-seg'] button {
+  min-height: 22px;
+  height: 22px;
+  border-radius: 4px;
+  padding-inline: 10px;
+  padding-block: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.08px;
+}
+.theme-cursor [data-slot='toolbar-seg'] button[data-active='true'] {
+  background-color: color-mix(in oklab, #141414 16%, transparent);
+  color: #141414;
+}
+.theme-cursor [data-slot='toolbar-seg'] button:not([data-active='true']) {
+  background-color: transparent;
+  color: color-mix(in oklab, #141414 74%, transparent);
+}
+.theme-cursor [data-slot='toolbar-seg'] button:not([data-active='true']):hover {
+  color: #141414;
+}
+/* Cursor ne fait pas rebondir ses boutons. */
+.theme-cursor [data-slot='toolbar-seg'] button:active {
+  transform: none;
+  scale: 1;
+}
+.theme-cursor [data-slot='toolbar-pill'] {
+  height: 28px;
+  min-height: 28px;
+  border-radius: 6px;
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: #fcfcfc;
+  font-size: 12px;
+  font-weight: 500;
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease,
+    color 100ms ease;
+}
+.theme-cursor [data-slot='toolbar-pill']:hover {
+  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: color-mix(in oklab, #141414 8%, transparent);
+}
+.theme-cursor [data-slot='toolbar-pill']:active {
+  transform: none;
+  scale: 1;
+}
+.theme-cursor [data-slot='popover-content'],
+.theme-cursor [data-slot='filter-menu-panel'] {
+  border-radius: 8px;
+  border-color: color-mix(in oklab, #141414 8%, transparent);
+  background-color: #fcfcfc;
+  box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
+}
+
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
    est porté par le bandeau Arches orange (#fc642d, couleur du brand book)
