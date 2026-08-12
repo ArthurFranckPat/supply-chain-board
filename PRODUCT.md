@@ -66,7 +66,7 @@ Contraintes durables :
 
 - Données réelles X3 servies par les endpoints (site AE1, 100 % CBN) ; les mockups UI sont construits sur des données réelles.
 - Docs internes : `docs/prd-23-impacts-programme.md`, `docs/prd-ctp-date-au-plus-tot.md`, `docs/capacite-charge.md`, `docs/vision-scenarios-impacts.md`, `docs/cache-redis.md`, `docs/plan-migration-frontend.md`.
-- Mockups : `design/mockups/` (board, auth, cockpit poste variantes v1/v2/v4).
+- Mockups (archives de décision, plus d'actualité) : `_design/archive/` — le design system vivant est dans le code (`resources/css/app.css`, composants `inertia/components/`, page `/design-system`).
 - À ne pas fabriquer : pas de témoignages clients ni de benchmarks externes (outil interne) ; pas de chiffres de pricing.
 
 ## Product Principles
