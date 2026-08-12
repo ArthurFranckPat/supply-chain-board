@@ -259,8 +259,7 @@ export function TypographieSection() {
             Planification atelier
           </div>
           <div className="mt-2 font-mono text-[10px] leading-[14px] text-[color-mix(in_oklab,#141414_60%,transparent)]">
-            -apple-system, BlinkMacSystemFont, &apos;Segoe UI&apos;, &apos;Inter Variable&apos;,
-            sans-serif
+            -apple-system, BlinkMacSystemFont, &apos;Segoe UI&apos;, sans-serif
           </div>
         </Panel>
         <Panel>
