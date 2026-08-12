@@ -542,34 +542,14 @@ export default function ControleProd(props: Props) {
     <AppLayout
       title="Contrôle prod"
       active="controle-prod"
-      subtitle={
-        tab === 'ecarts'
-          ? 'Déclaration PF vs pointage atelier'
-          : 'Gamme pointée à 100 %, rien de déclaré'
-      }
+      subtitle="Contrôle prod"
       theme="cursor"
       dense
       scrollable={false}
       toolbar={toolbar}
-      meta={
-        <>
-          <div className="text-2xs font-semibold uppercase tracking-wide text-brand">
-            Contrôle prod
-          </div>
-          {tab === 'ecarts' ? (
-            <div className="font-mono text-xs tabular-nums text-muted-foreground">
-              <b className="font-semibold text-foreground">{viewData.stats.nbEcarts}</b> écarts · Σ{' '}
-              <b className="font-semibold text-foreground">{fmt(viewData.stats.totalEcart)}</b> pcs
-            </div>
-          ) : (
-            <div className="font-mono text-xs tabular-nums text-muted-foreground">
-              <b className="font-semibold text-foreground">{solderData.stats.nbOfs}</b> OF · dont{' '}
-              <b className="font-semibold text-destructive">{solderData.stats.nbBloquants}</b> avec
-              commande sans couverture
-            </div>
-          )}
-        </>
-      }
+      // Pas de `meta` : le volume appartient à la rangée / à la table, où il est
+      // le résultat des contrôles qui l'entourent. Cf. /suivi (“675 lignes ouvertes”
+      // vs “12 / 675” en double) et /sequenceur (bandeau de synthèse) — même règle.
     >
       <div className="flex h-full min-h-0 flex-col">
         {(tab === 'ecarts' ? viewData.x3Error : solderData.x3Error) && (
