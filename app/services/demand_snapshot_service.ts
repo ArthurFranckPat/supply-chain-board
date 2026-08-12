@@ -6,6 +6,7 @@ import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
+import { sanitizeError } from '#app/utils/sanitize_sql_error'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import { cacheNs } from '#services/cache_ns'
@@ -1265,7 +1266,10 @@ export class DemandSnapshotService {
       )
       return { date: dateStr, status: 'ok', rows, durationMs, sourceBreakdown }
     } catch (error) {
-      const message = (error as Error)?.message ?? String(error)
+      // Assaini AVANT tout usage : `message` part aussi dans le résultat rendu à
+      // l'appelant (CLI, endpoint, UI). Sur un échec d'`insert` par lots, le
+      // message Knex brut contient les 400 lignes de la photo.
+      const message = sanitizeError(error)
       const durationMs = Date.now() - start
       logger.error({ date: dateStr, source, err: message }, `[snapshot] échec ${dateStr}`)
       return {

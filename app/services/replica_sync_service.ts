@@ -12,6 +12,7 @@ import { X3OperationRepository } from '#repositories/operation_repository'
 import { X3OperationsTrkRepository } from '#repositories/operations_trk_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import replicaGate, { type ReplicaTable } from '#services/replica_gate'
+import { sanitizeError } from '#app/utils/sanitize_sql_error'
 import { getActiveX3EnvName } from '#config/x3'
 
 /**
@@ -645,7 +646,10 @@ export class ReplicaSyncService {
       return { table, status: 'ok', rows: rows.length, durationMs }
     } catch (error) {
       const durationMs = Date.now() - start
-      const message = (error as Error)?.message ?? String(error)
+      // Assaini AVANT tout usage : `message` est écrit dans le journal de sync
+      // (table `replica_sync_log`) et rendu par le statut. Le message Knex brut
+      // d'un `insert` par lots contient les 400 lignes ingérées.
+      const message = sanitizeError(error)
       await this.log({
         table,
         status: 'failed',
@@ -752,7 +756,10 @@ export class ReplicaSyncService {
       return { table, status: 'ok', rows: orders.length, durationMs }
     } catch (error) {
       const durationMs = Date.now() - start
-      const message = (error as Error)?.message ?? String(error)
+      // Assaini AVANT tout usage : `message` est écrit dans le journal de sync
+      // (table `replica_sync_log`) et rendu par le statut. Le message Knex brut
+      // d'un `insert` par lots contient les 400 lignes ingérées.
+      const message = sanitizeError(error)
       await this.log({
         table,
         status: 'failed',
