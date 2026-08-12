@@ -197,11 +197,12 @@ export function OrderGrid(props: OrderGridProps) {
                 className="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
                 style={{ gridColumn: `span ${wr.to - wr.from}` }}
               >
-                <span className="font-fraunces text-[13px] font-black italic tracking-tight text-brand">
+                {/* Cf. board-grid : repère de structure, encre neutre. */}
+                <span className="font-mono text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Semaine {wr.week}
                 </span>
                 {weekTotals[i] && (
-                  <span className="ml-auto font-fraunces text-[12px] font-bold tabular-nums text-foreground">
+                  <span className="ml-auto font-mono text-xs font-bold tabular-nums text-foreground">
                     {fmt(weekTotals[i]!.hours)} h
                   </span>
                 )}
@@ -242,21 +243,23 @@ export function OrderGrid(props: OrderGridProps) {
                   key={di}
                   className={cn(
                     'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
-                    day.today && 'bg-brand-soft'
+                    // Même repère qu'en vue OF : surface creusée + filet de
+                    // marque, jamais un lavis orange sur toute la hauteur.
+                    day.today && 'border-l-2 border-l-brand bg-muted'
                   )}
                 >
                   <div
                     className={cn(
                       'font-mono text-[9px] font-bold tracking-[0.1em]',
-                      day.today ? 'text-brand' : 'text-muted-foreground'
+                      day.today ? 'text-foreground' : 'text-muted-foreground'
                     )}
                   >
                     {day.short.replace(/\s*\d+\s*$/, '')}
                   </div>
                   <div
                     className={cn(
-                      'font-fraunces text-[19px] font-bold leading-none tracking-tight',
-                      day.today ? 'text-brand italic' : 'text-foreground'
+                      'font-mono text-lg leading-none tracking-tight tabular-nums text-foreground',
+                      day.today ? 'font-bold' : 'font-semibold'
                     )}
                   >
                     {dayNum(day.iso)}
@@ -264,7 +267,7 @@ export function OrderGrid(props: OrderGridProps) {
                   {/* Charge du jour : total (gras) + détail directe / amont + barre
                       empilée (proportions). amont masqué s'il n'y en a pas. */}
                   <div className="mt-1">
-                    <div className="text-center font-fraunces text-[13px] font-bold leading-none tabular-nums text-foreground">
+                    <div className="text-center font-mono text-cell-lg font-bold leading-none tabular-nums text-foreground">
                       {fmt(total)}
                       <span className="ml-0.5 font-mono text-[8px] font-medium opacity-50">h</span>
                     </div>
@@ -410,7 +413,7 @@ export function OrderGrid(props: OrderGridProps) {
                     key={ci}
                     className={cn(
                       'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
-                      isToday && 'bg-brand-soft',
+                      isToday && 'border-l-2 border-l-brand bg-muted',
                       dropCol === cellKey && 'ring-2 ring-brand/70 ring-inset'
                     )}
                     style={{

@@ -310,11 +310,15 @@ export default function BoardGrid(props: BoardGridProps) {
                 className="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
                 style={{ gridColumn: `span ${wr.to - wr.from}` }}
               >
-                <span className="font-fraunces text-sm font-black italic tracking-tight text-brand">
+                {/* Repère de structure, pas un marqueur : la marque est
+                    « d'usage rare » et peignait ici un libellé qui se répète à
+                    chaque semaine de l'horizon. Mono capitales, comme les
+                    autres en-têtes du board. */}
+                <span className="font-mono text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Semaine {wr.week}
                 </span>
                 {weekTotals[i] && (
-                  <span className="ml-auto font-fraunces text-xs font-bold tabular-nums text-foreground">
+                  <span className="ml-auto font-mono text-xs font-bold tabular-nums text-foreground">
                     {fmt(weekTotals[i].hours)} h
                   </span>
                 )}
@@ -327,31 +331,48 @@ export default function BoardGrid(props: BoardGridProps) {
             <div className="sticky left-0 z-40 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-2xs font-bold tracking-[0.12em] text-muted-foreground">
               Poste de production
             </div>
+            {/* Aujourd'hui : un CHANGEMENT DE SURFACE plus un repère vertical,
+                jamais un fond de marque. « L'orange est un accent de marque, il
+                ne peint jamais un fond de bloc » (design system, §01) — et un
+                lavis orange sur toute la hauteur du board, c'est le plus grand
+                bloc de la page. Le filet gauche en `--brand` est le seul usage
+                de la marque ici : un repère, comme la règle verticale d'un
+                graphique. */}
             {days.map((day, di) => (
               <div
                 key={di}
                 className={cn(
                   'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
-                  day.today && 'bg-brand-soft'
+                  day.today && 'border-l-2 border-l-brand bg-muted'
                 )}
               >
                 <div
                   className={cn(
                     'font-mono text-2xs font-bold tracking-[0.1em]',
-                    day.today ? 'text-brand' : 'text-muted-foreground'
+                    day.today ? 'text-foreground' : 'text-muted-foreground'
                   )}
                 >
                   {day.short.replace(/\s*\d+\s*$/, '')}
                 </div>
+                {/* Ni serif display ni italique : le quantième est un nombre,
+                    il se lit dans la chasse fixe comme tous les autres. */}
                 <div
                   className={cn(
-                    'font-fraunces text-lg font-bold leading-none tracking-tight',
-                    day.today ? 'text-brand italic' : 'text-foreground'
+                    'font-mono text-base leading-none tracking-tight tabular-nums text-foreground',
+                    day.today ? 'font-bold' : 'font-semibold'
                   )}
                 >
                   {dayNum(di)}
                 </div>
-                <div className="mt-0.5 font-mono text-xs font-bold tabular-nums text-brand">
+                {/* La charge du jour est une MESURE : encre neutre. En marque,
+                    elle occupait toutes les colonnes — l'accent le plus rare du
+                    thème répété trente fois — et noyait le repère du jour. */}
+                <div
+                  className={cn(
+                    'mt-0.5 font-mono text-xs font-bold tabular-nums',
+                    (dayLoad[di] ?? 0) > 0 ? 'text-foreground' : 'text-muted-foreground/60'
+                  )}
+                >
                   {fmt(dayLoad[di] ?? 0)}
                   <span className="text-3xs font-medium opacity-60"> h</span>
                 </div>
@@ -558,7 +579,10 @@ function BoardCell(props: BoardCellProps) {
       ref={ref}
       className={cn(
         'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
-        props.isToday && 'bg-brand-soft'
+        // Colonne du jour : surface creusée + filet de marque à gauche, en
+        // écho exact de son en-tête. Le lavis orange peignait ici la totalité
+        // de la hauteur du board.
+        props.isToday && 'border-l-2 border-l-brand bg-muted'
       )}
       style={{
         backgroundImage: props.isToday ? undefined : GRAPH_PAPER,
