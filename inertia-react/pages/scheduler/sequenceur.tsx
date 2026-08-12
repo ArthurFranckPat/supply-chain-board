@@ -871,31 +871,42 @@ export default function Sequenceur(props: SequenceurPageProps) {
               </div>
 
               <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {/* Volume : les OF de la portée filtrée. */}
                 <span className="flex items-baseline gap-1">
                   <span className="font-mono text-cell-lg font-bold tabular-nums text-foreground">
                     {filteredRows.length}
                   </span>
                   <span className="text-2xs text-muted-foreground">OF</span>
                 </span>
+
+                <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+
+                {/* Charge : heures + durée, la mesure unique de la portée. */}
                 <span className="flex items-baseline gap-1">
                   <span className="font-mono text-cell-lg font-bold tabular-nums text-foreground">
                     {fmtH(totalHours)}
                   </span>
                   <span className="text-2xs text-muted-foreground">h · {fmtJ(totalHours)} j</span>
                 </span>
-                <span className="flex items-center gap-2 font-mono text-1.5xs font-semibold tabular-nums">
-                  {/* Sous .theme-cursor, ferme et planifié partagent le même
-                      vert : « lançable » se distingue par l'encre neutre, pas
-                      par une seconde teinte qui n'existe pas. */}
+
+                <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+
+                {/* Engagement : la décomposition du total, empilée sous lui.
+                    Sous .theme-cursor, ferme et planifié partagent le même
+                    vert : « lançable » se distingue par l'encre neutre, pas
+                    par une seconde teinte qui n'existe pas. */}
+                <span className="flex flex-col gap-px font-mono text-1.5xs font-semibold leading-tight tabular-nums">
                   <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
                   <span className="text-foreground">{fmtH(chargeSplit.lancable)} h lançable</span>
                 </span>
 
                 {sat && sat.pct !== null && (
-                  <span
-                    className="flex items-center gap-2"
-                    title="Charge engagée / capacité hebdomadaire"
-                  >
+                  <>
+                    <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+                    <span
+                      className="flex items-center gap-2"
+                      title="Charge engagée / capacité hebdomadaire"
+                    >
                     {/* Largeur portée par CE conteneur, jamais par la jauge :
                         l'hôte du graphique porte un `width: 100%` EN LIGNE, qui
                         bat n'importe quelle classe utilitaire. Une jauge laissée
@@ -929,11 +940,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
                     >
                       {sat.pct} %
                     </span>
-                  </span>
+                    </span>
+                  </>
                 )}
 
                 {feasDone && (
-                  <span className="flex items-center gap-1.5">
+                  <>
+                    <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+                    <span className="flex items-center gap-1.5">
                     <Badge variant="success" className="font-mono text-2xs font-semibold">
                       {feasCounts.ok} lançables
                     </Badge>
@@ -947,7 +961,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
                         {feasCounts.blocked} bloqués
                       </Badge>
                     )}
-                  </span>
+                    </span>
+                  </>
                 )}
 
                 {activePoste && (
