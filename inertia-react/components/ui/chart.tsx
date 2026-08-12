@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react'
+import { memo, useMemo } from 'react'
 
 import { barX, barY, defineChart, dot, lineY, ruleX, ruleY, stack, text } from '@tanstack/charts'
 import { Chart } from '@tanstack/charts/react'
@@ -48,11 +48,20 @@ import { cn } from '@r/lib/utils'
  * `portal` est systématique : les graphiques du produit vivent dans des cartes
  * à `overflow: hidden`, qui rogneraient la bulle sans lui.
  *
+ * `sticky: false` n'est pas un détail de confort. La valeur par défaut de la
+ * librairie est VRAIE (`renderer.js` : `sticky !== false`), et un tooltip
+ * sticky s'ÉPINGLE au clic — `canPin = tooltipIsSticky() || …`. Une fois
+ * épinglé, il survit à `pointerleave`, et seul un second clic au même endroit
+ * le relâche. Dans ce produit, cliquer un graphe sélectionne un poste ou ouvre
+ * un panneau : ce second clic n'arrive jamais, et la bulle reste à l'écran —
+ * en s'accumulant, une par graphe cliqué. Aucun de nos graphes n'a besoin d'un
+ * tooltip persistant : ils se lisent au survol.
+ *
  * À noter : par défaut, la librairie formate les dates en ISO UTC. Toute
  * primitive ci-dessous surcharge donc `format` ou `formatGroup` — la règle
  * jj/mm/aaaa ne survit pas à un oubli.
  */
-const TOOLTIP_FR = { use: tooltip, portal, className: 'chart-tooltip' } as const
+const TOOLTIP_FR = { use: tooltip, portal, className: 'chart-tooltip', sticky: false } as const
 
 /** Graduations : micro-texte atténué, à la densité produit. */
 const TICKS = {
@@ -461,26 +470,6 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
   largeurInitiale = 640,
   onSelectPeriode,
 }: HistogrammeChargeProps) {
-  /* Un clic sur le graphe ÉPINGLE le tooltip (interaction-cursor : `handleClick`
-     commit la position, et `clearPreview` refuse ensuite d'effacer tant que
-     `isPinned()`). Quand ce même clic ouvre un panneau par-dessus le graphe, le
-     second clic qui dés-épinglerait n'atteint jamais la couche de curseur : le
-     tooltip reste affiché au-dessus du panneau, orphelin.
-     On rejoue donc le geste de bascule : un `click` sur la couche de curseur
-     alors qu'une position est épinglée émet un `clear`. Notre `onSelect` ignore
-     le point nul qui en résulte, il n'y a pas de réentrance. */
-  const hote = useRef<HTMLDivElement>(null)
-  const desepingler = useCallback(() => {
-    /* Une frame de décalage : `onSelect` part depuis `handleClick`, AVANT que
-       l'épinglage ne soit reflété dans `data-pinned`. Lire l'attribut tout de
-       suite renverrait « pas épinglé » et on ne ferait rien. */
-    requestAnimationFrame(() => {
-      const curseur = hote.current?.querySelector<SVGElement>('[data-chart-cursor]')
-      if (!curseur || curseur.dataset.pinned !== 'true') return
-      curseur.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true }))
-    })
-  }, [])
-
   const definition = useMemo(() => {
     if (periodes.length === 0) return null
 
@@ -754,21 +743,29 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
           if (formatTooltip) return formatTooltip(points as readonly { datum: LigneCharge }[])
           const premier = points[0]?.datum as LigneCharge | undefined
           if (!premier) return ''
-          const total = points.reduce(
-            (somme, p) => somme + ((p.datum as LigneCharge).valeur ?? 0),
-            0
-          )
-          const lignes = points.map(
-            (p) =>
-              `${(p.datum as LigneCharge).serieLabel} ${format((p.datum as LigneCharge).valeur)}`
-          )
-          const plafond = premier.capacite !== null ? ` · capacité ${format(premier.capacite)}` : ''
+          /* Le groupe survolé mélange les segments de la pile et les marques
+             décoratives — capacité, pic, moyenne mobile, valeurs inscrites.
+             Ces dernières n'ont ni `serieLabel` ni `capacite` : les traiter
+             comme des segments affichait « undefined 150 · capacité NaN ». Le
+             type ment ici, il décrit la pile et pas ce que la scène remonte.
+             D'où : le détail ne liste que les vrais segments, et le total
+             comme le plafond se lisent sur la PÉRIODE (`totauxParCle`), qui
+             les connaît quelle que soit la marque sous le pointeur. */
+          const segs = points
+            .map((p) => p.datum as LigneCharge)
+            .filter((d) => typeof d?.serieLabel === 'string' && d.serieLabel.length > 0)
+          const periode = totauxParCle.get(premier.cle)
+          const total = periode?.total ?? segs.reduce((somme, d) => somme + (d.valeur ?? 0), 0)
+          const lignes = segs.map((d) => `${d.serieLabel} ${format(d.valeur)}`)
+          const cap = periode?.cap ?? null
+          const plafond = cap != null && cap > 0 ? ` · capacité ${format(cap)}` : ''
           const sat =
-            premier.capacite !== null && premier.capacite > 0
-              ? ` · saturation ${fmtPourcent(Math.round((total / premier.capacite) * 100))}`
+            cap != null && cap > 0
+              ? ` · saturation ${fmtPourcent(Math.round((total / cap) * 100))}`
               : ''
           const clic = onSelectPeriode ? '\nClic : détail de la période' : ''
-          return `${fmtPeriodeLongue(premier.label)} — ${format(total)}${plafond}${sat}\n${lignes.join(' · ')}${clic}`
+          const detail = lignes.length > 0 ? `\n${lignes.join(' · ')}` : ''
+          return `${fmtPeriodeLongue(premier.label)} — ${format(total)}${plafond}${sat}${detail}${clic}`
         },
       },
     })
@@ -796,26 +793,22 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
   if (!definition) return null
 
   return (
-    <div ref={hote} className={cn('w-full', className)}>
-      <Chart
-        data-slot="chart"
-        definition={definition}
-        ariaLabel={ariaLabel}
-        ariaDescription={ariaDescription}
-        height={hauteur}
-        initialWidth={largeurInitiale}
-        className="w-full"
-        onSelect={
-          onSelectPeriode
-            ? (point) => {
-                if (!point) return
-                onSelectPeriode(String(point.xValue))
-                desepingler()
-              }
-            : undefined
-        }
-      />
-    </div>
+    <Chart
+      data-slot="chart"
+      definition={definition}
+      ariaLabel={ariaLabel}
+      ariaDescription={ariaDescription}
+      height={hauteur}
+      initialWidth={largeurInitiale}
+      className={cn('w-full', className)}
+      onSelect={
+        onSelectPeriode
+          ? (point) => {
+              if (point) onSelectPeriode(String(point.xValue))
+            }
+          : undefined
+      }
+    />
   )
 })
 

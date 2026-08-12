@@ -145,23 +145,29 @@ export function DetailChart({
           formatTooltip={(points) => {
             const premier = points[0]?.datum
             if (!premier) return ''
-            const tot = points.reduce((s, p) => s + p.datum.valeur, 0)
-            const lignes = points
-              .map((p) => {
-                const part = tot > 0 ? Math.round((p.datum.valeur / tot) * 100) : 0
-                return `${p.datum.serieLabel} ${fmtHeures(p.datum.valeur)} · ${part} % du total`
+            /* Le groupe contient aussi les marques décoratives (capacité, pic,
+               moyenne mobile, totaux inscrits), qui n'ont ni `serieLabel` ni
+               `capacite` : les compter affichait « undefined » et une capacité
+               à NaN dès qu'on survolait la courbe de plafond. */
+            const segs = points
+              .map((p) => p.datum)
+              .filter((d) => typeof d?.serieLabel === 'string' && d.serieLabel.length > 0)
+            const tot = segs.reduce((s, d) => s + d.valeur, 0)
+            const lignes = segs
+              .map((d) => {
+                const part = tot > 0 ? Math.round((d.valeur / tot) * 100) : 0
+                return `${d.serieLabel} ${fmtHeures(d.valeur)} · ${part} % du total`
               })
               .join(' · ')
-            const plafond =
-              premier.capacite !== null && premier.capacite > 0
-                ? ` · capacité ${fmtHeures(premier.capacite)}`
-                : ''
+            const cap = Number.isFinite(premier.capacite as number)
+              ? (premier.capacite as number)
+              : null
+            const plafond = cap !== null && cap > 0 ? ` · capacité ${fmtHeures(cap)}` : ''
             const sat =
-              premier.capacite !== null && premier.capacite > 0
-                ? ` · saturation ${Math.round(satRate(tot, premier.capacite))} %`
-                : ''
+              cap !== null && cap > 0 ? ` · saturation ${Math.round(satRate(tot, cap))} %` : ''
             const clic = onSelectPeriod ? '\nClic : détail de la période' : ''
-            return `${premier.label.replace(/\n/g, ' · ')} — ${fmtHeures(tot)}${plafond}${sat}\n${lignes}${clic}`
+            const detail = lignes.length > 0 ? `\n${lignes}` : ''
+            return `${premier.label.replace(/\n/g, ' · ')} — ${fmtHeures(tot)}${plafond}${sat}${detail}${clic}`
           }}
           onSelectPeriode={
             onSelectPeriod ? (cle) => onSelectPeriod(Number(cle.slice(1))) : undefined
