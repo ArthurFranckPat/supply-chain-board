@@ -76,10 +76,15 @@ export const urgencyOf = (livraisonIso: string | null): Urgency => {
 }
 
 /** Couleur de la date de livraison selon l'urgence.
- *  Retard = danger, semaine = suggéré (Arches), plus tard = muted.
- *  Pas de Rausch ici : réservé filtres/CTA (sinon tout crie pareil). */
+ *  Retard = destructive, semaine = suggéré (Arches), plus tard = muted.
+ *  Pas de Rausch ici : réservé filtres/CTA (sinon tout crie pareil).
+ *
+ *  `text-danger` était une classe morte : aucun `--color-danger` n'est déclaré
+ *  dans le `@theme` (ni sous `.theme-airbnb`, ni sous `.theme-cursor`), donc
+ *  Tailwind ne générait rien et les dates en retard héritaient de la couleur
+ *  courante. Le token qui existe s'appelle `destructive`. */
 export const urgencyColor = (u: Urgency): string =>
-  u === 'overdue' ? 'text-danger' : u === 'week' ? 'text-suggere' : 'text-muted-foreground'
+  u === 'overdue' ? 'text-destructive' : u === 'week' ? 'text-suggere' : 'text-muted-foreground'
 
 /** Saturation charge/capacité — renvoie % et sévérité visuelle pour la jauge. */
 export const saturation = (

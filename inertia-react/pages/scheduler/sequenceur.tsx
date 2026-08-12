@@ -1,34 +1,38 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Head, router } from '@inertiajs/react'
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
-  ChevronsUpDown,
-  CircleCheck,
   Factory,
-  FlaskConical,
-  Info,
+  FilterX,
   Package,
   RefreshCw,
-  Search,
+  RotateCw,
   TriangleAlert,
+  Wand2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
-import { X3Link } from '@r/components/x3-link'
-import type { SortingState } from '@r/components/ui/data-table'
+import { Badge } from '@r/components/ui/badge'
+import { Button } from '@r/components/ui/button'
+import { Card } from '@r/components/ui/card'
+import { Jauge } from '@r/components/ui/chart'
+import { Pill } from '@r/components/ui/pill'
+import { Separator } from '@r/components/ui/separator'
+import { DynamicIcon } from '@r/components/ui/dynamic-icon'
+import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import {
-  PILL,
-  Segment,
-  SegmentButton,
-  ToolbarRow,
+  ToolbarFilterChip,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarGroup,
+  ToolbarSearch,
+  ToolbarSegment,
+  ToolbarSegmented,
   ToolbarSpacer,
-  FilterMenu,
-} from '@r/components/vision/toolbar'
+} from '@r/components/ui/toolbar'
 import {
   Combobox,
   ComboboxContent,
@@ -38,100 +42,59 @@ import {
   ComboboxList,
   useComboboxAnchor,
 } from '@r/components/ui/combobox'
-import {
-  type EngagementRow,
-  type Urgency,
-  URGENCY_RANK,
-  fmtDateFr,
-  fmtH,
-  fmtJ,
-  saturation,
-  urgencyColor,
-  urgencyOf,
-} from '@r/lib/board/engagement-format'
-import type { FeasStatus, PosteNature, PosteNatureFilterKey } from '@r/lib/board/types'
+import { fmtH, fmtJ, saturation, urgencyOf, type Urgency } from '@r/lib/board/engagement-format'
+import type { FeasStatus, PosteNatureFilterKey } from '@r/lib/board/types'
 import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
+import { useIsPrinting } from '@r/lib/use-is-printing'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
+import { createSequenceurColumns } from '@r/lib/sequenceur/columns'
+import {
+  ALL_POSTE_NATURES,
+  ALL_STATUSES,
+  POSTE_NATURE_CHIPS,
+  STATUS_CHIP_TONE,
+  STATUS_FILTER_CHIPS,
+  URGENCY_CHIPS,
+  affirmable,
+  feasOk,
+  matchQuery,
+  natureOk,
+  sortBusinessDefault,
+  sortSequenceurRows,
+  splitChargeHours,
+  type FeasFilter,
+  type PosteSummary,
+  type SequenceurRow,
+  type StatusKey,
+} from '@r/lib/sequenceur/shared'
 
 /**
  * Page « Séquenceur » — board /programme en table (#46/#100 unifiés).
- * Filtre poste côté client (plus de route `/sequenceur/:poste`).
+ *
+ * Migrée sur le design system (vitrine `/design-system`) :
+ * • `theme="cursor"`, comme /suivi ;
+ * • la barre d'outils suit le standard §17 — elle passe par la prop `toolbar`
+ *   d'AppLayout et ne garde que la portée, la recherche et les actions ; les
+ *   cinq contrôles de filtrage permanents (atelier, nature, statut,
+ *   faisabilité, urgence) sont descendus sous le déclencheur unique
+ *   `ToolbarFilterMenu`, où chaque chip porte sa gravité et son volume ;
+ * • la grille CSS de 12 colonnes est remplacée par le `DataTable` dans une
+ *   `Card`, avec tri d'en-tête, colonnes figées et virtualisation.
+ *
+ * Deux affichages ont été abandonnés dans l'échange, et remplacés plutôt que
+ * supprimés :
+ * • les **en-têtes de groupe par poste** (une `<table>` n'a pas de rangée de
+ *   groupe) → le sélecteur de poste porte désormais, pour chaque poste, son
+ *   volume d'OF, sa charge et sa saturation ;
+ * • les **séparateurs de bucket d'urgence** → les chips « Urgence » du panneau
+ *   portent les mêmes compteurs, et la colonne Livraison garde sa couleur
+ *   d'urgence.
+ *
+ * Le filtre d'urgence, lui, n'est plus conditionné à la sélection d'un poste :
+ * il n'y avait aucune raison métier à ce verrou, seulement la place que les
+ * pills prenaient dans la rangée — place que le panneau n'a pas à compter.
  */
-
-interface PosteSummary {
-  code: string
-  label: string
-  count: number
-  totalHours: number
-  weeklyCapacityHours: number | null
-  atelier: string
-  atelierLabel: string
-  nature: PosteNature
-}
-
-type SequenceurRow = EngagementRow & {
-  posteCode: string
-  posteLabel: string
-  status?: number
-  statusLabel?: string
-}
-
-type FeasFilter = 'all' | 'ok' | 'qc' | 'blocked' | 'unknown'
-/** Statuts WIPSTA X3 affichés — 1 ferme / 2 planifié / 3 suggéré. */
-type StatusKey = 1 | 2 | 3
-const ALL_STATUSES: StatusKey[] = [1, 2, 3]
-
-const ALL_POSTE_NATURES: PosteNatureFilterKey[] = ['assemblage_pf', 'assemble_sous_ensemble']
-
-const POSTE_NATURE_CHIPS: { k: PosteNatureFilterKey; label: string }[] = [
-  { k: 'assemblage_pf', label: 'Assemblage PF' },
-  { k: 'assemble_sous_ensemble', label: 'Sous-ensemble' },
-]
-
-const STATUS_FILTER_CHIPS: { k: StatusKey; label: string }[] = [
-  { k: 1, label: 'Ferme' },
-  { k: 2, label: 'Planifié' },
-  { k: 3, label: 'Suggéré' },
-]
-
-// Classes littérales (pas de `bg-${k}` dynamique — Tailwind v4 scanne le
-// source statiquement, une interpolation ne serait pas détectée).
-const STATUS_DOT_CLASS: Record<StatusKey, string> = {
-  1: 'bg-ferme',
-  2: 'bg-planifie',
-  3: 'bg-suggere',
-}
-
-/** Couleur de libellé de statut — même sémantique que /programme. */
-function statusTextClass(status: number | undefined): string {
-  if (status === 1) return 'text-ferme'
-  if (status === 2) return 'text-planifie'
-  if (status === 3) return 'text-suggere'
-  return 'text-muted-foreground'
-}
-
-/** OF affermissable en un clic (planifié/suggéré) — les fermes sont déjà lancés. */
-function affirmable(status: number | undefined): boolean {
-  return status === 2 || status === 3
-}
-
-/** Split charge affichée : ferme (WIPSTA 1) vs lançable (planifié/suggéré). */
-function splitChargeHours(rows: { hours: number; status?: number }[]): {
-  ferme: number
-  lancable: number
-} {
-  let ferme = 0
-  let lancable = 0
-  for (const r of rows) {
-    if (r.status === 1) ferme += r.hours
-    else if (affirmable(r.status)) lancable += r.hours
-  }
-  return {
-    ferme: Math.round(ferme * 100) / 100,
-    lancable: Math.round(lancable * 100) / 100,
-  }
-}
 
 interface SequenceurPageProps {
   postes: PosteSummary[]
@@ -141,10 +104,6 @@ interface SequenceurPageProps {
   feasibilityWindow: { from: string; to: string } | null
   x3Error: string | null
 }
-
-const ROW_GRID_ALL =
-  'grid-cols-[2rem_6rem_7rem_5.5rem_6.5rem_1.3fr_5.5rem_6rem_1.2fr_5rem_4rem_4rem]'
-const ROW_GRID_ONE = 'grid-cols-[2rem_7rem_5.5rem_6.5rem_1.3fr_5.5rem_6rem_1.2fr_5rem_4rem_4rem]'
 
 /** Filtres persistés au refresh (sessionStorage). */
 const FILTERS_STORAGE_KEY = 'sequenceur:filters'
@@ -160,8 +119,8 @@ type StoredFilters = {
   poste: string | null
 }
 
-function readStoredFilters(): StoredFilters {
-  const defaults: StoredFilters = {
+function defaultFilters(): StoredFilters {
+  return {
     ateliers: [],
     posteNatures: [...ALL_POSTE_NATURES],
     query: '',
@@ -170,6 +129,10 @@ function readStoredFilters(): StoredFilters {
     statusFilter: [...ALL_STATUSES],
     poste: null,
   }
+}
+
+function readStoredFilters(): StoredFilters {
+  const defaults = defaultFilters()
   try {
     const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY)
     if (!raw) {
@@ -228,14 +191,6 @@ function writeStoredFilters(patch: Partial<StoredFilters>) {
   }
 }
 
-function natureOk(nature: PosteNature | undefined, filter: Set<PosteNatureFilterKey>): boolean {
-  const n = nature ?? 'autre'
-  if (n === 'autre') {
-    return filter.has('assemblage_pf') && filter.has('assemble_sous_ensemble')
-  }
-  return filter.has(n)
-}
-
 /** Poste initial : `?poste=` prime sur sessionStorage. */
 function readInitialPoste(stored: StoredFilters): string | null {
   try {
@@ -259,162 +214,28 @@ function syncPosteQueryParam(poste: string | null) {
   }
 }
 
-function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined, ofStatus?: number) {
-  if (st === 'ok') {
-    // OF ferme (WIPSTA 1) : déjà lancé — vert ferme.
-    // Planifié/suggéré : lançable — teal planifié (aligné split charge).
-    const launched = ofStatus === 1
-    return {
-      label: launched ? 'Lancé' : 'Lançable',
-      className: launched ? 'bg-ferme/15 text-ferme' : 'bg-planifie/15 text-planifie',
-      icon: CircleCheck,
-    }
-  }
-  if (st === 'qc')
-    return {
-      label: 'Sous CQ',
-      className: 'bg-suggere/15 text-suggere',
-      icon: FlaskConical,
-    }
-  if (st === 'blocked')
-    return {
-      label: 'Bloqué',
-      className: 'bg-destructive/10 text-destructive',
-      icon: TriangleAlert,
-    }
-  return {
-    label: 'N/D',
-    className: 'bg-secondary text-muted-foreground',
-    icon: RefreshCw,
-  }
-}
+const FEAS_CHIPS: {
+  k: FeasFilter
+  label: string
+  tone: 'neutral' | 'ok' | 'warning' | 'critical'
+}[] = [
+  { k: 'all', label: 'Tous', tone: 'neutral' },
+  { k: 'ok', label: 'Lançables', tone: 'ok' },
+  { k: 'qc', label: 'Sous CQ', tone: 'warning' },
+  { k: 'blocked', label: 'Bloqués', tone: 'critical' },
+]
 
-/** Rang faisabilité pour le tri colonne (aligné sur le tri défaut post-calcul). */
-function feasRank(st: FeasStatus['st'] | undefined): number {
-  if (st === 'ok') return 0
-  if (st === 'qc') return 1
-  if (st === 'blocked') return 2
-  return 3
-}
-
-/**
- * Tri manuel colonnes — même cycle que /suivi (DataTable) : asc → desc → off.
- * Appliqué uniquement quand `sorting` est non vide ; sinon le tri métier défaut
- * (faisabilité → poste → urgence → livraison) reste en place.
- */
-function sortSequenceurRows(
-  rows: SequenceurRow[],
-  sorting: SortingState[],
-  feasibility: Record<string, FeasStatus>
-): SequenceurRow[] {
-  if (sorting.length === 0) return rows
-  const { id, desc } = sorting[0]
-  const sorted = [...rows]
-  sorted.sort((a, b) => {
-    let cmp = 0
-    switch (id) {
-      case 'poste':
-        cmp = a.posteCode.localeCompare(b.posteCode)
-        break
-      case 'numOf':
-        cmp = a.numOf.localeCompare(b.numOf)
-        break
-      case 'status':
-        cmp = (a.status ?? 0) - (b.status ?? 0)
-        break
-      case 'article':
-        cmp = a.article.localeCompare(b.article)
-        break
-      case 'designation':
-        cmp = (a.designation ?? '').localeCompare(b.designation ?? '', 'fr')
-        break
-      case 'avancement': {
-        const av = (r: SequenceurRow) => (r.launched > 0 ? r.done / r.launched : -1)
-        cmp = av(a) - av(b)
-        break
-      }
-      case 'faisabilite':
-        cmp = feasRank(feasibility[a.numOf]?.st) - feasRank(feasibility[b.numOf]?.st)
-        break
-      case 'commande': {
-        const cmd = (r: SequenceurRow) => r.commandes[0]?.numCommande ?? ''
-        cmp = cmd(a).localeCompare(cmd(b))
-        break
-      }
-      case 'livraison': {
-        const da = a.livraisonIso ?? '9999-12-31'
-        const db = b.livraisonIso ?? '9999-12-31'
-        cmp = da.localeCompare(db)
-        break
-      }
-      case 'heures':
-      case 'jours':
-        cmp = a.hours - b.hours
-        break
-      default:
-        return 0
-    }
-    if (cmp !== 0) return desc ? -cmp : cmp
-    return a.numOf.localeCompare(b.numOf)
-  })
-  return sorted
-}
-
-function toggleSortingState(sorting: SortingState[], columnId: string): SortingState[] {
-  const existing = sorting.find((s) => s.id === columnId)
-  if (!existing) return [{ id: columnId, desc: false }]
-  if (!existing.desc) return [{ id: columnId, desc: true }]
-  return []
-}
-
-/** En-tête cliquable — mêmes icônes / cycle que `DataTable` (/suivi). */
-function SortHeader({
-  id,
-  label,
-  sorting,
-  onToggle,
-  className,
-}: {
-  id: string
-  label: ReactNode
-  sorting: SortingState[]
-  onToggle: (id: string) => void
-  className?: string
-}) {
-  const sorted = sorting.find((s) => s.id === id)
-  return (
-    <span
-      role="button"
-      tabIndex={0}
-      aria-sort={sorted ? (sorted.desc ? 'descending' : 'ascending') : undefined}
-      className={cn(
-        'inline-flex cursor-pointer select-none items-center gap-1 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
-        sorted && 'font-bold text-foreground',
-        className
-      )}
-      onClick={() => onToggle(id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onToggle(id)
-        }
-      }}
-    >
-      <span>{label}</span>
-      {!sorted ? (
-        <ChevronsUpDown size={12} strokeWidth={1.75} className="text-muted-foreground/50" />
-      ) : sorted.desc ? (
-        <ArrowDown size={12} strokeWidth={1.75} className="text-primary" />
-      ) : (
-        <ArrowUp size={12} strokeWidth={1.75} className="text-primary" />
-      )}
-    </span>
-  )
+const URGENCY_TONE: Record<Urgency | 'all', 'neutral' | 'ok' | 'warning' | 'critical'> = {
+  all: 'neutral',
+  overdue: 'critical',
+  week: 'warning',
+  later: 'neutral',
 }
 
 export default function Sequenceur(props: SequenceurPageProps) {
   const anchorRef = useComboboxAnchor()
   const stored = useMemo(() => readStoredFilters(), [])
+  const printing = useIsPrinting()
   const [posteQuery, setPosteQuery] = useState('')
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | 'all'>(stored.urgencyFilter)
   const [query, setQuery] = useState(stored.query)
@@ -434,12 +255,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [batchRunning, setBatchRunning] = useState(false)
   const [detailOf, setDetailOf] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  /** Tri colonnes (comme /suivi) — vide = tri métier défaut. */
+  /** Tri colonnes (cycle du DataTable) — vide = tri métier défaut. */
   const [sorting, setSorting] = useState<SortingState[]>([])
-  const customSort = sorting.length > 0
-  const toggleColumnSort = useCallback((columnId: string) => {
-    setSorting((prev) => toggleSortingState(prev, columnId))
-  }, [])
 
   const toggleAtelier = (code: string) => {
     setAtelierFilter((prev) => {
@@ -494,7 +311,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
     () => new Map(props.postes.map((p) => [p.code, p.nature])),
     [props.postes]
   )
-  const posteByCode = useMemo(() => new Map(props.postes.map((p) => [p.code, p])), [props.postes])
   const posteRank = useMemo(() => new Map(props.postes.map((p, i) => [p.code, i])), [props.postes])
 
   const [posteFilter, setPosteFilter] = useState<string | null>(() => readInitialPoste(stored))
@@ -519,10 +335,22 @@ export default function Sequenceur(props: SequenceurPageProps) {
     syncPosteQueryParam(poste)
   }
 
+  /** L'état vide doit pouvoir se réparer : un bouton, pas un mode d'emploi. */
+  const resetFilters = () => {
+    const d = defaultFilters()
+    setQuery(d.query)
+    setAtelierFilter(new Set(d.ateliers))
+    setPosteNatureFilter(new Set(d.posteNatures))
+    setStatusFilter(new Set(d.statusFilter))
+    setUrgencyFilter(d.urgencyFilter)
+    setFeasFilter(d.feasFilter)
+    // Le poste n'est pas un filtre mais la PORTÉE de la page : le réinitialiser
+    // renverrait ailleurs que là où l'utilisateur regarde.
+    writeStoredFilters({ ...d, poste: posteFilter })
+  }
+
   const activePoste = posteFilter ? props.postes.find((p) => p.code === posteFilter) : null
   const showPosteCol = !posteFilter
-  /** Urgence / buckets livraison utiles dès qu'un poste est filtré. */
-  const detail = !!posteFilter
 
   const filteredPostes = useMemo(() => {
     const q = posteQuery.trim().toLowerCase()
@@ -572,113 +400,87 @@ export default function Sequenceur(props: SequenceurPageProps) {
     }
   }, [feasLoading, props.rows, props.feasibilityWindow, posteFilter])
 
-  const filteredRows = useMemo(() => {
+  /**
+   * Base commune aux compteurs de chips et à la table : portée (poste, nature,
+   * atelier) + recherche. Chaque compteur y ajoute ensuite tous les filtres
+   * SAUF le sien — un compte de chip doit dire ce qu'il resterait si on la
+   * cochait, pas ce qui reste déjà.
+   */
+  const baseRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const rows = props.rows
+    return props.rows
       .filter((r) => !posteFilter || r.posteCode === posteFilter)
       .filter((r) => natureOk(posteNature.get(r.posteCode), posteNatureFilter))
       .filter(
         (r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? '')
       )
-      .filter((r) => statusFilter.has((r.status ?? 1) as StatusKey))
-      .filter(
-        (r) => !detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
-      )
-      .filter((r) => {
-        if (feasFilter === 'all') return true
-        const st = feasibility[r.numOf]?.st
-        if (feasFilter === 'unknown') return !st
-        return st === feasFilter
-      })
-      .filter((r) => {
-        if (!q) return true
-        const haystack = [
-          r.numOf,
-          r.article,
-          r.designation ?? '',
-          r.posteCode,
-          r.statusLabel ?? '',
-          ...r.commandes.flatMap((c) => [c.numCommande, c.client ?? '']),
-        ]
-          .join(' ')
-          .toLowerCase()
-        return haystack.includes(q)
-      })
+      .filter((r) => matchQuery(r, q))
+  }, [props.rows, posteFilter, posteNature, posteNatureFilter, atelierFilter, posteAtelier, query])
 
-    // Tri colonne utilisateur (comme /suivi) — remplace le tri métier.
-    if (sorting.length > 0) {
-      return sortSequenceurRows(rows, sorting, feasibility)
+  const statusOk = useCallback(
+    (r: SequenceurRow) => statusFilter.has((r.status ?? 1) as StatusKey),
+    [statusFilter]
+  )
+  const urgencyMatch = useCallback(
+    (r: SequenceurRow) => urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter,
+    [urgencyFilter]
+  )
+
+  const statusCounts = useMemo(() => {
+    const out: Record<StatusKey, number> = { 1: 0, 2: 0, 3: 0 }
+    for (const r of baseRows) {
+      if (!urgencyMatch(r) || !feasOk(r, feasFilter, feasibility)) continue
+      const k = r.status ?? 1
+      if (k === 1 || k === 2 || k === 3) out[k]++
     }
-
-    return [...rows].sort((a, b) => {
-      if (feasDone) {
-        // Lançables d'abord, puis CQ, bloqués, inconnus.
-        const ra = feasRank(feasibility[a.numOf]?.st)
-        const rb = feasRank(feasibility[b.numOf]?.st)
-        if (ra !== rb) return ra - rb
-      }
-      if (showPosteCol) {
-        const ra = posteRank.get(a.posteCode) ?? Infinity
-        const rb = posteRank.get(b.posteCode) ?? Infinity
-        if (ra !== rb) return ra - rb
-      }
-      const aNoCmd = detail && a.commandes.length === 0
-      const bNoCmd = detail && b.commandes.length === 0
-      if (aNoCmd !== bNoCmd) return aNoCmd ? 1 : -1
-      const ua = urgencyOf(a.livraisonIso)
-      const ub = urgencyOf(b.livraisonIso)
-      if (URGENCY_RANK[ua] !== URGENCY_RANK[ub]) return URGENCY_RANK[ua] - URGENCY_RANK[ub]
-      if (!a.livraisonIso && !b.livraisonIso) return a.numOf.localeCompare(b.numOf)
-      if (!a.livraisonIso) return 1
-      if (!b.livraisonIso) return -1
-      return a.livraisonIso.localeCompare(b.livraisonIso) || a.numOf.localeCompare(b.numOf)
-    })
-  }, [
-    props.rows,
-    detail,
-    posteFilter,
-    atelierFilter,
-    posteAtelier,
-    posteNature,
-    posteNatureFilter,
-    statusFilter,
-    urgencyFilter,
-    query,
-    posteRank,
-    showPosteCol,
-    feasFilter,
-    feasibility,
-    feasDone,
-    sorting,
-  ])
+    return out
+  }, [baseRows, urgencyMatch, feasFilter, feasibility])
 
   const feasCounts = useMemo(() => {
-    let ok = 0
-    let qc = 0
-    let blocked = 0
-    let unknown = 0
-    for (const r of props.rows) {
-      if (posteFilter && r.posteCode !== posteFilter) continue
-      if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) continue
-      if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
-        continue
-      if (!statusFilter.has((r.status ?? 1) as StatusKey)) continue
+    const out = { all: 0, ok: 0, qc: 0, blocked: 0, unknown: 0 }
+    for (const r of baseRows) {
+      if (!statusOk(r) || !urgencyMatch(r)) continue
+      out.all++
       const st = feasibility[r.numOf]?.st
-      if (st === 'ok') ok++
-      else if (st === 'qc') qc++
-      else if (st === 'blocked') blocked++
-      else unknown++
+      if (st === 'ok') out.ok++
+      else if (st === 'qc') out.qc++
+      else if (st === 'blocked') out.blocked++
+      else out.unknown++
     }
-    return { ok, qc, blocked, unknown }
+    return out
+  }, [baseRows, statusOk, urgencyMatch, feasibility])
+
+  const urgencyCounts = useMemo(() => {
+    const out: Record<Urgency | 'all', number> = { all: 0, overdue: 0, week: 0, later: 0 }
+    for (const r of baseRows) {
+      if (!statusOk(r) || !feasOk(r, feasFilter, feasibility)) continue
+      out.all++
+      out[urgencyOf(r.livraisonIso)]++
+    }
+    return out
+  }, [baseRows, statusOk, feasFilter, feasibility])
+
+  const filteredRows = useMemo(() => {
+    const rows = baseRows.filter(
+      (r) => statusOk(r) && urgencyMatch(r) && feasOk(r, feasFilter, feasibility)
+    )
+    if (sorting.length > 0) return sortSequenceurRows(rows, sorting, feasibility)
+    return sortBusinessDefault(rows, {
+      feasDone,
+      feasibility,
+      posteRank: showPosteCol ? posteRank : null,
+      demoteSansCommande: !showPosteCol,
+    })
   }, [
-    props.rows,
-    posteFilter,
-    atelierFilter,
-    posteAtelier,
-    posteNature,
-    posteNatureFilter,
-    statusFilter,
+    baseRows,
+    statusOk,
+    urgencyMatch,
+    feasFilter,
     feasibility,
+    sorting,
+    feasDone,
+    showPosteCol,
+    posteRank,
   ])
 
   // Sélectionnables (affermissables) parmi les lignes affichées + faisabilité ok —
@@ -689,45 +491,34 @@ export default function Sequenceur(props: SequenceurPageProps) {
     [filteredRows, feasibility]
   )
 
-  const rowGroups = useMemo(() => {
-    // Groupes poste uniquement en tri défaut (ou tri explicite sur poste) —
-    // sinon un tri colonne (livraison, heures…) serait cassé par les blocs.
-    const sortByPoste = sorting[0]?.id === 'poste'
-    if (!showPosteCol || (customSort && !sortByPoste)) {
-      return [{ posteCode: null as string | null, rows: filteredRows }]
-    }
-    const groups: { posteCode: string; rows: SequenceurRow[] }[] = []
-    for (const r of filteredRows) {
-      const last = groups[groups.length - 1]
-      if (!last || last.posteCode !== r.posteCode) {
-        groups.push({ posteCode: r.posteCode, rows: [r] })
-      } else {
-        last.rows.push(r)
-      }
-    }
-    return groups
-  }, [filteredRows, showPosteCol, customSort, sorting])
-
   const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
+  /** Postes réellement représentés dans la table, pas ceux que le filtre laisse passer. */
+  const postesAffiches = useMemo(
+    () => new Set(filteredRows.map((r) => r.posteCode)).size,
+    [filteredRows]
+  )
   const chargeSplit = useMemo(() => splitChargeHours(filteredRows), [filteredRows])
   const sat = activePoste
     ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours)
     : null
-  const weeksEngaged =
-    activePoste && activePoste.weeklyCapacityHours
-      ? Math.round((activePoste.totalHours / activePoste.weeklyCapacityHours) * 10) / 10
-      : null
 
-  const rowGrid = showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
+  /** Un filtre est « actif » quand il s'ÉCARTE du défaut, pas quand il est coché. */
+  const activeFilterCount =
+    (atelierFilter.size > 0 ? 1 : 0) +
+    (ALL_POSTE_NATURES.some((n) => !posteNatureFilter.has(n)) ? 1 : 0) +
+    (ALL_STATUSES.some((s) => !statusFilter.has(s)) ? 1 : 0) +
+    (feasFilter !== 'all' ? 1 : 0) +
+    (urgencyFilter !== 'all' ? 1 : 0)
+  const isFiltered = activeFilterCount > 0 || !!query.trim()
 
-  function toggleSelect(id: string) {
+  const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
   function selectAllLaunchable() {
     const next = new Set<string>()
@@ -736,6 +527,26 @@ export default function Sequenceur(props: SequenceurPageProps) {
     }
     setSelected(next)
   }
+
+  const openOf = useCallback((numOf: string) => {
+    setDetailOf(numOf)
+    setDetailOpen(true)
+  }, [])
+
+  const columns = useMemo(
+    () =>
+      createSequenceurColumns({
+        showPosteCol,
+        feasibility,
+        feasDone,
+        selected,
+        batch,
+        batchRunning,
+        onToggleSelect: toggleSelect,
+        onOpenOf: openOf,
+      }),
+    [showPosteCol, feasibility, feasDone, selected, batch, batchRunning, toggleSelect, openOf]
+  )
 
   async function batchFirm(ids: string[]) {
     if (batchRunning || ids.length === 0) return
@@ -787,675 +598,403 @@ export default function Sequenceur(props: SequenceurPageProps) {
     if (nbOk > 0) setTimeout(() => router.reload(), 1500)
   }
 
+  /* ── Barre d'outils (standard §17) ─────────────────────────────────────
+     Zone 01 portée : le sélecteur de poste. Zone 02 : le déclencheur unique de
+     filtres. Zone 03 : la recherche. Zone 04 : les actions. Ni fenêtre de
+     dates ni « actualiser » — la page n'en a pas. */
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <div ref={anchorRef}>
+          <Combobox
+            value={posteFilter ?? ''}
+            onValueChange={(v) => selectPoste(v ? String(v) : null)}
+            onInputValueChange={setPosteQuery}
+          >
+            <ComboboxInput placeholder="Tous les postes" className="w-[220px]" showClear />
+            <ComboboxContent anchor={anchorRef}>
+              <ComboboxList>
+                {filteredPostes.length === 0 ? (
+                  <ComboboxEmpty>Aucun poste ne correspond.</ComboboxEmpty>
+                ) : (
+                  filteredPostes.map((p) => {
+                    // Le sélecteur porte la synthèse par poste que les en-têtes
+                    // de groupe de l'ancienne table donnaient : volume, charge,
+                    // saturation — là où le poste se choisit.
+                    const s = saturation(p.totalHours, p.weeklyCapacityHours)
+                    return (
+                      <ComboboxItem key={p.code} value={p.code}>
+                        <span className="font-mono text-xs font-semibold">{p.code}</span>
+                        <span className="truncate text-muted-foreground">{p.label}</span>
+                        <span className="ml-auto flex shrink-0 items-baseline gap-2 font-mono text-2xs tabular-nums text-muted-foreground">
+                          <span>{p.count} OF</span>
+                          <span>{fmtH(p.totalHours)} h</span>
+                          {s.pct !== null && (
+                            <span
+                              className={cn(
+                                'font-semibold',
+                                s.level === 'ok' && 'text-ferme',
+                                s.level === 'high' && 'text-suggere',
+                                s.level === 'crit' && 'text-destructive'
+                              )}
+                            >
+                              {s.pct} %
+                            </span>
+                          )}
+                        </span>
+                      </ComboboxItem>
+                    )
+                  })
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
+        </div>
+
+        <ToolbarFilterMenu activeCount={activeFilterCount} width={300}>
+          <ToolbarFilterSection>Faisabilité</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+            {FEAS_CHIPS.map(({ k, label, tone }) => (
+              <ToolbarFilterChip
+                key={k}
+                label={label}
+                tone={tone}
+                count={k === 'all' ? feasCounts.all : feasDone ? feasCounts[k] : undefined}
+                active={feasFilter === k}
+                onClick={() => setFeasFilterPersisted(k)}
+                title={
+                  feasDone
+                    ? undefined
+                    : 'Lancez le calcul de faisabilité pour connaître les volumes'
+                }
+              />
+            ))}
+          </ToolbarSegmented>
+
+          <Separator className="my-2" />
+          <ToolbarFilterSection>Statut</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+            {STATUS_FILTER_CHIPS.map(({ k, label }) => (
+              <ToolbarFilterChip
+                key={k}
+                label={label}
+                tone={STATUS_CHIP_TONE[k]}
+                count={statusCounts[k]}
+                active={statusFilter.has(k)}
+                onClick={() => toggleStatus(k)}
+              />
+            ))}
+          </ToolbarSegmented>
+
+          <Separator className="my-2" />
+          <ToolbarFilterSection>Urgence de livraison</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+            {URGENCY_CHIPS.map(({ k, label }) => (
+              <ToolbarFilterChip
+                key={k}
+                label={label}
+                tone={URGENCY_TONE[k]}
+                count={urgencyCounts[k]}
+                active={urgencyFilter === k}
+                onClick={() => setUrgencyPersisted(k)}
+              />
+            ))}
+          </ToolbarSegmented>
+
+          <Separator className="my-2" />
+          <ToolbarFilterSection>Nature de poste</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full">
+            {POSTE_NATURE_CHIPS.map(({ k, label }) => (
+              <ToolbarSegment
+                key={k}
+                active={posteNatureFilter.has(k)}
+                onClick={() => togglePosteNature(k)}
+              >
+                {label}
+              </ToolbarSegment>
+            ))}
+          </ToolbarSegmented>
+
+          {props.ateliers.length > 0 && (
+            <>
+              <Separator className="my-2" />
+              <div className="flex items-center justify-between">
+                <ToolbarFilterSection>Atelier</ToolbarFilterSection>
+                {atelierFilter.size > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setAtelierFilter(new Set())
+                      writeStoredFilters({ ateliers: [] })
+                    }}
+                    title="Réinitialiser le filtre atelier"
+                    aria-label="Réinitialiser le filtre atelier"
+                  >
+                    <FilterX size={12} strokeWidth={2} aria-hidden="true" />
+                  </Button>
+                )}
+              </div>
+              <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+                {props.ateliers.map((a) => (
+                  <ToolbarSegment
+                    key={a.code}
+                    active={atelierFilter.has(a.code)}
+                    onClick={() => toggleAtelier(a.code)}
+                    title={a.code}
+                  >
+                    {a.label.replace(/^ATELIER\s+/i, '')}
+                  </ToolbarSegment>
+                ))}
+              </ToolbarSegmented>
+            </>
+          )}
+        </ToolbarFilterMenu>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <ToolbarSearch
+        value={query}
+        onChange={setQueryPersisted}
+        placeholder="OF, article, commande, client…"
+      />
+
+      <Pill
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        onClick={() => void runFeasibility()}
+        disabled={feasLoading || props.rows.length === 0}
+        title="Calculer la faisabilité matières des OF affichés"
+      >
+        {feasLoading ? (
+          <RefreshCw size={13} strokeWidth={1.75} className="animate-spin" />
+        ) : (
+          <Wand2 size={13} strokeWidth={1.75} />
+        )}
+        {feasLoading ? 'Calcul…' : 'Faisabilité'}
+      </Pill>
+
+      {feasDone && affirmableOkCount > 0 && (
+        <Pill
+          size="sm"
+          variant="active"
+          className="gap-1.5"
+          onClick={selectAllLaunchable}
+          disabled={batchRunning}
+          title="Sélectionner tous les OF lançables affichés"
+        >
+          <Check size={13} strokeWidth={2} />
+          Tout sélectionner ({affirmableOkCount})
+        </Pill>
+      )}
+    </>
+  )
+
   return (
     <AppLayout
       title="Séquenceur"
       active="sequenceur"
       subtitle="Board tabulaire · OF ferme / planifié / suggéré par poste"
-      theme="airbnb"
+      theme="cursor"
       dense
       scrollable={false}
-      meta={
-        <div>
-          <b className="font-bold text-foreground">{filteredRows.length}</b> OF ·{' '}
-          <b className="font-bold text-foreground">{fmtH(totalHours)}</b> h{' · '}
-          <b className="font-bold text-ferme">{fmtH(chargeSplit.ferme)}</b> h ferme
-          {' · '}
-          <b className="font-bold text-planifie">{fmtH(chargeSplit.lancable)}</b> h lançable
-          {feasDone && (
-            <>
-              {' '}
-              · <b className="font-bold text-ferme">{feasCounts.ok}</b> faisables
-            </>
-          )}
-        </div>
-      }
+      toolbar={toolbar}
+      // Pas de `meta` : le volume et la charge se comptent une seule fois, dans
+      // le bandeau de synthèse — où ils sont le résultat des filtres qui les
+      // entourent, et non un total qui devient faux dès qu'on en pose un.
     >
       <Head title="Séquenceur" />
       <div className="flex h-full min-h-0 flex-col">
         {props.x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
-            <span className="font-bold">Matching partiel :</span>
-            <span className="font-mono">{props.x3Error}</span>
-          </div>
-        )}
-
-        <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-          <div ref={anchorRef}>
-            <Combobox
-              value={posteFilter ?? ''}
-              onValueChange={(v) => selectPoste(v ? String(v) : null)}
-              onInputValueChange={setPosteQuery}
-            >
-              <ComboboxInput placeholder="Tous les postes" className="w-[220px]" showClear />
-              <ComboboxContent anchor={anchorRef}>
-                <ComboboxList>
-                  {filteredPostes.length === 0 ? (
-                    <ComboboxEmpty>Aucun poste ne correspond.</ComboboxEmpty>
-                  ) : (
-                    filteredPostes.map((p) => (
-                      <ComboboxItem key={p.code} value={p.code}>
-                        <span className="font-mono text-[12px] font-semibold">{p.code}</span>
-                        <span className="truncate text-muted-foreground">{p.label}</span>
-                        {p.count > 0 && (
-                          <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                            {p.count}
-                          </span>
-                        )}
-                      </ComboboxItem>
-                    ))
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          </div>
-
-          {props.ateliers.length > 0 && (
-            <Segment className="flex-wrap">
-              {props.ateliers.map((a) => (
-                <SegmentButton
-                  key={a.code}
-                  active={atelierFilter.has(a.code)}
-                  onClick={() => toggleAtelier(a.code)}
-                  title={a.code}
-                >
-                  {a.label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          )}
-
-          <FilterMenu
-            label="Poste"
-            indicators={
-              POSTE_NATURE_CHIPS.some(({ k }) => posteNatureFilter.has(k)) ? (
-                <span
-                  className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  {POSTE_NATURE_CHIPS.filter(({ k }) => posteNatureFilter.has(k))
-                    .map(({ k }) => (k === 'assemblage_pf' ? 'PF' : 'S/E'))
-                    .join('+')}
-                </span>
-              ) : null
-            }
-          >
-            <Segment className="w-full justify-between">
-              {POSTE_NATURE_CHIPS.map(({ k, label }) => (
-                <SegmentButton
-                  key={k}
-                  active={posteNatureFilter.has(k)}
-                  onClick={() => togglePosteNature(k)}
-                >
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          </FilterMenu>
-
-          <FilterMenu
-            label="Statut"
-            indicators={
-              STATUS_FILTER_CHIPS.some(({ k }) => statusFilter.has(k)) ? (
-                <span className="ml-0.5 flex items-center gap-0.5" aria-hidden="true">
-                  {STATUS_FILTER_CHIPS.filter(({ k }) => statusFilter.has(k)).map(({ k }) => (
-                    <span key={k} className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
-                  ))}
-                </span>
-              ) : null
-            }
-          >
-            <Segment className="w-full justify-between">
-              {STATUS_FILTER_CHIPS.map(({ k, label }) => (
-                <SegmentButton key={k} active={statusFilter.has(k)} onClick={() => toggleStatus(k)}>
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          </FilterMenu>
-
-          <Segment role="radiogroup" ariaLabel="Faisabilité">
-            {(
-              [
-                ['all', 'Tous', null as number | null],
-                ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
-                ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
-                ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
-              ] as const
-            ).map(([id, label, count]) => (
-              <SegmentButton
-                key={id}
-                role="radio"
-                active={feasFilter === id}
-                onClick={() => setFeasFilterPersisted(id)}
-              >
-                {label}
-                {count !== null && count > 0 && (
-                  <span className="ml-1 tabular-nums opacity-70">{count}</span>
-                )}
-              </SegmentButton>
-            ))}
-          </Segment>
-
-          {detail ? (
-            <Segment role="radiogroup" ariaLabel="Urgence">
-              {(
-                [
-                  ['all', 'Toutes'],
-                  ['overdue', 'En retard'],
-                  ['week', 'Cette semaine'],
-                  ['later', 'À venir'],
-                ] as const
-              ).map(([id, label]) => (
-                <SegmentButton
-                  key={id}
-                  role="radio"
-                  active={urgencyFilter === id}
-                  onClick={() => setUrgencyPersisted(id)}
-                >
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          ) : (
-            <span className="font-mono text-2xs italic text-muted-foreground">
-              Sélectionnez un poste pour filtrer par urgence de livraison
-            </span>
-          )}
-
-          <ToolbarSpacer />
-
-          <button
-            type="button"
-            className={cn(PILL, 'gap-1.5')}
-            onClick={() => void runFeasibility()}
-            disabled={feasLoading || props.rows.length === 0}
-            title="Calculer la faisabilité matières"
-          >
-            <RefreshCw size={15} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
-            {feasLoading ? 'Calcul…' : 'Faisabilité'}
-          </button>
-          {feasDone && affirmableOkCount > 0 && (
-            <button
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Matching partiel :</span>
+            <span className="truncate font-mono">{props.x3Error}</span>
+            <Button
               type="button"
-              className={cn(PILL, 'gap-1.5')}
-              onClick={selectAllLaunchable}
-              disabled={batchRunning}
+              variant="ghost"
+              size="xs"
+              className="ml-auto shrink-0"
+              onClick={() => router.reload()}
             >
-              <Check size={15} strokeWidth={1.75} />
-              Tout sélectionner ({affirmableOkCount})
-            </button>
-          )}
-
-          <div className={PILL}>
-            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <input
-              className="w-[220px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="OF, article, commande, client…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQueryPersisted(e.currentTarget.value)}
-            />
-          </div>
-        </ToolbarRow>
-
-        {!posteFilter && (
-          <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
-            {filteredPostes.map((p) => {
-              const s = saturation(p.totalHours, p.weeklyCapacityHours)
-              return (
-                <button
-                  key={p.code}
-                  type="button"
-                  onClick={() => selectPoste(p.code)}
-                  className="flex flex-none items-center gap-2 rounded-lg border border-rule bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:border-brand/50"
-                  title={p.label}
-                >
-                  <span className="font-bold">{p.code}</span>
-                  <span className="text-muted-foreground">{p.count} OF</span>
-                  {s.pct !== null && (
-                    <span
-                      className={cn(
-                        'font-bold',
-                        s.level === 'ok' && 'text-ferme',
-                        s.level === 'high' && 'text-suggere',
-                        s.level === 'crit' && 'text-danger'
-                      )}
-                    >
-                      {s.pct}%
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+              <RotateCw size={12} strokeWidth={1.75} />
+              Réessayer
+            </Button>
           </div>
         )}
 
-        {activePoste && (
-          <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-7 py-3">
-            <Package size={18} strokeWidth={1.75} className="text-brand" />
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-[13px] font-bold text-foreground">
-                {activePoste.code}
-              </span>
-              <span className="text-[13px] font-medium text-muted-foreground">
-                {activePoste.label}
-              </span>
-            </div>
-            <span className="flex-1" />
-            <div className="flex items-center gap-3">
-              <div className="flex items-baseline gap-1">
-                <span className="text-[17px] font-bold tabular-nums text-foreground">
-                  {fmtH(activePoste.totalHours)}
-                </span>
-                <span className="font-mono text-[10px] font-semibold text-muted-foreground">h</span>
-                {weeksEngaged !== null && (
-                  <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                    ≈ {fmtJ(activePoste.totalHours)} j
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
-                <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
-                <span className="text-planifie">{fmtH(chargeSplit.lancable)} h lançable</span>
-              </div>
-              {sat && sat.pct !== null && (
-                <div className="flex items-center gap-2">
-                  <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
-                    <div
-                      className={cn(
-                        'absolute inset-y-0 left-0 rounded-full transition-all',
-                        sat.level === 'ok' && 'bg-ferme',
-                        sat.level === 'high' && 'bg-suggere',
-                        sat.level === 'crit' && 'bg-danger'
-                      )}
-                      style={{ width: `${Math.min(100, sat.pct)}%` }}
-                    />
-                  </div>
-                  <span
-                    className={cn(
-                      'font-mono text-[11px] font-bold tabular-nums',
-                      sat.level === 'ok' && 'text-ferme',
-                      sat.level === 'high' && 'text-suggere',
-                      sat.level === 'crit' && 'text-danger'
-                    )}
-                  >
-                    {sat.pct}%
-                  </span>
-                </div>
-              )}
-            </div>
-            {feasDone && (
-              <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
-                <span className="text-ferme">{feasCounts.ok} faisables</span>
-                {feasCounts.qc > 0 && <span className="text-suggere">{feasCounts.qc} sous CQ</span>}
-                {feasCounts.blocked > 0 && (
-                  <span className="text-destructive">{feasCounts.blocked} bloqués</span>
-                )}
-              </div>
-            )}
-            {/* Entrée cockpit (#119) : le passé constaté du poste filtré. */}
-            <button
-              type="button"
-              onClick={() => router.visit(`${route('cockpit.index')}?poste=${activePoste.code}`)}
-              className="flex items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 font-mono text-[11px] font-semibold text-foreground transition-colors hover:border-brand/50"
-              title={`Cockpit du poste ${activePoste.code}`}
-            >
-              <Factory size={14} strokeWidth={1.75} className="text-brand" />
-              Cockpit
-            </button>
-          </div>
-        )}
-
-        {filteredRows.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-            <Package size={26} strokeWidth={1.75} />
-            <span className="text-[13px] font-medium">
-              {feasFilter === 'ok'
-                ? 'Aucun OF lançable pour ces filtres.'
-                : 'Aucun OF pour ces filtres.'}
-            </span>
-            {feasLoading && (
-              <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                <RefreshCw size={14} className="animate-spin" /> Calcul de faisabilité…
-              </span>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
-              <Info size={14} strokeWidth={1.75} />
-              <span>
-                Board tabulaire : mêmes OF que /programme. Lancez la faisabilité pour repérer les
-                lançables / bloqués.
-              </span>
-            </div>
-            {feasLoading && (
-              <div className="flex flex-none items-center gap-2 border-b border-brand/20 bg-brand-soft/40 px-7 py-1.5 font-mono text-[10px] text-foreground">
-                <RefreshCw size={14} strokeWidth={1.75} className="animate-spin text-brand" />
-                <span>Calcul de faisabilité matières (même moteur que /programme)…</span>
-              </div>
-            )}
-            <div className="flex-1 overflow-auto pb-20">
-              <div
-                className={cn(
-                  'sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-secondary px-7 py-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground',
-                  rowGrid
-                )}
-              >
-                <span />
-                {showPosteCol && (
-                  <SortHeader
-                    id="poste"
-                    label="POSTE"
-                    sorting={sorting}
-                    onToggle={toggleColumnSort}
+        <div
+          data-print-unclip
+          className="flex min-h-0 flex-1 flex-col gap-3 p-5 print:h-auto print:overflow-visible print:p-0"
+        >
+          {/* ═══ Synthèse — la portée en cours, chiffrée une seule fois ═══ */}
+          <Card padding="none" className="flex-none px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <div className="flex min-w-0 items-center gap-2">
+                {activePoste ? (
+                  <Package
+                    size={16}
+                    strokeWidth={1.75}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                ) : (
+                  <Factory
+                    size={16}
+                    strokeWidth={1.75}
+                    className="shrink-0 text-muted-foreground"
                   />
                 )}
-                <SortHeader id="numOf" label="OF" sorting={sorting} onToggle={toggleColumnSort} />
-                <SortHeader
-                  id="status"
-                  label="STATUT"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="article"
-                  label="ARTICLE"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="designation"
-                  label="DÉSIGNATION"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="avancement"
-                  label="AVANCEMENT"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                  className="justify-end"
-                />
-                <SortHeader
-                  id="faisabilite"
-                  label="FAISABILITÉ"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="commande"
-                  label="COMMANDE(S)"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="livraison"
-                  label="LIVRAISON"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="heures"
-                  label="HEURES"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                  className="justify-end"
-                />
-                <SortHeader
-                  id="jours"
-                  label="JOURS"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                  className="justify-end"
-                />
+                {activePoste ? (
+                  <>
+                    <span className="font-mono text-cell-lg font-bold text-foreground">
+                      {activePoste.code}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {activePoste.label}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-cell-lg font-semibold text-foreground">
+                      Tous les postes
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {postesAffiches} poste{postesAffiches > 1 ? 's' : ''}
+                    </span>
+                  </>
+                )}
               </div>
 
-              {rowGroups.map((group) => {
-                const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
-                const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
-                const groupCharge = splitChargeHours(group.rows)
-                return (
-                  <div key={group.posteCode ?? 'all'}>
-                    {showPosteCol && poste && (
-                      <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
-                        <span className="text-brand">{poste.code}</span>
-                        <span className="truncate text-muted-foreground">{poste.label}</span>
-                        <span className="ml-auto flex items-center gap-2.5 text-muted-foreground">
-                          <span>{group.rows.length}</span>
-                          <span>{fmtH(groupHours)} h</span>
-                          <span className="text-ferme">{fmtH(groupCharge.ferme)} h ferme</span>
-                          <span className="text-planifie">
-                            {fmtH(groupCharge.lancable)} h lançable
-                          </span>
-                        </span>
-                      </div>
+              <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <span className="flex items-baseline gap-1">
+                  <span className="font-mono text-cell-lg font-bold tabular-nums text-foreground">
+                    {filteredRows.length}
+                  </span>
+                  <span className="text-2xs text-muted-foreground">OF</span>
+                </span>
+                <span className="flex items-baseline gap-1">
+                  <span className="font-mono text-cell-lg font-bold tabular-nums text-foreground">
+                    {fmtH(totalHours)}
+                  </span>
+                  <span className="text-2xs text-muted-foreground">h · {fmtJ(totalHours)} j</span>
+                </span>
+                <span className="flex items-center gap-2 font-mono text-1.5xs font-semibold tabular-nums">
+                  {/* Sous .theme-cursor, ferme et planifié partagent le même
+                      vert : « lançable » se distingue par l'encre neutre, pas
+                      par une seconde teinte qui n'existe pas. */}
+                  <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
+                  <span className="text-foreground">{fmtH(chargeSplit.lancable)} h lançable</span>
+                </span>
+
+                {sat && sat.pct !== null && (
+                  <span
+                    className="flex items-center gap-2"
+                    title="Charge engagée / capacité hebdomadaire"
+                  >
+                    <Jauge
+                      valeur={activePoste?.totalHours ?? 0}
+                      max={Math.max(
+                        activePoste?.weeklyCapacityHours ?? 0,
+                        activePoste?.totalHours ?? 0
+                      )}
+                      seuil={activePoste?.weeklyCapacityHours ?? null}
+                      palier={sat.level}
+                      epaisseur={6}
+                      className="w-24"
+                      ariaLabel={`Saturation du poste ${activePoste?.code}`}
+                    />
+                    <span
+                      className={cn(
+                        'font-mono text-1.5xs font-bold tabular-nums',
+                        sat.level === 'ok' && 'text-ferme',
+                        sat.level === 'high' && 'text-suggere',
+                        sat.level === 'crit' && 'text-destructive'
+                      )}
+                    >
+                      {sat.pct} %
+                    </span>
+                  </span>
+                )}
+
+                {feasDone && (
+                  <span className="flex items-center gap-1.5">
+                    <Badge variant="success" className="font-mono text-2xs font-semibold">
+                      {feasCounts.ok} lançables
+                    </Badge>
+                    {feasCounts.qc > 0 && (
+                      <Badge variant="warning" className="font-mono text-2xs font-semibold">
+                        {feasCounts.qc} sous CQ
+                      </Badge>
                     )}
-                    {group.rows.map((r, i) => {
-                      const u = urgencyOf(r.livraisonIso)
-                      const bucket = detail && r.commandes.length === 0 ? 'none' : u
-                      const prevBucket =
-                        i > 0
-                          ? detail && group.rows[i - 1].commandes.length === 0
-                            ? 'none'
-                            : urgencyOf(group.rows[i - 1].livraisonIso)
-                          : null
-                      const showSep =
-                        detail && !customSort && (prevBucket === null || prevBucket !== bucket)
-                      let bucketCount = 0
-                      if (showSep) {
-                        for (let j = i; j < group.rows.length; j++) {
-                          const rj = group.rows[j]
-                          const bj =
-                            detail && rj.commandes.length === 0
-                              ? 'none'
-                              : urgencyOf(rj.livraisonIso)
-                          if (bj !== bucket) break
-                          bucketCount++
-                        }
-                      }
-                      const sepLabel =
-                        bucket === 'none'
-                          ? 'Sans commande'
-                          : bucket === 'overdue'
-                            ? 'En retard'
-                            : bucket === 'week'
-                              ? 'Cette semaine'
-                              : 'À venir'
-                      const avancement =
-                        r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
-                      const feas = feasibility[r.numOf]
-                      const badge = feasBadge(
-                        feas?.st ?? (feasDone ? 'unknown' : undefined),
-                        r.status
-                      )
-                      const BadgeIcon = badge.icon
-                      const canSelect = affirmable(r.status)
-                      const isSelected = selected.has(r.numOf)
-                      const batchItem = batch[r.numOf]
-                      return (
-                        <div key={`${r.posteCode}-${r.numOf}`}>
-                          {showSep && (
-                            <div
-                              className={cn(
-                                'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider',
-                                bucket === 'none' && 'text-muted-foreground',
-                                bucket === 'overdue' && 'text-danger',
-                                bucket === 'week' && 'text-brand',
-                                bucket === 'later' && 'text-muted-foreground'
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  'inline-block h-0.5 flex-none w-4 rounded-full',
-                                  bucket === 'none' && 'bg-rule',
-                                  bucket === 'overdue' && 'bg-danger',
-                                  bucket === 'week' && 'bg-brand',
-                                  bucket === 'later' && 'bg-rule'
-                                )}
-                              />
-                              {sepLabel}
-                              <span className="ml-auto font-semibold normal-case tracking-normal text-muted-foreground tabular-nums">
-                                {bucketCount}
-                              </span>
-                            </div>
-                          )}
-                          <div
-                            className={cn(
-                              'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors',
-                              rowGrid,
-                              detail && r.commandes.length === 0 && 'opacity-60',
-                              isSelected && 'bg-brand-soft/40',
-                              batchItem?.st === 'ok' && 'bg-ferme/10',
-                              batchItem?.st === 'error' && 'bg-destructive/5',
-                              'hover:bg-secondary/50'
-                            )}
-                          >
-                            {canSelect ? (
-                              <label className="flex cursor-pointer items-center justify-center">
-                                <input
-                                  type="checkbox"
-                                  className="size-3.5 accent-[var(--brand)]"
-                                  checked={isSelected}
-                                  disabled={batchRunning}
-                                  onChange={() => toggleSelect(r.numOf)}
-                                  aria-label={`Sélectionner ${r.numOf}`}
-                                />
-                              </label>
-                            ) : (
-                              <span />
-                            )}
-                            {showPosteCol && (
-                              <span className="truncate font-mono text-[11px] font-bold text-foreground">
-                                {r.posteCode}
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              className="truncate text-left font-mono text-[12px] font-bold text-foreground hover:text-brand hover:underline"
-                              onClick={() => {
-                                setDetailOf(r.numOf)
-                                setDetailOpen(true)
-                              }}
-                            >
-                              {r.numOf}
-                            </button>
-                            <span
-                              className={cn(
-                                'truncate font-mono text-[10px] font-semibold',
-                                statusTextClass(r.status)
-                              )}
-                            >
-                              {r.statusLabel ?? '—'}
-                            </span>
-                            <span className="truncate font-mono text-[11px] font-bold text-foreground">
-                              {r.article}
-                            </span>
-                            <span
-                              className="truncate text-[12px] text-foreground/80"
-                              title={r.designation ?? undefined}
-                            >
-                              {r.designation ?? '—'}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="relative h-2.5 w-full">
-                                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
-                                  <div
-                                    className={cn(
-                                      'absolute inset-y-0 left-0 rounded-full',
-                                      avancement >= 100 && 'bg-ferme',
-                                      avancement > 0 && avancement < 100 && 'bg-planifie'
-                                    )}
-                                    style={{ width: `${avancement}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
-                                {r.done}/{r.launched}
-                              </span>
-                            </div>
-                            <span
-                              className={cn(
-                                'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
-                                badge.className
-                              )}
-                              title={
-                                feas?.st === 'blocked'
-                                  ? `Rupture : ${feas.missing.join(', ') || 'composant(s)'}`
-                                  : feas?.st === 'qc'
-                                    ? 'Couverture dépendante du stock sous CQ'
-                                    : undefined
-                              }
-                            >
-                              <BadgeIcon
-                                size={12}
-                                strokeWidth={2}
-                                className={cn(!feas && feasLoading && 'animate-spin')}
-                              />
-                              {badge.label}
-                            </span>
-                            <div className="min-w-0">
-                              {r.commandes.length === 0 ? (
-                                <span className="font-mono text-[11px] text-muted-foreground">
-                                  —
-                                </span>
-                              ) : (
-                                r.commandes.map((c) => (
-                                  <div key={c.numCommande + (c.ligne ?? '')} className="min-w-0">
-                                    <div
-                                      className="flex items-center gap-1.5 overflow-hidden"
-                                      title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
-                                    >
-                                      <X3Link
-                                        fonction="GESSOH"
-                                        cle={c.numCommande}
-                                        title={`Ouvrir la commande ${c.numCommande} dans Sage X3`}
-                                        className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground"
-                                      >
-                                        {c.numCommande}
-                                      </X3Link>
-                                      {c.ligne && (
-                                        <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
-                                          ·L{c.ligne}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {c.client && (
-                                      <div className="truncate text-[10px] font-medium leading-tight text-muted-foreground">
-                                        {c.client}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                            <span
-                              className={cn(
-                                'font-mono text-[11px] font-bold tabular-nums',
-                                urgencyColor(u)
-                              )}
-                            >
-                              {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
-                            </span>
-                            <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
-                              {fmtH(r.hours)}
-                            </span>
-                            <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                              {fmtJ(r.hours)}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
+                    {feasCounts.blocked > 0 && (
+                      <Badge variant="destructive" className="font-mono text-2xs font-semibold">
+                        {feasCounts.blocked} bloqués
+                      </Badge>
+                    )}
+                  </span>
+                )}
+
+                {activePoste && (
+                  <Pill
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() =>
+                      router.visit(`${route('cockpit.index')}?poste=${activePoste.code}`)
+                    }
+                    title={`Cockpit du poste ${activePoste.code} — le passé constaté`}
+                  >
+                    <Factory size={13} strokeWidth={1.75} />
+                    Cockpit
+                  </Pill>
+                )}
+              </span>
             </div>
-          </>
-        )}
+          </Card>
+
+          {/* ═══ Table ═══ */}
+          <Card
+            padding="none"
+            className="min-h-0 flex-1 overflow-hidden print:h-auto print:overflow-visible print:border-0"
+          >
+            <DataTable
+              columns={columns}
+              rows={filteredRows}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              tableClass="min-w-[1120px] table-fixed"
+              // Deux colonnes de tête figées : la sélection et l'identité de
+              // ligne (poste en vue globale, sinon l'OF).
+              stickyCols={showPosteCol ? 3 : 2}
+              estimateRowSize={56}
+              scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none print:h-auto print:overflow-visible"
+              theadRowClass="sticky top-0 z-10 bg-transparent"
+              getRowKey={(r) => `${r.posteCode}-${r.numOf}`}
+              getRowClass={(r) =>
+                cn(
+                  selected.has(r.numOf) && 'bg-primary/[0.04]',
+                  batch[r.numOf]?.st === 'ok' && 'bg-ferme/10',
+                  batch[r.numOf]?.st === 'error' && 'bg-destructive/5',
+                  !showPosteCol && r.commandes.length === 0 && 'opacity-60'
+                )
+              }
+              // Une table virtualisée n'a dans le DOM que sa fenêtre visible :
+              // à l'impression, elle ne sortirait qu'une vingtaine de lignes.
+              virtualize={!printing}
+              emptyState={
+                <SequenceurEmptyState
+                  isFiltered={isFiltered}
+                  feasFilter={feasFilter}
+                  onResetFilters={resetFilters}
+                />
+              }
+            />
+          </Card>
+        </div>
       </div>
 
       <SequenceurFirmBar
@@ -1480,5 +1019,55 @@ export default function Sequenceur(props: SequenceurPageProps) {
         }}
       />
     </AppLayout>
+  )
+}
+
+/**
+ * État vide — il doit nommer LA raison. « Aucun OF lançable » et « rien à
+ * séquencer » se réparent différemment : le premier par les filtres, le second
+ * par le calcul de faisabilité ou par une autre portée.
+ */
+function SequenceurEmptyState(props: {
+  isFiltered: boolean
+  feasFilter: FeasFilter
+  onResetFilters: () => void
+}) {
+  const cas = props.feasFilter === 'ok' ? 'lancables' : props.isFiltered ? 'filtres' : 'vide'
+
+  const titre = {
+    lancables: 'Aucun OF lançable',
+    filtres: 'Aucun résultat',
+    vide: 'Rien à séquencer',
+  }[cas]
+
+  const texte = {
+    lancables:
+      'Aucun OF affiché n’a toutes ses matières disponibles. Relâchez le filtre de faisabilité pour voir ce qui bloque.',
+    filtres: 'Aucun OF ne correspond aux filtres ou à la recherche en cours.',
+    vide: 'Aucun OF ouvert sur ce périmètre.',
+  }[cas]
+
+  return (
+    <div className="flex flex-1 items-center justify-center p-12 text-center">
+      <div className="flex flex-col items-center">
+        <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+          <DynamicIcon
+            name={cas === 'vide' ? 'check_circle' : 'search_off'}
+            size={28}
+            strokeWidth={1.75}
+          />
+        </div>
+        <h3 className="mb-1 font-sans text-cell-lg font-semibold text-foreground">{titre}</h3>
+        <p className="mb-5 max-w-sm font-sans text-xs leading-normal text-muted-foreground">
+          {texte}
+        </p>
+        {cas !== 'vide' && (
+          <Button type="button" variant="secondary" size="sm" onClick={props.onResetFilters}>
+            <FilterX size={13} strokeWidth={1.75} />
+            Réinitialiser les filtres
+          </Button>
+        )}
+      </div>
+    </div>
   )
 }
