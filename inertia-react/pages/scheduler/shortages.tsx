@@ -121,7 +121,7 @@ export default function Shortages(props: ShortagesProps) {
   }
 
   const emptyState = (
-    <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+    <div className="flex flex-1 items-center justify-center p-10 text-center text-[14px] text-muted-foreground">
       <div className="flex flex-col items-center gap-2">
         <DynamicIcon
           name={viewData.x3Error ? 'cloud_off' : 'task_alt'}
@@ -155,17 +155,17 @@ export default function Shortages(props: ShortagesProps) {
       title="Ruptures"
       active="ruptures"
       subtitle="Ruptures · Couverture composants"
-      theme="airbnb"
+      theme="cursor"
       dense
       scrollable={false}
       meta={
         <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+          <div className="text-[12px] font-medium capitalize text-foreground">
             {props.dateRange}
           </div>
           <div>
-            <b className="font-bold text-foreground">{viewData.stats.nbRuptures}</b> ruptures ·
-            horizon <b className="font-bold text-foreground">+{props.horizon} j</b>
+            <b className="font-semibold text-foreground">{viewData.stats.nbRuptures}</b> ruptures ·
+            horizon <b className="font-semibold text-foreground">+{props.horizon} j</b>
           </div>
         </>
       }
