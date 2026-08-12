@@ -137,14 +137,6 @@ function fmtFr(iso: string | null): string {
   return `${m[3]}/${m[2]}/${m[1].slice(2)}`
 }
 
-/** JJ/MM seul (sans année) — pour les cellules denses où 26 partout n'apprend rien. */
-function fmtShort(iso: string | null): string {
-  if (!iso) return '—'
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  return `${m[3]}/${m[2]}`
-}
-
 /** Tri générique une colonne — repli sur l'ordre reçu du serveur si aucun tri actif. */
 function sortByColumn<T>(rows: T[], sorting: SortingState[]): T[] {
   const s = sorting[0]
@@ -256,26 +248,26 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
       id: 'periode',
       header: () => 'Période',
       cell: ({ row: { original: r } }) => {
-        const debut = fmtShort(r.dateDebutIso)
-        const fin = fmtShort(r.dateFinIso)
+        const debut = fmtFr(r.dateDebutIso)
+        const fin = fmtFr(r.dateFinIso)
         const periode =
           r.dateDebutIso && r.dateFinIso && r.dateDebutIso === r.dateFinIso
             ? debut
-            : `${debut} — ${fin}`
-        const last = r.dateDernierSuiviIso ? fmtShort(r.dateDernierSuiviIso) : '—'
+            : `${debut} → ${fin}`
         return (
           <span
             className="flex flex-col gap-px font-mono tabular-nums leading-tight"
-            title={`${fmtFr(r.dateDebutIso)} → ${fmtFr(r.dateFinIso)} · 1er suivi ${fmtFr(r.datePremierSuiviIso)} · dernier ${fmtFr(r.dateDernierSuiviIso)}`}
+            title={`Période ${fmtFr(r.dateDebutIso)} → ${fmtFr(r.dateFinIso)} · 1er suivi ${fmtFr(r.datePremierSuiviIso)} · dernier pointage ${fmtFr(r.dateDernierSuiviIso)}`}
           >
             <span className="text-1.5xs text-muted-foreground">{periode}</span>
             <span className="text-3xs text-muted-foreground/60">
-              dern. pointage <span className="font-semibold text-foreground">{last}</span>
+              dern. pointage{' '}
+              <span className="font-semibold text-foreground">{fmtFr(r.dateDernierSuiviIso)}</span>
             </span>
           </span>
         )
       },
-      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px] align-top' },
+      meta: { thClass: 'w-[170px]', tdClass: 'w-[170px] align-top' },
     },
   ]
 }
