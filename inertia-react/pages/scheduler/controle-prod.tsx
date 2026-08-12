@@ -542,7 +542,7 @@ export default function ControleProd(props: Props) {
     <AppLayout
       title="Contrôle prod"
       active="controle-prod"
-      subtitle="Contrôle prod"
+      subtitle="Erreurs déclarations OF"
       theme="cursor"
       dense
       scrollable={false}
