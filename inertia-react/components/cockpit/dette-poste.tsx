@@ -180,13 +180,13 @@ export function DettePoste(props: {
     <div>
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-[15px] font-bold tracking-tight text-foreground">La dette du poste</h2>
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="font-mono text-2xs text-muted-foreground">
           {total} OF concernés sur 7 familles · {crit} bloquant{crit > 1 ? 's' : ''}
           {props.usineLoading && ' · écarts et OF à solder en lecture…'}
         </span>
         <a
           href="/controle-prod"
-          className="ml-auto text-[11px] font-semibold text-brand hover:underline"
+          className="ml-auto text-1.5xs font-semibold text-brand hover:underline"
         >
           Tout ouvrir sur /controle-prod →
         </a>
@@ -220,7 +220,7 @@ export function DettePoste(props: {
                     !zero && f.cls === 'info' && 'text-planifie'
                   )}
                 />
-                <span className="text-[10px] font-bold leading-tight">{f.t}</span>
+                <span className="text-2xs font-bold leading-tight">{f.t}</span>
                 <span
                   className={cn(
                     'ml-auto text-[22px] font-extrabold leading-none tracking-tight',
@@ -232,17 +232,20 @@ export function DettePoste(props: {
                   {f.items.length}
                 </span>
               </div>
-              <span className="text-[9px] leading-snug text-muted-foreground">{f.regle}</span>
+              <span className="text-3xs leading-snug text-muted-foreground">{f.regle}</span>
               {!zero && (
                 <div className="flex flex-col gap-1">
                   {itemsAffiches.map((it) => (
                     <div
                       key={`${f.kind}-${it.of}`}
-                      className="flex items-center gap-1.5 rounded-md border border-rule-soft bg-secondary px-2 py-1 text-[10px]"
+                      className="flex items-center gap-1.5 rounded-md border border-rule-soft bg-secondary px-2 py-1 text-2xs"
                     >
+                      {/* Hit-area ≥ 44 px par pseudo-élément, comme la table
+                          d'engagement : un `min-h-[44px]` gonflait la puce de
+                          22 px à 44 px et défonçait la grille des familles. */}
                       <button
                         type="button"
-                        className="min-h-[44px] cursor-pointer px-1 font-bold text-brand hover:underline"
+                        className="relative cursor-pointer py-[3px] font-mono font-bold text-brand underline decoration-dotted decoration-brand/40 underline-offset-2 before:absolute before:-inset-x-1 before:-inset-y-[10px] before:content-[''] hover:text-brand/70"
                         onClick={() => onSelectOf(it.of)}
                       >
                         {it.of}
@@ -253,7 +256,7 @@ export function DettePoste(props: {
                         iconOnly
                         title={`Ouvrir ${it.of} dans Sage X3`}
                       />
-                      <span className="ml-auto text-[9px] font-bold text-muted-foreground">
+                      <span className="ml-auto font-mono text-3xs font-bold tabular-nums text-muted-foreground">
                         {it.detail}
                       </span>
                     </div>
@@ -261,7 +264,7 @@ export function DettePoste(props: {
                   {aDeplier && (
                     <button
                       type="button"
-                      className="min-h-[44px] cursor-pointer text-left text-[9px] font-bold text-brand hover:underline"
+                      className="relative cursor-pointer py-[3px] text-left text-3xs font-bold text-brand before:absolute before:-inset-x-1 before:-inset-y-[10px] before:content-[''] hover:underline"
                       onClick={() => basculeFamille(f.kind)}
                     >
                       {deplie ? 'Replier ↑' : `+ ${f.items.length - 3} autres →`}

@@ -22,7 +22,7 @@
 
 import { useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { DateWindowPill } from '@r/components/vision/toolbar'
+import { ToolbarSegment, ToolbarSegmented } from '@r/components/ui/toolbar'
 import { HistogrammeCharge, type PeriodeCharge, type SegmentCharge } from '@r/components/ui/chart'
 import { cn } from '@r/lib/utils'
 import type { EngagementRow } from '@r/lib/board/engagement-format'
@@ -93,6 +93,13 @@ export interface LeFilProps {
   palettesDisponibles: boolean
   /** Anomalies reprojetées sur la série passée de la maille courante. */
   anomalies: AnomalieFil[]
+  /**
+   * Fenêtre affichée sur l'axe. Le contrôle vit dans la rangée d'outils de la
+   * page (zone 01 « portée », standard §18) et non dans la carte : une fenêtre
+   * de dates est de la portée, pas un réglage de graphe. `undefined` = toute la
+   * période disponible.
+   */
+  periode: DayPickerRange | undefined
   maille: MailleFil
   onMaille: (m: MailleFil) => void
   mesure: Mesure
@@ -274,20 +281,20 @@ function periodeChevauche(
   return debut <= to && fin >= from
 }
 
-function periodeDisponible(
-  passeParMaille: Record<MailleFil, PassePeriode[]>,
-  ofsEngages: Pick<EngagementRow, 'dateDebutIso' | 'livraisonIso'>[]
-): DayPickerRange {
-  const dates = [
-    ...passeParMaille.jour.map((p) => p.date),
-    ...ofsEngages.flatMap((of) =>
-      [of.dateDebutIso, of.livraisonIso].filter((date): date is string => Boolean(date))
-    ),
-  ].sort()
-  if (dates.length === 0) {
-    const today = new Date()
-    return { from: today, to: today }
-  }
+/**
+ * Période couverte par la donnée du poste — le défaut de la fenêtre du fil.
+ *
+ * Exportée parce que le contrôle qui l'affiche a quitté la carte pour la rangée
+ * d'outils de la page : la valeur par défaut se calcule là où le contrôle vit,
+ * et la règle reste écrite une seule fois. `undefined` quand il n'y a aucune
+ * date — la fenêtre ne borne alors rien, au lieu de se réduire à aujourd'hui.
+ */
+export function fenetreDisponible(
+  joursIso: string[],
+  datesOf: (string | null)[]
+): DayPickerRange | undefined {
+  const dates = [...joursIso, ...datesOf.filter((d): d is string => Boolean(d))].sort()
+  if (dates.length === 0) return undefined
   return {
     from: new Date(`${dates[0]}T00:00:00`),
     to: new Date(`${dates[dates.length - 1]}T00:00:00`),
@@ -316,6 +323,7 @@ export function LeFil(props: LeFilProps) {
     capaciteParMaille,
     palettesDisponibles,
     anomalies,
+    periode,
     maille,
     onMaille,
     mesure,
@@ -344,12 +352,6 @@ export function LeFil(props: LeFilProps) {
     return total
   }
   const cadenceMoy = totaux.heures > 0 ? totaux.qty / totaux.heures : 0
-  const availableRange = useMemo(
-    () => periodeDisponible(passeParMaille, ofsEngages),
-    [passeParMaille, ofsEngages]
-  )
-  const [periodOpen, setPeriodOpen] = useState(false)
-  const [period, setPeriod] = useState<DayPickerRange | undefined>(availableRange)
   /* Tooltip tap-to-toggle : clé du tooltip ouvert (bar-i ou ano-idx).
      Vide = aucun. Réinitialisé dans le useMemo de la série. */
   const [tipOpen, setTipOpen] = useState('')
@@ -398,7 +400,7 @@ export function LeFil(props: LeFilProps) {
     setTipOpen('')
     const toutesPassePeriodes = passeParMaille[maille] ?? []
     const passePeriodes = toutesPassePeriodes.filter((p) =>
-      periodeChevauche(p.date, maille, period)
+      periodeChevauche(p.date, maille, periode)
     )
     const passe: Barre[] = passePeriodes.map((p) => {
       // Capacité calendaire servie par le loader (fériés/fermetures #37) ;
@@ -424,7 +426,7 @@ export function LeFil(props: LeFilProps) {
     const futur: Barre[] = []
     if (futurParSemaine.length > 0 && toutesPassePeriodes.length > 0) {
       const futurVisible = futurParSemaine.filter((f) =>
-        periodeChevauche(f.lundi, 'semaine', period)
+        periodeChevauche(f.lundi, 'semaine', periode)
       )
       if (maille === 'semaine' && futurVisible.length > 0) {
         const dernierLundi = toutesPassePeriodes[toutesPassePeriodes.length - 1].date
@@ -479,7 +481,7 @@ export function LeFil(props: LeFilProps) {
         const parJour = new Map<string, number>()
         for (const of of ofsEngages) {
           if (!of.dateDebutIso || !of.hours) continue
-          if (!periodeChevauche(of.dateDebutIso, 'jour', period)) continue
+          if (!periodeChevauche(of.dateDebutIso, 'jour', periode)) continue
           parJour.set(of.dateDebutIso, (parJour.get(of.dateDebutIso) ?? 0) + of.hours)
         }
         for (const [jour, heures] of [...parJour.entries()].sort()) {
@@ -505,7 +507,7 @@ export function LeFil(props: LeFilProps) {
     cadenceMoy,
     capHebdo,
     ofsEngages,
-    period,
+    periode,
     regimeHebdo,
   ])
 
@@ -544,7 +546,7 @@ export function LeFil(props: LeFilProps) {
      puis regroupement par index (compteur sur la pastille). */
   const parIndex = useMemo(() => {
     const passePeriodes = (passeParMaille[maille] ?? []).filter((p) =>
-      periodeChevauche(p.date, maille, period)
+      periodeChevauche(p.date, maille, periode)
     )
     const m = new Map<number, AnomalieFil[]>()
     for (const a of anomalies) {
@@ -562,83 +564,56 @@ export function LeFil(props: LeFilProps) {
       m.set(idx, l)
     }
     return m
-  }, [anomalies, maille, passeParMaille, period])
+  }, [anomalies, maille, passeParMaille, periode])
 
   return (
     <section className="rounded-lg border border-rule bg-card shadow-float">
       {/* En-tête */}
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 pt-4">
         <h2 className="text-[15px] font-bold tracking-tight text-foreground">Le fil du poste</h2>
-        <span className="font-mono text-[10px] text-muted-foreground">{sub}</span>
+        <span className="font-mono text-2xs text-muted-foreground">{sub}</span>
       </div>
 
-      {/* Segments maille + mesure (grammaire toolbar.tsx) */}
+      {/* Maille et mesure : deux segmented controls du design system, restés
+          LOCAUX au graphe. Ils ne gouvernent que ce fil — les cinq autres
+          sections de la page ne bougent pas d'un pixel quand on passe de
+          « Semaine » à « Mois ». Les monter dans la rangée les aurait présentés
+          comme la portée de la page, et aurait mangé deux des cinq contrôles
+          qu'elle autorise. Le libellé « Maille »/« Mesure » tombe : « Jour ·
+          Semaine · Mois » et « Heures · Pièces · Palettes » se nomment
+          eux-mêmes, l'aria-label porte le reste. */}
       <div className="flex flex-wrap items-center gap-2 px-5 pt-2.5">
-        <div className="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5">
-          <span className="px-1.5 font-mono text-[9px] font-semibold text-muted-foreground">
-            Maille
-          </span>
+        <ToolbarSegmented semantics="tabs" aria-label="Maille du fil">
           {(['jour', 'semaine', 'mois'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onMaille(m)}
-              className={cn(
-                'relative min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out after:absolute after:inset-x-0 after:inset-y-[-9px] after:content-[""] active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
-                maille === m
-                  ? 'bg-brand-soft text-brand'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
+            <ToolbarSegment key={m} active={maille === m} onClick={() => onMaille(m)}>
               {m === 'jour' ? 'Jour' : m === 'semaine' ? 'Semaine' : 'Mois'}
-            </button>
+            </ToolbarSegment>
           ))}
-        </div>
-        <div className="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5">
-          <span className="px-1.5 font-mono text-[9px] font-semibold text-muted-foreground">
-            Mesure
-          </span>
+        </ToolbarSegmented>
+
+        <ToolbarSegmented semantics="tabs" aria-label="Mesure du fil">
           {(['h', 'pc', 'pal'] as const).map((m) => (
-            <button
+            <ToolbarSegment
               key={m}
-              type="button"
+              active={mesure === m}
               onClick={() => onMesure(m)}
               disabled={m === 'pal' && !palettesDisponibles}
+              className="disabled:cursor-not-allowed disabled:opacity-40"
               title={
                 m === 'pal' && !palettesDisponibles
                   ? 'Aucun coefficient palette sur la fenêtre'
                   : undefined
               }
-              className={cn(
-                'relative min-h-[26px] rounded-md px-3 py-1 font-mono text-[10px] font-semibold transition-all duration-150 ease-out after:absolute after:inset-x-0 after:inset-y-[-9px] after:content-[""] active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
-                mesure === m
-                  ? 'bg-brand-soft text-brand'
-                  : 'text-muted-foreground hover:text-foreground',
-                m === 'pal' &&
-                  !palettesDisponibles &&
-                  'cursor-not-allowed opacity-40 hover:text-muted-foreground'
-              )}
             >
               {m === 'h' ? 'Heures' : m === 'pc' ? 'Pièces' : 'Palettes'}
-            </button>
+            </ToolbarSegment>
           ))}
-        </div>
-        <DateWindowPill
-          open={periodOpen}
-          onOpenChange={setPeriodOpen}
-          selected={period ?? {}}
-          onSelect={(range) => {
-            setPeriod(range ?? availableRange)
-            setPeriodOpen(false)
-          }}
-          title="Sélectionner la période du fil"
-          numberOfMonths={2}
-        />
+        </ToolbarSegmented>
       </div>
 
       {/* Légende visible avant le graphe : elle reste lisible même quand la
           granularité Jour produit plus d'une centaine de barres. */}
-      <div className="mx-5 mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-rule-soft py-2.5 text-[11px] text-muted-foreground">
+      <div className="mx-5 mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-rule-soft py-2.5 text-1.5xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
           <span
             className="inline-block h-[10px] w-3 rounded-[2px]"
@@ -736,7 +711,7 @@ export function LeFil(props: LeFilProps) {
               className="pointer-events-none absolute left-0 right-0 z-[3]"
               style={{ top: `${(1 - capMax / max) * 100}%` }}
             >
-              <span className="absolute -top-2 right-0 bg-card px-1.5 text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+              <span className="absolute -top-2 right-0 bg-card px-1.5 text-4xs font-bold uppercase tracking-wide text-muted-foreground">
                 {mesure === 'h'
                   ? `Capacité ${fmt(capMax)} h`
                   : `Capacité ≈ ${fmt(capMax)} ${UNITE_LAB[mesure]} (convertie à ${fmt(cadenceMoy)} pc/h)`}
@@ -751,7 +726,7 @@ export function LeFil(props: LeFilProps) {
               className="pointer-events-none absolute inset-y-0 z-[4]"
               style={{ left: `${((nPasse + 0.5) / all.length) * 100}%` }}
             >
-              <span className="absolute left-1/2 top-[-18px] -translate-x-1/2 whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-white">
+              <span className="absolute left-1/2 top-[-18px] -translate-x-1/2 whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-4xs font-extrabold uppercase tracking-wide text-background">
                 Aujourd'hui
               </span>
             </div>
@@ -778,8 +753,10 @@ export function LeFil(props: LeFilProps) {
                 >
                   <span
                     className={cn(
-                      'relative flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-2 border-card px-0.5 text-[8px] font-extrabold shadow-float',
-                      crit ? 'bg-destructive text-white' : 'bg-suggere text-foreground'
+                      'relative flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-2 border-card px-0.5 text-4xs font-extrabold shadow-float',
+                      crit
+                        ? 'bg-destructive text-destructive-foreground'
+                        : 'bg-suggere text-foreground'
                     )}
                   >
                     {liste.length}
@@ -787,19 +764,19 @@ export function LeFil(props: LeFilProps) {
                   <span
                     role="tooltip"
                     className={cn(
-                      'pointer-events-none absolute z-30 hidden min-w-[190px] rounded-lg border border-white/10 bg-foreground px-3 py-2 text-left text-[10px] text-white shadow-float group-hover:block group-focus-within:block',
+                      'pointer-events-none absolute z-30 hidden min-w-[190px] rounded-lg border border-background/10 bg-foreground px-3 py-2 text-left text-2xs text-background shadow-float group-hover:block group-focus-within:block',
                       tipOpen === `ano-${idx}` && '!block',
                       tooltipAlign,
                       tooltipPlacement
                     )}
                   >
-                    <span className="mb-1 flex items-center justify-between gap-3 border-b border-white/15 pb-1 font-semibold">
+                    <span className="mb-1 flex items-center justify-between gap-3 border-b border-background/15 pb-1 font-semibold">
                       <span>
                         {liste.length} anomalie{liste.length > 1 ? 's' : ''}
                       </span>
                       <span className="text-brand">{barre.tooltipLab}</span>
                     </span>
-                    <span className="flex flex-col gap-0.5 text-white/90">
+                    <span className="flex flex-col gap-0.5 text-background/90">
                       {liste.map((a) => (
                         <span key={a.texte}>{a.texte}</span>
                       ))}
@@ -812,7 +789,7 @@ export function LeFil(props: LeFilProps) {
         </div>
 
         {/* Axe */}
-        <div className="flex pt-1 font-mono text-[9px] font-semibold text-muted-foreground">
+        <div className="flex pt-1 font-mono text-3xs font-semibold text-muted-foreground">
           {all.map((b, i) => (
             <span key={i} className={cn('flex-1 truncate text-center', b.futur && 'text-brand')}>
               {i === 0 ||
@@ -824,7 +801,7 @@ export function LeFil(props: LeFilProps) {
           ))}
         </div>
 
-        <div className="mt-2 text-right text-[10px] text-muted-foreground">
+        <div className="mt-2 text-right text-2xs text-muted-foreground">
           Survoler ou toucher une barre pour le détail · une pastille pour l'anomalie
         </div>
       </div>
@@ -848,16 +825,14 @@ function VerdictCell(props: { k: string; v: VerdictVue }) {
   const { k, v } = props
   return (
     <div className="flex flex-col gap-0.5 px-5 py-3 sm:px-6">
-      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-        {k}
-      </span>
+      <span className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">{k}</span>
       <span
         className="text-[26px] font-extrabold leading-tight tracking-tight"
         dangerouslySetInnerHTML={{ __html: v.big }}
       />
       <span
         className={cn(
-          'text-[11px] font-bold',
+          'text-1.5xs font-bold',
           v.cls === 'ok' && 'text-ferme',
           v.cls === 'warn' && 'text-suggere',
           v.cls === 'bad' && 'text-destructive',
@@ -866,7 +841,7 @@ function VerdictCell(props: { k: string; v: VerdictVue }) {
       >
         {v.txt}
       </span>
-      <span className="text-[10px] leading-snug text-muted-foreground">{v.sub}</span>
+      <span className="text-2xs leading-snug text-muted-foreground">{v.sub}</span>
     </div>
   )
 }

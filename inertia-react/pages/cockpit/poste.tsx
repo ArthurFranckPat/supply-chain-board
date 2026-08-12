@@ -18,21 +18,37 @@
  * interrogent X3, le reste de la page tient sur la réplique.
  *
  * Coquille Inertia + JSON différé, calque /controle-prod.
+ *
+ * Barre d'outils : standard §18 du design system, portée par la prop `toolbar`
+ * d'AppLayout (filet, fond, axe px-6 et règle d'impression compris). Zone 01
+ * la portée — le poste puis la fenêtre du fil ; zone 04 l'actualisation puis
+ * l'action primaire. Ni filtres ni recherche : rien sur cette page ne réduit
+ * une liste, et le sélecteur de poste est lui-même cherchable.
  */
 import { useMemo, useState } from 'react'
-import {
-  CircleCheck,
-  Factory,
-  FlaskConical,
-  OctagonX,
-  PackageCheck,
-  TriangleAlert,
-} from 'lucide-react'
+import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { CircleCheck, FlaskConical, OctagonX, RefreshCw, TriangleAlert, Wand2 } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { X3Link } from '@r/components/x3-link'
+import { Pill } from '@r/components/ui/pill'
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  useComboboxAnchor,
+} from '@r/components/ui/combobox'
+import {
+  ToolbarDateWindow,
+  ToolbarGroup,
+  ToolbarRefresh,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
 import {
   CellDate,
   CellNumber,
@@ -46,6 +62,7 @@ import {
 import {
   LeFil,
   VERDICTS,
+  fenetreDisponible,
   verdictPour,
   lundiIso,
   type AnomalieFil,
@@ -58,7 +75,6 @@ import {
   type AnomaliesUsineVue,
   type AnomaliesVue,
 } from '@r/components/cockpit/dette-poste'
-import { PILL, RefreshPill, ToolbarRow, ToolbarSpacer } from '@r/components/vision/toolbar'
 import { fetchBoardFeasibility, feasibilityWindowFromDates } from '@r/lib/board/feasibility-map'
 import type { FeasStatus } from '@r/lib/board/types'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
@@ -200,6 +216,11 @@ interface PostePayload {
   x3Error: string | null
 }
 
+/** Engagement restreint aux OF fermes — la seule population que ce cockpit
+ *  mesure (WIPSTA=1). Le loader partagé conserve les planifiés/suggérés pour le
+ *  séquenceur, mais ils ne doivent pas gonfler ce cockpit. */
+type EngagementFerme = NonNullable<PostePayload['engagement']>
+
 const JOURS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const
 
 const REPLICA_RAISON: Record<string, string> = {
@@ -217,15 +238,19 @@ interface Props {
 }
 
 export default function CockpitPoste(props: Props) {
+  const posteAnchor = useComboboxAnchor()
   const [selected, setSelected] = useState<string | null>(null)
   const [chosen, setChosen] = useState(false)
+  const [posteQuery, setPosteQuery] = useState('')
   const [detailOf, setDetailOf] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [bump, setBump] = useState(0)
   // Maille/mesure remontées ici : le remontage par `key` au changement de poste
-  // (état faisabilité) ne doit pas faire perdre le réglage d'affichage.
+  // ne doit pas faire perdre le réglage d'affichage.
   const [maille, setMaille] = useState<MailleFil>('semaine')
   const [mesure, setMesure] = useState<Mesure>('h')
+  /** Fenêtre du fil (zone 01). `undefined` = toute la période disponible. */
+  const [periode, setPeriode] = useState<DayPickerRange | undefined>(undefined)
 
   // Un seul mécanisme de refresh : le bump ajoute ?refresh=1 aux fetches
   // (cache-bust serveur). Avant, un router.visit en doublon rechargeait la page
@@ -267,68 +292,201 @@ export default function CockpitPoste(props: Props) {
       : null
   const usine = useTimedFetch<AnomaliesUsineVue>(usineHref)
 
+  /* Engagement ferme remonté au niveau page : la faisabilité est l'action
+     primaire de la rangée (zone 04), elle a besoin des mêmes lignes que la
+     table qu'elle annote. Une seule dérivation, deux consommateurs. */
+  const engagementFerme = useMemo<EngagementFerme | null>(() => {
+    const eng = detail.data?.engagement
+    if (!eng) return null
+    const rows = eng.rows.filter((row) => row.status === 1)
+    return {
+      ...eng,
+      count: rows.length,
+      totalHours: rows.reduce((sum, row) => sum + row.hours, 0),
+      rows,
+    }
+  }, [detail.data])
+
+  /* Période couverte par la donnée du poste — le défaut de la fenêtre du fil.
+     Calculée ici parce que le contrôle vit dans la rangée, plus dans la carte. */
+  const fenetreFil = useMemo(() => {
+    const passe = detail.data?.passe
+    if (!passe) return undefined
+    return fenetreDisponible(
+      passe.productionParJour.map((p) => p.date),
+      (engagementFerme?.rows ?? []).flatMap((r) => [r.dateDebutIso, r.livraisonIso])
+    )
+  }, [detail.data, engagementFerme])
+  const periodeEffective = periode ?? fenetreFil
+
+  /* Faisabilité matières — même contrat API que le séquenceur (#119 : reprise du
+     bloc séquenceur sans dupliquer la logique). À la demande : le calcul est
+     lourd, on ne le paie qu'à l'ouverture du cockpit d'un poste donné.
+     Le résultat porte SON poste : l'état vit désormais au-dessus du remontage
+     par `key`, et un verdict de PP_093 affiché sur PP_094 serait un mensonge. */
+  const [feas, setFeas] = useState<{
+    poste: string
+    map: Record<string, FeasStatus>
+    counts: { ok: number; blocked: number; qc: number }
+  } | null>(null)
+  const [feasLoading, setFeasLoading] = useState(false)
+  const [feasError, setFeasError] = useState<string | null>(null)
+  const posteCode = detail.data?.poste.code ?? null
+  const feasActif = feas && posteCode && feas.poste === posteCode ? feas : null
+
+  const runFeasibility = async () => {
+    if (!posteCode || !engagementFerme || engagementFerme.rows.length === 0 || feasLoading) return
+    setFeasLoading(true)
+    setFeasError(null)
+    try {
+      const { from, to } = feasibilityWindowFromDates(
+        engagementFerme.rows.map((r) => r.dateDebutIso)
+      )
+      const { map, nbOk, nbBlocked, nbQc } = await fetchBoardFeasibility({
+        from,
+        to,
+        mode: 'sequential',
+        workstation: posteCode,
+      })
+      setFeas({ poste: posteCode, map, counts: { ok: nbOk, blocked: nbBlocked, qc: nbQc } })
+    } catch (e) {
+      setFeasError((e as Error).message)
+    } finally {
+      setFeasLoading(false)
+    }
+  }
+
   const pick = (code: string) => {
     setChosen(true)
     setSelected(code)
+    // La fenêtre du fil est propre au poste : la garder ferait regarder le
+    // nouveau poste à travers les dates de l'ancien.
+    setPeriode(undefined)
+    setFeasError(null)
   }
 
-  const refresh = () => setBump((b) => b + 1)
+  const refresh = () => {
+    setBump((b) => b + 1)
+    setFeas(null)
+    setFeasError(null)
+  }
 
   const replicaDown = postes.data ? !postes.data.replica.disponible : false
+
+  /* Référence brute (pas de `?? []`) : un littéral en dépendance de useMemo
+     change d'identité à chaque rendu et refiltre la liste pour rien. */
+  const listePostes = postes.data?.postes
+  const postesFiltres = useMemo(() => {
+    const liste = listePostes ?? []
+    const q = posteQuery.trim().toLowerCase()
+    if (!q) return liste
+    return liste.filter(
+      (p) => p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q)
+    )
+  }, [listePostes, posteQuery])
+
+  /* ── Barre d'outils (standard §18) ───────────────────────────────────────
+     Zone 01 portée : le poste, puis la fenêtre du fil. Zone 04 : actualiser
+     puis l'action primaire. Pas de zone 02 (rien à filtrer) ni de zone 03 (le
+     sélecteur de poste est cherchable, il EST l'interrogation de la page).
+     Pas de `<Toolbar>` : la prop d'AppLayout en est déjà un. */
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <div ref={posteAnchor}>
+          <Combobox
+            value={effective ?? ''}
+            onValueChange={(v) => {
+              const code = v ? String(v) : ''
+              if (code) pick(code)
+            }}
+            onInputValueChange={setPosteQuery}
+          >
+            <ComboboxInput
+              className="w-[260px]"
+              aria-label="Poste"
+              placeholder={postes.data ? 'Poste' : 'Chargement…'}
+              disabled={!listePostes?.length}
+            />
+            <ComboboxContent anchor={posteAnchor}>
+              <ComboboxList>
+                {postesFiltres.length === 0 ? (
+                  <ComboboxEmpty>Aucun poste ne correspond.</ComboboxEmpty>
+                ) : (
+                  postesFiltres.map((p) => (
+                    <ComboboxItem key={p.code} value={p.code}>
+                      <span className="font-mono text-xs font-semibold">{p.code}</span>
+                      {p.label && p.label !== p.code && (
+                        <span className="truncate text-muted-foreground">{p.label}</span>
+                      )}
+                    </ComboboxItem>
+                  ))
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
+        </div>
+
+        <ToolbarDateWindow
+          value={periodeEffective}
+          onCommit={setPeriode}
+          disabled={!fenetreFil}
+          title="Fenêtre du fil : périodes portées par l'axe du temps"
+        />
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <ToolbarRefresh
+        loading={(postes.loading && !postes.data) || (detail.loading && !detail.data)}
+        onClick={refresh}
+        title="Rafraîchir (invalide le cache serveur)"
+      />
+
+      {/* Action primaire. Elle vivait dans l'en-tête de « Ce qui est engagé »,
+          habillée du PILL maison de vision/toolbar — même geste que sur
+          /programme et /sequenceur, trois dessins différents. */}
+      <Pill
+        variant="outline"
+        className="gap-1.5"
+        onClick={() => void runFeasibility()}
+        disabled={feasLoading || !engagementFerme || engagementFerme.rows.length === 0}
+        title="Couverture matières des OF engagés (même moteur que /programme)"
+      >
+        {feasLoading ? (
+          <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
+        ) : (
+          <Wand2 size={14} strokeWidth={1.75} />
+        )}
+        {feasLoading ? 'Calcul…' : feasActif ? 'Recalculer' : 'Faisabilité'}
+      </Pill>
+    </>
+  )
 
   return (
     <AppLayout
       title="Cockpit poste"
       active="cockpit"
       subtitle="Production constatée et engagement, poste par poste"
-      theme="airbnb"
+      theme="cursor"
       dense
       scrollable={false}
-      meta={
-        postes.data && (
-          <div>
-            <b className="font-bold text-foreground">{postes.data.postes.length}</b> postes ·{' '}
-            {dateLong(postes.data.fenetre.fromIso)} → {dateLong(postes.data.fenetre.toIso)}
-          </div>
-        )
-      }
+      toolbar={toolbar}
+      // Pas de `meta` : « N postes » ne bougeait d'aucun contrôle, et la
+      // fenêtre est de la portée — elle est en zone 01, une seule fois.
     >
+      {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
+          normal (pas de flex-col) : sans ce wrapper, les `flex-1` en dessous ne
+          se dimensionnent contre rien. */}
       <div className="flex h-full min-h-0 flex-col">
-        <ToolbarRow>
-          {/* Sélecteur de poste — la liste est la donnée, pas un référentiel figé. */}
-          <div className={cn(PILL, 'gap-2')}>
-            <Factory size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <select
-              className="max-w-[340px] cursor-pointer border-0 bg-transparent px-0 font-mono text-xs font-bold text-foreground shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              value={effective ?? ''}
-              onChange={(e) => pick(e.currentTarget.value)}
-              disabled={!postes.data || postes.data.postes.length === 0}
-              aria-label="Poste"
-            >
-              {!postes.data && <option value="">Chargement…</option>}
-              {postes.data?.postes.map((p) => (
-                <option key={p.code} value={p.code}>
-                  {p.label && p.label !== p.code ? `${p.code} — ${p.label}` : p.code}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <ToolbarSpacer />
-
-          <RefreshPill
-            loading={(postes.loading && !postes.data) || (detail.loading && !detail.data)}
-            onClick={refresh}
-            title="Rafraîchir (invalide le cache serveur)"
-          />
-        </ToolbarRow>
-
         {/* Indisponibilité de la réplique : le passé constaté ne vient JAMAIS de la
-            voie directe, on l'affiche au lieu de le calculer en douce. */}
+            voie directe, on l'affiche au lieu de le calculer en douce. Ton
+            `suggere` : c'est une dégradation, pas une erreur — et le brand est
+            la couleur des actions de la rangée, pas celle d'un état. */}
         {replicaDown && postes.data && (
-          <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
-            <span className="font-bold">Passé productif indisponible :</span>
+          <div className="flex flex-none items-center gap-2 border-b border-suggere/30 bg-suggere/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-suggere" />
+            <span className="font-semibold">Passé productif indisponible :</span>
             <span className="font-mono">
               {postes.data.replica.raison
                 ? (REPLICA_RAISON[postes.data.replica.raison] ?? postes.data.replica.raison)
@@ -351,9 +509,11 @@ export default function CockpitPoste(props: Props) {
         ) : detail.data ? (
           <PosteDetail
             // La clé force le remontage au changement de poste : l'état local
-            // (faisabilité) repart de zéro au lieu de survivre à l'ancien poste.
+            // des cartes (tooltips du fil, familles dépliées) repart de zéro au
+            // lieu de survivre à l'ancien poste.
             key={detail.data.poste.code}
             payload={detail.data}
+            engagementFerme={engagementFerme}
             usine={usine.data ?? null}
             usineLoading={usine.loading}
             onSelectOf={(num) => {
@@ -364,9 +524,13 @@ export default function CockpitPoste(props: Props) {
             onMaille={setMaille}
             mesure={mesure}
             onMesure={setMesure}
+            periode={periodeEffective}
+            feasMap={feasActif?.map ?? null}
+            feasCounts={feasActif?.counts ?? { ok: 0, blocked: 0, qc: 0 }}
+            feasError={feasError}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center p-10 text-center text-sm text-muted-foreground">
             Aucune donnée à afficher pour ce poste.
           </div>
         )}
@@ -380,6 +544,7 @@ export default function CockpitPoste(props: Props) {
 /** Le fil du poste + engagement + dette + analyses (design V3). */
 function PosteDetail(props: {
   payload: PostePayload
+  engagementFerme: EngagementFerme | null
   usine: AnomaliesUsineVue | null
   usineLoading: boolean
   onSelectOf: (numOf: string) => void
@@ -387,22 +552,14 @@ function PosteDetail(props: {
   onMaille: (m: MailleFil) => void
   mesure: Mesure
   onMesure: (m: Mesure) => void
+  periode: DayPickerRange | undefined
+  feasMap: Record<string, FeasStatus> | null
+  feasCounts: { ok: number; blocked: number; qc: number }
+  feasError: string | null
 }) {
-  const { poste, engagement, passe, anomalies, analyses, x3Error } = props.payload
-  const loadError = x3Error ?? engagement?.x3Error ?? null
-  // Le cockpit mesure la charge réellement engagée : uniquement les OF fermes
-  // (WIPSTA=1). Le loader partagé conserve les planifiés/suggérés pour le
-  // séquenceur, mais ils ne doivent pas gonfler ce cockpit.
-  const engagementFerme = useMemo(() => {
-    if (!engagement) return null
-    const rows = engagement.rows.filter((row) => row.status === 1)
-    return {
-      ...engagement,
-      count: rows.length,
-      totalHours: rows.reduce((sum, row) => sum + row.hours, 0),
-      rows,
-    }
-  }, [engagement])
+  const { poste, passe, anomalies, analyses, x3Error } = props.payload
+  const { engagementFerme } = props
+  const loadError = x3Error ?? props.payload.engagement?.x3Error ?? null
   const regimeBrutTotal = poste.regimeHebdo?.reduce((sum, h) => sum + Math.max(0, h), 0) ?? 0
   const regimeNetFactor =
     regimeBrutTotal > 0 && poste.capaciteHebdoHeures
@@ -423,41 +580,10 @@ function PosteDetail(props: {
     [poste, passe, engagementFerme, anomalies, props.usine, analyses]
   )
 
-  // Faisabilité matières — même contrat API que le séquenceur (#119 : reprise du
-  // bloc séquenceur sans dupliquer la logique). À la demande : le calcul est
-  // lourd, on ne le paie qu'à l'ouverture du cockpit d'un poste donné.
-  const [feasMap, setFeasMap] = useState<Record<string, FeasStatus> | null>(null)
-  const [feasLoading, setFeasLoading] = useState(false)
-  const [feasError, setFeasError] = useState<string | null>(null)
-  const [feasCounts, setFeasCounts] = useState({ ok: 0, blocked: 0, qc: 0 })
-
-  const runFeasibility = async () => {
-    if (!engagementFerme || engagementFerme.rows.length === 0 || feasLoading) return
-    setFeasLoading(true)
-    setFeasError(null)
-    try {
-      const { from, to } = feasibilityWindowFromDates(
-        engagementFerme.rows.map((r) => r.dateDebutIso)
-      )
-      const { map, nbOk, nbBlocked, nbQc } = await fetchBoardFeasibility({
-        from,
-        to,
-        mode: 'sequential',
-        workstation: poste.code,
-      })
-      setFeasMap(map)
-      setFeasCounts({ ok: nbOk, blocked: nbBlocked, qc: nbQc })
-    } catch (e) {
-      setFeasError((e as Error).message)
-    } finally {
-      setFeasLoading(false)
-    }
-  }
-
   return (
     <div className="min-h-0 flex-1 animate-in overflow-auto fade-in-0 duration-200 motion-reduce:animate-none">
       {/* Identité du poste — une ligne, les 3 champs non exposés dits une fois. */}
-      <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-2 border-b border-border bg-secondary px-7 py-3">
+      <div className="flex flex-none flex-wrap items-center gap-x-5 gap-y-2 border-b border-border bg-secondary px-5 py-3">
         <div className="flex items-baseline gap-2">
           <span className="font-mono text-[15px] font-bold text-foreground">{poste.code}</span>
           {poste.label && poste.label !== poste.code && (
@@ -465,9 +591,7 @@ function PosteDetail(props: {
           )}
         </div>
         {poste.atelierLabel && (
-          <span className="text-[12px] font-medium text-muted-foreground">
-            {poste.atelierLabel}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">{poste.atelierLabel}</span>
         )}
 
         {poste.capaciteHebdoHeures != null && (
@@ -475,27 +599,25 @@ function PosteDetail(props: {
             <span className="text-[15px] font-bold tabular-nums text-foreground">
               {fmtHs(poste.capaciteHebdoHeures)}
             </span>
-            <span className="font-mono text-[10px] font-semibold text-muted-foreground">h/sem</span>
+            <span className="font-mono text-2xs font-semibold text-muted-foreground">h/sem</span>
           </div>
         )}
 
         <div className="flex items-center gap-1" title={regimeTitle} aria-label={regimeTitle}>
           {regimeNet && (
-            <span className="mr-1 font-mono text-[9px] font-semibold text-muted-foreground">
-              net
-            </span>
+            <span className="mr-1 font-mono text-3xs font-semibold text-muted-foreground">net</span>
           )}
           {regimeNet?.map((h, i) => (
             <div key={i} className="flex flex-col items-center">
               <span
                 className={cn(
-                  'font-mono text-[10px] font-semibold tabular-nums',
+                  'font-mono text-2xs font-semibold tabular-nums',
                   h > 0 ? 'text-foreground' : 'text-muted-foreground/50'
                 )}
               >
                 {h > 0 ? fmtHs(h) : '·'}
               </span>
-              <span className="font-mono text-[9px] text-muted-foreground/60">{JOURS[i]}</span>
+              <span className="font-mono text-3xs text-muted-foreground/60">{JOURS[i]}</span>
             </div>
           ))}
         </div>
@@ -505,8 +627,8 @@ function PosteDetail(props: {
           title="Dernier pointage dans la fenêtre"
           aria-label="Dernier pointage dans la fenêtre"
         >
-          <span className="text-[11px] font-medium text-muted-foreground">Dernier pointage</span>
-          <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
+          <span className="text-1.5xs font-medium text-muted-foreground">Dernier pointage</span>
+          <span className="font-mono text-xs font-bold tabular-nums text-foreground">
             {dateLong(poste.dernierPointageIso)}
           </span>
         </div>
@@ -514,7 +636,7 @@ function PosteDetail(props: {
         <div className="flex-1" />
 
         <span
-          className="cursor-help border-b border-dotted border-input text-[10px] text-muted-foreground"
+          className="cursor-help border-b border-dotted border-input text-2xs text-muted-foreground"
           title="Nature du poste, efficience et nombre de postes ne sont pas exposés par le loader (spec lot 3). Ils apparaîtront ici une fois branchés."
           aria-label="3 champs X3 non exposés : nature du poste, efficience et nombre de postes"
         >
@@ -523,16 +645,16 @@ function PosteDetail(props: {
       </div>
 
       {loadError && (
-        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-          <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
-          <span className="font-bold">Erreur chargement :</span>
+        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+          <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+          <span className="font-semibold">Erreur chargement :</span>
           <span className="font-mono">{loadError}</span>
         </div>
       )}
 
       {/* LE FIL — passé constaté + futur engagé sur un seul axe (design V3). */}
       {filProps && (
-        <div className="px-7 py-4">
+        <div className="px-5 py-4">
           <LeFil
             {...filProps}
             maille={props.maille}
@@ -541,60 +663,41 @@ function PosteDetail(props: {
             // l'affichage sur les heures plutôt que de montrer des trous.
             mesure={props.mesure === 'pal' && !filProps.palettesDisponibles ? 'h' : props.mesure}
             onMesure={props.onMesure}
+            periode={props.periode}
           />
         </div>
       )}
 
       {/* Engagement — table dense avec semaines et total. */}
-      <div className="px-7 pb-4">
+      <div className="px-5 pb-4">
         <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-[15px] font-bold tracking-tight text-foreground">
             Ce qui est engagé
           </h2>
           {engagementFerme && (
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-mono text-2xs text-muted-foreground">
               {engagementFerme.count} OF fermes · {fmtHs(engagementFerme.totalHours)} h
             </span>
           )}
-          <span className="flex-1" />
-          {engagementFerme && engagementFerme.rows.length > 0 && (
-            <button
-              type="button"
-              onClick={() => void runFeasibility()}
-              disabled={feasLoading}
-              className={cn(
-                PILL,
-                'cursor-pointer px-3 font-mono text-[11px] font-semibold text-foreground hover:border-brand/50 disabled:opacity-60'
-              )}
-              title="Couverture matières des OF engagés (même moteur que /programme)"
-            >
-              <PackageCheck
-                size={14}
-                strokeWidth={1.75}
-                className={cn(feasLoading && 'animate-pulse')}
-              />
-              {feasLoading ? 'Calcul…' : feasMap ? 'Recalculer la faisabilité' : 'Faisabilité'}
-            </button>
-          )}
         </div>
 
-        {feasError && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] text-foreground">
-            <TriangleAlert size={14} strokeWidth={1.75} className="text-destructive" />
-            <span className="font-bold">Faisabilité :</span>
-            <span className="font-mono">{feasError}</span>
+        {props.feasError && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-1.5xs text-foreground">
+            <TriangleAlert size={14} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Faisabilité :</span>
+            <span className="font-mono">{props.feasError}</span>
           </div>
         )}
 
         {!engagementFerme || engagementFerme.rows.length === 0 ? (
-          <div className="rounded-lg border border-rule bg-card p-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
+          <div className="rounded-lg border border-rule bg-card p-6 text-center text-[13px] text-muted-foreground">
             Aucun OF engagé sur ce poste.
           </div>
         ) : (
           <EngagementTable
             rows={engagementFerme.rows}
-            feasMap={feasMap}
-            feasCounts={feasCounts}
+            feasMap={props.feasMap}
+            feasCounts={props.feasCounts}
             capaciteHebdoHeures={poste.capaciteHebdoHeures}
             regimeHebdo={poste.regimeHebdo}
             onSelectOf={props.onSelectOf}
@@ -604,7 +707,7 @@ function PosteDetail(props: {
 
       {/* La dette du poste — 7 familles du domaine. */}
       {passe && anomalies && (
-        <div className="border-t border-border px-7 py-4">
+        <div className="border-t border-border px-5 py-4">
           <DettePoste
             anomalies={anomalies}
             usine={props.usine}
@@ -617,12 +720,12 @@ function PosteDetail(props: {
       {/* OF terminés sur la fenêtre — lot 4 (#119) : pointés ici, plus en
           cours. La date de sortie est approchée par le dernier pointage. */}
       {passe && passe.ofTermines.length > 0 && (
-        <div className="border-t border-border px-7 py-4">
+        <div className="border-t border-border px-5 py-4">
           <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="text-[15px] font-bold tracking-tight text-foreground">
               OF terminés sur la fenêtre
             </h2>
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-mono text-2xs text-muted-foreground">
               {passe.ofTermines.length} OF · sortie approchée par le dernier pointage
             </span>
           </div>
@@ -644,7 +747,7 @@ function construireFilProps(
   anomalies: AnomaliesVue | null,
   usine: AnomaliesUsineVue | null,
   analyses: AnalysesVue | null
-): Omit<LeFilProps, 'maille' | 'onMaille' | 'mesure' | 'onMesure'> {
+): Omit<LeFilProps, 'maille' | 'onMaille' | 'mesure' | 'onMesure' | 'periode'> {
   const palJ = new Map(passe.palettes.parJour.map((p) => [p.date, p.palettes]))
   const palS = new Map(passe.palettes.parSemaine.map((p) => [p.date, p.palettes]))
   const palM = new Map(passe.palettes.parMois.map((p) => [p.date, p.palettes]))
@@ -804,15 +907,24 @@ function construireFilProps(
  *  même convention que les cartes d'anomalies. */
 function OfTerminesTable({ ofTermines }: { ofTermines: OfTermineVue[] }) {
   return (
-    <div className="max-h-[240px] overflow-auto rounded-lg border border-rule bg-card">
+    <div className="max-h-[240px] overflow-auto rounded-lg border border-rule bg-card shadow-float">
       <table className="w-full border-collapse text-left text-sm">
-        <thead className="sticky top-0 bg-secondary">
+        <thead className="sticky top-0 z-10 bg-secondary">
           <TableHeadRow>
             <TableHead>OF</TableHead>
             <TableHead>Article</TableHead>
-            <TableHead align="right">Qté</TableHead>
-            <TableHead align="right">Palettes</TableHead>
-            <TableHead align="right">Heures</TableHead>
+            {/* `text-right!` : sous cursor, `.theme-cursor table th` pose
+                `text-align: left` à une spécificité qu'une classe seule
+                n'atteint pas (cf. ui/table-row). */}
+            <TableHead align="right" className="text-right!">
+              Qté
+            </TableHead>
+            <TableHead align="right" className="text-right!">
+              Palettes
+            </TableHead>
+            <TableHead align="right" className="text-right!">
+              Heures
+            </TableHead>
             <TableHead>Dernier pointage</TableHead>
           </TableHeadRow>
         </thead>
@@ -835,8 +947,8 @@ function OfTerminesTable({ ofTermines }: { ofTermines: OfTermineVue[] }) {
               <TableCell align="right">
                 <CellNumber value={`${fmtHs(t.heures)} h`} />
               </TableCell>
-              <TableCell className="font-mono text-1.5xs text-muted-foreground">
-                {dateLong(t.dernierJourIso)}
+              <TableCell>
+                <CellDate date={dateLong(t.dernierJourIso)} />
               </TableCell>
             </TableRow>
           ))}
@@ -870,7 +982,7 @@ function EngagementTable(props: {
   return (
     <div className="overflow-hidden rounded-lg border border-rule bg-card shadow-float">
       {feasMap && (
-        <div className="flex items-center gap-3 border-b border-rule bg-secondary px-4 py-1.5 font-mono text-[10px] font-semibold">
+        <div className="flex items-center gap-3 border-b border-rule bg-secondary px-4 py-1.5 font-mono text-2xs font-semibold">
           <span className="text-ferme">{feasCounts.ok} faisables</span>
           {feasCounts.qc > 0 && <span className="text-suggere">{feasCounts.qc} sous CQ</span>}
           {feasCounts.blocked > 0 && (
@@ -880,15 +992,17 @@ function EngagementTable(props: {
       )}
       <div className="max-h-[320px] overflow-auto">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="sticky top-0 bg-secondary">
+          <thead className="sticky top-0 z-10 bg-secondary">
             <TableHeadRow>
               <TableHead>Sem.</TableHead>
               <TableHead>OF</TableHead>
               <TableHead>Article</TableHead>
               <TableHead>Fenêtre</TableHead>
-              <TableHead align="right">Heures</TableHead>
+              <TableHead align="right" className="text-right!">
+                Heures
+              </TableHead>
               <TableHead>Faisabilité</TableHead>
-              <TableHead align="right" />
+              <TableHead align="right" className="text-right!" />
             </TableHeadRow>
           </thead>
           <tbody>
@@ -914,7 +1028,7 @@ function EngagementTable(props: {
                       code={
                         <button
                           type="button"
-                          className="relative cursor-pointer py-[3px] text-brand hover:underline before:absolute before:-inset-y-[8px] before:-inset-x-1 before:content-['']"
+                          className="relative cursor-pointer py-[3px] text-brand underline decoration-dotted decoration-brand/40 underline-offset-2 before:absolute before:-inset-x-1 before:-inset-y-[8px] before:content-[''] hover:text-brand/70"
                           onClick={() => onSelectOf(r.numOf)}
                         >
                           {r.numOf}
@@ -978,16 +1092,16 @@ function EngagementTable(props: {
             })}
           </tbody>
           <tfoot>
-            <tr className="bg-secondary font-mono text-1.5xs font-bold">
-              <td className="px-3 py-2" colSpan={4}>
-                Total engagé
-              </td>
-              <td className="px-3 py-2 text-right">{fmtHs(totHrs)} h</td>
-              <td className="px-3 py-2 text-muted-foreground" colSpan={2}>
+            <tr className="border-t border-rule bg-secondary font-mono text-1.5xs font-bold">
+              <TableCell colSpan={4}>Total engagé</TableCell>
+              <TableCell align="right">
+                <CellNumber value={`${fmtHs(totHrs)} h`} />
+              </TableCell>
+              <TableCell className="text-muted-foreground" colSpan={2}>
                 {joursEquivalents !== null && semainesEquivalentes !== null
                   ? `${fmtNombre(joursEquivalents)} j ouvrés équiv. · ${fmtNombre(semainesEquivalentes)} sem. de capacité · base ${fmtHs(capaciteJourMoy ?? 0)} h/j`
                   : 'Équivalent capacité indisponible'}
-              </td>
+              </TableCell>
             </tr>
           </tfoot>
         </table>
@@ -1016,12 +1130,12 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
   const maxAdh = Math.max(1, ...adherence.map((a) => Math.max(a.prevus, a.pointes)))
 
   return (
-    <div className="border-t border-border px-7 py-4">
+    <div className="border-t border-border px-5 py-4">
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-[15px] font-bold tracking-tight text-foreground">
           Ce que ça dit des gammes
         </h2>
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="font-mono text-2xs text-muted-foreground">
           affichage seul · aucune écriture vers X3
         </span>
       </div>
@@ -1029,12 +1143,12 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
         {/* Écart de cadence par article — pointé ÷ gamme. */}
         <div className="rounded-lg border border-rule bg-card p-4 shadow-float">
-          <h3 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <h3 className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
             Écart de cadence par article · pointé ÷ gamme
           </h3>
           {/* Axe aligné sur les colonnes des lignes de données (article, qty,
               barre, valeur) — pas de px en dur, responsive par construction. */}
-          <div className="mt-2 flex items-center gap-2.5 font-mono text-[8px] font-semibold text-muted-foreground">
+          <div className="mt-2 flex items-center gap-2.5 font-mono text-4xs font-semibold text-muted-foreground">
             <span className="w-[84px] shrink-0" />
             <span className="w-[62px] shrink-0" />
             <span className="flex min-w-0 flex-1 justify-between">
@@ -1046,7 +1160,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
           </div>
           <div className="mt-1 flex flex-col gap-1">
             {fiabilite.articles.length === 0 ? (
-              <div className="py-4 text-center font-fraunces text-[12px] italic text-muted-foreground">
+              <div className="py-4 text-center text-xs text-muted-foreground">
                 Aucune production avec cadence de gamme.
               </div>
             ) : (
@@ -1057,7 +1171,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
                 const gauche = Math.min(p, z)
                 const largeur = Math.max(1.5, Math.abs(p - z))
                 return (
-                  <div key={a.article} className="flex items-center gap-2.5 text-[10px]">
+                  <div key={a.article} className="flex items-center gap-2.5 text-2xs">
                     <span className="w-[84px] shrink-0 font-bold">{a.article}</span>
                     <span className="w-[62px] shrink-0 text-right text-muted-foreground">
                       {a.qty.toLocaleString('fr-FR')} pc
@@ -1084,7 +1198,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
               })
             )}
           </div>
-          <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
+          <p className="mt-3 text-2xs leading-snug text-muted-foreground">
             Un article à droite de 1,00× consomme plus d'heures que sa gamme n'en prévoit :{' '}
             <b>la charge calculée sur /programme et /charge est sous-estimée d'autant</b>. Seul
             endroit de l'app où l'écart se constate.
@@ -1095,11 +1209,11 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
 
         {/* Adhérence au programme. */}
         <div className="rounded-lg border border-rule bg-card p-4 shadow-float">
-          <h3 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <h3 className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
             Adhérence au programme
           </h3>
           {adherence.length === 0 ? (
-            <div className="py-4 text-center font-fraunces text-[12px] italic text-muted-foreground">
+            <div className="py-4 text-center text-xs text-muted-foreground">
               Pas de semaine complète dans la fenêtre.
             </div>
           ) : (
@@ -1123,35 +1237,35 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
                         style={{ height: `${Math.max(4, hPointe)}%` }}
                         title={`${s.pointes} pointé(s)`}
                       />
-                      <span className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[9px] font-semibold text-white group-hover:block">
+                      <span className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-3xs font-semibold text-background group-hover:block">
                         {semaineLabel(s.semaine)} · {s.pointes} pointés / {s.prevus} prévus
                       </span>
                     </div>
                   )
                 })}
               </div>
-              <div className="flex gap-1 font-mono text-[8px] font-semibold text-muted-foreground">
+              <div className="flex gap-1 font-mono text-4xs font-semibold text-muted-foreground">
                 {adherence.map((s) => (
                   <span key={s.semaine} className="flex-1 text-center">
                     {s.semaine.slice(5).replace('-', '/')}
                   </span>
                 ))}
               </div>
-              <div className="mt-3 flex justify-between gap-2 text-[10px]">
+              <div className="mt-3 flex justify-between gap-2 text-2xs">
                 <span className="text-muted-foreground">Dernière semaine</span>
                 <span className="font-bold">
                   {adherence[adherence.length - 1].pointes} pointés /{' '}
                   {adherence[adherence.length - 1].prevus} prévus
                 </span>
               </div>
-              <div className="flex justify-between gap-2 text-[10px]">
+              <div className="flex justify-between gap-2 text-2xs">
                 <span className="text-muted-foreground">Total fenêtre</span>
                 <span className="font-bold">
                   {adherence.reduce((a, s) => a + s.pointes, 0)} pointés /{' '}
                   {adherence.reduce((a, s) => a + s.prevus, 0)} prévus
                 </span>
               </div>
-              <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
+              <p className="mt-3 text-2xs leading-snug text-muted-foreground">
                 Barre claire : OF ouverts du poste dont le lancement tombe la semaine (ORDERS).
                 Barre pleine : OF distincts ayant pointé ici cette semaine. Pas de pourcentage :
                 ORDERS ne garde pas les OF soldés, un taux mélangerait des populations différentes.{' '}
@@ -1163,24 +1277,34 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
 
         {/* Mix articles et cadence réelle — lot 6 (#119). */}
         <div className="mt-4 rounded-lg border border-rule bg-card p-4 shadow-float xl:col-span-2">
-          <h3 className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <h3 className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
             Mix articles · cadence constatée vs gamme
           </h3>
           {mix.length === 0 ? (
-            <div className="py-4 text-center font-fraunces text-[12px] italic text-muted-foreground">
+            <div className="py-4 text-center text-xs text-muted-foreground">
               Aucune production quantifiée sur la fenêtre.
             </div>
           ) : (
             <div className="mt-2 max-h-[240px] overflow-auto">
               <table className="w-full border-collapse text-left text-sm">
-                <thead className="sticky top-0 bg-secondary">
+                <thead className="sticky top-0 z-10 bg-secondary">
                   <TableHeadRow>
                     <TableHead>Article</TableHead>
-                    <TableHead align="right">Qté</TableHead>
-                    <TableHead align="right">Palettes</TableHead>
-                    <TableHead align="right">Heures op.</TableHead>
-                    <TableHead align="right">Pièces/h constatées</TableHead>
-                    <TableHead align="right">Cadence gamme</TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Qté
+                    </TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Palettes
+                    </TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Heures op.
+                    </TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Pièces/h constatées
+                    </TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Cadence gamme
+                    </TableHead>
                   </TableHeadRow>
                 </thead>
                 <tbody>
@@ -1216,7 +1340,7 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
               </table>
             </div>
           )}
-          <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
+          <p className="mt-3 text-2xs leading-snug text-muted-foreground">
             Cadence constatée = pièces pointées / heures opératoires. Affichage seul en v1 — aucune
             boucle de retour vers la charge.
           </p>
@@ -1248,22 +1372,6 @@ const semaineISO = (lundiIso: string): string => {
   const debutAnnee = new Date(d.getFullYear(), 0, 1)
   const semaine = Math.ceil(((d.getTime() - debutAnnee.getTime()) / 86400000 + 1) / 7)
   return `S${semaine}`
-}
-
-const aujourdhuiIso = (): string => {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
-}
-const plusSeptJours = (iso: string): string => {
-  const d = new Date(`${iso}T00:00:00`)
-  d.setDate(d.getDate() + 7)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${da}`
 }
 
 /** fmtH sans le « ,00 » des entiers — 40 h au lieu de 40,00 h. */
