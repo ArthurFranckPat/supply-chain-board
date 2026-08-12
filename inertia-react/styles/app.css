@@ -1291,6 +1291,31 @@
   font-weight: 400;
   letter-spacing: -0.08px;
 }
+/* Combobox de portée DANS la rangée (sélecteur de poste, /sequenceur).
+   `InputGroup` est un champ de formulaire : 32 px, ce qui est juste dans une
+   fiche et faux à côté d'une pill de 24 px — l'écart se lit comme un défaut
+   d'alignement, jamais comme une convention. La hauteur se règle donc sur la
+   rangée (`[data-slot='toolbar-row']`, layouts/app.tsx) et non sur le
+   composant, qui sert aussi les formulaires. */
+.theme-cursor [data-slot='toolbar-row'] [data-slot='input-group'],
+.theme-cursor [data-slot='toolbar'] [data-slot='input-group'] {
+  height: 24px;
+}
+.theme-cursor [data-slot='toolbar-row'] [data-slot='input-group'] [data-slot='input-group-control'],
+.theme-cursor [data-slot='toolbar'] [data-slot='input-group'] [data-slot='input-group-control'] {
+  height: 22px;
+  font-size: 13px;
+}
+/* Les boutons d'addon (chevron, effacer) sont en `size-6` : 24 px, soit 2 px de
+   trop dans un groupe de 24 px filets compris — ils débordaient du champ. */
+/* Sélecteur d'élément volontaire : selon qu'il vient de `ComboboxTrigger` ou de
+   `ComboboxClear`, ce bouton porte `input-group-button` ou `combobox-clear` —
+   pas de `data-slot` commun sur lequel s'accrocher. */
+.theme-cursor [data-slot='toolbar-row'] [data-slot='input-group-addon'] button,
+.theme-cursor [data-slot='toolbar'] [data-slot='input-group-addon'] button {
+  height: 20px;
+  width: 20px;
+}
 .theme-cursor [data-slot='search-bar'] {
   height: 36px;
   border-radius: 6px;

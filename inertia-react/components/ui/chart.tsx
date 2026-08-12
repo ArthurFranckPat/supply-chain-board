@@ -174,6 +174,14 @@ export type JaugeProps = SocleProps & {
  * implémentations locales en `width: %`. La différence n'est pas cosmétique —
  * le domaine `[0, max]` est ici réellement partagé, donc deux jauges côte à
  * côte sont enfin comparables.
+ *
+ * **La largeur vient du parent, pas d'ici.** L'hôte de `Chart` porte un
+ * `width: 100%` EN LIGNE : une classe de largeur passée en `className` ne le
+ * bat pas. Dans une rangée flex, la jauge prend donc toute la place libre et se
+ * ré-étire à chaque changement de layout — poser la largeur sur un conteneur
+ * (`<span className="w-40 shrink-0">`) est le seul réglage qui tienne. Une
+ * largeur proche de l'`initialWidth` ci-dessous évite en plus la frame de
+ * re-mesure au montage.
  */
 export const Jauge = memo(function Jauge({
   valeur,

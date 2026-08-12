@@ -895,21 +895,32 @@ export default function Sequenceur(props: SequenceurPageProps) {
                     className="flex items-center gap-2"
                     title="Charge engagée / capacité hebdomadaire"
                   >
-                    <Jauge
-                      valeur={activePoste?.totalHours ?? 0}
-                      max={Math.max(
-                        activePoste?.weeklyCapacityHours ?? 0,
-                        activePoste?.totalHours ?? 0
-                      )}
-                      seuil={activePoste?.weeklyCapacityHours ?? null}
-                      palier={sat.level}
-                      epaisseur={6}
-                      className="w-24"
-                      ariaLabel={`Saturation du poste ${activePoste?.code}`}
-                    />
+                    {/* Largeur portée par CE conteneur, jamais par la jauge :
+                        l'hôte du graphique porte un `width: 100%` EN LIGNE, qui
+                        bat n'importe quelle classe utilitaire. Une jauge laissée
+                        élastique absorbait toute la place libre de la carte, et
+                        comme la mesure du conteneur arrive une frame après le
+                        recalcul de la rangée, la barre se ré-étirait visiblement
+                        à chaque filtre — l'animation n'était pas dans le
+                        graphique (`svgAnimation: false`) mais dans la mise en
+                        page. 160 px = l'`initialWidth` de la primitive : le
+                        prérendu tombe juste, il n'y a plus rien à re-mesurer. */}
+                    <span className="w-40 shrink-0">
+                      <Jauge
+                        valeur={activePoste?.totalHours ?? 0}
+                        max={Math.max(
+                          activePoste?.weeklyCapacityHours ?? 0,
+                          activePoste?.totalHours ?? 0
+                        )}
+                        seuil={activePoste?.weeklyCapacityHours ?? null}
+                        palier={sat.level}
+                        epaisseur={6}
+                        ariaLabel={`Saturation du poste ${activePoste?.code}`}
+                      />
+                    </span>
                     <span
                       className={cn(
-                        'font-mono text-1.5xs font-bold tabular-nums',
+                        'shrink-0 whitespace-nowrap font-mono text-1.5xs font-bold tabular-nums',
                         sat.level === 'ok' && 'text-ferme',
                         sat.level === 'high' && 'text-suggere',
                         sat.level === 'crit' && 'text-destructive'

@@ -128,7 +128,16 @@ export function AppLayout({
           />
 
           {toolbar && (
-            <div className="flex min-h-12 flex-none items-center gap-3 border-b border-sidebar-border bg-[var(--sidebar-canvas)] px-6 py-2 print:hidden">
+            /* `data-slot` : c'est la RANGÉE qui impose sa hauteur de contrôle,
+               pas chaque composant posé dedans. Sans crochet ici, un champ de
+               formulaire (32 px, la bonne valeur dans une fiche) glissé entre
+               deux pills de 24 px ne pouvait s'aligner qu'au prix d'un
+               `!important` recopié dans chaque page. Voir « rangée d'outils »
+               dans app.css. */
+            <div
+              data-slot="toolbar-row"
+              className="flex min-h-12 flex-none items-center gap-3 border-b border-sidebar-border bg-[var(--sidebar-canvas)] px-6 py-2 print:hidden"
+            >
               {toolbar}
             </div>
           )}
