@@ -601,7 +601,7 @@ export default function ControleProd(props: Props) {
               </p>
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
+            <div className="flex min-h-0 flex-1 flex-col p-5">
               {filteredSolder.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
                   <p className="text-sm font-medium text-foreground">
@@ -616,30 +616,24 @@ export default function ControleProd(props: Props) {
                   </p>
                 </div>
               ) : (
-                <>
-                  <p className="flex-none text-1.5xs leading-relaxed text-muted-foreground">
-                    {filteredSolder.length} OF à solder · gamme pointée à 100 % sans déclaration PF
-                    · écartés de la couverture — commandes sans couverture en dessous.
-                  </p>
-                  <div className="min-h-0 flex-1">
-                    <DataTable
-                      columns={solderColumns}
-                      rows={sortedSolder}
-                      sorting={sorting}
-                      onSortingChange={setSorting}
-                      tableClass="min-w-[980px] table-fixed"
-                      scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
-                      theadRowClass="sticky top-0 z-10 bg-card"
-                      onRowClick={(r) => onSelectOf(r.numOf)}
-                      getRowKey={(r) => r.numOf}
-                      emptyState={
-                        <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
-                          Filtre trop serré — aucun OF à solder ne correspond.
-                        </div>
-                      }
-                    />
-                  </div>
-                </>
+                <div className="min-h-0 flex-1">
+                  <DataTable
+                    columns={solderColumns}
+                    rows={sortedSolder}
+                    sorting={sorting}
+                    onSortingChange={setSorting}
+                    tableClass="min-w-[980px] table-fixed"
+                    scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
+                    theadRowClass="sticky top-0 z-10 bg-card"
+                    onRowClick={(r) => onSelectOf(r.numOf)}
+                    getRowKey={(r) => r.numOf}
+                    emptyState={
+                      <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
+                        Filtre trop serré — aucun OF à solder ne correspond.
+                      </div>
+                    }
+                  />
+                </div>
               )}
             </div>
           )
@@ -661,7 +655,7 @@ export default function ControleProd(props: Props) {
             </p>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
+          <div className="flex min-h-0 flex-1 flex-col p-5">
             {filtered.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
                 <p className="text-sm font-medium text-foreground">
@@ -674,30 +668,24 @@ export default function ControleProd(props: Props) {
                 </p>
               </div>
             ) : (
-              <>
-                <p className="flex-none text-1.5xs leading-relaxed text-muted-foreground">
-                  {filtered.length} écart{filtered.length > 1 ? 's' : ''} · Déclaré PF &gt; Pointé
-                  atelier — l'OF annonce plus que l'atelier n'a pointé. Écart en rouge.
-                </p>
-                <div className="min-h-0 flex-1">
-                  <DataTable
-                    columns={columns}
-                    rows={sorted}
-                    sorting={sorting}
-                    onSortingChange={setSorting}
-                    tableClass="min-w-[980px] table-fixed"
-                    scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
-                    theadRowClass="sticky top-0 z-10 bg-card"
-                    onRowClick={(r) => onSelectOf(r.numOf)}
-                    getRowKey={(r) => r.numOf}
-                    emptyState={
-                      <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
-                        Aucun écart ne correspond à ce filtre.
-                      </div>
-                    }
-                  />
-                </div>
-              </>
+              <div className="min-h-0 flex-1">
+                <DataTable
+                  columns={columns}
+                  rows={sorted}
+                  sorting={sorting}
+                  onSortingChange={setSorting}
+                  tableClass="min-w-[980px] table-fixed"
+                  scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
+                  theadRowClass="sticky top-0 z-10 bg-card"
+                  onRowClick={(r) => onSelectOf(r.numOf)}
+                  getRowKey={(r) => r.numOf}
+                  emptyState={
+                    <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
+                      Aucun écart ne correspond à ce filtre.
+                    </div>
+                  }
+                />
+              </div>
             )}
           </div>
         )}
