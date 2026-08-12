@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useCallback, useMemo, useRef } from 'react'
 
 import { barX, barY, defineChart, dot, lineY, ruleX, ruleY, stack, text } from '@tanstack/charts'
 import { Chart } from '@tanstack/charts/react'
@@ -461,6 +461,26 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
   largeurInitiale = 640,
   onSelectPeriode,
 }: HistogrammeChargeProps) {
+  /* Un clic sur le graphe ÉPINGLE le tooltip (interaction-cursor : `handleClick`
+     commit la position, et `clearPreview` refuse ensuite d'effacer tant que
+     `isPinned()`). Quand ce même clic ouvre un panneau par-dessus le graphe, le
+     second clic qui dés-épinglerait n'atteint jamais la couche de curseur : le
+     tooltip reste affiché au-dessus du panneau, orphelin.
+     On rejoue donc le geste de bascule : un `click` sur la couche de curseur
+     alors qu'une position est épinglée émet un `clear`. Notre `onSelect` ignore
+     le point nul qui en résulte, il n'y a pas de réentrance. */
+  const hote = useRef<HTMLDivElement>(null)
+  const desepingler = useCallback(() => {
+    /* Une frame de décalage : `onSelect` part depuis `handleClick`, AVANT que
+       l'épinglage ne soit reflété dans `data-pinned`. Lire l'attribut tout de
+       suite renverrait « pas épinglé » et on ne ferait rien. */
+    requestAnimationFrame(() => {
+      const curseur = hote.current?.querySelector<SVGElement>('[data-chart-cursor]')
+      if (!curseur || curseur.dataset.pinned !== 'true') return
+      curseur.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true }))
+    })
+  }, [])
+
   const definition = useMemo(() => {
     if (periodes.length === 0) return null
 
@@ -776,22 +796,26 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
   if (!definition) return null
 
   return (
-    <Chart
-      data-slot="chart"
-      definition={definition}
-      ariaLabel={ariaLabel}
-      ariaDescription={ariaDescription}
-      height={hauteur}
-      initialWidth={largeurInitiale}
-      className={cn('w-full', className)}
-      onSelect={
-        onSelectPeriode
-          ? (point) => {
-              if (point) onSelectPeriode(String(point.xValue))
-            }
-          : undefined
-      }
-    />
+    <div ref={hote} className={cn('w-full', className)}>
+      <Chart
+        data-slot="chart"
+        definition={definition}
+        ariaLabel={ariaLabel}
+        ariaDescription={ariaDescription}
+        height={hauteur}
+        initialWidth={largeurInitiale}
+        className="w-full"
+        onSelect={
+          onSelectPeriode
+            ? (point) => {
+                if (!point) return
+                onSelectPeriode(String(point.xValue))
+                desepingler()
+              }
+            : undefined
+        }
+      />
+    </div>
   )
 })
 
