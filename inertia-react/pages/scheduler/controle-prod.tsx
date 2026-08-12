@@ -150,13 +150,6 @@ function sortByColumn<T>(rows: T[], sorting: SortingState[]): T[] {
   })
 }
 
-const STATUS_BADGE: Record<number, 'success' | 'outline' | 'warning' | 'destructive'> = {
-  1: 'success',
-  2: 'outline',
-  3: 'warning',
-  4: 'destructive',
-}
-
 function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleProdRow>[] {
   return [
     {
@@ -314,32 +307,6 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
         </span>
       ),
       meta: { thClass: 'w-[170px]', tdClass: 'w-[170px] align-top' },
-    },
-    {
-      accessorKey: 'mfgStaLabel',
-      header: () => 'Statut',
-      cell: ({ row: { original: r } }) => {
-        const sta = r.mfgSta ?? 0
-        const variant = STATUS_BADGE[sta] ?? 'secondary'
-        return r.mfgStaLabel ? (
-          <Badge variant={variant} className="font-mono text-2xs">
-            {r.mfgStaLabel}
-          </Badge>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )
-      },
-      meta: { thClass: 'w-[96px]', tdClass: 'w-[96px] align-top' },
-    },
-    {
-      accessorKey: 'source',
-      header: () => 'Source',
-      cell: ({ row: { original: r } }) => (
-        <Badge variant={r.source === 'live' ? 'success' : 'warning'}>
-          {r.source === 'live' ? 'Live' : 'Ouvert'}
-        </Badge>
-      ),
-      meta: { thClass: 'w-[88px]', tdClass: 'w-[88px] align-top' },
     },
   ]
 }
