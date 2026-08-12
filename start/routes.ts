@@ -41,7 +41,9 @@ router
 
 // Favicons — Adonis ne sert pas public/ en statique (pas de @adonisjs/static).
 // On expose chaque fichier explicitement, comme pour css/js ci-dessus.
-const faviconCache = app.inProduction ? 'public, max-age=86400' : 'no-cache, no-store, must-revalidate'
+const faviconCache = app.inProduction
+  ? 'public, max-age=86400'
+  : 'no-cache, no-store, must-revalidate'
 for (const [route, file, contentType] of [
   ['/favicon.svg', 'public/favicon.svg', 'image/svg+xml'],
   ['/favicon.ico', 'public/favicon.ico', 'image/x-icon'],
