@@ -111,7 +111,9 @@ function RangeeCanonique() {
   const columns: ColumnDef<DemoRow>[] = [
     {
       accessorKey: 'commande',
-      header: 'Commande · Client',
+      header: () => (
+        <span title="Commande client · nom du client en dessous">Commande · Client</span>
+      ),
       cell: ({ row }) => (
         <CellStack
           code={row.original.commande}
@@ -131,19 +133,23 @@ function RangeeCanonique() {
     },
     {
       accessorKey: 'article',
-      header: 'Article · Désignation',
+      header: () => (
+        <span title="Article produit · désignation tronquée">Article · Désignation</span>
+      ),
       cell: ({ row }) => <CellStack code={row.original.article} label={row.original.designation} />,
       meta: { thClass: 'w-[210px]' },
     },
     {
       accessorKey: 'qte',
-      header: 'Qté',
+      header: () => <span title="Quantité à expédier sur la commande">Qté</span>,
       cell: ({ row }) => <CellNumber value={row.original.qte} title="unités" />,
       meta: { thClass: 'w-[80px] text-right!', tdClass: 'text-right' },
     },
     {
       accessorKey: 'dateExp',
-      header: 'Expé',
+      header: () => (
+        <span title="Date d'expédition prévue · échéance relative en dessous">Expédition</span>
+      ),
       cell: ({ row }) => (
         <CellDate
           date={row.original.dateExp}
@@ -155,7 +161,9 @@ function RangeeCanonique() {
     },
     {
       id: 'verdict',
-      header: 'Verdict',
+      header: () => (
+        <span title="Diagnostic de la commande — bloque, retard, risque ou à l'heure">Verdict</span>
+      ),
       enableSorting: false,
       cell: ({ row }) => {
         const v = VERDICTS[row.original.verdict]
@@ -165,7 +173,9 @@ function RangeeCanonique() {
     },
     {
       id: 'preuve',
-      header: 'Couverture',
+      header: () => (
+        <span title="Pourquoi ce verdict — arrivée prévue ou composant bloquant">Preuve</span>
+      ),
       enableSorting: false,
       cell: ({ row }) => {
         const p = row.original.preuve
