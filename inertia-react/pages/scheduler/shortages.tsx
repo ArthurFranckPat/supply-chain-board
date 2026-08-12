@@ -15,7 +15,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { TriangleAlert, CircleX } from 'lucide-react'
+import { Bell, TriangleAlert, CircleX } from 'lucide-react'
+import { Popover } from '@base-ui/react/popover'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
@@ -142,6 +143,63 @@ export default function Shortages(props: ShortagesProps) {
     setDetailOpen(true)
   }
 
+  /* ── TopBar : notification « OF à solder » ──────────────────────────────
+     Le bandeau permanent est remplacé par une cloche discrète à badge : le
+     compte reste visible en continu, le détail (la liste des OF fantômes,
+     écartés du calcul de couverture) se révèle au clic, dans un popover.
+     Rien n'est rendu quand aucun OF n'est à solder. */
+  const phantomNotif =
+    (viewData.phantomOfs?.length ?? 0) > 0 ? (
+      <Popover.Root>
+        <Popover.Trigger
+          render={
+            <button
+              type="button"
+              aria-label={`${viewData.phantomOfs!.length} OF à solder, écartés de la couverture`}
+              title={`${viewData.phantomOfs!.length} OF à solder — écartés de la couverture (gamme pointée en totalité)`}
+              className="relative flex size-8 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Bell size={16} strokeWidth={1.75} />
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-white tabular-nums">
+                {viewData.phantomOfs!.length}
+              </span>
+            </button>
+          }
+        />
+        <Popover.Portal>
+          <Popover.Positioner
+            side="bottom"
+            align="end"
+            sideOffset={8}
+            collisionPadding={8}
+            className="z-50"
+          >
+            <Popover.Popup className="w-80 rounded-lg border border-rule bg-card p-3 shadow-float">
+              <div className="flex items-center gap-1.5">
+                <TriangleAlert size={14} strokeWidth={1.75} className="shrink-0 text-suggere" />
+                <span className="text-xs font-bold text-foreground">
+                  {viewData.phantomOfs!.length} OF à solder
+                </span>
+              </div>
+              <p className="mt-1 text-2xs leading-snug text-muted-foreground">
+                Écartés de la couverture (gamme pointée en totalité).
+              </p>
+              <ul className="mt-2 max-h-44 space-y-1 overflow-auto pr-1">
+                {viewData.phantomOfs!.map((p) => (
+                  <li key={p.numOf} className="truncate font-mono text-2xs text-foreground">
+                    <span className="font-bold">{p.numOf}</span>
+                    <span className="text-muted-foreground">
+                      {' '}({p.article}, reste {p.qteRestante})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    ) : null
+
   const emptyState = (
     <div className="flex flex-1 items-center justify-center p-10 text-center text-[14px] text-muted-foreground">
       <div className="flex flex-col items-center gap-2">
@@ -246,12 +304,7 @@ export default function Shortages(props: ShortagesProps) {
       dense
       scrollable={false}
       toolbar={toolbar}
-      meta={
-        <div>
-          <b className="font-semibold text-foreground">{viewData.stats.nbRuptures}</b> ruptures ·
-          horizon <b className="font-semibold text-foreground">+{props.horizon} j</b>
-        </div>
-      }
+      mastheadActions={phantomNotif}
     >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
@@ -264,17 +317,6 @@ export default function Shortages(props: ShortagesProps) {
             <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement ruptures :</span>
             <span className="font-mono">{viewData.x3Error}</span>
-          </div>
-        )}
-
-        {/* ═══ OF à solder (offre fantôme écartée du calcul) ═══ */}
-        {(viewData.phantomOfs?.length ?? 0) > 0 && (
-          <div className="flex flex-none items-center gap-2 border-b border-suggere/30 bg-suggere/10 px-5 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-suggere" />
-            <span>
-              <b>{viewData.phantomOfs!.length} OF à solder</b>
-              <span className="text-muted-foreground"> — écartés de la couverture (gamme pointée en totalité).</span>
-            </span>
           </div>
         )}
 
