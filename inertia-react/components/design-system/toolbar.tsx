@@ -154,8 +154,8 @@ function ToolbarReceptions() {
       </ToolbarGroup>
       <ToolbarSpacer />
       <ToolbarSearch value={q} onChange={setQ} placeholder="Article, fournisseur…" />
-      <Pill size="sm" variant="outline" className="gap-1.5">
-        <Printer size={13} strokeWidth={1.75} />
+      <Pill variant="outline" className="gap-1.5">
+        <Printer size={14} strokeWidth={1.75} />
         Imprimer
       </Pill>
       <ToolbarRefresh />
@@ -196,8 +196,8 @@ function ToolbarSequenceur() {
       </ToolbarGroup>
       <ToolbarSpacer />
       <ToolbarSearch value={q} onChange={setQ} placeholder="OF, article…" />
-      <Pill size="sm" variant="outline" className="gap-1.5">
-        <Wand2 size={13} strokeWidth={1.75} />
+      <Pill variant="outline" className="gap-1.5">
+        <Wand2 size={14} strokeWidth={1.75} />
         Faisabilité
       </Pill>
     </Toolbar>
@@ -327,22 +327,28 @@ export function ToolbarSection() {
               'px-6 · py-2 · min-h-48px',
               'aligner sur l’axe du TopBar (px-6) et du contenu',
             ],
-            [<Tok key="b">ToolbarSegment</Tok>, '20 px · r4', '20 px · r4', '—'],
-            [<Tok key="c">ToolbarSegmented</Tok>, '24 px · r6', '24 px · r6', '—'],
-            [<Tok key="d">Pill</Tok>, '24 px · r6', '24 px · r6', '—'],
+            [<Tok key="b">ToolbarSegment</Tok>, '24 px · r4', '24 px · r4', '—'],
+            [<Tok key="c">ToolbarSegmented</Tok>, '28 px · r6', '28 px · r6', '—'],
+            [<Tok key="d">Pill</Tok>, '28 px · r6', '28 px · r6', '—'],
             [
               <Tok key="e">toolbar-pill (vision)</Tok>,
               '28 px · r6',
-              'à supprimer',
-              'seule géométrie divergente restante',
+              '28 px · r6',
+              'plus d’écart : c’est la rangée qui l’a rejoint',
             ],
             [
               <Tok key="f">ToolbarSearch</Tok>,
-              '24 px · r6',
-              '24 px · r6',
+              '28 px · r6',
+              '28 px · r6',
               'largeur d’input à figer (6 valeurs en circulation)',
             ],
-            [<Tok key="g">ToolbarRefresh</Tok>, '24 px · r6', '24 px · r6', '—'],
+            [<Tok key="g">ToolbarRefresh</Tok>, '28 px · r6', '28 px · r6', '—'],
+            [
+              <Tok key="h">Combobox de portée</Tok>,
+              '28 px · r6',
+              '28 px · r6',
+              'hauteur portée par la rangée, pas par le champ',
+            ],
             ['Gap intra-groupe', 'gap-1.5 (6 px)', 'gap-1.5', '—'],
             ['Gap inter-groupe', 'gap-2.5 (10 px)', 'gap-2.5', '—'],
             [

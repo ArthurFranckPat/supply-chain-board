@@ -755,9 +755,16 @@ export function MotionSection() {
 /* ── 07 Densité ─────────────────────────────────────────────── */
 
 const HEIGHTS = [
-  { name: 'xs', h: 20, token: '--cursor-height-xs', use: 'badge, chip de filtre' },
-  { name: 'sm', h: 24, token: '--cursor-height-sm', use: 'bouton compact, item de menu' },
-  { name: 'base', h: 28, token: '--cursor-height-base', use: 'bouton, input, select — défaut' },
+  // 20 px ne porte plus rien de cliquable : sous le minimum de cible WCAG 2.5.8
+  // (24 × 24 px). Le palier survit pour ce qui se lit sans se cliquer.
+  { name: 'xs', h: 20, token: '--cursor-height-xs', use: 'badge, jeton de statut — non cliquable' },
+  { name: 'sm', h: 24, token: '--cursor-height-sm', use: 'chip de filtre, item de menu' },
+  {
+    name: 'base',
+    h: 28,
+    token: '--cursor-height-base',
+    use: 'bouton, input, select, contrôle de rangée — défaut',
+  },
   { name: 'lg', h: 32, token: '--cursor-height-lg', use: 'CTA principal, barre de recherche' },
 ]
 
@@ -773,6 +780,12 @@ export function DensiteSection() {
           <strong>28 px</strong> : assez compact pour aligner huit filtres sur une barre d’outils,
           assez grand pour rester cliquable. Une ligne de tableau fait 42 px (12 px de padding
           vertical + 18 px de texte).
+          <br />
+          <strong>28 px dans une barre d’outils comme ailleurs.</strong> La rangée a longtemps
+          tourné à 24 px, avec des chips à 20 : le tableau ci-dessous disait une chose et les pages
+          en faisaient une autre. Le plancher est désormais{' '}
+          <strong>24 px pour toute cible cliquable</strong> — le minimum du critère WCAG 2.2 AA
+          2.5.8, que l’exemption d’espacement ne rattrape pas dans une grille de chips serrées.
         </>
       }
     >

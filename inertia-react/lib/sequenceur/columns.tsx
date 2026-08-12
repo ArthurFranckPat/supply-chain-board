@@ -52,10 +52,16 @@ export function createSequenceurColumns(deps: SequenceurColumnsDeps): ColumnDef<
         return <span aria-hidden="true" />
       }
       return (
-        <label className="flex cursor-pointer items-center justify-center">
+        // La cible, c'est la CELLULE, pas la case : le `label` remplit la
+        // largeur de colonne et la hauteur de contenu (40 × 32 px) au lieu
+        // d'épouser une boîte de 14 px — le geste principal de la page passait
+        // sous la moitié du minimum de cible WCAG 2.5.8. Hauteur bornée à celle
+        // du contenu de cellule, jamais en marge négative : un label qui
+        // dépasse de sa ligne vole les clics de la ligne voisine.
+        <label className="flex h-8 w-full cursor-pointer items-center justify-center">
           <input
             type="checkbox"
-            className="size-3.5"
+            className="size-4"
             style={{ accentColor: 'var(--primary)' }}
             checked={deps.selected.has(r.numOf)}
             disabled={deps.batchRunning}
@@ -66,7 +72,8 @@ export function createSequenceurColumns(deps: SequenceurColumnsDeps): ColumnDef<
         </label>
       )
     },
-    meta: { thClass: 'w-8 px-2', tdClass: 'px-2' },
+    // 40 px, padding horizontal nul : la largeur sert de surface de clic.
+    meta: { thClass: 'w-10 px-0', tdClass: 'px-0' },
   })
 
   /* ── Poste (vue tous postes) ───────────────────────────────────────── */

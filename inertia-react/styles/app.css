@@ -778,17 +778,23 @@
   letter-spacing: -0.08px;
   transition: background-color 100ms ease;
 }
+/* Hauteurs relevées d'un palier (24 → 28 pour le défaut). Deux raisons, dans
+   cet ordre : le palier 20 px passait sous le minimum de cible WCAG 2.2 AA
+   (2.5.8 : 24 × 24 px, et l'exemption d'espacement ne joue pas avec des chips
+   à 4 px d'écart) ; et 28 px est la hauteur que la §07 du design system
+   déclare comme défaut pour « bouton, input, select » depuis le début — la
+   rangée d'outils était le seul endroit à s'en écarter. */
 .theme-cursor [data-slot='pill'][data-size='sm'] {
-  height: 20px;
-  padding-inline: 8px;
-}
-.theme-cursor [data-slot='pill'][data-size='default'] {
   height: 24px;
   padding-inline: 10px;
 }
-.theme-cursor [data-slot='pill'][data-size='lg'] {
+.theme-cursor [data-slot='pill'][data-size='default'] {
   height: 28px;
   padding-inline: 12px;
+}
+.theme-cursor [data-slot='pill'][data-size='lg'] {
+  height: 32px;
+  padding-inline: 14px;
 }
 .theme-cursor [data-slot='pill'][data-variant='default'],
 .theme-cursor [data-slot='pill'][data-variant='outline'] {
@@ -1105,8 +1111,10 @@
 }
 
 /* Hauteurs — cible produit : xs 20 · sm 24 · default 28 · lg 32 */
+/* `xs` garde son padding serré, pas sa hauteur : 20 px était sous le minimum
+   de cible WCAG 2.5.8. Il ne se distingue plus de `sm` que par la largeur. */
 .theme-cursor [data-slot='button'][data-size='xs'] {
-  height: 20px;
+  height: 24px;
   padding-inline: 8px;
 }
 .theme-cursor [data-slot='button'][data-size='sm'] {
@@ -1122,8 +1130,8 @@
   padding-inline: 14px;
 }
 .theme-cursor [data-slot='button'][data-size='icon-xs'] {
-  height: 20px;
-  width: 20px;
+  height: 24px;
+  width: 24px;
   padding: 0;
 }
 .theme-cursor [data-slot='button'][data-size='icon-sm'] {
@@ -1184,10 +1192,14 @@
 }
 
 /* ── Lot 11 — barres d'outils & recherche ─────────────────── */
-/* Hauteur unique 24 px sur toute la rangée : segmented (20 + 2×1 padding +
-   2×1 filet), pill, recherche et refresh. Quatre hauteurs différentes sur une
-   même ligne se lisent comme un défaut d'alignement, jamais comme une
-   convention — même quand chaque valeur est défendable isolément. */
+/* Hauteur unique 28 px sur toute la rangée : segmented (24 + 2×2 de padding),
+   pill, recherche, refresh et combobox de portée. Quatre hauteurs différentes
+   sur une même ligne se lisent comme un défaut d'alignement, jamais comme une
+   convention — même quand chaque valeur est défendable isolément.
+   28 et non 24 : c'est le palier « base » de la §07 (« bouton, input, select —
+   défaut »), et la rangée d'outils était le dernier endroit à s'en écarter.
+   Le vieux `toolbar-pill` était déjà à 28 — il n'était pas divergent, il avait
+   raison avant tout le monde. */
 /* Piste CREUSÉE, pouce ÉLEVÉ. La recette d'origine faisait l'inverse — piste
    blanche, segment actif en lavis gris — donc l'état sélectionné était plus
    sombre que le fond : un trou, pas un relief. Le contraste passe par
@@ -1206,8 +1218,8 @@
   gap: 4px;
 }
 .theme-cursor [data-slot='toolbar-segmented'][data-flat='true'] [data-slot='toolbar-segment'] {
-  height: 22px;
-  padding-inline: 8px;
+  height: 24px;
+  padding-inline: 10px;
 }
 .theme-cursor
   [data-slot='toolbar-segmented'][data-flat='true']
@@ -1227,7 +1239,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 20px;
+  height: 24px;
   padding-block: 0;
   padding-inline: 10px;
   border-radius: 4px;
@@ -1258,7 +1270,7 @@
   box-shadow: none;
 }
 .theme-cursor [data-slot='toolbar-search'] {
-  height: 24px;
+  height: 28px;
   border-radius: 6px;
   border-color: color-mix(in oklab, #141414 12%, transparent);
   background-color: #fcfcfc;
@@ -1267,8 +1279,8 @@
    pouvaient pas atteindre : il restait en `rounded-full` 32 px, seule capsule
    d'une rangée de rectangles à 6 px. */
 .theme-cursor [data-slot='toolbar-refresh'] {
-  height: 24px;
-  padding-inline: 10px;
+  height: 28px;
+  padding-inline: 12px;
   border-radius: 6px;
   border-color: color-mix(in oklab, #141414 12%, transparent);
   background-color: #fcfcfc;
@@ -1277,7 +1289,7 @@
    porte que `items-center` (axe vertical) : sans `justify-content`, l'icône se
    posait au départ de la boîte, décalée à gauche dans son carré. */
 .theme-cursor [data-slot='toolbar-refresh']:not([data-labeled]) {
-  width: 24px;
+  width: 28px;
   padding: 0;
   justify-content: center;
   gap: 0;
@@ -1299,22 +1311,23 @@
    composant, qui sert aussi les formulaires. */
 .theme-cursor [data-slot='toolbar-row'] [data-slot='input-group'],
 .theme-cursor [data-slot='toolbar'] [data-slot='input-group'] {
-  height: 24px;
+  height: 28px;
 }
 .theme-cursor [data-slot='toolbar-row'] [data-slot='input-group'] [data-slot='input-group-control'],
 .theme-cursor [data-slot='toolbar'] [data-slot='input-group'] [data-slot='input-group-control'] {
-  height: 22px;
+  height: 26px;
   font-size: 13px;
 }
-/* Les boutons d'addon (chevron, effacer) sont en `size-6` : 24 px, soit 2 px de
-   trop dans un groupe de 24 px filets compris — ils débordaient du champ. */
+/* Les boutons d'addon (chevron, effacer) sont en `size-6` : 24 px, ce qui tient
+   dans un groupe de 28 px filets compris. La règle reste pour les borner si le
+   groupe rétrécit — et pour ne pas les laisser sous le minimum de cible. */
 /* Sélecteur d'élément volontaire : selon qu'il vient de `ComboboxTrigger` ou de
    `ComboboxClear`, ce bouton porte `input-group-button` ou `combobox-clear` —
    pas de `data-slot` commun sur lequel s'accrocher. */
 .theme-cursor [data-slot='toolbar-row'] [data-slot='input-group-addon'] button,
 .theme-cursor [data-slot='toolbar'] [data-slot='input-group-addon'] button {
-  height: 20px;
-  width: 20px;
+  height: 24px;
+  width: 24px;
 }
 .theme-cursor [data-slot='search-bar'] {
   height: 36px;
@@ -1343,8 +1356,8 @@
   padding: 2px;
 }
 .theme-cursor [data-slot='toolbar-seg'] button {
-  min-height: 22px;
-  height: 22px;
+  min-height: 24px;
+  height: 24px;
   border-radius: 4px;
   padding-inline: 10px;
   padding-block: 0;

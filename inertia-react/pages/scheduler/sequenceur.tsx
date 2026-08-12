@@ -762,8 +762,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
         placeholder="OF, article, commande, client…"
       />
 
+      {/* Taille par défaut, pas `sm` : dans la rangée, tout est au palier base
+          (28 px). `sm` reste pour les pills posées dans une carte. */}
       <Pill
-        size="sm"
         variant="outline"
         className="gap-1.5"
         onClick={() => void runFeasibility()}
@@ -771,23 +772,22 @@ export default function Sequenceur(props: SequenceurPageProps) {
         title="Calculer la faisabilité matières des OF affichés"
       >
         {feasLoading ? (
-          <RefreshCw size={13} strokeWidth={1.75} className="animate-spin" />
+          <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
         ) : (
-          <Wand2 size={13} strokeWidth={1.75} />
+          <Wand2 size={14} strokeWidth={1.75} />
         )}
         {feasLoading ? 'Calcul…' : 'Faisabilité'}
       </Pill>
 
       {feasDone && affirmableOkCount > 0 && (
         <Pill
-          size="sm"
           variant="active"
           className="gap-1.5"
           onClick={selectAllLaunchable}
           disabled={batchRunning}
           title="Sélectionner tous les OF lançables affichés"
         >
-          <Check size={13} strokeWidth={2} />
+          <Check size={14} strokeWidth={2} />
           Tout sélectionner ({affirmableOkCount})
         </Pill>
       )}

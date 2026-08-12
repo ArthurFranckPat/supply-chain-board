@@ -87,8 +87,10 @@ export function SequenceurFirmBar(props: {
 
           <Separator orientation="vertical" className="h-5" />
 
+          {/* Taille par défaut (28 px) : cette barre n'est pas une rangée
+              d'outils, rien ne l'oblige au palier compact — et c'est l'action
+              principale de la page. */}
           <Button
-            size="sm"
             variant="default"
             className="gap-1.5"
             onClick={run}
@@ -103,7 +105,6 @@ export function SequenceurFirmBar(props: {
           </Button>
 
           <Button
-            size="sm"
             variant="ghost"
             className="gap-1.5"
             onClick={props.onClear}
