@@ -490,12 +490,30 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
     })
 
     // Totaux par période — la somme des segments DESSINÉS, pas des données.
-    const totauxParCle = new Map<string, { total: number; cap: number | null }>()
+    const totauxParCle = new Map<string, { total: number; cap: number | null; parts: number }>()
     for (const r of rows) {
       const t = totauxParCle.get(r.cle)
-      if (t) t.total += r.valeur
-      else totauxParCle.set(r.cle, { total: r.valeur, cap: r.capacite })
+      if (t) {
+        t.total += r.valeur
+        if (r.valeur > 0) t.parts++
+      } else {
+        totauxParCle.set(r.cle, {
+          total: r.valeur,
+          cap: r.capacite,
+          parts: r.valeur > 0 ? 1 : 0,
+        })
+      }
     }
+
+    /* Le coin arrondi n'appartient qu'à une barre d'un seul tenant.
+       `barY` n'expose qu'un rayon SCALAIRE, appliqué aux quatre coins de
+       CHAQUE segment : sur une pile, les segments intérieurs s'arrondissaient
+       des deux côtés et chaque jointure laissait une encoche claire, là où la
+       colonne doit se lire d'une seule pièce. Aucun canal ne permet de viser
+       le seul segment de tête — le rayon tombe donc dès qu'une période empile.
+       Décidé une fois pour tout le graphique : deux colonnes voisines, l'une
+       arrondie et l'autre non, se liraient comme deux séries distinctes. */
+    const empilee = [...totauxParCle.values()].some((t) => t.parts > 1)
 
     // Capacité : courbe quand elle varie, ligne plate sinon — un seul rendu.
     const capPoints = afficherCapacite
@@ -590,7 +608,7 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
           x: 'cle',
           y: 'valeur',
           z: 'segment',
-          radius: 2,
+          radius: empilee ? 0 : 2,
           inset: 1,
           // L'ordre de la pile est déclaré, jamais laissé au hasard des
           // données : c'est lui qui rend deux périodes comparables à l'œil.
