@@ -22,6 +22,7 @@ import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 import AppLayout from '@r/layouts/app'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
+import { X3Link } from '@r/components/x3-link'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { ShortageRegistre, ShortageComposants } from '@r/components/shortages'
 import {
@@ -187,7 +188,14 @@ export default function Shortages(props: ShortagesProps) {
               <ul className="mt-2 max-h-44 space-y-1 overflow-auto pr-1">
                 {viewData.phantomOfs!.map((p) => (
                   <li key={p.numOf} className="truncate font-mono text-2xs text-foreground">
-                    <span className="font-bold">{p.numOf}</span>
+                    <X3Link
+                      fonction="GESMFG"
+                      cle={p.numOf}
+                      title={`Ouvrir l'OF ${p.numOf} dans Sage X3`}
+                      className="font-bold text-foreground"
+                    >
+                      {p.numOf}
+                    </X3Link>
                     <span className="text-muted-foreground">
                       {' '}({p.article}, reste {p.qteRestante})
                     </span>
