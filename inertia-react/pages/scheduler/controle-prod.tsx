@@ -150,13 +150,20 @@ function sortByColumn<T>(rows: T[], sorting: SortingState[]): T[] {
   })
 }
 
+const STATUS_BADGE: Record<number, 'success' | 'outline' | 'warning' | 'destructive'> = {
+  1: 'success',
+  2: 'outline',
+  3: 'warning',
+  4: 'destructive',
+}
+
 function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleProdRow>[] {
   return [
     {
       accessorKey: 'numOf',
       header: () => 'OF',
       cell: ({ row: { original: r } }) => (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <CellStack
             code={
               <button
@@ -179,13 +186,16 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
             labelTitle={r.designation ? `${r.article} · ${r.designation}` : r.article}
           />
           {(r.planner || r.site) && (
-            <span className="font-mono text-3xs text-muted-foreground/70">
+            <span className="truncate font-mono text-3xs text-muted-foreground/70">
               {[r.site, r.planner].filter(Boolean).join(' · ')}
             </span>
           )}
         </div>
       ),
-      meta: { tdClass: 'align-top' },
+      meta: {
+        thClass: 'w-[220px] text-left',
+        tdClass: 'w-[220px] align-top',
+      },
     },
     {
       accessorKey: 'qtyLancee',
@@ -204,7 +214,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[80px] text-right!', tdClass: 'w-[80px] text-right align-top' },
     },
     {
       accessorKey: 'qtyDeclaree',
@@ -219,7 +229,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
           }
         />
       ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
       accessorKey: 'qtyPointee',
@@ -235,7 +245,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
           }
         />
       ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[80px] text-right!', tdClass: 'w-[80px] text-right align-top' },
     },
     {
       accessorKey: 'ecart',
@@ -251,7 +261,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
           }
         />
       ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
       accessorKey: 'qteRestante',
@@ -270,7 +280,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[72px] text-right!', tdClass: 'w-[72px] text-right align-top' },
     },
     {
       accessorKey: 'derniereOpPointee',
@@ -284,57 +294,42 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'w-[56px]', tdClass: 'w-[56px] align-top' },
     },
     {
-      accessorKey: 'dateDebutIso',
-      header: () => 'Début',
+      id: 'periode',
+      header: () => 'Période',
       cell: ({ row: { original: r } }) => (
-        <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
-          {fmtFr(r.dateDebutIso)}
+        <span className="flex flex-col gap-px font-mono text-1.5xs tabular-nums leading-tight">
+          <span className="text-muted-foreground">
+            {fmtFr(r.dateDebutIso)} → {fmtFr(r.dateFinIso)}
+          </span>
+          <span
+            className="text-3xs text-muted-foreground/60"
+            title={`1er suivi ${fmtFr(r.datePremierSuiviIso)} · Dern. ${fmtFr(r.dateDernierSuiviIso)}`}
+          >
+            suivi {fmtFr(r.datePremierSuiviIso)} ·{' '}
+            <span className="font-semibold text-foreground">{fmtFr(r.dateDernierSuiviIso)}</span>
+          </span>
         </span>
       ),
-      meta: { tdClass: 'align-top' },
-    },
-    {
-      accessorKey: 'dateFinIso',
-      header: () => 'Fin',
-      cell: ({ row: { original: r } }) => (
-        <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
-          {fmtFr(r.dateFinIso)}
-        </span>
-      ),
-      meta: { tdClass: 'align-top' },
-    },
-    {
-      accessorKey: 'datePremierSuiviIso',
-      header: () => '1er suivi',
-      cell: ({ row: { original: r } }) => (
-        <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
-          {fmtFr(r.datePremierSuiviIso)}
-        </span>
-      ),
-      meta: { tdClass: 'align-top' },
-    },
-    {
-      accessorKey: 'dateDernierSuiviIso',
-      header: () => 'Dern. suivi',
-      cell: ({ row: { original: r } }) => (
-        <span className="font-mono text-1.5xs font-semibold tabular-nums text-foreground">
-          {fmtFr(r.dateDernierSuiviIso)}
-        </span>
-      ),
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'w-[170px]', tdClass: 'w-[170px] align-top' },
     },
     {
       accessorKey: 'mfgStaLabel',
       header: () => 'Statut',
-      cell: ({ row: { original: r } }) => (
-        <span className="block max-w-[7rem] truncate text-1.5xs font-medium text-foreground">
-          {r.mfgStaLabel ?? '—'}
-        </span>
-      ),
-      meta: { tdClass: 'align-top' },
+      cell: ({ row: { original: r } }) => {
+        const sta = r.mfgSta ?? 0
+        const variant = STATUS_BADGE[sta] ?? 'secondary'
+        return r.mfgStaLabel ? (
+          <Badge variant={variant} className="font-mono text-2xs">
+            {r.mfgStaLabel}
+          </Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )
+      },
+      meta: { thClass: 'w-[96px]', tdClass: 'w-[96px] align-top' },
     },
     {
       accessorKey: 'source',
@@ -344,7 +339,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
           {r.source === 'live' ? 'Live' : 'Ouvert'}
         </Badge>
       ),
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'w-[88px]', tdClass: 'w-[88px] align-top' },
     },
   ]
 }
@@ -356,7 +351,7 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
       accessorKey: 'numOf',
       header: () => 'OF',
       cell: ({ row: { original: r } }) => (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <CellStack
             code={
               <button
@@ -379,13 +374,13 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
             labelTitle={r.designation ? `${r.article} · ${r.designation}` : r.article}
           />
           {(r.planner || r.site || r.poste) && (
-            <span className="font-mono text-3xs text-muted-foreground/70">
+            <span className="truncate font-mono text-3xs text-muted-foreground/70">
               {[r.site, r.planner, r.poste].filter(Boolean).join(' · ')}
             </span>
           )}
         </div>
       ),
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'w-[220px] text-left', tdClass: 'w-[220px] align-top' },
     },
     {
       accessorKey: 'qteRestante',
@@ -401,7 +396,7 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
           }
         />
       ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[96px] text-right!', tdClass: 'w-[96px] text-right align-top' },
     },
     {
       accessorKey: 'qtyRealisee',
@@ -413,7 +408,7 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
           {fmt(r.qtyRealisee)}/{fmt(r.qtyPrevueOp)}
         </span>
       ),
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
       accessorKey: 'joursDepuisPointage',
@@ -437,7 +432,7 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
           </div>
         )
       },
-      meta: { thClass: 'text-right!', tdClass: 'text-right align-top' },
+      meta: { thClass: 'w-[110px] text-right!', tdClass: 'w-[110px] text-right align-top' },
     },
     {
       id: 'action',
@@ -448,7 +443,7 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
           <Badge variant={vieux ? 'destructive' : 'success'}>{vieux ? 'Solder' : 'Déclarer'}</Badge>
         )
       },
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'w-[92px]', tdClass: 'w-[92px] align-top' },
     },
     {
       id: 'commandes',
@@ -477,27 +472,18 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
             )}
           </div>
         ),
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'min-w-[260px]', tdClass: 'align-top' },
     },
     {
-      accessorKey: 'dateDebutIso',
-      header: () => 'Début',
+      id: 'periode',
+      header: () => 'Période',
+      enableSorting: false,
       cell: ({ row: { original: r } }) => (
         <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
-          {fmtFr(r.dateDebutIso)}
+          {fmtFr(r.dateDebutIso)} → {fmtFr(r.dateFinIso)}
         </span>
       ),
-      meta: { tdClass: 'align-top' },
-    },
-    {
-      accessorKey: 'dateFinIso',
-      header: () => 'Fin',
-      cell: ({ row: { original: r } }) => (
-        <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
-          {fmtFr(r.dateFinIso)}
-        </span>
-      ),
-      meta: { tdClass: 'align-top' },
+      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px] align-top' },
     },
   ]
 }

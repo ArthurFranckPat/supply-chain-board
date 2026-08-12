@@ -239,17 +239,23 @@ export async function loadControleProdData(force = false): Promise<ControleProdP
 
         const enrich = await fetchEnrichment(draft.map((d) => d.c.numOf))
 
-        // Menu local MFGSTA (chapitre X3 usuel des statuts OF article — 230 si présent,
-        // sinon on tombe sur le code numérique).
+        // Menu local MFGSTA — 317 = « Statut encours » (1 Ferme, 2 Planifié, 3 Suggéré, 4 Clos).
+        // 230 n'héberge rien sur ce dossier ; conservé en repli compat.
         const menuRows = await LocalMenu.query()
           .whereIn('chapter', [230, 317])
           .catch(() => [])
+        const MFG_STA_FALLBACK: Record<number, string> = {
+          1: 'Ferme',
+          2: 'Planifié',
+          3: 'Suggéré',
+          4: 'Clos',
+        }
         const staLabel = (sta: number | null) => {
           if (sta == null) return null
           const hit =
             menuRows.find((m) => m.chapter === 230 && m.value === sta) ??
             menuRows.find((m) => m.chapter === 317 && m.value === sta)
-          return hit?.label ?? String(sta)
+          return hit?.label ?? MFG_STA_FALLBACK[sta] ?? String(sta)
         }
 
         const rows: ControleProdRow[] = draft.map(({ c, qtyPointee, derniereOp, nbOps, poste }) => {
