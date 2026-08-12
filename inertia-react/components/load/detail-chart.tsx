@@ -77,7 +77,7 @@ export function DetailChart({
       <div className="mb-1.5 flex flex-none flex-wrap items-center gap-x-4 gap-y-1">
         <Legende segments={segments} />
         {showCapacity && (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-1.5xs text-muted-foreground">
             <span
               aria-hidden
               className="inline-block h-0 w-3.5 border-t-2 border-dashed"
@@ -87,7 +87,7 @@ export function DetailChart({
           </span>
         )}
         {showAvg && (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-1.5xs text-muted-foreground">
             <span
               aria-hidden
               className="inline-block h-0 w-3.5 border-t-2 border-dashed"

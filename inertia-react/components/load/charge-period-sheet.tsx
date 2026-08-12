@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
+import { CircleX, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
+import { Badge } from '@r/components/ui/badge'
+import { Pill } from '@r/components/ui/pill'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
+import {
+  CellNumber,
+  CellStack,
+  TableCell,
+  TableHead,
+  TableHeadRow,
+  TableRow,
+} from '@r/components/ui/table-row'
 import {
   Combobox,
   ComboboxContent,
@@ -133,6 +143,45 @@ interface Group<R> {
   /** Segments présents ce jour-là (pastilles d'en-tête). */
   fields: string[]
 }
+
+/**
+ * Colonnes de la table.
+ *
+ * Code et désignation tiennent dans UNE cellule (`CellStack`) : c'est la
+ * grammaire canonique d'une identité — un code en chasse fixe qui ne se tronque
+ * jamais, un libellé qui se tronque toujours. En deux colonnes, le navigateur
+ * coupait où il pouvait, c'est-à-dire dans le code. Idem pour Commande/Client
+ * en vue commande : la vue passe ainsi de sept colonnes à cinq.
+ *
+ * La DATE ne figure pas dans les colonnes : elle est portée une seule fois par
+ * l'en-tête de jour. `table-fixed` + largeurs en pourcentage : c'est ce qui rend
+ * la troncature possible et l'alignement structurel, comme l'était la grille
+ * unique qu'elles remplacent.
+ */
+interface SheetCol {
+  label: string
+  width: string
+  right?: boolean
+}
+
+const OF_COLS: SheetCol[] = [
+  { label: 'Article', width: '36%' },
+  { label: 'Ordre', width: '24%' },
+  { label: 'Qté', width: '20%', right: true },
+  { label: 'Heures', width: '20%', right: true },
+]
+
+/** Cellule du pied de table — opaque, sinon la rangée collante est traversée. */
+const FOOT_CELL =
+  'border-t border-rule bg-secondary py-2! font-mono text-2xs tabular-nums text-muted-foreground'
+
+const CMD_COLS: SheetCol[] = [
+  { label: 'Article', width: '26%' },
+  { label: 'Via', width: '22%' },
+  { label: 'Commande', width: '24%' },
+  { label: 'Qté', width: '14%', right: true },
+  { label: 'Heures', width: '14%', right: true },
+]
 
 function groupByDay<R>(
   rows: R[],
@@ -298,20 +347,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     )
   }, [data, cmdGroups, cmdHours])
 
-  // Grille UNIQUE (en-tête + lignes + total dans le même conteneur) : l'alignement
-  // est structurel. Deux grilles distinctes se dimensionnaient indépendamment et
-  // décalaient les en-têtes des cellules.
-  // La DATE ne figure pas dans les colonnes : elle est portée une seule fois
-  // par l'en-tête de jour. Les lignes n'affichent que ce qui les distingue au
-  // sein de ce jour.
-  // « Via » porte une chaîne d'articles (PF › SE › …), pas un code isolé :
-  // elle a besoin d'une part élastique, pas d'une largeur fixe.
-  const cols = view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 9rem 7rem'
-
-  const heads =
-    view === 'of'
-      ? ['Article', 'Désignation', 'Ordre', 'Qté', 'Heures']
-      : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'Qté', 'Heures']
+  const cols = view === 'of' ? OF_COLS : CMD_COLS
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
@@ -340,59 +376,59 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
         ) : !data ? null : (
           <>
             {/* Bandeau d'identité : poste, période, total. Une seule famille
-                typographique par rôle (mono = identifiants/chiffres). */}
-            <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border bg-secondary px-5 py-2.5 pr-14">
-              <span className="font-mono text-[13px] font-bold text-foreground">
+                typographique par rôle (mono = identifiants/chiffres), et
+                l'échelle micro d'app.css plutôt que cinq corps écrits à la
+                main. La marque ne peint plus le libellé de bucket : dans la
+                hiérarchie chromatique elle ne signale QUE l'engagement d'un
+                contrôle — ici, le drapeau « filtré ». */}
+            <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border bg-secondary px-4 py-2.5 pr-14">
+              <span className="font-mono text-cell-lg font-bold text-foreground">
                 {data.poste.code}
               </span>
-              <SheetTitle className="text-[13px] font-medium text-muted-foreground">
+              <SheetTitle className="text-xs font-medium text-muted-foreground">
                 {data.poste.label}
               </SheetTitle>
-              <span className="font-mono text-[11px] font-semibold text-brand">
+              <span className="font-mono text-1.5xs font-semibold text-foreground">
                 {data.bucket.label}
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-2xs text-muted-foreground">
                 {fmtDateFr(data.bucket.fromIso)} → {fmtDateFr(data.bucket.toIso)}
               </span>
               <span className="flex-1" />
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="font-mono text-2xs uppercase tracking-wider text-muted-foreground">
                 {groups.length} jour{groups.length > 1 ? 's' : ''} · {rowCount}{' '}
                 {view === 'of' ? 'ordres' : 'besoins'}
               </span>
-              <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">
+              <span className="font-mono text-cell-lg font-bold tabular-nums text-foreground">
                 {fmtH(totalHours)} h
               </span>
               {/* Un total filtré n'est plus la hauteur de la barre : le dire,
                   sinon le chiffre semble contredire le graphe. */}
               {articleActive && (
-                <span className="font-mono text-[10px] font-semibold text-brand">filtré</span>
+                <span className="font-mono text-2xs font-semibold text-brand">filtré</span>
               )}
               {view === 'commande' && (
-                <span className="font-mono text-[10px] text-muted-foreground">
+                <span className="font-mono text-2xs text-muted-foreground">
                   {qtyMode === 'reste' ? 'reste à produire' : qtyMode}
                 </span>
               )}
               {view === 'commande' && forecastHours > 0 && (
-                <span
-                  className="inline-flex items-baseline gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold"
-                  style={{
-                    color: 'var(--color-suggere)',
-                    borderColor: 'color-mix(in srgb, var(--color-suggere) 45%, transparent)',
-                    background: 'color-mix(in srgb, var(--color-suggere) 10%, transparent)',
-                  }}
+                <Badge
+                  variant="warning"
+                  className="gap-1.5 font-mono text-2xs tabular-nums"
                   title="Charge tirée par des prévisions et non par des commandes fermes — la moins sûre de la période"
                 >
                   dont {fmtH(forecastHours)} h de prévision
                   <span className="opacity-70">
-                    ({Math.round((forecastHours / totalHours) * 100)}%)
+                    ({Math.round((forecastHours / totalHours) * 100)} %)
                   </span>
-                </span>
+                </Badge>
               )}
             </div>
 
             {data.x3Error && (
-              <div className="flex flex-none items-start gap-2 border-b border-brand/30 bg-brand-soft px-5 py-2 text-[12px]">
-                <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-brand" />
+              <div className="flex flex-none items-start gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-[12px]">
+                <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-destructive" />
                 <span className="flex-none font-bold">Chargement partiel :</span>
                 <span className="break-all font-mono">{data.x3Error}</span>
               </div>
@@ -401,8 +437,8 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
             {/* Filtre article — inutile quand la période ne contient qu'un
                 article : un sélecteur à un seul choix n'est que du bruit. */}
             {articleOptions.length > 1 && (
-              <div className="flex flex-none items-center gap-2 border-b border-rule px-5 py-1.5">
-                <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="flex flex-none items-center gap-2 border-b border-rule px-4 py-1.5">
+                <span className="font-mono text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                   Article
                 </span>
                 <div ref={anchorRef} className="w-[320px]">
@@ -425,8 +461,8 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     <ComboboxContent anchor={anchorRef} layerClassName="z-[62]">
                       <ComboboxList>
                         <ComboboxItem value={null}>
-                          <span className="text-[12px] font-semibold">Tous les articles</span>
-                          <span className="text-muted-foreground text-[11px]">
+                          <span className="text-xs font-semibold">Tous les articles</span>
+                          <span className="text-1.5xs text-muted-foreground">
                             {articleOptions.length}
                           </span>
                         </ComboboxItem>
@@ -437,13 +473,13 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                         ) : (
                           filteredOptions.map((o) => (
                             <ComboboxItem key={o.code} value={o.code}>
-                              <span className="font-mono text-[12px] font-semibold">{o.code}</span>
-                              <span className="min-w-0 flex-1 truncate text-muted-foreground text-[11px]">
+                              <span className="font-mono text-xs font-semibold">{o.code}</span>
+                              <span className="min-w-0 flex-1 truncate text-1.5xs text-muted-foreground">
                                 {o.designation || '—'}
                               </span>
                               {/* Le poids oriente le choix sans avoir à filtrer
                                   pour le découvrir. */}
-                              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                              <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
                                 {fmtH(o.hours)} h
                               </span>
                             </ComboboxItem>
@@ -454,78 +490,98 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                   </Combobox>
                 </div>
                 {articleActive && (
-                  <button
-                    type="button"
+                  <Pill
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setArticleFilter(null)
                       setArticleQuery('')
                     }}
-                    className="font-mono text-[10px] font-semibold text-brand hover:underline"
                   >
                     Tout afficher
-                  </button>
+                  </Pill>
                 )}
               </div>
             )}
 
             {rowCount === 0 ? (
-              <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[13px] italic text-muted-foreground">
+              <div className="flex flex-1 items-center justify-center p-10 text-center text-[13px] text-muted-foreground">
                 {articleActive
                   ? `Aucune charge pour ${articleFilter} sur cette période.`
                   : 'Aucune charge sur cette période avec le filtre actif.'}
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-auto">
-                <div className="grid items-center" style={{ gridTemplateColumns: cols }}>
-                  {/* En-tête — cellules de la MÊME grille que les lignes. */}
-                  {heads.map((h, i) => (
-                    <div
-                      key={`h-${i}`}
-                      className={cn(
-                        'sticky top-0 z-10 border-b border-border bg-secondary py-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground',
-                        i === 0 && 'pl-5',
-                        i === heads.length - 1 && 'pr-5',
-                        // Qté et Heures alignées à droite comme leurs valeurs.
-                        (h === 'Qté' || h === 'Heures') && 'text-right'
-                      )}
-                    >
-                      {h}
-                    </div>
-                  ))}
-
-                  {groups.map((g) => (
-                    <DayBlock
-                      key={g.dateIso}
-                      group={g}
-                      view={view}
-                      qtyMode={qtyMode}
-                      maxHours={maxGroupHours}
-                      totalHours={totalHours}
-                    />
-                  ))}
-
+                {/* Vraie table, et non plus une grille CSS : la grammaire de
+                    rangée (filet, survol, sélection, barre de gravité, paddings)
+                    vit dans `ui/table-row` et dans la recette `.theme-cursor
+                    table` d'app.css. Recopiée à la main, elle avait dérivé — un
+                    en-tête à 9 px, des cellules à 5 px de padding, aucun des
+                    deux sur un palier déclaré. */}
+                <table className="w-full table-fixed">
+                  <colgroup>
+                    {cols.map((c) => (
+                      <col key={c.label} style={{ width: c.width }} />
+                    ))}
+                  </colgroup>
+                  <thead>
+                    {/* `sticky top-0 z-10 bg-secondary` : c'est le crochet que la
+                        recette cursor attend (`thead:has(tr.sticky)`) pour
+                        décoller l'en-tête d'une ombre courte. Le fond est aussi
+                        posé sur les `<th>` — la recette rend la RANGÉE
+                        transparente en `!important`, et une rangée collante
+                        transparente laisse défiler les lignes au travers. */}
+                    <TableHeadRow className="sticky top-0 z-10 bg-secondary">
+                      {cols.map((c) => (
+                        <TableHead
+                          key={c.label}
+                          align={c.right ? 'right' : 'left'}
+                          // `text-right` seul ne suffit pas : `.theme-cursor
+                          // table th` pose `text-align: left` à une spécificité
+                          // qu'une classe n'atteint pas.
+                          className={cn('bg-secondary', c.right && 'text-right!')}
+                        >
+                          {c.label}
+                        </TableHead>
+                      ))}
+                    </TableHeadRow>
+                  </thead>
+                  <tbody>
+                    {groups.map((g) => (
+                      <DayBlock
+                        key={g.dateIso}
+                        group={g}
+                        view={view}
+                        qtyMode={qtyMode}
+                        maxHours={maxGroupHours}
+                        totalHours={totalHours}
+                        colCount={cols.length}
+                      />
+                    ))}
+                  </tbody>
                   {/* Total en pied : le chiffre du bandeau se revérifie ici,
                       au bout de la colonne Heures. */}
-                  <div
-                    className="sticky bottom-0 col-span-full grid items-center border-t border-border bg-secondary py-1.5"
-                    style={{ gridTemplateColumns: cols }}
-                  >
-                    <div className="pl-5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Total période
-                    </div>
-                    {/* Colonnes intermédiaires vides : le total se lit au bout
-                        de la colonne Heures, pas ailleurs. */}
-                    {Array.from({ length: heads.length - 3 }, (_, i) => (
-                      <div key={`sp-${i}`} />
-                    ))}
-                    <div className="text-right font-mono text-[10px] text-muted-foreground">
-                      {rowCount} lig.
-                    </div>
-                    <div className="pr-5 text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
-                      {fmtH(totalHours)}
-                    </div>
-                  </div>
-                </div>
+                  <tfoot>
+                    {/* Le fond et le filet sont posés sur les CELLULES, pas sur
+                        la rangée : en `border-collapse: collapse`, une rangée
+                        collante dont seul le `<tr>` est peint laisse voir les
+                        lignes défiler au travers. */}
+                    <tr className="sticky bottom-0">
+                      <TableCell
+                        colSpan={cols.length - 2}
+                        className={cn(FOOT_CELL, 'font-medium uppercase tracking-wide')}
+                      >
+                        Total période
+                      </TableCell>
+                      <TableCell align="right" className={FOOT_CELL}>
+                        {rowCount} lig.
+                      </TableCell>
+                      <TableCell align="right" className={cn(FOOT_CELL, 'text-foreground')}>
+                        <CellNumber value={fmtH(totalHours)} />
+                      </TableCell>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             )}
           </>
@@ -554,8 +610,9 @@ function DayBlock(props: {
   qtyMode: LoadQtyMode
   maxHours: number
   totalHours: number
+  colCount: number
 }) {
-  const { group: g, view, qtyMode, maxHours, totalHours } = props
+  const { group: g, view, qtyMode, maxHours, totalHours, colCount } = props
   const share = totalHours > 0 ? (g.hours / totalHours) * 100 : 0
   const barPct = maxHours > 0 ? (g.hours / maxHours) * 100 : 0
   const dayForecastHours =
@@ -571,55 +628,58 @@ function DayBlock(props: {
 
   return (
     <>
-      {/* En-tête de jour — pleine largeur, alignée sur la grille parente. */}
-      <div className="col-span-full mt-1 flex items-baseline gap-2.5 border-y border-rule-soft bg-card/60 px-5 py-1.5">
-        {g.fields.map((f) => (
-          <i
-            key={f}
-            className="size-2 flex-none translate-y-px rounded-[2px]"
-            style={{ background: SEG_COLOR[f] }}
-            title={segLabel(view, f as SegField)}
-          />
-        ))}
-        <span className="font-mono text-[10px] uppercase text-muted-foreground">
-          {weekdayOf(g.dateIso)}
-        </span>
-        <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
-          {fmtDateFr(g.dateIso)}
-        </span>
-        <span className="flex-1" />
-        {/* Part du jour tirée par des prévisions — affichée seulement si le
-            jour en contient, et seulement en vue commande où l'information
-            existe réellement. */}
-        {view === 'commande' && dayForecastHours > 0 && (
-          <span
-            className="flex-none font-mono text-[10px] font-semibold"
-            style={{ color: 'var(--color-suggere)' }}
-            title="Part de la charge du jour tirée par des prévisions"
-          >
-            dont {fmtH(dayForecastHours)} h prév.
-          </span>
-        )}
-        <span className="flex-none font-mono text-[10px] text-muted-foreground">
-          {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
-          {g.rows.length > 1 ? 's' : ''}
-        </span>
-        {/* Poids du jour dans la barre cliquée — la question qu'on se pose. */}
-        <span className="flex flex-none items-center gap-2">
-          <span className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
-            <span
-              className="absolute inset-y-0 left-0 rounded-full bg-brand"
-              style={{ width: `${Math.max(2, barPct)}%` }}
-            />
-          </span>
-          <span className="w-9 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-            {Math.round(share)}%
-          </span>
-          <span className="w-14 text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
-            {fmtH(g.hours)}
-          </span>
-        </span>
-      </div>
+      {/* En-tête de jour — une rangée à cellule unique, en pleine largeur de la
+          table. C'est ce qui garde l'alignement structurel maintenant que la
+          grille CSS a disparu. */}
+      <TableRow>
+        <TableCell colSpan={colCount} className="bg-secondary/70 py-2!">
+          <div className="flex items-baseline gap-2.5">
+            {g.fields.map((f) => (
+              <i
+                key={f}
+                className="size-2 flex-none translate-y-px rounded-[2px]"
+                style={{ background: SEG_COLOR[f] }}
+                title={segLabel(view, f as SegField)}
+              />
+            ))}
+            <span className="font-mono text-2xs uppercase text-muted-foreground">
+              {weekdayOf(g.dateIso)}
+            </span>
+            <span className="font-mono text-1.5xs font-bold tabular-nums text-foreground">
+              {fmtDateFr(g.dateIso)}
+            </span>
+            <span className="flex-1" />
+            {/* Part du jour tirée par des prévisions — affichée seulement si le
+                jour en contient, et seulement en vue commande où l'information
+                existe réellement. */}
+            {view === 'commande' && dayForecastHours > 0 && (
+              <span
+                className="flex-none font-mono text-2xs font-semibold text-suggere"
+                title="Part de la charge du jour tirée par des prévisions"
+              >
+                dont {fmtH(dayForecastHours)} h prév.
+              </span>
+            )}
+            <span className="flex-none font-mono text-2xs text-muted-foreground">
+              {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
+              {g.rows.length > 1 ? 's' : ''}
+            </span>
+            {/* Poids du jour dans la barre cliquée — la question qu'on se pose. */}
+            <span className="flex flex-none items-center gap-2">
+              <span className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full bg-brand"
+                  style={{ width: `${Math.max(2, barPct)}%` }}
+                />
+              </span>
+              <span className="w-9 text-right font-mono text-2xs tabular-nums text-muted-foreground">
+                {Math.round(share)} %
+              </span>
+              <CellNumber className="inline-block w-14 text-right" value={fmtH(g.hours)} />
+            </span>
+          </div>
+        </TableCell>
+      </TableRow>
 
       {g.rows.map((r, i) =>
         view === 'of' ? (
@@ -636,128 +696,141 @@ function DayBlock(props: {
   )
 }
 
-const CELL = 'border-b border-rule-soft/60 py-[5px] text-[11px]'
-
 function OfRow({ row: r }: { row: DetailOfRow }) {
   return (
-    <>
-      <div className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}>
-        {r.article}
-      </div>
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>{r.designation || '—'}</div>
+    <TableRow>
+      <TableCell>
+        <CellStack code={r.article} label={r.designation} labelTitle={r.designation ?? undefined} />
+      </TableCell>
       {/* Identifiant technique : lisible mais discret. Sur un OF suggéré il n'a
           aucune valeur de lecture — il ne doit pas capter le regard avant
           l'article et les heures. */}
-      <div className={cn(CELL, 'font-mono text-[10px] text-muted-foreground')}>{r.numOf}</div>
-      <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
-        {fmtQ(r.quantite)}
-      </div>
-      <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
-        {fmtH(r.hours)}
-      </div>
-    </>
+      <TableCell>
+        <span className="truncate font-mono text-2xs text-muted-foreground">{r.numOf}</span>
+      </TableCell>
+      <TableCell align="right">
+        <CellNumber emphasis="plain" value={fmtQ(r.quantite)} />
+      </TableCell>
+      <TableCell align="right">
+        <CellNumber value={fmtH(r.hours)} />
+      </TableCell>
+    </TableRow>
   )
 }
 
 function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }) {
   const forecast = isForecastPulled(r.field)
   return (
-    <>
-      {/* Liseré sur toute la ligne : une charge tirée par une prévision se
-          repère au balayage, sans lire la colonne Client. */}
-      <div
-        className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}
-        style={
-          forecast
-            ? { borderLeft: '2px solid var(--color-suggere)', paddingLeft: 'calc(1.25rem - 2px)' }
-            : undefined
-        }
-      >
-        {r.article}
-        {/* Marqueur de niveau BOM : un induit ne se lit pas comme un PF. */}
-        {r.depth > 0 && (
-          <span
-            className="ml-1 font-mono text-[9px] font-normal text-muted-foreground"
-            title={`Composant induit, niveau ${r.depth}`}
-          >
-            N-{r.depth}
-          </span>
-        )}
-      </div>
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>
-        {forecast && (
-          <span
-            className="mr-1.5 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
-            style={{
-              color: 'var(--color-suggere)',
-              background: 'color-mix(in srgb, var(--color-suggere) 14%, transparent)',
-            }}
-            title={
-              r.depth === 0
-                ? 'Produit fini tiré par une prévision client, pas par une commande ferme'
-                : 'Composant induit par un produit fini lui-même tiré par une prévision'
-            }
-          >
-            prév.
-          </span>
-        )}
-        {r.designation || '—'}
-      </div>
+    /* Une charge tirée par une prévision se repère au balayage, sans lire la
+       colonne client : c'est la barre de gravité canonique de la rangée
+       (`tone`), et non plus un `border-left` posé à la main sur la première
+       cellule — que `border-collapse` arbitrait une fois sur deux. */
+    <TableRow tone={forecast ? 'warning' : null}>
+      <TableCell>
+        <CellStack
+          code={r.article}
+          label={r.designation}
+          labelTitle={r.designation ?? undefined}
+          action={
+            <>
+              {/* Marqueur de niveau BOM : un induit ne se lit pas comme un PF. */}
+              {r.depth > 0 && (
+                <span
+                  className="font-mono text-3xs font-normal text-muted-foreground"
+                  title={`Composant induit, niveau ${r.depth}`}
+                >
+                  N-{r.depth}
+                </span>
+              )}
+              {forecast && (
+                <Badge
+                  variant="warning"
+                  className="h-4 px-1.5 font-mono text-3xs font-bold uppercase tracking-wider"
+                  title={
+                    r.depth === 0
+                      ? 'Produit fini tiré par une prévision client, pas par une commande ferme'
+                      : 'Composant induit par un produit fini lui-même tiré par une prévision'
+                  }
+                >
+                  prév.
+                </Badge>
+              )}
+            </>
+          }
+        />
+      </TableCell>
       {/* Chaîne BOM lue en REMONTÉE : du parent immédiat vers le produit fini.
           `path` est stocké dans l'ordre d'ascendance (PF en tête) ; on l'inverse
           ici parce que la lecture part de l'article de la ligne et doit ABOUTIR
           au produit fini — celui-là même que porte la colonne Commande, juste à
           côté. Dans l'autre sens, les deux colonnes ne se raccordaient pas.
           Tronqué dans la cellule, chaîne entière au survol. */}
-      <div
-        className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}
-        title={
-          r.path.length
-            ? // Chaîne entière, article de la ligne inclus en tête.
-              [r.article, ...[...r.path].reverse()].join(' → ')
-            : undefined
-        }
-      >
-        {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
-      </div>
-      <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
-        {/* Prévision (field s/si) : pas de commande X3, pas de lien (#118). */}
-        {!forecast && r.numCommande ? (
-          <X3Link
-            fonction="GESSOH"
-            cle={r.numCommande}
-            title={`Ouvrir la commande ${r.numCommande} dans Sage X3`}
-            className="font-mono text-[10px] text-secondary-foreground"
-          >
-            {r.numCommande}
-          </X3Link>
-        ) : (
-          r.numCommande ?? '—'
-        )}
-        {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
-      </div>
-      {/* Le badge « prév. » porte déjà la nature : ici on ne dit plus que
-          l'absence de client, qui sur une prévision est structurelle. */}
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>
-        {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
-      </div>
+      <TableCell>
+        <span
+          className="block truncate font-mono text-2xs text-muted-foreground"
+          title={
+            r.path.length
+              ? // Chaîne entière, article de la ligne inclus en tête.
+                [r.article, ...[...r.path].reverse()].join(' → ')
+              : undefined
+          }
+        >
+          {r.path.length === 0 ? '—' : [...r.path].reverse().join(' → ')}
+        </span>
+      </TableCell>
+      {/* Commande et client tiennent dans la même identité : le numéro ne se
+          tronque jamais, le nom du client toujours. Le badge « prév. » porte
+          déjà la nature — ici on ne dit plus que l'absence de client, qui sur
+          une prévision est structurelle. */}
+      <TableCell>
+        <CellStack
+          code={
+            /* Prévision (field s/si) : pas de commande X3, pas de lien (#118). */
+            !forecast && r.numCommande ? (
+              <X3Link
+                fonction="GESSOH"
+                cle={r.numCommande}
+                title={`Ouvrir la commande ${r.numCommande} dans Sage X3`}
+                className="font-mono text-xs font-bold text-foreground"
+              >
+                {r.numCommande}
+                {r.ligne ? <span className="text-muted-foreground">/{r.ligne}</span> : null}
+              </X3Link>
+            ) : (
+              <>
+                {r.numCommande ?? '—'}
+                {r.ligne ? <span className="text-muted-foreground">/{r.ligne}</span> : null}
+              </>
+            )
+          }
+          label={r.client ?? (forecast ? 'sans client' : '—')}
+          labelTitle={r.client ?? undefined}
+        />
+      </TableCell>
       {/* En cran « reste », la part absorbée par l'en-cours est annoncée À CÔTÉ du
           chiffre. Sans elle la ligne affiche une quantité plus petite que la
           commande sans dire pourquoi — un chiffre inexpliqué se lit comme un bug. */}
-      <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
+      <TableCell align="right">
         {qtyMode === 'reste' && r.encoursQty > 0 && (
           <span
-            className="mr-1.5 text-[9px] font-semibold text-muted-foreground"
+            className="mr-1.5 font-mono text-3xs font-semibold text-muted-foreground"
             title={`${fmtQ(r.encoursQty)} déjà produites sur un OF en cours, pas encore déclarées en stock (net ${fmtQ(r.netQty)} − en-cours ${fmtQ(r.encoursQty)})`}
           >
             −{fmtQ(r.encoursQty)}
           </span>
         )}
-        {fmtQ(qtyMode === 'reste' ? r.resteQty : qtyMode === 'net' ? r.netQty : r.brutQty)}
-      </div>
-      <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
-        {fmtH(qtyMode === 'reste' ? r.resteHours : qtyMode === 'net' ? r.netHours : r.brutHours)}
-      </div>
-    </>
+        <CellNumber
+          emphasis="plain"
+          value={fmtQ(qtyMode === 'reste' ? r.resteQty : qtyMode === 'net' ? r.netQty : r.brutQty)}
+        />
+      </TableCell>
+      <TableCell align="right">
+        <CellNumber
+          value={fmtH(
+            qtyMode === 'reste' ? r.resteHours : qtyMode === 'net' ? r.netHours : r.brutHours
+          )}
+        />
+      </TableCell>
+    </TableRow>
   )
 }
