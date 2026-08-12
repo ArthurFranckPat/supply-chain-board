@@ -195,15 +195,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
       header: () => 'Lancée',
       cell: ({ row: { original: r } }) =>
         r.qtyLancee != null && Number.isFinite(r.qtyLancee) ? (
-          <CellNumber
-            emphasis="plain"
-            value={
-              <>
-                {fmt(r.qtyLancee)}
-                <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-              </>
-            }
-          />
+          <CellNumber value={fmt(r.qtyLancee)} />
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),
@@ -212,48 +204,19 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
     {
       accessorKey: 'qtyDeclaree',
       header: () => 'Déclaré',
-      cell: ({ row: { original: r } }) => (
-        <CellNumber
-          value={
-            <>
-              {fmt(r.qtyDeclaree)}
-              <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-            </>
-          }
-        />
-      ),
+      cell: ({ row: { original: r } }) => <CellNumber value={fmt(r.qtyDeclaree)} />,
       meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
       accessorKey: 'qtyPointee',
       header: () => 'Pointé',
-      cell: ({ row: { original: r } }) => (
-        <CellNumber
-          emphasis="plain"
-          value={
-            <>
-              {fmt(r.qtyPointee)}
-              <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-            </>
-          }
-        />
-      ),
+      cell: ({ row: { original: r } }) => <CellNumber value={fmt(r.qtyPointee)} />,
       meta: { thClass: 'w-[80px] text-right!', tdClass: 'w-[80px] text-right align-top' },
     },
     {
       accessorKey: 'ecart',
       header: () => 'Écart',
-      cell: ({ row: { original: r } }) => (
-        <CellNumber
-          tone="critical"
-          value={
-            <>
-              +{fmt(r.ecart)}
-              <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-            </>
-          }
-        />
-      ),
+      cell: ({ row: { original: r } }) => <CellNumber tone="critical" value={`+${fmt(r.ecart)}`} />,
       meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
@@ -261,15 +224,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
       header: () => 'Reste',
       cell: ({ row: { original: r } }) =>
         r.qteRestante > 0 ? (
-          <CellNumber
-            emphasis="plain"
-            value={
-              <>
-                {fmt(r.qteRestante)}
-                <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-              </>
-            }
-          />
+          <CellNumber value={fmt(r.qteRestante)} />
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),
@@ -352,17 +307,7 @@ function createSolderColumns(onSelectOf: (numOf: string) => void): ColumnDef<OfA
     {
       accessorKey: 'qteRestante',
       header: () => 'Reste annoncé',
-      cell: ({ row: { original: r } }) => (
-        <CellNumber
-          tone="critical"
-          value={
-            <>
-              {fmt(r.qteRestante)}
-              <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-            </>
-          }
-        />
-      ),
+      cell: ({ row: { original: r } }) => <CellNumber tone="critical" value={fmt(r.qteRestante)} />,
       meta: { thClass: 'w-[96px] text-right!', tdClass: 'w-[96px] text-right align-top' },
     },
     {
