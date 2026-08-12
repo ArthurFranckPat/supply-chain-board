@@ -154,7 +154,11 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
   return [
     {
       accessorKey: 'numOf',
-      header: () => 'OF',
+      header: () => (
+        <span title="Ordre de fabrication · Article et désignation · Site / Planificateur">
+          OF · Article
+        </span>
+      ),
       cell: ({ row: { original: r } }) => (
         <div className="flex min-w-0 flex-col gap-0.5">
           <CellStack
@@ -192,7 +196,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
     },
     {
       accessorKey: 'qtyLancee',
-      header: () => 'Lancée',
+      header: () => <span title="Quantité lancée sur l'OF (EXTQTY_0)">Lancée</span>,
       cell: ({ row: { original: r } }) =>
         r.qtyLancee != null && Number.isFinite(r.qtyLancee) ? (
           <CellNumber value={fmt(r.qtyLancee)} />
@@ -203,25 +207,31 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
     },
     {
       accessorKey: 'qtyDeclaree',
-      header: () => 'Déclaré',
+      header: () => (
+        <span title="Quantité déclarée PF (CPLQTY_0 — ce qu'ORDERS annonce)">Déclaré PF</span>
+      ),
       cell: ({ row: { original: r } }) => <CellNumber value={fmt(r.qtyDeclaree)} />,
       meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
       accessorKey: 'qtyPointee',
-      header: () => 'Pointé',
+      header: () => (
+        <span title="Quantité pointée atelier (somme MFGOPE intermédiaires)">Pointé atelier</span>
+      ),
       cell: ({ row: { original: r } }) => <CellNumber value={fmt(r.qtyPointee)} />,
       meta: { thClass: 'w-[80px] text-right!', tdClass: 'w-[80px] text-right align-top' },
     },
     {
       accessorKey: 'ecart',
-      header: () => 'Écart',
+      header: () => (
+        <span title="Écart = Déclaré PF − Pointé atelier (sur-déclaration)">Écart</span>
+      ),
       cell: ({ row: { original: r } }) => <CellNumber tone="critical" value={`+${fmt(r.ecart)}`} />,
       meta: { thClass: 'w-[84px] text-right!', tdClass: 'w-[84px] text-right align-top' },
     },
     {
       accessorKey: 'qteRestante',
-      header: () => 'Reste',
+      header: () => <span title="Quantité restante annoncée (RMNEXTQTY_0)">Reste</span>,
       cell: ({ row: { original: r } }) =>
         r.qteRestante > 0 ? (
           <CellNumber value={fmt(r.qteRestante)} />
@@ -232,7 +242,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
     },
     {
       accessorKey: 'derniereOpPointee',
-      header: () => 'Op',
+      header: () => <span title="Dernière opération pointée / nombre total d'opérations">Op</span>,
       cell: ({ row: { original: r } }) =>
         r.derniereOpPointee != null ? (
           <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
@@ -246,7 +256,11 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
     },
     {
       id: 'periode',
-      header: () => 'Période',
+      header: () => (
+        <span title="Période planifiée (STRDAT → ENDDAT) · dernier pointage atelier (TRKLAST)">
+          Période · Pointage
+        </span>
+      ),
       cell: ({ row: { original: r } }) => {
         const debut = fmtFr(r.dateDebutIso)
         const fin = fmtFr(r.dateFinIso)
