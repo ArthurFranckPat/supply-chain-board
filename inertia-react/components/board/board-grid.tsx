@@ -358,7 +358,7 @@ export default function BoardGrid(props: BoardGridProps) {
                     il se lit dans la chasse fixe comme tous les autres. */}
                 <div
                   className={cn(
-                    'font-mono text-base leading-none tracking-tight tabular-nums text-foreground',
+                    'font-mono text-sm leading-none tracking-tight tabular-nums text-foreground',
                     day.today ? 'font-bold' : 'font-semibold'
                   )}
                 >
@@ -487,17 +487,20 @@ function BoardLine({
           onClick={() => onLineEngagement?.(line.code)}
           title={onLineEngagement ? 'Engagement — OF fermes du poste' : undefined}
         >
-          <span
-            className="size-2 shrink-0 translate-y-[-1px] rounded-[2px]"
-            style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
-          />
+          {/* Pas de pastille. `line.dot` vaut `'bg-emerald-500'` — une CLASSE
+              Tailwind, servie ici à `style.background` : valeur CSS invalide,
+              donc rien de peint depuis le portage. Il restait un carré de 8 px
+              parfaitement transparent qui décalait le code du poste de 16 px
+              vers la droite, seul bloc de l'en-tête à ne pas commencer sur
+              l'axe `px-3.5`. Et il ne distinguait rien : le loader pose la
+              même valeur sur toutes les lignes. */}
           <span className="line-code truncate font-mono text-cell-lg font-bold tracking-tight text-foreground transition-colors">
             {line.code}
           </span>
           {/* Le nom sur la même ligne que le code : c'est la même identité, et
               deux lignes lui donnaient le poids d'une seconde information. */}
           <span
-            className="min-w-0 flex-1 truncate text-2xs leading-none text-muted-foreground"
+            className="min-w-0 flex-1 truncate text-1.5xs leading-none text-muted-foreground"
             title={line.name}
           >
             {line.name}
@@ -805,7 +808,7 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
            couleur d'action de la page ne lui appartient pas. */
         <div className="mt-1 flex items-baseline gap-1 font-mono text-3xs uppercase tracking-wider text-muted-foreground">
           <span>Bouches hygro</span>
-          <span className="text-2xs font-bold normal-case tabular-nums text-foreground">
+          <span className="text-1.5xs font-bold normal-case tabular-nums text-foreground">
             {pp830.stockBouchesHygro}
           </span>
           <span className="normal-case">pcs</span>

@@ -258,7 +258,7 @@ export function OrderGrid(props: OrderGridProps) {
                   </div>
                   <div
                     className={cn(
-                      'font-mono text-lg leading-none tracking-tight tabular-nums text-foreground',
+                      'font-mono text-sm leading-none tracking-tight tabular-nums text-foreground',
                       day.today ? 'font-bold' : 'font-semibold'
                     )}
                   >
@@ -319,15 +319,10 @@ export function OrderGrid(props: OrderGridProps) {
             >
               {/* En-tête de poste (collant à gauche) */}
               <div className="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
+                {/* Pastille retirée (cf. board-grid) : `line.dot` est une
+                    classe Tailwind passée à `style.background`, jamais peinte,
+                    et elle décalait le code du poste hors de l'axe px-3.5. */}
                 <div className="flex items-center gap-2">
-                  <span
-                    className="size-2.5 rounded-[2px]"
-                    style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
-                    {...(line.dot && {
-                      className: 'size-2.5 rounded-[2px]',
-                      style: { background: line.dot },
-                    })}
-                  />
                   <span className="font-mono text-[13px] font-bold tracking-tight text-foreground">
                     {line.code}
                   </span>

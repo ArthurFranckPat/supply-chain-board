@@ -72,30 +72,39 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
   return (
     <div className={cn('flex flex-col gap-1.5', props.class)}>
       {/* Hero : total horizon (+ moyenne h/sem en 'full').
-          En-tête de poste : le chiffre passe en mono tabular au palier
-          `cell-lg` de l'échelle micro. À 26 px en display noir, il pesait plus
-          que le code du poste — une charge n'est pas l'identité de la ligne —
-          et deux postes voisins ne s'alignaient pas, faute de chasse fixe. */}
+          En-tête de poste, l'échelle tient en TROIS paliers de l'échelle
+          micro et pas un de plus : `cell-lg` (13 px, « valeurs emphase — qté,
+          charge, expé », le token écrit pour ce chiffre) pour le total,
+          `1.5xs` (11 px, « valeurs secondaires ») pour l'unité et la
+          décomposition, `3xs` (9 px) pour les repères. Les tailles écrites à
+          la main — 26, 17, 10, 9 px — ne tombaient sur aucun palier et
+          faisaient cinq corps dans une colonne de 208 px. Le total est aussi
+          descendu au niveau du code du poste : une charge n'est pas
+          l'identité de la ligne. */}
       <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
         <span
           className={cn(
             'leading-none tracking-tight text-foreground tabular-nums',
-            line ? 'font-mono text-[17px] font-bold' : 'font-fraunces text-[26px] font-black'
+            line ? 'font-mono text-cell-lg font-bold' : 'font-fraunces text-[26px] font-black'
           )}
         >
           {fmt(totals.total)}
         </span>
-        <span className="text-[10px] font-medium text-muted-foreground">heures</span>
+        <span
+          className={cn('font-medium text-muted-foreground', line ? 'text-1.5xs' : 'text-[10px]')}
+        >
+          heures
+        </span>
         {/* Décomposition du total, sur la même ligne de base et dans la même
             chasse : `ml-auto` la renvoyait à la ligne suivante dès que le hero
             était large, où elle se posait par-dessus le graphe. */}
         {line && totals.fermeTotal > 0 && (
-          <span className="font-mono text-[10px] font-bold tabular-nums text-ferme">
+          <span className="font-mono text-1.5xs font-bold tabular-nums text-ferme">
             · {fmt(totals.fermeTotal)} h ferme
           </span>
         )}
         {line && totals.induitTotal > 0 && (
-          <span className="font-mono text-[10px] font-bold tabular-nums text-muted-foreground">
+          <span className="font-mono text-1.5xs font-bold tabular-nums text-muted-foreground">
             · {fmt(totals.induitTotal)} h amont
           </span>
         )}
@@ -141,7 +150,7 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
                 Semaine vide : un tiret. « 0,00 h » occupe la place d'un chiffre
                 pour dire qu'il n'y en a pas. */}
             {line && (
-              <span className="block truncate text-2xs font-bold tabular-nums text-foreground">
+              <span className="block truncate text-1.5xs font-bold tabular-nums text-foreground">
                 {totalSem(w) > 0 ? `${fmt(totalSem(w))} h` : '—'}
               </span>
             )}
