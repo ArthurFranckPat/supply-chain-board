@@ -71,32 +71,32 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
   const totalSem = (w: ChargeWeek) => w.ferme + w.planifie + w.suggere + w.induit
   return (
     <div className={cn('flex flex-col gap-1.5', props.class)}>
-      {/* Hero : total horizon (+ moyenne h/sem en 'full') */}
-      <div className="flex flex-wrap items-baseline gap-1.5">
-        <span className="font-fraunces text-[26px] font-black leading-none tracking-tight text-foreground">
+      {/* Hero : total horizon (+ moyenne h/sem en 'full').
+          En-tête de poste : le chiffre passe en mono tabular au palier
+          `cell-lg` de l'échelle micro. À 26 px en display noir, il pesait plus
+          que le code du poste — une charge n'est pas l'identité de la ligne —
+          et deux postes voisins ne s'alignaient pas, faute de chasse fixe. */}
+      <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <span
+          className={cn(
+            'leading-none tracking-tight text-foreground tabular-nums',
+            line ? 'font-mono text-[17px] font-bold' : 'font-fraunces text-[26px] font-black'
+          )}
+        >
           {fmt(totals.total)}
         </span>
         <span className="text-[10px] font-medium text-muted-foreground">heures</span>
+        {/* Décomposition du total, sur la même ligne de base et dans la même
+            chasse : `ml-auto` la renvoyait à la ligne suivante dès que le hero
+            était large, où elle se posait par-dessus le graphe. */}
         {line && totals.fermeTotal > 0 && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-[5px] bg-ferme/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ferme">
-            <span className="size-1.5 rounded-[2px] bg-ferme" />
-            {fmt(totals.fermeTotal)} h ferme
+          <span className="font-mono text-[10px] font-bold tabular-nums text-ferme">
+            · {fmt(totals.fermeTotal)} h ferme
           </span>
         )}
         {line && totals.induitTotal > 0 && (
-          <span
-            className="ml-auto inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
-            style={{ backgroundColor: 'rgba(0,0,0,.10)' }}
-          >
-            <span
-              className="size-1.5 rounded-[2px]"
-              style={{
-                backgroundColor: 'rgba(0,0,0,.18)',
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px)',
-              }}
-            />
-            {fmt(totals.induitTotal)} h amont
+          <span className="font-mono text-[10px] font-bold tabular-nums text-muted-foreground">
+            · {fmt(totals.induitTotal)} h amont
           </span>
         )}
         {!line && (
@@ -130,15 +130,19 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
             key={w.week}
             className={cn(
               'min-w-0 flex-1 basis-0 text-center font-mono font-bold text-muted-foreground',
-              axe
+              line ? 'text-3xs' : axe
             )}
           >
             S{w.week}
             {!line && ` · ${fmt(totalSem(w))}h`}
-            {/* En-tête de poste (line) : charge hebdo sous le n° de semaine. */}
+            {/* En-tête de poste (line) : charge hebdo sous le n° de semaine.
+                La valeur porte l'encre et la taille, la semaine n'est que son
+                étiquette — l'inverse mettait le repère au-dessus de la donnée.
+                Semaine vide : un tiret. « 0,00 h » occupe la place d'un chiffre
+                pour dire qu'il n'y en a pas. */}
             {line && (
-              <span className="block truncate text-[9px] font-bold tabular-nums text-foreground">
-                {fmt(totalSem(w))} h
+              <span className="block truncate text-2xs font-bold tabular-nums text-foreground">
+                {totalSem(w) > 0 ? `${fmt(totalSem(w))} h` : '—'}
               </span>
             )}
           </span>

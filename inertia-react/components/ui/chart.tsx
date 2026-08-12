@@ -467,20 +467,27 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
     const cleSeg = (s: SegmentCharge) => s.cle ?? s.serie
 
     // Format long : une ligne par (période × segment). Les `x` répétés empilent.
-    const rows: LigneCharge[] = periodes.flatMap((p) =>
-      segments
-        .map((s) => ({
-          cle: p.cle,
-          label: p.label,
-          segment: cleSeg(s),
-          serie: s.serie,
-          serieLabel: s.label,
-          couleur: s.couleur,
-          valeur: p.valeurs[cleSeg(s)] ?? 0,
-          capacite: p.capacite ?? null,
-        }))
-        .filter((r) => r.valeur > 0)
-    )
+    //
+    // Une période à zéro garde UNE ligne, de valeur nulle. Le domaine de la
+    // bande x est déduit des données : filtrée entièrement, une semaine vide
+    // disparaissait de l'échelle et les bandes restantes se répartissaient sur
+    // toute la largeur. Les barres ne tombaient alors plus sous l'axe que
+    // l'appelant rend en HTML dessous (en-tête de poste du board : trois
+    // libellés de semaine, deux bandes, tout décalé d'un tiers de colonne).
+    const rows: LigneCharge[] = periodes.flatMap((p) => {
+      const toutes = segments.map((s) => ({
+        cle: p.cle,
+        label: p.label,
+        segment: cleSeg(s),
+        serie: s.serie,
+        serieLabel: s.label,
+        couleur: s.couleur,
+        valeur: p.valeurs[cleSeg(s)] ?? 0,
+        capacite: p.capacite ?? null,
+      }))
+      const dessinees = toutes.filter((r) => r.valeur > 0)
+      return dessinees.length > 0 ? dessinees : toutes.slice(0, 1)
+    })
 
     // Totaux par période — la somme des segments DESSINÉS, pas des données.
     const totauxParCle = new Map<string, { total: number; cap: number | null }>()
@@ -532,12 +539,24 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
         })
       : []
 
-    const totaux = [...totauxParCle.entries()].map(([cle, t]) => ({
-      cle,
-      label: periodes.find((p) => p.cle === cle)?.label ?? cle,
-      valeur: t.total,
-      depasse: t.cap !== null && t.total > t.cap,
-    }))
+    /* `totauxAuSommet` et non `totaux` : la locale portait le nom de la prop
+       booléenne et l'ombrait. Le garde `totaux.length > 0` plus bas testait
+       donc un tableau — toujours vrai dès qu'il y a une barre — et la marque
+       s'affichait chez les cinq appelants qui ne l'avaient jamais demandée.
+       Sur l'en-tête de poste du board, chaque semaine imprimait sa charge
+       deux fois : une fois au sommet de la barre, une fois sous l'axe HTML.
+       Périodes à zéro écartées : « 0,00 h » posé sur une bande vide n'est pas
+       un total, c'est du bruit. */
+    const totauxAuSommet = totaux
+      ? [...totauxParCle.entries()]
+          .filter(([, t]) => t.total > 0)
+          .map(([cle, t]) => ({
+            cle,
+            label: periodes.find((p) => p.cle === cle)?.label ?? cle,
+            valeur: t.total,
+            depasse: t.cap !== null && t.total > t.cap,
+          }))
+      : []
 
     const moy = moyenneMobile
       ? mobileAvg(
@@ -546,11 +565,20 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
         ).map((v, i) => ({ cle: periodes[i].cle, label: periodes[i].label, valeur: v }))
       : []
 
+    /* La pastille de pic se calcule sur TOUTES les périodes, pas seulement sur
+       celles dont le total est inscrit : elle dépendait de `totaux` par le
+       même effet d'ombre, et `pic` sans `totaux` ne montrait rien. */
     const picPoint = pic
-      ? totaux.reduce<{ cle: string; label: string; valeur: number } | null>(
-          (m, t) => (m === null || t.valeur > m.valeur ? t : m),
-          null
-        )
+      ? [...totauxParCle.entries()]
+          .filter(([, t]) => t.total > 0)
+          .reduce<{ cle: string; label: string; valeur: number } | null>((m, [cle, t]) => {
+            if (m !== null && t.total <= m.valeur) return m
+            return {
+              cle,
+              label: periodes.find((p) => p.cle === cle)?.label ?? cle,
+              valeur: t.total,
+            }
+          }, null)
       : null
 
     return defineChart({
@@ -620,17 +648,18 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
               }),
             ]
           : []),
-        ...(totaux.length > 0
+        ...(totauxAuSommet.length > 0
           ? [
-              text(totaux, {
+              text(totauxAuSommet, {
                 x: 'cle',
                 y: 'valeur',
-                text: (d: (typeof totaux)[number]) => format(d.valeur),
+                text: (d: (typeof totauxAuSommet)[number]) => format(d.valeur),
                 anchor: 'middle',
                 dy: -5,
                 fontSize: 10,
                 fontWeight: 700,
-                fill: (d: (typeof totaux)[number]) => (d.depasse ? SERIE.alerte : 'currentColor'),
+                fill: (d: (typeof totauxAuSommet)[number]) =>
+                  d.depasse ? SERIE.alerte : 'currentColor',
               }),
             ]
           : []),
@@ -717,6 +746,9 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
     max,
     afficherCapacite,
     labelsEnBarre,
+    // Absent jusqu'ici parce que la locale homonyme masquait la prop : la règle
+    // exhaustive-deps voyait une valeur du scope, pas une entrée du composant.
+    totaux,
     moyenneMobile,
     pic,
     afficherAxes,

@@ -454,25 +454,37 @@ function BoardLine({
       {/* En-tête de poste (collant à gauche). L'identité (dot+code+nom) est
           cliquable → panneau « Engagement » par poste (#46). Pas de bouton
           dédié : le header est déjà dense (histogramme + PP_830). */}
-      <div className="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
+      {/* Trois blocs, séparés par un filet plutôt que par du vide : identité,
+          charge, équilibrage PP_830. Empilés à `gap-1.5` uniforme, ils se
+          lisaient comme une seule coulée de six mesures sans hiérarchie. */}
+      <div className="sticky left-0 z-20 flex flex-col overflow-hidden border-r border-rule bg-card px-3.5 py-3">
         <div
           className={cn(
-            'flex items-center gap-2',
+            'flex items-baseline gap-2',
             onLineEngagement && 'cursor-pointer transition-colors hover:[&_.line-code]:text-brand'
           )}
           onClick={() => onLineEngagement?.(line.code)}
           title={onLineEngagement ? 'Engagement — OF fermes du poste' : undefined}
         >
           <span
-            className="size-2.5 rounded-[2px]"
+            className="size-2 shrink-0 translate-y-[-1px] rounded-[2px]"
             style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
           />
-          <span className="line-code font-mono text-sm font-bold tracking-tight text-foreground transition-colors">
+          <span className="line-code truncate font-mono text-cell-lg font-bold tracking-tight text-foreground transition-colors">
             {line.code}
           </span>
+          {/* Le nom sur la même ligne que le code : c'est la même identité, et
+              deux lignes lui donnaient le poids d'une seconde information. */}
+          <span
+            className="min-w-0 flex-1 truncate text-2xs leading-none text-muted-foreground"
+            title={line.name}
+          >
+            {line.name}
+          </span>
         </div>
-        <span className="text-xs leading-tight text-muted-foreground">{line.name}</span>
-        <ChargeHistogram weeks={charges} maxHours={maxLineHours} variant="line" />
+
+        <ChargeHistogram weeks={charges} maxHours={maxLineHours} variant="line" class="mt-2.5" />
+
         {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo
             (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
         {line.pp830 && <PP830Header pp830={line.pp830} />}
@@ -716,8 +728,11 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
   const seg = (h: number) => `${(h / total) * 100}%`
 
   return (
-    <div className="mt-1.5">
-      <div className="flex h-[6px] overflow-hidden rounded-full bg-rule-soft">
+    /* Filet de séparation : l'équilibrage typologique est un second sujet, pas
+       la suite de l'histogramme de charge. Sans lui, six mesures s'empilaient
+       à intervalle constant et rien ne disait où l'une finissait. */
+    <div className="mt-2.5 border-t border-rule-soft pt-2">
+      <div className="flex h-[5px] overflow-hidden rounded-full bg-rule-soft">
         {pp830.chargeByTypo.map((t) => (
           <div key={t.typo} className="flex">
             <span
@@ -739,36 +754,37 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
           </div>
         ))}
       </div>
-      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-2xs font-bold uppercase tracking-wider">
+      <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-3xs font-bold uppercase tracking-wider">
         {pp830.chargeByTypo.map((t) => (
           <span key={t.typo} className="inline-flex items-center gap-1">
             <span className="inline-flex items-center gap-0.5">
               <span
-                className="size-[7px] rounded-[1px]"
+                className="size-[6px] rounded-[1px]"
                 style={{ background: TYPO_META[t.typo]?.color ?? 'var(--border)' }}
               />
               {t.bouche > 0 && (
                 <span
-                  className="size-[7px] rounded-[1px]"
+                  className="size-[6px] rounded-[1px]"
                   style={{ background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)' }}
                 />
               )}
             </span>
             <span className="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
-            <span className="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
+            {/* « 59 h » et non « 59H » : l'uppercase du libellé mordait sur
+                l'unité, qui n'est pas un mot mais un symbole. */}
+            <span className="normal-case tabular-nums text-foreground">{t.sans + t.bouche} h</span>
           </span>
         ))}
       </div>
       {pp830.stockBouchesHygro !== null && (
-        <div className="mt-1 flex items-baseline gap-1 text-2xs text-muted-foreground">
+        /* Encre neutre, pas la marque : un stock est une donnée observée, la
+           couleur d'action de la page ne lui appartient pas. */
+        <div className="mt-1 flex items-baseline gap-1 font-mono text-3xs uppercase tracking-wider text-muted-foreground">
           <span>Bouches hygro</span>
-          <span
-            className="font-fraunces text-sm font-bold tabular-nums"
-            style={{ color: 'var(--color-brand)' }}
-          >
+          <span className="text-2xs font-bold normal-case tabular-nums text-foreground">
             {pp830.stockBouchesHygro}
           </span>
-          <span>pcs</span>
+          <span className="normal-case">pcs</span>
         </div>
       )}
     </div>

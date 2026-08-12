@@ -34,12 +34,16 @@
  * un. Seul le volume filtré reste, en zone 04, et seulement sous filtre.
  */
 
+import type * as React from 'react'
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { usePage, router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { Popover } from '@base-ui/react/popover'
 import {
+  ChevronDown,
   ClipboardList,
   FlaskConical,
+  Layers,
   ListChecks,
   RefreshCw,
   TriangleAlert,
@@ -100,6 +104,7 @@ import { useShortcuts } from '@r/lib/a11y/shortcuts'
 import { toast } from 'sonner'
 import { virtualOrdersFrom } from '@r/lib/scenarios/types'
 import { route } from '@r/lib/routes'
+import { cn } from '@r/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1289,50 +1294,25 @@ export default function Programme(props: VisionProps) {
         {feasLoading() ? 'Calcul…' : 'Faisabilité'}
       </Pill>
 
-      {/* Scénario et triage sont des capacités du board combiné : rendus là où
-          ils s'appliquent, plutôt que grisés partout ailleurs. */}
-      {mode === 'combined' && (
-        <>
-          <Pill
-            variant={scenarioActive ? 'active' : 'outline'}
-            className="px-2.5"
-            aria-pressed={scenarioActive}
-            aria-label="Mode scénario"
-            title="Mode scénario — simuler des déplacements sans écrire dans X3 (S)"
-            onClick={toggleScenario}
-          >
-            <FlaskConical size={14} strokeWidth={1.75} />
-          </Pill>
-          <Pill
-            variant={railOpen ? 'active' : 'outline'}
-            className="px-2.5"
-            aria-pressed={railOpen}
-            aria-label="Rail de triage"
-            title="Rail de triage — commandes en retard, limites et sans lien (T)"
-            onClick={() => setRailOpen((v) => !v)}
-          >
-            <ListChecks size={14} strokeWidth={1.75} />
-          </Pill>
-        </>
-      )}
-
-      {/* Sélection multiple : alimente la BatchFirmBar, qui n'existe que côté OF. */}
-      {!isOrderMode && (
-        <Pill
-          variant={boardStore.selectMode ? 'active' : 'outline'}
-          className="px-2.5"
-          aria-pressed={boardStore.selectMode}
-          aria-label="Sélection multiple"
-          title="Sélection multiple — affermir plusieurs OF d'un coup"
-          onClick={() => {
-            const s = useBoardStore.getState()
-            if (s.selectMode) s.exitSelect()
-            else s.enterSelect()
-          }}
-        >
-          <ClipboardList size={14} strokeWidth={1.75} />
-        </Pill>
-      )}
+      {/* Scénario, triage et sélection ne sont pas des actions : ce sont des
+          MODES, chacun avec sa propre UI persistante une fois entré (bandeau
+          scénario, rail, BatchFirmBar). Trois pills permanentes pour trois
+          entrées occasionnelles saturaient le bord droit — un déclencheur
+          unique suffit, et il porte l'état de ce qui tourne. */}
+      <ModesMenu
+        combined={mode === 'combined'}
+        showSelect={!isOrderMode}
+        scenarioActive={scenarioActive}
+        onToggleScenario={toggleScenario}
+        railOpen={railOpen}
+        onToggleRail={() => setRailOpen((v) => !v)}
+        selectMode={boardStore.selectMode}
+        onToggleSelect={() => {
+          const s = useBoardStore.getState()
+          if (s.selectMode) s.exitSelect()
+          else s.enterSelect()
+        }}
+      />
     </>
   )
 
@@ -1513,6 +1493,149 @@ export default function Programme(props: VisionProps) {
         dataAt={scenarioDataAt}
       />
     </AppLayout>
+  )
+}
+
+/**
+ * Déclencheur unique des modes du board — zone 04, après l'action primaire.
+ *
+ * Composé des primitives du design system (Popover Base UI + Pill + le panneau
+ * `filter-menu-panel`), et non d'un `<details>` maison : le standard §17
+ * relève déjà deux implémentations d'accessibilité concurrentes pour ce rôle,
+ * inutile d'en réintroduire une troisième. Le point sur le déclencheur dit
+ * qu'un mode tourne ; le panneau dit lequel.
+ */
+function ModesMenu(props: {
+  combined: boolean
+  showSelect: boolean
+  scenarioActive: boolean
+  onToggleScenario: () => void
+  railOpen: boolean
+  onToggleRail: () => void
+  selectMode: boolean
+  onToggleSelect: () => void
+}) {
+  const actifs =
+    (props.combined && props.scenarioActive ? 1 : 0) +
+    (props.combined && props.railOpen ? 1 : 0) +
+    (props.showSelect && props.selectMode ? 1 : 0)
+
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        render={
+          <Pill
+            variant={actifs > 0 ? 'active' : 'outline'}
+            className="gap-1.5"
+            title="Modes du board — scénario, triage, sélection"
+          >
+            <Layers size={14} strokeWidth={1.75} />
+            Modes
+            {actifs > 0 && (
+              <span className="rounded-full bg-card px-1.5 py-px text-3xs font-semibold leading-none tabular-nums text-foreground">
+                {actifs}
+              </span>
+            )}
+            <ChevronDown size={16} strokeWidth={1.75} className="opacity-60" />
+          </Pill>
+        }
+      />
+      <Popover.Portal>
+        <Popover.Positioner
+          side="bottom"
+          align="end"
+          sideOffset={8}
+          collisionPadding={8}
+          className="z-50"
+        >
+          <Popover.Popup data-slot="filter-menu-panel" className="w-[260px] p-2">
+            <ToolbarFilterSection>Modes du board</ToolbarFilterSection>
+            <div className="flex flex-col">
+              {props.combined && (
+                <>
+                  <ModeRow
+                    icon={<FlaskConical size={14} strokeWidth={1.75} />}
+                    label="Scénario"
+                    hint="Simuler des déplacements sans écrire dans X3"
+                    shortcut="S"
+                    active={props.scenarioActive}
+                    onClick={props.onToggleScenario}
+                  />
+                  <ModeRow
+                    icon={<ListChecks size={14} strokeWidth={1.75} />}
+                    label="Rail de triage"
+                    hint="Commandes en retard, limites et sans lien"
+                    shortcut="T"
+                    active={props.railOpen}
+                    onClick={props.onToggleRail}
+                  />
+                </>
+              )}
+              {props.showSelect && (
+                <ModeRow
+                  icon={<ClipboardList size={14} strokeWidth={1.75} />}
+                  label="Sélection multiple"
+                  hint="Affermir plusieurs OF d’un coup"
+                  active={props.selectMode}
+                  onClick={props.onToggleSelect}
+                />
+              )}
+            </div>
+            {/* Le mode Commandes n'offre aucun de ces modes : le dire plutôt que
+                de présenter un panneau vide. */}
+            {!props.combined && !props.showSelect && (
+              <p className="px-1.5 py-2 text-2xs leading-snug text-muted-foreground">
+                Scénario, triage et sélection sont des capacités des vues OF et Combiné.
+              </p>
+            )}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
+/** Une ligne du panneau Modes : bascule à `aria-pressed`, état lisible sans survol. */
+function ModeRow(props: {
+  icon: React.ReactNode
+  label: string
+  hint: string
+  shortcut?: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={props.active}
+      onClick={props.onClick}
+      className={cn(
+        'flex w-full items-start gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-muted',
+        props.active && 'bg-muted'
+      )}
+    >
+      <span className={cn('mt-px shrink-0', props.active ? 'text-brand' : 'text-muted-foreground')}>
+        {props.icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-foreground">{props.label}</span>
+          {props.active && (
+            <span className="font-mono text-3xs font-bold uppercase tracking-wider text-brand">
+              on
+            </span>
+          )}
+        </span>
+        <span className="mt-px block text-2xs leading-snug text-muted-foreground">
+          {props.hint}
+        </span>
+      </span>
+      {props.shortcut && (
+        <kbd className="mt-px shrink-0 rounded border border-border px-1 font-mono text-3xs font-bold uppercase text-muted-foreground">
+          {props.shortcut}
+        </kbd>
+      )}
+    </button>
   )
 }
 
