@@ -22,7 +22,7 @@ import { Separator } from '@r/components/ui/separator'
 import { Caption, Demo, Fiche, Panel, Rule, Section, SpecTable, Sub, Tok } from './kit'
 
 /**
- * Section 17 — Barre d'outils.
+ * Section 18 — Barre d'outils.
  *
  * Proposition de standard, soumise à critique. L'inventaire des 17 pages est
  * dans la dernière sous-section : il justifie chaque règle plutôt que de la
@@ -226,7 +226,7 @@ export function ToolbarSection() {
   return (
     <Section
       id="toolbar"
-      n="17"
+      n="18"
       title="Barre d'outils"
       intro={
         <>

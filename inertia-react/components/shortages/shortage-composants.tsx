@@ -17,9 +17,6 @@ import {
   VERDICT_LABEL,
   groupByComponent,
   type ComponentGroup,
-  TH,
-  TH_R,
-  TD,
 } from '@r/lib/shortages/shortage-math'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 
@@ -44,7 +41,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
           <span className="truncate text-2xs text-muted-foreground/70">{g.componentDesc}</span>
         </div>
       ),
-      meta: { thClass: `w-[220px] ${TH}`, tdClass: TD },
+      meta: { thClass: 'w-[220px]' },
     },
     {
       accessorKey: 'totalManquant',
@@ -61,8 +58,8 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
         </span>
       ),
       meta: {
-        thClass: `w-[110px] ${TH_R}`,
-        tdClass: `w-[110px] whitespace-nowrap text-right ${TD}`,
+        thClass: 'w-[110px] text-right!',
+        tdClass: 'w-[110px] whitespace-nowrap text-right',
       },
     },
     {
@@ -74,7 +71,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
           {g.lines.length}
         </span>
       ),
-      meta: { thClass: `w-[90px] ${TH_R}`, tdClass: `w-[90px] whitespace-nowrap text-right ${TD}` },
+      meta: { thClass: 'w-[90px] text-right!', tdClass: 'w-[90px] whitespace-nowrap text-right' },
     },
     {
       id: 'ofs',
@@ -100,7 +97,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
           ))}
         </div>
       ),
-      meta: { thClass: TH, tdClass: TD },
+      meta: {},
     },
     {
       id: 'urgent',
@@ -134,7 +131,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
         ) : (
           <span className="text-2xs italic text-muted-foreground/50">— orphelins</span>
         ),
-      meta: { thClass: `w-[210px] ${TH}`, tdClass: `w-[210px] ${TD}` },
+      meta: { thClass: 'w-[210px]', tdClass: 'w-[210px]' },
     },
     {
       id: 'couverture',
@@ -150,7 +147,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
             {VERDICT_LABEL[g.worstVerdict]}
           </Badge>
         ),
-      meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
+      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
     },
   ]
 }
@@ -170,7 +167,7 @@ export function ShortageComposants({
 
   const indexColumn = {
     headerLabel: 'N°',
-    thClass: `w-[38px] ${TH}`,
+    thClass: 'w-[38px]',
     tdClass: (g: ComponentGroup) =>
       cn(
         'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
@@ -188,9 +185,6 @@ export function ShortageComposants({
       tableClass="min-w-[1080px] text-xs"
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
-      getRowClass={() =>
-        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-      }
       getRowKey={(g) => g.component}
       emptyState={emptyState}
     />

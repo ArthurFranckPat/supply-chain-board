@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import { rowToneClass } from '@r/components/ui/table-row'
 import { cn } from '@r/lib/utils'
 import {
   CircleX,
@@ -586,12 +587,10 @@ function BomTable({ bom }: { bom: BomRow[] }) {
           Nomenclature vide pour cet OF.
         </div>
       }
-      getRowClass={(row) =>
-        cn(
-          'border-b border-rule-soft last:border-0',
-          !row.ok ? 'bg-destructive/[0.05]' : row.qc ? 'bg-warning/[0.05]' : 'bg-background'
-        )
-      }
+      // Composant manquant / sous contrôle qualité : barre de gravité à gauche.
+      // Les deux fonds teintés d'origine (5 %) se distinguaient à peine l'un de
+      // l'autre, et pas du tout du survol.
+      getRowClass={(row) => rowToneClass(!row.ok ? 'critical' : row.qc ? 'warning' : null)}
       getRowKey={(row) => row.id}
     />
   )

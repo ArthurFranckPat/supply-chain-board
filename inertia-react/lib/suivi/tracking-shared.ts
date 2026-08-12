@@ -60,13 +60,6 @@ export const PROACTIVE_EMPTY: ProactiveRowsResponse = {
    libellé, les deux tables étaient importées sans être lues. */
 
 /** Dot statut réactif (mode compact). */
-export const BADGE_DOT: Record<SuiviStatusKey, string> = {
-  exp: 'bg-ferme',
-  alc: 'bg-suggere',
-  ret: 'bg-destructive',
-  ras: 'bg-muted-foreground/40',
-}
-
 /** Texte statut réactif (mode compact). */
 export const BADGE_TEXT: Record<SuiviStatusKey, string> = {
   exp: 'text-ferme',
@@ -134,28 +127,16 @@ export const VERDICT_TEXT: Record<ProactiveVerdictKey, string> = {
   risk: 'text-accent',
 }
 
-/**
- * Gravité du retard d'une ligne — barre latérale 3 px sur la colonne d'index.
- *
- *  - 'critical'  : rouge destructive
- *  - 'tolerance' : ambre suggere (≤ 1 jour ouvré)
- *  - null        : rien
+/*
+ * La gravité d'une ligne (`lateSeverity`) se rend en barre latérale de 3 px sur
+ * la colonne d'index — `severityBarClass()` de `ui/table-row`, où cette règle
+ * est devenue le standard de toutes les tables.
  *
  * UN seul signal, et il tient dans 3 px. Les fonds de ligne teintés (10-12 %)
- * d'origine coloraient la moitié du tableau — sur un écran où le retard est la
- * norme, une couleur partout n'est plus un signal. Le `bg()` qui les portait a
- * été vidé de son contenu sans être retiré : il ne rendait plus que le hover et
- * plus personne ne l'appelait, mais son commentaire décrivait encore des fonds
- * disparus. Ne pas le réintroduire : le hover appartient au DataTable.
+ * d'origine coloraient la moitié du tableau : sur un écran où le retard est la
+ * norme, une couleur partout n'est plus un signal. Ne pas les réintroduire —
+ * le survol appartient au DataTable, le fond à la sélection.
  */
-export const LATE_TONE = {
-  bar: (s: 'tolerance' | 'critical' | null) =>
-    s === 'critical'
-      ? '[box-shadow:inset_3px_0_var(--destructive)]' // destructive grammaire
-      : s === 'tolerance'
-        ? '[box-shadow:inset_3px_0_var(--suggere)]' // suggere grammaire
-        : '',
-}
 
 /**
  * Catalogue des colonnes par vue — pilote le menu « Colonnes » (visibilité)

@@ -74,10 +74,6 @@ export function fmtContenants(c: Contenants): string {
   return parts.length > 0 ? parts.join(' + ') : '—'
 }
 
-const TH =
-  'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground'
-const TD = 'px-3 py-[9px] align-middle'
-
 /** Tri générique sur une colonne, palette puis heure en repli à égalité (ordre par défaut). */
 function sortLignes(rows: CamionLigne[], sorting: SortingState[]): CamionLigne[] {
   const { id, desc } = sorting[0] ?? { id: 'palnum', desc: false }
@@ -102,7 +98,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         {(getValue() as string) || '—'}
       </span>
     ),
-    meta: { thClass: cn(TH, 'w-[120px]'), tdClass: TD },
+    meta: { thClass: 'w-[120px]' },
   },
   {
     accessorKey: 'designation',
@@ -121,7 +117,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         )}
       </>
     ),
-    meta: { thClass: TH, tdClass: TD },
+    meta: {},
   },
   {
     accessorKey: 'vcrnum',
@@ -129,7 +125,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
     cell: ({ getValue }) => (
       <span className="font-mono text-[11px] text-foreground">{(getValue() as string) || '—'}</span>
     ),
-    meta: { thClass: cn(TH, 'w-[90px]'), tdClass: TD },
+    meta: { thClass: 'w-[90px]' },
   },
   {
     accessorKey: 'sohnum',
@@ -137,7 +133,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
     cell: ({ getValue }) => (
       <span className="font-mono text-[11px] text-brand">{(getValue() as string) || '—'}</span>
     ),
-    meta: { thClass: cn(TH, 'w-[95px]'), tdClass: TD },
+    meta: { thClass: 'w-[95px]' },
   },
   {
     accessorKey: 'palnum',
@@ -147,7 +143,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         {(getValue() as string) || '—'}
       </span>
     ),
-    meta: { thClass: cn(TH, 'w-[70px] text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: 'w-[70px] text-right!', tdClass: 'text-right' },
   },
   {
     accessorKey: 'pcu',
@@ -164,7 +160,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         )}
       </span>
     ),
-    meta: { thClass: cn(TH, 'w-[50px] text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: 'w-[50px] text-right!', tdClass: 'text-right' },
   },
   {
     accessorKey: 'ucParPal',
@@ -177,7 +173,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         {l.ucParPal > 0 ? l.ucParPal : '—'}
       </span>
     ),
-    meta: { thClass: cn(TH, 'w-[60px] text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: 'w-[60px] text-right!', tdClass: 'text-right' },
   },
   {
     id: 'contenants',
@@ -192,7 +188,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         {fmtContenants(l)}
       </span>
     ),
-    meta: { thClass: cn(TH, 'w-[110px] text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: 'w-[110px] text-right!', tdClass: 'text-right' },
   },
   {
     accessorKey: 'ts',
@@ -202,7 +198,7 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
         {getValue() as string}
       </span>
     ),
-    meta: { thClass: cn(TH, 'w-[80px] text-right'), tdClass: cn(TD, 'text-right') },
+    meta: { thClass: 'w-[80px] text-right!', tdClass: 'text-right' },
   },
 ]
 
@@ -315,9 +311,6 @@ export function CamionDetailSheet({
                 tableClass="w-full table-fixed"
                 scrollContainerClass="h-full overflow-y-auto rounded-none border-0 shadow-none"
                 theadRowClass="sticky top-0 z-10 bg-secondary"
-                getRowClass={() =>
-                  'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-                }
                 getRowKey={(l) => `${l.sohnum}-${l.vcrnum}-${l.vcrlin}-${l.ts}`}
               />
             </div>

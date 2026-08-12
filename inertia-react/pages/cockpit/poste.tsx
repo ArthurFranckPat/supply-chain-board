@@ -20,12 +20,29 @@
  * Coquille Inertia + JSON différé, calque /controle-prod.
  */
 import { useMemo, useState } from 'react'
-import { Factory, PackageCheck, TriangleAlert } from 'lucide-react'
+import {
+  CircleCheck,
+  Factory,
+  FlaskConical,
+  OctagonX,
+  PackageCheck,
+  TriangleAlert,
+} from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { X3Link } from '@r/components/x3-link'
+import {
+  CellDate,
+  CellNumber,
+  CellStack,
+  CellVerdict,
+  TableCell,
+  TableHead,
+  TableHeadRow,
+  TableRow,
+} from '@r/components/ui/table-row'
 import {
   LeFil,
   VERDICTS,
@@ -788,33 +805,40 @@ function construireFilProps(
 function OfTerminesTable({ ofTermines }: { ofTermines: OfTermineVue[] }) {
   return (
     <div className="max-h-[240px] overflow-auto rounded-lg border border-rule bg-card">
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse text-left text-sm">
         <thead className="sticky top-0 bg-secondary">
-          <tr className="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-            <th className="px-4 py-2">OF</th>
-            <th className="px-4 py-2">Article</th>
-            <th className="px-4 py-2 text-right">Qté</th>
-            <th className="px-4 py-2 text-right">Palettes</th>
-            <th className="px-4 py-2 text-right">Heures</th>
-            <th className="px-4 py-2">Dernier pointage</th>
-          </tr>
+          <TableHeadRow>
+            <TableHead>OF</TableHead>
+            <TableHead>Article</TableHead>
+            <TableHead align="right">Qté</TableHead>
+            <TableHead align="right">Palettes</TableHead>
+            <TableHead align="right">Heures</TableHead>
+            <TableHead>Dernier pointage</TableHead>
+          </TableHeadRow>
         </thead>
-        <tbody className="divide-y divide-rule-soft">
+        <tbody>
           {ofTermines.map((t) => (
-            <tr key={t.numOf} className="font-mono text-[11px] tabular-nums hover:bg-secondary">
-              <td className="px-4 py-2 font-bold tracking-tight">{t.numOf}</td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {t.article}
-                {t.designation ? ` · ${t.designation}` : ''}
-              </td>
-              <td className="px-4 py-2 text-right">{t.qty.toLocaleString('fr-FR')}</td>
-              <td className="px-4 py-2 text-right">
+            <TableRow key={t.numOf}>
+              <TableCell>
+                <CellStack code={t.numOf} />
+              </TableCell>
+              <TableCell>
+                <CellStack code={t.article} label={t.designation} />
+              </TableCell>
+              <TableCell align="right">
+                <CellNumber value={t.qty.toLocaleString('fr-FR')} />
+              </TableCell>
+              <TableCell align="right">
                 {/* null = absence de coefficient — jamais « 0 palette » (#119). */}
-                {t.palettes !== null ? fmtNombre(t.palettes) : '—'}
-              </td>
-              <td className="px-4 py-2 text-right">{fmtHs(t.heures)} h</td>
-              <td className="px-4 py-2 text-muted-foreground">{dateLong(t.dernierJourIso)}</td>
-            </tr>
+                <CellNumber value={t.palettes !== null ? fmtNombre(t.palettes) : '—'} />
+              </TableCell>
+              <TableCell align="right">
+                <CellNumber value={`${fmtHs(t.heures)} h`} />
+              </TableCell>
+              <TableCell className="font-mono text-1.5xs text-muted-foreground">
+                {dateLong(t.dernierJourIso)}
+              </TableCell>
+            </TableRow>
           ))}
         </tbody>
       </table>
@@ -855,54 +879,80 @@ function EngagementTable(props: {
         </div>
       )}
       <div className="max-h-[320px] overflow-auto">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 bg-secondary">
-            <tr className="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-2">Sem.</th>
-              <th className="px-4 py-2">OF</th>
-              <th className="px-4 py-2">Article</th>
-              <th className="px-4 py-2">Fenêtre</th>
-              <th className="px-4 py-2 text-right">Heures</th>
-              <th className="px-4 py-2">Faisabilité</th>
-              <th className="px-4 py-2 text-right"></th>
-            </tr>
+            <TableHeadRow>
+              <TableHead>Sem.</TableHead>
+              <TableHead>OF</TableHead>
+              <TableHead>Article</TableHead>
+              <TableHead>Fenêtre</TableHead>
+              <TableHead align="right">Heures</TableHead>
+              <TableHead>Faisabilité</TableHead>
+              <TableHead align="right" />
+            </TableHeadRow>
           </thead>
-          <tbody className="divide-y divide-rule-soft">
+          <tbody>
             {rows.map((r) => {
               const sem = r.dateDebutIso ? semaineISO(lundiIso(r.dateDebutIso)) : '—'
               const feas = feasMap?.[r.numOf] ?? null
               return (
-                <tr key={r.numOf} className="font-mono text-[11px] tabular-nums hover:bg-secondary">
-                  <td className="px-4 py-2">
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-bold text-muted-foreground">
+                <TableRow
+                  key={r.numOf}
+                  // La faisabilité est LA gravité de la ligne : elle se lit sur
+                  // le bord gauche avant même d'arriver à sa colonne.
+                  tone={feas?.st === 'blocked' ? 'critical' : feas?.st === 'qc' ? 'warning' : null}
+                >
+                  <TableCell>
+                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-3xs font-bold text-muted-foreground">
                       {sem}
                     </span>
-                  </td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell>
                     {/* Hit-area ≥ 44 px (WCAG 2.5.5) — le texte reste compact, un
                         pseudo-élément étend la zone de tap sans changer le rendu. */}
-                    <button
-                      type="button"
-                      className="relative cursor-pointer py-[3px] font-bold tracking-tight text-brand hover:underline before:absolute before:-inset-y-[8px] before:-inset-x-1 before:content-['']"
-                      onClick={() => onSelectOf(r.numOf)}
-                    >
-                      {r.numOf}
-                    </button>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.article}</td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {fmtDateFr(r.dateDebutIso)} → {fmtDateFr(r.livraisonIso)}
-                  </td>
-                  <td className="px-4 py-2 text-right font-bold">{fmtHs(r.hours)} h</td>
-                  <td className="px-4 py-2">
+                    <CellStack
+                      code={
+                        <button
+                          type="button"
+                          className="relative cursor-pointer py-[3px] text-brand hover:underline before:absolute before:-inset-y-[8px] before:-inset-x-1 before:content-['']"
+                          onClick={() => onSelectOf(r.numOf)}
+                        >
+                          {r.numOf}
+                        </button>
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <CellStack code={r.article} />
+                  </TableCell>
+                  <TableCell>
+                    <CellDate
+                      date={`${fmtDateFr(r.dateDebutIso)} → ${fmtDateFr(r.livraisonIso)}`}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <CellNumber value={`${fmtHs(r.hours)} h`} />
+                  </TableCell>
+                  <TableCell>
                     {feas ? (
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide',
-                          feas.st === 'ok' && 'bg-ferme/15 text-ferme',
-                          feas.st === 'qc' && 'bg-suggere/15 text-suggere',
-                          feas.st === 'blocked' && 'bg-destructive/15 text-destructive'
-                        )}
+                      <CellVerdict
+                        icon={
+                          feas.st === 'ok'
+                            ? CircleCheck
+                            : feas.st === 'qc'
+                              ? FlaskConical
+                              : OctagonX
+                        }
+                        label={
+                          feas.st === 'ok' ? 'faisable' : feas.st === 'qc' ? 'sous CQ' : 'bloqué'
+                        }
+                        tone={
+                          feas.st === 'ok'
+                            ? 'text-ferme'
+                            : feas.st === 'qc'
+                              ? 'text-suggere'
+                              : 'text-destructive'
+                        }
                         title={
                           feas.st === 'blocked'
                             ? `Composants manquants : ${feas.missing.join(', ') || '—'}`
@@ -910,39 +960,30 @@ function EngagementTable(props: {
                               ? `Couvert grâce au stock sous contrôle qualité : ${Object.keys(feas.qcComponents ?? {}).join(', ')}`
                               : 'Faisable'
                         }
-                        aria-label={
-                          feas.st === 'blocked'
-                            ? `Bloqué : composants manquants — ${feas.missing.join(', ') || '—'}`
-                            : feas.st === 'qc'
-                              ? `Sous CQ : ${Object.keys(feas.qcComponents ?? {}).join(', ')}`
-                              : 'Faisable'
-                        }
-                      >
-                        {feas.st === 'ok' ? 'faisable' : feas.st === 'qc' ? 'sous CQ' : 'bloqué'}
-                      </span>
+                      />
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                  </TableCell>
+                  <TableCell align="right">
                     <X3Link
                       fonction="GESMFG"
                       cle={r.numOf}
                       iconOnly
                       title={`Ouvrir ${r.numOf} dans Sage X3`}
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
           </tbody>
           <tfoot>
-            <tr className="bg-secondary font-mono text-[11px] font-bold">
-              <td className="px-4 py-2" colSpan={4}>
+            <tr className="bg-secondary font-mono text-1.5xs font-bold">
+              <td className="px-3 py-2" colSpan={4}>
                 Total engagé
               </td>
-              <td className="px-4 py-2 text-right">{fmtHs(totHrs)} h</td>
-              <td className="px-4 py-2 text-muted-foreground" colSpan={2}>
+              <td className="px-3 py-2 text-right">{fmtHs(totHrs)} h</td>
+              <td className="px-3 py-2 text-muted-foreground" colSpan={2}>
                 {joursEquivalents !== null && semainesEquivalentes !== null
                   ? `${fmtNombre(joursEquivalents)} j ouvrés équiv. · ${fmtNombre(semainesEquivalentes)} sem. de capacité · base ${fmtHs(capaciteJourMoy ?? 0)} h/j`
                   : 'Équivalent capacité indisponible'}
@@ -1131,37 +1172,45 @@ function AnalysesSection({ analyses }: { analyses: AnalysesVue }) {
             </div>
           ) : (
             <div className="mt-2 max-h-[240px] overflow-auto">
-              <table className="w-full border-collapse">
+              <table className="w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 bg-secondary">
-                  <tr className="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                    <th className="px-4 py-2">Article</th>
-                    <th className="px-4 py-2 text-right">Qté</th>
-                    <th className="px-4 py-2 text-right">Palettes</th>
-                    <th className="px-4 py-2 text-right">Heures op.</th>
-                    <th className="px-4 py-2 text-right">Pièces/h constatées</th>
-                    <th className="px-4 py-2 text-right">Cadence gamme</th>
-                  </tr>
+                  <TableHeadRow>
+                    <TableHead>Article</TableHead>
+                    <TableHead align="right">Qté</TableHead>
+                    <TableHead align="right">Palettes</TableHead>
+                    <TableHead align="right">Heures op.</TableHead>
+                    <TableHead align="right">Pièces/h constatées</TableHead>
+                    <TableHead align="right">Cadence gamme</TableHead>
+                  </TableHeadRow>
                 </thead>
-                <tbody className="divide-y divide-rule-soft">
+                <tbody>
                   {mix.map((m) => (
-                    <tr
-                      key={m.article}
-                      className="font-mono text-[11px] tabular-nums hover:bg-secondary"
-                    >
-                      <td className="px-4 py-2 font-bold">{m.article}</td>
-                      <td className="px-4 py-2 text-right">{m.qty.toLocaleString('fr-FR')}</td>
-                      <td className="px-4 py-2 text-right">
+                    <TableRow key={m.article}>
+                      <TableCell>
+                        <CellStack code={m.article} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber value={m.qty.toLocaleString('fr-FR')} />
+                      </TableCell>
+                      <TableCell align="right">
                         {/* null = absence de coefficient, jamais « 0 palette ». */}
-                        {m.palettes !== null ? fmtNombre(m.palettes) : '—'}
-                      </td>
-                      <td className="px-4 py-2 text-right">{fmtHs(m.heures)} h</td>
-                      <td className="px-4 py-2 text-right">
-                        {m.piecesParHeure !== null ? fmtNombre(m.piecesParHeure) : '—'}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {m.cadenceGamme !== null ? fmtNombre(m.cadenceGamme) : '—'}
-                      </td>
-                    </tr>
+                        <CellNumber value={m.palettes !== null ? fmtNombre(m.palettes) : '—'} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber value={`${fmtHs(m.heures)} h`} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber
+                          value={m.piecesParHeure !== null ? fmtNombre(m.piecesParHeure) : '—'}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber
+                          value={m.cadenceGamme !== null ? fmtNombre(m.cadenceGamme) : '—'}
+                          emphasis="plain"
+                        />
+                      </TableCell>
+                    </TableRow>
                   ))}
                 </tbody>
               </table>

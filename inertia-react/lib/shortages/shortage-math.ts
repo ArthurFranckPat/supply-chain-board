@@ -1,21 +1,13 @@
 /**
- * Dérivations pures + constantes de rendu du suivi des ruptures (issue #52 —
- * extrait de components/shortages/shortage-table.tsx). Sans Solid, sans JSX :
- * prédicats verdict, agrégation « dégâts par composant » (R2), classes de
- * cellule partagées (R1+R2) — alignées sur le modèle /suivi proactif
- * (colonnes sans filet vertical, verdict en point + texte plutôt qu'en
- * pastille pleine).
+ * Dérivations pures du suivi des ruptures (issue #52 — extrait de
+ * components/shortages/shortage-table.tsx). Sans Solid, sans JSX : prédicats
+ * verdict et agrégation « dégâts par composant » (R2).
+ *
+ * Les classes de cellule ont vécu ici (TH / TH_R / TD) : elles disaient la même
+ * chose que la table proactive de /suivi, à un padding près. Elles vivent
+ * maintenant dans `ui/table-row`, appliquées d'office par le DataTable.
  */
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
-
-// ---------------------------------------------------------------------------
-// Classes de cellule (partagées Registre R1 + Par composant R2)
-// ---------------------------------------------------------------------------
-
-export const TH =
-  'px-4 py-[7px] text-left font-sans text-2xs font-semibold tracking-wider text-muted-foreground border-b border-rule'
-export const TH_R = TH.replace('text-left', 'text-right')
-export const TD = 'px-4 py-[7px] align-middle'
 
 // ---------------------------------------------------------------------------
 // Prédicats verdict

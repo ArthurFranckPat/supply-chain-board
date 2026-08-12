@@ -35,6 +35,7 @@ import {
   StatutsSection,
 } from '@r/components/design-system/patterns'
 import { GraphiquesSection } from '@r/components/design-system/graphiques'
+import { TableRowSection } from '@r/components/design-system/table-row'
 import { ToolbarSection } from '@r/components/design-system/toolbar'
 
 /**
@@ -73,22 +74,23 @@ const NAV: NavGroupe[] = [
       { id: 'champs', n: '12', label: 'Champs' },
       { id: 'calendrier', n: '13', label: 'Calendrier' },
       { id: 'surfaces', n: '14', label: 'Surfaces & tableaux' },
-      { id: 'overlays', n: '15', label: 'Overlays' },
-      { id: 'navigation', n: '16', label: 'Navigation' },
-      { id: 'toolbar', n: '17', label: "Barre d'outils" },
-      { id: 'etats', n: '18', label: 'États' },
-      { id: 'conversation', n: '19', label: 'Conversation' },
+      { id: 'table-row', n: '15', label: 'Rangée de tableau' },
+      { id: 'overlays', n: '16', label: 'Overlays' },
+      { id: 'navigation', n: '17', label: 'Navigation' },
+      { id: 'toolbar', n: '18', label: "Barre d'outils" },
+      { id: 'etats', n: '19', label: 'États' },
+      { id: 'conversation', n: '20', label: 'Conversation' },
     ],
   },
   {
     titre: 'Motifs',
     items: [
-      { id: 'statuts', n: '20', label: 'Alphabets de statut' },
-      { id: 'board-card', n: '21', label: 'Carte de board' },
-      { id: 'kpi', n: '22', label: 'Indicateurs' },
-      { id: 'graphiques', n: '23', label: 'Graphiques' },
-      { id: 'liens', n: '24', label: 'Liens externes' },
-      { id: 'migration', n: '25', label: 'État de la migration' },
+      { id: 'statuts', n: '21', label: 'Alphabets de statut' },
+      { id: 'board-card', n: '22', label: 'Carte de board' },
+      { id: 'kpi', n: '23', label: 'Indicateurs' },
+      { id: 'graphiques', n: '24', label: 'Graphiques' },
+      { id: 'liens', n: '25', label: 'Liens externes' },
+      { id: 'migration', n: '26', label: 'État de la migration' },
     ],
   },
 ]
@@ -166,8 +168,8 @@ export default function DesignSystem() {
                   Le langage visuel de l’application
                 </h1>
                 <p className="mt-4 text-[14px] leading-[22px] tracking-[-0.15px] text-[color-mix(in_oklab,#141414_74%,transparent)]">
-                  Vingt-neuf primitives, leurs fondations et les motifs métier qui les assemblent —
-                  tous rendus sous le scope{' '}
+                  Trente primitives, leurs fondations et les motifs métier qui les assemblent — tous
+                  rendus sous le scope{' '}
                   <code className="rounded-[4px] bg-[color-mix(in_oklab,#141414_6%,transparent)] px-1.5 py-0.5 font-mono text-[12px] text-[#141414]">
                     .theme-cursor
                   </code>
@@ -210,6 +212,7 @@ export default function DesignSystem() {
               <ChampsSection />
               <CalendrierSection />
               <SurfacesSection />
+              <TableRowSection />
               <OverlaysSection />
               <NavigationSection />
               <ToolbarSection />

@@ -1358,7 +1358,6 @@ export default function Dashboard(props: DashboardProps) {
                                   tableClass="w-full border-collapse text-left"
                                   scrollContainerClass="-mx-2 mt-4 max-h-[160px] overflow-auto rounded-none border-0 shadow-none"
                                   theadRowClass="bg-transparent"
-                                  getRowClass={() => 'group/row'}
                                   getRowKey={(l) =>
                                     `${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`
                                   }
@@ -1543,7 +1542,6 @@ export default function Dashboard(props: DashboardProps) {
                       tableClass="w-full border-collapse text-left"
                       scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
                       theadRowClass="bg-transparent"
-                      getRowClass={() => 'group/row'}
                       getRowKey={(l) =>
                         `${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`
                       }
@@ -1653,7 +1651,6 @@ export default function Dashboard(props: DashboardProps) {
                         tableClass="w-full border-collapse text-left"
                         scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
                         theadRowClass="bg-transparent"
-                        getRowClass={() => 'group/row cursor-pointer'}
                         onRowClick={(a) => setStockArticle(a.article)}
                         getRowKey={(a) => `${a.article}::${a.categorie}`}
                       />

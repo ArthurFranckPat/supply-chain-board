@@ -17,11 +17,8 @@ import {
 } from '@r/components/ui/sheet'
 import { X3Link } from '@r/components/x3-link'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import { rowToneClass } from '@r/components/ui/table-row'
 import { cn } from '@r/lib/utils'
-
-const TH =
-  'px-3 py-2 text-left font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground'
-const TD = 'px-3 py-2'
 
 const CONFIDENCE_CLASS: Record<ForecastLine['confidence'], string> = {
   faible: 'text-warning',
@@ -60,7 +57,7 @@ const columns: ColumnDef<ForecastLine>[] = [
         </div>
       </>
     ),
-    meta: { thClass: TH, tdClass: cn(TD, 'w-[30%]') },
+    meta: { tdClass: 'w-[30%]' },
   },
   {
     accessorKey: 'qte',
@@ -70,7 +67,7 @@ const columns: ColumnDef<ForecastLine>[] = [
         {line.qte.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
       </span>
     ),
-    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'w-[10%] text-right') },
+    meta: { thClass: 'text-right!', tdClass: 'w-[10%] text-right' },
   },
   {
     accessorKey: 'palTheo',
@@ -90,7 +87,7 @@ const columns: ColumnDef<ForecastLine>[] = [
         ) : null}
       </>
     ),
-    meta: { thClass: cn(TH, 'text-right'), tdClass: cn(TD, 'w-[10%] text-right') },
+    meta: { thClass: 'text-right!', tdClass: 'w-[10%] text-right' },
   },
   {
     accessorKey: 'source',
@@ -105,7 +102,7 @@ const columns: ColumnDef<ForecastLine>[] = [
         </div>
       </>
     ),
-    meta: { thClass: TH, tdClass: cn(TD, 'w-[16%]') },
+    meta: { tdClass: 'w-[16%]' },
   },
   {
     accessorKey: 'cause',
@@ -118,7 +115,7 @@ const columns: ColumnDef<ForecastLine>[] = [
         ) : null}
       </div>
     ),
-    meta: { thClass: TH, tdClass: cn(TD, 'w-[34%]') },
+    meta: { tdClass: 'w-[34%]' },
   },
 ]
 
@@ -142,12 +139,9 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
       tableClass="w-full table-fixed border-collapse text-[12px]"
       scrollContainerClass="overflow-hidden rounded-lg border border-rule shadow-float"
       theadRowClass="bg-secondary"
-      getRowClass={(line) =>
-        cn(
-          'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
-          line.chargeStatus === 'overflow' && 'bg-destructive/[0.04]'
-        )
-      }
+      // Dépassement de charge : barre de gravité à gauche, pas de fond teinté
+      // — un fond sur toute la largeur se dispute avec le survol.
+      getRowClass={(line) => rowToneClass(line.chargeStatus === 'overflow' ? 'critical' : null)}
       getRowKey={(line) =>
         `${line.numCommande}|${line.ligne ?? ''}|${line.vcrseq ?? ''}|${line.article}|${line.dateChargement ?? 'deferred'}|${line.chargeStatus ?? ''}|${line.source}|${line.ofNum ?? ''}|${line.cause}`
       }

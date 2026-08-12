@@ -107,7 +107,7 @@ export function GraphiquesSection() {
   return (
     <Section
       id="graphiques"
-      n="23"
+      n="24"
       title="Graphiques"
       intro={
         <>

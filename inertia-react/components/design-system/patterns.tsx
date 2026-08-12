@@ -75,7 +75,7 @@ export function StatutsSection() {
   return (
     <Section
       id="statuts"
-      n="20"
+      n="21"
       title="Alphabets de statut"
       intro={
         <>
@@ -186,7 +186,7 @@ export function BoardCardSection() {
   return (
     <Section
       id="board-card"
-      n="21"
+      n="22"
       title="Carte de board"
       intro={
         <>
@@ -316,7 +316,7 @@ export function KpiSection() {
   return (
     <Section
       id="kpi"
-      n="22"
+      n="23"
       title="Indicateurs"
       intro={
         <>
@@ -393,7 +393,7 @@ export function LiensSection() {
   return (
     <Section
       id="liens"
-      n="24"
+      n="25"
       title="Liens externes"
       intro={
         <>
@@ -536,7 +536,7 @@ export function MigrationSection() {
   return (
     <Section
       id="migration"
-      n="25"
+      n="26"
       title="État de la migration"
       last
       intro={

@@ -6,14 +6,15 @@
 import { cn } from '@r/lib/utils'
 import { Badge } from '@r/components/ui/badge'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
-import type { SuiviDisplayRow } from '@r/lib/suivi/types'
 import {
-  BADGE_DOT,
-  BADGE_TEXT,
-  LATE_TONE,
-  empKey,
-  getRelativeDateLabel,
-} from '@r/lib/suivi/tracking-shared'
+  CellDate,
+  CellNumber,
+  CellStack,
+  CellVerdict,
+  severityBarClass,
+} from '@r/components/ui/table-row'
+import type { SuiviDisplayRow } from '@r/lib/suivi/types'
+import { BADGE_TEXT, empKey, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
 import { FlaskConical, Hourglass } from 'lucide-react'
 import { X3Link } from '../../components/x3-link'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
@@ -46,11 +47,11 @@ export function createReactiveColumns({
       // reste le déclencheur naturel de ce drill-down, X3 prend une icône à
       // côté plutôt que de lui voler le clic (revue #118).
       cell: ({ row, getValue }) => (
-        <span className="flex min-w-0 flex-col gap-px">
-          <span className="inline-flex items-center gap-1">
+        <CellStack
+          code={
             <button
               type="button"
-              className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
+              className="rounded outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
               disabled={!onOpenRow}
               title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
               onClick={(e) => {
@@ -60,6 +61,8 @@ export function createReactiveColumns({
             >
               {getValue() as string}
             </button>
+          }
+          action={
             <X3Link
               fonction="GESSOH"
               cle={getValue() as string}
@@ -67,34 +70,26 @@ export function createReactiveColumns({
               iconOnly
               className="align-middle text-muted-foreground hover:text-brand"
             />
-          </span>
-          <span className="truncate text-2xs text-muted-foreground">
-            {row.original.client || '—'}
-          </span>
-        </span>
+          }
+          label={row.original.client}
+        />
       ),
       meta: {
-        thClass: 'w-[150px] text-left font-sans tracking-wider',
+        thClass: 'w-[150px]',
       },
     },
     {
       accessorKey: 'article',
       header: 'Article · Désignation',
       cell: ({ row, getValue }) => (
-        <span className="flex min-w-0 flex-col gap-px">
-          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
-            {getValue() as string}
-          </span>
-          <span
-            className="truncate text-2xs text-muted-foreground"
-            title={row.original.designation || undefined}
-          >
-            {row.original.designation || '—'}
-          </span>
-        </span>
+        <CellStack
+          code={getValue() as string}
+          label={row.original.designation}
+          labelTitle={row.original.designation || undefined}
+        />
       ),
       meta: {
-        thClass: 'w-[200px] text-left font-sans tracking-wider',
+        thClass: 'w-[200px]',
       },
     },
     {
@@ -130,7 +125,7 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[110px] text-left font-sans tracking-wider',
+        thClass: 'w-[110px]',
       },
     },
     {
@@ -140,14 +135,20 @@ export function createReactiveColumns({
         const restante = getValue() as number
         const commandee = row.original.qteCommandee
         return (
-          <span className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums">
-            {restante}
-            <span className="ml-1 text-3xs font-medium text-muted-foreground">/ {commandee}</span>
-          </span>
+          <CellNumber
+            value={
+              <>
+                {restante}
+                <span className="ml-1 text-3xs font-medium text-muted-foreground">
+                  / {commandee}
+                </span>
+              </>
+            }
+          />
         )
       },
       meta: {
-        thClass: 'w-[100px] text-right! font-sans tracking-wider',
+        thClass: 'w-[100px] text-right!',
         tdClass: 'whitespace-nowrap text-right',
       },
     },
@@ -157,31 +158,25 @@ export function createReactiveColumns({
       cell: ({ row, getValue }) => {
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
-          <div className="leading-tight">
-            <div className="font-mono text-1.5xs font-semibold text-foreground">
-              {(getValue() as string) || '—'}
-            </div>
-            {rel && (
-              <div
-                className={cn(
-                  'font-sans text-3xs font-semibold',
-                  rel.label.startsWith('Retard')
-                    ? 'text-destructive'
-                    : rel.label === "Aujourd'hui"
-                      ? 'text-ferme'
-                      : rel.label === 'Demain'
-                        ? 'text-planifie'
-                        : 'text-muted-foreground'
-                )}
-              >
-                {rel.label}
-              </div>
-            )}
-          </div>
+          <CellDate
+            date={getValue() as string}
+            relative={rel?.label}
+            tone={
+              !rel
+                ? null
+                : rel.label.startsWith('Retard')
+                  ? 'critical'
+                  : rel.label === "Aujourd'hui"
+                    ? 'ok'
+                    : rel.label === 'Demain'
+                      ? 'info'
+                      : null
+            }
+          />
         )
       },
       meta: {
-        thClass: 'w-[76px] text-left font-sans tracking-wider',
+        thClass: 'w-[76px]',
         tdClass: 'whitespace-nowrap font-mono font-semibold',
       },
     },
@@ -274,7 +269,7 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[300px] text-left font-sans tracking-wider',
+        thClass: 'w-[300px]',
       },
     },
     {
@@ -285,12 +280,15 @@ export function createReactiveColumns({
         const o = row.original
         return (
           <div className="flex flex-col items-start gap-1">
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <span className={cn('size-1.5 shrink-0 rounded-full', BADGE_DOT[o.statusKey])} />
-              <span className={cn('text-2xs font-semibold', BADGE_TEXT[o.statusKey])}>
-                {o.statusLabel}
-              </span>
-            </span>
+            {/* L'icône de statut existait déjà côté serveur (STATUS_DISPLAY.icon)
+                sans jamais être rendue ici : le statut ne se lisait qu'à la
+                COULEUR d'une pastille de 6 px. « À expédier » et « Retard » se
+                distinguent maintenant par leur forme, comme sur le proactif. */}
+            <CellVerdict
+              marker={<DynamicIcon name={o.statusIcon} size={14} strokeWidth={1.75} />}
+              label={o.statusLabel}
+              tone={BADGE_TEXT[o.statusKey]}
+            />
             {/* Stock sous statut Q : compté disponible, mais rien ne part tant que le
                 contrôle n'est pas levé → marqueur saillant + action nommée. */}
             {o.cq && (
@@ -313,7 +311,7 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[130px] text-left font-sans tracking-wider',
+        thClass: 'w-[130px]',
       },
     },
     {
@@ -356,7 +354,7 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[280px] text-left font-sans tracking-wider',
+        thClass: 'w-[280px]',
       },
     },
   ]
@@ -368,6 +366,9 @@ export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> 
     headerLabel: 'N°',
     thClass: 'w-[38px] text-left font-mono font-semibold',
     tdClass: (row: SuiviDisplayRow) =>
-      cn('font-sans font-bold tracking-tight tabular-nums', LATE_TONE.bar(row.lateSeverity)),
+      cn(
+        'font-sans font-bold tracking-tight tabular-nums',
+        severityBarClass(row.lateSeverity === 'tolerance' ? 'warning' : row.lateSeverity)
+      ),
   }
 }

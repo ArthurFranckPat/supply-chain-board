@@ -128,7 +128,6 @@ export function TrackingTableShell<TRow>(props: TrackingTableShellProps<TRow>) {
               sorting={props.sorting}
               onSortingChange={props.onSortingChange}
               indexColumn={props.indexColumn}
-              getRowClass={() => 'group/row'}
               tableClass={props.tableClass}
               stickyCols={props.stickyCols}
               scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none print:h-auto print:overflow-visible"

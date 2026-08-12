@@ -910,7 +910,6 @@ export function SurfacesSection() {
             tableClass="w-full min-w-[720px] border-collapse text-left"
             scrollContainerClass="overflow-auto rounded-none border-0 bg-transparent shadow-none"
             theadRowClass="bg-transparent"
-            getRowClass={() => 'group/row'}
             getRowKey={(r) => r.of}
           />
         </Card>
@@ -969,7 +968,7 @@ export function OverlaysSection() {
   return (
     <Section
       id="overlays"
-      n="15"
+      n="16"
       title="Overlays"
       intro={
         <>
@@ -1117,7 +1116,7 @@ export function NavigationSection() {
   return (
     <Section
       id="navigation"
-      n="16"
+      n="17"
       title="Navigation"
       intro={
         <>
@@ -1206,7 +1205,7 @@ export function EtatsSection() {
   return (
     <Section
       id="etats"
-      n="18"
+      n="19"
       title="États"
       intro={
         <>
@@ -1321,7 +1320,7 @@ export function ConversationSection() {
   return (
     <Section
       id="conversation"
-      n="19"
+      n="20"
       title="Conversation"
       intro={
         <>

@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import { rowToneClass, type RowTone } from '@r/components/ui/table-row'
 import type {
   ArticleEnrichissement,
   ConditionnementDisplayRow,
@@ -13,8 +14,6 @@ import { DynamicIcon } from '../ui/dynamic-icon'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Grammaire compacte reprise de la table Suivi (font-sans 10px, py serré). */
-const TH_C = 'px-4 py-[6px] font-sans text-[10px] font-semibold tracking-wider'
-const TD_C = 'px-4 py-[5px] align-middle'
 
 /** Valeur distincte d'une facette avec son compte. */
 export interface Facette {
@@ -210,14 +209,15 @@ export function FacetteDropdown({
 /** Ligne de base + enrichissement fusionné (pour l'affichage). */
 export type DisplayRow = ConditionnementDisplayRow & ArticleEnrichissement
 
-/** Classe de ligne selon l'état du conditionnement. */
-export function rowClass(r: { etatCoef: string; stock: unknown; stojou: unknown }): string {
-  if (r.etatCoef === 'complet') return ''
-  const estime = r.stock || r.stojou
-  if (!estime) {
-    return 'bg-destructive/[0.06]'
-  }
-  return 'bg-planifie/[0.05]'
+/**
+ * Gravité d'une ligne selon l'état du conditionnement. Rendue en barre de bord
+ * (standard TableRow), plus en fond de ligne : un coefficient estimé et un
+ * coefficient absent se distinguaient par deux teintes de fond à 5 et 6 %
+ * d'opacité — un écart que le survol effaçait.
+ */
+export function rowTone(r: { etatCoef: string; stock: unknown; stojou: unknown }): RowTone {
+  if (r.etatCoef === 'complet') return null
+  return r.stock || r.stojou ? 'info' : 'critical'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'article',
       header: 'Article',
       accessorFn: (r) => r.article,
-      meta: { thClass: TH_C, tdClass: TD_C },
+      meta: {},
       cell: ({ row: { original: r } }) => (
         <div className="leading-tight">
           <div className="font-mono text-[12px] font-bold tracking-tight text-foreground">
@@ -279,7 +279,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'designation',
       header: 'Désignation',
       accessorFn: (r) => r.designation ?? '',
-      meta: { thClass: TH_C, tdClass: TD_C },
+      meta: {},
       cell: ({ row: { original: r } }) => (
         <span className="text-[12px] text-secondary-foreground">{r.designation || '—'}</span>
       ),
@@ -288,7 +288,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'fournisseur',
       header: 'Fournisseur',
       accessorFn: (r) => r.nomFrnsr ?? '',
-      meta: { thClass: TH_C, tdClass: TD_C },
+      meta: {},
       cell: ({ row: { original: r } }) =>
         !r.nomFrnsr ? (
           <Vide />
@@ -305,14 +305,14 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'pcuStuCoe',
       header: 'US/UC',
       accessorFn: (r) => r.pcuStuCoe ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: 'text-right!', tdClass: 'text-right' },
       cell: ({ row: { original: r } }) => <CoefCell value={r.pcuStuCoe} />,
     },
     {
       id: 'ucParPal',
       header: 'UC/pal',
       accessorFn: (r) => r.ucParPal ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: 'text-right!', tdClass: 'text-right' },
       cell: ({ row: { original: r } }) => <CoefCell value={r.ucParPal} />,
     },
   ]
@@ -323,7 +323,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
         id: 'derniereEntree',
         header: 'Dernière entrée',
         accessorFn: (r) => r.derniereEntree ?? '',
-        meta: { thClass: TH_C, tdClass: TD_C },
+        meta: {},
         cell: ({ row: { original: r } }) =>
           !r.derniereEntree ? (
             <Vide />
@@ -342,7 +342,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
         id: 'derniereSortie',
         header: 'Dernière sortie',
         accessorFn: (r) => r.derniereSortie ?? '',
-        meta: { thClass: TH_C, tdClass: TD_C },
+        meta: {},
         cell: ({ row: { original: r } }) =>
           !r.derniereSortie ? (
             <Vide />
@@ -365,7 +365,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'stock',
       header: 'STOCK',
       accessorFn: (r) => r.stock?.usParPalette ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: 'text-right!', tdClass: 'text-right' },
       cell: ({ row: { original: r } }) =>
         !estimationsChargees ? (
           <Vide variant="attente" />
@@ -377,7 +377,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'stojou',
       header: 'STOJOU',
       accessorFn: (r) => r.stojou?.usParPalette ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: 'text-right!', tdClass: 'text-right' },
       cell: ({ row: { original: r } }) =>
         !estimationsChargees ? (
           <Vide variant="attente" />
@@ -392,7 +392,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'concordance',
       header: 'Concordance',
       accessorFn: (r) => r.concordance.niveau,
-      meta: { thClass: cn(TH_C, 'text-center'), tdClass: cn(TD_C, 'text-center') },
+      meta: { thClass: 'text-center!', tdClass: 'text-center' },
       cell: ({ row: { original: r } }) => <ConcordanceBadge concordance={r.concordance} />,
     })
   }
@@ -440,12 +440,7 @@ export function ConditionnementsTable({
         sorting={sorting}
         onSortingChange={setSorting}
         getRowKey={(r) => r.article}
-        getRowClass={(r) =>
-          cn(
-            'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]',
-            rowClass(r)
-          )
-        }
+        getRowClass={(r) => rowToneClass(rowTone(r))}
         tableClass="min-w-[880px]"
         scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
         theadRowClass="sticky top-0 z-10 bg-secondary"

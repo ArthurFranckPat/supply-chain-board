@@ -1,14 +1,29 @@
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  Fragment,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
+import { tableCellClass, tableHeadClass, tableHeadRowClass, tableRowClass } from './table-row'
 
 /**
  * Wrapper DataTable maison (plan §6) : table HTML + tri contrôlé +
  * virtualisation @tanstack/react-virtual. API alignée sur le port
  * react-carbon (structure conservée, rendu Carbon remplacé par du
  * markup shadcn stock).
+ *
+ * La grammaire de rangée et de cellule vient de `ui/table-row` — c'est la même
+ * pour une table pilotée par colonnes et pour une `<table>` écrite à la main.
+ * Elle n'a donc pas à être redite par les appelants : `getRowClass` ne sert
+ * plus qu'à ce qui dépend VRAIMENT de la donnée (une gravité, un fond d'alerte),
+ * et `meta.thClass` / `meta.tdClass` qu'à la largeur et l'alignement.
  */
 
 export interface ColumnDef<TRow> {
@@ -216,9 +231,19 @@ export function DataTable<TRow>({
       )
     }
     return sorted.desc ? (
-      <ArrowDown size={12} strokeWidth={1.75} aria-hidden="true" className="leading-none text-primary" />
+      <ArrowDown
+        size={12}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        className="leading-none text-primary"
+      />
     ) : (
-      <ArrowUp size={12} strokeWidth={1.75} aria-hidden="true" className="leading-none text-primary" />
+      <ArrowUp
+        size={12}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        className="leading-none text-primary"
+      />
     )
   }
 
@@ -230,19 +255,19 @@ export function DataTable<TRow>({
     >
       {rows.length > 0 ? (
         <table
-          className={cn('w-full border-collapse text-left text-sm', stickyCols > 0 && 'has-sticky', tableClass)}
+          className={cn(
+            'w-full border-collapse text-left text-sm',
+            stickyCols > 0 && 'has-sticky',
+            tableClass
+          )}
           aria-rowcount={rows.length}
           aria-colcount={colCount}
         >
           <thead className="sticky top-0 z-10 bg-card">
-            <tr className={cn('border-b', theadRowClass)}>
+            <tr className={cn(tableHeadRowClass, theadRowClass)}>
               {indexColumn && (
                 <th
-                  className={cn(
-                    'px-3 py-2 text-xs font-medium text-muted-foreground',
-                    indexColumn.thClass,
-                    pinnedClass(0)
-                  )}
+                  className={cn(tableHeadClass(), indexColumn.thClass, pinnedClass(0))}
                   style={pinnedStyle(0)}
                 >
                   {indexColumn.headerLabel}
@@ -267,7 +292,8 @@ export function DataTable<TRow>({
                         : undefined
                     }
                     className={cn(
-                      'group/th px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
+                      'group/th select-none rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      tableHeadClass(),
                       col.meta?.thClass,
                       canSort && 'cursor-pointer transition-colors hover:text-foreground',
                       isSorted && 'font-bold text-foreground',
@@ -304,9 +330,6 @@ export function DataTable<TRow>({
 
               const isSelected = selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
               const rowKey = uniqueKeys[index] ?? index
-              const rowStyle: CSSProperties | undefined = onRowClick
-                ? { cursor: 'pointer' }
-                : undefined
               const detail =
                 !virtualize && renderDetailRow ? renderDetailRow(row, String(rowKey)) : null
 
@@ -317,15 +340,23 @@ export function DataTable<TRow>({
                     data-index={virtualize ? index : undefined}
                     aria-rowindex={index + 1}
                     className={cn(
-                      'border-b transition-colors last:border-b-0 hover:bg-muted/50',
-                      getRowClass?.(row, index),
-                      isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40'
+                      tableRowClass({
+                        selected: Boolean(isSelected),
+                        clickable: Boolean(onRowClick),
+                      }),
+                      getRowClass?.(row, index)
                     )}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    style={rowStyle}
                   >
                     {indexColumn && (
-                      <td className={cn('px-3 py-2', indexColumn.tdClass(row, index), pinnedClass(0))} style={pinnedStyle(0)}>
+                      <td
+                        className={cn(
+                          tableCellClass(),
+                          indexColumn.tdClass(row, index),
+                          pinnedClass(0)
+                        )}
+                        style={pinnedStyle(0)}
+                      >
                         {String(index + 1).padStart(2, '0')}
                       </td>
                     )}
@@ -337,7 +368,11 @@ export function DataTable<TRow>({
                       return (
                         <td
                           key={columnId}
-                          className={cn('px-3 py-2', col.meta?.tdClass, pinnedClass(cellIndex))}
+                          className={cn(
+                            tableCellClass(),
+                            col.meta?.tdClass,
+                            pinnedClass(cellIndex)
+                          )}
                           style={pinnedStyle(cellIndex)}
                         >
                           {col.cell

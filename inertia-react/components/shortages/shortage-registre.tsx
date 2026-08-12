@@ -12,7 +12,7 @@ import { Badge } from '@r/components/ui/badge'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
-import { isLate, TH, TH_R, TD, VERDICT_TONE } from '@r/lib/shortages/shortage-math'
+import { isLate, VERDICT_TONE } from '@r/lib/shortages/shortage-math'
 
 export function ShortageRegistre({
   rows,
@@ -48,7 +48,7 @@ export function ShortageRegistre({
           )}
         </div>
       ),
-      meta: { thClass: `w-[220px] ${TH}`, tdClass: TD },
+      meta: { thClass: 'w-[220px]' },
     },
     {
       accessorKey: 'qteManquante',
@@ -64,7 +64,7 @@ export function ShortageRegistre({
           <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
         </span>
       ),
-      meta: { thClass: `w-[80px] ${TH_R}`, tdClass: `w-[80px] whitespace-nowrap text-right ${TD}` },
+      meta: { thClass: 'w-[80px] text-right!', tdClass: 'w-[80px] whitespace-nowrap text-right' },
     },
     {
       accessorKey: 'numOf',
@@ -84,7 +84,7 @@ export function ShortageRegistre({
           </div>
         </>
       ),
-      meta: { thClass: `w-[170px] ${TH}`, tdClass: `w-[170px] ${TD}` },
+      meta: { thClass: 'w-[170px]', tdClass: 'w-[170px]' },
     },
     {
       accessorKey: 'numCommande',
@@ -128,7 +128,7 @@ export function ShortageRegistre({
         ) : (
           <span className="text-2xs italic text-muted-foreground/50">— orphelin</span>
         ),
-      meta: { thClass: `w-[180px] ${TH}`, tdClass: `w-[180px] ${TD}` },
+      meta: { thClass: 'w-[180px]', tdClass: 'w-[180px]' },
     },
     {
       id: 'reception',
@@ -169,7 +169,7 @@ export function ShortageRegistre({
           </>
         )
       },
-      meta: { thClass: TH, tdClass: TD },
+      meta: {},
     },
     {
       id: 'verdict',
@@ -180,13 +180,13 @@ export function ShortageRegistre({
           {row.verdictLabel}
         </Badge>
       ),
-      meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
+      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
     },
   ]
 
   const indexColumn = {
     headerLabel: 'N°',
-    thClass: `w-[38px] ${TH}`,
+    thClass: 'w-[38px]',
     tdClass: (row: ShortageDisplayRow) =>
       cn(
         'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
@@ -204,9 +204,6 @@ export function ShortageRegistre({
       tableClass="min-w-[880px] text-xs"
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
-      getRowClass={() =>
-        'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-      }
       emptyState={emptyState}
     />
   )

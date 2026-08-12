@@ -534,12 +534,12 @@ export default function Calendrier(props: CalendrierPageProps) {
     })
       .then(() => toast.success('Calendrier enregistré. La vue Charge est actualisée.'))
       .catch(() => {
-      setHolidays((prev) => {
-        const updated = [...prev]
-        updated[i] = { ...updated[i], active: !next }
-        return updated
+        setHolidays((prev) => {
+          const updated = [...prev]
+          updated[i] = { ...updated[i], active: !next }
+          return updated
+        })
       })
-    })
   }
 
   // ── Fermetures ─────────────────────────────────────────────────────────────
@@ -550,8 +550,8 @@ export default function Calendrier(props: CalendrierPageProps) {
       fetch(route('calendar_config.delete_closure', { id }), { method: 'DELETE' })
         .then(() => toast.success('Fermeture supprimée. La vue Charge est actualisée.'))
         .catch(() => {
-        if (snapshot) setClosures((prev) => [...prev, snapshot])
-      })
+          if (snapshot) setClosures((prev) => [...prev, snapshot])
+        })
     },
     [closures]
   )
@@ -696,9 +696,6 @@ export default function Calendrier(props: CalendrierPageProps) {
                   tableClass="w-full border-collapse"
                   scrollContainerClass="rounded-none border-0 shadow-none"
                   theadRowClass="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-                  getRowClass={() =>
-                    'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-                  }
                   getRowKey={(c) => String(c.id)}
                 />
               )}

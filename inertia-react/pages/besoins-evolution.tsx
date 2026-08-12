@@ -37,6 +37,7 @@ import { AlertTriangle, CalendarRange, CloudOff, Info, Search } from 'lucide-rea
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Card } from '@r/components/ui/card'
+import { TableCell, TableHead, TableHeadRow, TableRow } from '@r/components/ui/table-row'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import {
   PILL,
@@ -1132,29 +1133,15 @@ export default function BesoinsEvolution() {
                       <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
                         <table className="w-full border-collapse text-left text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                                Jour
-                              </th>
-                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                                Pièce
-                              </th>
-                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                                Source
-                              </th>
-                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                                Nature
-                              </th>
-                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                                Échéance
-                              </th>
-                              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                                Avant → Après
-                              </th>
-                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
-                                Écart
-                              </th>
-                            </tr>
+                            <TableHeadRow>
+                              <TableHead>Jour</TableHead>
+                              <TableHead>Pièce</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Nature</TableHead>
+                              <TableHead>Échéance</TableHead>
+                              <TableHead>Avant → Après</TableHead>
+                              <TableHead align="right">Écart</TableHead>
+                            </TableHeadRow>
                           </thead>
                           <tbody>
                             {filteredArticles.map((a) => (
@@ -1162,27 +1149,28 @@ export default function BesoinsEvolution() {
                                 {/* L'en-tête du groupe rappelle l'article sur
                                     toute la largeur : on peut défiler 1 000
                                     lignes sans perdre le contexte. */}
-                                <tr
+                                <TableRow
+                                  clickable
                                   onClick={() => ouvrirArticle(a.article)}
                                   title="Voir la fiche article"
-                                  className="cursor-pointer border-b bg-muted/40 transition-colors hover:bg-muted/60"
+                                  className="bg-muted/40 hover:bg-muted/60"
                                 >
-                                  <td colSpan={7} className="px-3 py-1.5">
+                                  <TableCell colSpan={7} className="py-1.5">
                                     <EnteteArticle article={a} />
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                                 {a.mouvements.map((m, mi) => (
-                                  <tr
+                                  <TableRow
                                     key={`${a.article}#${mi}`}
+                                    clickable
                                     title={resumeLabel(m)}
                                     onClick={() => ouvrirArticle(a.article)}
-                                    className="cursor-pointer border-b transition-colors last:border-b-0 hover:bg-muted/50"
                                   >
-                                    <td className="px-3 py-2">{celluleJour(m)}</td>
-                                    <td className="px-3 py-2">
+                                    <TableCell>{celluleJour(m)}</TableCell>
+                                    <TableCell>
                                       <CellulePiece m={m} />
-                                    </td>
-                                    <td className="px-3 py-2">
+                                    </TableCell>
+                                    <TableCell>
                                       <div className="flex flex-col leading-tight">
                                         <span className="whitespace-nowrap text-xs text-foreground">
                                           {SOURCE_LABEL[m.source]}
@@ -1200,22 +1188,22 @@ export default function BesoinsEvolution() {
                                           </span>
                                         )}
                                       </div>
-                                    </td>
-                                    <td className="px-3 py-2">
+                                    </TableCell>
+                                    <TableCell>
                                       <CelluleNature nature={m.nature} />
-                                    </td>
-                                    <td className="px-3 py-2">
+                                    </TableCell>
+                                    <TableCell>
                                       <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
                                         {fmtJJMM(echeancePortee(m))}
                                       </span>
-                                    </td>
-                                    <td className="px-3 py-2">
+                                    </TableCell>
+                                    <TableCell>
                                       <CelluleAvantApres m={m} />
-                                    </td>
-                                    <td className="px-3 py-2 text-right">
+                                    </TableCell>
+                                    <TableCell align="right">
                                       <CelluleEcart m={m} />
-                                    </td>
-                                  </tr>
+                                    </TableCell>
+                                  </TableRow>
                                 ))}
                               </Fragment>
                             ))}

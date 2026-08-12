@@ -23,6 +23,7 @@ import { Pill } from '@r/components/ui/pill'
 import { Separator } from '@r/components/ui/separator'
 import { DynamicIcon } from '@r/components/ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
+import { rowToneClass } from '@r/components/ui/table-row'
 import {
   ToolbarFilterChip,
   ToolbarFilterMenu,
@@ -985,11 +986,19 @@ export default function Sequenceur(props: SequenceurPageProps) {
               scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none print:h-auto print:overflow-visible"
               theadRowClass="sticky top-0 z-10 bg-transparent"
               getRowKey={(r) => `${r.posteCode}-${r.numOf}`}
+              // La sélection reste un fond (c'est un état de l'utilisateur, pas
+              // une gravité de la donnée) ; le verdict du lot d'affermissement
+              // passe en barre de bord, comme partout ailleurs.
               getRowClass={(r) =>
                 cn(
                   selected.has(r.numOf) && 'bg-primary/[0.04]',
-                  batch[r.numOf]?.st === 'ok' && 'bg-ferme/10',
-                  batch[r.numOf]?.st === 'error' && 'bg-destructive/5',
+                  rowToneClass(
+                    batch[r.numOf]?.st === 'ok'
+                      ? 'ok'
+                      : batch[r.numOf]?.st === 'error'
+                        ? 'critical'
+                        : null
+                  ),
                   !showPosteCol && r.commandes.length === 0 && 'opacity-60'
                 )
               }

@@ -1,19 +1,37 @@
 /**
- * Définitions de colonnes de la vue proactive du Suivi — port React de
- * inertia/lib/suivi/proactive-columns.tsx (API ColumnDef du DataTable maison,
- * même JSX cellule que Solid).
+ * Définitions de colonnes de la vue proactive du Suivi.
+ *
+ * C'est la table qui a servi de modèle au standard `ui/table-row` : identité
+ * empilée, nombres en chasse fixe, date doublée de son échéance, verdict codé
+ * par une forme, preuve en sous-ligne, gravité en barre de bord. Elle consomme
+ * désormais ce standard au lieu de le redire — un modèle qui n'utilise pas la
+ * règle qu'il a inspirée dérive au premier correctif.
  */
 import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
+import {
+  CellDate,
+  CellEvidence,
+  CellNumber,
+  CellStack,
+  CellVerdict,
+  severityBarClass,
+} from '@r/components/ui/table-row'
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import {
   OF_STATUT,
   VERDICT_ICON,
   VERDICT_TEXT,
-  LATE_TONE,
   getRelativeDateLabel,
 } from '@r/lib/suivi/tracking-shared'
-import { CalendarX, CircleSlash, ClipboardCheck, CornerDownRight, TriangleAlert, Truck } from 'lucide-react'
+import {
+  CalendarX,
+  CircleSlash,
+  ClipboardCheck,
+  CornerDownRight,
+  TriangleAlert,
+  Truck,
+} from 'lucide-react'
 import { X3Link } from '../../components/x3-link'
 
 export interface ProactiveColumnsDeps {
@@ -50,11 +68,11 @@ export function createProactiveColumns({
       // Design V3 : deux lignes — commande (mono gras, icône X3) / client
       // (muted, clamp + titre complet) — fini la troncature en plein mot.
       cell: ({ row, getValue }) => (
-        <span className="flex min-w-0 flex-col gap-px">
-          <span className="inline-flex items-center gap-1">
+        <CellStack
+          code={
             <button
               type="button"
-              className="rounded font-mono text-xs font-bold tracking-tight text-foreground outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
+              className="rounded outline-ring hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:pointer-events-none"
               disabled={!onOpenRow}
               title={onOpenRow ? `Diagnostic de la ligne ${getValue() as string}` : undefined}
               onClick={(e) => {
@@ -64,6 +82,8 @@ export function createProactiveColumns({
             >
               {getValue() as string}
             </button>
+          }
+          action={
             <X3Link
               fonction="GESSOH"
               cle={getValue() as string}
@@ -71,14 +91,12 @@ export function createProactiveColumns({
               iconOnly
               className="align-middle text-muted-foreground hover:text-brand"
             />
-          </span>
-          <span className="truncate text-2xs text-muted-foreground">
-            {row.original.client || '—'}
-          </span>
-        </span>
+          }
+          label={row.original.client}
+        />
       ),
       meta: {
-        thClass: 'w-[150px] text-left font-sans tracking-wider',
+        thClass: 'w-[150px]',
       },
     },
     {
@@ -87,20 +105,14 @@ export function createProactiveColumns({
       // Design V3 : deux lignes — code article (mono gras, JAMAIS tronqué) /
       // désignation (clamp-1 pleine largeur, titre complet en secours).
       cell: ({ row, getValue }) => (
-        <span className="flex min-w-0 flex-col gap-px">
-          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
-            {getValue() as string}
-          </span>
-          <span
-            className="truncate text-2xs text-muted-foreground"
-            title={row.original.designation || undefined}
-          >
-            {row.original.designation || '—'}
-          </span>
-        </span>
+        <CellStack
+          code={getValue() as string}
+          label={row.original.designation}
+          labelTitle={row.original.designation || undefined}
+        />
       ),
       meta: {
-        thClass: 'w-[200px] text-left font-sans tracking-wider',
+        thClass: 'w-[200px]',
       },
     },
     {
@@ -138,22 +150,15 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[110px] text-left font-sans tracking-wider',
+        thClass: 'w-[110px]',
       },
     },
     {
       accessorKey: 'qteRestante',
       header: 'Qté',
-      cell: ({ getValue }) => (
-        <span
-          className="font-mono text-cell-lg font-bold leading-none tracking-tight text-foreground tabular-nums"
-          title="unités"
-        >
-          {getValue() as number}
-        </span>
-      ),
+      cell: ({ getValue }) => <CellNumber value={getValue() as number} title="unités" />,
       meta: {
-        thClass: 'w-[100px] text-right! font-sans tracking-wider',
+        thClass: 'w-[100px] text-right!',
         tdClass: 'whitespace-nowrap text-right',
       },
     },
@@ -163,31 +168,25 @@ export function createProactiveColumns({
       cell: ({ row, getValue }) => {
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
-          <div className="leading-tight">
-            <div className="font-mono text-1.5xs font-semibold text-foreground">
-              {(getValue() as string) || '—'}
-            </div>
-            {rel && (
-              <div
-                className={cn(
-                  'font-sans text-3xs font-semibold',
-                  rel.label.startsWith('Retard')
-                    ? 'text-destructive'
-                    : rel.label === "Aujourd'hui"
-                      ? 'text-ferme'
-                      : rel.label === 'Demain'
-                        ? 'text-planifie'
-                        : 'text-muted-foreground'
-                )}
-              >
-                {rel.label}
-              </div>
-            )}
-          </div>
+          <CellDate
+            date={getValue() as string}
+            relative={rel?.label}
+            tone={
+              !rel
+                ? null
+                : rel.label.startsWith('Retard')
+                  ? 'critical'
+                  : rel.label === "Aujourd'hui"
+                    ? 'ok'
+                    : rel.label === 'Demain'
+                      ? 'info'
+                      : null
+            }
+          />
         )
       },
       meta: {
-        thClass: 'w-[76px] text-left font-sans tracking-wider',
+        thClass: 'w-[76px]',
         tdClass: 'whitespace-nowrap font-mono font-semibold',
       },
     },
@@ -244,7 +243,9 @@ export function createProactiveColumns({
                       <span
                         className={cn(
                           'shrink-0 font-mono text-[9px] font-semibold',
-                          st.tag === 'WOF' || st.tag === 'WOP' ? 'text-muted-foreground/60' : 'text-suggere'
+                          st.tag === 'WOF' || st.tag === 'WOP'
+                            ? 'text-muted-foreground/60'
+                            : 'text-suggere'
                         )}
                         title={
                           st.tag === 'WOF'
@@ -290,31 +291,24 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[150px] text-left font-sans tracking-wider',
+        thClass: 'w-[150px]',
       },
     },
     {
       id: 'verdictKey',
       enableSorting: false,
       header: 'Verdict',
-      cell: ({ row }) => {
-        const o = row.original
-        const VerdictIcon = VERDICT_ICON[o.verdictKey]
-        return (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            {/* Icône dessinée : la FORME code le verdict (lecture daltonien-safe),
-                la couleur suit VERDICT_TEXT. */}
-            <span className={cn('shrink-0', VERDICT_TEXT[o.verdictKey])} aria-hidden="true">
-              <VerdictIcon size={14} strokeWidth={1.75} />
-            </span>
-            <span className={cn('text-1.5xs font-semibold', VERDICT_TEXT[o.verdictKey])}>
-              {o.verdictLabel}
-            </span>
-          </span>
-        )
-      },
+      // La FORME de l'icône code le verdict (lecture daltonien-safe), la couleur
+      // ne fait que la doubler.
+      cell: ({ row }) => (
+        <CellVerdict
+          icon={VERDICT_ICON[row.original.verdictKey]}
+          label={row.original.verdictLabel}
+          tone={VERDICT_TEXT[row.original.verdictKey]}
+        />
+      ),
       meta: {
-        thClass: 'w-[120px] text-left font-sans tracking-wider',
+        thClass: 'w-[120px]',
       },
     },
     {
@@ -330,7 +324,7 @@ export function createProactiveColumns({
         return <>{Math.round(total * 10) / 10}h</>
       },
       meta: {
-        thClass: 'w-[70px] text-right! font-sans tracking-wider',
+        thClass: 'w-[70px] text-right!',
         tdClass: 'whitespace-nowrap text-right font-mono font-semibold',
       },
     },
@@ -391,51 +385,30 @@ export function createProactiveColumns({
                     {/* Part couverte par du stock sous contrôle qualité — à débloquer par le
                         contrôle réception, pas par la production. */}
                     {c.qc > 0 && (
-                      <div className="flex items-center gap-1">
-                        <ClipboardCheck
-                          size={11}
-                          strokeWidth={1.75}
-                          className="leading-none text-muted-foreground/80"
-                        />
-                        <span>
-                          <span className="font-bold text-foreground">{c.qc}</span> en statut Q
-                          (contrôle réception)
-                        </span>
-                      </div>
+                      <CellEvidence icon={ClipboardCheck}>
+                        <span className="font-bold text-foreground">{c.qc}</span> en statut Q
+                        (contrôle réception)
+                      </CellEvidence>
                     )}
                     {c.couvertParOf.ofs.length === 0
                       ? c.couvertParOf.parOf > 0 && (
-                          <div className="flex items-center gap-1">
-                            <CornerDownRight
-                              size={11}
-                              strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/80"
-                            />
-                            <span>
-                              <span className="font-bold text-foreground">
-                                {c.couvertParOf.parOf}
-                              </span>{' '}
-                              sans OF producteur
-                            </span>
-                          </div>
+                          <CellEvidence icon={CornerDownRight}>
+                            <span className="font-bold text-foreground">
+                              {c.couvertParOf.parOf}
+                            </span>{' '}
+                            sans OF producteur
+                          </CellEvidence>
                         )
                       : c.couvertParOf.ofs.map((of) => (
-                          <div key={of.numOf} className="flex items-center gap-1">
-                            <CornerDownRight
-                              size={11}
-                              strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/80"
-                            />
-                            <span>
-                              <span className="font-bold text-foreground">
-                                {c.couvertParOf!.parOf}
-                              </span>{' '}
-                              par <span className="font-bold text-foreground">{of.numOf}</span>
-                              {of.dateFin && (
-                                <span className="text-muted-foreground"> (fin {of.dateFin})</span>
-                              )}
-                            </span>
-                          </div>
+                          <CellEvidence key={of.numOf} icon={CornerDownRight}>
+                            <span className="font-bold text-foreground">
+                              {c.couvertParOf!.parOf}
+                            </span>{' '}
+                            par <span className="font-bold text-foreground">{of.numOf}</span>
+                            {of.dateFin && (
+                              <span className="text-muted-foreground"> (fin {of.dateFin})</span>
+                            )}
+                          </CellEvidence>
                         ))}
                   </div>
                 ) : c.descente ? (
@@ -447,47 +420,25 @@ export function createProactiveColumns({
                           className="flex flex-col gap-px font-mono text-3xs leading-snug text-muted-foreground"
                           title={p.desc}
                         >
-                          <div className="flex items-center gap-1">
-                            <CircleSlash
-                              size={11}
-                              strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/80"
-                            />
-                            <span>
-                              Bloqué par <span className="font-bold text-foreground">{p.art}</span>{' '}
-                              <span className="font-bold text-muted-foreground">−{p.manque}</span>
-                            </span>
-                          </div>
+                          <CellEvidence icon={CircleSlash}>
+                            Bloqué par <span className="font-bold text-foreground">{p.art}</span>{' '}
+                            <span className="font-bold text-muted-foreground">−{p.manque}</span>
+                          </CellEvidence>
                           {p.reception ? (
-                            <div
-                              className={cn(
-                                'flex items-center gap-0.5 pl-3.5 text-3xs font-medium',
-                                p.reception.overdue
-                                  ? 'font-bold text-destructive'
-                                  : 'text-muted-foreground/80'
-                              )}
+                            <CellEvidence
+                              icon={p.reception.overdue ? TriangleAlert : Truck}
+                              tone={p.reception.overdue ? 'critical' : null}
                               title={p.reception.supplier}
+                              className="pl-3.5"
                             >
-                              {p.reception.overdue ? (
-                                <TriangleAlert size={11} strokeWidth={1.75} className="leading-none opacity-80" />
-                              ) : (
-                                <Truck size={11} strokeWidth={1.75} className="leading-none opacity-80" />
-                              )}
-                              <span>
-                                {p.reception.overdue
-                                  ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
-                                  : `Arrivée ${p.reception.eta} · ${p.reception.po}`}
-                              </span>
-                            </div>
+                              {p.reception.overdue
+                                ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
+                                : `Arrivée ${p.reception.eta} · ${p.reception.po}`}
+                            </CellEvidence>
                           ) : (
-                            <div className="flex items-center gap-0.5 pl-3.5 text-3xs font-medium text-muted-foreground">
-                              <CalendarX
-                                size={11}
-                                strokeWidth={1.75}
-                                className="leading-none text-muted-foreground/80"
-                              />
+                            <CellEvidence icon={CalendarX} className="pl-3.5">
                               Aucune couverture prévue
-                            </div>
+                            </CellEvidence>
                           )}
                         </div>
                       ))}
@@ -498,60 +449,33 @@ export function createProactiveColumns({
                       )}
                     </div>
                   ) : (
-                    <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-semibold leading-none text-muted-foreground">
-                      <CornerDownRight
-                        size={11}
-                        strokeWidth={1.75}
-                        className="leading-none text-muted-foreground"
-                      />
+                    <CellEvidence icon={CornerDownRight} className="mt-0.5">
                       ↳ SE à lancer (composants dispo)
-                    </div>
+                    </CellEvidence>
                   )
                 ) : c.reception ? (
-                  <div
-                    className={cn(
-                      'mt-0.5 flex items-center gap-1 font-mono text-3xs leading-none',
-                      c.reception.overdue
-                        ? 'font-bold text-destructive'
-                        : 'font-medium text-muted-foreground'
-                    )}
+                  <CellEvidence
+                    icon={c.reception.overdue ? TriangleAlert : Truck}
+                    tone={c.reception.overdue ? 'critical' : null}
                     title={`Fournisseur: ${c.reception.supplier}`}
+                    className="mt-0.5"
                   >
-                    {c.reception.overdue ? (
-                      <TriangleAlert size={11} strokeWidth={1.75} className="leading-none opacity-80" />
-                    ) : (
-                      <Truck size={11} strokeWidth={1.75} className="leading-none opacity-80" />
-                    )}
-                    <span>
-                      {c.reception.overdue
-                        ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
-                        : `Arrivée ${c.reception.eta} · ${c.reception.po}`}
-                    </span>
-                  </div>
+                    {c.reception.overdue
+                      ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
+                      : `Arrivée ${c.reception.eta} · ${c.reception.po}`}
+                  </CellEvidence>
                 ) : (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground">
-                    <CalendarX
-                      size={11}
-                      strokeWidth={1.75}
-                      className="leading-none text-muted-foreground/80"
-                    />
+                  <CellEvidence icon={CalendarX} className="mt-0.5">
                     Aucune couverture prévue
-                  </div>
+                  </CellEvidence>
                 )}
                 {/* Dette envers le contrôle qualité sur un composant acheté — la ligne SE
                     porte déjà la sienne dans son bloc `couvertParOf`. */}
                 {!c.couvertParOf && c.qc > 0 && (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-3xs font-medium text-muted-foreground">
-                    <ClipboardCheck
-                      size={11}
-                      strokeWidth={1.75}
-                      className="leading-none text-muted-foreground/80"
-                    />
-                    <span>
-                      dont <span className="font-bold text-foreground">{c.qc}</span> en statut Q
-                      (contrôle réception)
-                    </span>
-                  </div>
+                  <CellEvidence icon={ClipboardCheck} className="mt-0.5">
+                    dont <span className="font-bold text-foreground">{c.qc}</span> en statut Q
+                    (contrôle réception)
+                  </CellEvidence>
                 )}
               </div>
             ))}
@@ -564,7 +488,7 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        thClass: 'w-[300px] text-left font-sans tracking-wider',
+        thClass: 'w-[300px]',
       },
     },
   ]
@@ -574,7 +498,7 @@ export function createProactiveColumns({
 export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplayRow> {
   return {
     headerLabel: 'N°',
-    thClass: 'w-[38px] text-left font-sans tracking-wider',
+    thClass: 'w-[38px]',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -582,7 +506,10 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
         row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
           ? ('critical' as const)
           : row.lateSeverity
-      return cn('font-sans font-bold tracking-tight tabular-nums', LATE_TONE.bar(s))
+      return cn(
+        'font-sans font-bold tracking-tight tabular-nums',
+        severityBarClass(s === 'tolerance' ? 'warning' : s)
+      )
     },
   }
 }

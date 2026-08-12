@@ -54,12 +54,26 @@ import {
   CloudOff,
   Inbox,
   Info,
+  Minus,
   ShoppingCart,
+  TriangleAlert,
+  Waves,
+  type LucideIcon,
 } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { ArticleExplanationSheet } from '@r/components/appro/article-explanation-sheet'
+import {
+  CellNumber,
+  CellStack,
+  CellVerdict,
+  TableCell,
+  TableHead,
+  TableHeadRow,
+  TableRow,
+  type RowTone,
+} from '@r/components/ui/table-row'
 import {
   RefreshPill,
   SEG,
@@ -299,6 +313,27 @@ const VOLATILITE_LABEL: Record<PatternArticle['volatilite'], string> = {
   haute: 'Volatile',
   moyenne: 'Moyen',
   basse: 'Stable',
+}
+
+/**
+ * Alphabet de volatilité — trois canaux, dont deux non chromatiques : la forme
+ * de l'icône, la barre de bord de la rangée, et la couleur qui les double.
+ * La pastille pleine d'origine ne codait QUE la couleur.
+ */
+const VOLATILITE_ICON: Record<PatternArticle['volatilite'], LucideIcon> = {
+  haute: TriangleAlert,
+  moyenne: Waves,
+  basse: Minus,
+}
+const VOLATILITE_TEXT: Record<PatternArticle['volatilite'], string> = {
+  haute: 'text-destructive',
+  moyenne: 'text-suggere',
+  basse: 'text-muted-foreground',
+}
+const VOLATILITE_TONE: Record<PatternArticle['volatilite'], RowTone> = {
+  haute: 'critical',
+  moyenne: 'warning',
+  basse: null,
 }
 
 const NATURE_DIFF_LABEL: Record<string, string> = {
@@ -1062,31 +1097,41 @@ function TendancesPanel({
                 Aucune source prédite agrégée pour l'instant.
               </div>
             ) : (
-              <table className="w-full text-left text-xs">
+              <table className="w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-[#ebebeb] text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                    <th className="py-1.5 pr-3 font-semibold">Source</th>
-                    <th className="py-1.5 pr-3 font-semibold">Décisions</th>
-                    <th className="py-1.5 pr-3 font-semibold">Overrides</th>
-                    <th className="py-1.5 pr-3 font-semibold">Taux</th>
-                    <th className="py-1.5 font-semibold" title="Part des décisions « à passer »">
+                  <TableHeadRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead align="right">Décisions</TableHead>
+                    <TableHead align="right">Overrides</TableHead>
+                    <TableHead>Taux</TableHead>
+                    <TableHead align="right" title="Part des décisions « à passer »">
                       Concordance
-                    </th>
-                  </tr>
+                    </TableHead>
+                  </TableHeadRow>
                 </thead>
                 <tbody>
                   {autoEval.parSource.map((c) => (
-                    <tr key={c.source} className="border-b border-[#f2f2f0]">
-                      <td className="py-1.5 pr-3 font-medium">{c.source}</td>
-                      <td className="py-1.5 pr-3 tabular-nums">{c.total}</td>
-                      <td className="py-1.5 pr-3 tabular-nums">{c.overrides}</td>
-                      <td className="py-1.5 pr-3">
+                    <TableRow key={c.source}>
+                      <TableCell>
+                        <CellStack code={c.source} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber value={c.total} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber value={c.overrides} emphasis="plain" />
+                      </TableCell>
+                      <TableCell>
                         <TauxBar taux={c.taux} />
-                      </td>
-                      <td className="py-1.5 tabular-nums">
-                        {c.concordance === null ? '—' : `${Math.round(c.concordance * 100)} %`}
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell align="right">
+                        <CellNumber
+                          value={
+                            c.concordance === null ? '—' : `${Math.round(c.concordance * 100)} %`
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
                   ))}
                 </tbody>
               </table>
@@ -1138,52 +1183,56 @@ function TendancesPanel({
               {patterns.diffsAnalyses > 1 ? 's' : ''} pour la dominance. Un message qui dure compte
               une fois.
             </p>
-            <table className="w-full text-left text-xs">
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-[#ebebeb] text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                  <th className="py-1.5 pr-3 font-semibold">Article</th>
-                  <th className="py-1.5 pr-3 font-semibold">Volatilité</th>
-                  <th className="py-1.5 pr-3 font-semibold">Messages</th>
-                  <th className="py-1.5 pr-3 font-semibold">Jours</th>
-                  <th className="py-1.5 pr-3 font-semibold">/semaine</th>
-                  <th className="py-1.5 font-semibold">Source dominante</th>
-                </tr>
+                <TableHeadRow>
+                  <TableHead>Article</TableHead>
+                  <TableHead>Volatilité</TableHead>
+                  <TableHead align="right">Messages</TableHead>
+                  <TableHead align="right">Jours</TableHead>
+                  <TableHead align="right">/semaine</TableHead>
+                  <TableHead>Source dominante</TableHead>
+                </TableHeadRow>
               </thead>
               <tbody>
                 {patterns.articles.slice(0, 20).map((a) => (
-                  <tr key={a.article} className="border-b border-[#f2f2f0]">
-                    <td className="py-1.5 pr-3 font-medium">{a.article}</td>
-                    <td className="py-1.5 pr-3">
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                          a.volatilite === 'haute' && 'bg-[#c13515]/10 text-[#c13515]',
-                          a.volatilite === 'moyenne' && 'bg-amber-100 text-amber-800',
-                          a.volatilite === 'basse' && 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {VOLATILITE_LABEL[a.volatilite]}
-                      </span>
-                    </td>
-                    <td className="py-1.5 pr-3 tabular-nums">{a.nbMessages}</td>
-                    <td className="py-1.5 pr-3 tabular-nums">{a.joursSousMessage}</td>
-                    <td className="py-1.5 pr-3 tabular-nums">{a.messagesSemaine}</td>
-                    <td className="py-1.5">
+                  // La volatilité EST la gravité de la ligne : elle se lit au bord
+                  // gauche, la colonne ne fait que la nommer.
+                  <TableRow key={a.article} tone={VOLATILITE_TONE[a.volatilite]}>
+                    <TableCell>
+                      <CellStack code={a.article} />
+                    </TableCell>
+                    <TableCell>
+                      <CellVerdict
+                        icon={VOLATILITE_ICON[a.volatilite]}
+                        label={VOLATILITE_LABEL[a.volatilite]}
+                        tone={VOLATILITE_TEXT[a.volatilite]}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={a.nbMessages} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={a.joursSousMessage} emphasis="plain" />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={a.messagesSemaine} emphasis="plain" />
+                    </TableCell>
+                    <TableCell>
                       {a.sourceDominante === null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
-                        <span>
-                          {a.sourceDominante}
-                          {a.partSourceDominante !== null && (
-                            <span className="ml-1 text-[10px] text-muted-foreground">
-                              {Math.round(a.partSourceDominante * 100)} % · {a.diffsExpliques} diff
-                              {a.diffsExpliques > 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </span>
+                        <CellStack
+                          code={a.sourceDominante}
+                          label={
+                            a.partSourceDominante !== null
+                              ? `${Math.round(a.partSourceDominante * 100)} % · ${a.diffsExpliques} diff${a.diffsExpliques > 1 ? 's' : ''}`
+                              : undefined
+                          }
+                        />
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </tbody>
             </table>
@@ -1214,23 +1263,27 @@ function TendancesPanel({
           </div>
         ) : (
           <div className="px-5 py-4">
-            <table className="w-full text-left text-xs">
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-[#ebebeb] text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                  <th className="py-1.5 pr-3 font-semibold">Fournisseur</th>
-                  <th className="py-1.5 pr-3 font-semibold">Messages</th>
-                  <th className="py-1.5 font-semibold">Part réceptions glissées</th>
-                </tr>
+                <TableHeadRow>
+                  <TableHead>Fournisseur</TableHead>
+                  <TableHead align="right">Messages</TableHead>
+                  <TableHead>Part réceptions glissées</TableHead>
+                </TableHeadRow>
               </thead>
               <tbody>
                 {patterns.fournisseurs.slice(0, 20).map((f) => (
-                  <tr key={f.fournisseur} className="border-b border-[#f2f2f0]">
-                    <td className="py-1.5 pr-3 font-medium">{f.fournisseur}</td>
-                    <td className="py-1.5 pr-3 tabular-nums">{f.nbMessages}</td>
-                    <td className="py-1.5">
+                  <TableRow key={f.fournisseur}>
+                    <TableCell>
+                      <CellStack code={f.fournisseur} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={f.nbMessages} />
+                    </TableCell>
+                    <TableCell>
                       <TauxBar taux={f.partReceptionsGlissees} />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </tbody>
             </table>

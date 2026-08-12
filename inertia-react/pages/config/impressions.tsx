@@ -936,9 +936,6 @@ export default function ImpressionsConfig(props: PageProps) {
               tableClass="w-full text-[13px]"
               scrollContainerClass="rounded-none border-0 shadow-none"
               theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
-              getRowClass={() =>
-                'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-              }
               getRowKey={(r) => String(r.id)}
             />
           )}
@@ -990,9 +987,6 @@ export default function ImpressionsConfig(props: PageProps) {
               tableClass="w-full text-[13px]"
               scrollContainerClass="rounded-none border-0 shadow-none"
               theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
-              getRowClass={() =>
-                'border-t border-rule-soft transition-colors even:bg-foreground/[0.015] hover:bg-foreground/[0.07]'
-              }
               getRowKey={(j) => String(j.id)}
             />
           )}

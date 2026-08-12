@@ -8,6 +8,41 @@ import {
   SheetTitle,
 } from '@r/components/ui/sheet'
 import { cn } from '@r/lib/utils'
+import {
+  CellNumber,
+  TableCell,
+  TableHead,
+  TableHeadRow,
+  TableRow,
+  type RowTone,
+} from '@r/components/ui/table-row'
+
+/**
+ * Étiquette de période dans la grille time-phased. Trois recettes de pastille
+ * étaient écrites à la main (retard / message / pénurie) avec trois palettes
+ * codées en dur (#c13515, sky-100, blanc sur rouge plein).
+ */
+function GrilleTag({
+  tone,
+  children,
+}: {
+  tone: Exclude<RowTone, null>
+  children: React.ReactNode
+}) {
+  return (
+    <span
+      className={cn(
+        'rounded px-1 py-0.5 font-mono text-3xs font-bold uppercase tracking-wide',
+        tone === 'critical' && 'bg-destructive/15 text-destructive',
+        tone === 'warning' && 'bg-suggere/15 text-suggere',
+        tone === 'info' && 'bg-planifie/15 text-planifie',
+        tone === 'ok' && 'bg-ferme/15 text-ferme'
+      )}
+    >
+      {children}
+    </span>
+  )
+}
 
 /** Shape exact de `GET /api/v1/appro/article-explanation` (tickets 02 + 05). */
 interface GrillePeriode {
@@ -383,102 +418,72 @@ function SuccessContent({ data }: { data: ExplanationSuccess }) {
           <table className="w-full min-w-[520px] text-left text-xs">
             <caption className="sr-only">Grille time-phased de l’article</caption>
             <thead>
-              <tr className="border-b border-rule bg-secondary/50 text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                <th scope="col" className="px-2 py-1.5 font-semibold">
-                  Période
-                </th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
-                  Stock début
-                </th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
-                  Demande
-                </th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
-                  Besoin mat.
-                </th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
-                  Réception
-                </th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
-                  OF
-                </th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
-                  Stock fin
-                </th>
-              </tr>
+              <TableHeadRow className="bg-secondary/50">
+                <TableHead>Période</TableHead>
+                <TableHead align="right">Stock début</TableHead>
+                <TableHead align="right">Demande</TableHead>
+                <TableHead align="right">Besoin mat.</TableHead>
+                <TableHead align="right">Réception</TableHead>
+                <TableHead align="right">OF</TableHead>
+                <TableHead align="right">Stock fin</TableHead>
+              </TableHeadRow>
             </thead>
-            <tbody className="divide-y divide-rule/60">
+            <tbody>
               {grille.periodes.map((p) => {
                 const isPenurie = premierePenurieIdx !== null && p.index === premierePenurieIdx
                 const isMessage = p.contientMessage
                 return (
-                  <tr
-                    key={p.index}
-                    className={cn(
-                      'transition-colors',
-                      isPenurie && 'bg-[#c13515]/10',
-                      isMessage && 'bg-sky-50',
-                      isPenurie && isMessage && 'bg-[#c13515]/15',
-                      p.estPenurie && !isPenurie && 'bg-[#c13515]/5'
-                    )}
-                  >
-                    <td className="whitespace-nowrap px-2 py-1.5">
+                  // Trois fonds de ligne concurrents (pénurie, message, et leur
+                  // combinaison) coloraient jusqu'à la moitié de la grille. La
+                  // rupture passe en barre de bord ; le message garde son badge,
+                  // qui le disait déjà.
+                  <TableRow key={p.index} tone={p.estPenurie ? 'critical' : null}>
+                    <TableCell className="whitespace-nowrap">
                       <span
                         className={cn(
                           'inline-flex items-center gap-1',
-                          p.estRetard && 'font-bold text-[#c13515]',
-                          isPenurie && 'font-bold text-[#c13515]',
-                          isMessage && 'font-semibold text-sky-700'
+                          (p.estRetard || isPenurie) && 'font-bold text-destructive',
+                          isMessage && !isPenurie && 'font-semibold text-planifie'
                         )}
                       >
                         {p.label}
-                        {p.estRetard && (
-                          <span className="rounded bg-[#c13515]/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#c13515]">
-                            retard
-                          </span>
-                        )}
-                        {isMessage && (
-                          <span className="rounded bg-sky-100 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-700">
-                            message
-                          </span>
-                        )}
-                        {isPenurie && (
-                          <span className="rounded bg-[#c13515] px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                            pénurie
-                          </span>
-                        )}
+                        {p.estRetard && <GrilleTag tone="critical">retard</GrilleTag>}
+                        {isMessage && <GrilleTag tone="info">message</GrilleTag>}
+                        {isPenurie && <GrilleTag tone="critical">pénurie</GrilleTag>}
                       </span>
-                    </td>
-                    <td
-                      className={cn(
-                        'px-2 py-1.5 text-right tabular-nums',
-                        p.stockDebut < 0 && 'font-semibold text-[#c13515]'
-                      )}
-                    >
-                      {fmtQte(p.stockDebut)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
-                      {p.demande ? fmtQte(-p.demande) : '—'}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
-                      {p.besoinMatiere ? fmtQte(-p.besoinMatiere) : '—'}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
-                      {p.reception ? fmtQte(p.reception) : '—'}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
-                      {p.of ? fmtQte(p.of) : '—'}
-                    </td>
-                    <td
-                      className={cn(
-                        'px-2 py-1.5 text-right font-semibold tabular-nums',
-                        p.stockFin < 0 ? 'text-[#c13515]' : 'text-foreground',
-                        isPenurie && 'bg-[#c13515]/15'
-                      )}
-                    >
-                      {fmtQte(p.stockFin)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber
+                        value={fmtQte(p.stockDebut)}
+                        emphasis="plain"
+                        tone={p.stockDebut < 0 ? 'critical' : null}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={p.demande ? fmtQte(-p.demande) : '—'} emphasis="plain" />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber
+                        value={p.besoinMatiere ? fmtQte(-p.besoinMatiere) : '—'}
+                        emphasis="plain"
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber
+                        value={p.reception ? fmtQte(p.reception) : '—'}
+                        emphasis="plain"
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={p.of ? fmtQte(p.of) : '—'} emphasis="plain" />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber
+                        value={fmtQte(p.stockFin)}
+                        tone={p.stockFin < 0 ? 'critical' : null}
+                      />
+                    </TableCell>
+                  </TableRow>
                 )
               })}
             </tbody>
