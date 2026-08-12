@@ -245,14 +245,14 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<ControleP
       header: () => <span title="Dernière opération pointée / nombre total d'opérations">Op</span>,
       cell: ({ row: { original: r } }) =>
         r.derniereOpPointee != null ? (
-          <span className="font-mono text-1.5xs tabular-nums text-muted-foreground">
+          <span className="font-mono text-1.5xs tabular-nums">
             <span className="font-semibold text-foreground">{r.derniereOpPointee}</span>
-            <span className="text-muted-foreground/60">/{r.nbOperations}</span>
+            <span className="text-muted-foreground">/{r.nbOperations}</span>
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),
-      meta: { thClass: 'w-[56px]', tdClass: 'w-[56px] align-top' },
+      meta: { thClass: 'w-[56px] text-center!', tdClass: 'w-[56px] align-top text-center' },
     },
     {
       id: 'periode',
@@ -589,38 +589,54 @@ export default function ControleProd(props: Props) {
               variant="orb"
               orbState="searching"
               title="Recherche des OF non soldés…"
+              description="Gamme pointée à 100 % · lecture MFGOPE · croisement avec la couverture"
             />
           ) : solder.error ? (
-            <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
               <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
-              Échec du chargement.
+              <p className="text-sm font-medium text-foreground">OF à solder indisponibles</p>
+              <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                Le calcul croise MFGOPE et le moteur de couverture — X3 ou le moteur n'a pas
+                répondu. Réessaye : le cache est à 2 min.
+              </p>
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-2 p-5">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
               {filteredSolder.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center p-10 text-center text-sm italic text-muted-foreground">
-                  Aucun OF à solder sur ce filtre.
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    {solderData.rows.length === 0
+                      ? 'Aucun OF à solder'
+                      : 'Aucun OF ne correspond à ce filtre'}
+                  </p>
+                  <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                    {solderData.rows.length === 0
+                      ? 'Aucun OF n’a sa gamme pointée à 100 % sans déclaration avec un reste annoncé.'
+                      : 'Élargis la recherche ou change le filtre — le compte porte sur les OF réellement chargés.'}
+                  </p>
                 </div>
               ) : (
                 <>
-                  <div className="flex-none text-1.5xs text-muted-foreground">
-                    {filteredSolder.length} OF · gamme pointée à 100 %, aucune déclaration en stock
-                    — écartés de la couverture. Σ reste fictif{' '}
-                    <span className="font-mono font-semibold tabular-nums text-destructive">
-                      {fmt(solderData.stats.totalQte)}
-                    </span>
-                  </div>
+                  <p className="flex-none text-1.5xs leading-relaxed text-muted-foreground">
+                    {filteredSolder.length} OF à solder · gamme pointée à 100 % sans déclaration PF
+                    · écartés de la couverture — commandes sans couverture en dessous.
+                  </p>
                   <div className="min-h-0 flex-1">
                     <DataTable
                       columns={solderColumns}
                       rows={sortedSolder}
                       sorting={sorting}
                       onSortingChange={setSorting}
-                      tableClass="min-w-[1100px] table-fixed"
+                      tableClass="min-w-[980px] table-fixed"
                       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
                       theadRowClass="sticky top-0 z-10 bg-card"
                       onRowClick={(r) => onSelectOf(r.numOf)}
                       getRowKey={(r) => r.numOf}
+                      emptyState={
+                        <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
+                          Filtre trop serré — aucun OF à solder ne correspond.
+                        </div>
+                      }
                     />
                   </div>
                 </>
@@ -633,37 +649,52 @@ export default function ControleProd(props: Props) {
             variant="orb"
             orbState="searching"
             title="Scan des écarts…"
+            description="Lecture ORDERS / MFGITM / MFGOPE · calcul écart Déclaré PF − Pointé atelier"
           />
         ) : error ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
             <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
-            Échec du chargement.
+            <p className="text-sm font-medium text-foreground">Écarts indisponibles</p>
+            <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+              ORDERS / MFGITM n'a pas répondu. Le cache est à 2 min — actualise ou réessaye. Si
+              l'erreur persiste, vérifie la connexion VPN / X3.
+            </p>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-2 p-5">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
             {filtered.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center p-10 text-center text-sm italic text-muted-foreground">
-                Aucun écart sur ce filtre.
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  {viewData.rows.length === 0 ? 'Aucun écart détecté' : 'Aucun écart ne correspond'}
+                </p>
+                <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                  {viewData.rows.length === 0
+                    ? 'Aucun OF où Déclaré PF dépasse le Pointé atelier — la déclaration et le pointage sont alignés.'
+                    : 'Aucune ligne ne correspond à ce filtre · enlève la recherche ou change le périmètre.'}
+                </p>
               </div>
             ) : (
               <>
-                <div className="flex-none text-1.5xs text-muted-foreground">
-                  {filtered.length} ligne{filtered.length > 1 ? 's' : ''} · Σ écart visible{' '}
-                  <span className="font-mono font-semibold tabular-nums text-destructive">
-                    +{fmt(sumVisible)}
-                  </span>
-                </div>
+                <p className="flex-none text-1.5xs leading-relaxed text-muted-foreground">
+                  {filtered.length} écart{filtered.length > 1 ? 's' : ''} · Déclaré PF &gt; Pointé
+                  atelier — l'OF annonce plus que l'atelier n'a pointé. Écart en rouge.
+                </p>
                 <div className="min-h-0 flex-1">
                   <DataTable
                     columns={columns}
                     rows={sorted}
                     sorting={sorting}
                     onSortingChange={setSorting}
-                    tableClass="min-w-[1100px] table-fixed"
+                    tableClass="min-w-[980px] table-fixed"
                     scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
                     theadRowClass="sticky top-0 z-10 bg-card"
                     onRowClick={(r) => onSelectOf(r.numOf)}
                     getRowKey={(r) => r.numOf}
+                    emptyState={
+                      <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
+                        Aucun écart ne correspond à ce filtre.
+                      </div>
+                    }
                   />
                 </div>
               </>
