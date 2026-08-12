@@ -1,6 +1,6 @@
 /**
- * Page « Suivi des ruptures » (port React) — design system « Airbnb », harmonisée
- * avec /suivi (masthead FactoryOS, bandeau KPI, toolbar à bascule).
+ * Page « Suivi des ruptures » (port React) — design system Cursor, harmonisée
+ * avec les autres pages migrées (toolbar unifiée ui/toolbar).
  *
  * Shell Inertia instantané (SchedulerController.shortageTracker) ; les lignes (calcul
  * lourd : faisabilité + réceptions) chargées en différé par fetch JSON (shortageRows).
@@ -8,8 +8,9 @@
  * (agrégation dégâts).
  */
 import { useMemo, useState } from 'react'
+import { router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { Search, TriangleAlert, CircleX } from 'lucide-react'
+import { TriangleAlert, CircleX } from 'lucide-react'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
@@ -18,15 +19,16 @@ import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { ShortageRegistre, ShortageComposants } from '@r/components/shortages'
 import {
-  PILL,
-  Segment,
-  SegmentButton,
-  DateWindowPill,
-  RefreshPill,
-  ToolbarRow,
+  Toolbar,
+  ToolbarSegmented,
+  ToolbarSegment,
+  ToolbarSearch,
+  ToolbarRefresh,
   ToolbarSpacer,
-  FilterMenu,
-} from '@r/components/vision/toolbar'
+  ToolbarDateWindow,
+  ToolbarFilterMenu,
+  ToolbarFilterChip,
+} from '@r/components/ui/toolbar'
 import { route } from '@r/lib/routes'
 import { parseIso, toIso, startOfDay, DAY_MS } from '@r/lib/vision/date-utils'
 import type { ShortageRowsResponse, ShortageVerdictKey } from '@r/lib/shortages/types'
@@ -63,7 +65,6 @@ export default function Shortages(props: ShortagesProps) {
   const [mode, setMode] = useState<'registre' | 'composants'>('registre')
   const [query, setQuery] = useState('')
   const [verdictFilter, setVerdictFilter] = useState<ShortageVerdictKey | 'all'>('all')
-  const [calOpen, setCalOpen] = useState(false)
   const [selectedOf, setSelectedOf] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
@@ -81,11 +82,10 @@ export default function Shortages(props: ShortagesProps) {
     end: windowEnd,
   })
 
-  const applyRange = (r: DayPickerRange | undefined) => {
-    const next: DateRange = { start: r?.from ?? null, end: r?.to ?? null }
+  const applyRange = (r: DayPickerRange) => {
+    const next: DateRange = { start: r.from ?? null, end: r.to ?? null }
     setRange(next)
     if (!next.start || !next.end) return
-    setCalOpen(false)
     const span = Math.round(
       (startOfDay(next.end).getTime() - startOfDay(next.start).getTime()) / DAY_MS
     )
@@ -135,14 +135,18 @@ export default function Shortages(props: ShortagesProps) {
     </div>
   )
 
-  const verdictChip = (k: ShortageVerdictKey | 'all', label: string) => {
+  const verdictChip = (k: ShortageVerdictKey | 'all', label: string, tone: 'critical' | 'warning' | 'ok' | 'neutral') => {
     const on = verdictFilter === k
     const count = k === 'all' ? viewData.rows.length : counts[k]
     return (
-      <SegmentButton key={k} active={on} onClick={() => setVerdictFilter(on ? 'all' : k)}>
-        {label}
-        {count > 0 && <span className="ml-1 opacity-60">{count}</span>}
-      </SegmentButton>
+      <ToolbarFilterChip
+        key={k}
+        label={label}
+        count={count}
+        tone={tone}
+        active={on}
+        onClick={() => setVerdictFilter(on ? 'all' : k)}
+      />
     )
   }
 
@@ -172,9 +176,9 @@ export default function Shortages(props: ShortagesProps) {
           et la table déborde hors de l'écran sans scroll possible. */}
       <div className="flex h-full min-h-0 flex-col">
         {/* ═══ Toolbar ═══ */}
-        <ToolbarRow>
+        <Toolbar>
           {/* Bascule Registre / Par composant */}
-          <Segment role="radiogroup" ariaLabel="Vue">
+          <ToolbarSegmented semantics="tabs" aria-label="Vue">
             {(
               [
                 ['registre', 'Registre', 'Table éditoriale : une ligne par composant × OF bloqué'],
@@ -185,65 +189,55 @@ export default function Shortages(props: ShortagesProps) {
                 ],
               ] as const
             ).map(([key, label, title]) => (
-              <SegmentButton
+              <ToolbarSegment
                 key={key}
-                role="radio"
                 active={mode === key}
                 title={title}
                 onClick={() => setMode(key)}
               >
                 {label}
-              </SegmentButton>
+              </ToolbarSegment>
             ))}
-          </Segment>
+          </ToolbarSegmented>
 
           {/* Fenêtre — sélecteur de plage */}
-          <DateWindowPill
-            open={calOpen}
-            onOpenChange={setCalOpen}
-            selected={{ from: range.start ?? undefined, to: range.end ?? undefined }}
-            onSelect={applyRange}
+          <ToolbarDateWindow
+            value={range.start && range.end ? { from: range.start, to: range.end } : undefined}
+            onCommit={applyRange}
             title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
           />
 
-          {/* Filtre verdict — déclencheur unique (6 chips empilaient trop
-              large la rangée sur écran étroit). */}
-          <FilterMenu
+          {/* Filtre verdict — déclencheur unique. */}
+          <ToolbarFilterMenu
             label="Verdict"
-            indicators={
-              verdictFilter !== 'all' ? (
-                <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
-              ) : null
-            }
+            activeCount={verdictFilter !== 'all' ? 1 : 0}
           >
-            <Segment className="w-full flex-wrap">
-              {verdictChip('all', 'Tous')}
-              {verdictChip('sans_couverture', 'Sans couv.')}
-              {verdictChip('sous_ensemble', 'S/E')}
-              {verdictChip('retard', 'Retard')}
-              {verdictChip('a_risque', 'À risque')}
-              {verdictChip('couvert', 'Couvert')}
-            </Segment>
-          </FilterMenu>
+            <ToolbarSegmented flat semantics="toggles" className="flex-wrap">
+              {verdictChip('all', 'Tous', 'neutral')}
+              {verdictChip('sans_couverture', 'Sans couv.', 'critical')}
+              {verdictChip('sous_ensemble', 'S/E', 'warning')}
+              {verdictChip('retard', 'Retard', 'critical')}
+              {verdictChip('a_risque', 'À risque', 'warning')}
+              {verdictChip('couvert', 'Couvert', 'ok')}
+            </ToolbarSegmented>
+          </ToolbarFilterMenu>
 
           <ToolbarSpacer />
 
           {/* Recherche — systématiquement à droite (convention toolbar). */}
-          <div className={PILL}>
-            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <input
-              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="Composant, OF, commande, fournisseur…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-          </div>
-          <RefreshPill
-            href={`${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
+          <ToolbarSearch
+            value={query}
+            onChange={setQuery}
+            placeholder="Composant, OF, commande, fournisseur…"
           />
-        </ToolbarRow>
+          <ToolbarRefresh
+            onClick={() =>
+              router.visit(
+                `${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`
+              )
+            }
+          />
+        </Toolbar>
 
         {/* ═══ X3 injoignable ═══ */}
         {viewData.x3Error && (
