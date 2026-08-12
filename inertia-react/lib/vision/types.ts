@@ -11,6 +11,13 @@
 /** Statut d'OF porté par la carte (les MO sont filtrés 1/2/3 côté serveur). */
 export type VisionCardStatus = 'ferme' | 'planifie' | 'suggere'
 
+/**
+ * Vue active de /programme. Vivait dans `components/vision/programme-toolbar`,
+ * supprimé à la migration design system : un type de domaine ne doit pas
+ * dépendre d'un composant de barre d'outils pour exister.
+ */
+export type VisionMode = 'combined' | 'ordonnancement' | 'planification'
+
 export interface VisionOfCard {
   numOf: string
   status: VisionCardStatus

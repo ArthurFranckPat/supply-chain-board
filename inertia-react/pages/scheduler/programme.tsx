@@ -12,32 +12,65 @@
  *  • un overlay SVG reliant chaque OF à sa commande à l'horizontale (mesuré au DOM
  *    via data-num-of / data-link-cmd).
  *
- * Shell (état + composition) — toolbar, marqueur commande et overlay de liens
- * vivent dans components/vision/*.tsx ; la géométrie pure dans lib/vision/
- * (issue #52).
+ * Shell (état + composition) — marqueur commande et overlay de liens vivent
+ * dans components/vision/*.tsx ; la géométrie pure dans lib/vision/ (issue #52).
+ *
+ * Migrée sur le design system (vitrine `/design-system`) :
+ * • `AppLayout theme="cursor" dense scrollable={false}` au lieu du couple
+ *   `theme-airbnb` + <Masthead> monté à la main ;
+ * • la barre passe par la prop `toolbar` d'AppLayout — c'est elle qui porte le
+ *   filet, le fond, l'axe `px-6` du TopBar et la règle d'impression ;
+ * • standard §17 : la rangée ne garde que la portée (mode + fenêtre), le
+ *   déclencheur unique « Filtres », la recherche et l'état/actions. Statut d'OF,
+ *   nature de poste et portée de recherche descendent SOUS le déclencheur — ils
+ *   occupaient trois pills permanentes (`FilterMenu` maison + <Select>) dans une
+ *   rangée qui n'avait plus de place pour la recherche.
+ * • plus de `components/vision/programme-toolbar` (supprimé) ni de menu
+ *   « Actions » en <details> : les trois actions sont des Pill du design system,
+ *   visibles là où elles s'appliquent.
+ *
+ * Pas de `meta` sur le TopBar : « 125 OF · 12 postes » ne bougeait pas d'un
+ * filtre à l'autre et contredisait le compteur de la rangée dès qu'on en posait
+ * un. Seul le volume filtré reste, en zone 04, et seulement sous filtre.
  */
 
-import { useEffect, useMemo, useState, useRef, useCallback, type JSX } from 'react'
-import { Head, usePage, router } from '@inertiajs/react'
-import { Search, TriangleAlert } from 'lucide-react'
-
-import Masthead from '@r/components/masthead'
-import { TextField, TextFieldInput } from '@r/components/ui/text-field'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { usePage, router } from '@inertiajs/react'
+import type { DateRange as DayPickerRange } from 'react-day-picker'
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@r/components/ui/select'
+  ClipboardList,
+  FlaskConical,
+  ListChecks,
+  RefreshCw,
+  TriangleAlert,
+  Wand2,
+} from 'lucide-react'
 
-import { useBoardStore, statusActive } from '@r/lib/board/store'
+import AppLayout from '@r/layouts/app'
+import { DynamicIcon } from '@r/components/ui/dynamic-icon'
+import { Pill } from '@r/components/ui/pill'
+import { Separator } from '@r/components/ui/separator'
+import {
+  ToolbarDateWindow,
+  ToolbarFilterChip,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarGroup,
+  ToolbarMetric,
+  ToolbarRefresh,
+  ToolbarSearch,
+  ToolbarSegment,
+  ToolbarSegmented,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
+
+import { useBoardStore, cardMatches, lineVisible } from '@r/lib/board/store'
 import { useOrderBoardStore } from '@r/lib/orders/orders-store'
 import { useScenarioStore } from '@r/lib/scenario/store'
 
-import type { BoardData, SearchScope } from '@r/lib/board/types'
+import type { BoardData, PosteNatureFilterKey, SearchScope } from '@r/lib/board/types'
 import type { OrderBoardData, OrderSearchScope } from '@r/lib/orders/types'
-import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
+import type { VisionCommande, VisionLink, VisionMode } from '@r/lib/vision/types'
 import type { PlanMutation } from '@r/lib/scenarios/types'
 
 import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@r/lib/vision/date-utils'
@@ -51,8 +84,6 @@ import {
   type ImpactVerdict,
 } from '@r/lib/vision/impact'
 
-import { ProgrammeToolbar, type VisionMode } from '@r/components/vision/programme-toolbar'
-import { PILL } from '@r/components/vision/toolbar'
 import { CommandeMarker } from '@r/components/vision/commande-marker'
 import { LinksOverlay, type LinkMode } from '@r/components/vision/links-overlay'
 import { TriageRail, type TriageItem } from '@r/components/vision/triage-rail'
@@ -69,8 +100,6 @@ import { useShortcuts } from '@r/lib/a11y/shortcuts'
 import { toast } from 'sonner'
 import { virtualOrdersFrom } from '@r/lib/scenarios/types'
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
-import type { DateRange } from '@r/components/vision/programme-toolbar'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,19 +148,55 @@ const EMPTY_ORDER_BOARD: OrderBoardData = {
   weekCaps: {},
 }
 
+const MODE_LABELS: Record<VisionMode, string> = {
+  ordonnancement: 'OF',
+  combined: 'Combiné',
+  planification: 'Cmdes',
+}
+
+const MODE_TITLES: Record<VisionMode, string> = {
+  ordonnancement: 'Mode Ordonnancement — OF seuls',
+  combined: 'Mode Combiné — OF + liens commandes + impacts',
+  planification: 'Mode Commandes — planification par ligne de commande',
+}
+
+/* Portée de recherche. Le libellé sert la chip du panneau ; le placeholder dit
+   dans la rangée ce que la portée cherche — sans ça, le champ reste visible
+   mais muet sur ce qu'il interroge, et la portée n'est plus qu'un réglage
+   enterré. */
 const OF_SCOPES = [
-  { v: 'poste' as const, label: 'Poste' },
-  { v: 'of' as const, label: 'OF' },
-  { v: 'pf' as const, label: 'PF' },
-  { v: 'composant' as const, label: 'Composant' },
+  { v: 'poste' as const, label: 'Poste', placeholder: 'Chercher un poste…' },
+  { v: 'of' as const, label: 'OF', placeholder: 'Chercher un n° d’OF…' },
+  { v: 'pf' as const, label: 'PF', placeholder: 'Chercher un produit fini…' },
+  { v: 'composant' as const, label: 'Composant', placeholder: 'Chercher un composant…' },
 ] as const
 
 const ORDER_SCOPES = [
-  { v: 'poste' as const, label: 'Poste' },
-  { v: 'commande' as const, label: 'Commande' },
-  { v: 'article' as const, label: 'Article' },
-  { v: 'client' as const, label: 'Client' },
+  { v: 'poste' as const, label: 'Poste', placeholder: 'Chercher un poste…' },
+  { v: 'commande' as const, label: 'Commande', placeholder: 'Chercher une commande…' },
+  { v: 'article' as const, label: 'Article', placeholder: 'Chercher un article…' },
+  { v: 'client' as const, label: 'Client', placeholder: 'Chercher un client…' },
 ] as const
+
+/** Portée par défaut des deux stores — le repère de « ce filtre est actif ». */
+const DEFAULT_SCOPE = 'poste'
+
+/* Chips du panneau de filtres. La gravité du point suit la sémantique board :
+   ferme = acquis, planifié = neutre, suggéré = à décider. */
+const STATUS_CHIPS: {
+  k: 'ferme' | 'planifie' | 'suggere'
+  label: string
+  tone: 'ok' | 'neutral' | 'warning'
+}[] = [
+  { k: 'ferme', label: 'Ferme', tone: 'ok' },
+  { k: 'planifie', label: 'Planifié', tone: 'neutral' },
+  { k: 'suggere', label: 'Suggéré', tone: 'warning' },
+]
+
+const POSTE_NATURE_CHIPS: { k: PosteNatureFilterKey; label: string }[] = [
+  { k: 'assemblage_pf', label: 'Assemblage PF' },
+  { k: 'assemble_sous_ensemble', label: 'Sous-ensemble' },
+]
 
 /**
  * Traduction de portée au changement de mode (les deux boards n'indexent pas les mêmes
@@ -153,7 +218,11 @@ const ORDER_TO_OF_SCOPE: Record<OrderSearchScope, SearchScope> = {
   client: 'poste',
 }
 
-type ScopeOption = { v: SearchScope | OrderSearchScope; label: string }
+type ScopeOption = {
+  v: SearchScope | OrderSearchScope
+  label: string
+  placeholder: string
+}
 
 // ---------------------------------------------------------------------------
 // Programme Component
@@ -268,7 +337,17 @@ export default function Programme(props: VisionProps) {
 
   // Store « actif » selon le mode
   const isOrderMode = mode === 'planification'
-  const scopeOptions = (): readonly ScopeOption[] => (isOrderMode ? ORDER_SCOPES : OF_SCOPES)
+  const scopeOptions: readonly ScopeOption[] = isOrderMode ? ORDER_SCOPES : OF_SCOPES
+  const activeScope = isOrderMode ? orderStore.scope : boardStore.scope
+  const activeQuery = isOrderMode ? orderStore.query : boardStore.query
+  const onQueryInput = isOrderMode ? orderStore.onQueryInput : boardStore.onQueryInput
+  const onScopeChange = useCallback(
+    (v: SearchScope | OrderSearchScope) => {
+      if (isOrderMode) useOrderBoardStore.getState().onScopeChange(v as OrderSearchScope)
+      else useBoardStore.getState().onScopeChange(v as SearchScope)
+    },
+    [isOrderMode]
+  )
   const feasLoading = () => (isOrderMode ? orderStore.feasLoading : boardStore.feasLoading)
   const runFeasibility = useCallback(() => {
     if (isOrderMode) {
@@ -381,18 +460,18 @@ export default function Programme(props: VisionProps) {
     requestMeasure,
   ])
 
-  // ── Calendrier ──
-  const [calOpen, setCalOpen] = useState(false)
-  const [range, setRange] = useState<DateRange>(() => ({
+  // ── Fenêtre de dates ──
+  // Plus de `calOpen` : `ToolbarDateWindow` porte son propre état d'ouverture et
+  // ne rappelle `onCommit` qu'avec une plage complète (deux clics).
+  const [range, setRange] = useState<DayPickerRange | undefined>(() => ({
     from: parseIso(props.windowFrom) ?? undefined,
     to: parseIso(props.windowTo) ?? undefined,
   }))
 
   const applyRange = useCallback(
-    (r: DateRange) => {
+    (r: DayPickerRange) => {
       setRange(r)
       if (r.from && r.to) {
-        setCalOpen(false)
         const days =
           Math.round((startOfDay(r.to).getTime() - startOfDay(r.from).getTime()) / DAY_MS) + 1
         router.visit(route('scheduler.programme'), {
@@ -1032,11 +1111,229 @@ export default function Programme(props: VisionProps) {
       },
     },
     () => {
-      if (calOpen) setCalOpen(false)
-      else if (detailOpen) setDetailOpen(false)
+      if (detailOpen) setDetailOpen(false)
       else if (engagementOpen) setEngagementOpen(false)
       else if (diffOpen) setDiffOpen(false)
     }
+  )
+
+  // ---------------------------------------------------------------------------
+  // Barre d'outils — standard §17 du design system
+  // ---------------------------------------------------------------------------
+
+  /* Statut d'OF : le board OF/Combiné est seul à en porter un. Les stores sont
+     déjà souscrits en entier plus haut (`useBoardStore()`), on lit leurs
+     tranches directement plutôt que d'ajouter des sélecteurs redondants. */
+  const statuses = boardStore.statusFilter
+  const toggleStatus = boardStore.toggleStatus
+
+  /* Nature de poste : les deux boards en ont une, chacun la sienne. */
+  const posteNatures = isOrderMode ? orderStore.posteNatureFilter : boardStore.posteNatureFilter
+  const togglePosteNature = isOrderMode
+    ? orderStore.togglePosteNature
+    : boardStore.togglePosteNature
+
+  /* Ce qui S'ÉCARTE du défaut — pas ce qui est coché. Statut et nature partent
+     tous filtres actifs : les compter « actifs » afficherait un 3 permanent sur
+     le déclencheur et ne dirait plus rien. */
+  const activeFilterCount =
+    (activeScope !== DEFAULT_SCOPE ? 1 : 0) +
+    (!isOrderMode && statuses.size !== STATUS_CHIPS.length ? 1 : 0) +
+    (posteNatures.size !== POSTE_NATURE_CHIPS.length ? 1 : 0)
+
+  const isFiltered = activeFilterCount > 0 || activeQuery.trim().length > 0
+
+  /* Volume filtré (zone 04). Rendu seulement sous filtre : un total qui ne
+     bouge pas occupe la rangée sans rien apprendre. Le comptage traverse le
+     board en mémoire (quelques centaines de cartes), jamais X3. */
+  const filteredCount = useMemo(() => {
+    if (!isFiltered) return 0
+    if (isOrderMode) {
+      let n = 0
+      for (const line of orderStore.board.lines) {
+        if (!orderStore.lineVisible(line.code)) continue
+        for (const dc of line.dayCells) {
+          for (const c of dc.cards) if (orderStore.cardMatches(c, line.code)) n++
+        }
+      }
+      return n
+    }
+    let n = 0
+    for (const line of boardStore.board.lines) {
+      if (!lineVisible(boardStore, line.code)) continue
+      for (const dc of line.dayCells) {
+        for (const c of dc.cards) if (cardMatches(boardStore, c, line.code)) n++
+      }
+    }
+    return n
+    // `boardStore` / `orderStore` en dépendance, et l'état souscrit plutôt que
+    // `getState()` : leur identité change à chaque `set()`, ce qui est
+    // exactement quand ce compte doit être refait.
+  }, [isFiltered, isOrderMode, boardStore, orderStore])
+
+  const totalCount = isOrderMode
+    ? orderStore.board.lines.reduce(
+        (s, l) => s + l.dayCells.reduce((t, dc) => t + dc.cards.length, 0),
+        0
+      )
+    : props.totalOf
+
+  const toolbar = (
+    <>
+      {/* ── Zone 01 · Portée : ce que la page montre ────────────────────── */}
+      <ToolbarGroup>
+        <ToolbarSegmented semantics="tabs" aria-label="Mode d'affichage">
+          {(['ordonnancement', 'combined', 'planification'] as const).map((m) => (
+            <ToolbarSegment
+              key={m}
+              active={mode === m}
+              title={MODE_TITLES[m]}
+              onClick={() => switchMode(m)}
+            >
+              {MODE_LABELS[m]}
+            </ToolbarSegment>
+          ))}
+        </ToolbarSegmented>
+
+        <ToolbarDateWindow
+          value={range}
+          onCommit={applyRange}
+          title="Fenêtre du programme : OF dont le démarrage tombe dans la plage"
+        />
+
+        {/* ── Zone 02 · Filtres : un déclencheur, rien d'autre ──────────── */}
+        <ToolbarFilterMenu activeCount={activeFilterCount} width={300}>
+          <ToolbarFilterSection>Portée de la recherche</ToolbarFilterSection>
+          <ToolbarSegmented semantics="tabs" flat className="w-full flex-wrap">
+            {scopeOptions.map((s) => (
+              <ToolbarSegment
+                key={s.v}
+                active={activeScope === s.v}
+                onClick={() => onScopeChange(s.v)}
+              >
+                {s.label}
+              </ToolbarSegment>
+            ))}
+          </ToolbarSegmented>
+
+          {/* Le mode Commandes n'a pas de statut d'OF à filtrer : la section
+              disparaît plutôt que d'offrir trois chips sans effet. */}
+          {!isOrderMode && (
+            <>
+              <Separator className="my-2" />
+              <ToolbarFilterSection>Statut d’OF</ToolbarFilterSection>
+              <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+                {STATUS_CHIPS.map(({ k, label, tone }) => (
+                  <ToolbarFilterChip
+                    key={k}
+                    label={label}
+                    tone={tone}
+                    active={statuses.has(k)}
+                    onClick={() => toggleStatus(k)}
+                  />
+                ))}
+              </ToolbarSegmented>
+            </>
+          )}
+
+          <Separator className="my-2" />
+          <ToolbarFilterSection>Nature de poste</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full">
+            {POSTE_NATURE_CHIPS.map(({ k, label }) => (
+              <ToolbarSegment
+                key={k}
+                active={posteNatures.has(k)}
+                onClick={() => togglePosteNature(k)}
+              >
+                {label}
+              </ToolbarSegment>
+            ))}
+          </ToolbarSegmented>
+        </ToolbarFilterMenu>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      {/* ── Zone 03 · Interrogation : jamais repliée ────────────────────── */}
+      <ToolbarSearch
+        value={activeQuery}
+        onChange={onQueryInput}
+        placeholder={scopeOptions.find((s) => s.v === activeScope)?.placeholder ?? 'Rechercher…'}
+      />
+
+      {/* ── Zone 04 · État puis actions ─────────────────────────────────── */}
+      {isFiltered && (
+        <ToolbarMetric emphasis title={`sur ${totalCount} ${isOrderMode ? 'lignes' : 'OF'}`}>
+          {filteredCount}{' '}
+          <span className="font-normal text-muted-foreground">{isOrderMode ? 'lignes' : 'OF'}</span>
+        </ToolbarMetric>
+      )}
+
+      <ToolbarRefresh loading={refreshing} onClick={doRefresh} />
+
+      {/* Action primaire. Les trois actions vivaient sous un menu « Actions »
+          en <details> maison — deux implémentations d'accessibilité pour un
+          rôle déjà couvert par le design system. */}
+      <Pill
+        variant="outline"
+        className="gap-1.5"
+        onClick={runFeasibility}
+        disabled={feasLoading()}
+        title="Calculer la faisabilité matières des OF de la fenêtre (F)"
+      >
+        {feasLoading() ? (
+          <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
+        ) : (
+          <Wand2 size={14} strokeWidth={1.75} />
+        )}
+        {feasLoading() ? 'Calcul…' : 'Faisabilité'}
+      </Pill>
+
+      {/* Scénario et triage sont des capacités du board combiné : rendus là où
+          ils s'appliquent, plutôt que grisés partout ailleurs. */}
+      {mode === 'combined' && (
+        <>
+          <Pill
+            variant={scenarioActive ? 'active' : 'outline'}
+            className="px-2.5"
+            aria-pressed={scenarioActive}
+            aria-label="Mode scénario"
+            title="Mode scénario — simuler des déplacements sans écrire dans X3 (S)"
+            onClick={toggleScenario}
+          >
+            <FlaskConical size={14} strokeWidth={1.75} />
+          </Pill>
+          <Pill
+            variant={railOpen ? 'active' : 'outline'}
+            className="px-2.5"
+            aria-pressed={railOpen}
+            aria-label="Rail de triage"
+            title="Rail de triage — commandes en retard, limites et sans lien (T)"
+            onClick={() => setRailOpen((v) => !v)}
+          >
+            <ListChecks size={14} strokeWidth={1.75} />
+          </Pill>
+        </>
+      )}
+
+      {/* Sélection multiple : alimente la BatchFirmBar, qui n'existe que côté OF. */}
+      {!isOrderMode && (
+        <Pill
+          variant={boardStore.selectMode ? 'active' : 'outline'}
+          className="px-2.5"
+          aria-pressed={boardStore.selectMode}
+          aria-label="Sélection multiple"
+          title="Sélection multiple — affermir plusieurs OF d'un coup"
+          onClick={() => {
+            const s = useBoardStore.getState()
+            if (s.selectMode) s.exitSelect()
+            else s.enterSelect()
+          }}
+        >
+          <ClipboardList size={14} strokeWidth={1.75} />
+        </Pill>
+      )}
+    </>
   )
 
   // ---------------------------------------------------------------------------
@@ -1044,92 +1341,20 @@ export default function Programme(props: VisionProps) {
   // ---------------------------------------------------------------------------
 
   return (
-    <>
-      <Head title="Programme" />
-      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead
-          subtitle="Programme · Flux OF ↔ commandes"
-          active="programme"
-          variant="airbnb"
-          meta={
-            <>
-              <div className="font-fraunces text-xs font-bold not-italic text-brand">
-                {props.weekLabel}
-              </div>
-              <div>
-                Fenêtre <b className="font-bold text-foreground">{props.horizon} j</b> ·{' '}
-                <b className="font-bold text-foreground">{props.totalOf}</b> OF ·{' '}
-                <b className="font-bold text-foreground">{props.lineCount}</b> postes ·{' '}
-                <b className="font-bold text-foreground">{props.commandes.length}</b> commandes
-              </div>
-            </>
-          }
-        />
-
-        <ProgrammeToolbar
-          mode={mode}
-          switchMode={switchMode}
-          feasLoading={feasLoading()}
-          runFeasibility={runFeasibility}
-          refreshing={refreshing}
-          doRefresh={doRefresh}
-          calOpen={calOpen}
-          setCalOpen={setCalOpen}
-          range={range}
-          applyRange={applyRange}
-          scenarioActive={scenarioActive}
-          onToggleScenario={toggleScenario}
-          search={
-            <>
-              <div
-                className={cn(
-                  PILL,
-                  'transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25'
-                )}
-              >
-                <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-                <input
-                  className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0 outline-none"
-                  placeholder={
-                    mode === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
-                  }
-                  aria-label="Rechercher"
-                  type="text"
-                  autoComplete="off"
-                  value={mode === 'planification' ? orderStore.query : boardStore.query}
-                  onInput={(e) =>
-                    mode === 'planification'
-                      ? orderStore.onQueryInput(e.currentTarget.value)
-                      : boardStore.onQueryInput(e.currentTarget.value)
-                  }
-                />
-              </div>
-              <Select
-                value={mode === 'planification' ? orderStore.scope : boardStore.scope}
-                onValueChange={(v) => {
-                  if (!v) return
-                  if (mode === 'planification') orderStore.onScopeChange(v as OrderSearchScope)
-                  else boardStore.onScopeChange(v as SearchScope)
-                }}
-              >
-                <SelectTrigger
-                  className={cn(PILL, 'w-[110px]')}
-                  aria-label="Portée de la recherche"
-                >
-                  <SelectValue placeholder="Portée" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scopeOptions().map((s) => (
-                    <SelectItem key={s.v} value={s.v}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          }
-        />
-
+    <AppLayout
+      title="Programme"
+      active="programme"
+      subtitle="Programme · Flux OF ↔ commandes"
+      theme="cursor"
+      dense
+      scrollable={false}
+      toolbar={toolbar}
+    >
+      {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
+          normal (pas de flex-col) : sans ce wrapper, les `flex-1` du board en
+          dessous ne se dimensionnent contre rien et la grille déborde hors de
+          l'écran sans scroll possible. */}
+      <div className="flex h-full min-h-0 flex-col">
         {/* #57 — bandeau du mode scénario */}
         {mode === 'combined' && scenarioActive && (
           <ScenarioBar
@@ -1145,18 +1370,21 @@ export default function Programme(props: VisionProps) {
           />
         )}
 
+        {/* Bandeau d'erreur : ton `destructive`, comme /ruptures et /sequenceur.
+            Le brand marquait un échec de chargement de la même couleur que les
+            actions de la page. */}
         {props.x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-xs text-foreground print:hidden">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
-            <span className="font-bold">Erreur chargement :</span>
-            <span className="font-mono">{props.x3Error}</span>
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground print:hidden">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Erreur chargement :</span>
+            <span className="truncate font-mono">{props.x3Error}</span>
           </div>
         )}
 
         {/* ═══ Board ═══ */}
         {mode === 'planification' ? (
           orderStore.board.lines.length > 0 ? (
-            <div className="flex-1 overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <OrderGrid
                 board={orderStore.board}
                 onSelectCard={onSelectOrderLine}
@@ -1170,13 +1398,11 @@ export default function Programme(props: VisionProps) {
               />
             </div>
           ) : (
-            <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
-              Aucune ligne de commande dans l'horizon.
-            </div>
+            <EmptyBoard label="Aucune ligne de commande dans l'horizon." />
           )
         ) : props.lineCount > 0 ? (
-          <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <BoardGrid
                 store={boardStore}
                 onSelectOf={onSelectOf}
@@ -1248,46 +1474,56 @@ export default function Programme(props: VisionProps) {
             )}
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
-            Aucun OF dans l'horizon.
-          </div>
+          <EmptyBoard label="Aucun OF dans l'horizon." />
         )}
 
         {/* #23 — tooltip flottant pendant le drag OF */}
         {mode === 'combined' && dragTooltip && (
-          <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-rule bg-card px-4 py-1.5 font-mono text-xs font-bold text-foreground shadow-lg">
+          <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-border bg-card px-4 py-1.5 font-mono text-xs font-bold text-foreground shadow-float">
             {dragTooltip}
           </div>
         )}
 
         {/* BatchFirmBar (OF seulement) */}
         {mode !== 'planification' && <BatchFirmBar />}
-
-        {/* Drawer détail OF */}
-        <OfDetailSheet
-          num={selectedOf}
-          open={detailOpen}
-          onOpenChange={setDetailOpen}
-          onFirmed={(oldId, newId) => boardStore.transformCard(oldId, newId)}
-        />
-
-        {/* Panneau Engagement */}
-        <PosteEngagementSheet
-          posteCode={engagementPoste}
-          open={engagementOpen}
-          onOpenChange={setEngagementOpen}
-        />
-
-        {/* ScenarioDiffSheet */}
-        <ScenarioDiffSheet
-          diff={scenarioDiff}
-          open={diffOpen}
-          onOpenChange={setDiffOpen}
-          loading={scenarioDiffLoading}
-          evaluatedAt={scenarioEvaluatedAt}
-          dataAt={scenarioDataAt}
-        />
       </div>
-    </>
+
+      {/* Drawer détail OF */}
+      <OfDetailSheet
+        num={selectedOf}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onFirmed={(oldId, newId) => boardStore.transformCard(oldId, newId)}
+      />
+
+      {/* Panneau Engagement */}
+      <PosteEngagementSheet
+        posteCode={engagementPoste}
+        open={engagementOpen}
+        onOpenChange={setEngagementOpen}
+      />
+
+      {/* ScenarioDiffSheet */}
+      <ScenarioDiffSheet
+        diff={scenarioDiff}
+        open={diffOpen}
+        onOpenChange={setDiffOpen}
+        loading={scenarioDiffLoading}
+        evaluatedAt={scenarioEvaluatedAt}
+        dataAt={scenarioDataAt}
+      />
+    </AppLayout>
+  )
+}
+
+/** État vide du board — même grammaire que /ruptures (icône muette + phrase). */
+function EmptyBoard({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center p-10 text-center text-sm text-muted-foreground">
+      <div className="flex flex-col items-center gap-2">
+        <DynamicIcon name="calendar_month" size={32} className="text-muted-foreground/50" />
+        {label}
+      </div>
+    </div>
   )
 }
