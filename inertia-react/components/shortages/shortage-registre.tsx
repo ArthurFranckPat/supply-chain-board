@@ -8,7 +8,13 @@
 import { useState, type ReactNode } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-import { Badge } from '@r/components/ui/badge'
+import {
+  CellEvidence,
+  CellNumber,
+  CellStack,
+  CellVerdict,
+  severityBarClass,
+} from '@r/components/ui/table-row'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
@@ -31,22 +37,23 @@ export function ShortageRegistre({
       accessorKey: 'component',
       header: () => 'Composant',
       cell: ({ row: { original: row } }) => (
-        <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
-            {row.component}
-          </span>
-          <span className="truncate text-2xs text-muted-foreground/70">{row.componentDesc}</span>
-          {row.overDeclaration && row.overDeclaration.length > 0 && (
-            <span
-              className="shrink-0"
-              title={`Sur-déclaré ailleurs : ${row.overDeclaration
-                .map((o) => `${o.numOf} (écart ${o.ecart})`)
-                .join(', ')} — stock compté potentiellement faux`}
-            >
-              <TriangleAlert size={11} strokeWidth={2} className="text-suggere" />
-            </span>
-          )}
-        </div>
+        <CellStack
+          code={row.component}
+          label={row.componentDesc}
+          labelTitle={row.componentDesc || undefined}
+          action={
+            row.overDeclaration && row.overDeclaration.length > 0 ? (
+              <span
+                className="shrink-0"
+                title={`Sur-déclaré ailleurs : ${row.overDeclaration
+                  .map((o) => `${o.numOf} (écart ${o.ecart})`)
+                  .join(', ')} — stock compté potentiellement faux`}
+              >
+                <TriangleAlert size={11} strokeWidth={2} className="text-suggere" />
+              </span>
+            ) : undefined
+          }
+        />
       ),
       meta: { thClass: 'w-[220px]' },
     },
@@ -54,15 +61,15 @@ export function ShortageRegistre({
       accessorKey: 'qteManquante',
       header: () => 'Qté manq.',
       cell: ({ row: { original: row } }) => (
-        <span
-          className={cn(
-            'font-mono text-cell-lg font-bold leading-none tracking-tight tabular-nums',
-            isLate(row) ? 'text-destructive' : 'text-foreground'
-          )}
-        >
-          {row.qteManquante}
-          <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-        </span>
+        <CellNumber
+          tone={isLate(row) ? 'critical' : null}
+          value={
+            <>
+              {row.qteManquante}
+              <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
+            </>
+          }
+        />
       ),
       meta: { thClass: 'w-[80px] text-right!', tdClass: 'w-[80px] whitespace-nowrap text-right' },
     },
@@ -70,19 +77,23 @@ export function ShortageRegistre({
       accessorKey: 'numOf',
       header: () => 'OF bloqué',
       cell: ({ row: { original: row } }) => (
-        <>
-          <button
-            type="button"
-            onClick={() => onSelectOf(row.numOf)}
-            className="cursor-pointer font-mono text-xs font-bold tracking-tight text-brand underline decoration-dotted decoration-brand/40 underline-offset-2 hover:text-brand/70"
-          >
-            {row.numOf}
-          </button>
-          <div className="mt-0.5 truncate max-w-[11rem] text-2xs text-muted-foreground">
-            <span className="font-semibold">{row.articleParent}</span>
-            {row.articleParentDesc && <span> · {row.articleParentDesc}</span>}
-          </div>
-        </>
+        <CellStack
+          code={
+            <button
+              type="button"
+              onClick={() => onSelectOf(row.numOf)}
+              className="cursor-pointer text-brand underline decoration-dotted decoration-brand/40 underline-offset-2 hover:text-brand/70"
+            >
+              {row.numOf}
+            </button>
+          }
+          label={
+            <>
+              <span className="font-semibold">{row.articleParent}</span>
+              {row.articleParentDesc && <span> · {row.articleParentDesc}</span>}
+            </>
+          }
+        />
       ),
       meta: { thClass: 'w-[170px]', tdClass: 'w-[170px]' },
     },
@@ -91,40 +102,42 @@ export function ShortageRegistre({
       header: () => 'Commande',
       cell: ({ row: { original: row } }) =>
         row.hasCommande ? (
-          <>
-            <div className="flex items-baseline gap-1.5">
+          <CellStack
+            code={
               <X3Link
                 fonction="GESSOH"
                 cle={row.numCommande}
                 title={`Ouvrir la commande ${row.numCommande} dans Sage X3`}
-                className="font-mono text-xs font-bold tracking-tight text-secondary-foreground"
+                className="text-secondary-foreground"
               >
                 {row.numCommande}
               </X3Link>
-              {row.dateExpedition && (
-                <span
-                  className={cn(
-                    'font-mono text-2xs font-semibold',
-                    isLate(row) ? 'text-destructive' : 'text-muted-foreground'
-                  )}
-                  title={`Expé : ${row.dateExpeditionIso ?? ''}`}
-                >
-                  {row.dateExpedition}
-                </span>
-              )}
-              {row.autresCommandes.length > 0 && (
-                <span
-                  className="rounded bg-brand-soft px-1 font-mono text-3xs font-bold text-brand"
-                  title={`Aussi : ${row.autresCommandes.join(', ')}`}
-                >
-                  +{row.autresCommandes.length}
-                </span>
-              )}
-            </div>
-            <div className="mt-0.5 truncate max-w-[11rem] text-2xs text-muted-foreground">
-              {row.client}
-            </div>
-          </>
+            }
+            action={
+              <>
+                {row.dateExpedition && (
+                  <span
+                    className={cn(
+                      'font-mono text-2xs font-semibold',
+                      isLate(row) ? 'text-destructive' : 'text-muted-foreground'
+                    )}
+                    title={`Expé : ${row.dateExpeditionIso ?? ''}`}
+                  >
+                    {row.dateExpedition}
+                  </span>
+                )}
+                {row.autresCommandes.length > 0 && (
+                  <span
+                    className="rounded bg-brand-soft px-1 font-mono text-3xs font-bold text-brand"
+                    title={`Aussi : ${row.autresCommandes.join(', ')}`}
+                  >
+                    +{row.autresCommandes.length}
+                  </span>
+                )}
+              </>
+            }
+            label={row.client}
+          />
         ) : (
           <span className="text-2xs italic text-muted-foreground/50">— orphelin</span>
         ),
@@ -161,12 +174,11 @@ export function ShortageRegistre({
           )
         }
         return (
-          <>
-            <div className="font-mono text-2xs font-semibold text-muted-foreground">{rec.id}</div>
-            <div className="mt-0.5 truncate max-w-[14rem] text-2xs text-muted-foreground">
-              {rec.supplier} · {rec.qty}u · {rec.dateArrivee}
-            </div>
-          </>
+          <CellStack
+            code={rec.id}
+            label={`${rec.supplier} · ${rec.qty}u · ${rec.dateArrivee}`}
+            labelTitle={rec.supplier}
+          />
         )
       },
       meta: {},
@@ -176,9 +188,11 @@ export function ShortageRegistre({
       enableSorting: false,
       header: () => 'Verdict',
       cell: ({ row: { original: row } }) => (
-        <Badge variant={VERDICT_TONE[row.verdictKey].badge} className="font-semibold">
-          {row.verdictLabel}
-        </Badge>
+        <CellVerdict
+          icon={VERDICT_TONE[row.verdictKey].icon}
+          label={row.verdictLabel}
+          tone={VERDICT_TONE[row.verdictKey].text}
+        />
       ),
       meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
     },
@@ -189,8 +203,8 @@ export function ShortageRegistre({
     thClass: 'w-[38px]',
     tdClass: (row: ShortageDisplayRow) =>
       cn(
-        'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
-        VERDICT_TONE[row.verdictKey].bar
+        'font-sans font-bold tracking-tight text-muted-foreground/80 tabular-nums',
+        severityBarClass(VERDICT_TONE[row.verdictKey].tone)
       ),
   }
 

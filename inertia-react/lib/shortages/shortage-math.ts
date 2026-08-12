@@ -7,6 +7,16 @@
  * chose que la table proactive de /suivi, à un padding près. Elles vivent
  * maintenant dans `ui/table-row`, appliquées d'office par le DataTable.
  */
+import {
+  CircleCheck,
+  CircleSlash,
+  Clock,
+  CornerDownRight,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react'
+
+import type { RowTone } from '@r/components/ui/table-row'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 
 // ---------------------------------------------------------------------------
@@ -62,47 +72,44 @@ export const VERDICT_LABEL: Record<ShortageDisplayRow['verdictKey'], string> = {
  * (chip ambre dans le panneau, badge gris dans la table, barre `planifie` à
  * gauche). Ajouter un habillage, c'est ajouter une colonne ICI.
  *
- *  • `badge` : variante de `Badge` (table).
- *  • `chip`  : gravité de `ToolbarFilterChip` (panneau de filtres).
- *  • `bar`   : barre latérale de la colonne d'index.
+ *  • `icon` : la FORME du verdict (standard §15 — elle porte le sens, la
+ *    couleur ne fait que la doubler). Alignée sur l'alphabet de /suivi
+ *    proactif : une horloge est un retard sur les deux pages, un cercle barré
+ *    une absence de couverture. Deux formes différentes pour un même sens
+ *    seraient deux alphabets à apprendre.
+ *  • `text` : encre de l'icône et du libellé.
+ *  • `chip` : gravité de `ToolbarFilterChip` (panneau de filtres).
+ *  • `tone` : gravité de rangée — rendue par `severityBarClass` du standard.
+ *    La barre était écrite ici en `box-shadow` littéral, soit une SECONDE
+ *    source pour la barre latérale (et sur `var(--color-destructive)` quand le
+ *    standard utilise `var(--destructive)`). Il n'en reste qu'une.
  *
  * Réserve assumée : `sous_ensemble` est peint en `planifie`, une encre qui n'a
- * de contrepartie ni dans les variantes de `Badge` ni dans les gravités de chip.
- * Son badge est donc un filet neutre et sa chip un point gris — c'est la barre
- * latérale qui porte son identité de couleur. Le jour où le produit veut une
- * gravité « à lancer » de plein droit, elle s'ajoute aux deux palettes, pas ici.
+ * pas de contrepartie dans les gravités de chip — sa chip reste un point gris,
+ * c'est la barre latérale et l'icône qui portent son identité. Le jour où le
+ * produit veut une gravité « à lancer » de plein droit, elle s'ajoute à la
+ * palette des chips, pas ici.
  */
 export const VERDICT_TONE: Record<
   ShortageDisplayRow['verdictKey'],
   {
-    badge: 'success' | 'warning' | 'destructive' | 'outline'
+    icon: LucideIcon
+    text: string
     chip: 'ok' | 'warning' | 'critical' | 'neutral'
-    bar: string
+    tone: RowTone
   }
 > = {
-  couvert: { badge: 'success', chip: 'ok', bar: '' },
-  a_risque: {
-    badge: 'warning',
-    chip: 'warning',
-    bar: '[box-shadow:inset_3px_0_var(--color-suggere)]',
-  },
-  // `outline` et non `secondary` : un sous-ensemble à lancer est une action à
-  // mener, pas une information de second rang. Le filet le distingue des
-  // verdicts qui alertent sans le noyer dans le gris.
-  sous_ensemble: {
-    badge: 'outline',
-    chip: 'neutral',
-    bar: '[box-shadow:inset_3px_0_var(--color-planifie)]',
-  },
-  retard: {
-    badge: 'destructive',
-    chip: 'critical',
-    bar: '[box-shadow:inset_3px_0_var(--color-destructive)]',
-  },
+  couvert: { icon: CircleCheck, text: 'text-ferme', chip: 'ok', tone: null },
+  a_risque: { icon: TriangleAlert, text: 'text-suggere', chip: 'warning', tone: 'warning' },
+  // Un sous-ensemble à lancer est une action à mener, pas une alerte : la
+  // flèche descendante dit « il y a un cran en dessous », comme sur /suivi.
+  sous_ensemble: { icon: CornerDownRight, text: 'text-planifie', chip: 'neutral', tone: 'info' },
+  retard: { icon: Clock, text: 'text-destructive', chip: 'critical', tone: 'critical' },
   sans_couverture: {
-    badge: 'destructive',
+    icon: CircleSlash,
+    text: 'text-destructive',
     chip: 'critical',
-    bar: '[box-shadow:inset_3px_0_var(--color-destructive)]',
+    tone: 'critical',
   },
 }
 

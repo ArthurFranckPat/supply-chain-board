@@ -10,7 +10,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { X3Link } from '@r/components/x3-link'
-import { Badge } from '@r/components/ui/badge'
+import { CellNumber, CellStack, CellVerdict, severityBarClass } from '@r/components/ui/table-row'
 import { cn } from '@r/lib/utils'
 import {
   VERDICT_TONE,
@@ -34,12 +34,11 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       accessorKey: 'component',
       header: () => 'Composant · Désignation',
       cell: ({ row: { original: g } }) => (
-        <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="shrink-0 font-mono text-xs font-bold tracking-tight text-foreground">
-            {g.component}
-          </span>
-          <span className="truncate text-2xs text-muted-foreground/70">{g.componentDesc}</span>
-        </div>
+        <CellStack
+          code={g.component}
+          label={g.componentDesc}
+          labelTitle={g.componentDesc || undefined}
+        />
       ),
       meta: { thClass: 'w-[220px]' },
     },
@@ -47,15 +46,15 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       accessorKey: 'totalManquant',
       header: () => 'Qté manq. totale',
       cell: ({ row: { original: g } }) => (
-        <span
-          className={cn(
-            'font-mono text-cell-lg font-bold leading-none tracking-tight tabular-nums',
-            late(g) ? 'text-destructive' : 'text-foreground'
-          )}
-        >
-          {fmtTotal(g.totalManquant)}
-          <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
-        </span>
+        <CellNumber
+          tone={late(g) ? 'critical' : null}
+          value={
+            <>
+              {fmtTotal(g.totalManquant)}
+              <span className="ml-0.5 text-3xs font-medium text-muted-foreground/60">u</span>
+            </>
+          }
+        />
       ),
       meta: {
         thClass: 'w-[110px] text-right!',
@@ -66,11 +65,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       id: 'nbOfs',
       accessorFn: (g) => g.lines.length,
       header: () => 'OFs bloqués',
-      cell: ({ row: { original: g } }) => (
-        <span className="font-mono text-cell-lg font-bold leading-none tracking-tight tabular-nums text-foreground">
-          {g.lines.length}
-        </span>
-      ),
+      cell: ({ row: { original: g } }) => <CellNumber value={g.lines.length} />,
       meta: { thClass: 'w-[90px] text-right!', tdClass: 'w-[90px] whitespace-nowrap text-right' },
     },
     {
@@ -105,16 +100,18 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       header: () => 'Commande la plus urgente',
       cell: ({ row: { original: g } }) =>
         g.urgent ? (
-          <>
-            <div className="flex items-baseline gap-1.5">
+          <CellStack
+            code={
               <X3Link
                 fonction="GESSOH"
                 cle={g.urgent.numCommande}
                 title={`Ouvrir la commande ${g.urgent.numCommande} dans Sage X3`}
-                className="font-mono text-xs font-bold tracking-tight text-secondary-foreground"
+                className="text-secondary-foreground"
               >
                 {g.urgent.numCommande}
               </X3Link>
+            }
+            action={
               <span
                 className={cn(
                   'font-mono text-2xs font-semibold',
@@ -123,11 +120,9 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
               >
                 {g.urgent.dateExpedition}
               </span>
-            </div>
-            <div className="mt-0.5 truncate max-w-[13rem] text-2xs text-muted-foreground">
-              {g.urgent.client}
-            </div>
-          </>
+            }
+            label={g.urgent.client}
+          />
         ) : (
           <span className="text-2xs italic text-muted-foreground/50">— orphelins</span>
         ),
@@ -139,13 +134,17 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       header: () => 'Couverture',
       cell: ({ row: { original: g } }) =>
         g.nbSansCouverture > 0 ? (
-          <Badge variant="destructive" className="font-semibold">
-            {g.nbSansCouverture}/{g.lines.length} sans couv.
-          </Badge>
+          <CellVerdict
+            icon={VERDICT_TONE.sans_couverture.icon}
+            label={`${g.nbSansCouverture}/${g.lines.length} sans couv.`}
+            tone={VERDICT_TONE.sans_couverture.text}
+          />
         ) : (
-          <Badge variant={VERDICT_TONE[g.worstVerdict].badge} className="font-semibold">
-            {VERDICT_LABEL[g.worstVerdict]}
-          </Badge>
+          <CellVerdict
+            icon={VERDICT_TONE[g.worstVerdict].icon}
+            label={VERDICT_LABEL[g.worstVerdict]}
+            tone={VERDICT_TONE[g.worstVerdict].text}
+          />
         ),
       meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
     },
@@ -170,8 +169,8 @@ export function ShortageComposants({
     thClass: 'w-[38px]',
     tdClass: (g: ComponentGroup) =>
       cn(
-        'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
-        VERDICT_TONE[g.worstVerdict].bar
+        'font-sans font-bold tracking-tight text-muted-foreground/80 tabular-nums',
+        severityBarClass(VERDICT_TONE[g.worstVerdict].tone)
       ),
   }
 
