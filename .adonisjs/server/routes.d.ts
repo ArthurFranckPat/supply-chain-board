@@ -9,6 +9,12 @@ export type ScannedRoutes = {
     'auth.logout': { paramsTuple?: []; params?: {} }
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
+    'assets.favicon_svg': { paramsTuple?: []; params?: {} }
+    'assets.favicon_ico': { paramsTuple?: []; params?: {} }
+    'assets.favicon_32x32_png': { paramsTuple?: []; params?: {} }
+    'assets.favicon_16x16_png': { paramsTuple?: []; params?: {} }
+    'assets.apple_touch_icon_png': { paramsTuple?: []; params?: {} }
+    'assets.site_webmanifest': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
@@ -100,11 +106,7 @@ export type ScannedRoutes = {
     'appro.diff': { paramsTuple?: []; params?: {} }
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
     'appro.snapshots': { paramsTuple?: []; params?: {} }
-    'appro.driversDiff': { paramsTuple?: []; params?: {} }
-    'appro.driversFrise': { paramsTuple?: []; params?: {} }
-    'appro.explanations': { paramsTuple?: []; params?: {} }
-    'appro.patterns': { paramsTuple?: []; params?: {} }
-    'appro.autoEvaluation': { paramsTuple?: []; params?: {} }
+    'appro.articleExplanation': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -134,6 +136,12 @@ export type ScannedRoutes = {
     'auth.login': { paramsTuple?: []; params?: {} }
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
+    'assets.favicon_svg': { paramsTuple?: []; params?: {} }
+    'assets.favicon_ico': { paramsTuple?: []; params?: {} }
+    'assets.favicon_32x32_png': { paramsTuple?: []; params?: {} }
+    'assets.favicon_16x16_png': { paramsTuple?: []; params?: {} }
+    'assets.apple_touch_icon_png': { paramsTuple?: []; params?: {} }
+    'assets.site_webmanifest': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
@@ -198,11 +206,7 @@ export type ScannedRoutes = {
     'appro.diff': { paramsTuple?: []; params?: {} }
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
     'appro.snapshots': { paramsTuple?: []; params?: {} }
-    'appro.driversDiff': { paramsTuple?: []; params?: {} }
-    'appro.driversFrise': { paramsTuple?: []; params?: {} }
-    'appro.explanations': { paramsTuple?: []; params?: {} }
-    'appro.patterns': { paramsTuple?: []; params?: {} }
-    'appro.autoEvaluation': { paramsTuple?: []; params?: {} }
+    'appro.articleExplanation': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -223,6 +227,12 @@ export type ScannedRoutes = {
     'auth.login': { paramsTuple?: []; params?: {} }
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
+    'assets.favicon_svg': { paramsTuple?: []; params?: {} }
+    'assets.favicon_ico': { paramsTuple?: []; params?: {} }
+    'assets.favicon_32x32_png': { paramsTuple?: []; params?: {} }
+    'assets.favicon_16x16_png': { paramsTuple?: []; params?: {} }
+    'assets.apple_touch_icon_png': { paramsTuple?: []; params?: {} }
+    'assets.site_webmanifest': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
@@ -287,11 +297,7 @@ export type ScannedRoutes = {
     'appro.diff': { paramsTuple?: []; params?: {} }
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
     'appro.snapshots': { paramsTuple?: []; params?: {} }
-    'appro.driversDiff': { paramsTuple?: []; params?: {} }
-    'appro.driversFrise': { paramsTuple?: []; params?: {} }
-    'appro.explanations': { paramsTuple?: []; params?: {} }
-    'appro.patterns': { paramsTuple?: []; params?: {} }
-    'appro.autoEvaluation': { paramsTuple?: []; params?: {} }
+    'appro.articleExplanation': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }

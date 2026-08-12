@@ -10,6 +10,12 @@ export interface ApiDefinition {
   assets: {
     css: typeof routes['assets.css']
     js: typeof routes['assets.js']
+    faviconSvg: typeof routes['assets.favicon_svg']
+    faviconIco: typeof routes['assets.favicon_ico']
+    favicon32X32Png: typeof routes['assets.favicon_32x32_png']
+    favicon16X16Png: typeof routes['assets.favicon_16x16_png']
+    appleTouchIconPng: typeof routes['assets.apple_touch_icon_png']
+    siteWebmanifest: typeof routes['assets.site_webmanifest']
   }
   health: {
     index: typeof routes['health.index']
@@ -166,11 +172,7 @@ export interface ApiDefinition {
     diff: typeof routes['appro.diff']
     messagesDiff: typeof routes['appro.messagesDiff']
     snapshots: typeof routes['appro.snapshots']
-    driversDiff: typeof routes['appro.driversDiff']
-    driversFrise: typeof routes['appro.driversFrise']
-    explanations: typeof routes['appro.explanations']
-    patterns: typeof routes['appro.patterns']
-    autoEvaluation: typeof routes['appro.autoEvaluation']
+    articleExplanation: typeof routes['appro.articleExplanation']
   }
   data: {
     load: typeof routes['data.load']

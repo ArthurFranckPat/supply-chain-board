@@ -67,6 +67,78 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'assets.favicon_svg': {
+    methods: ["GET","HEAD"]
+    pattern: '/favicon.svg'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.favicon_ico': {
+    methods: ["GET","HEAD"]
+    pattern: '/favicon.ico'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.favicon_32x32_png': {
+    methods: ["GET","HEAD"]
+    pattern: '/favicon-32x32.png'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.favicon_16x16_png': {
+    methods: ["GET","HEAD"]
+    pattern: '/favicon-16x16.png'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.apple_touch_icon_png': {
+    methods: ["GET","HEAD"]
+    pattern: '/apple-touch-icon.png'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.site_webmanifest': {
+    methods: ["GET","HEAD"]
+    pattern: '/site.webmanifest'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'health.index': {
     methods: ["GET","HEAD"]
     pattern: '/health'
@@ -1159,57 +1231,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'appro.driversDiff': {
+  'appro.articleExplanation': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/appro/drivers-diff'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'appro.driversFrise': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/appro/drivers-frise'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'appro.explanations': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/appro/explanations'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'appro.patterns': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/appro/patterns'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'appro.autoEvaluation': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/appro/auto-evaluation'
+    pattern: '/api/v1/appro/article-explanation'
     types: {
       body: {}
       paramsTuple: []

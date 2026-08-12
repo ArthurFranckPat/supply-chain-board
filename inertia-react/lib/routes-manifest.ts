@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 121 routes nommées.
+ * 127 routes nommées.
  */
 
 export const MANIFEST = {
@@ -22,8 +22,14 @@ export const MANIFEST = {
   'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
   'appro.snapshots': { method: 'GET', pattern: '/api/v1/appro/snapshots' },
   'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
+  'assets.apple_touch_icon_png': { method: 'GET', pattern: '/apple-touch-icon.png' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
+  'assets.favicon_16x16_png': { method: 'GET', pattern: '/favicon-16x16.png' },
+  'assets.favicon_32x32_png': { method: 'GET', pattern: '/favicon-32x32.png' },
+  'assets.favicon_ico': { method: 'GET', pattern: '/favicon.ico' },
+  'assets.favicon_svg': { method: 'GET', pattern: '/favicon.svg' },
   'assets.js': { method: 'GET', pattern: '/js/app.js' },
+  'assets.site_webmanifest': { method: 'GET', pattern: '/site.webmanifest' },
   'auth.attempt': { method: 'POST', pattern: '/login' },
   'auth.login': { method: 'GET', pattern: '/login' },
   'auth.logout': { method: 'POST', pattern: '/logout' },
@@ -185,8 +191,14 @@ export type RouteParams = {
   'appro.rows': void
   'appro.snapshots': void
   'approvisionnements.index': void
+  'assets.apple_touch_icon_png': void
   'assets.css': void
+  'assets.favicon_16x16_png': void
+  'assets.favicon_32x32_png': void
+  'assets.favicon_ico': void
+  'assets.favicon_svg': void
   'assets.js': void
+  'assets.site_webmanifest': void
   'auth.attempt': void
   'auth.login': void
   'auth.logout': void

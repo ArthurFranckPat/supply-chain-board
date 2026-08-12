@@ -39,6 +39,26 @@ router
   })
   .as('assets.js')
 
+// Favicons — Adonis ne sert pas public/ en statique (pas de @adonisjs/static).
+// On expose chaque fichier explicitement, comme pour css/js ci-dessus.
+const faviconCache = app.inProduction ? 'public, max-age=86400' : 'no-cache, no-store, must-revalidate'
+for (const [route, file, contentType] of [
+  ['/favicon.svg', 'public/favicon.svg', 'image/svg+xml'],
+  ['/favicon.ico', 'public/favicon.ico', 'image/x-icon'],
+  ['/favicon-32x32.png', 'public/favicon-32x32.png', 'image/png'],
+  ['/favicon-16x16.png', 'public/favicon-16x16.png', 'image/png'],
+  ['/apple-touch-icon.png', 'public/apple-touch-icon.png', 'image/png'],
+  ['/site.webmanifest', 'public/site.webmanifest', 'application/manifest+json'],
+] as const) {
+  router
+    .get(route, async ({ response }) => {
+      response.header('content-type', contentType)
+      response.header('cache-control', faviconCache)
+      return await readFile(app.makePath(file))
+    })
+    .as(`assets.${route.slice(1).replace(/[^a-z0-9]/gi, '_')}`)
+}
+
 // Health (sonde infra, pas d'auth)
 router.get('/health', '#controllers/health_controller.index')
 

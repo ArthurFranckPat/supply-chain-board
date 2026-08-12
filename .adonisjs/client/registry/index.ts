@@ -36,6 +36,42 @@ const routes = {
     tokens: [{"old":"/js/app.js","type":0,"val":"js","end":""},{"old":"/js/app.js","type":0,"val":"app.js","end":""}],
     types: placeholder as Registry['assets.js']['types'],
   },
+  'assets.favicon_svg': {
+    methods: ["GET","HEAD"],
+    pattern: '/favicon.svg',
+    tokens: [{"old":"/favicon.svg","type":0,"val":"favicon.svg","end":""}],
+    types: placeholder as Registry['assets.favicon_svg']['types'],
+  },
+  'assets.favicon_ico': {
+    methods: ["GET","HEAD"],
+    pattern: '/favicon.ico',
+    tokens: [{"old":"/favicon.ico","type":0,"val":"favicon.ico","end":""}],
+    types: placeholder as Registry['assets.favicon_ico']['types'],
+  },
+  'assets.favicon_32x32_png': {
+    methods: ["GET","HEAD"],
+    pattern: '/favicon-32x32.png',
+    tokens: [{"old":"/favicon-32x32.png","type":0,"val":"favicon-32x32.png","end":""}],
+    types: placeholder as Registry['assets.favicon_32x32_png']['types'],
+  },
+  'assets.favicon_16x16_png': {
+    methods: ["GET","HEAD"],
+    pattern: '/favicon-16x16.png',
+    tokens: [{"old":"/favicon-16x16.png","type":0,"val":"favicon-16x16.png","end":""}],
+    types: placeholder as Registry['assets.favicon_16x16_png']['types'],
+  },
+  'assets.apple_touch_icon_png': {
+    methods: ["GET","HEAD"],
+    pattern: '/apple-touch-icon.png',
+    tokens: [{"old":"/apple-touch-icon.png","type":0,"val":"apple-touch-icon.png","end":""}],
+    types: placeholder as Registry['assets.apple_touch_icon_png']['types'],
+  },
+  'assets.site_webmanifest': {
+    methods: ["GET","HEAD"],
+    pattern: '/site.webmanifest',
+    tokens: [{"old":"/site.webmanifest","type":0,"val":"site.webmanifest","end":""}],
+    types: placeholder as Registry['assets.site_webmanifest']['types'],
+  },
   'health.index': {
     methods: ["GET","HEAD"],
     pattern: '/health',
@@ -582,35 +618,11 @@ const routes = {
     tokens: [{"old":"/api/v1/appro/snapshots","type":0,"val":"api","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"snapshots","end":""}],
     types: placeholder as Registry['appro.snapshots']['types'],
   },
-  'appro.driversDiff': {
+  'appro.articleExplanation': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/appro/drivers-diff',
-    tokens: [{"old":"/api/v1/appro/drivers-diff","type":0,"val":"api","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/drivers-diff","type":0,"val":"drivers-diff","end":""}],
-    types: placeholder as Registry['appro.driversDiff']['types'],
-  },
-  'appro.driversFrise': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/appro/drivers-frise',
-    tokens: [{"old":"/api/v1/appro/drivers-frise","type":0,"val":"api","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/drivers-frise","type":0,"val":"drivers-frise","end":""}],
-    types: placeholder as Registry['appro.driversFrise']['types'],
-  },
-  'appro.explanations': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/appro/explanations',
-    tokens: [{"old":"/api/v1/appro/explanations","type":0,"val":"api","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/explanations","type":0,"val":"explanations","end":""}],
-    types: placeholder as Registry['appro.explanations']['types'],
-  },
-  'appro.patterns': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/appro/patterns',
-    tokens: [{"old":"/api/v1/appro/patterns","type":0,"val":"api","end":""},{"old":"/api/v1/appro/patterns","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/patterns","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/patterns","type":0,"val":"patterns","end":""}],
-    types: placeholder as Registry['appro.patterns']['types'],
-  },
-  'appro.autoEvaluation': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/appro/auto-evaluation',
-    tokens: [{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"api","end":""},{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/auto-evaluation","type":0,"val":"auto-evaluation","end":""}],
-    types: placeholder as Registry['appro.autoEvaluation']['types'],
+    pattern: '/api/v1/appro/article-explanation',
+    tokens: [{"old":"/api/v1/appro/article-explanation","type":0,"val":"api","end":""},{"old":"/api/v1/appro/article-explanation","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/article-explanation","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/article-explanation","type":0,"val":"article-explanation","end":""}],
+    types: placeholder as Registry['appro.articleExplanation']['types'],
   },
   'conditionnements.rows': {
     methods: ["GET","HEAD"],
