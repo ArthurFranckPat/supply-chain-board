@@ -799,7 +799,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     <AppLayout
       title="Séquenceur"
       active="sequenceur"
-      subtitle="Board tabulaire · OF ferme / planifié / suggéré par poste"
+      subtitle="Séquenceur"
       theme="cursor"
       dense
       scrollable={false}
