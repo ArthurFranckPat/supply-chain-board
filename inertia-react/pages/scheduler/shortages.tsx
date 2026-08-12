@@ -1,13 +1,18 @@
 /**
- * Page « Suivi des ruptures » (port React) — design system Cursor, harmonisée
- * avec les autres pages migrées (toolbar unifiée ui/toolbar).
+ * Page « Suivi des ruptures » (port React) — design system cursor, harmonisée
+ * avec les autres pages migrées (barre d'outils `ui/toolbar`).
+ *
+ * La barre passe par la prop `toolbar` d'AppLayout, et non par les children :
+ * c'est elle qui fournit le filet, le fond et l'axe `px-6` du TopBar. Rendue
+ * en enfant, la page portait quatre bords gauches différents — TopBar 24 px,
+ * barre 16 px, bandeaux 28 px, contenu 20 px.
  *
  * Shell Inertia instantané (SchedulerController.shortageTracker) ; les lignes (calcul
  * lourd : faisabilité + réceptions) chargées en différé par fetch JSON (shortageRows).
  * Deux vues d'une même donnée : « Registre » (table éditoriale) et « Par composant »
  * (agrégation dégâts).
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { TriangleAlert, CircleX } from 'lucide-react'
@@ -19,7 +24,6 @@ import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { ShortageRegistre, ShortageComposants } from '@r/components/shortages'
 import {
-  Toolbar,
   ToolbarSegmented,
   ToolbarSegment,
   ToolbarSearch,
@@ -27,10 +31,12 @@ import {
   ToolbarSpacer,
   ToolbarDateWindow,
   ToolbarFilterMenu,
+  ToolbarFilterSection,
   ToolbarFilterChip,
 } from '@r/components/ui/toolbar'
 import { route } from '@r/lib/routes'
 import { parseIso, toIso, startOfDay, DAY_MS } from '@r/lib/vision/date-utils'
+import { VERDICT_TONE } from '@r/lib/shortages/shortage-math'
 import type { ShortageRowsResponse, ShortageVerdictKey } from '@r/lib/shortages/types'
 
 const fold = (s: string): string =>
@@ -82,6 +88,22 @@ export default function Shortages(props: ShortagesProps) {
     end: windowEnd,
   })
 
+  // Fetch des données
+  const { data, loading, error } = useTimedFetch<ShortageRowsResponse>(props.rowsHref)
+  const viewData = data ?? EMPTY
+
+  /* Une seule mécanique de navigation pour les deux gestes qui rechargent la
+     fenêtre serveur — `window.location.href` d'un côté et `router.visit` de
+     l'autre, c'était deux comportements (perte du cache Inertia, pas de
+     progression) pour un même effet. */
+  const [refreshing, setRefreshing] = useState(false)
+  const reload = useCallback((qs: string) => {
+    router.visit(`${route('scheduler.shortage_tracker')}?${qs}`, {
+      onStart: () => setRefreshing(true),
+      onFinish: () => setRefreshing(false),
+    })
+  }, [])
+
   const applyRange = (r: DayPickerRange) => {
     const next: DateRange = { start: r.from ?? null, end: r.to ?? null }
     setRange(next)
@@ -90,13 +112,13 @@ export default function Shortages(props: ShortagesProps) {
       (startOfDay(next.end).getTime() - startOfDay(next.start).getTime()) / DAY_MS
     )
     const days = Math.min(MAX_HORIZON, Math.max(MIN_HORIZON, span))
-    window.location.href =
-      route('scheduler.shortage_tracker') + `?start=${toIso(next.start)}&days=${days}`
+    reload(`start=${toIso(next.start)}&days=${days}`)
   }
 
-  // Fetch des données
-  const { data, loading, error } = useTimedFetch<ShortageRowsResponse>(props.rowsHref)
-  const viewData = data ?? EMPTY
+  const refresh = useCallback(
+    () => reload(`start=${props.windowStart}&days=${props.horizon}&refresh=1`),
+    [reload, props.windowStart, props.horizon]
+  )
 
   // Filtrage par recherche + verdict
   const filteredRows = useMemo(() => {
@@ -135,7 +157,13 @@ export default function Shortages(props: ShortagesProps) {
     </div>
   )
 
-  const verdictChip = (k: ShortageVerdictKey | 'all', label: string, tone: 'critical' | 'warning' | 'ok' | 'neutral') => {
+  /**
+   * Chip de verdict. La gravité n'est PAS un paramètre : elle vient de
+   * `VERDICT_TONE`, la seule table qui dit de quelle couleur est un verdict —
+   * la même qui peint le badge de la table et la barre latérale. Passée à la
+   * main ici, elle avait fini par contredire les deux autres.
+   */
+  const verdictChip = (k: ShortageVerdictKey | 'all', label: string) => {
     const on = verdictFilter === k
     const count = k === 'all' ? viewData.rows.length : counts[k]
     return (
@@ -143,12 +171,71 @@ export default function Shortages(props: ShortagesProps) {
         key={k}
         label={label}
         count={count}
-        tone={tone}
+        tone={k === 'all' ? 'neutral' : VERDICT_TONE[k].chip}
         active={on}
         onClick={() => setVerdictFilter(on ? 'all' : k)}
       />
     )
   }
+
+  /* ── Barre d'outils (standard §17) ───────────────────────────────────────
+     Zone 01 portée : la bascule de vue puis la fenêtre de dates. Zone 02 : le
+     déclencheur unique de filtres. Zone 03 : la recherche. Zone 04 : actualiser.
+     Pas de conteneur `<Toolbar>` : la prop d'AppLayout en est déjà un. */
+  const toolbar = (
+    <>
+      <ToolbarSegmented semantics="tabs" aria-label="Vue">
+        {(
+          [
+            ['registre', 'Registre', 'Table éditoriale : une ligne par composant × OF bloqué'],
+            ['composants', 'Par composant', "Agrégation : quel composant bloque le plus d'OF ?"],
+          ] as const
+        ).map(([key, label, title]) => (
+          <ToolbarSegment
+            key={key}
+            active={mode === key}
+            title={title}
+            onClick={() => setMode(key)}
+          >
+            {label}
+          </ToolbarSegment>
+        ))}
+      </ToolbarSegmented>
+
+      <ToolbarDateWindow
+        value={range.start && range.end ? { from: range.start, to: range.end } : undefined}
+        onCommit={applyRange}
+        title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
+      />
+
+      {/* « Filtres » et non « Verdict » : le déclencheur est unique et nommé par
+          son rôle, pas par le seul filtre qu'il contient aujourd'hui. */}
+      <ToolbarFilterMenu activeCount={verdictFilter !== 'all' ? 1 : 0}>
+        <ToolbarFilterSection>Verdict</ToolbarFilterSection>
+        <ToolbarSegmented flat semantics="toggles" className="w-full flex-wrap">
+          {verdictChip('all', 'Tous')}
+          {verdictChip('sans_couverture', 'Sans couv.')}
+          {verdictChip('sous_ensemble', 'S/E')}
+          {verdictChip('retard', 'Retard')}
+          {verdictChip('a_risque', 'À risque')}
+          {verdictChip('couvert', 'Couvert')}
+        </ToolbarSegmented>
+      </ToolbarFilterMenu>
+
+      <ToolbarSpacer />
+
+      <ToolbarSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Composant, OF, commande, fournisseur…"
+      />
+      {/* `loading` câblé : le calcul dépasse la dizaine de secondes sur cette
+          page, et une visite Inertia ne donne aucun retour navigateur. Les deux
+          états comptent — la visite du shell PUIS le fetch des lignes, qui est
+          le long des deux. Le bouton se désactive tant que l'un tourne. */}
+      <ToolbarRefresh loading={refreshing || loading} onClick={refresh} />
+    </>
+  )
 
   return (
     <AppLayout
@@ -158,6 +245,7 @@ export default function Shortages(props: ShortagesProps) {
       theme="cursor"
       dense
       scrollable={false}
+      toolbar={toolbar}
       meta={
         <>
           <div className="text-[12px] font-medium capitalize text-foreground">
@@ -172,76 +260,12 @@ export default function Shortages(props: ShortagesProps) {
     >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
-          la toolbar et de la vue en dessous ne se dimensionnent contre rien
-          et la table déborde hors de l'écran sans scroll possible. */}
+          la vue en dessous ne se dimensionnent contre rien et la table déborde
+          hors de l'écran sans scroll possible. */}
       <div className="flex h-full min-h-0 flex-col">
-        {/* ═══ Toolbar ═══ */}
-        <Toolbar>
-          {/* Bascule Registre / Par composant */}
-          <ToolbarSegmented semantics="tabs" aria-label="Vue">
-            {(
-              [
-                ['registre', 'Registre', 'Table éditoriale : une ligne par composant × OF bloqué'],
-                [
-                  'composants',
-                  'Par composant',
-                  "Agrégation : quel composant bloque le plus d'OF ?",
-                ],
-              ] as const
-            ).map(([key, label, title]) => (
-              <ToolbarSegment
-                key={key}
-                active={mode === key}
-                title={title}
-                onClick={() => setMode(key)}
-              >
-                {label}
-              </ToolbarSegment>
-            ))}
-          </ToolbarSegmented>
-
-          {/* Fenêtre — sélecteur de plage */}
-          <ToolbarDateWindow
-            value={range.start && range.end ? { from: range.start, to: range.end } : undefined}
-            onCommit={applyRange}
-            title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
-          />
-
-          {/* Filtre verdict — déclencheur unique. */}
-          <ToolbarFilterMenu
-            label="Verdict"
-            activeCount={verdictFilter !== 'all' ? 1 : 0}
-          >
-            <ToolbarSegmented flat semantics="toggles" className="flex-wrap">
-              {verdictChip('all', 'Tous', 'neutral')}
-              {verdictChip('sans_couverture', 'Sans couv.', 'critical')}
-              {verdictChip('sous_ensemble', 'S/E', 'warning')}
-              {verdictChip('retard', 'Retard', 'critical')}
-              {verdictChip('a_risque', 'À risque', 'warning')}
-              {verdictChip('couvert', 'Couvert', 'ok')}
-            </ToolbarSegmented>
-          </ToolbarFilterMenu>
-
-          <ToolbarSpacer />
-
-          {/* Recherche — systématiquement à droite (convention toolbar). */}
-          <ToolbarSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Composant, OF, commande, fournisseur…"
-          />
-          <ToolbarRefresh
-            onClick={() =>
-              router.visit(
-                `${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`
-              )
-            }
-          />
-        </Toolbar>
-
         {/* ═══ X3 injoignable ═══ */}
         {viewData.x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement ruptures :</span>
             <span className="font-mono">{viewData.x3Error}</span>
@@ -250,7 +274,7 @@ export default function Shortages(props: ShortagesProps) {
 
         {/* ═══ OF à solder (offre fantôme écartée du calcul) ═══ */}
         {(viewData.phantomOfs?.length ?? 0) > 0 && (
-          <div className="flex flex-none items-start gap-2 border-b border-suggere/30 bg-suggere/10 px-7 py-2 text-[12px] text-foreground">
+          <div className="flex flex-none items-start gap-2 border-b border-suggere/30 bg-suggere/10 px-5 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-suggere" />
             <div className="min-w-0">
               <span className="font-bold">{viewData.phantomOfs!.length} OF à solder</span>{' '}

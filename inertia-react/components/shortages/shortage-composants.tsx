@@ -13,7 +13,7 @@ import { X3Link } from '@r/components/x3-link'
 import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
 import {
-  VERDICT_BAR,
+  VERDICT_TONE,
   VERDICT_LABEL,
   groupByComponent,
   type ComponentGroup,
@@ -22,15 +22,6 @@ import {
   TD,
 } from '@r/lib/shortages/shortage-math'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-
-/** Mapping verdict → variant Badge du design system. */
-const VERDICT_BADGE_VARIANT: Record<ShortageDisplayRow['verdictKey'], 'success' | 'warning' | 'destructive' | 'secondary'> = {
-  couvert: 'success',
-  a_risque: 'warning',
-  retard: 'destructive',
-  sous_ensemble: 'secondary',
-  sans_couverture: 'destructive',
-}
 
 const late = (g: ComponentGroup) =>
   g.worstVerdict === 'retard' || g.worstVerdict === 'sans_couverture'
@@ -151,11 +142,11 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       header: () => 'Couverture',
       cell: ({ row: { original: g } }) =>
         g.nbSansCouverture > 0 ? (
-          <Badge variant="destructive" className="h-[18px] px-2 text-[10px] font-semibold">
+          <Badge variant="destructive" className="font-semibold">
             {g.nbSansCouverture}/{g.lines.length} sans couv.
           </Badge>
         ) : (
-          <Badge variant={VERDICT_BADGE_VARIANT[g.worstVerdict]} className="h-[18px] px-2 text-[10px] font-semibold">
+          <Badge variant={VERDICT_TONE[g.worstVerdict].badge} className="font-semibold">
             {VERDICT_LABEL[g.worstVerdict]}
           </Badge>
         ),
@@ -183,7 +174,7 @@ export function ShortageComposants({
     tdClass: (g: ComponentGroup) =>
       cn(
         'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
-        VERDICT_BAR[g.worstVerdict]
+        VERDICT_TONE[g.worstVerdict].bar
       ),
   }
 

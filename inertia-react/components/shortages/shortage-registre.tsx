@@ -12,23 +12,7 @@ import { Badge } from '@r/components/ui/badge'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
-import {
-  isLate,
-  TH,
-  TH_R,
-  TD,
-  VERDICT_BAR,
-  VERDICT_LABEL,
-} from '@r/lib/shortages/shortage-math'
-
-/** Mapping verdict → variant Badge du design system. */
-const VERDICT_BADGE_VARIANT: Record<ShortageDisplayRow['verdictKey'], 'success' | 'warning' | 'destructive' | 'secondary'> = {
-  couvert: 'success',
-  a_risque: 'warning',
-  retard: 'destructive',
-  sous_ensemble: 'secondary',
-  sans_couverture: 'destructive',
-}
+import { isLate, TH, TH_R, TD, VERDICT_TONE } from '@r/lib/shortages/shortage-math'
 
 export function ShortageRegistre({
   rows,
@@ -192,7 +176,7 @@ export function ShortageRegistre({
       enableSorting: false,
       header: () => 'Verdict',
       cell: ({ row: { original: row } }) => (
-        <Badge variant={VERDICT_BADGE_VARIANT[row.verdictKey]} className="h-[18px] px-2 text-[10px] font-semibold">
+        <Badge variant={VERDICT_TONE[row.verdictKey].badge} className="font-semibold">
           {row.verdictLabel}
         </Badge>
       ),
@@ -206,7 +190,7 @@ export function ShortageRegistre({
     tdClass: (row: ShortageDisplayRow) =>
       cn(
         'px-4 py-[7px] align-middle font-sans text-xs font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
-        VERDICT_BAR[row.verdictKey]
+        VERDICT_TONE[row.verdictKey].bar
       ),
   }
 

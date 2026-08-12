@@ -60,31 +60,58 @@ export const VERDICT_LABEL: Record<ShortageDisplayRow['verdictKey'], string> = {
   sans_couverture: 'Sans couv.',
 }
 
-/** Dot verdict (mode compact, même convention que /suivi proactif) — couleur pleine, pas de fond. */
-export const VERDICT_DOT: Record<ShortageDisplayRow['verdictKey'], string> = {
-  couvert: 'bg-ferme',
-  a_risque: 'bg-suggere',
-  retard: 'bg-destructive',
-  sous_ensemble: 'bg-planifie',
-  sans_couverture: 'bg-destructive',
-}
-
-/** Texte verdict (mode compact, même convention que /suivi proactif) — couleur seule, pas de pill. */
-export const VERDICT_TEXT: Record<ShortageDisplayRow['verdictKey'], string> = {
-  couvert: 'text-ferme',
-  a_risque: 'text-suggere',
-  retard: 'text-destructive',
-  sous_ensemble: 'text-planifie',
-  sans_couverture: 'text-destructive',
-}
-
-/** Barre latérale gauche (index column) — même convention que /suivi (LATE_TONE.bar). */
-export const VERDICT_BAR: Record<ShortageDisplayRow['verdictKey'], string> = {
-  couvert: '',
-  a_risque: '[box-shadow:inset_3px_0_var(--color-suggere)]',
-  sous_ensemble: '[box-shadow:inset_3px_0_var(--color-planifie)]',
-  retard: '[box-shadow:inset_3px_0_var(--color-destructive)]',
-  sans_couverture: '[box-shadow:inset_3px_0_var(--color-destructive)]',
+/**
+ * Gravité d'un verdict, déclinée dans les trois habillages du produit.
+ *
+ * Une seule table pour les trois : c'est la condition pour qu'un verdict ait la
+ * même couleur partout. La migration vers le design system avait recopié un
+ * `VERDICT_BADGE_VARIANT` dans chacun des deux composants, avec `sous_ensemble`
+ * en gris — le même verdict portait alors trois couleurs sur une seule ligne
+ * (chip ambre dans le panneau, badge gris dans la table, barre `planifie` à
+ * gauche). Ajouter un habillage, c'est ajouter une colonne ICI.
+ *
+ *  • `badge` : variante de `Badge` (table).
+ *  • `chip`  : gravité de `ToolbarFilterChip` (panneau de filtres).
+ *  • `bar`   : barre latérale de la colonne d'index.
+ *
+ * Réserve assumée : `sous_ensemble` est peint en `planifie`, une encre qui n'a
+ * de contrepartie ni dans les variantes de `Badge` ni dans les gravités de chip.
+ * Son badge est donc un filet neutre et sa chip un point gris — c'est la barre
+ * latérale qui porte son identité de couleur. Le jour où le produit veut une
+ * gravité « à lancer » de plein droit, elle s'ajoute aux deux palettes, pas ici.
+ */
+export const VERDICT_TONE: Record<
+  ShortageDisplayRow['verdictKey'],
+  {
+    badge: 'success' | 'warning' | 'destructive' | 'outline'
+    chip: 'ok' | 'warning' | 'critical' | 'neutral'
+    bar: string
+  }
+> = {
+  couvert: { badge: 'success', chip: 'ok', bar: '' },
+  a_risque: {
+    badge: 'warning',
+    chip: 'warning',
+    bar: '[box-shadow:inset_3px_0_var(--color-suggere)]',
+  },
+  // `outline` et non `secondary` : un sous-ensemble à lancer est une action à
+  // mener, pas une information de second rang. Le filet le distingue des
+  // verdicts qui alertent sans le noyer dans le gris.
+  sous_ensemble: {
+    badge: 'outline',
+    chip: 'neutral',
+    bar: '[box-shadow:inset_3px_0_var(--color-planifie)]',
+  },
+  retard: {
+    badge: 'destructive',
+    chip: 'critical',
+    bar: '[box-shadow:inset_3px_0_var(--color-destructive)]',
+  },
+  sans_couverture: {
+    badge: 'destructive',
+    chip: 'critical',
+    bar: '[box-shadow:inset_3px_0_var(--color-destructive)]',
+  },
 }
 
 /** Agrège les lignes par composant. `rows` arrive trié par urgence (expé asc) du parent. */

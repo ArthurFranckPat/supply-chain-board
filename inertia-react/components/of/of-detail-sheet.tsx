@@ -11,13 +11,13 @@
  * Layout Scan-first : identité ≠ actions, méta en grille 4 cols, table
  * silencieuse sur les lignes OK, commandes matching dans le chrome.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { router } from '@inertiajs/react'
 
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
-import { DataTable, type ColumnDef } from '@r/components/ui/data-table'
+import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import { cn } from '@r/lib/utils'
 import {
   CircleX,
@@ -242,14 +242,19 @@ export function OfDetailSheet(props: {
                       {d.article}
                     </span>
                   )}
+                  {/* Ni hauteur ni taille de police forcées : sous `.theme-cursor`
+                      la règle `[data-slot='badge']` les impose (20 px / 11 px) et
+                      bat toute classe utilitaire, donc `h-[18px] text-[10px]` ne
+                      s'appliquait que sur les pages Airbnb — un réglage à moitié
+                      mort, qui donnait l'illusion d'en être un. */}
                   <Badge
                     variant={statusVariant(d.statusLabel)}
-                    className="h-[18px] px-2 font-mono text-[10px] font-semibold uppercase tracking-wide"
+                    className="font-mono font-semibold uppercase tracking-wide"
                   >
                     {d.statusLabel}
                   </Badge>
                   {d.bomBlocked > 0 && (
-                    <Badge variant="destructive" className="h-[18px] px-2 font-mono text-[10px]">
+                    <Badge variant="destructive" className="font-mono font-semibold">
                       {d.bomBlocked} rupture{d.bomBlocked > 1 ? 's' : ''}
                     </Badge>
                   )}
@@ -446,12 +451,27 @@ export function OfDetailSheet(props: {
   )
 }
 
-/** Table BOM — DataTable du design system. */
+/**
+ * Table BOM — DataTable du design system.
+ *
+ * Trois réglages non négociables, faute de quoi le composant se comporte mal
+ * DANS un sheet (il est écrit pour occuper une page) :
+ *  • `enableSorting: false` partout — l'ordre est métier (ruptures → CQ → OK) et
+ *    imposé ici. Sans ce drapeau, le DataTable rend quatre en-têtes cliquables,
+ *    chevron au survol compris, dont le clic n'aurait rien fait ;
+ *  • `virtualize={false}` — une nomenclature fait quelques dizaines de lignes,
+ *    et la virtualisation exige un conteneur défilant à hauteur définie ;
+ *  • un `scrollContainerClass` qui ANNULE `h-full overflow-auto` du défaut. Le
+ *    parent de ce bloc défile déjà : laisser la valeur par défaut donnait une
+ *    boîte forcée à la hauteur de l'onglet, avec son propre ascenseur imbriqué
+ *    dans celui de l'onglet.
+ */
 function BomTable({ bom }: { bom: BomRow[] }) {
   const columns: ColumnDef<BomRow>[] = [
     {
       accessorKey: 'id',
       header: () => 'Article',
+      enableSorting: false,
       cell: ({ row: { original: row } }) => (
         <X3Link
           fonction="GESITM"
@@ -470,14 +490,20 @@ function BomTable({ bom }: { bom: BomRow[] }) {
     {
       accessorKey: 'name',
       header: () => 'Désignation',
+      enableSorting: false,
       cell: ({ row: { original: row } }) => (
-        <span className="truncate text-[12px] text-foreground/80">{row.name}</span>
+        <span className="truncate text-[12px] text-foreground/80" title={row.name}>
+          {row.name}
+        </span>
       ),
-      meta: { thClass: 'flex-1', tdClass: 'px-3 py-2' },
+      // Pas de largeur : c'est la colonne élastique. (`flex-1` sur un `<th>` ne
+      // veut rien dire — il n'y a pas de conteneur flex dans une `<table>`.)
+      meta: { tdClass: 'px-3 py-2' },
     },
     {
       id: 'besoin',
       header: () => <span className="block text-right">Besoin</span>,
+      enableSorting: false,
       cell: ({ row: { original: row } }) => (
         <div className="text-right font-mono text-[12px]">
           <span className="font-bold text-foreground">
@@ -499,6 +525,7 @@ function BomTable({ bom }: { bom: BomRow[] }) {
     {
       id: 'dispo',
       header: () => <span className="block text-right">Dispo</span>,
+      enableSorting: false,
       cell: ({ row: { original: row } }) => (
         <div
           className={cn(
@@ -513,7 +540,13 @@ function BomTable({ bom }: { bom: BomRow[] }) {
               manque {row.shortage?.replace('−', '')}
             </div>
           ) : row.qc ? (
-            <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-semibold text-warning">
+            // L'action portée par ce `title` vivait sur la rangée avant la
+            // migration vers DataTable, qui n'expose pas d'attribut de ligne :
+            // elle se raccroche à l'endroit qui l'annonce.
+            <div
+              className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-semibold text-warning"
+              title={`${row.qc} sous contrôle qualité : contacter le contrôle réception`}
+            >
               <FlaskConical size={11} strokeWidth={2.5} />
               dont {row.qc} en CQ
             </div>
@@ -525,37 +558,48 @@ function BomTable({ bom }: { bom: BomRow[] }) {
   ]
 
   // Tri : ruptures → CQ → OK
-  const sortedBom = [...bom].sort((a, b) => {
-    if (!a.ok && b.ok) return -1
-    if (a.ok && !b.ok) return 1
-    if (!!a.qc && !b.qc) return -1
-    if (!a.qc && !!b.qc) return 1
-    return 0
-  })
+  const sortedBom = useMemo(
+    () =>
+      [...bom].sort((a, b) => {
+        if (!a.ok && b.ok) return -1
+        if (a.ok && !b.ok) return 1
+        if (!!a.qc && !b.qc) return -1
+        if (!a.qc && !!b.qc) return 1
+        return 0
+      }),
+    [bom]
+  )
 
   return (
     <DataTable
       columns={columns}
       rows={sortedBom}
-      sorting={[]}
-      onSortingChange={() => {}}
+      sorting={EMPTY_SORTING}
+      onSortingChange={noopSorting}
+      virtualize={false}
       tableClass="w-full text-xs"
-      scrollContainerClass="border border-rule-soft rounded-md"
+      // `h-auto overflow-visible` annule le défaut `h-full overflow-auto`.
+      scrollContainerClass="h-auto overflow-visible rounded-md border border-rule-soft shadow-none"
       theadRowClass="bg-secondary/50"
+      emptyState={
+        <div className="px-3 py-4 text-center text-[12px] text-muted-foreground">
+          Nomenclature vide pour cet OF.
+        </div>
+      }
       getRowClass={(row) =>
         cn(
           'border-b border-rule-soft last:border-0',
-          !row.ok
-            ? 'bg-destructive/[0.05]'
-            : row.qc
-              ? 'bg-warning/[0.05]'
-              : 'bg-background'
+          !row.ok ? 'bg-destructive/[0.05]' : row.qc ? 'bg-warning/[0.05]' : 'bg-background'
         )
       }
       getRowKey={(row) => row.id}
     />
   )
 }
+
+/** Tri figé : références stables, pour ne pas re-rendre la table à chaque frame. */
+const EMPTY_SORTING: SortingState[] = []
+const noopSorting = () => {}
 
 /** Chips de commandes clientes. */
 function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
@@ -576,7 +620,12 @@ function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
           .filter(Boolean)
           .join(' · ')
         return (
-          <Badge key={`${c.numCommande}#${c.ligne ?? ''}`} variant="secondary" className="h-[18px] gap-1 px-2 text-[10px] font-semibold" title={title}>
+          <Badge
+            key={`${c.numCommande}#${c.ligne ?? ''}`}
+            variant="secondary"
+            className="gap-1 font-mono font-semibold"
+            title={title}
+          >
             <X3Link
               fonction="GESSOH"
               cle={c.numCommande}
@@ -586,7 +635,9 @@ function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
               {c.numCommande}
             </X3Link>
             {c.ligne && <span className="text-muted-foreground">L{c.ligne}</span>}
-            {c.client && <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>}
+            {c.client && (
+              <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>
+            )}
             {liv && <span className="text-muted-foreground">{liv}</span>}
           </Badge>
         )
