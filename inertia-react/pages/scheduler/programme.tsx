@@ -1324,7 +1324,7 @@ export default function Programme(props: VisionProps) {
     <AppLayout
       title="Programme"
       active="programme"
-      subtitle="Programme · Flux OF ↔ commandes"
+      subtitle="Programme de fabrication"
       theme="cursor"
       dense
       scrollable={false}

@@ -497,16 +497,6 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
       else totauxParCle.set(r.cle, { total: r.valeur, cap: r.capacite })
     }
 
-    /* Segment de tête de chaque période — celui qui porte la coiffe arrondie.
-       `segments` est déclaré du bas vers le haut : la dernière entrée non nulle
-       est le sommet de la pile. */
-    const teteParCle = new Map<string, string>()
-    for (const p of periodes) {
-      for (const s of segments) {
-        if ((p.valeurs[cleSeg(s)] ?? 0) > 0) teteParCle.set(p.cle, cleSeg(s))
-      }
-    }
-    const estTete = (d: LigneCharge) => teteParCle.get(d.cle) === d.segment
     const remplissage = (d: LigneCharge) => d.couleur ?? SERIE[d.serie]
 
     // Capacité : courbe quand elle varie, ligne plate sinon — un seul rendu.
@@ -598,19 +588,16 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
       // HTML calés en pourcentages (coupure, pastilles, trous) tombent juste.
       margin: afficherAxes ? undefined : 0,
       marks: [
-        /* La colonne se dessine en DEUX passes, pour une raison d'API :
+        /* Angles vifs : joints nets entre segments, assise franche sur l'axe.
            `barY.radius` est un scalaire appliqué aux quatre coins de CHAQUE
-           segment, et aucun canal ne permet de viser le seul segment de tête.
-           En une passe, il fallait choisir entre une pile crénelée à chaque
-           jointure et une colonne à sommet carré.
+           segment, et aucun canal ne permet de viser le seul segment de tête —
+           en rayon 2, chaque jointure de la pile laissait une encoche claire.
 
-           Passe 1 — la pile entière, à angles vifs : joints nets, assise
-           franche sur l'axe.
-           Passe 2 — le MÊME jeu de lignes, le MÊME empilement (donc exactement
-           la même géométrie), repeint arrondi et rendu transparent partout
-           sauf sur le segment de tête. Les coins bas arrondis de cette coiffe
-           découvrent la passe 1 — le même segment, dans la même couleur : ils
-           ne se voient pas. Seul le sommet gagne son rayon. */
+           Une coiffe arrondie sur le seul sommet a été tentée (12/08/2026) :
+           seconde marque `barY`, mêmes lignes, même `layout`, transparente
+           partout sauf sur le segment de tête. Même géométrie en théorie, sans
+           effet à l'écran. Retirée — elle ne laissait qu'un doublon de cibles
+           de survol. Ne pas la refaire à l'identique. */
         barY(rows, {
           x: 'cle',
           y: 'valeur',
@@ -621,16 +608,6 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
           // données : c'est lui qui rend deux périodes comparables à l'œil.
           layout: stack({ order: segments.map(cleSeg) }),
           fill: remplissage,
-        }),
-        barY(rows, {
-          id: 'coiffe',
-          x: 'cle',
-          y: 'valeur',
-          z: 'segment',
-          radius: 2,
-          inset: 1,
-          layout: stack({ order: segments.map(cleSeg) }),
-          fill: (d: LigneCharge) => (estTete(d) ? remplissage(d) : 'transparent'),
         }),
         ...(capPoints.length > 0
           ? [
@@ -753,18 +730,7 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
             return `${fmtPeriodeLongue(String(d.label))} · ${format(Number(d.valeur))}`
           return ''
         },
-        formatGroup: (tousPoints: readonly { datum: unknown }[]) => {
-          /* La coiffe arrondie est une SECONDE marque posée sur les mêmes
-             lignes : sans dédoublonnage, chaque segment survolé se comptait
-             deux fois dans le total et s'affichait deux fois dans la liste. */
-          const vus = new Set<string>()
-          const points = tousPoints.filter((p) => {
-            const d = p.datum as Partial<LigneCharge>
-            const k = `${d.cle} ${d.segment}`
-            if (vus.has(k)) return false
-            vus.add(k)
-            return true
-          })
+        formatGroup: (points: readonly { datum: unknown }[]) => {
           if (formatTooltip) return formatTooltip(points as readonly { datum: LigneCharge }[])
           const premier = points[0]?.datum as LigneCharge | undefined
           if (!premier) return ''
