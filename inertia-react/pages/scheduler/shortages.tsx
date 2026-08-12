@@ -247,15 +247,10 @@ export default function Shortages(props: ShortagesProps) {
       scrollable={false}
       toolbar={toolbar}
       meta={
-        <>
-          <div className="text-[12px] font-medium capitalize text-foreground">
-            {props.dateRange}
-          </div>
-          <div>
-            <b className="font-semibold text-foreground">{viewData.stats.nbRuptures}</b> ruptures ·
-            horizon <b className="font-semibold text-foreground">+{props.horizon} j</b>
-          </div>
-        </>
+        <div>
+          <b className="font-semibold text-foreground">{viewData.stats.nbRuptures}</b> ruptures ·
+          horizon <b className="font-semibold text-foreground">+{props.horizon} j</b>
+        </div>
       }
     >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
@@ -274,21 +269,12 @@ export default function Shortages(props: ShortagesProps) {
 
         {/* ═══ OF à solder (offre fantôme écartée du calcul) ═══ */}
         {(viewData.phantomOfs?.length ?? 0) > 0 && (
-          <div className="flex flex-none items-start gap-2 border-b border-suggere/30 bg-suggere/10 px-5 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-suggere" />
-            <div className="min-w-0">
-              <span className="font-bold">{viewData.phantomOfs!.length} OF à solder</span>{' '}
-              <span className="text-muted-foreground">
-                — gamme pointée en totalité, reste annoncé non produit. Écartés de la couverture.
-              </span>
-              <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                {viewData
-                  .phantomOfs!.slice(0, 8)
-                  .map((p) => `${p.numOf} (${p.article}, reste ${p.qteRestante})`)
-                  .join(' · ')}
-                {viewData.phantomOfs!.length > 8 && ` · +${viewData.phantomOfs!.length - 8}`}
-              </div>
-            </div>
+          <div className="flex flex-none items-center gap-2 border-b border-suggere/30 bg-suggere/10 px-5 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-suggere" />
+            <span>
+              <b>{viewData.phantomOfs!.length} OF à solder</b>
+              <span className="text-muted-foreground"> — écartés de la couverture (gamme pointée en totalité).</span>
+            </span>
           </div>
         )}
 

@@ -55,7 +55,7 @@ export function ShortageRegistre({
           }
         />
       ),
-      meta: { thClass: 'w-[220px]' },
+      meta: { thClass: 'w-[200px]' },
     },
     {
       accessorKey: 'qteManquante',
@@ -95,7 +95,7 @@ export function ShortageRegistre({
           }
         />
       ),
-      meta: { thClass: 'w-[170px]', tdClass: 'w-[170px]' },
+      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
     },
     {
       accessorKey: 'numCommande',
@@ -136,12 +136,11 @@ export function ShortageRegistre({
                 )}
               </>
             }
-            label={row.client}
           />
         ) : (
           <span className="text-2xs italic text-muted-foreground/50">— orphelin</span>
         ),
-      meta: { thClass: 'w-[180px]', tdClass: 'w-[180px]' },
+      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
     },
     {
       id: 'reception',
@@ -194,7 +193,7 @@ export function ShortageRegistre({
           tone={VERDICT_TONE[row.verdictKey].text}
         />
       ),
-      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
+      meta: { thClass: 'w-[140px]', tdClass: 'w-[140px]' },
     },
   ]
 
@@ -215,7 +214,7 @@ export function ShortageRegistre({
       sorting={sorting}
       onSortingChange={setSorting}
       indexColumn={indexColumn}
-      tableClass="min-w-[880px] text-xs"
+      tableClass="min-w-[780px] text-xs table-fixed"
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       emptyState={emptyState}

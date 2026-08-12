@@ -40,7 +40,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
           labelTitle={g.componentDesc || undefined}
         />
       ),
-      meta: { thClass: 'w-[220px]' },
+      meta: { thClass: 'w-[200px]' },
     },
     {
       accessorKey: 'totalManquant',
@@ -62,16 +62,9 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       },
     },
     {
-      id: 'nbOfs',
-      accessorFn: (g) => g.lines.length,
-      header: () => 'OFs bloqués',
-      cell: ({ row: { original: g } }) => <CellNumber value={g.lines.length} />,
-      meta: { thClass: 'w-[90px] text-right!', tdClass: 'w-[90px] whitespace-nowrap text-right' },
-    },
-    {
       id: 'ofs',
       enableSorting: false,
-      header: () => 'OFs',
+      header: () => 'OFs bloqués',
       cell: ({ row: { original: g } }) => (
         <div className="flex flex-wrap gap-1.5">
           {g.lines.map((l) => (
@@ -121,12 +114,11 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
                 {g.urgent.dateExpedition}
               </span>
             }
-            label={g.urgent.client}
           />
         ) : (
           <span className="text-2xs italic text-muted-foreground/50">— orphelins</span>
         ),
-      meta: { thClass: 'w-[210px]', tdClass: 'w-[210px]' },
+      meta: { thClass: 'w-[190px]', tdClass: 'w-[190px]' },
     },
     {
       id: 'couverture',
@@ -146,7 +138,7 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
             tone={VERDICT_TONE[g.worstVerdict].text}
           />
         ),
-      meta: { thClass: 'w-[150px]', tdClass: 'w-[150px]' },
+      meta: { thClass: 'w-[140px]', tdClass: 'w-[140px]' },
     },
   ]
 }
@@ -181,7 +173,7 @@ export function ShortageComposants({
       sorting={sorting}
       onSortingChange={setSorting}
       indexColumn={indexColumn}
-      tableClass="min-w-[1080px] text-xs"
+      tableClass="min-w-[980px] text-xs table-fixed"
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowKey={(g) => g.component}
