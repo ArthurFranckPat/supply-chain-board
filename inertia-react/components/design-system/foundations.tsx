@@ -245,9 +245,12 @@ export function TypographieSection() {
       title="Typographie"
       intro={
         <>
-          Une seule famille système, quatre tailles d’interface, deux graisses utiles. La densité
-          vient de la taille de base à <strong>13 px / 18 px</strong> — pas d’un texte rétréci au
-          cas par cas. Le crénage se resserre quand la taille monte.
+          Deux familles embarquées — <strong>Inter</strong> pour l’interface,{' '}
+          <strong>JetBrains Mono</strong> pour les identifiants — quatre tailles, deux graisses
+          utiles. Embarquées et non système : le parc est mixte Windows + Mac, et une pile système y
+          rendait deux typographies différentes pour le même écran. La densité vient de la taille de
+          base à <strong>13 px / 18 px</strong> — pas d’un texte rétréci au cas par cas. Le crénage
+          se resserre quand la taille monte.
         </>
       }
     >
@@ -259,7 +262,8 @@ export function TypographieSection() {
             Planification atelier
           </div>
           <div className="mt-2 font-mono text-[10px] leading-[14px] text-[color-mix(in_oklab,#141414_60%,transparent)]">
-            -apple-system, BlinkMacSystemFont, &apos;Segoe UI&apos;, sans-serif
+            &apos;Inter Variable&apos;, -apple-system, BlinkMacSystemFont, &apos;Segoe UI&apos;,
+            sans-serif
           </div>
         </Panel>
         <Panel>
@@ -268,7 +272,7 @@ export function TypographieSection() {
             OF F126-44429
           </div>
           <div className="mt-2 font-mono text-[10px] leading-[14px] text-[color-mix(in_oklab,#141414_60%,transparent)]">
-            ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace
+            &apos;JetBrains Mono Variable&apos;, ui-monospace, SFMono-Regular, Consolas, monospace
           </div>
         </Panel>
       </Grid>

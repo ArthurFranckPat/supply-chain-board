@@ -24,12 +24,27 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-/* Une seule webfont embarquée. Geist et Inter ont été retirées le 12/08/2026 :
-   aucun `font-family` du projet ne nommait Geist, et Inter n'arrivait qu'en 4e
-   position du fallback `.theme-cursor`, derrière -apple-system / Segoe UI —
-   donc jamais résolue sur les postes cibles (dev macOS, déploiement Windows).
-   Ne pas réimporter une famille sans la câbler dans un `--font-*`. */
+/* ── Webfonts embarquées — TROIS, une par rôle, toutes câblées. ──────────
+   Règle : n'importer une famille que si un `--font-*` la nomme EN TÊTE de
+   sa pile. Geist a été retirée le 12/08/2026 pour avoir enfreint ça (aucun
+   `font-family` ne la nommait), et Inter pour avoir été placée DERRIÈRE
+   `-apple-system` et `'Segoe UI'` — donc inatteignable sur le parc réel.
+
+   Le parc est mixte Windows + Mac. Une pile système y rend deux typographies
+   différentes pour le même écran : Segoe UI + Consolas en atelier, SF Pro +
+   SF Mono sur les postes Mac. Consolas étant nettement plus large que SF
+   Mono, les colonnes de codes OF et de quantités ne font même pas la même
+   largeur d'un poste à l'autre — un débordement de tableau dense est
+   invisible depuis le poste de validation. Les 11 pages en thème airbnb
+   n'avaient pas ce problème (Jakarta embarquée) ; les 5 pages en thème
+   cursor, si. D'où Inter + JetBrains Mono, embarquées et placées en tête
+   des piles cursor (12/08/2026).
+
+   Le coût est négligeable ici : déploiement LAN, woff2 servis par le même
+   serveur que le reste. La cohérence entre postes prime. */
 @import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -523,13 +538,16 @@
     0 8px 24px -2px #00000009;
   --shadow-overlay: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
 
-  /* Pile système pure — aucune webfont sous ce thème (Inter retirée le
-     12/08/2026 : elle n'était atteignable sur aucun poste cible). */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Webfonts EN TÊTE, pile système en repli seulement (12/08/2026). Le parc
+     est mixte Windows + Mac : laisser `-apple-system` gagner rendait SF Pro
+     ici et Segoe UI là, pour le même écran. Le repli n'est plus qu'un filet
+     de sécurité si un woff2 ne charge pas — il ne doit jamais être le rendu
+     nominal. Ne pas remettre `-apple-system` devant. */
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
 
   --sidebar: #f3f3f3;
   --sidebar-canvas: #f8f8f8;
@@ -573,6 +591,17 @@
 
 .theme-cursor ::selection {
   background: color-mix(in oklab, #141414 14%, transparent);
+}
+
+/* JetBrains Mono est une police de code : elle active par défaut des ligatures
+   contextuelles (`->`, `!=`, `--`, `www`) qui fusionnent deux caractères en un
+   glyphe. Sur un identifiant métier — code OF, référence article, désignation
+   collée — ça donne un signe qui n'existe pas dans la donnée et qu'on ne peut
+   pas recopier. On les coupe : ici la mono transporte des identifiants, pas du
+   code source. */
+.theme-cursor .font-mono,
+.theme-cursor [class*='font-mono'] {
+  font-variant-ligatures: none;
 }
 
 .theme-cursor h1,
