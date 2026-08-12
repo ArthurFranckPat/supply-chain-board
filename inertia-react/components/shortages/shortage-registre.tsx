@@ -8,6 +8,7 @@
 import { useState, type ReactNode } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import { Badge } from '@r/components/ui/badge'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
@@ -17,9 +18,17 @@ import {
   TH_R,
   TD,
   VERDICT_BAR,
-  VERDICT_DOT,
-  VERDICT_TEXT,
+  VERDICT_LABEL,
 } from '@r/lib/shortages/shortage-math'
+
+/** Mapping verdict → variant Badge du design system. */
+const VERDICT_BADGE_VARIANT: Record<ShortageDisplayRow['verdictKey'], 'success' | 'warning' | 'destructive' | 'secondary'> = {
+  couvert: 'success',
+  a_risque: 'warning',
+  retard: 'destructive',
+  sous_ensemble: 'secondary',
+  sans_couverture: 'destructive',
+}
 
 export function ShortageRegistre({
   rows,
@@ -183,12 +192,9 @@ export function ShortageRegistre({
       enableSorting: false,
       header: () => 'Verdict',
       cell: ({ row: { original: row } }) => (
-        <span className="inline-flex items-center gap-1.5">
-          <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[row.verdictKey])} />
-          <span className={cn('text-2xs font-semibold', VERDICT_TEXT[row.verdictKey])}>
-            {row.verdictLabel}
-          </span>
-        </span>
+        <Badge variant={VERDICT_BADGE_VARIANT[row.verdictKey]} className="h-[18px] px-2 text-[10px] font-semibold">
+          {row.verdictLabel}
+        </Badge>
       ),
       meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
     },

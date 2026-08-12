@@ -17,6 +17,7 @@ import { router } from '@inertiajs/react'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
+import { DataTable, type ColumnDef } from '@r/components/ui/data-table'
 import { cn } from '@r/lib/utils'
 import {
   CircleX,
@@ -27,7 +28,7 @@ import {
   CircleCheck,
   FlaskConical,
 } from 'lucide-react'
-import type { OfCommandeLink, OfDetail } from '@r/lib/of/types'
+import type { OfCommandeLink, OfDetail, BomRow } from '@r/lib/of/types'
 import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
 import { X3Link } from '@r/components/x3-link'
@@ -416,92 +417,7 @@ export function OfDetailSheet(props: {
                     </span>
                   </div>
 
-                  <div className="rounded-md border border-rule-soft">
-                    <div className="grid grid-cols-[110px_1fr_120px_140px] items-center gap-4 border-b bg-secondary/50 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Article</span>
-                      <span>Désignation</span>
-                      <span className="text-right">Besoin</span>
-                      <span className="text-right">Dispo</span>
-                    </div>
-
-                    {/* Tri : ruptures → CQ → OK */}
-                    {[...d.bom]
-                      .sort((a, b) => {
-                        if (!a.ok && b.ok) return -1
-                        if (a.ok && !b.ok) return 1
-                        if (!!a.qc && !b.qc) return -1
-                        if (!a.qc && !!b.qc) return 1
-                        return 0
-                      })
-                      .map((row) => (
-                        <div
-                          key={row.id}
-                          className={cn(
-                            'grid grid-cols-[110px_1fr_120px_140px] items-center gap-4 border-b border-rule-soft px-3 py-2 last:border-0',
-                            !row.ok
-                              ? 'bg-destructive/[0.05]'
-                              : row.qc
-                                ? 'bg-warning/[0.05]'
-                                : 'bg-background'
-                          )}
-                          title={
-                            row.qc
-                              ? `${row.id} — ${row.name}\n${row.qc} sous contrôle qualité : contacter le contrôle réception`
-                              : `${row.id} — ${row.name}`
-                          }
-                        >
-                          <X3Link
-                            fonction="GESITM"
-                            cle={row.id}
-                            title={`Ouvrir l'article ${row.id} dans Sage X3`}
-                            className={cn(
-                              'truncate font-mono text-[12px] font-bold',
-                              !row.ok ? 'text-destructive' : 'text-foreground'
-                            )}
-                          >
-                            {row.id}
-                          </X3Link>
-                          <span className="truncate text-[12px] text-foreground/80">
-                            {row.name}
-                          </span>
-                          <div className="text-right font-mono text-[12px]">
-                            <span className="font-bold text-foreground">
-                              {row.need}
-                              <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">
-                                {row.unit}
-                              </span>
-                            </span>
-                            {row.consumed != null && row.required != null && (
-                              <div
-                                className="mt-0.5 font-mono text-[10px] text-muted-foreground"
-                                title="Consommé réel (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY)"
-                              >
-                                consommé {row.consumed}/{row.required}
-                              </div>
-                            )}
-                          </div>
-                          <div
-                            className={cn(
-                              'text-right font-mono text-[12px]',
-                              !row.ok ? 'text-destructive' : 'text-foreground'
-                            )}
-                          >
-                            <span className="font-bold">{row.stock}</span>
-                            {!row.ok ? (
-                              <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-bold text-destructive">
-                                <TriangleAlert size={11} strokeWidth={2.5} />
-                                manque {row.shortage?.replace('−', '')}
-                              </div>
-                            ) : row.qc ? (
-                              <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-semibold text-warning">
-                                <FlaskConical size={11} strokeWidth={2.5} />
-                                dont {row.qc} en CQ
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
+                  <BomTable bom={d.bom} />
                 </>
               )}
 
@@ -530,9 +446,121 @@ export function OfDetailSheet(props: {
   )
 }
 
+/** Table BOM — DataTable du design system. */
+function BomTable({ bom }: { bom: BomRow[] }) {
+  const columns: ColumnDef<BomRow>[] = [
+    {
+      accessorKey: 'id',
+      header: () => 'Article',
+      cell: ({ row: { original: row } }) => (
+        <X3Link
+          fonction="GESITM"
+          cle={row.id}
+          title={`Ouvrir l'article ${row.id} dans Sage X3`}
+          className={cn(
+            'truncate font-mono text-[12px] font-bold',
+            !row.ok ? 'text-destructive' : 'text-foreground'
+          )}
+        >
+          {row.id}
+        </X3Link>
+      ),
+      meta: { thClass: 'w-[110px]', tdClass: 'px-3 py-2' },
+    },
+    {
+      accessorKey: 'name',
+      header: () => 'Désignation',
+      cell: ({ row: { original: row } }) => (
+        <span className="truncate text-[12px] text-foreground/80">{row.name}</span>
+      ),
+      meta: { thClass: 'flex-1', tdClass: 'px-3 py-2' },
+    },
+    {
+      id: 'besoin',
+      header: () => <span className="block text-right">Besoin</span>,
+      cell: ({ row: { original: row } }) => (
+        <div className="text-right font-mono text-[12px]">
+          <span className="font-bold text-foreground">
+            {row.need}
+            <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">{row.unit}</span>
+          </span>
+          {row.consumed != null && row.required != null && (
+            <div
+              className="mt-0.5 font-mono text-[10px] text-muted-foreground"
+              title="Consommé réel (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY)"
+            >
+              consommé {row.consumed}/{row.required}
+            </div>
+          )}
+        </div>
+      ),
+      meta: { thClass: 'w-[120px]', tdClass: 'px-3 py-2' },
+    },
+    {
+      id: 'dispo',
+      header: () => <span className="block text-right">Dispo</span>,
+      cell: ({ row: { original: row } }) => (
+        <div
+          className={cn(
+            'text-right font-mono text-[12px]',
+            !row.ok ? 'text-destructive' : 'text-foreground'
+          )}
+        >
+          <span className="font-bold">{row.stock}</span>
+          {!row.ok ? (
+            <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-bold text-destructive">
+              <TriangleAlert size={11} strokeWidth={2.5} />
+              manque {row.shortage?.replace('−', '')}
+            </div>
+          ) : row.qc ? (
+            <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-semibold text-warning">
+              <FlaskConical size={11} strokeWidth={2.5} />
+              dont {row.qc} en CQ
+            </div>
+          ) : null}
+        </div>
+      ),
+      meta: { thClass: 'w-[140px]', tdClass: 'px-3 py-2' },
+    },
+  ]
+
+  // Tri : ruptures → CQ → OK
+  const sortedBom = [...bom].sort((a, b) => {
+    if (!a.ok && b.ok) return -1
+    if (a.ok && !b.ok) return 1
+    if (!!a.qc && !b.qc) return -1
+    if (!a.qc && !!b.qc) return 1
+    return 0
+  })
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={sortedBom}
+      sorting={[]}
+      onSortingChange={() => {}}
+      tableClass="w-full text-xs"
+      scrollContainerClass="border border-rule-soft rounded-md"
+      theadRowClass="bg-secondary/50"
+      getRowClass={(row) =>
+        cn(
+          'border-b border-rule-soft last:border-0',
+          !row.ok
+            ? 'bg-destructive/[0.05]'
+            : row.qc
+              ? 'bg-warning/[0.05]'
+              : 'bg-background'
+        )
+      }
+      getRowKey={(row) => row.id}
+    />
+  )
+}
+
+/** Chips de commandes clientes. */
 function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-1">
+    <div className="flex flex-wrap items-center gap-1.5">
       <span className="mr-1.5 font-semibold text-foreground">
         Cmd{commandes.length > 1 ? 's' : ''}
       </span>
@@ -548,11 +576,7 @@ function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
           .filter(Boolean)
           .join(' · ')
         return (
-          <span
-            key={`${c.numCommande}#${c.ligne ?? ''}`}
-            title={title}
-            className="inline-flex items-baseline gap-1 rounded bg-secondary px-1.5 py-0.5"
-          >
+          <Badge key={`${c.numCommande}#${c.ligne ?? ''}`} variant="secondary" className="h-[18px] gap-1 px-2 text-[10px] font-semibold" title={title}>
             <X3Link
               fonction="GESSOH"
               cle={c.numCommande}
@@ -562,17 +586,16 @@ function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
               {c.numCommande}
             </X3Link>
             {c.ligne && <span className="text-muted-foreground">L{c.ligne}</span>}
-            {c.client && (
-              <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>
-            )}
+            {c.client && <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>}
             {liv && <span className="text-muted-foreground">{liv}</span>}
-          </span>
+          </Badge>
         )
       })}
-    </span>
+    </div>
   )
 }
 
+/** Label + valeur (faits clés). */
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
@@ -584,9 +607,11 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+/** Bouton d'onglet. */
 function TabBtn(p: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
+      type="button"
       onClick={p.onClick}
       className={cn(
         'flex items-center gap-1.5 border-b-2 px-5 py-2.5 font-mono text-[11px] font-semibold transition-colors',

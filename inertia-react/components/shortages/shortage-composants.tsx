@@ -10,11 +10,10 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
 import { X3Link } from '@r/components/x3-link'
+import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
 import {
   VERDICT_BAR,
-  VERDICT_DOT,
-  VERDICT_TEXT,
   VERDICT_LABEL,
   groupByComponent,
   type ComponentGroup,
@@ -23,6 +22,15 @@ import {
   TD,
 } from '@r/lib/shortages/shortage-math'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+
+/** Mapping verdict → variant Badge du design system. */
+const VERDICT_BADGE_VARIANT: Record<ShortageDisplayRow['verdictKey'], 'success' | 'warning' | 'destructive' | 'secondary'> = {
+  couvert: 'success',
+  a_risque: 'warning',
+  retard: 'destructive',
+  sous_ensemble: 'secondary',
+  sans_couverture: 'destructive',
+}
 
 const late = (g: ComponentGroup) =>
   g.worstVerdict === 'retard' || g.worstVerdict === 'sans_couverture'
@@ -143,19 +151,13 @@ function createColumns(onSelectOf: (numOf: string) => void): ColumnDef<Component
       header: () => 'Couverture',
       cell: ({ row: { original: g } }) =>
         g.nbSansCouverture > 0 ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-            <span className="text-2xs font-semibold whitespace-nowrap text-destructive">
-              {g.nbSansCouverture}/{g.lines.length} sans couv.
-            </span>
-          </span>
+          <Badge variant="destructive" className="h-[18px] px-2 text-[10px] font-semibold">
+            {g.nbSansCouverture}/{g.lines.length} sans couv.
+          </Badge>
         ) : (
-          <span className="inline-flex items-center gap-1.5">
-            <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[g.worstVerdict])} />
-            <span className={cn('text-2xs font-semibold', VERDICT_TEXT[g.worstVerdict])}>
-              {VERDICT_LABEL[g.worstVerdict]}
-            </span>
-          </span>
+          <Badge variant={VERDICT_BADGE_VARIANT[g.worstVerdict]} className="h-[18px] px-2 text-[10px] font-semibold">
+            {VERDICT_LABEL[g.worstVerdict]}
+          </Badge>
         ),
       meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
     },
