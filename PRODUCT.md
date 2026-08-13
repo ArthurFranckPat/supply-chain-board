@@ -11,6 +11,7 @@ web
 **Primaires** : le service ordonnancement / planification du site AE1. Les planners construisent, surveillent et ajustent le programme de production au fil de la journée — poste par poste, OF par OF, commande par commande.
 
 **Secondaires (confirmés)** :
+
 - Supply chain élargie : stock, achats, expéditions/réceptions — suivent les ruptures, la faisabilité et les flux.
 - Management / direction : lecture des KPI, arbitrages, comités de plan.
 - Atelier / production : chefs de poste / de ligne qui exécutent l'ordonnancement.
@@ -22,6 +23,7 @@ Situation d'usage : **écran consulté en temps réel pendant la journée** — 
 Le Supply Chain Board est la vision opérationnelle consolidée de la chaîne d'approvisionnement du site AE1, posée au-dessus de Sage X3 : programme d'ordonnancement, suivi des commandes, ruptures, charge, expéditions/réceptions, cockpit poste et KPI. Il rend le plan de production lisible, vérifiable et contestable sans toucher à l'ERP.
 
 La mécanique de valeur prioritaire est double :
+
 1. **Anticiper les ruptures** — détection proactive des manquants et faisabilité des nouveaux OF.
 2. **Piloter la charge et l'engagement** — charge par poste, engagement réel, OF tenus vs dérivés.
 
@@ -42,6 +44,7 @@ Ce qu'un voisin ne peut pas copier : le moteur de diagnostic maison qui lit X3 e
 ## Capabilities and Constraints
 
 Capacités confirmées :
+
 - Programme d'ordonnancement : board kanban, drag & drop, engagement par poste, diff de plan, mode scénario.
 - Ruptures : file de triage, faisabilité récursive, suivi proactif / réactif, verdicts avec preuve.
 - Charge : capacité atelier (WORKSTATIO×TABWEEDIA), calendrier usine / fériés / fermetures, overlay saturation.
@@ -51,6 +54,7 @@ Capacités confirmées :
 - Réplique SQLite, cache Redis par user, cache L1 en lecture seule.
 
 Contraintes durables :
+
 - Toutes les queries X3 passent par SOAP (ZSOAPSQL, coût O(n²)) : toute nouvelle surface doit minimiser les round-trips et préférer la réplique SQLite.
 - Domaine métier pur (app/domain), règles de matching / faisabilité verrouillées par des tests de contrat.
 - Règles métier figées : ROUALT_0=1, exclusion des composants Z, poste = données de CE poste (jamais de somme), stock statut Q compté dispo, dates françaises.
@@ -66,7 +70,7 @@ Contraintes durables :
 
 - Données réelles X3 servies par les endpoints (site AE1, 100 % CBN) ; les mockups UI sont construits sur des données réelles.
 - Docs internes : `docs/prd-23-impacts-programme.md`, `docs/prd-ctp-date-au-plus-tot.md`, `docs/capacite-charge.md`, `docs/vision-scenarios-impacts.md`, `docs/cache-redis.md`, `docs/plan-migration-frontend.md`.
-- Mockups (archives de décision, plus d'actualité) : `_design/archive/` — le design system vivant est dans le code (`resources/css/app.css`, composants `inertia/components/`, page `/design-system`).
+- Mockups HTML (archives de décision) : sur `dev` uniquement, `_design/archive/`. Absents de `master`. Le design system vivant est dans le code (`resources/css/app.css`, composants `inertia-react/components/`).
 - À ne pas fabriquer : pas de témoignages clients ni de benchmarks externes (outil interne) ; pas de chiffres de pricing.
 
 ## Product Principles
