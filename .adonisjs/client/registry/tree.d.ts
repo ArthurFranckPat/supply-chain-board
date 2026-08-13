@@ -26,11 +26,6 @@ export interface ApiDefinition {
     stockValuation: typeof routes['dashboard.stock_valuation']
     stockArticleDetail: typeof routes['dashboard.stock_article_detail']
   }
-  designSystem: typeof routes['design_system']
-  diagnosticTest: typeof routes['diagnostic_test']
-  reactLab: typeof routes['react_lab']
-  x3WritebackTest: typeof routes['x3_writeback_test']
-  x3PrintTest: typeof routes['x3_print_test']
   scheduling: typeof routes['scheduling']
   planning: typeof routes['planning'] & {
     suggestionFirm: typeof routes['planning.suggestion_firm']
@@ -42,17 +37,6 @@ export interface ApiDefinition {
     ofDetail: typeof routes['scheduler.of_detail']
     posteEngagement: typeof routes['scheduler.poste_engagement']
     shortageRows: typeof routes['scheduler.shortage_rows']
-  }
-  controleProd: {
-    index: typeof routes['controle_prod.index']
-    rows: typeof routes['controle_prod.rows']
-    ofASolder: typeof routes['controle_prod.of_a_solder']
-  }
-  cockpit: {
-    index: typeof routes['cockpit.index']
-    postes: typeof routes['cockpit.postes']
-    anomaliesUsine: typeof routes['cockpit.anomalies_usine']
-    poste: typeof routes['cockpit.poste']
   }
   suivi: {
     board: typeof routes['suivi.board']
@@ -77,46 +61,6 @@ export interface ApiDefinition {
   }
   load: {
     index: typeof routes['load.index']
-  }
-  expeditions: {
-    index: typeof routes['expeditions.index']
-    rows: typeof routes['expeditions.rows']
-    forecast: typeof routes['expeditions.forecast']
-  }
-  receptions: {
-    index: typeof routes['receptions.index']
-    rows: typeof routes['receptions.rows']
-    criticite: typeof routes['receptions.criticite']
-  }
-  approvisionnements: {
-    index: typeof routes['approvisionnements.index']
-  }
-  besoins: {
-    evolution: typeof routes['besoins.evolution']
-  }
-  conditionnements: {
-    index: typeof routes['conditionnements.index']
-    rows: typeof routes['conditionnements.rows']
-    estimations: typeof routes['conditionnements.estimations']
-  }
-  promesse: {
-    show: typeof routes['promesse.show']
-    index: typeof routes['promesse.index']
-    articles: typeof routes['promesse.articles']
-  }
-  agent: {
-    show: typeof routes['agent.show']
-    health: typeof routes['agent.health']
-    chat: typeof routes['agent.chat']
-    metrics: typeof routes['agent.metrics']
-    conversations: typeof routes['agent.conversations']
-    conversation: typeof routes['agent.conversation']
-    conversationsDestroy: typeof routes['agent.conversationsDestroy']
-    conversationsUpdate: typeof routes['agent.conversationsUpdate']
-    mcp: {
-      app: typeof routes['agent.mcp.app']
-      call: typeof routes['agent.mcp.call']
-    }
   }
   calendarConfig: {
     index: typeof routes['calendar_config.index']
@@ -167,32 +111,12 @@ export interface ApiDefinition {
       update: typeof routes['user.dashboard_layout.update']
     }
   }
-  appro: {
-    rows: typeof routes['appro.rows']
-    decision: typeof routes['appro.decision']
-    diff: typeof routes['appro.diff']
-    messagesDiff: typeof routes['appro.messagesDiff']
-    snapshots: typeof routes['appro.snapshots']
-    articleExplanation: typeof routes['appro.articleExplanation']
-  }
   data: {
     load: typeof routes['data.load']
   }
   staticSync: {
     status: typeof routes['static_sync.status']
     sync: typeof routes['static_sync.sync']
-  }
-  x3Writeback: {
-    describe: typeof routes['x3_writeback.describe']
-    read: typeof routes['x3_writeback.read']
-    save: typeof routes['x3_writeback.save']
-    modify: typeof routes['x3_writeback.modify']
-    delete: typeof routes['x3_writeback.delete']
-    list: typeof routes['x3_writeback.list']
-    run: typeof routes['x3_writeback.run']
-  }
-  x3Print: {
-    test: typeof routes['x3_print.test']
   }
   perf: {
     index: typeof routes['perf.index']

@@ -48,9 +48,9 @@ Capacités confirmées :
 - Programme d'ordonnancement : board kanban, drag & drop, engagement par poste, diff de plan, mode scénario.
 - Ruptures : file de triage, faisabilité récursive, suivi proactif / réactif, verdicts avec preuve.
 - Charge : capacité atelier (WORKSTATIO×TABWEEDIA), calendrier usine / fériés / fermetures, overlay saturation.
-- Suivi commandes, expéditions (palettes ESH), réceptions, besoin camions.
-- Cockpit poste (#119) : réalisé, anomalies, engagement par poste.
-- KPI dashboard, liens « Ouvrir dans X3 », copilote agentique lecture-seule (#89).
+- Suivi commandes. Expéditions (palettes ESH), réceptions et besoin camions : sur `dev`.
+- Cockpit poste (#119) : sur `dev`.
+- KPI dashboard, liens « Ouvrir dans X3 ». Copilote agentique lecture-seule (#89) : sur `dev`.
 - Réplique SQLite, cache Redis par user, cache L1 en lecture seule.
 
 Contraintes durables :
@@ -69,8 +69,8 @@ Contraintes durables :
 ## Evidence on Hand
 
 - Données réelles X3 servies par les endpoints (site AE1, 100 % CBN) ; les mockups UI sont construits sur des données réelles.
-- Docs internes : `docs/prd-23-impacts-programme.md`, `docs/prd-ctp-date-au-plus-tot.md`, `docs/capacite-charge.md`, `docs/vision-scenarios-impacts.md`, `docs/cache-redis.md`, `docs/plan-migration-frontend.md`.
-- Mockups HTML (archives de décision) : sur `dev` uniquement, `_design/archive/`. Absents de `master`. Le design system vivant est dans le code (`resources/css/app.css`, composants `inertia-react/components/`).
+- Docs internes : `docs/prd-23-impacts-programme.md`, `docs/capacite-charge.md`, `docs/vision-scenarios-impacts.md`, `docs/cache-redis.md`, `docs/plan-migration-frontend.md`.
+- Mockups HTML (archives de décision) : sur `dev` uniquement (`_design/archive/`). Absents de `master`. Le design system vivant est dans le code (`resources/css/app.css`, composants `inertia-react/components/`).
 - À ne pas fabriquer : pas de témoignages clients ni de benchmarks externes (outil interne) ; pas de chiffres de pricing.
 
 ## Product Principles
