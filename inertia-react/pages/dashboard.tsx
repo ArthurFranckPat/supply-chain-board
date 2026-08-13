@@ -9,7 +9,7 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
-import { Segment, DateWindowPill } from '@r/components/vision/toolbar'
+import { Segment, DateWindowPill } from '@r/components/programme/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
   GRID_COLS,

@@ -123,7 +123,7 @@ router
     //   /ordonnancement : board OF, vue experte haute densité
     //   /planification  : lignes de commande ouvertes (#10)
     //   /ruptures       : suivi des ruptures (issue #15)
-    //   /vision         : vue unifiée OF ↔ commandes (issue #21)
+    //   /programme      : vue unifiée OF ↔ commandes (issue #21)
     router
       .get('/ordonnancement', ({ response }) => response.redirect('/programme'))
       .as('scheduling')

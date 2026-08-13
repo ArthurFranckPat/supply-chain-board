@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
 import { peutOuvrirCommande } from '@r/lib/x3-link'
-import type { VisionCommande } from '@r/lib/vision/types'
-import { fmtDay } from '@r/lib/vision/date-utils'
-import type { ImpactVerdict } from '@r/lib/vision/impact'
-import { deltaLabel } from '@r/lib/vision/impact'
+import type { ProgrammeCommande } from '@r/lib/programme/types'
+import { fmtDay } from '@r/lib/programme/date-utils'
+import type { ImpactVerdict } from '@r/lib/programme/impact'
+import { deltaLabel } from '@r/lib/programme/impact'
 import {
   VERDICT_BORDER,
   VERDICT_ICON,
   VERDICT_LABEL,
   UNKNOWN_BORDER,
   UNKNOWN_ICON,
-} from '@r/lib/vision/verdict-tones'
+} from '@r/lib/programme/verdict-tones'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
@@ -26,19 +26,19 @@ import { DynamicIcon } from '../ui/dynamic-icon'
  * #62 (lot 0) : verdict null (non évalué — aucun lien, impact incalculable) ≠ ok.
  * Le marqueur passe en ton NEUTRE (gris) au lieu d'emprunter la teinte du « ok » :
  * afficher « à l'heure » ce qu'on n'a pas évalué est un signal mensonger.
- * #62 (lot 2) : tons extraits vers lib/vision/verdict-tones.ts (source unique).
+ * #62 (lot 2) : tons extraits vers lib/programme/verdict-tones.ts (source unique).
  */
 
 export function CommandeMarker(props: {
   lineCode: string
-  cmd: VisionCommande
-  cmdIso: (cmd: VisionCommande) => string | null
+  cmd: ProgrammeCommande
+  cmdIso: (cmd: ProgrammeCommande) => string | null
   /** #23 : verdict le plus grave des liens de cette commande (null = pas de verdict). */
   verdict?: ImpactVerdict | null
   /** #23 : delta (jours) du pire lien — alimente le badge « +N j ». */
   deltaJours?: number | null
   onActivate?: (id: string | null) => void
-  onDragStart?: (cmd: VisionCommande) => void
+  onDragStart?: (cmd: ProgrammeCommande) => void
 }) {
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -47,16 +47,11 @@ export function CommandeMarker(props: {
   const borderClass = verdict ? VERDICT_BORDER[verdict] : UNKNOWN_BORDER
   const iconClass = verdict ? VERDICT_ICON[verdict] : UNKNOWN_ICON
   const iconName =
-    verdict === 'retard'
-      ? 'schedule_send'
-      : verdict === 'limite'
-        ? 'schedule'
-        : 'local_shipping'
+    verdict === 'retard' ? 'schedule_send' : verdict === 'limite' ? 'schedule' : 'local_shipping'
   // #62 (lot 1) : libellé accessible — numéro + ligne + verdict verbalisé.
-  const ariaLabel =
-    `Commande ${cmd.numCommande}${cmd.ligne ? `, ligne ${cmd.ligne}` : ''}${
-      verdict ? `, ${VERDICT_LABEL[verdict]}` : ', non évaluée'
-    }`
+  const ariaLabel = `Commande ${cmd.numCommande}${cmd.ligne ? `, ligne ${cmd.ligne}` : ''}${
+    verdict ? `, ${VERDICT_LABEL[verdict]}` : ', non évaluée'
+  }`
 
   return (
     <div
@@ -93,13 +88,17 @@ export function CommandeMarker(props: {
         'relative overflow-hidden rounded-[6px] border border-rule bg-brand-soft px-1.5 py-1.5 leading-tight transition-shadow duration-150',
         borderClass,
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        activeId === cmd.id &&
-          'shadow-float ring-1 ring-brand/50'
+        activeId === cmd.id && 'shadow-float ring-1 ring-brand/50'
       )}
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
       <div className="flex items-baseline gap-1 whitespace-nowrap font-mono text-2xs font-bold text-brand">
-        <DynamicIcon name={iconName} size={12} strokeWidth={1.75} className={cn('flex-none self-center', iconClass)} />
+        <DynamicIcon
+          name={iconName}
+          size={12}
+          strokeWidth={1.75}
+          className={cn('flex-none self-center', iconClass)}
+        />
         {/* Prévision : rien à ouvrir dans X3 (cf. peutOuvrirCommande). */}
         {peutOuvrirCommande(cmd.nature) ? (
           <X3Link
@@ -113,15 +112,15 @@ export function CommandeMarker(props: {
         ) : (
           <span>{cmd.numCommande}</span>
         )}
-        {cmd.ligne && (
-          <span className="text-brand/70">·L{cmd.ligne}</span>
-        )}
+        {cmd.ligne && <span className="text-brand/70">·L{cmd.ligne}</span>}
         {/* #23 : badge retard « +N j » */}
         {verdict !== null && props.deltaJours !== null && props.deltaJours !== undefined && (
           <span
             className={cn(
               'ml-auto rounded-full px-1 py-px font-mono text-3xs font-bold tabular-nums',
-              verdict === 'retard' ? 'bg-destructive/10 text-destructive' : 'bg-suggere/10 text-suggere'
+              verdict === 'retard'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-suggere/10 text-suggere'
             )}
           >
             {deltaLabel(props.deltaJours!)}

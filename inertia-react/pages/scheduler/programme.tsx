@@ -6,14 +6,14 @@
  *
  * Le board est STRICTEMENT celui de /ordonnancement : on réutilise le composant
  * <BoardGrid> sur le même payload BoardData (charge par jour, histogramme hebdo
- * par poste, recherche multi-scope, drag&drop). Vision n'ajoute que deux calques :
+ * par poste, recherche multi-scope, drag&drop). Programme n'ajoute que deux calques :
  *  • des marqueurs « commande » posés dans la cellule de leur poste/jour
  *    d'expédition (slot cellExtra) ;
  *  • un overlay SVG reliant chaque OF à sa commande à l'horizontale (mesuré au DOM
  *    via data-num-of / data-link-cmd).
  *
  * Shell (état + composition) — marqueur commande et overlay de liens vivent
- * dans components/vision/*.tsx ; la géométrie pure dans lib/vision/ (issue #52).
+ * dans components/programme/*.tsx ; la géométrie pure dans lib/programme/ (issue #52).
  *
  * Migrée sur le design system (vitrine `/design-system`) :
  * • `AppLayout theme="cursor" dense scrollable={false}` au lieu du couple
@@ -74,23 +74,23 @@ import { useScenarioStore } from '@r/lib/scenario/store'
 
 import type { BoardData, PosteNatureFilterKey, SearchScope } from '@r/lib/board/types'
 import type { OrderBoardData, OrderSearchScope } from '@r/lib/orders/types'
-import type { VisionCommande, VisionLink, VisionMode } from '@r/lib/vision/types'
+import type { ProgrammeCommande, ProgrammeLink, ProgrammeMode } from '@r/lib/programme/types'
 import type { PlanMutation } from '@r/lib/scenarios/types'
 
-import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@r/lib/vision/date-utils'
-import { buildLinkPath, pathMid, type PathSpec } from '@r/lib/vision/link-overlay'
-import { buildCmdCells } from '@r/lib/vision/cmd-cells'
+import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@r/lib/programme/date-utils'
+import { buildLinkPath, pathMid, type PathSpec } from '@r/lib/programme/link-overlay'
+import { buildCmdCells } from '@r/lib/programme/cmd-cells'
 import {
   computeImpacts,
   worstVerdict,
   deltaLabel,
   linkKey,
   type ImpactVerdict,
-} from '@r/lib/vision/impact'
+} from '@r/lib/programme/impact'
 
-import { CommandeMarker } from '@r/components/vision/commande-marker'
-import { LinksOverlay, type LinkMode } from '@r/components/vision/links-overlay'
-import { TriageRail, type TriageItem } from '@r/components/vision/triage-rail'
+import { CommandeMarker } from '@r/components/programme/commande-marker'
+import { LinksOverlay, type LinkMode } from '@r/components/programme/links-overlay'
+import { TriageRail, type TriageItem } from '@r/components/programme/triage-rail'
 import { ScenarioBar } from '@r/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@r/components/scenario/scenario-diff-sheet'
 
@@ -110,11 +110,11 @@ import { cn } from '@r/lib/utils'
 // Types
 // ---------------------------------------------------------------------------
 
-type VisionProps = {
-  mode: VisionMode
+type ProgrammeProps = {
+  mode: ProgrammeMode
   board: BoardData | null
-  commandes: VisionCommande[]
-  links: VisionLink[]
+  commandes: ProgrammeCommande[]
+  links: ProgrammeLink[]
   orderBoard: OrderBoardData | null
   windowFrom: string
   windowTo: string
@@ -153,13 +153,13 @@ const EMPTY_ORDER_BOARD: OrderBoardData = {
   weekCaps: {},
 }
 
-const MODE_LABELS: Record<VisionMode, string> = {
+const MODE_LABELS: Record<ProgrammeMode, string> = {
   ordonnancement: 'OF',
   combined: 'Combiné',
   planification: 'Cmdes',
 }
 
-const MODE_TITLES: Record<VisionMode, string> = {
+const MODE_TITLES: Record<ProgrammeMode, string> = {
   ordonnancement: 'Mode Ordonnancement — OF seuls',
   combined: 'Mode Combiné — OF + liens commandes + impacts',
   planification: 'Mode Commandes — planification par ligne de commande',
@@ -233,8 +233,8 @@ type ScopeOption = {
 // Programme Component
 // ---------------------------------------------------------------------------
 
-export default function Programme(props: VisionProps) {
-  const page = usePage<VisionProps>()
+export default function Programme(props: ProgrammeProps) {
+  const page = usePage<ProgrammeProps>()
 
   // Stores
   const boardStore = useBoardStore()
@@ -279,7 +279,7 @@ export default function Programme(props: VisionProps) {
   const [applying, setApplying] = useState(false)
 
   // Mode local (plus de round-trip serveur au switch)
-  const [mode, setMode] = useState<VisionMode>(props.mode)
+  const [mode, setMode] = useState<ProgrammeMode>(props.mode)
 
   // Re-sync stores après navigation Inertia (keyé sur windowFrom)
   useEffect(() => {
@@ -289,7 +289,7 @@ export default function Programme(props: VisionProps) {
 
   // Switch de mode → toggle local + URL (replaceState)
   const switchMode = useCallback(
-    (newMode: VisionMode) => {
+    (newMode: ProgrammeMode) => {
       if (newMode === mode) return
       // Les modes OF/Combiné lisent le boardStore, le mode Cmdes l'orderStore : sans report
       // explicite, franchir cette frontière vidait la recherche en cours. On reporte la
@@ -494,11 +494,11 @@ export default function Programme(props: VisionProps) {
 
   // ── Overrides drag ──
   const cmdCol = useCallback(
-    (l: VisionLink) => cmdMoved.get(l.commandeId)?.col ?? l.cmdCol,
+    (l: ProgrammeLink) => cmdMoved.get(l.commandeId)?.col ?? l.cmdCol,
     [cmdMoved]
   )
   const cmdIso = useCallback(
-    (cmd: VisionCommande) => cmdMoved.get(cmd.id)?.iso ?? cmd.dateExpeditionIso,
+    (cmd: ProgrammeCommande) => cmdMoved.get(cmd.id)?.iso ?? cmd.dateExpeditionIso,
     [cmdMoved]
   )
 
@@ -518,7 +518,7 @@ export default function Programme(props: VisionProps) {
   }, [props.links, ofDateFinOverride])
 
   const linksByOf = useMemo(() => {
-    const m = new Map<string, VisionLink>()
+    const m = new Map<string, ProgrammeLink>()
     for (const l of effectiveLinks) m.set(l.ofId, l)
     return m
   }, [effectiveLinks])

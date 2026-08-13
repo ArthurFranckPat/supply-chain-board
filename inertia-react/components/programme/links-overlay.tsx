@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { deltaLabel } from '@r/lib/vision/impact'
-import { VERDICT_STROKE } from '@r/lib/vision/verdict-tones'
-import type { PathSpec } from '@r/lib/vision/link-overlay'
+import { deltaLabel } from '@r/lib/programme/impact'
+import { VERDICT_STROKE } from '@r/lib/programme/verdict-tones'
+import type { PathSpec } from '@r/lib/programme/link-overlay'
 
 /**
  * Overlay SVG des liens OF↔commande, mode « combiné » (issue #52 — extrait de
@@ -12,7 +12,7 @@ import type { PathSpec } from '@r/lib/vision/link-overlay'
  *
  * Un retard présent à l'ouverture est ainsi détectable sans interaction (cas 1
  * de l'issue), contrairement à l'état antérieur (tous liens masqués par défaut).
- * #62 (lot 2) : tons extraits vers lib/vision/verdict-tones.ts (source unique).
+ * #62 (lot 2) : tons extraits vers lib/programme/verdict-tones.ts (source unique).
  * Programme v2 : segment « Liens » 3 états (Aucun / Problèmes / Tous) remplace
  * le toggle binaire highlightRetards.
  */
