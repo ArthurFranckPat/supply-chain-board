@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - master
+      - dev
 
 concurrency:
   group: ci-${{ github.ref }}
