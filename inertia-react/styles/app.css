@@ -1621,6 +1621,130 @@
    * de remonter le reflow au document à chaque frame de redimensionnement.
    * `layout` seul — `paint` clipperait la barre d'outils qui déborde en haut. */
   contain: layout;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* La grille mesure sa largeur utile (après sidebar et padding), pas seulement
+ * le viewport. À l'étroit, l'ordre React devient l'ordre de lecture et les
+ * tableaux occupent toute la rangée disponible. */
+.dashboard-grid {
+  min-width: 0;
+}
+
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile']) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  height: auto !important;
+  gap: 16px;
+}
+
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile']) > .dashboard-grid-item {
+  position: relative !important;
+  inset: auto !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0;
+  min-height: 15rem;
+}
+
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile'])
+  > .dashboard-grid-item
+  > div {
+  min-width: 0;
+  min-height: 100%;
+}
+
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile']) > [data-grid-id='lignes'],
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile'])
+  > [data-grid-id='stockTable'] {
+  grid-column: 1 / -1;
+}
+
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile']) .dashboard-grid-resize,
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile']) [data-grid-drag] {
+  display: none;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] > .dashboard-grid-item,
+.dashboard-grid[data-grid-mode='mobile'] > [data-grid-id='lignes'],
+.dashboard-grid[data-grid-mode='mobile'] > [data-grid-id='stockTable'] {
+  grid-column: 1;
+  min-height: 0;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] > .dashboard-grid-item > div {
+  min-height: 12rem;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] > [data-grid-id='lignes'] > div,
+.dashboard-grid[data-grid-mode='mobile'] > [data-grid-id='stockTable'] > div {
+  min-height: 0;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='card'] {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='input-group'] {
+  min-width: 0;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='input-group-control'] {
+  min-width: 0;
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='button'][data-size='sm'],
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='toolbar-segment'],
+.dashboard-grid[data-grid-mode='mobile'] [role='tab'] {
+  min-height: 44px;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] {
+  overflow: visible;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] table,
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] tbody,
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] tr {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] thead {
+  display: none;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] tr {
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  padding: 0.65rem 0;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] td {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 34%) minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+  border: 0;
+  padding: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] td::before {
+  content: attr(data-label);
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 /* Pendant le geste, la tuile suit le pointeur au pixel : toute transition la

@@ -215,6 +215,11 @@ export function DataTable<TRow>({
     return colId(col)
   }
 
+  const mobileLabel = (col: ColumnDef<TRow>): string => {
+    const header = renderHeader(col)
+    return typeof header === 'string' || typeof header === 'number' ? String(header) : colId(col)
+  }
+
   const sortIndicator = (col: ColumnDef<TRow>) => {
     if (col.enableSorting === false) return null
     const sorted = sorting.find((s) => s.id === colId(col))
@@ -249,6 +254,7 @@ export function DataTable<TRow>({
 
   return (
     <div
+      data-slot="data-table"
       className={cn(DEFAULT_SCROLL_CLASS, scrollContainerClass)}
       ref={scrollRef}
       onScroll={(e) => setPinnedScrolled(e.currentTarget.scrollLeft > 0)}
@@ -355,6 +361,7 @@ export function DataTable<TRow>({
                           indexColumn.tdClass(row, index),
                           pinnedClass(0)
                         )}
+                        data-label="#"
                         style={pinnedStyle(0)}
                       >
                         {String(index + 1).padStart(2, '0')}
@@ -368,6 +375,7 @@ export function DataTable<TRow>({
                       return (
                         <td
                           key={columnId}
+                          data-label={mobileLabel(col)}
                           className={cn(
                             tableCellClass(),
                             col.meta?.tdClass,
