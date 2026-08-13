@@ -87,9 +87,9 @@ export const TREE_STATUS_LABEL: Record<NodeStatus, string> = {
   indetermine: '?',
 }
 
-/** ISO YYYY-MM-DD → JJ/MM/AA */
+/** ISO YYYY-MM-DD → jj/mm/aaaa. */
 export function fmtDateFr(iso: string | null | undefined): string {
   if (!iso) return ''
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  return m ? `${m[3]}/${m[2]}/${m[1].slice(2)}` : iso
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
 }
