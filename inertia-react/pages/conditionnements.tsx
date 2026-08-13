@@ -1,27 +1,26 @@
 import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from 'react'
-import {
-  FilterX,
-  Search,
-  Lightbulb,
-  LoaderCircle,
-  TriangleAlert,
-  CircleX,
-  CircleCheck,
-} from 'lucide-react'
+import { Lightbulb, RefreshCw, TriangleAlert, CircleX } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
-import { SkeletonRow } from '@r/components/ui/skeleton'
-import { Spinner } from '@r/components/ui/spinner'
-import { PILL, RefreshPill, ToolbarRow } from '@r/components/vision/toolbar'
+import { LoadingState } from '@r/components/ui/loading-state'
+import { Pill } from '@r/components/ui/pill'
+import { Separator } from '@r/components/ui/separator'
+import {
+  ToolbarFilterChip,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarRefresh,
+  ToolbarSearch,
+  ToolbarSegmented,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
 import {
   ConditionnementsTable,
   type DisplayRow,
-  FacetteDropdown,
   ETAT_LABELS,
   type Facette,
 } from '@r/components/conditionnements/conditionnements-views'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { cn } from '@r/lib/utils'
 import type {
   ConditionnementDisplayRow,
   ConditionnementsRowsResponse,
@@ -36,6 +35,14 @@ import type {
  *  1. Articles seuls (ITMMASTER, fast) → tableau + filtres + KPI immédiats.
  *  2. Enrichissements (estimations + mouvements, coûteux) → chargés au trigger :
  *     bouton « Charger les estimations » ou automatiquement si filtre « manquants » actif.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; la barre passe par la prop `toolbar` d'AppLayout ;
+ * • la barre suit le standard §18 : menu Filtres unique (État / Catégorie /
+ *   Fournisseur), recherche et actualiser — plus de `vision/toolbar` ;
+ * • la table est un `DataTable` dans une `Card` ; cellules `CellStack` /
+ *   `CellNumber` / `CellDate` / `Badge` — plus de `font-fraunces` ni de filet
+ *   Airbnb (`border-rule`, `shadow-float`).
  */
 
 const fold = (s: string): string =>
@@ -62,7 +69,60 @@ interface ConditionnementsPageProps {
   rowsHref: string
 }
 
-const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
+const ETAT_TONES: Record<string, 'critical' | 'warning' | 'ok' | 'neutral'> = {
+  complet: 'ok',
+  manquant_0: 'warning',
+  manquant_1: 'warning',
+  manquant_les_deux: 'critical',
+}
+
+/** Une facette du menu Filtres : « Tous » (défaut = aucune sélection) + chips. */
+function FacetteSection({
+  title,
+  facettes,
+  selection,
+  onToggle,
+  onClear,
+  tones,
+  scrollable,
+}: {
+  title: string
+  facettes: Facette[]
+  selection: Set<string>
+  onToggle: (cle: string) => void
+  onClear: () => void
+  tones?: Record<string, 'critical' | 'warning' | 'ok' | 'neutral'>
+  scrollable?: boolean
+}) {
+  const total = facettes.reduce((s, f) => s + f.count, 0)
+  const chips = (
+    <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+      <ToolbarFilterChip
+        label="Tous"
+        count={total}
+        tone="neutral"
+        active={selection.size === 0}
+        onClick={onClear}
+      />
+      {facettes.map((f) => (
+        <ToolbarFilterChip
+          key={f.cle}
+          label={f.label}
+          count={f.count}
+          tone={tones?.[f.cle] ?? 'neutral'}
+          active={selection.has(f.cle)}
+          onClick={() => onToggle(f.cle)}
+        />
+      ))}
+    </ToolbarSegmented>
+  )
+  return (
+    <>
+      <ToolbarFilterSection>{title}</ToolbarFilterSection>
+      {scrollable ? <div className="max-h-[220px] overflow-y-auto">{chips}</div> : chips}
+    </>
+  )
+}
 
 export default function Conditionnements(props: ConditionnementsPageProps) {
   const [query, setQuery] = useState('')
@@ -72,17 +132,15 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
   const [selCategories, setSelCategories] = useState<Set<string>>(new Set())
   const [selFournisseurs, setSelFournisseurs] = useState<Set<string>>(new Set())
   const [selEtats, setSelEtats] = useState<Set<string>>(new Set())
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   // ── Chargement 1 : articles (fast) ──
   const url = useMemo(() => {
     return bust ? `${props.rowsHref}?refresh=${bust}` : props.rowsHref
   }, [props.rowsHref, bust])
 
-  const { data, loading, error, elapsed } = useTimedFetch<ConditionnementsRowsResponse>(url)
+  const { data, loading, error } = useTimedFetch<ConditionnementsRowsResponse>(url)
 
   const viewData = data ?? EMPTY
-  const stats = viewData.stats
   const x3Error = viewData.x3Error
 
   // ── Chargement 2 : enrichissements (lazy) ──
@@ -244,182 +302,132 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
     })
   }
 
-  const nbFiltresActifs = selCategories.size + selFournisseurs.size + selEtats.size
+  const activeFilterCount =
+    (selEtats.size > 0 ? 1 : 0) +
+    (selCategories.size > 0 ? 1 : 0) +
+    (selFournisseurs.size > 0 ? 1 : 0)
 
-  const tauxRemplissageFiltre = useMemo(() => {
-    const rows = filteredRows
-    if (rows.length === 0) return 0
-    return rows.filter((r) => r.etatCoef === 'complet').length / rows.length
-  }, [filteredRows])
+  /* ── Barre d'outils (standard §18) ───────────────────────────────────────
+     Zone 01 portée : absente (une seule vue). Zone 02 : un déclencheur unique
+     pour les trois facettes. Zone 03 : recherche. Zone 04 : action lazy
+     + actualiser. Pas de `<Toolbar>` : la prop d'AppLayout en est déjà un. */
+  const toolbar = (
+    <>
+      <ToolbarFilterMenu activeCount={activeFilterCount} width={320} align="start">
+        <div className="max-h-[min(70vh,480px)] overflow-y-auto">
+          <FacetteSection
+            title="État"
+            facettes={facettes.etats}
+            selection={selEtats}
+            onToggle={(cle) => toggleFacette(setSelEtats, cle)}
+            onClear={() => setSelEtats(new Set<string>())}
+            tones={ETAT_TONES}
+          />
+          <Separator className="my-2" />
+          <FacetteSection
+            title="Catégorie"
+            facettes={facettes.categories}
+            selection={selCategories}
+            onToggle={(cle) => toggleFacette(setSelCategories, cle)}
+            onClear={() => setSelCategories(new Set<string>())}
+          />
+          <Separator className="my-2" />
+          <FacetteSection
+            title="Fournisseur"
+            facettes={facettes.fournisseurs}
+            selection={selFournisseurs}
+            onToggle={(cle) => toggleFacette(setSelFournisseurs, cle)}
+            onClear={() => setSelFournisseurs(new Set<string>())}
+            scrollable
+          />
+        </div>
+      </ToolbarFilterMenu>
+
+      <ToolbarSpacer />
+
+      <ToolbarSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Article, désignation, fournisseur…"
+      />
+
+      {(!estimationsChargees || enrichmentsLoading) && (
+        <Pill
+          variant="soft"
+          className="gap-1.5"
+          disabled={enrichmentsLoading}
+          onClick={() => setEnrichTrigger((t) => t + 1)}
+          title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
+        >
+          {enrichmentsLoading ? (
+            <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
+          ) : (
+            <Lightbulb size={14} strokeWidth={1.75} />
+          )}
+          {enrichmentsLoading ? 'Calcul…' : 'Charger les estimations'}
+        </Pill>
+      )}
+
+      <ToolbarRefresh loading={loading} onClick={() => setBust((b) => b + 1)} />
+    </>
+  )
 
   return (
     <AppLayout
       title="Conditionnements"
       active="conditionnements"
       subtitle="Conditionnements · Rattrapage référentiel"
-      theme="airbnb"
+      theme="cursor"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            {stats.totalArticles} article{stats.totalArticles > 1 ? 's' : ''}
-          </div>
-          <div>
-            <b className="font-bold text-ferme">{stats.nbComplets}</b> complet
-            {stats.nbComplets > 1 ? 's' : ''}
-            {' · '}
-            <b className="font-bold text-destructive">
-              {stats.nbManquant0 + stats.nbManquant1 + stats.nbManquantLesDeux}
-            </b>{' '}
-            à rattraper
-          </div>
-          <div>
-            Remplissage&nbsp;
-            <b
-              className={cn(
-                'font-bold tabular-nums',
-                tauxRemplissageFiltre >= 0.8
-                  ? 'text-ferme'
-                  : tauxRemplissageFiltre >= 0.5
-                    ? 'text-suggere'
-                    : 'text-destructive'
-              )}
-            >
-              {(tauxRemplissageFiltre * 100).toFixed(0)}%
-            </b>
-          </div>
-        </>
-      }
+      toolbar={toolbar}
     >
       {/* Colonne flex plein écran (même coquille que Réceptions / Expéditions) :
           `dense` + `scrollable={false}` donnent un <main> en overflow-hidden, donc
           c'est le tableau qui scrolle (via son `flex-1 min-h-0 overflow-auto`).
           Sans ce wrapper flex, le `flex-1` du tableau n'a pas de parent flex, ne
           borne rien, et le contenu est coupé sans ascenseur. */}
-      <div data-print-page className="flex h-full flex-col overflow-hidden">
-        {/* ═══ Toolbar ═══ */}
-        <ToolbarRow>
-          <FacetteDropdown
-            label="État"
-            facettes={facettes.etats}
-            selection={selEtats}
-            open={openDropdown === 'etat'}
-            onToggleOpen={() => setOpenDropdown((o) => (o === 'etat' ? null : 'etat'))}
-            onToggle={(cle) => toggleFacette(setSelEtats, cle)}
-            onClear={() => setSelEtats(new Set<string>())}
-          />
-          <FacetteDropdown
-            label="Catégorie"
-            facettes={facettes.categories}
-            selection={selCategories}
-            open={openDropdown === 'categorie'}
-            onToggleOpen={() => setOpenDropdown((o) => (o === 'categorie' ? null : 'categorie'))}
-            onToggle={(cle) => toggleFacette(setSelCategories, cle)}
-            onClear={() => setSelCategories(new Set<string>())}
-          />
-          <FacetteDropdown
-            label="Fournisseur"
-            facettes={facettes.fournisseurs}
-            selection={selFournisseurs}
-            open={openDropdown === 'fournisseur'}
-            onToggleOpen={() =>
-              setOpenDropdown((o) => (o === 'fournisseur' ? null : 'fournisseur'))
-            }
-            onToggle={(cle) => toggleFacette(setSelFournisseurs, cle)}
-            onClear={() => setSelFournisseurs(new Set<string>())}
-          />
-
-          {nbFiltresActifs > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelEtats(new Set<string>())
-                setSelCategories(new Set<string>())
-                setSelFournisseurs(new Set<string>())
-              }}
-              className={cn(PILL, 'text-muted-foreground hover:text-foreground')}
-            >
-              <FilterX size={14} strokeWidth={1.75} />
-              Réinitialiser ({nbFiltresActifs})
-            </button>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className={PILL}>
-              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-              <input
-                className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-                placeholder="Article, désignation, fournisseur…"
-                type="text"
-                autoComplete="off"
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-              />
-            </div>
-            {/* Charger les estimations (lazy) */}
-            {!estimationsChargees && (
-              <button
-                type="button"
-                onClick={() => setEnrichTrigger((t) => t + 1)}
-                className={cn(PILL, 'border-brand/40 bg-brand-soft text-brand hover:bg-brand/20')}
-                title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
-              >
-                <Lightbulb size={14} strokeWidth={1.75} />
-                Charger les estimations
-              </button>
-            )}
-            {estimationsChargees && enrichmentsLoading && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-planifie">
-                <Spinner size="xs" variant="brand" />
-                Calcul…
-              </span>
-            )}
-
-            {loading && (
-              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                {fmtMs(elapsed)}
-              </span>
-            )}
-            <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
-          </div>
-        </ToolbarRow>
-
+      <div data-print-page className="flex h-full min-h-0 flex-col overflow-hidden">
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
-            <span className="font-bold">Erreur chargement :</span>
-            <span className="font-mono">{x3Error}</span>
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Erreur chargement :</span>
+            <span className="truncate font-mono">{x3Error}</span>
           </div>
         )}
 
         {/* ═══ Tableau ═══ */}
         {loading && !data ? (
-          <div className="flex-1 overflow-hidden p-5">
-            <SkeletonRow count={6} />
-          </div>
+          <LoadingState
+            className="flex-1"
+            variant="orb"
+            orbState="searching"
+            title="Chargement des articles…"
+            description="Lecture ITMMASTER · coefficients US/UC et UC/pal"
+          />
         ) : error ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-            <CircleX size={20} strokeWidth={1.75} />
-            Échec du chargement.
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+            <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
+            <p className="text-sm font-medium text-foreground">Articles indisponibles</p>
+            <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+              ITMMASTER n'a pas répondu. Actualise ou réessaye. Si l'erreur persiste, vérifie la
+              connexion VPN / X3.
+            </p>
+          </div>
+        ) : filteredRows.length === 0 && !x3Error ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+            <p className="text-sm font-medium text-foreground">
+              {viewData.rows.length === 0 ? 'Aucun article' : 'Aucun article ne correspond'}
+            </p>
+            <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+              {viewData.rows.length === 0
+                ? 'Aucun article actif n’a été renvoyé par X3.'
+                : 'Aucune ligne ne correspond à ce filtre · enlève la recherche ou change les facettes.'}
+            </p>
           </div>
         ) : (
-          <ConditionnementsTable
-            rows={displayRows}
-            estimationsChargees={estimationsChargees}
-            emptyState={
-              filteredRows.length === 0 && !x3Error ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                  <CircleCheck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
-                  <span className="font-fraunces text-[14px] italic text-muted-foreground">
-                    Aucun article ne correspond au filtre.
-                  </span>
-                </div>
-              ) : undefined
-            }
-          />
+          <ConditionnementsTable rows={displayRows} estimationsChargees={estimationsChargees} />
         )}
       </div>
     </AppLayout>

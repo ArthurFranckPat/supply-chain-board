@@ -2,7 +2,7 @@
  * Helpers partagés entre les vues Expéditions (manifeste cartes + frise de charge).
  * Seuils de charge palette + parsing des créneaux « HH:mm ».
  *
- * Les seuils exploitent les tokens sémantiques du thème Airbnb :
+ * Les seuils exploitent les tokens sémantiques de charge (pas du chrome) :
  *  - > 100 %       → destructive (rouge, dépassement capacité)
  *  - proche du max → suggere (ambre, 90 %+ du plafond)
  *  - charge moyenne → planifie (bleu foncé)

@@ -17,15 +17,24 @@ import {
 } from '@r/components/ui/sheet'
 import { X3Link } from '@r/components/x3-link'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-import { rowToneClass } from '@r/components/ui/table-row'
-import { cn } from '@r/lib/utils'
+import { CellDate, CellNumber, CellStack, rowToneClass } from '@r/components/ui/table-row'
+import { LoadingState } from '@r/components/ui/loading-state'
 
-const CONFIDENCE_CLASS: Record<ForecastLine['confidence'], string> = {
-  faible: 'text-warning',
-  moyenne: 'text-suggere',
-  haute: 'text-ferme',
-  constatee: 'text-ferme',
+const CONFIDENCE_TONE: Record<ForecastLine['confidence'], 'warning' | 'ok' | null> = {
+  faible: 'warning',
+  moyenne: 'warning',
+  haute: 'ok',
+  constatee: 'ok',
 }
+
+/** ISO YYYY-MM-DD → JJ/MM/AAAA. */
+function fmtDateFr(iso: string | null): string {
+  if (!iso) return '—'
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+
+const TH = 'bg-card'
 
 /**
  * Cinq colonnes, pas neuf : le sheet tient dans sa largeur.
@@ -37,96 +46,98 @@ const CONFIDENCE_CLASS: Record<ForecastLine['confidence'], string> = {
 const columns: ColumnDef<ForecastLine>[] = [
   {
     accessorKey: 'article',
-    header: () => 'Article',
+    header: 'Article',
     cell: ({ row: { original: line } }) => (
-      <>
-        <div className="font-mono text-[11px] font-semibold text-foreground">{line.article}</div>
-        {line.description ? (
-          <div className="truncate text-[10px] text-muted-foreground">{line.description}</div>
-        ) : null}
-        <div className="font-mono text-[9px] text-muted-foreground/70">
-          <X3Link
-            fonction="GESSOH"
-            cle={line.numCommande}
-            title={`Ouvrir la commande ${line.numCommande} dans Sage X3`}
-            className="font-mono text-[9px] text-muted-foreground/70"
-          >
-            {line.numCommande}
-          </X3Link>
-          {line.ligne ? `/${line.ligne}` : ''}
-        </div>
-      </>
+      <CellStack
+        code={line.article}
+        label={
+          <>
+            {line.description ? `${line.description} · ` : null}
+            <X3Link
+              fonction="GESSOH"
+              cle={line.numCommande}
+              title={`Ouvrir la commande ${line.numCommande} dans Sage X3`}
+              className="font-mono text-2xs text-muted-foreground"
+            >
+              {line.numCommande}
+              {line.ligne ? `/${line.ligne}` : ''}
+            </X3Link>
+          </>
+        }
+        labelTitle={line.description || line.numCommande}
+      />
     ),
-    meta: { tdClass: 'w-[30%]' },
+    meta: { thClass: `${TH} w-[30%]`, tdClass: 'w-[30%]' },
   },
   {
     accessorKey: 'qte',
-    header: () => 'Qté',
+    header: 'Qté',
     cell: ({ row: { original: line } }) => (
-      <span className="font-mono tabular-nums">
-        {line.qte.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
-      </span>
+      <CellNumber
+        value={line.qte.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
+        emphasis="plain"
+      />
     ),
-    meta: { thClass: 'text-right!', tdClass: 'w-[10%] text-right' },
+    meta: { thClass: `${TH} w-[10%] text-right!`, tdClass: 'w-[10%] text-right' },
   },
   {
     accessorKey: 'palTheo',
-    header: () => 'Pal',
+    header: 'Pal',
     cell: ({ row: { original: line } }) => (
-      <>
-        <div className="font-mono text-[13px] font-bold tabular-nums">{fmtPal(line.palTheo)}</div>
+      <span className="flex flex-col items-end gap-px">
+        <CellNumber
+          value={fmtPal(line.palTheo)}
+          tone={line.chargeStatus === 'overflow' ? 'critical' : null}
+        />
         {line.chargeStatus ? (
-          <div
-            className={cn(
-              'font-mono text-[9px] font-bold uppercase tracking-[0.06em]',
-              line.chargeStatus === 'overflow' ? 'text-destructive' : 'text-ferme'
-            )}
+          <span
+            className={
+              line.chargeStatus === 'overflow'
+                ? 'font-mono text-2xs font-bold uppercase tracking-wide text-destructive'
+                : 'font-mono text-2xs font-bold uppercase tracking-wide text-ferme'
+            }
           >
             {line.chargeStatus === 'overflow' ? 'Spot' : 'Navette'}
-          </div>
+          </span>
         ) : null}
-      </>
+      </span>
     ),
-    meta: { thClass: 'text-right!', tdClass: 'w-[10%] text-right' },
+    meta: { thClass: `${TH} w-[10%] text-right!`, tdClass: 'w-[10%] text-right' },
   },
   {
     accessorKey: 'source',
-    header: () => 'Source',
+    header: 'Source',
     cell: ({ row: { original: line } }) => (
-      <>
-        <div className="font-mono text-[10px] font-bold text-foreground">
-          {SOURCE_LABEL[line.source]}
-        </div>
-        <div className={cn('font-mono text-[9px]', CONFIDENCE_CLASS[line.confidence])}>
-          {CONFIDENCE_LABEL[line.confidence]}
-        </div>
-      </>
+      <CellStack
+        code={SOURCE_LABEL[line.source]}
+        label={CONFIDENCE_LABEL[line.confidence]}
+        className={
+          CONFIDENCE_TONE[line.confidence] === 'warning'
+            ? '[&_span:last-child]:text-suggere'
+            : CONFIDENCE_TONE[line.confidence] === 'ok'
+              ? '[&_span:last-child]:text-ferme'
+              : undefined
+        }
+      />
     ),
-    meta: { tdClass: 'w-[16%]' },
+    meta: { thClass: TH, tdClass: 'w-[16%]' },
   },
   {
     accessorKey: 'cause',
-    header: () => 'Cause / date',
+    header: 'Cause / date',
     cell: ({ row: { original: line } }) => (
-      <div className="text-[10px] leading-snug text-muted-foreground">
-        <div>{line.cause}</div>
-        {line.dateMiseADispo ? (
-          <span className="font-mono">dispo {fmtJour(line.dateMiseADispo)}</span>
-        ) : null}
-      </div>
+      <span className="flex min-w-0 flex-col gap-px">
+        <span className="font-sans text-xs leading-snug text-muted-foreground">{line.cause}</span>
+        {line.dateMiseADispo ? <CellDate date={fmtDateFr(line.dateMiseADispo)} /> : null}
+      </span>
     ),
-    meta: { tdClass: 'w-[34%]' },
+    meta: { thClass: TH, tdClass: 'w-[34%]' },
   },
 ]
 
 function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) {
   const [sorting, setSorting] = useState<SortingState[]>([])
-  if (lines.length === 0)
-    return (
-      <p className="px-1 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
-        {empty}
-      </p>
-    )
+  if (lines.length === 0) return <LoadingState compact title={empty} className="py-8" />
   return (
     <DataTable
       columns={columns}
@@ -137,8 +148,8 @@ function LinesTable({ lines, empty }: { lines: ForecastLine[]; empty: string }) 
       // `table-fixed` + largeurs en % : la table s'adapte au sheet au lieu de
       // pousser une barre de défilement horizontale.
       tableClass="w-full table-fixed border-collapse text-[12px]"
-      scrollContainerClass="overflow-hidden rounded-lg border border-rule shadow-float"
-      theadRowClass="bg-secondary"
+      scrollContainerClass="overflow-hidden rounded-lg border border-border"
+      theadRowClass="sticky top-0 z-10"
       // Dépassement de charge : barre de gravité à gauche, pas de fond teinté
       // — un fond sur toute la largeur se dispute avec le survol.
       getRowClass={(line) => rowToneClass(line.chargeStatus === 'overflow' ? 'critical' : null)}
@@ -185,10 +196,8 @@ export function JourDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-6xl">
         <SheetHeader>
-          <SheetTitle className="font-fraunces text-[20px] font-bold tracking-tight">
-            {title}
-          </SheetTitle>
-          <SheetDescription className="font-mono text-[11px] text-muted-foreground">
+          <SheetTitle>{title}</SheetTitle>
+          <SheetDescription>
             {isDeferred
               ? (deferredHint ??
                 'Lignes sans date fiable à la maille jour, ou au-delà de la cadence atelier sur l’horizon. Conservées pour la bande semaine.')
@@ -199,10 +208,10 @@ export function JourDetailSheet({
         </SheetHeader>
 
         {!isDeferred && day?.spot && (
-          <div className="mt-5 flex items-start gap-2 border-l-[3px] border-destructive bg-destructive/5 px-3 py-2.5 text-[12px] text-foreground">
+          <div className="mx-4 mt-1 flex items-start gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2.5 text-[12px] text-foreground">
             <TriangleAlert size={15} strokeWidth={1.75} className="mt-0.5 text-destructive" />
             <div>
-              <div className="font-bold text-destructive">
+              <div className="font-medium text-destructive">
                 {extraTrucks > 0
                   ? `${extraTrucks} camion${extraTrucks > 1 ? 's' : ''} spot à demander à J−2`
                   : 'Charge au-delà des navettes'}
@@ -226,7 +235,7 @@ export function JourDetailSheet({
           </div>
         )}
 
-        <div className="mt-5">
+        <div className="p-4 pt-2">
           <LinesTable
             lines={lines}
             empty={

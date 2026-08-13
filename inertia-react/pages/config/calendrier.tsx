@@ -1,24 +1,20 @@
 import { useCallback, useMemo, useState } from 'react'
-import { fr } from 'react-day-picker/locale'
+import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { router } from '@inertiajs/react'
 
 import AppLayout from '@r/layouts/app'
-import { Calendar } from '@r/components/ui/calendar'
-import { useRangeCalendar } from '@r/lib/use-range-calendar'
-import { Segment, SegmentButton } from '@r/components/vision/toolbar'
 import { Button } from '@r/components/ui/button'
-import { DynamicIcon } from '../../components/ui/dynamic-icon'
+import { Badge } from '@r/components/ui/badge'
+import { Pill } from '@r/components/ui/pill'
+import { Switch } from '@r/components/ui/switch'
+import { CellDate, CellNumber, CellStack } from '@r/components/ui/table-row'
 import {
-  Calendar as CalendarIcon,
-  ChevronDown,
-  TriangleAlert,
-  X,
-  CalendarDays,
-  Wrench,
-  Pencil,
-  Trash2,
-  Plus,
-  CalendarRange,
-} from 'lucide-react'
+  ToolbarDateWindow,
+  ToolbarGroup,
+  ToolbarSegment,
+  ToolbarSegmented,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
 import {
   Combobox,
   ComboboxContent,
@@ -29,7 +25,16 @@ import {
   ComboboxTrigger,
   useComboboxAnchor,
 } from '@r/components/ui/combobox'
-import { cn } from '@r/lib/utils'
+import {
+  CalendarDays,
+  Wrench,
+  Pencil,
+  Trash2,
+  Plus,
+  CalendarRange,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { route } from '@r/lib/routes'
 import { toast } from 'sonner'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
@@ -40,6 +45,13 @@ import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/d
  *
  * Deux blocs : jours fériés FR (activer/désactiver) + fermetures par ligne de
  * production (CRUD). La capacité de /charge en découle directement.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; la barre passe par la prop `toolbar` d'AppLayout ;
+ * • sous-nav Calendrier / Impressions en `ToolbarSegmented` (zone 01),
+ *   Registre / Frise en second segmented — plus de `vision/toolbar` ;
+ * • tables `DataTable` + `CellStack` / `CellDate` / `CellNumber` / `Badge` ;
+ * • plus de `font-fraunces` ni de filet Airbnb (`border-rule`, `px-7`).
  */
 
 interface Holiday {
@@ -75,31 +87,11 @@ interface CalendrierPageProps {
 
 type View = 'registre' | 'frise'
 
-const MOIS = [
-  'janv.',
-  'févr.',
-  'mars',
-  'avr.',
-  'mai',
-  'juin',
-  'juil.',
-  'août',
-  'sept.',
-  'oct.',
-  'nov.',
-  'déc.',
-]
-
-/** ISO `YYYY-MM-DD` → « 14 juil.». */
-const frShort = (iso: string): string => {
-  const [, m, d] = iso.split('-').map(Number)
-  return `${d} ${MOIS[m - 1]}`
-}
-
-/** ISO → « 14/07/26». */
-const frNum = (iso: string): string => {
+/** ISO `YYYY-MM-DD` → jj/mm/aaaa. */
+const frFull = (iso: string): string => {
   const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y.slice(2)}`
+  if (!y || !m || !d) return iso
+  return `${d}/${m}/${y}`
 }
 
 const factorLabel = (f: number): string =>
@@ -108,59 +100,21 @@ const factorLabel = (f: number): string =>
 const motifLabel = (m: string): string =>
   m === 'maintenance' ? 'Maintenance' : m === 'conges' ? 'Congés' : m || 'Autre'
 
-const scopeChip = (c: Closure): { label: string; dot: string } => {
-  if (c.scope === 'global') return { label: "Toute l'usine", dot: 'var(--color-planifie)' }
-  if (c.scope === 'stoloc') return { label: `Atelier ${c.code}`, dot: 'var(--color-planifie)' }
-  return { label: c.code, dot: 'var(--color-ferme)' }
+const scopeChip = (c: Closure): { label: string; code: string } => {
+  if (c.scope === 'global') return { label: "Toute l'usine", code: 'Usine' }
+  if (c.scope === 'stoloc') return { label: `Atelier ${c.code}`, code: c.code }
+  return { label: c.code, code: c.code }
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const toIso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 const isoToDate = (iso: string) => new Date(`${iso}T00:00:00`)
 
-interface DateRangeSel {
-  start: Date | null
-  end: Date | null
-}
-
-/** Toggle « pilule » (réutilise le langage visuel des onglets). */
-function Pills<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T
-  onChange: (v: T) => void
-  options: { v: T; label: string }[]
-}) {
-  return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.v}
-          type="button"
-          onClick={() => onChange(o.v)}
-          className={cn(
-            'rounded-[5px] px-3 py-1.5 text-[12px] font-semibold transition-colors',
-            value === o.v
-              ? 'bg-brand-soft text-brand'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 /** Field wrapper pour les formulaires. */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   )
@@ -184,17 +138,15 @@ function ClosureForm({
 }) {
   const [scope, setScope] = useState<'global' | 'wst' | 'stoloc'>(edit?.scope ?? 'wst')
   const [codes, setCodes] = useState<string[]>(edit && edit.scope !== 'global' ? [edit.code] : [])
-  const [range, setRange] = useState<DateRangeSel>(
-    edit ? { start: isoToDate(edit.from), end: isoToDate(edit.to) } : { start: null, end: null }
+  const [range, setRange] = useState<DayPickerRange | undefined>(
+    edit ? { from: isoToDate(edit.from), to: isoToDate(edit.to) } : undefined
   )
   const [motif, setMotif] = useState(edit?.motif || 'maintenance')
   const [factor, setFactor] = useState(edit ? String(edit.factor) : '0')
   const [busy, setBusy] = useState(false)
-  const [calOpen, setCalOpen] = useState(false)
 
   const anchorRef = useComboboxAnchor()
 
-  // Options du combobox selon la portée.
   const codeOptions = useMemo(
     () =>
       scope === 'stoloc'
@@ -202,12 +154,6 @@ function ClosureForm({
         : postes.map((p) => ({ value: p.code, label: p.code })),
     [scope, ateliers, postes]
   )
-
-  const rangeLabel = useMemo(() => {
-    if (!range.start) return 'Choisir la période'
-    const end = range.end ?? range.start
-    return `${frNum(toIso(range.start))} → ${frNum(toIso(end))}`
-  }, [range])
 
   const post = async (body: Omit<Closure, 'id'>) => {
     const res = await fetch(route('calendar_config.create_closure'), {
@@ -220,10 +166,10 @@ function ClosureForm({
   }
 
   const submit = async () => {
-    if (!range.start) return
+    if (!range?.from) return
     const base = {
-      from: toIso(range.start),
-      to: toIso(range.end ?? range.start),
+      from: toIso(range.from),
+      to: toIso(range.to ?? range.from),
       motif,
       factor: Number(factor),
     }
@@ -248,35 +194,43 @@ function ClosureForm({
     }
   }
 
-  const rangeCal = useRangeCalendar({
-    open: calOpen,
-    value: range.start ? { from: range.start, to: range.end ?? undefined } : undefined,
-    onCommit: (r) => {
-      setRange({ start: r.from ?? null, end: r.to ?? null })
-      setCalOpen(false)
-    },
-  })
-
   const targetLabel = (c: Closure) =>
     c.scope === 'global' ? "Toute l'usine" : c.scope === 'stoloc' ? `Atelier ${c.code}` : c.code
 
   return (
-    <div className="flex flex-wrap items-end gap-x-5 gap-y-3.5 rounded-b-lg border-t border-rule-soft bg-secondary px-4 py-4">
+    <div className="flex flex-wrap items-end gap-x-5 gap-y-3.5 rounded-b-lg border-t border-border bg-secondary px-4 py-4">
       {!edit ? (
         <>
           <Field label="Portée">
-            <Pills
-              value={scope}
-              onChange={(v) => {
-                setScope(v)
-                setCodes([])
-              }}
-              options={[
-                { v: 'wst', label: 'Poste' },
-                { v: 'stoloc', label: 'Atelier' },
-                { v: 'global', label: "Toute l'usine" },
-              ]}
-            />
+            <ToolbarSegmented semantics="tabs" aria-label="Portée">
+              <ToolbarSegment
+                active={scope === 'wst'}
+                onClick={() => {
+                  setScope('wst')
+                  setCodes([])
+                }}
+              >
+                Poste
+              </ToolbarSegment>
+              <ToolbarSegment
+                active={scope === 'stoloc'}
+                onClick={() => {
+                  setScope('stoloc')
+                  setCodes([])
+                }}
+              >
+                Atelier
+              </ToolbarSegment>
+              <ToolbarSegment
+                active={scope === 'global'}
+                onClick={() => {
+                  setScope('global')
+                  setCodes([])
+                }}
+              >
+                Toute l&apos;usine
+              </ToolbarSegment>
+            </ToolbarSegmented>
           </Field>
 
           {scope !== 'global' && (
@@ -307,83 +261,53 @@ function ClosureForm({
         </>
       ) : (
         <Field label="Ligne">
-          <span className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-rule bg-card px-3 font-mono text-[12.5px] font-bold">
-            <span
-              className="size-[7px] rounded-[2px]"
-              style={{
-                background: edit.scope === 'wst' ? 'var(--color-ferme)' : 'var(--color-planifie)',
-              }}
-            />
-            {targetLabel(edit)}
-          </span>
+          <Badge variant="outline">{targetLabel(edit)}</Badge>
         </Field>
       )}
 
       <Field label="Période">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setCalOpen((v) => !v)}
-            className="flex h-[34px] min-w-[170px] items-center gap-2 rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold transition-colors hover:border-brand"
-          >
-            <CalendarIcon size={15} className="text-muted-foreground" />
-            <span className={!range.start ? 'text-muted-foreground' : ''}>{rangeLabel}</span>
-            <ChevronDown size={16} className="ml-auto text-muted-foreground" />
-          </button>
-          {calOpen && (
-            <>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-hidden="true"
-                className="fixed inset-0 z-40 cursor-default"
-                onClick={() => setCalOpen(false)}
-              />
-              <div className="absolute left-0 top-full z-50 mt-2 rounded-lg border border-rule bg-popover shadow-float">
-                <Calendar
-                  mode="range"
-                  locale={fr}
-                  selected={rangeCal.selected}
-                  onSelect={rangeCal.onSelect}
-                />
-              </div>
-            </>
-          )}
-        </div>
+        <ToolbarDateWindow
+          value={range}
+          onCommit={setRange}
+          numberOfMonths={1}
+          title="Période de fermeture"
+        />
       </Field>
 
       <Field label="Motif">
-        <Pills
-          value={motif}
-          onChange={setMotif}
-          options={[
-            { v: 'maintenance', label: 'Maintenance' },
-            { v: 'conges', label: 'Congés' },
-            { v: 'autre', label: 'Autre' },
-          ]}
-        />
+        <ToolbarSegmented semantics="tabs" aria-label="Motif">
+          <ToolbarSegment active={motif === 'maintenance'} onClick={() => setMotif('maintenance')}>
+            Maintenance
+          </ToolbarSegment>
+          <ToolbarSegment active={motif === 'conges'} onClick={() => setMotif('conges')}>
+            Congés
+          </ToolbarSegment>
+          <ToolbarSegment active={motif === 'autre'} onClick={() => setMotif('autre')}>
+            Autre
+          </ToolbarSegment>
+        </ToolbarSegmented>
       </Field>
 
       <Field label="Capacité">
-        <Pills
-          value={factor}
-          onChange={setFactor}
-          options={[
-            { v: '0', label: 'Fermé' },
-            { v: '0.5', label: 'Demi-journée' },
-          ]}
-        />
+        <ToolbarSegmented semantics="tabs" aria-label="Capacité">
+          <ToolbarSegment active={factor === '0'} onClick={() => setFactor('0')}>
+            Fermé
+          </ToolbarSegment>
+          <ToolbarSegment active={factor === '0.5'} onClick={() => setFactor('0.5')}>
+            Demi-journée
+          </ToolbarSegment>
+        </ToolbarSegmented>
       </Field>
 
       <div className="ml-auto flex items-center gap-2 self-end">
-        <Button variant="ghost" onClick={onCancel} className="text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={onCancel} className="text-muted-foreground">
           Annuler
         </Button>
         <Button
+          size="sm"
           onClick={submit}
-          disabled={busy || !range.start || (!edit && scope !== 'global' && codes.length === 0)}
+          disabled={busy || !range?.from || (!edit && scope !== 'global' && codes.length === 0)}
         >
-          <DynamicIcon name={edit ? 'check' : 'add'} size={16} className="mr-1" />
           {edit ? 'Enregistrer' : 'Ajouter'}
         </Button>
       </div>
@@ -403,83 +327,63 @@ function createClosureColumns(deps: {
       header: () => 'Ligne',
       cell: ({ row: { original: c } }) => {
         const chip = scopeChip(c)
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-0.5 font-mono text-[11px] font-bold">
-            <span className="size-[7px] rounded-[2px]" style={{ background: chip.dot }} />
-            {chip.label}
-          </span>
-        )
+        return <CellStack code={chip.code} label={chip.label} />
       },
     },
     {
       accessorKey: 'from',
       header: () => 'Du',
-      cell: ({ row: { original: c } }) => (
-        <span className="font-mono text-[12.5px]">{frNum(c.from)}</span>
-      ),
+      cell: ({ row: { original: c } }) => <CellDate date={frFull(c.from)} />,
     },
     {
       accessorKey: 'to',
       header: () => 'Au',
-      cell: ({ row: { original: c } }) => (
-        <span className="font-mono text-[12.5px]">{frNum(c.to)}</span>
-      ),
+      cell: ({ row: { original: c } }) => <CellDate date={frFull(c.to)} />,
     },
     {
       accessorKey: 'motif',
       header: () => 'Motif',
       cell: ({ row: { original: c } }) => (
-        <span
-          className="inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold"
-          style={{
-            background:
-              c.motif === 'maintenance'
-                ? 'color-mix(in srgb, var(--color-suggere) 18%, transparent)'
-                : 'color-mix(in srgb, var(--color-planifie) 16%, transparent)',
-            /* orange sombre grammaire (b-suggere du showcase) */
-            color: c.motif === 'maintenance' ? '#c2410c' : 'var(--color-planifie)',
-          }}
-        >
+        <Badge variant={c.motif === 'maintenance' ? 'warning' : 'secondary'}>
           {motifLabel(c.motif)}
-        </span>
+        </Badge>
       ),
     },
     {
       accessorKey: 'factor',
       header: () => 'Capacité',
       cell: ({ row: { original: c } }) => (
-        <span
-          className="font-mono text-[12.5px] font-bold"
-          style={{ color: c.factor <= 0 ? 'var(--color-danger)' : 'var(--color-suggere)' }}
-        >
-          {factorLabel(c.factor)}
-        </span>
+        <CellNumber tone={c.factor <= 0 ? 'critical' : 'warning'} value={factorLabel(c.factor)} />
       ),
+      meta: { thClass: 'text-right!', tdClass: 'text-right' },
     },
     {
       id: 'actions',
       enableSorting: false,
       header: () => '',
       cell: ({ row: { original: c } }) => (
-        <div className="flex items-center gap-1">
-          <button
+        <div className="flex items-center justify-end gap-1">
+          <Button
             type="button"
+            size="xs"
+            variant="ghost"
             onClick={() => setFormState({ mode: 'edit', closure: c })}
-            className="text-muted-foreground transition-colors hover:text-brand"
             title="Éditer"
           >
-            <Pencil size={18} />
-          </button>
-          <button
+            <Pencil size={16} />
+          </Button>
+          <Button
             type="button"
+            size="xs"
+            variant="ghost"
             onClick={() => removeClosure(c.id)}
-            className="text-muted-foreground transition-colors hover:text-danger"
             title="Supprimer"
           >
-            <Trash2 size={18} />
-          </button>
+            <Trash2 size={16} />
+          </Button>
         </div>
       ),
+      meta: { tdClass: 'text-right' },
     },
   ]
 }
@@ -496,7 +400,6 @@ export default function Calendrier(props: CalendrierPageProps) {
 
   const activeCount = useMemo(() => holidays.filter((h) => h.active).length, [holidays])
 
-  // Applique le résultat d'une création (fusion #37).
   const applyResult = (res: { closure: Closure; removedIds: number[]; warn: boolean }) => {
     setClosures((prev) => {
       const next = [...prev]
@@ -517,7 +420,6 @@ export default function Calendrier(props: CalendrierPageProps) {
     toast.success('Calendrier enregistré. La vue Charge est actualisée.')
   }
 
-  // ── Fériés ───────────────────────────────────────────────────────────────
   const toggleHoliday = (date: string) => {
     const i = holidays.findIndex((h) => h.date === date)
     if (i < 0) return
@@ -542,7 +444,6 @@ export default function Calendrier(props: CalendrierPageProps) {
       })
   }
 
-  // ── Fermetures ─────────────────────────────────────────────────────────────
   const removeClosure = useCallback(
     (id: number) => {
       const snapshot = closures.find((c) => c.id === id)
@@ -561,181 +462,166 @@ export default function Calendrier(props: CalendrierPageProps) {
     [setFormState, removeClosure]
   )
 
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <ToolbarSegmented semantics="tabs" aria-label="Configuration">
+          <ToolbarSegment active>Calendrier</ToolbarSegment>
+          <ToolbarSegment onClick={() => router.visit(route('print_config.index'))}>
+            Impressions
+          </ToolbarSegment>
+        </ToolbarSegmented>
+
+        <ToolbarSegmented semantics="tabs" aria-label="Vue">
+          <ToolbarSegment active={view === 'registre'} onClick={() => setView('registre')}>
+            Registre
+          </ToolbarSegment>
+          <ToolbarSegment active={view === 'frise'} onClick={() => setView('frise')}>
+            Frise
+          </ToolbarSegment>
+        </ToolbarSegmented>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <Pill variant="outline" onClick={() => router.visit(route('print_journal'))}>
+        Journal des tirages
+      </Pill>
+    </>
+  )
+
   return (
     <AppLayout
       title="Calendrier usine"
       active="config"
-      subtitle="Calendrier usine"
-      theme="airbnb"
+      subtitle={`Calendrier usine · ${props.year}`}
+      theme="cursor"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
-            Année {props.year}
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{activeCount}</b> fériés actifs ·{' '}
-            <b className="font-bold text-foreground">{closures.length}</b> fermetures
-          </div>
-        </>
-      }
-      mastheadActions={
-        <Segment role="radiogroup" ariaLabel="Vue">
-          {(['registre', 'frise'] as const).map((v) => (
-            <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-              {v === 'registre' ? 'Registre' : 'Frise'}
-            </SegmentButton>
-          ))}
-        </Segment>
-      }
+      toolbar={toolbar}
     >
-      <div className="mx-auto w-full max-w-[1280px] px-7 py-6">
-        <nav className="mb-4 flex items-center gap-2 text-[12.5px]">
-          <span className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold text-brand">
-            Calendrier usine
-          </span>
-          <a
-            href={route('print_config.index')}
-            className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Impressions
-          </a>
-        </nav>
-        <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
-          Calendrier usine {props.year}
-        </h1>
-        <p className="mb-5 text-[13px] text-muted-foreground">
-          Jours ouvrés = calendrier français (fériés) moins les fermetures saisies par ligne. La
-          capacité de <b className="text-foreground">/charge</b> en découle directement.
-        </p>
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1280px] px-5 py-5">
+          <p className="mb-5 text-sm text-muted-foreground">
+            Jours ouvrés = calendrier français (fériés) moins les fermetures saisies par ligne. La
+            capacité de <span className="font-medium text-foreground">/charge</span> en découle
+            directement.
+          </p>
 
-        {warn && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-suggere/40 bg-[color-mix(in_srgb,var(--color-suggere)_12%,transparent)] px-3.5 py-2 text-[12.5px]">
-            <TriangleAlert size={17} className="text-suggere" />
-            <span className="flex-1">{warn}</span>
-            <button
-              type="button"
-              onClick={() => setWarn('')}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
+          {warn && (
+            <div className="mb-4 flex items-center gap-2 border border-suggere/30 bg-suggere/10 px-5 py-2 text-xs text-foreground">
+              <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-suggere" />
+              <span className="flex-1">{warn}</span>
+              <button
+                type="button"
+                onClick={() => setWarn('')}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
 
-        {view === 'registre' ? (
-          <div className="grid grid-cols-[380px_1fr] items-start gap-6">
-            {/* Jours fériés */}
-            <section className="overflow-hidden rounded-lg border border-rule bg-card">
-              <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                <CalendarDays size={18} className="text-brand" />
-                <span className="font-fraunces text-[15px] font-bold">Jours fériés France</span>
-                <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
-                  {activeCount} actifs
-                </span>
-              </header>
-              {holidays.map((h) => (
-                <div
-                  key={h.date}
-                  className="flex items-center gap-3 border-b border-rule-soft px-4 py-2.5 last:border-0"
-                >
-                  <span className="w-[58px] flex-none font-mono text-[12px] font-bold text-brand">
-                    {frShort(h.date)}
+          {view === 'registre' ? (
+            <div className="grid grid-cols-[380px_1fr] items-start gap-6">
+              <section className="overflow-hidden rounded-lg border border-border bg-card">
+                <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+                  <CalendarDays size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">Jours fériés France</span>
+                  <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
+                    {activeCount} actifs
                   </span>
-                  <span className="text-[13px] font-medium">
-                    {h.name}
-                    <span className="block text-[10.5px] font-normal text-muted-foreground">
-                      {h.active ? 'chômé · capacité 0 h' : 'travaillé (désactivé)'}
+                </header>
+                {holidays.map((h) => (
+                  <div
+                    key={h.date}
+                    className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-0"
+                  >
+                    <span className="w-[5.5rem] flex-none font-mono text-xs tabular-nums text-foreground">
+                      {frFull(h.date)}
                     </span>
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={h.active}
-                    onClick={() => toggleHoliday(h.date)}
-                    className={cn(
-                      'relative ml-auto h-[22px] w-[38px] flex-none rounded-full transition-colors',
-                      h.active ? 'bg-ferme' : 'bg-rule'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all',
-                        h.active ? 'left-[18px]' : 'left-[2px]'
-                      )}
+                    <span className="text-sm font-medium text-foreground">
+                      {h.name}
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {h.active ? 'chômé · capacité 0 h' : 'travaillé (désactivé)'}
+                      </span>
+                    </span>
+                    <Switch
+                      className="ml-auto"
+                      checked={h.active}
+                      onCheckedChange={() => toggleHoliday(h.date)}
+                      aria-label={`${h.name} : ${h.active ? 'chômé' : 'travaillé'}`}
                     />
-                  </button>
-                </div>
-              ))}
-            </section>
+                  </div>
+                ))}
+              </section>
 
-            {/* Fermetures par ligne */}
-            <section className="rounded-lg border border-rule bg-card">
-              <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                <Wrench size={18} className="text-suggere" />
-                <span className="font-fraunces text-[15px] font-bold">
-                  Fermetures par ligne de production
-                </span>
-                <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
-                  {closures.length} actives
-                </span>
-              </header>
-
-              {closures.length === 0 ? (
-                <div className="px-4 py-8 text-center font-fraunces text-[13px] italic text-muted-foreground">
-                  Aucune fermeture saisie.
-                </div>
-              ) : (
-                <DataTable
-                  columns={closureColumns}
-                  rows={closures}
-                  sorting={closureSorting}
-                  onSortingChange={setClosureSorting}
-                  virtualize={false}
-                  tableClass="w-full border-collapse"
-                  scrollContainerClass="rounded-none border-0 shadow-none"
-                  theadRowClass="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-                  getRowKey={(c) => String(c.id)}
-                />
-              )}
-
-              {formState === null ? (
-                <div className="flex items-center justify-between px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormState({ mode: 'add' })}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
-                  >
-                    <Plus size={16} />
-                    Nouvelle fermeture
-                  </button>
-                  <span className="font-fraunces text-[11.5px] italic text-muted-foreground">
-                    Portée : poste (WST) ou atelier (STOLOC). 0 % = fermé · 50 % = demi-journée.
+              <section className="rounded-lg border border-border bg-card">
+                <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+                  <Wrench size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">
+                    Fermetures par ligne de production
                   </span>
-                </div>
-              ) : (
-                <ClosureForm
-                  postes={props.postes}
-                  ateliers={props.ateliers}
-                  edit={formState.mode === 'edit' ? formState.closure : undefined}
-                  onCancel={() => setFormState(null)}
-                  onResult={applyResult}
-                  onDone={() => setFormState(null)}
-                />
-              )}
-            </section>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-rule bg-card px-6 py-20 text-center">
-            <CalendarRange size={34} className="text-brand/60" />
-            <div className="font-fraunces text-[16px] font-bold">Vue Frise — bientôt</div>
-            <p className="max-w-md text-[12.5px] text-muted-foreground">
-              Timeline par poste sur l'année (fériés + fermetures déplaçables). Conçue, pas encore
-              câblée — la vue Registre reste la source d'édition.
-            </p>
-          </div>
-        )}
+                  <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
+                    {closures.length} actives
+                  </span>
+                </header>
+
+                {closures.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    Aucune fermeture saisie.
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={closureColumns}
+                    rows={closures}
+                    sorting={closureSorting}
+                    onSortingChange={setClosureSorting}
+                    virtualize={false}
+                    tableClass="w-full border-collapse"
+                    scrollContainerClass="rounded-none border-0 shadow-none"
+                    getRowKey={(c) => String(c.id)}
+                  />
+                )}
+
+                {formState === null ? (
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormState({ mode: 'add' })}
+                    >
+                      <Plus size={16} />
+                      Nouvelle fermeture
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Portée : poste (WST) ou atelier (STOLOC). 0 % = fermé · 50 % = demi-journée.
+                    </span>
+                  </div>
+                ) : (
+                  <ClosureForm
+                    postes={props.postes}
+                    ateliers={props.ateliers}
+                    edit={formState.mode === 'edit' ? formState.closure : undefined}
+                    onCancel={() => setFormState(null)}
+                    onResult={applyResult}
+                    onDone={() => setFormState(null)}
+                  />
+                )}
+              </section>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center">
+              <CalendarRange size={32} strokeWidth={1.75} className="text-muted-foreground" />
+              <div className="text-sm font-medium text-foreground">Vue Frise — bientôt</div>
+              <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+                Timeline par poste sur l&apos;année (fériés + fermetures déplaçables). Conçue, pas
+                encore câblée — la vue Registre reste la source d&apos;édition.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   )

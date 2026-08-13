@@ -10,11 +10,11 @@ import { Badge } from '@r/components/ui/badge'
 import { CircleHelp, Ruler, TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import { CellNumber, CellStack } from '@r/components/ui/table-row'
 
 /**
- * Détail d'un camion (cluster de lignes STOJOU) — port React iso du Solid
- * inertia/components/expeditions/camion-detail-sheet.tsx. S'ouvre au clic sur
- * une ligne du tableau Expéditions. Données en mémoire, ouverture instantanée.
+ * Détail d'un camion (cluster de lignes STOJOU). S'ouvre au clic sur une
+ * carte manifeste / barre de frise. Données en mémoire, ouverture instantanée.
  */
 
 export type CamionSource = 'navette' | 'heuristique'
@@ -89,91 +89,69 @@ function sortLignes(rows: CamionLigne[], sorting: SortingState[]): CamionLigne[]
   })
 }
 
+const TH = 'bg-card'
+
 const camionColumns: ColumnDef<CamionLigne>[] = [
   {
     accessorKey: 'itmref',
     header: 'Article',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] font-semibold text-foreground">
-        {(getValue() as string) || '—'}
-      </span>
-    ),
-    meta: { thClass: 'w-[120px]' },
-  },
-  {
-    accessorKey: 'designation',
-    header: 'Désignation',
     cell: ({ row: { original: l } }) => (
-      <>
-        <div className="truncate text-[11px] text-muted-foreground" title={l.designation}>
-          {l.designation || '—'}
-        </div>
-        {l.vcrnum && (
-          <div className="font-mono text-[9px] text-muted-foreground/70">
-            BL {l.vcrnum}
-            {l.vcrlin ? `· L${l.vcrlin}` : ''}
-            {l.lpnnum ? ` · ${l.lpnnum}` : ''}
-          </div>
-        )}
-      </>
+      <CellStack code={l.itmref || '—'} label={l.designation} labelTitle={l.designation} />
     ),
-    meta: {},
+    meta: { thClass: `${TH} w-[28%]` },
   },
   {
     accessorKey: 'vcrnum',
     header: 'BL',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] text-foreground">{(getValue() as string) || '—'}</span>
+    cell: ({ row: { original: l } }) => (
+      <CellStack
+        code={l.vcrnum || '—'}
+        label={l.vcrlin ? `L${l.vcrlin}${l.lpnnum ? ` · ${l.lpnnum}` : ''}` : l.lpnnum || undefined}
+      />
     ),
-    meta: { thClass: 'w-[90px]' },
+    meta: { thClass: `${TH} w-[14%]` },
   },
   {
     accessorKey: 'sohnum',
     header: 'Commande',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] text-brand">{(getValue() as string) || '—'}</span>
-    ),
-    meta: { thClass: 'w-[95px]' },
+    cell: ({ getValue }) => <CellStack code={(getValue() as string) || '—'} />,
+    meta: { thClass: `${TH} w-[14%]` },
   },
   {
     accessorKey: 'palnum',
     header: 'Palette',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-        {(getValue() as string) || '—'}
-      </span>
-    ),
-    meta: { thClass: 'w-[70px] text-right!', tdClass: 'text-right' },
+    cell: ({ getValue }) => <CellNumber value={(getValue() as string) || '—'} emphasis="plain" />,
+    meta: { thClass: `${TH} w-[10%] text-right!`, tdClass: 'text-right' },
   },
   {
     accessorKey: 'pcu',
     header: 'PCU',
     cell: ({ row: { original: l } }) => (
       <span
+        className="inline-flex items-center justify-end gap-1"
         title={`Unité de conditionnement : ${l.pcu || '—'}${l.yfamstat7 === 'ESH' ? ' · Palette 1000×1200' : ''}`}
       >
-        <span className="font-mono text-[10px] text-muted-foreground">{l.pcu || '—'}</span>
+        <CellNumber value={l.pcu || '—'} emphasis="plain" />
         {l.yfamstat7 === 'ESH' && (
-          <span className="ml-1 inline-block rounded bg-brand/10 px-1 text-[8px] font-bold text-brand">
+          <Badge variant="secondary" className="h-4 px-1 text-[8px] font-bold">
             ESH
-          </span>
+          </Badge>
         )}
       </span>
     ),
-    meta: { thClass: 'w-[50px] text-right!', tdClass: 'text-right' },
+    meta: { thClass: `${TH} w-[8%] text-right!`, tdClass: 'text-right' },
   },
   {
     accessorKey: 'ucParPal',
     header: 'UC/Pal',
     cell: ({ row: { original: l } }) => (
-      <span
-        className="font-mono text-[10px] tabular-nums text-muted-foreground"
+      <CellNumber
+        value={l.ucParPal > 0 ? l.ucParPal : '—'}
+        emphasis="plain"
         title="UC par palette (PCUSTUCOE_1 — palettisation article)"
-      >
-        {l.ucParPal > 0 ? l.ucParPal : '—'}
-      </span>
+      />
     ),
-    meta: { thClass: 'w-[60px] text-right!', tdClass: 'text-right' },
+    meta: { thClass: `${TH} w-[8%] text-right!`, tdClass: 'text-right' },
   },
   {
     id: 'contenants',
@@ -181,24 +159,15 @@ const camionColumns: ColumnDef<CamionLigne>[] = [
     enableSorting: false,
     header: 'Contenants',
     cell: ({ row: { original: l } }) => (
-      <span
-        className="whitespace-nowrap font-mono text-[10px] font-semibold tabular-nums text-foreground"
-        title={`${l.qteUc} UC décomposées`}
-      >
-        {fmtContenants(l)}
-      </span>
+      <CellNumber value={fmtContenants(l)} emphasis="plain" title={`${l.qteUc} UC décomposées`} />
     ),
-    meta: { thClass: 'w-[110px] text-right!', tdClass: 'text-right' },
+    meta: { thClass: `${TH} w-[12%] text-right!`, tdClass: 'text-right' },
   },
   {
     accessorKey: 'ts',
     header: 'Heure',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-        {getValue() as string}
-      </span>
-    ),
-    meta: { thClass: 'w-[80px] text-right!', tdClass: 'text-right' },
+    cell: ({ getValue }) => <CellNumber value={getValue() as string} emphasis="plain" />,
+    meta: { thClass: `${TH} w-[8%] text-right!`, tdClass: 'text-right' },
   },
 ]
 
@@ -238,7 +207,7 @@ export function CamionDetailSheet({
                   {camion.fin !== camion.debut ? ` → ${camion.fin}` : ''}
                 </span>
                 {camion.source === 'navette' ? (
-                  <Badge className="gap-1 bg-brand text-[10px] uppercase tracking-wider text-card">
+                  <Badge className="gap-1 text-[10px] uppercase tracking-wider">
                     <Truck size={12} strokeWidth={1.75} />
                     {camion.navetteNum}
                   </Badge>
@@ -290,7 +259,7 @@ export function CamionDetailSheet({
                   )}
                   {nbPalEsh > 0 && (
                     <span
-                      className="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
+                      className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold text-foreground"
                       title="Palettes 1000×1200 (famille ESH) — comptées pour 1,25 éq. standard dans le remplissage"
                     >
                       <Ruler size={11} strokeWidth={1.75} />
@@ -310,7 +279,7 @@ export function CamionDetailSheet({
                 onSortingChange={setSorting}
                 tableClass="w-full table-fixed"
                 scrollContainerClass="h-full overflow-y-auto rounded-none border-0 shadow-none"
-                theadRowClass="sticky top-0 z-10 bg-secondary"
+                theadRowClass="sticky top-0 z-10"
                 getRowKey={(l) => `${l.sohnum}-${l.vcrnum}-${l.vcrlin}-${l.ts}`}
               />
             </div>

@@ -1,8 +1,26 @@
+/**
+ * Page « Réceptions fournisseurs » — commandes d'achat non soldées, en trois
+ * vues : bordereau par jour, charge par jour, board de planification.
+ *
+ * Coquille Inertia instantanée ; le calcul lourd (X3 + palette + agrégation)
+ * est chargé en différé via useTimedFetch sur rowsHref. Même motif que
+ * /expeditions, /ruptures, /suivi. La criticité (jointure ruptures) n'est
+ * fetchée qu'à l'ouverture du board.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; la barre passe par la prop `toolbar` d'AppLayout ;
+ * • la barre suit le standard §18 : bascule de vue, PUIS fenêtre de dates,
+ *   menu Filtres unique (criticité + regroupement board), recherche,
+ *   impression, actualiser — plus de `vision/toolbar` ;
+ * • plus de Fraunces ni de pills maison. Le bordereau et le board restent
+ *   des grilles métier
+ *   (rail spanning, sous-totaux) — leurs cellules suivent `CellStack` /
+ *   `CellNumber`.
+ */
 import { useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import {
   X,
-  Search,
   SlidersHorizontal,
   Lightbulb,
   TriangleAlert,
@@ -19,28 +37,25 @@ import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/
 import { ReceptionBoard, type ReceptionGroupBy } from '@r/components/receptions/reception-board'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
+import { Pill } from '@r/components/ui/pill'
+import { Separator } from '@r/components/ui/separator'
 import {
-  PILL,
-  Segment,
-  SegmentButton,
-  DateWindowPill,
-  RefreshPill,
-  ToolbarRow,
-} from '@r/components/vision/toolbar'
+  ToolbarDateWindow,
+  ToolbarFilterChip,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarGroup,
+  ToolbarRefresh,
+  ToolbarSearch,
+  ToolbarSegment,
+  ToolbarSegmented,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
 import type {
   ReceptionsCriticiteResponse,
   ReceptionsRowsResponse,
   ReceptionViewKind,
 } from '@r/lib/receptions/types'
-
-/**
- * Page « Réceptions fournisseurs » (port React — structure iso du Solid
- * inertia/pages/receptions.tsx).
- *
- * Coquille Inertia instantanée ; le calcul lourd (X3 + palette + agrégation)
- * est chargé en différé via useTimedFetch sur rowsHref. Même motif que
- * /expeditions, /ruptures, /suivi.
- */
 
 const fold = (s: string): string =>
   s
@@ -75,18 +90,16 @@ interface ReceptionsPageProps {
   defaultHorizon: number
 }
 
-interface DateRangeSel {
-  start: Date | null
-  end: Date | null
-}
-
-const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
-
-const fmtDay = (d: Date) =>
-  `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-
 /** jj/mm/aaaa — l'année est indispensable sur un document imprimé. */
-const fmtDayFull = (d: Date) => `${fmtDay(d)}/${d.getFullYear()}`
+const fmtDayFull = (d: Date) =>
+  `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+
+/** ISO YYYY-MM-DD en Date locale (évite le recul UTC de `new Date(iso)`). */
+function parseIsoLocal(iso: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return new Date(iso)
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
 
 /** ISO YYYY-MM-DD en composantes LOCALES.
  *  toISOString() (UTC) recule d'un jour entre minuit et 1-2h du matin en fuseau
@@ -96,39 +109,36 @@ const isoLocalDay = (d: Date) =>
 
 export default function Receptions(props: ReceptionsPageProps) {
   const [view, setView] = useState<ReceptionViewKind>('tableau')
-  const [range, setRange] = useState<DateRangeSel | null>(null)
-  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [range, setRange] = useState<DayPickerRange | undefined>(undefined)
   const [query, setQuery] = useState('')
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [groupBy, setGroupBy] = useState<ReceptionGroupBy>('fournisseur')
   const [criticiteOnly, setCriticiteOnly] = useState(false)
   const [bust, setBust] = useState(0)
 
-  const rangeLabel = useMemo(() => {
-    if (!range?.start) return `${fmtDay(new Date(props.from))} → ${fmtDay(new Date(props.to))}`
-    if (!range.end || range.start.toDateString() === range.end.toDateString())
-      return fmtDay(range.start)
-    return `${fmtDay(range.start)} → ${fmtDay(range.end)}`
-  }, [range, props.from, props.to])
+  const windowValue: DayPickerRange = range ?? {
+    from: parseIsoLocal(props.from),
+    to: parseIsoLocal(props.to),
+  }
 
-  /** Plage en clair pour l'en-tête imprimée (année comprise, contrairement à l'écran). */
+  /** Plage en clair pour l'en-tête imprimée (année comprise). */
   const printRange = useMemo(() => {
-    const start = range?.start ?? new Date(props.from)
-    const end = range?.end ?? range?.start ?? new Date(props.to)
+    const start = range?.from ?? parseIsoLocal(props.from)
+    const end = range?.to ?? range?.from ?? parseIsoLocal(props.to)
     return `${fmtDayFull(start)} → ${fmtDayFull(end)}`
   }, [range, props.from, props.to])
 
   const url = useMemo(() => {
     const u = new URL(props.rowsHref, window.location.origin)
-    if (range?.start) {
-      u.searchParams.set('from', isoLocalDay(range.start))
-      u.searchParams.set('to', isoLocalDay(range.end ?? range.start))
+    if (range?.from) {
+      u.searchParams.set('from', isoLocalDay(range.from))
+      u.searchParams.set('to', isoLocalDay(range.to ?? range.from))
     }
     if (bust) u.searchParams.set('refresh', String(bust))
     return `${u.pathname}?${u.searchParams.toString()}`
   }, [props.rowsHref, range, bust])
 
-  const { data, loading, error, ms, elapsed } = useTimedFetch<ReceptionsRowsResponse>(url)
+  const { data, loading, error } = useTimedFetch<ReceptionsRowsResponse>(url)
 
   // Criticité : second fetch, indépendant et non bloquant. Le board s'affiche sans
   // l'attendre ; un pipeline ruptures froid ou en panne coûte les badges, pas la page.
@@ -136,9 +146,9 @@ export default function Receptions(props: ReceptionsPageProps) {
   const criticiteUrl = useMemo(() => {
     if (view !== 'board') return null
     const u = new URL(props.criticiteHref, window.location.origin)
-    if (range?.start) {
-      u.searchParams.set('from', isoLocalDay(range.start))
-      u.searchParams.set('to', isoLocalDay(range.end ?? range.start))
+    if (range?.from) {
+      u.searchParams.set('from', isoLocalDay(range.from))
+      u.searchParams.set('to', isoLocalDay(range.to ?? range.from))
     }
     if (bust) u.searchParams.set('refresh', '1')
     return `${u.pathname}?${u.searchParams.toString()}`
@@ -150,6 +160,9 @@ export default function Receptions(props: ReceptionsPageProps) {
   const stats = viewData.stats
   const x3Error = viewData.x3Error
   const charge = viewData.chargeByDay
+
+  const nbCritiques = criticiteData?.items.length ?? 0
+  const nbRetard = criticiteData?.items.filter((i) => i.niveau === 'retard').length ?? 0
 
   // Filtrage par recherche + jour sélectionné (drill-down calendrier).
   const filteredRows = useMemo(() => {
@@ -171,36 +184,121 @@ export default function Receptions(props: ReceptionsPageProps) {
     // viewData est dérivé de data (réf change au fetch) — pas besoin de le lister.
   }, [query, selectedDay, viewData])
 
-  const applyRange = (r: DayPickerRange | undefined) => {
-    const next: DateRangeSel = { start: r?.from ?? null, end: r?.to ?? null }
-    setRange(next)
-    if (next.start && next.end) setCalendarOpen(false)
-  }
-
   const hasContent = viewData.rows.length > 0 || x3Error
+
+  const activeFilterCount =
+    (criticiteOnly ? 1 : 0) + (view === 'board' && groupBy !== 'fournisseur' ? 1 : 0)
+
+  /* ── Barre d'outils (standard §18) ───────────────────────────────────────
+     Zone 01 portée : bascule de vue, PUIS fenêtre de dates.
+     Zone 02 : un déclencheur unique. Zone 03 : la recherche.
+     Zone 04 : compteurs / fraîcheur, impression, actualiser.
+     Pas de conteneur `<Toolbar>` : la prop d'AppLayout en est déjà un. */
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <ToolbarSegmented semantics="tabs" aria-label="Vue">
+          <ToolbarSegment active={view === 'tableau'} onClick={() => setView('tableau')}>
+            Tableau
+          </ToolbarSegment>
+          <ToolbarSegment active={view === 'calendrier'} onClick={() => setView('calendrier')}>
+            Charge par jour
+          </ToolbarSegment>
+          <ToolbarSegment active={view === 'board'} onClick={() => setView('board')}>
+            Board
+          </ToolbarSegment>
+        </ToolbarSegmented>
+
+        <ToolbarDateWindow
+          value={windowValue}
+          onCommit={setRange}
+          title="Fenêtre des réceptions attendues"
+        />
+
+        <ToolbarFilterMenu activeCount={activeFilterCount} width={300}>
+          {view !== 'board' ? (
+            <p className="px-0.5 text-xs text-muted-foreground">
+              Criticité et regroupement s'appliquent à la vue Board.
+            </p>
+          ) : (
+            <>
+              {nbCritiques > 0 && (
+                <>
+                  <ToolbarFilterSection>Criticité</ToolbarFilterSection>
+                  <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+                    <ToolbarFilterChip
+                      label="Critiques"
+                      count={nbCritiques}
+                      tone="critical"
+                      active={criticiteOnly}
+                      onClick={() => setCriticiteOnly((v) => !v)}
+                      title="N'afficher que les réceptions qui débloquent une rupture tendue"
+                    />
+                    {nbRetard > 0 && (
+                      <ToolbarFilterChip
+                        label="En retard"
+                        count={nbRetard}
+                        tone="warning"
+                        active={criticiteOnly}
+                        onClick={() => setCriticiteOnly((v) => !v)}
+                        title="Réceptions en retard client projeté (incluses dans Critiques)"
+                      />
+                    )}
+                  </ToolbarSegmented>
+                </>
+              )}
+              {nbCritiques > 0 && <Separator className="my-2" />}
+              <ToolbarFilterSection>Regroupement</ToolbarFilterSection>
+              <ToolbarSegmented semantics="tabs" flat className="w-full">
+                <ToolbarSegment
+                  active={groupBy === 'fournisseur'}
+                  onClick={() => setGroupBy('fournisseur')}
+                >
+                  Fournisseur
+                </ToolbarSegment>
+                <ToolbarSegment active={groupBy === 'quai'} onClick={() => setGroupBy('quai')}>
+                  Quai
+                </ToolbarSegment>
+              </ToolbarSegmented>
+            </>
+          )}
+        </ToolbarFilterMenu>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <ToolbarSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Fournisseur, article, commande…"
+      />
+
+      {view === 'board' && (
+        <Pill
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => window.print()}
+          title="Imprimer le board (A3 paysage)"
+        >
+          <Printer size={14} strokeWidth={1.75} />
+          Imprimer
+        </Pill>
+      )}
+      <ToolbarRefresh loading={loading} onClick={() => setBust((b) => b + 1)} />
+    </>
+  )
+
+  const showBandeau = Boolean(selectedDay) || stats.lignesEstimees > 0 || stats.lignesSansCoef > 0
 
   return (
     <AppLayout
       title="Réceptions"
       active="receptions"
       subtitle="Réceptions · Commandes fournisseurs"
-      theme="airbnb"
+      theme="cursor"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            {rangeLabel}
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{stats.totalPalettes}</b> palette
-            {stats.totalPalettes > 1 ? 's' : ''}
-            {' · '}
-            <b className="font-bold text-foreground">{stats.totalLignes}</b> réception
-            {stats.totalLignes > 1 ? 's' : ''}
-          </div>
-        </>
-      }
+      toolbar={toolbar}
     >
       {/* Colonne flex plein écran : `dense` + `scrollable={false}` donnent un
           conteneur en `overflow-hidden` — sans cette coquille les `flex-1` des
@@ -208,209 +306,67 @@ export default function Receptions(props: ReceptionsPageProps) {
           coupé, sans ascenseur (chaque vue gère son propre scroll interne). */}
       <div data-print-page className="flex h-full flex-col overflow-hidden">
         {/* ═══ En-tête imprimable ═══
-            Masquée à l'écran (le Masthead porte déjà le contexte), elle est la
-            seule identité de la feuille une fois posée sur une table : sans
-            elle, on ne sait ni de quelle période ni de quand date le tirage. */}
-        <div className="hidden flex-none items-baseline justify-between border-b border-rule px-7 pb-3 pt-1 print:flex">
-          <span className="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
-            Réceptions <span className="font-medium italic text-brand">fournisseurs</span>
+            Masquée à l'écran (le TopBar porte déjà le contexte), elle est la
+            seule identité de la feuille une fois posée sur une table. */}
+        <div className="hidden flex-none items-baseline justify-between border-b border-border px-6 pb-3 pt-1 print:flex">
+          <span className="text-xl font-semibold tracking-tight text-foreground">
+            Réceptions fournisseurs
             <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
               {printRange}
             </span>
           </span>
-          <span className="font-mono text-[12px] text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             {stats.totalPalettes} palettes · {stats.totalLignes} réceptions ·{' '}
             {stats.totalFournisseurs} fournisseurs
           </span>
         </div>
 
-        {/* ═══ Toolbar ═══ */}
-        <ToolbarRow>
-          {/* Sélecteur de plage */}
-          <div className="flex items-center gap-1">
-            <DateWindowPill
-              open={calendarOpen}
-              onOpenChange={setCalendarOpen}
-              selected={{
-                from: range?.start ?? new Date(props.from),
-                to: range?.end ?? new Date(props.to),
-              }}
-              onSelect={applyRange}
-            />
-            {range?.start && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRange(null)
-                  setCalendarOpen(false)
-                }}
-                className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                title="Réinitialiser"
-              >
-                <X size={14} strokeWidth={1.75} />
-              </button>
+        {/* ═══ Bandeau vue (drill-down + qualité des coefs) ═══ */}
+        {showBandeau && (
+          <div className="flex flex-none items-center gap-2.5 border-b border-border px-6 py-1.5 print:hidden">
+            {selectedDay && (
+              <span className="flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2 py-1 font-mono text-[10px] font-semibold text-foreground">
+                <SlidersHorizontal size={13} strokeWidth={1.75} />
+                {charge.find((c) => c.day === selectedDay)?.dayFmt ?? selectedDay}
+                <button
+                  type="button"
+                  onClick={() => setSelectedDay(null)}
+                  className="hover:opacity-70"
+                >
+                  <X size={12} strokeWidth={1.75} />
+                </button>
+              </span>
             )}
-          </div>
 
-          {/* Vue — segment (Tableau / Charge par jour) */}
-          <Segment role="radiogroup" ariaLabel="Vue">
-            <SegmentButton
-              role="radio"
-              active={view === 'tableau'}
-              onClick={() => setView('tableau')}
-            >
-              Tableau
-            </SegmentButton>
-            <SegmentButton
-              role="radio"
-              active={view === 'calendrier'}
-              onClick={() => setView('calendrier')}
-            >
-              Charge par jour
-            </SegmentButton>
-            <SegmentButton role="radio" active={view === 'board'} onClick={() => setView('board')}>
-              Board
-            </SegmentButton>
-          </Segment>
-
-          {/* Regroupement des lignes du board (fournisseur = cadence, quai = charge pure). */}
-          {view === 'board' && (
-            <Segment role="radiogroup" ariaLabel="Regroupement">
-              <SegmentButton
-                role="radio"
-                active={groupBy === 'fournisseur'}
-                onClick={() => setGroupBy('fournisseur')}
-              >
-                Fournisseur
-              </SegmentButton>
-              <SegmentButton
-                role="radio"
-                active={groupBy === 'quai'}
-                onClick={() => setGroupBy('quai')}
-              >
-                Quai
-              </SegmentButton>
-            </Segment>
-          )}
-
-          {/* Filtre criticité — n'apparaît qu'une fois la jointure ruptures chargée
-              (elle arrive après le board) et seulement s'il y a quelque chose à
-              filtrer : un filtre qui ne trouve jamais rien apprend le contraire. */}
-          {view === 'board' && (criticiteData?.items.length ?? 0) > 0 && (
-            <button
-              type="button"
-              onClick={() => setCriticiteOnly((v) => !v)}
-              className={cn(
-                PILL,
-                criticiteOnly ? 'border-destructive bg-destructive/10 text-destructive' : ''
-              )}
-              title="N'afficher que les réceptions qui débloquent une rupture tendue"
-            >
-              <TriangleAlert
-                size={15}
-                strokeWidth={1.75}
-                className={criticiteOnly ? 'text-destructive' : 'text-muted-foreground'}
-              />
-              <span className="text-xs font-medium">
-                Critiques
-                <span className="ml-1 font-mono tabular-nums opacity-70">
-                  {criticiteData?.items.length}
+            <div className="ml-auto flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+              {stats.lignesEstimees > 0 && (
+                <span
+                  className="flex items-center gap-1 text-planifie"
+                  title="Lignes dont le coef palette a été estimé (stock actuel SM* ou historique STOJOU)"
+                >
+                  <Lightbulb size={13} strokeWidth={1.75} />
+                  {stats.lignesEstimees} estimé{stats.lignesEstimees > 1 ? 's' : ''}
                 </span>
-              </span>
-            </button>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className={PILL}>
-              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-              <input
-                className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-                placeholder="Fournisseur, article, commande…"
-                type="text"
-                autoComplete="off"
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-              />
+              )}
+              {stats.lignesSansCoef > 0 && (
+                <span
+                  className="flex items-center gap-1 text-destructive"
+                  title="Lignes sans coef palette ni estimation — charge réellement sous-estimée"
+                >
+                  <TriangleAlert size={13} strokeWidth={1.75} />
+                  {stats.lignesSansCoef} coef manquant{stats.lignesSansCoef > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
-            {loading && (
-              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                {fmtMs(elapsed)}
-              </span>
-            )}
-            {!loading && ms !== null && (
-              <span
-                className="font-mono text-[11px] tabular-nums text-muted-foreground/60"
-                title="Durée dernier chargement X3"
-              >
-                {fmtMs(ms)}
-              </span>
-            )}
-            {/* Impression A3 paysage — mise en page calibrée pour le board seul
-                (point d'équipe sur les réceptions à venir). */}
-            {view === 'board' && (
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className={cn(PILL, 'hover:bg-secondary')}
-                title="Imprimer le board (A3 paysage)"
-              >
-                <Printer size={16} strokeWidth={1.75} className="text-muted-foreground" />
-                <span className="text-xs font-medium">Imprimer</span>
-              </button>
-            )}
-            <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
           </div>
-        </ToolbarRow>
-
-        {/* ═══ Bandeau vue (drill-down + compteurs) ═══ */}
-        <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5 print:hidden">
-          {/* Filtre jour actif (drill-down) */}
-          {selectedDay && (
-            <span className="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-semibold text-brand">
-              <SlidersHorizontal size={13} strokeWidth={1.75} />
-              {charge.find((c) => c.day === selectedDay)?.dayFmt ?? selectedDay}
-              <button
-                type="button"
-                onClick={() => setSelectedDay(null)}
-                className="hover:opacity-70"
-              >
-                <X size={12} strokeWidth={1.75} />
-              </button>
-            </span>
-          )}
-
-          <div className="ml-auto flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
-            {stats.lignesEstimees > 0 && (
-              <span
-                className="flex items-center gap-1 text-planifie"
-                title="Lignes dont le coef palette a été estimé (stock actuel SM* ou historique STOJOU)"
-              >
-                <Lightbulb size={13} strokeWidth={1.75} />
-                {stats.lignesEstimees} estimé{stats.lignesEstimees > 1 ? 's' : ''}
-              </span>
-            )}
-            {stats.lignesSansCoef > 0 && (
-              <span
-                className="flex items-center gap-1 text-destructive"
-                title="Lignes sans coef palette ni estimation — charge réellement sous-estimée"
-              >
-                <TriangleAlert size={13} strokeWidth={1.75} />
-                {stats.lignesSansCoef} coef manquant{stats.lignesSansCoef > 1 ? 's' : ''}
-              </span>
-            )}
-            <span>
-              {filteredRows.length} ligne{filteredRows.length > 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
-            <span className="font-bold">Erreur chargement réceptions :</span>
-            <span className="font-mono">{x3Error}</span>
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Erreur chargement réceptions :</span>
+            <span className="truncate font-mono">{x3Error}</span>
           </div>
         )}
 
@@ -423,9 +379,9 @@ export default function Receptions(props: ReceptionsPageProps) {
             title="Calcul des réceptions…"
           />
         ) : error ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-            <CircleX size={20} strokeWidth={1.75} />
-            Échec du calcul des réceptions.
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+            <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
+            <p className="text-sm font-medium text-foreground">Échec du calcul des réceptions.</p>
           </div>
         ) : (
           <div
@@ -451,11 +407,11 @@ export default function Receptions(props: ReceptionsPageProps) {
                   emptyState={
                     <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
                       <Inbox size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
-                      <span className="font-fraunces text-[14px] italic text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {selectedDay
                           ? 'Aucune réception ce jour.'
                           : 'Aucune réception sur la période.'}
-                      </span>
+                      </p>
                     </div>
                   }
                 />
@@ -476,11 +432,11 @@ export default function Receptions(props: ReceptionsPageProps) {
                 ) : (
                   <Package size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
                 )}
-                <span className="font-fraunces text-[14px] italic text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {x3Error
                     ? 'Données indisponibles (X3 injoignable).'
                     : 'Aucune réception planifiée sur la période.'}
-                </span>
+                </p>
               </div>
             )}
           </div>
@@ -492,7 +448,7 @@ export default function Receptions(props: ReceptionsPageProps) {
             rappel de période évite une feuille orpheline sur la table. */}
         <div
           data-print-footer
-          className="hidden items-baseline justify-between border-t border-rule bg-background px-7 pb-1 pt-1.5 font-mono text-[10px] text-muted-foreground"
+          className="hidden items-baseline justify-between border-t border-border bg-background px-6 pb-1 pt-1.5 font-mono text-[10px] text-muted-foreground"
         >
           <span>Réceptions fournisseurs · {printRange}</span>
           <span>Édité le {fmtDayFull(new Date())}</span>

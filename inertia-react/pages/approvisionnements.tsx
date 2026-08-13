@@ -7,17 +7,18 @@
  * les dossiers entièrement décidés descendent dans « Dossiers traités » : la
  * pile se vide à vue. Refusé : l'accordéon fermé par défaut où l'urgence est
  * cachée dans le pli.
- * OWN-WORLD: grammaire Airbnb — feuilles blanches posées sur un champ
- * surface-soft, hairlines #ddd, encre #222, Plus Jakarta Sans en
- * tabular-nums ; verdicts en pastille + petites capitales ; statuts métier
- * suggéré/danger inchangés ; Rausch absent (aucun CTA sur cette page).
+ * OWN-WORLD: design system cursor (vitrine `/design-system`) — toolbar §18
+ * (portée / filtres / spacer / métriques + actualiser), tokens
+ * `--sidebar-canvas` / `border-border` / `bg-card` ; verdicts en pastille +
+ * petites capitales ; statuts métier suggéré/danger inchangés. Plus de
+ * grammaire Airbnb (hairlines #ddd, Plus Jakarta, Rausch).
  * STORY: l'acheteur atterrit sur la feuille à traiter, lit le verdict et sa
  * preuve, enregistre Vu / Ignorer / À passer par ligne ; la feuille se vide,
  * la pile descend.
- * FIRST VIEWPORT: toolbar 48px (segments nature + horizon, reste à décider,
- * actualiser) ; en dessous, sur le champ gris, la première feuille
- * fournisseur : nom, première échéance, urgence, sections « À commander » /
- * « À replanifier ».
+ * FIRST VIEWPORT: toolbar §18 (Feuilles/Tendances + horizon, menu Filtres,
+ * N à décider, actualiser) ; en dessous, sur le champ gris, la première
+ * feuille fournisseur : nom, première échéance, urgence, sections
+ * « À commander » / « À replanifier ».
  * FORM: feuille de préparation fournisseur — candidat 7 de la liste ordonnée.
  * FINISH: unreviewed and undocumented is unfinished; this build ends with the
  * finish review, the verdict, and DESIGN.md.
@@ -43,17 +44,29 @@
  * **Décisions acheteur (ledger #134).** Vu / Ignorer / À passer par ligne,
  * append-only côté serveur. Un dossier dont toutes les lignes visibles sont
  * décidées quitte la pile active pour l'index « Dossiers traités ».
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; la barre passe par la prop `toolbar` d'AppLayout ;
+ * • la barre suit le standard §18 : portée (Feuilles/Tendances + horizon),
+ *   menu Filtres unique (Nature, Expliqués, Comparaison J-1/J-7/J-30),
+ *   actualiser — plus de `vision/toolbar` ;
+ * • les feuilles restent une pile de dossiers — pas une DataTable unique ;
+ *   à l'intérieur, `TableHead` / `TableRow` / `CellStack` / `CellNumber` /
+ *   `CellVerdict` / `CellDate` ; cartes `Card` ; actions `Pill`.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { router } from '@inertiajs/react'
 import {
   ArrowDown,
   ArrowUp,
   Ban,
+  CalendarClock,
   ChevronRight,
-  CloudOff,
+  CircleCheck,
+  Eye,
   Inbox,
   Info,
+  Layers,
   Minus,
   ShoppingCart,
   TriangleAlert,
@@ -64,7 +77,13 @@ import {
 import AppLayout from '@r/layouts/app'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { ArticleExplanationSheet } from '@r/components/appro/article-explanation-sheet'
+import { Badge } from '@r/components/ui/badge'
+import { Card, CardFooter } from '@r/components/ui/card'
+import { Pill } from '@r/components/ui/pill'
+import { Separator } from '@r/components/ui/separator'
 import {
+  CellDate,
+  CellEvidence,
   CellNumber,
   CellStack,
   CellVerdict,
@@ -75,13 +94,15 @@ import {
   type RowTone,
 } from '@r/components/ui/table-row'
 import {
-  RefreshPill,
-  SEG,
-  Segment,
-  SegmentButton,
-  ToolbarRow,
+  ToolbarFilterChip,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarGroup,
+  ToolbarRefresh,
+  ToolbarSegment,
+  ToolbarSegmented,
   ToolbarSpacer,
-} from '@r/components/vision/toolbar'
+} from '@r/components/ui/toolbar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
 
@@ -179,9 +200,9 @@ const HORIZONS: Array<{ v: number | null; label: string }> = [
 ]
 
 const MESSAGE_META: Record<MessageCode, { label: string; icon: typeof ArrowUp; cls: string }> = {
-  2: { label: 'Avancer', icon: ArrowUp, cls: 'text-[#c13515]' },
+  2: { label: 'Avancer', icon: ArrowUp, cls: 'text-destructive' },
   3: { label: 'Retarder', icon: ArrowDown, cls: 'text-muted-foreground' },
-  6: { label: 'Inutile', icon: Ban, cls: 'text-[#c13515]' },
+  6: { label: 'Inutile', icon: Ban, cls: 'text-destructive' },
 }
 
 interface CbnCorrelation {
@@ -218,10 +239,10 @@ interface CbnExplanation {
 const NIVEAU_META: Record<CbnNiveau, { label: string; cls: string; bar: string }> = {
   directe: {
     label: 'Corrélation directe',
-    cls: 'bg-emerald-100 text-emerald-800',
-    bar: 'bg-emerald-600',
+    cls: 'bg-ferme/15 text-ferme',
+    bar: 'bg-ferme',
   },
-  probable: { label: 'Probable', cls: 'bg-amber-100 text-amber-800', bar: 'bg-amber-500' },
+  probable: { label: 'Probable', cls: 'bg-suggere/15 text-suggere', bar: 'bg-suggere' },
   correlation: {
     label: 'Corrélation',
     cls: 'bg-muted text-muted-foreground',
@@ -229,8 +250,8 @@ const NIVEAU_META: Record<CbnNiveau, { label: string; cls: string; bar: string }
   },
   non_explique: {
     label: 'Non expliqué',
-    cls: 'bg-[#c13515]/10 text-[#c13515]',
-    bar: 'bg-[#c13515]',
+    cls: 'bg-destructive/10 text-destructive',
+    bar: 'bg-destructive',
   },
 }
 
@@ -347,12 +368,15 @@ const NATURE_DIFF_LABEL: Record<string, string> = {
 /** Verdicts du moteur de triage (appro_triage.ts) — pastille + petites
  *  capitales (grammaire chips DESIGN.md). Action = orange, données = rouge,
  *  reste = neutre. */
-const VERDICT_META: Record<ApproTriage['verdict'], { label: string; dot: string; cls: string }> = {
-  passer: { label: 'Passer', dot: '#fc642d', cls: 'text-[#b8430f]' },
-  replanifier: { label: 'Replanifier', dot: '#fc642d', cls: 'text-[#b8430f]' },
-  regrouper: { label: 'Regrouper', dot: '#929292', cls: 'text-muted-foreground' },
-  surveiller: { label: 'Surveiller', dot: '#929292', cls: 'text-muted-foreground' },
-  investiguer: { label: 'Investiguer', dot: '#c13515', cls: 'text-[#c13515]' },
+const VERDICT_META: Record<
+  ApproTriage['verdict'],
+  { label: string; icon: LucideIcon; cls: string }
+> = {
+  passer: { label: 'Passer', icon: CircleCheck, cls: 'text-suggere' },
+  replanifier: { label: 'Replanifier', icon: CalendarClock, cls: 'text-suggere' },
+  regrouper: { label: 'Regrouper', icon: Layers, cls: 'text-muted-foreground' },
+  surveiller: { label: 'Surveiller', icon: Eye, cls: 'text-muted-foreground' },
+  investiguer: { label: 'Investiguer', icon: TriangleAlert, cls: 'text-destructive' },
 }
 
 const DECISION_ACTIONS: DecisionStatut[] = ['vu', 'ignorer', 'a_passer']
@@ -370,65 +394,31 @@ const estDecidee = (statut: DecisionStatut | null): boolean => statut !== null
 /** État du POST de décision d'une ligne. */
 type EtatEnvoi = 'inerte' | 'en-cours' | 'echec'
 
-function EcheanceChip({ jours }: { jours: number | null }) {
-  if (jours === null) return <span className="text-xs text-muted-foreground">sans date</span>
-  const retard = jours < 0
-  const proche = jours >= 0 && jours <= 21
-  return (
-    <span
-      className={cn(
-        'inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap',
-        retard && 'bg-[#c13515]/10 text-[#c13515]',
-        proche && 'bg-[#fc642d]/13 text-[#b8430f]',
-        !retard && !proche && 'bg-muted text-muted-foreground'
-      )}
-    >
-      {retard ? `en retard ${-jours} j` : `dans ${jours} j`}
-    </span>
-  )
+function echeanceRelative(jours: number | null): { relative: string; tone: RowTone } {
+  if (jours === null) return { relative: 'sans date', tone: null }
+  if (jours < 0) return { relative: `Retard ${-jours} j`, tone: 'critical' }
+  if (jours <= 21) return { relative: `Dans ${jours} j`, tone: 'warning' }
+  return { relative: `Dans ${jours} j`, tone: null }
 }
 
 function VerdictChip({ triage }: { triage: ApproTriage | null }) {
   if (triage === null) return null
   const meta = VERDICT_META[triage.verdict]
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        aria-hidden="true"
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: meta.dot }}
-      />
-      <span className={cn('text-[10px] font-bold uppercase tracking-[0.08em]', meta.cls)}>
-        {meta.label}
-      </span>
-    </span>
-  )
+  return <CellVerdict icon={meta.icon} label={meta.label} tone={meta.cls} />
 }
 
 function UrgenceChip({ nbRetard, nbUrgents }: { nbRetard: number; nbUrgents: number }) {
   if (nbRetard > 0) {
-    return (
-      <span className="inline-block rounded-full bg-[#c13515]/10 px-2.5 py-1 text-[10.5px] font-bold whitespace-nowrap text-[#c13515]">
-        {nbRetard} en retard
-      </span>
-    )
+    return <Badge variant="destructive">{nbRetard} en retard</Badge>
   }
   if (nbUrgents > 0) {
-    return (
-      <span className="inline-block rounded-full bg-[#fc642d]/13 px-2.5 py-1 text-[10.5px] font-bold whitespace-nowrap text-[#b8430f]">
-        {nbUrgents} sous 21 j
-      </span>
-    )
+    return <Badge variant="warning">{nbUrgents} sous 21 j</Badge>
   }
-  return (
-    <span className="inline-block rounded-full bg-muted px-2.5 py-1 text-[10.5px] font-bold whitespace-nowrap text-muted-foreground">
-      rien d’urgent
-    </span>
-  )
+  return <Badge variant="secondary">rien d’urgent</Badge>
 }
 
-/** Micro-segment de décision (Vu / Ignorer / À passer) — grammar SEG en
- *  miniature : actif = encre pleine, Rausch reste hors de la maille ligne. */
+/** Micro-segment de décision (Vu / Ignorer / À passer) — actif = encre
+ *  pleine, Rausch reste hors de la maille ligne. */
 function DecisionControl({
   actuelle,
   etatEnvoi,
@@ -443,28 +433,28 @@ function DecisionControl({
 }) {
   return (
     <div className="flex flex-col items-start gap-1 md:items-end">
-      <div className={SEG}>
+      <div className="flex flex-wrap justify-end gap-1">
         {DECISION_ACTIONS.map((statut) => (
-          <button
+          <Pill
             key={statut}
-            type="button"
-            onClick={() => onDecide(statut)}
+            size="sm"
+            variant={actuelle === statut ? 'outline' : 'ghost'}
             disabled={etatEnvoi === 'en-cours' || desactivee}
             aria-pressed={actuelle === statut}
+            onClick={() => onDecide(statut)}
             className={cn(
-              'rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap transition-colors duration-150 disabled:opacity-50',
-              actuelle === statut
-                ? 'bg-foreground text-white'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+              'h-6 px-2 text-[10px]',
+              actuelle === statut &&
+                'border-foreground bg-foreground text-background hover:border-foreground hover:text-background'
             )}
           >
             {DECISION_LABEL[statut]}
-          </button>
+          </Pill>
         ))}
       </div>
       {/* Un POST refusé ne doit pas être muet : l'acheteur croirait avoir décidé. */}
       {etatEnvoi === 'echec' && (
-        <span role="status" className="text-[10px] font-semibold text-[#c13515]">
+        <span role="status" className="text-[10px] font-semibold text-destructive">
           non enregistré — réessayer
         </span>
       )}
@@ -534,18 +524,18 @@ function ExplanationBlock({
 }) {
   if (explications.length === 0) return null
   return (
-    <div className="mt-2 rounded-md border border-[#e8e8e8] bg-[#fafaf8] px-3 py-2">
+    <div className="mt-2 rounded-md border border-border bg-secondary/40 px-3 py-2">
       {explications.map((exp) => (
         <div key={exp.cle} className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
                 'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em]',
-                exp.natureMessage === 'apparue' && 'bg-[#c13515]/10 text-[#c13515]',
+                exp.natureMessage === 'apparue' && 'bg-destructive/10 text-destructive',
                 exp.natureMessage === 'disparue' && 'bg-muted text-muted-foreground',
-                exp.natureMessage === 'intensifiee' && 'bg-[#c13515]/10 text-[#c13515]',
-                exp.natureMessage === 'attenuee' && 'bg-[#fc642d]/15 text-[#b8430f]',
-                exp.natureMessage === 'modifiee' && 'bg-amber-100 text-amber-800',
+                exp.natureMessage === 'intensifiee' && 'bg-destructive/10 text-destructive',
+                exp.natureMessage === 'attenuee' && 'bg-suggere/15 text-suggere',
+                exp.natureMessage === 'modifiee' && 'bg-suggere/15 text-suggere',
                 !['apparue', 'disparue', 'intensifiee', 'attenuee', 'modifiee'].includes(
                   exp.natureMessage
                 ) && 'bg-muted text-muted-foreground'
@@ -553,7 +543,7 @@ function ExplanationBlock({
             >
               {NATURE_DIFF_LABEL[exp.natureMessage] ?? exp.natureMessage}
             </span>
-            <span className="text-[10.5px] text-muted-foreground">
+            <span className="font-mono text-[10.5px] text-muted-foreground">
               {exp.article} · {exp.cle}
             </span>
             <span
@@ -586,7 +576,7 @@ function ExplanationBlock({
                       <div className="mt-0.5 flex items-center gap-1.5 pl-[18px]">
                         {/* Barre de part : poids normalisé de la corrélation dans
                             l'explication (lot 2). */}
-                        <span className="h-1 w-24 overflow-hidden rounded-full bg-[#ebebeb]">
+                        <span className="h-1 w-24 overflow-hidden rounded-full bg-border">
                           <span
                             className={cn(
                               'block h-full rounded-full',
@@ -595,7 +585,7 @@ function ExplanationBlock({
                             style={{ width: `${Math.max(4, Math.min(100, largeur))}%` }}
                           />
                         </span>
-                        <span className="text-[10px] tabular-nums text-muted-foreground">
+                        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                           {largeur} % · confiance {Math.round((c.confiance ?? 0) * 100)} %
                         </span>
                       </div>
@@ -667,102 +657,94 @@ function ItemRow({
     decisionActuelle === 'vu' || decisionActuelle === 'ignorer' || etatEnvoi === 'en-cours'
   const decisionsBloquees = item.nature === 'message' && explicationsEnChargement
   const cliquable = item.nature === 'message' && onExplain !== undefined
+  const echeance = echeanceRelative(item.jours)
+  const rowTone: RowTone = echeance.tone
   return (
-    <li
-      onClick={cliquable ? onExplain : undefined}
-      title={cliquable ? 'Voir l’explication CBN — clic pour ouvrir le drawer' : undefined}
-      className={cn(
-        'grid grid-cols-1 gap-x-4 gap-y-2 px-5 py-3 transition-colors duration-200 hover:bg-secondary/60 md:grid-cols-[144px_minmax(0,1fr)_84px_148px_176px]',
-        traitee && 'opacity-55',
-        cliquable && 'cursor-pointer hover:bg-secondary/80'
-      )}
-    >
-      {/* Nature + verdict */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 md:flex-col md:items-start md:gap-y-1.5">
-        <span className="inline-flex items-center gap-1.5">
-          <Icon className={cn('size-3.5 shrink-0', meta?.cls ?? 'text-muted-foreground')} />
-          <span className="text-xs font-semibold">
-            {meta === null ? 'À commander' : meta.label}
-          </span>
-        </span>
-        <VerdictChip triage={item.triage} />
-      </div>
-
-      {/* Article + preuve */}
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-cell-lg font-semibold tracking-tight">{item.article}</span>
-          <span className="truncate text-xs text-muted-foreground">{item.designation}</span>
-        </div>
-        {preuve !== undefined && (
-          <div
-            className="mt-0.5 max-w-[560px] truncate text-[10.5px] text-muted-foreground"
-            title={preuve}
-          >
-            {preuve}
-          </div>
-        )}
-        {item.nature === 'suggestion' &&
-          (item.delaiReappro === null ? (
-            <div className="mt-0.5 text-[10.5px] text-[#c13515]/80">
-              délai de réappro non renseigné — repli 14 j
-            </div>
-          ) : (
-            <div className="mt-0.5 text-[10.5px] text-muted-foreground">
-              délai de réappro {item.delaiReappro} j
-            </div>
-          ))}
-      </div>
-
-      {/* Quantité */}
-      <div className="text-cell-lg font-semibold tabular-nums md:text-right">
-        {qte(item.quantite)}
-      </div>
-
-      {/* Échéance + proposition de replanification */}
-      <div className="md:text-right">
-        <div className="text-[12.5px] font-semibold tabular-nums whitespace-nowrap">
-          {fr(item.echeance)}
-        </div>
-        <div className="mt-1 flex md:justify-end">
-          <EcheanceChip jours={item.jours} />
-        </div>
-        {item.dateProposee !== null && (
-          <div className="mt-1 text-[10.5px] whitespace-nowrap text-muted-foreground">
-            {/* Le décalage n'a de sens que sur un message qui propose une date. */}→{' '}
-            {fr(item.dateProposee)}
-            {item.decalage === null ? '' : ` (${item.decalage > 0 ? '+' : ''}${item.decalage} j)`}
-          </div>
-        )}
-      </div>
-
-      {/* Décision acheteur (ledger #134) + action drawer */}
-      <div
-        className="flex flex-col items-start gap-1.5 md:items-end md:pt-0.5"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      <TableRow
+        clickable={cliquable}
+        tone={rowTone}
+        onClick={cliquable ? onExplain : undefined}
+        title={cliquable ? 'Voir l’explication CBN — clic pour ouvrir le drawer' : undefined}
+        className={cn(traitee && 'opacity-55')}
       >
-        <DecisionControl
-          actuelle={decisionActuelle}
-          etatEnvoi={etatEnvoi}
-          onDecide={onDecide}
-          desactivee={decisionsBloquees}
-        />
-        {cliquable && (
-          <button
-            type="button"
-            onClick={onExplain}
-            className="inline-flex items-center gap-1 rounded-md border border-rule bg-card px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            Expliquer <ChevronRight size={10} />
-          </button>
-        )}
-      </div>
+        <TableCell>
+          <div className="flex flex-col gap-1">
+            <CellVerdict
+              icon={Icon}
+              label={meta === null ? 'À commander' : meta.label}
+              tone={meta?.cls ?? 'text-muted-foreground'}
+            />
+            <VerdictChip triage={item.triage} />
+          </div>
+        </TableCell>
+        <TableCell>
+          <CellStack code={item.article} label={item.designation} />
+          {preuve !== undefined && <CellEvidence title={preuve}>{preuve}</CellEvidence>}
+          {item.nature === 'suggestion' &&
+            (item.delaiReappro === null ? (
+              <CellEvidence tone="critical">
+                délai de réappro non renseigné — repli 14 j
+              </CellEvidence>
+            ) : (
+              <CellEvidence>délai de réappro {item.delaiReappro} j</CellEvidence>
+            ))}
+        </TableCell>
+        <TableCell align="right">
+          <CellNumber value={qte(item.quantite)} />
+        </TableCell>
+        <TableCell>
+          <CellDate date={fr(item.echeance)} relative={echeance.relative} tone={echeance.tone} />
+          {item.dateProposee !== null && (
+            <CellEvidence>
+              → {fr(item.dateProposee)}
+              {item.decalage === null ? '' : ` (${item.decalage > 0 ? '+' : ''}${item.decalage} j)`}
+            </CellEvidence>
+          )}
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-start gap-1.5 md:items-end">
+            <DecisionControl
+              actuelle={decisionActuelle}
+              etatEnvoi={etatEnvoi}
+              onDecide={onDecide}
+              desactivee={decisionsBloquees}
+            />
+            {cliquable && (
+              <Pill
+                variant="outline"
+                size="sm"
+                onClick={onExplain}
+                className="h-6 px-2 text-[10px]"
+              >
+                Expliquer <ChevronRight size={10} />
+              </Pill>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
       {item.nature === 'message' && explications !== undefined && explications.length > 0 && (
-        <div className="col-span-full">
-          <ExplanationBlock explications={explications} patternsParArticle={patternsParArticle} />
-        </div>
+        <TableRow>
+          <TableCell colSpan={5}>
+            <ExplanationBlock explications={explications} patternsParArticle={patternsParArticle} />
+          </TableCell>
+        </TableRow>
       )}
-    </li>
+    </>
+  )
+}
+
+function ItemsHead() {
+  return (
+    <TableHeadRow>
+      <TableHead>Nature</TableHead>
+      <TableHead>Article</TableHead>
+      <TableHead align="right" className="text-right!">
+        Qté
+      </TableHead>
+      <TableHead>Échéance</TableHead>
+      <TableHead>Décision</TableHead>
+    </TableHeadRow>
   )
 }
 
@@ -770,10 +752,10 @@ function ItemRow({
 function SectionLabel({ label, nb }: { label: string; nb: number }) {
   return (
     <div className="flex items-center justify-between px-5 pt-3 pb-1">
-      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+      <span className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="text-[10px] font-semibold tabular-nums text-muted-foreground/70">
+      <span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground/70">
         {nb} ligne{nb > 1 ? 's' : ''}
       </span>
     </div>
@@ -832,71 +814,90 @@ function Feuille({
       />
     ))
   return (
-    <article className="overflow-hidden rounded-lg border border-rule bg-card">
+    <Card className="gap-0 overflow-hidden hover:shadow-none">
       <header className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3.5">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-bold tracking-tight">{dossier.nom}</h2>
+          <h2 className="truncate text-base font-semibold tracking-tight">{dossier.nom}</h2>
           <p className="mt-0.5 text-1.5xs text-muted-foreground">
             code <span className="font-mono">{dossier.fournisseur || '—'}</span>
             {' · '}
-            <b className="font-bold text-foreground">{dossier.nbArticles}</b> article
+            <span className="font-mono font-bold tabular-nums text-foreground">
+              {dossier.nbArticles}
+            </span>{' '}
+            article
             {dossier.nbArticles > 1 ? 's' : ''}
             {suggestions.length > 0 && (
               <>
                 {' · '}
-                <b className="font-bold text-foreground">{suggestions.length}</b> à commander
+                <span className="font-mono font-bold tabular-nums text-foreground">
+                  {suggestions.length}
+                </span>{' '}
+                à commander
               </>
             )}
             {messages.length > 0 && (
               <>
                 {' · '}
-                <b className="font-bold text-foreground">{messages.length}</b> à replanifier
+                <span className="font-mono font-bold tabular-nums text-foreground">
+                  {messages.length}
+                </span>{' '}
+                à replanifier
               </>
             )}
           </p>
         </div>
         <div className="text-right">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Première échéance
           </div>
-          <div className="mt-0.5 text-cell-lg font-bold tabular-nums">
-            {fr(dossier.premiereEcheance)}
+          <div className="mt-0.5">
+            <CellNumber value={fr(dossier.premiereEcheance)} />
           </div>
         </div>
         <UrgenceChip nbRetard={vue.nbRetard} nbUrgents={vue.nbUrgents} />
       </header>
 
-      <div className="border-t border-[#ebebeb]">
+      <div className="border-t border-border">
         {suggestions.length > 0 && (
           <section>
             <SectionLabel label="À commander" nb={suggestions.length} />
-            <ul className="divide-y divide-[#ebebeb]">{renderRows(suggestions)}</ul>
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <ItemsHead />
+              </thead>
+              <tbody>{renderRows(suggestions)}</tbody>
+            </table>
           </section>
         )}
         {messages.length > 0 && (
-          <section className={cn(suggestions.length > 0 && 'border-t border-[#ebebeb]')}>
+          <section className={cn(suggestions.length > 0 && 'border-t border-border')}>
             <SectionLabel label="À replanifier" nb={messages.length} />
-            <ul className="divide-y divide-[#ebebeb]">{renderRows(messages)}</ul>
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <ItemsHead />
+              </thead>
+              <tbody>{renderRows(messages)}</tbody>
+            </table>
           </section>
         )}
       </div>
 
       {/* La progression fait partie du document : c'est elle qui vide la pile. */}
-      <footer className="flex items-center justify-between border-t border-rule bg-secondary/50 px-5 py-2">
+      <CardFooter className="justify-between border-t border-border bg-secondary/50 px-5 py-2">
         <span className="text-[10.5px] text-muted-foreground">
           Décisions{' '}
-          <b className="font-bold tabular-nums text-foreground">
+          <span className="font-mono font-bold tabular-nums text-foreground">
             {vue.nbDecidees}/{nbItems}
-          </b>{' '}
+          </span>{' '}
           enregistrées
         </span>
         {vue.minJoursADecider !== null && vue.minJoursADecider < 0 && (
-          <span className="text-[10.5px] font-semibold text-[#c13515]">
+          <span className="text-[10.5px] font-semibold text-destructive">
             échéance dépassée — à traiter
           </span>
         )}
-      </footer>
-    </article>
+      </CardFooter>
+    </Card>
   )
 }
 
@@ -924,76 +925,107 @@ function DossiersTraités({
   return (
     <div className="mt-8">
       <div className="mb-2 flex items-baseline gap-2 px-1">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           Dossiers traités
         </h2>
-        <span className="text-[10px] font-semibold tabular-nums text-muted-foreground/70">
+        <span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground/70">
           {vues.length}
         </span>
       </div>
-      <div className="divide-y divide-[#ebebeb] overflow-hidden rounded-lg border border-rule bg-card">
-        {vues.map((vue) => {
+      <Card className="gap-0 overflow-hidden hover:shadow-none">
+        {vues.map((vue, i) => {
           const items = [...vue.suggestions, ...vue.messages]
           const nb = items.length
           return (
-            <details key={vue.dossier.fournisseur || '∅'} className="group">
+            <details
+              key={vue.dossier.fournisseur || '∅'}
+              className={cn('group', i > 0 && 'border-t border-border')}
+            >
               <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 [&::-webkit-details-marker]:hidden">
                 <ChevronRight
                   size={14}
                   strokeWidth={2}
                   className="shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-90"
                 />
-                <span className="min-w-0 flex-1 truncate text-cell-lg font-semibold tracking-tight">
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
                   {vue.dossier.nom}
                 </span>
                 <span className="hidden text-1.5xs whitespace-nowrap text-muted-foreground sm:inline">
-                  <b className="font-bold tabular-nums text-foreground">{nb}</b> ligne
+                  <span className="font-mono font-bold tabular-nums text-foreground">{nb}</span>{' '}
+                  ligne
                   {nb > 1 ? 's' : ''} · première échéance {fr(vue.dossier.premiereEcheance)}
                 </span>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-muted-foreground">
+                <Badge variant="secondary">
                   {vue.nbDecidees}/{nb} décidées
-                </span>
+                </Badge>
               </summary>
-              <ul className="border-t border-[#ebebeb]">
-                {items.map((item) => (
-                  <ItemRow
-                    key={cleAffichage(item)}
-                    item={item}
-                    decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
-                    etatEnvoi={envois[item.cle] ?? 'inerte'}
-                    onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
-                    onExplain={onExplain ? () => onExplain(item) : undefined}
-                    explications={explicationsPour(explicationsParCle, item)}
-                    patternsParArticle={patternsParArticle}
-                    explicationsEnChargement={explicationsEnChargement}
-                  />
-                ))}
-              </ul>
+              <table className="w-full border-collapse border-t border-border text-left text-sm">
+                <thead>
+                  <ItemsHead />
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <ItemRow
+                      key={cleAffichage(item)}
+                      item={item}
+                      decisionActuelle={decisions[item.cle] ?? item.decision?.statut ?? null}
+                      etatEnvoi={envois[item.cle] ?? 'inerte'}
+                      onDecide={(statut) => onDecide(item, vue.dossier.fournisseur, statut)}
+                      onExplain={onExplain ? () => onExplain(item) : undefined}
+                      explications={explicationsPour(explicationsParCle, item)}
+                      patternsParArticle={patternsParArticle}
+                      explicationsEnChargement={explicationsEnChargement}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </details>
           )
         })}
-      </div>
+      </Card>
     </div>
   )
 }
 
 /** Barre de part d'une source dans l'auto-évaluation (lot 2). */
 function TauxBar({ taux }: { taux: number | null }) {
-  if (taux === null) return <span className="text-[10px] text-muted-foreground">—</span>
+  if (taux === null) return <span className="font-mono text-[10px] text-muted-foreground">—</span>
   const pct = Math.round(taux * 100)
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="h-1 w-16 overflow-hidden rounded-full bg-[#ebebeb]">
+      <span className="h-1 w-16 overflow-hidden rounded-full bg-border">
         <span
           className={cn(
             'block h-full rounded-full',
-            pct >= 50 ? 'bg-[#c13515]' : pct >= 25 ? 'bg-[#fc642d]' : 'bg-emerald-600'
+            pct >= 50 ? 'bg-destructive' : pct >= 25 ? 'bg-suggere' : 'bg-ferme'
           )}
           style={{ width: `${Math.max(4, Math.min(100, pct))}%` }}
         />
       </span>
-      <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">{pct} %</span>
+      <span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground">
+        {pct} %
+      </span>
     </span>
+  )
+}
+
+function TendancesCard({
+  title,
+  hint,
+  children,
+}: {
+  title: string
+  hint: string
+  children: ReactNode
+}) {
+  return (
+    <Card className="gap-0 overflow-hidden hover:shadow-none">
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-5 py-3.5">
+        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+        <p className="text-1.5xs text-muted-foreground">{hint}</p>
+      </header>
+      {children}
+    </Card>
   )
 }
 
@@ -1012,14 +1044,10 @@ function TendancesPanel({
   const qualite = patterns?.qualite
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-lg border border-rule bg-card">
-        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
-          <h2 className="text-sm font-bold tracking-tight">Qualité des explications</h2>
-          <p className="text-1.5xs text-muted-foreground">
-            Mesurée sur le diff le plus récent de la fenêtre — les critères d'acceptation du lot 2,
-            pas une promesse.
-          </p>
-        </header>
+      <TendancesCard
+        title="Qualité des explications"
+        hint="Mesurée sur le diff le plus récent de la fenêtre — les critères d'acceptation du lot 2, pas une promesse."
+      >
         {qualite === undefined || qualite.messages === 0 ? (
           <div className="px-5 py-6 text-sm text-muted-foreground">
             {patterns?.message ?? 'Aucun message à mesurer sur la fenêtre.'}
@@ -1027,45 +1055,44 @@ function TendancesPanel({
         ) : (
           <div className="flex flex-wrap gap-x-8 gap-y-2 px-5 py-4 text-xs">
             <span>
-              <b className="font-bold tabular-nums text-foreground">{qualite.messages}</b> message
+              <span className="font-mono font-bold tabular-nums text-foreground">
+                {qualite.messages}
+              </span>{' '}
+              message
               {qualite.messages > 1 ? 's' : ''} expliqué{qualite.messages > 1 ? 's' : ''}
             </span>
             <span>
               non expliqués{' '}
-              <b className="font-bold tabular-nums text-foreground">
+              <span className="font-mono font-bold tabular-nums text-foreground">
                 {qualite.nonExpliques}
                 {qualite.tauxNonExplique !== null &&
                   ` (${Math.round(qualite.tauxNonExplique * 100)} %)`}
-              </b>
+              </span>
             </span>
             {qualite.couvertureMoyenne !== null && (
               <span>
                 couverture moyenne{' '}
-                <b className="font-bold tabular-nums text-foreground">
+                <span className="font-mono font-bold tabular-nums text-foreground">
                   {Math.round(qualite.couvertureMoyenne * 100)} %
-                </b>
+                </span>
               </span>
             )}
             {qualite.residuMoyen !== null && (
               <span>
                 variation inexpliquée{' '}
-                <b className="font-bold tabular-nums text-foreground">
+                <span className="font-mono font-bold tabular-nums text-foreground">
                   {Math.round(qualite.residuMoyen * 100)} %
-                </b>
+                </span>
               </span>
             )}
           </div>
         )}
-      </section>
+      </TendancesCard>
 
-      <section className="overflow-hidden rounded-lg border border-rule bg-card">
-        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
-          <h2 className="text-sm font-bold tracking-tight">Auto-évaluation du moteur</h2>
-          <p className="text-1.5xs text-muted-foreground">
-            Taux d'override du ledger par source prédite — le signal d'une règle fausse ou d'un
-            master data pourri (#106). Corrélations, jamais « causes ».
-          </p>
-        </header>
+      <TendancesCard
+        title="Auto-évaluation du moteur"
+        hint="Taux d'override du ledger par source prédite — le signal d'une règle fausse ou d'un master data pourri (#106). Corrélations, jamais « causes »."
+      >
         {autoEval === null ? (
           <div className="px-5 py-6 text-sm text-muted-foreground">
             Aucune décision enregistrée avec source prédite — l'auto-évaluation se remplit quand
@@ -1075,20 +1102,25 @@ function TendancesPanel({
           <div className="px-5 py-4">
             <div className="mb-3 flex flex-wrap gap-4 text-xs">
               <span>
-                <b className="font-bold tabular-nums text-foreground">{autoEval.total}</b> décision
+                <span className="font-mono font-bold tabular-nums text-foreground">
+                  {autoEval.total}
+                </span>{' '}
+                décision
                 {autoEval.total > 1 ? 's' : ''} analysée
                 {autoEval.total > 1 ? 's' : ''}
               </span>
               <span>
-                <b className="font-bold tabular-nums text-foreground">{autoEval.overrides}</b>{' '}
+                <span className="font-mono font-bold tabular-nums text-foreground">
+                  {autoEval.overrides}
+                </span>{' '}
                 override{autoEval.overrides > 1 ? 's' : ''}
               </span>
               {autoEval.tauxGlobal !== null && (
                 <span>
                   taux global{' '}
-                  <b className="font-bold tabular-nums text-foreground">
+                  <span className="font-mono font-bold tabular-nums text-foreground">
                     {Math.round(autoEval.tauxGlobal * 100)} %
-                  </b>
+                  </span>
                 </span>
               )}
             </div>
@@ -1101,10 +1133,18 @@ function TendancesPanel({
                 <thead>
                   <TableHeadRow>
                     <TableHead>Source</TableHead>
-                    <TableHead align="right">Décisions</TableHead>
-                    <TableHead align="right">Overrides</TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Décisions
+                    </TableHead>
+                    <TableHead align="right" className="text-right!">
+                      Overrides
+                    </TableHead>
                     <TableHead>Taux</TableHead>
-                    <TableHead align="right" title="Part des décisions « à passer »">
+                    <TableHead
+                      align="right"
+                      className="text-right!"
+                      title="Part des décisions « à passer »"
+                    >
                       Concordance
                     </TableHead>
                   </TableHeadRow>
@@ -1138,14 +1178,16 @@ function TendancesPanel({
             )}
             {autoEval.parNiveau.length > 0 && (
               <div className="mt-4">
-                <h3 className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                <h3 className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   Par niveau affiché
                 </h3>
                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
                   {autoEval.parNiveau.map((n) => (
                     <span key={n.niveau} className="inline-flex items-center gap-1.5">
                       {NIVEAU_META[n.niveau as CbnNiveau]?.label ?? n.niveau} ·{' '}
-                      <b className="font-bold tabular-nums text-foreground">{n.total}</b>
+                      <span className="font-mono font-bold tabular-nums text-foreground">
+                        {n.total}
+                      </span>
                       <TauxBar taux={n.taux} />
                     </span>
                   ))}
@@ -1154,16 +1196,12 @@ function TendancesPanel({
             )}
           </div>
         )}
-      </section>
+      </TendancesCard>
 
-      <section className="overflow-hidden rounded-lg border border-rule bg-card">
-        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
-          <h2 className="text-sm font-bold tracking-tight">Articles volatils</h2>
-          <p className="text-1.5xs text-muted-foreground">
-            Fréquence de messages sur la fenêtre — le bruit structurel qu'il faut signaler plutôt
-            que laisser encombrer la file.
-          </p>
-        </header>
+      <TendancesCard
+        title="Articles volatils"
+        hint="Fréquence de messages sur la fenêtre — le bruit structurel qu'il faut signaler plutôt que laisser encombrer la file."
+      >
         {patterns === null || patterns.apres === null ? (
           <div className="px-5 py-6 text-sm text-muted-foreground">
             {patterns?.message ??
@@ -1188,9 +1226,15 @@ function TendancesPanel({
                 <TableHeadRow>
                   <TableHead>Article</TableHead>
                   <TableHead>Volatilité</TableHead>
-                  <TableHead align="right">Messages</TableHead>
-                  <TableHead align="right">Jours</TableHead>
-                  <TableHead align="right">/semaine</TableHead>
+                  <TableHead align="right" className="text-right!">
+                    Messages
+                  </TableHead>
+                  <TableHead align="right" className="text-right!">
+                    Jours
+                  </TableHead>
+                  <TableHead align="right" className="text-right!">
+                    /semaine
+                  </TableHead>
                   <TableHead>Source dominante</TableHead>
                 </TableHeadRow>
               </thead>
@@ -1238,16 +1282,12 @@ function TendancesPanel({
             </table>
           </div>
         )}
-      </section>
+      </TendancesCard>
 
-      <section className="overflow-hidden rounded-lg border border-rule bg-card">
-        <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#ebebeb] px-5 py-3.5">
-          <h2 className="text-sm font-bold tracking-tight">Fournisseurs à surveiller</h2>
-          <p className="text-1.5xs text-muted-foreground">
-            Part des messages liés à des réceptions glissées — un signal fournisseur, pas un signal
-            CBN.
-          </p>
-        </header>
+      <TendancesCard
+        title="Fournisseurs à surveiller"
+        hint="Part des messages liés à des réceptions glissées — un signal fournisseur, pas un signal CBN."
+      >
         {patterns === null || patterns.apres === null ? (
           // Même cause, même phrase que la section au-dessus : dire « aucun
           // fournisseur » quand l'historique manque était une contradiction
@@ -1267,7 +1307,9 @@ function TendancesPanel({
               <thead>
                 <TableHeadRow>
                   <TableHead>Fournisseur</TableHead>
-                  <TableHead align="right">Messages</TableHead>
+                  <TableHead align="right" className="text-right!">
+                    Messages
+                  </TableHead>
                   <TableHead>Part réceptions glissées</TableHead>
                 </TableHeadRow>
               </thead>
@@ -1289,13 +1331,13 @@ function TendancesPanel({
             </table>
           </div>
         )}
-      </section>
+      </TendancesCard>
     </div>
   )
 }
 
 export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
-  const { data, loading, error, ms } = useTimedFetch<ApproResponse>(rowsHref)
+  const { data, loading, error } = useTimedFetch<ApproResponse>(rowsHref)
   // Lot 2 : fenêtre de comparaison des explications (J-1 / J-7 / J-30). La
   // fenêtre pilote l'URL de fetch : changer de fenêtre relance le fetch, et
   // l'explication affichée correspond aux dates réelles des photos (trous
@@ -1494,16 +1536,6 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dossiersFiltres, decisions])
 
-  /** Reste à décider sur l'horizon complet (indépendant du filtre nature). */
-  const aDecider = useMemo(() => {
-    if (data === null) return 0
-    let nb = 0
-    for (const d of data.dossiers)
-      for (const i of d.items) if (!estDecidee(decisionEffective(i))) nb++
-    return nb
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, decisions])
-
   /** Nombre de messages sur la page qui ont réellement une explication
    *  corrélée (jointure sur cleSnapshot). Évite d'annoncer « 4 messages sur
    *  cette page » quand aucun des 4 n'est dans les dossiers affichés. */
@@ -1525,163 +1557,171 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
 
   const stats = data?.stats
 
-  const horizonLabel =
-    horizon === null
-      ? `horizon dérivé${data !== null ? ` · au ${fr(data.range.to)}` : ''}`
-      : `horizon ${horizon} j`
-
   const refreshHref =
     horizon === null ? '/approvisionnements' : `/approvisionnements?horizon=${horizon}`
+
+  /* RefreshPill prenait `href` (Inertia <Link>). ToolbarRefresh n'expose que
+     `onClick` : même GET, même URL, pas de preserveState (le Link n'en avait pas). */
+  const refresh = () => {
+    router.visit(refreshHref)
+  }
+
+  const activeFilterCount =
+    (filtre !== null ? 1 : 0) +
+    (vue === 'feuilles' && filtreExpl ? 1 : 0) +
+    (vue === 'feuilles' && fenetre !== 1 ? 1 : 0)
+
+  /* Barre d'outils (standard §18). Pas de conteneur `<Toolbar>` : AppLayout
+     pose déjà `data-slot="toolbar-row"`. Zone 03 : pas de recherche. */
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <ToolbarSegmented semantics="tabs" aria-label="Vue">
+          <ToolbarSegment
+            active={vue === 'feuilles'}
+            onClick={() => setVue('feuilles')}
+            title="Feuilles de préparation fournisseur"
+          >
+            Feuilles
+          </ToolbarSegment>
+          <ToolbarSegment
+            active={vue === 'tendances'}
+            onClick={() => setVue('tendances')}
+            title="Patterns émergents et auto-évaluation (#138 lot 2)"
+          >
+            Tendances
+          </ToolbarSegment>
+        </ToolbarSegmented>
+
+        <ToolbarSegmented semantics="tabs" aria-label="Horizon">
+          {HORIZONS.map((h) => (
+            <ToolbarSegment
+              key={h.label}
+              active={horizon === h.v}
+              title={
+                h.v === null
+                  ? 'Horizon dérivé du délai de réappro (#114)'
+                  : `Fenêtre fixe ${h.v} jours`
+              }
+              onClick={() =>
+                router.get('/approvisionnements', h.v === null ? {} : { horizon: h.v })
+              }
+            >
+              {h.label}
+            </ToolbarSegment>
+          ))}
+        </ToolbarSegmented>
+
+        <ToolbarFilterMenu activeCount={activeFilterCount} width={300}>
+          <ToolbarFilterSection>Nature</ToolbarFilterSection>
+          <ToolbarSegmented semantics="tabs" flat className="w-full flex-wrap">
+            <ToolbarFilterChip
+              label="Tout"
+              count={stats?.nbItems ?? 0}
+              tone="neutral"
+              active={filtre === null}
+              onClick={() => setFiltre(null)}
+              title="Tout"
+            />
+            <ToolbarFilterChip
+              label="À commander"
+              count={stats?.nbSuggestions ?? 0}
+              tone="ok"
+              active={filtre === 'suggestion'}
+              onClick={() => setFiltre('suggestion')}
+              title="À commander"
+            />
+            <ToolbarFilterChip
+              label="À replanifier"
+              count={stats?.nbMessages ?? 0}
+              tone="warning"
+              active={filtre === 'message'}
+              onClick={() => setFiltre('message')}
+              title="À replanifier"
+            />
+          </ToolbarSegmented>
+
+          {vue === 'feuilles' && nbExplSurPage > 0 && (
+            <>
+              <Separator className="my-2" />
+              <ToolbarFilterSection>Explications</ToolbarFilterSection>
+              <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+                <ToolbarFilterChip
+                  label="Expliqués"
+                  count={nbExplSurPage}
+                  tone="ok"
+                  active={filtreExpl}
+                  onClick={() => setFiltreExpl(!filtreExpl)}
+                  title="Ne montrer que les lignes avec une explication corrélée"
+                />
+              </ToolbarSegmented>
+            </>
+          )}
+
+          {vue === 'feuilles' && (
+            <>
+              <Separator className="my-2" />
+              <ToolbarFilterSection>Comparaison</ToolbarFilterSection>
+              <ToolbarSegmented semantics="tabs" flat className="w-full flex-wrap">
+                {(
+                  [
+                    [1, 'J-1'],
+                    [7, 'J-7'],
+                    [30, 'J-30'],
+                  ] as Array<[number, string]>
+                ).map(([val, label]) => (
+                  <ToolbarFilterChip
+                    key={val}
+                    label={label}
+                    tone="neutral"
+                    active={fenetre === val}
+                    onClick={() => setFenetre(val)}
+                    title={`Explications sur la fenêtre ${label} (trous week-ends/pannes tolérés)`}
+                  />
+                ))}
+              </ToolbarSegmented>
+            </>
+          )}
+        </ToolbarFilterMenu>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <ToolbarRefresh loading={loading} onClick={refresh} />
+    </>
+  )
 
   return (
     <AppLayout
       active="approvisionnements"
       title="Approvisionnements"
       subtitle="Approvisionnements · Suggestions du CBN"
+      theme="cursor"
       dense
       scrollable={false}
-      meta={
-        stats !== undefined ? (
-          <>
-            <div>
-              <b className="font-bold text-foreground">{stats.nbItems}</b> lignes ·{' '}
-              <b className="font-bold text-foreground">{stats.nbDossiers}</b> dossiers
-            </div>
-            <div className="text-muted-foreground">{horizonLabel}</div>
-          </>
-        ) : null
-      }
+      toolbar={toolbar}
     >
       {/* AppLayout dense rend ses children en flux bloc : ce wrapper porte la
-          colonne toolbar + zone scrollable (même montage que /ruptures). */}
+          colonne zone scrollable (la rangée d'outils est la prop `toolbar`). */}
       <div className="flex h-full min-h-0 flex-col">
-        <ToolbarRow>
-          <Segment ariaLabel="Vue" label="Vue">
-            {(
-              [
-                ['feuilles', 'Feuilles'],
-                ['tendances', 'Tendances'],
-              ] as Array<['feuilles' | 'tendances', string]>
-            ).map(([val, label]) => (
-              <SegmentButton
-                key={val}
-                active={vue === val}
-                onClick={() => setVue(val)}
-                title={
-                  val === 'feuilles'
-                    ? 'Feuilles de préparation fournisseur'
-                    : 'Patterns émergents et auto-évaluation (#138 lot 2)'
-                }
-              >
-                {label}
-              </SegmentButton>
-            ))}
-          </Segment>
-
-          <Segment ariaLabel="Nature" label="Nature">
-            {(
-              [
-                [null, 'Tout', stats?.nbItems ?? 0],
-                ['suggestion', 'À commander', stats?.nbSuggestions ?? 0],
-                ['message', 'À replanifier', stats?.nbMessages ?? 0],
-              ] as Array<[Filtre, string, number]>
-            ).map(([val, label, count]) => (
-              <SegmentButton
-                key={label}
-                active={filtre === val}
-                onClick={() => setFiltre(val)}
-                title={label}
-              >
-                {label}
-                {count > 0 && <span className="ml-1 opacity-60">{count}</span>}
-              </SegmentButton>
-            ))}
-          </Segment>
-
-          {vue === 'feuilles' && nbExplSurPage > 0 && (
-            <Segment ariaLabel="Filtre explication" label="Filtre">
-              <SegmentButton
-                active={filtreExpl}
-                onClick={() => setFiltreExpl(!filtreExpl)}
-                title="Ne montrer que les lignes avec une explication corrélée"
-              >
-                Expliqués
-                <span className="ml-1 opacity-60">{nbExplSurPage}</span>
-              </SegmentButton>
-            </Segment>
-          )}
-
-          {vue === 'feuilles' && (
-            <Segment role="radiogroup" ariaLabel="Fenêtre d'explication" label="Comparaison">
-              {(
-                [
-                  [1, 'J-1'],
-                  [7, 'J-7'],
-                  [30, 'J-30'],
-                ] as Array<[number, string]>
-              ).map(([val, label]) => (
-                <SegmentButton
-                  key={val}
-                  role="radio"
-                  active={fenetre === val}
-                  title={`Explications sur la fenêtre ${label} (trous week-ends/pannes tolérés)`}
-                  onClick={() => setFenetre(val)}
-                >
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          )}
-
-          <Segment role="radiogroup" ariaLabel="Horizon" label="Horizon">
-            {HORIZONS.map((h) => (
-              <SegmentButton
-                key={h.label}
-                role="radio"
-                active={horizon === h.v}
-                title={
-                  h.v === null
-                    ? 'Horizon dérivé du délai de réappro (#114)'
-                    : `Fenêtre fixe ${h.v} jours`
-                }
-                onClick={() =>
-                  router.get('/approvisionnements', h.v === null ? {} : { horizon: h.v })
-                }
-              >
-                {h.label}
-              </SegmentButton>
-            ))}
-          </Segment>
-
-          <ToolbarSpacer />
-
-          <span className="font-mono text-2xs whitespace-nowrap text-muted-foreground">
-            <b className="font-bold text-foreground">{aDecider}</b> à décider ·{' '}
-            {dossiersFiltres.length} fournisseur{dossiersFiltres.length > 1 ? 's' : ''}
-            {ms !== null && ` · ${(ms / 1000).toFixed(1)} s`}
-          </span>
-
-          <RefreshPill loading={loading} href={refreshHref} />
-        </ToolbarRow>
-
-        {/* Champ de travail : les feuilles blanches sur le gris surface-soft. */}
+        {!loading && error !== null && (
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Chargement impossible :</span>
+            <span className="truncate font-mono">{error.message}</span>
+          </div>
+        )}
+        {!loading && error === null && data?.x3Error != null && (
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">X3 n’a pas répondu :</span>
+            <span className="truncate font-mono">{data.x3Error}</span>
+          </div>
+        )}
+        {/* Champ de travail : les feuilles sur le gris `bg-secondary`. */}
         <div className="min-h-0 flex-1 overflow-y-auto bg-secondary">
-          <div className="mx-auto max-w-[1180px] px-4 py-5 md:px-7">
+          <div className="mx-auto max-w-[1180px] px-5 py-5 md:px-6">
             {loading && <LoadingState title="Lecture du calcul des besoins X3…" />}
-
-            {!loading && error !== null && (
-              <div className="flex items-center gap-3 rounded-lg border border-rule bg-card px-4 py-3 text-sm">
-                <CloudOff className="size-4 shrink-0 text-[#c13515]" />
-                <span>Chargement impossible : {error.message}</span>
-              </div>
-            )}
-
-            {!loading && error === null && data?.x3Error != null && (
-              <div className="flex items-center gap-3 rounded-lg border border-rule bg-card px-4 py-3 text-sm">
-                <CloudOff className="size-4 shrink-0 text-[#c13515]" />
-                <span>X3 n’a pas répondu : {data.x3Error}</span>
-              </div>
-            )}
 
             {vue === 'tendances' ? (
               <TendancesPanel patterns={patternsData} autoEval={autoEvalData} />
@@ -1692,9 +1732,11 @@ export default function Approvisionnements({ horizon, rowsHref }: PageProps) {
                   data?.x3Error == null &&
                   actives.length === 0 &&
                   traitees.length === 0 && (
-                    <div className="flex items-center justify-center gap-3 rounded-lg border border-rule bg-card px-4 py-10 text-sm text-muted-foreground">
-                      <Inbox className="size-4 shrink-0" />
-                      <span>Rien à décider sur cet horizon.</span>
+                    <div className="flex flex-col items-center justify-center gap-2 px-5 py-16 text-center">
+                      <Inbox size={20} strokeWidth={1.75} className="text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">
+                        Rien à décider sur cet horizon.
+                      </p>
                     </div>
                   )}
 

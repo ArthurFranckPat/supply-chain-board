@@ -9,13 +9,17 @@ import {
 } from '@r/components/ui/sheet'
 import { cn } from '@r/lib/utils'
 import {
+  CellDate,
   CellNumber,
+  CellStack,
   TableCell,
   TableHead,
   TableHeadRow,
   TableRow,
   type RowTone,
 } from '@r/components/ui/table-row'
+import { Badge } from '@r/components/ui/badge'
+import { Card } from '@r/components/ui/card'
 
 /**
  * Étiquette de période dans la grille time-phased. Trois recettes de pastille
@@ -233,10 +237,10 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
         side="right"
         className="flex w-full flex-col gap-0 p-0 sm:w-[560px] sm:max-w-[560px] [&>button]:top-3 [&>button]:right-3"
       >
-        <SheetHeader className="shrink-0 border-b border-rule bg-card px-5 py-4 pr-10">
+        <SheetHeader className="shrink-0 border-b border-border bg-card px-5 py-4 pr-10">
           <div className="flex items-center gap-2">
-            <Package size={16} strokeWidth={1.75} className="shrink-0 text-brand" />
-            <SheetTitle className="truncate text-[14px] font-bold tracking-tight">
+            <Package size={16} strokeWidth={1.75} className="shrink-0 text-muted-foreground" />
+            <SheetTitle className="truncate text-sm font-semibold tracking-tight">
               {titleLabel}
             </SheetTitle>
           </div>
@@ -308,14 +312,14 @@ export function ArticleExplanationSheet({ article, cle, messageCode, open, onOpe
           {data === null && !loading && error === null && !isHorsPerimetre ? (
             <div
               data-slot="explanation-diff"
-              className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4 empty:hidden"
+              className="border-t border-dashed border-border bg-secondary/30 px-5 py-4 empty:hidden"
             />
           ) : null}
         </div>
 
         {/* Pied discret — étalon rappelé même hors scroll. */}
         {data !== null && data.supporte === true && data.grille.mrpdatCbn && (
-          <div className="shrink-0 border-t border-rule bg-secondary/50 px-5 py-2">
+          <div className="shrink-0 border-t border-border bg-secondary/50 px-5 py-2">
             <p className="text-[11px] leading-snug text-muted-foreground">
               Étalon CBN :{' '}
               <span className="font-semibold text-foreground">{fr(data.grille.mrpdatCbn)}</span>{' '}
@@ -337,11 +341,11 @@ function DiffSection({ diff }: { diff: DiffTemporel }) {
   return (
     <div
       data-slot="explanation-diff"
-      className="border-t border-dashed border-rule bg-secondary/30 px-5 py-4"
+      className="border-t border-dashed border-border bg-secondary/30 px-5 py-4"
       // DiffSection n'est jamais vide visuellement (titre + message ou liste) —
       // empty:hidden inutile ici, réservé au fallback vide ci-dessus.
     >
-      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+      <h3 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         Depuis l&apos;apparition du message ({depuisJjMm}) :
       </h3>
       {diff.entrees.length === 0 ? (
@@ -359,7 +363,7 @@ function DiffSection({ diff }: { diff: DiffTemporel }) {
                 {labelSource(e.source)}
               </span>
               <span className="leading-5 text-foreground">{e.detail}</span>
-              <span className="ml-auto whitespace-nowrap leading-5 text-[11px] tabular-nums text-muted-foreground">
+              <span className="ml-auto whitespace-nowrap font-mono leading-5 text-[11px] tabular-nums text-muted-foreground">
                 {fr(e.jour)}
               </span>
             </li>
@@ -377,55 +381,63 @@ function SuccessContent({ data }: { data: ExplanationSuccess }) {
   return (
     <div className="space-y-5 px-5 py-4">
       {/* En-tête ligne du message */}
-      <div className="rounded-lg border border-rule bg-card px-3 py-2.5">
+      <Card className="gap-0 px-3 py-2.5 hover:shadow-none">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-mono text-xs font-bold text-foreground">
-            {grille.ligneMessage.vcrnum}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            ligne {grille.ligneMessage.vcrlin}
-            {grille.ligneMessage.vcrseq ? ` · séq. ${grille.ligneMessage.vcrseq}` : ''}
-          </span>
-          <span className="text-xs font-semibold tabular-nums">
-            {fmtQte(grille.ligneMessage.quantite)}
-          </span>
-          <span className="text-xs tabular-nums text-muted-foreground">
-            échéance {fr(grille.ligneMessage.echeance)}
-          </span>
+          <CellStack
+            code={grille.ligneMessage.vcrnum}
+            label={`ligne ${grille.ligneMessage.vcrlin}${grille.ligneMessage.vcrseq ? ` · séq. ${grille.ligneMessage.vcrseq}` : ''}`}
+          />
+          <CellNumber value={fmtQte(grille.ligneMessage.quantite)} />
+          <CellDate date={fr(grille.ligneMessage.echeance)} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#c13515]/10 px-2 py-0.5 font-bold text-[#c13515]">
-            Avancer
-          </span>
+          <Badge variant="destructive">Avancer</Badge>
           <span className="text-muted-foreground">
-            MRPDAT_0 : <span className="font-semibold text-foreground">{fr(grille.mrpdatCbn)}</span>
+            MRPDAT_0 :{' '}
+            <span className="font-mono font-semibold tabular-nums text-foreground">
+              {fr(grille.mrpdatCbn)}
+            </span>
           </span>
           {grille.premierePenurie && (
             <span className="text-muted-foreground">
               · pénurie :{' '}
-              <span className="font-semibold text-[#c13515]">{grille.premierePenurie}</span>
+              <span className="font-mono font-semibold tabular-nums text-destructive">
+                {grille.premierePenurie}
+              </span>
             </span>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Grille time-phased */}
       <section>
-        <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        <h3 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           Grille time-phased
         </h3>
-        <div className="overflow-x-auto rounded-lg border border-rule">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[520px] text-left text-xs">
             <caption className="sr-only">Grille time-phased de l’article</caption>
             <thead>
               <TableHeadRow className="bg-secondary/50">
                 <TableHead>Période</TableHead>
-                <TableHead align="right">Stock début</TableHead>
-                <TableHead align="right">Demande</TableHead>
-                <TableHead align="right">Besoin mat.</TableHead>
-                <TableHead align="right">Réception</TableHead>
-                <TableHead align="right">OF</TableHead>
-                <TableHead align="right">Stock fin</TableHead>
+                <TableHead align="right" className="text-right!">
+                  Stock début
+                </TableHead>
+                <TableHead align="right" className="text-right!">
+                  Demande
+                </TableHead>
+                <TableHead align="right" className="text-right!">
+                  Besoin mat.
+                </TableHead>
+                <TableHead align="right" className="text-right!">
+                  Réception
+                </TableHead>
+                <TableHead align="right" className="text-right!">
+                  OF
+                </TableHead>
+                <TableHead align="right" className="text-right!">
+                  Stock fin
+                </TableHead>
               </TableHeadRow>
             </thead>
             <tbody>
@@ -497,16 +509,16 @@ function SuccessContent({ data }: { data: ExplanationSuccess }) {
 
       {/* Pegging natif WIPTYP=6 */}
       <section>
-        <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        <h3 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           Pegging — besoin matière
         </h3>
         {pegging.parents.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-rule bg-secondary/30 px-3 py-2.5 text-xs text-muted-foreground">
+          <p className="rounded-lg border border-dashed border-border bg-secondary/30 px-3 py-2.5 text-xs text-muted-foreground">
             Aucun besoin matière ferme (WIPTYP=6 WIPSTA=1) sur l’horizon — article à demande directe
             ou sans OF parent.
           </p>
         ) : (
-          <div className="rounded-lg border border-rule bg-card">
+          <Card className="gap-0 overflow-hidden hover:shadow-none">
             <div className="px-3 py-2">
               <p className="text-xs font-semibold text-foreground">
                 Besoin matière de :{' '}
@@ -517,20 +529,37 @@ function SuccessContent({ data }: { data: ExplanationSuccess }) {
                 <span className="font-normal text-muted-foreground">(OF fermes)</span>
               </p>
             </div>
-            <div className="divide-y divide-rule/60 border-t border-rule/60">
-              {pegging.parents.map((par, i) => (
-                <div
-                  key={`${par.of}-${par.article}-${i}`}
-                  className="flex items-center gap-3 px-3 py-1.5 text-xs"
-                >
-                  <span className="font-mono font-semibold tabular-nums">{par.article}</span>
-                  <span className="font-mono text-muted-foreground">{par.of}</span>
-                  <span className="ml-auto tabular-nums">{fmtQte(par.quantite)}</span>
-                  <span className="tabular-nums text-muted-foreground">{fr(par.echeance)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+            <table className="w-full border-collapse border-t border-border text-left text-sm">
+              <thead>
+                <TableHeadRow>
+                  <TableHead>Article</TableHead>
+                  <TableHead>OF</TableHead>
+                  <TableHead align="right" className="text-right!">
+                    Qté
+                  </TableHead>
+                  <TableHead>Échéance</TableHead>
+                </TableHeadRow>
+              </thead>
+              <tbody>
+                {pegging.parents.map((par, i) => (
+                  <TableRow key={`${par.of}-${par.article}-${i}`}>
+                    <TableCell>
+                      <CellStack code={par.article} />
+                    </TableCell>
+                    <TableCell>
+                      <CellStack code={par.of} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <CellNumber value={fmtQte(par.quantite)} />
+                    </TableCell>
+                    <TableCell>
+                      <CellDate date={fr(par.echeance)} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </tbody>
+            </table>
+          </Card>
         )}
         {pegging.suggestionOrigine && (
           <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
