@@ -1,20 +1,21 @@
 #!/bin/sh
 # pre-push — rejoue EN LOCAL les jobs bloquants de la CI, en quelques secondes.
 #
-# On pousse directement sur master : la protection de branche GitHub ne sert alors à
-# rien (les checks requis ne gouvernent que les PR, et `enforce_admins` est à false).
-# Le seul endroit où un push cassé peut encore être refusé, c'est ici.
+# master est la production : un push direct y est refusé. La prod n'avance que
+# par PR (release `dev` → `master`, ou `hotfix/*` → `master`). `enforce_admins`
+# est à false côté GitHub, donc le seul garde-fou quotidien, c'est ici.
 #
 # Budget : ~3 s à chaud. Trois leviers, parce qu'un gate qu'on subit finit contourné :
 #   - typecheck INCRÉMENTAL (cache dans node_modules/.cache/tsc) : 1,7 s au lieu de 10,7 s ;
-#   - lint sur les SEULS fichiers modifiés vs origin/master : 1,4 s au lieu de 6,3 s ;
+#   - lint sur les SEULS fichiers modifiés vs la base d'intégration : 1,4 s au lieu de 6,3 s ;
 #   - les trois contrôles EN PARALLÈLE (le 3e coûte donc ~0 s de plus au mur).
 # Premier push après un `npm ci` (cache froid) : ~10 s, une fois.
 #
+# Base du lint ciblé :
+#   - hotfix/* → origin/master
+#   - tout le reste → origin/dev (repli origin/master si `dev` n'existe pas encore)
+#
 # Le 3e contrôle est la fraîcheur du manifeste de routes (npm run routes:check, 1,7 s).
-# Il est ici parce qu'il est la SEULE cause de CI rouge observée sur master : les 2 échecs
-# des 40 derniers runs sont tous deux l'étape « Manifeste de routes à jour », et
-# l'historique porte 4 commits purement correctifs (a179e9a, 3bff8b7, 1992642, daa29bd).
 # Un manifeste périmé est invisible au typecheck comme au lint.
 #
 # mcp:apps:check (4e étape du job Quality) reste en CI : 4,4 s pour un contrôle qui n'a
@@ -30,12 +31,30 @@
 #
 # Contournement : git push --no-verify (le run CI, lui, ne se contourne pas).
 
+# --- Garde-fou master --------------------------------------------------------
+# Git fournit une ligne par ref poussée sur stdin. On consomme tout le flux
+# avant d'éventuellement refuser, pour ne pas laisser git en SIGPIPE.
+MASTER_PUSH=0
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/master" ]; then
+    MASTER_PUSH=1
+  fi
+done
+if [ "$MASTER_PUSH" -eq 1 ]; then
+  echo "❌ Push direct vers master refusé."
+  echo "   master est la production. Ouvrir une PR :"
+  echo "     release :  gh pr create --base master --head dev"
+  echo "     hotfix  :  gh pr create --base master --head hotfix/<slug>"
+  echo "   Contournement d'urgence : git push --no-verify"
+  exit 1
+fi
+
 CACHE=node_modules/.cache/tsc
 mkdir -p "$CACHE"
 
 BIN=node_modules/.bin
 
-# Fichiers TS/TSX à pousser, vs origin/master.
+# Fichiers TS/TSX à pousser, vs la base d'intégration.
 #  - base trouvée + fichiers TS   → lint ciblé (~1 s) ;
 #  - base trouvée + aucun TS      → lint SAUTÉ (commit de doc, de conf…) ;
 #  - base introuvable (remote absent, 1er push) → périmètre complet, lent mais pas borgne.
@@ -44,7 +63,20 @@ BIN=node_modules/.bin
 # en dessous, et eslint le lirait pendant son écriture. C'est un fichier généré, le job
 # Lint de la CI le couvre de toute façon.
 MANIFEST=inertia-react/lib/routes-manifest.ts
-BASE=$(git merge-base origin/master HEAD 2>/dev/null)
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+case "$BRANCH" in
+  hotfix/*) COMPARE=origin/master ;;
+  *)
+    if git rev-parse --verify origin/dev >/dev/null 2>&1; then
+      COMPARE=origin/dev
+    else
+      COMPARE=origin/master
+    fi
+    ;;
+esac
+
+BASE=$(git merge-base "$COMPARE" HEAD 2>/dev/null)
 if [ -n "$BASE" ]; then
   FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- '*.ts' '*.tsx' |
     grep -vxF "$MANIFEST" | tr '\n' ' ')
@@ -54,7 +86,7 @@ else
   LINT_SCOPE=complet
 fi
 
-echo "🔍 Pré-push : contrôles bloquants"
+echo "🔍 Pré-push : contrôles bloquants (base $COMPARE)"
 
 (
   "$BIN/tsc" --noEmit --incremental --tsBuildInfoFile "$CACHE/app.tsbuildinfo" &&

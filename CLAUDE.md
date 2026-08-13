@@ -14,18 +14,39 @@ Français strict ; commandes, noms de fichiers et mots-clés verbatim._
   Les deux modes sont exclusifs.
 - Dates affichées en **jj/mm/aaaa**. L'ISO reste côté machine.
 
+## Branches opératoires
+
+Deux branches longues :
+
+- `master` — production. N'avance que par PR : release (`dev` → `master`, merge commit)
+  ou `hotfix/*` → `master`. Un push direct est refusé par le hook `pre-push`.
+- `dev` — intégration des features pas encore stables. Cible par défaut des PR.
+
+`feat/*` et `fix/*` partent de `origin/dev`, PR avec `--base dev`.
+`hotfix/*` part de `origin/master`, PR avec `--base master`. Après merge dans `master`,
+merger `master` dans `dev` avant le commit suivant sur `dev`.
+
+Le checkout principal (`supply-chain-board/`) reste sur `master` et propre. Le travail
+quotidien se fait dans le worktree frère `../supply-chain-board-worktrees/dev`. Le
+watcher (`node ace serve --hmr`) se lance dans ce worktree-là, pas dans `master`.
+
 ## Worktrees
 
-Jamais à l'intérieur du repo : le watcher (`node ace serve --hmr`) descend dans tout l'arbre
-sans honorer aucune exclusion, sature `kern.maxfilesperproc` et meurt en `EMFILE`.
-Toujours dans le dossier frère :
+Jamais à l'intérieur du repo : le watcher descend dans tout l'arbre sans honorer aucune
+exclusion, sature `kern.maxfilesperproc` et meurt en `EMFILE`. Toujours dans le dossier
+frère :
 
 ```bash
-git worktree add ../supply-chain-board-worktrees/<branche> <branche>
+# Feature / fix : depuis origin/dev
+git worktree add ../supply-chain-board-worktrees/<branche> -b feat/<issue>-<slug> origin/dev
+
+# Hotfix prod : depuis origin/master
+git worktree add ../supply-chain-board-worktrees/<branche> -b hotfix/<issue>-<slug> origin/master
 ```
 
 Puis copier depuis le worktree source `.env` et `tmp/db.sqlite3` (gitignorés, indispensables),
-et lancer `npm ci`. Sous Claude Code, le skill `worktree-setup` enchaîne ces étapes.
+et lancer `npm ci`. Le skill `worktree-setup` enchaîne ces étapes et pose `--base` selon
+le préfixe de branche (`dev` pour `feat`/`fix`, `master` pour `hotfix`).
 
 ## Workflow : code → commit → push → CI verte
 
@@ -41,19 +62,23 @@ Après chaque tâche terminée (feature, fix, refacto), dans cet ordre :
    Non négociable : sans lui, le travail de l'agent est attribué en totalité à l'utilisateur
    dans `git log`, `git blame` et sur GitHub. Et un trailer qui nomme le mauvais modèle est
    pire que pas de trailer : il attribue le travail à un tiers.
-3. **Push**. Le hook `pre-push` rejoue typecheck, lint et fraîcheur du manifeste de routes
+3. **Push** de la branche de travail, jamais de `master`. Le hook `pre-push` refuse un
+   push direct vers `master`, rejoue typecheck, lint et fraîcheur du manifeste de routes
    en ~3,6 s, et refuse le push s'ils échouent. Il est versionné et actif via
    `core.hooksPath=scripts/hooks` — rien à installer, y compris dans un nouveau worktree.
    Échappatoire assumée : `git push --no-verify`.
-4. **Surveiller la CI** : `gh run watch` jusqu'à conclusion. Un push n'est pas une tâche
-   terminée — master n'a aucun garde-fou GitHub (`enforce_admins=false`), la CI tourne après
-   coup, et le hook ne couvre pas les tests.
+4. **PR** : `gh pr create --base dev` (hotfix : `--base master`). `gh pr create` sans
+   `--base` vise `master` — c'est le défaut GitHub, à surcharger à chaque fois.
+5. **Surveiller la CI** : `gh run watch` jusqu'à conclusion. Un push n'est pas une tâche
+   terminée — `enforce_admins=false` sur `master`, la CI tourne après coup, et le hook
+   ne couvre pas les tests.
    - Job rouge : `gh run view <id> --log-failed`, corriger, repousser.
    - Annoncer l'état réel : « poussé, CI en cours », puis le résultat. Jamais « poussé »
      présenté comme un aboutissement.
 
-Vérifier l'état de la CI **avant** de merger dans master : merger dans une branche déjà rouge
-rend indémêlable ce qu'on vient de casser.
+Vérifier l'état de la CI **avant** de merger dans `dev` ou `master` : merger dans une
+branche déjà rouge rend indémêlable ce qu'on vient de casser. Un merge dans `master`
+est une release, pas le flux quotidien.
 
 Ne jamais accumuler de travail non commité — working tree propre entre deux tâches.
 Exceptions : l'utilisateur dit explicitement « ne commit pas » ou « attends avant de pousser ».

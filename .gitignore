@@ -49,3 +49,11 @@ excalidraw.log
 .hallmark/
 .qwen/
 .gstack/
+
+# Audits, critiques et brouillons locaux — hors dépôt.
+.impeccable/
+.scratch/
+.pi-glla/archive/
+.pi-glla/audit-jobs/
+.pi-glla/goals/
+.pi-glla/settings.json
