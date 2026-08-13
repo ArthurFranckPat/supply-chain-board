@@ -439,6 +439,34 @@ function mobileAvg(totaux: number[], fenetre: number): number[] {
   return r
 }
 
+/** Halo carte + trait coloré : la courbe reste lisible au-dessus des barres. */
+function courbeOverlay(
+  points: { cle: string; valeur: number }[],
+  stroke: string,
+  width: number,
+  opts: { halo?: number; dash?: string } = {}
+) {
+  const shared = {
+    x: 'cle' as const,
+    y: 'valeur' as const,
+    strokeOpacity: 1,
+    ...(opts.dash ? { strokeDasharray: opts.dash } : {}),
+  }
+  const halo = opts.halo ?? 0
+  return [
+    ...(halo > 0
+      ? [
+          lineY(points, {
+            ...shared,
+            stroke: 'var(--color-card, #fff)',
+            strokeWidth: halo,
+          }),
+        ]
+      : []),
+    lineY(points, { ...shared, stroke, strokeWidth: width }),
+  ]
+}
+
 /**
  * Charge empilée dans le temps, avec plafond de capacité.
  *
@@ -619,18 +647,10 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
           fill: remplissage,
         }),
         ...(capPoints.length > 0
-          ? [
-              lineY(capPoints, {
-                x: 'cle',
-                y: 'valeur',
-                stroke: SERIE.capacite,
-                strokeWidth: 1.5,
-                strokeDasharray: '4 3',
-                // Sans ça, la règle hérite d'une opacité de 0,5 et le plafond
-                // se lit moins bien que la grille.
-                strokeOpacity: 1,
-              }),
-            ]
+          ? courbeOverlay(capPoints, SERIE.capacite, afficherAxes ? 3 : 2, {
+              halo: afficherAxes ? 7 : 0,
+              dash: afficherAxes ? '7 5' : '5 4',
+            })
           : []),
         ...regles.flatMap((r, i) => [
           ruleY([r.valeur], {
@@ -646,13 +666,25 @@ export const HistogrammeCharge = memo(function HistogrammeCharge({
           : []),
         ...(moy.length > 1
           ? [
-              lineY(moy, {
-                x: 'cle',
-                y: 'valeur',
-                stroke: SERIE.tendance,
-                strokeWidth: 1.5,
-                strokeDasharray: '4 3',
+              ...courbeOverlay(moy, SERIE.tendance, afficherAxes ? 3.5 : 2, {
+                halo: afficherAxes ? 8 : 0,
               }),
+              ...(afficherAxes
+                ? [
+                    dot(moy, {
+                      x: 'cle',
+                      y: 'valeur',
+                      r: 6,
+                      fill: 'var(--color-card, #fff)',
+                    }),
+                    dot(moy, {
+                      x: 'cle',
+                      y: 'valeur',
+                      r: 4,
+                      fill: SERIE.tendance,
+                    }),
+                  ]
+                : []),
             ]
           : []),
         ...(labels.length > 0

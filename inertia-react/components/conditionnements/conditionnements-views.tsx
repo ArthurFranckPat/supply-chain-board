@@ -1,19 +1,19 @@
 import { type ReactNode, useMemo, useState } from 'react'
-import { cn } from '@r/lib/utils'
+import { Badge } from '@r/components/ui/badge'
+import { Card } from '@r/components/ui/card'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-import { rowToneClass, type RowTone } from '@r/components/ui/table-row'
+import {
+  CellDate,
+  CellNumber,
+  CellStack,
+  rowToneClass,
+  type RowTone,
+} from '@r/components/ui/table-row'
 import type {
   ArticleEnrichissement,
   ConditionnementDisplayRow,
   EstimationSourceDisplay,
 } from '@r/lib/conditionnements/types'
-import { DynamicIcon } from '../ui/dynamic-icon'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers & Constants
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Grammaire compacte reprise de la table Suivi (font-sans 10px, py serré). */
 
 /** Valeur distincte d'une facette avec son compte. */
 export interface Facette {
@@ -30,18 +30,26 @@ export const ETAT_LABELS: Record<string, string> = {
   manquant_les_deux: 'Les deux manquants',
 }
 
+const ETAT_BADGE: Record<
+  string,
+  { label: string; variant: 'success' | 'warning' | 'destructive' }
+> = {
+  complet: { label: 'Complet', variant: 'success' },
+  manquant_0: { label: 'US/UC', variant: 'warning' },
+  manquant_1: { label: 'UC/pal', variant: 'warning' },
+  manquant_les_deux: { label: 'Les deux', variant: 'destructive' },
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Cell Components
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Cellule de coef : valeur si présente, « ? » rouge si manquant. */
+/** Cellule de coef : valeur si présente, « ? » si manquant. */
 export function CoefCell({ value }: { value: number | null }) {
   if (!value || value <= 0) {
-    return <span className="font-mono text-[13px] font-bold text-destructive">?</span>
+    return <CellNumber tone="critical" value="?" title="Coefficient manquant" />
   }
-  return (
-    <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">{value}</span>
-  )
+  return <CellNumber value={value} />
 }
 
 /** Cellule d'une source d'estimation. */
@@ -55,22 +63,15 @@ export function SourceCell({
   label: string
 }) {
   if (!src) {
-    return <span className="font-sans text-[11px] italic text-muted-foreground/40">—</span>
+    return <Vide />
   }
   return (
     <span
       className="inline-flex items-center gap-1"
       title={`${label} — ${src.observations} observation(s) — confiance ${src.confiance}`}
     >
-      <span
-        className={cn(
-          'font-fraunces text-[14px] font-bold tabular-nums',
-          tone === 'ferme' ? 'text-ferme' : 'text-planifie'
-        )}
-      >
-        {src.usParPalette}
-      </span>
-      <span className="font-mono text-[9px] text-muted-foreground">US/pal</span>
+      <CellNumber value={src.usParPalette} tone={tone === 'ferme' ? 'ok' : 'info'} />
+      <span className="font-mono text-3xs text-muted-foreground">US/pal</span>
       {src.confiance === 'faible' && (
         <span className="text-suggere" title="Confiance faible (< 3 observations)">
           ⚠
@@ -80,126 +81,36 @@ export function SourceCell({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Badge Components
-// ─────────────────────────────────────────────────────────────────────────────
-
 /** Badge de concordance entre les 3 sources (UC/pal, STOCK, STOJOU). */
 export function ConcordanceBadge({
   concordance,
 }: {
   concordance: { niveau: 0 | 1 | 2 | 3; nbSources: number; nbConcordantes: number }
 }) {
-  // Pas de source → gris. 1 source isolée → ambre. 2 concordantes → bleu. 3 → vert.
-  const badgeClass = (() => {
-    if (concordance.nbSources === 0) return 'bg-muted text-muted-foreground'
-    if (concordance.niveau >= 3) return 'bg-ferme/15 text-ferme'
-    if (concordance.niveau >= 2) return 'bg-planifie/15 text-planifie'
-    if (concordance.niveau === 1) return 'bg-suggere/15 text-suggere'
-    return 'bg-destructive/15 text-destructive'
+  const variant = ((): 'outline' | 'success' | 'default' | 'warning' | 'destructive' => {
+    if (concordance.nbSources === 0) return 'outline'
+    if (concordance.niveau >= 3) return 'success'
+    if (concordance.niveau >= 2) return 'default'
+    if (concordance.niveau === 1) return 'warning'
+    return 'destructive'
   })()
 
   const points = '●'.repeat(concordance.niveau) + '○'.repeat(Math.max(0, 3 - concordance.niveau))
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider',
-        badgeClass
-      )}
+    <Badge
+      variant={variant}
       title={`${concordance.nbConcordantes} paire(s) concordante(s) sur ${concordance.nbSources} source(s) disponible(s)`}
     >
       {points}
-    </span>
+    </Badge>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dropdown Component
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Filtre à facettes : un bouton qui ouvre un panneau de cases à cocher.
- */
-export function FacetteDropdown({
-  label,
-  facettes,
-  selection,
-  open,
-  onToggleOpen,
-  onToggle,
-  onClear,
-}: {
-  label: string
-  facettes: Facette[]
-  selection: Set<string>
-  open: boolean
-  onToggleOpen: () => void
-  onToggle: (cle: string) => void
-  onClear: () => void
-}) {
-  const nbSelectionnees = selection.size
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggleOpen}
-        className={cn(
-          'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-          nbSelectionnees > 0
-            ? 'border-brand/40 bg-brand/10 text-brand'
-            : 'border-rule bg-card text-muted-foreground hover:text-foreground'
-        )}
-      >
-        {label}
-        {nbSelectionnees > 0 && (
-          <span className="rounded bg-brand/20 px-1 text-[9px] tabular-nums">
-            {nbSelectionnees}
-          </span>
-        )}
-        <DynamicIcon name={open ? 'expand_less' : 'expand_more'} size={12} strokeWidth={1.75} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={onToggleOpen} />
-          <div className="absolute left-0 top-full z-20 mt-1 max-h-[320px] w-[240px] overflow-auto rounded-md border border-rule bg-card shadow-lg">
-            <div className="sticky top-0 flex items-center justify-between border-b border-rule-soft bg-card px-2 py-1">
-              <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                {label} ({facettes.length})
-              </span>
-              {nbSelectionnees > 0 && (
-                <button
-                  type="button"
-                  onClick={onClear}
-                  className="font-mono text-[9px] font-bold uppercase tracking-wider text-brand hover:underline"
-                >
-                  Effacer
-                </button>
-              )}
-            </div>
-            {facettes.map((f) => (
-              <label
-                key={f.cle}
-                className="flex cursor-pointer items-center gap-2 border-b border-rule-soft px-2 py-1.5 last:border-b-0 hover:bg-secondary/40"
-              >
-                <input
-                  type="checkbox"
-                  className="accent-brand"
-                  checked={selection.has(f.cle)}
-                  onChange={() => onToggle(f.cle)}
-                />
-                <span className="flex-1 truncate text-[11px] text-foreground">{f.label}</span>
-                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {f.count}
-                </span>
-              </label>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
+function EtatBadge({ etat }: { etat: string }) {
+  const spec = ETAT_BADGE[etat]
+  if (!spec || etat === 'complet') return null
+  return <Badge variant={spec.variant}>{spec.label}</Badge>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -230,21 +141,17 @@ interface ConditionnementsTableProps {
   emptyState?: ReactNode
 }
 
-/** Formatteur ISO (YYYY-MM-DD) → JJ/MM/AA. */
+/** Formatteur ISO (YYYY-MM-DD) → jj/mm/aaaa. */
 const fmtFr = (iso: string | null | undefined): string => {
   if (!iso) return ''
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
   if (!m) return iso
-  return `${m[3]}/${m[2]}/${m[1]!.slice(2)}`
+  return `${m[3]}/${m[2]}/${m[1]}`
 }
 
 /** Placeholder « — » (valeur absente) ou « … » (enrichissement non chargé). */
 function Vide({ variant = 'absent' }: { variant?: 'absent' | 'attente' }) {
-  return (
-    <span className="text-[11px] italic text-muted-foreground/40">
-      {variant === 'attente' ? '…' : '—'}
-    </span>
-  )
+  return <span className="text-xs text-muted-foreground">{variant === 'attente' ? '…' : '—'}</span>
 }
 
 /**
@@ -253,7 +160,7 @@ function Vide({ variant = 'absent' }: { variant?: 'absent' | 'attente' }) {
  * estimations chargées — d'où le paramètre `estimationsChargees`.
  *
  * `accessorFn` sert au tri (valeur triable, nulls poussés en fin), `cell` au
- * rendu. Grammaire compacte reprise de Suivi (TH_C / TD_C).
+ * rendu. Cellules canoniques : CellStack / CellNumber / CellDate / Badge.
  */
 function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
   const cols: ColumnDef<DisplayRow>[] = [
@@ -261,17 +168,20 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'article',
       header: 'Article',
       accessorFn: (r) => r.article,
-      meta: {},
+      meta: { thClass: 'text-left', tdClass: 'align-top' },
       cell: ({ row: { original: r } }) => (
-        <div className="leading-tight">
-          <div className="font-mono text-[12px] font-bold tracking-tight text-foreground">
-            {r.article}
-          </div>
-          {r.categorie && (
-            <span className="font-mono text-[9px] uppercase text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <CellStack
+            code={r.article}
+            label={r.designation || '—'}
+            labelTitle={r.designation || undefined}
+            action={<EtatBadge etat={r.etatCoef} />}
+          />
+          {r.categorie ? (
+            <span className="font-mono text-3xs uppercase text-muted-foreground">
               {r.categorie}
             </span>
-          )}
+          ) : null}
         </div>
       ),
     },
@@ -281,7 +191,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       accessorFn: (r) => r.designation ?? '',
       meta: {},
       cell: ({ row: { original: r } }) => (
-        <span className="text-[12px] text-secondary-foreground">{r.designation || '—'}</span>
+        <span className="text-2xs text-muted-foreground">{r.designation || '—'}</span>
       ),
     },
     {
@@ -293,12 +203,11 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
         !r.nomFrnsr ? (
           <Vide />
         ) : (
-          <div className="leading-tight">
-            <div className="truncate text-[12px] text-foreground">{r.nomFrnsr}</div>
-            {r.codeFrnsr && (
-              <span className="font-mono text-[9px] text-muted-foreground">{r.codeFrnsr}</span>
-            )}
-          </div>
+          <CellStack
+            code={r.nomFrnsr}
+            label={r.codeFrnsr ?? undefined}
+            labelTitle={r.codeFrnsr ?? undefined}
+          />
         ),
     },
     {
@@ -328,14 +237,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
           !r.derniereEntree ? (
             <Vide />
           ) : (
-            <div className="leading-tight">
-              <div className="font-mono text-[11px] tabular-nums text-foreground">
-                {fmtFr(r.derniereEntree)}
-              </div>
-              {r.typeEntree && (
-                <span className="font-mono text-[9px] text-muted-foreground">{r.typeEntree}</span>
-              )}
-            </div>
+            <CellDate date={fmtFr(r.derniereEntree)} relative={r.typeEntree} />
           ),
       },
       {
@@ -347,14 +249,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
           !r.derniereSortie ? (
             <Vide />
           ) : (
-            <div className="leading-tight">
-              <div className="font-mono text-[11px] tabular-nums text-foreground">
-                {fmtFr(r.derniereSortie)}
-              </div>
-              {r.typeSortie && (
-                <span className="font-mono text-[9px] text-muted-foreground">{r.typeSortie}</span>
-              )}
-            </div>
+            <CellDate date={fmtFr(r.derniereSortie)} relative={r.typeSortie} />
           ),
       }
     )
@@ -430,22 +325,22 @@ export function ConditionnementsTable({
   const columns = useMemo(() => buildColumns(estimationsChargees), [estimationsChargees])
   const sortedRows = useMemo(() => trier(rows, sorting, columns), [rows, sorting, columns])
 
-  // Coquille identique à la table Suivi : gouttière p-5, carte bordée + ombre,
-  // header collant sur fond secondaire, lignes zébrées + teinte d'état.
   return (
-    <div className="min-h-0 flex-1 overflow-hidden p-5">
-      <DataTable
-        columns={columns}
-        rows={sortedRows}
-        sorting={sorting}
-        onSortingChange={setSorting}
-        getRowKey={(r) => r.article}
-        getRowClass={(r) => rowToneClass(rowTone(r))}
-        tableClass="min-w-[880px]"
-        scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
-        theadRowClass="sticky top-0 z-10 bg-secondary"
-        emptyState={emptyState}
-      />
+    <div className="flex min-h-0 flex-1 flex-col p-5">
+      <Card padding="none" className="min-h-0 flex-1 overflow-hidden">
+        <DataTable
+          columns={columns}
+          rows={sortedRows}
+          sorting={sorting}
+          onSortingChange={setSorting}
+          getRowKey={(r) => r.article}
+          getRowClass={(r) => rowToneClass(rowTone(r))}
+          tableClass="min-w-[880px]"
+          scrollContainerClass="h-full overflow-auto rounded-none border-0 bg-transparent shadow-none"
+          theadRowClass="sticky top-0 z-10 bg-transparent"
+          emptyState={emptyState}
+        />
+      </Card>
     </div>
   )
 }

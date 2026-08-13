@@ -1,12 +1,13 @@
 import { type CamionDtl } from '@r/components/expeditions/camion-detail-sheet'
 import { chargeBgClass, chargeText, chargeTier } from '@r/components/expeditions/palette-charge'
 import { Clock, TriangleAlert, Truck } from 'lucide-react'
+import { LoadingState } from '@r/components/ui/loading-state'
 import { cn } from '@r/lib/utils'
 
 /**
- * Vue « Manifestes camion » — port React iso du Solid
- * inertia/components/expeditions/manifeste-view.tsx. Chaque camion est une carte
- * compacte avec une barre de remplissage (le lit du camion).
+ * Vue « Manifestes camion » — chaque camion est une carte compacte avec une
+ * barre de remplissage (le lit du camion). Pas une table : c'est une
+ * visualisation de charge.
  */
 
 export type ManifesteSort = 'time' | 'load' | 'client'
@@ -26,16 +27,11 @@ export function ManifesteView({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="h-full overflow-y-auto px-5 pb-8 pt-4">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3.5">
-          <div className="col-span-full flex flex-col items-center gap-2 p-10 text-center">
-            <Truck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
-            <span className="font-fraunces text-[14px] italic text-muted-foreground">
-              Aucun camion ne correspond au filtre.
-            </span>
-          </div>
-        </div>
-      </div>
+      <LoadingState
+        className="h-full"
+        icon={<Truck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />}
+        title="Aucun camion ne correspond au filtre."
+      />
     )
   }
 
@@ -63,8 +59,8 @@ export function ManifesteView({
               type="button"
               className={cn(
                 'relative flex flex-col gap-3 overflow-hidden rounded-lg border bg-card p-4 text-left transition-[border-color,box-shadow] duration-150',
-                'border-rule hover:border-brand',
-                isSel && 'border-brand ring-2 ring-brand/20',
+                'border-border hover:border-primary',
+                isSel && 'border-primary ring-2 ring-primary/20',
                 c.anomalie && 'border-destructive/45',
                 c.anomalie &&
                   'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-destructive'
@@ -75,12 +71,12 @@ export function ManifesteView({
               <div className="flex items-start justify-between gap-2.5">
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[12.5px] font-bold text-foreground">
+                    <span className="truncate font-sans text-[12.5px] font-medium text-foreground">
                       {c.client || '—'}
                     </span>
                     {c.source === 'navette' && (
                       <span
-                        className="inline-flex items-center gap-0.5 rounded bg-brand/10 px-1 font-mono text-[8px] font-bold uppercase tracking-wider text-brand"
+                        className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 font-mono text-[8px] font-bold uppercase tracking-wider text-primary"
                         title={`Navette ${c.navetteNum}`}
                       >
                         {c.navetteNum}
@@ -108,7 +104,7 @@ export function ManifesteView({
                 <div className="flex items-baseline justify-between gap-2">
                   <span
                     className={cn(
-                      'flex items-baseline gap-1 font-fraunces text-[26px] font-black leading-none tracking-tight tabular-nums',
+                      'flex items-baseline gap-1 font-mono text-[26px] font-black leading-none tracking-tight tabular-nums',
                       chargeText(tier)
                     )}
                   >
@@ -162,7 +158,7 @@ export function ManifesteView({
               </div>
 
               {/* Pied : décomposition contenants (pal/cart) + lignes + flag anomalie */}
-              <div className="flex items-center gap-4 border-t border-rule-soft pt-2.5">
+              <div className="flex items-center gap-4 border-t border-border pt-2.5">
                 <Stat label="Palettes" value={String(c.contenants.pal)} />
                 <Stat label="Cartons" value={String(c.contenants.cart)} />
                 <Stat label="Volantes" value={String(c.contenants.unites)} />

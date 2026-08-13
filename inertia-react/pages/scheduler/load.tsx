@@ -20,6 +20,7 @@ import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 import type { LoadPageProps, LoadLine, LoadQtyMode, LoadView } from '@r/lib/load/types'
 import { type Gran, maskPeriod, satRate, segKeys, segOptions, total } from '@r/lib/load/chart-math'
+import { filterLoadLines } from '@r/lib/load/search'
 import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
@@ -177,16 +178,10 @@ export default function Load(props: LoadPageProps) {
     )
   }, [view, baseLines, activeSegs, segFiltered, viewNet])
 
-  const filteredLines = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const ats = atelierFilter
-    return lines.filter((l) => {
-      if (ats.size && !ats.has(l.atelier)) return false
-      if (q && !`${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q))
-        return false
-      return true
-    })
-  }, [lines, query, atelierFilter])
+  const filteredLines = useMemo(
+    () => filterLoadLines(lines, query, atelierFilter),
+    [lines, query, atelierFilter]
+  )
 
   /* ── Volumes du panneau de filtres ────────────────────────────────────────
      Une chip qui ne porte que son libellé ne rentabilise pas le clic qui ouvre
@@ -218,7 +213,6 @@ export default function Load(props: LoadPageProps) {
    * par défaut : elle laisserait la pastille allumée en permanence.
    */
   const activeFilterCount = (segFiltered ? 1 : 0) + (atelierFilter.size > 0 ? 1 : 0)
-  const isFiltered = activeFilterCount > 0 || query.trim().length > 0
 
   // Si la sélection sort du filtre, bascule sur le premier poste visible.
   useEffect(() => {
@@ -456,15 +450,8 @@ export default function Load(props: LoadPageProps) {
       {/* ── Zone 03 · Interrogation : jamais repliée sous « Filtres » ───── */}
       <ToolbarSearch value={query} onChange={setQuery} placeholder="Poste, article…" />
 
-      {/* ── Zone 04 · État puis actions ─────────────────────────────────── */}
-      {isFiltered && (
-        <ToolbarMetric emphasis title={`sur ${baseLines.length} postes de charge`}>
-          {filteredLines.length} <span className="font-normal text-muted-foreground">postes</span>
-        </ToolbarMetric>
-      )}
-
-      {/* Action primaire : entrée cockpit (#119), poste présélectionné si une
-          ligne est active. */}
+      {/* ── Zone 04 · Action primaire : cockpit (#119), poste présélectionné
+          si une ligne est active. */}
       <Pill
         variant="outline"
         className="gap-1.5"
@@ -487,7 +474,7 @@ export default function Load(props: LoadPageProps) {
     <AppLayout
       title="Charge · Projection"
       active="load"
-      subtitle="Charge · vision long terme"
+      subtitle="Charge / Capacité"
       theme="cursor"
       dense
       scrollable={false}

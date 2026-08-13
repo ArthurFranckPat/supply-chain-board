@@ -2,24 +2,40 @@ import { type ReactNode } from 'react'
 import type { DayChargeDisplay, ReceptionDisplayRow } from '@r/lib/receptions/types'
 import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import { chargeBg, chargeText, chargeTier } from '@r/lib/receptions/charge'
+import { chargeBg, chargeText, chargeTier, type ChargeTier } from '@r/lib/receptions/charge'
 import { X3Link } from '@r/components/x3-link'
+import { CellNumber, CellStack, type RowTone } from '@r/components/ui/table-row'
 
 /**
- * Vues des réceptions fournisseurs (port React — markup shadcn / thème Airbnb).
+ * Vues des réceptions fournisseurs.
  *
  * - `ReceptionTableau` : **bordereau** — une section par jour (rail de date +
  *   lignes de détail + total comptable du jour). Chaque ligne expose l'équation
  *   de conversion (qté US ÷ conditionnement → palettes) pour rendre le calcul
  *   vérifiable plutôt qu'une assertion. Rendu bespoke : le rail vertical
  *   spanning + les sous-totaux intercalaires sont incompatibles avec la
- *   virtualisation ligne-à-ligne du DataTable maison.
+ *   virtualisation ligne-à-ligne du DataTable maison. Les cellules suivent
+ *   néanmoins la grammaire §15 (`CellStack`, `CellNumber`).
  * - `ReceptionCalendrier` : charge agrégée par jour — histogramme du nombre de
  *   palettes attendues, avec drill-down (clic sur un jour → filtre le tableau).
  *
  * Les lignes arrivent déjà filtrées (recherche + drill-down jour) et triées
  * (date asc) du parent `pages/receptions.tsx`. Contrat `(rows, emptyState)`.
  */
+
+/** Palier de charge → ton de cellule canonique (mêmes couleurs que `chargeText`). */
+function chargeRowTone(tier: ChargeTier): RowTone {
+  switch (tier) {
+    case 'bad':
+      return 'critical'
+    case 'warn':
+      return 'warning'
+    case 'mid':
+      return 'info'
+    case 'ok':
+      return 'ok'
+  }
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 // V1 · Bordereau (tableau détaillé par jour)
@@ -83,7 +99,7 @@ export function ReceptionTableau({
   })
 
   return (
-    <div className="h-full overflow-auto rounded-lg border border-rule bg-card shadow-float">
+    <div className="h-full overflow-auto rounded-lg border border-border bg-card shadow-float">
       {groups.map((group, gi) => {
         const groupRows = group.items.map((it) => it.row)
         const totalPal = sumPalettes(groupRows)
@@ -96,16 +112,16 @@ export function ReceptionTableau({
         return (
           <section
             key={group.date ?? `nodate-${gi}`}
-            className={cn('flex', gi > 0 && 'border-t border-rule')}
+            className={cn('flex', gi > 0 && 'border-t border-border')}
           >
             {/* ── Rail de date ── */}
-            <aside className="flex w-36 flex-none flex-col border-r border-rule-soft py-5 pl-8 pr-3">
+            <aside className="flex w-36 flex-none flex-col border-r border-border py-5 pl-8 pr-3">
               {rail ? (
                 <>
                   <div className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
                     {rail.weekday}
                   </div>
-                  <div className="font-fraunces text-[34px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
+                  <div className="font-mono text-[34px] font-medium leading-none tracking-tight text-foreground tabular-nums">
                     {rail.day}
                   </div>
                   <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
@@ -121,27 +137,22 @@ export function ReceptionTableau({
                 <span
                   className={cn(
                     'mt-2 font-mono text-[10px] font-bold',
-                    relatif === 'auj.' ? 'text-brand' : 'text-muted-foreground'
+                    relatif === 'auj.' ? 'text-foreground' : 'text-muted-foreground'
                   )}
                 >
                   {relatif}
                 </span>
               )}
               {/* Charge agrégée du jour */}
-              <div className="mt-3.5 space-y-0.5 border-t border-rule-soft pt-2.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <div className="mt-3.5 space-y-0.5 border-t border-border pt-2.5 font-mono text-[10px] tabular-nums text-muted-foreground">
                 <div>
                   {group.items.length} ligne{group.items.length > 1 ? 's' : ''}
                 </div>
                 <div>
                   {nbFrs} fournisseur{nbFrs > 1 ? 's' : ''}
                 </div>
-                <div
-                  className={cn(
-                    'pt-1 font-fraunces text-[15px] font-bold tabular-nums',
-                    chargeText(totalTier)
-                  )}
-                >
-                  {totalFmt}
+                <div className="pt-1">
+                  <CellNumber value={totalFmt} tone={chargeRowTone(totalTier)} />
                   <span className="ml-1 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                     pal
                   </span>
@@ -155,37 +166,34 @@ export function ReceptionTableau({
                 const tier = chargeTier(row.nbPalettes)
                 // On n'affiche le diviseur que si le coef US/palette est réel (non estimé).
                 const showDivisors = !row.coefManquant && !row.coefEstime && row.ucParPal != null
+                const palTone: RowTone = row.coefManquant ? 'critical' : chargeRowTone(tier)
+                const label = [row.designation, row.fournisseurNom].filter(Boolean).join(' — ')
 
                 return (
                   <div
                     key={`${row.noCommande}-${row.article}-${n}`}
-                    className="flex items-baseline gap-5 border-b border-rule-soft py-3.5 pl-6 pr-8 transition-colors hover:bg-foreground/[0.03]"
+                    className="flex items-baseline gap-5 border-b border-border py-3.5 pl-6 pr-8 transition-colors hover:bg-muted/50"
                   >
                     <span className="w-5 flex-none text-[10px] font-semibold tabular-nums text-muted-foreground/60">
                       {String(n).padStart(2, '0')}
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[13px] font-bold tracking-tight text-foreground">
-                          {row.article}
-                        </span>
-                        <X3Link
-                          fonction="GESPOH"
-                          cle={row.noCommande}
-                          title={`Ouvrir la commande ${row.noCommande} dans Sage X3`}
-                          className="font-mono text-[10.5px] font-medium text-muted-foreground/70"
-                        >
-                          {row.noCommande}
-                        </X3Link>
-                      </div>
-                      <div className="mt-0.5 truncate text-[11.5px] leading-snug text-muted-foreground">
-                        {row.designation}
-                        {row.designation && ' — '}
-                        <span className="font-semibold text-secondary-foreground">
-                          {row.fournisseurNom}
-                        </span>
-                      </div>
+                      <CellStack
+                        code={row.article}
+                        label={label}
+                        labelTitle={label}
+                        action={
+                          <X3Link
+                            fonction="GESPOH"
+                            cle={row.noCommande}
+                            title={`Ouvrir la commande ${row.noCommande} dans Sage X3`}
+                            className="font-mono text-2xs font-medium text-muted-foreground"
+                          >
+                            {row.noCommande}
+                          </X3Link>
+                        }
+                      />
                     </div>
 
                     {/* Équation de conversion — la signature du bordereau :
@@ -204,38 +212,34 @@ export function ReceptionTableau({
                             : `${row.qteUsFmt} u ÷ ${row.ucParPal} US/pal = ${row.nbPalettesFmt} pal`
                       }
                     >
-                      <div className="whitespace-nowrap text-[11px] text-muted-foreground">
-                        <span className="font-bold text-foreground">{row.qteUsFmt}</span> u
+                      <div className="flex items-baseline justify-end gap-1 whitespace-nowrap">
+                        <CellNumber emphasis="plain" value={row.qteUsFmt} title="unités" />
+                        <span className="text-[11px] text-muted-foreground">u</span>
                         {showDivisors && (
                           <>
-                            <span className="mx-1 text-muted-foreground/40">÷</span>
-                            <span>{row.ucParPal}/pal</span>
+                            <span className="mx-0.5 text-muted-foreground/40">÷</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {row.ucParPal}/pal
+                            </span>
                           </>
                         )}
-                        <span className="ml-2 text-muted-foreground/50">→</span>
+                        <span className="ml-1 text-muted-foreground/50">→</span>
                       </div>
-                      <span
-                        className={cn(
-                          'font-fraunces text-[19px] font-bold leading-none tabular-nums',
-                          row.coefManquant ? 'font-medium text-destructive/45' : chargeText(tier)
-                        )}
-                      >
-                        {row.nbPalettesFmt}
-                        {!row.coefManquant && (
-                          <span className="ml-0.5 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                            pal
-                          </span>
-                        )}
-                      </span>
+                      <CellNumber value={row.nbPalettesFmt} tone={palTone} />
+                      {!row.coefManquant && (
+                        <span className="ml-0.5 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                          pal
+                        </span>
+                      )}
                       {row.coefManquant && (
-                        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-medium italic text-destructive">
-                          <TriangleAlert size={10} strokeWidth={2} className="not-italic" />
+                        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-medium text-destructive">
+                          <TriangleAlert size={10} strokeWidth={2} />
                           coef non référencé
                         </div>
                       )}
                       {row.coefEstime && (
-                        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-medium italic text-planifie">
-                          <Lightbulb size={10} strokeWidth={2} className="not-italic" />
+                        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-medium text-planifie">
+                          <Lightbulb size={10} strokeWidth={2} />
                           estimé {row.coefSource?.toLowerCase()}
                         </div>
                       )}
@@ -246,19 +250,14 @@ export function ReceptionTableau({
 
               {/*
                 Total du jour — filet comptable.
-                Exception documentée à la grammaire Airbnb (hairlines 1px partout) :
-                le bordereau adopte une ligne simple au-dessus + un filet double
-                en dessous, convention comptable de soulignement du total.
+                Exception documentée : le bordereau adopte une ligne simple
+                au-dessus + un filet double en dessous, convention comptable
+                de soulignement du total.
               */}
               <div className="ml-6 mr-8 mt-0.5 flex items-baseline gap-3 border-t border-b-[3px] border-double border-foreground pt-2.5 pb-3 pr-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 <span>Total du jour</span>
-                <span
-                  className={cn(
-                    'ml-auto font-fraunces text-[14px] font-bold normal-case tracking-normal tabular-nums',
-                    chargeText(totalTier)
-                  )}
-                >
-                  {totalFmt}
+                <span className="ml-auto normal-case tracking-normal">
+                  <CellNumber value={totalFmt} tone={chargeRowTone(totalTier)} />
                   <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
                     PAL
                   </span>
@@ -292,9 +291,7 @@ export function ReceptionCalendrier({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
         <CalendarX size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
-        <span className="font-fraunces text-[14px] italic text-muted-foreground">
-          Aucune réception planifiée sur la période.
-        </span>
+        <p className="text-sm text-muted-foreground">Aucune réception planifiée sur la période.</p>
       </div>
     )
   }
@@ -302,7 +299,7 @@ export function ReceptionCalendrier({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Légende */}
-      <div className="flex flex-none flex-wrap items-center gap-4 border-b border-rule-soft px-7 py-2 font-mono text-[10px] text-muted-foreground">
+      <div className="flex flex-none flex-wrap items-center gap-4 border-b border-border px-6 py-2 font-mono text-[10px] text-muted-foreground">
         <Legend sw={chargeBg('ok')} label="Léger (&lt; 5)" />
         <Legend sw={chargeBg('mid')} label="Moyen (5–11)" />
         <Legend sw={chargeBg('warn')} label="Fort (12–19)" />
@@ -313,7 +310,7 @@ export function ReceptionCalendrier({
             <button
               type="button"
               onClick={() => onSelectDay(null)}
-              className="ml-2 rounded border border-rule px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand hover:bg-brand/10"
+              className="ml-2 rounded border border-border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground hover:bg-secondary"
             >
               Tout afficher
             </button>
@@ -322,7 +319,7 @@ export function ReceptionCalendrier({
       </div>
 
       {/* Histogramme scrollable */}
-      <div className="flex-1 overflow-auto px-7 py-4">
+      <div className="flex-1 overflow-auto px-6 py-4">
         <div
           className="flex min-h-full items-end gap-1.5"
           style={{ minWidth: `${Math.max(list.length * 56, 100)}px` }}
@@ -339,24 +336,22 @@ export function ReceptionCalendrier({
                 className={cn(
                   'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border pb-1.5 transition-colors',
                   selected
-                    ? 'border-brand bg-brand/5'
-                    : 'border-rule-soft hover:border-rule hover:bg-secondary/30'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-border hover:bg-secondary/30'
                 )}
                 style={{ height: '220px' }}
                 title={`${c.dayFmt} · ${c.palettes} palette(s) · ${c.lignes} réception(s) · ${c.fournisseurs} fournisseur(s)`}
               >
                 {/* Conteneur de charge de hauteur fixe pour éviter l'overflow */}
                 <div className="flex h-[135px] w-full flex-col justify-end items-center px-1">
-                  {/* Nb palettes au-dessus de la barre */}
                   <div
                     className={cn(
-                      'mb-1 font-fraunces text-[16px] font-bold tabular-nums leading-none',
+                      'mb-1 font-mono text-base font-medium tabular-nums leading-none',
                       chargeText(tier)
                     )}
                   >
                     {c.palettes}
                   </div>
-                  {/* Barre */}
                   <div
                     className={cn(
                       'w-full rounded-t-sm transition-all',
@@ -366,14 +361,8 @@ export function ReceptionCalendrier({
                     style={{ height: `${heightPct}%` }}
                   />
                 </div>
-                {/* Jour (relatif + JJ/MM) */}
                 <div className="mt-1.5 px-1 text-center">
-                  <div
-                    className={cn(
-                      'font-mono text-[10px] font-bold',
-                      selected ? 'text-brand' : 'text-foreground'
-                    )}
-                  >
+                  <div className="font-mono text-[10px] font-bold text-foreground">
                     {c.dayRelatif}
                   </div>
                   <div className="font-mono text-[9px] text-muted-foreground">{c.dayFmt}</div>

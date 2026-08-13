@@ -10,6 +10,7 @@ import {
   toMinutes,
 } from '@r/components/expeditions/palette-charge'
 import { TriangleAlert, Truck } from 'lucide-react'
+import { LoadingState } from '@r/components/ui/loading-state'
 import { cn } from '@r/lib/utils'
 
 /**
@@ -96,17 +97,23 @@ export function FriseView({
 
   return (
     <div className="h-full overflow-auto px-5 pb-8 pt-4">
-      <div className="overflow-hidden rounded-lg border border-rule bg-card">
-        {/* En-tête : label + heures */}
-        <div className="sticky top-0 z-[6] grid grid-cols-[210px_1fr] border-b border-rule bg-secondary">
-          <div className="border-r border-rule-soft px-4 py-[11px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="mb-3 flex flex-wrap items-center gap-4 font-mono text-[10px] text-muted-foreground">
+        <Legend sw="bg-ferme" label="Léger (<45%)" />
+        <Legend sw="bg-planifie" label="Normal (45–90%)" />
+        <Legend sw="bg-suggere" label="Proche du max (90–100%)" />
+        <Legend sw="bg-destructive" label="Débord (>100%)" />
+      </div>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        {/* En-tête : label + heures — fond sur les cellules, pas la rangée. */}
+        <div className="sticky top-0 z-[6] grid grid-cols-[210px_1fr] border-b border-border">
+          <div className="border-r border-border bg-secondary px-4 py-[11px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
             Camion
           </div>
           <div className="grid" style={{ gridTemplateColumns: `repeat(${bounds.hours}, 1fr)` }}>
             {Array.from({ length: bounds.hours }).map((_, i) => (
               <span
                 key={i}
-                className="border-r border-rule-soft py-[11px] text-center font-mono text-[10px] font-bold text-muted-foreground last:border-r-0"
+                className="border-r border-border bg-secondary py-[11px] text-center font-mono text-[10px] font-bold text-muted-foreground last:border-r-0"
               >
                 {fromMinutes(bounds.start + i * 60)}
               </span>
@@ -116,12 +123,11 @@ export function FriseView({
 
         {/* Rangées camions */}
         {rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-10 text-center text-muted-foreground">
-            <Truck size={32} strokeWidth={1.75} className="opacity-45" />
-            <span className="font-fraunces text-[14px] italic">
-              Aucun camion ne correspond au filtre.
-            </span>
-          </div>
+          <LoadingState
+            compact
+            icon={<Truck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />}
+            title="Aucun camion ne correspond au filtre."
+          />
         ) : (
           rows.map((c) => {
             const left = pctOf(toMinutes(c.debut), bounds.start, dur)
@@ -133,9 +139,9 @@ export function FriseView({
             return (
               <div
                 key={`${c.bprnum}-${c.debut}-${c.client}`}
-                className="grid grid-cols-[210px_1fr] border-b border-rule-soft last:border-b-0 hover:bg-foreground/[0.03]"
+                className="grid grid-cols-[210px_1fr] border-b border-border last:border-b-0 hover:bg-muted/50"
               >
-                <div className="flex min-w-0 flex-col gap-0.5 border-r border-rule-soft px-4 py-2">
+                <div className="flex min-w-0 flex-col gap-0.5 border-r border-border px-4 py-2">
                   <div className="flex items-center gap-1.5">
                     <span
                       className={cn(
@@ -146,7 +152,7 @@ export function FriseView({
                       {c.client || '—'}
                     </span>
                     {c.source === 'navette' && (
-                      <span className="font-mono text-[8px] font-bold uppercase tracking-wider text-brand">
+                      <span className="font-mono text-[8px] font-bold uppercase tracking-wider text-primary">
                         {c.navetteNum}
                       </span>
                     )}
@@ -175,17 +181,17 @@ export function FriseView({
                   <div
                     className="absolute inset-0"
                     style={{
-                      backgroundImage: `linear-gradient(to right, transparent calc(100%/${bounds.hours} - 1px), var(--color-rule-soft) calc(100%/${bounds.hours} - 1px) calc(100%/${bounds.hours}))`,
+                      backgroundImage: `linear-gradient(to right, transparent calc(100%/${bounds.hours} - 1px), var(--border) calc(100%/${bounds.hours} - 1px) calc(100%/${bounds.hours}))`,
                       backgroundSize: `calc(100%/${bounds.hours}) 100%`,
                     }}
                   />
                   {/* Ligne MAINTENANT */}
                   {nowPct !== null && (
                     <div
-                      className="pointer-events-none absolute inset-y-0 z-[5] w-px bg-brand"
+                      className="pointer-events-none absolute inset-y-0 z-[5] w-px bg-primary"
                       style={{ left: `${nowPct}%` }}
                     >
-                      <span className="absolute -top-[7px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-sm border border-brand bg-card px-1 py-px font-mono text-[8px] font-bold tracking-[0.1em] text-brand">
+                      <span className="absolute -top-[7px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-sm border border-primary bg-card px-1 py-px font-mono text-[8px] font-bold tracking-[0.1em] text-primary">
                         MAINTENANT
                       </span>
                     </div>
@@ -197,8 +203,8 @@ export function FriseView({
                     aria-label={`${c.client} — ${c.debut} à ${c.fin}, ${c.nbPalettes} palettes`}
                     className={cn(
                       'absolute flex cursor-pointer items-center overflow-hidden rounded-[5px] px-2 transition-[filter,box-shadow] duration-150',
-                      'hover:brightness-110 focus-visible:bg-brand focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand',
-                      isSel && 'ring-2 ring-brand ring-offset-1',
+                      'hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary',
+                      isSel && 'ring-2 ring-primary ring-offset-1',
                       chargeBgClass(tier)
                     )}
                     style={{
@@ -234,19 +240,19 @@ export function FriseView({
         )}
 
         {/* Densité quai */}
-        <div className="grid grid-cols-[210px_1fr] border-t-2 border-rule bg-secondary">
-          <div className="flex flex-col justify-center gap-0.5 border-r border-rule-soft px-4 py-3">
+        <div className="grid grid-cols-[210px_1fr] border-t-2 border-border bg-secondary">
+          <div className="flex flex-col justify-center gap-0.5 border-r border-border px-4 py-3">
             <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-secondary-foreground">
               Densité quai
             </span>
-            <span className="font-mono text-[8px] font-medium italic text-muted-foreground">
+            <span className="font-mono text-[8px] font-medium text-muted-foreground">
               camions simultanés / heure
             </span>
           </div>
           <div className="relative" style={{ height: '64px' }}>
             {nowPct !== null && (
               <div
-                className="pointer-events-none absolute inset-y-0 z-[5] w-px bg-brand"
+                className="pointer-events-none absolute inset-y-0 z-[5] w-px bg-primary"
                 style={{ left: `${nowPct}%` }}
               />
             )}
@@ -282,7 +288,7 @@ export function FriseView({
       <div
         ref={tipRef}
         className={cn(
-          'pointer-events-none fixed z-50 max-w-[240px] rounded-lg border border-rule bg-card p-2.5 text-[11px] shadow-float',
+          'pointer-events-none fixed z-50 max-w-[240px] rounded-lg border border-border bg-card p-2.5 text-[11px] shadow-xs',
           !hovered && 'hidden'
         )}
       >
@@ -337,6 +343,16 @@ export function FriseView({
         )}
       </div>
     </div>
+  )
+}
+
+/** Pastille légende (palette de charge). */
+function Legend({ sw, label }: { sw: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={cn('h-[9px] w-5 rounded-[2px]', sw)} />
+      {label}
+    </span>
   )
 }
 

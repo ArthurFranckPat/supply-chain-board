@@ -324,8 +324,8 @@ export function GraphiquesSection() {
           <Legende segments={SEGMENTS} className="mt-3" />
           <Caption className="mt-2">
             La bascule du ferme vers le suggéré au fil des semaines est la lecture attendue d’un
-            planificateur : ce qui est loin n’est pas encore lancé. La pastille marque le pic, la
-            courbe pointillée la moyenne mobile.
+            planificateur : ce qui est loin n’est pas encore lancé. La pastille marque le pic, le
+            trait plein la moyenne mobile, le pointillé le plafond de capacité.
           </Caption>
         </Panel>
       </Fiche>

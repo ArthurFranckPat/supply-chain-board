@@ -9,6 +9,14 @@ import {
   weekdayShort,
 } from '@r/components/expeditions/forecast-types'
 import { JourDetailSheet } from '@r/components/expeditions/jour-detail-sheet'
+import {
+  CellNumber,
+  CellStack,
+  TableCell,
+  TableHead,
+  TableHeadRow,
+  TableRow,
+} from '@r/components/ui/table-row'
 import { cn } from '@r/lib/utils'
 
 /** Vue file quai : décision, pré-alerte, carnet — densité type manifeste. */
@@ -50,7 +58,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule-soft px-7 py-2 font-mono text-[10px] text-muted-foreground">
+      <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-6 py-2 font-mono text-[10px] text-muted-foreground">
         <span>
           File quai · <b className="text-foreground">{fmtPal(forecast.initialQueuePalettes)}</b> pal
           <span className="text-muted-foreground/70">
@@ -91,7 +99,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
       {activeClosures.map((closure) => (
         <div
           key={`${closure.from}-${closure.to}`}
-          className="flex flex-none items-center gap-2 border-b border-warning/30 bg-warning/5 px-7 py-2 font-mono text-[11px] text-foreground"
+          className="flex flex-none items-center gap-2 border-b border-warning/30 bg-warning/5 px-6 py-2 font-mono text-[11px] text-foreground"
         >
           <TriangleAlert size={13} strokeWidth={1.75} className="text-warning" />
           <span>
@@ -108,7 +116,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
       ))}
 
       {saturedDays > 0 && (
-        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/5 px-7 py-2 font-mono text-[11px] text-foreground">
+        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-6 py-2 font-mono text-[11px] text-foreground">
           <TriangleAlert size={13} strokeWidth={1.75} className="text-destructive" />
           <span>
             <b>
@@ -121,7 +129,7 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
       )}
 
       {forecast.nonQuantifiableLines > 0 && (
-        <div className="flex flex-none items-center gap-2 border-b border-warning/25 bg-warning/5 px-7 py-2 font-mono text-[10px] text-warning">
+        <div className="flex flex-none items-center gap-2 border-b border-warning/25 bg-warning/5 px-6 py-2 font-mono text-[10px] text-warning">
           <TriangleAlert size={13} strokeWidth={1.75} />
           {forecast.nonQuantifiableLines} ligne
           {forecast.nonQuantifiableLines > 1 ? 's' : ''} sans coefficient — hors charge.
@@ -170,17 +178,17 @@ export function PrevisionView({ forecast }: { forecast: ExpeditionForecast }) {
           type="button"
           onClick={() => openList('deferred')}
           className={cn(
-            'flex w-full items-center gap-3 border px-3.5 py-2.5 text-left transition-colors',
+            'flex w-full items-center gap-3 rounded-lg border px-3.5 py-2.5 text-left transition-colors',
             forecast.deferred.length > 0
               ? 'border-destructive/30 hover:bg-destructive/[0.03]'
-              : 'border-rule-soft text-muted-foreground hover:bg-secondary/40'
+              : 'border-border text-muted-foreground hover:bg-muted/50'
           )}
         >
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Hors horizon jour
             </div>
-            <div className="truncate text-[12px] font-medium text-foreground">
+            <div className="truncate font-sans text-[12px] font-medium text-foreground">
               {forecast.deferred.length === 0
                 ? 'Aucun reliquat sans date'
                 : `${forecast.deferred.length} ligne${forecast.deferred.length > 1 ? 's' : ''} — sans date, ou au-delà de la cadence atelier sur l'horizon`}
@@ -228,7 +236,7 @@ function SectionHead({
     <div className="mb-1.5 flex items-baseline gap-2 px-0.5">
       <h2
         className={cn(
-          'text-[13px] font-bold tracking-tight',
+          'font-sans text-[13px] font-medium tracking-tight',
           tone === 'decision' && 'text-ferme',
           tone === 'prealert' && 'text-suggere',
           tone === 'weekly' && 'text-planifie'
@@ -240,6 +248,8 @@ function SectionHead({
     </div>
   )
 }
+
+const TH = 'bg-card'
 
 function DayTable({
   days,
@@ -254,25 +264,49 @@ function DayTable({
 }) {
   if (days.length === 0) {
     return (
-      <div className="border border-rule-soft bg-card px-3.5 py-3 font-mono text-[11px] text-muted-foreground">
+      <p className="rounded-lg border border-border bg-card px-4 py-3 font-sans text-sm text-muted-foreground">
         {empty}
-      </div>
+      </p>
     )
   }
 
   return (
-    <div className="overflow-hidden border border-rule bg-card">
-      <div className="grid grid-cols-[5.5rem_minmax(0,1fr)_4.5rem_4.5rem_4.5rem_5rem] gap-2 border-b border-rule-soft bg-secondary/60 px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-        <span>Jour</span>
-        <span>Charge</span>
-        <span className="text-right">Dispo</span>
-        <span className="text-right">Chargé</span>
-        <span className="text-right">File</span>
-        <span className="text-right">Spot</span>
-      </div>
-      {days.map((day) => (
-        <DayRow key={day.date} day={day} peak={peak} onClick={() => onOpen(day)} />
-      ))}
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <table className="w-full table-fixed border-collapse">
+        <colgroup>
+          <col style={{ width: '7rem' }} />
+          <col />
+          <col style={{ width: '4.5rem' }} />
+          <col style={{ width: '4.5rem' }} />
+          <col style={{ width: '4.5rem' }} />
+          <col style={{ width: '5.5rem' }} />
+        </colgroup>
+        <thead>
+          {/* Fond sur les cellules : `.theme-cursor table thead tr` force
+              background transparent !important. */}
+          <TableHeadRow className="sticky top-0 z-10">
+            <TableHead className={TH}>Jour</TableHead>
+            <TableHead className={TH}>Charge</TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              Dispo
+            </TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              Chargé
+            </TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              File
+            </TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              Spot
+            </TableHead>
+          </TableHeadRow>
+        </thead>
+        <tbody>
+          {days.map((day) => (
+            <DayRow key={day.date} day={day} peak={peak} onClick={() => onOpen(day)} />
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -284,87 +318,71 @@ function DayRow({ day, peak, onClick }: { day: DayCharge; peak: number; onClick:
   const relative = day.offset === 0 ? 'auj.' : `+${day.offset}j`
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'relative grid w-full grid-cols-[5.5rem_minmax(0,1fr)_4.5rem_4.5rem_4.5rem_5rem] items-center gap-2 border-t border-rule-soft px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03]',
-        day.spot &&
-          'bg-destructive/[0.03] before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-destructive'
-      )}
-    >
-      <div className="min-w-0">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-[10px] font-bold uppercase text-muted-foreground">
-            {weekdayShort(day.date)}
-          </span>
-          <span className="text-[13px] font-bold tabular-nums text-foreground">
-            {fmtJour(day.date)}
-          </span>
+    <TableRow clickable tone={day.spot ? 'critical' : null} onClick={onClick}>
+      <TableCell>
+        <CellStack code={fmtJour(day.date)} label={`${weekdayShort(day.date)} · ${relative}`} />
+      </TableCell>
+      <TableCell>
+        <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
+          <div
+            className="absolute inset-y-0 left-0 bg-foreground/12"
+            style={{ width: `${availPct}%` }}
+          />
+          <div
+            className={cn(
+              'absolute inset-y-0 left-0',
+              day.spot ? 'bg-destructive' : day.band === 'decision' ? 'bg-ferme' : 'bg-suggere'
+            )}
+            style={{ width: `${loadPct}%` }}
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 w-px bg-foreground/50"
+            style={{ left: `${capPct}%` }}
+          />
         </div>
-        <div className="font-mono text-[9px] text-muted-foreground">{relative}</div>
-      </div>
-
-      <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
-        <div
-          className="absolute inset-y-0 left-0 bg-foreground/12"
-          style={{ width: `${availPct}%` }}
-        />
-        <div
-          className={cn(
-            'absolute inset-y-0 left-0',
-            day.spot ? 'bg-destructive' : day.band === 'decision' ? 'bg-ferme' : 'bg-suggere'
+      </TableCell>
+      <TableCell align="right">
+        <CellNumber value={fmtPal(day.available)} tone={day.spot ? 'critical' : null} />
+      </TableCell>
+      <TableCell align="right">
+        <span className="flex flex-col items-end gap-px">
+          <CellNumber value={fmtPal(day.loaded)} emphasis="plain" />
+          {/* Les 2 palettes/camion gagnées en tassant évitent un spot entier :
+              elles se disent, sinon le chargé paraît dépasser la capacité. */}
+          {day.loadedTasse > 0 && (
+            <span className="font-mono text-2xs text-muted-foreground/70">
+              dont {fmtPal(day.loadedTasse)} tassé
+            </span>
           )}
-          style={{ width: `${loadPct}%` }}
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 w-px bg-foreground/50"
-          style={{ left: `${capPct}%` }}
-        />
-      </div>
-
-      <span
-        className={cn(
-          'text-right font-mono text-[12px] font-bold tabular-nums',
-          day.spot ? 'text-destructive' : 'text-foreground'
-        )}
-      >
-        {fmtPal(day.available)}
-      </span>
-      <span className="text-right font-mono text-[12px] tabular-nums leading-tight text-muted-foreground">
-        {fmtPal(day.loaded)}
-        {/* Les 2 palettes/camion gagnées en tassant évitent un spot entier :
-            elles se disent, sinon le chargé paraît dépasser la capacité. */}
-        {day.loadedTasse > 0 && (
-          <span className="block text-[9px] text-muted-foreground/70">
-            dont {fmtPal(day.loadedTasse)} tassé
-          </span>
-        )}
-      </span>
-      <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
-        {fmtPal(day.fileAfter)}
-      </span>
-      <span
-        className={cn(
-          'text-right font-mono text-[11px] font-bold tabular-nums leading-tight',
-          day.spot ? 'text-destructive' : 'text-muted-foreground'
-        )}
-      >
-        {day.spot ? `${day.nbCamionsSpot} cam.` : day.reportePalettes > 0 ? 'reporté' : '—'}
-        {/* Le besoin non affrétable n'est pas un camion de plus : c'est de
-            l'arriéré. On l'écrit, on ne le fond pas dans le compte. */}
-        {day.spotSature && (
-          <span className="block font-normal text-[9px] text-destructive/80">
-            arriéré {fmtPal(day.fileAfter)}
-          </span>
-        )}
-        {!day.spot && day.reportePalettes > 0 && (
-          <span className="block font-normal text-[9px] text-muted-foreground/70">
-            {fmtPal(day.reportePalettes)} pal à J+1
-          </span>
-        )}
-      </span>
-    </button>
+        </span>
+      </TableCell>
+      <TableCell align="right">
+        <CellNumber value={fmtPal(day.fileAfter)} emphasis="plain" />
+      </TableCell>
+      <TableCell align="right">
+        <span className="flex flex-col items-end gap-px">
+          <CellNumber
+            value={
+              day.spot ? `${day.nbCamionsSpot} cam.` : day.reportePalettes > 0 ? 'reporté' : '—'
+            }
+            tone={day.spot ? 'critical' : null}
+            emphasis={day.spot ? 'strong' : 'plain'}
+          />
+          {/* Le besoin non affrétable n'est pas un camion de plus : c'est de
+              l'arriéré. On l'écrit, on ne le fond pas dans le compte. */}
+          {day.spotSature && (
+            <span className="font-mono text-2xs text-destructive/80">
+              arriéré {fmtPal(day.fileAfter)}
+            </span>
+          )}
+          {!day.spot && day.reportePalettes > 0 && (
+            <span className="font-mono text-2xs text-muted-foreground/70">
+              {fmtPal(day.reportePalettes)} pal à J+1
+            </span>
+          )}
+        </span>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -380,109 +398,122 @@ function WeekTable({
   onOpenRetard: () => void
 }) {
   return (
-    <div className="overflow-hidden border border-rule bg-card">
-      <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_5rem_5rem_5rem] gap-2 border-b border-rule-soft bg-secondary/60 px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-        <span>Semaine</span>
-        <span>Carnet</span>
-        <span className="text-right">Carnet</span>
-        <span className="text-right">Capacité</span>
-        <span className="text-right">Écart</span>
-      </div>
-      {/* Le carnet à échéance dépassée n'appartient à aucune semaine à venir.
-          Sans cette ligne, il disparaissait purement de l'écran. */}
-      {retardPalettes > 0 && (
-        <button
-          type="button"
-          onClick={onOpenRetard}
-          className="grid w-full grid-cols-[7.5rem_minmax(0,1fr)_5rem_5rem_5rem] items-center gap-2 border-t border-rule-soft bg-destructive/[0.04] px-3 py-2 text-left transition-colors hover:bg-destructive/[0.08]"
-        >
-          <div className="min-w-0">
-            <div className="font-mono text-[11px] font-bold text-destructive">Retard</div>
-            <div className="font-mono text-[9px] text-muted-foreground">échéance dépassée</div>
-          </div>
-          <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
-            <div
-              className="absolute inset-y-0 left-0 bg-destructive"
-              style={{ width: `${Math.min(100, (retardPalettes / peak) * 100)}%` }}
-            />
-          </div>
-          <span className="text-right font-mono text-[12px] font-bold tabular-nums text-destructive">
-            {fmtPal(retardPalettes)}
-          </span>
-          <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
-            —
-          </span>
-          <span className="text-right font-mono text-[11px] font-bold tabular-nums text-destructive">
-            à rattraper
-          </span>
-        </button>
-      )}
-      {weeks.map((week) => {
-        const pct = Math.min(100, (week.carnetPalettes / peak) * 100)
-        const capPct = Math.min(100, (week.capacite / peak) * 100)
-        return (
-          <div
-            key={week.key}
-            className={cn(
-              'grid grid-cols-[7.5rem_minmax(0,1fr)_5rem_5rem_5rem] items-center gap-2 border-t border-rule-soft px-3 py-2',
-              week.usineFermee && 'bg-secondary/40',
-              week.spot && 'bg-destructive/[0.03]'
-            )}
-          >
-            <div className="min-w-0">
-              <div className="font-mono text-[11px] font-bold text-foreground">{week.key}</div>
-              <div className="font-mono text-[9px] text-muted-foreground">
-                {fmtJour(week.from)}→{fmtJour(week.to)}
-                {week.usineFermee ? ' · fermée' : ''}
-              </div>
-            </div>
-            <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
-              {!week.usineFermee && (
-                <>
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <table className="w-full table-fixed border-collapse">
+        <colgroup>
+          <col style={{ width: '8.5rem' }} />
+          <col />
+          <col style={{ width: '5rem' }} />
+          <col style={{ width: '5rem' }} />
+          <col style={{ width: '5.5rem' }} />
+        </colgroup>
+        <thead>
+          <TableHeadRow className="sticky top-0 z-10">
+            <TableHead className={TH}>Semaine</TableHead>
+            <TableHead className={TH}>Carnet</TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              Carnet
+            </TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              Capacité
+            </TableHead>
+            <TableHead align="right" className={`${TH} text-right!`}>
+              Écart
+            </TableHead>
+          </TableHeadRow>
+        </thead>
+        <tbody>
+          {/* Le carnet à échéance dépassée n'appartient à aucune semaine à venir.
+              Sans cette ligne, il disparaissait purement de l'écran. */}
+          {retardPalettes > 0 && (
+            <TableRow clickable tone="critical" onClick={onOpenRetard}>
+              <TableCell>
+                <CellStack code="Retard" label="échéance dépassée" />
+              </TableCell>
+              <TableCell>
+                <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
                   <div
-                    className={cn(
-                      'absolute inset-y-0 left-0',
-                      week.spot ? 'bg-destructive' : 'bg-planifie'
+                    className="absolute inset-y-0 left-0 bg-destructive"
+                    style={{ width: `${Math.min(100, (retardPalettes / peak) * 100)}%` }}
+                  />
+                </div>
+              </TableCell>
+              <TableCell align="right">
+                <CellNumber value={fmtPal(retardPalettes)} tone="critical" />
+              </TableCell>
+              <TableCell align="right">
+                <CellNumber value="—" emphasis="plain" />
+              </TableCell>
+              <TableCell align="right">
+                <CellNumber value="à rattraper" tone="critical" emphasis="plain" />
+              </TableCell>
+            </TableRow>
+          )}
+          {weeks.map((week) => {
+            const pct = Math.min(100, (week.carnetPalettes / peak) * 100)
+            const capPct = Math.min(100, (week.capacite / peak) * 100)
+            return (
+              <TableRow
+                key={week.key}
+                tone={week.spot ? 'critical' : null}
+                className={week.usineFermee ? 'bg-muted/40' : undefined}
+              >
+                <TableCell>
+                  <CellStack
+                    code={week.key}
+                    label={`${fmtJour(week.from)}→${fmtJour(week.to)}${week.usineFermee ? ' · fermée' : ''}`}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="relative h-2 overflow-hidden rounded-sm bg-secondary">
+                    {!week.usineFermee && (
+                      <>
+                        <div
+                          className={cn(
+                            'absolute inset-y-0 left-0',
+                            week.spot ? 'bg-destructive' : 'bg-planifie'
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                        <div
+                          className="pointer-events-none absolute inset-y-0 w-px bg-foreground/50"
+                          style={{ left: `${capPct}%` }}
+                        />
+                      </>
                     )}
-                    style={{ width: `${pct}%` }}
+                  </div>
+                </TableCell>
+                <TableCell align="right">
+                  <CellNumber
+                    value={fmtPal(week.carnetPalettes)}
+                    tone={week.spot ? 'critical' : week.usineFermee ? null : 'info'}
+                    className={week.usineFermee ? 'text-muted-foreground' : undefined}
                   />
-                  <div
-                    className="pointer-events-none absolute inset-y-0 w-px bg-foreground/50"
-                    style={{ left: `${capPct}%` }}
+                </TableCell>
+                <TableCell align="right">
+                  <CellNumber
+                    value={week.usineFermee ? '—' : fmtPal(week.capacite)}
+                    emphasis="plain"
                   />
-                </>
-              )}
-            </div>
-            <span
-              className={cn(
-                'text-right font-mono text-[12px] font-bold tabular-nums',
-                week.spot
-                  ? 'text-destructive'
-                  : week.usineFermee
-                    ? 'text-muted-foreground'
-                    : 'text-planifie'
-              )}
-            >
-              {fmtPal(week.carnetPalettes)}
-            </span>
-            <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
-              {week.usineFermee ? '—' : fmtPal(week.capacite)}
-            </span>
-            <span
-              className={cn(
-                'text-right font-mono text-[11px] font-bold tabular-nums',
-                week.spot ? 'text-destructive' : 'text-muted-foreground'
-              )}
-            >
-              {week.usineFermee
-                ? 'fermée'
-                : week.spot
-                  ? `+${week.nbCamionsSpot} cam.`
-                  : fmtPal(week.deltaVsCapacite)}
-            </span>
-          </div>
-        )
-      })}
+                </TableCell>
+                <TableCell align="right">
+                  <CellNumber
+                    value={
+                      week.usineFermee
+                        ? 'fermée'
+                        : week.spot
+                          ? `+${week.nbCamionsSpot} cam.`
+                          : fmtPal(week.deltaVsCapacite)
+                    }
+                    tone={week.spot ? 'critical' : null}
+                    emphasis={week.spot ? 'strong' : 'plain'}
+                  />
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }

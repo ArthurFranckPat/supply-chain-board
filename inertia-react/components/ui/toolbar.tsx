@@ -339,7 +339,10 @@ interface ToolbarDateWindowProps {
   numberOfMonths?: number
   align?: 'start' | 'end'
   title?: string
+  /** Désactive le déclencheur entier (pas de photos, chargement…). */
   disabled?: boolean
+  /** Jours inchoisissables — Matcher react-day-picker (fn, Date, plage…). */
+  disabledDays?: React.ComponentProps<typeof Calendar>['disabled']
 }
 
 function ToolbarDateWindow({
@@ -349,6 +352,7 @@ function ToolbarDateWindow({
   align = 'start',
   title = "Filtrer par plage de dates d'expédition",
   disabled,
+  disabledDays,
 }: ToolbarDateWindowProps) {
   const [open, setOpen] = React.useState(false)
   const label = formatWindowLabel(value?.from, value?.to)
@@ -402,6 +406,7 @@ function ToolbarDateWindow({
               numberOfMonths={numberOfMonths}
               selected={cal.selected}
               onSelect={cal.onSelect}
+              disabled={disabledDays}
             />
           </Popover.Popup>
         </Popover.Positioner>

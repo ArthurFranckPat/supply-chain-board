@@ -1,15 +1,51 @@
+/**
+ * Page « Promesse » — simulateur Capable-to-Promise : date au plus tôt
+ * (optimiste) et date engageante, arbre de chemin critique, pont sessionStorage
+ * vers une commande virtuelle sur /programme.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; formulaire + résultat, le contenu scrolle — pas de
+ *   `dense`, pas de `toolbar` (rien à filtrer), pas de `meta` / compteurs ;
+ * • saisie via `Input` / `Label` / `Button` / `Card` ; plus d'`<input>` ni de
+ *   `focus:border-primary` artisanaux ;
+ * • l'arbre critique reste un arbre (pas une DataTable) ; `Badge` sur le
+ *   chemin critique ; dates jj/mm/aaaa explicites ; chiffres `font-mono
+ *   tabular-nums` ; plus de `border-rule` / `shadow-sm` / Fraunces.
+ */
 import { useState, useEffect, useMemo } from 'react'
+import {
+  Ban,
+  Headset,
+  Zap,
+  TrendingUp,
+  ChevronRight,
+  TriangleAlert,
+  ArrowRight,
+} from 'lucide-react'
+import { LoadingState } from '@r/components/ui/loading-state'
+import { Badge } from '@r/components/ui/badge'
+import { Button } from '@r/components/ui/button'
+import { Card, CardHeader, CardTitle } from '@r/components/ui/card'
+import { Input } from '@r/components/ui/input'
+import { Label } from '@r/components/ui/label'
+import { DynamicIcon } from '@r/components/ui/dynamic-icon'
+
 import AppLayout from '@r/layouts/app'
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 import type { PromiseResult, PromiseNode, PromiseReason } from '@r/lib/promesse/types'
-import { DynamicIcon } from '../components/ui/dynamic-icon'
-import { Ban, Headset, Zap, TrendingUp, ChevronRight, TriangleAlert, ArrowRight } from 'lucide-react'
 
+/** ISO YYYY-MM-DD (ou Date) → jj/mm/aaaa. Jamais `toLocaleDateString` nu. */
 function frDate(d: Date | string): string {
-  const date = typeof d === 'string' ? new Date(d) : d
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('fr-FR')
+  if (typeof d === 'string') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d)
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`
+    const date = new Date(d)
+    if (Number.isNaN(date.getTime())) return '—'
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+  }
+  if (Number.isNaN(d.getTime())) return '—'
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 }
 
 function daysBetween(a: Date | string, b: Date | string): number {
@@ -36,9 +72,7 @@ function reasonText(r: PromiseReason): string {
     case 'of':
       return `OF ${r.ofId}`
     case 'appro':
-      return r.observed
-        ? `Appro ${r.leadTime}j (+${r.observed}j retard)`
-        : `Appro ${r.leadTime}j`
+      return r.observed ? `Appro ${r.leadTime}j (+${r.observed}j retard)` : `Appro ${r.leadTime}j`
     case 'fabrication':
       return r.leadTime > 0 ? `Fabrication ${r.leadTime}j` : 'Fantôme (assemblage logique)'
     case 'infeasible':
@@ -54,43 +88,49 @@ interface TreeNodeProps {
 
 function TreeNode({ node, depth }: TreeNodeProps) {
   return (
-    <li className={depth > 0 ? 'ml-5 border-l border-rule-soft pl-3' : ''}>
+    <li className={depth > 0 ? 'ml-5 border-l border-border pl-3' : ''}>
       <div
         className={cn(
-          'flex items-center gap-2 py-1.5 rounded-md px-2',
-          node.onCriticalPath && 'bg-suggere/10 ring-1 ring-suggere/20'
+          'flex items-center gap-2 rounded-md px-2 py-1.5',
+          node.onCriticalPath && 'bg-suggere/10'
         )}
       >
-        {node.children.length > 0 && (
-          <span className="text-muted-foreground/70 text-xs">▸</span>
-        )}
-        <DynamicIcon name={REASON_ICON[node.reason.kind] ?? 'circle'} size={16} className="text-muted-foreground" />
+        {node.children.length > 0 && <span className="text-xs text-muted-foreground">▸</span>}
+        <DynamicIcon
+          name={REASON_ICON[node.reason.kind] ?? 'circle'}
+          size={16}
+          className="text-muted-foreground"
+        />
         <span
           className={cn(
-            'text-[13px] font-mono',
-            node.onCriticalPath ? 'font-bold text-suggere' : 'text-foreground/80'
+            'font-mono text-[13px] tabular-nums',
+            node.onCriticalPath ? 'font-bold text-suggere' : 'text-foreground'
           )}
         >
           {node.article}
         </span>
-        <span className="text-[11px] text-muted-foreground">×{node.quantity}</span>
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          ×{node.quantity}
+        </span>
         <span className="text-[11px] text-muted-foreground">{reasonText(node.reason)}</span>
         {node.leadTimeUsed > 0 && (
-          <span className="text-[11px] text-muted-foreground">+{node.leadTimeUsed}j</span>
-        )}
-        <span className="ml-auto text-[11px] font-medium text-foreground/80">
-          {frDate(node.availableDate)}
-        </span>
-        {node.onCriticalPath && (
-          <span className="text-[10px] font-bold text-suggere">
-            Critique
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            +{node.leadTimeUsed}j
           </span>
         )}
+        <span className="ml-auto font-mono text-[11px] tabular-nums text-foreground">
+          {frDate(node.availableDate)}
+        </span>
+        {node.onCriticalPath && <Badge variant="warning">Critique</Badge>}
       </div>
       {node.children.length > 0 && (
         <ul>
           {node.children.map((child: PromiseNode, index: number) => (
-            <TreeNode key={`${child.article}-${child.availableDate}-${index}`} node={child} depth={depth + 1} />
+            <TreeNode
+              key={`${child.article}-${child.availableDate}-${index}`}
+              node={child}
+              depth={depth + 1}
+            />
           ))}
         </ul>
       )}
@@ -106,27 +146,30 @@ interface DateCardProps {
 }
 
 function DateCard({ label, date, color, result }: DateCardProps) {
-  const styles = {
-    green: 'border-ferme/30 bg-ferme/10',
-    amber: 'border-suggere/30 bg-suggere/10',
-  }
-  const dateColor = { green: 'text-ferme', amber: 'text-suggere' }
+  const tone = {
+    green: { surface: 'bg-ferme/10', date: 'text-ferme' },
+    amber: { surface: 'bg-suggere/10', date: 'text-suggere' },
+  }[color]
+
   return (
-    <div className={cn('flex-1 rounded-lg border p-4', styles[color])}>
-      <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
+    <Card padding="sm" className={cn('flex-1', tone.surface)}>
+      <div className="text-xs text-muted-foreground">{label}</div>
       {!result.infeasible ? (
         <>
-          <div className={cn('mt-1 text-2xl font-bold', dateColor[color])}>{frDate(date)}</div>
-          <div className="mt-1 text-[12px] text-muted-foreground">
+          <div className={cn('mt-1 text-2xl font-mono tabular-nums tracking-tight', tone.date)}>
+            {frDate(date)}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
             {reasonText(result.limitingFactor.reason)}
           </div>
         </>
       ) : (
-        <div className="mt-1 text-lg font-bold text-destructive">
-          <Ban size={20} className="align-middle inline" /> Infaisable
+        <div className="mt-1 flex items-center gap-1.5 text-lg text-destructive">
+          <Ban size={20} strokeWidth={1.75} />
+          Infaisable
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -147,9 +190,7 @@ export default function Promesse() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showTree, setShowTree] = useState(false)
-  const [articleOptions, setArticleOptions] = useState<
-    { code: string; description: string }[]
-  >([])
+  const [articleOptions, setArticleOptions] = useState<{ code: string; description: string }[]>([])
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -209,184 +250,184 @@ export default function Promesse() {
       title="Promesse"
       active="promesse"
       subtitle="Capable-to-Promise — date au plus tôt"
-      theme="airbnb"
+      theme="cursor"
     >
-          <div className="mx-auto max-w-3xl py-5">
-            {/* Formulaire */}
-            <form onSubmit={submit} className="rounded-lg border border-rule-soft bg-card p-5 shadow-sm">
-              <h2 className="mb-4 text-sm font-bold text-foreground/80">
-                <Headset size={18} className="align-middle text-primary" />{' '}
-                Simulateur de promesse client
-              </h2>
-              <div className="grid grid-cols-[1fr_120px_160px_auto] gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Article</label>
-                  <input
-                    type="text"
-                    list="promesse-article-options"
-                    value={article}
-                    onChange={(e) => setArticle(e.currentTarget.value)}
-                    placeholder="PP_830_X"
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                    autoFocus
-                  />
-                  <datalist id="promesse-article-options">
-                    {articleOptions.map((a) => (
-                      <option key={a.code} value={a.code}>
-                        {a.description}
-                      </option>
-                    ))}
-                  </datalist>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Quantité</label>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.currentTarget.value)}
-                    min="1"
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">À partir du</label>
-                  <input
-                    type="date"
-                    value={fromDate || today}
-                    onChange={(e) => setFromDate(e.currentTarget.value)}
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {!loading ? (
-                      <>
-                        <Zap size={18} className="align-middle" />{' '}
-                        Promettre
-                      </>
-                    ) : (
-                      'Calcul…'
-                    )}
-                  </button>
-                </div>
+      <div className="mx-auto max-w-3xl">
+        <Card padding="default">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Headset size={18} strokeWidth={1.75} className="text-primary" />
+              Simulateur de promesse client
+            </CardTitle>
+          </CardHeader>
+          <form onSubmit={submit} className="mt-3" aria-busy={loading}>
+            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_7.5rem_10.5rem_auto]">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promesse-article">Article</Label>
+                <Input
+                  id="promesse-article"
+                  type="text"
+                  list="promesse-article-options"
+                  value={article}
+                  onChange={(e) => setArticle(e.currentTarget.value)}
+                  placeholder="PP_830_X"
+                  className="font-mono"
+                  autoFocus
+                />
+                <datalist id="promesse-article-options">
+                  {articleOptions.map((a) => (
+                    <option key={a.code} value={a.code}>
+                      {a.description}
+                    </option>
+                  ))}
+                </datalist>
               </div>
-            </form>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promesse-quantity">Quantité</Label>
+                <Input
+                  id="promesse-quantity"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.currentTarget.value)}
+                  min="1"
+                  className="font-mono tabular-nums"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promesse-from">À partir du</Label>
+                <Input
+                  id="promesse-from"
+                  type="date"
+                  value={fromDate || today}
+                  onChange={(e) => setFromDate(e.currentTarget.value)}
+                  className="font-mono tabular-nums"
+                />
+              </div>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  'Calcul…'
+                ) : (
+                  <>
+                    <Zap />
+                    Promettre
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </Card>
 
-            {/* Erreur */}
-            {error && (
-              <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
+        {error && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            <span className="font-semibold">Erreur :</span>
+            <span className="truncate font-mono">{error}</span>
+          </div>
+        )}
+
+        {loading && (
+          <LoadingState
+            className="mt-4"
+            variant="orb"
+            orbState="solving"
+            title="Calcul de la promesse…"
+            description="Explosion de nomenclature · stock · réceptions · délais"
+          />
+        )}
+
+        {result && !error && (
+          <div className="mt-5 space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <DateCard
+                label="Optimiste"
+                date={result.optimiste.promiseDate}
+                color="green"
+                result={result.optimiste}
+              />
+              <DateCard
+                label="Engageante"
+                date={result.engageante.promiseDate}
+                color="amber"
+                result={result.engageante}
+              />
+            </div>
+
+            {!result.optimiste.infeasible && !result.engageante.infeasible && (
+              <div className="flex items-center gap-2 rounded-lg border border-planifie/30 bg-planifie/10 px-4 py-2.5">
+                <TrendingUp size={18} strokeWidth={1.75} className="text-planifie" />
+                <span className="text-[13px] text-planifie">
+                  Écart de risque :{' '}
+                  <span className="font-mono font-semibold tabular-nums">
+                    {gap} jour{gap > 1 ? 's' : ''}
+                  </span>{' '}
+                  entre les deux dates — plus l'écart est grand, plus la promesse est risquée.
+                </span>
               </div>
             )}
 
-            {/* Résultats */}
-            {result && !error && (
-              <div className="mt-5 space-y-4">
-                {/* Deux dates */}
-                <div className="flex gap-4">
-                  <DateCard
-                    label="Optimiste"
-                    date={result.optimiste.promiseDate}
-                    color="green"
-                    result={result.optimiste}
-                  />
-                  <DateCard
-                    label="Engageante"
-                    date={result.engageante.promiseDate}
-                    color="amber"
-                    result={result.engageante}
-                  />
-                </div>
+            {!result.engageante.infeasible && (
+              <Card padding="sm">
+                <div className="text-xs text-muted-foreground">Facteur limitant</div>
+                <p className="mt-1 text-sm text-foreground">
+                  <span className="font-mono font-bold tabular-nums">
+                    {result.engageante.limitingFactor.article}
+                  </span>{' '}
+                  — {reasonText(result.engageante.limitingFactor.reason)} → dispo le{' '}
+                  <span className="font-mono tabular-nums">
+                    {frDate(result.engageante.limitingFactor.date)}
+                  </span>
+                </p>
+              </Card>
+            )}
 
-                {/* Écart de risque */}
-                {!result.optimiste.infeasible && !result.engageante.infeasible && (
-                  <div className="flex items-center gap-2 rounded-lg border border-planifie/20 bg-planifie/10 px-4 py-2.5">
-                    <TrendingUp size={18} className="text-planifie" />
-                    <span className="text-[13px] text-planifie">
-                      Écart de risque :{' '}
-                      <strong>
-                        {gap} jour{gap > 1 ? 's' : ''}
-                      </strong>{' '}
-                      entre les deux dates — plus l'écart est grand, plus la promesse est risquée.
-                    </span>
-                  </div>
-                )}
-
-                {/* Facteur limitant */}
-                {!result.engageante.infeasible && (
-                  <div className="rounded-lg border border-rule-soft bg-card px-4 py-3">
-                    <div className="text-[11px] font-semibold text-muted-foreground">
-                      Facteur limitant
-                    </div>
-                    <p className="mt-1 text-sm text-foreground/80">
-                      <span className="font-mono font-bold">
-                        {result.engageante.limitingFactor.article}
-                      </span>{' '}
-                      — {reasonText(result.engageante.limitingFactor.reason)} → dispo le{' '}
-                      <strong>{frDate(result.engageante.limitingFactor.date)}</strong>
-                    </p>
-                  </div>
-                )}
-
-                {/* Chemin critique dépliable */}
-                {!result.engageante.infeasible && (
-                  <div className="rounded-lg border border-rule-soft bg-card">
-                    <button
-                      type="button"
-                      onClick={() => setShowTree((v) => !v)}
-                      className="flex w-full items-center gap-2 px-4 py-3 text-left"
-                    >
-                      <ChevronRight
-                        size={18}
-                        className={cn(
-                          'text-muted-foreground transition-transform',
-                          showTree && 'rotate-90'
-                        )}
-                      />
-                      <span className="text-[13px] font-semibold text-foreground/80">
-                        Chemin critique détaillé
-                      </span>
-                      <span className="ml-auto text-[11px] text-muted-foreground">
-                        {result.engageante.criticalPath.length} maillon
-                        {result.engageante.criticalPath.length > 1 ? 's' : ''}
-                      </span>
-                    </button>
-                    {showTree && (
-                      <div className="border-t border-rule-soft px-4 py-3">
-                        <ul>
-                          <TreeNode node={result.engageante.tree} depth={0} />
-                        </ul>
-                      </div>
+            {!result.engageante.infeasible && (
+              <Card padding="none">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowTree((v) => !v)}
+                  className="h-auto w-full justify-start rounded-none px-4 py-3"
+                >
+                  <ChevronRight
+                    size={18}
+                    strokeWidth={1.75}
+                    className={cn(
+                      'text-muted-foreground transition-transform',
+                      showTree && 'rotate-90'
                     )}
+                  />
+                  <span className="text-[13px] text-foreground">Chemin critique détaillé</span>
+                  <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {result.engageante.criticalPath.length} maillon
+                    {result.engageante.criticalPath.length > 1 ? 's' : ''}
+                  </span>
+                </Button>
+                {showTree && (
+                  <div className="border-t border-border px-4 py-3">
+                    <ul>
+                      <TreeNode node={result.engageante.tree} depth={0} />
+                    </ul>
                   </div>
                 )}
+              </Card>
+            )}
 
-                {/* Tronqué ? */}
-                {result.engageante.truncated && (
-                  <div className="flex items-center gap-2 text-[12px] text-destructive">
-                    <TriangleAlert size={16} />
-                    Arbre incomplet — profondeur maximale atteinte ou cycle de nomenclature détecté.
-                  </div>
-                )}
-
-                {/* Pont vers commande virtuelle (PRD §6.2 / lot 5) */}
-                {!result.engageante.infeasible && (
-                  <button
-                    type="button"
-                    onClick={toVirtualCommand}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-                  >
-                    <ArrowRight size={18} />
-                    Transformer en commande virtuelle sur /programme
-                  </button>
-                )}
+            {result.engageante.truncated && (
+              <div className="flex items-center gap-2 text-xs text-destructive">
+                <TriangleAlert size={16} strokeWidth={1.75} />
+                Arbre incomplet — profondeur maximale atteinte ou cycle de nomenclature détecté.
               </div>
+            )}
+
+            {!result.engageante.infeasible && (
+              <Button type="button" variant="outline" className="w-full" onClick={toVirtualCommand}>
+                <ArrowRight />
+                Transformer en commande virtuelle sur /programme
+              </Button>
             )}
           </div>
+        )}
+      </div>
     </AppLayout>
   )
 }

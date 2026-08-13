@@ -1780,7 +1780,7 @@
   --serie-suggere: var(--suggere);
   --serie-reel: var(--foreground);
   --serie-projete: color-mix(in oklab, var(--foreground) 45%, transparent);
-  --serie-capacite: color-mix(in oklab, var(--foreground) 45%, transparent);
+  --serie-capacite: var(--foreground);
   --serie-tendance: var(--chart-5);
   --serie-neutre: color-mix(in oklab, var(--foreground) 32%, transparent);
   --serie-encre: color-mix(in oklab, var(--foreground) 55%, transparent);

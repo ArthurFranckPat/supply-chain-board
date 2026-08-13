@@ -8,6 +8,7 @@ import {
 import { SERIE, fmtHeures } from '@r/lib/charts/theme'
 import type { LoadPeriod, LoadView } from '@r/lib/load/types'
 import { type Gran, type LoadSegOption, segmentDeCle, satRate, total } from '@r/lib/load/chart-math'
+import { fenetreMoyenneMobile } from '@r/lib/load/moyenne-mobile'
 
 /**
  * Histogramme de détail (poste sélectionné) de la vue « Projection de charge »
@@ -107,7 +108,7 @@ export function DetailChart({
           <span className="inline-flex items-center gap-1.5 text-1.5xs text-muted-foreground">
             <span
               aria-hidden
-              className="inline-block h-0 w-3.5 border-t-2 border-dashed"
+              className="inline-block h-0 w-5 border-t-[3px] border-dashed"
               style={{ borderColor: SERIE.capacite }}
             />
             Capacité
@@ -117,7 +118,7 @@ export function DetailChart({
           <span className="inline-flex items-center gap-1.5 text-1.5xs text-muted-foreground">
             <span
               aria-hidden
-              className="inline-block h-0 w-3.5 border-t-2 border-dashed"
+              className="inline-block h-0 w-5 border-t-[3.5px] border-solid"
               style={{ borderColor: SERIE.tendance }}
             />
             Moyenne mobile
@@ -137,7 +138,7 @@ export function DetailChart({
           afficherCapacite={showCapacity}
           labelsEnBarre
           totaux
-          moyenneMobile={gran === 'week' ? 8 : 2}
+          moyenneMobile={fenetreMoyenneMobile(showAvg, gran)}
           pic
           tailleTicks={gran === 'week' ? 8 : 12}
           largeurInitiale={760}

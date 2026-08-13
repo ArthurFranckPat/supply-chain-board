@@ -1,19 +1,18 @@
 import { useMemo, useRef, useState } from 'react'
-import {
-  CalendarX,
-  Lightbulb,
-  Link2,
-  Package,
-  TriangleAlert,
-  Truck,
-  Warehouse,
-} from 'lucide-react'
+import { CalendarX, Lightbulb, Link2, Package, TriangleAlert, Truck, Warehouse } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { X3Link } from '@r/components/x3-link'
 import { usePrintFit } from '@r/components/board/use-print-fit'
-import { chargeBg, chargeLabel, chargeText, chargeTier } from '@r/lib/receptions/charge'
+import { CellNumber, CellStack, type RowTone } from '@r/components/ui/table-row'
+import {
+  chargeBg,
+  chargeLabel,
+  chargeText,
+  chargeTier,
+  type ChargeTier,
+} from '@r/lib/receptions/charge'
 import type {
   CriticiteNiveau,
   ReceptionCriticite,
@@ -42,6 +41,20 @@ import type {
 const LABEL_W = 200
 /** Largeur mini d'une colonne-jour (sert au calcul de largeur totale). */
 const COL_MIN_W = 124
+
+/** Palier de charge → ton de cellule canonique (mêmes couleurs que `chargeText`). */
+function chargeRowTone(tier: ChargeTier): RowTone {
+  switch (tier) {
+    case 'bad':
+      return 'critical'
+    case 'warn':
+      return 'warning'
+    case 'mid':
+      return 'info'
+    case 'ok':
+      return 'ok'
+  }
+}
 
 export type ReceptionGroupBy = 'fournisseur' | 'quai'
 
@@ -220,7 +233,12 @@ export function ReceptionBoard({
   const undated = rows.length - dated.length
 
   const days = useMemo(
-    () => buildDayAxis(from, to, dated.map((r) => r.date as string)),
+    () =>
+      buildDayAxis(
+        from,
+        to,
+        dated.map((r) => r.date as string)
+      ),
     [from, to, dated]
   )
 
@@ -273,8 +291,7 @@ export function ReceptionBoard({
       const crit = criticiteByLine.get(`${r.noCommande}|${r.article}`)
       if (crit) {
         g.criticiteItems.push(crit)
-        g.criticite =
-          g.criticite === 'retard' || crit.niveau === 'retard' ? 'retard' : 'a_risque'
+        g.criticite = g.criticite === 'retard' || crit.niveau === 'retard' ? 'retard' : 'a_risque'
       }
     }
     for (const g of acc.values()) {
@@ -357,38 +374,34 @@ export function ReceptionBoard({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
         <CalendarX size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
-        <span className="font-fraunces text-[14px] italic text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {undated > 0
             ? `Aucune réception datée sur la période (${undated} sans date retenue).`
             : 'Aucune réception planifiée sur la période.'}
-        </span>
+        </p>
       </div>
     )
   }
 
   return (
     <>
-      <div
-        ref={rootRef}
-        data-print-unclip
-        className="min-h-0 flex-1 overflow-auto bg-background"
-      >
+      <div ref={rootRef} data-print-unclip className="min-h-0 flex-1 overflow-auto bg-background">
         <div className="relative" style={{ minWidth }}>
           {/* ═══ En-tête collant (semaines + jours) ═══ */}
           <div className="sticky top-0 z-30 bg-background shadow-float">
             {/* Bande semaines */}
             <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
-              <div className="sticky left-0 z-40 border-b border-rule bg-secondary" />
+              <div className="sticky left-0 z-40 border-b border-border bg-secondary" />
               {weekSpans.map((ws) => (
                 <div
                   key={`${ws.week}-${ws.span}`}
-                  className="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
+                  className="flex items-baseline gap-2.5 border-b border-r border-border bg-secondary px-3.5 py-1.5"
                   style={{ gridColumn: `span ${ws.span}` }}
                 >
-                  <span className="font-fraunces text-sm font-black italic tracking-tight text-brand">
+                  <span className="text-sm font-medium tracking-tight text-foreground">
                     Semaine {ws.week}
                   </span>
-                  <span className="ml-auto font-fraunces text-xs font-bold tabular-nums text-foreground">
+                  <span className="ml-auto font-mono text-xs font-medium tabular-nums text-foreground">
                     {ws.palettes} pal.
                   </span>
                 </div>
@@ -397,7 +410,7 @@ export function ReceptionBoard({
 
             {/* En-tête jours */}
             <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
-              <div className="sticky left-0 z-40 flex items-center gap-1.5 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="sticky left-0 z-40 flex items-center gap-1.5 border-b border-r border-border bg-card px-3.5 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 {groupBy === 'quai' ? (
                   <Warehouse size={13} strokeWidth={1.75} />
                 ) : (
@@ -411,7 +424,7 @@ export function ReceptionBoard({
                   <div
                     key={d.iso}
                     className={cn(
-                      'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
+                      'border-b border-r border-border bg-card px-2.5 py-1.5 text-center',
                       d.weekend && 'bg-secondary/50',
                       d.today && 'bg-brand-soft'
                     )}
@@ -419,16 +432,16 @@ export function ReceptionBoard({
                     <div
                       className={cn(
                         'font-mono text-[9px] font-bold uppercase tracking-[0.1em]',
-                        d.today ? 'text-brand' : 'text-muted-foreground'
+                        d.today ? 'text-foreground' : 'text-muted-foreground'
                       )}
                     >
                       {d.weekday}
                     </div>
                     <div
                       className={cn(
-                        'font-fraunces text-lg font-bold leading-none tracking-tight',
+                        'font-mono text-lg font-medium leading-none tabular-nums',
                         d.today
-                          ? 'italic text-brand'
+                          ? 'text-foreground'
                           : d.past
                             ? 'text-muted-foreground'
                             : 'text-foreground'
@@ -458,18 +471,18 @@ export function ReceptionBoard({
             <div
               key={line.key}
               data-print-row
-              className="grid border-b border-rule-soft"
+              className="grid border-b border-border"
               style={{ gridTemplateColumns: gridTpl }}
             >
               {/* Libellé collant */}
-              <div className="sticky left-0 z-20 flex flex-col gap-1 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
+              <div className="sticky left-0 z-20 flex flex-col gap-1 overflow-hidden border-r border-border bg-card px-3.5 py-3">
                 <span className="truncate font-sans text-[12.5px] font-semibold leading-tight text-secondary-foreground">
                   {line.label}
                 </span>
                 <span className="font-mono text-[10px] text-muted-foreground">{line.sub}</span>
                 <span
                   className={cn(
-                    'mt-0.5 font-fraunces text-[13px] font-bold tabular-nums leading-none',
+                    'mt-0.5 font-mono text-[13px] font-medium tabular-nums leading-none',
                     chargeText(chargeTier(line.palettes))
                   )}
                 >
@@ -484,7 +497,7 @@ export function ReceptionBoard({
                   <div
                     key={`${line.key}:${d.iso}`}
                     className={cn(
-                      'flex min-h-[74px] flex-col gap-1.5 border-r border-rule-soft p-1.5',
+                      'flex min-h-[74px] flex-col gap-1.5 border-r border-border p-1.5',
                       d.weekend && 'bg-secondary/40',
                       d.past && !d.today && 'bg-destructive/[0.035]',
                       d.today && 'bg-brand-soft/40'
@@ -508,10 +521,10 @@ export function ReceptionBoard({
           <div
             data-print-ink
             data-print-row
-            className="sticky bottom-0 z-30 grid bg-background shadow-[0_-1px_0_var(--color-rule,rgba(0,0,0,.1))]"
+            className="sticky bottom-0 z-30 grid border-t border-border bg-background"
             style={{ gridTemplateColumns: gridTpl }}
           >
-            <div className="sticky left-0 z-40 flex flex-col justify-center border-r border-t border-rule bg-card px-3.5 py-2">
+            <div className="sticky left-0 z-40 flex flex-col justify-center border-r border-t border-border bg-card px-3.5 py-2">
               <span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 Total quai
               </span>
@@ -525,14 +538,14 @@ export function ReceptionBoard({
                 <div
                   key={`charge:${d.iso}`}
                   className={cn(
-                    'flex flex-col items-center justify-end gap-1 border-r border-t border-rule bg-card px-2 pb-1.5 pt-2',
+                    'flex flex-col items-center justify-end gap-1 border-r border-t border-border bg-card px-2 pb-1.5 pt-2',
                     d.today && 'bg-brand-soft/50'
                   )}
                   title={`${d.weekday} ${d.num} · ${pal} palette${pal > 1 ? 's' : ''}${pal > 0 ? ` · ${chargeLabel(tier)}` : ''}`}
                 >
                   <span
                     className={cn(
-                      'font-fraunces text-[15px] font-bold tabular-nums leading-none',
+                      'font-mono text-[15px] font-medium tabular-nums leading-none',
                       pal > 0 ? chargeText(tier) : 'text-muted-foreground/40'
                     )}
                   >
@@ -557,10 +570,10 @@ export function ReceptionBoard({
           « rien à signaler » alors qu'elle veut dire « hors fenêtre d'analyse ».
           Le moteur ruptures ne juge que les OF DÉMARRANT dans les N jours. */}
       {criticiteHorizon !== null && (
-        <div className="flex flex-none items-center gap-2 border-t border-rule-soft bg-secondary/40 px-7 py-1.5 font-mono text-[10px] text-muted-foreground print:hidden">
+        <div className="flex flex-none items-center gap-2 border-t border-border bg-secondary/40 px-6 py-1.5 font-mono text-[10px] text-muted-foreground print:hidden">
           <Link2 size={13} strokeWidth={1.75} />
-          Tension évaluée sur les OF démarrant dans les {criticiteHorizon} jours — une
-          réception attendue par un OF plus lointain n'est pas signalée.
+          Tension évaluée sur les OF démarrant dans les {criticiteHorizon} jours — une réception
+          attendue par un OF plus lointain n'est pas signalée.
           {criticiteOnly && (
             <span className="ml-auto">
               Filtre actif : la charge en pied reste celle du quai entier.
@@ -571,7 +584,7 @@ export function ReceptionBoard({
 
       {/* Bandeau « sans date » — ces lignes n'apparaissent nulle part sur la grille. */}
       {undated > 0 && (
-        <div className="flex flex-none items-center gap-2 border-t border-rule-soft bg-secondary/40 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
+        <div className="flex flex-none items-center gap-2 border-t border-border bg-secondary/40 px-6 py-1.5 font-mono text-[10px] text-muted-foreground">
           <TriangleAlert size={13} strokeWidth={1.75} className="text-suggere" />
           {undated} réception{undated > 1 ? 's' : ''} sans date retenue — absente
           {undated > 1 ? 's' : ''} du board (visible{undated > 1 ? 's' : ''} dans la vue Tableau).
@@ -617,7 +630,7 @@ function ReceptionCard({
       type="button"
       onClick={onOpen}
       className={cn(
-        'flex w-full flex-col gap-1 rounded-md border border-t-[3px] border-rule-soft bg-card px-2 py-1.5 text-left transition-all',
+        'flex w-full flex-col gap-1 rounded-md border border-t-[3px] border-border bg-card px-2 py-1.5 text-left transition-all',
         'hover:-translate-y-px hover:shadow-float',
         // La tension prime sur la qualité du coef : un camion qui tient une
         // commande client se signale avant un coef manquant.
@@ -656,7 +669,7 @@ function ReceptionCard({
       <span className="flex items-baseline gap-1">
         <span
           className={cn(
-            'font-fraunces text-[19px] font-bold tabular-nums leading-none',
+            'font-mono text-[19px] font-medium tabular-nums leading-none',
             degrade ? 'text-destructive/70' : estime ? 'text-planifie' : chargeText(tier)
           )}
         >
@@ -679,9 +692,7 @@ function ReceptionCard({
         <span
           className={cn(
             'flex w-fit items-center gap-1 rounded px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider',
-            crit === 'retard'
-              ? 'bg-destructive/15 text-destructive'
-              : 'bg-suggere/15 text-suggere'
+            crit === 'retard' ? 'bg-destructive/15 text-destructive' : 'bg-suggere/15 text-suggere'
           )}
         >
           <Link2 size={9} strokeWidth={2} />
@@ -745,25 +756,20 @@ function ReceptionDetailSheet({
         {group && (
           <div className="flex h-full flex-col overflow-auto">
             {/* En-tête : le camion. */}
-            <div className="border-b border-rule px-6 py-5">
-              <SheetTitle className="font-fraunces text-[19px] font-bold leading-tight tracking-tight text-foreground">
+            <div className="border-b border-border px-6 py-5">
+              <SheetTitle className="text-lg font-semibold leading-tight tracking-tight text-foreground">
                 {group.fournisseurNom}
               </SheetTitle>
               <div className="mt-1 font-mono text-[11px] text-muted-foreground">
                 {group.fournisseur} · {group.dateFmt}
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span
-                  className={cn(
-                    'font-fraunces text-[30px] font-bold tabular-nums leading-none',
-                    chargeText(chargeTier(group.palettes))
-                  )}
-                >
-                  {group.palettes}
-                </span>
+                <CellNumber
+                  value={group.palettes}
+                  tone={chargeRowTone(chargeTier(group.palettes))}
+                />
                 <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  palette{group.palettes > 1 ? 's' : ''} ·{' '}
-                  {chargeLabel(chargeTier(group.palettes))}
+                  palette{group.palettes > 1 ? 's' : ''} · {chargeLabel(chargeTier(group.palettes))}
                 </span>
               </div>
               {(group.sansCoef > 0 || group.estimees > 0) && (
@@ -857,13 +863,13 @@ function ReceptionDetailSheet({
                 donc la section plutôt que de se répéter sur chaque ligne. */}
             <div className="px-6 pb-2 pt-4">
               <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {commandes.length} commande{commandes.length > 1 ? 's' : ''} ·{' '}
-                {group.rows.length} ligne{group.rows.length > 1 ? 's' : ''}
+                {commandes.length} commande{commandes.length > 1 ? 's' : ''} · {group.rows.length}{' '}
+                ligne{group.rows.length > 1 ? 's' : ''}
               </div>
             </div>
 
             {commandes.map((cmd) => (
-              <section key={cmd.noCommande} className="border-t border-rule">
+              <section key={cmd.noCommande} className="border-t border-border">
                 {/* En-tête de commande : n° + sous-total palettes. */}
                 <header className="flex items-baseline justify-between gap-3 bg-secondary/40 px-6 py-2">
                   <X3Link
@@ -878,16 +884,12 @@ function ReceptionDetailSheet({
                     <span>
                       {cmd.rows.length} ligne{cmd.rows.length > 1 ? 's' : ''}
                     </span>
-                    <span
-                      className={cn(
-                        'font-fraunces text-[14px] font-bold tabular-nums',
-                        chargeText(chargeTier(cmd.palettes))
-                      )}
-                    >
-                      {cmd.palettes}
-                      <span className="ml-1 font-mono text-[9px] font-medium text-muted-foreground">
-                        pal.
-                      </span>
+                    <CellNumber
+                      value={cmd.palettes}
+                      tone={chargeRowTone(chargeTier(cmd.palettes))}
+                    />
+                    <span className="font-mono text-[9px] font-medium text-muted-foreground">
+                      pal.
                     </span>
                   </span>
                 </header>
@@ -896,7 +898,7 @@ function ReceptionDetailSheet({
                   <div
                     key={`${r.noCommande}:${r.article}`}
                     className={cn(
-                      'border-t border-rule-soft px-6 py-3',
+                      'border-t border-border px-6 py-3',
                       r.coefManquant
                         ? 'bg-destructive/[0.05]'
                         : r.coefEstime
@@ -904,31 +906,23 @@ function ReceptionDetailSheet({
                           : ''
                     )}
                   >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-mono text-[12px] font-bold text-foreground">
-                        {r.article}
-                      </span>
-                      <span
-                        className={cn(
-                          'font-fraunces text-[15px] font-bold tabular-nums leading-none',
+                    <div className="flex items-start justify-between gap-3">
+                      <CellStack
+                        code={r.article}
+                        label={r.designation}
+                        labelTitle={r.designation}
+                      />
+                      <CellNumber
+                        value={r.nbPalettesFmt}
+                        tone={
                           r.coefManquant
-                            ? 'text-destructive/60'
+                            ? 'critical'
                             : r.coefEstime
-                              ? 'text-planifie'
-                              : chargeText(chargeTier(r.nbPalettes))
-                        )}
-                      >
-                        {r.nbPalettesFmt}
-                        <span className="ml-1 font-mono text-[9px] font-medium text-muted-foreground">
-                          pal.
-                        </span>
-                      </span>
+                              ? 'info'
+                              : chargeRowTone(chargeTier(r.nbPalettes))
+                        }
+                      />
                     </div>
-                    {r.designation && (
-                      <div className="mt-0.5 font-sans text-[11.5px] leading-snug text-muted-foreground">
-                        {r.designation}
-                      </div>
-                    )}
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted-foreground">
                       <span>
                         {r.qteUsFmt} <span className="text-muted-foreground/70">US</span>

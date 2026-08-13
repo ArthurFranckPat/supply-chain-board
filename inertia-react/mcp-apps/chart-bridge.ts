@@ -28,8 +28,8 @@ export const CHART_CSS = `
   --serie-induit: color-mix(in oklab, var(--color-background-info, #3b82f6) 38%, transparent);
   --serie-reel: var(--color-text-primary, #1a1a1a);
   --serie-projete: color-mix(in oklab, var(--color-text-primary, #1a1a1a) 45%, transparent);
-  --serie-capacite: color-mix(in oklab, var(--color-text-primary, #1a1a1a) 45%, transparent);
-  --serie-tendance: var(--color-text-tertiary, #8a8a8a);
+  --serie-capacite: var(--color-text-primary, #1a1a1a);
+  --serie-tendance: var(--color-text-primary, #1a1a1a);
   --serie-neutre: color-mix(in oklab, var(--color-text-primary, #1a1a1a) 32%, transparent);
   --serie-encre: var(--color-background-info, #3b82f6);
   --serie-alerte: var(--color-background-danger, #dc2626);
