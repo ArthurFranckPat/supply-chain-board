@@ -44,7 +44,7 @@ import {
   ProfondeurBars,
   CategoriesBars,
 } from '@r/components/dashboard/charts'
-import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
+import { Skeleton } from '@r/components/ui/skeleton'
 import { Card, CardContent } from '@r/components/ui/card'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
@@ -638,22 +638,21 @@ function Tile({
   onPrintMove?: (dir: -1 | 1) => void
 }) {
   return (
-    <div className="h-full w-full relative flex flex-col group">
-      {/* Barre d'outils édition. z-[45] : elle chevauche la poignée de resize du
-          bord haut (z-40). Elle-même est `pointer-events-none`, donc seuls ses
-          boutons captent le pointeur — ailleurs le geste de resize passe. */}
+    <div className="group relative flex h-full w-full flex-col">
+      {/* La barre occupe sa propre rangée : elle ne masque plus le titre de la
+          carte et reste utilisable quand une tuile est réduite. */}
       {editMode && (
-        <div className="pointer-events-none absolute -top-3 left-3 z-[45] flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-1 shadow-sm print:hidden">
+        <div className="relative z-[45] flex shrink-0 flex-wrap items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-1 shadow-sm print:hidden">
           <span
             data-grid-drag
-            className="pointer-events-auto flex size-9 items-center justify-center cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-[#2778c1]"
+            className="flex size-9 items-center justify-center cursor-grab touch-none select-none text-muted-foreground active:cursor-grabbing hover:text-[#2778c1]"
             title="Cliquer et glisser cette poignée pour réordonner la carte"
           >
             <GripVertical size={14} />
           </span>
 
           {/* Boutons de largeur rapide 1/3, 2/3, Full */}
-          <div className="pointer-events-auto flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
+          <div className="flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
             <button
               type="button"
               onClick={() => onWidth(1)}
@@ -697,7 +696,7 @@ function Tile({
 
           {/* Ordre d'impression */}
           {onPrintMove && (
-            <div className="pointer-events-auto flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
+            <div className="flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
               <span
                 className="px-1 font-mono text-[10px] text-muted-foreground"
                 title="Ordre impression"
@@ -726,7 +725,7 @@ function Tile({
           <button
             type="button"
             onClick={onHide}
-            className="pointer-events-auto flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
+            className="flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
             title="Masquer la carte"
           >
             <EyeOff size={13} />
@@ -744,14 +743,18 @@ function Tile({
         </span>
       )}
 
-      <div className="h-full w-full flex flex-col flex-1 overflow-hidden">{children}</div>
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   )
 }
 
-function Spinner() {
+function Spinner({ label = 'Chargement des données…' }: { label?: string }) {
   return (
-    <div className="flex h-[180px] w-full flex-col gap-3 p-4">
+    <div className="flex h-[180px] w-full flex-col gap-3 p-4" role="status" aria-live="polite">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <LoaderCircle size={13} className="animate-spin" aria-hidden="true" />
+        <span>{label}</span>
+      </div>
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-4 w-12" />
@@ -765,6 +768,28 @@ function Spinner() {
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+function FetchErrorState({ message, onRetry }: { message?: string | null; onRetry: () => void }) {
+  return (
+    <div className="flex min-h-[180px] flex-col items-start justify-center gap-3 p-4" role="alert">
+      <p className="text-sm font-medium leading-snug text-destructive">
+        {message || 'Impossible de charger les données.'}
+      </p>
+      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        Réessayer
+      </Button>
+    </div>
+  )
+}
+
+function RefreshingNotice({ label = 'Actualisation en cours…' }: { label?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground" role="status">
+      <LoaderCircle size={12} className="animate-spin" aria-hidden="true" />
+      <span>{label}</span>
     </div>
   )
 }
@@ -937,6 +962,8 @@ export default function Dashboard(props: DashboardProps) {
   const otd = useMemo(() => (otdData.data ?? EMPTY_OTD).otd, [otdData.data])
   const x3Error = useMemo(() => (kpisData.data ?? EMPTY_KPIS).x3Error, [kpisData.data])
   const otdError = useMemo(() => (otdData.data ?? EMPTY_OTD).x3Error, [otdData.data])
+  const kpisRequestError = kpisData.error ? 'Échec du chargement des indicateurs.' : null
+  const otdRequestError = otdData.error ? 'Échec du chargement de la ponctualité.' : null
   const profondeur = kpi.profondeur
 
   const stock = useMemo(
@@ -944,6 +971,7 @@ export default function Dashboard(props: DashboardProps) {
     [stockData.data]
   )
   const stockError = useMemo(() => (stockData.data ?? { x3Error: null }).x3Error, [stockData.data])
+  const stockRequestError = stockData.error ? 'Échec du chargement du stock.' : null
 
   // Stock categories
   const stockCategories = useMemo(() => {
@@ -1045,6 +1073,7 @@ export default function Dashboard(props: DashboardProps) {
       }
     >
       <div ref={contentElRef} className="h-full overflow-auto print:overflow-visible">
+        <h1 className="sr-only">Tableau de bord</h1>
         {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
         <div
           data-print-header
@@ -1085,19 +1114,37 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('charge', false)}
                 onPrintMove={(dir) => movePrint('charge', dir)}
               >
-                <Card padding="sm" className="dashboard-card h-full overflow-auto">
+                <Card
+                  padding="sm"
+                  className="dashboard-card h-full overflow-auto"
+                  aria-busy={kpisData.loading}
+                >
                   <CardHeader title="Charge en retard" alert={kpi.totalHeures > 0} />
-                  {kpisData.loading ? (
-                    <Spinner />
+                  {kpisData.loading && !kpisData.data ? (
+                    <Spinner label="Chargement des indicateurs…" />
                   ) : x3Error ? (
-                    <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
+                    <FetchErrorState message={x3Error} onRetry={kpisData.retry} />
+                  ) : kpisRequestError && !kpisData.data ? (
+                    <FetchErrorState message={kpisRequestError} onRetry={kpisData.retry} />
                   ) : kpi.totalHeures === 0 && kpi.postes.length === 0 ? (
                     <>
+                      {kpisData.loading ? <RefreshingNotice /> : null}
+                      {kpisRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {kpisRequestError}
+                        </p>
+                      ) : null}
                       <KpiHero value={0} unit="h" />
                       <p className="mt-1 text-sm font-normal text-muted-foreground">Aucun retard</p>
                     </>
                   ) : (
                     <>
+                      {kpisData.loading ? <RefreshingNotice /> : null}
+                      {kpisRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {kpisRequestError}
+                        </p>
+                      ) : null}
                       <div className="flex items-end justify-between gap-3">
                         <KpiHero
                           value={kpi.totalHeures}
@@ -1143,16 +1190,36 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('profondeur', false)}
                 onPrintMove={(dir) => movePrint('profondeur', dir)}
               >
-                <Card padding="sm" className="dashboard-card h-full overflow-auto">
+                <Card
+                  padding="sm"
+                  className="dashboard-card h-full overflow-auto"
+                  aria-busy={kpisData.loading}
+                >
                   <CardHeader title="Profondeur" alert={(profondeur?.maxJours ?? 0) > 0} />
-                  {kpisData.loading ? (
-                    <Spinner />
+                  {kpisData.loading && !kpisData.data ? (
+                    <Spinner label="Chargement de la profondeur…" />
                   ) : x3Error ? (
-                    <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
+                    <FetchErrorState message={x3Error} onRetry={kpisData.retry} />
+                  ) : kpisRequestError && !kpisData.data ? (
+                    <FetchErrorState message={kpisRequestError} onRetry={kpisData.retry} />
                   ) : (profondeur?.maxJours ?? 0) === 0 ? (
-                    <KpiHero value={0} unit="j" />
+                    <>
+                      {kpisData.loading ? <RefreshingNotice /> : null}
+                      {kpisRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {kpisRequestError}
+                        </p>
+                      ) : null}
+                      <KpiHero value={0} unit="j" />
+                    </>
                   ) : (
                     <>
+                      {kpisData.loading ? <RefreshingNotice /> : null}
+                      {kpisRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {kpisRequestError}
+                        </p>
+                      ) : null}
                       <div className="flex items-end justify-between gap-3">
                         <KpiHero value={profondeur?.maxJours ?? 0} unit="j" />
                         <div className="pb-1.5 text-right text-xs font-normal leading-tight text-muted-foreground">
@@ -1191,6 +1258,7 @@ export default function Dashboard(props: DashboardProps) {
                 <Card
                   padding="sm"
                   className="dashboard-card h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  aria-busy={otdData.loading}
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -1259,14 +1327,32 @@ export default function Dashboard(props: DashboardProps) {
                     </ToolbarSegmented>
                   </div>
 
-                  {otdData.loading ? (
-                    <Spinner />
+                  {otdData.loading && !otdData.data ? (
+                    <Spinner label="Chargement de la ponctualité…" />
                   ) : otdError ? (
-                    <p className="text-sm font-medium leading-snug text-destructive">{otdError}</p>
+                    <FetchErrorState message={otdError} onRetry={otdData.retry} />
+                  ) : otdRequestError && !otdData.data ? (
+                    <FetchErrorState message={otdRequestError} onRetry={otdData.retry} />
                   ) : otd.length === 0 ? (
-                    <p className="text-sm font-normal text-muted-foreground">Aucune donnée</p>
+                    <>
+                      {otdData.loading ? <RefreshingNotice /> : null}
+                      {otdRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {otdRequestError}
+                        </p>
+                      ) : null}
+                      <p className="text-sm font-normal text-muted-foreground">
+                        Aucune ligne dans la période
+                      </p>
+                    </>
                   ) : (
                     <>
+                      {otdData.loading ? <RefreshingNotice /> : null}
+                      {otdRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {otdRequestError}
+                        </p>
+                      ) : null}
                       {/* Filtre client + toggle détails */}
                       <div className="mb-2 flex items-center gap-1.5">
                         <InputGroup className="h-9 flex-1">
@@ -1299,6 +1385,7 @@ export default function Dashboard(props: DashboardProps) {
                           variant="outline"
                           size="sm"
                           onClick={() => setDetailsOpen((v) => !v)}
+                          aria-expanded={detailsOpen}
                           title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
                         >
                           <DynamicIcon
@@ -1366,7 +1453,7 @@ export default function Dashboard(props: DashboardProps) {
 
                               {detailsOpen && p.lignesNon.length === 0 && (
                                 <p className="mt-2 text-sm font-normal text-muted-foreground">
-                                  Rien à traiter
+                                  Aucune ligne hors délai
                                 </p>
                               )}
                             </>
@@ -1395,6 +1482,7 @@ export default function Dashboard(props: DashboardProps) {
                 <Card
                   padding="sm"
                   className="dashboard-card h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  aria-busy={stockData.loading}
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="size-1.5 shrink-0 rounded-full bg-foreground/20" />
@@ -1452,16 +1540,32 @@ export default function Dashboard(props: DashboardProps) {
                     </ToolbarSegmented>
                   </div>
 
-                  {stockData.loading ? (
-                    <Spinner />
+                  {stockData.loading && !stockData.data ? (
+                    <Spinner label="Chargement du stock…" />
                   ) : stockError ? (
-                    <p className="text-sm font-medium leading-snug text-destructive">
-                      {stockError}
-                    </p>
+                    <FetchErrorState message={stockError} onRetry={stockData.retry} />
+                  ) : stockRequestError && !stockData.data ? (
+                    <FetchErrorState message={stockRequestError} onRetry={stockData.retry} />
                   ) : stock.series.length === 0 ? (
-                    <p className="text-sm font-normal text-muted-foreground">—</p>
+                    <>
+                      {stockData.loading ? <RefreshingNotice /> : null}
+                      {stockRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {stockRequestError}
+                        </p>
+                      ) : null}
+                      <p className="text-sm font-normal text-muted-foreground">
+                        Aucune donnée dans la période
+                      </p>
+                    </>
                   ) : (
                     <>
+                      {stockData.loading ? <RefreshingNotice /> : null}
+                      {stockRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {stockRequestError}
+                        </p>
+                      ) : null}
                       <div className="flex items-end justify-between gap-3">
                         <div>
                           <div className="text-[36px] font-normal leading-none tracking-[-0.04em] tabular-nums text-foreground">
@@ -1520,32 +1624,56 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('lignes', false)}
                 onPrintMove={(dir) => movePrint('lignes', dir)}
               >
-                <Card padding="sm" className="dashboard-card h-full overflow-auto">
+                <Card
+                  padding="sm"
+                  className="dashboard-card h-full overflow-auto"
+                  aria-busy={kpisData.loading}
+                >
                   <CardHeader
                     title="Lignes en retard"
                     meta={`${kpi.nbLignes}`}
                     alert={kpi.nbLignes > 0}
                   />
-                  {kpisData.loading ? (
-                    <Spinner />
+                  {kpisData.loading && !kpisData.data ? (
+                    <Spinner label="Chargement des lignes en retard…" />
                   ) : x3Error ? (
-                    <p className="text-sm font-medium leading-snug text-destructive">{x3Error}</p>
+                    <FetchErrorState message={x3Error} onRetry={kpisData.retry} />
+                  ) : kpisRequestError && !kpisData.data ? (
+                    <FetchErrorState message={kpisRequestError} onRetry={kpisData.retry} />
                   ) : kpi.lignes.length === 0 ? (
-                    <p className="text-sm font-normal text-muted-foreground">Aucune ligne</p>
+                    <>
+                      {kpisData.loading ? <RefreshingNotice /> : null}
+                      {kpisRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {kpisRequestError}
+                        </p>
+                      ) : null}
+                      <p className="text-sm font-normal text-muted-foreground">
+                        Aucune ligne dans la période
+                      </p>
+                    </>
                   ) : (
-                    <DataTable
-                      columns={retardLigneColumns}
-                      rows={kpi.lignes}
-                      sorting={retardSorting}
-                      onSortingChange={setRetardSorting}
-                      virtualize={false}
-                      tableClass="w-full border-collapse text-left"
-                      scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
-                      theadRowClass="bg-transparent"
-                      getRowKey={(l) =>
-                        `${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`
-                      }
-                    />
+                    <>
+                      {kpisData.loading ? <RefreshingNotice /> : null}
+                      {kpisRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {kpisRequestError}
+                        </p>
+                      ) : null}
+                      <DataTable
+                        columns={retardLigneColumns}
+                        rows={kpi.lignes}
+                        sorting={retardSorting}
+                        onSortingChange={setRetardSorting}
+                        virtualize={false}
+                        tableClass="w-full border-collapse text-left"
+                        scrollContainerClass="-mx-2 overflow-auto print:overflow-visible rounded-none border-0 shadow-none"
+                        theadRowClass="bg-transparent"
+                        getRowKey={(l) =>
+                          `${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`
+                        }
+                      />
+                    </>
                   )}
                 </Card>
               </Tile>
@@ -1567,19 +1695,26 @@ export default function Dashboard(props: DashboardProps) {
                 <Card
                   padding="sm"
                   className="dashboard-card h-full overflow-auto [content-visibility:auto] [contain-intrinsic-size:auto_280px]"
+                  aria-busy={stockData.loading}
                 >
                   <CardHeader
                     title="Articles"
                     meta={`${filteredArticles.length}/${stock.nbArticles}`}
                   />
-                  {stockData.loading ? (
-                    <Spinner />
+                  {stockData.loading && !stockData.data ? (
+                    <Spinner label="Chargement des articles…" />
                   ) : stockError ? (
-                    <p className="text-sm font-medium leading-snug text-destructive">
-                      {stockError}
-                    </p>
+                    <FetchErrorState message={stockError} onRetry={stockData.retry} />
+                  ) : stockRequestError && !stockData.data ? (
+                    <FetchErrorState message={stockRequestError} onRetry={stockData.retry} />
                   ) : (
                     <>
+                      {stockData.loading ? <RefreshingNotice /> : null}
+                      {stockRequestError ? (
+                        <p className="mb-3 text-xs text-destructive" role="alert">
+                          {stockRequestError}
+                        </p>
+                      ) : null}
                       {/* Barre de filtres */}
                       <div className="mb-2 flex flex-wrap items-center gap-1.5">
                         <InputGroup className="h-9 flex-1">

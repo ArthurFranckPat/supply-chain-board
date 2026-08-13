@@ -18,6 +18,20 @@ export type KpiWidth = (typeof KPI_WIDTHS)[number]
  */
 export const GRID_COLS = 24
 
+/** Modes de composition dérivés de la largeur réellement disponible. */
+export const DASHBOARD_GRID_BREAKPOINTS = {
+  mobile: 680,
+  desktop: 1040,
+} as const
+
+export type DashboardGridMode = 'mobile' | 'tablet' | 'desktop'
+
+export function dashboardGridModeForWidth(width: number): DashboardGridMode {
+  if (width < DASHBOARD_GRID_BREAKPOINTS.mobile) return 'mobile'
+  if (width < DASHBOARD_GRID_BREAKPOINTS.desktop) return 'tablet'
+  return 'desktop'
+}
+
 /**
  * Version du contrat de disposition. La v1 utilisait une grille deux fois plus
  * grossière (12 colonnes, `rowHeight` 65) ; la v2 double la finesse du pas.

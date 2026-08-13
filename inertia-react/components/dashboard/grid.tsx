@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as React from 'react'
 import { cn } from '@r/lib/utils'
+import { dashboardGridModeForWidth, type DashboardGridMode } from '@r/lib/dashboard/types'
 
 export interface DashboardGridItem {
   id: string
@@ -141,6 +142,7 @@ export function DashboardGrid({
   // (~112 px pour w=8) puis explosent à la vraie largeur. Mesure en
   // useLayoutEffect (avant paint) et on n'affiche qu'une fois prêt.
   const [width, setWidth] = useState(0)
+  const gridMode: DashboardGridMode = dashboardGridModeForWidth(width || 1440)
 
   const gestureRef = useRef<Gesture | null>(null)
   const detachRef = useRef<(() => void) | null>(null)
@@ -303,8 +305,7 @@ export function DashboardGrid({
           // jamais de la grille ni ne passe sous les tailles minimales.
           const minWPx = minW * colWidth + (minW - 1) * gap
           const minHPx = minH * rowHeight + (minH - 1) * gap
-          const maxWPx =
-            (cols - g.origin.x) * colWidth + (cols - g.origin.x - 1) * gap
+          const maxWPx = (cols - g.origin.x) * colWidth + (cols - g.origin.x - 1) * gap
 
           const next = { ...g.origin }
           const ghostBox = { ...box }
@@ -397,7 +398,21 @@ export function DashboardGrid({
       window.addEventListener('pointercancel', onUp)
       detachRef.current = detach
     },
-    [editMode, items, toBox, colWidth, colStep, rowStep, rowHeight, gap, cols, minW, minH, endGesture, paintGhost]
+    [
+      editMode,
+      items,
+      toBox,
+      colWidth,
+      colStep,
+      rowStep,
+      rowHeight,
+      gap,
+      cols,
+      minW,
+      minH,
+      endGesture,
+      paintGhost,
+    ]
   )
 
   // Démontage en plein geste : on ne laisse pas d'écouteur sur window.
@@ -478,6 +493,7 @@ export function DashboardGrid({
     <div
       ref={containerRef}
       className={cn('dashboard-grid', activeId && 'is-gesturing', className)}
+      data-grid-mode={gridMode}
       data-gesture={gestureCursor ?? undefined}
       style={{
         position: 'relative',
@@ -488,7 +504,10 @@ export function DashboardGrid({
       onPointerDown={onPointerDown}
     >
       {width > 0 && activeItem && (
-        <div className="dashboard-grid-placeholder" style={{ position: 'absolute', ...toBox(activeItem) }} />
+        <div
+          className="dashboard-grid-placeholder"
+          style={{ position: 'absolute', ...toBox(activeItem) }}
+        />
       )}
       {width > 0 ? tiles : null}
     </div>
