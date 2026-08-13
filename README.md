@@ -93,7 +93,7 @@ Toutes les routes (hors `/login`, `/health`, assets) sont protégées par `auth`
 ### Pages (Inertia)
 
 - `GET /` — Tableau de bord (KPI charge en retard, valorisation stock)
-- `GET /programme` — Board OF, vue experte haute densité (fusion ordonnancement/planification)
+- `GET /programme` — Board OF, vue experte haute densité (modes OF / combiné / commandes)
 - `GET /suivi` — Suivi des commandes
 - `GET /ruptures` — Suivi des ruptures
 - `GET /charge` — Charge par atelier/poste

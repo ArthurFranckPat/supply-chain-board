@@ -550,7 +550,7 @@ export function ToolbarSection() {
           Les cinq primitives manquantes sont écrites et rendues ci-dessus : la proposition est
           testable, pas théorique. Valider signifie ensuite migrer les 14 pages{' '}
           <Tok>vision/toolbar</Tok> vers <Tok>ui/toolbar</Tok>, supprimer{' '}
-          <Tok>components/vision/toolbar.tsx</Tok>, et faire passer les barres par la prop{' '}
+          <Tok>components/programme/toolbar.tsx</Tok>, et faire passer les barres par la prop{' '}
           <Tok>toolbar</Tok> d'AppLayout. À faire page par page, pas d'un bloc.
         </p>
       </div>

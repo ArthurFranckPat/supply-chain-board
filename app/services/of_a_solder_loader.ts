@@ -24,7 +24,7 @@
 
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
-import { loadShortageRowsData } from '#services/shortage_payload_loader'
+import { loadRuptureRowsData } from '#services/rupture_payload_loader'
 import staticSync from '#services/static_sync_service'
 import type { PhantomOfCommande } from '#services/order_impacts_loader'
 
@@ -167,7 +167,7 @@ async function fetchMfgInfo(numOfs: string[]): Promise<Map<string, MfgInfo>> {
  * détectés, le coût est négligeable devant le pipeline amont.
  */
 export async function loadOfASolderData(force = false): Promise<OfASolderPayload> {
-  const { phantomOfs, x3Error } = await loadShortageRowsData({ force })
+  const { phantomOfs, x3Error } = await loadRuptureRowsData({ force })
   if (phantomOfs.length === 0) return { rows: [], stats: EMPTY_STATS, x3Error }
 
   const numOfs = phantomOfs.map((p) => p.numOf)

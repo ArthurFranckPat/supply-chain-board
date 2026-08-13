@@ -7,7 +7,7 @@
  */
 
 import boardDataset from '#services/board_dataset'
-import { loadPromise } from '#services/promise_loader'
+import { loadPromesse } from '#services/promesse_loader'
 import { loadOfMaterialsDiagnostic } from '#services/of_diagnostic_loader'
 import { buildNomenclatureMap } from '#services/feasibility_loader_adapter'
 import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order_impacts_assembly'
@@ -622,7 +622,7 @@ export async function diagnostiquerOF(params: { numOf: string; dater?: boolean }
 
 /**
  * Capable-to-Promise : date au plus tôt optimiste + engageante.
- * Point d'entrée loader : `loadPromise` (caches board).
+ * Point d'entrée loader : `loadPromesse` (caches board).
  */
 export async function getPromise(params: { article: string; quantity: number; from?: string }) {
   const article = params.article?.trim()
@@ -640,7 +640,7 @@ export async function getPromise(params: { article: string; quantity: number; fr
     }
   }
 
-  const result = await loadPromise({ article, quantity, from })
+  const result = await loadPromesse({ article, quantity, from })
 
   const slimNode = (node: {
     article: string
@@ -674,7 +674,7 @@ export async function getPromise(params: { article: string; quantity: number; fr
 
   return {
     _source: 'getPromise' as const,
-    engine: 'promise-engine.computePromiseDate',
+    engine: 'promise-engine.computePromesseDate',
     article: result.article,
     quantity: result.quantity,
     from: isoDate(result.from) ?? result.from,
@@ -698,7 +698,7 @@ export interface ListerRetardsParams {
 
 /**
  * Anticipation retards (Q3) : pour chaque demande client dans l'horizon,
- * `computePromiseDate(engageante)` vs date besoin. Coté positif = retard prévu.
+ * `computePromesseDate(engageante)` vs date besoin. Coté positif = retard prévu.
  *
  * Source = board caches (demandes + CTP). Pas de moteur prédictif neuf.
  */
@@ -784,7 +784,7 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
 
   const evalLine = async (line: DemandLine): Promise<RetardRow | null> => {
     try {
-      const p = await loadPromise({
+      const p = await loadPromesse({
         article: line.article,
         quantity: line.quantity,
         from,
@@ -845,7 +845,7 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
 
   return {
     _source: 'listerRetardsPrevus' as const,
-    engine: 'loadPromise(engageante) vs date besoin',
+    engine: 'loadPromesse(engageante) vs date besoin',
     horizon: { from: fromIso, to: toIso, days: horizon },
     demandsScanned: lines.length,
     demandsEvaluated: sample.length,

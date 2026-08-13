@@ -465,7 +465,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         // d'édition. Attendre l'issue de chaque tirage rendrait un lot de 20 OF
         // interminable ; les tâches sont journalisées avec leur numéro et
         // `print:reconcile` tranche ensuite.
-        const res = await fetch(route('planning.order_firm', { orderNum: id }), {
+        const res = await fetch(route('planning.order_affermir', { orderNum: id }), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ batch: true }),

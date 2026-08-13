@@ -14,7 +14,7 @@ import {
   severityBarClass,
 } from '@r/components/ui/table-row'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
-import { BADGE_TEXT, empKey, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
+import { BADGE_TEXT, empKey, getRelativeDateLabel } from '@r/lib/suivi/shared'
 import { FlaskConical, Hourglass } from 'lucide-react'
 import { X3Link } from '../../components/x3-link'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'

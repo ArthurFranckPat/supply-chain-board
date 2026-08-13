@@ -13,9 +13,6 @@ Français strict ; commandes, noms de fichiers et mots-clés verbatim._
   réplique SQLite, et alors **aucun préchauffage de cache** ; `false` = direct X3.
   Les deux modes sont exclusifs.
 - Dates affichées en **jj/mm/aaaa**. L'ISO reste côté machine.
-- **Lexique** : le libellé UI n'est pas le nom du code. `Programme` →
-  `lib/vision/` ; nav `Planification` → `/charge` (`load`), distinct du mode
-  `planification` de `/programme`. Table : `docs/lexique-libelles.md`.
 
 ## Branches opératoires
 
@@ -23,7 +20,7 @@ Deux branches longues. `dev` est un **surensemble** de `master`, jamais l'invers
 
 - `master` — production. Uniquement le **socle** :
   Tableau de bord (`/`), Programme (`/programme`), Séquenceur (`/sequenceur`),
-  Ruptures composants (`/ruptures`), Suivi commandes (`/suivi`), Planification
+  Ruptures composants (`/ruptures`), Suivi commandes (`/suivi`), Charge
   (`/charge`), Config (`/configuration/*`, `/impressions`).
 - `dev` — le socle plus les surfaces pas encore en prod : logistique (expéditions,
   réceptions, approvisionnements, évolution des besoins, conditionnements),

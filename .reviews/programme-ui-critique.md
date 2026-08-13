@@ -1,7 +1,7 @@
 # Critique UI/UX profonde — Page Programme
 
 **Date** : 2026-07-10
-**Fichier** : `inertia/pages/scheduler/programme.tsx` (985 lignes)
+**Fichier** : `inertia/pages/programme.tsx` (985 lignes)
 **Composants analysés** : programme.tsx, programme-toolbar.tsx, masthead.tsx, app.css (852 lignes)
 **Skills** : shadcn/ui + ui-ux-pro-max
 
@@ -61,20 +61,20 @@ En mode `combined` avec scénario actif, on dépasse la largeur du viewport.
 - Utiliser un overflow horizontal ou un menu "Plus de filtres" plutôt que flex-wrap
 - Fixer une hauteur de toolbar constante avec `min-h`
 
-### ORANGE — BatchFirmBar mal positionné
+### ORANGE — BatchAffermirBar mal positionné
 
 ```tsx
 <Show when={mode() !== 'planification'}>
   <Show when={lineCount > 0} fallback={<div>Aucun OF…</div>}>
     <BoardGrid />
   </Show>
-  <BatchFirmBar /> // ← visible même si lineCount === 0
+  <BatchAffermirBar /> // ← visible même si lineCount === 0
 </Show>
 ```
 
 La barre d'affermissement s'affiche sous le message "Aucun OF dans l'horizon".
 
-**Fix** : déplacer `<BatchFirmBar>` à l'intérieur du `<Show when={lineCount > 0}>`.
+**Fix** : déplacer `<BatchAffermirBar>` à l'intérieur du `<Show when={lineCount > 0}>`.
 
 ### ORANGE — Select de recherche change de largeur selon le mode
 

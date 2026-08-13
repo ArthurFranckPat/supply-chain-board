@@ -290,14 +290,14 @@ export default class OrderPlanningController {
 /**
  * Charge le board planification (lignes de commande ouvertes).
  * Extrait de OrderPlanningController pour être réutilisé par SchedulerController
- * en mode planification de la vue unifiée (/programme?mode=planification, #22).
+ * en mode planification de la vue unifiée (/programme?mode=commandes, #22).
  *
  * @param base   Base URL pour les liens de navigation (prevHref/nextHref/todayHref).
- * @param modeParam  Param supplémentaire à injecter dans le navQuery (ex. "mode=planification").
+ * @param modeParam  Param supplémentaire à injecter dans le navQuery (ex. "mode=commandes").
  */
 export async function loadOrderBoardData(
   params: WindowParams,
-  base = '/planification',
+  base = '/programme',
   modeParam = ''
 ): Promise<OrderBoardData> {
   const startParam = params.start

@@ -5,7 +5,7 @@
  * Extrait de `SchedulerController.loadBoardData` (issue #49) : plus gros offender du
  * controller (277 l.), réutilisé par 3 endpoints (`/ordonnancement`, `/programme` via
  * loadProgrammeData, et transitivement le détail OF). Découpage incrémental — seul
- * `loadBoardData` est sorti dans ce lot ; shortageTracker/shortageRows/loadOfDetail
+ * `loadBoardData` est sorti dans ce lot ; ruptures/ruptureRows/loadOfDetail
  * restent dans le controller (cf. commentaire issue #49).
  */
 

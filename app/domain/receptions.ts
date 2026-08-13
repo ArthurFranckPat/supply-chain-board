@@ -146,8 +146,8 @@ export interface ReceptionCriticiteEntry {
   ofs: CriticiteOf[]
 }
 
-/** Forme minimale de ShortageRow consommée ici (évite le couplage au module complet). */
-interface ShortageRowLike {
+/** Forme minimale de RuptureRow consommée ici (évite le couplage au module complet). */
+interface RuptureRowLike {
   component: string
   numOf: string
   articleParent: string
@@ -170,13 +170,13 @@ function pireNiveau(a: CriticiteNiveau, b: CriticiteNiveau): CriticiteNiveau {
  * « cette réception couvre-t-elle quelque chose de tendu ? ».
  *
  * Le pipeline ruptures apparie déjà chaque manque à la commande d'achat qui le
- * couvre (`ShortageRow.reception.id` = POHNUM) ; il n'y a donc ni requête ni calcul
+ * couvre (`RuptureRow.reception.id` = POHNUM) ; il n'y a donc ni requête ni calcul
  * de faisabilité à refaire, seulement un regroupement par (commande, article).
  *
  * Une même réception apparaît autant de fois qu'elle débloque d'OF : les OF sont
  * dédupliqués par numéro, et c'est la marge la plus faible qui gouverne l'entrée.
  */
-export function buildCriticiteIndex(rows: ShortageRowLike[]): ReceptionCriticiteEntry[] {
+export function buildCriticiteIndex(rows: RuptureRowLike[]): ReceptionCriticiteEntry[] {
   const acc = new Map<string, ReceptionCriticiteEntry & { seen: Set<string> }>()
 
   for (const row of rows) {

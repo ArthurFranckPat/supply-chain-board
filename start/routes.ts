@@ -120,30 +120,27 @@ router
 
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
-    //   /ordonnancement : board OF, vue experte haute densité
-    //   /planification  : lignes de commande ouvertes (#10)
-    //   /ruptures       : suivi des ruptures (issue #15)
-    //   /vision         : vue unifiée OF ↔ commandes (issue #21)
+    // Redirects hérités : /ordonnancement → /programme ; /planification → mode commandes.
     router
       .get('/ordonnancement', ({ response }) => response.redirect('/programme'))
       .as('scheduling')
     router
-      .get('/planification', ({ response }) => response.redirect('/programme?mode=planification'))
+      .get('/planification', ({ response }) => response.redirect('/programme?mode=commandes'))
       .as('planning')
-    router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
+    router.get('/ruptures', '#controllers/scheduler_controller.ruptures').as('ruptures.index')
     router
       .get('/controle-prod', '#controllers/controle_prod_controller.index')
       .as('controle_prod.index')
     // Cockpit poste (#119) : passé constaté (pointages) + engagement futur par poste.
     router.get('/cockpit', '#controllers/cockpit_controller.index').as('cockpit.index')
     router.get('/suivi', '#controllers/suivi_controller.board')
-    router.get('/programme', '#controllers/scheduler_controller.programme')
+    router.get('/programme', '#controllers/scheduler_controller.programme').as('programme.index')
     router
       .get('/programme/scenarios/comparer', '#controllers/scenario_controller.comparePage')
       .as('scenarios.compare')
     // Séquenceur (#46/#100) : board /programme en table, filtre poste côté client.
     router.get('/sequenceur', '#controllers/scheduler_controller.sequenceur').as('sequenceur.index')
-    router.get('/charge', '#controllers/load_controller.index')
+    router.get('/charge', '#controllers/charge_controller.index').as('charge.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
     router
@@ -155,8 +152,8 @@ router
     router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
-    router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
-    router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
+    router.get('/promesse', '#controllers/promesse_controller.show').as('promesse.show')
+    router.get('/copilote', '#controllers/copilote_controller.show').as('copilote.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
     router
       .get('/configuration/impressions', '#controllers/print_config_controller.index')
@@ -222,8 +219,8 @@ router
         // Affermissement d'un ordre en OF ferme (write-back X3, #31).
         // suggestions/:sugNum = suggestion CBN (SGAE…) ; orders/:orderNum = OF planifié (F…).
         router
-          .post('/suggestions/:sugNum/firm', '#controllers/suggestion_firm_controller.firm')
-          .as('planning.suggestion_firm')
+          .post('/suggestions/:sugNum/firm', '#controllers/suggestion_affermir_controller.firm')
+          .as('planning.suggestion_affermir')
         // Impression du dossier d'OF à la demande / historique (#85 lot 3).
         router
           .get('/print/documents', '#controllers/print_controller.documents')
@@ -231,8 +228,8 @@ router
         router.post('/orders/:orderNum/print', '#controllers/print_controller.print')
         router.get('/orders/:orderNum/print', '#controllers/print_controller.history')
         router
-          .post('/orders/:orderNum/firm', '#controllers/suggestion_firm_controller.firm')
-          .as('planning.order_firm')
+          .post('/orders/:orderNum/firm', '#controllers/suggestion_affermir_controller.firm')
+          .as('planning.order_affermir')
 
         // Scénarios de plan (issue #57, vision étage 3) : persistance des mutations
         // + diff sur données fraîches (moteur étage 2). L'application (rejeu en PATCHs
@@ -257,7 +254,9 @@ router
       '/api/v1/planning/postes/:poste/engagement',
       '#controllers/scheduler_controller.posteEngagement'
     )
-    router.get('/api/v1/planning/shortages/rows', '#controllers/scheduler_controller.shortageRows')
+    router
+      .get('/api/v1/planning/ruptures/rows', '#controllers/scheduler_controller.ruptureRows')
+      .as('ruptures.rows')
     router
       .get('/api/v1/planning/controle-prod', '#controllers/controle_prod_controller.rows')
       .as('controle_prod.rows')
@@ -279,7 +278,7 @@ router
       .as('cockpit.poste')
     // Détail d'une période de charge : composition d'une barre du graphe /charge.
     router
-      .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')
+      .get('/api/v1/planning/charge/detail', '#controllers/charge_controller.periodDetail')
       .as('charge.detail')
 
     // Suivi Commandes
@@ -363,9 +362,9 @@ router
       .as('conditionnements.estimations')
 
     // CTP — Capable-to-Promise : date au plus tôt (PRD §6.2, lot 2).
-    router.get('/api/v1/promesse', '#controllers/promise_controller.index').as('promesse.index')
+    router.get('/api/v1/promesse', '#controllers/promesse_controller.index').as('promesse.index')
     router
-      .get('/api/v1/promesse/articles', '#controllers/promise_controller.articles')
+      .get('/api/v1/promesse/articles', '#controllers/promesse_controller.articles')
       .as('promesse.articles')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
@@ -418,30 +417,32 @@ router
     // Health = provider/key sans LLM ; chat = SSE un tour / session éphémère.
     router
       .group(() => {
-        router.get('/health', '#controllers/agent_controller.health').as('agent.health')
-        router.post('/chat', '#controllers/agent_controller.chat').as('agent.chat')
+        router.get('/health', '#controllers/copilote_controller.health').as('copilote.health')
+        router.post('/chat', '#controllers/copilote_controller.chat').as('copilote.chat')
         // Télémétrie des tours : durée, TTFT, tokens facturés, histogramme du
         // nombre d'appels de tools par tour (gate de décision issue #93).
-        router.get('/metrics', '#controllers/agent_controller.metrics').as('agent.metrics')
+        router.get('/metrics', '#controllers/copilote_controller.metrics').as('copilote.metrics')
         // Historique des conversations (sidebar : liste, rechargement, suppression).
         router
-          .get('/conversations', '#controllers/agent_controller.conversationsIndex')
-          .as('agent.conversations')
+          .get('/conversations', '#controllers/copilote_controller.conversationsIndex')
+          .as('copilote.conversations')
         router
-          .get('/conversations/:id', '#controllers/agent_controller.conversationsShow')
-          .as('agent.conversation')
+          .get('/conversations/:id', '#controllers/copilote_controller.conversationsShow')
+          .as('copilote.conversation')
         router
-          .delete('/conversations/:id', '#controllers/agent_controller.conversationsDestroy')
-          .as('agent.conversationsDestroy')
+          .delete('/conversations/:id', '#controllers/copilote_controller.conversationsDestroy')
+          .as('copilote.conversationsDestroy')
         router
-          .patch('/conversations/:id', '#controllers/agent_controller.conversationsUpdate')
-          .as('agent.conversationsUpdate')
+          .patch('/conversations/:id', '#controllers/copilote_controller.conversationsUpdate')
+          .as('copilote.conversationsUpdate')
         // MCP Apps (issue #89) : l'hôte du navigateur lit les resources `ui://`
         // et proxifie les `tools/call` des apps — toujours via le client MCP,
         // jamais en tapant les fichiers ou les primitives en direct.
-        router.get('/mcp/app', '#controllers/agent_mcp_controller.app').as('agent.mcp.app')
-        router.post('/mcp/call', '#controllers/agent_mcp_controller.call').as('agent.mcp.call')
+        router.get('/mcp/app', '#controllers/copilote_mcp_controller.app').as('copilote.mcp.app')
+        router
+          .post('/mcp/call', '#controllers/copilote_mcp_controller.call')
+          .as('copilote.mcp.call')
       })
-      .prefix('/api/v1/agent')
+      .prefix('/api/v1/copilote')
   })
   .use([middleware.auth(), middleware.x3Context()])

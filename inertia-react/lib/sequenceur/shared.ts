@@ -3,7 +3,7 @@
  * définitions de colonnes. Rien ici ne rend : types, prédicats, tris et
  * correspondances statut → habillage.
  *
- * Le découpage suit celui du Suivi (`lib/suivi/tracking-shared.ts` +
+ * Le découpage suit celui du Suivi (`lib/suivi/shared.ts` +
  * `reactive-columns.tsx`) : la page orchestre, le module dit le sens.
  */
 import type { LucideIcon } from 'lucide-react'

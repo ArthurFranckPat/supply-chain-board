@@ -539,7 +539,7 @@ export function TableRowSection() {
               'Constantes TH/TD locales',
               '4 jeux',
               <span key="e">
-                <Tok>shortage-math</Tok>, <Tok>camion-detail-sheet</Tok>,{' '}
+                <Tok>rupture-math</Tok>, <Tok>camion-detail-sheet</Tok>,{' '}
                 <Tok>jour-detail-sheet</Tok>, <Tok>conditionnements-views</Tok>
               </span>,
             ],

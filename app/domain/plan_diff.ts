@@ -29,7 +29,7 @@ import {
   DEFAULT_HOURS_PER_DAY,
   DEFAULT_LOGISTICS_BUFFER_DAYS,
   fabricationDaysFromHours,
-} from './shortages.js'
+} from './ruptures.js'
 
 // ---------------------------------------------------------------------------
 // Mutations (primitive de la vision §3)

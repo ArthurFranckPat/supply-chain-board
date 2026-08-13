@@ -96,6 +96,6 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Couche agentique v1 — provider Z.AI / GLM 5.2 (pi-ai `zai`).
   // Optionnel au boot (les pages non-agent restent utilisables) ;
-  // requis dès POST /api/v1/agent/chat.
+  // requis dès POST /api/v1/copilote/chat.
   ZAI_API_KEY: Env.schema.string.optional(),
 })

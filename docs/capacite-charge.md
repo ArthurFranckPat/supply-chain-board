@@ -44,8 +44,8 @@ Données live conformes (CFA = 7,5 h Lun-Ven, ~0 week-end).
 
 ## Affichage /charge
 
-`LoadController` joint, par poste et par bucket (mensuel + hebdo), la capacité nette
-à la charge (`LoadLine.capacity`). Front (`scheduler/load.tsx`) :
+`ChargeController` joint, par poste et par bucket (mensuel + hebdo), la capacité nette
+à la charge (`ChargeLine.capacity`). Front (`scheduler/load.tsx`) :
 
 - ligne de capacité (pointillés) sur le détail + mini-cartes ;
 - totaux et lignes de capacité **rouges** quand charge > capacité ;

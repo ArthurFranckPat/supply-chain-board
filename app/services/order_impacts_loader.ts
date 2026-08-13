@@ -21,7 +21,7 @@ import {
 } from '#app/domain/order_impacts'
 import { computeAvancement, estOfFantome, resteAProduire } from '#app/domain/of_avancement'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
-import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
+import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/ruptures'
 import {
   remapDemandDates,
   expandArticleSetWithBom,
@@ -431,7 +431,7 @@ export async function loadOrderImpacts(
 
   // Charge réelle par OF (cadence gamme × reste à produire) pour le calcul de retard —
   // volontairement indépendant du jalonnement CBN (STRDAT/ENDDAT). Même formule que
-  // /ruptures (shortage_payload_loader.ts) : Σ qteRestante/cadence par opération, converti
+  // /ruptures (rupture_payload_loader.ts) : Σ qteRestante/cadence par opération, converti
   // en jours (7,5h/j par défaut), plancher 1j.
   const hoursPerDay = Number(process.env.RUPTURES_HOURS_PER_DAY) || DEFAULT_HOURS_PER_DAY
   const opsByArticle = new Map<string, { rate: number }[]>()

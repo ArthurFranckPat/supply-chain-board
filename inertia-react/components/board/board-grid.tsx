@@ -17,10 +17,10 @@ import {
 } from '@r/lib/board/store'
 import type { Card, DayCol, LineRow } from '@r/lib/board/types'
 import { TYPO_META } from '@r/lib/board/types'
-import type { VirtualOrderVm } from '@r/lib/scenarios/types'
-import { promiseReasonText, type PromiseNode } from '@r/lib/promesse/types'
+import type { VirtualOrderVm } from '@r/lib/scenario/types'
+import { promiseReasonText, type PromesseNode } from '@r/lib/promesse/types'
 import { route } from '@r/lib/routes'
-import { fmtDay } from '@r/lib/vision/date-utils'
+import { fmtDay } from '@r/lib/programme/date-utils'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 import { usePrintFit } from './use-print-fit'
@@ -78,16 +78,16 @@ interface BoardGridProps {
   store: BoardState
   onSelectOf?: (num: string) => void
   /** Contenu additionnel rendu DANS chaque cellule, après les cartes OF
-   *  (ex. marqueurs commande de la vue Vision). Optionnel → board inchangé. */
+   *  (ex. marqueurs commande de la vue Programme). Optionnel → board inchangé. */
   cellExtra?: (lineCode: string, col: number) => JSX.Element
   /** Réf. du conteneur scrollé interne (pour un calque mesuré au DOM). */
   contentRef?: (el: HTMLDivElement) => void
-  /** Calque superposé (ex. liens SVG Vision), rendu au-dessus de la grille. */
+  /** Calque superposé (ex. liens SVG du Programme), rendu au-dessus de la grille. */
   overlay?: JSX.Element
   /** Survol d'une carte OF (numOf au survol, null à la sortie). Optionnel. */
   onCardHover?: (numOf: string | null) => void
   /** Drop d'un élément externe (non-OF) dans une cellule — ex. marqueur commande
-   *  Vision déplacé à une autre date. L'élément se lit dans `e.dataTransfer`. */
+   *  OF déplacé à une autre date. L'élément se lit dans `e.dataTransfer`. */
   onCellDrop?: (lineCode: string, col: number, iso: string, e: DragEvent) => void
   /** Bouton « Engagement » dans le header de chaque poste (issue #46).
    *  Optionnel → board /ordonnancement inchangé. */
@@ -887,7 +887,7 @@ interface VirtualOrderChipProps {
 function VirtualOrderChip(props: VirtualOrderChipProps) {
   const tone = props.order.statut ? VERDICT_TONE[props.order.statut] : undefined
   const [ctpOpen, setCtpOpen] = useState(false)
-  const [ctpPath, setCtpPath] = useState<PromiseNode[] | null>(null)
+  const [ctpPath, setCtpPath] = useState<PromesseNode[] | null>(null)
   const [ctpError, setCtpError] = useState(false)
 
   const toggleCtp = async () => {
@@ -902,7 +902,7 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
       const res = await fetch(`${route('promesse.index')}?${params}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
-      setCtpPath((data.engageante?.criticalPath ?? []) as PromiseNode[])
+      setCtpPath((data.engageante?.criticalPath ?? []) as PromesseNode[])
     } catch {
       setCtpError(true)
     }

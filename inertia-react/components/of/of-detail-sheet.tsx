@@ -6,7 +6,7 @@
  * affermissement, confirmation rupture), rendu shell (barre d'identité,
  * méta+avancement, onglets). Vues lourdes déléguées :
  *   • arbre diagnostic récursif → <OfDiagnosticTree>
- *   • action affermir + popover rupture → <OfFirmAction>
+ *   • action affermir + popover rupture → <OfAffermirAction>
  *
  * Layout Scan-first : identité ≠ actions, méta en grille 4 cols, table
  * silencieuse sur les lignes OK, commandes matching dans le chrome.
@@ -34,7 +34,7 @@ import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
 import { X3Link } from '@r/components/x3-link'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
-import { OfFirmAction } from './of-firm-action'
+import { OfAffermirAction } from './of-affermir-action'
 import { OfPrintVerdict, OfReprintButton, type PrintReport } from './of-print-verdict'
 
 /** ISO YYYY-MM-DD → « 17 août » (jour civil, pas d'heure). */
@@ -151,8 +151,8 @@ export function OfDetailSheet(props: {
     setFirmMsg(null)
     try {
       const url = isSuggestion
-        ? route('planning.suggestion_firm', { sugNum: d.num })
-        : route('planning.order_firm', { orderNum: d.num })
+        ? route('planning.suggestion_affermir', { sugNum: d.num })
+        : route('planning.order_affermir', { orderNum: d.num })
       const res = await fetch(url, { method: 'POST' })
       const data = (await res.json()) as {
         ok: boolean
@@ -282,7 +282,7 @@ export function OfDetailSheet(props: {
                 )}
                 {!canFirm && d.statusLabel === 'Ferme' && <OfReprintButton ofNum={d.num} />}
                 {canFirm && (
-                  <OfFirmAction
+                  <OfAffermirAction
                     firming={firming}
                     confirmRupture={confirmRupture}
                     isSuggestion={isSuggestion}

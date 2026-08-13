@@ -91,7 +91,7 @@ function sortRows(rows: CamionDtl[], sort: ManifesteSort): CamionDtl[] {
   const out = [...rows]
   if (sort === 'time') {
     out.sort((a, b) => srcRank(a) - srcRank(b) || a.debut.localeCompare(b.debut))
-  } else if (sort === 'load') {
+  } else if (sort === 'charge') {
     out.sort((a, b) => srcRank(a) - srcRank(b) || b.nbPalettes - a.nbPalettes)
   } else {
     out.sort((a, b) => srcRank(a) - srcRank(b) || a.client.localeCompare(b.client))
@@ -250,7 +250,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
                   <ToolbarSegment active={mSort === 'time'} onClick={() => setMSort('time')}>
                     Par heure
                   </ToolbarSegment>
-                  <ToolbarSegment active={mSort === 'load'} onClick={() => setMSort('load')}>
+                  <ToolbarSegment active={mSort === 'charge'} onClick={() => setMSort('charge')}>
                     Par charge
                   </ToolbarSegment>
                   <ToolbarSegment active={mSort === 'client'} onClick={() => setMSort('client')}>

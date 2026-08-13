@@ -9,7 +9,7 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
-import { Segment, DateWindowPill } from '@r/components/vision/toolbar'
+import { Segment, DateWindowPill } from '@r/components/programme/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
   GRID_COLS,
@@ -70,7 +70,7 @@ import { Switch } from '@r/components/ui/switch'
  *
  * Coquille rendue instantanément ; les KPI « charge en retard » + liste des lignes
  * en retard (calcul lourd : statuts + charge gamme depuis X3) sont chargés en différé
- * par fetch JSON sur `kpisHref`. Même motif que /suivi (scheduler/tracking).
+ * par fetch JSON sur `kpisHref`. Même motif que /suivi (suivi).
  *
  * Port React du Solid inertia/pages/dashboard.tsx — structure identique
  * (sous-composants inline), store zustand pour le layout, DnD HTML5 natif.

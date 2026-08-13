@@ -23,7 +23,7 @@ import {
   windowParamsFromCtx,
   type WindowParams,
 } from '#services/board_payload_loader'
-import { loadShortageRows } from '#services/shortage_payload_loader'
+import { loadRuptureRows } from '#services/rupture_payload_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { isoDay } from '#app/utils/dates'
@@ -108,12 +108,12 @@ function fmtFrShort(iso: string | null | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// Issue #21 — Vision unifiée OF ↔ commandes. Le board est IDENTIQUE à
+// Issue #21 — Vue unifiée OF ↔ commandes. Le board est IDENTIQUE à
 // /ordonnancement (réutilise loadBoardData + <BoardGrid>) ; vision n'ajoute que
 // les marqueurs commande (date d'expédition) et les liens OF→commande en overlay.
 // ---------------------------------------------------------------------------
 
-interface VisionCommande {
+interface ProgrammeCommande {
   /** Identité LIGNE (numCommande#ligne) — clé des liens. */
   id: string
   numCommande: string
@@ -129,7 +129,7 @@ interface VisionCommande {
   col: number
 }
 
-interface VisionLink {
+interface ProgrammeLink {
   ofId: string
   posteCode: string
   /** Colonne de la carte OF (date de début). */
@@ -159,18 +159,18 @@ export default class SchedulerController {
   /** GET /programme — vue unifiée OF ↔ commandes (issue #21, #22). */
   async programme(ctx: HttpContext) {
     const rawMode = ctx.request.input('mode') as string | undefined
-    const mode: 'combined' | 'ordonnancement' | 'planification' =
+    const mode: 'combined' | 'ordonnancement' | 'commandes' =
       rawMode === 'ordonnancement'
         ? 'ordonnancement'
-        : rawMode === 'planification'
-          ? 'planification'
+        : rawMode === 'commandes' || rawMode === 'planification'
+          ? 'commandes'
           : 'combined'
 
     // Les 3 modes (Combiné / OF / Cmdes) dérivent du MÊME payload (board OF + orderBoard
     // lignes) → le switch se fait côté client (toggle UI, zéro round-trip). `mode` n'est lu
     // qu'au chargement initial (deep-link / redirection /planification) pour le mode d'affichage.
     const data = await this.loadProgrammeData(windowParamsFromCtx(ctx), '/programme', mode)
-    return ctx.inertia.render('scheduler/programme', {
+    return ctx.inertia.render('programme', {
       mode,
       board: data.board,
       commandes: data.commandes,
@@ -204,7 +204,7 @@ export default class SchedulerController {
   async loadProgrammeData(
     params: WindowParams,
     basePath = '/programme',
-    mode: 'combined' | 'ordonnancement' | 'planification' = 'combined'
+    mode: 'combined' | 'ordonnancement' | 'commandes' = 'combined'
   ) {
     const startParam = params.start
     const horizon = resolveHorizon(params.days)
@@ -267,8 +267,8 @@ export default class SchedulerController {
           })
         }
 
-        const commandeByLine = new Map<string, VisionCommande>()
-        const links: VisionLink[] = []
+        const commandeByLine = new Map<string, ProgrammeCommande>()
+        const links: ProgrammeLink[] = []
         try {
           if (!impactsCtx) throw new Error('loadOrderImpacts failed')
           const { result } = impactsCtx
@@ -409,7 +409,7 @@ export default class SchedulerController {
       .map(([code, label]) => ({ code, label }))
       .sort((a, b) => a.label.localeCompare(b.label))
 
-    return ctx.inertia.render('scheduler/sequenceur', {
+    return ctx.inertia.render('sequenceur', {
       postes,
       ateliers,
       rows: summaries.postes.flatMap((p) =>
@@ -429,9 +429,9 @@ export default class SchedulerController {
   /**
    * GET /ruptures — coquille (shell) Inertia du suivi des ruptures (issue #15/#16).
    * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en différé
-   * côté client (fetch JSON) depuis `/api/v1/planning/shortages/rows` → page réactive Solid.
+   * côté client (fetch JSON) depuis `/api/v1/planning/ruptures/rows` → page réactive Solid.
    */
-  async shortageTracker(ctx: HttpContext) {
+  async ruptures(ctx: HttpContext) {
     const startParam = ctx.request.input('start') as string | undefined
     const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
     const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
@@ -448,18 +448,18 @@ export default class SchedulerController {
     const startIso = isoDay(windowFrom)
     // refresh=1 volontairement ABSENT du choix de fenêtre : sinon un clic « Actualiser »
     // se propagerait à chaque changement de plage → purge du cache global à chaque navigation.
-    return ctx.inertia.render('scheduler/shortages', {
+    return ctx.inertia.render('ruptures', {
       horizon,
       windowStart: startIso,
       // URL du fragment différé (calcul lourd côté serveur). Seul endroit où refresh survit.
-      rowsHref: `/api/v1/planning/shortages/rows?start=${startIso}&days=${horizon}${force ? '&refresh=1' : ''}`,
+      rowsHref: `/api/v1/planning/ruptures/rows?start=${startIso}&days=${horizon}${force ? '&refresh=1' : ''}`,
       dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
     })
   }
 
-  /** GET /api/v1/planning/shortages/rows — endpoint JSON (calcul lourd). Cf. loadShortageRows. */
-  async shortageRows(ctx: HttpContext) {
-    return loadShortageRows(ctx)
+  /** GET /api/v1/planning/ruptures/rows — endpoint JSON (calcul lourd). Cf. loadRuptureRows. */
+  async ruptureRows(ctx: HttpContext) {
+    return loadRuptureRows(ctx)
   }
 
   // -------------------------------------------------------------------------

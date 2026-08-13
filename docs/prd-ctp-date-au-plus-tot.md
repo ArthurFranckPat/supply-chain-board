@@ -77,7 +77,7 @@ Le moteur CTP est un **assembleur** de composants domaine déjà présents et te
 Nouveau fichier `app/domain/promise-engine.ts`, **pur, sans I/O** (même discipline que `plan-diff.ts` / `rupture-engine.ts`). Consomme des lookups injectés (Map ou adapter), testable sur fixtures sans X3.
 
 ```ts
-export interface PromiseDataset {
+export interface PromesseDataset {
   articles: ArticleLookup           // reorderDelay, supplyType (ACHAT/FABRICATION)
   nomenclatures: NomenclatureLookup // BOM par article produit
   stockNet: Map<string, number>     // stock résiduel NON alloué par article
@@ -94,48 +94,48 @@ export interface DatedSupply {
   id: string          // n° PO / n° OF (pour le chemin critique)
 }
 
-export interface PromiseRequest {
+export interface PromesseRequest {
   article: string
   quantity: number
   from?: Date          // défaut : aujourd'hui
   mode: 'optimiste' | 'engageante'
 }
 
-export interface PromiseNode {
+export interface PromesseNode {
   article: string
   quantity: number       // qté requise à ce maillon (propagée par linkQuantity)
   availableDate: Date     // date à laquelle CE maillon est dispo
-  reason: PromiseReason   // pourquoi cette date (voir 5.3)
+  reason: PromesseReason   // pourquoi cette date (voir 5.3)
   leadTimeUsed: number    // délai appliqué (jours) — 0 si couvert par stock/flux
-  children: PromiseNode[] // sous-maillons (composants), vide pour une feuille
+  children: PromesseNode[] // sous-maillons (composants), vide pour une feuille
   onCriticalPath: boolean // ce maillon détermine-t-il la date du parent ?
 }
 
-export interface PromiseResult {
+export interface PromesseResult {
   article: string
   quantity: number
   promiseDate: Date          // date au plus tôt (racine)
   mode: 'optimiste' | 'engageante'
-  criticalPath: PromiseNode[] // branche contraignante aplatie, racine → feuille limitante
+  criticalPath: PromesseNode[] // branche contraignante aplatie, racine → feuille limitante
   limitingFactor: {           // le maillon terminal, formulé
     article: string
-    reason: PromiseReason
+    reason: PromesseReason
     date: Date
     leadTime: number
   }
-  tree: PromiseNode           // arbre complet (drill-down)
+  tree: PromesseNode           // arbre complet (drill-down)
   truncated: boolean          // true si PHANTOM_DEPTH_CAP atteint (arbre incomplet)
 }
 
-export function computePromiseDate(
-  req: PromiseRequest,
-  data: PromiseDataset
-): PromiseResult
+export function computePromesseDate(
+  req: PromesseRequest,
+  data: PromesseDataset
+): PromesseResult
 ```
 
 ### 5.2 L'algorithme (récursion `dispoDate`)
 
-`dispoDate(article, qté, from, depth) → PromiseNode` :
+`dispoDate(article, qté, from, depth) → PromesseNode` :
 
 1. **Stock net résiduel ≥ qté** → `availableDate = from`, `reason = 'stock'`, feuille. Décrémente le stock consommé (le moteur tient un ledger local pour ne pas promettre deux fois le même stock sur une même passe multi-lignes).
 2. **Flux datés non alloués** (réceptions + OF) couvrent le reliquat → `availableDate = date du dernier flux nécessaire` pour atteindre `qté` (tri par date croissante, cumul jusqu'à couverture). `reason = 'reception'` ou `'of'`. Feuille (on ne descend pas dans un OF déjà lancé — sa date est engagée).
@@ -151,10 +151,10 @@ export function computePromiseDate(
 
 Le **chemin critique** = descente depuis la racine en suivant à chaque niveau l'enfant `onCriticalPath` (celui qui porte le `max`), jusqu'à une feuille.
 
-### 5.3 `PromiseReason` — pourquoi cette date
+### 5.3 `PromesseReason` — pourquoi cette date
 
 ```ts
-export type PromiseReason =
+export type PromesseReason =
   | { kind: 'stock' }                                    // couvert par stock dispo
   | { kind: 'reception'; poId: string; date: Date }      // PO attendue
   | { kind: 'of'; ofId: string; date: Date }             // OF en cours
@@ -257,8 +257,8 @@ Donnée **non encore calculée**. Piste : moyenne glissante sur les réceptions 
 
 | Lot | Contenu | Valeur | Dépend de |
 | --- | --- | --- | --- |
-| **1 — Moteur** | `promise-engine.ts` pur : `computePromiseDate`, récursion `dispoDate`, chemin critique, mode optimiste. Fixtures + tests. | La logique métier, testable sans UI ni X3. **Le gros du levier.** | — |
-| **2 — Loader** | `promise_loader.ts` : dérive `PromiseDataset` des lookups cache existants (stock net d'allocations, réceptions nettes, ofSupply). Endpoint `POST /api/v1/promesse`. | Le moteur devient appelable sur données réelles. | Lot 1 |
+| **1 — Moteur** | `promise-engine.ts` pur : `computePromesseDate`, récursion `dispoDate`, chemin critique, mode optimiste. Fixtures + tests. | La logique métier, testable sans UI ni X3. **Le gros du levier.** | — |
+| **2 — Loader** | `promesse_loader.ts` : dérive `PromesseDataset` des lookups cache existants (stock net d'allocations, réceptions nettes, ofSupply). Endpoint `POST /api/v1/promesse`. | Le moteur devient appelable sur données réelles. | Lot 1 |
 | **3 — Simulateur autonome** | Page/palette `/promesse` : formulaire + 2 dates + facteur limitant + chemin critique dépliable. Format FR. | **L'outil du téléphone** — la valeur pour la planner. | Lot 2 |
 | **4 — Mode engageante** | `supplierLatency` (retard observé) + jours ouvrés dans le décalage. | La date **tenable**, pas seulement théorique. | Lot 1-3 |
 | **5 — Pont commande virtuelle** | Date vide = au plus tôt dans #58 ; « transformer en commande virtuelle » depuis `/promesse`. | Unifie les deux surfaces (proposer ↔ valider l'impact). | Lot 3, #58 |
@@ -287,7 +287,7 @@ Lots 1-3 = MVP livrable et utile seul. 4-6 = raffinements.
 
 ## 12. Critères d'acceptation
 
-- [ ] `computePromiseDate` rend une date + un chemin critique pour tout couple (article, qté), sur fixtures, sans I/O.
+- [ ] `computePromesseDate` rend une date + un chemin critique pour tout couple (article, qté), sur fixtures, sans I/O.
 - [ ] Le chemin critique désigne le **maillon terminal contraignant** avec sa raison (stock / réception / appro / fab) et son délai.
 - [ ] Le délai fab est **cumulé** le long des niveaux de la branche critique.
 - [ ] La promesse se base sur le stock/flux **net des allocations** (pas de double promesse avec le carnet).

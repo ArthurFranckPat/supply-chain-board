@@ -25,8 +25,8 @@ import {
   type ReceptionInput,
   type ReceptionRow,
 } from '#app/domain/receptions'
-import { isoLocalDay } from '#app/domain/shortages'
-import { loadShortageRowsData } from '#services/shortage_payload_loader'
+import { isoLocalDay } from '#app/domain/ruptures'
+import { loadRuptureRowsData } from '#services/rupture_payload_loader'
 import boardDataset from '#services/board_dataset'
 import type { EstimationResult, EstimationsPaire } from '#app/domain/conditionnement_estimator'
 
@@ -328,8 +328,8 @@ export async function loadReceptionPayloadSafe(opts: {
  * Quelles réceptions attendues débloquent une rupture, et avec quelle marge
  * (issue #82).
  *
- * Aucune requête X3 propre : `loadShortageRowsData` apparie DÉJÀ les ruptures aux
- * commandes d'achat (`ShortageRow.reception.id` = POHNUM). On ne fait qu'inverser
+ * Aucune requête X3 propre : `loadRuptureRowsData` apparie DÉJÀ les ruptures aux
+ * commandes d'achat (`RuptureRow.reception.id` = POHNUM). On ne fait qu'inverser
  * son index — de « cette rupture est-elle couverte ? » à « cette réception
  * couvre-t-elle quelque chose de tendu ? ».
  *
@@ -346,7 +346,7 @@ export async function loadReceptionCriticite(opts: {
 }): Promise<{ items: ReceptionCriticite[]; horizonDays: number; x3Error: string | null }> {
   const horizonDays = Math.min(Math.max(opts.horizonDays, 1), 90)
   try {
-    const { rows } = await loadShortageRowsData({
+    const { rows } = await loadRuptureRowsData({
       start: opts.from,
       days: horizonDays,
       force: opts.force,

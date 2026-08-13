@@ -16,7 +16,7 @@ import {
   type ScenarioRow,
   type AllocationStrategy,
   mutationKey,
-} from '@r/lib/scenarios/types'
+} from '@r/lib/scenario/types'
 
 interface CurrentScenario {
   id: number | null

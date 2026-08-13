@@ -247,7 +247,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.shortage_tracker': {
+  'ruptures.index': {
     methods: ["GET","HEAD"]
     pattern: '/ruptures'
     types: {
@@ -295,7 +295,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.programme': {
+  'programme.index': {
     methods: ["GET","HEAD"]
     pattern: '/programme'
     types: {
@@ -331,7 +331,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'load.index': {
+  'charge.index': {
     methods: ["GET","HEAD"]
     pattern: '/charge'
     types: {
@@ -415,7 +415,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.show': {
+  'copilote.show': {
     methods: ["GET","HEAD"]
     pattern: '/copilote'
     types: {
@@ -751,7 +751,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'planning.suggestion_firm': {
+  'planning.suggestion_affermir': {
     methods: ["POST"]
     pattern: '/api/v1/planning/suggestions/:sugNum/firm'
     types: {
@@ -799,7 +799,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'planning.order_firm': {
+  'planning.order_affermir': {
     methods: ["POST"]
     pattern: '/api/v1/planning/orders/:orderNum/firm'
     types: {
@@ -907,9 +907,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.shortage_rows': {
+  'ruptures.rows': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/shortages/rows'
+    pattern: '/api/v1/planning/ruptures/rows'
     types: {
       body: {}
       paramsTuple: []
@@ -1435,9 +1435,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.health': {
+  'copilote.health': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/agent/health'
+    pattern: '/api/v1/copilote/health'
     types: {
       body: {}
       paramsTuple: []
@@ -1447,9 +1447,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.chat': {
+  'copilote.chat': {
     methods: ["POST"]
-    pattern: '/api/v1/agent/chat'
+    pattern: '/api/v1/copilote/chat'
     types: {
       body: {}
       paramsTuple: []
@@ -1459,9 +1459,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.metrics': {
+  'copilote.metrics': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/agent/metrics'
+    pattern: '/api/v1/copilote/metrics'
     types: {
       body: {}
       paramsTuple: []
@@ -1471,9 +1471,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.conversations': {
+  'copilote.conversations': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/agent/conversations'
+    pattern: '/api/v1/copilote/conversations'
     types: {
       body: {}
       paramsTuple: []
@@ -1483,9 +1483,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.conversation': {
+  'copilote.conversation': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/agent/conversations/:id'
+    pattern: '/api/v1/copilote/conversations/:id'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1495,9 +1495,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.conversationsDestroy': {
+  'copilote.conversationsDestroy': {
     methods: ["DELETE"]
-    pattern: '/api/v1/agent/conversations/:id'
+    pattern: '/api/v1/copilote/conversations/:id'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1507,9 +1507,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.conversationsUpdate': {
+  'copilote.conversationsUpdate': {
     methods: ["PATCH"]
-    pattern: '/api/v1/agent/conversations/:id'
+    pattern: '/api/v1/copilote/conversations/:id'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1519,9 +1519,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.mcp.app': {
+  'copilote.mcp.app': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/agent/mcp/app'
+    pattern: '/api/v1/copilote/mcp/app'
     types: {
       body: {}
       paramsTuple: []
@@ -1531,9 +1531,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'agent.mcp.call': {
+  'copilote.mcp.call': {
     methods: ["POST"]
-    pattern: '/api/v1/agent/mcp/call'
+    pattern: '/api/v1/copilote/mcp/call'
     types: {
       body: {}
       paramsTuple: []

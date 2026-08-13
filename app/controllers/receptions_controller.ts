@@ -1,5 +1,5 @@
 import { type HttpContext } from '@adonisjs/core/http'
-import { isoLocalDay } from '#app/domain/shortages'
+import { isoLocalDay } from '#app/domain/ruptures'
 import {
   DEFAULT_HORIZON_DAYS,
   loadReceptionCriticite,

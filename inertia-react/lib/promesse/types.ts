@@ -3,7 +3,7 @@
  * Miroir de app/domain/promise-engine.ts après JSON.stringify.
  */
 
-export type PromiseReason =
+export type PromesseReason =
   | { kind: 'stock' }
   | { kind: 'reception'; poId: string; date: string }
   | { kind: 'of'; ofId: string; date: string }
@@ -11,18 +11,18 @@ export type PromiseReason =
   | { kind: 'fabrication'; leadTime: number }
   | { kind: 'infeasible'; detail: string }
 
-export interface PromiseNode {
+export interface PromesseNode {
   article: string
   quantity: number
   availableDate: string
-  reason: PromiseReason
+  reason: PromesseReason
   leadTimeUsed: number
-  children: PromiseNode[]
+  children: PromesseNode[]
   onCriticalPath: boolean
 }
 
 /** Formulation courte d'une raison CTP (facteur limitant, maillons du chemin). */
-export function promiseReasonText(r: PromiseReason): string {
+export function promiseReasonText(r: PromesseReason): string {
   switch (r.kind) {
     case 'stock':
       return 'stock disponible'
@@ -39,19 +39,19 @@ export function promiseReasonText(r: PromiseReason): string {
   }
 }
 
-export interface PromiseResult {
+export interface PromesseResult {
   article: string
   quantity: number
   promiseDate: string
   mode: 'optimiste' | 'engageante'
-  criticalPath: PromiseNode[]
+  criticalPath: PromesseNode[]
   limitingFactor: {
     article: string
-    reason: PromiseReason
+    reason: PromesseReason
     date: string
     leadTime: number
   }
-  tree: PromiseNode
+  tree: PromesseNode
   truncated: boolean
   infeasible: boolean
 }

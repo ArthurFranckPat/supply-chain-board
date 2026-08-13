@@ -14,7 +14,7 @@ import {
   type ApproDecision,
 } from '#app/domain/appro_decision'
 import { ApproDecisionRepository } from '#app/repositories/appro_decision_repository'
-import { isoLocalDay } from '#app/domain/shortages'
+import { isoLocalDay } from '#app/domain/ruptures'
 import logger from '@adonisjs/core/services/logger'
 
 /**
