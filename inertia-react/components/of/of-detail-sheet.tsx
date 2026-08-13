@@ -1,35 +1,49 @@
 /**
- * Sheet détaillée d'un OF — port React de
- * inertia/components/of/of-detail-sheet.tsx (issue #52, shell d'orchestration).
+ * THESIS: overlay de verdict compact ; la nomenclature n'apparaît que sur
+ * demande. Refuse le drawer-document 72 vh plein largeur.
+ * OWN-WORLD: tokens Cursor — encre #141414, danger #be1744, 13 px, radius 8.
+ * STORY: le planner voit le produit, le manquant, un CTA honnête, et affermitt
+ * ou passe. « Couverture » descend la chaîne (réceptions CA, OF couvrants,
+ * CQ) — distinct du BOM 1 niveau, distinct de /approvisionnements.
+ * FIRST VIEWPORT: sheet 640 px — titre, méta, tableau des ruptures, pied.
+ * Le reste de la BOM : « N autres » sous le tableau, pas un bouton de pied.
+ * FORM: mix B+C (verdict overlay → desk sheet). FINISH: unreviewed and
+ * undocumented is unfinished; this build ends with the finish review, the
+ * verdict, and DESIGN.md
  *
- * Orchestre : fetch du détail + diagnostic (lazy), état (onglet,
- * affermissement, confirmation rupture), rendu shell (barre d'identité,
- * méta+avancement, onglets). Vues lourdes déléguées :
- *   • arbre diagnostic récursif → <OfDiagnosticTree>
- *   • action affermir + popover rupture → <OfFirmAction>
- *
- * Layout Scan-first : identité ≠ actions, méta en grille 4 cols, table
- * silencieuse sur les lignes OK, commandes matching dans le chrome.
+ * Orchestre : fetch du détail + diagnostic (lazy), état (vue, affermissement,
+ * confirmation rupture). Vues déléguées : <OfDiagnosticTree>, <OfFirmAction>.
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
 
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
+import { Button } from '@r/components/ui/button'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-import { rowToneClass } from '@r/components/ui/table-row'
+import {
+  CellNumber,
+  CellVerdict,
+  TableCell,
+  TableHead,
+  TableHeadRow,
+  TableRow,
+  TONE_TEXT,
+  rowToneClass,
+  type RowTone,
+} from '@r/components/ui/table-row'
 import { cn } from '@r/lib/utils'
 import {
-  CircleX,
-  ArrowRight,
-  Package,
-  Network,
-  TriangleAlert,
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
   CircleCheck,
+  CircleX,
   FlaskConical,
+  TriangleAlert,
 } from 'lucide-react'
-import type { OfCommandeLink, OfDetail, BomRow } from '@r/lib/of/types'
+import type { OfDetail, BomRow } from '@r/lib/of/types'
 import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
 import { X3Link } from '@r/components/x3-link'
@@ -37,13 +51,102 @@ import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
 import { OfPrintVerdict, OfReprintButton, type PrintReport } from './of-print-verdict'
 
-/** ISO YYYY-MM-DD → « 17 août » (jour civil, pas d'heure). */
+type SheetView = 'verdict' | 'bom' | 'diagnostic'
+
+/** ISO YYYY-MM-DD → jj/mm/aaaa. */
 function fmtLivraison(iso: string | null): string {
   if (!iso) return ''
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+
+/** Champs X3 vides concaténés (« - - - - », « -PRE ») — on les retire. */
+function cleanTitle(raw: string): string {
+  return raw
+    .split(/\s+/)
+    .filter((t) => t.length > 0 && !/^[-–—]+$/.test(t))
+    .map((t) => t.replace(/^[-–—]+/, ''))
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+}
+
+function shortageQty(value: string | null | undefined): string {
+  return (value ?? '').replace(/^[−\-–—]+/, '')
+}
+
+/** Rupture = danger ; CQ seul = warn. OK sans CQ = neutre. */
+function bomRowTone(row: BomRow): RowTone {
+  if (!row.ok) return 'critical'
+  if (row.qc) return 'warning'
+  return null
+}
+
+function fmtCycle(start: string, end: string): string {
+  if (!start || start === '—') return '—'
+  if (!end || end === start) return start
+  return `${start} → ${end}`
+}
+
+function qtyScan(value: string | undefined): string | null {
+  if (!value || value === '—') return null
+  const m = /^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/.exec(value.trim())
+  const qty = m ? (Number(m[1].replace(',', '.')) > 0 ? `${m[1]}/${m[2]}` : m[2]) : value
+  return `${qty} pces`
+}
+
+function timeScan(value: string | undefined): string | null {
+  if (!value || value === '—') return null
+  return value
+}
+
+function consumedPositive(row: BomRow): boolean {
+  if (row.consumed == null || row.required == null) return false
+  const n = Number(String(row.consumed).replace(',', '.'))
+  return Number.isFinite(n) && n > 0
+}
+
+function compactEdge(i: number, last: number): string {
+  return cn('px-2! py-1!', i === 0 && 'pl-0!', i === last && 'pr-0!')
+}
+
+const SHEET_EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)'
+const SHEET_HEIGHT_MS = 320
+
+function reducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/** `h-auto` → `56vh` : CSS ne peut pas. Mesure, lock px, WAAPI, unlock. */
+function animateHeight(el: HTMLElement, from: number, to: number): Promise<boolean> {
+  el.getAnimations().forEach((a) => a.cancel())
+  if (reducedMotion() || Math.abs(from - to) < 1) {
+    el.style.height = ''
+    return Promise.resolve(false)
+  }
+  const anim = el.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+    duration: SHEET_HEIGHT_MS,
+    easing: SHEET_EASE,
+    fill: 'forwards',
+  })
+  return anim.finished
+    .then(() => {
+      el.style.height = `${to}px`
+      anim.cancel()
+      return true
+    })
+    .catch(() => false)
+}
+
+function commandeTitle(commandes: OfDetail['commandes']): string {
+  return (commandes ?? [])
+    .map((c) => {
+      const liv = fmtLivraison(c.livraisonIso)
+      return [c.numCommande, c.ligne ? `L${c.ligne}` : null, liv ? `exp. ${liv}` : null]
+        .filter(Boolean)
+        .join(' · ')
+    })
+    .join(' · ')
 }
 
 export function OfDetailSheet(props: {
@@ -54,9 +157,12 @@ export function OfDetailSheet(props: {
    *  à jour optimiste du board (transformation de la carte en place). */
   onFirmed?: (oldNum: string, newMfgNum: string) => void
 }) {
-  const [tab, setTab] = useState<'composants' | 'diagnostic'>('composants')
-  // Devient true au premier clic sur "Diagnostic récursif" — déclenche le fetch une seule fois.
+  const [view, setView] = useState<SheetView>('verdict')
   const [diagRequested, setDiagRequested] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const compactHeightRef = useRef(0)
+  const pendingExpand = useRef(false)
+  const animGen = useRef(0)
 
   const [detail, setDetail] = useState<OfDetail | null>(null)
   const [detailError, setDetailError] = useState(false)
@@ -65,12 +171,9 @@ export function OfDetailSheet(props: {
   const [diagLoading, setDiagLoading] = useState(false)
   const [diagError, setDiagError] = useState<string | null>(null)
 
-  // Affermissement (write-back X3 FUNMAUTR, #31). ~13s : spinner + message.
   const [firming, setFirming] = useState(false)
   const [firmMsg, setFirmMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  /** Verdict d'impression, tenu à part du verdict d'affermissement (#85 lot 3). */
   const [printMsg, setPrintMsg] = useState<PrintReport | null>(null)
-  // Confirmation requise pour affermir un OF en rupture (défaut : interdit).
   const [confirmRupture, setConfirmRupture] = useState(false)
 
   const fetchDetail = useCallback(async (num: string) => {
@@ -84,19 +187,24 @@ export function OfDetailSheet(props: {
     }
   }, [])
 
-  // Réinitialise l'état + fetch quand l'OF change (nouvelle carte cliquée).
   useEffect(() => {
-    setTab('composants')
+    animGen.current += 1
+    pendingExpand.current = false
+    setView('verdict')
     setDiagRequested(false)
     setDiag(null)
     setFirmMsg(null)
     setPrintMsg(null)
     setConfirmRupture(false)
     setDetail(null)
+    const panel = panelRef.current
+    if (panel) {
+      panel.getAnimations().forEach((a) => a.cancel())
+      panel.style.height = ''
+    }
     if (props.open && props.num) void fetchDetail(props.num)
   }, [props.num, props.open, fetchDetail])
 
-  // Diagnostic : lazy (diagRequested) + memoïsé pour la durée d'ouverture du sheet.
   useEffect(() => {
     if (!diagRequested || !props.open || !props.num || diag) return
     let cancelled = false
@@ -110,8 +218,8 @@ export function OfDetailSheet(props: {
       .then((r) => {
         if (!cancelled) setDiag(r)
       })
-      .catch((e: Error) => {
-        if (!cancelled) setDiagError(e.message)
+      .catch(() => {
+        if (!cancelled) setDiagError('La requête a échoué.')
       })
       .finally(() => {
         if (!cancelled) setDiagLoading(false)
@@ -122,19 +230,16 @@ export function OfDetailSheet(props: {
   }, [diagRequested, props.open, props.num, diag])
 
   const isSuggestion = (detail?.statusLabel ?? '').toLowerCase().includes('sugg')
-  /** Composants en rupture (table Composants) — pilote le warning d'affermissement. */
   const rupturedComponents = (detail?.bom ?? []).filter((r) => !r.ok)
   const hasRuptures = rupturedComponents.length > 0
-  /** Composants dont la couverture ne tient que sur du stock sous contrôle qualité. */
   const qcRows = (detail?.bom ?? []).filter((r) => r.qc)
+  const restCount = (detail?.bom ?? []).length - rupturedComponents.length
   const canFirm = (() => {
-    if (firmMsg?.ok) return false // déjà affermi ce tour → on masque le bouton
+    if (firmMsg?.ok) return false
     const s = (detail?.statusLabel ?? '').toLowerCase()
     return s.includes('sugg') || s.includes('plan')
   })()
 
-  /** Gate : par défaut l'affermissement d'un OF en rupture est interdit — il faut
-   * confirmer explicitement. Sans rupture, on affermit directement. */
   const firm = () => {
     if (hasRuptures && !confirmRupture) {
       setConfirmRupture(true)
@@ -162,20 +267,9 @@ export function OfDetailSheet(props: {
       }
       if (data.ok && data.mfgNum) {
         setFirmMsg({ ok: true, text: `OF ${data.mfgNum} affermi` })
-        // L'impression a son propre verdict : un OF affermi dont le dossier
-        // n'est pas sorti doit se voir, pas se fondre dans le succès.
         if (data.print) setPrintMsg({ ...data.print, documents: data.print.documents ?? [] })
-        // Mise à jour optimiste : la carte se transforme en place (id → nouvel OF).
         props.onFirmed?.(d.num, data.mfgNum)
-        if (data.mfgNum !== d.num) {
-          // Suggestion→OF : le n° d'origine (SGAE…) n'existe plus → on ferme le sheet.
-          props.onOpenChange(false)
-        } else {
-          // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme).
-          await fetchDetail(d.num)
-        }
-        // Reload FULL et retardé : FUNMAUTR consomme la suggestion dans ORDERS avec
-        // un léger delta de propagation — cf. version Solid.
+        await fetchDetail(data.mfgNum)
         setTimeout(() => router.reload(), 2000)
       } else {
         setFirmMsg({ ok: false, text: data.error ?? 'Affermissement refusé par X3.' })
@@ -187,268 +281,394 @@ export function OfDetailSheet(props: {
     }
   }
 
-  const openDiagTab = () => {
+  const goTo = (next: SheetView) => {
+    if (next === view) return
+    animGen.current += 1
+    const el = panelRef.current
+    if (!el || reducedMotion()) {
+      pendingExpand.current = false
+      setView(next)
+      if (el) el.style.height = ''
+      return
+    }
+
+    if (view === 'verdict' && next !== 'verdict') {
+      compactHeightRef.current = el.getBoundingClientRect().height
+      pendingExpand.current = true
+      setView(next)
+      return
+    }
+
+    if (view !== 'verdict' && next === 'verdict') {
+      const from = el.getBoundingClientRect().height
+      const to = compactHeightRef.current
+      if (to < 1) {
+        setView('verdict')
+        el.style.height = ''
+        return
+      }
+      const gen = animGen.current
+      void animateHeight(el, from, to).then(() => {
+        if (gen !== animGen.current) return
+        setView('verdict')
+      })
+      return
+    }
+
+    setView(next)
+  }
+
+  useLayoutEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    if (!pendingExpand.current) {
+      if (view === 'verdict') el.style.height = ''
+      return
+    }
+    pendingExpand.current = false
+    const gen = animGen.current
+    const from = compactHeightRef.current
+    const to = Math.round(window.innerHeight * 0.56)
+    void animateHeight(el, from, to).then(() => {
+      if (gen !== animGen.current) return
+      el.style.height = ''
+    })
+  }, [view])
+
+  const openDiagnostic = () => {
     setDiagRequested(true)
-    setTab('diagnostic')
+    goTo('diagnostic')
   }
 
   const statusVariant = (label: string) =>
-    label === 'Ferme' ? 'success' : label === 'Suggéré' ? 'warning' : 'default'
+    label === 'Ferme' ? 'success' : label === 'Suggéré' ? 'warning' : 'secondary'
 
   const d = detail
   const commandes = d?.commandes ?? []
+  const clientLabel = [
+    ...new Set(commandes.map((c) => c.client).filter((c): c is string => Boolean(c))),
+  ].join(' · ')
+  const qtyLabel = d ? qtyScan(d.stats.find((s) => s.label === 'Qté')?.value) : null
+  const hoursLabel = d ? timeScan(d.stats.find((s) => s.label === 'Temps')?.value) : null
+  const expanded = view !== 'verdict'
+  const showPrintBar = !canFirm && d?.statusLabel === 'Ferme'
+  const showNav =
+    !!d && (view === 'bom' || view === 'diagnostic' || (view === 'verdict' && hasRuptures))
+  const showFirmChrome =
+    Boolean(firmMsg) || Boolean(printMsg && (canFirm || d?.statusLabel !== 'Ferme')) || canFirm
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[14px] p-0 data-[side=bottom]:h-[72vh] data-[side=bottom]:max-w-none data-[side=bottom]:mx-0"
+        className="flex w-full max-w-none flex-col gap-0 p-0 data-[side=bottom]:mx-auto data-[side=bottom]:h-auto data-[side=bottom]:max-w-[640px]"
       >
-        {!d ? (
-          detailError ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-destructive">
-              <CircleX size={28} strokeWidth={1.75} />
-              <span className="text-sm font-medium">Échec du chargement du détail.</span>
-            </div>
-          ) : (
-            <LoadingState
-              variant="orb"
-              title="Chargement de l'ordre de fabrication..."
-              description="Récupération des détails, composants et opérations"
-            />
-          )
-        ) : (
-          <>
-            {/* Ligne 1 — identité + actions */}
-            <div className="flex items-center gap-4 px-5 py-3 pr-14">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5">
-                  {/* Pas de lien sur un OF suggéré : pas de MFGNUM à ouvrir (#118). */}
-                  {isSuggestion ? (
-                    <span className="font-mono text-[15px] font-bold tracking-tight text-foreground">
-                      {d.num}
-                    </span>
-                  ) : (
-                    <X3Link
-                      fonction="GESMFG"
-                      cle={d.num}
-                      title={`Ouvrir l'OF ${d.num} dans Sage X3`}
-                      className="font-mono text-[15px] font-bold tracking-tight text-foreground"
-                    >
-                      {d.num}
-                    </X3Link>
-                  )}
-                  {d.article && (
-                    <span className="font-mono text-[11px] font-semibold text-brand">
-                      {d.article}
-                    </span>
-                  )}
-                  {/* Ni hauteur ni taille de police forcées : sous `.theme-cursor`
-                      la règle `[data-slot='badge']` les impose (20 px / 11 px) et
-                      bat toute classe utilitaire, donc `h-[18px] text-[10px]` ne
-                      s'appliquait que sur les pages Airbnb — un réglage à moitié
-                      mort, qui donnait l'illusion d'en être un. */}
-                  <Badge
-                    variant={statusVariant(d.statusLabel)}
-                    className="font-mono font-semibold uppercase tracking-wide"
-                  >
-                    {d.statusLabel}
-                  </Badge>
-                  {d.bomBlocked > 0 && (
-                    <Badge variant="destructive" className="font-mono font-semibold">
-                      {d.bomBlocked} rupture{d.bomBlocked > 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                </div>
-                <SheetTitle className="mt-0.5 truncate text-[12px] font-normal text-muted-foreground">
-                  {d.title}
-                </SheetTitle>
+        <div
+          ref={panelRef}
+          className={cn(
+            'flex min-h-0 w-full flex-col overflow-hidden',
+            expanded ? 'h-[56vh]' : 'h-auto'
+          )}
+        >
+          {!d ? (
+            detailError ? (
+              <div className="flex flex-col items-center justify-center gap-3 p-10 text-center">
+                <CircleX size={28} strokeWidth={1.75} className="text-destructive" />
+                <span className="text-sm font-medium text-destructive">
+                  Échec du chargement du détail.
+                </span>
+                {props.num && (
+                  <Button size="sm" variant="outline" onClick={() => void fetchDetail(props.num!)}>
+                    Réessayer
+                  </Button>
+                )}
               </div>
+            ) : (
+              <LoadingState
+                variant="orb"
+                compact
+                title="Chargement de l'ordre de fabrication…"
+                description="Récupération des détails et des composants"
+              />
+            )
+          ) : (
+            <>
+              <header className="flex flex-col gap-3 px-5 pb-3 pt-4 pr-14">
+                <div className="flex flex-col gap-1">
+                  <SheetTitle className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[15px] font-normal leading-snug text-foreground">
+                    {d.article && cleanTitle(d.title) !== d.article ? (
+                      <X3Link
+                        fonction="GESITM"
+                        cle={d.article}
+                        title={`Ouvrir l'article ${d.article} dans Sage X3`}
+                        className="shrink-0 font-mono text-[15px] font-normal text-foreground"
+                      >
+                        {d.article}
+                      </X3Link>
+                    ) : null}
+                    <span className="line-clamp-2 min-w-0">{cleanTitle(d.title)}</span>
+                  </SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Détail de l&apos;ordre {d.num}
+                  </SheetDescription>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                    {isSuggestion ? (
+                      <span className="font-mono">{d.num}</span>
+                    ) : (
+                      <X3Link
+                        fonction="GESMFG"
+                        cle={d.num}
+                        title={`Ouvrir l'OF ${d.num} dans Sage X3`}
+                        className="font-mono text-muted-foreground"
+                      >
+                        {d.num}
+                      </X3Link>
+                    )}
+                    <Badge
+                      variant={statusVariant(d.statusLabel)}
+                      className="uppercase tracking-wide"
+                    >
+                      {d.statusLabel}
+                    </Badge>
+                    {d.progressPct > 0 && (
+                      <span className="font-mono text-1.5xs">{d.progressPct} %</span>
+                    )}
+                  </div>
+                </div>
+                <table className="w-full table-fixed">
+                  <thead>
+                    <TableHeadRow>
+                      {['Quantité', 'Ligne', 'Charge', 'Lancement', 'Commande', 'Client'].map(
+                        (label, i) => (
+                          <TableHead key={label} className={compactEdge(i, 5)}>
+                            {label}
+                          </TableHead>
+                        )
+                      )}
+                    </TableHeadRow>
+                  </thead>
+                  <tbody>
+                    <TableRow>
+                      <TableCell className={compactEdge(0, 5)}>
+                        <CellNumber
+                          value={qtyLabel ?? '—'}
+                          emphasis="plain"
+                          className="text-xs font-medium"
+                        />
+                      </TableCell>
+                      <TableCell
+                        className={compactEdge(1, 5)}
+                        title={
+                          d.posteCode && d.context && d.context !== d.posteCode
+                            ? d.context
+                            : undefined
+                        }
+                      >
+                        <span className="font-mono text-xs font-medium text-foreground">
+                          {d.posteCode || d.context || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className={compactEdge(2, 5)}>
+                        <CellNumber
+                          value={hoursLabel ?? '—'}
+                          emphasis="plain"
+                          className="text-xs font-medium"
+                        />
+                      </TableCell>
+                      <TableCell
+                        className={compactEdge(3, 5)}
+                        title={
+                          d.cycle.start && d.cycle.start !== '—'
+                            ? [
+                                fmtCycle(d.cycle.start, d.cycle.end),
+                                d.operator.name !== 'Non assigné'
+                                  ? `Créé ${d.createdAt} · ${d.operator.name}`
+                                  : `Créé ${d.createdAt}`,
+                              ].join(' · ')
+                            : undefined
+                        }
+                      >
+                        <CellNumber
+                          value={d.cycle.start && d.cycle.start !== '—' ? d.cycle.start : '—'}
+                          emphasis="plain"
+                          className="text-xs font-medium"
+                        />
+                      </TableCell>
+                      <TableCell
+                        className={compactEdge(4, 5)}
+                        title={commandes.length > 0 ? commandeTitle(commandes) : undefined}
+                      >
+                        {commandes.length > 0 ? (
+                          <span className="inline-flex items-center gap-1">
+                            <X3Link
+                              fonction="GESSOH"
+                              cle={commandes[0].numCommande}
+                              title={`Ouvrir la commande ${commandes[0].numCommande} dans Sage X3`}
+                              className="font-mono text-xs font-medium text-foreground"
+                            >
+                              {commandes[0].numCommande}
+                            </X3Link>
+                            {commandes.length > 1 ? (
+                              <span className="text-muted-foreground">+{commandes.length - 1}</span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell className={compactEdge(5, 5)}>
+                        <span className="truncate text-xs text-foreground">
+                          {clientLabel || '—'}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  </tbody>
+                </table>
+              </header>
 
-              {/* Verdicts + actions */}
-              <div className="flex shrink-0 items-center gap-3">
-                {(firmMsg || printMsg) && (
-                  <div className="flex flex-col items-end gap-0.5">
+              {(view === 'bom' ||
+                view === 'diagnostic' ||
+                (view === 'verdict' &&
+                  (hasRuptures ||
+                    d.bom.length === 0 ||
+                    (rupturedComponents.length === 0 && qcRows.length === 0)))) && (
+                <div
+                  className={cn(
+                    'min-h-0 px-5 py-2',
+                    view === 'bom' || (view === 'verdict' && hasRuptures)
+                      ? 'overflow-hidden'
+                      : 'overflow-auto',
+                    (view === 'bom' || view === 'diagnostic') && 'flex-1'
+                  )}
+                >
+                  {view === 'verdict' && hasRuptures && (
+                    <BomTable
+                      bom={rupturedComponents}
+                      compact
+                      moreCount={restCount}
+                      onMore={restCount > 0 ? () => goTo('bom') : undefined}
+                    />
+                  )}
+                  {view === 'verdict' && !hasRuptures && (
+                    <VerdictBody
+                      bomCount={d.bom.length}
+                      onShowBom={d.bom.length > 0 ? () => goTo('bom') : undefined}
+                    />
+                  )}
+                  {view === 'bom' && <BomTable bom={d.bom} />}
+                  {view === 'diagnostic' &&
+                    (diagLoading ? (
+                      <LoadingState
+                        variant="orb"
+                        orbState="solving"
+                        compact
+                        title="Couverture…"
+                        description="Réceptions prévues, sous-ensembles, stock sous contrôle"
+                      />
+                    ) : diagError ? (
+                      <div className="flex flex-col items-center gap-3 py-8 text-center">
+                        <CircleX size={22} strokeWidth={1.75} className="text-destructive" />
+                        <span className="text-cell-lg font-medium text-destructive">
+                          La couverture n&apos;a pas pu être chargée.
+                        </span>
+                        <span className="max-w-sm text-xs text-muted-foreground">{diagError}</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setDiag(null)
+                            setDiagRequested(true)
+                          }}
+                        >
+                          Réessayer
+                        </Button>
+                      </div>
+                    ) : (
+                      diag && <OfDiagnosticTree result={diag} />
+                    ))}
+                </div>
+              )}
+
+              {(showNav || showFirmChrome || showPrintBar) && (
+                <footer className="flex shrink-0 items-center gap-2 border-t border-rule-soft px-5 py-3">
+                  {view === 'bom' && (
+                    <Button type="button" size="lg" variant="ghost" onClick={() => goTo('verdict')}>
+                      <ChevronUp size={14} strokeWidth={1.75} />
+                      Replier
+                    </Button>
+                  )}
+                  {view === 'diagnostic' && (
+                    <Button type="button" size="lg" variant="ghost" onClick={() => goTo('verdict')}>
+                      <ChevronLeft size={14} strokeWidth={1.75} />
+                      Retour
+                    </Button>
+                  )}
+                  {view === 'verdict' && hasRuptures && (
+                    <Button type="button" size="lg" variant="outline" onClick={openDiagnostic}>
+                      Couverture
+                    </Button>
+                  )}
+                  <div className="ml-auto flex items-center gap-3">
                     {firmMsg && (
                       <span
-                        className={`font-mono text-[11px] font-semibold ${firmMsg.ok ? 'text-ferme' : 'text-destructive'}`}
+                        className={cn(
+                          'text-xs font-medium',
+                          firmMsg.ok ? 'text-ferme' : 'text-destructive'
+                        )}
                       >
-                        {firmMsg.ok ? '✓ ' : '⚠ '}
                         {firmMsg.text}
                       </span>
                     )}
-                    {printMsg && <OfPrintVerdict report={printMsg} />}
-                  </div>
-                )}
-                {!canFirm && d.statusLabel === 'Ferme' && <OfReprintButton ofNum={d.num} />}
-                {canFirm && (
-                  <OfFirmAction
-                    firming={firming}
-                    confirmRupture={confirmRupture}
-                    isSuggestion={isSuggestion}
-                    rupturedComponents={rupturedComponents}
-                    onFirm={firm}
-                    onDoFirm={() => void doFirm()}
-                    onCancelConfirm={() => setConfirmRupture(false)}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Ligne 2 — faits clés en 4 colonnes */}
-            <div className="grid grid-cols-2 border-t border-rule-soft px-5 py-2.5 sm:grid-cols-4">
-              <Fact label="Cycle">
-                <span className="inline-flex items-center gap-1.5 font-mono text-[13px] font-bold text-foreground">
-                  {d.cycle.start}
-                  <ArrowRight size={12} strokeWidth={2} className="text-muted-foreground" />
-                  {d.cycle.end}
-                </span>
-              </Fact>
-              <Fact label="Poste">
-                <span className="truncate text-[13px] font-medium text-foreground">
-                  {d.context || '—'}
-                </span>
-              </Fact>
-              <Fact label="Production">
-                <span className="font-mono text-[13px] font-bold text-foreground">
-                  {d.stats.find((s) => s.label === 'Qté')?.value ?? '—'}
-                </span>
-                <span className="ml-1 font-mono text-[11px] text-muted-foreground">
-                  {d.stats.find((s) => s.label === 'Temps')?.value ?? ''}
-                </span>
-              </Fact>
-              <Fact label="Avancement">
-                {/* Pas de barre à 0% — juste le % */}
-                <span
-                  className={cn(
-                    'font-mono text-[13px] font-bold',
-                    d.progressPct === 0
-                      ? 'text-muted-foreground'
-                      : d.progressPct >= 95
-                        ? 'text-ferme'
-                        : 'text-foreground'
-                  )}
-                >
-                  {d.progressPct}%
-                </span>
-              </Fact>
-            </div>
-
-            {/* Ligne 3 — métadonnées (création, commandes) */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-rule-soft px-5 py-1.5 font-mono text-[10px] text-muted-foreground">
-              <span>
-                Créé {d.createdAt}
-                {d.operator.name !== 'Non assigné' ? ` · ${d.operator.name}` : ''}
-              </span>
-              {commandes.length > 0 && <CommandesRow commandes={commandes} />}
-            </div>
-
-            {/* Onglets */}
-            <div className="flex gap-0 border-b">
-              <TabBtn active={tab === 'composants'} onClick={() => setTab('composants')}>
-                <Package size={14} strokeWidth={1.75} />
-                Composants
-                {d.bomBlocked > 0 && (
-                  <span className="ml-1 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-white">
-                    {d.bomBlocked}
-                  </span>
-                )}
-              </TabBtn>
-              <TabBtn active={tab === 'diagnostic'} onClick={openDiagTab}>
-                <Network size={14} strokeWidth={1.75} />
-                Diagnostic récursif
-              </TabBtn>
-            </div>
-
-            {/* Contenu onglets */}
-            <div className="flex-1 overflow-auto px-5 py-3">
-              {tab === 'composants' && (
-                <>
-                  {d.bomBlocked > 0 && (
-                    <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2.5">
-                      <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-destructive">
-                        <TriangleAlert size={14} strokeWidth={1.75} />
-                        {d.bomBlocked} COMPOSANT{d.bomBlocked > 1 ? 'S' : ''} EN RUPTURE
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {d.bom
-                          .filter((r) => !r.ok)
-                          .map((r) => (
-                            <span
-                              key={r.id}
-                              className="inline-flex items-baseline gap-1 rounded border border-destructive/30 bg-background px-2 py-0.5 font-mono text-[11px]"
-                            >
-                              <span className="font-bold text-foreground">{r.id}</span>
-                              <span className="font-semibold text-destructive">−{r.shortage}</span>
-                            </span>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {qcRows.length > 0 && (
-                    <div className="mb-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5">
-                      <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-warning">
-                        <FlaskConical size={14} strokeWidth={1.75} />
-                        {qcRows.length} COMPOSANT{qcRows.length > 1 ? 'S' : ''} SOUS CONTRÔLE
-                        QUALITÉ
-                      </div>
-                      <div className="mb-2 flex flex-wrap gap-1.5">
-                        {qcRows.map((r) => (
-                          <span
-                            key={r.id}
-                            className="inline-flex items-baseline gap-1 rounded border border-warning/40 bg-background px-2 py-0.5 font-mono text-[11px]"
-                          >
-                            <span className="font-bold text-foreground">{r.id}</span>
-                            <span className="font-semibold text-warning">{r.qc}</span>
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-[11px] leading-snug text-muted-foreground">
-                        Ces quantités sont comptées disponibles mais restent bloquées en statut Q.
-                        Action : contacter le contrôle réception pour faire lever le contrôle.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mb-1 flex items-center justify-between">
-                    {d.bomBlocked === 0 && d.bom.length > 0 && qcRows.length === 0 && (
-                      <div className="flex items-center gap-2 rounded-md bg-ferme/10 px-3 py-1.5 text-[12px] font-medium text-ferme">
-                        <CircleCheck size={15} strokeWidth={1.75} />
-                        Tous les composants sont disponibles
-                      </div>
+                    {printMsg && (canFirm || d.statusLabel !== 'Ferme') && (
+                      <OfPrintVerdict report={printMsg} />
                     )}
-                    <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                      {d.bomCount} articles
-                    </span>
+                    {showPrintBar && <OfReprintButton ofNum={d.num} seedReport={printMsg} />}
+                    {canFirm && (
+                      <OfFirmAction
+                        firming={firming}
+                        confirmRupture={confirmRupture}
+                        isSuggestion={isSuggestion}
+                        rupturedComponents={rupturedComponents}
+                        onFirm={firm}
+                        onDoFirm={() => void doFirm()}
+                        onCancelConfirm={() => setConfirmRupture(false)}
+                      />
+                    )}
                   </div>
-
-                  <BomTable bom={d.bom} />
-                </>
+                </footer>
               )}
-
-              {tab === 'diagnostic' &&
-                (diagLoading ? (
-                  <LoadingState
-                    variant="orb"
-                    orbState="solving"
-                    compact
-                    title="Diagnostic en cours..."
-                    description="Analyse des besoins composants et chaînes de dépendance"
-                  />
-                ) : diagError ? (
-                  <div className="flex flex-col items-center gap-2 py-8 text-destructive">
-                    <CircleX size={22} strokeWidth={1.75} />
-                    <span className="text-[12px] font-medium">{diagError}</span>
-                  </div>
-                ) : (
-                  diag && <OfDiagnosticTree result={diag} />
-                ))}
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function VerdictBody({ bomCount, onShowBom }: { bomCount: number; onShowBom?: () => void }) {
+  if (bomCount === 0) {
+    return <p className="py-4 text-center text-cell-lg text-muted-foreground">Nomenclature vide.</p>
+  }
+  return (
+    <div className="flex flex-col items-start gap-1 py-1">
+      <p className="flex items-center gap-1.5">
+        <CellVerdict
+          icon={CircleCheck}
+          label="Composants disponibles"
+          tone={TONE_TEXT.ok}
+          className="[&>span:last-child]:font-medium!"
+        />
+      </p>
+      {onShowBom && (
+        <button
+          type="button"
+          onClick={onShowBom}
+          className="rounded-sm text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          {bomCount} article{bomCount > 1 ? 's' : ''} · voir tout
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -457,35 +677,44 @@ export function OfDetailSheet(props: {
  *
  * Trois réglages non négociables, faute de quoi le composant se comporte mal
  * DANS un sheet (il est écrit pour occuper une page) :
- *  • `enableSorting: false` partout — l'ordre est métier (ruptures → CQ → OK) et
- *    imposé ici. Sans ce drapeau, le DataTable rend quatre en-têtes cliquables,
- *    chevron au survol compris, dont le clic n'aurait rien fait ;
- *  • `virtualize={false}` — une nomenclature fait quelques dizaines de lignes,
- *    et la virtualisation exige un conteneur défilant à hauteur définie ;
- *  • un `scrollContainerClass` qui ANNULE `h-full overflow-auto` du défaut. Le
- *    parent de ce bloc défile déjà : laisser la valeur par défaut donnait une
- *    boîte forcée à la hauteur de l'onglet, avec son propre ascenseur imbriqué
- *    dans celui de l'onglet.
+ *  • `enableSorting: false` partout — l'ordre est métier (ruptures → CQ → OK) ;
+ *  • `virtualize={false}` — une nomenclature fait quelques dizaines de lignes ;
+ *  • compact : hauteur naturelle, plafond 20 rem — overlay verdict.
  */
-function BomTable({ bom }: { bom: BomRow[] }) {
+function BomTable({
+  bom,
+  compact = false,
+  moreCount = 0,
+  onMore,
+}: {
+  bom: BomRow[]
+  compact?: boolean
+  moreCount?: number
+  onMore?: () => void
+}) {
   const columns: ColumnDef<BomRow>[] = [
     {
       accessorKey: 'id',
       header: () => 'Article',
       enableSorting: false,
-      cell: ({ row: { original: row } }) => (
-        <X3Link
-          fonction="GESITM"
-          cle={row.id}
-          title={`Ouvrir l'article ${row.id} dans Sage X3`}
-          className={cn(
-            'truncate font-mono text-[12px] font-bold',
-            !row.ok ? 'text-destructive' : 'text-foreground'
-          )}
-        >
-          {row.id}
-        </X3Link>
-      ),
+      cell: ({ row: { original: row } }) => {
+        const tone = bomRowTone(row)
+        return (
+          <X3Link
+            fonction="GESITM"
+            cle={row.id}
+            title={`Ouvrir l'article ${row.id} dans Sage X3`}
+            className={cn(
+              'truncate font-mono text-xs font-medium',
+              tone === 'critical' && 'text-destructive hover:text-destructive',
+              tone === 'warning' && 'text-suggere hover:text-suggere',
+              !tone && 'text-foreground'
+            )}
+          >
+            {row.id}
+          </X3Link>
+        )
+      },
       meta: { thClass: 'w-[110px]', tdClass: 'px-3 py-2' },
     },
     {
@@ -493,12 +722,10 @@ function BomTable({ bom }: { bom: BomRow[] }) {
       header: () => 'Désignation',
       enableSorting: false,
       cell: ({ row: { original: row } }) => (
-        <span className="truncate text-[12px] text-foreground/80" title={row.name}>
+        <span className="truncate text-xs text-foreground/80" title={row.name}>
           {row.name}
         </span>
       ),
-      // Pas de largeur : c'est la colonne élastique. (`flex-1` sur un `<th>` ne
-      // veut rien dire — il n'y a pas de conteneur flex dans une `<table>`.)
       meta: { tdClass: 'px-3 py-2' },
     },
     {
@@ -506,14 +733,14 @@ function BomTable({ bom }: { bom: BomRow[] }) {
       header: () => <span className="block text-right">Besoin</span>,
       enableSorting: false,
       cell: ({ row: { original: row } }) => (
-        <div className="text-right font-mono text-[12px]">
-          <span className="font-bold text-foreground">
-            {row.need}
-            <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">{row.unit}</span>
-          </span>
-          {row.consumed != null && row.required != null && (
+        <div className="text-right">
+          <CellNumber value={row.need} emphasis="plain" className="text-xs font-medium" />
+          {row.unit ? (
+            <span className="ml-0.5 font-mono text-xs text-muted-foreground">{row.unit}</span>
+          ) : null}
+          {consumedPositive(row) && (
             <div
-              className="mt-0.5 font-mono text-[10px] text-muted-foreground"
+              className="mt-0.5 font-mono text-xs text-muted-foreground"
               title="Consommé réel (MFGMAT.USEQTY) / besoin théorique total (MFGMAT.RETQTY)"
             >
               consommé {row.consumed}/{row.required}
@@ -528,29 +755,28 @@ function BomTable({ bom }: { bom: BomRow[] }) {
       header: () => <span className="block text-right">Dispo</span>,
       enableSorting: false,
       cell: ({ row: { original: row } }) => (
-        <div
-          className={cn(
-            'text-right font-mono text-[12px]',
-            !row.ok ? 'text-destructive' : 'text-foreground'
-          )}
-        >
-          <span className="font-bold">{row.stock}</span>
+        <div className="flex flex-col items-end gap-0.5">
+          <CellNumber
+            value={row.stock}
+            tone={bomRowTone(row)}
+            emphasis="plain"
+            className="text-xs font-medium"
+          />
           {!row.ok ? (
-            <div className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-bold text-destructive">
-              <TriangleAlert size={11} strokeWidth={2.5} />
-              manque {row.shortage?.replace('−', '')}
-            </div>
+            <CellVerdict
+              icon={TriangleAlert}
+              label={`manque ${shortageQty(row.shortage)}`}
+              tone={TONE_TEXT.critical}
+              className="[&>span:last-child]:font-medium!"
+            />
           ) : row.qc ? (
-            // L'action portée par ce `title` vivait sur la rangée avant la
-            // migration vers DataTable, qui n'expose pas d'attribut de ligne :
-            // elle se raccroche à l'endroit qui l'annonce.
-            <div
-              className="mt-0.5 inline-flex w-full items-center justify-end gap-1 font-mono text-[11px] font-semibold text-warning"
+            <CellVerdict
+              icon={FlaskConical}
+              label={`dont ${row.qc} en CQ`}
+              tone={TONE_TEXT.warning}
               title={`${row.qc} sous contrôle qualité : contacter le contrôle réception`}
-            >
-              <FlaskConical size={11} strokeWidth={2.5} />
-              dont {row.qc} en CQ
-            </div>
+              className="[&>span:last-child]:font-medium!"
+            />
           ) : null}
         </div>
       ),
@@ -558,7 +784,6 @@ function BomTable({ bom }: { bom: BomRow[] }) {
     },
   ]
 
-  // Tri : ruptures → CQ → OK
   const sortedBom = useMemo(
     () =>
       [...bom].sort((a, b) => {
@@ -572,107 +797,47 @@ function BomTable({ bom }: { bom: BomRow[] }) {
   )
 
   return (
-    <DataTable
-      columns={columns}
-      rows={sortedBom}
-      sorting={EMPTY_SORTING}
-      onSortingChange={noopSorting}
-      virtualize={false}
-      tableClass="w-full text-xs"
-      // `h-auto overflow-visible` annule le défaut `h-full overflow-auto`.
-      scrollContainerClass="h-auto overflow-visible rounded-md border border-rule-soft shadow-none"
-      theadRowClass="bg-secondary/50"
-      emptyState={
-        <div className="px-3 py-4 text-center text-[12px] text-muted-foreground">
-          Nomenclature vide pour cet OF.
-        </div>
-      }
-      // Composant manquant / sous contrôle qualité : barre de gravité à gauche.
-      // Les deux fonds teintés d'origine (5 %) se distinguaient à peine l'un de
-      // l'autre, et pas du tout du survol.
-      getRowClass={(row) => rowToneClass(!row.ok ? 'critical' : row.qc ? 'warning' : null)}
-      getRowKey={(row) => row.id}
-    />
-  )
-}
-
-/** Tri figé : références stables, pour ne pas re-rendre la table à chaque frame. */
-const EMPTY_SORTING: SortingState[] = []
-const noopSorting = () => {}
-
-/** Chips de commandes clientes. */
-function CommandesRow({ commandes }: { commandes: OfCommandeLink[] }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="mr-1.5 font-semibold text-foreground">
-        Cmd{commandes.length > 1 ? 's' : ''}
-      </span>
-      {commandes.map((c) => {
-        const liv = fmtLivraison(c.livraisonIso)
-        const title = [
-          c.numCommande,
-          c.ligne ? `L${c.ligne}` : null,
-          c.client,
-          liv ? `exp. ${liv}` : null,
-          c.method === 'peg' ? 'contremarque' : 'matching',
-        ]
-          .filter(Boolean)
-          .join(' · ')
-        return (
-          <Badge
-            key={`${c.numCommande}#${c.ligne ?? ''}`}
-            variant="secondary"
-            className="gap-1 font-mono font-semibold"
-            title={title}
-          >
-            <X3Link
-              fonction="GESSOH"
-              cle={c.numCommande}
-              title={`Ouvrir la commande ${c.numCommande} dans Sage X3`}
-              className="font-semibold text-foreground"
-            >
-              {c.numCommande}
-            </X3Link>
-            {c.ligne && <span className="text-muted-foreground">L{c.ligne}</span>}
-            {c.client && (
-              <span className="max-w-[120px] truncate text-muted-foreground">{c.client}</span>
-            )}
-            {liv && <span className="text-muted-foreground">{liv}</span>}
-          </Badge>
-        )
-      })}
-    </div>
-  )
-}
-
-/** Label + valeur (faits clés). */
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <div className="font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-0.5 min-h-[20px]">{children}</div>
-    </div>
-  )
-}
-
-/** Bouton d'onglet. */
-function TabBtn(p: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={p.onClick}
+    <div
       className={cn(
-        'flex items-center gap-1.5 border-b-2 px-5 py-2.5 font-mono text-[11px] font-semibold transition-colors',
-        p.active
-          ? 'border-brand text-brand'
-          : 'border-transparent text-muted-foreground hover:text-foreground'
+        'flex min-h-0 flex-col overflow-hidden rounded-md border border-rule-soft',
+        !compact && 'h-full'
       )}
     >
-      {p.children}
-    </button>
+      <DataTable
+        columns={columns}
+        rows={sortedBom}
+        sorting={EMPTY_SORTING}
+        onSortingChange={noopSorting}
+        virtualize={false}
+        tableClass="of-detail-bom has-sticky w-full text-xs"
+        scrollContainerClass={cn(
+          'overflow-auto rounded-none border-0 shadow-none',
+          compact ? 'max-h-[min(40vh,20rem)]' : 'h-full'
+        )}
+        theadRowClass="sticky top-0"
+        emptyState={
+          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+            Nomenclature vide pour cet OF.
+          </div>
+        }
+        getRowClass={(row) => rowToneClass(bomRowTone(row))}
+        getRowKey={(row) => row.id}
+      />
+      {compact && moreCount > 0 && onMore && (
+        <button
+          type="button"
+          onClick={onMore}
+          className="flex shrink-0 items-center justify-center gap-1 border-t border-rule-soft py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          <ChevronDown size={14} strokeWidth={1.75} />
+          {moreCount} autre{moreCount > 1 ? 's' : ''}
+        </button>
+      )}
+    </div>
   )
 }
+
+const EMPTY_SORTING: SortingState[] = []
+const noopSorting = () => {}
 
 export default OfDetailSheet

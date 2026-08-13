@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Printer, RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, Clock, Printer, RefreshCw, TriangleAlert } from 'lucide-react'
+import { Popover } from '@base-ui/react/popover'
 
 import { Button } from '@r/components/ui/button'
-import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 
 /**
@@ -51,13 +51,13 @@ const docFailed = (d: PrintDocument) => d.status === 'failed' || d.serverVerdict
 function DocLine({ d, deferred }: { d: PrintDocument; deferred: boolean }) {
   const failed = docFailed(d)
   return (
-    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-mono text-[10.5px]">
+    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-mono text-1.5xs">
       <span className={failed ? 'font-bold text-destructive' : 'text-muted-foreground'}>
         {d.label}
       </span>
       <span className="text-muted-foreground">→</span>
       <span className="font-semibold text-foreground">{d.destCode || '—'}</span>
-      {d.attempt > 1 && <span className="text-amber-700">réimpression #{d.attempt}</span>}
+      {d.attempt > 1 && <span className="text-suggere">réimpression #{d.attempt}</span>}
       {d.status === 'locked' ? (
         <span className="text-muted-foreground">déjà imprimé</span>
       ) : failed ? (
@@ -67,7 +67,7 @@ function DocLine({ d, deferred }: { d: PrintDocument; deferred: boolean }) {
           soumis{d.jobRank ? ` · tâche ${d.jobRank}` : ''} · issue à confirmer
         </span>
       ) : d.serverVerdict === 'unknown' ? (
-        <span className="text-amber-700">sans verdict du serveur d’édition</span>
+        <span className="text-suggere">sans verdict du serveur d’édition</span>
       ) : (
         <span className="text-ferme">remis à la file</span>
       )}
@@ -80,15 +80,16 @@ export function OfPrintVerdict({ report }: { report: PrintReport }) {
   // un silence laisserait croire à un dossier sorti.
   if (report.skipped) {
     return (
-      <div className="font-mono text-[10.5px] text-muted-foreground">
+      <div className="font-mono text-1.5xs text-muted-foreground">
         Aucune impression · {report.skipped}
       </div>
     )
   }
   if (report.error) {
     return (
-      <div className="font-mono text-[11px] font-semibold text-destructive">
-        ⚠ Impression non tentée : {report.error}
+      <div className="flex items-center gap-1 font-mono text-1.5xs font-semibold text-destructive">
+        <TriangleAlert size={12} strokeWidth={1.75} />
+        Impression non tentée : {report.error}
       </div>
     )
   }
@@ -96,7 +97,7 @@ export function OfPrintVerdict({ report }: { report: PrintReport }) {
   return (
     <div className="flex flex-col gap-0.5">
       <div
-        className={`font-mono text-[11px] font-semibold ${
+        className={`flex items-center gap-1 font-mono text-1.5xs font-semibold ${
           failed.length > 0
             ? 'text-destructive'
             : report.deferred
@@ -104,11 +105,18 @@ export function OfPrintVerdict({ report }: { report: PrintReport }) {
               : 'text-ferme'
         }`}
       >
+        {failed.length > 0 ? (
+          <TriangleAlert size={12} strokeWidth={1.75} />
+        ) : report.deferred ? (
+          <Clock size={12} strokeWidth={1.75} />
+        ) : (
+          <Check size={12} strokeWidth={1.75} />
+        )}
         {failed.length > 0
-          ? `⚠ ${failed.length} document${failed.length > 1 ? 's' : ''} non imprimé${failed.length > 1 ? 's' : ''}`
+          ? `${failed.length} document${failed.length > 1 ? 's' : ''} non imprimé${failed.length > 1 ? 's' : ''}`
           : report.deferred
-            ? '⏱ Documents soumis — issue à confirmer'
-            : '✓ Dossier imprimé'}
+            ? 'Documents soumis — issue à confirmer'
+            : 'Dossier imprimé'}
         {report.atelier?.label ? ` · ${report.atelier.label}` : ''}
       </div>
       {report.documents.map((d) => (
@@ -126,15 +134,25 @@ interface FolderDocument {
 /**
  * Impression manuelle du dossier depuis le détail OF.
  *
- * Choix des documents = pills toggle (défaut : tout coché). Toujours `force` :
- * chaque clic = tirage explicite, journalisé comme réimpression.
+ * Split button : clic principal = imprimer la sélection (défaut : tout) ;
+ * chevron = popover cases à cocher. Un seul chrome. Toujours `force`.
  */
-export function OfReprintButton({ ofNum }: { ofNum: string }) {
+export function OfReprintButton({
+  ofNum,
+  seedReport,
+}: {
+  ofNum: string
+  seedReport?: PrintReport | null
+}) {
   const [busy, setBusy] = useState(false)
-  const [report, setReport] = useState<PrintReport | null>(null)
+  const [report, setReport] = useState<PrintReport | null>(seedReport ?? null)
   const [documents, setDocuments] = useState<FolderDocument[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loadErr, setLoadErr] = useState('')
+
+  useEffect(() => {
+    if (seedReport) setReport(seedReport)
+  }, [seedReport])
 
   useEffect(() => {
     let cancelled = false
@@ -187,53 +205,89 @@ export function OfReprintButton({ ofNum }: { ofNum: string }) {
   }, [ofNum, documents, selected])
 
   const canPrint = documents.length > 0 && selected.size > 0 && !busy
+  const label = busy ? 'Impression…' : 'Imprimer'
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
-      {documents.length > 0 && (
-        <div className="flex flex-wrap items-center justify-end gap-1">
-          {documents.map((d) => {
-            const on = selected.has(d.code)
-            return (
-              <button
-                key={d.code}
-                type="button"
-                disabled={busy}
-                onClick={() => toggleDoc(d.code)}
-                aria-pressed={on}
-                className={cn(
-                  'rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium transition-colors',
-                  on
-                    ? 'border-brand/40 bg-brand/10 text-brand'
-                    : 'border-rule-soft bg-background text-muted-foreground hover:text-foreground',
-                  busy && 'pointer-events-none opacity-60'
-                )}
+    <div className="flex min-w-0 flex-col items-end gap-1">
+      <div data-slot="button-group">
+        <Button
+          size="lg"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => void run()}
+          disabled={!canPrint}
+          title={!canPrint && !busy ? 'Choisir au moins un document' : undefined}
+        >
+          {busy ? (
+            <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
+          ) : (
+            <Printer size={14} strokeWidth={1.75} />
+          )}
+          {label}
+        </Button>
+        <span
+          aria-hidden="true"
+          className="w-px shrink-0 self-stretch bg-[color-mix(in_oklab,#141414_12%,transparent)]"
+        />
+        <Popover.Root>
+          <Popover.Trigger
+            disabled={busy || documents.length === 0}
+            render={
+              <Button
+                size="lg"
+                variant="outline"
+                disabled={busy || documents.length === 0}
+                className="px-1.5"
+                aria-label="Choisir les documents"
+                title="Choisir les documents"
               >
-                {d.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
+                <ChevronDown size={14} strokeWidth={1.75} />
+              </Button>
+            }
+          />
+          <Popover.Portal>
+            <Popover.Positioner
+              side="top"
+              align="end"
+              sideOffset={6}
+              collisionPadding={8}
+              className="z-[80]"
+            >
+              <Popover.Popup
+                data-slot="popover-content"
+                role="menu"
+                aria-label="Documents à imprimer"
+                className="min-w-[220px] p-1"
+              >
+                {documents.map((d) => {
+                  const on = selected.has(d.code)
+                  return (
+                    <button
+                      key={d.code}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={on}
+                      onClick={() => toggleDoc(d.code)}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-cell-lg hover:bg-muted"
+                    >
+                      <Check
+                        size={14}
+                        strokeWidth={1.75}
+                        className={on ? 'opacity-100' : 'opacity-0'}
+                        aria-hidden="true"
+                      />
+                      {d.label}
+                    </button>
+                  )
+                })}
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      </div>
       {loadErr && (
-        <span className="font-mono text-[10px] text-destructive">
-          Documents indisponibles : {loadErr}
-        </span>
+        <span className="text-xs text-destructive">Documents indisponibles : {loadErr}</span>
       )}
-      <Button
-        size="sm"
-        variant="outline"
-        className="gap-1.5"
-        onClick={() => void run()}
-        disabled={!canPrint}
-      >
-        {busy ? (
-          <RefreshCw size={14} strokeWidth={1.75} className="animate-spin" />
-        ) : (
-          <Printer size={14} strokeWidth={1.75} />
-        )}
-        {busy ? 'Impression…' : 'Imprimer le dossier'}
-      </Button>
       {report && <OfPrintVerdict report={report} />}
     </div>
   )

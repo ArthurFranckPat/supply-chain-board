@@ -78,6 +78,8 @@ interface DetailPayload {
   article: string
   statusLabel: string
   context: string
+  /** Code poste de charge (WST_0, ex. `PP_146`). Vide si non assigné. */
+  posteCode: string
   stats: StatItem[]
   progressPct: number
   operator: { initials: string; name: string }
@@ -523,7 +525,7 @@ export default class SchedulerController {
     // X3 ne porte que le jour (STRDAT/ENDDAT/CREDAT) — afficher l'heure fabrique
     // un faux « 00:00 » systématique. Jour civil FR uniquement.
     const fmtDate = (d: Date | null) =>
-      d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'
+      d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
     const startDate = ov?.dateDebut ? new Date(ov.dateDebut) : (mo?.startDate ?? null)
     const endDate = ov?.dateFin ? new Date(ov.dateFin) : (mo?.endDate ?? null)
@@ -632,8 +634,10 @@ export default class SchedulerController {
       title: mo?.designation ?? mo?.article ?? num,
       article: mo?.article ?? '',
       statusLabel,
-      // Poste seul — ne pas coller « En cours » sur Planifié (WIPSTA=2).
+      // Poste : code WST (PP_146) + libellé gamme. Le code identifie la
+      // rangée du board ; le libellé seul (« LIGNE EASY HOME ») ne suffit pas.
       context: wstLabel ?? '',
+      posteCode: wst ?? '',
       progressPct: Math.max(0, Math.min(100, perf ?? 0)),
       // Pas de % ici — l'avancement (barre) porte le seul pourcentage.
       // Production = faits bruts : pièces faites/lancées + reste + heures.

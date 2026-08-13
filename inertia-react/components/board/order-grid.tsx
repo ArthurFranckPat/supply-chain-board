@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import { Undo2 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
@@ -50,6 +50,32 @@ const GRAPH_PAPER =
 
 const fmt = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
 
+/** Hachure « induit » — tokens foreground, jamais rgba hors DESIGN.md. */
+const INDUIT_HATCH: CSSProperties = {
+  backgroundColor: 'color-mix(in oklab, var(--foreground) 18%, transparent)',
+  backgroundImage:
+    'repeating-linear-gradient(45deg, color-mix(in oklab, var(--foreground) 55%, transparent) 0 1.5px, transparent 1.5px 4px)',
+}
+
+function isoParts(iso: string): { y: string; month: string; day: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? { y: m[1], month: m[2], day: m[3] } : null
+}
+
+/** ISO → jj/mm/aaaa (écran). */
+function isoFr(iso: string): string {
+  const p = isoParts(iso)
+  return p ? `${p.day}/${p.month}/${p.y}` : iso
+}
+
+/** Quantième ; jj/mm au 1er jour d'horizon et à chaque changement de mois. */
+function dateHead(iso: string, prevIso: string | undefined): string {
+  const p = isoParts(iso)
+  if (!p) return ''
+  const tick = !prevIso || prevIso.slice(0, 7) !== iso.slice(0, 7)
+  return tick ? `${p.day}/${p.month}` : p.day
+}
+
 /** Nature du besoin → ton BoardCard. */
 const natureStatus = (card: OrderCard): CardStatus =>
   card.induit
@@ -66,12 +92,6 @@ const fmtRef = (id: string) => {
   const n = parseInt(ligne, 10)
   const ligneNb = !isNaN(n) && n >= 1000 && n % 1000 === 0 ? n / 1000 : ligne
   return `${cmd}·L${ligneNb}`
-}
-
-/** N° du jour dérivé de l'ISO de la colonne. */
-function dayNum(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  return m ? m[3] : ''
 }
 
 /** Histogramme hebdo d'une ligne : planifié = commandes directes, induit =
@@ -107,15 +127,14 @@ export function OrderGrid(props: OrderGridProps) {
     })
   }, [board.weekSpans])
 
-  /** Charge totale (heures) par semaine, toutes lignes visibles. */
-  const weekTotals = useMemo(() => {
-    const split = dayLoadSplit()
-    return weekRanges.map((wr) => {
-      let s = 0
-      for (let c = wr.from; c < wr.to; c++) s += (split.direct[c] ?? 0) + (split.amont[c] ?? 0)
-      return { week: wr.week, hours: Math.round(s * 100) / 100 }
-    })
-  }, [weekRanges, dayLoadSplit])
+  /** Une lecture : totaux semaine + cartes jour (évite 2×N appels). */
+  const split = dayLoadSplit()
+  const hasAmont = split.amont.some((h) => h > 0)
+  const weekTotals = weekRanges.map((wr) => {
+    let s = 0
+    for (let c = wr.from; c < wr.to; c++) s += (split.direct[c] ?? 0) + (split.amont[c] ?? 0)
+    return { week: wr.week, hours: Math.round(s * 100) / 100 }
+  })
 
   /** Échelle commune des histogrammes (total hebdo max, toutes lignes). */
   const maxLineHours = useMemo(() => {
@@ -213,34 +232,39 @@ export function OrderGrid(props: OrderGridProps) {
           {/* En-tête jours */}
           <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
             <div className="sticky left-0 z-40 flex flex-col gap-1 border-b border-r border-rule bg-card px-3.5 py-2">
-              <span className="font-mono text-[9px] font-bold tracking-[0.12em] text-muted-foreground">
+              <span className="font-mono text-2xs font-bold tracking-[0.12em] text-muted-foreground">
                 Poste de charge
               </span>
-              {/* Légende charge/jour : directe (commandes PF) vs amont (induit). */}
-              <span className="flex items-center gap-2 font-mono text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <span className="inline-flex items-center gap-0.5">
-                  <span className="size-[7px] rounded-[1px] bg-foreground" /> directe
+              <span className="font-mono text-1.5xs text-muted-foreground">Σ postes visibles</span>
+              {hasAmont && (
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-1.5xs font-medium text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-[7px] rounded-[1px] bg-foreground" />
+                    directe
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-[7px] rounded-[1px]" style={INDUIT_HATCH} />
+                    induit
+                  </span>
                 </span>
-                <span className="inline-flex items-center gap-0.5">
-                  <span
-                    className="size-[7px] rounded-[1px]"
-                    style={{
-                      backgroundColor: 'rgba(0,0,0,.18)',
-                      backgroundImage:
-                        'repeating-linear-gradient(45deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px)',
-                    }}
-                  />
-                  amont
-                </span>
-              </span>
+              )}
             </div>
             {board.days.map((day, di) => {
-              const directe = props.dayLoadSplit().direct[di] ?? 0
-              const amont = props.dayLoadSplit().amont[di] ?? 0
+              const directe = split.direct[di] ?? 0
+              const amont = split.amont[di] ?? 0
               const total = directe + amont
+              const showSplit = amont > 0
+              const hoursLabel =
+                total <= 0
+                  ? 'aucune charge'
+                  : showSplit
+                    ? `${fmt(total)} h, ${fmt(directe)} directe, ${fmt(amont)} induit`
+                    : `${fmt(total)} h`
               return (
                 <div
                   key={di}
+                  aria-current={day.today ? 'date' : undefined}
+                  title={`${isoFr(day.iso)} — ${hoursLabel} (somme des postes visibles)`}
                   className={cn(
                     'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
                     // Même repère qu'en vue OF : surface creusée + filet de
@@ -250,7 +274,7 @@ export function OrderGrid(props: OrderGridProps) {
                 >
                   <div
                     className={cn(
-                      'font-mono text-[9px] font-bold tracking-[0.1em]',
+                      'font-mono text-2xs font-bold tracking-[0.1em]',
                       day.today ? 'text-foreground' : 'text-muted-foreground'
                     )}
                   >
@@ -262,41 +286,44 @@ export function OrderGrid(props: OrderGridProps) {
                       day.today ? 'font-bold' : 'font-semibold'
                     )}
                   >
-                    {dayNum(day.iso)}
+                    {dateHead(day.iso, board.days[di - 1]?.iso)}
                   </div>
-                  {/* Charge du jour : total (gras) + détail directe / amont + barre
-                      empilée (proportions). amont masqué s'il n'y en a pas. */}
-                  <div className="mt-1">
-                    <div className="text-center font-mono text-cell-lg font-bold leading-none tabular-nums text-foreground">
-                      {fmt(total)}
-                      <span className="ml-0.5 font-mono text-[8px] font-medium opacity-50">h</span>
-                    </div>
-                    <div className="flex items-baseline justify-center gap-1 font-mono tabular-nums">
-                      <span className="text-[9px] font-semibold text-foreground/70">
-                        {fmt(directe)}
-                      </span>
-                      {amont > 0 && (
-                        <span className="text-[9px] font-bold text-brand">+{fmt(amont)}</span>
-                      )}
-                    </div>
-                    {total > 0 && (
-                      <div className="mt-0.5 flex h-[5px] overflow-hidden rounded-full bg-rule-soft">
-                        <span
-                          className="block h-full bg-foreground"
-                          style={{ width: `${(directe / total) * 100}%` }}
-                        />
-                        {amont > 0 && (
+                  {/* Charge jour : un chiffre si tout-direct (pattern OF).
+                      Split + barre seulement s'il y a de l'induit. */}
+                  <div className="mt-0.5">
+                    {total > 0 ? (
+                      <div className="font-mono text-xs font-bold tabular-nums text-foreground">
+                        {fmt(total)}
+                        <span className="ml-0.5 text-2xs font-medium text-muted-foreground">h</span>
+                      </div>
+                    ) : (
+                      <div className="font-mono text-xs tabular-nums text-muted-foreground/60">
+                        —
+                      </div>
+                    )}
+                    {showSplit && (
+                      <>
+                        <div className="flex items-baseline justify-center gap-1 font-mono text-1.5xs tabular-nums text-muted-foreground">
+                          <span>dir. {fmt(directe)}</span>
+                          <span>+{fmt(amont)} induit</span>
+                        </div>
+                        <div
+                          className="mt-0.5 flex h-[5px] overflow-hidden rounded-full bg-rule-soft"
+                          aria-hidden
+                        >
+                          <span
+                            className="block h-full bg-foreground"
+                            style={{ width: `${(directe / total) * 100}%` }}
+                          />
                           <span
                             className="block h-full"
                             style={{
                               width: `${(amont / total) * 100}%`,
-                              backgroundColor: 'rgba(0,0,0,.45)',
-                              backgroundImage:
-                                'repeating-linear-gradient(45deg, rgba(0,0,0,.55) 0 1.5px, transparent 1.5px 4px)',
+                              ...INDUIT_HATCH,
                             }}
                           />
-                        )}
-                      </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>

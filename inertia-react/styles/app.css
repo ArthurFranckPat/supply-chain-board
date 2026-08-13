@@ -723,6 +723,27 @@
 .theme-cursor table.has-sticky tbody tr.ring-2 td.sticky {
   background-color: color-mix(in oklab, #141414 4%, transparent) !important;
 }
+/* Nomenclature fiche OF : thead opaque (collapse poreux, CSSWG #3136) et
+   survol 12 % — le 6 % global est illisible sur une ligne d'article. */
+.theme-cursor table.of-detail-bom thead th {
+  background-color: #fcfcfc !important;
+}
+.theme-cursor table.of-detail-bom tbody tr:hover td {
+  background-color: color-mix(in oklab, #141414 12%, transparent) !important;
+}
+/* La td pose l'encre secondaire (74 %). Sans ces overrides, rupture / CQ /
+   OK hériteraient du gris et le statut disparaîtrait. */
+.theme-cursor table.of-detail-bom td .text-destructive,
+.theme-cursor table.of-detail-bom td a.text-destructive {
+  color: #be1744;
+}
+.theme-cursor table.of-detail-bom td .text-suggere,
+.theme-cursor table.of-detail-bom td a.text-suggere {
+  color: #a46700;
+}
+.theme-cursor table.of-detail-bom td .text-ferme {
+  color: #007041;
+}
 .theme-cursor table td {
   padding: 0.75rem 1rem; /* px-4 py-3 */
   vertical-align: top;
@@ -1212,6 +1233,17 @@
 }
 .theme-cursor [data-slot='button'][data-variant='outline']:hover {
   background-color: color-mix(in oklab, #141414 6%, transparent);
+}
+/* Split button : un seul chrome, filet interne entre les deux actions. */
+.theme-cursor [data-slot='button-group'] {
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+}
+.theme-cursor [data-slot='button-group'] [data-slot='button'][data-variant='outline'] {
+  box-shadow: none;
+  border-radius: 0;
 }
 .theme-cursor [data-slot='button'][data-variant='ghost'] {
   background-color: transparent;
