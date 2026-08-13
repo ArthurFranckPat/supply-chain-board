@@ -1034,7 +1034,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
         open={detailOpen}
         onOpenChange={setDetailOpen}
         onFirmed={() => {
-          setDetailOpen(false)
           setTimeout(() => router.reload(), 800)
         }}
       />

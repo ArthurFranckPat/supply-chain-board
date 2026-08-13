@@ -51,6 +51,8 @@ export interface OfDetail {
   statusIcon: string
   statusClass: string
   context: string
+  /** Code poste de charge (WST_0, ex. `PP_146`). Vide si non assigné. */
+  posteCode: string
   stats: StatItem[]
   progressPct: number
   operator: { initials: string; name: string }
