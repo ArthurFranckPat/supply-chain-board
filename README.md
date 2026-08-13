@@ -1,11 +1,16 @@
 # Supply Chain Board
 
-App AdonisJS (Inertia + SolidJS) qui regroupe le programme d'ordonnancement, le suivi des commandes, les ruptures, la charge, les expéditions/réceptions et un tableau de bord KPI. S'appuie sur SQLite en local et interroge Sage X3 via SOAP/SQL.
+App AdonisJS (Inertia + React 19) : programme d'ordonnancement, suivi des
+commandes, ruptures, charge, configuration et tableau de bord KPI. SQLite en
+local, Sage X3 via SOAP/SQL.
+
+La branche `master` est le socle production. Logistique, promesse, copilote,
+contrôle prod et cockpit vivent sur `dev`.
 
 ## Stack
 
 - **Backend** : [AdonisJS](https://adonisjs.com/) v7 + TypeScript
-- **Frontend** : [Inertia.js](https://inertiajs.com/) + [SolidJS](https://www.solidjs.com/) + Tailwind CSS + Kobalte (design system « Airbnb »)
+- **Frontend** : [Inertia.js](https://inertiajs.com/) + [React 19](https://react.dev/) + Tailwind CSS (design system « Airbnb »)
 - **ORM** : Lucid (SQLite locale)
 - **Cache** : Redis (`@adonisjs/cache`), namespace par user
 - **Base distante** : Sage X3 Oracle via web-services SOAP (ZSOAPSQL + objets CAdxWebServiceXmlCC)
@@ -27,8 +32,8 @@ config/                  # Configuration AdonisJS (DB, X3, CORS, inertia, etc.)
 database/
   migrations/            # Schémas SQLite (overrides, menus, tables statiques, scénarios)
   schema.ts              # Généré par AdonisJS
-inertia/
-  pages/                 # Pages SolidJS (dashboard, programme, suivi, ruptures, config, auth, ...)
+inertia-react/
+  pages/                 # Pages React (dashboard, programme, suivi, ruptures, config, auth, ...)
   lib/                   # Store board, routes-manifest, helpers UI
 start/
   routes.ts              # Déclaration des routes
@@ -94,15 +99,14 @@ Toutes les routes (hors `/login`, `/health`, assets) sont protégées par `auth`
 
 - `GET /` — Tableau de bord (KPI charge en retard, valorisation stock)
 - `GET /programme` — Board OF, vue experte haute densité (fusion ordonnancement/planification)
+- `GET /sequenceur` — Board /programme en table, filtre poste
 - `GET /suivi` — Suivi des commandes
 - `GET /ruptures` — Suivi des ruptures
 - `GET /charge` — Charge par atelier/poste
-- `GET /expeditions` — Expéditions
-- `GET /receptions` — Réceptions fournisseurs
-- `GET /conditionnements` — Coefs de conditionnement manquants
 - `GET /configuration/calendrier` — Calendrier usine (fériés, fermetures par ligne)
+- `GET /configuration/impressions` — Routage d'impression du dossier d'OF
+- `GET /impressions` — Journal d'impression
 - `GET /programme/scenarios/comparer` — Comparateur de scénarios de plan
-- `GET /design-system` — Showcase des composants UI « Airbnb »
 
 ### API JSON — Planning (`/api/v1/planning`)
 
@@ -118,12 +122,9 @@ Toutes les routes (hors `/login`, `/health`, assets) sont protégées par `auth`
 
 - `POST /api/v1/status/{assign,from-latest-export,palette,retard-charge}`, `GET /rows`, `GET /proactive-rows`
 - `GET /api/v1/dashboard/{kpis,otd,stock}`
-- `GET /api/v1/expeditions/rows`, `GET /api/v1/receptions/rows`
-- `GET /api/v1/conditionnements/{rows,estimations}`
 - `GET /api/v1/static/status`, `POST /api/v1/static/sync` — Sync X3 → SQLite
 - `POST /api/v1/config/holidays/toggle`, `POST/PATCH/DELETE /api/v1/config/closures...`
 - `POST /api/v1/data/load` — SQL raw via SOAP (debug)
-- `GET/POST /api/v1/x3/writeback/{describe,read,save,modify,delete,list,run}` — Objet X3 (issue #29)
 - `GET /api/v1/_perf` — Baseline perf P50/P95 par route
 
 ## Architecture données
@@ -181,76 +182,11 @@ npm run routes:gen
 ## Notes
 
 - Ce repo est **uniquement** l'app AdonisJS. Le monorepo Python/FastAPI décrit dans les anciennes versions du README n'est plus présent ici.
-- Le frontend Edge.js/Unpoly a été remplacé par Inertia + SolidJS (design system « Airbnb »). Une migration vers React + Carbon est en cours sur une branche séparée (issue #77), pas encore mergée.
+- Frontend : Inertia + React 19 (design system « Airbnb »). SolidJS / Edge.js / Unpoly ont été retirés.
 - Les variables X3 peuvent être chiffrées avec `@dotenvx/dotenvx` ; le démarrage utilise `dotenvx run --`.
 
-## MCP server (usage hors app)
+## MCP server
 
-Le serveur MCP `supply-board` (`bin/mcp_supply.ts`, issue #80) expose les **17
-primitives** agent de l'app (getVerdict, descendreBOM, getPromise, listerOF,
-listerRuptures, listerCommandesStatut, getStock, getCharge, …) en serveur MCP
-**stdio autonome**, consommable depuis Claude Code, Claude Desktop ou tout agent
-compatible MCP. C'est une **façade** sur le même code que le copilote `/copilote`
-— aucun chiffre ne vient d'une réimplémentation (parité structurelle app vs MCP).
-
-### Prérequis
-
-- Le repo cloné + `npm install`
-- Un fichier `.env` avec les creds X3 (comme pour l'app, cf. `.env.example`) —
-  chiffré dotenvx ou non, les deux fonctionnent (déchiffrement in-process au
-  boot, pas besoin de `dotenvx run --` dans la commande `claude mcp add`)
-- Node.js — pas de Redis requis (`CACHE_STORE=memory`)
-- Accès réseau à Sage X3
-
-Au premier boot, le binaire **auto-migre** la SQLite locale (`tmp/db.sqlite3`,
-idempotent — scénarios, tables statiques). Pour peupler les référentiels
-locaux (rechercherArticle, labels de statuts, classification des verdicts),
-une sync X3 initiale est nécessaire — sinon ces tools tournent en mode dégradé
-(un warning stderr le signale au boot) :
-
-```bash
-node ace sync:x3 && node ace sync:local-menus
-```
-
-### Enregistrement Claude Code
-
-```bash
-claude mcp add supply-board -- node --import @poppinss/ts-exec bin/mcp_supply.ts
-```
-
-Chemins relatifs valables car Claude Code lance le serveur avec le repo comme
-cwd. Pour un client qui ne le fait pas (Claude Desktop lance avec cwd=`/`),
-utiliser des chemins **absolus** ET forcer le cwd sur le repo — dotenvx lit
-`.env`/`.env.keys` depuis le cwd, sans quoi les creds X3 chiffrés ne sont pas
-déchiffrés :
-
-```json
-{
-  "mcpServers": {
-    "supply-board": {
-      "command": "node",
-      "args": ["--import", "@poppinss/ts-exec", "/chemin/vers/supply-chain-board/bin/mcp_supply.ts"],
-      "cwd": "/chemin/vers/supply-chain-board"
-    }
-  }
-}
-```
-
-Le binaire boot Adonis en mode console (conteneur monté : cache + Lucid + X3),
-construit les 17 tools via `buildAgentTools()` puis les sert en JSON-RPC sur
-stdio. Premier appel = cold start (chargement pool X3), ensuite chaud.
-
-### Test manuel
-
-```bash
-npm run mcp:start   # démarre le serveur stdio (logs sur stderr)
-```
-
-### Doctrine d'usage
-
-Charger le skill `.claude/skills/supply-board/SKILL.md` (Lot 2 de l'issue) — il
-documente la sémantique des moteurs (verdict prime, getPromise isolé, raison
-`stock` ≠ absence de PO), le référentiel familles (PP 830 → `ESH`, `BDH60`,
-`BDH10`) et les workflows d'orchestration. Sans cette doctrine, un client externe
-refait les erreurs déjà corrigées dans le copilote intégré.
-
+Le serveur MCP `supply-board` (`bin/mcp_supply.ts`, skill copilote) vit sur
+la branche `dev`, pas sur `master`. Voir le README de `dev` pour l'enregistrement
+Claude Code / Claude Desktop.
