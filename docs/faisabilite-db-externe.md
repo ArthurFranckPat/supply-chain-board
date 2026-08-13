@@ -206,3 +206,12 @@ Chiffres et six points : OK. Trois sous-estimations **pliées dans le texte** :
    `tmp/`.
 3. Rallumer le cache = rouvrir `dualSourceRead`, pas le préchauffage. Étape 4 =
    arbitrage d’architecture (troisième mode), pas un réglage.
+
+## Relecture du 13/08/2026 — 3e passe
+
+Corrections d’Opus dans le corps, vérifiées :
+
+1. Compteur écran = `dualSourceRead` : **3 allers/source** (`verdict` = 2 +
+   requête métier). `verdicts()` 16 req = diagnostic, pas le chemin écran.
+2. Chemins `tmp/` = aujourd’hui. Après bascule : arborescence `sqld` sur Mini.
+3. `VACUUM INTO` à l’étape 3, pas 1 — à l’étape 1 la base `sqld` est vide.
