@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from '@r/components/ui/alert-dialog'
 import { useScenarioStore } from '@r/lib/scenario/store'
-import type { PlanMutation } from '@r/lib/scenario/types'
+import type { PlanMutation } from '@r/lib/scenarios/types'
 import {
   FlaskConical,
   Save,

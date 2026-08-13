@@ -108,7 +108,7 @@ export function StatutsSection() {
 
       <Fiche
         nom="Verdict d’impact"
-        from="lib/programme/verdict-tones"
+        from="lib/vision/verdict-tones"
         etat="airbnb"
         note={
           <>

@@ -33,15 +33,15 @@ export interface ApiDefinition {
   x3PrintTest: typeof routes['x3_print_test']
   scheduling: typeof routes['scheduling']
   planning: typeof routes['planning'] & {
-    suggestionFirm: typeof routes['planning.suggestion_affermir']
-    orderFirm: typeof routes['planning.order_affermir']
+    suggestionFirm: typeof routes['planning.suggestion_firm']
+    orderFirm: typeof routes['planning.order_firm']
   }
   scheduler: {
-    ruptures: typeof routes['ruptures.index']
-    programme: typeof routes['programme.index']
+    shortageTracker: typeof routes['scheduler.shortage_tracker']
+    programme: typeof routes['scheduler.programme']
     ofDetail: typeof routes['scheduler.of_detail']
     posteEngagement: typeof routes['scheduler.poste_engagement']
-    ruptureRows: typeof routes['ruptures.rows']
+    shortageRows: typeof routes['scheduler.shortage_rows']
   }
   controleProd: {
     index: typeof routes['controle_prod.index']
@@ -76,7 +76,7 @@ export interface ApiDefinition {
     index: typeof routes['sequenceur.index']
   }
   load: {
-    index: typeof routes['charge.index']
+    index: typeof routes['load.index']
   }
   expeditions: {
     index: typeof routes['expeditions.index']
@@ -105,17 +105,17 @@ export interface ApiDefinition {
     articles: typeof routes['promesse.articles']
   }
   agent: {
-    show: typeof routes['copilote.show']
-    health: typeof routes['copilote.health']
-    chat: typeof routes['copilote.chat']
-    metrics: typeof routes['copilote.metrics']
-    conversations: typeof routes['copilote.conversations']
-    conversation: typeof routes['copilote.conversation']
-    conversationsDestroy: typeof routes['copilote.conversationsDestroy']
-    conversationsUpdate: typeof routes['copilote.conversationsUpdate']
+    show: typeof routes['agent.show']
+    health: typeof routes['agent.health']
+    chat: typeof routes['agent.chat']
+    metrics: typeof routes['agent.metrics']
+    conversations: typeof routes['agent.conversations']
+    conversation: typeof routes['agent.conversation']
+    conversationsDestroy: typeof routes['agent.conversationsDestroy']
+    conversationsUpdate: typeof routes['agent.conversationsUpdate']
     mcp: {
-      app: typeof routes['copilote.mcp.app']
-      call: typeof routes['copilote.mcp.call']
+      app: typeof routes['agent.mcp.app']
+      call: typeof routes['agent.mcp.call']
     }
   }
   calendarConfig: {

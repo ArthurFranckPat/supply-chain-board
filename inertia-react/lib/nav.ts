@@ -28,11 +28,11 @@ export type NavKey =
   | 'dashboard'
   | 'programme'
   | 'sequenceur'
-  | 'charge'
+  | 'load'
   | 'ruptures'
   | 'controle-prod'
   | 'cockpit'
-  | 'suivi'
+  | 'tracking'
   | 'expeditions'
   | 'receptions'
   | 'approvisionnements'
@@ -76,7 +76,7 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         key: 'programme',
         label: 'Programme',
-        href: route('programme.index'),
+        href: route('scheduler.programme'),
         icon: CalendarRange,
       },
       {
@@ -88,7 +88,7 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         key: 'ruptures',
         label: 'Ruptures composants',
-        href: route('ruptures.index'),
+        href: route('scheduler.shortage_tracker'),
         icon: TriangleAlert,
       },
       {
@@ -104,12 +104,12 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Suivi',
     items: [
       {
-        key: 'suivi',
+        key: 'tracking',
         label: 'Suivi commandes',
         href: route('suivi.board'),
         icon: ClipboardList,
       },
-      { key: 'charge', label: 'Charge', href: route('charge.index'), icon: Kanban },
+      { key: 'load', label: 'Planification', href: route('load.index'), icon: Kanban },
     ],
   },
   {
@@ -146,7 +146,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Outils',
     items: [
       { key: 'promesse', label: 'Promesse', href: route('promesse.show'), icon: BadgeCheck },
-      { key: 'copilote', label: 'Copilote', href: route('copilote.show'), icon: Bot },
+      { key: 'copilote', label: 'Copilote', href: route('agent.show'), icon: Bot },
       { key: 'config', label: 'Config', href: route('calendar_config.index'), icon: Settings },
     ],
   },

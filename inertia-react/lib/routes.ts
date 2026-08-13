@@ -14,7 +14,7 @@
  *
  * Convention : les query strings (état de vue : ?start&days&refresh) restent à
  * l'appelant — seuls les params d'identité (path) sont typés.
- *   route('ruptures.index') + '?start=2026-01-01&days=14'
+ *   route('scheduler.shortage_tracker') + '?start=2026-01-01&days=14'
  */
 import { MANIFEST, type RouteName, type RouteParams } from '@r/lib/routes-manifest'
 

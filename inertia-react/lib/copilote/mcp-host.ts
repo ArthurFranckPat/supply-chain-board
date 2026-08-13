@@ -42,7 +42,7 @@ export function loadMcpApp(uri: string): Promise<McpAppResource> {
   const hit = cache.get(uri)
   if (hit) return hit
 
-  const pending = fetch(`/api/v1/copilote/mcp/app?uri=${encodeURIComponent(uri)}`, {
+  const pending = fetch(`/api/v1/agent/mcp/app?uri=${encodeURIComponent(uri)}`, {
     headers: { accept: 'application/json' },
   })
     .then(async (res) => {
@@ -68,7 +68,7 @@ export async function callMcpToolForApp(
   name: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
-  const res = await fetch('/api/v1/copilote/mcp/call', {
+  const res = await fetch('/api/v1/agent/mcp/call', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name, arguments: args }),

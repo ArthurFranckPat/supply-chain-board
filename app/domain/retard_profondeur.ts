@@ -1,4 +1,4 @@
-import { daysBetweenIso } from '#app/domain/ruptures'
+import { daysBetweenIso } from '#app/domain/shortages'
 
 /**
  * KPI « profondeur de retard » — sévérité temporelle du backlog déjà en retard.

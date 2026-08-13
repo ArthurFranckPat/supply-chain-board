@@ -24,7 +24,7 @@ import { getActiveX3EnvName } from '#config/x3'
  * Le contrat pour l'appelant est donc : **une valeur lue depuis le cache est en
  * lecture seule**. Copier avant de muter (`[...arr]`, `{ ...obj }`,
  * `new Map(entries)`), comme le font déjà `matchOrders` (`app/domain/orders.ts`)
- * et le constructeur de `PromesseEngine` (`app/domain/promesse_engine.ts`).
+ * et le constructeur de `PromiseEngine` (`app/domain/promise_engine.ts`).
  */
 
 /** Méthodes dont la valeur de retour vient du cache et doit donc être gelée. */

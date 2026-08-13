@@ -126,11 +126,11 @@ const routes = {
     tokens: [{"old":"/planification","type":0,"val":"planification","end":""}],
     types: placeholder as Registry['planning']['types'],
   },
-  'ruptures.index': {
+  'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"],
     pattern: '/ruptures',
     tokens: [{"old":"/ruptures","type":0,"val":"ruptures","end":""}],
-    types: placeholder as Registry['ruptures.index']['types'],
+    types: placeholder as Registry['scheduler.shortage_tracker']['types'],
   },
   'controle_prod.index': {
     methods: ["GET","HEAD"],
@@ -150,11 +150,11 @@ const routes = {
     tokens: [{"old":"/suivi","type":0,"val":"suivi","end":""}],
     types: placeholder as Registry['suivi.board']['types'],
   },
-  'programme.index': {
+  'scheduler.programme': {
     methods: ["GET","HEAD"],
     pattern: '/programme',
     tokens: [{"old":"/programme","type":0,"val":"programme","end":""}],
-    types: placeholder as Registry['programme.index']['types'],
+    types: placeholder as Registry['scheduler.programme']['types'],
   },
   'scenarios.compare': {
     methods: ["GET","HEAD"],
@@ -168,11 +168,11 @@ const routes = {
     tokens: [{"old":"/sequenceur","type":0,"val":"sequenceur","end":""}],
     types: placeholder as Registry['sequenceur.index']['types'],
   },
-  'charge.index': {
+  'load.index': {
     methods: ["GET","HEAD"],
     pattern: '/charge',
     tokens: [{"old":"/charge","type":0,"val":"charge","end":""}],
-    types: placeholder as Registry['charge.index']['types'],
+    types: placeholder as Registry['load.index']['types'],
   },
   'expeditions.index': {
     methods: ["GET","HEAD"],
@@ -210,11 +210,11 @@ const routes = {
     tokens: [{"old":"/promesse","type":0,"val":"promesse","end":""}],
     types: placeholder as Registry['promesse.show']['types'],
   },
-  'copilote.show': {
+  'agent.show': {
     methods: ["GET","HEAD"],
     pattern: '/copilote',
     tokens: [{"old":"/copilote","type":0,"val":"copilote","end":""}],
-    types: placeholder as Registry['copilote.show']['types'],
+    types: placeholder as Registry['agent.show']['types'],
   },
   'calendar_config.index': {
     methods: ["GET","HEAD"],
@@ -378,11 +378,11 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":1,"val":"of","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"diagnostic","end":""}],
     types: placeholder as Registry['planning_board.of_materials_diagnostic']['types'],
   },
-  'planning.suggestion_affermir': {
+  'planning.suggestion_firm': {
     methods: ["POST"],
     pattern: '/api/v1/planning/suggestions/:sugNum/firm',
     tokens: [{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"suggestions","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":1,"val":"sugNum","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"firm","end":""}],
-    types: placeholder as Registry['planning.suggestion_affermir']['types'],
+    types: placeholder as Registry['planning.suggestion_firm']['types'],
   },
   'print.documents': {
     methods: ["GET","HEAD"],
@@ -402,11 +402,11 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"api","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"orders","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":1,"val":"orderNum","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"print","end":""}],
     types: placeholder as Registry['print.history']['types'],
   },
-  'planning.order_affermir': {
+  'planning.order_firm': {
     methods: ["POST"],
     pattern: '/api/v1/planning/orders/:orderNum/firm',
     tokens: [{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"orders","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":1,"val":"orderNum","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"firm","end":""}],
-    types: placeholder as Registry['planning.order_affermir']['types'],
+    types: placeholder as Registry['planning.order_firm']['types'],
   },
   'scenarios.index': {
     methods: ["GET","HEAD"],
@@ -456,11 +456,11 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"api","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"postes","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":1,"val":"poste","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"engagement","end":""}],
     types: placeholder as Registry['scheduler.poste_engagement']['types'],
   },
-  'ruptures.rows': {
+  'scheduler.shortage_rows': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/ruptures/rows',
-    tokens: [{"old":"/api/v1/planning/ruptures/rows","type":0,"val":"api","end":""},{"old":"/api/v1/planning/ruptures/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/ruptures/rows","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/ruptures/rows","type":0,"val":"shortages","end":""},{"old":"/api/v1/planning/ruptures/rows","type":0,"val":"rows","end":""}],
-    types: placeholder as Registry['ruptures.rows']['types'],
+    pattern: '/api/v1/planning/shortages/rows',
+    tokens: [{"old":"/api/v1/planning/shortages/rows","type":0,"val":"api","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"shortages","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"rows","end":""}],
+    types: placeholder as Registry['scheduler.shortage_rows']['types'],
   },
   'controle_prod.rows': {
     methods: ["GET","HEAD"],
@@ -720,59 +720,59 @@ const routes = {
     tokens: [{"old":"/api/v1/_perf","type":0,"val":"api","end":""},{"old":"/api/v1/_perf","type":0,"val":"v1","end":""},{"old":"/api/v1/_perf","type":0,"val":"_perf","end":""}],
     types: placeholder as Registry['perf.index']['types'],
   },
-  'copilote.health': {
+  'agent.health': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/copilote/health',
-    tokens: [{"old":"/api/v1/copilote/health","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/health","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/health","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/health","type":0,"val":"health","end":""}],
-    types: placeholder as Registry['copilote.health']['types'],
+    pattern: '/api/v1/agent/health',
+    tokens: [{"old":"/api/v1/agent/health","type":0,"val":"api","end":""},{"old":"/api/v1/agent/health","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/health","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/health","type":0,"val":"health","end":""}],
+    types: placeholder as Registry['agent.health']['types'],
   },
-  'copilote.chat': {
+  'agent.chat': {
     methods: ["POST"],
-    pattern: '/api/v1/copilote/chat',
-    tokens: [{"old":"/api/v1/copilote/chat","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/chat","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/chat","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/chat","type":0,"val":"chat","end":""}],
-    types: placeholder as Registry['copilote.chat']['types'],
+    pattern: '/api/v1/agent/chat',
+    tokens: [{"old":"/api/v1/agent/chat","type":0,"val":"api","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"chat","end":""}],
+    types: placeholder as Registry['agent.chat']['types'],
   },
-  'copilote.metrics': {
+  'agent.metrics': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/copilote/metrics',
-    tokens: [{"old":"/api/v1/copilote/metrics","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/metrics","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/metrics","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/metrics","type":0,"val":"metrics","end":""}],
-    types: placeholder as Registry['copilote.metrics']['types'],
+    pattern: '/api/v1/agent/metrics',
+    tokens: [{"old":"/api/v1/agent/metrics","type":0,"val":"api","end":""},{"old":"/api/v1/agent/metrics","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/metrics","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/metrics","type":0,"val":"metrics","end":""}],
+    types: placeholder as Registry['agent.metrics']['types'],
   },
-  'copilote.conversations': {
+  'agent.conversations': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/copilote/conversations',
-    tokens: [{"old":"/api/v1/copilote/conversations","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/conversations","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/conversations","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/conversations","type":0,"val":"conversations","end":""}],
-    types: placeholder as Registry['copilote.conversations']['types'],
+    pattern: '/api/v1/agent/conversations',
+    tokens: [{"old":"/api/v1/agent/conversations","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations","type":0,"val":"conversations","end":""}],
+    types: placeholder as Registry['agent.conversations']['types'],
   },
-  'copilote.conversation': {
+  'agent.conversation': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/copilote/conversations/:id',
-    tokens: [{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/copilote/conversations/:id","type":1,"val":"id","end":""}],
-    types: placeholder as Registry['copilote.conversation']['types'],
+    pattern: '/api/v1/agent/conversations/:id',
+    tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['agent.conversation']['types'],
   },
-  'copilote.conversationsDestroy': {
+  'agent.conversationsDestroy': {
     methods: ["DELETE"],
-    pattern: '/api/v1/copilote/conversations/:id',
-    tokens: [{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/copilote/conversations/:id","type":1,"val":"id","end":""}],
-    types: placeholder as Registry['copilote.conversationsDestroy']['types'],
+    pattern: '/api/v1/agent/conversations/:id',
+    tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['agent.conversationsDestroy']['types'],
   },
-  'copilote.conversationsUpdate': {
+  'agent.conversationsUpdate': {
     methods: ["PATCH"],
-    pattern: '/api/v1/copilote/conversations/:id',
-    tokens: [{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/copilote/conversations/:id","type":1,"val":"id","end":""}],
-    types: placeholder as Registry['copilote.conversationsUpdate']['types'],
+    pattern: '/api/v1/agent/conversations/:id',
+    tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['agent.conversationsUpdate']['types'],
   },
-  'copilote.mcp.app': {
+  'agent.mcp.app': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/copilote/mcp/app',
-    tokens: [{"old":"/api/v1/copilote/mcp/app","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/mcp/app","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/mcp/app","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/mcp/app","type":0,"val":"mcp","end":""},{"old":"/api/v1/copilote/mcp/app","type":0,"val":"app","end":""}],
-    types: placeholder as Registry['copilote.mcp.app']['types'],
+    pattern: '/api/v1/agent/mcp/app',
+    tokens: [{"old":"/api/v1/agent/mcp/app","type":0,"val":"api","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"mcp","end":""},{"old":"/api/v1/agent/mcp/app","type":0,"val":"app","end":""}],
+    types: placeholder as Registry['agent.mcp.app']['types'],
   },
-  'copilote.mcp.call': {
+  'agent.mcp.call': {
     methods: ["POST"],
-    pattern: '/api/v1/copilote/mcp/call',
-    tokens: [{"old":"/api/v1/copilote/mcp/call","type":0,"val":"api","end":""},{"old":"/api/v1/copilote/mcp/call","type":0,"val":"v1","end":""},{"old":"/api/v1/copilote/mcp/call","type":0,"val":"agent","end":""},{"old":"/api/v1/copilote/mcp/call","type":0,"val":"mcp","end":""},{"old":"/api/v1/copilote/mcp/call","type":0,"val":"call","end":""}],
-    types: placeholder as Registry['copilote.mcp.call']['types'],
+    pattern: '/api/v1/agent/mcp/call',
+    tokens: [{"old":"/api/v1/agent/mcp/call","type":0,"val":"api","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"mcp","end":""},{"old":"/api/v1/agent/mcp/call","type":0,"val":"call","end":""}],
+    types: placeholder as Registry['agent.mcp.call']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

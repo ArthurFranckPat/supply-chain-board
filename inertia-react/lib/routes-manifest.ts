@@ -6,6 +6,16 @@
  */
 
 export const MANIFEST = {
+  'agent.chat': { method: 'POST', pattern: '/api/v1/agent/chat' },
+  'agent.conversation': { method: 'GET', pattern: '/api/v1/agent/conversations/:id' },
+  'agent.conversations': { method: 'GET', pattern: '/api/v1/agent/conversations' },
+  'agent.conversationsDestroy': { method: 'DELETE', pattern: '/api/v1/agent/conversations/:id' },
+  'agent.conversationsUpdate': { method: 'PATCH', pattern: '/api/v1/agent/conversations/:id' },
+  'agent.health': { method: 'GET', pattern: '/api/v1/agent/health' },
+  'agent.mcp.app': { method: 'GET', pattern: '/api/v1/agent/mcp/app' },
+  'agent.mcp.call': { method: 'POST', pattern: '/api/v1/agent/mcp/call' },
+  'agent.metrics': { method: 'GET', pattern: '/api/v1/agent/metrics' },
+  'agent.show': { method: 'GET', pattern: '/copilote' },
   'appro.articleExplanation': { method: 'GET', pattern: '/api/v1/appro/article-explanation' },
   'appro.decision': { method: 'POST', pattern: '/api/v1/appro/decision' },
   'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
@@ -31,7 +41,6 @@ export const MANIFEST = {
   'calendar_config.toggle_holiday': { method: 'POST', pattern: '/api/v1/config/holidays/toggle' },
   'calendar_config.update_closure': { method: 'PATCH', pattern: '/api/v1/config/closures/:id' },
   'charge.detail': { method: 'GET', pattern: '/api/v1/planning/charge/detail' },
-  'charge.index': { method: 'GET', pattern: '/charge' },
   'cockpit.anomalies_usine': {
     method: 'GET',
     pattern: '/api/v1/planning/cockpit/postes/:poste/anomalies-usine',
@@ -48,22 +57,6 @@ export const MANIFEST = {
   'controle_prod.index': { method: 'GET', pattern: '/controle-prod' },
   'controle_prod.of_a_solder': { method: 'GET', pattern: '/api/v1/planning/of-a-solder' },
   'controle_prod.rows': { method: 'GET', pattern: '/api/v1/planning/controle-prod' },
-  'copilote.chat': { method: 'POST', pattern: '/api/v1/copilote/chat' },
-  'copilote.conversation': { method: 'GET', pattern: '/api/v1/copilote/conversations/:id' },
-  'copilote.conversations': { method: 'GET', pattern: '/api/v1/copilote/conversations' },
-  'copilote.conversationsDestroy': {
-    method: 'DELETE',
-    pattern: '/api/v1/copilote/conversations/:id',
-  },
-  'copilote.conversationsUpdate': {
-    method: 'PATCH',
-    pattern: '/api/v1/copilote/conversations/:id',
-  },
-  'copilote.health': { method: 'GET', pattern: '/api/v1/copilote/health' },
-  'copilote.mcp.app': { method: 'GET', pattern: '/api/v1/copilote/mcp/app' },
-  'copilote.mcp.call': { method: 'POST', pattern: '/api/v1/copilote/mcp/call' },
-  'copilote.metrics': { method: 'GET', pattern: '/api/v1/copilote/metrics' },
-  'copilote.show': { method: 'GET', pattern: '/copilote' },
   'dashboard': { method: 'GET', pattern: '/' },
   'dashboard.kpis': { method: 'GET', pattern: '/api/v1/dashboard/kpis' },
   'dashboard.otd': { method: 'GET', pattern: '/api/v1/dashboard/otd' },
@@ -76,6 +69,7 @@ export const MANIFEST = {
   'expeditions.index': { method: 'GET', pattern: '/expeditions' },
   'expeditions.rows': { method: 'GET', pattern: '/api/v1/expeditions/rows' },
   'health.index': { method: 'GET', pattern: '/health' },
+  'load.index': { method: 'GET', pattern: '/charge' },
   'order_planning.index': { method: 'GET', pattern: '/api/v1/planning/order-lines' },
   'order_planning.line_detail': {
     method: 'GET',
@@ -107,8 +101,8 @@ export const MANIFEST = {
   'planning_board.search_pf': { method: 'GET', pattern: '/api/v1/planning/search/pf' },
   'planning_board.search_poste': { method: 'GET', pattern: '/api/v1/planning/search/poste' },
   'planning_board.update': { method: 'PATCH', pattern: '/api/v1/planning/ofs/:of' },
-  'planning.order_affermir': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/firm' },
-  'planning.suggestion_affermir': {
+  'planning.order_firm': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/firm' },
+  'planning.suggestion_firm': {
     method: 'POST',
     pattern: '/api/v1/planning/suggestions/:sugNum/firm',
   },
@@ -129,7 +123,6 @@ export const MANIFEST = {
   'print.documents': { method: 'GET', pattern: '/api/v1/planning/print/documents' },
   'print.history': { method: 'GET', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'print.print': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/print' },
-  'programme.index': { method: 'GET', pattern: '/programme' },
   'promesse.articles': { method: 'GET', pattern: '/api/v1/promesse/articles' },
   'promesse.index': { method: 'GET', pattern: '/api/v1/promesse' },
   'promesse.show': { method: 'GET', pattern: '/promesse' },
@@ -137,8 +130,6 @@ export const MANIFEST = {
   'receptions.criticite': { method: 'GET', pattern: '/api/v1/receptions/criticite' },
   'receptions.index': { method: 'GET', pattern: '/receptions' },
   'receptions.rows': { method: 'GET', pattern: '/api/v1/receptions/rows' },
-  'ruptures.index': { method: 'GET', pattern: '/ruptures' },
-  'ruptures.rows': { method: 'GET', pattern: '/api/v1/planning/ruptures/rows' },
   'scenarios.compare': { method: 'GET', pattern: '/programme/scenarios/comparer' },
   'scenarios.destroy': { method: 'DELETE', pattern: '/api/v1/planning/scenarios/:id' },
   'scenarios.diff': { method: 'POST', pattern: '/api/v1/planning/scenarios/diff' },
@@ -151,6 +142,9 @@ export const MANIFEST = {
     method: 'GET',
     pattern: '/api/v1/planning/postes/:poste/engagement',
   },
+  'scheduler.programme': { method: 'GET', pattern: '/programme' },
+  'scheduler.shortage_rows': { method: 'GET', pattern: '/api/v1/planning/shortages/rows' },
+  'scheduler.shortage_tracker': { method: 'GET', pattern: '/ruptures' },
   'scheduling': { method: 'GET', pattern: '/ordonnancement' },
   'sequenceur.index': { method: 'GET', pattern: '/sequenceur' },
   'static_sync.status': { method: 'GET', pattern: '/api/v1/static/status' },
@@ -182,6 +176,16 @@ export type RouteName = keyof typeof MANIFEST
  * `void` = aucun paramètre de path ; les query strings (?start&days…) restent à l'appelant.
  */
 export type RouteParams = {
+  'agent.chat': void
+  'agent.conversation': { id: string | number }
+  'agent.conversations': void
+  'agent.conversationsDestroy': { id: string | number }
+  'agent.conversationsUpdate': { id: string | number }
+  'agent.health': void
+  'agent.mcp.app': void
+  'agent.mcp.call': void
+  'agent.metrics': void
+  'agent.show': void
   'appro.articleExplanation': void
   'appro.decision': void
   'appro.diff': void
@@ -207,7 +211,6 @@ export type RouteParams = {
   'calendar_config.toggle_holiday': void
   'calendar_config.update_closure': { id: string | number }
   'charge.detail': void
-  'charge.index': void
   'cockpit.anomalies_usine': { poste: string | number }
   'cockpit.index': void
   'cockpit.poste': { poste: string | number }
@@ -218,16 +221,6 @@ export type RouteParams = {
   'controle_prod.index': void
   'controle_prod.of_a_solder': void
   'controle_prod.rows': void
-  'copilote.chat': void
-  'copilote.conversation': { id: string | number }
-  'copilote.conversations': void
-  'copilote.conversationsDestroy': { id: string | number }
-  'copilote.conversationsUpdate': { id: string | number }
-  'copilote.health': void
-  'copilote.mcp.app': void
-  'copilote.mcp.call': void
-  'copilote.metrics': void
-  'copilote.show': void
   'dashboard': void
   'dashboard.kpis': void
   'dashboard.otd': void
@@ -240,6 +233,7 @@ export type RouteParams = {
   'expeditions.index': void
   'expeditions.rows': void
   'health.index': void
+  'load.index': void
   'order_planning.index': void
   'order_planning.line_detail': { order: string | number; line: string | number }
   'order_planning.reset_override': { order: string | number; line: string | number }
@@ -253,8 +247,8 @@ export type RouteParams = {
   'planning_board.search_pf': void
   'planning_board.search_poste': void
   'planning_board.update': { of: string | number }
-  'planning.order_affermir': { orderNum: string | number }
-  'planning.suggestion_affermir': { sugNum: string | number }
+  'planning.order_firm': { orderNum: string | number }
+  'planning.suggestion_firm': { sugNum: string | number }
   'print_config.delete_document': { id: string | number }
   'print_config.delete_rule': { id: string | number }
   'print_config.destinations': void
@@ -269,7 +263,6 @@ export type RouteParams = {
   'print.documents': void
   'print.history': { orderNum: string | number }
   'print.print': { orderNum: string | number }
-  'programme.index': void
   'promesse.articles': void
   'promesse.index': void
   'promesse.show': void
@@ -277,8 +270,6 @@ export type RouteParams = {
   'receptions.criticite': void
   'receptions.index': void
   'receptions.rows': void
-  'ruptures.index': void
-  'ruptures.rows': void
   'scenarios.compare': void
   'scenarios.destroy': { id: string | number }
   'scenarios.diff': void
@@ -288,6 +279,9 @@ export type RouteParams = {
   'scenarios.update': { id: string | number }
   'scheduler.of_detail': { of: string | number }
   'scheduler.poste_engagement': { poste: string | number }
+  'scheduler.programme': void
+  'scheduler.shortage_rows': void
+  'scheduler.shortage_tracker': void
   'scheduling': void
   'sequenceur.index': void
   'static_sync.status': void

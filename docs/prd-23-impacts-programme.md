@@ -21,10 +21,10 @@ restructurée** depuis :
 
 | Issue #23 (rédaction)                | Repo actuel                                                                                                                                                                          |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Page `/vision`, fichier `vision.tsx` | Page **`/programme`**, `inertia/pages/programme.tsx` (shell, ~550 l. après refacto SOLID #52)                                                                              |
+| Page `/vision`, fichier `vision.tsx` | Page **`/programme`**, `inertia/pages/scheduler/programme.tsx` (shell, ~550 l. après refacto SOLID #52)                                                                              |
 | —                                    | 3 modes **client-side** : `combined` / `ordonnancement` / `planification` (toggle sans round-trip, URL via `replaceState`)                                                           |
-| Overlay SVG des liens                | Extrait dans `inertia-react/components/programme/links-overlay.tsx` + géométrie pure `inertia-react/lib/programme/link-overlay.ts`                                                                     |
-| Marqueurs commande                   | Extraits dans `inertia-react/components/programme/commande-marker.tsx`, posés via slot `cellExtra` de `<BoardGrid>`                                                                           |
+| Overlay SVG des liens                | Extrait dans `inertia/components/vision/links-overlay.tsx` + géométrie pure `inertia/lib/vision/link-overlay.ts`                                                                     |
+| Marqueurs commande                   | Extraits dans `inertia/components/vision/commande-marker.tsx`, posés via slot `cellExtra` de `<BoardGrid>`                                                                           |
 | Drag OF (`store.moveCard`)           | En place — optimiste + rollback, PATCH `planning_board.update` (`workstation`, `dateDebut`)                                                                                          |
 | Drag commande (`cmdMoved`)           | En place — optimiste, PATCH `order_planning.update` (`dateLivraison`), remesure overlay au drop                                                                                      |
 | `loadOrderImpacts` avec overrides    | En place (presets nommés, transforms purs — commit `09b85a1`) ; `evaluateOrderImpacts` calcule déjà `joursRetard`, `statut`, `ofs[].dateFin` **avec overrides** (`effectiveDateFin`) |
@@ -32,9 +32,9 @@ restructurée** depuis :
 
 ### Ce qui manque (les gaps que cette feature comble)
 
-1. **`ProgrammeLink` ne transporte aucune date** — seulement des index de colonnes
+1. **`VisionLink` ne transporte aucune date** — seulement des index de colonnes
    (`ofCol`, `cmdCol`) + `suggere` (`app/controllers/scheduler_controller.ts:98`,
-   `inertia-react/lib/programme/types.ts:53`). Le client ne peut calculer aucun écart.
+   `inertia/lib/vision/types.ts:53`). Le client ne peut calculer aucun écart.
 2. **Aucun état d'alerte visuel** : liens tous couleur `--color-terra`, marqueurs
    commande neutres, cartes OF sans badge retard. Les liens sont même **masqués par
    défaut** (visibles au survol seulement, `links-overlay.tsx`) → un retard présent à
@@ -50,7 +50,7 @@ restructurée** depuis :
 ### Dette annexe repérée (hors périmètre, à traiter à part)
 
 - `start/routes.ts:92` : `/planification` redirige vers `/vision?mode=planification`,
-  route qui n'existe plus → redirection morte (devrait pointer `/programme?mode=commandes`).
+  route qui n'existe plus → redirection morte (devrait pointer `/programme?mode=planification`).
 
 ## 3. Objectifs / non-buts
 
@@ -92,7 +92,7 @@ delta = dateFinOf − dateBesoinCommande   (jours calendaires)
 | `ok`     | `delta < −margeJours`     | Comportement actuel (lien terra, masqué hors survol)                                          |
 
 `margeJours` : constante front `2` en v1 (pas d'UI de réglage) — extraite dans
-`lib/programme/impact.ts` pour être configurable plus tard.
+`lib/vision/impact.ts` pour être configurable plus tard.
 
 - `dateBesoinCommande` = date d'expédition **effective** de la ligne (override
   `OrderLineOverride` inclus — c'est déjà la date que `loadOrderImpacts` émet).
@@ -143,7 +143,7 @@ main au moment où il construit `links` : `order.dateExpedition`, `order.joursRe
 `order.statut`, `of.dateFin` (effectif, overrides inclus). Étendre :
 
 ```ts
-interface ProgrammeLink {
+interface VisionLink {
   // … existant …
   /** Date de fin effective de l'OF (override incluse), ISO — null si inconnue. */
   ofDateFinIso: string | null
@@ -154,12 +154,12 @@ interface ProgrammeLink {
 
 Le **verdict et le delta ne sont PAS émis par le serveur** : ils se dérivent des deux
 dates, et le client doit de toute façon les recalculer au drag. Une seule formule, un
-seul endroit (`lib/programme/impact.ts`), zéro divergence serveur/client. Miroir dans
-`inertia-react/lib/programme/types.ts`.
+seul endroit (`lib/vision/impact.ts`), zéro divergence serveur/client. Miroir dans
+`inertia/lib/vision/types.ts`.
 
 Le cache SWR du payload est inchangé (les dates étaient déjà dans `OrderImpactRow`).
 
-### 5.2 Client — module pur `lib/programme/impact.ts`
+### 5.2 Client — module pur `lib/vision/impact.ts`
 
 ```ts
 export type ImpactVerdict = 'ok' | 'limite' | 'retard'
@@ -169,7 +169,7 @@ export function linkDelta(ofFinIso: string | null, besoinIso: string | null): nu
 export function verdictOf(delta: number | null): ImpactVerdict | null
 /** Verdicts par lien, dates surchargées par l'état de drag en cours. */
 export function computeImpacts(
-  links: ProgrammeLink[],
+  links: VisionLink[],
   ofShift: Map<string, number>, // ofId → décalage jours (drag OF, optimiste)
   cmdBesoin: Map<string, string> // commandeId → date besoin provisoire (drag cmd)
 ): Map<linkKey, { delta: number; verdict: ImpactVerdict }>
@@ -182,7 +182,7 @@ Fonctions pures → testables unitaires sans DOM (`tests/unit/vision-impact.spec
 - `programme.tsx` : `createMemo(() => computeImpacts(props.links, ofShift(), cmdBesoinOverride()))` ;
   `cmdMoved` fournit déjà `cmdBesoinOverride` (iso) ; ajouter le signal `ofShift`
   alimenté par le drag OF (voir 5.4).
-- `PathSpec` (`lib/programme/link-overlay.ts`) : + `verdict`, `deltaJours`, point médian
+- `PathSpec` (`lib/vision/link-overlay.ts`) : + `verdict`, `deltaJours`, point médian
   pour l'étiquette.
 - `links-overlay.tsx`, `commande-marker.tsx`, `programme-toolbar.tsx` : rendu (cf. §4.2).
 - `<BoardGrid>` : prop optionnelle `cardVerdict?: (ofId: string) => ImpactVerdict | null`.
@@ -201,7 +201,7 @@ pour `/ordonnancement` (le callsite board seul ne passe pas l'info).
 
 ### 5.5 Découpage en livraisons
 
-1. **Serveur** — dates sur `ProgrammeLink` + miroir types front. _(petit, sans risque)_
+1. **Serveur** — dates sur `VisionLink` + miroir types front. _(petit, sans risque)_
 2. **Client statique** — `impact.ts` + états visuels initiaux (liens/marqueurs/cartes,
    badges, compteur toolbar) + tests unitaires. _(cœur de la valeur — G1, G4, G5)_
 3. **Client live** — recalcul pendant drag OF + drag commande, tooltip, translation
@@ -240,7 +240,7 @@ Chaque étape est shippable seule ; l'étape 2 délivre déjà le cas 1 de l'iss
 - Issue #23 (cette feature), #21 (liens OF ↔ commande), #15/#16 (chaîne rupture → impact), #52 (refacto SOLID des fichiers touchés).
 - Code : `app/controllers/scheduler_controller.ts` (`loadProgrammeData`),
   `app/domain/order-impacts.ts` (`evaluateOrderImpacts`, `effectiveDateFin`),
-  `app/services/order_impacts_loader.ts`, `inertia/pages/programme.tsx`,
-  `inertia-react/lib/programme/{types,link-overlay,cmd-cells}.ts`,
-  `inertia-react/components/programme/{links-overlay,commande-marker,programme-toolbar}.tsx`,
+  `app/services/order_impacts_loader.ts`, `inertia/pages/scheduler/programme.tsx`,
+  `inertia/lib/vision/{types,link-overlay,cmd-cells}.ts`,
+  `inertia/components/vision/{links-overlay,commande-marker,programme-toolbar}.tsx`,
   `inertia/lib/board/store.ts` (`moveCard`).

@@ -76,7 +76,7 @@ const bom = (over: Record<string, unknown>) => ({
 
 const promise = (over: Record<string, unknown>) => ({
   _source: 'getPromise',
-  engine: 'promise-engine.computePromesseDate',
+  engine: 'promise-engine.computePromiseDate',
   ...over,
 })
 
@@ -379,7 +379,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
     mocks: {
       listerRetardsPrevus: {
         _source: 'listerRetardsPrevus',
-        engine: 'loadPromesse(engageante) vs date besoin',
+        engine: 'loadPromise(engageante) vs date besoin',
         horizon: { from: '2026-07-17', to: '2026-07-31', days: 14 },
         demandsScanned: 120,
         demandsEvaluated: 40,

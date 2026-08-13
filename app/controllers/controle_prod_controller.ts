@@ -17,7 +17,7 @@ export default class ControleProdController {
   async index(ctx: HttpContext) {
     const force = !!ctx.request.input('refresh')
     const q = force ? '?refresh=1' : ''
-    return ctx.inertia.render('controle-prod', {
+    return ctx.inertia.render('scheduler/controle-prod', {
       rowsHref: `/api/v1/planning/controle-prod${q}`,
       solderHref: `/api/v1/planning/of-a-solder${q}`,
     })

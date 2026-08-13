@@ -10,7 +10,7 @@ import { cn } from '@r/lib/utils'
  * visualisation de charge.
  */
 
-export type ManifesteSort = 'time' | 'charge' | 'client'
+export type ManifesteSort = 'time' | 'load' | 'client'
 
 export function ManifesteView({
   rows,

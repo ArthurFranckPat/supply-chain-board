@@ -1,7 +1,7 @@
 # Diagnostic UI — page `/programme` (Vue unifiée OF ↔ commandes)
 
-_Revue de code UI (sans rendu navigateur), basée sur `inertia/pages/programme.tsx`,
-`components/programme/*` (toolbar, marqueur commande, overlay liens) et
+_Revue de code UI (sans rendu navigateur), basée sur `inertia/pages/scheduler/programme.tsx`,
+`components/vision/*` (toolbar, marqueur commande, overlay liens) et
 `components/board/*` (board-grid, board-card)._
 
 ## Verdict global
@@ -164,7 +164,7 @@ tout le vocabulaire `terra` de cette page est donc doublement trompeur (le §1 c
 parle de « terra » alors que la page rend du navy — la collision sémantique reste valable,
 le nom du token aggrave le cas) ; tokens legacy dupliqués ; `--font-mono` redéfini en
 Inter ; mix `<Button>` shadcn / `<button>` raw ; touch targets < 44 px ; pas de skeleton
-au montage (TTL cache 5 min → 5-10 s au premier chargement) ; `BatchAffermirBar` visible sous
+au montage (TTL cache 5 min → 5-10 s au premier chargement) ; `BatchFirmBar` visible sous
 l'empty state ; « Jeter » sans confirmation ; toasts `CustomEvent` fragiles ; perf de
 `measure()` (2×N `querySelector`) ; pas de debounce recherche ; raccourcis clavier absents.
 

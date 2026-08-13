@@ -18,9 +18,9 @@ export default defineConfig({
  */
 declare module '@adonisjs/inertia/types' {
   /**
-   * Forme d'une ligne de charge /charge (miroir : inertia-react/lib/charge/types.ts → ChargeLine).
+   * Forme d'une ligne de charge /charge (miroir : inertia-react/lib/load/types.ts → LoadLine).
    */
-  type ChargeLineProp = {
+  type LoadLineProp = {
     code: string
     name: string
     color: string
@@ -140,13 +140,13 @@ declare module '@adonisjs/inertia/types' {
     'promesse': Record<string, never>
     // Copilote agentique v1 — chat SSE (jetable #77).
     'copilote': Record<string, never>
-    'ruptures': {
+    'scheduler/shortages': {
       horizon: number
       windowStart: string
       dateRange: string
       rowsHref: string
     }
-    'controle-prod': {
+    'scheduler/controle-prod': {
       rowsHref: string
       /** Onglet « OF à solder » — fetché seulement à l'ouverture de l'onglet. */
       solderHref: string
@@ -157,19 +157,19 @@ declare module '@adonisjs/inertia/types' {
       /** Présélection `?poste=` (liens séquenceur / charge) — validée côté client. */
       posteInitial: string | null
     }
-    'suivi': {
+    'scheduler/tracking': {
       rowsHref: string
       proactiveRowsHref: string
     }
-    'charge': {
+    'scheduler/load': {
       rangeLabel: string
       months: string[]
       weeks: string[]
-      // Miroir client précis : inertia-react/lib/charge/types.ts (ChargeLine).
+      // Miroir client précis : inertia-react/lib/load/types.ts (LoadLine).
       // ofLines = charge OF (Ferme/Planifié/Suggéré) ; cmdLines = charge demande (Commande/Prévision).
       // capacity (#35) = capacité nette par bucket ; atelier/category (#36) = rattachement atelier.
-      ofLines: ChargeLineProp[]
-      cmdLines: ChargeLineProp[]
+      ofLines: LoadLineProp[]
+      cmdLines: LoadLineProp[]
       ateliers: { code: string; label: string; category: 'montage' | 'fabrication' }[]
       x3Error: string | null
     }
@@ -282,7 +282,7 @@ declare module '@adonisjs/inertia/types' {
         createdAt: number
       }[]
     }
-    'scenarios/comparer': {
+    'scheduler/comparer': {
       scenarios: any[]
       planActuel: any
       windowFrom: string
@@ -291,7 +291,7 @@ declare module '@adonisjs/inertia/types' {
       dataAt: string
     }
     // Séquenceur (#46/#100 unifiés) : board /programme en table. Filtre poste client.
-    'sequenceur': {
+    'scheduler/sequenceur': {
       postes: {
         code: string
         label: string
@@ -308,9 +308,9 @@ declare module '@adonisjs/inertia/types' {
       feasibilityWindow: { from: string; to: string } | null
       x3Error: string | null
     }
-    'programme': {
-      mode: 'combined' | 'ordonnancement' | 'commandes'
-      // OF board — null en mode commandes
+    'scheduler/programme': {
+      mode: 'combined' | 'ordonnancement' | 'planification'
+      // OF board — null en mode planification
       board: BoardProp | null
       commandes: any[]
       links: any[]

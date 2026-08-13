@@ -209,7 +209,7 @@ export default class ScenarioController {
       })
     }
 
-    return ctx.inertia.render('scenarios/comparer', {
+    return ctx.inertia.render('scheduler/comparer', {
       scenarios: comparisonRows,
       planActuel: {
         nom: 'Plan Actuel',

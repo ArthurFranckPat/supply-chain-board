@@ -121,7 +121,7 @@ export default function Copilote() {
     transport: useMemo(
       () =>
         new DefaultChatTransport<AgentUIMessage>({
-          api: route('copilote.chat'),
+          api: route('agent.chat'),
           prepareSendMessagesRequest: ({ messages }) => {
             const last = messages[messages.length - 1]
             const text =
@@ -162,7 +162,7 @@ export default function Copilote() {
   /** Recharge la liste des conversations (sidebar) depuis le serveur. */
   const refreshConversations = useCallback(async () => {
     try {
-      const res = await fetch(route('copilote.conversations'))
+      const res = await fetch(route('agent.conversations'))
       if (!res.ok) return
       const data = (await res.json()) as { conversations?: ConversationSummary[] }
       setConversations(Array.isArray(data.conversations) ? data.conversations : [])
@@ -188,7 +188,7 @@ export default function Copilote() {
     async (id: string) => {
       if (busy || id === conversationIdRef.current) return
       try {
-        const res = await fetch(route('copilote.conversation', { id }))
+        const res = await fetch(route('agent.conversation', { id }))
         if (!res.ok) return
         const data = (await res.json()) as { messages?: AgentUIMessage[] }
         chat.setMessages(Array.isArray(data.messages) ? data.messages : [])
@@ -206,7 +206,7 @@ export default function Copilote() {
     async (id: string) => {
       if (busy && id === conversationIdRef.current) return
       try {
-        await fetch(route('copilote.conversationsDestroy', { id }), { method: 'DELETE' })
+        await fetch(route('agent.conversationsDestroy', { id }), { method: 'DELETE' })
       } catch {
         /* best-effort */
       }
@@ -225,7 +225,7 @@ export default function Copilote() {
     async (id: string, title: string) => {
       setConversations((prev) => prev.map((c) => (c.conversationId === id ? { ...c, title } : c)))
       try {
-        const res = await fetch(route('copilote.conversationsUpdate', { id }), {
+        const res = await fetch(route('agent.conversationsUpdate', { id }), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),

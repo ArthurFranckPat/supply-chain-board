@@ -33,7 +33,7 @@ const clampFactor = (v: unknown): number => {
  * Invalide les caches qui intègrent le calendrier dans leur payload calculé.
  *
  * `capacityCalendar.buildCalendar(...)` est appelé À L'INTÉRIEUR de la factory
- * de `cacheNs('charge')` (cf. `charge_payload_loader.ts`) : la capacité y est
+ * de `cacheNs('charge')` (cf. `load_payload_loader.ts`) : la capacité y est
  * figée avec le reste du payload. Sans invalidation, une modification de
  * fermeture ou de férié reste invisible sur /charge jusqu'à l'expiration du TTL
  * (2 min) voire de la grâce SWR (12 h). Les deux loaders de charge partagent

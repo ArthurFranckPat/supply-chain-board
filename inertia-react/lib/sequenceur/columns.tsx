@@ -17,7 +17,7 @@ import { X3Link } from '@r/components/x3-link'
 import { cn } from '@r/lib/utils'
 import { fmtDateFr, fmtH, fmtJ, urgencyColor, urgencyOf } from '@r/lib/board/engagement-format'
 import type { FeasStatus } from '@r/lib/board/types'
-import type { BatchItem } from '@r/components/sequenceur/sequenceur-affermir-bar'
+import type { BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 import { STATUS_BADGE, affirmable, feasBadge, type SequenceurRow } from './shared'
 
 export interface SequenceurColumnsDeps {

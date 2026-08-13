@@ -32,7 +32,7 @@ import {
   RECEPTION_LOOKBACK_DAYS,
   RECEPTION_OVERDUE_MIN_QTY,
 } from '#repositories/reception_repository'
-import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/ruptures'
+import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
@@ -173,14 +173,14 @@ export default class SuiviController {
    * GET /suivi — coquille (shell) Inertia du suivi des commandes (issue #19).
    * Rendu INSTANTANÉ : aucun calcul X3 ici. Les lignes (calcul lourd) sont chargées
    * en différé côté client (fetch JSON) depuis `/api/v1/status/rows` → page réactive
-   * Solid. Même motif que scheduler_controller.ruptures / ruptureRows.
+   * Solid. Même motif que scheduler_controller.shortageTracker / shortageRows.
    */
   async board(ctx: HttpContext) {
     // Plus de referenceDate serveur : le calcul (statuts/verdicts) est TOUJOURS fait par
     // rapport à aujourd'hui réel (fenêtre de chargement fixe today-90j/+30j, cf loadRaw/
     // proactiveRows). La plage affichée est un filtre CLIENT pur sur les lignes déjà
     // chargées (cf tracking.tsx dateRange) — pas besoin de re-fetch au changement de plage.
-    return ctx.inertia.render('suivi', {
+    return ctx.inertia.render('scheduler/tracking', {
       rowsHref: '/api/v1/status/rows',
       proactiveRowsHref: '/api/v1/status/proactive-rows',
     })

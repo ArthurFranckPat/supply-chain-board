@@ -33,7 +33,7 @@ import { DynamicIcon } from '@r/components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
-import type { PromesseResult, PromesseNode, PromesseReason } from '@r/lib/promesse/types'
+import type { PromiseResult, PromiseNode, PromiseReason } from '@r/lib/promesse/types'
 
 /** ISO YYYY-MM-DD (ou Date) → jj/mm/aaaa. Jamais `toLocaleDateString` nu. */
 function frDate(d: Date | string): string {
@@ -63,7 +63,7 @@ const REASON_ICON: Record<string, string> = {
   infeasible: 'error',
 }
 
-function reasonText(r: PromesseReason): string {
+function reasonText(r: PromiseReason): string {
   switch (r.kind) {
     case 'stock':
       return 'Stock disponible'
@@ -82,7 +82,7 @@ function reasonText(r: PromesseReason): string {
 }
 
 interface TreeNodeProps {
-  node: PromesseNode
+  node: PromiseNode
   depth: number
 }
 
@@ -125,7 +125,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
       </div>
       {node.children.length > 0 && (
         <ul>
-          {node.children.map((child: PromesseNode, index: number) => (
+          {node.children.map((child: PromiseNode, index: number) => (
             <TreeNode
               key={`${child.article}-${child.availableDate}-${index}`}
               node={child}
@@ -142,7 +142,7 @@ interface DateCardProps {
   label: string
   date: string
   color: 'green' | 'amber'
-  result: PromesseResult
+  result: PromiseResult
 }
 
 function DateCard({ label, date, color, result }: DateCardProps) {
@@ -174,8 +174,8 @@ function DateCard({ label, date, color, result }: DateCardProps) {
 }
 
 interface ResultData {
-  optimiste: PromesseResult
-  engageante: PromesseResult
+  optimiste: PromiseResult
+  engageante: PromiseResult
   article: string
   quantity: number
   from: string
@@ -242,7 +242,7 @@ export default function Promesse() {
         date: result.engageante.promiseDate,
       })
     )
-    window.location.href = route('programme.index')
+    window.location.href = route('scheduler.programme')
   }
 
   return (

@@ -13,10 +13,10 @@ import capacityCalendarService from '#services/capacity_calendar_service'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildStrictQcStock } from '#app/domain/of_feasibility'
 import {
-  computePromesseDate,
+  computePromiseDate,
   type DatedSupply,
-  type PromesseDataset,
-} from '#app/domain/promesse_engine'
+  type PromiseDataset,
+} from '#app/domain/promise_engine'
 import type { Flow } from '#app/domain/models/flow'
 import {
   buildExpeditionForecast,
@@ -220,11 +220,11 @@ function flowSuppliesByArticle(
   return out
 }
 
-function buildPromesseDataset(
+function buildPromiseDataset(
   context: Awaited<ReturnType<typeof loadOrderImpacts>>,
   closedDays: Set<string>,
   supplierLatency: Map<string, number>
-): PromesseDataset {
+): PromiseDataset {
   const supplyFlows = context.planInputs.supplyFlows
   return {
     articles: context.articles,
@@ -242,7 +242,7 @@ function buildPromesseDataset(
 /** Date de couverture d'une quantité manquante par les réceptions attendues. */
 function componentReleaseDate(
   missing: Record<string, number>,
-  promiseData: PromesseDataset,
+  promiseData: PromiseDataset,
   today: string,
   stockLedger: Map<string, number>,
   receptionLedger: Map<string, DatedSupply[]>
@@ -282,12 +282,12 @@ function componentReleaseDate(
     // Sous-ensemble fabriqué : le CTP descend sa BOM. Les réceptions directes
     // restent consommées par le ledger ci-dessus ; ce fallback ne touche pas aux
     // dates CBN des OF.
-    const scopedPromiseData: PromesseDataset = {
+    const scopedPromiseData: PromiseDataset = {
       ...promiseData,
       stockNet: stockLedger,
       receptions: receptionLedger,
     }
-    const result = computePromesseDate(
+    const result = computePromiseDate(
       { article, quantity, from: parseDay(today) ?? new Date(), mode: 'optimiste' },
       scopedPromiseData
     )
@@ -298,7 +298,7 @@ function componentReleaseDate(
   return latest
 }
 
-function promiseCause(result: ReturnType<typeof computePromesseDate>): string {
+function promiseCause(result: ReturnType<typeof computePromiseDate>): string {
   const factor = result.limitingFactor
   switch (factor.reason.kind) {
     case 'reception':
@@ -320,9 +320,9 @@ function ctpSegment(
   quantity: number,
   article: string,
   today: string,
-  data: PromesseDataset
+  data: PromiseDataset
 ): AvailabilitySegment {
-  const result = computePromesseDate(
+  const result = computePromiseDate(
     { article, quantity, from: parseDay(today) ?? new Date(), mode: 'optimiste' },
     data
   )
@@ -340,7 +340,7 @@ function buildSegments(
   raw: Flow,
   impact: Awaited<ReturnType<typeof loadOrderImpacts>>['result']['orders'][number] | undefined,
   today: string,
-  promiseData: PromesseDataset,
+  promiseData: PromiseDataset,
   firmSequence: Map<string, number>,
   allowedByAllocation: Map<string, number>,
   stockLedger: Map<string, number>,
@@ -569,7 +569,7 @@ export async function loadExpeditionForecast(
     )
     const firmSequence = rankFirmOfs(result.orders, rawByKey)
     const allowedByAllocation = buildOfAllocationLedger(result.orders)
-    const promiseData = buildPromesseDataset({ result, ...context }, closedDays, supplierLatency)
+    const promiseData = buildPromiseDataset({ result, ...context }, closedDays, supplierLatency)
     const stockLedger = new Map(promiseData.stockNet)
     const receptionLedger = new Map(
       [...promiseData.receptions.entries()].map(([article, supplies]) => [

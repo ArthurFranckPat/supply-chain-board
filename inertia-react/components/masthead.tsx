@@ -26,11 +26,11 @@ export type MastheadTab =
   | 'dashboard'
   | 'programme'
   | 'sequenceur'
-  | 'charge'
+  | 'load'
   | 'ruptures'
   | 'controle-prod'
   | 'cockpit'
-  | 'suivi'
+  | 'tracking'
   | 'expeditions'
   | 'receptions'
   | 'approvisionnements'
@@ -51,14 +51,14 @@ const TABLEAU_DE_BORD: Tab = {
   href: route('dashboard'),
 }
 const SUIVI_COMMANDES: Tab = {
-  key: 'suivi',
+  key: 'tracking',
   label: 'Suivi commandes',
   href: route('suivi.board'),
 }
-const CHARGE: Tab = {
-  key: 'charge',
-  label: 'Charge',
-  href: route('charge.index'),
+const PLANIFICATION: Tab = {
+  key: 'load',
+  label: 'Planification',
+  href: route('load.index'),
 }
 
 /** Groupe d'onglets — `label` optionnel : sans label = liens nus (sans en-tête). */
@@ -72,9 +72,9 @@ type TabGroup = { label?: string; tabs: Tab[] }
 const ORDONNANCEMENT_GROUPS: TabGroup[] = [
   {
     tabs: [
-      { key: 'programme', label: 'Programme', href: route('programme.index') },
+      { key: 'programme', label: 'Programme', href: route('scheduler.programme') },
       { key: 'sequenceur', label: 'Séquenceur', href: route('sequenceur.index') },
-      { key: 'ruptures', label: 'Ruptures composants', href: route('ruptures.index') },
+      { key: 'ruptures', label: 'Ruptures composants', href: route('scheduler.shortage_tracker') },
       { key: 'controle-prod', label: 'Contrôle prod', href: route('controle_prod.index') },
       { key: 'cockpit', label: 'Cockpit poste', href: route('cockpit.index') },
     ],
@@ -113,7 +113,7 @@ const PLUS_GROUPS: TabGroup[] = [
   {
     label: 'Outils',
     tabs: [
-      { key: 'copilote', label: 'Copilote', href: route('copilote.show') },
+      { key: 'copilote', label: 'Copilote', href: route('agent.show') },
       { key: 'config', label: 'Config', href: route('calendar_config.index') },
     ],
   },
@@ -324,9 +324,9 @@ export function Masthead(props: {
           >
             {SUIVI_COMMANDES.label}
           </Link>
-          {/* Charge */}
-          <Link href={CHARGE.href} className={tabCls(CHARGE.key === props.active)}>
-            {CHARGE.label}
+          {/* Planification */}
+          <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
+            {PLANIFICATION.label}
           </Link>
           {/* Logistique ▾ */}
           <MoreMenu
@@ -416,8 +416,8 @@ export function Masthead(props: {
         <Link href={SUIVI_COMMANDES.href} className={tabCls(SUIVI_COMMANDES.key === props.active)}>
           {SUIVI_COMMANDES.label}
         </Link>
-        <Link href={CHARGE.href} className={tabCls(CHARGE.key === props.active)}>
-          {CHARGE.label}
+        <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
+          {PLANIFICATION.label}
         </Link>
         <MoreMenu
           label="Logistique"

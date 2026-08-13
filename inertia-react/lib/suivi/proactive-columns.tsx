@@ -23,7 +23,7 @@ import {
   VERDICT_ICON,
   VERDICT_TEXT,
   getRelativeDateLabel,
-} from '@r/lib/suivi/shared'
+} from '@r/lib/suivi/tracking-shared'
 import {
   CalendarX,
   CircleSlash,

@@ -391,7 +391,7 @@ class BoardDataset {
   }
 
   /** Lignes de commande ouvertes (OrderLineRow complet, fat query) pour la vue
-   * planification (loadOrderBoardData). Cache SWR partagé — avant, /programme?mode=commandes
+   * planification (loadOrderBoardData). Cache SWR partagé — avant, /programme?mode=planification
    * appellait getOpenOrderLines en DIRECT à chaque load (SOAP fat 11 cols + 5 JOINs, non caché).
    * from/to au format ISO 'YYYY-MM-DD'. */
   async getOpenOrderLines(

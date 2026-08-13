@@ -7,8 +7,8 @@ import boardDataset from '#services/board_dataset'
 import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
 import { ScenarioStore } from '#services/scenario_store'
 import { loadPosteEngagement } from '#services/poste_engagement_loader'
-import { loadRuptureRowsData } from '#services/rupture_payload_loader'
-import { loadChargePayloadData } from '#services/charge_payload_loader'
+import { loadShortageRowsData } from '#services/shortage_payload_loader'
+import { loadChargePayloadData } from '#services/load_payload_loader'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
 import { loadStockArticleDetail, StockDetailBadRequest } from '#services/stock_detail_loader'
@@ -181,7 +181,7 @@ export async function listerRuptures(
     limit?: number
   } = {}
 ) {
-  const data = await loadRuptureRowsData({
+  const data = await loadShortageRowsData({
     start: params.from,
     days: params.horizonDays,
   })

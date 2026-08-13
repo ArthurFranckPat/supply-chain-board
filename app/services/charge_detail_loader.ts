@@ -33,12 +33,12 @@ import {
   computeChargeNeeds,
   fetchChargeInputs,
   ofResteAProduire,
-} from '#services/charge_payload_loader'
+} from '#services/load_payload_loader'
 
 export type ChargeGran = 'month' | 'week'
 export type ChargeDetailView = 'of' | 'commande'
 
-/** Segment de la barre auquel la ligne contribue — miroir de `ChargePeriod`. */
+/** Segment de la barre auquel la ligne contribue — miroir de `LoadPeriod`. */
 export type ChargeSegField = ChargeSeg
 
 /** Ligne de détail en vue OF : un ordre de fabrication. */

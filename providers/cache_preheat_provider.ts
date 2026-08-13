@@ -230,8 +230,8 @@ export default class CachePreheatProvider {
         label: 'payload /ruptures (14 j)',
         warm: false,
         run: async () => {
-          const { loadRuptureRowsData } = await import('#services/rupture_payload_loader')
-          return loadRuptureRowsData({})
+          const { loadShortageRowsData } = await import('#services/shortage_payload_loader')
+          return loadShortageRowsData({})
         },
       },
       {
@@ -239,7 +239,7 @@ export default class CachePreheatProvider {
         label: 'payload /charge',
         warm: false,
         run: async () => {
-          const { loadChargePayloadData } = await import('#services/charge_payload_loader')
+          const { loadChargePayloadData } = await import('#services/load_payload_loader')
           return loadChargePayloadData({})
         },
       },

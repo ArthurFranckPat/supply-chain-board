@@ -29,7 +29,7 @@ import { APP_CSS } from './styles'
 
 type ReasonKind = 'stock' | 'reception' | 'of' | 'appro' | 'fabrication' | 'infeasible'
 
-interface PromesseReason {
+interface PromiseReason {
   kind: ReasonKind
   [k: string]: unknown
 }
@@ -38,14 +38,14 @@ interface CheminNoeud {
   article: string
   quantity: number
   availableDate: string
-  reason: PromesseReason
+  reason: PromiseReason
   leadTimeUsed: number
   onCriticalPath: boolean
 }
 
 interface FacteurLimitant {
   article: string
-  reason: PromesseReason
+  reason: PromiseReason
   date: string | null
   leadTime: number
 }
@@ -78,7 +78,7 @@ function fmtDateFr(iso: string | null | undefined): string {
   return y && m && d ? `${d}/${m}/${y}` : iso
 }
 
-function reasonLabel(r: PromesseReason): string {
+function reasonLabel(r: PromiseReason): string {
   switch (r.kind) {
     case 'stock':
       return 'stock disponible'
@@ -97,7 +97,7 @@ function reasonLabel(r: PromesseReason): string {
   }
 }
 
-function reasonIcone(r: PromesseReason): string {
+function reasonIcone(r: PromiseReason): string {
   switch (r.kind) {
     case 'stock':
       return '◆'
