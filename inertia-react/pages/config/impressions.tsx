@@ -8,10 +8,29 @@ import {
   ShieldCheck,
   Settings2,
 } from 'lucide-react'
+import { router } from '@inertiajs/react'
 
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
+import { Badge } from '@r/components/ui/badge'
 import { Input } from '@r/components/ui/input'
+import { Pill } from '@r/components/ui/pill'
+import { CellDate, CellStack } from '@r/components/ui/table-row'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@r/components/ui/select'
+import {
+  ToolbarGroup,
+  ToolbarSegment,
+  ToolbarSegmented,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
@@ -26,6 +45,13 @@ import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/d
  *
  * Le journal des tirages est en lecture seule : il sert de preuve, pas de
  * brouillon.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; la barre passe par la prop `toolbar` d'AppLayout ;
+ * • sous-nav Calendrier / Impressions en `ToolbarSegmented` (zone 01),
+ *   journal en Pill zone 04 — plus de pills `bg-brand-soft` ;
+ * • tables `DataTable` + `CellStack` / `CellDate` / `Badge` ;
+ * • plus de `font-fraunces` ni de filet Airbnb (`border-rule`, `px-7`).
  */
 
 interface Atelier {
@@ -110,22 +136,29 @@ interface PageProps {
   jobs: Job[]
 }
 
-/** Horodatage epoch (s) → « 22/07/26 14:38 ». */
-const fmtStamp = (s: number): string => {
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Horodatage epoch (s) → jour jj/mm/aaaa. */
+const fmtDay = (s: number): string => {
   if (!s) return '—'
   const d = new Date(s * 1000)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)} ${p(d.getHours())}:${p(d.getMinutes())}`
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`
+}
+
+/** Horodatage epoch (s) → heure HH:mm, éventuellement + auteur. */
+const fmtTimeBy = (s: number, by?: string): string => {
+  if (!s) return by || ''
+  const d = new Date(s * 1000)
+  const t = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  return by ? `${t} · ${by}` : t
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
-    </label>
+    </div>
   )
 }
 
@@ -136,19 +169,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function VerdictChip({ job }: { job: Job }) {
   if (job.serverVerdict === 'error') {
     return (
-      <span
-        className="inline-flex items-center gap-1 font-semibold text-red-700"
-        title={job.jobDetail}
-      >
-        <TriangleAlert size={13} />
+      <Badge variant="destructive" title={job.jobDetail}>
+        <TriangleAlert size={12} />
         rien n’est sorti
-      </span>
+      </Badge>
     )
   }
   if (job.serverVerdict === 'ok') {
     return (
-      <span
-        className="text-emerald-700"
+      <Badge
+        variant="success"
         title={
           job.verdictInferred
             ? 'Succès déduit de la disparition de la tâche, pas lu sur un statut terminal.'
@@ -156,14 +186,14 @@ function VerdictChip({ job }: { job: Job }) {
         }
       >
         remis à la file{job.verdictInferred ? ' *' : ''}
-      </span>
+      </Badge>
     )
   }
   if (job.serverVerdict === 'unknown') {
     return (
-      <span className="text-amber-700" title={job.jobDetail}>
+      <Badge variant="warning" title={job.jobDetail}>
         sans verdict
-      </span>
+      </Badge>
     )
   }
   return <span className="text-muted-foreground">—</span>
@@ -172,15 +202,15 @@ function VerdictChip({ job }: { job: Job }) {
 /** Pastille papier / sans effet — la distinction structurante de l'écran. */
 function EffetChip({ sandbox }: { sandbox: boolean }) {
   return sandbox ? (
-    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-muted-foreground">
+    <Badge variant="secondary">
       <ShieldCheck size={12} />
       sans papier
-    </span>
+    </Badge>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-900">
+    <Badge variant="warning">
       <Printer size={12} />
       papier
-    </span>
+    </Badge>
   )
 }
 
@@ -202,13 +232,6 @@ const AUTO_MODES = [
   },
 ]
 
-/**
- * Déclenchement automatique à l'affermissement.
- *
- * Trois états et non une case à cocher : l'affermissement groupé n'a pas la
- * même conséquence physique qu'un affermissement unitaire, et beaucoup de gens
- * veulent le premier sans le second.
- */
 /**
  * Documents du dossier d'OF.
  *
@@ -288,47 +311,57 @@ function DocumentsSetting({ documents }: { documents: Doc[] }) {
   }
 
   return (
-    <section className="rounded-lg border border-rule bg-card">
-      <header className="flex items-center gap-2 border-b border-rule px-4 py-3">
-        <Settings2 size={16} className="text-brand" />
-        <h2 className="font-fraunces text-[15px] font-bold">Documents du dossier</h2>
-        <span className="text-[11.5px] text-muted-foreground">
+    <section className="rounded-lg border border-border bg-card">
+      <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <Settings2 size={16} strokeWidth={1.75} className="text-muted-foreground" />
+        <h2 className="text-sm font-medium text-foreground">Documents du dossier</h2>
+        <span className="text-xs text-muted-foreground">
           codes d’état X3 (GESARP), dans l’ordre d’impression
         </span>
       </header>
 
       <div className="flex flex-col gap-2 px-4 py-3">
         {docs.length === 0 && (
-          <p className="text-[12.5px] text-red-800">
+          <p className="text-xs text-destructive">
             Aucun document configuré : l’affermissement n’imprimera rien.
           </p>
         )}
 
         {docs.map((d) => (
-          <div key={d.id} className="flex flex-wrap items-center gap-2 text-[13px]">
-            <span className="font-mono text-[12px] font-bold">{d.code}</span>
+          <div key={d.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-mono text-xs font-bold tabular-nums">{d.code}</span>
             <span className="text-muted-foreground">{d.label || '(sans libellé)'}</span>
-            {!d.active && (
-              <span className="font-mono text-[10px] uppercase text-amber-700">désactivé</span>
-            )}
+            {!d.active && <Badge variant="warning">désactivé</Badge>}
             <span className="ml-auto flex items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={() => void toggle(d)} disabled={busy}>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                onClick={() => void toggle(d)}
+                disabled={busy}
+              >
                 {d.active ? 'Désactiver' : 'Activer'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => void remove(d)} disabled={busy}>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                onClick={() => void remove(d)}
+                disabled={busy}
+              >
                 <Trash2 size={13} />
               </Button>
             </span>
           </div>
         ))}
 
-        <div className="mt-1 flex flex-wrap items-end gap-2 border-t border-rule pt-3">
+        <div className="mt-1 flex flex-wrap items-end gap-2 border-t border-border pt-3">
           <Field label="Code état">
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="RECETTE"
-              className="w-40 font-mono"
+              className="h-8 w-40 font-mono text-sm"
             />
           </Field>
           <Field label="Libellé métier">
@@ -336,16 +369,21 @@ function DocumentsSetting({ documents }: { documents: Doc[] }) {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Bon de travail"
-              className="w-56"
+              className="h-8 w-56 text-sm"
             />
           </Field>
-          <Button size="sm" onClick={() => void add()} disabled={busy || !code.trim()}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void add()}
+            disabled={busy || !code.trim()}
+          >
             <Plus size={14} />
             Ajouter
           </Button>
         </div>
 
-        {error && <p className="text-[12.5px] text-red-700">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
     </section>
   )
@@ -370,7 +408,7 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
       const j = await r.json()
       if (!r.ok || j.error) {
         setError(j.error ?? `Erreur ${r.status}`)
-        setMode(previous) // l'écran ne doit pas afficher un réglage non enregistré
+        setMode(previous)
       }
     } catch (e) {
       setError(String(e))
@@ -381,11 +419,11 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
   }
 
   return (
-    <section className="rounded-lg border border-rule bg-card">
-      <header className="flex items-center gap-2 border-b border-rule px-4 py-3">
-        <Settings2 size={16} className="text-brand" />
-        <h2 className="font-fraunces text-[15px] font-bold">Déclenchement</h2>
-        <span className="text-[11.5px] text-muted-foreground">
+    <section className="rounded-lg border border-border bg-card">
+      <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <Settings2 size={16} strokeWidth={1.75} className="text-muted-foreground" />
+        <h2 className="text-sm font-medium text-foreground">Déclenchement</h2>
+        <span className="text-xs text-muted-foreground">
           quand l’affermissement doit-il imprimer le dossier ?
         </span>
       </header>
@@ -396,7 +434,7 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
             key={m.v}
             className={cn(
               'flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 transition-colors',
-              mode === m.v ? 'bg-brand-soft' : 'hover:bg-muted/50'
+              mode === m.v ? 'bg-muted' : 'hover:bg-muted/50'
             )}
           >
             <input
@@ -408,24 +446,20 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
               onChange={() => void change(m.v)}
             />
             <span className="flex flex-col gap-0.5">
-              <span
-                className={cn(
-                  'text-[13px] font-semibold',
-                  mode === m.v ? 'text-brand' : 'text-foreground'
-                )}
-              >
-                {m.label}
-              </span>
-              <span className="text-[11.5px] text-muted-foreground">{m.hint}</span>
+              <span className="text-sm font-medium text-foreground">{m.label}</span>
+              <span className="text-xs text-muted-foreground">{m.hint}</span>
             </span>
           </label>
         ))}
 
         {error && (
-          <p className="mt-1 rounded-md bg-red-50 px-3 py-2 text-[12.5px] text-red-900">{error}</p>
+          <div className="mt-1 flex items-center gap-2 border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-foreground">
+            <TriangleAlert size={14} strokeWidth={1.75} className="shrink-0 text-destructive" />
+            {error}
+          </div>
         )}
 
-        <p className="mt-1 text-[11.5px] italic text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground">
           La réimpression explicite depuis le détail OF reste disponible quel que soit ce réglage —
           c’est un geste, pas un automatisme.
           {settings.updatedBy ? ` Dernière modification : ${settings.updatedBy}.` : ''}
@@ -460,7 +494,6 @@ function RuleForm({
 
   const dest = destinations.find((d) => d.code === destCode)
 
-  // Groupées par nature : l'utilisateur choisit d'abord un effet, puis une file.
   const groups = useMemo(() => {
     const by = new Map<string, Destination[]>()
     for (const d of destinations.filter((x) => x.active)) {
@@ -493,84 +526,93 @@ function RuleForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 border-t border-rule px-4 py-3">
+    <div className="flex flex-col gap-3 border-t border-border px-4 py-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <Field label="Atelier">
-          <select
-            value={stoloc}
-            onChange={(e) => setStoloc(e.target.value)}
-            className="h-9 rounded-md border border-rule bg-card px-2 text-[13px]"
+          <Select
+            value={stoloc || '__default__'}
+            onValueChange={(v) => setStoloc(!v || v === '__default__' ? '' : String(v))}
           >
-            <option value="">Par défaut (tous ateliers)</option>
-            {ateliers.map((a) => (
-              <option key={a.code} value={a.code}>
-                {a.label} ({a.code})
-              </option>
-            ))}
-          </select>
+            <SelectTrigger size="sm" className="h-8 w-full">
+              <SelectValue placeholder="Par défaut (tous ateliers)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__default__">Par défaut (tous ateliers)</SelectItem>
+              {ateliers.map((a) => (
+                <SelectItem key={a.code} value={a.code}>
+                  {a.label} ({a.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Document">
-          <select
-            value={docType}
-            onChange={(e) => setDocType(e.target.value)}
-            className="h-9 rounded-md border border-rule bg-card px-2 text-[13px]"
-          >
-            {documents.map((d) => (
-              <option key={d.code} value={d.code}>
-                {d.label || d.code}
-              </option>
-            ))}
-          </select>
+          <Select value={docType} onValueChange={(v) => setDocType(String(v ?? ''))}>
+            <SelectTrigger size="sm" className="h-8 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {documents.map((d) => (
+                <SelectItem key={d.code} value={d.code}>
+                  {d.label || d.code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Destination X3">
-          <select
-            value={destCode}
-            onChange={(e) => setDestCode(e.target.value)}
-            className="h-9 rounded-md border border-rule bg-card px-2 text-[13px]"
-          >
-            <option value="">— choisir —</option>
-            {groups.map(([kind, list]) => (
-              <optgroup key={kind} label={kind}>
-                {list.map((d) => (
-                  <option key={d.code} value={d.code}>
-                    {d.code} — {d.label || '(sans libellé)'}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <Select value={destCode || null} onValueChange={(v) => setDestCode(String(v ?? ''))}>
+            <SelectTrigger size="sm" className="h-8 w-full">
+              <SelectValue placeholder="— choisir —" />
+            </SelectTrigger>
+            <SelectContent>
+              {groups.map(([kind, list]) => (
+                <SelectGroup key={kind}>
+                  <SelectLabel>{kind}</SelectLabel>
+                  {list.map((d) => (
+                    <SelectItem key={d.code} value={d.code}>
+                      {d.code} — {d.label || '(sans libellé)'}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Note">
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="optionnel" />
+          <Input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="optionnel"
+            className="h-8 text-sm"
+          />
         </Field>
       </div>
 
       {dest && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted/50 px-3 py-2 text-[12px]">
+        <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted/50 px-3 py-2 text-xs">
           <EffetChip sandbox={dest.sandbox} />
           <span className="text-muted-foreground">
             {dest.server ? `Serveur ${dest.server}` : 'Aucun serveur d’impression déclaré'}
             {dest.queue ? ` · file ${dest.queue}` : ''}
           </span>
           {!dest.sandbox && !dest.server && (
-            <span className="flex items-center gap-1 text-amber-700">
+            <span className="flex items-center gap-1 text-suggere">
               <TriangleAlert size={13} />
               Destination legacy : file pointant un poste, à vérifier physiquement avant usage.
             </span>
           )}
-          {/* Confrontation au réel : le serveur d'édition liste ses files. Une
-              file absente échouera au tirage — autant le dire maintenant. */}
           {!dest.sandbox && queues.length > 0 && dest.queue && !queues.includes(dest.queue) && (
-            <span className="flex items-center gap-1 font-semibold text-red-700">
+            <span className="flex items-center gap-1 font-medium text-destructive">
               <TriangleAlert size={13} />
               La file « {dest.queue} » n’existe pas sur le serveur d’édition. Cette règle échouera.
             </span>
           )}
           {!dest.sandbox && (
-            <span className="flex items-center gap-1 font-semibold text-amber-800">
+            <span className="flex items-center gap-1 font-medium text-suggere">
               <TriangleAlert size={13} />
               Cette destination sort du papier dans l’atelier.
             </span>
@@ -579,17 +621,20 @@ function RuleForm({
       )}
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-[12.5px] text-red-900">{error}</p>
+        <div className="flex items-center gap-2 border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-foreground">
+          <TriangleAlert size={14} strokeWidth={1.75} className="shrink-0 text-destructive" />
+          {error}
+        </div>
       )}
 
       <div className="flex items-center gap-2">
-        <Button onClick={submit} disabled={busy || !destCode} size="sm">
+        <Button type="button" onClick={submit} disabled={busy || !destCode} size="sm">
           Enregistrer
         </Button>
-        <Button onClick={onCancel} variant="ghost" size="sm">
+        <Button type="button" onClick={onCancel} variant="ghost" size="sm">
           Annuler
         </Button>
-        <span className="ml-auto text-[11.5px] text-muted-foreground">
+        <span className="ml-auto text-xs text-muted-foreground">
           Une seule règle par atelier et par document — enregistrer remplace l’existante.
         </span>
       </div>
@@ -625,38 +670,36 @@ function createRuleColumns(deps: {
       accessorKey: 'atelierLabel',
       header: () => 'Atelier',
       cell: ({ row: { original: r } }) => (
-        <span className={cn(!r.stoloc && 'italic text-muted-foreground')}>{r.atelierLabel}</span>
+        <CellStack code={r.stoloc || 'Défaut'} label={r.atelierLabel} />
       ),
     },
     {
       accessorKey: 'docLabel',
       header: () => 'Document',
       cell: ({ row: { original: r } }) => (
-        <>
-          {r.docLabel}
-          {r.orphan && (
-            <span className="ml-1.5 text-[11px] font-semibold text-red-700">document retiré</span>
-          )}
-        </>
+        <CellStack
+          code={r.docType}
+          label={r.docLabel}
+          action={r.orphan ? <Badge variant="destructive">document retiré</Badge> : undefined}
+        />
       ),
     },
     {
       accessorKey: 'destCode',
       header: () => 'Destination',
       cell: ({ row: { original: r } }) => (
-        <>
-          <span className="font-mono text-[12px] font-bold">{r.destCode}</span>
-          {r.destLabel && <span className="ml-2 text-muted-foreground">{r.destLabel}</span>}
-          {rulesCassees.has(r.id) && (
-            <span
-              className="ml-2 inline-flex items-center gap-1 font-semibold text-red-700"
-              title="File absente du serveur d’édition"
-            >
-              <TriangleAlert size={13} />
-              file introuvable
-            </span>
-          )}
-        </>
+        <CellStack
+          code={r.destCode}
+          label={r.destLabel}
+          action={
+            rulesCassees.has(r.id) ? (
+              <Badge variant="destructive" title="File absente du serveur d’édition">
+                <TriangleAlert size={12} />
+                file introuvable
+              </Badge>
+            ) : undefined
+          }
+        />
       ),
     },
     {
@@ -669,10 +712,7 @@ function createRuleColumns(deps: {
       accessorKey: 'updatedAt',
       header: () => 'Modifiée',
       cell: ({ row: { original: r } }) => (
-        <span className="text-muted-foreground">
-          {fmtStamp(r.updatedAt)}
-          {r.updatedBy ? ` · ${r.updatedBy}` : ''}
-        </span>
+        <CellDate date={fmtDay(r.updatedAt)} relative={fmtTimeBy(r.updatedAt, r.updatedBy)} />
       ),
     },
     {
@@ -680,14 +720,15 @@ function createRuleColumns(deps: {
       enableSorting: false,
       header: () => '',
       cell: ({ row: { original: r } }) => (
-        <button
+        <Button
           type="button"
+          size="xs"
+          variant="ghost"
           onClick={() => void removeRule(r.id)}
-          className="text-muted-foreground transition-colors hover:text-danger"
           title="Supprimer la règle"
         >
-          <Trash2 size={17} />
-        </button>
+          <Trash2 size={16} />
+        </Button>
       ),
       meta: { tdClass: 'text-right' },
     },
@@ -699,17 +740,18 @@ const jobColumns: ColumnDef<Job>[] = [
     accessorKey: 'createdAt',
     header: () => 'Quand',
     cell: ({ row: { original: j } }) => (
-      <span className="text-muted-foreground">{fmtStamp(j.createdAt)}</span>
+      <CellDate date={fmtDay(j.createdAt)} relative={fmtTimeBy(j.createdAt)} />
     ),
   },
   {
     accessorKey: 'ofNum',
     header: () => 'OF',
-    cell: ({ row: { original: j } }) => <span className="font-mono text-[12px]">{j.ofNum}</span>,
+    cell: ({ row: { original: j } }) => <CellStack code={j.ofNum} />,
   },
   {
     accessorKey: 'docLabel',
     header: () => 'Document',
+    cell: ({ row: { original: j } }) => <CellStack code={j.docType} label={j.docLabel} />,
   },
   {
     id: 'tirage',
@@ -717,32 +759,31 @@ const jobColumns: ColumnDef<Job>[] = [
     header: () => 'Tirage',
     cell: ({ row: { original: j } }) =>
       j.attempt > 1 ? (
-        <span className="font-semibold text-amber-800">réimpression #{j.attempt}</span>
+        <Badge variant="warning">réimpression #{j.attempt}</Badge>
       ) : (
-        'initial'
+        <span className="text-xs text-muted-foreground">initial</span>
       ),
   },
   {
     accessorKey: 'destCode',
     header: () => 'Destination',
-    cell: ({ row: { original: j } }) => <span className="font-mono text-[12px]">{j.destCode}</span>,
+    cell: ({ row: { original: j } }) => <CellStack code={j.destCode} />,
   },
   {
     accessorKey: 'status',
     header: () => 'X3',
     cell: ({ row: { original: j } }) => (
       <>
-        {j.status === 'submitted' && <span className="text-emerald-700">soumis</span>}
-        {/* Rang réservé, appel X3 sans retour : ni soumis ni refusé. */}
+        {j.status === 'submitted' && <Badge variant="success">soumis</Badge>}
         {j.status === 'pending' && (
-          <span className="text-amber-700" title="Issue de l’appel X3 inconnue.">
+          <Badge variant="warning" title="Issue de l’appel X3 inconnue.">
             en cours
-          </span>
+          </Badge>
         )}
         {j.status !== 'submitted' && j.status !== 'pending' && (
-          <span className="text-red-700" title={j.error}>
+          <Badge variant="destructive" title={j.error}>
             refusé
-          </span>
+          </Badge>
         )}
       </>
     ),
@@ -752,19 +793,19 @@ const jobColumns: ColumnDef<Job>[] = [
     enableSorting: false,
     header: () => 'Serveur d’édition',
     cell: ({ row: { original: j } }) => (
-      <>
+      <span className="inline-flex items-center gap-1.5">
         <VerdictChip job={j} />
         {j.jobRank > 0 && (
-          <span className="ml-2 font-mono text-[11px] text-muted-foreground">#{j.jobRank}</span>
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">#{j.jobRank}</span>
         )}
-      </>
+      </span>
     ),
   },
   {
     accessorKey: 'origin',
     header: () => 'Origine',
     cell: ({ row: { original: j } }) => (
-      <span className="text-muted-foreground">
+      <span className="text-xs text-muted-foreground">
         {j.origin}
         {j.requestedBy ? ` · ${j.requestedBy}` : ''}
       </span>
@@ -818,63 +859,53 @@ export default function ImpressionsConfig(props: PageProps) {
 
   const ruleColumns = useMemo(() => createRuleColumns({ rulesCassees, removeRule }), [rulesCassees])
 
-  const papier = sorted.filter((r) => !r.sandbox).length
   const manquantes = props.documents
     .filter((d) => d.active)
     .filter((d) => !rules.some((r) => r.stoloc === '' && r.docType === d.code))
+
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <ToolbarSegmented semantics="tabs" aria-label="Configuration">
+          <ToolbarSegment onClick={() => router.visit(route('calendar_config.index'))}>
+            Calendrier
+          </ToolbarSegment>
+          <ToolbarSegment active>Impressions</ToolbarSegment>
+        </ToolbarSegmented>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <Pill variant="outline" onClick={() => router.visit(route('print_journal'))}>
+        Journal des tirages
+      </Pill>
+    </>
+  )
 
   return (
     <AppLayout
       title="Impressions"
       active="config"
       subtitle="Routage des impressions d’OF"
-      theme="airbnb"
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
-            {rules.length} règle{rules.length > 1 ? 's' : ''}
-          </div>
-          <div>
-            {papier} vers une imprimante · {rules.length - papier} sans effet physique
-          </div>
-        </>
-      }
+      theme="cursor"
+      toolbar={toolbar}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 py-6">
-        <nav className="flex items-center gap-2 text-[12.5px]">
-          <a
-            href={route('calendar_config.index')}
-            className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Calendrier usine
-          </a>
-          <span className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold text-brand">
-            Impressions
-          </span>
-          <a
-            href={route('print_journal')}
-            className="ml-auto rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Journal des tirages →
-          </a>
-        </nav>
-
-        <div>
-          <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
-            Routage des impressions
-          </h1>
-          <p className="text-[13px] text-muted-foreground">
-            À l’affermissement d’un OF, le bon de travail et le bon de sortie matière partent vers
-            l’imprimante de l’atelier concerné. Cet écran décide de la cible ; il ne déclenche rien.
-          </p>
-        </div>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+        <p className="text-sm text-muted-foreground">
+          À l’affermissement d’un OF, le bon de travail et le bon de sortie matière partent vers
+          l’imprimante de l’atelier concerné. Cet écran décide de la cible ; il ne déclenche rien.
+        </p>
 
         {props.destinationsError && (
-          <p className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
-            <TriangleAlert size={15} />
-            Destinations X3 indisponibles : {props.destinationsError} — les règles existantes
-            restent affichées, mais aucune nouvelle règle ne peut être validée.
-          </p>
+          <div className="flex items-center gap-2 border border-suggere/30 bg-suggere/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-suggere" />
+            <span className="font-medium">Destinations X3 indisponibles :</span>
+            <span className="truncate font-mono">{props.destinationsError}</span>
+            <span className="text-muted-foreground">
+              — les règles existantes restent affichées, mais aucune nouvelle règle ne peut être
+              validée.
+            </span>
+          </div>
         )}
 
         <DocumentsSetting documents={props.documents} />
@@ -882,48 +913,55 @@ export default function ImpressionsConfig(props: PageProps) {
         <AutoPrintSetting settings={props.settings} />
 
         {props.queuesError && (
-          <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px]">
-            <TriangleAlert size={15} className="text-amber-700" />
-            Serveur d’édition injoignable : {props.queuesError} — impossible de confronter les
-            règles aux files réelles, et les tirages resteront « sans verdict ».
-          </p>
+          <div className="flex items-center gap-2 border border-suggere/30 bg-suggere/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-suggere" />
+            <span className="font-medium">Serveur d’édition injoignable :</span>
+            <span className="truncate font-mono">{props.queuesError}</span>
+            <span className="text-muted-foreground">
+              — impossible de confronter les règles aux files réelles, et les tirages resteront «
+              sans verdict ».
+            </span>
+          </div>
         )}
 
         {rulesCassees.size > 0 && (
-          <p className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-[12.5px] text-red-900">
-            <TriangleAlert size={15} />
+          <div className="flex items-center gap-2 border border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-destructive" />
             <span>
-              <strong>
+              <span className="font-medium tabular-nums">
                 {rulesCassees.size} règle{rulesCassees.size > 1 ? 's' : ''}
-              </strong>{' '}
+              </span>{' '}
               pointe{rulesCassees.size > 1 ? 'nt' : ''} une file inconnue du serveur d’édition. X3
               acceptera l’édition, rien ne sortira.
             </span>
-          </p>
+          </div>
         )}
 
         {manquantes.length > 0 && (
-          <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px]">
-            <TriangleAlert size={15} className="text-amber-700" />
-            Aucune règle par défaut pour&nbsp;
-            <strong>{manquantes.map((d) => d.label.toLowerCase()).join(' et ')}</strong>. Un OF dont
-            l’atelier n’a pas de règle ne sera pas imprimé — l’impression sera refusée, pas
-            silencieuse.
-          </p>
+          <div className="flex items-center gap-2 border border-suggere/30 bg-suggere/10 px-5 py-2 text-xs text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="shrink-0 text-suggere" />
+            <span>
+              Aucune règle par défaut pour{' '}
+              <span className="font-medium">
+                {manquantes.map((d) => d.label.toLowerCase()).join(' et ')}
+              </span>
+              . Un OF dont l’atelier n’a pas de règle ne sera pas imprimé — l’impression sera
+              refusée, pas silencieuse.
+            </span>
+          </div>
         )}
 
-        {/* --- Règles de routage --------------------------------------------- */}
-        <section className="rounded-lg border border-rule bg-card">
-          <header className="flex items-center gap-2 border-b border-rule px-4 py-3">
-            <Printer size={16} className="text-brand" />
-            <h2 className="font-fraunces text-[15px] font-bold">Routage</h2>
-            <span className="text-[11.5px] text-muted-foreground">
+        <section className="rounded-lg border border-border bg-card">
+          <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <Printer size={16} strokeWidth={1.75} className="text-muted-foreground" />
+            <h2 className="text-sm font-medium text-foreground">Routage</h2>
+            <span className="text-xs text-muted-foreground">
               atelier (STOLOC) × document → destination X3
             </span>
           </header>
 
           {sorted.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Aucune règle. Commencez par la règle par défaut de chaque document.
             </p>
           ) : (
@@ -933,9 +971,8 @@ export default function ImpressionsConfig(props: PageProps) {
               sorting={ruleSorting}
               onSortingChange={setRuleSorting}
               virtualize={false}
-              tableClass="w-full text-[13px]"
+              tableClass="w-full"
               scrollContainerClass="rounded-none border-0 shadow-none"
-              theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
               getRowKey={(r) => String(r.id)}
             />
           )}
@@ -951,30 +988,25 @@ export default function ImpressionsConfig(props: PageProps) {
             />
           ) : (
             <div className="px-4 py-3">
-              <button
-                type="button"
-                onClick={() => setAdding(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
                 <Plus size={16} />
                 Nouvelle règle
-              </button>
+              </Button>
             </div>
           )}
         </section>
 
-        {/* --- Journal ------------------------------------------------------- */}
-        <section className="rounded-lg border border-rule bg-card">
-          <header className="flex items-center gap-2 border-b border-rule px-4 py-3">
-            <FileText size={16} className="text-brand" />
-            <h2 className="font-fraunces text-[15px] font-bold">Derniers tirages</h2>
-            <span className="text-[11.5px] text-muted-foreground">
+        <section className="rounded-lg border border-border bg-card">
+          <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <FileText size={16} strokeWidth={1.75} className="text-muted-foreground" />
+            <h2 className="text-sm font-medium text-foreground">Derniers tirages</h2>
+            <span className="text-xs text-muted-foreground">
               journal d’idempotence — un OF déjà imprimé ne se réimprime que sur demande explicite
             </span>
           </header>
 
           {props.jobs.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Aucun tirage journalisé.
             </p>
           ) : (
@@ -984,19 +1016,20 @@ export default function ImpressionsConfig(props: PageProps) {
               sorting={jobSorting}
               onSortingChange={setJobSorting}
               virtualize={false}
-              tableClass="w-full text-[13px]"
+              tableClass="w-full"
               scrollContainerClass="rounded-none border-0 shadow-none"
-              theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
               getRowKey={(j) => String(j.id)}
             />
           )}
 
-          <p className="border-t border-rule px-4 py-2 text-[11.5px] italic text-muted-foreground">
-            Deux verdicts, volontairement séparés. <b>X3</b> dit s’il a accepté l’édition ; le{' '}
-            <b>serveur d’édition</b> dit ce qu’elle est devenue — une édition acceptée par X3 peut
-            très bien finir en erreur. « Remis à la file » reste la limite haute : un bac vide ou un
-            bourrage ne remonte nulle part. L’astérisque marque un succès déduit de la disparition
-            de la tâche plutôt que lu sur un statut terminal.
+          <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+            Deux verdicts, volontairement séparés.{' '}
+            <span className="font-medium text-foreground">X3</span> dit s’il a accepté l’édition ;
+            le <span className="font-medium text-foreground">serveur d’édition</span> dit ce qu’elle
+            est devenue — une édition acceptée par X3 peut très bien finir en erreur. « Remis à la
+            file » reste la limite haute : un bac vide ou un bourrage ne remonte nulle part.
+            L’astérisque marque un succès déduit de la disparition de la tâche plutôt que lu sur un
+            statut terminal.
           </p>
         </section>
       </div>

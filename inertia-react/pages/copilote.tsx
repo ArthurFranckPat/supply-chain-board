@@ -12,10 +12,18 @@
  * Redesign issue #84 : app shell 3 zones (nav / chat / inspecteur contexte)
  * — voir design/mockups/copilote-redesign/04-focus-rail.html pour la
  * référence visuelle. Backend inchangé.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `AppLayout theme="cursor" dense scrollable={false}` — TopBar + sidebar
+ *   app ; plus de `Masthead` ni de wrapper `theme-airbnb h-screen` ;
+ * • pas de `meta` TopBar ni de `ToolbarMetric` ; les boutons replier
+ *   nav / contexte restent dans le chrome du chat (ils gouvernent AppShell) ;
+ * • AppShell 3 colonnes vit dans les children, en `h-full` — la sidebar
+ *   conversations coexiste avec la sidebar app, elles ne fusionnent pas.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Head, usePage } from '@inertiajs/react'
+import { usePage } from '@inertiajs/react'
 import {
   DefaultChatTransport,
   isReasoningUIPart,
@@ -30,8 +38,10 @@ import { ThinkingOrb } from 'thinking-orbs'
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 
-import { Masthead } from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
+import { Badge } from '@r/components/ui/badge'
 import { Bubble, BubbleContent } from '@r/components/ui/bubble'
+import { Button } from '@r/components/ui/button'
 import { AppShell } from '@r/components/copilote/app-shell'
 import { CopiloteSidebar, type ConversationSummary } from '@r/components/copilote/sidebar'
 import { InspectorPanel, deriveInspectorContext } from '@r/components/copilote/inspector'
@@ -211,6 +221,23 @@ export default function Copilote() {
     [busy, chat, refreshConversations]
   )
 
+  const renameConversation = useCallback(
+    async (id: string, title: string) => {
+      setConversations((prev) => prev.map((c) => (c.conversationId === id ? { ...c, title } : c)))
+      try {
+        const res = await fetch(route('agent.conversationsUpdate', { id }), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        })
+        if (!res.ok) void refreshConversations()
+      } catch {
+        void refreshConversations()
+      }
+    },
+    [refreshConversations]
+  )
+
   const flashTool = useCallback((tool: string) => {
     setInspectorCollapsed(false)
     setFlash({ tool, nonce: Date.now() })
@@ -221,15 +248,6 @@ export default function Copilote() {
     setCopiedId(messageId)
     setTimeout(() => setCopiedId((cur) => (cur === messageId ? null : cur)), 1400)
   }
-
-  /** Modèle lu depuis la metadata du dernier message assistant. */
-  const model = useMemo(() => {
-    for (let i = chat.messages.length - 1; i >= 0; i--) {
-      const m = chat.messages[i]
-      if (m.role === 'assistant' && m.metadata?.model) return m.metadata.model
-    }
-    return null
-  }, [chat.messages])
 
   const { entries: inspectorEntries, subject } = useMemo(
     () => deriveInspectorContext(chat.messages),
@@ -242,21 +260,18 @@ export default function Copilote() {
   )
 
   return (
-    <>
-      <Head title="Copilote" />
-      <div className="theme-airbnb flex h-screen flex-col bg-background text-foreground">
-        <Masthead
-          subtitle="Copilote supply — lecture seule"
-          active="copilote"
-          variant="airbnb"
-          meta={
-            <div className="text-right text-[11px] leading-tight text-secondary-foreground">
-              <div className="font-semibold text-foreground">Agentique v1</div>
-              <div>{model ?? 'zai / glm-5.2'}</div>
-            </div>
-          }
-        />
-
+    <AppLayout
+      title="Copilote"
+      active="copilote"
+      subtitle="Copilote supply — lecture seule"
+      theme="cursor"
+      dense
+      scrollable={false}
+    >
+      {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
+          normal : sans ce wrapper, AppShell ne prend pas la hauteur sous le
+          TopBar. La sidebar app (nav) et la sidebar conversations coexistent. */}
+      <div className="flex h-full min-h-0 flex-1 flex-col">
         <AppShell
           navCollapsed={navCollapsed}
           inspectorCollapsed={inspectorCollapsed}
@@ -267,6 +282,7 @@ export default function Copilote() {
               busy={busy}
               onNewChat={resetConversation}
               onSelect={(id) => void openConversation(id)}
+              onRename={(id, title) => void renameConversation(id, title)}
               onDelete={(id) => void deleteConversation(id)}
               username={authUser?.username ?? '—'}
               env={authUser?.env ?? 'prod'}
@@ -274,32 +290,35 @@ export default function Copilote() {
           }
           inspector={<InspectorPanel entries={inspectorEntries} subject={subject} flash={flash} />}
         >
-          <div className="flex items-center gap-2.5 border-b border-border/60 px-5 py-2.5">
-            <button
+          <div className="flex items-center gap-2.5 border-b border-border px-5 py-2">
+            <Button
               type="button"
+              variant="outline"
+              size="icon-xs"
               onClick={() => setNavCollapsed((v) => !v)}
               title="Replier / déplier la navigation"
               aria-pressed={!navCollapsed}
-              className="flex size-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+              aria-label="Replier / déplier la navigation"
             >
               <PanelLeft size={14} />
-            </button>
-            <div className="flex-1 text-center text-[12.5px] text-muted-foreground">
-              <strong className="font-semibold text-foreground">Copilote</strong> · lecture seule
+            </Button>
+            <div className="flex-1 text-center text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Copilote</span>
+              {' · '}
+              lecture seule
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={() => setInspectorCollapsed((v) => !v)}
               title="Replier / déplier le contexte"
               aria-pressed={!inspectorCollapsed}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:border-foreground hover:text-foreground',
-                inspectorCollapsed ? 'text-muted-foreground' : 'text-foreground'
-              )}
+              aria-label="Replier / déplier le contexte"
             >
               Contexte
               <PanelRight size={14} />
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-1 justify-center overflow-hidden">
@@ -333,18 +352,19 @@ export default function Copilote() {
                     </Bubble>
                   ) : (
                     <div className="flex items-start gap-3">
-                      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-primary">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
                         <Bot size={15} />
                       </span>
                       <div className="flex min-w-0 flex-1 flex-col gap-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-bold tracking-tight text-foreground">
-                            Copilote
-                          </span>
+                          <span className="text-[13px] font-medium text-foreground">Copilote</span>
                           {m.metadata?.model && (
-                            <span className="rounded-full bg-planifie/15 px-1.5 py-px font-mono text-[10px] font-semibold text-planifie">
+                            <Badge
+                              variant="secondary"
+                              className="font-mono text-[10px] tabular-nums"
+                            >
                               {m.metadata.model}
-                            </span>
+                            </Badge>
                           )}
                         </div>
 
@@ -360,7 +380,7 @@ export default function Copilote() {
                               return (
                                 <details
                                   key={idx}
-                                  className="mb-2.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5"
+                                  className="mb-2.5 rounded-md border border-border bg-muted/20 px-2.5 py-1.5"
                                 >
                                   <summary className="cursor-pointer text-[11px] italic text-muted-foreground">
                                     Réflexion
@@ -380,8 +400,10 @@ export default function Copilote() {
                           })}
 
                           {m.parts.some((p) => isTextUIPart(p) && p.text) && (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-xs"
                               onClick={() =>
                                 copyAnswer(
                                   m.id,
@@ -392,13 +414,14 @@ export default function Copilote() {
                                 )
                               }
                               title="Copier la réponse"
+                              aria-label="Copier la réponse"
                               className={cn(
-                                'mt-2.5 flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover/answer:opacity-100',
+                                'mt-2.5 text-muted-foreground opacity-0 group-hover/answer:opacity-100',
                                 copiedId === m.id && 'text-ferme opacity-100'
                               )}
                             >
                               {copiedId === m.id ? <Check size={14} /> : <Copy size={14} />}
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -420,7 +443,7 @@ export default function Copilote() {
               )}
 
               {chat.error && (
-                <div className="mt-6 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+                <div className="mt-6 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {chat.error?.message}
                 </div>
               )}
@@ -436,6 +459,6 @@ export default function Copilote() {
           />
         </AppShell>
       </div>
-    </>
+    </AppLayout>
   )
 }

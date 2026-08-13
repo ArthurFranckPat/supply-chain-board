@@ -112,6 +112,7 @@ export interface ApiDefinition {
     conversations: typeof routes['agent.conversations']
     conversation: typeof routes['agent.conversation']
     conversationsDestroy: typeof routes['agent.conversationsDestroy']
+    conversationsUpdate: typeof routes['agent.conversationsUpdate']
     mcp: {
       app: typeof routes['agent.mcp.app']
       call: typeof routes['agent.mcp.call']

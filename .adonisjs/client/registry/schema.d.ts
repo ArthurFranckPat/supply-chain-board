@@ -1507,6 +1507,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'agent.conversationsUpdate': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/agent/conversations/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'agent.mcp.app': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/agent/mcp/app'

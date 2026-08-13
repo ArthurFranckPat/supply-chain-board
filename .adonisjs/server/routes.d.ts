@@ -129,6 +129,7 @@ export type ScannedRoutes = {
     'agent.conversations': { paramsTuple?: []; params?: {} }
     'agent.conversation': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'agent.conversationsDestroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'agent.conversationsUpdate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'agent.mcp.app': { paramsTuple?: []; params?: {} }
     'agent.mcp.call': { paramsTuple?: []; params?: {} }
   }
@@ -349,6 +350,7 @@ export type ScannedRoutes = {
     'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scenarios.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
+    'agent.conversationsUpdate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   DELETE: {
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

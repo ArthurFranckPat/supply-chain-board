@@ -433,6 +433,9 @@ router
         router
           .delete('/conversations/:id', '#controllers/agent_controller.conversationsDestroy')
           .as('agent.conversationsDestroy')
+        router
+          .patch('/conversations/:id', '#controllers/agent_controller.conversationsUpdate')
+          .as('agent.conversationsUpdate')
         // MCP Apps (issue #89) : l'hôte du navigateur lit les resources `ui://`
         // et proxifie les `tools/call` des apps — toujours via le client MCP,
         // jamais en tapant les fichiers ou les primitives en direct.
