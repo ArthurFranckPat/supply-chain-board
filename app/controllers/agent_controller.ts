@@ -249,4 +249,25 @@ export default class AgentController {
     if (!ok) return ctx.response.notFound({ error: 'Conversation introuvable.' })
     return ctx.response.json({ ok: true })
   }
+
+  /**
+   * PATCH /api/v1/agent/conversations/:id — renomme une conversation.
+   * Le titre auto du 1er message reste tant que l'utilisateur n'en pose pas un.
+   */
+  async conversationsUpdate(ctx: HttpContext) {
+    const userId = ctx.auth.user?.id
+    if (userId === undefined) {
+      return ctx.response.unauthorized({ error: 'Authentification requise.' })
+    }
+    const conversationId = String(ctx.params.id ?? '')
+      .trim()
+      .slice(0, 64)
+    const title = String(ctx.request.input('title') ?? '')
+      .trim()
+      .slice(0, 120)
+    if (!title) return ctx.response.badRequest({ error: 'Titre requis.' })
+    const row = await this.conversations.rename(userId, conversationId, title)
+    if (!row) return ctx.response.notFound({ error: 'Conversation introuvable.' })
+    return ctx.response.json({ conversation: row })
+  }
 }

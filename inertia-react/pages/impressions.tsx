@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ChevronDown,
-  ChevronRight,
-  Printer,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Settings2,
-  TriangleAlert,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, Printer, RotateCcw } from 'lucide-react'
+import { router } from '@inertiajs/react'
 
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
-import { Input } from '@r/components/ui/input'
+import { Badge } from '@r/components/ui/badge'
+import { Pill } from '@r/components/ui/pill'
+import { LoadingState } from '@r/components/ui/loading-state'
+import { CellDate, CellStack, rowToneClass } from '@r/components/ui/table-row'
+import {
+  ToolbarFilterChip,
+  ToolbarFilterMenu,
+  ToolbarFilterSection,
+  ToolbarGroup,
+  ToolbarRefresh,
+  ToolbarSearch,
+  ToolbarSegment,
+  ToolbarSegmented,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
-import { rowToneClass } from '@r/components/ui/table-row'
 
 /**
  * Impressions du jour (issue #85, lot 4).
@@ -31,6 +36,13 @@ import { rowToneClass } from '@r/components/ui/table-row'
  *
  * Écran en lecture, deux actions explicites : relancer un tirage échoué,
  * réconcilier les verdicts en attente.
+ *
+ * Migrée sur le design system cursor (vitrine `/design-system`) :
+ * • `theme="cursor"` ; la barre passe par la prop `toolbar` d'AppLayout ;
+ * • sous-nav Calendrier / Impressions en `ToolbarSegmented` (zone 01),
+ *   période + filtres + recherche, journal en Pill zone 04 ;
+ * • table `DataTable` + `CellStack` / `CellDate` / `Badge` ;
+ * • plus de `font-fraunces` ni de filet Airbnb (`border-rule`, `px-7`).
  */
 
 interface Job {
@@ -88,45 +100,50 @@ const pending = (j: Job) =>
   j.status === 'pending' ||
   (j.status === 'submitted' && (j.serverVerdict === 'pending' || j.serverVerdict === 'unknown'))
 
-const fmtStamp = (s: number): string => {
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+const fmtDay = (s: number): string => {
   if (!s) return '—'
   const d = new Date(s * 1000)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`
+}
+
+const fmtTime = (s: number): string => {
+  if (!s) return ''
+  const d = new Date(s * 1000)
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
 /** Verdict du serveur d'édition, rendu sans arrondi. */
 function Verdict({ j }: { j: Job }) {
-  // Rang réservé, appel X3 sans retour. Ni succès ni échec : on ne sait pas si
-  // du papier est sorti, et c'est ce qu'il faut afficher.
   if (j.status === 'pending') {
     return (
-      <span
-        className="font-semibold text-amber-700"
+      <Badge
+        variant="warning"
         title="Tirage réservé au journal, issue de l’appel X3 inconnue. Réimprimer reste possible, explicitement."
       >
         tirage en cours
-      </span>
+      </Badge>
     )
   }
   if (j.status === 'failed') {
     return (
-      <span className="font-semibold text-red-700" title={j.error}>
+      <Badge variant="destructive" title={j.error}>
         refusé par X3
-      </span>
+      </Badge>
     )
   }
   if (j.serverVerdict === 'error') {
     return (
-      <span className="font-semibold text-red-700" title={j.jobDetail || j.error}>
+      <Badge variant="destructive" title={j.jobDetail || j.error}>
         rien n’est sorti
-      </span>
+      </Badge>
     )
   }
   if (j.serverVerdict === 'ok') {
     return (
-      <span
-        className="text-emerald-700"
+      <Badge
+        variant="success"
         title={
           j.verdictInferred
             ? 'Succès déduit de la disparition de la tâche, pas lu sur un statut terminal.'
@@ -134,26 +151,23 @@ function Verdict({ j }: { j: Job }) {
         }
       >
         remis à la file{j.verdictInferred ? ' *' : ''}
-      </span>
+      </Badge>
     )
   }
-  // Sans n° de tâche, aucune relecture ne tranchera jamais : `$jobs` ne porte
-  // pas le n° d'OF, seul le rang identifie un tirage. Le dire, plutôt que
-  // laisser croire à un verdict qui finira par tomber.
   if (!j.jobRank) {
     return (
-      <span
-        className="text-amber-700"
+      <Badge
+        variant="warning"
         title="Aucun n° de tâche renvoyé par X3 : ce tirage ne pourra jamais être tranché. Vérifier que ZSOAPPRINT est publié avec son 7ᵉ paramètre (WJOBNUM)."
       >
         non réconciliable
-      </span>
+      </Badge>
     )
   }
   return (
-    <span className="text-amber-700" title={j.jobDetail}>
+    <Badge variant="warning" title={j.jobDetail}>
       sans verdict
-    </span>
+    </Badge>
   )
 }
 
@@ -167,19 +181,19 @@ function Verdict({ j }: { j: Job }) {
  */
 function JobDetail({ j }: { j: Job }) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-rule bg-muted/40 px-3 py-2.5 text-[12.5px]">
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-xs">
       {j.error && (
         <p>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Refus X3
           </span>
           <br />
-          <span className="text-red-800">{j.error}</span>
+          <span className="text-destructive">{j.error}</span>
         </p>
       )}
       {j.jobDetail && (
         <p>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Serveur d’édition
           </span>
           <br />
@@ -190,15 +204,15 @@ function JobDetail({ j }: { j: Job }) {
       {j.message && !j.error && <p className="text-muted-foreground">{j.message}</p>}
 
       <div>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Trace X3
         </span>
         {j.x3Trace ? (
-          <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded border border-rule bg-card p-2 font-mono text-[11px] leading-relaxed">
+          <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-card p-2 font-mono text-xs leading-relaxed">
             {j.x3Trace}
           </pre>
         ) : (
-          <p className="mt-1 italic text-muted-foreground">
+          <p className="mt-1 text-muted-foreground">
             Aucune trace enregistrée pour ce tirage. Les tirages antérieurs à la mise en place de la
             trace n’en ont pas : relancer le tirage en produit une.
           </p>
@@ -220,47 +234,39 @@ function createJobColumns(deps: {
       accessorKey: 'createdAt',
       header: () => 'Quand',
       cell: ({ row: { original: j } }) => (
-        <span className="text-muted-foreground">{fmtStamp(j.createdAt)}</span>
+        <CellDate date={fmtDay(j.createdAt)} relative={fmtTime(j.createdAt)} />
       ),
     },
     {
       accessorKey: 'ofNum',
       header: () => 'OF',
-      cell: ({ row: { original: j } }) => (
-        <span className="font-mono text-[12px] font-semibold">{j.ofNum}</span>
-      ),
+      cell: ({ row: { original: j } }) => <CellStack code={j.ofNum} />,
     },
     {
       accessorKey: 'docLabel',
       header: () => 'Document',
       cell: ({ row: { original: j } }) => (
-        <>
-          {j.docLabel}
-          {j.attempt > 1 && (
-            <span className="ml-1.5 text-[11px] text-amber-700">réimpression #{j.attempt}</span>
-          )}
-        </>
+        <CellStack
+          code={j.docType}
+          label={j.docLabel}
+          action={
+            j.attempt > 1 ? <Badge variant="warning">réimpression #{j.attempt}</Badge> : undefined
+          }
+        />
       ),
     },
     {
       accessorKey: 'atelierLabel',
       header: () => 'Atelier',
       cell: ({ row: { original: j } }) => (
-        <span className="text-muted-foreground">{j.atelierLabel || '—'}</span>
+        <CellStack code={j.stoloc || '—'} label={j.atelierLabel || '—'} />
       ),
     },
     {
       accessorKey: 'destCode',
       header: () => 'Destination',
       cell: ({ row: { original: j } }) => (
-        <>
-          <span className="font-mono text-[12px]">{j.destCode || '—'}</span>
-          {j.sandbox && (
-            <span className="ml-1.5 font-mono text-[10px] uppercase text-muted-foreground">
-              sans papier
-            </span>
-          )}
-        </>
+        <CellStack code={j.destCode || '—'} label={j.sandbox ? 'sans papier' : undefined} />
       ),
     },
     {
@@ -268,19 +274,21 @@ function createJobColumns(deps: {
       enableSorting: false,
       header: () => 'Serveur d’édition',
       cell: ({ row: { original: j } }) => (
-        <>
+        <span className="inline-flex items-center gap-1.5">
           <Verdict j={j} />
           {j.jobRank > 0 && (
-            <span className="ml-2 font-mono text-[11px] text-muted-foreground">#{j.jobRank}</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              #{j.jobRank}
+            </span>
           )}
-        </>
+        </span>
       ),
     },
     {
       accessorKey: 'origin',
       header: () => 'Origine',
       cell: ({ row: { original: j } }) => (
-        <span className="text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {ORIGINS[j.origin] ?? j.origin}
           {j.requestedBy ? ` · ${j.requestedBy}` : ''}
         </span>
@@ -291,10 +299,10 @@ function createJobColumns(deps: {
       enableSorting: false,
       header: () => '',
       cell: ({ row: { original: j } }) => (
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center justify-end gap-1.5">
           {(j.error || j.x3Trace || j.jobDetail) && (
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               onClick={() => toggle(j.id)}
               title="Cause et trace X3"
@@ -305,23 +313,19 @@ function createJobColumns(deps: {
           )}
           {failed(j) && (
             <Button
-              size="sm"
+              size="xs"
               variant="outline"
               onClick={() => void relaunch(j)}
               disabled={relaunching === j.id}
               title="Relancer ce tirage"
             >
-              {relaunching === j.id ? (
-                <RefreshCw size={13} className="animate-spin" />
-              ) : (
-                <Printer size={13} />
-              )}
+              <Printer size={13} />
               Relancer
             </Button>
           )}
         </span>
       ),
-      meta: { thClass: '', tdClass: 'text-right' },
+      meta: { tdClass: 'text-right' },
     },
   ]
 }
@@ -426,170 +430,170 @@ export default function Impressions(props: PageProps) {
     }
   }
 
+  const filterCount = (failedOnly ? 1 : 0) + (stoloc ? 1 : 0)
+
+  const toolbar = (
+    <>
+      <ToolbarGroup>
+        <ToolbarSegmented semantics="tabs" aria-label="Configuration">
+          <ToolbarSegment onClick={() => router.visit(route('calendar_config.index'))}>
+            Calendrier
+          </ToolbarSegment>
+          <ToolbarSegment onClick={() => router.visit(route('print_config.index'))}>
+            Impressions
+          </ToolbarSegment>
+        </ToolbarSegmented>
+
+        <ToolbarSegmented semantics="tabs" aria-label="Période">
+          {PERIODS.map((p) => (
+            <ToolbarSegment key={p.label} active={period === p.v} onClick={() => setPeriod(p.v)}>
+              {p.label}
+            </ToolbarSegment>
+          ))}
+        </ToolbarSegmented>
+
+        <ToolbarFilterMenu activeCount={filterCount} width={300}>
+          <ToolbarFilterSection>Statut</ToolbarFilterSection>
+          <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+            <ToolbarFilterChip
+              label="Échecs seulement"
+              count={counts.ko}
+              tone="critical"
+              active={failedOnly}
+              onClick={() => setFailedOnly((v) => !v)}
+            />
+          </ToolbarSegmented>
+          {props.ateliers.length > 0 && (
+            <>
+              <ToolbarFilterSection>Atelier</ToolbarFilterSection>
+              <ToolbarSegmented semantics="tabs" flat className="w-full flex-wrap">
+                <ToolbarFilterChip
+                  label="Tous"
+                  tone="neutral"
+                  active={stoloc === ''}
+                  onClick={() => setStoloc('')}
+                />
+                {props.ateliers.map((a) => (
+                  <ToolbarFilterChip
+                    key={a.code}
+                    label={a.label}
+                    tone="neutral"
+                    active={stoloc === a.code}
+                    onClick={() => setStoloc(a.code)}
+                  />
+                ))}
+              </ToolbarSegmented>
+            </>
+          )}
+        </ToolbarFilterMenu>
+      </ToolbarGroup>
+
+      <ToolbarSpacer />
+
+      <ToolbarSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="N° d’OF"
+        onKeyDown={(e) => e.key === 'Enter' && void load()}
+      />
+
+      <Pill>Journal des tirages</Pill>
+
+      {counts.wait > 0 && (
+        <Pill
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => void reconcile()}
+          disabled={busy}
+        >
+          <RotateCcw size={14} strokeWidth={1.75} />
+          Réconcilier
+        </Pill>
+      )}
+      <ToolbarRefresh loading={busy} onClick={() => void load()} />
+    </>
+  )
+
   return (
     <AppLayout
       title="Impressions"
       active="config"
-      subtitle="Impressions"
-      theme="airbnb"
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
-            {counts.total} tirage{counts.total > 1 ? 's' : ''}
-          </div>
-          <div>
-            {counts.ko > 0 ? (
-              <b className="font-bold text-red-700">{counts.ko} en échec</b>
-            ) : (
-              'aucun échec'
-            )}
-            {counts.wait > 0 ? ` · ${counts.wait} sans verdict` : ''}
-          </div>
-        </>
-      }
+      subtitle="Journal des tirages"
+      theme="cursor"
+      dense
+      scrollable={false}
+      toolbar={toolbar}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
-        <div>
-          <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
-            Impressions
-          </h1>
-          <p className="text-[13px] text-muted-foreground">
-            Ce qui est parti, où, et ce qu’il en est advenu. « Remis à la file » est la limite haute
-            : un bac vide ou un bourrage ne remonte nulle part.
-            {props.autoPrintMode === 'off' && (
-              <>
-                {' '}
-                L’impression automatique à l’affermissement est{' '}
-                <b className="text-foreground">désactivée</b> —{' '}
-                <a href={route('print_config.index')} className="underline">
-                  réglages
-                </a>
-                .
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* --- Filtres ------------------------------------------------------ */}
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-rule bg-card px-3 py-2.5">
-          <div className="inline-flex items-center gap-0.5 rounded-md border border-rule p-0.5">
-            {PERIODS.map((p) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => setPeriod(p.v)}
-                className={cn(
-                  'rounded-[5px] px-2.5 py-1 text-[12px] font-semibold transition-colors',
-                  period === p.v
-                    ? 'bg-brand-soft text-brand'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setFailedOnly((v) => !v)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-semibold transition-colors',
-              failedOnly
-                ? 'border-red-300 bg-red-50 text-red-800'
-                : 'border-rule text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <TriangleAlert size={14} />
-            Échecs seulement
-          </button>
-
-          {props.ateliers.length > 0 && (
-            <select
-              value={stoloc}
-              onChange={(e) => setStoloc(e.target.value)}
-              className="h-8 rounded-md border border-rule bg-card px-2 text-[12.5px]"
+      <div className="flex h-full min-h-0 flex-col">
+        {props.autoPrintMode === 'off' && (
+          <div className="flex flex-none items-center gap-2 border-b border-border px-5 py-2 text-xs text-muted-foreground">
+            L’impression automatique à l’affermissement est{' '}
+            <span className="font-medium text-foreground">désactivée</span> —{' '}
+            <button
+              type="button"
+              className="underline underline-offset-2 hover:text-foreground"
+              onClick={() => router.visit(route('print_config.index'))}
             >
-              <option value="">Tous les ateliers</option>
-              {props.ateliers.map((a) => (
-                <option key={a.code} value={a.code}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <div className="relative">
-            <Search
-              size={14}
-              className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void load()}
-              placeholder="N° d’OF"
-              className="h-8 w-40 pl-7 text-[12.5px]"
-            />
+              réglages
+            </button>
+            .
           </div>
+        )}
 
-          <span className="ml-auto flex items-center gap-2">
-            {counts.wait > 0 && (
-              <Button size="sm" variant="outline" onClick={reconcile} disabled={busy}>
-                <RotateCcw size={14} />
-                Réconcilier
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={() => void load()} disabled={busy}>
-              <RefreshCw size={14} className={busy ? 'animate-spin' : undefined} />
-              Rafraîchir
-            </Button>
-            <a
-              href={route('print_config.index')}
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground"
-            >
-              <Settings2 size={14} />
-              Configuration
-            </a>
-          </span>
-        </div>
+        {note && (
+          <div className="flex flex-none items-center gap-2 border-b border-border bg-muted/40 px-5 py-2 text-xs text-foreground">
+            {note}
+          </div>
+        )}
 
-        {note && <p className="rounded-md bg-muted px-3 py-2 text-[12.5px]">{note}</p>}
-
-        {/* --- Journal ------------------------------------------------------ */}
-        <section className="rounded-lg border border-rule bg-card">
-          {jobs.length === 0 ? (
-            <p className="px-4 py-12 text-center text-[13px] text-muted-foreground">
-              {failedOnly ? 'Aucun échec sur la période.' : 'Aucun tirage sur la période.'}
+        {busy && jobs.length === 0 ? (
+          <LoadingState
+            className="flex-1"
+            variant="orb"
+            orbState="searching"
+            title="Lecture du journal…"
+            description="Tirages X3 · verdicts du serveur d’édition"
+          />
+        ) : jobs.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+            <p className="text-sm font-medium text-foreground">
+              {failedOnly ? 'Aucun échec sur la période' : 'Aucun tirage sur la période'}
             </p>
-          ) : (
-            <DataTable
-              columns={columns}
-              rows={jobs}
-              sorting={sorting}
-              onSortingChange={setSorting}
-              virtualize={false}
-              tableClass="w-full text-[13px]"
-              scrollContainerClass="rounded-none border-0 shadow-none"
-              theadRowClass="text-left font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
-              getRowClass={(j) => rowToneClass(failed(j) ? 'critical' : null)}
-              getRowKey={(j) => String(j.id)}
-              renderDetailRow={(j) =>
-                opened.has(j.id) ? (
-                  <div className={cn('w-full px-4 pb-3 pt-0', failed(j) && 'bg-red-50/40')}>
-                    <JobDetail j={j} />
-                  </div>
-                ) : null
-              }
-            />
-          )}
-
-          <p className="border-t border-rule px-4 py-2 text-[11.5px] italic text-muted-foreground">
-            L’astérisque marque un succès déduit de la disparition de la tâche plutôt que lu sur un
-            statut terminal. Activer la rétention côté console du serveur d’édition supprime cette
-            ambiguïté et rend « Réconcilier » opérant.
-          </p>
-        </section>
+            <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+              {failedOnly
+                ? 'Aucun tirage en échec sur la fenêtre choisie — élargis la période ou retire le filtre.'
+                : 'Aucun tirage journalisé sur cette fenêtre. Change la période ou actualise.'}
+            </p>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col p-5">
+            <div className="min-h-0 flex-1">
+              <DataTable
+                columns={columns}
+                rows={jobs}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                virtualize={false}
+                tableClass="w-full"
+                scrollContainerClass="h-full rounded-lg border border-border bg-card"
+                getRowClass={(j) => rowToneClass(failed(j) ? 'critical' : null)}
+                getRowKey={(j) => String(j.id)}
+                renderDetailRow={(j) =>
+                  opened.has(j.id) ? (
+                    <div className={cn('w-full px-4 pb-3 pt-0', failed(j) && 'bg-destructive/5')}>
+                      <JobDetail j={j} />
+                    </div>
+                  ) : null
+                }
+              />
+            </div>
+            <p className="flex-none pt-2 text-xs text-muted-foreground">
+              L’astérisque marque un succès déduit de la disparition de la tâche plutôt que lu sur
+              un statut terminal. Activer la rétention côté console du serveur d’édition supprime
+              cette ambiguïté et rend « Réconcilier » opérant.
+            </p>
+          </div>
+        )}
       </div>
     </AppLayout>
   )

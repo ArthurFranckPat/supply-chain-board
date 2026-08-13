@@ -116,6 +116,9 @@ export function AppLayout({
           className={cn(
             'flex min-h-svh flex-1 flex-col overflow-hidden bg-[var(--sidebar-canvas)]',
             dense && 'print:h-auto print:overflow-visible',
+            // Board plein écran : hauteur définie, sinon `h-full` des children
+            // (Copilote, AppShell) se résout à 0 et overflow-hidden masque tout.
+            dense && !scrollable && 'h-svh',
             'print:m-0 print:rounded-none print:shadow-none'
           )}
         >
@@ -156,7 +159,7 @@ export function AppLayout({
                 'mx-auto w-full flex-1 min-h-0',
                 maxWidth === '7xl' && !dense && 'max-w-7xl',
                 maxWidth === 'full' && 'max-w-none',
-                (dense || maxWidth === 'full') && !scrollable && 'h-full'
+                (dense || maxWidth === 'full') && !scrollable && 'flex h-full min-h-0 flex-col'
               )}
             >
               {children}

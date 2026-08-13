@@ -38,6 +38,10 @@ export default defineConfig({
     // hash `?v=` → les chunks déjà chargés répondent
     // « 504 (Outdated Optimize Dep) ». On force la découverte au démarrage.
     entries: ['inertia-react/app.tsx', 'inertia-react/pages/**/*.tsx'],
+    // Copilote : `@ai-sdk/react` / `ai` / `thinking-orbs` ne sont importés
+    // que par cette page. Le glob `entries` les rate encore parfois (HMR,
+    // cache `.vite` à moitié écrit) — `include` les pré-bundle au boot.
+    include: ['@ai-sdk/react', 'ai', 'thinking-orbs'],
   },
   server: {
     watch: {

@@ -106,7 +106,19 @@ export function AppSidebar({
                       <SidebarMenuButton
                         isActive={isActive}
                         tooltip={item.label}
-                        render={<Link href={item.href} prefetch />}
+                        render={
+                          <Link
+                            href={item.href}
+                            prefetch={!isActive}
+                            onClick={(e) => {
+                              // Config est actif sur calendrier, impressions et
+                              // journal : sans ça, le clic reprend l'href section
+                              // (calendrier) et /configuration/impressions se
+                              // recharge via l'onglet au retour (X3 à chaque fois).
+                              if (isActive) e.preventDefault()
+                            }}
+                          />
+                        }
                         className={cn(
                           'px-2 text-[13px]',
                           cursor ? 'h-8 rounded-[8px] font-normal' : 'h-7 font-medium',

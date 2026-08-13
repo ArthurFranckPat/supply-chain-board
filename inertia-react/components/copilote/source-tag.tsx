@@ -10,14 +10,18 @@ import { toolLabel } from '@r/lib/copilote/tool-labels'
  */
 const SOURCE_TAG_RE = /\[([a-zA-Z][a-zA-Z0-9_]*):\s*([^\]]+)\]/g
 
-export function SourceTag(props: { tool: string; detail?: string; onFlash: (tool: string) => void }) {
+export function SourceTag(props: {
+  tool: string
+  detail?: string
+  onFlash: (tool: string) => void
+}) {
   return (
     <button
       type="button"
       title={props.detail ? `[${props.tool}: ${props.detail}]` : undefined}
       onClick={() => props.onFlash(props.tool)}
       className={cn(
-        'mx-px inline-flex items-center rounded-[5px] border-b-[1.5px] border-transparent bg-brand/10 px-1.5 py-px font-mono text-[10.5px] font-semibold text-primary transition-colors',
+        'mx-px inline-flex items-center rounded-md border-b-[1.5px] border-transparent bg-brand/10 px-1.5 py-px font-mono text-[10.5px] font-medium text-brand transition-colors',
         'hover:border-primary hover:bg-primary/[0.18]',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring'
       )}
@@ -35,7 +39,8 @@ export function renderMessageText(text: string, onFlash: (tool: string) => void)
   SOURCE_TAG_RE.lastIndex = 0
   let key = 0
   while ((match = SOURCE_TAG_RE.exec(text))) {
-    if (match.index > last) parts.push(<Fragment key={key++}>{text.slice(last, match.index)}</Fragment>)
+    if (match.index > last)
+      parts.push(<Fragment key={key++}>{text.slice(last, match.index)}</Fragment>)
     parts.push(<SourceTag key={key++} tool={match[1]} detail={match[2]} onFlash={onFlash} />)
     last = match.index + match[0].length
   }
