@@ -37,7 +37,7 @@ import {
   ToolbarFilterChip,
 } from '@r/components/ui/toolbar'
 import { route } from '@r/lib/routes'
-import { parseIso, toIso, startOfDay, DAY_MS } from '@r/lib/vision/date-utils'
+import { parseIso, toIso, startOfDay, DAY_MS } from '@r/lib/programme/date-utils'
 import { VERDICT_TONE } from '@r/lib/shortages/shortage-math'
 import type { ShortageRowsResponse, ShortageVerdictKey } from '@r/lib/shortages/types'
 
@@ -197,7 +197,8 @@ export default function Shortages(props: ShortagesProps) {
                       {p.numOf}
                     </X3Link>
                     <span className="text-muted-foreground">
-                      {' '}({p.article}, reste {p.qteRestante})
+                      {' '}
+                      ({p.article}, reste {p.qteRestante})
                     </span>
                   </li>
                 ))}

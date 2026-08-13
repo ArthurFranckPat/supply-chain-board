@@ -22,8 +22,16 @@ import type {
   SuiviDisplayRow,
   ProactiveDisplayRow,
 } from '@r/lib/suivi/types'
-import { toIso, startOfDay } from '@r/lib/vision/date-utils'
-import { EMPTY, PROACTIVE_EMPTY, PROACTIVE_COLUMNS, REACTIVE_COLUMNS, fmtMs, suiviRowKey, type SuiviColumnMeta } from '@r/lib/suivi/tracking-shared'
+import { toIso, startOfDay } from '@r/lib/programme/date-utils'
+import {
+  EMPTY,
+  PROACTIVE_EMPTY,
+  PROACTIVE_COLUMNS,
+  REACTIVE_COLUMNS,
+  fmtMs,
+  suiviRowKey,
+  type SuiviColumnMeta,
+} from '@r/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -91,7 +99,7 @@ const DEFAULT_RANGE_END = addDays(DEFAULT_FORWARD_DAYS)
 const DEFAULT_TYPES = ['MTS', 'MTO', 'NOR'] as const
 
 // Libellés de la pill fenêtre de dates — repris de l'ancien DateWindowPill
-// (components/vision/toolbar.tsx). Tableau statique plutôt qu'Intl :
+// (components/programme/toolbar.tsx). Tableau statique plutôt qu'Intl :
 // déterministe, pas de coût de locale-loading par rendu.
 const MONTHS_SHORT_FR = [
   'janv.',
@@ -486,9 +494,7 @@ export default function Tracking(props: SuiviPageProps) {
             : all(catalog)
         // Les colonnes verrouillées (identité de ligne) sont toujours présentes,
         // même si le stockage est corrompu ou périmé.
-        return catalog
-          .filter((c) => wanted.includes(c.id) || c.locked)
-          .map((c) => c.id)
+        return catalog.filter((c) => wanted.includes(c.id) || c.locked).map((c) => c.id)
       }
       return {
         proactif: sanitize(PROACTIVE_COLUMNS, parsed.proactif),
@@ -499,7 +505,8 @@ export default function Tracking(props: SuiviPageProps) {
     }
   }
 
-  const [colVis, setColVis] = useState<Record<'proactif' | 'reactif', string[]>>(loadColumnVisibility)
+  const [colVis, setColVis] =
+    useState<Record<'proactif' | 'reactif', string[]>>(loadColumnVisibility)
   const [colOpen, setColOpen] = useState(false)
 
   // Sauvegarde différée (250 ms) — les verrouillées sont ré-injectées au load,
@@ -645,9 +652,7 @@ export default function Tracking(props: SuiviPageProps) {
   /** Récapitulatif imprimé : une feuille doit dire de quoi elle est l'extrait. */
   const printContext = (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-rule pb-2 font-mono text-2xs text-foreground">
-      <span className="font-semibold uppercase tracking-wide">
-        Suivi Commandes
-      </span>
+      <span className="font-semibold uppercase tracking-wide">Suivi Commandes</span>
       <span>{refLabel}</span>
       <span>
         Fenêtre {formatWindowLabel(dateRange.start ?? undefined, dateRange.end ?? undefined)}
@@ -942,11 +947,7 @@ export default function Tracking(props: SuiviPageProps) {
                               'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted',
                               c.locked && 'cursor-default opacity-70 hover:bg-transparent'
                             )}
-                            title={
-                              c.locked
-                                ? 'Toujours affichée — identité de ligne'
-                                : c.label
-                            }
+                            title={c.locked ? 'Toujours affichée — identité de ligne' : c.label}
                           >
                             <input
                               type="checkbox"

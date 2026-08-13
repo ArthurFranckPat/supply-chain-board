@@ -4,15 +4,15 @@
  * plusieurs postes (alimentée par des OF de postes différents) → dédoublonnage
  * par posteCode:lineId.
  */
-import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
+import type { ProgrammeCommande, ProgrammeLink } from '@r/lib/programme/types'
 
 export function buildCmdCells(
-  commandes: VisionCommande[],
-  links: VisionLink[],
-  cmdCol: (l: VisionLink) => number
-): Map<string, VisionCommande[][]> {
+  commandes: ProgrammeCommande[],
+  links: ProgrammeLink[],
+  cmdCol: (l: ProgrammeLink) => number
+): Map<string, ProgrammeCommande[][]> {
   const cmdById = new Map(commandes.map((c) => [c.id, c]))
-  const grids = new Map<string, VisionCommande[][]>()
+  const grids = new Map<string, ProgrammeCommande[][]>()
   const seen = new Set<string>()
   for (const l of links) {
     const cmd = cmdById.get(l.commandeId)

@@ -19,7 +19,7 @@
  *   • liseré HAUT  = statut OF (ferme/planifié/suggéré) — board-card.
  *   • liseré GAUCHE = verdict d'impact (ce module) — commande-marker.
  */
-import type { ImpactVerdict } from '@r/lib/vision/impact'
+import type { ImpactVerdict } from '@r/lib/programme/impact'
 
 /** Tons Tailwind pour le liseré gauche + icône du marqueur commande. */
 export const VERDICT_BORDER: Record<ImpactVerdict, string> = {
@@ -60,6 +60,6 @@ export const VERDICT_LABEL: Record<ImpactVerdict, string> = {
  * text, label} vs classe unique). Les fusionner nécessiterait une map
  * d'adaptation par alphabet — laissé à un refactor ultérieur une fois la
  * sémantique des statuts OF stabilisée. Le présent module couvre le périmètre
- * vision/impact (marqueur commande + overlay liens), qui était la duplication
+ * programme/impact (marqueur commande + overlay liens), qui était la duplication
  * la plus directe.
  */
