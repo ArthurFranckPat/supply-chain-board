@@ -1,11 +1,11 @@
 /**
  * Fetch JSON chronométré (durée affichée dans la toolbar) — port React du hook
  * Solid (inertia/lib/suivi/use-timed-fetch.ts). Sémantique conservée : la
- * donnée précédente reste en place pendant un re-fetch (le spinner du shell
- * masque la table de toute façon), `ms` = durée du dernier fetch réussi,
+ * donnée précédente reste en place pendant un re-fetch, `ms` = durée du dernier
+ * fetch réussi,
  * `elapsed` = chrono live pendant le chargement.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 /**
  * `url` à `null` = fragment non requis pour l'instant (onglet inactif, dépendance
@@ -18,6 +18,7 @@ export function useTimedFetch<T>(url: string | null) {
   const [error, setError] = useState<Error | null>(null)
   const [ms, setMs] = useState<number | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  const [retryNonce, setRetryNonce] = useState(0)
   /**
    * Horodatage du dernier chargement réussi.
    *
@@ -68,7 +69,9 @@ export function useTimedFetch<T>(url: string | null) {
       cancelled = true
       clearInterval(tick)
     }
-  }, [url])
+  }, [url, retryNonce])
 
-  return { data, loading, error, ms, elapsed, at }
+  const retry = useCallback(() => setRetryNonce((value) => value + 1), [])
+
+  return { data, loading, error, ms, elapsed, at, retry }
 }
