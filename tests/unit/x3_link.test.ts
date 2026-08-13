@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-// Import relatif : le runner ne résout pas l'alias @/ du front (cf. vision_impact.test.ts).
+// Import relatif : le runner ne résout pas l'alias @/ du front (cf. programme_impact.test.ts).
 import { peutOuvrirCommande, x3Href, type X3Web } from '../../inertia-react/lib/x3-link.ts'
 
 const WEB: X3Web = { baseUrl: 'http://192.168.130.77:8124', endpoint: 'X3U12P_CLAERECO' }

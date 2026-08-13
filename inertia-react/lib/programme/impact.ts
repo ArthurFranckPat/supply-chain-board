@@ -25,7 +25,7 @@ export const MARGE_JOURS = 2
 
 const DAY_MS = 86_400_000
 
-/** Représentation minimale d'un lien pour le calcul d'impact (sous-ensemble de VisionLink). */
+/** Représentation minimale d'un lien pour le calcul d'impact (sous-ensemble de ProgrammeLink). */
 export interface ImpactLink {
   ofId: string
   commandeId: string
