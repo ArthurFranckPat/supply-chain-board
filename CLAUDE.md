@@ -35,19 +35,20 @@ Deux branches longues. `dev` est un **surensemble** de `master`, jamais l'invers
 Après chaque merge dans `master` : merger `master` dans `dev` tout de suite.
 `dev` reste le surensemble.
 
-**Exception — commit d'allégeage** (socle seulement : l'arbre `master` a perdu
-les surfaces hors socle). Un merge normal appliquerait ces suppressions et
-effacerait copilote, logistique, etc. sur `dev`. Pour **ce commit seulement**,
+**Exception — suppressions que `dev` doit garder** (allégeage socle, mockups HTML,
+etc.). Un merge normal appliquerait ces suppressions et effacerait copilote,
+logistique, `_design/archive/*.html`, etc. sur `dev`. Pour **ces commits-là**,
 dans le worktree `dev` :
 
 ```bash
 git fetch origin
-git merge -s ours origin/master -m "merge: enregistrer l'allégeage master sans appliquer les suppressions"
+git merge -s ours origin/master -m "merge: enregistrer les suppressions master sans les appliquer"
 git push origin dev
 ```
 
 `-s ours` enregistre `master` comme mergé et **garde l'arbre de `dev`**.
-Les hotfixes socle suivants se mergent ensuite `master` → `dev` normalement.
+Les hotfixes socle qui n'effacent rien de `dev` se mergent ensuite
+`master` → `dev` normalement.
 
 Une PR vers `master` n'ajoute que du socle. La promotion n'est pas un merge
 `dev` → `master` : ce merge réintroduirait toutes les surfaces hors socle.
