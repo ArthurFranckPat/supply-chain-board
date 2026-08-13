@@ -4,17 +4,10 @@
  */
 
 export const controllers = {
-  Agent: () => import('#controllers/agent_controller'),
-  AgentMcp: () => import('#controllers/agent_mcp_controller'),
-  Appro: () => import('#controllers/appro_controller'),
   Auth: () => import('#controllers/auth_controller'),
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
-  Cockpit: () => import('#controllers/cockpit_controller'),
-  Conditionnements: () => import('#controllers/conditionnements_controller'),
-  ControleProd: () => import('#controllers/controle_prod_controller'),
   Dashboard: () => import('#controllers/dashboard_controller'),
   DashboardLayout: () => import('#controllers/dashboard_layout_controller'),
-  Expeditions: () => import('#controllers/expeditions_controller'),
   Health: () => import('#controllers/health_controller'),
   Load: () => import('#controllers/load_controller'),
   OrderPlanning: () => import('#controllers/order_planning_controller'),
@@ -23,14 +16,10 @@ export const controllers = {
   PrintConfig: () => import('#controllers/print_config_controller'),
   Print: () => import('#controllers/print_controller'),
   PrintJournal: () => import('#controllers/print_journal_controller'),
-  PrintTest: () => import('#controllers/print_test_controller'),
-  Promise: () => import('#controllers/promise_controller'),
-  Receptions: () => import('#controllers/receptions_controller'),
   Scenario: () => import('#controllers/scenario_controller'),
   Scheduler: () => import('#controllers/scheduler_controller'),
   StaticSync: () => import('#controllers/static_sync_controller'),
   SuggestionFirm: () => import('#controllers/suggestion_firm_controller'),
   Suivi: () => import('#controllers/suivi_controller'),
   X3Data: () => import('#controllers/x3_data_controller'),
-  X3Writeback: () => import('#controllers/x3_writeback_controller'),
 }

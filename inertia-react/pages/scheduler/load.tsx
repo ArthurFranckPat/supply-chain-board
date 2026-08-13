@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Factory, Gauge, TriangleAlert } from 'lucide-react'
-import { router } from '@inertiajs/react'
+import { Gauge, TriangleAlert } from 'lucide-react'
 import AppLayout from '@r/layouts/app'
 import { Badge } from '@r/components/ui/badge'
-import { Pill } from '@r/components/ui/pill'
 import { Separator } from '@r/components/ui/separator'
 import {
   ToolbarFilterChip,
@@ -17,7 +15,6 @@ import {
   ToolbarSpacer,
 } from '@r/components/ui/toolbar'
 import { cn } from '@r/lib/utils'
-import { route } from '@r/lib/routes'
 import type { LoadPageProps, LoadLine, LoadQtyMode, LoadView } from '@r/lib/load/types'
 import { type Gran, maskPeriod, satRate, segKeys, segOptions, total } from '@r/lib/load/chart-math'
 import { filterLoadLines } from '@r/lib/load/search'
@@ -449,24 +446,6 @@ export default function Load(props: LoadPageProps) {
 
       {/* ── Zone 03 · Interrogation : jamais repliée sous « Filtres » ───── */}
       <ToolbarSearch value={query} onChange={setQuery} placeholder="Poste, article…" />
-
-      {/* ── Zone 04 · Action primaire : cockpit (#119), poste présélectionné
-          si une ligne est active. */}
-      <Pill
-        variant="outline"
-        className="gap-1.5"
-        onClick={() =>
-          router.visit(
-            selLine
-              ? `${route('cockpit.index')}?poste=${encodeURIComponent(selLine.code)}`
-              : route('cockpit.index')
-          )
-        }
-        title={selLine ? `Cockpit du poste ${selLine.code}` : 'Cockpit poste'}
-      >
-        <Factory size={14} strokeWidth={1.75} />
-        Cockpit
-      </Pill>
     </>
   )
 

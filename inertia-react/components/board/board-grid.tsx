@@ -18,8 +18,6 @@ import {
 import type { Card, DayCol, LineRow } from '@r/lib/board/types'
 import { TYPO_META } from '@r/lib/board/types'
 import type { VirtualOrderVm } from '@r/lib/scenarios/types'
-import { promiseReasonText, type PromiseNode } from '@r/lib/promesse/types'
-import { route } from '@r/lib/routes'
 import { fmtDay } from '@r/lib/vision/date-utils'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
@@ -886,27 +884,6 @@ interface VirtualOrderChipProps {
 
 function VirtualOrderChip(props: VirtualOrderChipProps) {
   const tone = props.order.statut ? VERDICT_TONE[props.order.statut] : undefined
-  const [ctpOpen, setCtpOpen] = useState(false)
-  const [ctpPath, setCtpPath] = useState<PromiseNode[] | null>(null)
-  const [ctpError, setCtpError] = useState(false)
-
-  const toggleCtp = async () => {
-    const open = !ctpOpen
-    setCtpOpen(open)
-    if (!open || ctpPath || ctpError) return
-    try {
-      const params = new URLSearchParams({
-        article: props.order.article,
-        quantity: String(props.order.quantity),
-      })
-      const res = await fetch(`${route('promesse.index')}?${params}`)
-      if (!res.ok) throw new Error()
-      const data = await res.json()
-      setCtpPath((data.engageante?.criticalPath ?? []) as PromiseNode[])
-    } catch {
-      setCtpError(true)
-    }
-  }
 
   return (
     <div
@@ -915,13 +892,12 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
         e.dataTransfer?.setData('application/x-virtual-cmd', props.order.id)
         if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
       }}
-      onClick={toggleCtp}
       className={cn(
         'group relative rounded-[6px] border border-dashed border-brand/60 bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
         'cursor-grab active:cursor-grabbing',
         tone?.border ?? ''
       )}
-      title="Commande virtuelle — n'existe que dans le scénario · clic : chemin critique"
+      title="Commande virtuelle — n'existe que dans le scénario"
     >
       <button
         type="button"
@@ -966,36 +942,6 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
           </span>
         )}
       </div>
-      {/* Popover chemin critique CTP (§6.1) */}
-      {ctpOpen && (
-        <div
-          className="absolute left-0 top-full z-50 mt-1 w-[260px] cursor-default rounded-lg border border-rule bg-card p-2 shadow-lg"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <p className="mb-1 font-fraunces text-2xs font-bold text-brand">Chemin critique (CTP)</p>
-          {ctpError ? (
-            <p className="text-2xs italic text-muted-foreground">Calcul indisponible.</p>
-          ) : !ctpPath ? (
-            <p className="text-2xs italic text-muted-foreground">Calcul…</p>
-          ) : (
-            <ul className="space-y-0.5">
-              {ctpPath.map((n, i) => (
-                <li
-                  key={i}
-                  className="flex items-baseline gap-1 text-2xs"
-                  style={{ paddingLeft: `${i * 8}px` }}
-                >
-                  <span className="font-mono font-bold text-foreground">{n.article}</span>
-                  <span className="text-muted-foreground">{promiseReasonText(n.reason)}</span>
-                  <span className="ml-auto font-fraunces tabular-nums text-secondary-foreground">
-                    {fmtDay(n.availableDate)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   )
 }

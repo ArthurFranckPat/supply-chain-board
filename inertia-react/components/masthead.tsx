@@ -23,22 +23,7 @@ import UserMenu from '@r/components/user-menu'
  */
 
 export type MastheadTab =
-  | 'dashboard'
-  | 'programme'
-  | 'sequenceur'
-  | 'load'
-  | 'ruptures'
-  | 'controle-prod'
-  | 'cockpit'
-  | 'tracking'
-  | 'expeditions'
-  | 'receptions'
-  | 'approvisionnements'
-  | 'besoins-evolution'
-  | 'conditionnements'
-  | 'promesse'
-  | 'copilote'
-  | 'config'
+  'dashboard' | 'programme' | 'sequenceur' | 'load' | 'ruptures' | 'tracking' | 'config'
 
 type Tab = { key: MastheadTab; label: string; href: string }
 
@@ -60,6 +45,11 @@ const PLANIFICATION: Tab = {
   label: 'Planification',
   href: route('load.index'),
 }
+const CONFIG: Tab = {
+  key: 'config',
+  label: 'Config',
+  href: route('calendar_config.index'),
+}
 
 /** Groupe d'onglets — `label` optionnel : sans label = liens nus (sans en-tête). */
 type TabGroup = { label?: string; tabs: Tab[] }
@@ -75,46 +65,6 @@ const ORDONNANCEMENT_GROUPS: TabGroup[] = [
       { key: 'programme', label: 'Programme', href: route('scheduler.programme') },
       { key: 'sequenceur', label: 'Séquenceur', href: route('sequenceur.index') },
       { key: 'ruptures', label: 'Ruptures composants', href: route('scheduler.shortage_tracker') },
-      { key: 'controle-prod', label: 'Contrôle prod', href: route('controle_prod.index') },
-      { key: 'cockpit', label: 'Cockpit poste', href: route('cockpit.index') },
-    ],
-  },
-]
-
-/** Menu « Logistique » — transactions physiques magasin. */
-const LOGISTIQUE_GROUPS: TabGroup[] = [
-  {
-    label: 'Logistique',
-    tabs: [
-      { key: 'expeditions', label: 'Expéditions', href: route('expeditions.index') },
-      { key: 'receptions', label: 'Réceptions', href: route('receptions.index') },
-      {
-        key: 'approvisionnements',
-        label: 'Approvisionnements',
-        href: route('approvisionnements.index'),
-      },
-      {
-        key: 'besoins-evolution',
-        label: 'Évolution des besoins',
-        href: route('besoins.evolution'),
-      },
-      { key: 'conditionnements', label: 'Conditionnements', href: route('conditionnements.index') },
-    ],
-  },
-]
-
-/**
- * Menu « Plus » — Promesse en lien nu, puis Outils.
- */
-const PLUS_GROUPS: TabGroup[] = [
-  {
-    tabs: [{ key: 'promesse', label: 'Promesse', href: route('promesse.show') }],
-  },
-  {
-    label: 'Outils',
-    tabs: [
-      { key: 'copilote', label: 'Copilote', href: route('agent.show') },
-      { key: 'config', label: 'Config', href: route('calendar_config.index') },
     ],
   },
 ]
@@ -328,22 +278,9 @@ export function Masthead(props: {
           <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
             {PLANIFICATION.label}
           </Link>
-          {/* Logistique ▾ */}
-          <MoreMenu
-            label="Logistique"
-            groups={LOGISTIQUE_GROUPS}
-            active={props.active}
-            triggerCls={tabCls(
-              LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-            )}
-          />
-          {/* Plus ▾ */}
-          <MoreMenu
-            label="Plus"
-            groups={PLUS_GROUPS}
-            active={props.active}
-            triggerCls={tabCls(PLUS_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)))}
-          />
+          <Link href={CONFIG.href} className={tabCls(CONFIG.key === props.active)}>
+            {CONFIG.label}
+          </Link>
         </nav>
 
         {/* Bloc droit : meta (optionnel) + actions + UserMenu. */}
@@ -419,20 +356,9 @@ export function Masthead(props: {
         <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
           {PLANIFICATION.label}
         </Link>
-        <MoreMenu
-          label="Logistique"
-          groups={LOGISTIQUE_GROUPS}
-          active={props.active}
-          triggerCls={tabCls(
-            LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-          )}
-        />
-        <MoreMenu
-          label="Plus"
-          groups={PLUS_GROUPS}
-          active={props.active}
-          triggerCls={tabCls(PLUS_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)))}
-        />
+        <Link href={CONFIG.href} className={tabCls(CONFIG.key === props.active)}>
+          {CONFIG.label}
+        </Link>
         <div className="ml-auto flex items-center gap-2 py-1.5">
           {props.actions}
           <UserMenu />

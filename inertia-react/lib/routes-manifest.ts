@@ -2,27 +2,10 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 128 routes nommées.
+ * 78 routes nommées.
  */
 
 export const MANIFEST = {
-  'agent.chat': { method: 'POST', pattern: '/api/v1/agent/chat' },
-  'agent.conversation': { method: 'GET', pattern: '/api/v1/agent/conversations/:id' },
-  'agent.conversations': { method: 'GET', pattern: '/api/v1/agent/conversations' },
-  'agent.conversationsDestroy': { method: 'DELETE', pattern: '/api/v1/agent/conversations/:id' },
-  'agent.conversationsUpdate': { method: 'PATCH', pattern: '/api/v1/agent/conversations/:id' },
-  'agent.health': { method: 'GET', pattern: '/api/v1/agent/health' },
-  'agent.mcp.app': { method: 'GET', pattern: '/api/v1/agent/mcp/app' },
-  'agent.mcp.call': { method: 'POST', pattern: '/api/v1/agent/mcp/call' },
-  'agent.metrics': { method: 'GET', pattern: '/api/v1/agent/metrics' },
-  'agent.show': { method: 'GET', pattern: '/copilote' },
-  'appro.articleExplanation': { method: 'GET', pattern: '/api/v1/appro/article-explanation' },
-  'appro.decision': { method: 'POST', pattern: '/api/v1/appro/decision' },
-  'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
-  'appro.messagesDiff': { method: 'GET', pattern: '/api/v1/appro/messages-diff' },
-  'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
-  'appro.snapshots': { method: 'GET', pattern: '/api/v1/appro/snapshots' },
-  'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
   'assets.apple_touch_icon_png': { method: 'GET', pattern: '/apple-touch-icon.png' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
   'assets.favicon_16x16_png': { method: 'GET', pattern: '/favicon-16x16.png' },
@@ -34,40 +17,18 @@ export const MANIFEST = {
   'auth.attempt': { method: 'POST', pattern: '/login' },
   'auth.login': { method: 'GET', pattern: '/login' },
   'auth.logout': { method: 'POST', pattern: '/logout' },
-  'besoins.evolution': { method: 'GET', pattern: '/besoins/evolution' },
   'calendar_config.create_closure': { method: 'POST', pattern: '/api/v1/config/closures' },
   'calendar_config.delete_closure': { method: 'DELETE', pattern: '/api/v1/config/closures/:id' },
   'calendar_config.index': { method: 'GET', pattern: '/configuration/calendrier' },
   'calendar_config.toggle_holiday': { method: 'POST', pattern: '/api/v1/config/holidays/toggle' },
   'calendar_config.update_closure': { method: 'PATCH', pattern: '/api/v1/config/closures/:id' },
   'charge.detail': { method: 'GET', pattern: '/api/v1/planning/charge/detail' },
-  'cockpit.anomalies_usine': {
-    method: 'GET',
-    pattern: '/api/v1/planning/cockpit/postes/:poste/anomalies-usine',
-  },
-  'cockpit.index': { method: 'GET', pattern: '/cockpit' },
-  'cockpit.poste': { method: 'GET', pattern: '/api/v1/planning/cockpit/postes/:poste' },
-  'cockpit.postes': { method: 'GET', pattern: '/api/v1/planning/cockpit/postes' },
-  'conditionnements.estimations': {
-    method: 'GET',
-    pattern: '/api/v1/conditionnements/estimations',
-  },
-  'conditionnements.index': { method: 'GET', pattern: '/conditionnements' },
-  'conditionnements.rows': { method: 'GET', pattern: '/api/v1/conditionnements/rows' },
-  'controle_prod.index': { method: 'GET', pattern: '/controle-prod' },
-  'controle_prod.of_a_solder': { method: 'GET', pattern: '/api/v1/planning/of-a-solder' },
-  'controle_prod.rows': { method: 'GET', pattern: '/api/v1/planning/controle-prod' },
   'dashboard': { method: 'GET', pattern: '/' },
   'dashboard.kpis': { method: 'GET', pattern: '/api/v1/dashboard/kpis' },
   'dashboard.otd': { method: 'GET', pattern: '/api/v1/dashboard/otd' },
   'dashboard.stock_article_detail': { method: 'GET', pattern: '/api/v1/dashboard/stock/article' },
   'dashboard.stock_valuation': { method: 'GET', pattern: '/api/v1/dashboard/stock' },
   'data.load': { method: 'POST', pattern: '/api/v1/data/load' },
-  'design_system': { method: 'GET', pattern: '/design-system' },
-  'diagnostic_test': { method: 'GET', pattern: '/diagnostic-test' },
-  'expeditions.forecast': { method: 'GET', pattern: '/api/v1/expeditions/forecast' },
-  'expeditions.index': { method: 'GET', pattern: '/expeditions' },
-  'expeditions.rows': { method: 'GET', pattern: '/api/v1/expeditions/rows' },
   'health.index': { method: 'GET', pattern: '/health' },
   'load.index': { method: 'GET', pattern: '/charge' },
   'order_planning.index': { method: 'GET', pattern: '/api/v1/planning/order-lines' },
@@ -123,13 +84,6 @@ export const MANIFEST = {
   'print.documents': { method: 'GET', pattern: '/api/v1/planning/print/documents' },
   'print.history': { method: 'GET', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'print.print': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/print' },
-  'promesse.articles': { method: 'GET', pattern: '/api/v1/promesse/articles' },
-  'promesse.index': { method: 'GET', pattern: '/api/v1/promesse' },
-  'promesse.show': { method: 'GET', pattern: '/promesse' },
-  'react_lab': { method: 'GET', pattern: '/react-lab' },
-  'receptions.criticite': { method: 'GET', pattern: '/api/v1/receptions/criticite' },
-  'receptions.index': { method: 'GET', pattern: '/receptions' },
-  'receptions.rows': { method: 'GET', pattern: '/api/v1/receptions/rows' },
   'scenarios.compare': { method: 'GET', pattern: '/programme/scenarios/comparer' },
   'scenarios.destroy': { method: 'DELETE', pattern: '/api/v1/planning/scenarios/:id' },
   'scenarios.diff': { method: 'POST', pattern: '/api/v1/planning/scenarios/diff' },
@@ -157,16 +111,6 @@ export const MANIFEST = {
   'suivi.retard_charge': { method: 'POST', pattern: '/api/v1/status/retard-charge' },
   'suivi.rows': { method: 'GET', pattern: '/api/v1/status/rows' },
   'user.dashboard_layout.update': { method: 'PATCH', pattern: '/api/v1/user/dashboard-layout' },
-  'x3_print_test': { method: 'GET', pattern: '/print-test' },
-  'x3_print.test': { method: 'POST', pattern: '/api/v1/x3/print/test' },
-  'x3_writeback_test': { method: 'GET', pattern: '/writeback-test' },
-  'x3_writeback.delete': { method: 'GET', pattern: '/api/v1/x3/writeback/delete' },
-  'x3_writeback.describe': { method: 'GET', pattern: '/api/v1/x3/writeback/describe' },
-  'x3_writeback.list': { method: 'GET', pattern: '/api/v1/x3/writeback/list' },
-  'x3_writeback.modify': { method: 'POST', pattern: '/api/v1/x3/writeback/modify' },
-  'x3_writeback.read': { method: 'GET', pattern: '/api/v1/x3/writeback/read' },
-  'x3_writeback.run': { method: 'POST', pattern: '/api/v1/x3/writeback/run' },
-  'x3_writeback.save': { method: 'POST', pattern: '/api/v1/x3/writeback/save' },
 } as const satisfies Record<string, { method: string; pattern: string }>
 
 export type RouteName = keyof typeof MANIFEST
@@ -176,23 +120,6 @@ export type RouteName = keyof typeof MANIFEST
  * `void` = aucun paramètre de path ; les query strings (?start&days…) restent à l'appelant.
  */
 export type RouteParams = {
-  'agent.chat': void
-  'agent.conversation': { id: string | number }
-  'agent.conversations': void
-  'agent.conversationsDestroy': { id: string | number }
-  'agent.conversationsUpdate': { id: string | number }
-  'agent.health': void
-  'agent.mcp.app': void
-  'agent.mcp.call': void
-  'agent.metrics': void
-  'agent.show': void
-  'appro.articleExplanation': void
-  'appro.decision': void
-  'appro.diff': void
-  'appro.messagesDiff': void
-  'appro.rows': void
-  'appro.snapshots': void
-  'approvisionnements.index': void
   'assets.apple_touch_icon_png': void
   'assets.css': void
   'assets.favicon_16x16_png': void
@@ -204,34 +131,18 @@ export type RouteParams = {
   'auth.attempt': void
   'auth.login': void
   'auth.logout': void
-  'besoins.evolution': void
   'calendar_config.create_closure': void
   'calendar_config.delete_closure': { id: string | number }
   'calendar_config.index': void
   'calendar_config.toggle_holiday': void
   'calendar_config.update_closure': { id: string | number }
   'charge.detail': void
-  'cockpit.anomalies_usine': { poste: string | number }
-  'cockpit.index': void
-  'cockpit.poste': { poste: string | number }
-  'cockpit.postes': void
-  'conditionnements.estimations': void
-  'conditionnements.index': void
-  'conditionnements.rows': void
-  'controle_prod.index': void
-  'controle_prod.of_a_solder': void
-  'controle_prod.rows': void
   'dashboard': void
   'dashboard.kpis': void
   'dashboard.otd': void
   'dashboard.stock_article_detail': void
   'dashboard.stock_valuation': void
   'data.load': void
-  'design_system': void
-  'diagnostic_test': void
-  'expeditions.forecast': void
-  'expeditions.index': void
-  'expeditions.rows': void
   'health.index': void
   'load.index': void
   'order_planning.index': void
@@ -263,13 +174,6 @@ export type RouteParams = {
   'print.documents': void
   'print.history': { orderNum: string | number }
   'print.print': { orderNum: string | number }
-  'promesse.articles': void
-  'promesse.index': void
-  'promesse.show': void
-  'react_lab': void
-  'receptions.criticite': void
-  'receptions.index': void
-  'receptions.rows': void
   'scenarios.compare': void
   'scenarios.destroy': { id: string | number }
   'scenarios.diff': void
@@ -294,14 +198,4 @@ export type RouteParams = {
   'suivi.retard_charge': void
   'suivi.rows': void
   'user.dashboard_layout.update': void
-  'x3_print_test': void
-  'x3_print.test': void
-  'x3_writeback_test': void
-  'x3_writeback.delete': void
-  'x3_writeback.describe': void
-  'x3_writeback.list': void
-  'x3_writeback.modify': void
-  'x3_writeback.read': void
-  'x3_writeback.run': void
-  'x3_writeback.save': void
 }

@@ -65,97 +65,16 @@ declare module '@adonisjs/inertia/types' {
         printOrder: ('charge' | 'profondeur' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
       }
     }
-    // Expéditions (issue #44 + #104) — rétroviseur + prévision charge transport.
-    'expeditions': {
-      referenceDate: string
-      rowsHref: string
-      forecastHref: string
-      defaultGapMinutes: number
-      maxPalettesCamion: number
-      forecastDefaultDays: number
-    }
-    // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
-    'receptions': {
-      from: string
-      to: string
-      horizon: number
-      rowsHref: string
-      /** Fragment criticité (jointure ruptures), chargé séparément de rowsHref. */
-      criticiteHref: string
-      todayHref: string
-      defaultHorizon: number
-    }
-    // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
-    // replanification, groupés par fournisseur.
-    'approvisionnements': {
-      /** `null` = vue dérivée du délai (#114) ; nombre = fenêtre fixe. */
-      horizon: number | null
-      rowsHref: string
-      defaultHorizon: number
-    }
-    // Conditionnements — identification des coefs manquants + estimation.
-    'conditionnements': {
-      rowsHref: string
-    }
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'
       error: string | null
     }
-    'design_system': Record<string, never>
-    // Page témoin du socle React (migration react-shadcn, phase 0).
-    'react_lab': Record<string, never>
-    // POC drag board React (phase 3) — payload OF réel de /programme.
-    'react_board': {
-      board: BoardProp | null
-      dateRange: string
-      totalOf: number
-      lineCount: number
-      x3Error: string | null
-    }
-    'diagnostic-test': Record<string, never>
-    'writeback-test': { firmSubprog: string }
-    // Impression X3 (issue #85) — appel direct de ZSOAPPRINT sur un OF.
-    // Le dossier ciblé suit la session : la page doit l'annoncer avant le tir.
-    'print-test': {
-      env: string
-      pool: string
-      host: string
-      /** Destinations APRINTER du dossier ; `sandbox` = ne sort pas de papier. */
-      destinations: {
-        code: string
-        label: string
-        kind: number
-        kindLabel: string
-        server: string
-        queue: string
-        active: boolean
-        sandbox: boolean
-      }[]
-      destinationsError: string
-      /** Documents configurés — proposés en plus de la sonde PING. */
-      documents: { code: string; label: string }[]
-    }
-    // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
-    'promesse': Record<string, never>
-    // Copilote agentique v1 — chat SSE (jetable #77).
-    'copilote': Record<string, never>
     'scheduler/shortages': {
       horizon: number
       windowStart: string
       dateRange: string
       rowsHref: string
-    }
-    'scheduler/controle-prod': {
-      rowsHref: string
-      /** Onglet « OF à solder » — fetché seulement à l'ouverture de l'onglet. */
-      solderHref: string
-    }
-    // Cockpit poste (#119) : coquille, sélecteur + détail chargés en JSON différé.
-    'cockpit/poste': {
-      postesHref: string
-      /** Présélection `?poste=` (liens séquenceur / charge) — validée côté client. */
-      posteInitial: string | null
     }
     'scheduler/tracking': {
       rowsHref: string

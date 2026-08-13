@@ -103,7 +103,13 @@ function escapeRe(s) {
 }
 
 async function listApps() {
-  const entries = await readdir(APPS_DIR)
+  let entries
+  try {
+    entries = await readdir(APPS_DIR)
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return []
+    throw err
+  }
   const apps = []
   for (const name of entries) {
     const dir = path.join(APPS_DIR, name)
@@ -114,8 +120,8 @@ async function listApps() {
 
 const apps = await listApps()
 if (apps.length === 0) {
-  console.error(`[mcp:apps] aucune app trouvée dans ${APPS_DIR}`)
-  process.exit(1)
+  console.log(`[mcp:apps] aucune app dans ${APPS_DIR} — rien à construire`)
+  process.exit(0)
 }
 
 for (const app of apps) {
