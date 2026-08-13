@@ -19,9 +19,8 @@
     "typecheck": "tsc --noEmit && tsc -p inertia-react/tsconfig.json --noEmit",
     "routes:gen": "node scripts/gen-routes-manifest.mjs",
     "routes:check": "node scripts/gen-routes-manifest.mjs && git diff --exit-code inertia-react/lib/routes-manifest.ts",
-    "mcp:start": "dotenvx run -q -- node --import @poppinss/ts-exec bin/mcp_supply.ts",
     "mcp:apps": "node scripts/build-mcp-apps.mjs",
-    "mcp:apps:check": "node scripts/build-mcp-apps.mjs && git diff --exit-code resources/mcp-apps"
+    "mcp:apps:check": "node scripts/build-mcp-apps.mjs && git diff --exit-code -- resources/mcp-apps"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",

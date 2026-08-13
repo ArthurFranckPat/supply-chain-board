@@ -3,8 +3,6 @@ import { cn } from '@r/lib/utils'
 import { Button } from '@r/components/ui/button'
 import { router } from '@inertiajs/react'
 import { toast } from 'sonner'
-import { route } from '@r/lib/routes'
-import { promiseReasonText } from '@r/lib/promesse/types'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -21,8 +19,6 @@ import {
   Save,
   Trash2,
   CirclePlus,
-  Zap,
-  TriangleAlert,
   Plus,
   FolderOpen,
   ArrowLeftRight,
@@ -146,7 +142,6 @@ export function ScenarioBar({
 
   const [article, setArticle] = useState('')
   const [quantity, setQuantity] = useState('1')
-  // CTP §6.1 : champ vide = « au plus tôt » (le moteur calcule la date engageante).
   const [date, setDate] = useState('')
   const [client, setClient] = useState('')
 
@@ -156,79 +151,19 @@ export function ScenarioBar({
     useScenarioStore.getState().loadList()
   }, [])
 
-  // CTP §6.1 — date au plus tôt (mode engageante) recalculée en arrière-plan
-  // dès que (article, qté) est valide. Sert à pré-remplir le champ date laissé
-  // vide et à avertir si la date saisie est avant le possible.
-  const [earliest, setEarliest] = useState<null | { date: string; limiting: string }>(null)
-  const [earliestLoading, setEarliestLoading] = useState(false)
-  const debounceIdRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  const fetchEarliest = useCallback(
-    async (art: string, qty: number): Promise<{ date: string; limiting: string } | null> => {
-      setEarliestLoading(true)
-      try {
-        const params = new URLSearchParams({ article: art, quantity: String(qty) })
-        const res = await fetch(`${route('promesse.index')}?${params}`)
-        if (!res.ok) return null
-        const data = await res.json()
-        if (data.engageante?.infeasible) {
-          const out = { date: '', limiting: 'infaisable (ni stock, ni flux, ni nomenclature)' }
-          setEarliest(out)
-          return out
-        }
-        const lf = data.engageante.limitingFactor
-        const out = {
-          date: String(data.engageante.promiseDate).slice(0, 10),
-          limiting: lf ? `${lf.article} — ${promiseReasonText(lf.reason)}` : '',
-        }
-        setEarliest(out)
-        return out
-      } catch {
-        return null
-      } finally {
-        setEarliestLoading(false)
-      }
-    },
-    []
-  )
-
-  useEffect(() => {
-    const art = article.trim()
-    const qty = Number(quantity)
-    setEarliest(null)
-    if (debounceIdRef.current) clearTimeout(debounceIdRef.current)
-    if (!formOpen || !art || !Number.isFinite(qty) || qty <= 0) return
-    debounceIdRef.current = setTimeout(() => {
-      fetchEarliest(art, qty)
-    }, 400)
-    return () => {
-      if (debounceIdRef.current) clearTimeout(debounceIdRef.current)
-    }
-  }, [formOpen, article, quantity, fetchEarliest])
-
   const submitInject = useCallback(
-    async (e: React.FormEvent) => {
+    (e: React.FormEvent) => {
       e.preventDefault()
       const art = article.trim()
       const qty = Number(quantity)
-      if (!art || !Number.isFinite(qty) || qty <= 0) return
-      let besoin = date
-      let fromEngine = false
-      if (!besoin) {
-        // Date vide → date au plus tôt du moteur CTP (déjà chargée ou à la volée).
-        const e2 = earliest ?? (await fetchEarliest(art, qty))
-        if (!e2?.date) return
-        besoin = e2.date
-        fromEngine = true
-      }
+      if (!art || !Number.isFinite(qty) || qty <= 0 || !date) return
       onInjectDemand({
         type: 'inject_demand',
         id: `VIRT-${Date.now().toString(36)}`,
         article: art,
         quantity: qty,
-        date: besoin,
+        date,
         client: client.trim() || undefined,
-        earliest: fromEngine || undefined,
       })
       setArticle('')
       setQuantity('1')
@@ -236,7 +171,7 @@ export function ScenarioBar({
       setClient('')
       setFormOpen(false)
     },
-    [article, quantity, date, client, earliest, onInjectDemand, fetchEarliest]
+    [article, quantity, date, client, onInjectDemand]
   )
 
   const openDiff = useCallback(() => {
@@ -520,36 +455,6 @@ export function ScenarioBar({
                         </Popover.Root>
                       </div>
                     </div>
-                    {/* CTP §6.1 — date vide : le moteur propose ; date saisie trop tôt : avertit. */}
-                    {!date && (earliestLoading || earliest) && (
-                      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Zap size={13} strokeWidth={1.75} className="shrink-0 text-brand" />
-                        {!earliestLoading ? (
-                          earliest?.date ? (
-                            <>
-                              Au plus tôt le{' '}
-                              <strong className="font-bold tabular-nums text-foreground">
-                                {new Date(earliest.date).toLocaleDateString('fr-FR')}
-                              </strong>
-                              {earliest.limiting && <> — {earliest.limiting}</>}
-                            </>
-                          ) : (
-                            <span className="text-destructive">Article {earliest?.limiting}</span>
-                          )
-                        ) : (
-                          'Calcul de la date au plus tôt…'
-                        )}
-                      </p>
-                    )}
-                    {date && earliest?.date && date < earliest.date && (
-                      <p className="flex items-start gap-1.5 text-[11px] font-semibold text-warning">
-                        <TriangleAlert size={13} strokeWidth={1.75} className="mt-0.5 shrink-0" />
-                        <span className="tabular-nums">
-                          Infaisable à cette date — sinon possible au plus tôt le{' '}
-                          {new Date(earliest.date).toLocaleDateString('fr-FR')}
-                        </span>
-                      </p>
-                    )}
                     <div>
                       <p className={MICRO_LABEL}>Client · optionnel</p>
                       <TextFieldInput
@@ -559,9 +464,9 @@ export function ScenarioBar({
                         className="h-10"
                       />
                     </div>
-                    <Button type="submit" size="sm" className="w-full gap-1.5">
+                    <Button type="submit" size="sm" className="w-full gap-1.5" disabled={!date}>
                       <Plus size={15} strokeWidth={1.75} />
-                      {date ? 'Ajouter au scénario' : 'Ajouter au plus tôt'}
+                      Ajouter au scénario
                     </Button>
                   </div>
                 </form>

@@ -2,7 +2,6 @@ import router from '@adonisjs/core/services/router'
 import app from '@adonisjs/core/services/app'
 import { readFile } from 'node:fs/promises'
 import { middleware } from '#start/kernel'
-import { getX3EnvConfig } from '#config/x3'
 
 /*
 |--------------------------------------------------------------------------
@@ -77,47 +76,6 @@ router
     // KPI #1 « charge en retard » (issue #38) ; coquille instantanée + fetch différé.
     router.get('/', '#controllers/dashboard_controller.index').as('dashboard')
 
-    // Design system Cursor — showcase ui/* sous .theme-cursor.
-    router
-      .get('/design-system', async ({ inertia }) => {
-        return inertia.render('design_system', {})
-      })
-      .as('design_system')
-
-    // Diagnostic récursif (issue #25) — page de TEST provisoire pour valider
-    // l'endpoint /api/v1/planning/of-materials/:of/diagnostic avant intégration
-    // au design. À retirer une fois intégré dans le panneau de détail OF.
-    router
-      .get('/diagnostic-test', async ({ inertia }) => {
-        return inertia.render('diagnostic-test', {})
-      })
-      .as('diagnostic_test')
-
-    // Laboratoire React (migration react-shadcn, phase 0) — page témoin du
-    // socle dual-runtime. À retirer en phase 6 (décommission Solid).
-    router
-      .get('/react-lab', async ({ inertia }) => {
-        return inertia.render('react_lab', {})
-      })
-      .as('react_lab')
-
-    // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
-    // publiés du stub CAdxWebServiceXmlCC. Cible TEST (login env=test). À
-    // verrouiller/retirer une fois le write-back fiabilisé.
-    router
-      .get('/writeback-test', async ({ inertia }) => {
-        return inertia.render('writeback-test', {
-          firmSubprog: getX3EnvConfig().firmSubprog,
-        })
-      })
-      .as('x3_writeback_test')
-
-    // Impression X3 (issue #85, lot 1) — appel direct de ZSOAPPRINT sur un OF.
-    // Le dossier ciblé est celui de la session (`user.lastEnv`) et il est passé à
-    // la page : un écran qui peut sortir du papier doit dire OÙ avant qu'on
-    // clique, pas dans le verdict d'après.
-    router.get('/print-test', '#controllers/print_test_controller.show').as('x3_print_test')
-
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
     //   /ordonnancement : board OF, vue experte haute densité
@@ -131,11 +89,6 @@ router
       .get('/planification', ({ response }) => response.redirect('/programme?mode=planification'))
       .as('planning')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
-    router
-      .get('/controle-prod', '#controllers/controle_prod_controller.index')
-      .as('controle_prod.index')
-    // Cockpit poste (#119) : passé constaté (pointages) + engagement futur par poste.
-    router.get('/cockpit', '#controllers/cockpit_controller.index').as('cockpit.index')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router
@@ -144,19 +97,6 @@ router
     // Séquenceur (#46/#100) : board /programme en table, filtre poste côté client.
     router.get('/sequenceur', '#controllers/scheduler_controller.sequenceur').as('sequenceur.index')
     router.get('/charge', '#controllers/load_controller.index')
-    router.get('/expeditions', '#controllers/expeditions_controller.index')
-    router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
-    router
-      .get('/approvisionnements', '#controllers/appro_controller.index')
-      .as('approvisionnements.index')
-    router
-      .get('/besoins/evolution', '#controllers/appro_controller.evolution')
-      .as('besoins.evolution')
-    router
-      .get('/conditionnements', '#controllers/conditionnements_controller.index')
-      .as('conditionnements.index')
-    router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
-    router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
     router
       .get('/configuration/impressions', '#controllers/print_config_controller.index')
@@ -258,25 +198,6 @@ router
       '#controllers/scheduler_controller.posteEngagement'
     )
     router.get('/api/v1/planning/shortages/rows', '#controllers/scheduler_controller.shortageRows')
-    router
-      .get('/api/v1/planning/controle-prod', '#controllers/controle_prod_controller.rows')
-      .as('controle_prod.rows')
-    router
-      .get('/api/v1/planning/of-a-solder', '#controllers/controle_prod_controller.ofASolder')
-      .as('controle_prod.of_a_solder')
-    // Cockpit poste (#119) : sélecteur puis identité + engagement d'un poste.
-    router
-      .get('/api/v1/planning/cockpit/postes', '#controllers/cockpit_controller.postes')
-      .as('cockpit.postes')
-    router
-      .get(
-        '/api/v1/planning/cockpit/postes/:poste/anomalies-usine',
-        '#controllers/cockpit_controller.anomaliesUsine'
-      )
-      .as('cockpit.anomalies_usine')
-    router
-      .get('/api/v1/planning/cockpit/postes/:poste', '#controllers/cockpit_controller.poste')
-      .as('cockpit.poste')
     // Détail d'une période de charge : composition d'une barre du graphe /charge.
     router
       .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')
@@ -312,62 +233,6 @@ router
       .patch('/api/v1/user/dashboard-layout', '#controllers/dashboard_layout_controller.update')
       .as('user.dashboard_layout.update')
 
-    // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
-    router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
-    // Prévision charge transport J→J+n (issue #104).
-    router.get('/api/v1/expeditions/forecast', '#controllers/expeditions_controller.forecast')
-
-    // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
-    router
-      .get('/api/v1/receptions/rows', '#controllers/receptions_controller.rows')
-      .as('receptions.rows')
-    // Criticité des réceptions (jointure ruptures) — endpoint séparé de /rows : le
-    // pipeline ruptures est lourd, le board ne doit pas attendre après lui (issue #82).
-    router
-      .get('/api/v1/receptions/criticite', '#controllers/receptions_controller.criticite')
-      .as('receptions.criticite')
-
-    // Approvisionnements (#103) — suggestions d'achat du CBN + messages de
-    // replanification sur commandes fournisseur, groupés par fournisseur.
-    router.get('/api/v1/appro/rows', '#controllers/appro_controller.rows').as('appro.rows')
-    // Décision acheteur (ledger append-only #134) — vu / ignorer / à passer.
-    router
-      .post('/api/v1/appro/decision', '#controllers/appro_controller.decide')
-      .as('appro.decision')
-    // Diff inter-CBN des suggestions (photo #133) — apparues / disparues /
-    // quantité ↑↓ / échéance décalée entre les deux dernières photos.
-    router.get('/api/v1/appro/diff', '#controllers/appro_controller.diff').as('appro.diff')
-    // Diff messages (#138 lot 1) — apparue/disparue/intensifiée/atténuée/modifiée
-    router
-      .get('/api/v1/appro/messages-diff', '#controllers/appro_controller.messagesDiff')
-      .as('appro.messagesDiff')
-    router
-      .get('/api/v1/appro/snapshots', '#controllers/appro_controller.snapshots')
-      .as('appro.snapshots')
-
-    // Article explanation — grille (02) + diff temporel (04) ; 05 fera la jonction.
-    // Shape diff: { depuis: "2026-08-06", entrees: [{ source, detail, jour }] }
-    router
-      .get('/api/v1/appro/article-explanation', '#controllers/appro_controller.articleExplanation')
-      .as('appro.articleExplanation')
-
-    // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
-    router
-      .get('/api/v1/conditionnements/rows', '#controllers/conditionnements_controller.rows')
-      .as('conditionnements.rows')
-    router
-      .get(
-        '/api/v1/conditionnements/estimations',
-        '#controllers/conditionnements_controller.estimations'
-      )
-      .as('conditionnements.estimations')
-
-    // CTP — Capable-to-Promise : date au plus tôt (PRD §6.2, lot 2).
-    router.get('/api/v1/promesse', '#controllers/promise_controller.index').as('promesse.index')
-    router
-      .get('/api/v1/promesse/articles', '#controllers/promise_controller.articles')
-      .as('promesse.articles')
-
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).
     router
@@ -384,64 +249,7 @@ router
       })
       .prefix('/api/v1/static')
 
-    // Write-back X3 (issue #29) — CRUD objet CAdxWebServiceXmlCC (terrain de test).
-    router
-      .group(() => {
-        router
-          .get('/describe', '#controllers/x3_writeback_controller.describe')
-          .as('x3_writeback.describe')
-        router.get('/read', '#controllers/x3_writeback_controller.read').as('x3_writeback.read')
-        router.post('/save', '#controllers/x3_writeback_controller.save').as('x3_writeback.save')
-        router
-          .post('/modify', '#controllers/x3_writeback_controller.modify')
-          .as('x3_writeback.modify')
-        router
-          .get('/delete', '#controllers/x3_writeback_controller.delete')
-          .as('x3_writeback.delete')
-        router.get('/list', '#controllers/x3_writeback_controller.list').as('x3_writeback.list')
-        router
-          .post('/run', '#controllers/x3_writeback_controller.runSubprog')
-          .as('x3_writeback.run')
-      })
-      .prefix('/api/v1/x3/writeback')
-
-    // Impression X3 (issue #85, lot 1) — ZSOAPPRINT sur un OF, terrain de test.
-    // ⚠️ Une destination imprimante sort du papier : rester sur PDFFILE.
-    router
-      .post('/api/v1/x3/print/test', '#controllers/print_test_controller.run')
-      .as('x3_print.test')
-
     // Baseline perf (issue #33) — P50/P95 par route, collectés par timing_middleware.
     router.get('/api/v1/_perf', '#controllers/perf_controller.index').as('perf.index')
-
-    // Couche agentique v1 — copilote lecture-seule (Pi + GLM 5.2).
-    // Health = provider/key sans LLM ; chat = SSE un tour / session éphémère.
-    router
-      .group(() => {
-        router.get('/health', '#controllers/agent_controller.health').as('agent.health')
-        router.post('/chat', '#controllers/agent_controller.chat').as('agent.chat')
-        // Télémétrie des tours : durée, TTFT, tokens facturés, histogramme du
-        // nombre d'appels de tools par tour (gate de décision issue #93).
-        router.get('/metrics', '#controllers/agent_controller.metrics').as('agent.metrics')
-        // Historique des conversations (sidebar : liste, rechargement, suppression).
-        router
-          .get('/conversations', '#controllers/agent_controller.conversationsIndex')
-          .as('agent.conversations')
-        router
-          .get('/conversations/:id', '#controllers/agent_controller.conversationsShow')
-          .as('agent.conversation')
-        router
-          .delete('/conversations/:id', '#controllers/agent_controller.conversationsDestroy')
-          .as('agent.conversationsDestroy')
-        router
-          .patch('/conversations/:id', '#controllers/agent_controller.conversationsUpdate')
-          .as('agent.conversationsUpdate')
-        // MCP Apps (issue #89) : l'hôte du navigateur lit les resources `ui://`
-        // et proxifie les `tools/call` des apps — toujours via le client MCP,
-        // jamais en tapant les fichiers ou les primitives en direct.
-        router.get('/mcp/app', '#controllers/agent_mcp_controller.app').as('agent.mcp.app')
-        router.post('/mcp/call', '#controllers/agent_mcp_controller.call').as('agent.mcp.call')
-      })
-      .prefix('/api/v1/agent')
   })
   .use([middleware.auth(), middleware.x3Context()])

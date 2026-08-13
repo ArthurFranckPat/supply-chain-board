@@ -3,17 +3,8 @@ import {
   CalendarRange,
   GalleryVerticalEnd,
   TriangleAlert,
-  Factory,
-  Gauge,
   ClipboardList,
   Kanban,
-  Truck,
-  PackageCheck,
-  Boxes,
-  TrendingUp,
-  Package,
-  BadgeCheck,
-  Bot,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -25,22 +16,7 @@ import { route } from '@r/lib/routes'
  * Garde la compat avec `AppLayout active` existant.
  */
 export type NavKey =
-  | 'dashboard'
-  | 'programme'
-  | 'sequenceur'
-  | 'load'
-  | 'ruptures'
-  | 'controle-prod'
-  | 'cockpit'
-  | 'tracking'
-  | 'expeditions'
-  | 'receptions'
-  | 'approvisionnements'
-  | 'besoins-evolution'
-  | 'conditionnements'
-  | 'promesse'
-  | 'copilote'
-  | 'config'
+  'dashboard' | 'programme' | 'sequenceur' | 'load' | 'ruptures' | 'tracking' | 'config'
 
 export type NavItem = {
   key: NavKey
@@ -91,13 +67,6 @@ export const NAV_SECTIONS: NavSection[] = [
         href: route('scheduler.shortage_tracker'),
         icon: TriangleAlert,
       },
-      {
-        key: 'controle-prod',
-        label: 'Contrôle prod',
-        href: route('controle_prod.index'),
-        icon: Factory,
-      },
-      { key: 'cockpit', label: 'Cockpit poste', href: route('cockpit.index'), icon: Gauge },
     ],
   },
   {
@@ -113,40 +82,8 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: 'Logistique',
-    items: [
-      { key: 'expeditions', label: 'Expéditions', href: route('expeditions.index'), icon: Truck },
-      {
-        key: 'receptions',
-        label: 'Réceptions',
-        href: route('receptions.index'),
-        icon: PackageCheck,
-      },
-      {
-        key: 'approvisionnements',
-        label: 'Approvisionnements',
-        href: route('approvisionnements.index'),
-        icon: Boxes,
-      },
-      {
-        key: 'besoins-evolution',
-        label: 'Évolution des besoins',
-        href: route('besoins.evolution'),
-        icon: TrendingUp,
-      },
-      {
-        key: 'conditionnements',
-        label: 'Conditionnements',
-        href: route('conditionnements.index'),
-        icon: Package,
-      },
-    ],
-  },
-  {
     label: 'Outils',
     items: [
-      { key: 'promesse', label: 'Promesse', href: route('promesse.show'), icon: BadgeCheck },
-      { key: 'copilote', label: 'Copilote', href: route('agent.show'), icon: Bot },
       { key: 'config', label: 'Config', href: route('calendar_config.index'), icon: Settings },
     ],
   },

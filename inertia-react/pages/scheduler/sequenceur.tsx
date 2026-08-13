@@ -907,7 +907,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                       className="flex items-center gap-2"
                       title="Charge engagée / capacité hebdomadaire"
                     >
-                    {/* Largeur portée par CE conteneur, jamais par la jauge :
+                      {/* Largeur portée par CE conteneur, jamais par la jauge :
                         l'hôte du graphique porte un `width: 100%` EN LIGNE, qui
                         bat n'importe quelle classe utilitaire. Une jauge laissée
                         élastique absorbait toute la place libre de la carte, et
@@ -917,29 +917,29 @@ export default function Sequenceur(props: SequenceurPageProps) {
                         graphique (`svgAnimation: false`) mais dans la mise en
                         page. 160 px = l'`initialWidth` de la primitive : le
                         prérendu tombe juste, il n'y a plus rien à re-mesurer. */}
-                    <span className="w-40 shrink-0">
-                      <Jauge
-                        valeur={activePoste?.totalHours ?? 0}
-                        max={Math.max(
-                          activePoste?.weeklyCapacityHours ?? 0,
-                          activePoste?.totalHours ?? 0
+                      <span className="w-40 shrink-0">
+                        <Jauge
+                          valeur={activePoste?.totalHours ?? 0}
+                          max={Math.max(
+                            activePoste?.weeklyCapacityHours ?? 0,
+                            activePoste?.totalHours ?? 0
+                          )}
+                          seuil={activePoste?.weeklyCapacityHours ?? null}
+                          palier={sat.level}
+                          epaisseur={6}
+                          ariaLabel={`Saturation du poste ${activePoste?.code}`}
+                        />
+                      </span>
+                      <span
+                        className={cn(
+                          'shrink-0 whitespace-nowrap font-mono text-1.5xs font-bold tabular-nums',
+                          sat.level === 'ok' && 'text-ferme',
+                          sat.level === 'high' && 'text-suggere',
+                          sat.level === 'crit' && 'text-destructive'
                         )}
-                        seuil={activePoste?.weeklyCapacityHours ?? null}
-                        palier={sat.level}
-                        epaisseur={6}
-                        ariaLabel={`Saturation du poste ${activePoste?.code}`}
-                      />
-                    </span>
-                    <span
-                      className={cn(
-                        'shrink-0 whitespace-nowrap font-mono text-1.5xs font-bold tabular-nums',
-                        sat.level === 'ok' && 'text-ferme',
-                        sat.level === 'high' && 'text-suggere',
-                        sat.level === 'crit' && 'text-destructive'
-                      )}
-                    >
-                      {sat.pct} %
-                    </span>
+                      >
+                        {sat.pct} %
+                      </span>
                     </span>
                   </>
                 )}
@@ -948,36 +948,21 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   <>
                     <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
                     <span className="flex items-center gap-1.5">
-                    <Badge variant="success" className="font-mono text-2xs font-semibold">
-                      {feasCounts.ok} lançables
-                    </Badge>
-                    {feasCounts.qc > 0 && (
-                      <Badge variant="warning" className="font-mono text-2xs font-semibold">
-                        {feasCounts.qc} sous CQ
+                      <Badge variant="success" className="font-mono text-2xs font-semibold">
+                        {feasCounts.ok} lançables
                       </Badge>
-                    )}
-                    {feasCounts.blocked > 0 && (
-                      <Badge variant="destructive" className="font-mono text-2xs font-semibold">
-                        {feasCounts.blocked} bloqués
-                      </Badge>
-                    )}
+                      {feasCounts.qc > 0 && (
+                        <Badge variant="warning" className="font-mono text-2xs font-semibold">
+                          {feasCounts.qc} sous CQ
+                        </Badge>
+                      )}
+                      {feasCounts.blocked > 0 && (
+                        <Badge variant="destructive" className="font-mono text-2xs font-semibold">
+                          {feasCounts.blocked} bloqués
+                        </Badge>
+                      )}
                     </span>
                   </>
-                )}
-
-                {activePoste && (
-                  <Pill
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() =>
-                      router.visit(`${route('cockpit.index')}?poste=${activePoste.code}`)
-                    }
-                    title={`Cockpit du poste ${activePoste.code} — le passé constaté`}
-                  >
-                    <Factory size={13} strokeWidth={1.75} />
-                    Cockpit
-                  </Pill>
                 )}
               </span>
             </div>
