@@ -4,9 +4,10 @@ import { Boxes } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
+import { readToolOutput } from '@r/lib/copilote/tool-output'
+import { Badge } from '@r/components/ui/badge'
 import { toolStatus, type AnyToolPart, type ToolStatus } from '@r/components/copilote/tool-tokens'
 import { ToolResultView } from '@r/components/copilote/tool-result-view'
-import { readToolOutput } from '@r/lib/copilote/tool-output'
 
 export interface ToolCallEntry {
   toolName: string
@@ -101,22 +102,23 @@ export function InspectorPanel(props: {
   return (
     <div className="flex h-full flex-col">
       {props.subject && (
-        <div className="flex items-start gap-2.5 border-b border-border/60 px-4 py-3.5">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-brand/10 text-primary">
+        <div className="flex items-start gap-2.5 border-b border-border px-4 py-3.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
             <Boxes size={17} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-mono text-[15px] font-extrabold tracking-tight">
+            <div className="truncate font-mono text-[15px] font-medium tabular-nums tracking-tight">
               {props.subject.code}
             </div>
             <div className="text-[11px] text-muted-foreground">{props.subject.field}</div>
           </div>
-          <span
-            className="mt-0.5 shrink-0 rounded-full bg-planifie/15 px-2 py-0.5 text-[10.5px] font-semibold text-planifie"
+          <Badge
+            variant="secondary"
+            className="mt-0.5 shrink-0"
             title="Déduit automatiquement de la conversation"
           >
             auto
-          </span>
+          </Badge>
         </div>
       )}
 
@@ -134,10 +136,9 @@ export function InspectorPanel(props: {
                 else cardRefs.current.delete(entry.toolName)
               }}
               className={cn(
-                'rounded-xl border-t border-border/60 py-3.5 transition-shadow duration-150 first:border-none',
-                idx === 0 && 'bg-planifie/[0.06]',
-                flashingTool === entry.toolName &&
-                  'shadow-[0_0_0_4px_var(--brand-soft,rgba(255,56,92,0.22))]'
+                'rounded-lg border-t border-border py-3.5 transition-shadow duration-150 first:border-none',
+                idx === 0 && 'bg-muted',
+                flashingTool === entry.toolName && 'shadow-[0_0_0_4px_var(--brand-soft)]'
               )}
             >
               <div className="mb-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground">
@@ -155,7 +156,7 @@ export function InspectorPanel(props: {
                 </span>
               </div>
               {entry.status === 'error' ? (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11.5px] text-destructive">
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11.5px] text-destructive">
                   {entry.errorText}
                 </div>
               ) : (

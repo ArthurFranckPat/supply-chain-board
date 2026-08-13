@@ -98,4 +98,24 @@ export class ConversationStore {
     await row.delete()
     return true
   }
+
+  /**
+   * Renomme une conversation. Le titre auto (1er message) n'est posé qu'à la
+   * création — un titre saisi ici n'est jamais écrasé par `appendTurn`.
+   * `title` est déjà sanitizé par le contrôleur (trim, 1–120 car.).
+   */
+  async rename(
+    userId: number,
+    conversationId: string,
+    title: string
+  ): Promise<ConversationSummary | null> {
+    const row = await Conversation.query()
+      .where('user_id', userId)
+      .andWhere('conversation_id', conversationId)
+      .first()
+    if (!row) return null
+    row.title = title
+    await row.save()
+    return toSummary(row)
+  }
 }

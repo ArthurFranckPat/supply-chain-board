@@ -58,7 +58,9 @@ function fmtValue(v: unknown): string {
  * Les tools n'utilisent pas tous le même nom (`lignes`, `ofs`, `stocks`,
  * `items`, `articles`…) et figer une liste de noms condamnerait le prochain.
  */
-function pickRows(payload: Record<string, unknown>): { key: string; rows: Record<string, unknown>[] } | null {
+function pickRows(
+  payload: Record<string, unknown>
+): { key: string; rows: Record<string, unknown>[] } | null {
   let best: { key: string; rows: Record<string, unknown>[] } | null = null
   for (const [key, value] of Object.entries(payload)) {
     if (!Array.isArray(value) || value.length === 0) continue
@@ -81,7 +83,7 @@ function KeyValue(props: { label: string; value: unknown; mono?: boolean }) {
       <span className="shrink-0 text-[10.5px] text-muted-foreground">{props.label}</span>
       <span
         className={cn(
-          'min-w-0 break-words text-right text-[11.5px] text-foreground',
+          'min-w-0 break-words text-right text-[11.5px] tabular-nums text-foreground',
           props.mono && 'font-mono'
         )}
       >
@@ -100,10 +102,10 @@ function RowCard(props: { row: Record<string, unknown> }) {
   const nested = entries.filter(([, v]) => !isScalar(v) && v !== null && v !== undefined)
 
   return (
-    <div className="rounded-lg border border-border/50 bg-background/60 px-2.5 py-2">
+    <div className="rounded-md border border-border bg-card px-2.5 py-2">
       {titleEntry && (
         <div className="mb-1 flex items-baseline justify-between gap-2">
-          <span className="truncate font-mono text-[12px] font-semibold text-foreground">
+          <span className="truncate font-mono text-[12px] font-medium tabular-nums text-foreground">
             {fmtValue(titleEntry[1])}
           </span>
           <span className="shrink-0 text-[10px] text-muted-foreground">{titleEntry[0]}</span>
@@ -156,7 +158,7 @@ export function ToolResultView(props: { payload: unknown; fallbackInput?: unknow
   const error = typeof data.error === 'string' ? data.error : null
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11.5px] text-destructive">
+      <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11.5px] text-destructive">
         {error}
       </div>
     )
@@ -172,7 +174,7 @@ export function ToolResultView(props: { payload: unknown; fallbackInput?: unknow
         <>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-[11px] font-semibold text-foreground">{rows.key}</span>
-            <span className="text-[10.5px] text-muted-foreground">
+            <span className="text-[10.5px] tabular-nums text-muted-foreground">
               {total}
               {data.truncated === true && ' (tronqué)'}
             </span>
@@ -191,7 +193,7 @@ export function ToolResultView(props: { payload: unknown; fallbackInput?: unknow
       )}
 
       {scalars.length > 0 && (
-        <div className="rounded-lg border border-border/50 px-2.5 py-1.5">
+        <div className="rounded-md border border-border px-2.5 py-1.5">
           {scalars.map(([k, v]) => (
             <KeyValue key={k} label={k} value={v} />
           ))}
@@ -199,7 +201,7 @@ export function ToolResultView(props: { payload: unknown; fallbackInput?: unknow
       )}
 
       {objects.map(([k, v]) => (
-        <div key={k} className="rounded-lg border border-border/50 px-2.5 py-1.5">
+        <div key={k} className="rounded-md border border-border px-2.5 py-1.5">
           <div className="mb-0.5 text-[10.5px] font-semibold text-muted-foreground">{k}</div>
           {Object.entries(v as Record<string, unknown>).map(([ik, iv]) => (
             <KeyValue key={ik} label={ik} value={iv} />
@@ -209,7 +211,7 @@ export function ToolResultView(props: { payload: unknown; fallbackInput?: unknow
 
       {/* Provenance en pied : elle qualifie la donnée, elle ne la précède pas. */}
       {(typeof data.engine === 'string' || typeof data.note === 'string') && (
-        <div className="border-t border-border/50 pt-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
+        <div className="border-t border-border pt-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
           {typeof data.engine === 'string' && <div className="font-mono">{data.engine}</div>}
           {typeof data.note === 'string' && <div className="italic">{data.note}</div>}
         </div>

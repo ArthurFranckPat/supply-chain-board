@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 127 routes nommées.
+ * 128 routes nommées.
  */
 
 export const MANIFEST = {
@@ -10,6 +10,7 @@ export const MANIFEST = {
   'agent.conversation': { method: 'GET', pattern: '/api/v1/agent/conversations/:id' },
   'agent.conversations': { method: 'GET', pattern: '/api/v1/agent/conversations' },
   'agent.conversationsDestroy': { method: 'DELETE', pattern: '/api/v1/agent/conversations/:id' },
+  'agent.conversationsUpdate': { method: 'PATCH', pattern: '/api/v1/agent/conversations/:id' },
   'agent.health': { method: 'GET', pattern: '/api/v1/agent/health' },
   'agent.mcp.app': { method: 'GET', pattern: '/api/v1/agent/mcp/app' },
   'agent.mcp.call': { method: 'POST', pattern: '/api/v1/agent/mcp/call' },
@@ -179,6 +180,7 @@ export type RouteParams = {
   'agent.conversation': { id: string | number }
   'agent.conversations': void
   'agent.conversationsDestroy': { id: string | number }
+  'agent.conversationsUpdate': { id: string | number }
   'agent.health': void
   'agent.mcp.app': void
   'agent.mcp.call': void

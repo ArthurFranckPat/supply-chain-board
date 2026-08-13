@@ -756,6 +756,12 @@ const routes = {
     tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['agent.conversationsDestroy']['types'],
   },
+  'agent.conversationsUpdate': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/agent/conversations/:id',
+    tokens: [{"old":"/api/v1/agent/conversations/:id","type":0,"val":"api","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/conversations/:id","type":0,"val":"conversations","end":""},{"old":"/api/v1/agent/conversations/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['agent.conversationsUpdate']['types'],
+  },
   'agent.mcp.app': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/agent/mcp/app',

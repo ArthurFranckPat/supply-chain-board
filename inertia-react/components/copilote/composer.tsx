@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { ArrowUp, Lock, Square } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { Badge } from '@r/components/ui/badge'
+import { Button } from '@r/components/ui/button'
+import { Pill } from '@r/components/ui/pill'
 
 export interface PromptChip {
   label: string
@@ -14,8 +16,8 @@ const PROMPT_CHIPS: PromptChip[] = [
   { label: 'OF bloqué', prompt: "Pourquoi l'OF … est bloqué ?" },
 ]
 
-/** Composer inspiration ChatGPT/Claude : conteneur arrondi, auto-grow,
- * chips de prompts, verrou lecture-seule, envoi circulaire. */
+/** Composer : conteneur élevé, auto-grow, chips de prompts, verrou
+ * lecture-seule, envoi via Button du DS. */
 export function Composer(props: {
   value: string
   onChange: (value: string) => void
@@ -40,23 +42,22 @@ export function Composer(props: {
   }
 
   return (
-    <div className="flex justify-center border-t border-border/60 bg-background px-6 py-3.5">
+    <div className="flex justify-center border-t border-border bg-[var(--sidebar-canvas)] px-6 py-3.5">
       <div className="w-full max-w-[720px]">
         <div className="mb-2.5 flex flex-wrap gap-2">
           {PROMPT_CHIPS.map((chip) => (
-            <button
+            <Pill
               key={chip.label}
-              type="button"
+              size="sm"
               onClick={() => applyChip(chip.prompt)}
               disabled={props.busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-foreground hover:bg-secondary disabled:pointer-events-none disabled:opacity-50"
             >
               {chip.label}
-            </button>
+            </Pill>
           ))}
         </div>
 
-        <div className="rounded-3xl border border-border bg-background shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground focus-within:shadow-[0_0_0_3px_rgba(34,34,34,0.06)]">
+        <div className="rounded-lg border border-border bg-card transition-shadow focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/50">
           <div className="px-4 pb-0.5 pt-3.5">
             <textarea
               ref={textareaRef}
@@ -75,39 +76,35 @@ export function Composer(props: {
             />
           </div>
           <div className="flex items-center gap-2 px-3 pb-2 pt-1.5">
-            <span
-              title="Le copilote ne modifie aucune donnée"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11.5px] font-semibold text-muted-foreground"
-            >
+            <Badge variant="outline" title="Le copilote ne modifie aucune donnée">
               <Lock size={13} />
               Lecture seule
-            </span>
+            </Badge>
             <span className="ml-auto inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
-              <kbd className="rounded border border-border bg-secondary px-1.5 py-px font-mono text-[10px]">↵</kbd>
+              <kbd className="rounded-md border border-border bg-secondary px-1.5 py-px font-mono text-[10px] tabular-nums">
+                ↵
+              </kbd>
             </span>
             {props.busy ? (
-              <button
+              <Button
                 type="button"
+                variant="destructive"
+                size="icon-xs"
                 onClick={props.onStop}
                 aria-label="Arrêter"
-                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive text-white transition-transform active:scale-95"
               >
                 <Square size={13} fill="currentColor" />
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                size="icon-xs"
                 onClick={props.onSend}
                 disabled={!canSend}
                 aria-label="Envoyer"
-                className={cn(
-                  'flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-[background,transform]',
-                  'hover:bg-[var(--color-rausch-active,#e00b41)] active:scale-90',
-                  'disabled:pointer-events-none disabled:bg-border disabled:text-white'
-                )}
               >
                 <ArrowUp size={17} strokeWidth={2.4} />
-              </button>
+              </Button>
             )}
           </div>
         </div>
