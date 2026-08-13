@@ -2,7 +2,7 @@
  * Types miroir des scénarios (issue #57). Copie front des contrats domaine
  * (`app/domain/plan-diff.ts`) + du modèle persisté (`app/services/scenario_store.ts`).
  * L'inertia n'importe pas `app/` (tsconfig distinct) → duplication assumée, comme
- * `lib/vision/types.ts`.
+ * `lib/programme/types.ts`.
  */
 
 export type PlanMutation =

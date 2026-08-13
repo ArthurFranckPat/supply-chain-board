@@ -232,7 +232,7 @@ export function ToolbarSection() {
         <>
           Proposition de standard, soumise à validation. Aujourd'hui 17 pages portent une barre de
           contrôles et il en existe <strong>deux familles concurrentes</strong> :{' '}
-          <Tok>vision/toolbar</Tok> (14 pages) et <Tok>ui/toolbar</Tok> (1 page). Le champ de
+          <Tok>programme/toolbar</Tok> (14 pages) et <Tok>ui/toolbar</Tok> (1 page). Le champ de
           recherche est recopié à la main 9 fois en 6 largeurs différentes, l'action « actualiser »
           existe en 4 mécanismes, le conteneur en 3 paddings, et le déclencheur de filtres en 2
           implémentations d'accessibilité. Rien de tout cela n'est un choix : c'est de la dérive.
@@ -484,7 +484,7 @@ export function ToolbarSection() {
           rows={[
             [
               'Deux familles de primitives concurrentes',
-              '14 pages vision/toolbar · 1 page ui/toolbar',
+              '14 pages programme/toolbar · 1 page ui/toolbar',
               <span key="a">
                 <Tok>dashboard.tsx</Tok> importe les deux et les mélange dans la même rangée
               </span>,
@@ -530,7 +530,7 @@ export function ToolbarSection() {
             ],
             [
               'Focus visible absent',
-              'toute la famille vision/toolbar',
+              'toute la famille programme/toolbar',
               'la plus utilisée (14 pages) est celle qui n’a aucun style de focus',
             ],
             [
@@ -549,8 +549,8 @@ export function ToolbarSection() {
         <p className="max-w-[620px] text-[13px] leading-[18px] text-[color-mix(in_oklab,#141414_74%,transparent)]">
           Les cinq primitives manquantes sont écrites et rendues ci-dessus : la proposition est
           testable, pas théorique. Valider signifie ensuite migrer les 14 pages{' '}
-          <Tok>vision/toolbar</Tok> vers <Tok>ui/toolbar</Tok>, supprimer{' '}
-          <Tok>components/vision/toolbar.tsx</Tok>, et faire passer les barres par la prop{' '}
+          <Tok>programme/toolbar</Tok> vers <Tok>ui/toolbar</Tok>, supprimer{' '}
+          <Tok>components/programme/toolbar.tsx</Tok>, et faire passer les barres par la prop{' '}
           <Tok>toolbar</Tok> d'AppLayout. À faire page par page, pas d'un bloc.
         </p>
       </div>

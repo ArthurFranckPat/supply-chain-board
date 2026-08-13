@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { X3Link } from '@r/components/x3-link'
 import { peutOuvrirCommande } from '@r/lib/x3-link'
-import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
-import type { ImpactVerdict } from '@r/lib/vision/impact'
-import { deltaLabel } from '@r/lib/vision/impact'
+import type { ProgrammeCommande, ProgrammeLink } from '@r/lib/programme/types'
+import type { ImpactVerdict } from '@r/lib/programme/impact'
+import { deltaLabel } from '@r/lib/programme/impact'
 import type { HealthCategory } from './plan-health'
 import { ListPlus, X, CircleCheckBig } from 'lucide-react'
 
@@ -54,8 +54,8 @@ const VERDICT_DELTA_TONE: Record<ImpactVerdict, string> = {
 }
 
 export function TriageRail(props: {
-  commandes: VisionCommande[]
-  links: VisionLink[]
+  commandes: ProgrammeCommande[]
+  links: ProgrammeLink[]
   verdictByCmd: Map<string, { verdict: ImpactVerdict | null; delta: number | null }>
   counts: Record<Tab, number>
   onSelect: (item: TriageItem) => void
@@ -67,7 +67,7 @@ export function TriageRail(props: {
 
   const items = useMemo<TriageItem[]>(() => {
     const verdicts = props.verdictByCmd
-    const linksByCmd = new Map<string, VisionLink>()
+    const linksByCmd = new Map<string, ProgrammeLink>()
     for (const l of props.links) {
       if (!linksByCmd.has(l.commandeId)) linksByCmd.set(l.commandeId, l)
     }
@@ -182,9 +182,7 @@ export function TriageRail(props: {
                 />
                 <span className="font-mono text-xs font-bold text-foreground">
                   {item.numCommande}
-                  {item.ligne && (
-                    <span className="text-muted-foreground">·L{item.ligne}</span>
-                  )}
+                  {item.ligne && <span className="text-muted-foreground">·L{item.ligne}</span>}
                 </span>
                 {/* Prévision : rien à ouvrir (cf. peutOuvrirCommande). Le numéro
                     garde sa sélection rail → icône séparée (#118). */}
@@ -217,7 +215,10 @@ export function TriageRail(props: {
                 {item.client && `${item.client} · `}
                 {item.besoinIso && `besoin ${fmtDayShort(item.besoinIso)}`}
                 {item.ofId && item.ofDateFinIso && (
-                  <> · {item.ofId} finit {fmtDayShort(item.ofDateFinIso)}</>
+                  <>
+                    {' '}
+                    · {item.ofId} finit {fmtDayShort(item.ofDateFinIso)}
+                  </>
                 )}
               </div>
               {/* Ligne 3 : actions */}

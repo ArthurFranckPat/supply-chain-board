@@ -108,12 +108,12 @@ function fmtFrShort(iso: string | null | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// Issue #21 — Vision unifiée OF ↔ commandes. Le board est IDENTIQUE à
-// /ordonnancement (réutilise loadBoardData + <BoardGrid>) ; vision n'ajoute que
+// Issue #21 — Programme unifié OF ↔ commandes. Le board est IDENTIQUE à
+// /ordonnancement (réutilise loadBoardData + <BoardGrid>) ; le programme n'ajoute que
 // les marqueurs commande (date d'expédition) et les liens OF→commande en overlay.
 // ---------------------------------------------------------------------------
 
-interface VisionCommande {
+interface ProgrammeCommande {
   /** Identité LIGNE (numCommande#ligne) — clé des liens. */
   id: string
   numCommande: string
@@ -129,7 +129,7 @@ interface VisionCommande {
   col: number
 }
 
-interface VisionLink {
+interface ProgrammeLink {
   ofId: string
   posteCode: string
   /** Colonne de la carte OF (date de début). */
@@ -267,8 +267,8 @@ export default class SchedulerController {
           })
         }
 
-        const commandeByLine = new Map<string, VisionCommande>()
-        const links: VisionLink[] = []
+        const commandeByLine = new Map<string, ProgrammeCommande>()
+        const links: ProgrammeLink[] = []
         try {
           if (!impactsCtx) throw new Error('loadOrderImpacts failed')
           const { result } = impactsCtx

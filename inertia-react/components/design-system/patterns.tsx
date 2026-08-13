@@ -108,7 +108,7 @@ export function StatutsSection() {
 
       <Fiche
         nom="Verdict d’impact"
-        from="lib/vision/verdict-tones"
+        from="lib/programme/verdict-tones"
         etat="airbnb"
         note={
           <>
@@ -512,7 +512,7 @@ const MIGRATION: LigneMigration[] = [
     nom: 'Toolbar',
     etat: 'cursor',
     orphelin: true,
-    reste: 'standard proposé (§17) ; 14 pages encore sur vision/toolbar',
+    reste: 'standard proposé (§17) ; 14 pages encore sur programme/toolbar',
   },
   { nom: 'Calendar', etat: 'cursor', reste: '—' },
   { nom: 'Spinner', etat: 'cursor', reste: '—' },
