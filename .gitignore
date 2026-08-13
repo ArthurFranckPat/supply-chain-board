@@ -53,7 +53,5 @@ excalidraw.log
 # Audits, critiques et brouillons locaux — hors dépôt.
 .impeccable/
 .scratch/
-.pi-glla/archive/
-.pi-glla/audit-jobs/
-.pi-glla/goals/
-.pi-glla/settings.json
+.reviews/
+.pi-glla/

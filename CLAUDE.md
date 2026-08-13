@@ -22,9 +22,13 @@ Deux branches longues. `dev` est un **surensemble** de `master`, jamais l'invers
   Tableau de bord (`/`), Programme (`/programme`), Séquenceur (`/sequenceur`),
   Ruptures composants (`/ruptures`), Suivi commandes (`/suivi`), Planification
   (`/charge`), Config (`/configuration/*`, `/impressions`).
+  Pas d'outillage d'agents (`.claude`, `.reviews`, `.zcode`, `.pi-glla`,
+  `.planning`, `.impeccable`), ni `docs/`, ni archives design (`DESIGN.md`,
+  `cursor/`).
 - `dev` — le socle plus les surfaces pas encore en prod : logistique (expéditions,
   réceptions, approvisionnements, évolution des besoins, conditionnements),
-  promesse, copilote, contrôle prod, cockpit, pages de lab.
+  promesse, copilote, contrôle prod, cockpit, pages de lab. C'est aussi là
+  que vivent skills, plans, revues et docs.
 
 | Travail                                              | Part de                                        | PR `--base` |
 | ---------------------------------------------------- | ---------------------------------------------- | ----------- |
@@ -36,9 +40,9 @@ Après chaque merge dans `master` : merger `master` dans `dev` tout de suite.
 `dev` reste le surensemble.
 
 **Exception — suppressions que `dev` doit garder** (allégeage socle, mockups HTML,
-etc.). Un merge normal appliquerait ces suppressions et effacerait copilote,
-logistique, `_design/archive/*.html`, etc. sur `dev`. Pour **ces commits-là**,
-dans le worktree `dev` :
+docs, outillage d'agents, etc.). Un merge normal appliquerait ces suppressions
+et effacerait copilote, logistique, `_design/archive/*.html`, `.claude/`, etc.
+sur `dev`. Pour **ces commits-là**, dans le worktree `dev` :
 
 ```bash
 git fetch origin
