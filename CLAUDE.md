@@ -16,19 +16,34 @@ Français strict ; commandes, noms de fichiers et mots-clés verbatim._
 
 ## Branches opératoires
 
-Deux branches longues :
+Deux branches longues. `dev` est un **surensemble** de `master`, jamais l'inverse.
 
-- `master` — production. N'avance que par PR : release (`dev` → `master`, merge commit)
-  ou `hotfix/*` → `master`. Un push direct est refusé par le hook `pre-push`.
-- `dev` — intégration des features pas encore stables. Cible par défaut des PR.
+- `master` — production. Uniquement le **socle** :
+  Tableau de bord (`/`), Programme (`/programme`), Séquenceur (`/sequenceur`),
+  Ruptures composants (`/ruptures`), Suivi commandes (`/suivi`), Planification
+  (`/charge`), Config (`/configuration/*`, `/impressions`).
+- `dev` — le socle plus les surfaces pas encore en prod : logistique (expéditions,
+  réceptions, approvisionnements, évolution des besoins, conditionnements),
+  promesse, copilote, contrôle prod, cockpit, pages de lab.
 
-`feat/*` et `fix/*` partent de `origin/dev`, PR avec `--base dev`.
-`hotfix/*` part de `origin/master`, PR avec `--base master`. Après merge dans `master`,
-merger `master` dans `dev` avant le commit suivant sur `dev`.
+| Travail                                              | Part de                                        | PR `--base` |
+| ---------------------------------------------------- | ---------------------------------------------- | ----------- |
+| Surface hors socle                                   | `origin/dev`                                   | `dev`       |
+| Correctif ou évolution du socle déjà en prod         | `origin/master`                                | `master`    |
+| Première entrée d'une surface de `dev` dans le socle | branche dédiée, diff = cette surface seulement | `master`    |
 
-Le checkout principal (`supply-chain-board/`) reste sur `master` et propre. Le travail
-quotidien se fait dans le worktree frère `../supply-chain-board-worktrees/dev`. Le
-watcher (`node ace serve --hmr`) se lance dans ce worktree-là, pas dans `master`.
+Après chaque merge dans `master` : merger `master` dans `dev` tout de suite.
+`dev` reste le surensemble.
+
+Une PR vers `master` n'ajoute que du socle. La promotion n'est pas un merge
+`dev` → `master` : ce merge réintroduirait toutes les surfaces hors socle.
+
+Push direct vers `master` : refusé par le hook `pre-push`.
+
+Le checkout principal (`supply-chain-board/`) reste sur `master` et propre. Le
+travail hors socle se fait dans le worktree frère
+`../supply-chain-board-worktrees/dev`. Le watcher (`node ace serve --hmr`) se
+lance dans le worktree de la branche qu'on sert.
 
 ## Worktrees
 
@@ -37,16 +52,16 @@ exclusion, sature `kern.maxfilesperproc` et meurt en `EMFILE`. Toujours dans le 
 frère :
 
 ```bash
-# Feature / fix : depuis origin/dev
+# Hors socle : depuis origin/dev
 git worktree add ../supply-chain-board-worktrees/<branche> -b feat/<issue>-<slug> origin/dev
 
-# Hotfix prod : depuis origin/master
+# Socle / hotfix prod : depuis origin/master
 git worktree add ../supply-chain-board-worktrees/<branche> -b hotfix/<issue>-<slug> origin/master
 ```
 
 Puis copier depuis le worktree source `.env` et `tmp/db.sqlite3` (gitignorés, indispensables),
 et lancer `npm ci`. Le skill `worktree-setup` enchaîne ces étapes et pose `--base` selon
-le préfixe de branche (`dev` pour `feat`/`fix`, `master` pour `hotfix`).
+la table ci-dessus.
 
 ## Workflow : code → commit → push → CI verte
 
@@ -67,8 +82,8 @@ Après chaque tâche terminée (feature, fix, refacto), dans cet ordre :
    en ~3,6 s, et refuse le push s'ils échouent. Il est versionné et actif via
    `core.hooksPath=scripts/hooks` — rien à installer, y compris dans un nouveau worktree.
    Échappatoire assumée : `git push --no-verify`.
-4. **PR** : `gh pr create --base dev` (hotfix : `--base master`). `gh pr create` sans
-   `--base` vise `master` — c'est le défaut GitHub, à surcharger à chaque fois.
+4. **PR** : `--base` selon la table « Branches opératoires ». `gh pr create` sans
+   `--base` vise `master` — à surcharger pour tout travail hors socle (`--base dev`).
 5. **Surveiller la CI** : `gh run watch` jusqu'à conclusion. Un push n'est pas une tâche
    terminée — `enforce_admins=false` sur `master`, la CI tourne après coup, et le hook
    ne couvre pas les tests.
@@ -78,7 +93,7 @@ Après chaque tâche terminée (feature, fix, refacto), dans cet ordre :
 
 Vérifier l'état de la CI **avant** de merger dans `dev` ou `master` : merger dans une
 branche déjà rouge rend indémêlable ce qu'on vient de casser. Un merge dans `master`
-est une release, pas le flux quotidien.
+n'ajoute que du socle ; enchaîner ensuite le merge `master` → `dev`.
 
 Ne jamais accumuler de travail non commité — working tree propre entre deux tâches.
 Exceptions : l'utilisateur dit explicitement « ne commit pas » ou « attends avant de pousser ».

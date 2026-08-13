@@ -1,5 +1,6 @@
-<!-- Base : `dev` pour une feature ou un fix. Base : `master` uniquement
-pour un hotfix prod ou une PR de release (`dev` → `master`). -->
+<!-- `--base` : `dev` si hors socle ; `master` si correctif du socle, ou
+première entrée d'une surface dans le socle (diff = cette surface seulement).
+Pas de merge `dev` → `master` en bloc. -->
 
 ## Summary
 
