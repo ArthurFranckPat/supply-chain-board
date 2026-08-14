@@ -142,7 +142,8 @@ export function DashboardGrid({
   // (~112 px pour w=8) puis explosent à la vraie largeur. Mesure en
   // useLayoutEffect (avant paint) et on n'affiche qu'une fois prêt.
   const [width, setWidth] = useState(0)
-  const gridMode: DashboardGridMode = dashboardGridModeForWidth(width || 1440)
+  const [viewportWidth, setViewportWidth] = useState(0)
+  const gridMode: DashboardGridMode = dashboardGridModeForWidth(viewportWidth || 1440)
 
   const gestureRef = useRef<Gesture | null>(null)
   const detachRef = useRef<(() => void) | null>(null)
@@ -178,6 +179,18 @@ export function DashboardGrid({
     })
     ro.observe(node)
     return () => ro.disconnect()
+  }, [])
+
+  // Mode mobile/tablette/desktop : viewport, pas la gouttière restante après
+  // la sidebar (768 − 256 < 768 ferait tomber à tort en une colonne).
+  useLayoutEffect(() => {
+    const applyVp = () => {
+      const w = window.innerWidth
+      setViewportWidth((prev) => (prev === w ? prev : w))
+    }
+    applyVp()
+    window.addEventListener('resize', applyVp)
+    return () => window.removeEventListener('resize', applyVp)
   }, [])
 
   // ----- Conversions grille ↔ pixels -----

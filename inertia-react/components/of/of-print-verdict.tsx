@@ -227,7 +227,7 @@ export function OfReprintButton({
         </Button>
         <span
           aria-hidden="true"
-          className="w-px shrink-0 self-stretch bg-[color-mix(in_oklab,#141414_12%,transparent)]"
+          className="w-px shrink-0 self-stretch bg-input"
         />
         <Popover.Root>
           <Popover.Trigger

@@ -25,23 +25,17 @@ export function Section({
   children: React.ReactNode
 }) {
   return (
-    <section
-      id={id}
-      className={cn(
-        'scroll-mt-8 py-10',
-        !last && 'border-b border-[color-mix(in_oklab,#141414_4%,transparent)]'
-      )}
-    >
+    <section id={id} className={cn('scroll-mt-8 py-10', !last && 'border-b border-border')}>
       <div className="mb-1 flex items-baseline gap-3">
-        <span className="font-mono text-[11px] font-medium tabular-nums text-[color-mix(in_oklab,#141414_36%,transparent)]">
+        <span className="font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
           {n}
         </span>
-        <h2 className="text-[20px] font-medium leading-tight tracking-[-0.15px] text-[#141414]">
+        <h2 className="text-[20px] font-medium leading-tight tracking-[-0.15px] text-foreground">
           {title}
         </h2>
       </div>
       {intro ? (
-        <p className="mb-6 max-w-[620px] pl-[calc(11px+0.75rem)] text-[13px] leading-[18px] text-[color-mix(in_oklab,#141414_74%,transparent)]">
+        <p className="mb-6 max-w-[620px] pl-[calc(11px+0.75rem)] text-[13px] leading-[18px] text-muted-foreground">
           {intro}
         </p>
       ) : (
@@ -64,11 +58,9 @@ export function Sub({
 }) {
   return (
     <div className={cn('mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1', className)}>
-      <h3 className="text-[13px] font-medium tracking-[-0.08px] text-[#141414]">{title}</h3>
+      <h3 className="text-[13px] font-medium tracking-[-0.08px] text-foreground">{title}</h3>
       {hint ? (
-        <span className="text-[12px] leading-[16px] text-[color-mix(in_oklab,#141414_60%,transparent)]">
-          {hint}
-        </span>
+        <span className="text-[12px] leading-[16px] text-muted-foreground">{hint}</span>
       ) : null}
     </div>
   )
@@ -87,7 +79,7 @@ export function Panel({
   return (
     <div
       className={cn(
-        'rounded-[12px] bg-[#fcfcfc] shadow-[0_0_0_1px_color-mix(in_oklab,#141414_4%,transparent)]',
+        'rounded-[12px] bg-card shadow-[0_0_0_1px_var(--border)]',
         padding === 'sm' && 'p-3',
         padding === 'md' && 'p-5',
         className
@@ -120,14 +112,14 @@ export function Demo({
       {label ? <Caption className="mb-2">{label}</Caption> : null}
       <div
         className={cn(
-          'flex min-h-[52px] flex-wrap gap-3 rounded-[8px] bg-[#f8f8f8] p-4 shadow-[0_0_0_1px_color-mix(in_oklab,#141414_4%,transparent)]',
+          'flex min-h-[52px] flex-wrap gap-3 rounded-[8px] bg-muted p-4 shadow-[0_0_0_1px_var(--border)]',
           align === 'center' ? 'items-center justify-center' : 'items-center'
         )}
       >
         {children}
       </div>
       {spec ? (
-        <div className="mt-2 break-words font-mono text-[10px] leading-[14px] text-[color-mix(in_oklab,#141414_60%,transparent)]">
+        <div className="mt-2 break-words font-mono text-[10px] leading-[14px] text-muted-foreground">
           {spec}
         </div>
       ) : null}
@@ -146,7 +138,7 @@ export function Caption({
   return (
     <span
       className={cn(
-        'block font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[color-mix(in_oklab,#141414_60%,transparent)]',
+        'block font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground',
         className
       )}
     >
@@ -158,7 +150,7 @@ export function Caption({
 /** Jeton inline : nom de token, classe utilitaire, prop. */
 export function Tok({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded-[4px] bg-[color-mix(in_oklab,#141414_6%,transparent)] px-1.5 py-0.5 font-mono text-[11px] text-[#141414]">
+    <code className="rounded-[4px] bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
       {children}
     </code>
   )
@@ -334,15 +326,13 @@ export function Fiche({
   return (
     <div className="mb-8 last:mb-0">
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h3 className="text-[13px] font-medium tracking-[-0.08px] text-[#141414]">{nom}</h3>
+        <h3 className="text-[13px] font-medium tracking-[-0.08px] text-foreground">{nom}</h3>
         <Etat v={etat} />
         {orphelin ? <Orphelin /> : null}
-        <code className="font-mono text-[11px] text-[color-mix(in_oklab,#141414_36%,transparent)]">
-          {from}
-        </code>
+        <code className="font-mono text-[11px] text-muted-foreground">{from}</code>
       </div>
       {note ? (
-        <p className="mb-3 max-w-[620px] text-[12px] leading-[16px] text-[color-mix(in_oklab,#141414_60%,transparent)]">
+        <p className="mb-3 max-w-[620px] text-[12px] leading-[16px] text-muted-foreground">
           {note}
         </p>
       ) : null}

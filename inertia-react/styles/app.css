@@ -478,14 +478,14 @@
    Thème « Cursor » — produit light (:root extrait 2026-08-11).
 
    Source : cursor/product-tokens-light.css + DESIGN.md
-   Surfaces : sidebar #f3f3f3 · chrome #f8f8f8 · editor/elevated #fcfcfc
-   CTA : --bg-neutral #141414 · brand #f54e00 rare · accent/focus #2778c1
+   Surfaces : sidebar #f3f3f3 · scène #ffffff · chrome secondaire #f8f8f8
+   CTA : prune Clerk #372f35 · texte #212126 · brand #f54e00 rare · accent #2778c1
    ──────────────────────────────────────────────────────────── */
 .theme-cursor {
   --cursor-sidebar: #f3f3f3;
   --cursor-chrome: #f8f8f8;
-  --cursor-editor: #fcfcfc;
-  --cursor-base: #141414;
+  --cursor-editor: #ffffff;
+  --cursor-base: #212126;
   --cursor-brand: #f54e00;
   --cursor-accent: #2778c1;
   --cursor-success: #007041;
@@ -499,69 +499,92 @@
   --color-rausch-active: #cd4500;
   --color-rausch-soft: color-mix(in oklab, #f54e00 12%, transparent);
   --color-rausch-logo: #f54e00;
-  --color-rausch-disabled: color-mix(in oklab, #141414 8%, #f8f8f8);
+  --color-rausch-disabled: color-mix(in oklab, #372f35 8%, #f8f8f8);
   --color-babu: #007041;
   --color-arches: #cd4500;
-  --color-hof: #141414;
-  --color-foggy: color-mix(in oklab, #141414 60%, transparent);
+  --color-hof: #212126;
+  --color-foggy: #747686;
 
-  --primary: #141414;
-  --primary-foreground: #fcfcfc;
-  --ring: #2778c1;
+  --primary: #372f35;
+  --primary-foreground: #ffffff;
+  --ring: #372f35;
 
-  --background: #f8f8f8;
-  --foreground: #141414;
-  --card: #fcfcfc;
-  --card-foreground: #141414;
-  --popover: #fcfcfc;
-  --popover-foreground: #141414;
+  --background: #ffffff;
+  --foreground: #212126;
+  --card: #ffffff;
+  --card-foreground: #212126;
+  --popover: #ffffff;
+  --popover-foreground: #212126;
 
-  --secondary: color-mix(in oklab, #141414 8%, #f8f8f8);
-  --secondary-foreground: #141414;
-  --muted: color-mix(in oklab, #141414 6%, #f8f8f8);
-  --muted-foreground: color-mix(in oklab, #141414 74%, transparent);
-  --accent: color-mix(in oklab, #141414 8%, transparent);
-  --accent-foreground: #141414;
+  --secondary: color-mix(in oklab, #212126 8%, #f8f8f8);
+  --secondary-foreground: #212126;
+  --muted: color-mix(in oklab, #212126 6%, #f8f8f8);
+  --muted-foreground: #747686;
+  --accent: color-mix(in oklab, #372f35 8%, transparent);
+  --accent-foreground: #212126;
 
-  --border: color-mix(in oklab, #141414 8%, transparent);
-  --input: color-mix(in oklab, #141414 12%, transparent);
+  --border: color-mix(in oklab, #212126 8%, transparent);
+  --input: color-mix(in oklab, #212126 12%, transparent);
 
   --destructive: #be1744;
   --destructive-foreground: #fcfcfc;
 
-  --radius: 0.5rem; /* 8px = radius-lg cards */
+  --radius: 0.375rem; /* 6px Clerk Mosaic */
 
   --shadow-xs: none;
   --shadow-sm: 0 2px 8px 0 #00000009;
   --shadow-float:
-    0 0 0 1px color-mix(in oklab, #141414 8%, transparent), 0 0 4px 0 #00000009,
+    0 0 0 1px color-mix(in oklab, #212126 8%, transparent), 0 0 4px 0 #00000009,
     0 8px 24px -2px #00000009;
   --shadow-overlay: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
+
+  /* Chrome Clerk Mosaic — boutons + cards + encre (prod, 13/08/2026).
+     Texte #212126 · CTA prune #372f35 · muted #747686. */
+  --cursor-btn-shine: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  --cursor-btn-shadow-primary:
+    inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 1px 1px rgba(0, 0, 0, 0.24),
+    0 2px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px #372f35;
+  --cursor-btn-shadow-secondary:
+    0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(0, 0, 0, 0.02), 0 2px 3px -1px rgba(0, 0, 0, 0.08);
+  --cursor-btn-shadow-danger:
+    inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 1px 1px rgba(0, 0, 0, 0.08),
+    0 2px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--destructive);
+  --cursor-card-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.08), 0 15px 35px -5px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  /* SignIn Clerk : ombre interne du panneau blanc (anneau 6 % + 1 px). */
+  --cursor-card-shadow-inner: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.06);
 
   /* Webfonts EN TÊTE, pile système en repli seulement (12/08/2026). Le parc
      est mixte Windows + Mac : laisser `-apple-system` gagner rendait SF Pro
      ici et Segoe UI là, pour le même écran. Le repli n'est plus qu'un filet
      de sécurité si un woff2 ne charge pas — il ne doit jamais être le rendu
      nominal. Ne pas remettre `-apple-system` devant. */
-  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-heading: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Clerk Mosaic : SF Pro en tête (Mac = SignIn), Inter Variable en repli
+     Windows (webfont, pas Segoe). Métriques 13/18 · 17/24 titres. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Variable', sans-serif;
   --font-mono:
     'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', 'Courier New', monospace;
 
   --sidebar: #f3f3f3;
-  --sidebar-canvas: #f8f8f8;
-  --sidebar-foreground: #141414;
+  --sidebar-canvas: #ffffff;
+  --sidebar-foreground: #212126;
   --sidebar-primary: #f54e00;
-  --sidebar-primary-foreground: #fcfcfc;
-  --sidebar-accent: color-mix(in oklab, #141414 8%, transparent);
-  --sidebar-accent-foreground: #141414;
-  --sidebar-selected: color-mix(in oklab, #141414 16%, transparent);
-  --sidebar-border: color-mix(in oklab, #141414 8%, transparent);
-  --sidebar-ring: #2778c1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: color-mix(in oklab, #212126 8%, transparent);
+  --sidebar-accent-foreground: #212126;
+  --sidebar-selected: color-mix(in oklab, #212126 16%, transparent);
+  --sidebar-border: color-mix(in oklab, #212126 8%, transparent);
+  --sidebar-ring: #372f35;
 
-  --chart-1: #141414;
-  --chart-2: color-mix(in oklab, #141414 60%, transparent);
+  --chart-1: #372f35;
+  --chart-2: color-mix(in oklab, #212126 60%, transparent);
   --chart-3: #f54e00;
   --chart-4: #007041;
   --chart-5: #2778c1;
@@ -569,7 +592,7 @@
   --brand: #f54e00;
   --brand-soft: color-mix(in oklab, #f54e00 12%, transparent);
   --rule: var(--border);
-  --rule-soft: color-mix(in oklab, #141414 4%, transparent);
+  --rule-soft: color-mix(in oklab, #212126 4%, transparent);
   --ferme: #007041;
   --planifie: #007041;
   --suggere: #a46700;
@@ -585,12 +608,13 @@
   background-color: var(--background);
   font-family: var(--font-sans);
   font-feature-settings: 'tnum' 1;
-  letter-spacing: -0.08px;
-  font-size: 0.8125rem;
+  letter-spacing: 0;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .theme-cursor ::selection {
-  background: color-mix(in oklab, #141414 14%, transparent);
+  background: color-mix(in oklab, var(--foreground) 14%, transparent);
 }
 
 /* JetBrains Mono est une police de code : elle active par défaut des ligatures
@@ -607,29 +631,34 @@
 .theme-cursor h1,
 .theme-cursor h2,
 .theme-cursor h3 {
-  font-weight: 500;
-  letter-spacing: -0.15px;
-  line-height: 1.2;
+  font-family: var(--font-heading);
+}
+/* SignIn 17/700 = titre de page. Labels de tiles = 13/510. */
+.theme-cursor h1 {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+  letter-spacing: -0.17px;
+}
+.theme-cursor h2,
+.theme-cursor h3 {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 510;
+  letter-spacing: 0;
 }
 
 .theme-cursor [data-slot='card'] {
-  /* Recipe Cursor Pro+ card :
-     rounded-[12px] bg-elevated shadow-[0_0_0_1px_var(--border-quaternary)] p-4 */
-  background-color: #fcfcfc; /* --bg-elevated */
+  /* Clerk Mosaic container : r6, drop 2 couches + ring 6 %. */
+  background-color: #ffffff;
   border-color: transparent;
   border-width: 0;
-  border-radius: 12px;
-  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 4%, transparent); /* --border-quaternary */
+  border-radius: 6px;
+  box-shadow: var(--cursor-card-shadow);
 }
 .theme-cursor [data-slot='card']:hover {
   border-color: transparent;
-  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 4%, transparent);
-}
-
-.theme-cursor [data-slot='button'] {
-  border-radius: 6px;
-  font-weight: 500;
-  letter-spacing: -0.08px;
+  box-shadow: var(--cursor-card-shadow);
 }
 
 /*
@@ -651,11 +680,11 @@
    défile pas sous son en-tête et l'ombre serait gratuite. */
 .theme-cursor table thead:has(tr.sticky) {
   box-shadow:
-    0 1px 0 0 color-mix(in oklab, #141414 8%, transparent),
+    0 1px 0 0 color-mix(in oklab, var(--foreground) 8%, transparent),
     0 4px 8px -6px #0000001f;
 }
 .theme-cursor table thead tr {
-  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent); /* border-quaternary */
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 4%, transparent); /* border-quaternary */
   background-color: transparent !important;
 }
 .theme-cursor table th {
@@ -664,16 +693,16 @@
   font-size: 0.75rem; /* text-xs */
   line-height: 1rem;
   font-weight: 400 !important; /* font-normal */
-  color: color-mix(in oklab, #141414 60%, transparent) !important; /* text-tertiary */
+  color: color-mix(in oklab, var(--foreground) 60%, transparent) !important; /* text-tertiary */
   border-radius: 0;
 }
 .theme-cursor table th[aria-sort] {
-  color: #141414 !important; /* sorted → primary */
+  color: var(--foreground) !important; /* sorted → primary */
   font-weight: 500 !important;
 }
 .theme-cursor table tbody tr {
   border-top: 0 !important;
-  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent) !important;
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 4%, transparent) !important;
   background-image: none !important;
   background-color: transparent !important;
 }
@@ -681,10 +710,14 @@
   border-bottom-width: 0 !important;
 }
 .theme-cursor table tbody tr:hover {
-  background-color: color-mix(in oklab, #141414 6%, transparent) !important; /* bg-quaternary */
+  background-color: color-mix(
+    in oklab,
+    var(--foreground) 6%,
+    transparent
+  ) !important; /* bg-quaternary */
 }
 .theme-cursor table tbody tr.ring-2 {
-  background-color: color-mix(in oklab, #141414 4%, transparent) !important;
+  background-color: color-mix(in oklab, var(--foreground) 4%, transparent) !important;
 }
 /* ── Colonnes figées (has-sticky, cf. DataTable stickyCols) ──
    border-collapse:separate OBLIGATOIRE : en collapse, les cellules sticky
@@ -700,7 +733,7 @@
   border-bottom: 0 !important;
 }
 .theme-cursor table.has-sticky th {
-  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 4%, transparent);
 }
 .theme-cursor table.has-sticky tbody tr {
   border-bottom: 0 !important;
@@ -709,7 +742,7 @@
   border-bottom-width: 0 !important;
 }
 .theme-cursor table.has-sticky td {
-  border-bottom: 1px solid color-mix(in oklab, #141414 4%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 4%, transparent);
 }
 /* Cellules figées : fond opaque (même plan que la Card) pour masquer le
    contenu qui défile dessous, et synchro avec hover/sélection des lignes. */
@@ -718,10 +751,10 @@
   background-color: #fcfcfc !important;
 }
 .theme-cursor table.has-sticky tbody tr:hover td.sticky {
-  background-color: color-mix(in oklab, #141414 6%, transparent) !important;
+  background-color: color-mix(in oklab, var(--foreground) 6%, transparent) !important;
 }
 .theme-cursor table.has-sticky tbody tr.ring-2 td.sticky {
-  background-color: color-mix(in oklab, #141414 4%, transparent) !important;
+  background-color: color-mix(in oklab, var(--foreground) 4%, transparent) !important;
 }
 /* Nomenclature fiche OF : thead opaque (collapse poreux, CSSWG #3136) et
    survol 12 % — le 6 % global est illisible sur une ligne d'article. */
@@ -729,7 +762,7 @@
   background-color: #fcfcfc !important;
 }
 .theme-cursor table.of-detail-bom tbody tr:hover td {
-  background-color: color-mix(in oklab, #141414 12%, transparent) !important;
+  background-color: color-mix(in oklab, var(--foreground) 12%, transparent) !important;
 }
 /* La td pose l'encre secondaire (74 %). Sans ces overrides, rupture / CQ /
    OK hériteraient du gris et le statut disparaîtrait. */
@@ -749,11 +782,11 @@
   vertical-align: top;
   font-size: 0.8125rem; /* text-base produit */
   line-height: 1.125rem;
-  color: color-mix(in oklab, #141414 74%, transparent); /* text-secondary défaut */
+  color: color-mix(in oklab, var(--foreground) 74%, transparent); /* text-secondary défaut */
 }
 .theme-cursor table td .text-foreground,
 .theme-cursor table td a.text-foreground {
-  color: #141414; /* text-primary quand emphase */
+  color: var(--foreground); /* text-primary quand emphase */
 }
 
 .theme-cursor [aria-label="Fil d'Ariane"] .font-semibold,
@@ -764,15 +797,15 @@
 
 .theme-cursor [data-sidebar='menu-button'][data-active],
 .theme-cursor [data-slot='sidebar-menu-button'][data-active] {
-  background-color: color-mix(in oklab, #141414 16%, transparent) !important;
-  color: #141414 !important;
+  background-color: color-mix(in oklab, var(--foreground) 16%, transparent) !important;
+  color: var(--foreground) !important;
   border-color: transparent !important;
   box-shadow: none !important;
   border-radius: 6px !important;
 }
 .theme-cursor [data-sidebar='sidebar'] {
   background-color: #f3f3f3;
-  border-color: color-mix(in oklab, #141414 8%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 .theme-cursor [data-sidebar='menu-button'] {
   border-radius: 6px;
@@ -780,13 +813,13 @@
 
 /* ── Lot 1 — filets & séparateurs ─────────────────────────── */
 .theme-cursor [data-slot='separator'] {
-  background-color: color-mix(in oklab, #141414 8%, transparent); /* --border-tertiary */
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent); /* --border-tertiary */
 }
 .theme-cursor [data-slot='field-separator'],
 .theme-cursor [data-slot='sidebar-separator'],
 .theme-cursor [data-slot='select-separator'],
 .theme-cursor [data-slot='combobox-separator'] {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
 /* ── Lot 2 — Badge & Pill ─────────────────────────────────── */
@@ -801,17 +834,17 @@
   letter-spacing: 0.07px;
 }
 .theme-cursor [data-slot='badge'][data-variant='default'] {
-  background-color: #141414;
-  color: #fcfcfc;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 .theme-cursor [data-slot='badge'][data-variant='secondary'] {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
-  color: color-mix(in oklab, #141414 74%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
 }
 .theme-cursor [data-slot='badge'][data-variant='outline'] {
   background-color: transparent;
-  color: #141414;
-  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent);
 }
 .theme-cursor [data-slot='badge'][data-variant='success'] {
   background-color: color-mix(in oklab, #007041 12%, transparent);
@@ -831,22 +864,17 @@
   border-radius: 6px;
   border-color: transparent;
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.08px;
+  font-weight: 510;
+  letter-spacing: 0;
   transition: background-color 100ms ease;
 }
-/* Hauteurs relevées d'un palier (24 → 28 pour le défaut). Deux raisons, dans
-   cet ordre : le palier 20 px passait sous le minimum de cible WCAG 2.2 AA
-   (2.5.8 : 24 × 24 px, et l'exemption d'espacement ne joue pas avec des chips
-   à 4 px d'écart) ; et 28 px est la hauteur que la §07 du design system
-   déclare comme défaut pour « bouton, input, select » depuis le début — la
-   rangée d'outils était le seul endroit à s'en écarter. */
+/* Clerk : sm = 24, défaut = 32 (plus de palier 28). */
 .theme-cursor [data-slot='pill'][data-size='sm'] {
   height: 24px;
   padding-inline: 10px;
 }
 .theme-cursor [data-slot='pill'][data-size='default'] {
-  height: 28px;
+  height: 32px;
   padding-inline: 12px;
 }
 .theme-cursor [data-slot='pill'][data-size='lg'] {
@@ -856,8 +884,8 @@
 .theme-cursor [data-slot='pill'][data-variant='default'],
 .theme-cursor [data-slot='pill'][data-variant='outline'] {
   background-color: #fcfcfc;
-  color: #141414;
-  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent);
 }
 /* Un contrôle ENGAGÉ (vue filtrée) est le seul endroit de la rangée où la
    marque a quelque chose à dire : c'est l'état qui change la lecture de tout
@@ -877,11 +905,11 @@
 .theme-cursor [data-slot='pill'][data-variant='ghost'],
 .theme-cursor [data-slot='pill'][data-variant='soft'] {
   background-color: transparent;
-  color: color-mix(in oklab, #141414 74%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
   box-shadow: none;
 }
 .theme-cursor [data-slot='pill']:hover {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
 /* ── Lot 3 — Tooltip ──────────────────────────────────────── */
@@ -897,12 +925,12 @@
 /* ── Lot 4 — overlays ─────────────────────────────────────── */
 .theme-cursor [data-slot='dialog-content'],
 .theme-cursor [data-slot='alert-dialog-content'] {
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   gap: 12px;
   background-color: #fcfcfc;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, #141414 8%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent),
     0 0 2px 0 #0000000f,
     0 6px 16px 0 #0000000f; /* --color-theme-shadow-dialog */
 }
@@ -917,7 +945,7 @@
   line-height: 22px;
   font-weight: 500;
   letter-spacing: -0.15px;
-  color: #141414;
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='dialog-description'],
 .theme-cursor [data-slot='alert-dialog-description'],
@@ -925,18 +953,18 @@
   font-size: 13px;
   line-height: 18px;
   letter-spacing: -0.08px;
-  color: color-mix(in oklab, #141414 74%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
 }
 .theme-cursor [data-slot='dialog-footer'],
 .theme-cursor [data-slot='alert-dialog-footer'] {
   background-color: transparent;
-  border-top-color: color-mix(in oklab, #141414 4%, transparent);
+  border-top-color: color-mix(in oklab, var(--foreground) 4%, transparent);
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
 }
 .theme-cursor [data-slot='sheet-content'] {
   background-color: #fcfcfc;
-  border-color: color-mix(in oklab, #141414 8%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
   box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
 }
 .theme-cursor [data-slot='sheet-content'][data-side='right'],
@@ -956,14 +984,14 @@
   line-height: 22px;
   font-weight: 500;
   letter-spacing: -0.15px;
-  color: #141414;
+  color: var(--foreground);
 }
 
 /* ── Lot 5 — menus ────────────────────────────────────────── */
 .theme-cursor [data-slot='select-content'],
 .theme-cursor [data-slot='combobox-content'] {
   border-radius: 8px;
-  border-color: color-mix(in oklab, #141414 8%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
   background-color: #fcfcfc;
   padding: 4px;
   box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
@@ -976,17 +1004,17 @@
   font-size: 13px;
   line-height: 18px;
   letter-spacing: -0.08px;
-  color: color-mix(in oklab, #141414 74%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
 }
 .theme-cursor [data-slot='select-item'][data-highlighted],
 .theme-cursor [data-slot='combobox-item'][data-highlighted] {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
-  color: #141414;
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='select-item'][data-selected],
 .theme-cursor [data-slot='combobox-item'][data-selected] {
-  background-color: color-mix(in oklab, #141414 16%, transparent);
-  color: #141414;
+  background-color: color-mix(in oklab, var(--foreground) 16%, transparent);
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='select-label'],
 .theme-cursor [data-slot='combobox-label'] {
@@ -995,14 +1023,16 @@
   line-height: 14px;
   font-weight: 500;
   letter-spacing: 0.07px;
-  color: color-mix(in oklab, #141414 60%, transparent);
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
 }
 .theme-cursor [data-slot='select-trigger'] {
+  height: 32px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
   font-size: 13px;
-  letter-spacing: -0.08px;
+  letter-spacing: 0;
+  padding: 6px 12px;
 }
 
 /* ── Lot 6 — Switch ───────────────────────────────────────── */
@@ -1010,10 +1040,10 @@
   height: 16px;
   width: 28px;
   border-width: 0;
-  background-color: color-mix(in oklab, #141414 20%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
 }
 .theme-cursor [data-slot='switch'][data-checked] {
-  background-color: #141414;
+  background-color: var(--primary);
 }
 .theme-cursor [data-slot='switch-thumb'] {
   height: 12px;
@@ -1029,16 +1059,16 @@
 /* ── Lot 7 — états & conversation ─────────────────────────── */
 /* Le brand orange n'a pas à signaler une attente : elle est neutre. */
 .theme-cursor [data-slot='spinner'] {
-  color: color-mix(in oklab, #141414 60%, transparent);
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
 }
 .theme-cursor [data-slot='skeleton'],
 .theme-cursor [data-slot='skeleton-card'] {
-  background-color: color-mix(in oklab, #141414 6%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
   border-radius: 6px;
   animation-duration: 2s;
 }
 .theme-cursor [data-slot='loading-state'] {
-  color: color-mix(in oklab, #141414 74%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
 }
 .theme-cursor [data-slot='bubble'] {
   border-radius: 12px;
@@ -1060,7 +1090,7 @@
   font-size: 11px;
   line-height: 14px;
   font-weight: 400;
-  color: color-mix(in oklab, #141414 60%, transparent);
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
 }
 .theme-cursor [data-slot='calendar'] table td {
   padding: 0;
@@ -1069,30 +1099,30 @@
 /* ── Lot 9 — champs de saisie ─────────────────────────────── */
 .theme-cursor [data-slot='input'],
 .theme-cursor [data-slot='sidebar-input'] {
-  height: 28px;
+  height: 32px;
   border-radius: 6px;
   border-width: 1px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
-  padding: 0 8px;
+  padding: 6px 12px;
   font-size: 13px;
   line-height: 18px;
-  letter-spacing: -0.08px;
+  letter-spacing: 0;
   transition: border-color 100ms ease;
 }
 .theme-cursor [data-slot='textarea'] {
   min-height: 64px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
-  padding: 6px 8px;
+  padding: 8px 12px;
   font-size: 13px;
   line-height: 18px;
-  letter-spacing: -0.08px;
+  letter-spacing: 0;
 }
 .theme-cursor [data-slot='input']:hover,
 .theme-cursor [data-slot='textarea']:hover {
-  border-color: color-mix(in oklab, #141414 20%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 20%, transparent);
 }
 .theme-cursor [data-slot='input']:focus-visible,
 .theme-cursor [data-slot='textarea']:focus-visible {
@@ -1109,31 +1139,32 @@
 .theme-cursor [data-slot='label'],
 .theme-cursor [data-slot='field-label'],
 .theme-cursor [data-slot='text-field-label'] {
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
-  color: #141414;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 510;
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='field-description'] {
-  font-size: 12px;
-  line-height: 16px;
-  color: color-mix(in oklab, #141414 60%, transparent);
+  font-size: 13px;
+  line-height: 18px;
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
 }
 .theme-cursor [data-slot='field-error'] {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 13px;
+  line-height: 18px;
   color: #be1744;
 }
 .theme-cursor [data-slot='field-legend'] {
   font-size: 13px;
   line-height: 18px;
-  font-weight: 500;
-  letter-spacing: -0.08px;
-  color: #141414;
+  font-weight: 510;
+  letter-spacing: 0;
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='input-group'] {
+  height: 32px !important;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
 }
 /* Correction documentée : le contrôle interne d'InputGroup porte
@@ -1142,157 +1173,164 @@
    original « [data-slot='input-group'] [data-slot='input'] » ne matchait
    rien et laissait le contrôle à 56 px dans un groupe de 32 px. */
 .theme-cursor [data-slot='input-group'] [data-slot='input-group-control'] {
-  height: 26px;
+  height: 100% !important;
   border: 0;
   box-shadow: none;
   background-color: transparent;
+  font-size: 13px !important;
+  line-height: 18px;
+  font-weight: 510;
 }
 
-/* ── Lot 10 — boutons ─────────────────────────────────────── */
+/* ── Lot 10 — boutons Clerk : 32 / 24, 13/18, poids 510.
+   CVA Airbnb (h-12, px-6, text-sm, rounded-[8px]) reste pour .theme-airbnb.
+   !important : les utilitaires Tailwind gagnent sinon sur la hauteur. */
 .theme-cursor [data-slot='button'] {
-  border-radius: 6px;
+  border-radius: 6px !important;
   border-color: transparent;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 500;
-  letter-spacing: -0.08px;
-  gap: 6px;
+  background-clip: border-box;
+  font-family: var(--font-sans);
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 510 !important;
+  letter-spacing: 0 !important;
+  gap: 4px;
   transition:
-    background-color 100ms ease,
-    color 100ms ease;
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease;
 }
-/* Cursor ne fait pas rebondir ses boutons. */
 .theme-cursor [data-slot='button']:active {
   transform: none;
   scale: 1;
 }
+.theme-cursor [data-slot='button']:focus-visible {
+  outline: none;
+}
 
-/* Hauteurs — cible produit : xs 20 · sm 24 · default 28 · lg 32 */
-/* `xs` garde son padding serré, pas sa hauteur : 20 px était sous le minimum
-   de cible WCAG 2.5.8. Il ne se distingue plus de `sm` que par la largeur. */
-.theme-cursor [data-slot='button'][data-size='xs'] {
-  height: 24px;
-  padding-inline: 8px;
-}
+.theme-cursor [data-slot='button'][data-size='xs'],
 .theme-cursor [data-slot='button'][data-size='sm'] {
-  height: 24px;
-  padding-inline: 10px;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 4px 10px !important;
 }
-.theme-cursor [data-slot='button'][data-size='default'] {
-  height: 28px;
-  padding-inline: 12px;
-}
+.theme-cursor [data-slot='button'][data-size='default'],
 .theme-cursor [data-slot='button'][data-size='lg'] {
-  height: 32px;
-  padding-inline: 14px;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 6px 12px !important;
 }
-.theme-cursor [data-slot='button'][data-size='icon-xs'] {
-  height: 24px;
-  width: 24px;
-  padding: 0;
-}
+.theme-cursor [data-slot='button'][data-size='icon-xs'],
 .theme-cursor [data-slot='button'][data-size='icon-sm'] {
-  height: 24px;
-  width: 24px;
-  padding: 0;
+  height: 24px !important;
+  width: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
 }
-.theme-cursor [data-slot='button'][data-size='icon'] {
-  height: 28px;
-  width: 28px;
-  padding: 0;
-}
+.theme-cursor [data-slot='button'][data-size='icon'],
 .theme-cursor [data-slot='button'][data-size='icon-lg'] {
-  height: 32px;
-  width: 32px;
-  padding: 0;
+  height: 32px !important;
+  width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
 }
 .theme-cursor [data-slot='button'] svg:not([class*='size-']) {
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
 }
 
-/* Variantes */
 .theme-cursor [data-slot='button'][data-variant='default'] {
-  background-color: #141414; /* --cursor-button-background */
-  color: #fcfcfc; /* --cursor-button-foreground */
+  background-color: var(--primary);
+  background-image: var(--cursor-btn-shine);
+  color: var(--primary-foreground);
+  box-shadow: var(--cursor-btn-shadow-primary);
 }
 .theme-cursor [data-slot='button'][data-variant='default']:hover {
-  background-color: color-mix(in oklab, #f8f8f8 10%, #141414);
+  background-color: color-mix(in oklab, #f8f8f8 10%, var(--primary));
+  background-image: var(--cursor-btn-shine);
 }
-.theme-cursor [data-slot='button'][data-variant='secondary'] {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
-  color: #141414;
+.theme-cursor [data-slot='button'][data-variant='default']:focus-visible {
+  box-shadow:
+    var(--cursor-btn-shadow-primary),
+    0 0 0 3px color-mix(in oklab, var(--foreground) 22%, transparent);
 }
-.theme-cursor [data-slot='button'][data-variant='secondary']:hover {
-  background-color: color-mix(in oklab, #141414 12%, transparent);
-}
+.theme-cursor [data-slot='button'][data-variant='secondary'],
 .theme-cursor [data-slot='button'][data-variant='outline'] {
   background-color: #fcfcfc;
-  color: #141414;
-  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+  background-image: none;
+  color: var(--foreground);
+  box-shadow: var(--cursor-btn-shadow-secondary);
 }
+.theme-cursor [data-slot='button'][data-variant='secondary']:hover,
 .theme-cursor [data-slot='button'][data-variant='outline']:hover {
-  background-color: color-mix(in oklab, #141414 6%, transparent);
+  background-color: #f8f8f8;
 }
-/* Split button : un seul chrome, filet interne entre les deux actions. */
+.theme-cursor [data-slot='button'][data-variant='destructive'] {
+  background-color: var(--destructive);
+  background-image: var(--cursor-btn-shine);
+  color: #fcfcfc;
+  box-shadow: var(--cursor-btn-shadow-danger);
+}
+.theme-cursor [data-slot='button'][data-variant='destructive']:hover {
+  background-color: color-mix(in oklab, #f8f8f8 12%, var(--destructive));
+  background-image: var(--cursor-btn-shine);
+  color: #fcfcfc;
+}
 .theme-cursor [data-slot='button-group'] {
   display: inline-flex;
   overflow: hidden;
   border-radius: 6px;
-  box-shadow: 0 0 0 1px color-mix(in oklab, #141414 12%, transparent);
+  box-shadow: var(--cursor-btn-shadow-secondary);
 }
-.theme-cursor [data-slot='button-group'] [data-slot='button'][data-variant='outline'] {
+.theme-cursor [data-slot='button-group'] [data-slot='button'][data-variant='outline'],
+.theme-cursor [data-slot='button-group'] [data-slot='button'][data-variant='secondary'] {
   box-shadow: none;
   border-radius: 0;
 }
 .theme-cursor [data-slot='button'][data-variant='ghost'] {
   background-color: transparent;
-  color: color-mix(in oklab, #141414 74%, transparent);
+  background-image: none;
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
+  box-shadow: none;
 }
 .theme-cursor [data-slot='button'][data-variant='ghost']:hover {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
-  color: #141414;
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='button'][data-variant='link'] {
+  background-image: none;
+  box-shadow: none;
   color: #2778c1;
   padding-inline: 0;
   height: auto;
 }
 
 /* ── Lot 11 — barres d'outils & recherche ─────────────────── */
-/* Hauteur unique 28 px sur toute la rangée : segmented (24 + 2×2 de padding),
-   pill, recherche, refresh et combobox de portée. Quatre hauteurs différentes
-   sur une même ligne se lisent comme un défaut d'alignement, jamais comme une
-   convention — même quand chaque valeur est défendable isolément.
-   28 et non 24 : c'est le palier « base » de la §07 (« bouton, input, select —
-   défaut »), et la rangée d'outils était le dernier endroit à s'en écarter.
-   Le vieux `toolbar-pill` était déjà à 28 — il n'était pas divergent, il avait
-   raison avant tout le monde. */
-/* Piste CREUSÉE, pouce ÉLEVÉ. La recette d'origine faisait l'inverse — piste
-   blanche, segment actif en lavis gris — donc l'état sélectionné était plus
-   sombre que le fond : un trou, pas un relief. Le contraste passe par
-   l'élévation, comme partout ailleurs dans le thème. */
+/* Rangée d'outils : même palier que boutons/inputs Clerk (32).
+   Piste 32 = padding 2 + segment 28. Compact (flat / sm) reste 24. */
 .theme-cursor [data-slot='toolbar-segmented'] {
+  height: 32px !important;
   border-radius: 6px;
   border-color: transparent;
-  background-color: color-mix(in oklab, #141414 6%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
   padding: 2px;
 }
 /* Chips libres (panneau de filtres) : pas de boîte, chaque chip porte son état. */
 .theme-cursor [data-slot='toolbar-segmented'][data-flat='true'] {
+  height: auto !important;
   border-color: transparent;
   background-color: transparent;
   padding: 0;
   gap: 4px;
 }
 .theme-cursor [data-slot='toolbar-segmented'][data-flat='true'] [data-slot='toolbar-segment'] {
-  height: 24px;
+  height: 24px !important;
   padding-inline: 10px;
 }
 .theme-cursor
   [data-slot='toolbar-segmented'][data-flat='true']
   [data-slot='toolbar-segment']:not([data-active='true']):hover {
-  background-color: color-mix(in oklab, #141414 6%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
 }
 /* La recette d'origine est un micro-label Airbnb : mono, 10 px, capitales,
    tracking large. Sous cursor, ces trois-là restaient et le contrôle le plus
@@ -1307,64 +1345,64 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 24px;
-  padding-block: 0;
+  height: 28px !important;
+  padding-block: 0 !important;
   padding-inline: 10px;
   border-radius: 4px;
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 510;
   line-height: 1;
   text-transform: none;
-  letter-spacing: -0.08px;
-  color: color-mix(in oklab, #141414 60%, transparent); /* tertiaire au repos */
+  letter-spacing: 0;
+  color: color-mix(in oklab, var(--foreground) 60%, transparent); /* tertiaire au repos */
 }
 .theme-cursor [data-slot='toolbar-segment']:not([data-active='true']):hover {
-  color: #141414;
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='toolbar-segment'][data-active='true'] {
   background-color: #fcfcfc;
-  color: #141414;
+  color: var(--foreground);
   box-shadow:
     0 1px 2px 0 rgba(20, 20, 20, 0.08),
-    0 0 0 1px color-mix(in oklab, #141414 6%, transparent);
+    0 0 0 1px color-mix(in oklab, var(--foreground) 6%, transparent);
 }
 /* Dans un jeu de chips libres, le pouce élevé n'a pas de piste où se détacher :
    l'état actif redevient un lavis, avec l'encre pleine pour le porter. */
 .theme-cursor
   [data-slot='toolbar-segmented'][data-flat='true']
   [data-slot='toolbar-segment'][data-active='true'] {
-  background-color: color-mix(in oklab, #141414 10%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 10%, transparent);
   box-shadow: none;
 }
 .theme-cursor [data-slot='toolbar-search'] {
-  height: 28px;
+  height: 32px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
 }
 /* Sans `data-slot`, ce bouton était le seul élément que les règles cursor ne
    pouvaient pas atteindre : il restait en `rounded-full` 32 px, seule capsule
    d'une rangée de rectangles à 6 px. */
 .theme-cursor [data-slot='toolbar-refresh'] {
-  height: 28px;
+  height: 32px;
   padding-inline: 12px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
 }
 /* Icône seule : carré 24×24, padding nul, et l'icône CENTRÉE. Le composant ne
    porte que `items-center` (axe vertical) : sans `justify-content`, l'icône se
    posait au départ de la boîte, décalée à gauche dans son carré. */
 .theme-cursor [data-slot='toolbar-refresh']:not([data-labeled]) {
-  width: 28px;
+  width: 32px;
   padding: 0;
   justify-content: center;
   gap: 0;
 }
 .theme-cursor [data-slot='toolbar-refresh']:hover:not(:disabled) {
-  background-color: color-mix(in oklab, #141414 8%, transparent);
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
 }
 .theme-cursor [data-slot='toolbar-search'] input {
   font-size: 13px;
@@ -1379,11 +1417,11 @@
    composant, qui sert aussi les formulaires. */
 .theme-cursor [data-slot='toolbar-row'] [data-slot='input-group'],
 .theme-cursor [data-slot='toolbar'] [data-slot='input-group'] {
-  height: 28px;
+  height: 32px;
 }
 .theme-cursor [data-slot='toolbar-row'] [data-slot='input-group'] [data-slot='input-group-control'],
 .theme-cursor [data-slot='toolbar'] [data-slot='input-group'] [data-slot='input-group-control'] {
-  height: 26px;
+  height: 100%;
   font-size: 13px;
 }
 /* Les boutons d'addon (chevron, effacer) sont en `size-6` : 24 px, ce qui tient
@@ -1398,9 +1436,9 @@
   width: 24px;
 }
 .theme-cursor [data-slot='search-bar'] {
-  height: 36px;
+  height: 32px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
   padding-left: 12px;
   padding-right: 4px;
@@ -1409,7 +1447,7 @@
 .theme-cursor [data-slot='search-bar'] label > span:first-child {
   font-size: 11px;
   font-weight: 500;
-  color: color-mix(in oklab, #141414 60%, transparent);
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
 }
 
 /* ── Pages — toolbar maison ─────────────────────────── */
@@ -1418,31 +1456,32 @@
    retouche de classe dans le composant (partagé avec les pages Airbnb) ;
    le retarget se fait ici, via les crochets data-slot additifs. */
 .theme-cursor [data-slot='toolbar-seg'] {
+  height: 32px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
   padding: 2px;
 }
 .theme-cursor [data-slot='toolbar-seg'] button {
-  min-height: 24px;
-  height: 24px;
+  min-height: 0;
+  height: 100%;
   border-radius: 4px;
   padding-inline: 10px;
   padding-block: 0;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -0.08px;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: 0;
 }
 .theme-cursor [data-slot='toolbar-seg'] button[data-active='true'] {
-  background-color: color-mix(in oklab, #141414 16%, transparent);
-  color: #141414;
+  background-color: color-mix(in oklab, var(--foreground) 16%, transparent);
+  color: var(--foreground);
 }
 .theme-cursor [data-slot='toolbar-seg'] button:not([data-active='true']) {
   background-color: transparent;
-  color: color-mix(in oklab, #141414 74%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, transparent);
 }
 .theme-cursor [data-slot='toolbar-seg'] button:not([data-active='true']):hover {
-  color: #141414;
+  color: var(--foreground);
 }
 /* Cursor ne fait pas rebondir ses boutons. */
 .theme-cursor [data-slot='toolbar-seg'] button:active {
@@ -1450,21 +1489,21 @@
   scale: 1;
 }
 .theme-cursor [data-slot='toolbar-pill'] {
-  height: 28px;
-  min-height: 28px;
+  height: 32px;
+  min-height: 32px;
   border-radius: 6px;
-  border-color: color-mix(in oklab, #141414 12%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
   background-color: #fcfcfc;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 510;
   transition:
     background-color 100ms ease,
     border-color 100ms ease,
     color 100ms ease;
 }
 .theme-cursor [data-slot='toolbar-pill']:hover {
-  border-color: color-mix(in oklab, #141414 12%, transparent);
-  background-color: color-mix(in oklab, #141414 8%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 .theme-cursor [data-slot='toolbar-pill']:active {
   transform: none;
@@ -1472,18 +1511,34 @@
 }
 .theme-cursor [data-slot='popover-content'],
 .theme-cursor [data-slot='filter-menu-panel'] {
-  border-radius: 8px;
-  border-color: color-mix(in oklab, #141414 8%, transparent);
+  border-radius: 6px;
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
   background-color: #fcfcfc;
   box-shadow: 0 8px 16px 0 rgba(20, 20, 20, 0.12);
 }
 
-/* ── Dashboard — filet léger sur les cartes KPI ────────────── */
-/* La recette Card pose un anneau 4 % en ombre, sans bordure. Les cartes du
-   dashboard portent un vrai filet de 1 px (--border-tertiary) par-dessus. */
+/* ── Dashboard — degré calé visuellement (13/08/2026).
+   SignIn isolé = 20 % / 35 px : nappe grise en grille.
+   Ring + 6 % / 28 px : fade, halo invisible sur #fff (pixels 253).
+   Ici : mêmes 3 couches, 8 % + 15 % / 20 px — lift lisible, scène
+   blanche dans le gap (halo meurt avant la voisine). */
+.theme-cursor .dashboard-tile {
+  padding: 8px;
+}
+.theme-cursor .dashboard-tile-chrome {
+  overflow: hidden;
+  border-radius: 6px;
+  background-color: #ffffff;
+  box-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.08),
+    0 10px 20px -4px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
 .theme-cursor [data-slot='card'].dashboard-card {
-  border-width: 1px;
-  border-color: color-mix(in oklab, #141414 8%, transparent); /* --border-tertiary */
+  border-width: 0;
+  border-color: transparent;
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 /* Distinction test/prod — fidèle à la palette Airbnb.
@@ -1709,6 +1764,23 @@
   min-height: 44px;
 }
 
+.dashboard-grid:is([data-grid-mode='tablet'], [data-grid-mode='mobile'])
+  [data-slot='toolbar-pill'] {
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  .theme-cursor [data-slot='sidebar-trigger'] {
+    height: 44px;
+    width: 44px;
+  }
+
+  .theme-cursor .dashboard-masthead-actions [data-slot='button'] {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
 .dashboard-grid[data-grid-mode='mobile'] [data-slot='data-table'] {
   overflow: visible;
 }
@@ -1931,7 +2003,8 @@
 /* Séries métier — repli sur les tokens de statut du thème courant. */
 :root,
 .theme-airbnb,
-.theme-cursor {
+.theme-cursor,
+.theme-clerk {
   --serie-ferme: var(--ferme);
   --serie-suggere: var(--suggere);
   --serie-reel: var(--foreground);
@@ -1978,4 +2051,317 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Thème « Clerk Mosaic » — kit community
+   https://www.figma.com/design/X95Uac1JOovDtKsSlW0SAg
+   Tokens lus sur Button (33:718), Input (33:719), Container (1192:3660).
+   Scope vitrine /design-system uniquement : aucune page métier.
+   ════════════════════════════════════════════════════════════ */
+.theme-clerk {
+  --clerk-primary: #372f35;
+  --clerk-ink: #212126;
+  --clerk-muted: #747686;
+  --clerk-canvas: #f7f7f7;
+  --clerk-surface: #ffffff;
+  --clerk-danger: #ef4444;
+  --clerk-radius: 6px;
+  --clerk-shadow-primary:
+    inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 1px 1px rgba(0, 0, 0, 0.24),
+    0 2px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px #372f35;
+  --clerk-shadow-secondary:
+    0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(0, 0, 0, 0.02), 0 2px 3px -1px rgba(0, 0, 0, 0.08);
+  --clerk-shadow-danger:
+    inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 1px 1px rgba(0, 0, 0, 0.08),
+    0 2px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px #ef4444;
+  --clerk-shadow-card:
+    0 5px 15px rgba(0, 0, 0, 0.08), 0 15px 35px -5px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  --clerk-shadow-input: 0 0 1px rgba(0, 0, 0, 0.11), 0 0 0 1px rgba(0, 0, 0, 0.11);
+  --clerk-shine: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+
+  --primary: #372f35;
+  --primary-foreground: #ffffff;
+  --ring: #372f35;
+  --color-rausch: #372f35;
+  --color-rausch-active: #4a4248;
+  --color-rausch-soft: color-mix(in oklab, #372f35 12%, transparent);
+  --color-rausch-logo: #372f35;
+  --color-rausch-disabled: color-mix(in oklab, #372f35 18%, #f7f7f7);
+  --color-babu: #007041;
+  --color-arches: #ef4444;
+  --color-hof: #212126;
+  --color-foggy: #747686;
+
+  --background: #f7f7f7;
+  --foreground: #212126;
+  --card: #ffffff;
+  --card-foreground: #212126;
+  --popover: #ffffff;
+  --popover-foreground: #212126;
+
+  --secondary: #ffffff;
+  --secondary-foreground: #212126;
+  --muted: #f7f7f7;
+  --muted-foreground: #747686;
+  --accent: color-mix(in oklab, #372f35 6%, transparent);
+  --accent-foreground: #212126;
+
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.11);
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --radius: 0.375rem; /* 6px */
+
+  --shadow-xs: var(--clerk-shadow-secondary);
+  --shadow-sm: var(--clerk-shadow-secondary);
+  --shadow-float: var(--clerk-shadow-card);
+  --shadow-overlay: 0 15px 35px -5px rgba(0, 0, 0, 0.2);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Variable', sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --sidebar: #f0eef0;
+  --sidebar-canvas: #f7f7f7;
+  --sidebar-foreground: #212126;
+  --sidebar-primary: #372f35;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: color-mix(in oklab, #372f35 8%, transparent);
+  --sidebar-accent-foreground: #212126;
+  --sidebar-selected: color-mix(in oklab, #372f35 14%, transparent);
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #372f35;
+
+  --chart-1: #372f35;
+  --chart-2: #747686;
+  --chart-3: #ef4444;
+  --chart-4: #007041;
+  --chart-5: #42434d;
+
+  --brand: #372f35;
+  --brand-soft: color-mix(in oklab, #372f35 12%, transparent);
+  --rule: var(--border);
+  --rule-soft: rgba(0, 0, 0, 0.06);
+  --ferme: #007041;
+  --planifie: #007041;
+  --suggere: #a46700;
+  --warning: #a46700;
+  --color-brand: #372f35;
+  --color-brand-soft: color-mix(in oklab, #372f35 12%, transparent);
+  --color-planifie: #007041;
+  --color-suggere: #a46700;
+  --color-ferme: #007041;
+  --color-warning: #a46700;
+
+  --serie-planifie: color-mix(in oklab, #007041 42%, transparent);
+  --serie-induit: color-mix(in oklab, #a46700 38%, transparent);
+
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.theme-clerk ::selection {
+  background: color-mix(in oklab, #372f35 16%, transparent);
+}
+
+.theme-clerk h1,
+.theme-clerk h2,
+.theme-clerk h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.theme-clerk [data-slot='card'] {
+  background-color: var(--clerk-surface);
+  border-color: transparent;
+  border-width: 0;
+  border-radius: var(--clerk-radius);
+  box-shadow: var(--clerk-shadow-card);
+}
+
+.theme-clerk [data-slot='button'] {
+  position: relative;
+  border-radius: var(--clerk-radius);
+  border-color: transparent;
+  background-clip: border-box;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 510;
+  letter-spacing: 0;
+  gap: 4px;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease;
+}
+.theme-clerk [data-slot='button']:active {
+  transform: none;
+  scale: 1;
+}
+.theme-clerk [data-slot='button']:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--clerk-shadow-primary),
+    0 0 0 3px color-mix(in oklab, #372f35 22%, transparent);
+}
+
+.theme-clerk [data-slot='button'][data-size='xs'],
+.theme-clerk [data-slot='button'][data-size='sm'] {
+  height: 24px;
+  padding: 4px 10px;
+}
+.theme-clerk [data-slot='button'][data-size='default'],
+.theme-clerk [data-slot='button'][data-size='lg'] {
+  height: 32px;
+  padding: 6px 12px;
+}
+.theme-clerk [data-slot='button'][data-size='icon-xs'],
+.theme-clerk [data-slot='button'][data-size='icon-sm'] {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+}
+.theme-clerk [data-slot='button'][data-size='icon'],
+.theme-clerk [data-slot='button'][data-size='icon-lg'] {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+}
+.theme-clerk [data-slot='button'] svg:not([class*='size-']) {
+  height: 16px;
+  width: 16px;
+  opacity: 0.6;
+}
+
+.theme-clerk [data-slot='button'][data-variant='default'] {
+  background-color: var(--clerk-primary);
+  background-image: var(--clerk-shine);
+  color: #ffffff;
+  box-shadow: var(--clerk-shadow-primary);
+}
+.theme-clerk [data-slot='button'][data-variant='default']:hover {
+  background-color: #4a4248;
+  background-image: var(--clerk-shine);
+}
+.theme-clerk [data-slot='button'][data-variant='secondary'],
+.theme-clerk [data-slot='button'][data-variant='outline'] {
+  background-color: var(--clerk-surface);
+  background-image: none;
+  color: var(--clerk-ink);
+  box-shadow: var(--clerk-shadow-secondary);
+}
+.theme-clerk [data-slot='button'][data-variant='secondary']:hover,
+.theme-clerk [data-slot='button'][data-variant='outline']:hover {
+  background-color: #f7f7f7;
+}
+.theme-clerk [data-slot='button'][data-variant='ghost'] {
+  background-color: transparent;
+  background-image: none;
+  color: var(--clerk-ink);
+  box-shadow: none;
+}
+.theme-clerk [data-slot='button'][data-variant='ghost']:hover {
+  background-color: color-mix(in oklab, #372f35 6%, transparent);
+}
+.theme-clerk [data-slot='button'][data-variant='destructive'] {
+  background-color: var(--clerk-danger);
+  background-image: var(--clerk-shine);
+  color: #ffffff;
+  box-shadow: var(--clerk-shadow-danger);
+}
+.theme-clerk [data-slot='button'][data-variant='destructive']:hover {
+  background-color: #f87171;
+  background-image: var(--clerk-shine);
+  color: #ffffff;
+}
+.theme-clerk [data-slot='button'][data-variant='link'] {
+  background-image: none;
+  box-shadow: none;
+  color: var(--clerk-primary);
+  height: auto;
+  padding-inline: 0;
+}
+
+.theme-clerk [data-slot='input'],
+.theme-clerk [data-slot='sidebar-input'],
+.theme-clerk [data-slot='textarea'] {
+  border-radius: var(--clerk-radius);
+  border-width: 0;
+  background-color: var(--clerk-surface);
+  box-shadow: var(--clerk-shadow-input);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0;
+  color: var(--clerk-ink);
+}
+.theme-clerk [data-slot='input'],
+.theme-clerk [data-slot='sidebar-input'] {
+  height: 32px;
+  padding: 6px 12px;
+}
+.theme-clerk [data-slot='textarea'] {
+  min-height: 64px;
+  padding: 8px 12px;
+}
+.theme-clerk [data-slot='input']:hover,
+.theme-clerk [data-slot='textarea']:hover {
+  box-shadow:
+    0 0 1px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+.theme-clerk [data-slot='input']:focus-visible,
+.theme-clerk [data-slot='textarea']:focus-visible {
+  border-width: 0;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.15),
+    0 0 0 4px rgba(0, 0, 0, 0.15);
+}
+.theme-clerk [data-slot='input'][aria-invalid='true'],
+.theme-clerk [data-slot='textarea'][aria-invalid='true'] {
+  box-shadow:
+    0 0 0 1px var(--clerk-danger),
+    0 0 0 4px color-mix(in oklab, #ef4444 18%, transparent);
+}
+
+.theme-clerk [data-slot='label'],
+.theme-clerk [data-slot='field-label'],
+.theme-clerk [data-slot='text-field-label'] {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 510;
+  color: var(--clerk-ink);
+}
+
+.theme-clerk [data-slot='badge'] {
+  border-radius: var(--clerk-radius);
+  font-weight: 510;
+}
+
+.theme-clerk [data-slot='pill'] {
+  border-radius: var(--clerk-radius);
+}
+
+.theme-clerk [data-slot='select-trigger'] {
+  border-radius: var(--clerk-radius);
+  border-width: 0;
+  background-color: var(--clerk-surface);
+  box-shadow: var(--clerk-shadow-secondary);
+  font-size: 13px;
+  height: 32px;
+}
+
+.theme-clerk [data-slot='dialog-content'],
+.theme-clerk [data-slot='alert-dialog-content'] {
+  border-radius: var(--clerk-radius);
+  box-shadow: var(--clerk-shadow-card);
+  border-width: 0;
 }
