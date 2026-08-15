@@ -18,10 +18,11 @@ export type KpiWidth = (typeof KPI_WIDTHS)[number]
  */
 export const GRID_COLS = 24
 
-/** Modes de composition dérivés de la largeur réellement disponible. */
+/** Modes de composition dérivés de la largeur **viewport** (pas du conteneur
+ *  après sidebar). Aligné sur `useIsMobile` (768) et le spec 768–1023 tablette. */
 export const DASHBOARD_GRID_BREAKPOINTS = {
-  mobile: 680,
-  desktop: 1040,
+  mobile: 768,
+  desktop: 1024,
 } as const
 
 export type DashboardGridMode = 'mobile' | 'tablet' | 'desktop'

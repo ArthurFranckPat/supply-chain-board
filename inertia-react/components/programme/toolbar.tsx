@@ -123,11 +123,11 @@ function formatShort(d?: Date): string | null {
   return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT_FR[d.getMonth()]}`
 }
 
-function formatWindowLabel(from?: Date, to?: Date): string {
+function formatWindowLabel(from?: Date, to?: Date, empty = '—'): string {
   const f = formatShort(from)
   const t = formatShort(to)
-  if (!f && !t) return '—'
-  if (!f) return t ?? '—'
+  if (!f && !t) return empty
+  if (!f) return t ?? empty
   if (!t) return f
   return `${f} → ${t}`
 }
@@ -143,9 +143,11 @@ export function DateWindowPill(props: {
   /** Passthrough vers <Calendar> — ex. `{ after: new Date() }` pour interdire
    *  les dates futures (expéditions : pas de sélection au-delà d'aujourd'hui). */
   disabled?: ComponentProps<typeof Calendar>['disabled']
+  /** Libellé quand aucune plage n'est choisie (ex. « J-1 », « 12 mois »). */
+  fallbackLabel?: string
 }) {
   const align = props.align ?? 'left'
-  const label = formatWindowLabel(props.selected.from, props.selected.to)
+  const label = formatWindowLabel(props.selected.from, props.selected.to, props.fallbackLabel)
   const { selected, onSelect } = useRangeCalendar({
     open: props.open,
     value: props.selected.from ? { from: props.selected.from, to: props.selected.to } : undefined,

@@ -76,10 +76,10 @@ import { Switch } from '@r/components/ui/switch'
  * (sous-composants inline), store zustand pour le layout, DnD HTML5 natif.
  *
  * <!--
- * THESIS: régie KPI calme sur crème Cursor — hiérarchie par poids 400 et
- *   tracking, pas par Rausch ni ombres ; refuse le dashboard « cards flottantes ».
- * OWN-WORLD: produit Cursor light — sidebar #f3f3f3, chrome #f8f8f8,
- *   editor/cards #fcfcfc, base #141414, brand #f54e00 rare, accent #2778c1.
+ * THESIS: régie KPI calme — hiérarchie par poids 400 et tracking, pas par
+ *   Rausch ; cards Clerk flottantes sur scène blanche.
+ * OWN-WORLD: produit Cursor light — sidebar #f3f3f3, scène #ffffff,
+ *   cards #ffffff + ombre Clerk, encre #212126 / CTA #372f35, brand #f54e00 rare, accent #2778c1.
  *   Inter Variable, hairlines #e6e5e0, radius 8, pilules ink.
  * STORY: l’ordonnancer lit la charge et la profondeur sans bruit de chrome.
  * FIRST VIEWPORT: sidebar crème + TopBar quiet + grille KPI à héros 36/400.
@@ -552,11 +552,11 @@ function CardHeader({
         className={cn('size-1.5 shrink-0 rounded-full', alert ? 'bg-brand' : 'bg-foreground/20')}
         aria-hidden
       />
-      <h2 className="min-w-0 truncate text-sm font-normal tracking-[-0.02em] text-foreground">
-        {title}
-      </h2>
+      <h2 className="min-w-0 truncate text-foreground">{title}</h2>
       {meta ? (
-        <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">{meta}</span>
+        <span className="min-w-0 truncate text-[13px] leading-[18px] text-muted-foreground">
+          {meta}
+        </span>
       ) : null}
     </div>
   )
@@ -638,7 +638,7 @@ function Tile({
   onPrintMove?: (dir: -1 | 1) => void
 }) {
   return (
-    <div className="group relative flex h-full w-full flex-col">
+    <div className="dashboard-tile group relative flex h-full w-full flex-col">
       {/* La barre occupe sa propre rangée : elle ne masque plus le titre de la
           carte et reste utilisable quand une tuile est réduite. */}
       {editMode && (
@@ -662,7 +662,8 @@ function Tile({
                   ? 'bg-foreground/16 text-foreground rounded-[4px]'
                   : 'text-muted-foreground hover:text-foreground'
               )}
-              title="Largeur 1/3 (4 colonnes)"
+              aria-label="Largeur un tiers"
+              title="Largeur 1/3 (8 colonnes)"
             >
               ⅓
             </button>
@@ -675,7 +676,8 @@ function Tile({
                   ? 'bg-foreground/16 text-foreground rounded-[4px]'
                   : 'text-muted-foreground hover:text-foreground'
               )}
-              title="Largeur 2/3 (8 colonnes)"
+              aria-label="Largeur deux tiers"
+              title="Largeur 2/3 (16 colonnes)"
             >
               ⅔
             </button>
@@ -688,7 +690,8 @@ function Tile({
                   ? 'bg-foreground/16 text-foreground rounded-[4px]'
                   : 'text-muted-foreground hover:text-foreground'
               )}
-              title="Pleine largeur (12 colonnes)"
+              aria-label="Pleine largeur"
+              title="Pleine largeur (24 colonnes)"
             >
               ▭
             </button>
@@ -707,6 +710,7 @@ function Tile({
                 type="button"
                 onClick={() => onPrintMove(-1)}
                 className="flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Monter dans l'impression"
                 title="Monter dans l'impression"
               >
                 <ArrowUp size={11} />
@@ -715,6 +719,7 @@ function Tile({
                 type="button"
                 onClick={() => onPrintMove(1)}
                 className="flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Descendre dans l'impression"
                 title="Descendre dans l'impression"
               >
                 <ArrowDown size={11} />
@@ -726,6 +731,7 @@ function Tile({
             type="button"
             onClick={onHide}
             className="flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
+            aria-label="Masquer la carte"
             title="Masquer la carte"
           >
             <EyeOff size={13} />
@@ -743,7 +749,9 @@ function Tile({
         </span>
       )}
 
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">{children}</div>
+      <div className="dashboard-tile-chrome flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+        {children}
+      </div>
     </div>
   )
 }
@@ -1039,12 +1047,11 @@ export default function Dashboard(props: DashboardProps) {
       hideFooter
       quietChrome
       mastheadActions={
-        <div className="flex items-center gap-1">
+        <div className="dashboard-masthead-actions flex items-center gap-1">
           {editMode && (
             <Button
               type="button"
-              variant="ghost"
-              size="xs"
+              variant="outline"
               onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
               className="text-muted-foreground hover:text-foreground"
               title="Revenir au layout Fold par défaut"
@@ -1055,8 +1062,7 @@ export default function Dashboard(props: DashboardProps) {
           )}
           <Button
             type="button"
-            variant="ghost"
-            size="xs"
+            variant="outline"
             onClick={() => setEditMode((v) => !v)}
             className={cn(
               editMode
@@ -1272,9 +1278,7 @@ export default function Dashboard(props: DashboardProps) {
                               : 'color-mix(in srgb, var(--foreground) 20%, transparent)',
                       }}
                     />
-                    <h2 className="text-sm font-normal leading-none tracking-[-0.02em] text-foreground">
-                      OTIF
-                    </h2>
+                    <h2 className="leading-none text-foreground">OTIF</h2>
                     {/* Sélecteur de plage */}
                     <div className="ml-auto flex items-center gap-1">
                       <DateWindowPill
@@ -1294,6 +1298,7 @@ export default function Dashboard(props: DashboardProps) {
                         }}
                         disabled={(day) => day > new Date()}
                         align="right"
+                        fallbackLabel={otd[0]?.label ?? 'J-1'}
                       />
                       {otdRange?.start && (
                         <Button
@@ -1355,7 +1360,7 @@ export default function Dashboard(props: DashboardProps) {
                       ) : null}
                       {/* Filtre client + toggle détails */}
                       <div className="mb-2 flex items-center gap-1.5">
-                        <InputGroup className="h-9 flex-1">
+                        <InputGroup className="flex-1">
                           <InputGroupAddon align="inline-start">
                             <Search size={13} className="text-muted-foreground" />
                           </InputGroupAddon>
@@ -1365,7 +1370,6 @@ export default function Dashboard(props: DashboardProps) {
                             onChange={(e) => setClientFilter(e.target.value)}
                             placeholder="Filtrer par client"
                             aria-label="Filtrer les lignes par client"
-                            className="h-9 text-xs"
                           />
                           {clientFilter && (
                             <InputGroupAddon align="inline-end">
@@ -1383,7 +1387,6 @@ export default function Dashboard(props: DashboardProps) {
                         <Button
                           type="button"
                           variant="outline"
-                          size="sm"
                           onClick={() => setDetailsOpen((v) => !v)}
                           aria-expanded={detailsOpen}
                           title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
@@ -1486,9 +1489,7 @@ export default function Dashboard(props: DashboardProps) {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="size-1.5 shrink-0 rounded-full bg-foreground/20" />
-                    <h2 className="text-sm font-normal leading-none tracking-[-0.02em] text-foreground">
-                      Stock
-                    </h2>
+                    <h2 className="leading-none text-foreground">Stock</h2>
                     <div className="ml-auto flex items-center gap-1">
                       <DateWindowPill
                         open={stockCalendarOpen}
@@ -1507,6 +1508,11 @@ export default function Dashboard(props: DashboardProps) {
                         }}
                         disabled={(day) => day > new Date()}
                         align="right"
+                        fallbackLabel={
+                          stock.series.length >= 2
+                            ? `${stock.series[0].label} → ${stock.series[stock.series.length - 1].label}`
+                            : '12 mois'
+                        }
                       />
                       {stockRange?.start && (
                         <Button
@@ -1717,7 +1723,7 @@ export default function Dashboard(props: DashboardProps) {
                       ) : null}
                       {/* Barre de filtres */}
                       <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                        <InputGroup className="h-9 flex-1">
+                        <InputGroup className="flex-1">
                           <InputGroupAddon align="inline-start">
                             <Search size={13} className="text-muted-foreground" />
                           </InputGroupAddon>
@@ -1727,7 +1733,6 @@ export default function Dashboard(props: DashboardProps) {
                             onChange={(e) => setStockSearch(e.target.value)}
                             placeholder="Article ou désignation"
                             aria-label="Filtrer les articles"
-                            className="h-9 text-xs"
                           />
                           {stockSearch && (
                             <InputGroupAddon align="inline-end">
@@ -1748,10 +1753,7 @@ export default function Dashboard(props: DashboardProps) {
                             setStockCatFilter(val === 'all' ? '' : (val ?? ''))
                           }
                         >
-                          <SelectTrigger
-                            size="sm"
-                            className="h-9 border-border bg-card font-mono text-xs font-medium text-foreground"
-                          >
+                          <SelectTrigger className="border-border bg-card font-mono text-[13px] font-medium text-foreground">
                             <SelectValue placeholder="Toutes cat." />
                           </SelectTrigger>
                           <SelectContent side="bottom">
@@ -1767,7 +1769,7 @@ export default function Dashboard(props: DashboardProps) {
                           type="button"
                           onClick={() => setStockHideZero((v) => !v)}
                           className={cn(
-                            'min-h-9 rounded-[8px] border px-2.5 font-mono text-xs font-medium transition-colors',
+                            'h-8 rounded-[6px] border px-3 text-[13px] font-medium leading-[18px] transition-colors',
                             stockHideZero
                               ? 'border-foreground/20 bg-foreground/16 text-foreground'
                               : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
