@@ -282,6 +282,20 @@ declare module '@adonisjs/inertia/types' {
         createdAt: number
       }[]
     }
+    // Configuration et statut des modes de données et répliques.
+    'config/donnees': {
+      dataMode: {
+        configuredMode: 'replica' | 'direct' | 'env'
+        effectiveMode: boolean
+        envDefault: boolean
+      }
+      tables: any[]
+      logs: {
+        rows: any[]
+        total: number
+      }
+      isSyncRunning: boolean
+    }
     'scheduler/comparer': {
       scenarios: any[]
       planActuel: any

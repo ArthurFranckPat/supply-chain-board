@@ -14,6 +14,7 @@ export const controllers = {
   ControleProd: () => import('#controllers/controle_prod_controller'),
   Dashboard: () => import('#controllers/dashboard_controller'),
   DashboardLayout: () => import('#controllers/dashboard_layout_controller'),
+  DataConfig: () => import('#controllers/data_config_controller'),
   Expeditions: () => import('#controllers/expeditions_controller'),
   Health: () => import('#controllers/health_controller'),
   Load: () => import('#controllers/load_controller'),

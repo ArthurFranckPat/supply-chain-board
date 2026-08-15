@@ -7,6 +7,7 @@ import {
   replicaReadsEnabled,
   type ReplicaTable,
 } from '#services/replica_gate'
+import { getActiveX3EnvName } from '#config/x3'
 
 /**
  * Read-after-write (#98) : le portail sert-il la réplique ou la voie directe ?
@@ -61,9 +62,7 @@ test.group('ReplicaGate — read-after-write', (group) => {
     status: 'ok' | 'failed'
     scope: 'full' | 'partial'
     startedAt: string
-    /** Provenance. Défaut `test` : c'est ce que `getActiveX3EnvName()` renvoie
-     *  hors requête HTTP, donc dans ces tests. Jamais `null` — la colonne est
-     *  `NOT NULL`, une provenance absente n'est pas un état atteignable. */
+    /** Provenance. Défaut : `getActiveX3EnvName()`. */
     x3Env?: string
   }) {
     await conn.table('ingestion_log').insert({
@@ -75,7 +74,7 @@ test.group('ReplicaGate — read-after-write', (group) => {
       rows: 1,
       duration_ms: 1,
       source: 'test',
-      x3_env: opts.x3Env ?? 'test',
+      x3_env: opts.x3Env ?? getActiveX3EnvName(),
     })
   }
 
@@ -183,7 +182,8 @@ test.group('ReplicaGate — read-after-write', (group) => {
    * Ces tests tournent hors requête, donc `getActiveX3EnvName()` vaut `test`.
    */
   test('ingestion venue d’un AUTRE environnement X3 → voie directe', async ({ assert }) => {
-    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-60_000), x3Env: 'prod' })
+    const otherEnv = getActiveX3EnvName() === 'test' ? 'prod' : 'test'
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-60_000), x3Env: otherEnv })
 
     const verdict = await gate.verdict(TABLE)
 
@@ -195,7 +195,8 @@ test.group('ReplicaGate — read-after-write', (group) => {
     // Run récent, table propre : tout est bon SAUF l'environnement. Une donnée
     // fraîche et propre reste fausse si elle vient de l'autre X3, donc ce motif
     // doit être annoncé avant les autres.
-    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-1_000), x3Env: 'prod' })
+    const otherEnv = getActiveX3EnvName() === 'test' ? 'prod' : 'test'
+    await logRun({ status: 'ok', scope: 'full', startedAt: isoAt(-1_000), x3Env: otherEnv })
     await gate.markDirty([TABLE], 'test')
 
     const verdict = await gate.verdict(TABLE)
@@ -254,6 +255,7 @@ test.group('ReplicaGate — read-after-write', (group) => {
       rows: 1,
       duration_ms: 1,
       source: 'test',
+      x3_env: getActiveX3EnvName(),
     })
 
     const verdict = await gate.verdict(TABLE)

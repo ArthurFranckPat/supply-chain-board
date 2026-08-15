@@ -655,6 +655,19 @@ export class StockValuationCallSchema extends BaseModel {
   declare toDate: DateTime
 }
 
+export class SystemSettingSchema extends BaseModel {
+  static $columns = ['key', 'updatedAt', 'updatedBy', 'value'] as const
+  $columns = SystemSettingSchema.$columns
+  @column({ isPrimary: true })
+  declare key: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare updatedBy: string
+  @column()
+  declare value: string
+}
+
 export class UserSchema extends BaseModel {
   static $columns = [
     'createdAt',

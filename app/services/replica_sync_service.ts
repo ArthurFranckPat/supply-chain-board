@@ -187,6 +187,124 @@ export class ReplicaSyncService {
     return db.connection('replica')
   }
 
+  private running = false
+
+  /** Indique si une synchronisation est en cours d'exécution. */
+  isSyncRunning(): boolean {
+    return this.running
+  }
+
+  /**
+   * Déclenche une synchronisation unitaire ou globale avec verrou d'exclusion.
+   */
+  async triggerManualSync(
+    tableName: ReplicaTable | 'all' = 'all',
+    source = 'manual_ui'
+  ): Promise<ReplicaSyncResult | TableIngestionResult> {
+    if (this.running) {
+      const err = new Error('Une synchronisation est déjà en cours d’exécution.')
+      ;(err as any).status = 409
+      throw err
+    }
+
+    this.running = true
+    try {
+      if (tableName === 'all') {
+        return await this.syncAll(source)
+      }
+
+      switch (tableName) {
+        case 'orders_flux_replica':
+          return await this.syncOrdersFlux(source)
+        case 'stock_replica':
+          return await this.syncStock(source)
+        case 'stock_flux_replica':
+          return await this.syncStockFlux(source)
+        case 'receptions_replica':
+          return await this.syncReceptions(source)
+        case 'operations_replica':
+          return await this.syncOperations(source)
+        case 'stock_detail_replica':
+          return await this.syncStockDetail(source)
+        case 'latency_replica':
+          return await this.syncLatency(source)
+        case 'operations_trk_replica':
+          return await this.syncOperationsTrk(source)
+        default:
+          throw new Error(`Table de réplique inconnue : ${tableName}`)
+      }
+    } finally {
+      this.running = false
+    }
+  }
+
+  /**
+   * Réinitialise les marquages d'écriture sale (`replica_dirty`).
+   */
+  async resetDirty(tableName: ReplicaTable | 'all' = 'all'): Promise<void> {
+    if (tableName === 'all') {
+      await this.conn.from('replica_dirty').delete()
+    } else {
+      await this.conn.from('replica_dirty').where('table_name', tableName).delete()
+    }
+  }
+
+  /**
+   * Liste paginée des logs d'ingestion avec filtrage optionnel.
+   */
+  async getLogs(
+    page = 1,
+    limit = 25,
+    statusFilter: 'all' | 'ok' | 'failed' = 'all'
+  ): Promise<{
+    rows: Array<{
+      id: number
+      tableName: string
+      status: IngestionStatus
+      scope: 'full' | 'partial'
+      startedAt: string
+      finishedAt: string | null
+      rows: number | null
+      durationMs: number | null
+      source: string
+      error: string | null
+      note: string | null
+      x3Env: string
+    }>
+    total: number
+  }> {
+    let query = this.conn.from('ingestion_log')
+    let countQuery = this.conn.from('ingestion_log')
+
+    if (statusFilter !== 'all') {
+      query = query.where('status', statusFilter)
+      countQuery = countQuery.where('status', statusFilter)
+    }
+
+    const countRes = await countQuery.count('* as count').first()
+    const total = Number(countRes?.count ?? 0)
+
+    const offset = Math.max(0, (page - 1) * limit)
+    const dbRows = await query.orderBy('id', 'desc').offset(offset).limit(limit)
+
+    const rows = (dbRows as any[]).map((r) => ({
+      id: Number(r.id),
+      tableName: r.table_name,
+      status: r.status as IngestionStatus,
+      scope: r.scope as 'full' | 'partial',
+      startedAt: r.started_at,
+      finishedAt: r.finished_at ?? null,
+      rows: r.rows != null ? Number(r.rows) : null,
+      durationMs: r.duration_ms != null ? Number(r.duration_ms) : null,
+      source: r.source,
+      error: r.error ?? null,
+      note: r.note ?? null,
+      x3Env: r.x3_env,
+    }))
+
+    return { rows, total }
+  }
+
   /**
    * Rejoue toutes les tables.
    *

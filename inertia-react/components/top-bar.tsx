@@ -1,20 +1,17 @@
 import * as React from 'react'
-import { Search, Bell } from 'lucide-react'
 
 import { type NavKey } from '@r/lib/nav'
 import { SidebarTrigger } from '@r/components/ui/sidebar'
-import { cn } from '@r/lib/utils'
 
 type TopBarProps = {
   active: NavKey
   subtitle: string
   meta?: React.ReactNode
   actions?: React.ReactNode
-  /** Operate board : pas de Go to / notifs décoratifs — la place va aux actions. */
   quiet?: boolean
 }
 
-export function TopBar({ active: _active, subtitle, meta, actions, quiet = false }: TopBarProps) {
+export function TopBar({ active: _active, subtitle, meta, actions }: TopBarProps) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-sidebar-border bg-[var(--sidebar-canvas)] px-6 print:hidden">
       <SidebarTrigger className="-ml-1" />
@@ -36,39 +33,7 @@ export function TopBar({ active: _active, subtitle, meta, actions, quiet = false
         )}
       </nav>
 
-      <div className="flex flex-1 items-center justify-end gap-2">
-        {actions}
-
-        {!quiet && (
-          <>
-            <div
-              className={cn(
-                'hidden h-8 items-center gap-2 rounded-full border border-border bg-muted/40 px-3 text-[13px] text-muted-foreground sm:flex',
-                'w-[220px] lg:w-[260px]'
-              )}
-              role="search"
-              aria-label="Recherche rapide"
-            >
-              <Search size={14} strokeWidth={1.75} className="shrink-0" />
-              <span className="flex-1 truncate text-left">Go to…</span>
-              <kbd className="hidden items-center rounded bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground shadow-sm ring-1 ring-border lg:inline-flex">
-                ⌘K
-              </kbd>
-            </div>
-
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="relative flex size-8 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <Bell size={16} strokeWidth={1.75} />
-              <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
-                2
-              </span>
-            </button>
-          </>
-        )}
-      </div>
+      {actions && <div className="flex flex-1 items-center justify-end gap-2">{actions}</div>}
     </header>
   )
 }

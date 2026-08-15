@@ -136,6 +136,14 @@ export interface ApiDefinition {
     jobs: typeof routes['print_config.jobs']
     reconcile: typeof routes['print_config.reconcile']
   }
+  dataConfig: {
+    index: typeof routes['data_config.index']
+    status: typeof routes['data_config.status']
+    updateMode: typeof routes['data_config.update_mode']
+    sync: typeof routes['data_config.sync']
+    resetDirty: typeof routes['data_config.reset_dirty']
+    logs: typeof routes['data_config.logs']
+  }
   printJournal: typeof routes['print_journal'] & {
     rows: typeof routes['print_journal.rows']
   }

@@ -161,6 +161,9 @@ router
     router
       .get('/configuration/impressions', '#controllers/print_config_controller.index')
       .as('print_config.index')
+    router
+      .get('/configuration/donnees', '#controllers/data_config_controller.index')
+      .as('data_config.index')
     router.get('/impressions', '#controllers/print_journal_controller.index').as('print_journal')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -182,6 +185,13 @@ router
         router.get('/print/jobs', '#controllers/print_config_controller.jobs')
         router.post('/print/reconcile', '#controllers/print_config_controller.reconcile')
         router.get('/print/journal', '#controllers/print_journal_controller.rows')
+
+        // Administration et statut du mode de données & répliques.
+        router.get('/data/status', '#controllers/data_config_controller.status')
+        router.post('/data/mode', '#controllers/data_config_controller.updateMode')
+        router.post('/data/sync', '#controllers/data_config_controller.sync')
+        router.post('/data/reset-dirty', '#controllers/data_config_controller.resetDirty')
+        router.get('/data/logs', '#controllers/data_config_controller.logs')
       })
       .prefix('/api/v1/config')
 

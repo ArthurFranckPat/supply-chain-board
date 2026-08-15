@@ -1,6 +1,7 @@
 import db from '@adonisjs/lucid/services/db'
 import env from '#start/env'
 import { getActiveX3EnvName } from '#config/x3'
+import systemSettingsRepository from '#repositories/system_settings_repository'
 
 /**
  * Décide, pour chaque table de réplique, si une lecture peut lui faire confiance
@@ -72,6 +73,8 @@ import { getActiveX3EnvName } from '#config/x3'
  * aujourd'hui, jamais une donnée fausse.
  */
 
+export type DataModeSetting = 'replica' | 'direct' | 'env'
+
 /**
  * Le MODE de lecture de l'application. `REPLICA_READS` ne règle pas un détail du
  * portail : il choisit entre deux architectures.
@@ -89,7 +92,30 @@ import { getActiveX3EnvName } from '#config/x3'
  * au même endroit partout, et `cache_preheat_provider` s'éteint en mode réplique.
  */
 export function replicaReadsEnabled(): boolean {
+  const dynamicMode = systemSettingsRepository.getSync('data_mode')
+  if (dynamicMode === 'replica') {
+    return true
+  }
+  if (dynamicMode === 'direct') {
+    return false
+  }
   return env.get('REPLICA_READS', false) === true
+}
+
+export function getDataModeConfig(): {
+  configuredMode: DataModeSetting
+  effectiveMode: boolean
+  envDefault: boolean
+} {
+  const raw = systemSettingsRepository.getSync('data_mode') as DataModeSetting | undefined
+  const configuredMode: DataModeSetting = raw === 'replica' || raw === 'direct' ? raw : 'env'
+  const envDefault = env.get('REPLICA_READS', false) === true
+  const effectiveMode = replicaReadsEnabled()
+  return {
+    configuredMode,
+    effectiveMode,
+    envDefault,
+  }
 }
 
 export type ReadSource = 'replica' | 'direct'
@@ -185,6 +211,57 @@ function ageOf(finishedAt: string | null | undefined): number | null {
   if (!finishedAt) return null
   const t = Date.parse(finishedAt)
   return Number.isNaN(t) ? null : Date.now() - t
+}
+
+export interface ReplicaTableInfo {
+  table: ReplicaTable
+  label: string
+  description: string
+  source: ReadSource
+  reason: GateVerdict['reason']
+  dirtySince: string | null
+  lastFullRunAt: string | null
+  lastFinishedAt: string | null
+  lastDurationMs: number | null
+  rowCount: number
+  isDirty: boolean
+  maxAgeMs: number
+  status: 'ok' | 'stale' | 'dirty' | 'error' | 'disabled' | 'never-ingested' | 'env-mismatch'
+}
+
+const TABLE_METADATA: Record<ReplicaTable, { label: string; description: string }> = {
+  orders_flux_replica: {
+    label: 'Commandes & Suggestions (ORDERS)',
+    description: 'Lignes de commandes ouvertes, OF et suggestions CBN',
+  },
+  stock_replica: {
+    label: 'Stock article (STOCK)',
+    description: 'Stock disponible, alloué et réservé par article',
+  },
+  stock_flux_replica: {
+    label: 'Historique des flux de stock',
+    description: 'Mouvements de stock passés sur 12 mois glissants',
+  },
+  receptions_replica: {
+    label: 'Réceptions fournisseurs',
+    description: "Lignes de commandes d'achat et réceptions attendues",
+  },
+  operations_replica: {
+    label: "Opérations d'OF (MFGOPE)",
+    description: 'Gamme opératoire et statut des postes de charge',
+  },
+  stock_detail_replica: {
+    label: 'Détail stock & Emplacements',
+    description: 'Répartition physique et conditionnements observés',
+  },
+  latency_replica: {
+    label: 'Latence fournisseurs',
+    description: 'Délais de livraison réels constatés par fournisseur',
+  },
+  operations_trk_replica: {
+    label: 'Pointages & Suivi atelier',
+    description: 'Historique des pointages par poste sur 6 mois',
+  },
 }
 
 export class ReplicaGate {
@@ -328,6 +405,68 @@ export class ReplicaGate {
       'operations_trk_replica',
     ]
     return Promise.all(tables.map((t) => this.verdict(t)))
+  }
+
+  /** Informations détaillées et statut de santé pour toutes les tables répliquées. */
+  async getTableStatuses(): Promise<ReplicaTableInfo[]> {
+    const tables: ReplicaTable[] = [
+      'orders_flux_replica',
+      'stock_replica',
+      'stock_flux_replica',
+      'receptions_replica',
+      'operations_replica',
+      'stock_detail_replica',
+      'latency_replica',
+      'operations_trk_replica',
+    ]
+
+    return Promise.all(
+      tables.map(async (table): Promise<ReplicaTableInfo> => {
+        const meta = TABLE_METADATA[table]
+        const v = await this.verdict(table)
+        const [dirty, lastRun, countRow] = await Promise.all([
+          this.conn.from('replica_dirty').where('table_name', table).first(),
+          this.conn.from('ingestion_log').where('table_name', table).orderBy('id', 'desc').first(),
+          this.conn
+            .from(table)
+            .count('* as count')
+            .first()
+            .catch(() => ({ count: 0 })),
+        ])
+
+        const rowCount = Number(countRow?.count ?? 0)
+        const isDirty = Boolean(dirty)
+        const lastFinishedAt: string | null = lastRun?.finished_at ?? null
+        const lastDurationMs: number | null =
+          lastRun?.duration_ms != null ? Number(lastRun.duration_ms) : null
+
+        let status: ReplicaTableInfo['status'] = 'ok'
+        if (v.source === 'direct') {
+          if (v.reason === 'disabled') status = 'disabled'
+          else if (v.reason === 'never-ingested') status = 'never-ingested'
+          else if (v.reason === 'dirty') status = 'dirty'
+          else if (v.reason === 'stale') status = 'stale'
+          else if (v.reason === 'env-mismatch') status = 'env-mismatch'
+          else status = 'error'
+        }
+
+        return {
+          table,
+          label: meta.label,
+          description: meta.description,
+          source: v.source,
+          reason: v.reason,
+          dirtySince: v.dirtySince,
+          lastFullRunAt: v.lastFullRunAt,
+          lastFinishedAt,
+          lastDurationMs,
+          rowCount,
+          isDirty,
+          maxAgeMs: maxAgeMsFor(table),
+          status,
+        }
+      })
+    )
   }
 }
 

@@ -470,6 +470,9 @@ export default function Calendrier(props: CalendrierPageProps) {
           <ToolbarSegment onClick={() => router.visit(route('print_config.index'))}>
             Impressions
           </ToolbarSegment>
+          <ToolbarSegment onClick={() => router.visit(route('data_config.index'))}>
+            Données
+          </ToolbarSegment>
         </ToolbarSegmented>
 
         <ToolbarSegmented semantics="tabs" aria-label="Vue">

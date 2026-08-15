@@ -451,6 +451,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'data_config.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/configuration/donnees'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'print_journal': {
     methods: ["GET","HEAD"]
     pattern: '/impressions'
@@ -610,6 +622,66 @@ export interface Registry {
   'print_journal.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/config/print/journal'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'data_config.status': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/config/data/status'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'data_config.update_mode': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/data/mode'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'data_config.sync': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/data/sync'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'data_config.reset_dirty': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/data/reset-dirty'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'data_config.logs': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/config/data/logs'
     types: {
       body: {}
       paramsTuple: []

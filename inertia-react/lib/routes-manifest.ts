@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 128 routes nommées.
+ * 134 routes nommées.
  */
 
 export const MANIFEST = {
@@ -62,6 +62,12 @@ export const MANIFEST = {
   'dashboard.otd': { method: 'GET', pattern: '/api/v1/dashboard/otd' },
   'dashboard.stock_article_detail': { method: 'GET', pattern: '/api/v1/dashboard/stock/article' },
   'dashboard.stock_valuation': { method: 'GET', pattern: '/api/v1/dashboard/stock' },
+  'data_config.index': { method: 'GET', pattern: '/configuration/donnees' },
+  'data_config.logs': { method: 'GET', pattern: '/api/v1/config/data/logs' },
+  'data_config.reset_dirty': { method: 'POST', pattern: '/api/v1/config/data/reset-dirty' },
+  'data_config.status': { method: 'GET', pattern: '/api/v1/config/data/status' },
+  'data_config.sync': { method: 'POST', pattern: '/api/v1/config/data/sync' },
+  'data_config.update_mode': { method: 'POST', pattern: '/api/v1/config/data/mode' },
   'data.load': { method: 'POST', pattern: '/api/v1/data/load' },
   'design_system': { method: 'GET', pattern: '/design-system' },
   'diagnostic_test': { method: 'GET', pattern: '/diagnostic-test' },
@@ -226,6 +232,12 @@ export type RouteParams = {
   'dashboard.otd': void
   'dashboard.stock_article_detail': void
   'dashboard.stock_valuation': void
+  'data_config.index': void
+  'data_config.logs': void
+  'data_config.reset_dirty': void
+  'data_config.status': void
+  'data_config.sync': void
+  'data_config.update_mode': void
   'data.load': void
   'design_system': void
   'diagnostic_test': void

@@ -228,6 +228,12 @@ const routes = {
     tokens: [{"old":"/configuration/impressions","type":0,"val":"configuration","end":""},{"old":"/configuration/impressions","type":0,"val":"impressions","end":""}],
     types: placeholder as Registry['print_config.index']['types'],
   },
+  'data_config.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/configuration/donnees',
+    tokens: [{"old":"/configuration/donnees","type":0,"val":"configuration","end":""},{"old":"/configuration/donnees","type":0,"val":"donnees","end":""}],
+    types: placeholder as Registry['data_config.index']['types'],
+  },
   'print_journal': {
     methods: ["GET","HEAD"],
     pattern: '/impressions',
@@ -311,6 +317,36 @@ const routes = {
     pattern: '/api/v1/config/print/journal',
     tokens: [{"old":"/api/v1/config/print/journal","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"journal","end":""}],
     types: placeholder as Registry['print_journal.rows']['types'],
+  },
+  'data_config.status': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/config/data/status',
+    tokens: [{"old":"/api/v1/config/data/status","type":0,"val":"api","end":""},{"old":"/api/v1/config/data/status","type":0,"val":"v1","end":""},{"old":"/api/v1/config/data/status","type":0,"val":"config","end":""},{"old":"/api/v1/config/data/status","type":0,"val":"data","end":""},{"old":"/api/v1/config/data/status","type":0,"val":"status","end":""}],
+    types: placeholder as Registry['data_config.status']['types'],
+  },
+  'data_config.update_mode': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/data/mode',
+    tokens: [{"old":"/api/v1/config/data/mode","type":0,"val":"api","end":""},{"old":"/api/v1/config/data/mode","type":0,"val":"v1","end":""},{"old":"/api/v1/config/data/mode","type":0,"val":"config","end":""},{"old":"/api/v1/config/data/mode","type":0,"val":"data","end":""},{"old":"/api/v1/config/data/mode","type":0,"val":"mode","end":""}],
+    types: placeholder as Registry['data_config.update_mode']['types'],
+  },
+  'data_config.sync': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/data/sync',
+    tokens: [{"old":"/api/v1/config/data/sync","type":0,"val":"api","end":""},{"old":"/api/v1/config/data/sync","type":0,"val":"v1","end":""},{"old":"/api/v1/config/data/sync","type":0,"val":"config","end":""},{"old":"/api/v1/config/data/sync","type":0,"val":"data","end":""},{"old":"/api/v1/config/data/sync","type":0,"val":"sync","end":""}],
+    types: placeholder as Registry['data_config.sync']['types'],
+  },
+  'data_config.reset_dirty': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/data/reset-dirty',
+    tokens: [{"old":"/api/v1/config/data/reset-dirty","type":0,"val":"api","end":""},{"old":"/api/v1/config/data/reset-dirty","type":0,"val":"v1","end":""},{"old":"/api/v1/config/data/reset-dirty","type":0,"val":"config","end":""},{"old":"/api/v1/config/data/reset-dirty","type":0,"val":"data","end":""},{"old":"/api/v1/config/data/reset-dirty","type":0,"val":"reset-dirty","end":""}],
+    types: placeholder as Registry['data_config.reset_dirty']['types'],
+  },
+  'data_config.logs': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/config/data/logs',
+    tokens: [{"old":"/api/v1/config/data/logs","type":0,"val":"api","end":""},{"old":"/api/v1/config/data/logs","type":0,"val":"v1","end":""},{"old":"/api/v1/config/data/logs","type":0,"val":"config","end":""},{"old":"/api/v1/config/data/logs","type":0,"val":"data","end":""},{"old":"/api/v1/config/data/logs","type":0,"val":"logs","end":""}],
+    types: placeholder as Registry['data_config.logs']['types'],
   },
   'order_planning.index': {
     methods: ["GET","HEAD"],

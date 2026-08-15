@@ -871,6 +871,9 @@ export default function ImpressionsConfig(props: PageProps) {
             Calendrier
           </ToolbarSegment>
           <ToolbarSegment active>Impressions</ToolbarSegment>
+          <ToolbarSegment onClick={() => router.visit(route('data_config.index'))}>
+            Données
+          </ToolbarSegment>
         </ToolbarSegmented>
       </ToolbarGroup>
 
