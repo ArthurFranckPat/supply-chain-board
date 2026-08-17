@@ -12,7 +12,7 @@
     "postinstall": "patch-package --error-on-fail",
     "start": "dotenvx run -- node bin/server.js",
     "build": "dotenvx run -- node ace build",
-    "dev": "dotenvx run -- node ace serve --hmr",
+    "dev": "node scripts/dev-server.mjs",
     "test": "dotenvx run -- node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",

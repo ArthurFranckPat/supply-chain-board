@@ -40,9 +40,27 @@ createInertiaApp({
       }
       // Deuxième échec d'affilée : le reload n'y changera rien. On laisse
       // remonter plutôt que de figer l'app sur une page blanche muette.
+      //
+      // Avant d'accuser le cache : sonder le serveur. Un import dynamique qui
+      // rejette a deux causes très différentes — serveur mort (rien à purger,
+      // il faut le relancer) ou chunks périmés après re-optimisation de deps.
+      // Le message générique envoyait systématiquement vers `node_modules/.vite`,
+      // donc vers le mauvais geste dans le cas le plus fréquent.
+      const serveurJoignable = await fetch(window.location.origin, {
+        method: 'HEAD',
+        cache: 'no-store',
+      }).then(
+        () => true,
+        () => false
+      )
+
       console.error(
-        `Chargement de [${name}] échoué deux fois — cache Vite ou page réellement absente. ` +
-          `Si le serveur de dev tourne : arrêter, supprimer node_modules/.vite, relancer.`,
+        serveurJoignable
+          ? `Chargement de [${name}] échoué deux fois, serveur joignable — cache Vite périmé ` +
+              `ou page réellement absente. Arrêter le serveur, supprimer node_modules/.vite, relancer.`
+          : `Chargement de [${name}] échoué deux fois, serveur de dev INJOIGNABLE — il est mort. ` +
+              `Le relancer (npm run dev) ; la cause de la mort est dans tmp/dev-server.prev.log. ` +
+              `Ne pas purger node_modules/.vite, il n'y est pour rien.`,
         error
       )
       throw error
