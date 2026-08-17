@@ -58,6 +58,9 @@ export default defineConfig({
     () => import('@adonisjs/auth/auth_provider'),
     () => import('#providers/api_provider'),
     () => import('#providers/x3_provider'),
+    // AVANT cache_preheat_provider : charge `data_mode` en mémoire, dont le
+    // préchauffage dépend pour savoir s'il a lieu d'être (cf. le provider).
+    () => import('#providers/system_settings_provider'),
     () => import('#providers/cache_preheat_provider'),
     () => import('#providers/replica_sync_provider'),
     () => import('#providers/demand_snapshot_provider'),

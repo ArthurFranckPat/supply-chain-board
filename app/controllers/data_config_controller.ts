@@ -6,6 +6,7 @@ import replicaGate, {
 } from '#services/replica_gate'
 import replicaSyncService from '#services/replica_sync_service'
 import systemSettingsRepository from '#repositories/system_settings_repository'
+import cachePreheatService from '#services/cache_preheat_service'
 
 /**
  * Contrôleur d'administration et de configuration du mode de données et des répliques.
@@ -65,6 +66,13 @@ export default class DataConfigController {
     } else {
       await systemSettingsRepository.set('data_mode', mode as DataModeSetting, username)
     }
+
+    // La bascule change d'ARCHITECTURE, pas de réglage : le préchauffage du cache
+    // X3 n'a de sens que dans le mode direct. Sans ce réveil, passer en direct
+    // laissait l'app sans cache chaud jusqu'au tick suivant (4 min) — et passer
+    // en réplique laissait le warmer tirer X3 pour rien. Non bloquant : le
+    // service décide et travaille en arrière-plan.
+    cachePreheatService.onDataModeChanged()
 
     return response.ok({
       ok: true,

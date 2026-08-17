@@ -355,8 +355,8 @@ test.group('ReplicaGate — seuils de fraîcheur', () => {
  *  - ouvert : réplique SANS préchauffage (rien à amortir, et le cache est plus
  *    lent que la lecture SQLite qu'il enveloppe)
  *
- * `cache_preheat_provider.ready()` consulte `replicaReadsEnabled()` pour sortir
- * en mode réplique. Ce test verrouille la lecture du mode elle-même — sans lui,
+ * `cache_preheat_service` consulte `replicaReadsEnabled()` à CHAQUE cycle pour
+ * décider s'il préchauffe. Ce test verrouille la lecture du mode elle-même — sans lui,
  * un `env.get()` recopié ailleurs pourrait diverger et ressusciter la
  * superposition des deux couches.
  */

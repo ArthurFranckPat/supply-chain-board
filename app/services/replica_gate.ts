@@ -89,7 +89,17 @@ export type DataModeSetting = 'replica' | 'direct' | 'env'
  *   la relire plus lentement.
  *
  * D'où cette fonction exportée plutôt qu'un `env.get()` recopié : le mode se lit
- * au même endroit partout, et `cache_preheat_provider` s'éteint en mode réplique.
+ * au même endroit partout, et `cache_preheat_service` s'éteint en mode réplique.
+ *
+ * Le mode n'est plus figé au démarrage : `data_mode` (table `system_settings`) le
+ * surcharge à chaud depuis `/configuration/donnees`. Deux conséquences pour qui
+ * touche à cette fonction :
+ *
+ * - la lecture est SYNCHRONE (un verdict par table, sur le chemin chaud), donc
+ *   elle passe par le cache mémoire du dépôt — c'est `system_settings_provider`
+ *   qui le remplit au boot, AVANT que le préchauffage consulte le mode ;
+ * - tout consommateur qui mémorise le résultat le fige. `cache_preheat_service`
+ *   reprend donc la décision à chaque cycle plutôt qu'une fois au démarrage.
  */
 export function replicaReadsEnabled(): boolean {
   const dynamicMode = systemSettingsRepository.getSync('data_mode')
