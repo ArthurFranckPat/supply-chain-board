@@ -192,23 +192,11 @@ const routes = {
     tokens: [{"old":"/approvisionnements","type":0,"val":"approvisionnements","end":""}],
     types: placeholder as Registry['approvisionnements.index']['types'],
   },
-  'besoins.evolution': {
-    methods: ["GET","HEAD"],
-    pattern: '/besoins/evolution',
-    tokens: [{"old":"/besoins/evolution","type":0,"val":"besoins","end":""},{"old":"/besoins/evolution","type":0,"val":"evolution","end":""}],
-    types: placeholder as Registry['besoins.evolution']['types'],
-  },
   'conditionnements.index': {
     methods: ["GET","HEAD"],
     pattern: '/conditionnements',
     tokens: [{"old":"/conditionnements","type":0,"val":"conditionnements","end":""}],
     types: placeholder as Registry['conditionnements.index']['types'],
-  },
-  'promesse.show': {
-    methods: ["GET","HEAD"],
-    pattern: '/promesse',
-    tokens: [{"old":"/promesse","type":0,"val":"promesse","end":""}],
-    types: placeholder as Registry['promesse.show']['types'],
   },
   'agent.show': {
     methods: ["GET","HEAD"],
@@ -648,12 +636,6 @@ const routes = {
     tokens: [{"old":"/api/v1/appro/messages-diff","type":0,"val":"api","end":""},{"old":"/api/v1/appro/messages-diff","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/messages-diff","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/messages-diff","type":0,"val":"messages-diff","end":""}],
     types: placeholder as Registry['appro.messagesDiff']['types'],
   },
-  'appro.snapshots': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/appro/snapshots',
-    tokens: [{"old":"/api/v1/appro/snapshots","type":0,"val":"api","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"v1","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"appro","end":""},{"old":"/api/v1/appro/snapshots","type":0,"val":"snapshots","end":""}],
-    types: placeholder as Registry['appro.snapshots']['types'],
-  },
   'appro.articleExplanation': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/appro/article-explanation',
@@ -677,12 +659,6 @@ const routes = {
     pattern: '/api/v1/promesse',
     tokens: [{"old":"/api/v1/promesse","type":0,"val":"api","end":""},{"old":"/api/v1/promesse","type":0,"val":"v1","end":""},{"old":"/api/v1/promesse","type":0,"val":"promesse","end":""}],
     types: placeholder as Registry['promesse.index']['types'],
-  },
-  'promesse.articles': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/promesse/articles',
-    tokens: [{"old":"/api/v1/promesse/articles","type":0,"val":"api","end":""},{"old":"/api/v1/promesse/articles","type":0,"val":"v1","end":""},{"old":"/api/v1/promesse/articles","type":0,"val":"promesse","end":""},{"old":"/api/v1/promesse/articles","type":0,"val":"articles","end":""}],
-    types: placeholder as Registry['promesse.articles']['types'],
   },
   'data.load': {
     methods: ["POST"],

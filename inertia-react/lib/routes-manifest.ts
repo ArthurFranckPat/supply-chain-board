@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 134 routes nommées.
+ * 130 routes nommées.
  */
 
 export const MANIFEST = {
@@ -21,7 +21,6 @@ export const MANIFEST = {
   'appro.diff': { method: 'GET', pattern: '/api/v1/appro/diff' },
   'appro.messagesDiff': { method: 'GET', pattern: '/api/v1/appro/messages-diff' },
   'appro.rows': { method: 'GET', pattern: '/api/v1/appro/rows' },
-  'appro.snapshots': { method: 'GET', pattern: '/api/v1/appro/snapshots' },
   'approvisionnements.index': { method: 'GET', pattern: '/approvisionnements' },
   'assets.apple_touch_icon_png': { method: 'GET', pattern: '/apple-touch-icon.png' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
@@ -34,7 +33,6 @@ export const MANIFEST = {
   'auth.attempt': { method: 'POST', pattern: '/login' },
   'auth.login': { method: 'GET', pattern: '/login' },
   'auth.logout': { method: 'POST', pattern: '/logout' },
-  'besoins.evolution': { method: 'GET', pattern: '/besoins/evolution' },
   'calendar_config.create_closure': { method: 'POST', pattern: '/api/v1/config/closures' },
   'calendar_config.delete_closure': { method: 'DELETE', pattern: '/api/v1/config/closures/:id' },
   'calendar_config.index': { method: 'GET', pattern: '/configuration/calendrier' },
@@ -129,9 +127,7 @@ export const MANIFEST = {
   'print.documents': { method: 'GET', pattern: '/api/v1/planning/print/documents' },
   'print.history': { method: 'GET', pattern: '/api/v1/planning/orders/:orderNum/print' },
   'print.print': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/print' },
-  'promesse.articles': { method: 'GET', pattern: '/api/v1/promesse/articles' },
   'promesse.index': { method: 'GET', pattern: '/api/v1/promesse' },
-  'promesse.show': { method: 'GET', pattern: '/promesse' },
   'react_lab': { method: 'GET', pattern: '/react-lab' },
   'receptions.criticite': { method: 'GET', pattern: '/api/v1/receptions/criticite' },
   'receptions.index': { method: 'GET', pattern: '/receptions' },
@@ -197,7 +193,6 @@ export type RouteParams = {
   'appro.diff': void
   'appro.messagesDiff': void
   'appro.rows': void
-  'appro.snapshots': void
   'approvisionnements.index': void
   'assets.apple_touch_icon_png': void
   'assets.css': void
@@ -210,7 +205,6 @@ export type RouteParams = {
   'auth.attempt': void
   'auth.login': void
   'auth.logout': void
-  'besoins.evolution': void
   'calendar_config.create_closure': void
   'calendar_config.delete_closure': { id: string | number }
   'calendar_config.index': void
@@ -275,9 +269,7 @@ export type RouteParams = {
   'print.documents': void
   'print.history': { orderNum: string | number }
   'print.print': { orderNum: string | number }
-  'promesse.articles': void
   'promesse.index': void
-  'promesse.show': void
   'react_lab': void
   'receptions.criticite': void
   'receptions.index': void

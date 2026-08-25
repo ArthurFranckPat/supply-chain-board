@@ -1,14 +1,15 @@
 /**
- * Controller CTP — endpoint simulateur « date au plus tôt ».
+ * Controller CTP — endpoint API « date au plus tôt ».
  *
  * GET /api/v1/promesse?article=PP_830_X&quantity=200&from=2026-07-15
  *
- * Réutilise les caches boardDataset (SWR partagé) via promise_loader.
- * Aucun appel X3 direct — cible < 500 ms sur données chaudes (PRD §8.7).
+ * Consommé par le board /programme (chemin critique d'une commande virtuelle)
+ * et la barre de scénario. Réutilise les caches boardDataset (SWR partagé)
+ * via promise_loader. Aucun appel X3 direct — cible < 500 ms sur données
+ * chaudes (PRD §8.7).
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
-import boardDataset from '#services/board_dataset'
 import { loadPromise } from '#services/promise_loader'
 
 export default class PromiseController {
@@ -35,19 +36,5 @@ export default class PromiseController {
 
     const result = await loadPromise({ article, quantity, from })
     return ctx.response.ok(result)
-  }
-
-  /**
-   * GET /api/v1/promesse/articles — référentiel léger pour l'autocomplete du
-   * simulateur (PRD §6.2). Codes + désignations, depuis le cache statique.
-   */
-  async articles(ctx: HttpContext) {
-    const articles = await boardDataset.getArticles()
-    return ctx.response.ok(articles.map((a) => ({ code: a.code, description: a.description })))
-  }
-
-  /** GET /promesse — page Inertia du simulateur CTP autonome. */
-  async show(ctx: HttpContext) {
-    return ctx.inertia.render('promesse', {})
   }
 }

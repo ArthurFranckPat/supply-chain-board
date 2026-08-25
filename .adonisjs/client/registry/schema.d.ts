@@ -379,33 +379,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'besoins.evolution': {
-    methods: ["GET","HEAD"]
-    pattern: '/besoins/evolution'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'conditionnements.index': {
     methods: ["GET","HEAD"]
     pattern: '/conditionnements'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'promesse.show': {
-    methods: ["GET","HEAD"]
-    pattern: '/promesse'
     types: {
       body: {}
       paramsTuple: []
@@ -1291,18 +1267,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'appro.snapshots': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/appro/snapshots'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'appro.articleExplanation': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/appro/article-explanation'
@@ -1342,18 +1306,6 @@ export interface Registry {
   'promesse.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/promesse'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'promesse.articles': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/promesse/articles'
     types: {
       body: {}
       paramsTuple: []

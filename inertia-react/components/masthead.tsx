@@ -34,9 +34,7 @@ export type MastheadTab =
   | 'expeditions'
   | 'receptions'
   | 'approvisionnements'
-  | 'besoins-evolution'
   | 'conditionnements'
-  | 'promesse'
   | 'copilote'
   | 'config'
 
@@ -93,23 +91,13 @@ const LOGISTIQUE_GROUPS: TabGroup[] = [
         label: 'Approvisionnements',
         href: route('approvisionnements.index'),
       },
-      {
-        key: 'besoins-evolution',
-        label: 'Évolution des besoins',
-        href: route('besoins.evolution'),
-      },
       { key: 'conditionnements', label: 'Conditionnements', href: route('conditionnements.index') },
     ],
   },
 ]
 
-/**
- * Menu « Plus » — Promesse en lien nu, puis Outils.
- */
+/** Menu « Plus » — outils transverses. */
 const PLUS_GROUPS: TabGroup[] = [
-  {
-    tabs: [{ key: 'promesse', label: 'Promesse', href: route('promesse.show') }],
-  },
   {
     label: 'Outils',
     tabs: [

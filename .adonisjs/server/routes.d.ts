@@ -35,9 +35,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'approvisionnements.index': { paramsTuple?: []; params?: {} }
-    'besoins.evolution': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
-    'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'print_config.index': { paramsTuple?: []; params?: {} }
@@ -111,12 +109,10 @@ export type ScannedRoutes = {
     'appro.decision': { paramsTuple?: []; params?: {} }
     'appro.diff': { paramsTuple?: []; params?: {} }
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
-    'appro.snapshots': { paramsTuple?: []; params?: {} }
     'appro.articleExplanation': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
-    'promesse.articles': { paramsTuple?: []; params?: {} }
     'data.load': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'static_sync.sync': { paramsTuple?: []; params?: {} }
@@ -169,9 +165,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'approvisionnements.index': { paramsTuple?: []; params?: {} }
-    'besoins.evolution': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
-    'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'print_config.index': { paramsTuple?: []; params?: {} }
@@ -215,12 +209,10 @@ export type ScannedRoutes = {
     'appro.rows': { paramsTuple?: []; params?: {} }
     'appro.diff': { paramsTuple?: []; params?: {} }
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
-    'appro.snapshots': { paramsTuple?: []; params?: {} }
     'appro.articleExplanation': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
-    'promesse.articles': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
@@ -263,9 +255,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'approvisionnements.index': { paramsTuple?: []; params?: {} }
-    'besoins.evolution': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
-    'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'print_config.index': { paramsTuple?: []; params?: {} }
@@ -309,12 +299,10 @@ export type ScannedRoutes = {
     'appro.rows': { paramsTuple?: []; params?: {} }
     'appro.diff': { paramsTuple?: []; params?: {} }
     'appro.messagesDiff': { paramsTuple?: []; params?: {} }
-    'appro.snapshots': { paramsTuple?: []; params?: {} }
     'appro.articleExplanation': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
-    'promesse.articles': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }

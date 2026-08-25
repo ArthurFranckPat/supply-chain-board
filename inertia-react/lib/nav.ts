@@ -10,9 +10,7 @@ import {
   Truck,
   PackageCheck,
   Boxes,
-  TrendingUp,
   Package,
-  BadgeCheck,
   Bot,
   Settings,
   type LucideIcon,
@@ -36,9 +34,7 @@ export type NavKey =
   | 'expeditions'
   | 'receptions'
   | 'approvisionnements'
-  | 'besoins-evolution'
   | 'conditionnements'
-  | 'promesse'
   | 'copilote'
   | 'config'
 
@@ -129,12 +125,6 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: Boxes,
       },
       {
-        key: 'besoins-evolution',
-        label: 'Évolution des besoins',
-        href: route('besoins.evolution'),
-        icon: TrendingUp,
-      },
-      {
         key: 'conditionnements',
         label: 'Conditionnements',
         href: route('conditionnements.index'),
@@ -145,7 +135,6 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Outils',
     items: [
-      { key: 'promesse', label: 'Promesse', href: route('promesse.show'), icon: BadgeCheck },
       { key: 'copilote', label: 'Copilote', href: route('agent.show'), icon: Bot },
       { key: 'config', label: 'Config', href: route('calendar_config.index'), icon: Settings },
     ],

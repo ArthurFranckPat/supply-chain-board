@@ -2,7 +2,6 @@ import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
 import {
   DemandSnapshotService,
-  MemoJourneesBorne,
   messageSnapshotRow,
   type ApproMessageSnapshotRow,
   type DemandSnapshotRow,
@@ -757,9 +756,9 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
     // pendant qu'X3 sature. L'appel CBN lève -> les lignes `appro_suggestion`
     // de la nuit SURVIVENT (garde-fou par source), mais avant ce fix le
     // journal était réécrit en `echec` pour la même source : le bandeau de
-    // /besoins/evolution affichait "capture perdue" sur des données réelles,
-    // présentes et valides des deux côtés. Le journal doit rester symétrique
-    // de `demand_snapshots` (même `whereNotIn`).
+    // l'écran Evolution des besoins (retiré depuis) affichait « capture
+    // perdue » sur des données réelles, présentes et valides des deux côtés.
+    // Le journal doit rester symétrique de `demand_snapshots` (même `whereNotIn`).
     await service.runWrite(J7, async () =>
       payload([
         row({ snapshot_date: J7, source: 'stock', itmref: 'S1' }),
@@ -816,69 +815,6 @@ test.group('DemandSnapshotService — journal des sources capturées (#149)', (g
     assert.equal(journalRows[0].statut, 'echec')
     assert.equal(journalRows[0].lignes, 0)
   }).timeout(20_000)
-})
-
-/**
- * Frise des drivers sur une plage (#143 défaut 5) : rien ne couvrait
- * jusqu'ici `friseDrivers` lui-même — plafond `MAX_PAS_FRISE`, chaînage des
- * pas, trous — la revue de code #143 n'avait que les 12 tests du domaine pur
- * (`diff_frise.test.ts`) pour s'appuyer.
- */
-test.group('MemoJourneesBorne (#143 défaut 2, borné en revue de code)', () => {
-  const p = (n: number) => Promise.resolve([{ n }])
-
-  test('une même journée demandée deux fois ne déclenche qu’une lecture : `set` puis `get` rendent la MÊME promesse', ({
-    assert,
-  }) => {
-    const memo = new MemoJourneesBorne(4)
-    assert.isUndefined(memo.get('J1'))
-    const promesse = p(1)
-    memo.set('J1', promesse)
-    assert.strictEqual(memo.get('J1'), promesse)
-    // Un second `get` (ce que ferait un second appelant) rend la même
-    // référence : aucune seconde lecture ne serait déclenchée par l'appelant.
-    assert.strictEqual(memo.get('J1'), promesse)
-  })
-
-  test('la capacité est respectée : au-delà, la plus ANCIENNE entrée insérée est évincée (FIFO)', ({
-    assert,
-  }) => {
-    const memo = new MemoJourneesBorne(3)
-    memo.set('J1', p(1))
-    memo.set('J2', p(2))
-    memo.set('J3', p(3))
-    assert.equal(memo.taille, 3)
-
-    // J4 dépasse la capacité : J1 (la plus ancienne INSÉRÉE) est évincée,
-    // même si elle a été relue entre-temps (FIFO, pas LRU — cf. doc de la classe).
-    assert.isDefined(memo.get('J1'))
-    memo.set('J4', p(4))
-
-    assert.equal(memo.taille, 3)
-    assert.isUndefined(memo.get('J1'))
-    assert.isDefined(memo.get('J2'))
-    assert.isDefined(memo.get('J3'))
-    assert.isDefined(memo.get('J4'))
-  })
-
-  test('évincer une clé pendant qu’une promesse est en vol ne casse rien pour l’appelant qui la détient déjà', async ({
-    assert,
-  }) => {
-    const memo = new MemoJourneesBorne(1)
-    const promesseJ1 = p(1)
-    memo.set('J1', promesseJ1)
-    // Un appelant récupère sa référence AVANT l'éviction — c'est exactement
-    // ce que fait `loadDayRows` : `promesse = memo.get(day)` puis `return
-    // promesse`, jamais un accès différé au memo.
-    const referenceAppelant = memo.get('J1')
-    memo.set('J2', p(2)) // évince J1 (capacité 1)
-
-    assert.isUndefined(memo.get('J1'))
-    assert.isDefined(referenceAppelant)
-    // La promesse détenue par l'appelant résout normalement, indépendamment
-    // du memo qui ne la connaît plus.
-    assert.deepEqual(await referenceAppelant, [{ n: 1 }])
-  })
 })
 
 /**

@@ -8,7 +8,7 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
  * `demand_snapshots`, confondant « rien écrit » (échec d'extraction) et
  * « rien à écrire » (source réellement vide, zéro ligne). Une nuit où le CBN
  * ne rend aucun OF suggéré — ~2 000 lignes `of_suggestion` qui disparaissent —
- * est l'événement métier le plus fort de `/besoins/evolution`, et le diff le
+ * est l'événement métier le plus fort du diff des drivers, et le diff le
  * passait sous silence en l'écartant comme un trou d'instrumentation (#145).
  *
  * Une ligne par (`snapshot_date`, `source`) avec le verdict du run :

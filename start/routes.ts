@@ -150,12 +150,8 @@ router
       .get('/approvisionnements', '#controllers/appro_controller.index')
       .as('approvisionnements.index')
     router
-      .get('/besoins/evolution', '#controllers/appro_controller.evolution')
-      .as('besoins.evolution')
-    router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
-    router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
     router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
     router
@@ -351,9 +347,6 @@ router
     router
       .get('/api/v1/appro/messages-diff', '#controllers/appro_controller.messagesDiff')
       .as('appro.messagesDiff')
-    router
-      .get('/api/v1/appro/snapshots', '#controllers/appro_controller.snapshots')
-      .as('appro.snapshots')
 
     // Article explanation — grille (02) + diff temporel (04) ; 05 fera la jonction.
     // Shape diff: { depuis: "2026-08-06", entrees: [{ source, detail, jour }] }
@@ -374,9 +367,6 @@ router
 
     // CTP — Capable-to-Promise : date au plus tôt (PRD §6.2, lot 2).
     router.get('/api/v1/promesse', '#controllers/promise_controller.index').as('promesse.index')
-    router
-      .get('/api/v1/promesse/articles', '#controllers/promise_controller.articles')
-      .as('promesse.articles')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).

@@ -187,12 +187,6 @@ export default class ApproController {
     return ctx.response.json(result)
   }
 
-  /** GET /api/v1/appro/snapshots — liste des photos disponibles (§5.1). */
-  async snapshots(ctx: HttpContext) {
-    const photos = await demandSnapshotService.listSnapshots()
-    return ctx.response.json({ photos })
-  }
-
   /**
    * GET /api/v1/appro/diff — diff inter-CBN des suggestions (#133) entre les
    * deux dernières photos (`demand_snapshots`, source `appro_suggestion`).
@@ -227,11 +221,6 @@ export default class ApproController {
       })
     }
     return ctx.response.json(result)
-  }
-
-  /** GET /besoins/evolution — page Évolution des besoins (§5.5). */
-  async evolution(ctx: HttpContext) {
-    return ctx.inertia.render('besoins-evolution' as never, {} as never)
   }
 
   /**

@@ -23,8 +23,8 @@ Deux branches longues. `dev` est un **surensemble** de `master`, jamais l'invers
   Ruptures composants (`/ruptures`), Suivi commandes (`/suivi`), Planification
   (`/charge`), Config (`/configuration/*`, `/impressions`).
 - `dev` — le socle plus les surfaces pas encore en prod : logistique (expéditions,
-  réceptions, approvisionnements, évolution des besoins, conditionnements),
-  promesse, copilote, contrôle prod, cockpit, pages de lab.
+  réceptions, approvisionnements, conditionnements), copilote, contrôle prod,
+  cockpit, pages de lab.
 
 | Travail                                              | Part de                                        | PR `--base` |
 | ---------------------------------------------------- | ---------------------------------------------- | ----------- |

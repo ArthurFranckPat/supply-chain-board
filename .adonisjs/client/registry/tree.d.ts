@@ -91,18 +91,10 @@ export interface ApiDefinition {
   approvisionnements: {
     index: typeof routes['approvisionnements.index']
   }
-  besoins: {
-    evolution: typeof routes['besoins.evolution']
-  }
   conditionnements: {
     index: typeof routes['conditionnements.index']
     rows: typeof routes['conditionnements.rows']
     estimations: typeof routes['conditionnements.estimations']
-  }
-  promesse: {
-    show: typeof routes['promesse.show']
-    index: typeof routes['promesse.index']
-    articles: typeof routes['promesse.articles']
   }
   agent: {
     show: typeof routes['agent.show']
@@ -180,8 +172,10 @@ export interface ApiDefinition {
     decision: typeof routes['appro.decision']
     diff: typeof routes['appro.diff']
     messagesDiff: typeof routes['appro.messagesDiff']
-    snapshots: typeof routes['appro.snapshots']
     articleExplanation: typeof routes['appro.articleExplanation']
+  }
+  promesse: {
+    index: typeof routes['promesse.index']
   }
   data: {
     load: typeof routes['data.load']

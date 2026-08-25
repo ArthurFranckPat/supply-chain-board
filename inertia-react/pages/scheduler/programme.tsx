@@ -1057,8 +1057,8 @@ export default function Programme(props: ProgrammeProps) {
     }
   }, [measure, contentEl])
 
-  // ── Amorçages one-shot : deep-link scénario (#57) + pont /promesse (#58/CTP) ──
-  // Séparés de l'effet ResizeObserver ci-dessus : celui-ci se réexécute à chaque
+  // ── Amorçage one-shot : deep-link scénario (#57) ──
+  // Séparé de l'effet ResizeObserver ci-dessus : celui-ci se réexécute à chaque
   // changement de `measure` (donc à chaque recalcul d'impacts), et rejouait alors
   // l'ouverture du scénario en boucle — chaque ouverture modifiant le store, qui
   // redéclenchait l'effet. Ici : au montage, une fois, garde explicite.
@@ -1072,29 +1072,7 @@ export default function Programme(props: ProgrammeProps) {
       const numId = Number.parseInt(openId, 10)
       if (!Number.isNaN(numId)) openScenario(numId)
     }
-
-    const bridge = sessionStorage.getItem('promesse:bridge')
-    if (!bridge) return
-    sessionStorage.removeItem('promesse:bridge')
-    try {
-      const { article, quantity, date } = JSON.parse(bridge) as {
-        article: string
-        quantity: number
-        date: string
-      }
-      useScenarioStore.getState().setActive(true)
-      injectVirtualOrder({
-        type: 'inject_demand',
-        id: `CTP-${Date.now().toString(36)}`,
-        article,
-        quantity,
-        date: date.slice(0, 10),
-        earliest: true,
-      })
-    } catch {
-      /* payload corrompu — silencieux */
-    }
-  }, [openScenario, injectVirtualOrder])
+  }, [openScenario])
 
   useEffect(() => {
     requestMeasure()
