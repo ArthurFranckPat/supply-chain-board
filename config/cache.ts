@@ -26,27 +26,29 @@ export const superjsonSerializer: CacheSerializer = {
 }
 
 /**
- * Couche L1 mémoire, SANS sérialisation.
+ * Couche L1 mémoire, AVEC sérialisation (défaut).
  *
- * Par défaut bentocache sérialise aussi le L1 : chaque hit — donc en mémoire,
- * dans le process, sans I/O — repayait un `SuperJSON.parse` complet, synchrone
- * sur le thread principal. Mesuré sur les payloads du projet : 22,70 ms pour
- * 3 k OF / 8 k flux, 93,51 ms pour 10 k OF / 30 k flux. Et l'entrée était
- * stockée deux fois (objet + forme sérialisée).
+ * HISTORIQUE : `drivers.memory({ serialize: false })` évitait le `SuperJSON.parse`
+ * à chaque hit (mesuré : 22,70 ms pour 3 k OF / 8 k flux, 93,51 ms pour 10 k OF /
+ * 30 k flux) et le double stockage. ABANDONNÉ : incompatible avec un L2 dans
+ * bentocache 1.6.1 — quand une entrée arrive d'un hit L2, le handler la rejoue
+ * dans le L1 SOUS FORME SÉRIALISÉE (`two_tier_handler.ts` → `l1.set(key,
+ * entry.serialize())`), alors que la voie normale (`cache_stack.set`) y stocke
+ * l'objet brut quand `serializeL1=false`. La lecture L1 suivante passe cette
+ * chaîne à `CacheEntry.fromDriver` sans désérialiseur → `TypeError: Cannot read
+ * properties of undefined (reading 'deserialize')`. Constaté en dev dès
+ * l'introduction du L2 fichier (boot : préchauffage puis second accès). En
+ * revenant au défaut, les deux conventions d'écriture convergent et tout chemin
+ * est cohérent.
  *
- * L'option n'était pas honorée avant `patches/bentocache+1.6.1.patch` : elle
- * était perdue au passage par un namespace, et tout le projet est namespacé.
- *
- * CONTREPARTIE, non négociable : un hit L1 rend désormais la MÊME référence à
- * tous les appelants. Une valeur lue depuis le cache est en LECTURE SEULE —
- * copier avant de muter. Le garde-fou est dans `app/services/cache_ns.ts` :
- * hors production, toute valeur lue est gelée en profondeur, une mutation en
- * place lève un `TypeError` au lieu de corrompre les requêtes suivantes.
- *
- * `maxSize` / `maxEntrySize` deviennent inutilisables (la taille d'un objet non
- * sérialisé n'est pas calculable) — ils n'étaient pas posés.
+ * Conséquences de la désérialisation systématique :
+ * - chaque hit L1 repayait SuperJSON.parse sur le thread principal (cf. mesure
+ *   ci-dessus) — à re-mesurer si ça redevient chaud en profilage ;
+ * - un hit rend une COPIE fraîche (plus de référence partagée mutables) : le
+ *   garde-fou `Object.freeze` hors prod de `app/services/cache_ns.ts` devient
+ *   redondant, on le laisse (défense en profondeur).
  */
-const l1 = () => drivers.memory({ serialize: false })
+const l1 = () => drivers.memory()
 
 // `file` en dev, `redis` en prod, `memory` en test (cf. .env).
 //
