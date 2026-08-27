@@ -23,6 +23,8 @@ import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
 import { buildPosteNatureByWorkstation, type PosteNature } from '#app/domain/atelier'
+import { buildMoteurBom, MoteurNeedsAccumulator, type MoteurRecap } from '#app/domain/moteurs'
+import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 // ---------------------------------------------------------------------------
 // Display types
@@ -89,6 +91,8 @@ interface LineRow {
   pp830?: {
     chargeByTypo: { typo: string; sans: number; bouche: number }[]
     stockBouchesHygro: number | null
+    /** Besoins moteurs cumulés sur l'horizon. `null` si aucun OF n'en consomme. */
+    moteurs: MoteurRecap | null
   }
 }
 
@@ -279,9 +283,10 @@ export async function loadBoardData(
   let typologieByArticle = new Map<string, string>()
   let categoryByArticle = new Map<string, string>()
   let stockBouchesHygro: number | null = null
+  let moteurBom = new Map<string, NomenclatureEntry[]>()
 
   try {
-    const [ref, ord, bdh, articlesList, bouchesHygro] = await timeStage(
+    const [ref, ord, bdh, articlesList, bouchesHygro, nomEntries] = await timeStage(
       'loadBoardData.datasets',
       () =>
         Promise.all([
@@ -296,11 +301,14 @@ export async function loadBoardData(
           boardDataset.getArticles(),
           // Bouches hygro (BDH60 équipées module) — stock affiché dans le header PP_830 (issue #42).
           staticSync.readBouchesHygroSet().catch(() => new Set<string>()),
+          // Nomenclature (SQLite local, cachée REF_TTL) — besoins moteurs du header PP_830.
+          boardDataset.getNomenclature(force).catch(() => [] as NomenclatureEntry[]),
         ])
     )
     gammeOps = ref.gamme
     mos = [...ord.mos]
     bdhParents = bdh
+    moteurBom = buildMoteurBom(nomEntries)
     for (const a of articlesList) {
       if (a.typologie) typologieByArticle.set(a.code, a.typologie)
       categoryByArticle.set(a.code, a.category ?? '')
@@ -394,6 +402,7 @@ export async function loadBoardData(
       byTypo: Map<string, { sans: number; bouche: number }>
     }
   >()
+  const moteurNeeds = new MoteurNeedsAccumulator(moteurBom)
 
   for (const mo of mos) {
     const ov = overrideMap.get(mo.numOf) ?? null
@@ -432,6 +441,9 @@ export async function loadBoardData(
     m.ofCount++
     m.totalHours += hours
     m.dayHours[idx] += hours
+    // Besoins moteurs de la ligne EASY HOME — header PP_830. Cumulé ici plutôt qu'en
+    // post-traitement : c'est le seul endroit où l'OF est déjà rattaché à son poste.
+    if (wst === 'PP_830') moteurNeeds.add(mo.article, mo.quantity)
     // Charge par typologie (TSICOD_4), splittée bouche-consommatrice vs non — header PP_830 (#42).
     const typo = typologieByArticle.get(mo.article)
     if (typo) {
@@ -517,6 +529,7 @@ export async function loadBoardData(
                   }))
                   .sort((a, b) => b.sans + b.bouche - (a.sans + a.bouche)),
                 stockBouchesHygro,
+                moteurs: moteurNeeds.result(),
               },
             }
           : {}),

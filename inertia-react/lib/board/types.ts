@@ -65,6 +65,11 @@ export interface LineRow {
     /** Charge (heures) par typo, splittée bouche-consommatrice vs non. */
     chargeByTypo: { typo: string; sans: number; bouche: number }[]
     stockBouchesHygro: number | null
+    /** Besoins moteurs (moto-roues 110229xx) cumulés sur l'horizon affiché. */
+    moteurs: {
+      total: number
+      byRef: { article: string; label: string; qty: number }[]
+    } | null
   }
 }
 

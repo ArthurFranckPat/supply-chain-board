@@ -16,7 +16,7 @@ import {
   type BoardState,
 } from '@r/lib/board/store'
 import type { Card, DayCol, LineRow } from '@r/lib/board/types'
-import { TYPO_META } from '@r/lib/board/types'
+import { PP830Header } from '@r/components/board/pp830-header'
 import type { VirtualOrderVm } from '@r/lib/scenarios/types'
 import { promiseReasonText, type PromiseNode } from '@r/lib/promesse/types'
 import { route } from '@r/lib/routes'
@@ -699,78 +699,6 @@ function CardView(props: CardViewProps) {
         kitGpe={card.kitGpe}
         retardJours={props.cardRetard}
       />
-    </div>
-  )
-}
-
-// ── PP_830 Header ──
-interface PP830HeaderProps {
-  pp830: {
-    chargeByTypo: { typo: string; sans: number; bouche: number }[]
-    stockBouchesHygro: number | null
-  }
-}
-
-function PP830Header({ pp830 }: PP830HeaderProps) {
-  const total = pp830.chargeByTypo.reduce((s, t) => s + t.sans + t.bouche, 0) || 1
-  const seg = (h: number) => `${(h / total) * 100}%`
-
-  return (
-    <div className="mt-1.5">
-      <div className="flex h-[6px] overflow-hidden rounded-full bg-rule-soft">
-        {pp830.chargeByTypo.map((t) => (
-          <div key={t.typo} className="flex">
-            <span
-              className="block h-full"
-              style={{
-                width: seg(t.sans),
-                background: TYPO_META[t.typo]?.color ?? 'var(--border)',
-              }}
-            />
-            {t.bouche > 0 && (
-              <span
-                className="block h-full"
-                style={{
-                  width: seg(t.bouche),
-                  background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)',
-                }}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-2xs font-bold uppercase tracking-wider">
-        {pp830.chargeByTypo.map((t) => (
-          <span key={t.typo} className="inline-flex items-center gap-1">
-            <span className="inline-flex items-center gap-0.5">
-              <span
-                className="size-[7px] rounded-[1px]"
-                style={{ background: TYPO_META[t.typo]?.color ?? 'var(--border)' }}
-              />
-              {t.bouche > 0 && (
-                <span
-                  className="size-[7px] rounded-[1px]"
-                  style={{ background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)' }}
-                />
-              )}
-            </span>
-            <span className="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
-            <span className="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
-          </span>
-        ))}
-      </div>
-      {pp830.stockBouchesHygro !== null && (
-        <div className="mt-1 flex items-baseline gap-1 text-2xs text-muted-foreground">
-          <span>Bouches hygro</span>
-          <span
-            className="font-fraunces text-sm font-bold tabular-nums"
-            style={{ color: 'var(--color-brand)' }}
-          >
-            {pp830.stockBouchesHygro}
-          </span>
-          <span>pcs</span>
-        </div>
-      )}
     </div>
   )
 }

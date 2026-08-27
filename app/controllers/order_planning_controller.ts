@@ -14,6 +14,7 @@ import {
 import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
+import { isMoteurEntry, MoteurNeedsAccumulator, type MoteurRecap } from '#app/domain/moteurs'
 import type { Workstation } from '#app/domain/models/workstation'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
 import { atelierLabel, buildPosteNatureByWorkstation, type PosteNature } from '#app/domain/atelier'
@@ -111,6 +112,8 @@ interface LineRow {
   pp830?: {
     chargeByTypo: { typo: string; sans: number; bouche: number }[]
     stockBouchesHygro: number | null
+    /** Besoins moteurs cumulés sur l'horizon. `null` si aucune ligne n'en consomme. */
+    moteurs: MoteurRecap | null
   }
 }
 
@@ -344,6 +347,9 @@ export async function loadOrderBoardData(
   let stockBouchesHygro: number | null = null
   // BOM (composants FABRIQUÉS) pour explodeCharge — achetés exclus (pas de poste).
   let bomByParent = new Map<string, NomenclatureEntry[]>()
+  /** BOM restreint aux moteurs — header PP_830. Distinct de `bomByParent` : les moto-roues
+   *  sont achetées, donc écartées du BOM de charge induite. */
+  const moteurBom = new Map<string, NomenclatureEntry[]>()
   /** Libellé composant pour cartes induites (absent de ChargeRaw). */
   const componentDesc = new Map<string, string>()
   // Entrées matcher commande→OF (statut pastille) — hoistés hors try pour matching post-override.
@@ -373,6 +379,11 @@ export async function loadOrderBoardData(
     matchSupply = ordWindow.supply
     matchArticles = new Map(articlesList.map((a) => [a.code, a]))
     for (const e of nomEntries) {
+      if (isMoteurEntry(e)) {
+        const moteurs = moteurBom.get(e.parentArticle)
+        if (moteurs) moteurs.push(e)
+        else moteurBom.set(e.parentArticle, [e])
+      }
       if (!isManufactured(e)) continue // acheté → pas de poste, pas de charge induite
       const arr = bomByParent.get(e.parentArticle)
       if (arr) arr.push(e)
@@ -498,6 +509,7 @@ export async function loadOrderBoardData(
     parents: Map<string, string>
   }
   const induitGroups = new Map<string, InduitGroup>()
+  const moteurNeeds = new MoteurNeedsAccumulator(moteurBom)
 
   for (const line of ordreLignes) {
     const op = primaryOp(opsByArticle.get(line.article))
@@ -534,6 +546,8 @@ export async function loadOrderBoardData(
     b.totalHours += hours
     b.dayHours[idx] += hours
     b.lineCount++
+    // Besoins moteurs de la ligne EASY HOME — header PP_830.
+    if (workstation === 'PP_830') moteurNeeds.add(line.article, line.quantite)
     // Charge par typo (split bouche) — header PP_830 (issue #42).
     const typo = typologieByArticle.get(line.article)
     if (typo) {
@@ -680,6 +694,7 @@ export async function loadOrderBoardData(
                   }))
                   .sort((a, b) => b.sans + b.bouche - (a.sans + a.bouche)),
                 stockBouchesHygro,
+                moteurs: moteurNeeds.result(),
               },
             }
           : {}),

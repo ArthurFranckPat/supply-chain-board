@@ -70,15 +70,22 @@ const TYPE_META: Record<string, { background: string; color: string }> = {
 }
 
 /** Pastille statut OF alloué (même alphabet que filtre OF / bandeau Listing). */
-const OF_STATUS_DOT: Record<'ferme' | 'planifie' | 'suggere', string> = {
-  ferme: 'bg-ferme',
-  planifie: 'bg-planifie',
-  suggere: 'bg-suggere',
-}
 const OF_STATUS_LABEL: Record<'ferme' | 'planifie' | 'suggere', string> = {
   ferme: 'ferme',
   planifie: 'planifié',
   suggere: 'suggéré',
+}
+/** Libellé court du badge de statut OF — la carte est étroite, « planifié » n'y tient pas. */
+const OF_STATUS_SHORT: Record<'ferme' | 'planifie' | 'suggere', string> = {
+  ferme: 'ferme',
+  planifie: 'planif',
+  suggere: 'sugg',
+}
+/** Couleur de fond du badge — texte blanc, les trois tons sont assez sombres pour ça. */
+const OF_STATUS_BG: Record<'ferme' | 'planifie' | 'suggere', string> = {
+  ferme: 'var(--color-ferme)',
+  planifie: 'var(--color-planifie)',
+  suggere: 'var(--color-suggere)',
 }
 
 type Common = {
@@ -186,14 +193,12 @@ function CommandeCard(props: CommandeCardProps) {
       {/* coin haut-droit : faisabilité, ou coche terminé */}
       {props.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
       {props.feas === 'qc' && (
-        <CornerBadge
-          cls="bg-warning"
-          icon="science"
-          title={qcBadgeTitle(props.feasQcComponents)}
-        />
+        <CornerBadge cls="bg-warning" icon="science" title={qcBadgeTitle(props.feasQcComponents)} />
       )}
       {props.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
-      {!props.feas && props.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
+      {!props.feas && props.status === 'termine' && (
+        <CornerBadge cls="bg-muted-foreground" icon="check" />
+      )}
       {/* cours : point terra pulsant (intérieur) */}
       {props.status === 'cours' && (
         <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
@@ -260,19 +265,24 @@ function CommandeBody(p: CommandeBodyProps) {
             {p.type}
           </span>
         )}
-        {p.ofStatus && (
-          <span
-            className={cn('size-1.5 shrink-0 rounded-full', OF_STATUS_DOT[p.ofStatus])}
-            title={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
-            aria-label={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
-          />
-        )}
         <span className="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
           {cmd}
         </span>
         {ligne && (
           <span className="shrink-0 font-mono text-2xs font-medium leading-tight text-muted-foreground">
             ·{ligne}
+          </span>
+        )}
+        {/* Statut de l'OF alloué — badge plein en bout de ligne. Le point de 6 px
+            qu'il remplace se noyait entre le tag de type et le n° de commande :
+            l'info porte une décision (lancer / affermir), elle mérite un libellé. */}
+        {p.ofStatus && (
+          <span
+            className="ml-auto shrink-0 rounded px-1 py-0.5 font-mono text-3xs font-bold uppercase tracking-wider text-white"
+            style={{ background: OF_STATUS_BG[p.ofStatus] }}
+            title={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
+          >
+            OF {OF_STATUS_SHORT[p.ofStatus]}
           </span>
         )}
       </div>
@@ -299,7 +309,10 @@ function CommandeBody(p: CommandeBodyProps) {
           )}
         </div>
       )}
-      <div className="truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+      <div
+        className="truncate text-xs font-medium leading-tight text-muted-foreground"
+        title={p.title}
+      >
         {p.title}
       </div>
       {p.client && (
@@ -335,7 +348,9 @@ function CommandeBody(p: CommandeBodyProps) {
               {p.qty}
             </span>
           )}
-          <span className="text-2xs font-medium tabular-nums text-muted-foreground">{p.hours}h</span>
+          <span className="text-2xs font-medium tabular-nums text-muted-foreground">
+            {p.hours}h
+          </span>
         </span>
       </div>
     </>
@@ -457,7 +472,10 @@ function OfListingCard(p: OfCardProps) {
           {p.article}
         </div>
         {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
-        <div className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+        <div
+          className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground"
+          title={p.title}
+        >
           {p.title}
         </div>
         {p.progress && (
@@ -487,7 +505,10 @@ function OfListingCard(p: OfCardProps) {
               title={typo.label}
               className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase text-secondary-foreground"
             >
-              <span className="size-[8px] shrink-0 rounded-[2px]" style={{ background: typo.color }} />
+              <span
+                className="size-[8px] shrink-0 rounded-[2px]"
+                style={{ background: typo.color }}
+              />
               <span className="truncate">{typo.label}</span>
             </span>
           ) : (

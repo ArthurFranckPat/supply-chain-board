@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { Undo2 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
-import { TYPO_META } from '@r/lib/board/types'
+import { PP830Header } from '@r/components/board/pp830-header'
 import type { OrderCard, OrderLineRow } from '@r/lib/orders/types'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
@@ -335,70 +335,9 @@ export function OrderGrid(props: OrderGridProps) {
                   maxHours={maxLineHours}
                   variant="line"
                 />
-                {/* PP_830 — équilibrage (issue #42) : barre empilée typo
-                    (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
-                {line.pp830 && (
-                  <div className="mt-1.5">
-                    <div className="flex h-[6px] overflow-hidden rounded-full bg-rule-soft">
-                      {line.pp830?.chargeByTypo.map((t) => (
-                        <div key={t.typo}>
-                          <span
-                            className="block h-full"
-                            style={{
-                              width: `${((t.sans + t.bouche) / (line.pp830?.chargeByTypo ?? []).reduce((s, x) => s + x.sans + x.bouche, 0)) * 100}%`,
-                              background: TYPO_META[t.typo]?.color ?? 'var(--border)',
-                            }}
-                          />
-                          {t.bouche > 0 && (
-                            <span
-                              className="block h-full"
-                              style={{
-                                width: `${(t.bouche / (line.pp830?.chargeByTypo ?? []).reduce((s, x) => s + x.sans + x.bouche, 0)) * 100}%`,
-                                background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)',
-                              }}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] font-bold uppercase tracking-wider">
-                      {line.pp830?.chargeByTypo.map((t) => (
-                        <span key={t.typo} className="inline-flex items-center gap-1">
-                          <span className="inline-flex items-center gap-0.5">
-                            <span
-                              className="size-[7px] rounded-[1px]"
-                              style={{ background: TYPO_META[t.typo]?.color ?? 'var(--border)' }}
-                            />
-                            {t.bouche > 0 && (
-                              <span
-                                className="size-[7px] rounded-[1px]"
-                                style={{
-                                  background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)',
-                                }}
-                              />
-                            )}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {TYPO_META[t.typo]?.label ?? t.typo}
-                          </span>
-                          <span className="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
-                        </span>
-                      ))}
-                    </div>
-                    {line.pp830.stockBouchesHygro !== null && (
-                      <div className="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
-                        <span>Bouches hygro</span>
-                        <span
-                          className="font-fraunces text-[14px] font-bold tabular-nums"
-                          style={{ color: 'var(--color-brand)' }}
-                        >
-                          {line.pp830.stockBouchesHygro}
-                        </span>
-                        <span>pcs</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* PP_830 — équilibrage (issue #42) : barre empilée typo, stock bouches
+                    hygro, besoin moteurs. Bloc partagé avec le board OF. */}
+                {line.pp830 && <PP830Header pp830={line.pp830} />}
               </div>
 
               {/* Cellules */}
