@@ -280,15 +280,20 @@ export default function Programme(props: VisionProps) {
     }
   }, [isOrderMode, props.windowFrom, props.windowTo])
   const feasMode = () => (isOrderMode ? orderStore.mode : boardStore.mode)
+  // Changer de mode relance le calcul UNIQUEMENT si des verdicts sont déjà
+  // affichés (sinon on paierait 30–100 s de X3 pour un simple réglage : c'est
+  // le bouton Faisabilité qui déclenche le 1er calcul).
   const setFeasMode = useCallback(
     (m: 'immediate' | 'sequential') => {
-      if (isOrderMode) {
-        useOrderBoardStore.getState().setMode(m)
-      } else {
-        useBoardStore.getState().setMode(m)
+      const store = isOrderMode ? useOrderBoardStore : useBoardStore
+      const st = store.getState()
+      if (st.mode === m) return
+      st.setMode(m)
+      if (Object.keys(st.feasibility).length > 0) {
+        store.getState().runFeasibility(props.windowFrom, props.windowTo)
       }
     },
-    [isOrderMode]
+    [isOrderMode, props.windowFrom, props.windowTo]
   )
 
   // Drawer détail OF
@@ -1073,6 +1078,8 @@ export default function Programme(props: VisionProps) {
           switchMode={switchMode}
           feasLoading={feasLoading()}
           runFeasibility={runFeasibility}
+          feasMode={feasMode()}
+          setFeasMode={setFeasMode}
           refreshing={refreshing}
           doRefresh={doRefresh}
           calOpen={calOpen}

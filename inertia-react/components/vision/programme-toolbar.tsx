@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { useBoardStore, statusActive, posteNatureActive } from '@r/lib/board/store'
 import { useOrderBoardStore } from '@r/lib/orders/orders-store'
-import type { PosteNatureFilterKey } from '@r/lib/board/types'
+import type { FeasibilityMode, PosteNatureFilterKey } from '@r/lib/board/types'
 import { ChevronDown, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import {
@@ -44,6 +44,23 @@ const ORDER_NATURE_CHIPS: { k: string; label: string; short: string }[] = [
   { k: 'PREVISION', label: 'Prévisions', short: 'PRÉV' },
 ]
 
+/** Mode de calcul de la faisabilité — cf. `evaluateRuptures` (photo / contention). */
+const FEAS_MODE_CHIPS: { k: FeasibilityMode; label: string; short: string; title: string }[] = [
+  {
+    k: 'immediate',
+    label: 'Immédiat',
+    short: 'IMM',
+    title: 'Immédiat — chaque OF évalué seul sur le stock disponible (photo)',
+  },
+  {
+    k: 'sequential',
+    label: 'Projeté',
+    short: 'PROJ',
+    title:
+      'Projeté — contention séquentielle : les OF consomment le stock à la suite, triés par date de besoin',
+  },
+]
+
 const POSTE_NATURE_CHIPS: { k: PosteNatureFilterKey; label: string }[] = [
   { k: 'assemblage_pf', label: 'Assemblage PF' },
   { k: 'assemble_sous_ensemble', label: 'Sous-ensemble' },
@@ -67,6 +84,11 @@ export function ProgrammeToolbar(props: {
   switchMode: (m: VisionMode) => void
   feasLoading: boolean
   runFeasibility: () => void
+  /** Mode de calcul de faisabilité — 'immediate' (photo, chaque OF seul) /
+   *  'sequential' (projeté, contention : les OF consomment le stock dans
+   *  l'ordre des dates de besoin). */
+  feasMode: FeasibilityMode
+  setFeasMode: (m: FeasibilityMode) => void
   refreshing: boolean
   doRefresh: () => void
   calOpen: boolean
@@ -237,6 +259,8 @@ export function ProgrammeToolbar(props: {
         onToggleScenario={props.onToggleScenario}
         feasLoading={props.feasLoading}
         runFeasibility={props.runFeasibility}
+        feasMode={props.feasMode}
+        setFeasMode={props.setFeasMode}
       />
     </ToolbarRow>
   )
@@ -256,6 +280,8 @@ function ActionsMenu(props: {
   onToggleScenario?: () => void
   feasLoading: boolean
   runFeasibility: () => void
+  feasMode: FeasibilityMode
+  setFeasMode: (m: FeasibilityMode) => void
 }) {
   const selectMode = useBoardStore((s) => s.selectMode)
   const detailsRef = useRef<HTMLDetailsElement>(null)
@@ -354,7 +380,28 @@ function ActionsMenu(props: {
             className={cn('text-muted-foreground', props.feasLoading && 'animate-spin')}
           />
           <span className="flex-1">{props.feasLoading ? 'Calcul en cours…' : 'Faisabilité'}</span>
+          <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+            {FEAS_MODE_CHIPS.find((c) => c.k === props.feasMode)?.short}
+          </span>
         </button>
+
+        {/* Mode de calcul — immédiat (photo) vs projeté (contention). Le choix
+            est envoyé au POST /board-feasibility ; il ne relance pas le calcul
+            tout seul (26–100 s côté X3), sauf si un verdict est déjà affiché. */}
+        <div className="px-2.5 pb-2 pt-1">
+          <Segment className="w-full justify-between">
+            {FEAS_MODE_CHIPS.map(({ k, label, title }) => (
+              <SegmentButton
+                key={k}
+                active={props.feasMode === k}
+                title={title}
+                onClick={() => props.setFeasMode(k)}
+              >
+                {label}
+              </SegmentButton>
+            ))}
+          </Segment>
+        </div>
 
         {/* Sélection — OF / Combiné uniquement */}
         {props.mode !== 'planification' && (
