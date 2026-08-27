@@ -414,8 +414,11 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
         let nbBlocked = 0
         let nbQc = 0
         for (const o of data.orders ?? []) {
-          if (!o.ligne) continue
-          const cardId = `${o.numCommande}#${o.ligne}`
+          // Prévision : X3 lui donne VCRLIN_0 = 0, que le repository ne reporte pas
+          // (`ligne` null). L'id de carte côté serveur vaut alors `<num>#` — filtrer
+          // sur `!o.ligne` jetait donc TOUTES les prévisions : ni badge faisabilité,
+          // ni pastille OF, alors que le matcher les alloue bien (of_conso).
+          const cardId = `${o.numCommande}#${o.ligne ?? ''}`
           const ofs = o.ofs ?? []
           // Pastille : statut du 1er OF alloué (même primaire que le matcher).
           const primary = ofs[0]
