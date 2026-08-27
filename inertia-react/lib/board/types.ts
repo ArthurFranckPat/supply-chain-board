@@ -22,6 +22,8 @@ export interface Card {
   consommeBouche?: boolean
   typologie?: string
   kitGpe?: 'KIT' | 'GPE'
+  /** Réf. du moteur monté (moto-roue 110229xx) — cartes PP_830 seules. */
+  moteurRef?: string | null
 }
 
 export interface DayCol {

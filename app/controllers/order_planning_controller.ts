@@ -14,7 +14,12 @@ import {
 import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { isMoteurEntry, MoteurNeedsAccumulator, type MoteurRecap } from '#app/domain/moteurs'
+import {
+  isMoteurEntry,
+  moteurRefFor,
+  MoteurNeedsAccumulator,
+  type MoteurRecap,
+} from '#app/domain/moteurs'
 import type { Workstation } from '#app/domain/models/workstation'
 import { resteAFabriquer } from '#app/domain/models/orders_qty'
 import { atelierLabel, buildPosteNatureByWorkstation, type PosteNature } from '#app/domain/atelier'
@@ -83,6 +88,8 @@ interface Card {
    * null = aucun OF alloué (stock / achat / sans couverture).
    */
   ofStatus?: OfCardStatus | null
+  /** Réf. du moteur monté (moto-roue 110229xx) — porté par les cartes PP_830 seules. */
+  moteurRef?: string | null
 }
 
 interface DayCol {
@@ -156,6 +163,7 @@ function makeOrderCard(p: {
   typologie?: string
   contremarque?: string | null
   ofStatus?: OfCardStatus | null
+  moteurRef?: string | null
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
   const fields = [
@@ -181,6 +189,7 @@ function makeOrderCard(p: {
     qty: p.quantite,
     contremarque: p.contremarque ?? null,
     ofStatus: p.ofStatus ?? null,
+    moteurRef: p.moteurRef ?? null,
   }
 }
 
@@ -538,6 +547,8 @@ export async function loadOrderBoardData(
       typologie: typologieByArticle.get(line.article),
       contremarque: line.contremarque,
       ofStatus: ofStatusByLine.get(overrideKey) ?? null,
+      // Réf. moteur sur PP_830 seule : ailleurs elle n'aide pas à décider.
+      moteurRef: workstation === 'PP_830' ? moteurRefFor(moteurBom, line.article) : null,
     })
 
     if (!buckets.has(workstation)) buckets.set(workstation, newBucket())

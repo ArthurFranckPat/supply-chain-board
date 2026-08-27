@@ -697,6 +697,7 @@ function CardView(props: CardViewProps) {
         consommeBouche={card.consommeBouche}
         typologie={card.typologie}
         kitGpe={card.kitGpe}
+        moteurRef={card.moteurRef ?? null}
         retardJours={props.cardRetard}
       />
     </div>

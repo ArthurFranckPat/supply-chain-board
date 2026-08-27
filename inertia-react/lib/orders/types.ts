@@ -41,6 +41,8 @@ export interface OrderCard {
    * null = aucun OF alloué (stock / achat / sans couverture).
    */
   ofStatus?: 'ferme' | 'planifie' | 'suggere' | null
+  /** Réf. du moteur monté (moto-roue 110229xx) — cartes PP_830 seules. */
+  moteurRef?: string | null
 }
 
 /** Portée de la recherche live. */

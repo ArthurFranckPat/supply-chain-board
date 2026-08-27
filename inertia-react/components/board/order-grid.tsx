@@ -446,6 +446,7 @@ function CardView(props: CardViewProps) {
         qty={card.qty}
         induit={ghost}
         ofStatus={ghost ? null : (card.ofStatus ?? null)}
+        moteurRef={ghost ? null : (card.moteurRef ?? null)}
         feas={props.feas}
         feasQcComponents={props.feasQcComponents}
         alert={props.alert}

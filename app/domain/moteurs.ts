@@ -49,6 +49,17 @@ export function buildMoteurBom(entries: NomenclatureEntry[]): Map<string, Nomenc
 }
 
 /**
+ * Référence du moteur monté sur un article, `null` s'il n'en porte pas. Aucun article
+ * du référentiel n'en porte deux — le premier trouvé est LE moteur.
+ */
+export function moteurRefFor(
+  bom: Map<string, NomenclatureEntry[]>,
+  article: string
+): string | null {
+  return bom.get(article)?.[0]?.componentArticle ?? null
+}
+
+/**
  * Cumule les besoins moteurs des articles posés sur la ligne, dans l'ordre où les
  * cartes sont placées. Les deux boards (OF et Commandes) alimentent le même
  * accumulateur : seule la source des quantités change.

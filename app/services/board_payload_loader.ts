@@ -23,7 +23,12 @@ import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import { atMidnight, isoDay, isoWeek } from '#app/utils/dates'
 import { buildPosteNatureByWorkstation, type PosteNature } from '#app/domain/atelier'
-import { buildMoteurBom, MoteurNeedsAccumulator, type MoteurRecap } from '#app/domain/moteurs'
+import {
+  buildMoteurBom,
+  moteurRefFor,
+  MoteurNeedsAccumulator,
+  type MoteurRecap,
+} from '#app/domain/moteurs'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 // ---------------------------------------------------------------------------
@@ -60,6 +65,8 @@ interface Card {
   typologie?: string
   /** Forme produit : KIT (consomme accessoires/bouches) vs GPE (équipement seul). Issue #42. */
   kitGpe?: 'KIT' | 'GPE'
+  /** Réf. du moteur monté (moto-roue 110229xx) — porté par les cartes PP_830 seules. */
+  moteurRef?: string | null
 }
 
 interface DayCol {
@@ -143,6 +150,7 @@ function makeCard(p: {
   consommeBouche?: boolean
   typologie?: string
   kitGpe?: 'KIT' | 'GPE'
+  moteurRef?: string | null
 }): Card {
   // Présentation = data seule (statut, article, qté…) — le frontend (board-card)
   // dérive tout le styling du `status` (TONE_BORDER/TONE_FILL). Plus de classes
@@ -162,6 +170,7 @@ function makeCard(p: {
     consommeBouche: p.consommeBouche,
     typologie: p.typologie,
     kitGpe: p.kitGpe,
+    moteurRef: p.moteurRef ?? null,
   }
 }
 
@@ -192,7 +201,8 @@ function moToCard(
   rate: number,
   workstationLabel: string | null,
   bdhParents: Set<string>,
-  typologieByArticle: Map<string, string>
+  typologieByArticle: Map<string, string>,
+  moteurRef: string | null
 ): Card {
   const status = moStatusToCard(mo.status)
   // Arrondi au dixième conservé ici (affichage carte) — cf. hoursForQuantity.
@@ -218,6 +228,7 @@ function moToCard(
     consommeBouche: bdhParents.has(mo.article),
     typologie: typologieByArticle.get(mo.article),
     kitGpe: detectKitGpe(mo.designation),
+    moteurRef,
   })
 }
 
@@ -422,7 +433,16 @@ export async function loadBoardData(
     dayHours[idx] += hours
 
     const wstLabel = wstLabels.get(wst) ?? wst
-    const cardObj = moToCard(mo, rate, wstLabel, bdhParents, typologieByArticle)
+    // Réf. moteur portée par la carte sur PP_830 seule : ailleurs elle n'aide pas à
+    // décider, et la ligne EASY HOME est la seule cadencée par l'appro moto-roues.
+    const cardObj = moToCard(
+      mo,
+      rate,
+      wstLabel,
+      bdhParents,
+      typologieByArticle,
+      wst === 'PP_830' ? moteurRefFor(moteurBom, mo.article) : null
+    )
 
     if (!cardsByLineDay.has(wst)) {
       cardsByLineDay.set(

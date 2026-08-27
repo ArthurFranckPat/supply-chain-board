@@ -1,4 +1,4 @@
-import { Pencil, TriangleAlert } from 'lucide-react'
+import { Cog, Pencil, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { TYPO_META } from '@r/lib/board/types'
 import { DynamicIcon } from '../ui/dynamic-icon'
@@ -75,17 +75,36 @@ const OF_STATUS_LABEL: Record<'ferme' | 'planifie' | 'suggere', string> = {
   planifie: 'planifié',
   suggere: 'suggéré',
 }
-/** Libellé court du badge de statut OF — la carte est étroite, « planifié » n'y tient pas. */
-const OF_STATUS_SHORT: Record<'ferme' | 'planifie' | 'suggere', string> = {
-  ferme: 'ferme',
-  planifie: 'planif',
-  suggere: 'sugg',
+/**
+ * Code X3 du statut porté par le badge : WOF / WOP / WOS. C'est le vocabulaire de
+ * l'atelier — inutile de traduire en « ferme / planifié » sur une carte étroite.
+ */
+const OF_STATUS_CODE: Record<'ferme' | 'planifie' | 'suggere', string> = {
+  ferme: 'WOF',
+  planifie: 'WOP',
+  suggere: 'WOS',
 }
 /** Couleur de fond du badge — texte blanc, les trois tons sont assez sombres pour ça. */
 const OF_STATUS_BG: Record<'ferme' | 'planifie' | 'suggere', string> = {
   ferme: 'var(--color-ferme)',
   planifie: 'var(--color-planifie)',
   suggere: 'var(--color-suggere)',
+}
+
+/**
+ * Réf. du moteur monté, sur les cartes PP_830 seules. Affichée par sa queue (`·900`,
+ * `·914`) : c'est ainsi qu'on la désigne en atelier, et les 8 moto-roues du référentiel
+ * se distinguent sur leurs 3 derniers chiffres. Réf. complète en infobulle.
+ */
+function MoteurChip({ moteurRef }: { moteurRef: string }) {
+  return (
+    <span
+      title={`Moteur ${moteurRef}`}
+      className="inline-flex shrink-0 items-center gap-0.5 rounded border border-rule px-1 py-0.5 font-mono text-3xs font-bold uppercase tracking-wider text-secondary-foreground"
+    >
+      <Cog size={10} strokeWidth={2} />·{moteurRef.slice(-3)}
+    </span>
+  )
 }
 
 type Common = {
@@ -131,6 +150,8 @@ export type CommandeCardProps = Common & {
    * (nature COMMANDE/PRÉVISION) et du peg contremarque.
    */
   ofStatus?: 'ferme' | 'planifie' | 'suggere' | null
+  /** Réf. du moteur monté (moto-roue) — cartes PP_830 seules. */
+  moteurRef?: string | null
 }
 
 export type OfCardProps = Common & {
@@ -152,6 +173,8 @@ export type OfCardProps = Common & {
   /** Issue #23 : écart (jours) au besoin de la commande — badge « +N j » si > 0 (retard).
    *  null/undefined = pas de verdict (OF sans lien / donnée manquante). */
   retardJours?: number | null
+  /** Réf. du moteur monté (moto-roue) — cartes PP_830 seules. */
+  moteurRef?: string | null
 }
 
 export type BoardCardProps = CommandeCardProps | OfCardProps
@@ -217,6 +240,7 @@ function CommandeCard(props: CommandeCardProps) {
         induit={props.induit}
         alert={props.alert}
         ofStatus={props.ofStatus}
+        moteurRef={props.moteurRef}
       />
     </div>
   )
@@ -237,6 +261,7 @@ interface CommandeBodyProps {
   induit?: boolean
   alert?: string
   ofStatus?: 'ferme' | 'planifie' | 'suggere' | null
+  moteurRef?: string | null
 }
 
 function CommandeBody(p: CommandeBodyProps) {
@@ -282,7 +307,7 @@ function CommandeBody(p: CommandeBodyProps) {
             style={{ background: OF_STATUS_BG[p.ofStatus] }}
             title={`OF ${OF_STATUS_LABEL[p.ofStatus]}`}
           >
-            OF {OF_STATUS_SHORT[p.ofStatus]}
+            {OF_STATUS_CODE[p.ofStatus]}
           </span>
         )}
       </div>
@@ -342,6 +367,7 @@ function CommandeBody(p: CommandeBodyProps) {
             {typo.label}
           </span>
         )}
+        {p.moteurRef && <MoteurChip moteurRef={p.moteurRef} />}
         <span className="ml-auto flex items-baseline gap-1">
           {p.qty !== undefined && (
             <span className="font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
@@ -514,6 +540,7 @@ function OfListingCard(p: OfCardProps) {
           ) : (
             <span className="min-w-0" />
           )}
+          {p.moteurRef && <MoteurChip moteurRef={p.moteurRef} />}
           <span className="shrink-0 font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
             {p.hours}
             <span className="ml-0.5 text-2xs font-medium text-muted-foreground">h</span>
