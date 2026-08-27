@@ -5,8 +5,11 @@
  * Drag **en temps seul** : on n'autorise pas le changement de poste (rangée figée
  * par la gamme). Override de date = PATCH endpoint dédié ; rollback + toast en cas d'échec.
  *
- * Filtres entièrement client-side (toutes les lignes sont déjà chargées via props) :
- *  - recherche live + scope (poste / commande / article / client)
+ * Filtres client-side (toutes les lignes sont déjà chargées via props) :
+ *  - recherche live + scope (poste / commande / article / client / composant)
+ *  - le scope « composant » est la seule exception : il interroge le backend
+ *    (`articles-by-component`) pour remonter les PF qui consomment le composant,
+ *    puis matche les cartes sur leur article — même mécanique que le board OF.
  *  - cases à cocher type commande (MTS/MTO/NOR) et nature (COMMANDE/PREVISION)
  */
 import { create } from 'zustand'
@@ -31,6 +34,12 @@ interface OrderBoardState {
   board: OrderBoardData
   query: string
   scope: OrderSearchScope
+  /**
+   * Scope « composant » : articles parents renvoyés par le backend.
+   * `null` = requête en vol → rien ne matche (parité avec le `matchSet` du board OF).
+   * Ignoré par les autres scopes.
+   */
+  componentMatch: Set<string> | null
   // Sélection des filtres : un Set vide ⇒ aucun masquage (tout visible).
   typeFilter: Set<string>
   natureFilter: Set<string>
@@ -171,6 +180,50 @@ export function lineWeekLoads(
 }
 
 // ---------------------------------------------------------------------------
+// Recherche « composant » — debounce + cache + race-guard
+// ---------------------------------------------------------------------------
+
+const componentCache = new Map<string, Set<string>>()
+let componentSeq = 0
+let componentTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Remonte les PF qui consomment le composant cherché, puis les stocke en minuscules
+ * pour que `cardMatches` compare sur `card.article`. Le même endpoint sert la recherche
+ * composant du board OF — il matche code ET libellé du composant.
+ */
+function runComponentSearch(rawQuery: string, set: (partial: Partial<OrderBoardState>) => void) {
+  const q = rawQuery.trim().toLowerCase()
+  if (!q) {
+    set({ componentMatch: new Set<string>() })
+    return
+  }
+  const cached = componentCache.get(q)
+  if (cached) {
+    set({ componentMatch: cached })
+    return
+  }
+  set({ componentMatch: null }) // requête en vol → tout grisé
+  const seq = ++componentSeq
+  fetch(route('planning_board.articles_by_component', { component: q.toUpperCase() }))
+    .then((r): Promise<{ articles?: string[] }> => (r.ok ? r.json() : Promise.resolve({})))
+    .then((data) => {
+      const matched = new Set<string>((data.articles ?? []).map((v) => v.toLowerCase()))
+      componentCache.set(q, matched)
+      const st = useOrderBoardStore.getState()
+      if (seq === componentSeq && st.scope === 'composant' && st.query.trim().toLowerCase() === q) {
+        set({ componentMatch: matched })
+      }
+    })
+    .catch(() => {
+      componentCache.set(q, new Set<string>())
+      const st = useOrderBoardStore.getState()
+      if (seq === componentSeq && st.scope === 'composant')
+        set({ componentMatch: new Set<string>() })
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
@@ -178,6 +231,7 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
   board: EMPTY_BOARD,
   query: '',
   scope: 'poste',
+  componentMatch: new Set<string>(),
   typeFilter: new Set(ALL_TYPES),
   natureFilter: new Set(ALL_NATURES),
   atelierFilter: new Set(),
@@ -192,6 +246,7 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
     set({
       board: next,
       query: '',
+      componentMatch: new Set<string>(),
       typeFilter: new Set(ALL_TYPES),
       natureFilter: new Set(ALL_NATURES),
       atelierFilter: new Set(),
@@ -201,11 +256,24 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
 
   updateData: (next) => set({ board: next }),
 
-  onQueryInput: (value) => set({ query: value }),
+  onQueryInput: (value) => {
+    set({ query: value })
+    if (get().scope !== 'composant') return
+    if (componentTimer) clearTimeout(componentTimer)
+    componentTimer = setTimeout(() => {
+      componentTimer = null
+      runComponentSearch(value, set)
+    }, 180)
+  },
 
-  onScopeChange: (value) => set({ scope: value }),
+  onScopeChange: (value) => {
+    set({ scope: value })
+    if (value !== 'composant') return
+    const q = get().query
+    if (q.trim()) runComponentSearch(q, set)
+  },
 
-  clearSearch: () => set({ query: '' }),
+  clearSearch: () => set({ query: '', componentMatch: new Set<string>() }),
 
   toggleType: (t) =>
     set((state) => {
@@ -432,6 +500,11 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
       }
       case 'client':
         return (card.customer ?? '').toLowerCase().includes(q.toLowerCase())
+      case 'composant': {
+        const ms = state.componentMatch
+        if (ms === null) return false
+        return ms.has((card.article ?? '').toLowerCase())
+      }
       default:
         return true
     }

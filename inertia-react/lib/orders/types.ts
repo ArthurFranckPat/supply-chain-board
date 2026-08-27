@@ -44,7 +44,7 @@ export interface OrderCard {
 }
 
 /** Portée de la recherche live. */
-export type OrderSearchScope = 'poste' | 'commande' | 'article' | 'client'
+export type OrderSearchScope = 'poste' | 'commande' | 'article' | 'client' | 'composant'
 
 export interface DayCol {
   short: string

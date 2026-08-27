@@ -131,6 +131,7 @@ const ORDER_SCOPES = [
   { v: 'commande' as const, label: 'Commande' },
   { v: 'article' as const, label: 'Article' },
   { v: 'client' as const, label: 'Client' },
+  { v: 'composant' as const, label: 'Composant' },
 ] as const
 
 /**
@@ -143,7 +144,7 @@ const OF_TO_ORDER_SCOPE: Record<SearchScope, OrderSearchScope> = {
   poste: 'poste',
   pf: 'article',
   of: 'poste',
-  composant: 'poste',
+  composant: 'composant',
 }
 
 const ORDER_TO_OF_SCOPE: Record<OrderSearchScope, SearchScope> = {
@@ -151,6 +152,7 @@ const ORDER_TO_OF_SCOPE: Record<OrderSearchScope, SearchScope> = {
   article: 'pf',
   commande: 'poste',
   client: 'poste',
+  composant: 'composant',
 }
 
 type ScopeOption = { v: SearchScope | OrderSearchScope; label: string }
@@ -1091,7 +1093,9 @@ export default function Programme(props: VisionProps) {
                 <input
                   className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0 outline-none"
                   placeholder={
-                    mode === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
+                    mode === 'planification'
+                      ? 'Commande, article, client, composant…'
+                      : 'OF, article, poste…'
                   }
                   aria-label="Rechercher"
                   type="text"
