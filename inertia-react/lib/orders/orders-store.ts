@@ -26,6 +26,12 @@ import { route } from '@r/lib/routes'
 
 const ALL_TYPES = ['MTS', 'MTO', 'NOR'] as const
 const ALL_NATURES = ['COMMANDE', 'PREVISION'] as const
+/**
+ * Prévisions décochées au départ : le board Cmdes sert d'abord à piloter le carnet
+ * ferme. Les SGAxxx de prévision noient les vraies commandes et se réactivent d'un
+ * clic dans le filtre « Nature ».
+ */
+const DEFAULT_NATURES = ['COMMANDE'] as const
 const ALL_POSTE_NATURES = ['assemblage_pf', 'assemble_sous_ensemble'] as const
 
 type StatusKey = (typeof ALL_TYPES)[number] | (typeof ALL_NATURES)[number]
@@ -233,7 +239,7 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
   scope: 'poste',
   componentMatch: new Set<string>(),
   typeFilter: new Set(ALL_TYPES),
-  natureFilter: new Set(ALL_NATURES),
+  natureFilter: new Set<string>(DEFAULT_NATURES),
   atelierFilter: new Set(),
   posteNatureFilter: new Set<PosteNatureFilterKey>(ALL_POSTE_NATURES),
   mode: 'immediate',
@@ -248,7 +254,7 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
       query: '',
       componentMatch: new Set<string>(),
       typeFilter: new Set(ALL_TYPES),
-      natureFilter: new Set(ALL_NATURES),
+      natureFilter: new Set<string>(DEFAULT_NATURES),
       atelierFilter: new Set(),
       posteNatureFilter: new Set<PosteNatureFilterKey>(ALL_POSTE_NATURES),
       feasibility: {},

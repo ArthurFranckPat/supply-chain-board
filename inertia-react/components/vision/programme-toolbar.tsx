@@ -38,6 +38,12 @@ const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string 
   { k: 'suggere', label: 'Suggéré' },
 ]
 
+/** Nature de la ligne — mode Cmdes uniquement (le board OF n'a pas de prévisions). */
+const ORDER_NATURE_CHIPS: { k: string; label: string; short: string }[] = [
+  { k: 'COMMANDE', label: 'Commandes', short: 'CMD' },
+  { k: 'PREVISION', label: 'Prévisions', short: 'PRÉV' },
+]
+
 const POSTE_NATURE_CHIPS: { k: PosteNatureFilterKey; label: string }[] = [
   { k: 'assemblage_pf', label: 'Assemblage PF' },
   { k: 'assemble_sous_ensemble', label: 'Sous-ensemble' },
@@ -91,6 +97,10 @@ export function ProgrammeToolbar(props: {
   const orderSe = useOrderBoardStore((s) => s.posteNatureFilter.has('assemble_sous_ensemble'))
   const toggleOrderPosteNature = useOrderBoardStore((s) => s.togglePosteNature)
   const isOrders = props.mode === 'planification'
+  // Nature ligne (commande / prévision) — store commandes seulement.
+  const orderNatureFilter = useOrderBoardStore((st) => st.natureFilter)
+  const toggleOrderNature = useOrderBoardStore((st) => st.toggleNature)
+
   const posteNatures = {
     assemblage_pf: isOrders ? orderPf : boardPf,
     assemble_sous_ensemble: isOrders ? orderSe : boardSe,
@@ -143,6 +153,38 @@ export function ProgrammeToolbar(props: {
           <Segment className="w-full justify-between">
             {STATUS_FILTER_CHIPS.map(({ k, label }) => (
               <SegmentButton key={k} active={statuses[k]} onClick={() => toggleStatus(k)}>
+                {label}
+              </SegmentButton>
+            ))}
+          </Segment>
+        </FilterMenu>
+      )}
+
+      {/* Nature ligne — Commandes vs Prévisions (mode Cmdes seul). Les prévisions
+          sont décochées par défaut, l'indicateur du pill fermé le dit sans ouvrir. */}
+      {isOrders && (
+        <FilterMenu
+          label="Nature"
+          indicators={
+            ORDER_NATURE_CHIPS.some(({ k }) => orderNatureFilter.has(k)) ? (
+              <span
+                className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
+                aria-hidden="true"
+              >
+                {ORDER_NATURE_CHIPS.filter(({ k }) => orderNatureFilter.has(k))
+                  .map(({ short }) => short)
+                  .join('+')}
+              </span>
+            ) : null
+          }
+        >
+          <Segment className="w-full justify-between">
+            {ORDER_NATURE_CHIPS.map(({ k, label }) => (
+              <SegmentButton
+                key={k}
+                active={orderNatureFilter.has(k)}
+                onClick={() => toggleOrderNature(k)}
+              >
                 {label}
               </SegmentButton>
             ))}
