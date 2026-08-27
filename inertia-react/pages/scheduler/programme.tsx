@@ -329,7 +329,10 @@ export default function Programme(props: VisionProps) {
   const onSelectOrderLine = useCallback(
     (key: string) => {
       const card = findOrderCard(key)
-      const ofNum = card?.contremarque?.trim() || null
+      // Contremarque (peg dur X3) d'abord, OF alloué par le matcher en repli : une
+      // PRÉVISION n'a jamais de contremarque — sans ce repli, son clic ne pouvait que
+      // répondre « Aucun OF rattaché » même quand un OF suggéré lui est alloué.
+      const ofNum = card?.contremarque?.trim() || card?.ofNum?.trim() || null
       if (ofNum) {
         setSelectedOf(ofNum)
         setDetailOpen(true)

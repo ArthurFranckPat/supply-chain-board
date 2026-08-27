@@ -41,6 +41,12 @@ export interface OrderCard {
    * null = aucun OF alloué (stock / achat / sans couverture).
    */
   ofStatus?: 'ferme' | 'planifie' | 'suggere' | null
+  /**
+   * N° de l'OF alloué par le matcher. Seule voie d'ouverture du détail OF pour une
+   * PRÉVISION : celle-ci n'a jamais de `contremarque` (peg dur X3, lignes de commande
+   * seules).
+   */
+  ofNum?: string | null
   /** Réf. du moteur monté (moto-roue 110229xx) — cartes PP_830 seules. */
   moteurRef?: string | null
 }

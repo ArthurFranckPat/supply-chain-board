@@ -88,6 +88,14 @@ interface Card {
    * null = aucun OF alloué (stock / achat / sans couverture).
    */
   ofStatus?: OfCardStatus | null
+  /**
+   * N° de l'OF alloué par le matcher (le PREMIER de `ofAllocations`). Distinct de
+   * `contremarque` : celle-ci est le peg dur X3 (SORDERQ.FMINUM_0), qui n'existe que
+   * pour les lignes de commande MTS — une PRÉVISION n'en a jamais. Sans ce champ, le
+   * clic sur une carte prévision ne pouvait qu'échouer (« Aucun OF rattaché »), alors
+   * que le matcher lui alloue bien un OF suggéré.
+   */
+  ofNum?: string | null
   /** Réf. du moteur monté (moto-roue 110229xx) — porté par les cartes PP_830 seules. */
   moteurRef?: string | null
 }
@@ -163,6 +171,7 @@ function makeOrderCard(p: {
   typologie?: string
   contremarque?: string | null
   ofStatus?: OfCardStatus | null
+  ofNum?: string | null
   moteurRef?: string | null
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
@@ -189,6 +198,7 @@ function makeOrderCard(p: {
     qty: p.quantite,
     contremarque: p.contremarque ?? null,
     ofStatus: p.ofStatus ?? null,
+    ofNum: p.ofNum ?? null,
     moteurRef: p.moteurRef ?? null,
   }
 }
@@ -460,6 +470,7 @@ export async function loadOrderBoardData(
 
   // Statut OF alloué par ligne (matcher — pas contremarque). Pastille card commande.
   const ofStatusByLine = new Map<string, OfCardStatus>()
+  const ofNumByLine = new Map<string, string>()
   if (matchDemand.length > 0 && matchSupply.length > 0) {
     const remapped = remapDemandDates(matchDemand, overrideMap)
     const matcher = new CommandeOFMatcher(matchSupply, matchArticles, new Map())
@@ -471,7 +482,9 @@ export async function loadOrderBoardData(
       const ofId = primary.ofFlow.origin.id
       const statutNum = ofOverrideByNum.get(ofId)?.status ?? primary.ofFlow.origin.status
       const cardId = demandCardId(r.demandFlow)
-      if (cardId) ofStatusByLine.set(cardId, ofStatusFromNum(statutNum))
+      if (!cardId) continue
+      ofStatusByLine.set(cardId, ofStatusFromNum(statutNum))
+      ofNumByLine.set(cardId, ofId)
     }
   }
 
@@ -547,6 +560,7 @@ export async function loadOrderBoardData(
       typologie: typologieByArticle.get(line.article),
       contremarque: line.contremarque,
       ofStatus: ofStatusByLine.get(overrideKey) ?? null,
+      ofNum: ofNumByLine.get(overrideKey) ?? null,
       // Réf. moteur sur PP_830 seule : ailleurs elle n'aide pas à décider.
       moteurRef: workstation === 'PP_830' ? moteurRefFor(moteurBom, line.article) : null,
     })
