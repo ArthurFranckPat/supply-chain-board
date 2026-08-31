@@ -134,6 +134,8 @@ export default function Tracking(props: SuiviPageProps) {
   // composant ? »). Défaut OFF : sans lui, un résultat veut dire « ce composant bloque cette
   // commande » — fondre les deux rendrait la réponse ambiguë.
   const [searchBom, setSearchBom] = useState(false)
+  // Ne garder que les lignes dont la colonne « Composants en rupture » est renseignée.
+  const [ruptureOnly, setRuptureOnly] = useState(false)
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(DEFAULT_TYPES))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
@@ -168,6 +170,13 @@ export default function Tracking(props: SuiviPageProps) {
   // Ateliers de la vue active (réactif/proactif), pour les chips de filtre.
   const ateliers = mode === 'proactif' ? proView.ateliers : view.ateliers
 
+  // « A des composants en rupture » = colonne Composants non vide, avec le MÊME périmètre
+  // que son affichage (sous-ensembles inclus seulement si le chip Sous-ensembles est actif).
+  const hasRupture = (row: ProactiveDisplayRow) =>
+    showSubAssemblies
+      ? row.composants.length > 0
+      : row.composants.some((c) => !c.descente && !c.couvertParOf)
+
   // Filtrage (le tri est de la responsabilité de chaque vue).
   const reactiveFilteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -191,6 +200,7 @@ export default function Tracking(props: SuiviPageProps) {
     let r = proView.rows.filter(
       (row) =>
         (verdictFilter === 'all' || row.verdictKey === verdictFilter) &&
+        (!ruptureOnly || hasRupture(row)) &&
         typeFilter.has(row.type) &&
         (atelierFilter.size === 0 || atelierFilter.has(row.atelier)) &&
         inRangeOrLate(row.dateExpIso)
@@ -206,7 +216,14 @@ export default function Tracking(props: SuiviPageProps) {
     }
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proView.rows, proView.bomIndex, query, verdictFilter, typeFilter, atelierFilter, dateRange, searchBom])
+  }, [proView.rows, proView.bomIndex, query, verdictFilter, typeFilter, atelierFilter, dateRange, searchBom, ruptureOnly, showSubAssemblies])
+
+  // Nb de lignes avec composants en rupture — compte du chip « En rupture uniquement ».
+  const ruptureCount = useMemo(
+    () => proView.rows.filter(hasRupture).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [proView.rows, showSubAssemblies]
+  )
 
   // Toujours "aujourd'hui" réel (verdicts/statuts calculés par rapport à maintenant).
   const refLabel = TODAY.toLocaleDateString('fr-FR', {
@@ -268,6 +285,7 @@ export default function Tracking(props: SuiviPageProps) {
   const filtersActive =
     (mode === 'reactif' && statusFilter !== 'all') ||
     (mode === 'proactif' && verdictFilter !== 'all') ||
+    (mode === 'proactif' && ruptureOnly) ||
     (mode === 'proactif' && !showSubAssemblies) ||
     (mode === 'proactif' && searchBom) ||
     DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ||
@@ -280,6 +298,7 @@ export default function Tracking(props: SuiviPageProps) {
     setQuery('')
     setStatusFilter('all')
     setVerdictFilter('all')
+    setRuptureOnly(false)
     setShowSubAssemblies(true)
     setSearchBom(false)
     setTypeFilter(new Set(DEFAULT_TYPES))
@@ -378,6 +397,14 @@ export default function Tracking(props: SuiviPageProps) {
                 <div className="my-2.5 border-t border-rule-soft" />
                 <FilterMenuSectionLabel>Composants en rupture</FilterMenuSectionLabel>
                 <Segment className="w-full flex-wrap">
+                  <SegmentButton
+                    active={ruptureOnly}
+                    onClick={() => setRuptureOnly((v) => !v)}
+                    title="N'afficher que les commandes dont la colonne « Composants en rupture » est renseignée"
+                  >
+                    En rupture uniquement
+                    {chipCount(ruptureOnly, ruptureCount)}
+                  </SegmentButton>
                   <SegmentButton
                     active={showSubAssemblies}
                     onClick={() => setShowSubAssemblies((v) => !v)}
