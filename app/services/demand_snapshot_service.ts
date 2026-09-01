@@ -7,13 +7,13 @@ import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { isoDay } from '#app/utils/dates'
 
 /**
- * Photo quotidienne du besoin (#74 lot 1, absorbé par #98 lot 4).
+ * Photo quotidienne du besoin (#74, lot 1).
  *
  * X3 ne versionne rien côté prévisions — cf. commentaire de la migration
  * `demand_snapshots`. Ce service capture 4 populations à un instant T, via les
  * repositories déjà en place (`board_dataset` pour OF/lignes de commande —
- * caches SWR existants, cf. #98 lots 1-2 — puis X3 direct pour stock/appros,
- * qui n'ont pas d'équivalent caché sans filtre d'article) :
+ * caches SWR existants — puis X3 direct pour stock/appros, qui n'ont pas
+ * d'équivalent caché sans filtre d'article) :
  *
  *  - `of_ferme` / `of_planifie` / `of_suggestion` — `boardDataset.getOrders()`
  *  - `demande_ferme` / `demande_prevision` — `X3OrderLineRepository` (lignes
@@ -24,9 +24,8 @@ import { isoDay } from '#app/utils/dates'
  *    moteurs de faisabilité
  *  - `appro` — `X3ReceptionRepository.getReceptionFlows()` (PORDERQ ouvertes)
  *
- * Swap complet PAR DATE (delete + insert transactionnel), même motif que
- * `ReplicaSyncService.ingest()` : idempotent — rejouer `run()` pour la même
- * date remplace la photo au lieu de la dupliquer.
+ * Swap complet PAR DATE (delete + insert transactionnel) : idempotent — rejouer
+ * `run()` pour la même date remplace la photo au lieu de la dupliquer.
  *
  * Garde-fou explicite (critère d'acceptation #74) : une extraction VIDE
  * n'écrase jamais une photo existante. Une extraction vide signale presque
@@ -66,11 +65,10 @@ export class DemandSnapshotService {
   }
 
   /**
-   * Swap complet + garde-fou, isolé de l'extraction X3 — même découpage que
-   * `ReplicaSyncService.ingest(table, source, fetch)`, `protected` pour la même
-   * raison : seule cette logique (transaction, garde-fou vide, journalisation)
-   * est testable sans X3 joignable. `tests/unit/demand_snapshot_service.test.ts`
-   * la rejoue via une sous-classe qui expose cette méthode.
+   * Swap complet + garde-fou, isolé de l'extraction X3 et `protected` : seule
+   * cette logique (transaction, garde-fou vide, journalisation) est testable sans
+   * X3 joignable. `tests/unit/demand_snapshot_service.test.ts` la rejoue via une
+   * sous-classe qui expose cette méthode.
    */
   protected async write(
     dateStr: string,

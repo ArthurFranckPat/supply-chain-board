@@ -4,7 +4,7 @@ import demandSnapshotService from '#services/demand_snapshot_service'
 
 /**
  * `node ace snapshot:run` — photo quotidienne du besoin (#74 lot 1, absorbé
- * par #98 lot 4).
+ * par #74, lot 1).
  *
  * `--date=YYYY-MM-DD` : rattrapage/backfill du jour visé, défaut aujourd'hui.
  * Idempotent : rejouer pour la même date REMPLACE la photo (swap complet côté
@@ -42,9 +42,8 @@ export default class SnapshotRun extends BaseCommand {
       this.exitCode = 1
     }
 
-    // Cf. `replica_sync.ts` : X3Database garde un pool knex ouvert (timer tarn
-    // interne) qui ne rendrait jamais la main au shell sans cette sortie
-    // explicite.
+    // X3Database garde un pool knex ouvert (timer tarn interne) qui ne rendrait
+    // jamais la main au shell sans cette sortie explicite.
     process.exit(this.exitCode ?? 0)
   }
 }

@@ -466,7 +466,8 @@ class BoardDataset {
     pinned = false,
     force = false
   ): Promise<StockValuationKpi> {
-    // Instrumentation temporaire #98 lot 3 — fire-and-forget, jamais sur le chemin
+    // Instrumentation temporaire (cf. stock_valuation_usage_logger) —
+    // fire-and-forget, jamais sur le chemin
     // bloquant (cf. stock_valuation_usage_logger.ts).
     void logStockValuationCall(grain, pinned, from, to)
 

@@ -3,11 +3,11 @@ import db from '@adonisjs/lucid/services/db'
 import { DemandSnapshotService, type DemandSnapshotRow } from '#services/demand_snapshot_service'
 
 /**
- * Swap transactionnel + garde-fou vide (#74 lot 1, absorbé par #98 lot 4).
+ * Swap transactionnel + garde-fou vide (#74, lot 1).
  *
  * L'extraction X3 (`buildRows`) n'est pas testée ici — elle délègue à des
- * repositories déjà couverts et exigerait X3 joignable, même motif que
- * `replica_sync.test.ts`. Ce qui est propre à ce service — et donc testé —
+ * repositories déjà couverts et exigerait X3 joignable. Ce qui est propre à ce
+ * service — et donc testé —
  * c'est `write()` : le swap est-il atomique, le garde-fou vide protège-t-il
  * une photo existante, l'échec laisse-t-il l'état intact.
  *

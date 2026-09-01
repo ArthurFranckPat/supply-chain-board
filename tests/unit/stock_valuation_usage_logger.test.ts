@@ -3,12 +3,10 @@ import db from '@adonisjs/lucid/services/db'
 import { logStockValuationCall } from '#services/stock_valuation_usage_logger'
 
 /**
- * Instrumentation temporaire #98 lot 3 (cf. commentaire GitHub du 30/07/2026).
- * Table à supprimer une fois la décision de réplication STOJOU prise.
+ * Instrumentation temporaire d'usage de `getStockValuation()`.
  *
  * `stock_valuation_calls` accumule aussi du trafic RÉEL en dev (dashboard servi
- * par le même `db.sqlite3` que les tests) — c'est le but de la table. Comme
- * `orders_replica_repository.test.ts` avec ses `num_of` préfixés `TESTOF-`,
+ * par le même `db.sqlite3` que les tests) — c'est le but de la table. Donc
  * ni assertion sur le COUNT total ni `DELETE` sans filtre : les lignes de test
  * portent un `from_date` en 1900 (hors de toute plage réelle possible) et le
  * teardown ne supprime QUE ces lignes-là.

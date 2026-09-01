@@ -97,8 +97,8 @@ export default class CachePreheatProvider {
    * Donc : si quelqu'un veut re-tenter, qu'il mesure sérieusement d'abord. En
    * attendant, le séquentiel est retenu parce qu'il ne peut pas dégrader une
    * requête utilisateur concurrente, ce que la contention SOAP, elle, peut faire.
-   * Le vrai gain n'est de toute façon pas ici mais en amont, en sortant X3 du
-   * chemin de lecture (#98).
+   * Le vrai gain n'est de toute façon pas ici mais en amont, dans le PÉRIMÈTRE
+   * de ce que le warmer va chercher toutes les 4 min (cf. #183).
    *
    * DEUX FAMILLES, deux règles — c'est ce qui empêche cette liste de redevenir un
    * assortiment arbitraire :

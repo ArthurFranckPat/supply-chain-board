@@ -17,9 +17,9 @@ const MIN_CHUNK = 25
  * Composantes brutes du stock d'un article, avant tout calcul.
  *
  * `getStockFlows()` en dérive des `Flow` (un par sous-type non nul) — une découpe
- * de présentation. La réplique (#98) stocke les composantes : `strict` est un
+ * de présentation. On expose les composantes et non le résultat : `strict` est un
  * calcul (`physique − alloueP hys − alloueGlobal`), pas une donnée, et le garder
- * dérivable laisse la règle modifiable sans réingestion.
+ * dérivable laisse la règle modifiable sans retoucher l'extraction.
  */
 export interface StockLevel {
   article: string
