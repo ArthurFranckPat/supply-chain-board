@@ -54,6 +54,26 @@ const STOCK_TTL = 2 * 60 * 1000 // 2 min — stock (vivant mais acceptable pour 
 const MFGMAT_TTL = 2 * 60 * 1000 // 2 min — matières OF (consommation lente en planning)
 const RETARD_TTL = 5 * 60 * 1000 // 5 min — charge en retard (même fraîcheur que les OF)
 const PEG_TTL = 5 * 60 * 1000 // 5 min — peg OF→commande (liens stables)
+/**
+ * 2 h — valorisation du stock (#183).
+ *
+ * NE PAS aligner sur `STOCK_TTL`. C'était le cas, et le préchauffage passe
+ * toutes les 4 min (`cache_preheat_provider.WARM_INTERVAL_MS`) : 4 min > 2 min,
+ * donc l'entrée était TOUJOURS expirée à l'arrivée du warmer, qui rejouait la
+ * factory à chaque tick sans exception. ~360 reconstructions par jour de la
+ * requête la plus lourde de l'app — 7 appels SOAP chacune (1 base ITMMASTER ×
+ * ITMMVT semi-jointe à STOJOU, puis 6 chunks STOJOU de 120 articles sur 12
+ * mois). C'est elle qui sort en `curl (28) timed out after 120 s`.
+ *
+ * 2 h > 4 min : le warmer trouve désormais l'entrée fraîche et ne fait rien.
+ * Le coût tombe à ~12 reconstructions par jour.
+ *
+ * La fraîcheur ne souffre pas : ce KPI est une courbe de valorisation par
+ * buckets MENSUELS sur 12 mois glissants. Seul le bucket courant bouge, et une
+ * tendance de stock à 2 h près reste juste. Un utilisateur qui veut le dernier
+ * état a le chemin `force` (rechargement explicite), qui purge la clé.
+ */
+const VALUATION_TTL = 2 * 60 * 60 * 1000
 // SWR (issue #33) : timeout 0 = vrai stale-while-revalidate de bentocache. Si une valeur en grace
 // existe, elle est servie INSTANTANÉMENT et le refresh X3 part en arrière-plan (isBackground → les
 // erreurs de la factory sont avalées). NE PAS mettre > 0 : un timeout positif sort le refresh du mode
@@ -485,7 +505,7 @@ class BoardDataset {
     if (force) await board().delete({ key })
     return board().getOrSet({
       key,
-      ttl: STOCK_TTL,
+      ttl: VALUATION_TTL,
       timeout: SWR_TIMEOUT,
       factory: () => new StockValuationRepository().getStockValuationKpi(refDate, grain, from, to),
     })

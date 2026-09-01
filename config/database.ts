@@ -60,6 +60,34 @@ const dbConfig = defineConfig({
       // max>1 : permet aux requêtes d'un Promise.all de partir en parallèle
       // (SOAP Syracuse supporte la concurrence) au lieu d'être sérialisées.
       pool: { min: 1, max: 4 },
+
+      /**
+       * ALIGNÉ sur la durée maximale réelle d'une requête, et non laissé au
+       * défaut knex de 60 s (#183).
+       *
+       * Une requête X3 peut légitimement retenir son slot 250 s : `soap_client`
+       * lance curl avec `--max-time 120` sous un `execFile timeout` de 125 s, et
+       * `connection.ts` réessaie une fois (`retries = 1`, donc DEUX tentatives).
+       * Avec le défaut à 60 s, tout ce qui attendait derrière mourait avant même
+       * que le slot ne se libère — sans jamais atteindre X3. Constaté le
+       * 01/09/2026 : une requête à 200 en 1,9 s, puis 62 s plus tard quatre
+       * `Acquire connection error: operation timed out` simultanés
+       * (`getStockFlows` + les trois requêtes emplacement de `SuiviService`).
+       *
+       * Le pool ne pouvait pas se vider assez vite PAR CONSTRUCTION : la borne
+       * d'attente était deux à quatre fois plus courte que le travail attendu.
+       * Ce n'était pas un symptôme de la santé de X3.
+       *
+       * Attendre plutôt qu'échouer est le bon arbitrage ici : les lectures
+       * passent par bentocache en SWR (`timeout: 0`), donc un appelant qui a une
+       * valeur en grâce est servi INSTANTANÉMENT et c'est le refresh d'arrière-
+       * plan qui attend. Le mur de 250 s ne concerne que les chemins réellement
+       * froids.
+       *
+       * Si cette valeur change, changer `--max-time` avec elle : c'est le couple
+       * qui doit rester cohérent, pas chaque nombre pris isolément.
+       */
+      acquireConnectionTimeout: 250_000,
     } as any,
 
     /**

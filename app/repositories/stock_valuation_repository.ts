@@ -29,6 +29,29 @@ type RawRow = Record<string, string | null>
 /** Base articles : stock + PMP actuels sur AE1.
  *  Population = stock non nul OU article ayant eu des mouvements sur la fenêtre
  *  (évite les faux zéros pour les articles vidés au cours de la plage). */
+/**
+ * Population du KPI : les articles à stock non nul AUJOURD'HUI, plus ceux qui
+ * sont à zéro maintenant mais ont bougé depuis `from` — le rembobinage doit les
+ * retrouver, ils avaient du stock pendant la fenêtre.
+ *
+ * `EXISTS` corrélé et non `IN (SELECT …)` (#183). Le semi-join en `IN` était le
+ * second membre d'un `OR` dont le premier (`PHYSTO_0 + CTLSTO_0 <> 0`) est une
+ * EXPRESSION, donc non sargable : Oracle ne pouvait pas piloter la branche
+ * STOJOU par index et matérialisait le journal de stock sur toute la fenêtre —
+ * 12 mois par défaut. C'est la requête qui sortait en
+ * `curl (28) timed out after 120 s`, mesurée depuis `getStockValuationKpi`.
+ *
+ * `EXISTS` garde exactement la même sémantique (semi-join, pas de duplication de
+ * ligne même si l'article a mille mouvements) mais se corrèle article par
+ * article : la sous-requête devient une sonde sur `(ITMREF_0, STOFCY_0,
+ * IPTDAT_0)` au lieu d'un balayage à matérialiser.
+ *
+ * NON MESURÉ CONTRE X3 : la réécriture a été posée pendant un épisode de
+ * saturation où même une requête d'une ligne ne revenait pas. À vérifier avec
+ * `PERF_TRACE=1` quand l'ERP est calme — c'est le champ `exec` des
+ * `technicalInfos` qui tranche (cf. `soap_client.ts`), `wait` ne dirait que la
+ * contention.
+ */
 const buildBaseSql = (fromStr: string) => `
 SELECT
   M.ITMREF_0    AS ARTICLE,
@@ -41,9 +64,10 @@ INNER JOIN ITMMVT V ON V.ITMREF_0 = M.ITMREF_0 AND V.STOFCY_0 = '${SITE}'
 WHERE M.ITMSTA_0 = 1
   AND M.TCLCOD_0 NOT LIKE 'Z%'
   AND ((V.PHYSTO_0 + V.CTLSTO_0) <> 0
-       OR M.ITMREF_0 IN (SELECT ITMREF_0 FROM STOJOU
-                         WHERE STOFCY_0 = '${SITE}'
-                           AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD')))
+       OR EXISTS (SELECT 1 FROM STOJOU J
+                  WHERE J.ITMREF_0 = M.ITMREF_0
+                    AND J.STOFCY_0 = '${SITE}'
+                    AND J.IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD')))
 `
 
 /** Base d'UN article : stock + PMP actuels sur AE1, identité (désignation,

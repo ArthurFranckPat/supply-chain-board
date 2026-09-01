@@ -447,11 +447,27 @@ export class SuiviService {
           .filter(Boolean)
       ),
     ]
-    const [detailedByOrderLine, stockByArticle, allocationsByOf] = await Promise.all([
-      emplRepo.getDetailedByOrderLine(numCommandes),
-      emplRepo.getStockLocations(lineArticles),
-      emplRepo.getOfAllocations(numOfs),
-    ])
+    /**
+     * SÉQUENTIEL et non `Promise.all` (#183).
+     *
+     * Le pool Lucid `x3` est à `max: 4` (config/database.ts). Ces trois requêtes
+     * partaient ensemble : un seul chargement de page prenait 75 % du pool, et
+     * les gardait le temps de trois SOAP. Tout autre appelant — warmer compris —
+     * attendait derrière, puis échouait. Les trois `Acquire connection error` du
+     * 01/09/2026 pointent exactement ces trois lignes, plus un quatrième sur
+     * `getStockFlows` qui n'avait plus qu'un slot.
+     *
+     * Le gain du parallélisme était local à cette page ; le coût était global.
+     * Et il est amorti : le résultat vit dans le cache SWR `suivi:context`, que
+     * le préchauffage tient chaud — le chemin froid ne se paie qu'une fois.
+     *
+     * Le vrai correctif de fond serait une borne de concurrence globale sur X3,
+     * qui n'existe pas : `max: 4` ne contraint que le chemin Lucid, et 16
+     * fichiers instancient leur propre `X3Database` (pool séparé) à côté.
+     */
+    const detailedByOrderLine = await emplRepo.getDetailedByOrderLine(numCommandes)
+    const stockByArticle = await emplRepo.getStockLocations(lineArticles)
+    const allocationsByOf = await emplRepo.getOfAllocations(numOfs)
 
     return {
       demandFlows,
