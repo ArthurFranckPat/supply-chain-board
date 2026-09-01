@@ -3,8 +3,6 @@ import {
   NB_MOUVEMENTS_STOJOU,
   type PaletteObservation,
 } from '#app/domain/conditionnement_estimator'
-import replicaGate from '#services/replica_gate'
-import stockDetailReplicaRepository from '#repositories/stock_detail_replica_repository'
 
 /**
  * Article avec ses coefs de conditionnement référencés et son contexte opérationnel.
@@ -238,16 +236,12 @@ export class ConditionnementRepository {
    * Observations de palette par article, depuis STOCK (source 'STOCK').
    * Retourne une Map article → PaletteObservation[] (toutes source 'STOCK').
    *
-   * Bascule réplique (#98, suite lot 3) : c'est la requête ~45k lignes qui timeout
-   * parfois côté X3 (cf. dégradation `Promise.allSettled` dans `getObservations()`)
-   * — le vrai goulot conditionnement, contrairement à `getStojouRangements()`
-   * ci-dessous qui reste bornée à ~3 lignes/article par le `ROW_NUMBER` et n'a
-   * jamais eu besoin de réplique.
+   * ~45k lignes : c'est la requête qui timeout parfois côté X3 (cf. dégradation
+   * `Promise.allSettled` dans `getObservations()`) — le vrai goulot
+   * conditionnement, contrairement à `getStojouRangements()` ci-dessous qui reste
+   * bornée à ~3 lignes/article par le `ROW_NUMBER`.
    */
   async getStockSrmParArticle(): Promise<Map<string, PaletteObservation[]>> {
-    if (await replicaGate.canRead('stock_detail_replica')) {
-      return stockDetailReplicaRepository.getObservations()
-    }
     const db = new X3Database()
     let rows: RawRow[] = []
     try {

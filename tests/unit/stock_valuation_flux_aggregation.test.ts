@@ -1,14 +1,10 @@
 import { test } from '@japa/runner'
-import {
-  aggregateFluxByArticlePeriod,
-  replicaCoversFluxRange,
-} from '#repositories/stock_valuation_repository'
+import { aggregateFluxByArticlePeriod } from '#repositories/stock_valuation_repository'
 
 /**
- * Fonctions pures extraites de `StockValuationRepository.getFluxByArticlePeriod()`
- * (#98, lot 3) — testables sans X3 ni SQLite. Couvre spécifiquement la classe de
- * bug déjà trouvée une fois en construisant ce lot : bucketing UTC vs heure
- * locale à la frontière d'une période.
+ * Fonction pure extraite de `StockValuationRepository.getFluxByArticlePeriod()` —
+ * testable sans X3. Couvre spécifiquement la classe de bug déjà trouvée une fois :
+ * bucketing UTC vs heure locale à la frontière d'une période.
  */
 test.group('aggregateFluxByArticlePeriod', () => {
   test('cumule plusieurs documents du même article dans la même période (mois)', ({ assert }) => {
@@ -64,38 +60,5 @@ test.group('aggregateFluxByArticlePeriod', () => {
       16
     )
     assert.equal(perPeriod!.size, 2)
-  })
-})
-
-/**
- * Couverture d'historique — question de DONNÉES, propre à cette table (seule
- * réplique interrogée sur une plage arbitraire). La question de TEMPS (« le
- * dernier run est-il assez récent ») vit dans `ReplicaGate` et se teste là-bas.
- */
-test.group('replicaCoversFluxRange', () => {
-  const from = new Date('2026-06-01T00:00:00Z')
-
-  test('couvert quand coverageMin est antérieur à from', ({ assert }) => {
-    assert.isTrue(replicaCoversFluxRange(new Date('2026-01-01T00:00:00Z'), from))
-  })
-
-  test('couvert quand coverageMin tombe exactement sur from (borne incluse)', ({ assert }) => {
-    assert.isTrue(replicaCoversFluxRange(new Date('2026-06-01T00:00:00Z'), from))
-  })
-
-  test('non couvert si from déborde coverageMin (plage pinned plus ancienne)', ({ assert }) => {
-    assert.isFalse(replicaCoversFluxRange(new Date('2026-06-15T00:00:00Z'), from))
-  })
-
-  test('non couvert pour une table vide (coverageMin null)', ({ assert }) => {
-    assert.isFalse(replicaCoversFluxRange(null, from))
-  })
-
-  test('une réplique sans mouvement récent reste couvrante — la régression visée', ({ assert }) => {
-    // La couverture se juge sur la borne BASSE. Une table dont la donnée la plus
-    // récente date de plusieurs jours (aucun mouvement STOJOU depuis) répond
-    // parfaitement pour un `from` récent : c'est le cas où l'ancien
-    // `MAX(jour) >= today` rejetait à tort une réplique fraîchement synchronisée.
-    assert.isTrue(replicaCoversFluxRange(new Date('2025-08-01T00:00:00Z'), from))
   })
 })

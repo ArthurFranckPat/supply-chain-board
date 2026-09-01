@@ -30,12 +30,6 @@ import type { RetardChargeKpi } from '#repositories/retard_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
 import { cacheNs } from '#services/cache_ns'
-import replicaGate from '#services/replica_gate'
-import ordersReplicaRepository from '#repositories/orders_replica_repository'
-import orderLinesReplicaRepository from '#repositories/order_lines_replica_repository'
-import stockReplicaRepository from '#repositories/stock_replica_repository'
-import receptionsReplicaRepository from '#repositories/receptions_replica_repository'
-import operationsReplicaRepository from '#repositories/operations_replica_repository'
 import { logStockValuationCall } from '#services/stock_valuation_usage_logger'
 
 /**
@@ -130,13 +124,8 @@ class BoardDataset {
       // ne paie le mur froid qu'au tout premier chargement (aucune valeur en grace).
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Bascule des lectures (#98, lot 2) : réplique si le portail la juge à jour,
-        // sinon voie directe X3 inchangée. `REPLICA_READS` fermé par défaut → ce
-        // `canRead` rend toujours `false` tant que le lot n'est pas activé en prod.
         // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
-        const mos = (await replicaGate.canRead('orders_replica'))
-          ? await ordersReplicaRepository.getManufacturingOrders()
-          : await new X3OfRepository().getManufacturingOrders()
+        const mos = await new X3OfRepository().getManufacturingOrders()
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
@@ -159,27 +148,6 @@ class BoardDataset {
     })
   }
 
-  /**
-   * `getOrdersForWindow()` et `getOrdersForMatchingDelta()` portent toutes deux des
-   * suggestions CBN (WIPSTA=3), sans identité stable : régénérées à chaque run avec
-   * un nouveau numOf. Servir l'une depuis la réplique (figée à T) et l'autre depuis
-   * X3 direct (lu à T+Δ) reproduit la vue déchirée que #98 écarte pour l'INGESTION
-   * (swap complet) — sauf que le mélange se produirait ici, à la LECTURE. Constaté
-   * en prod le 30/07/2026 : matching OF↔commande cassé.
-   *
-   * Un seul verdict, appelé par les deux méthodes, empêche structurellement qu'elles
-   * divergent — plus robuste qu'un commentaire d'avertissement sur chacune.
-   * `order_lines_replica` entre dans le verdict : `getOrdersForMatchingDelta` en
-   * dépend pour son sous-filtre WIPTYP=1 (articles en demande dans la fenêtre).
-   */
-  private async matchingFamilyOnReplica(): Promise<boolean> {
-    const [orders, lines] = await Promise.all([
-      replicaGate.canRead('orders_replica'),
-      replicaGate.canRead('order_lines_replica'),
-    ])
-    return orders && lines
-  }
-
   /** OFs dont STRDAT ∈ [from, to] — fenêtre courte, ~25× moins de lignes que getOrders().
    * Cache par fenêtre (clé orders-window:from:to). Utilisé par /ordonnancement et /programme
    * pour ne charger que les OFs visibles sur le board, au lieu du lookback 90j ENDDAT. */
@@ -197,12 +165,7 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Cf. `matchingFamilyOnReplica()` : verdict partagé avec
-        // `getOrdersForMatchingDelta()`, jamais l'une sur la réplique et l'autre en
-        // X3 direct.
-        const mos = (await this.matchingFamilyOnReplica())
-          ? await ordersReplicaRepository.getManufacturingOrdersForWindow(from, to)
-          : await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
+        const mos = await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
         const supply: Flow[] = mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
@@ -245,10 +208,7 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Cf. `matchingFamilyOnReplica()` : même verdict que `getOrdersForWindow()`.
-        const mos = (await this.matchingFamilyOnReplica())
-          ? await ordersReplicaRepository.getManufacturingOrdersForMatching(from, to)
-          : await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
+        const mos = await new X3OfRepository().getManufacturingOrdersForMatching(from, to)
         return mos.map((mo) => ({
           article: mo.article,
           quantity: mo.quantity,
@@ -307,10 +267,6 @@ class BoardDataset {
       ttl: LIVE_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Cf. getOrders() — même bascule #98 lot 2.
-        if (await replicaGate.canRead('order_lines_replica')) {
-          return orderLinesReplicaRepository.getOpenOrderLines({ from, to })
-        }
         return new X3OrderLineRepository().getOpenOrderLines({ from, to })
       },
     })
@@ -435,15 +391,6 @@ class BoardDataset {
       ttl: ORDERS_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Bascule réplique (#98, suite lot 3) : `operations_replica` ne couvre que
-        // les `num_of` de `orders_replica` (tranche utile). Les appelants connus
-        // (retard_repository, load_payload_loader, order_impacts_loader) tirent
-        // tous leurs numOfs de cette même population — cf. le repository de
-        // lecture pour le détail de la vérification. `controle_prod_loader`
-        // interroge X3OperationRepository directement et ne passe pas par ici.
-        if (await replicaGate.canRead('operations_replica')) {
-          return operationsReplicaRepository.getOperations(numOfs)
-        }
         return new X3OperationRepository().getOperations(numOfs)
       },
     })
@@ -483,12 +430,6 @@ class BoardDataset {
       ttl: LIVE_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Bascule réplique (#98, suite lot 3) : PORDERQ n'est jamais écrit par
-        // l'app (réceptions saisies dans X3), donc `receptions_replica` n'a jamais
-        // de fenêtre `dirty` — contrairement à `orders_replica`/`stock_replica`.
-        if (await replicaGate.canRead('receptions_replica')) {
-          return receptionsReplicaRepository.getReceptionFlows()
-        }
         return new X3ReceptionRepository().getReceptionFlows()
       },
     })
@@ -505,10 +446,6 @@ class BoardDataset {
       ttl: STOCK_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        // Cf. getOrders() — même bascule #98 lot 2.
-        if (await replicaGate.canRead('stock_replica')) {
-          return stockReplicaRepository.getStockFlows(articles)
-        }
         return new X3StockRepository().getStockFlows(articles)
       },
     })

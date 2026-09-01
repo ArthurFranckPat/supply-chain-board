@@ -1,8 +1,5 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
-import replicaGate from '#services/replica_gate'
-import stockFluxReplicaRepository from '#repositories/stock_flux_replica_repository'
-import type { StockFluxDocRow } from '#repositories/stock_flux_repository'
 
 /**
  * KPI Valorisation du stock — reconstruction sur une plage (site AE1).
@@ -317,11 +314,10 @@ export function defaultStockRange(grain: StockGrain, refDate: Date): { from: Dat
 
 /**
  * Agrège des lignes de flux document (article, jour, netDoc) en
- * (article → période → net qté cumulée). Pure, testable sans X3 ni SQLite —
- * partagée par la voie réplique (`stock_flux_replica`, grain document) et la
- * voie X3 directe (`buildFluxSql`, déjà agrégée par période côté SQL, donc un
- * seul appel `add` par (article, période) ici — l'accumulation est un no-op
- * dans ce cas, pas une double-comptée).
+ * (article → période → net qté cumulée). Pure, testable sans X3 — `buildFluxSql`
+ * agrège déjà par période côté SQL, donc un seul appel `add` par
+ * (article, période) ici : l'accumulation est un no-op dans ce cas, pas une
+ * double-comptée.
  */
 export function aggregateFluxByArticlePeriod(
   rows: { article: string; jour: Date; netDoc: number }[],
@@ -341,60 +337,16 @@ export function aggregateFluxByArticlePeriod(
   return fluxByArticle
 }
 
-/**
- * Question de DONNÉES : `stock_flux_replica` a-t-elle assez d'HISTOIRE pour
- * répondre depuis `from` ? Une plage `pinned` plus ancienne que la fenêtre
- * répliquée n'est couverte par aucun run, si récent soit-il.
- *
- * La question de TEMPS (« le dernier run est-il assez récent ») était traitée
- * ici aussi ; elle appartient maintenant à `ReplicaGate` (#98), qui l'applique à
- * TOUTES les tables avec un seuil par table. Deux contrôles d'âge, deux sources
- * de vérité : le jour où l'un des seuils bouge, l'autre le contredit en silence.
- *
- * Ce que la borne d'âge ne doit surtout pas être : `MAX(jour)` de la table. Un
- * jour sans mouvement produit `MAX(jour) < aujourd'hui` même juste après un run
- * parfaitement à jour — la réplique serait rejetée en permanence (constaté
- * contre X3 test, dont l'activité STOJOU récente est en pratique quasi nulle).
- * `ingestion_log.finished_at`, lui, date le RUN et pas la donnée.
- *
- * Pure, testable sans DB.
- */
-export function replicaCoversFluxRange(coverageMin: Date | null, from: Date): boolean {
-  if (coverageMin === null) return false
-  return coverageMin.getTime() <= from.getTime()
-}
-
 export class StockValuationRepository {
   /**
-   * Flux STOJOU agrégé par (article, période) — #98 lot 3. Réplique si le
-   * portail l'autorise (interrupteur, run complet réussi, pas d'écriture depuis,
-   * âge sous le seuil de la table) ET qu'elle couvre assez d'historique pour
-   * `from`. Sinon X3 direct, chunké par article comme avant.
+   * Flux STOJOU agrégé par (article, période) — X3 direct, chunké par article.
    */
   private async getFluxByArticlePeriod(
-    from: Date,
     grain: StockGrain,
     articles: string[],
     fromStr: string
   ): Promise<Map<string, Map<string, number>>> {
-    const now = new Date()
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const [coverage, canReadReplica] = await Promise.all([
-      stockFluxReplicaRepository.getCoverage(),
-      replicaGate.canRead('stock_flux_replica'),
-    ])
-    const onReplica = canReadReplica && replicaCoversFluxRange(coverage.min, from)
-
-    if (onReplica) {
-      const rows: StockFluxDocRow[] = await stockFluxReplicaRepository.getFluxNetByDocument(
-        from,
-        today,
-        articles
-      )
-      return aggregateFluxByArticlePeriod(rows, grain)
-    }
-
-    // X3 direct — chunké par article : le flux complet dépasse le seuil de
+    // Chunké par article : le flux complet dépasse le seuil de
     // lignes du web service SOAP Syracuse (resultXml is nil), même motif que
     // retard_repository.ts qui chunk le stock dispo.
     const CHUNK_SIZE = 120
@@ -439,14 +391,12 @@ export class StockValuationRepository {
 
     const allArticles = [...new Set(baseRows.map((r) => r.ARTICLE?.trim() ?? '').filter(Boolean))]
 
-    // --- Flux STOJOU : réplique si elle couvre la fenêtre, sinon X3 direct ---
-    // (#98, lot 3). La rembobinage a besoin du flux de `from` jusqu'à
-    // AUJOURD'HUI (pas juste jusqu'à `to`) — cf. docstring du module : on
-    // reconstruit le passé en défaisant les mouvements POSTÉRIEURS à chaque
-    // période depuis le stock actuel. `stock_flux_replica` n'est pas sur le
-    // scheduler (ingestion manuelle, `--only=stock-flux`) : son `coverage.max`
-    // doit donc être vérifié à chaque appel, pas supposé à jour.
-    const fluxByArticle = await this.getFluxByArticlePeriod(from, grain, allArticles, fromStr)
+    // --- Flux STOJOU (X3 direct) ---
+    // Le rembobinage a besoin du flux de `from` jusqu'à AUJOURD'HUI (pas juste
+    // jusqu'à `to`) — cf. docstring du module : on reconstruit le passé en
+    // défaisant les mouvements POSTÉRIEURS à chaque période depuis le stock
+    // actuel.
+    const fluxByArticle = await this.getFluxByArticlePeriod(grain, allArticles, fromStr)
 
     // --- Rembobinage par article + agrégation ---
     // seriesAcc[i] = total valeur/qté de fin de période i, cumul sur tous les articles.
