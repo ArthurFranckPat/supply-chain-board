@@ -52,6 +52,26 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   }
 }
 
+/**
+ * Tables interrogées, pour la trace `PERF_TRACE=1`.
+ *
+ * Le SQL lui-même ne doit JAMAIS aller dans un log — c'est une règle du projet,
+ * et `x3_client._query` va jusqu'à ne pas jeter d'erreur pour éviter que knex ne
+ * le préfixe au message. Les noms de tables, eux, ne portent aucune donnée : ils
+ * transforment « un appel a coûté 5,5 s » en « ORDERS a coûté 5,5 s », ce qui
+ * est la seule information qui permette d'agir. Sans elle il faut recouper à la
+ * main des comptages de lignes avec le code appelant.
+ *
+ * Dédupliqué en gardant l'ordre : une requête à 5 jointures reste lisible.
+ */
+function tablesOf(sql: string): string {
+  const found = [...sql.matchAll(/\b(?:FROM|JOIN)\s+([A-Z][A-Z0-9_]*)/gi)].map((m) =>
+    m[1].toUpperCase()
+  )
+  const uniq = [...new Set(found)]
+  return uniq.length ? uniq.join('+') : '?'
+}
+
 /** Corps réel de l'appel : enveloppe, fichier temporaire, curl, parsing. */
 async function spawnSoap(sql: string, config: X3SoapConfig): Promise<SoapResponse> {
   const concatSql = buildConcatSql(sql)
@@ -123,7 +143,8 @@ async function spawnSoap(sql: string, config: X3SoapConfig): Promise<SoapRespons
           : 'no-tech'
 
         console.log(
-          `[x3.soap] transport=${transportMs}ms ${breakdown} rows=${result.data.length} ` +
+          `[x3.soap] ${tablesOf(sql)} transport=${transportMs}ms ${breakdown} ` +
+            `rows=${result.data.length} ` +
             `slots=${concurrency.inFlight}/${concurrency.max} queued=${concurrency.queued}`
         )
       }
