@@ -113,8 +113,36 @@ export interface EngagementSummaryDataset {
 const POSTE_PP_RE = /^PP_\d+$/
 
 const DEMAND_LOOKBACK_DAYS = 30
-/** Horizon matching séquenceur — commandes [today−lookback, today+horizon]. */
-const MATCHING_HORIZON_DAYS = 120
+/**
+ * Horizon matching séquenceur — commandes `[today − DEMAND_LOOKBACK_DAYS, today + horizon]`.
+ *
+ * 30 j, et non 120 (#183). Ce n'est pas un réglage de perf posé au hasard : le
+ * séquenceur rejoue le pipeline COMPLET d'impacts de `/programme`
+ * (`loadOrderImpacts`, `pipeline: 'programme'`) sur cette fenêtre. Il fait donc
+ * exactement le même travail que le board, sur une fenêtre qui valait 8,5× la
+ * sienne.
+ *
+ * Mesuré au préchauffage du 02/09/2026, PERF_TRACE=1 :
+ *
+ *   /programme  (14 j)  · 13 appels SOAP · 5 923 ms · 11 237 lignes
+ *   /sequenceur (120 j) · 24 appels SOAP · 15 057 ms · 23 734 lignes
+ *
+ * Et le coût n'est pas linéaire dans la fenêtre : `ZSOAPSQL` est en O(n²) sur
+ * les lignes rendues par appel, donc élargir la fenêtre gonfle des lots déjà
+ * trop gros. Les trois requêtes les plus lourdes du séquenceur tournaient à
+ * 0,50-0,71 ms/ligne contre 0,15 mesuré à ~1 500 lignes par lot.
+ *
+ * CE QUE ÇA CHANGE FONCTIONNELLEMENT, et il faut le savoir avant de toucher à
+ * cette valeur : le pool du séquenceur = les OF matchés à AU MOINS une commande
+ * de la fenêtre. La réduire retire donc des OF de la vue — ceux dont la seule
+ * commande rattachée tombe au-delà de 30 jours. C'est un choix de périmètre
+ * métier (« que doit montrer le séquenceur »), pas une optimisation neutre.
+ *
+ * Si cette valeur bouge, BUMPER les clés de cache `summaries:vN` et
+ * `poste:<code>:vN` : leur contenu dépend de cette fenêtre, et la grâce de 12 h
+ * servirait sinon l'ancien périmètre après déploiement.
+ */
+const MATCHING_HORIZON_DAYS = 30
 /** @deprecated Alias — même fenêtre que MATCHING_HORIZON_DAYS. */
 const ENGAGEMENT_HORIZON_DAYS = MATCHING_HORIZON_DAYS
 const ENGAGEMENT_TTL = 2 * 60 * 1000
@@ -349,8 +377,8 @@ export async function loadPosteSummaries(
   _kind: EngagementKind = 'all'
 ): Promise<EngagementSummaryDataset> {
   void _kind
-  // Clé STABLE — v11 = pool = OF matchés commandes (pas STRDAT).
-  const cacheKey = 'summaries:v11'
+  // Clé STABLE — v12 = pool = OF matchés commandes (pas STRDAT), fenêtre 30 j (#183).
+  const cacheKey = 'summaries:v12'
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
@@ -496,7 +524,7 @@ export async function loadPosteEngagement(
 ): Promise<PosteEngagement> {
   void _kind
   // Clé STABLE — cf. loadPosteSummaries. v11 = pool = OF matchés.
-  const cacheKey = `poste:${poste}:v11`
+  const cacheKey = `poste:${poste}:v12`
   if (force) await engagementCache().delete({ key: cacheKey })
   return engagementCache().getOrSet({
     key: cacheKey,
