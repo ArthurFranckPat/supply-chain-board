@@ -29,7 +29,8 @@ export interface ProactiveViewProps {
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
-  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'joursRetard', desc: true }])
+  // Tri par défaut : expédition croissante (date ISO via sortRows, lignes sans date en dernier).
+  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'dateExp', desc: false }])
 
   const rows = sortRows(props.filteredRows, sorting)
 
