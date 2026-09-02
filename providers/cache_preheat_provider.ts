@@ -151,11 +151,34 @@ export default class CachePreheatProvider {
           return boardDataset.getStockValuation('mois', from, to, refDate)
         },
       },
-      {
-        label: 'estimateur conditionnement',
-        warm: true,
-        run: () => boardDataset.getConditionnementEstimator(),
-      },
+      /**
+       * PAS D'ENTRÉE pour l'estimateur de conditionnement — absence DÉLIBÉRÉE,
+       * ne pas la « réparer ». La règle ci-dessus (« une page ajoutée à l'app
+       * doit être ajoutée ici ») souffre cette exception, et voici pourquoi.
+       *
+       * `boardDataset.getConditionnementEstimator()` a été mesuré à 26 245 ms
+       * au préchauffage du 02/09/2026 — 39 % des 68 s de boot à lui seul, plus
+       * que les huit autres tâches réunies. Son coût vient de
+       * `ConditionnementRepository.getObservations()` : STOCK complet plus
+       * STOJOU sur 6 mois.
+       *
+       * Ses deux consommateurs, `/conditionnements` et `/receptions`, sont hors
+       * socle — pas en production. On payait donc 26 s à chaque démarrage, plus
+       * une reconstruction toutes les 2 h en permanence, pour deux pages que
+       * personne n'ouvre.
+       *
+       * Ce que ça coûte en échange : le premier visiteur d'une de ces deux pages
+       * paie le mur de 26 s. Ensuite le SWR le sert instantanément (TTL 2 h,
+       * grâce 12 h). C'est le bon sens de l'arbitrage — payer à l'usage réel
+       * plutôt qu'en permanence.
+       *
+       * `/receptions` sait déjà se passer de l'estimateur : son `computePayload`
+       * l'entoure d'un try/catch et retombe sur une Map vide, les lignes restant
+       * en « coef manquant ». Rien ne casse si l'estimateur est lent ou absent.
+       *
+       * À rebrancher SEULEMENT si l'une de ces pages passe en production et que
+       * ses utilisateurs se plaignent du premier chargement.
+       */
       {
         // Payload assemblé de /programme — la page d'entrée, et le seul mur qui
         // restait après la persistance disque : 22,6 s mesurées sur un premier
