@@ -265,6 +265,39 @@ export async function loadOrderImpacts(
 
   const numOfDe = (f: Flow) => (f.origin as { id?: string }).id?.trim() ?? ''
   const windowNumOfs = finalOfFlows.map(numOfDe).filter(Boolean)
+
+  /**
+   * Liste RÉDUITE pour MFGMAT : les OF suggérés en sont retirés (#183).
+   *
+   * Un OF suggéré (WIPSTA=3) n'a AUCUNE ligne MFGMAT — X3 ne matérialise les
+   * matières qu'à l'affermissement (c'est le constat de l'issue #30, qui
+   * réclamait un repli BOMD pour cette raison). Vérifié sur la table entière le
+   * 02/09/2026, et pas sur un échantillon :
+   *
+   *   WIPSTA=3 (suggéré)  →     0 ligne MFGMAT
+   *   WIPSTA=2 (planifié) → 3 648 lignes sur   195 OF
+   *   WIPSTA=1 (ferme)    → 4 272 lignes sur   331 OF
+   *
+   * On interrogeait donc X3 pour ~5 767 OF dont on sait qu'ils ne rendront
+   * rien : sur les 14 lots de `getMaterialsForOfs`, HUIT revenaient vides, à
+   * ~110 ms de plancher SOAP chacun.
+   *
+   * SORTIE STRICTEMENT IDENTIQUE : `getMaterialsForOfs` rend une Map qui ne
+   * contient que les OF ayant des matières. Un suggéré n'y figurait déjà pas —
+   * il était interrogé pour rien, pas pour produire une entrée vide. Le retirer
+   * de l'entrée ne change donc aucune valeur en sortie.
+   *
+   * Un statut absent (flux du delta matching, origine sans `status`) est
+   * CONSERVÉ : `Number(undefined) !== 3` est vrai. Le doute coûte un appel, il
+   * ne fait pas disparaître de matières.
+   *
+   * `windowNumOfs` reste la liste complète pour `getOfPegs` et `getOperations` :
+   * eux ont bien des lignes sur les suggérés.
+   */
+  const materialNumOfs = finalOfFlows
+    .filter((f) => Number((f.origin as { status?: number }).status) !== 3)
+    .map(numOfDe)
+    .filter(Boolean)
   // Le delta matching entre dans le fetch MFGOPE : sans ses pointages, un OF fantôme du delta
   // (cas `F126-44429`) resterait indétectable — or c'est précisément là qu'ils se cachent, les
   // OF lancés il y a des mois et jamais soldés.
@@ -285,7 +318,7 @@ export async function loadOrderImpacts(
     const [pegs, mfg, ops] = await timeStage('loadOrderImpacts.pegs+mfg+ope', () =>
       Promise.all([
         boardDataset.getOfPegs(windowNumOfs),
-        boardDataset.getMfgMaterials(windowNumOfs),
+        boardDataset.getMfgMaterials(materialNumOfs),
         boardDataset.getOperations(operationNumOfs),
       ])
     )
@@ -295,7 +328,7 @@ export async function loadOrderImpacts(
   } else {
     const [mfg, ops] = await timeStage('loadOrderImpacts.mfg+ope', () =>
       Promise.all([
-        boardDataset.getMfgMaterials(windowNumOfs),
+        boardDataset.getMfgMaterials(materialNumOfs),
         boardDataset.getOperations(operationNumOfs),
       ])
     )
