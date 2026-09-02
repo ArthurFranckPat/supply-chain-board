@@ -1002,6 +1002,82 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
     ])
   })
 
+  test('le stock sous CQ ne sert qu’UNE commande, pas toutes celles qui en dépendent', ({
+    assert,
+  }) => {
+    // Relevé PROD 02/09/2026 : « 15 en statut Q (contrôle réception) » s'affichait sur deux
+    // lignes de commande à la fois. Ce n'est pas un bug de mesure — `seQcDelta` dit « sans le
+    // Q il te manquerait 15 de PLUS », vrai pour chaque OF pris seul. La raison en est dans
+    // `checkOne` : un OF non ferme EN RUPTURE ne consomme rien, donc dans la passe sans
+    // production le stock Q n'est jamais entamé et reste dispo pour tous les suivants.
+    // L'attribution, elle, doit le décrémenter : 15 pièces = 15 pièces.
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE' as const,
+              consumptionNature: 'PROPORTIONNEL' as const,
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-TOT', 'PF1', 3, 100, daysFromNow(5)),
+      makeOfFlow('OF-TARD', 'PF1', 3, 100, daysFromNow(6)),
+      makeOfFlow('WOS-SE', 'SE1', 3, 10_000, daysFromNow(4)),
+      // 15 pièces en statut Q, et RIEN en stock strict : les deux OF en dépendent autant.
+      {
+        article: 'SE1',
+        quantity: 15,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-TOT', 'PF1', 100, daysFromNow(10)),
+      makeDemand('CMD-TARD', 'PF1', 100, daysFromNow(11)),
+    ]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) },
+      'sequential'
+    )
+
+    const qcDe = (numCommande: string) =>
+      result.orders.find((o) => o.numCommande === numCommande)!.ofs[0].seQcComponents ?? {}
+
+    assert.deepEqual(qcDe('CMD-TOT'), { SE1: 15 }, 'la première servie prend les 15')
+    assert.deepEqual(qcDe('CMD-TARD'), {}, 'il n’en reste aucune pour la seconde')
+
+    // Et le besoin total de la 2e bascule intégralement sur la production.
+    const tard = result.orders.find((o) => o.numCommande === 'CMD-TARD')!.ofs[0]
+    assert.deepEqual(tard.seComponents, { SE1: 100 })
+    assert.deepEqual(tard.seCoveringOfs!.SE1, [
+      { numOf: 'WOS-SE', dateFin: daysFromNow(4).toISOString().slice(0, 10), qty: 100 },
+    ])
+  })
+
   test("#99 : le supply de matching seul alloue la commande sans entrer dans le pool d'OF", ({
     assert,
   }) => {

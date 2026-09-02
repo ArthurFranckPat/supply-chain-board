@@ -544,7 +544,9 @@ export function evaluateOrderImpacts(
    *
    * Dans chaque tranche, le stock sous CQ passe AVANT la production — c'est l'ordre du moteur
    * (`VirtualStock.take` : stock d'abord, production ensuite). Les 15 pièces en statut Q d'un
-   * SE reviennent donc entièrement à la première ligne servie, pas à toutes par prorata.
+   * SE reviennent donc entièrement à la première ligne servie, pas à toutes par prorata, et
+   * le réservoir Q se décrémente comme celui de la production (cf. `qcPool`) : une pièce sous
+   * contrôle réception ne peut pas être promise à deux commandes.
    */
   const RATIO_EPSILON = 1e-9
   /** Clé d'une tranche : identifie le couple (ligne de commande, OF) — cf. `matchingResults`. */
@@ -569,6 +571,24 @@ export function evaluateOrderImpacts(
     }
   })
   for (const arr of tranchesByOf.values()) arr.sort((a, b) => a.ordre.localeCompare(b.ordre))
+
+  /**
+   * Réservoir de stock sous CQ par article, GLOBAL et décrémenté comme la production : les 15
+   * pièces en statut Q d'un SE ne servent qu'UNE commande.
+   *
+   * Le moteur, lui, en crédite chaque OF séparément — `seQcDelta` mesure « sans le Q il te
+   * manquerait tant de PLUS », vrai pour chaque OF pris seul, jamais sommable. La raison est
+   * dans `checkOne` : un OF non ferme EN RUPTURE ne consomme rien, donc dans la passe sans
+   * production (où tous les OF d'un SE tendu sont en rupture) le stock Q n'est jamais entamé
+   * et reste intégralement disponible pour le suivant.
+   */
+  const qcPool = new Map<string, number>()
+  for (const [art, net] of stockNet) {
+    const q = net - (stockNetStrict.get(art) ?? 0)
+    if (q > QTY_EPSILON) qcPool.set(art, q)
+  }
+  /** En photo, chaque OF est seul face aux poches : rien ne se décrémente (cf. règle #73). */
+  const consommeLesPoches = engineMode === 'contention'
 
   /** OF porteur de chaque tranche — la vue OF de l'attribution recolle les tranches par là. */
   const ofIdByTranche = new Map<string, string>()
@@ -600,12 +620,18 @@ export function evaluateOrderImpacts(
         for (const art of seArticles) {
           const part = ((parOfTotal[art] ?? 0) + (qcTotal[art] ?? 0)) * tranche.ratio
           if (part <= QTY_EPSILON) continue
-          const qc = Math.min(qcReste[art] ?? 0, part)
+          // Deux plafonds : ce que le moteur crédite au CQ pour CET OF (`qcReste`) et ce qui
+          // reste RÉELLEMENT en statut Q dans l'usine (`qcPool`, partagé par tous). Sans le
+          // second, les 15 pièces sous contrôle réception d'un SE se retrouvent promises à
+          // chaque commande — le défaut relevé le 02/09/2026.
+          const dispoQc = consommeLesPoches ? (qcPool.get(art) ?? 0) : Number.POSITIVE_INFINITY
+          const qc = Math.min(qcReste[art] ?? 0, part, dispoQc)
           if (qc > QTY_EPSILON) {
             qcReste[art] = (qcReste[art] ?? 0) - qc
+            if (consommeLesPoches) qcPool.set(art, (qcPool.get(art) ?? 0) - qc)
             qcPris[art] = Math.round(qc * 100) / 100
           }
-          const production = part - qc
+          const production = part - Math.max(0, qc)
           if (production > QTY_EPSILON) besoins[art] = production
         }
         ofIdByTranche.set(tranche.key, of.numOf)
@@ -617,7 +643,7 @@ export function evaluateOrderImpacts(
   }
 
   const seCoveringByTranche = allocateSeCoveringOfs(ofInputs, seConsumers, {
-    consume: engineMode === 'contention',
+    consume: consommeLesPoches,
   })
 
   /**
