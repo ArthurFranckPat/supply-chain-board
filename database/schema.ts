@@ -75,42 +75,6 @@ export class ConversationSchema extends BaseModel {
   declare userId: number
 }
 
-export class DemandSnapshotSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'dateEcheance',
-    'fournisseur',
-    'id',
-    'itmref',
-    'quantity',
-    'snapshotDate',
-    'source',
-    'vcrlin',
-    'vcrnum',
-  ] as const
-  $columns = DemandSnapshotSchema.$columns
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime | null
-  @column.date()
-  declare dateEcheance: DateTime | null
-  @column()
-  declare fournisseur: string | null
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare itmref: string
-  @column()
-  declare quantity: number
-  @column.date()
-  declare snapshotDate: DateTime
-  @column()
-  declare source: string
-  @column()
-  declare vcrlin: string | null
-  @column()
-  declare vcrnum: string | null
-}
-
 export class LocalMenuSchema extends BaseModel {
   static $columns = ['chapter', 'label', 'name', 'value'] as const
   $columns = LocalMenuSchema.$columns
