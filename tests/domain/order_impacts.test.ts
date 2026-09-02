@@ -909,6 +909,99 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
     )
   })
 
+  test('un OF servant DEUX lignes : chacune consomme sa tranche, la 2e prend le reliquat', ({
+    assert,
+  }) => {
+    // Le défaut du 02/09/2026 (EAR201EX / SGAE10663223977, 1296 pcs réparties en 648 + 648) :
+    // l'OF portait son besoin ENTIER sur chacune des deux lignes, avec la même production
+    // couvrante — la colonne annonçait deux fois les mêmes pièces de F126-49910.
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE' as const,
+              consumptionNature: 'PROPORTIONNEL' as const,
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+    ])
+    // Un seul OF de 1000 PF1 pour deux lignes (600 + 400). Aucun stock de SE1 : les 1000 SE1
+    // dépendent entièrement de la production, servie par deux OF producteurs.
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 1000, daysFromNow(8)),
+      makeOfFlow('WOS-A', 'SE1', 3, 700, daysFromNow(5)),
+      makeOfFlow('WOS-B', 'SE1', 3, 5000, daysFromNow(6)),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 600, daysFromNow(10)),
+      makeDemand('CMD-2', 'PF1', 400, daysFromNow(11)),
+    ]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) },
+      // Contention : c'est le mode du suivi proactif, celui où la production se consomme.
+      'sequential'
+    )
+
+    const ligne = (numCommande: string) =>
+      result.orders
+        .find((o) => o.numCommande === numCommande)!
+        .ofs.find((f) => f.numOf === 'OF-PF')!
+
+    assert.deepEqual(ligne('CMD-1').seComponents, { SE1: 600 }, 'sa tranche, pas les 1000 de l’OF')
+    assert.deepEqual(ligne('CMD-2').seComponents, { SE1: 400 })
+
+    assert.deepEqual(
+      ligne('CMD-1').seCoveringOfs!.SE1,
+      [{ numOf: 'WOS-A', dateFin: daysFromNow(5).toISOString().slice(0, 10), qty: 600 }],
+      'la 1re ligne consomme en totalité sur le producteur le plus tôt'
+    )
+    assert.deepEqual(
+      ligne('CMD-2').seCoveringOfs!.SE1,
+      [
+        { numOf: 'WOS-A', dateFin: daysFromNow(5).toISOString().slice(0, 10), qty: 100 },
+        { numOf: 'WOS-B', dateFin: daysFromNow(6).toISOString().slice(0, 10), qty: 300 },
+      ],
+      'la 2e prend le reliquat de WOS-A puis bascule sur WOS-B'
+    )
+
+    // WOS-A produit 700 : jamais plus, quel que soit le nombre de lignes qui le regardent.
+    const prisSurA = result.orders
+      .flatMap((o) => o.ofs)
+      .flatMap((f) => f.seCoveringOfs?.SE1 ?? [])
+      .filter((p) => p.numOf === 'WOS-A')
+      .reduce((somme, p) => somme + p.qty, 0)
+    assert.equal(prisSurA, 700)
+
+    // La vue OF, elle, recolle les tranches : le besoin entier de l'OF.
+    const vueOf = result.ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(vueOf.seComponents, { SE1: 1000 })
+    assert.deepEqual(vueOf.seCoveringOfs!.SE1, [
+      { numOf: 'WOS-A', dateFin: daysFromNow(5).toISOString().slice(0, 10), qty: 700 },
+      { numOf: 'WOS-B', dateFin: daysFromNow(6).toISOString().slice(0, 10), qty: 300 },
+    ])
+  })
+
   test("#99 : le supply de matching seul alloue la commande sans entrer dans le pool d'OF", ({
     assert,
   }) => {

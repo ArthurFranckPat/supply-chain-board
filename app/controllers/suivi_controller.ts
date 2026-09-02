@@ -608,24 +608,21 @@ export function explodeBomForSearch(
  * d'abord.
  *
  * L'attribution elle-même est faite une fois pour toute la fenêtre par `allocateSeCoveringOfs`,
- * capacité de chaque producteur décrémentée dans la chronologie du moteur. Elle ne peut pas
- * être refaite ligne par ligne : chaque ligne repartirait du premier OF producteur et le même
- * OF serait annoncé couvrant partout — le défaut relevé le 02/09/2026 sur EH4276, où
- * F126-49910 (1 700 pièces) couvrait 7 lignes pour plus de 4 000 pièces pendant que
+ * capacité de chaque producteur décrémentée dans la chronologie du moteur, et découpée par
+ * LIGNE de commande. Elle ne peut pas être refaite ici : chaque ligne repartirait du premier OF
+ * producteur et le même OF serait annoncé couvrant partout — le défaut relevé le 02/09/2026 sur
+ * EH4276, où F126-49910 (1 700 pièces) couvrait 7 lignes pour plus de 4 000 pièces pendant que
  * SGAE10663280358 n'apparaissait nulle part.
  *
- * Dédoublonné par OF consommateur : deux allocations d'un même OF sur la ligne portent le même
- * besoin, les cumuler le doublerait.
+ * Chaque entrée de `ofs` porte déjà la tranche de CETTE ligne : on cumule, on ne dédoublonne
+ * pas — deux allocations distinctes sont deux tranches distinctes.
  */
 function mergeCoveringOfs(
   ofs: OrderImpactResult['orders'][number]['ofs'],
   art: string
 ): { numOf: string; dateFin: string | null; qty: number }[] {
-  const vus = new Set<string>()
   const parts = new Map<string, { numOf: string; dateFin: string | null; qty: number }>()
   for (const of of ofs) {
-    if (vus.has(of.numOf)) continue
-    vus.add(of.numOf)
     for (const part of of.seCoveringOfs?.[art] ?? []) {
       const cumul = parts.get(part.numOf)
       if (cumul) cumul.qty += part.qty
@@ -1002,8 +999,9 @@ export function buildProactiveDisplay(
           return {
             art,
             desc: articles.get(art)?.description ?? '',
-            // Manque total vs stock STRICT = part Q + part production. Vérifié contre X3 sur
-            // EH4276 / F126-49779 : 849 (production) + 591 (Q) = 1440 = MFGMAT.SHTQTY_0.
+            // Manque total vs stock STRICT = part Q + part production, pour la TRANCHE de cette
+            // ligne. Recollées, les tranches d'un OF valent son manque X3 (MFGMAT.SHTQTY_0) —
+            // vérifié sur EH4276 / F126-49779 : 849 (production) + 591 (Q) = 1440.
             qty: Math.round((parOf + qc) * 100) / 100,
             reception: null,
             descente: null,

@@ -39,6 +39,13 @@ export interface CoveringOfPart {
 /** Tolérance de comparaison des quantités (flottants issus de coefficients de nomenclature). */
 const QTY_EPSILON = 1e-6
 
+/** Arrondit les quantités d'un dictionnaire article → qté à 2 décimales (affichage). */
+function roundQties(qties: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [art, qty] of Object.entries(qties)) out[art] = Math.round(qty * 100) / 100
+  return out
+}
+
 /**
  * Attribution NOMINATIVE de la production aux besoins qu'elle couvre : quel OF producteur
  * couvre la part `seComponents` de quel OF consommateur, et à hauteur de combien.
@@ -161,6 +168,11 @@ export interface OrderImpactRow {
      * article → quantité qui manquerait sans cette production. Stock physique net insuffisant,
      * donc le SE est suspendu à un OF qui doit tourner. Ne compte PAS comme un manque (absent
      * de `missingComponents`, `feasible` inchangé) — c'est une lentille de dépendance.
+     *
+     * Ramené à CETTE LIGNE de commande : sa tranche du besoin de l'OF, servie en séquence
+     * (la 1re ligne consomme sa tranche en totalité, la suivante prend le reliquat). L'OF
+     * entier est dans `OrderImpactResult.ofs[]`. Sans ce découpage, un OF servant deux lignes
+     * annonçait son besoin ENTIER sur chacune, avec la même production couvrante.
      * Optionnel dans le TYPE seulement (fixtures de tests) — toujours produit par le moteur.
      */
     seComponents?: Record<string, number>
@@ -169,13 +181,18 @@ export interface OrderImpactRow {
      * crédit de production — c'est la seule mesure juste quand la production est abondante
      * (cf. `seQcDelta`). `seComponents[a] + seQcComponents[a]` = manque de `a` vs stock STRICT
      * et sans production, la décomposition que les vues annoncent.
+     *
+     * Découpé par ligne comme `seComponents`, et le CQ passe AVANT la production dans chaque
+     * tranche (ordre du moteur) : le stock Q d'un SE revient à la première ligne servie, pas
+     * à toutes par prorata.
      * Optionnel dans le TYPE seulement (fixtures de tests).
      */
     seQcComponents?: Record<string, number>
     /**
      * OF producteurs NOMMÉS pour chaque article de `seComponents`, avec la part prise sur
-     * chacun (cf. `allocateSeCoveringOfs`). La capacité d'un producteur est décrémentée au fil
-     * des consommateurs : le même OF ne peut pas être annoncé couvrant partout.
+     * chacun (cf. `allocateSeCoveringOfs`). Découpé par ligne, capacité de chaque producteur
+     * décrémentée au fil des tranches : le même OF ne peut pas être annoncé couvrant partout.
+     * Σ des parts = `seComponents[article]` de la ligne.
      * Optionnel dans le TYPE seulement (fixtures de tests).
      */
     seCoveringOfs?: Record<string, CoveringOfPart[]>
@@ -206,11 +223,14 @@ export interface OrderImpactResult {
     missingComponents: Record<string, number>
     /** Composants couverts uniquement grâce au stock sous CQ (cf. `orders[].ofs[].qcComponents`). */
     qcComponents?: Record<string, number>
-    /** SE couverts uniquement par un OF producteur (cf. `orders[].ofs[].seComponents`). */
+    /**
+     * SE couverts uniquement par un OF producteur — besoin de l'OF ENTIER, contrairement à
+     * `orders[].ofs[].seComponents` qui est la tranche d'une ligne de commande.
+     */
     seComponents?: Record<string, number>
-    /** Part CQ de ces SE, mesurée sans production (cf. `orders[].ofs[].seQcComponents`). */
+    /** Part CQ de ces SE, mesurée sans production (OF entier). */
     seQcComponents?: Record<string, number>
-    /** OF producteurs nommés pour ces SE (cf. `orders[].ofs[].seCoveringOfs`). */
+    /** OF producteurs nommés pour ces SE, tranches de l'OF recollées (OF entier). */
     seCoveringOfs?: Record<string, CoveringOfPart[]>
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
     estDebuté?: boolean
@@ -453,7 +473,15 @@ export function evaluateOrderImpacts(
    * consommation virtuelle (un OF bloqué en plus dans la passe sans-supply ne consomme rien et
    * libère du stock pour les suivants).
    */
+  const seDeltaCache = new Map<string, Record<string, number>>()
   const seDelta = (ofId: string): Record<string, number> => {
+    const cached = seDeltaCache.get(ofId)
+    if (cached) return cached
+    const computed = computeSeDelta(ofId)
+    seDeltaCache.set(ofId, computed)
+    return computed
+  }
+  const computeSeDelta = (ofId: string): Record<string, number> => {
     const noSupply = verdictsNoOfSupply?.get(ofId)
     if (!noSupply) return {}
     const withSupply = verdicts.get(ofId)
@@ -472,7 +500,20 @@ export function evaluateOrderImpacts(
    * la passe « sans production ». Restreint aux articles que `seDelta` a retenus — ailleurs,
    * `qcDelta` (mesuré sur le verdict rendu) reste la bonne lentille.
    */
+  // Mémoïsé sur le seul `ofId` : `seArticles` vaut toujours `seDelta(ofId)`, lui-même mémoïsé —
+  // l'argument est donc une fonction de la clé, jamais une variable indépendante.
+  const seQcDeltaCache = new Map<string, Record<string, number>>()
   const seQcDelta = (ofId: string, seArticles: Record<string, number>): Record<string, number> => {
+    const cached = seQcDeltaCache.get(ofId)
+    if (cached) return cached
+    const computed = computeSeQcDelta(ofId, seArticles)
+    seQcDeltaCache.set(ofId, computed)
+    return computed
+  }
+  const computeSeQcDelta = (
+    ofId: string,
+    seArticles: Record<string, number>
+  ): Record<string, number> => {
     const noSupplyStrict = verdictsNoOfSupplyStrict?.get(ofId)
     const noSupply = verdictsNoOfSupply?.get(ofId)
     if (!noSupplyStrict || !noSupply) return {}
@@ -488,21 +529,117 @@ export function evaluateOrderImpacts(
   }
 
   /**
-   * Attribution nominative de la production aux SE couverts, une fois pour toute la fenêtre.
-   * Rejouée dans la chronologie du moteur (`orderOfsForMode`) sur les MÊMES entrées, capacité
-   * de chaque producteur décrémentée — cf. `allocateSeCoveringOfs`. Sautée quand aucune
-   * production n'est créditée (`verdictsNoOfSupply` absent) : `seDelta` rend {} partout.
+   * ATTRIBUTION NOMINATIVE DE LA PRODUCTION, une fois pour toute la fenêtre.
+   *
+   * L'unité de consommation est la LIGNE DE COMMANDE, pas l'OF. Un OF qui sert deux lignes
+   * (EAR201EX / SGAE10663223977 : 1 296 pièces réparties en 648 + 648) portait sinon son besoin
+   * ENTIER sur chacune d'elles, avec la même liste d'OF couvrants : la colonne annonçait
+   * 2 × 1 280 pièces de F126-49910, qui n'en produit que 1 700. Il n'y a pas de partage : la
+   * première ligne consomme sa tranche EN TOTALITÉ, la suivante prend le reliquat.
+   *
+   * Ordre de service = la chronologie du moteur (`orderOfsForMode`) sur les OF, puis, à
+   * l'intérieur d'un OF, ses lignes de commande au plus tôt d'abord. La part non rattachée à
+   * une ligne consomme elle aussi : le moteur lui a crédité de la production, l'ignorer la
+   * rendrait une seconde fois aux lignes visibles.
+   *
+   * Dans chaque tranche, le stock sous CQ passe AVANT la production — c'est l'ordre du moteur
+   * (`VirtualStock.take` : stock d'abord, production ensuite). Les 15 pièces en statut Q d'un
+   * SE reviennent donc entièrement à la première ligne servie, pas à toutes par prorata.
    */
-  const seCoveringByOf = verdictsNoOfSupply
-    ? allocateSeCoveringOfs(
-        ofInputs,
-        orderOfsForMode(engineOfs, engineMode).map((o) => ({
-          numOf: o.numOf,
-          seComponents: seDelta(o.numOf),
-        })),
-        { consume: engineMode === 'contention' }
-      )
-    : new Map<string, Record<string, CoveringOfPart[]>>()
+  const RATIO_EPSILON = 1e-9
+  /** Clé d'une tranche : identifie le couple (ligne de commande, OF) — cf. `matchingResults`. */
+  const trancheKey = (matchIndex: number, ofId: string) => `${matchIndex}|${ofId}`
+
+  const tranchesByOf = new Map<string, Array<{ key: string; ratio: number; ordre: string }>>()
+  matchingResults.forEach((match, matchIndex) => {
+    const demande = match.demandFlow
+    // Au plus tôt d'abord, puis n° de commande : deux lignes de même date restent départagées
+    // de façon déterministe (sinon l'attribution danserait d'un chargement à l'autre).
+    const ordre = `${demande.date?.toISOString().slice(0, 10) ?? '9999-12-31'}|${(demande.origin as any).id ?? ''}`
+    for (const alloc of match.ofAllocations) {
+      const ofId = (alloc.ofFlow.origin as any).id ?? ''
+      if (!ofId || alloc.ofFlow.quantity <= 0 || alloc.qteAllouee <= 0) continue
+      const arr = tranchesByOf.get(ofId) ?? []
+      arr.push({
+        key: trancheKey(matchIndex, ofId),
+        ratio: alloc.qteAllouee / alloc.ofFlow.quantity,
+        ordre,
+      })
+      tranchesByOf.set(ofId, arr)
+    }
+  })
+  for (const arr of tranchesByOf.values()) arr.sort((a, b) => a.ordre.localeCompare(b.ordre))
+
+  /** OF porteur de chaque tranche — la vue OF de l'attribution recolle les tranches par là. */
+  const ofIdByTranche = new Map<string, string>()
+  /** Besoin de production par tranche (part CQ déjà retirée), dans l'ordre de service. */
+  const seNeedByTranche = new Map<string, Record<string, number>>()
+  /** Part CQ tirée par chaque tranche — le solde du réservoir CQ de l'OF, pas un prorata. */
+  const seQcByTranche = new Map<string, Record<string, number>>()
+  const seConsumers: Array<{ numOf: string; seComponents: Record<string, number> }> = []
+  if (verdictsNoOfSupply) {
+    for (const of of orderOfsForMode(engineOfs, engineMode)) {
+      // Chemin MFGMAT : le verdict ne crédite aucune production, la lentille SE est éteinte
+      // pour cet OF — il ne doit donc rien consommer ici non plus.
+      if (precomputedFeasibility?.get(of.numOf)) continue
+      const parOfTotal = seDelta(of.numOf)
+      const qcTotal = seQcDelta(of.numOf, parOfTotal)
+      const seArticles = new Set([...Object.keys(parOfTotal), ...Object.keys(qcTotal)])
+      if (seArticles.size === 0) continue
+
+      const tranches = [...(tranchesByOf.get(of.numOf) ?? [])]
+      const couvert = tranches.reduce((somme, t) => somme + t.ratio, 0)
+      if (couvert < 1 - RATIO_EPSILON) {
+        tranches.push({ key: `${of.numOf}|__reste__`, ratio: 1 - couvert, ordre: '' })
+      }
+
+      const qcReste: Record<string, number> = { ...qcTotal }
+      for (const tranche of tranches) {
+        const besoins: Record<string, number> = {}
+        const qcPris: Record<string, number> = {}
+        for (const art of seArticles) {
+          const part = ((parOfTotal[art] ?? 0) + (qcTotal[art] ?? 0)) * tranche.ratio
+          if (part <= QTY_EPSILON) continue
+          const qc = Math.min(qcReste[art] ?? 0, part)
+          if (qc > QTY_EPSILON) {
+            qcReste[art] = (qcReste[art] ?? 0) - qc
+            qcPris[art] = Math.round(qc * 100) / 100
+          }
+          const production = part - qc
+          if (production > QTY_EPSILON) besoins[art] = production
+        }
+        ofIdByTranche.set(tranche.key, of.numOf)
+        seNeedByTranche.set(tranche.key, besoins)
+        seQcByTranche.set(tranche.key, qcPris)
+        seConsumers.push({ numOf: tranche.key, seComponents: besoins })
+      }
+    }
+  }
+
+  const seCoveringByTranche = allocateSeCoveringOfs(ofInputs, seConsumers, {
+    consume: engineMode === 'contention',
+  })
+
+  /**
+   * Vue OF de l'attribution : union des tranches d'un même OF, cumulée par producteur — c'est
+   * ce que rend `result.ofs[]`, qui parle de l'OF entier et non d'une ligne de commande.
+   */
+  const seCoveringByOf = new Map<string, Record<string, CoveringOfPart[]>>()
+  for (const [key, parArticle] of seCoveringByTranche) {
+    const ofId = ofIdByTranche.get(key)
+    if (!ofId) continue
+    const cumulOf = seCoveringByOf.get(ofId) ?? {}
+    for (const [art, parts] of Object.entries(parArticle)) {
+      const cumul = new Map((cumulOf[art] ?? []).map((p) => [p.numOf, { ...p }]))
+      for (const part of parts) {
+        const deja = cumul.get(part.numOf)
+        if (deja) deja.qty = Math.round((deja.qty + part.qty) * 100) / 100
+        else cumul.set(part.numOf, { ...part })
+      }
+      cumulOf[art] = [...cumul.values()]
+    }
+    seCoveringByOf.set(ofId, cumulOf)
+  }
 
   /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
   const qcDelta = (ofId: string): Record<string, number> => {
@@ -559,7 +696,7 @@ export function evaluateOrderImpacts(
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const rows: OrderImpactRow[] = matchingResults.map((result) => {
+  const rows: OrderImpactRow[] = matchingResults.map((result, matchIndex) => {
     const demand = result.demandFlow
     const origin = demand.origin as any
 
@@ -612,6 +749,12 @@ export function evaluateOrderImpacts(
         if (lateness > ofLatenessDays) ofLatenessDays = lateness
       }
 
+      // Lentille SE ramenée à CETTE ligne de commande : sa tranche du besoin de l'OF, servie
+      // en séquence (cf. l'attribution nominative plus haut). L'OF entier reste lisible dans
+      // `result.ofs[]` — ici, deux lignes servies par le même OF ne racontent plus deux fois
+      // le même manque ni la même production.
+      const tranche = trancheKey(matchIndex, ofId)
+
       ofRows.push({
         numOf: ofId,
         article: alloc.ofFlow.article,
@@ -621,9 +764,9 @@ export function evaluateOrderImpacts(
         feasible: ofFeasible,
         missingComponents: resolved.missingComponents,
         qcComponents: resolved.qcComponents,
-        seComponents: resolved.seComponents,
-        seQcComponents: resolved.seQcComponents,
-        seCoveringOfs: resolved.seCoveringOfs,
+        seComponents: roundQties(seNeedByTranche.get(tranche) ?? {}),
+        seQcComponents: seQcByTranche.get(tranche) ?? {},
+        seCoveringOfs: seCoveringByTranche.get(tranche) ?? {},
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
