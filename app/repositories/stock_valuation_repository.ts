@@ -34,23 +34,35 @@ type RawRow = Record<string, string | null>
  * sont à zéro maintenant mais ont bougé depuis `from` — le rembobinage doit les
  * retrouver, ils avaient du stock pendant la fenêtre.
  *
- * `EXISTS` corrélé et non `IN (SELECT …)` (#183). Le semi-join en `IN` était le
- * second membre d'un `OR` dont le premier (`PHYSTO_0 + CTLSTO_0 <> 0`) est une
- * EXPRESSION, donc non sargable : Oracle ne pouvait pas piloter la branche
- * STOJOU par index et matérialisait le journal de stock sur toute la fenêtre —
- * 12 mois par défaut. C'est la requête qui sortait en
- * `curl (28) timed out after 120 s`, mesurée depuis `getStockValuationKpi`.
+ * `EXISTS` corrélé et non `IN (SELECT …)` (#183). L'hypothèse d'origine était
+ * qu'en second membre d'un `OR` dont le premier (`PHYSTO_0 + CTLSTO_0 <> 0`)
+ * est une expression non sargable, le `IN` forçait Oracle à matérialiser le
+ * journal de stock sur toute la fenêtre — 12 mois par défaut.
  *
- * `EXISTS` garde exactement la même sémantique (semi-join, pas de duplication de
- * ligne même si l'article a mille mouvements) mais se corrèle article par
- * article : la sous-requête devient une sonde sur `(ITMREF_0, STOFCY_0,
- * IPTDAT_0)` au lieu d'un balayage à matérialiser.
+ * MESURÉ, ET FAUX. Le 02/09/2026, ERP calme (`wait=0` sur toutes les passes),
+ * trois passes appariées `EXISTS` / `IN` sur la fenêtre 12 mois, champ `exec`
+ * des `technicalInfos` :
  *
- * NON MESURÉ CONTRE X3 : la réécriture a été posée pendant un épisode de
- * saturation où même une requête d'une ligne ne revenait pas. À vérifier avec
- * `PERF_TRACE=1` quand l'ERP est calme — c'est le champ `exec` des
- * `technicalInfos` qui tranche (cf. `soap_client.ts`), `wait` ne dirait que la
- * contention.
+ *   passe 1 : EXISTS 2027 ms · IN 1132 ms   (1re requête, cache serveur froid)
+ *   passe 2 : EXISTS 1121 ms · IN 1133 ms
+ *   passe 3 : EXISTS 1055 ms · IN 1088 ms
+ *
+ * Les deux formes coûtent la même chose : Oracle transforme déjà le `IN` en
+ * semi-join, la matérialisation redoutée n'existe pas. Les 3528 lignes rendues
+ * sont identiques des deux côtés — la sémantique était bien la même, c'était le
+ * seul point du raisonnement d'origine à tenir.
+ *
+ * Conséquence à ne pas perdre : cette requête n'a JAMAIS été celle qui sortait
+ * en `curl (28) timed out after 120 s`. À 1,1 s elle ne peut pas l'être. Le coût
+ * de `getStockValuationKpi` est ailleurs — dans les ~6 chunks STOJOU de
+ * `getFluxByArticlePeriod`, non mesurés ici — et c'est le TTL (`VALUATION_TTL`,
+ * cf. `board_dataset.ts`) qui a réglé le problème en divisant par trente le
+ * nombre de reconstructions, pas cette réécriture.
+ *
+ * La forme `EXISTS` est conservée parce qu'elle dit l'intention (une sonde
+ * d'existence, pas une liste à construire) et qu'elle ne coûte rien de plus.
+ * Personne ne devrait la réécrire en espérant un gain : il a été cherché ici et
+ * il n'y en a pas.
  */
 const buildBaseSql = (fromStr: string) => `
 SELECT

@@ -63,7 +63,9 @@ const PEG_TTL = 5 * 60 * 1000 // 5 min — peg OF→commande (liens stables)
  * factory à chaque tick sans exception. ~360 reconstructions par jour de la
  * requête la plus lourde de l'app — 7 appels SOAP chacune (1 base ITMMASTER ×
  * ITMMVT semi-jointe à STOJOU, puis 6 chunks STOJOU de 120 articles sur 12
- * mois). C'est elle qui sort en `curl (28) timed out after 120 s`.
+ * mois). C'est elle qui sort en `curl (28) timed out after 120 s` — et parmi ses
+ * 7 appels, ce sont les 6 chunks : la requête de base a été mesurée à 1,1 s le
+ * 02/09/2026 (cf. `buildBaseSql` dans `stock_valuation_repository.ts`).
  *
  * 2 h > 4 min : le warmer trouve désormais l'entrée fraîche et ne fait rien.
  * Le coût tombe à ~12 reconstructions par jour.
