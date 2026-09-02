@@ -143,6 +143,22 @@ test.group('resteAProduire', () => {
     assert.equal(resteAProduire(120, 480, 360), 120)
   })
 
+  test('gamme pointée à 100 % mais X3 nette sur la DÉCLARATION → reste atelier 0', ({ assert }) => {
+    // Cas réel F426-47506 (EBH1257AL, 01/09/2026) : 2016 lancées, op. 10 et 20
+    // pointées 2016/2016, 1082 seulement déclarées en stock → RMNEXTQTY = 934.
+    // L'ancien discriminant rendait 934 et chargeait 2,3 h fantômes sur PP_127
+    // pour des pièces déjà passées au poste.
+    assert.equal(resteAProduire(934, 2016, 2016), 0)
+  })
+
+  test('déclaration en avance sur le pointage → borné par RMNEXTQTY, jamais au-dessus', ({
+    assert,
+  }) => {
+    // Écart de déclaration (issue #95) : 480 lancées, 300 pointées, 400 déclarées
+    // → RMNEXTQTY = 80. Le reste atelier brut (180) surestimerait la charge.
+    assert.equal(resteAProduire(80, 480, 300), 80)
+  })
+
   test('launched inconnu → repli sans déduction (surestimer plutôt que taire du travail)', ({
     assert,
   }) => {
