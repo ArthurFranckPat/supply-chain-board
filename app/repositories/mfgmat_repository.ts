@@ -10,6 +10,31 @@ export interface OfMaterial {
   allocated: number // ALLQTY_0 — déjà alloué en stock
 }
 
+/**
+ * Taille d'un lot d'OF pour `getMaterialsForOfs` (#183).
+ *
+ * DIMENSIONNÉE SUR LES LIGNES RENDUES, pas sur les clés envoyées — c'est tout
+ * le correctif. Elle valait 1 000, choisie pour « rester sous la limite IN
+ * d'Oracle », donc en regardant l'entrée. Or `ZSOAPSQL` concatène ses lignes
+ * dans un CLOB en O(n²) sur les lignes RENDUES par appel : c'est la sortie qui
+ * commande le coût.
+ *
+ * Un OF porte environ 8 matières (7 841 lignes mesurées pour un lot de 1 000 OF
+ * le 02/09/2026). 1 000 OF produisaient donc un seul appel de 7 841 lignes, à
+ * 0,67 ms/ligne — en pleine zone quadratique. À 200 OF le lot tombe vers
+ * 1 570 lignes, dans le creux de la courbe mesuré à 0,15 ms/ligne.
+ *
+ * Le même dépôt faisait déjà les deux : `getFluxByArticlePeriod` chunke à
+ * 120 articles (~800 lignes) et coûte 0,27 ms/ligne ; celle-ci chunkait à
+ * 1 000 OF et coûtait 0,67. Même contrainte, résultats opposés, parce que l'une
+ * comptait les lignes et l'autre les clés.
+ *
+ * Si le ratio matières/OF change fortement (nomenclatures plus profondes), c'est
+ * cette constante qu'il faut revoir — la cible est ~1 500 lignes par appel, pas
+ * un nombre d'OF en particulier.
+ */
+const OF_CHUNK = 200
+
 export class X3MfgmatRepository {
   async getMaterials(numOf: string): Promise<OfMaterial[]> {
     const rows = await MfgMat.query()
@@ -28,26 +53,38 @@ export class X3MfgmatRepository {
   }
 
   /**
-   * Charge les matières de PLUSIEURS OF en une seule requête (batch).
+   * Charge les matières de PLUSIEURS OF (batch chunké).
    * Utilisé par le badge du board pour évaluer tous les OF de la fenêtre sur la même
-   * source que le détail (cf. issue #11). Chunké pour rester sous la limite IN d'Oracle.
+   * source que le détail (cf. issue #11).
    */
   async getMaterialsForOfs(numOfs: string[]): Promise<Map<string, OfMaterial[]>> {
     const result = new Map<string, OfMaterial[]>()
     const unique = [...new Set(numOfs.filter(Boolean))]
     if (unique.length === 0) return result
 
-    const CHUNK = 1000
     const chunks: string[][] = []
-    for (let i = 0; i < unique.length; i += CHUNK) {
-      chunks.push(unique.slice(i, i + CHUNK))
+    for (let i = 0; i < unique.length; i += OF_CHUNK) {
+      chunks.push(unique.slice(i, i + OF_CHUNK))
     }
 
-    // Chunks indépendants → requêtés en parallèle (issue #33). Sans effet à ≤ 1000 OF (1 chunk),
-    // protège les fenêtres larges où la boucle séquentielle empilait N/1000 allers-retours X3.
-    const chunkRows = await Promise.all(
-      chunks.map((chunk) =>
-        MfgMat.query()
+    /**
+     * SÉQUENTIEL, et non `Promise.all` comme auparavant (#183).
+     *
+     * À 1 000 OF par lot il n'y avait qu'un seul chunk : le parallélisme ne
+     * servait à rien et ne se voyait pas. À 200 il y en a cinq ou plus, et les
+     * lancer ensemble prendrait d'un coup tous les slots de `x3_concurrency`
+     * (max 4) pour une seule page — chaque autre appelant, warmer compris,
+     * attendrait derrière. C'est le même arbitrage que `SuiviService.loadRaw` :
+     * le gain du parallélisme est local à la page, son coût est global.
+     *
+     * Et il n'y a pas de gain à espérer : la parallélisation des chunks SOAP a
+     * déjà été tentée dans ce dépôt sans résultat. Le goulot est le CPU de
+     * `ZSOAPSQL` côté X3, pas l'attente réseau.
+     */
+    const chunkRows: MfgMat[][] = []
+    for (const chunk of chunks) {
+      chunkRows.push(
+        await MfgMat.query()
           .select(
             'MFGMAT.MFGNUM_0',
             'MFGMAT.ITMREF_0',
@@ -60,7 +97,7 @@ export class X3MfgmatRepository {
           .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGMAT.ITMREF_0')
           .whereIn('MFGMAT.MFGNUM_0', chunk)
       )
-    )
+    }
 
     for (const rows of chunkRows) {
       for (const row of rows) {
