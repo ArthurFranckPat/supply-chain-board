@@ -216,7 +216,7 @@ for (const r of rows) {
     if (c.qc) parts.push(`dont Q=${c.qc}`)
     if (c.couvertParOf) {
       parts.push(
-        `couvert par OF ${c.couvertParOf.ofs.map((x: any) => x.numOf).join('/')} (${c.couvertParOf.parOf})`
+        `couvert par OF ${c.couvertParOf.ofs.map((x: any) => `${x.numOf}:${x.qty}`).join(' + ')} = ${c.couvertParOf.parOf}`
       )
     }
     if (c.reception) {

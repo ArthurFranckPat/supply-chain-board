@@ -825,6 +825,88 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
     assert.deepEqual(of.qcComponents, { SE1: 15 }, 'part qui ne tient que grâce au statut Q')
     // Les deux parts se somment bien au manque vs stock strict (2016 − 1966).
     assert.equal(of.seComponents!.SE1 + of.qcComponents!.SE1, 50)
+    // Couverture TENDUE : la production n'absorbe rien, `seQcComponents` retrouve le même 15.
+    assert.deepEqual(of.seQcComponents, { SE1: 15 }, 'même mesure quand la production est juste')
+  })
+
+  /**
+   * Production ABONDANTE : la part CQ ne doit pas s'évaporer.
+   *
+   * Relevé PROD du 02/09/2026 — EAR1245EX / OF F126-49779, SE EH4276 :
+   *   besoin           1440
+   *   stock strict        0   (PHYSTO 1712 ENTIÈREMENT alloué : PHYALL 1301 + GLOALL 411)
+   *   stock statut Q    865
+   *   production OF  23 615   (toutes les suggestions de la fenêtre)
+   *
+   * `qcComponents` se mesurait sur le verdict rendu, production créditée : 23 615 couvrent
+   * tout, les deux passes rendaient 0, la part CQ tombait à 0. L'écran affichait « manque
+   * 849 » sans un mot sur les 591 pièces suspendues au contrôle réception — alors que X3
+   * annonce MFGMAT.SHTQTY_0 = 1440 sur cet OF.
+   *
+   * Ici en modèle réduit : besoin 100, stock strict 0, Q 40, production 10 000.
+   * Attendu : production 60 + CQ 40 = 100 = besoin vs stock strict.
+   */
+  test('production abondante : la part CQ d’un SE reste visible', ({ assert }) => {
+    const nomenclatures = new Map([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE' as const,
+              consumptionNature: 'PROPORTIONNEL' as const,
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 100, daysFromNow(8)),
+      // Production très supérieure au besoin — c'est elle qui masquait la dépendance CQ.
+      makeOfFlow('WOS-BIG', 'SE1', 3, 10_000, daysFromNow(1)),
+      {
+        article: 'SE1',
+        quantity: 40,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+
+    const result = evaluateOrderImpacts(
+      [makeDemand('CMD-1', 'PF1', 100, daysFromNow(10))],
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(of.missingComponents, {}, 'Q + production couvrent : aucun manque')
+    assert.deepEqual(of.seComponents, { SE1: 60 }, 'part à couvrir par la production')
+    assert.deepEqual(
+      of.seQcComponents,
+      { SE1: 40 },
+      'les 40 en statut Q ne doivent PAS être absorbés par la production'
+    )
+    assert.equal(
+      of.seComponents!.SE1 + of.seQcComponents!.SE1,
+      100,
+      'production + CQ = besoin vs stock strict'
+    )
   })
 
   test("#99 : le supply de matching seul alloue la commande sans entrer dans le pool d'OF", ({

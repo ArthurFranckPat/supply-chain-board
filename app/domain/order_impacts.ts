@@ -73,6 +73,14 @@ export interface OrderImpactRow {
      * Optionnel dans le TYPE seulement (fixtures de tests) — toujours produit par le moteur.
      */
     seComponents?: Record<string, number>
+    /**
+     * Part d'un SE de `seComponents` qui ne tient que grâce au stock sous CQ, mesurée SANS
+     * crédit de production — c'est la seule mesure juste quand la production est abondante
+     * (cf. `seQcDelta`). `seComponents[a] + seQcComponents[a]` = manque de `a` vs stock STRICT
+     * et sans production, la décomposition que les vues annoncent.
+     * Optionnel dans le TYPE seulement (fixtures de tests).
+     */
+    seQcComponents?: Record<string, number>
     modified: boolean
     statutNum: number
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
@@ -102,6 +110,8 @@ export interface OrderImpactResult {
     qcComponents?: Record<string, number>
     /** SE couverts uniquement par un OF producteur (cf. `orders[].ofs[].seComponents`). */
     seComponents?: Record<string, number>
+    /** Part CQ de ces SE, mesurée sans production (cf. `orders[].ofs[].seQcComponents`). */
+    seQcComponents?: Record<string, number>
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
     estDebuté?: boolean
   }>
@@ -309,6 +319,31 @@ export function evaluateOrderImpacts(
     ofSupply.size > 0
       ? evaluateRuptures(engineOfs, { articles, nomenclatures, stockNet }, engineMode)
       : undefined
+  /**
+   * 4e passe : ni CQ, ni production. C'est le SEUL point de référence honnête pour un SE
+   * fabriqué — le manque vs stock RÉELLEMENT disponible, celui que X3 affiche en SHTQTY.
+   *
+   * Sans elle, la part CQ d'un SE se mesurait avec la production créditée (`verdictsStrict`),
+   * et une production ABONDANTE l'absorbait : les deux passes rendaient 0, `qcComponents`
+   * valait 0, et la dépendance au contrôle réception disparaissait de l'écran. Prouvé sur
+   * EAR1245EX / F126-49779 (02/09/2026) : besoin 1440 de EH4276, stock strict 0 (PHYSTO 1712
+   * ENTIÈREMENT alloué : PHYALL 1301 + GLOALL 411), 865 en statut Q, production disponible
+   * 23 615. Les passes rendaient parOf=849 et qc=0 — l'écran annonçait donc un manque de 849
+   * là où X3 dit SHTQTY_0 = 1440, et taisait que 591 pièces dépendent du contrôle réception.
+   * Avec cette passe : 849 + 591 = 1440, exactement le chiffre de X3.
+   *
+   * Le cas TENDU est inchangé (couverture juste) : la production n'absorbe rien, l'ancienne
+   * et la nouvelle mesure coïncident — cf. test « SE1 : 35 production + 15 CQ = 50 ».
+   * Pur calcul mémoire, sautée si l'un des deux leviers est absent : zéro requête X3 en plus.
+   */
+  const verdictsNoOfSupplyStrict =
+    hasQcStock && ofSupply.size > 0
+      ? evaluateRuptures(
+          engineOfs,
+          { articles, nomenclatures, stockNet: stockNetStrict },
+          engineMode
+        )
+      : undefined
 
   /**
    * Écart de manquants entre la passe « sans production OF » et la passe retenue, restreint aux
@@ -328,6 +363,26 @@ export function evaluateOrderImpacts(
       if (m.depth !== 0 || !m.fabricated) continue
       const covered = m.shortage - (missWithSupply[m.article] ?? 0)
       if (covered > 0) out[m.article] = (out[m.article] ?? 0) + covered
+    }
+    return out
+  }
+
+  /**
+   * Part CQ d'un SE couvert par production : écart entre la passe « sans CQ ni production » et
+   * la passe « sans production ». Restreint aux articles que `seDelta` a retenus — ailleurs,
+   * `qcDelta` (mesuré sur le verdict rendu) reste la bonne lentille.
+   */
+  const seQcDelta = (ofId: string, seArticles: Record<string, number>): Record<string, number> => {
+    const noSupplyStrict = verdictsNoOfSupplyStrict?.get(ofId)
+    const noSupply = verdictsNoOfSupply?.get(ofId)
+    if (!noSupplyStrict || !noSupply) return {}
+    const missNoSupply = directMissing(noSupply)
+    const out: Record<string, number> = {}
+    for (const m of noSupplyStrict.missingDetail) {
+      if (m.depth !== 0 || !m.fabricated) continue
+      if (!(m.article in seArticles)) continue
+      const qcPart = m.shortage - (missNoSupply[m.article] ?? 0)
+      if (qcPart > 0) out[m.article] = (out[m.article] ?? 0) + qcPart
     }
     return out
   }
@@ -355,6 +410,7 @@ export function evaluateOrderImpacts(
     missingComponents: Record<string, number>
     qcComponents: Record<string, number>
     seComponents: Record<string, number>
+    seQcComponents: Record<string, number>
   } => {
     const pre = precomputedFeasibility?.get(ofId)
     if (pre) {
@@ -365,14 +421,17 @@ export function evaluateOrderImpacts(
         missingComponents: pre.missingComponents,
         qcComponents: pre.qcComponents ?? {},
         seComponents: {},
+        seQcComponents: {},
       }
     }
     const verdict = verdicts.get(ofId)
+    const seComponents = seDelta(ofId)
     return {
       feasible: verdict?.feasible ?? null,
       missingComponents: verdict ? directMissing(verdict) : {},
       qcComponents: qcDelta(ofId),
-      seComponents: seDelta(ofId),
+      seComponents,
+      seQcComponents: seQcDelta(ofId, seComponents),
     }
   }
 
@@ -443,6 +502,7 @@ export function evaluateOrderImpacts(
         missingComponents: resolved.missingComponents,
         qcComponents: resolved.qcComponents,
         seComponents: resolved.seComponents,
+        seQcComponents: resolved.seQcComponents,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
@@ -524,6 +584,7 @@ export function evaluateOrderImpacts(
         missingComponents: resolved.missingComponents,
         qcComponents: resolved.qcComponents,
         seComponents: resolved.seComponents,
+        seQcComponents: resolved.seQcComponents,
         estDebuté: avancementByOf?.get(o.numOf)?.estDebuté,
       }
     }),
