@@ -35,7 +35,7 @@ import { logStockValuationCall } from '#services/stock_valuation_usage_logger'
 /**
  * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
  *  - Référentiel (gammes…) : statique, TTL long.
- *  - OF ouverts : tous (backlog en a besoin), TTL court / reload.
+ *  - OF ouverts : bornés à [J-90, J+180) sur l'ENDDAT (#183), TTL court / reload.
  *  - Live (demande + réceptions) : scopé à l'horizon [from,to], par fenêtre.
  *  - Stock : vivant, scopé par article, toujours frais.
  *
@@ -134,7 +134,21 @@ class BoardDataset {
     })
   }
 
-  /** OF ouverts (tous) + flux supply dérivés. TTL court. */
+  /**
+   * OF ouverts + flux supply dérivés. TTL court.
+   *
+   * PÉRIMÈTRE BORNÉ, et ce n'est plus « tous » : `of_repository` ne lit que les
+   * OF dont l'ENDDAT tombe dans `[J-RETARD_LOOKBACK_DAYS, J+OF_LOOKAHEAD_DAYS)`
+   * — 90 j en arrière, 180 j en avant par défaut (#183). Sans borne haute, le
+   * CBN remplissait le pool de suggestions lointaines : 87 % du volume, 42 %
+   * au-delà de J+180, rechargées ~180 fois par jour par le warmer.
+   *
+   * Conséquence à connaître avant de s'appuyer dessus : un OF dont la fin
+   * dépasse l'horizon est ABSENT de ce pool. Le symptôme est un OF introuvable
+   * (recherche du board, diagnostic matières), jamais une erreur. Si un
+   * consommateur a besoin de voir plus loin, il lui faut sa propre requête —
+   * pas un élargissement de cette clé, qui est rechargée en permanence.
+   */
   async getOrders(force = false): Promise<Orders> {
     if (force) await board().delete({ key: 'orders' })
     return board().getOrSet({
@@ -635,8 +649,12 @@ class BoardDataset {
    * de 13 mois (clé `live:from:to` que personne d'autre ne réchauffe) → ZSOAPSQL
    * O(n²) sur des dizaines de milliers de lignes → le diagnostic pendait sans fin.
    *
-   * Utilisation : toute action qui doit voir la totalité des OF opérationnels (board
-   * index, show, diagnostic).
+   * Utilisation : toute action qui doit voir les OF opérationnels (board index,
+   * show, diagnostic).
+   *
+   * « Totalité » ne vaut plus depuis #183 : le pool est borné à
+   * `[J-90, J+180)` sur l'ENDDAT — cf. `getOrders()` juste au-dessus. Un OF plus
+   * lointain n'y est pas.
    */
   async getPool(): Promise<{ supply: Flow[]; mos: ManufacturingOrder[] }> {
     const orders = await this.getOrders()

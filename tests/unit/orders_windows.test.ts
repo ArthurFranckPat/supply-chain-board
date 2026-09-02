@@ -4,12 +4,18 @@ import { buildOrdersWindows } from '#repositories/of_repository'
 /**
  * Bornes du découpage de la requête ORDERS (#183).
  *
- * Pourquoi ce test existe : le découpage remplace UN appel par une douzaine, et
- * une erreur de bornes ne se voit pas. Un trou d'un jour entre deux fenêtres ne
- * lève rien, ne ralentit rien — il fait juste disparaître du board les OF qui
+ * Pourquoi ce test existe : le découpage remplace UN appel par plusieurs, et une
+ * erreur de bornes ne se voit pas. Un trou d'un jour entre deux fenêtres ne lève
+ * rien, ne ralentit rien — il fait juste disparaître du board les OF qui
  * finissent ce jour-là. Un recouvrement, lui, les compte deux fois et double
  * silencieusement des quantités de flux. Aucun des deux n'est rattrapable en
  * aval, d'où la vérification ici, sur la fonction pure.
+ *
+ * Depuis la borne haute (#183), les fenêtres sont TOUTES FERMÉES : le pool
+ * s'arrête à J+OF_LOOKAHEAD_DAYS. C'est un périmètre voulu, pas un oubli — et
+ * c'est précisément pour ça qu'il est testé. Une fenêtre ouverte qui
+ * réapparaîtrait rechargerait ~180 fois par jour les suggestions lointaines du
+ * CBN que cette borne existe pour écarter.
  */
 
 /** `YYYYMMDD` → Date locale, pour raisonner sur les bornes rendues. */
@@ -37,17 +43,26 @@ test.group('buildOrdersWindows — découpage ENDDAT', () => {
     }
   })
 
-  test('la couverture commence à `from` et la dernière fenêtre est ouverte', ({ assert }) => {
+  test('la couverture commence à `from` et s’arrête net à l’horizon', ({ assert }) => {
     const today = new Date(2026, 8, 2)
     const from = new Date(2026, 5, 4)
 
     const windows = buildOrdersWindows(from, today)
 
     assert.equal(windows[0][0], '20260604')
-    assert.isNull(
-      windows[windows.length - 1][1],
-      'sans fenêtre ouverte finale, un OF au-delà de l’horizon serait perdu'
-    )
+    // 02/09/2026 + 180 j = 01/03/2027. La dernière fenêtre s'y ferme : au-delà,
+    // rien n'est lu. C'est le périmètre assumé du pool, pas une troncature
+    // accidentelle du découpage.
+    assert.equal(windows[windows.length - 1][1], '20270301')
+  })
+
+  test('aucune fenêtre ouverte : le pool est borné, pas seulement découpé', ({ assert }) => {
+    const today = new Date(2026, 8, 2)
+    const from = new Date(2026, 5, 4)
+
+    for (const [start, end] of buildOrdersWindows(from, today)) {
+      assert.isNotNull(end, `la fenêtre démarrant à ${start} doit être fermée`)
+    }
   })
 
   test('aucune fenêtre fermée ne dépasse la largeur nominale', ({ assert }) => {
@@ -57,7 +72,6 @@ test.group('buildOrdersWindows — découpage ENDDAT', () => {
     for (const [start, end] of buildOrdersWindows(today, today).concat(
       buildOrdersWindows(from, today)
     )) {
-      if (end === null) continue
       const days = Math.round((parse(end).getTime() - parse(start).getTime()) / DAY_MS)
       assert.isAtMost(days, 45, `fenêtre ${start}→${end} trop large : ${days} jours`)
       assert.isAbove(days, 0, `fenêtre ${start}→${end} vide ou inversée`)
@@ -78,14 +92,29 @@ test.group('buildOrdersWindows — découpage ENDDAT', () => {
     )
   })
 
-  test('un `from` déjà au-delà de l’horizon rend la seule fenêtre ouverte', ({ assert }) => {
+  test('un `from` au-delà de l’horizon ne rend AUCUNE fenêtre', ({ assert }) => {
     const today = new Date(2026, 8, 2)
     const from = new Date(2030, 0, 1)
 
-    const windows = buildOrdersWindows(from, today)
+    // Plage vide, donc zéro appel SOAP — et surtout pas une fenêtre inversée
+    // `[2030-01-01, 2027-03-01)` qui rendrait zéro ligne en payant le transport.
+    assert.lengthOf(buildOrdersWindows(from, today), 0)
+  })
 
-    assert.lengthOf(windows, 1)
-    assert.isNull(windows[0][1])
+  test('aucune fenêtre de largeur nulle sur le chemin réel (dates non normalisées)', ({
+    assert,
+  }) => {
+    // Reproduit l'appel de PRODUCTION : `fetch()` fabrique `from` avec un
+    // `new Date()`, puis `buildOrdersWindows` en fabrique un second pour
+    // `today`. Les quelques millisecondes d'écart faisaient déborder la boucle
+    // d'un tour et produisaient `[20270301, 20270301)` — un appel SOAP de plus,
+    // zéro ligne, à chaque chargement du pool. Les tests qui passent les deux
+    // dates explicitement ne peuvent pas voir ce cas.
+    const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+
+    for (const [start, end] of buildOrdersWindows(from)) {
+      assert.notEqual(start, end, `fenêtre de largeur nulle : [${start} → ${end})`)
+    }
   })
 
   test('le découpage reste raisonnable en nombre d’appels SOAP', ({ assert }) => {
@@ -94,10 +123,10 @@ test.group('buildOrdersWindows — découpage ENDDAT', () => {
 
     const windows = buildOrdersWindows(from, today)
 
-    // 90 j de lookback + 375 j d'horizon ≈ 465 j / 45 = ~11 fenêtres, + l'ouverte.
+    // 90 j de lookback + 180 j d'horizon = 270 j / 45 = 6 fenêtres.
     // Le plancher d'un appel SOAP est ~65 ms : multiplier les fenêtres par
     // inadvertance (largeur réduite) redeviendrait cher en transport pur.
-    assert.isAtMost(windows.length, 14)
-    assert.isAtLeast(windows.length, 8)
+    assert.isAtMost(windows.length, 8)
+    assert.isAtLeast(windows.length, 5)
   })
 })

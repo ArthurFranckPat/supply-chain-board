@@ -74,46 +74,77 @@ function toLocalYYYYMMDD(d: Date): string {
  * la main. 45 jours place les fenêtres pleines autour de 1 500-1 700 lignes,
  * dans le creux de la courbe.
  *
- * Résultat sur le portefeuille du 02/09/2026 : ~2,5 s d'exec cumulé contre
- * 18 s en un seul appel, pour EXACTEMENT les mêmes 12 823 lignes.
+ * Ce découpage seul, à périmètre inchangé, ramenait 18 s à ~4 s d'exec pour les
+ * mêmes 12 823 lignes. Combiné à la borne haute ci-dessous, le pool complet
+ * tient en 6 appels et ~1,8 s.
  */
 const ORDERS_WINDOW_DAYS = 45
 
 /**
- * Horizon au-delà duquel une seule fenêtre OUVERTE ramasse le reste.
+ * BORNE HAUTE du pool d'OF, en jours (#183).
  *
- * Le portefeuille d'OF s'arrête net : mesuré le 02/09/2026, plus rien après
- * J+375 sauf 10 lignes vers J+450 et 1 au-delà de trois ans. Découper cette
- * zone en fenêtres de 45 jours paierait le plancher SOAP une dizaine de fois
- * pour ramener onze lignes.
+ * Ce n'est PAS un détail de découpage : c'est un choix de PÉRIMÈTRE. Au-delà,
+ * les OF ne sont plus lus du tout — `getOrders()` ne rend donc plus « tous les
+ * OF ouverts », il rend ceux dont la fin tombe dans `[J-lookback, J+lookahead)`.
  *
- * La fenêtre ouverte garantit qu'AUCUN OF n'est perdu quel que soit son ENDDAT
- * — l'horizon ne borne que la finesse du découpage, jamais le périmètre. Si le
- * portefeuille s'allonge un jour, le symptôme sera une dernière fenêtre qui
- * grossit et redevient chère : augmenter cette constante, pas la supprimer.
+ * Pourquoi elle existe : il n'y en avait AUCUNE. La requête n'avait qu'une
+ * borne basse, et le CBN remplissait le vide. Composition mesurée le
+ * 02/09/2026 sur AE1 : 12 865 lignes, dont 87,4 % de suggestions (WIPSTA=3),
+ * et 5 482 lignes au-delà de J+180 — une zone où il ne reste plus un seul OF
+ * ferme. Le warmer rechargeait tout ça ~180 fois par jour.
+ *
+ * Ce que la borne à 180 j retire, mesuré et non estimé :
+ *  - 5 482 lignes sur 12 955, soit 42 % du volume ;
+ *  - 789 articles distincts, dont 746 apparaissent AUSSI avant J+180 : seuls
+ *    43 disparaissent réellement de `searchPf` ;
+ *  - 1 seul OF ferme, `F513-01095` (article PI0150) — une date qui a tout d'une
+ *    anomalie, du même genre que celles que la borne basse écarte déjà.
+ *
+ * Surchargeable par `OF_LOOKAHEAD_DAYS` sans redéploiement : la valeur juste
+ * dépend de ce que les écrans montrent, et elle se règle à l'usage. Le symptôme
+ * d'une borne trop courte est un OF introuvable dans la recherche du board,
+ * jamais une erreur.
  */
-const ORDERS_HORIZON_DAYS = 375
+const OF_LOOKAHEAD_DAYS = Number.parseInt(process.env.OF_LOOKAHEAD_DAYS ?? '180', 10)
 
 /**
- * Fenêtres [début, fin) contiguës couvrant `[from, +∞)`, la dernière ouverte.
+ * Fenêtres [début, fin) contiguës couvrant `[from, J+OF_LOOKAHEAD_DAYS)`.
+ *
+ * TOUTES FERMÉES : il n'y a plus de fenêtre ouverte finale, et c'est
+ * intentionnel — la borne haute est un périmètre assumé, pas une limite de
+ * découpage. Ce qui tombe au-delà n'est pas lu.
  *
  * Semi-ouvertes, donc l'union est exacte : aucun OF compté deux fois, aucun
- * perdu sur une borne. Vérifié contre la requête monolithique — 12 823 lignes
- * des deux côtés.
+ * perdu sur une borne. Vérifié contre la requête monolithique — mêmes lignes
+ * des deux côtés sur la plage commune.
  *
  * Fonction pure et exportée pour être testée sans X3 : c'est le seul endroit
  * où une erreur de bornes fausserait silencieusement le board (un trou d'un
  * jour ne se voit pas, il fait juste disparaître des OF).
  */
-export function buildOrdersWindows(
-  from: Date,
-  today: Date = new Date()
-): Array<[string, string | null]> {
-  const windows: Array<[string, string | null]> = []
-  const horizon = new Date(today)
-  horizon.setDate(horizon.getDate() + ORDERS_HORIZON_DAYS)
+export function buildOrdersWindows(from: Date, today: Date = new Date()): Array<[string, string]> {
+  const windows: Array<[string, string]> = []
 
-  const cursor = new Date(from)
+  /**
+   * MINUIT LOCAL des deux côtés, et c'est un correctif, pas une coquetterie.
+   *
+   * Les bornes finissent en `YYYYMMDD` : l'heure ne survit pas à la conversion,
+   * mais elle survit à la COMPARAISON `cursor < horizon`. Or les deux dates
+   * viennent d'appels à `new Date()` distincts — `fetch()` calcule `from`, puis
+   * `buildOrdersWindows` calcule `today` — séparés de quelques millisecondes.
+   * Le curseur finissait donc quelques ms AVANT l'horizon au dernier tour, et la
+   * boucle produisait une fenêtre de largeur nulle `[20270301, 20270301)` :
+   * un appel SOAP de plus (~65 ms mesurés), zéro ligne, à chaque chargement.
+   *
+   * Normaliser au jour rend l'arithmétique exacte : `setDate` préserve minuit
+   * local même à travers un changement d'heure.
+   */
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+
+  const horizon = midnight(today)
+  horizon.setDate(horizon.getDate() + OF_LOOKAHEAD_DAYS)
+
+  const cursor = midnight(from)
   while (cursor < horizon) {
     const next = new Date(cursor)
     next.setDate(next.getDate() + ORDERS_WINDOW_DAYS)
@@ -121,18 +152,16 @@ export function buildOrdersWindows(
     windows.push([toLocalYYYYMMDD(cursor), toLocalYYYYMMDD(end)])
     cursor.setTime(end.getTime())
   }
-  windows.push([toLocalYYYYMMDD(horizon), null])
   return windows
 }
 
 /**
  * WIPTYP=5 = fabrication. WIPSTA 1/2/3 = Ferme/Planifié/Suggéré. ORDERS seule.
  *
- * `toStr` null = fenêtre ouverte (la dernière). Les bornes sont semi-ouvertes
- * `[from, to)` — ne pas les passer en `BETWEEN`, qui est fermé des deux côtés
- * et compterait deux fois les OF pile sur une borne.
+ * Bornes semi-ouvertes `[from, to)` — ne pas les passer en `BETWEEN`, qui est
+ * fermé des deux côtés et compterait deux fois les OF pile sur une borne.
  */
-const buildSql = (fromStr: string, toStr: string | null) => `
+const buildSql = (fromStr: string, toStr: string) => `
 SELECT
   VCRNUM_0    AS NUM,
   ITMREF_0    AS ARTICLE,
@@ -146,12 +175,8 @@ FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
-  AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')${
-    toStr
-      ? `
-  AND ENDDAT_0 < TO_DATE('${toStr}', 'YYYYMMDD')`
-      : ''
-  }
+  AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+  AND ENDDAT_0 < TO_DATE('${toStr}', 'YYYYMMDD')
 `
 
 /** STRDAT in [from,to] — fenêtre courte → ZSOAPSQL O(n²) ×N+ plus rapide que lookback 90j ENDDAT. */
