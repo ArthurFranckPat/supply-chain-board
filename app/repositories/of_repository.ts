@@ -33,6 +33,14 @@ export interface ManufacturingOrder {
   createdDate?: Date | null
   /** Opérateur créateur (ORDERS.CREUSR_0, code X3 brut — pas d'annuaire de noms complets). */
   createdBy?: string | null
+  /**
+   * Commande de vente à laquelle X3 a RÉSERVÉ cet OF (contremarque) — `null` si l'OF est
+   * libre. Lu sur ORDERS : `VCRTYPORI_0 = 2` (pièce origine = commande vente) →
+   * `VCRNUMORI_0` porte le n° de commande. C'est l'exact miroir de `SORDERQ.FMINUM_0`
+   * (vérifié sur 40/40 OF contremarqués en PROD le 02/09/2026 : la commande pointée
+   * repointe toujours l'OF).
+   */
+  reservePour?: string | null
 }
 
 type RawRow = Record<string, string | null>
@@ -184,7 +192,9 @@ SELECT
   CPLQTY_0    AS DONE,
   RMNEXTQTY_0 AS REMAIN,
   STRDAT_0    AS STRDAT,
-  ENDDAT_0    AS ENDDAT
+  ENDDAT_0    AS ENDDAT,
+  VCRTYPORI_0 AS ORITYP,
+  VCRNUMORI_0 AS ORINUM
 FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
@@ -203,7 +213,9 @@ SELECT
   CPLQTY_0    AS DONE,
   RMNEXTQTY_0 AS REMAIN,
   STRDAT_0    AS STRDAT,
-  ENDDAT_0    AS ENDDAT
+  ENDDAT_0    AS ENDDAT,
+  VCRTYPORI_0 AS ORITYP,
+  VCRNUMORI_0 AS ORINUM
 FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
@@ -231,7 +243,9 @@ SELECT
   CPLQTY_0    AS DONE,
   RMNEXTQTY_0 AS REMAIN,
   STRDAT_0    AS STRDAT,
-  ENDDAT_0    AS ENDDAT
+  ENDDAT_0    AS ENDDAT,
+  VCRTYPORI_0 AS ORITYP,
+  VCRNUMORI_0 AS ORINUM
 FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
@@ -251,6 +265,25 @@ WHERE WIPTYP_0 = 5
 
 function toNum(v: string | null | undefined): number {
   return Number.parseFloat(v ?? '0') || 0
+}
+
+/**
+ * Commande à laquelle l'OF est réservé, ou `null` s'il est libre.
+ *
+ * `VCRTYPORI_0` (menu 701) = type de la pièce à l'origine de l'OF. La valeur 2 =
+ * « Commande vente » : X3 a créé cet OF EN CONTREMARQUE pour la ligne
+ * `VCRNUMORI_0`/`VCRLINORI_0`, il ne sert que celle-là. Les autres valeurs sont des
+ * origines libres — 11 « Suggestion » (le cas courant sur un site 100 % CBN), 10
+ * « Ordre de fabrication », 0 (saisie manuelle).
+ *
+ * Réservation au NUMÉRO de commande, pas à la ligne : le matcher compare à
+ * `demand.origin.id`, qui est le SOHNUM. Une autre ligne de la MÊME commande peut donc
+ * consommer l'OF — c'est bénin (même client, même commande) et ça évite d'introduire une
+ * clé composite qui n'existe nulle part ailleurs dans la chaîne de matching.
+ */
+function reservePourDe(row: RawRow): string | null {
+  if (Number.parseInt(row.ORITYP ?? '0') !== 2) return null
+  return row.ORINUM?.trim() || null
 }
 
 export class X3OfRepository {
@@ -318,6 +351,7 @@ export class X3OfRepository {
           typeOf: null,
           typeOfLabel: null,
           designation: designations.get(article) ?? null,
+          reservePour: reservePourDe(row) ?? undefined,
         },
       }
     })
@@ -372,6 +406,7 @@ export class X3OfRepository {
         unit: null,
         startDate: parseX3Date(row.STRDAT),
         endDate: parseX3Date(row.ENDDAT),
+        reservePour: reservePourDe(row),
       }
     })
   }
@@ -456,6 +491,7 @@ WHERE WIPTYP_0 = 5
         unit: null,
         startDate: parseX3Date(row.STRDAT),
         endDate: parseX3Date(row.ENDDAT),
+        reservePour: reservePourDe(row),
       }
     })
   }

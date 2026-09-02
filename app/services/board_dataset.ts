@@ -176,6 +176,9 @@ class BoardDataset {
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
             launched: mo.quantityLaunched,
+            // Contremarque X3 : OF réservé à SA commande, invisible des autres
+            // (cf. `reservePourDe` dans of_repository).
+            reservePour: mo.reservePour ?? undefined,
           },
         }))
         this.lastOrdersAt = Date.now()
@@ -216,6 +219,9 @@ class BoardDataset {
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
             launched: mo.quantityLaunched,
+            // Contremarque X3 : OF réservé à SA commande, invisible des autres
+            // (cf. `reservePourDe` dans of_repository).
+            reservePour: mo.reservePour ?? undefined,
           },
         }))
         return { mos, supply, at: Date.now() } satisfies Orders
@@ -259,6 +265,9 @@ class BoardDataset {
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
             launched: mo.quantityLaunched,
+            // Contremarque X3 : OF réservé à SA commande, invisible des autres
+            // (cf. `reservePourDe` dans of_repository).
+            reservePour: mo.reservePour ?? undefined,
           },
         }))
       },

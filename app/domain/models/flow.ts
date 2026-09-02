@@ -41,10 +41,16 @@ export type FlowOrigin =
        */
       launched?: number
       /**
-       * Ordre virtuel réservé à UNE demande (issue #58) : il n'existe que parce que cette
-       * demande a été injectée. Le matcher ne le propose à aucune autre — sans ça, une
-       * commande réelle plus urgente du même article se sert la première et la virtuelle
-       * ressort « sans couverture » alors que son propre OF vient d'être créé pour elle.
+       * N° de commande à laquelle cet OF est RÉSERVÉ — le matcher ne le propose à aucune
+       * autre. Deux sources, même règle :
+       *
+       *  - **Contremarque X3** (le cas courant) : `ORDERS.VCRTYPORI_0 = 2` → l'OF a été créé
+       *    pour la ligne `VCRNUMORI_0`. Sans cette réservation, seul le peg DIRECT
+       *    (`SORDERQ.FMINUM_0`, porté par la commande) était honoré : l'OF contremarqué
+       *    restait offert à toute autre commande du même article, et comme les demandes sont
+       *    traitées par date croissante, la plus urgente le prenait avant son propriétaire.
+       *  - **Ordre virtuel** (issue #58) : il n'existe que parce qu'une demande a été
+       *    injectée ; une commande réelle plus urgente le raflerait sinon.
        */
       reservePour?: string
     }

@@ -8,7 +8,8 @@ function makeOfFlow(
   article: string,
   status: number,
   quantity: number,
-  date?: Date
+  date?: Date,
+  reservePour?: string
 ): Flow {
   const origin: Extract<FlowOrigin, { type: 'of' }> = {
     type: 'of',
@@ -18,6 +19,7 @@ function makeOfFlow(
     typeOfLabel: '',
     statutLabel: '',
     typeOf: null,
+    reservePour,
   }
   return { article, quantity, direction: 'supply', date: date ?? null, origin }
 }
@@ -545,5 +547,72 @@ test.group('CommandeOFMatcher — chronologie CBN (AEA731XX)', () => {
       makeDemandFlow('AR2604129', ART, 1809, new Date('2026-09-16')),
     ])
     assert.deepEqual(ofsDe(tardif), ['SGAE10663190684'])
+  })
+})
+
+/**
+ * Contremarque X3 : un OF réservé à SA commande ne doit servir personne d'autre (11016310).
+ *
+ * Relevé PROD du 02/09/2026, article 11016310 « MR MODULO D125/5IN » :
+ *   OF     F126-49763   ferme      11   fin 03/09   libre        (VCRTYPORI 11 = suggestion)
+ *   OF     SGAE…119090  suggéré   949   fin 05/09   libre
+ *   OF     F426-50125   planifié  480   fin 14/09   → AR2604036  (VCRTYPORI 2 = commande)
+ *   CDE    AR2603652    480  le 08/09
+ *   CDE    AR2604036    480  le 14/09   (SORDERQ.FMINUM_0 = F426-50125)
+ *
+ * Les demandes sont traitées par date croissante : AR2603652 (08/09) passe AVANT
+ * AR2604036 (14/09). Le peg DIRECT (contremarque portée par la commande) ne protégeait
+ * que AR2604036 quand SON tour arrivait — trop tard, F426-50125 était déjà vidé. La vue
+ * proactive affichait donc « F126-49763 + F426-50125 » sur AR2603652, un OF qui appartient
+ * à une autre commande, et AR2604036 se retrouvait sans son propre OF.
+ */
+test.group('CommandeOFMatcher — contremarque inverse (11016310)', () => {
+  const ART = '11016310'
+  const libre11 = () => makeOfFlow('F126-49763', ART, 1, 11, new Date('2026-09-03'))
+  const libre949 = () => makeOfFlow('SGAE10663119090', ART, 3, 949, new Date('2026-09-05'))
+  const reserve480 = () =>
+    makeOfFlow('F426-50125', ART, 2, 480, new Date('2026-09-14'), 'AR2604036')
+  const articles = () => new Map([[ART, makeArticle(ART)]])
+  const ofsDe = (r: { ofAllocations: Array<{ ofFlow: Flow }> }) =>
+    r.ofAllocations.map((a) => (a.ofFlow.origin as Extract<FlowOrigin, { type: 'of' }>).id)
+
+  test('un OF contremarqué ne sert pas une autre commande, même plus urgente', ({ assert }) => {
+    const matcher = new CommandeOFMatcher(
+      [libre11(), libre949(), reserve480()],
+      articles(),
+      new Map(),
+      30
+    )
+    const [sept08, sept14] = matcher.matchCommandes([
+      makeDemandFlow('AR2603652', ART, 480, new Date('2026-09-08')),
+      makeDemandFlow('AR2604036', ART, 480, new Date('2026-09-14')),
+    ])
+
+    // AR2603652 se sert sur les OF LIBRES : 11 (ferme, 03/09) + 469 (suggestion, 05/09).
+    assert.deepEqual(ofsDe(sept08), ['F126-49763', 'SGAE10663119090'])
+    assert.equal(sept08.remainingUncoveredQty, 0)
+
+    // Son OF contremarqué est intact pour AR2604036.
+    assert.deepEqual(ofsDe(sept14), ['F426-50125'])
+    assert.equal(sept14.ofAllocations[0].qteAllouee, 480)
+    assert.equal(sept14.remainingUncoveredQty, 0)
+  })
+
+  test('la réservation vaut aussi en MTS', ({ assert }) => {
+    const matcher = new CommandeOFMatcher([reserve480()], articles(), new Map(), 30)
+    const [autre] = matcher.matchCommandes([
+      makeDemandFlow('AR2603652', ART, 480, new Date('2026-09-08'), 'MTS'),
+    ])
+    assert.deepEqual(ofsDe(autre), [])
+    assert.equal(autre.remainingUncoveredQty, 480)
+  })
+
+  test('le propriétaire consomme bien son OF réservé', ({ assert }) => {
+    const matcher = new CommandeOFMatcher([reserve480()], articles(), new Map(), 30)
+    const [proprio] = matcher.matchCommandes([
+      makeDemandFlow('AR2604036', ART, 480, new Date('2026-09-14')),
+    ])
+    assert.deepEqual(ofsDe(proprio), ['F426-50125'])
+    assert.equal(proprio.remainingUncoveredQty, 0)
   })
 })

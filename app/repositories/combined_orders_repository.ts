@@ -36,6 +36,12 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
     'H.ORDDAT_0    AS ORDDAT',
   ]
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
+  // Peg INVERSE (OF → commande), lu sur ORDERS elle-même : aucun JOIN, 2 colonnes.
+  // Le peg direct (SORDERQ.FMINUM ci-dessus) ne protège que la commande qui le porte ;
+  // sans le peg inverse, l'OF contremarqué reste offert à TOUTE autre commande du même
+  // article, et la plus urgente se sert la première (cas AR2603652 ↔ F426-50125,
+  // contremarque de AR2604036). Ne sert qu'aux lignes WIPTYP=5 → conditionné à includeOf.
+  if (includeOf) columns.push('O.VCRTYPORI_0', 'O.VCRNUMORI_0')
   if (includeCustomerRef) {
     columns.push(
       'H.BPCORD_0    AS BPCORD',
@@ -214,6 +220,12 @@ function mapOfRow(row: RawRow): Flow {
       typeOfLabel: null,
       designation: row.DESIGNATION?.trim() ?? null,
       launched: toNum(row.EXTQTY_0),
+      // VCRTYPORI_0 = 2 (menu 701 « Commande vente ») → OF créé en contremarque pour
+      // VCRNUMORI_0 : il ne sert que cette commande. Miroir exact de SORDERQ.FMINUM_0.
+      reservePour:
+        Number.parseInt(row.VCRTYPORI_0 ?? '0') === 2
+          ? row.VCRNUMORI_0?.trim() || undefined
+          : undefined,
     },
   }
 }
