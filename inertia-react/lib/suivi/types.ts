@@ -198,6 +198,8 @@ export interface ProactiveDisplayRow {
       supplier: string
       overdue: boolean
       retardJ: number
+      /** ETA strictement après la date d'expédition de la commande servie → pas utilisable à temps. */
+      apresExpedition: boolean
     } | null
     /** Descente BOM d'un SE manquant : 'se_a_lancer' (composants dispo) ou 'bloque' (+ feuilles bloquantes). */
     descente: {
@@ -212,6 +214,8 @@ export interface ProactiveDisplayRow {
           supplier: string
           overdue: boolean
           retardJ: number
+          /** ETA strictement après la date d'expédition de la commande servie → pas utilisable à temps. */
+          apresExpedition: boolean
         } | null
       }[]
     } | null
@@ -225,7 +229,8 @@ export interface ProactiveDisplayRow {
      */
     couvertParOf: {
       parOf: number
-      ofs: { numOf: string; dateFin: string | null }[]
+      /** `qty` = part prise sur CET OF (min(reste à couvrir, capacité)), jamais le total. */
+      ofs: { numOf: string; dateFin: string | null; qty: number }[]
     } | null
   }[]
   ofs: ProactiveOf[]

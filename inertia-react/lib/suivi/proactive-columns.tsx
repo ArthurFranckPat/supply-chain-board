@@ -399,7 +399,10 @@ export function createProactiveColumns({
                             </span>
                           </div>
                         )
-                      : c.couvertParOf.ofs.map((of) => (
+                      : /* `of.qty` = part prise sur CET OF, jamais `parOf` (le total) : le
+                           dernier OF de la liste n'est presque jamais consommé en entier, et
+                           répéter le total faisait dire à un OF d'1 pièce qu'il en fournit 849. */
+                        c.couvertParOf.ofs.map((of) => (
                           <div key={of.numOf} className="flex items-center gap-1">
                             <CornerDownRight
                               size={10}
@@ -407,10 +410,8 @@ export function createProactiveColumns({
                               className="leading-none text-muted-foreground/60"
                             />
                             <span>
-                              <span className="font-bold text-foreground">
-                                {fr(c.couvertParOf!.parOf)}
-                              </span>{' '}
-                              par <span className="font-bold text-foreground">{of.numOf}</span>
+                              <span className="font-bold text-foreground">{fr(of.qty)}</span> par{' '}
+                              <span className="font-bold text-foreground">{of.numOf}</span>
                               {of.dateFin && (
                                 <span className="text-muted-foreground"> (fin {of.dateFin})</span>
                               )}
@@ -444,14 +445,25 @@ export function createProactiveColumns({
                             <div
                               className={cn(
                                 'flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium',
-                                p.reception.overdue
-                                  ? 'font-bold text-foreground'
-                                  : 'text-muted-foreground/80'
+                                // Même règle que la lentille composant : rouge = après l'expé.
+                                p.reception.apresExpedition
+                                  ? 'font-bold text-destructive'
+                                  : p.reception.overdue
+                                    ? 'font-bold text-foreground'
+                                    : 'text-muted-foreground/80'
                               )}
-                              title={p.reception.supplier}
+                              title={
+                                (p.reception.apresExpedition
+                                  ? `Arrive après l'expédition de la commande (${row.original.dateExp}) — `
+                                  : '') + p.reception.supplier
+                              }
                             >
                               <DynamicIcon
-                                name={p.reception.overdue ? 'warning' : 'local_shipping'}
+                                name={
+                                  p.reception.apresExpedition || p.reception.overdue
+                                    ? 'warning'
+                                    : 'local_shipping'
+                                }
                                 size={10}
                                 strokeWidth={1.75}
                                 className="leading-none opacity-80"
@@ -494,14 +506,26 @@ export function createProactiveColumns({
                   <div
                     className={cn(
                       'mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none',
-                      c.reception.overdue
-                        ? 'font-bold text-foreground'
-                        : 'font-medium text-muted-foreground'
+                      // Rouge = la pièce arrive APRÈS la date d'expé de la commande :
+                      // même « à l'heure » fournisseur, elle ne la servira pas à temps.
+                      c.reception.apresExpedition
+                        ? 'font-bold text-destructive'
+                        : c.reception.overdue
+                          ? 'font-bold text-foreground'
+                          : 'font-medium text-muted-foreground'
                     )}
-                    title={`Fournisseur: ${c.reception.supplier}`}
+                    title={
+                      (c.reception.apresExpedition
+                        ? `Arrive après l'expédition de la commande (${row.original.dateExp}) — `
+                        : '') + `Fournisseur: ${c.reception.supplier}`
+                    }
                   >
                     <DynamicIcon
-                      name={c.reception.overdue ? 'warning' : 'local_shipping'}
+                      name={
+                        c.reception.apresExpedition || c.reception.overdue
+                          ? 'warning'
+                          : 'local_shipping'
+                      }
                       size={11}
                       strokeWidth={1.75}
                       className="leading-none opacity-80"

@@ -490,7 +490,15 @@ export interface ProactiveDisplayRow {
     art: string
     desc: string
     qty: number
-    reception: { eta: string; po: string; supplier: string } | null
+    reception: {
+      eta: string
+      po: string
+      supplier: string
+      overdue: boolean
+      retardJ: number
+      /** ETA strictement après la date d'expédition de la commande servie. */
+      apresExpedition: boolean
+    } | null
     /**
      * Descente BOM du composant quand c'est un SOUS-ENSEMBLE fabriqué (lentille
      * d'EXPLICATION, mode photo stock strict — le verdict de la ligne reste au SE) :
@@ -510,6 +518,8 @@ export interface ProactiveDisplayRow {
           supplier: string
           overdue: boolean
           retardJ: number
+          /** ETA strictement après la date d'expédition de la commande servie. */
+          apresExpedition: boolean
         } | null
       }[]
     } | null
@@ -529,7 +539,8 @@ export interface ProactiveDisplayRow {
      */
     couvertParOf: {
       parOf: number
-      ofs: { numOf: string; dateFin: string | null }[]
+      /** `qty` = part prise sur CET OF (cf. `coveringOfs`), jamais le total `parOf`. */
+      ofs: { numOf: string; dateFin: string | null; qty: number }[]
     } | null
   }[]
   ofs: ProactiveOf[]
@@ -598,17 +609,28 @@ export function explodeBomForSearch(
  * F426-42920 : manque 50 sur EH6139 → SGAE…102 (35) puis SGAE…103 (3744) suffisent, SGAE…104
  * n'a rien à voir avec cette commande.
  * `ofs` DOIT être trié par date croissante (l'appelant s'en charge une fois par article).
+ *
+ * `qty` rendu = PART PRISE SUR CET OF, pas sa quantité d'ordre : `min(reste à couvrir, capacité)`.
+ * Le dernier OF de la liste n'est presque jamais consommé en entier, et les précédents le sont
+ * à hauteur de ce qu'ils ont. Sans cette part, l'appelant n'a qu'un total et le rendu répète le
+ * même chiffre sur chaque ligne — c'est ce qui affichait « 849 par F126-49633 » sur un OF dont
+ * il ne reste qu'UNE pièce (EAR1245EX / EH4276, relevé du 02/09/2026 : 849 = 1 + 431 + 417).
+ * La somme des parts vaut donc `manque`, sauf couverture insuffisante où elle vaut la capacité
+ * totale — jamais plus : on n'invente pas de production.
  */
 export function coveringOfs(
   ofs: { numOf: string; dateFin: string | null; qty: number }[],
   manque: number
-): { numOf: string; dateFin: string | null }[] {
-  const out: { numOf: string; dateFin: string | null }[] = []
-  let cumul = 0
+): { numOf: string; dateFin: string | null; qty: number }[] {
+  const out: { numOf: string; dateFin: string | null; qty: number }[] = []
+  let reste = manque
   for (const of of ofs) {
-    out.push({ numOf: of.numOf, dateFin: of.dateFin })
-    cumul += of.qty
-    if (cumul >= manque) break
+    // `Math.max(0, …)` : un OF de capacité négative n'existe pas, mais une part négative
+    // s'afficherait telle quelle. Le cumul, lui, ne recule jamais.
+    const part = Math.max(0, Math.min(reste, of.qty))
+    out.push({ numOf: of.numOf, dateFin: of.dateFin, qty: Math.round(part * 100) / 100 })
+    reste -= of.qty
+    if (reste <= 0) break
   }
   return out
 }
@@ -901,6 +923,17 @@ export function buildProactiveDisplay(
           if (qty > 0) qcParArticle.set(art, (qcParArticle.get(art) ?? 0) + qty)
         }
       }
+      // Part CQ des SE couverts par production : mesurée SANS crédit de production
+      // (`seQcComponents`), sinon une production abondante l'absorbe et la ramène à 0 —
+      // l'écran taisait alors que le SE dépend du contrôle réception (cf. EH4276, 591 pièces
+      // en statut Q passées sous silence). `qcParArticle` reste la lentille des composants
+      // réellement manquants, où le verdict rendu est le bon point de mesure.
+      const seQcParArticle = new Map<string, number>()
+      for (const of of o.ofs) {
+        for (const [art, qty] of Object.entries(of.seQcComponents ?? {})) {
+          if (qty > 0) seQcParArticle.set(art, (seQcParArticle.get(art) ?? 0) + qty)
+        }
+      }
       // Lentille réception partagée composant/descente : 1ère réception d'achat dont le
       // cumul atteint la qté manquante → ETA + n° commande d'achat. Overdue = attendue
       // dans le passé (retard de livraison) → lateness = today − attendue.
@@ -917,6 +950,9 @@ export function buildProactiveDisplay(
           supplier: rec.supplier,
           overdue,
           retardJ: overdue ? daysBetweenIso(rec.dateArrivee, todayIso) : 0,
+          // Strict : une arrivée le jour même de l'expé est encore jouable. Pas de
+          // date d'expédition ('') → pas de règle. Comparaison ISO vs ISO.
+          apresExpedition: !!o.dateExpedition && rec.dateArrivee > o.dateExpedition,
         }
       }
 
@@ -978,11 +1014,12 @@ export function buildProactiveDisplay(
       const seComps = [...seCouverts.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([art, parOf]) => {
-          const qc = qcParArticle.get(art) ?? 0
+          const qc = seQcParArticle.get(art) ?? qcParArticle.get(art) ?? 0
           return {
             art,
             desc: articles.get(art)?.description ?? '',
-            // Manque total vs stock STRICT = part Q + part production.
+            // Manque total vs stock STRICT = part Q + part production. Vérifié contre X3 sur
+            // EH4276 / F126-49779 : 849 (production) + 591 (Q) = 1440 = MFGMAT.SHTQTY_0.
             qty: Math.round((parOf + qc) * 100) / 100,
             reception: null,
             descente: null,
@@ -994,6 +1031,7 @@ export function buildProactiveDisplay(
               ofs: coveringOfs(ofsByProducedArticle.get(art) ?? [], parOf).map((of) => ({
                 numOf: of.numOf,
                 dateFin: of.dateFin ? fmtFrDay(of.dateFin) : null,
+                qty: of.qty,
               })),
             },
           }
