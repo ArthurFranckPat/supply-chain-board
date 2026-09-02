@@ -95,10 +95,24 @@ const ORDERS_WINDOW_DAYS = 45
  *
  * Ce que la borne à 180 j retire, mesuré et non estimé :
  *  - 5 482 lignes sur 12 955, soit 42 % du volume ;
- *  - 789 articles distincts, dont 746 apparaissent AUSSI avant J+180 : seuls
- *    43 disparaissent réellement de `searchPf` ;
  *  - 1 seul OF ferme, `F513-01095` (article PI0150) — une date qui a tout d'une
  *    anomalie, du même genre que celles que la borne basse écarte déjà.
+ *
+ * Ce que ça change À L'ÉCRAN : presque rien, et la raison mérite d'être sue.
+ * `searchOf`/`searchPf` n'interrogent pas X3 — elles FILTRENT les cartes déjà
+ * affichées, qui viennent de `getOrdersForWindow` (fenêtre STRDAT, 14 j par
+ * défaut, 90 au maximum). Un article sorti du pool mais absent du board ne se
+ * voit donc nulle part : la recherche rendait son code, le board n'avait aucune
+ * carte à filtrer, l'écran était déjà vide.
+ *
+ * Le seul cas qui régresse vraiment est un OF AFFICHABLE (`STRDAT ≤ J+90`) dont
+ * la fin dépasse la borne : visible sur le board, mais plus dans le pool, donc
+ * masqué par la recherche au lieu d'être mis en évidence. Mesuré le 02/09/2026 :
+ * TROIS OF, tous suggérés, à cycle de 7-8 mois — `SGAE10663307329` (CE4218),
+ * `SGAE10663317507` (CE4091), `SGAE10663317523` (CE4092).
+ *
+ * C'est la vraie mesure du risque de cette borne, et c'est aussi le premier
+ * endroit où regarder si quelqu'un signale un OF introuvable dans la recherche.
  *
  * Surchargeable par `OF_LOOKAHEAD_DAYS` sans redéploiement : la valeur juste
  * dépend de ce que les écrans montrent, et elle se règle à l'usage. Le symptôme
