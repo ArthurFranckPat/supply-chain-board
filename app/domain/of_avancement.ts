@@ -106,19 +106,29 @@ export function estEcartDeclaration(
 /**
  * Reste RÉELLEMENT à produire sur un OF, pièces déjà pointées déduites.
  *
- * X3 nette `RMNEXTQTY` de façon INCOHÉRENTE d'un OF à l'autre — vérifié sur deux
- * OF réels au comportement opposé :
- *  - `F426-39752` : EXTQTY = RMNEXTQTY = 67 malgré 38 pointés → X3 ne nette qu'à
- *    la déclaration finale de stock. Sans déduction, la charge reste pleine sur
- *    du travail déjà fait.
- *  - `F426-39527` : EXTQTY = 480, RMNEXTQTY = 120, 360 pointés → X3 a déjà netté
- *    au fil des pointages. Déduire une 2e fois donnait 0 h de charge alors que
- *    120 pièces restent réellement à produire.
+ * Deux compteurs disent « ce qui reste », et ils ne mesurent pas la même chose :
+ *  - `EXTQTY − qtyRealisee` = reste ATELIER (pièces pas encore passées au poste) ;
+ *  - `RMNEXTQTY` = reste X3, que X3 nette de façon INCOHÉRENTE — tantôt au
+ *    pointage, tantôt à la seule déclaration en stock.
  *
- * Indistinguable depuis `RMNEXTQTY` seul : le discriminant est `EXTQTY`, que X3
- * ne nette jamais.
- *  - EXTQTY === RMNEXTQTY → rien netté → déduire les pièces faites est sûr ;
- *  - EXTQTY  >  RMNEXTQTY → déjà netté → RMNEXTQTY EST le reste, ne pas déduire.
+ * Le reste réel est le PLUS PETIT des deux. Vérifié sur trois OF réels aux
+ * comportements opposés :
+ *  - `F426-39752` : EXTQTY = RMNEXTQTY = 67, 38 pointés → X3 n'a rien netté ;
+ *    min(67, 67 − 38) = 29. Sans déduction, la charge restait pleine sur du
+ *    travail déjà fait.
+ *  - `F426-39527` : EXTQTY = 480, RMNEXTQTY = 120, 360 pointés → X3 a netté au
+ *    fil des pointages ; min(120, 480 − 360) = 120. Les deux compteurs sont
+ *    d'accord, on ne déduit pas deux fois.
+ *  - `F426-47506` (EBH1257AL, 01/09/2026) : EXTQTY = 2016, RMNEXTQTY = 934,
+ *    op. 10 et 20 pointées 2016/2016, 1082 seulement DÉCLARÉES en stock → X3 a
+ *    netté sur la déclaration, pas sur le pointage ; min(934, 0) = 0. L'ancien
+ *    discriminant (EXTQTY > RMNEXTQTY → « déjà netté, ne pas déduire ») rendait
+ *    934 et chargeait 2,3 h fantômes sur PP_127 pour des pièces déjà passées.
+ *    Le reste de ces 934 pièces n'est pas de l'atelier, c'est de la déclaration.
+ *
+ * Le min ne peut que réduire la charge par rapport à `RMNEXTQTY`, jamais
+ * l'augmenter : une déclaration en avance sur le pointage (issue #95) reste
+ * bornée par `RMNEXTQTY`.
  *
  * `launched` inconnu (producteurs de flow hors `of_repository`) → repli SANS
  * déduction : mieux vaut une charge légèrement surestimée qu'un 0 h silencieux
@@ -129,8 +139,8 @@ export function resteAProduire(
   launched: number | null | undefined,
   qtyRealisee: number
 ): number {
-  const notYetNetted = launched != null && launched === quantity
-  return Math.max(0, quantity - (notYetNetted ? qtyRealisee : 0))
+  if (launched == null) return Math.max(0, quantity)
+  return Math.max(0, Math.min(quantity, launched - qtyRealisee))
 }
 
 /**
