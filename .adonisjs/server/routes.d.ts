@@ -85,6 +85,7 @@ export type ScannedRoutes = {
     'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
+    'expeditions.forecast': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
@@ -165,6 +166,7 @@ export type ScannedRoutes = {
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
     'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
+    'expeditions.forecast': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
@@ -236,6 +238,7 @@ export type ScannedRoutes = {
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
     'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
+    'expeditions.forecast': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }

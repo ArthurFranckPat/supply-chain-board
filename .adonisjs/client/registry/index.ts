@@ -492,6 +492,12 @@ const routes = {
     tokens: [{"old":"/api/v1/expeditions/rows","type":0,"val":"api","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"expeditions","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['expeditions.rows']['types'],
   },
+  'expeditions.forecast': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/expeditions/forecast',
+    tokens: [{"old":"/api/v1/expeditions/forecast","type":0,"val":"api","end":""},{"old":"/api/v1/expeditions/forecast","type":0,"val":"v1","end":""},{"old":"/api/v1/expeditions/forecast","type":0,"val":"expeditions","end":""},{"old":"/api/v1/expeditions/forecast","type":0,"val":"forecast","end":""}],
+    types: placeholder as Registry['expeditions.forecast']['types'],
+  },
   'receptions.rows': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/receptions/rows',

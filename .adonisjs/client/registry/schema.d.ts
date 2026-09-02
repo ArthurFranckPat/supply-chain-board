@@ -979,6 +979,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'expeditions.forecast': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/expeditions/forecast'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'receptions.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/receptions/rows'

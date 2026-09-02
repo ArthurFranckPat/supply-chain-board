@@ -68,6 +68,7 @@ export interface ApiDefinition {
   expeditions: {
     index: typeof routes['expeditions.index']
     rows: typeof routes['expeditions.rows']
+    forecast: typeof routes['expeditions.forecast']
   }
   receptions: {
     index: typeof routes['receptions.index']
