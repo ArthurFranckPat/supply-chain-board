@@ -17,6 +17,9 @@ import {
 import { CalendarX, CornerDownRight } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
+/** Séparateur décimal français : la virgule, pas le point (entier = inchangé). */
+const fr = (n: number) => n.toString().replace('.', ',')
+
 export interface ProactiveColumnsDeps {
   referenceDate: string
   /** Clic sur un n° d'OF (colonne Couverture) → ouvre le détail (faisabilité), comme /programme. */
@@ -43,9 +46,9 @@ export function createProactiveColumns({
           <span className="font-mono text-[12px] font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="ml-1.5 text-[10px] text-muted-foreground">
-            {row.original.client || '—'}
-          </span>
+          {row.original.client && (
+            <span className="ml-1.5 text-[10px] text-muted-foreground">{row.original.client}</span>
+          )}
         </>
       ),
       meta: {
@@ -62,9 +65,11 @@ export function createProactiveColumns({
           <span className="shrink-0 font-mono text-[12px] font-bold tracking-tight text-foreground">
             {getValue() as string}
           </span>
-          <span className="truncate text-[10px] text-muted-foreground/70">
-            {row.original.designation || '—'}
-          </span>
+          {row.original.designation && (
+            <span className="truncate text-[10px] text-muted-foreground/70">
+              {row.original.designation}
+            </span>
+          )}
         </div>
       ),
       meta: {
@@ -104,12 +109,7 @@ export function createProactiveColumns({
       header: 'Poste',
       cell: ({ row, getValue }) => {
         const code = getValue() as string
-        if (!code)
-          return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
-              —
-            </span>
-          )
+        if (!code) return null
         return (
           <span
             className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
@@ -147,7 +147,9 @@ export function createProactiveColumns({
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
           <div className="leading-tight">
-            <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
+            <div className="font-mono text-[11px] font-semibold text-foreground">
+              {getValue() as string}
+            </div>
             {rel && (
               <div
                 className={cn(
@@ -304,11 +306,12 @@ export function createProactiveColumns({
       header: 'Charge',
       cell: ({ row }) => {
         // Charge réelle gamme (Σ qteRestante/cadence) des OF de couverture — indépendante
-        // du jalonnement CBN. '—' si couverte par stock/achat (pas d'OF) ou gamme inconnue.
+        // du jalonnement CBN. Vide si couverte par stock/achat (pas d'OF) ou gamme inconnue.
         const known = row.original.ofs.filter((of) => of.chargeHeures !== null)
-        if (known.length === 0) return <>—</>
+        if (known.length === 0) return null
         const total = known.reduce((sum, of) => sum + (of.chargeHeures ?? 0), 0)
-        return <>{Math.round(total * 10) / 10}h</>
+        const h = fr(Math.round(total * 10) / 10)
+        return <>{h}h</>
       },
       meta: {
         thClass:
@@ -326,15 +329,8 @@ export function createProactiveColumns({
         // se reconnaît soit à sa descente BOM (SE réellement manquant), soit à `couvertParOf`
         // (SE dont la couverture ne tient que grâce à un OF producteur).
         const all = row.original.composants
-        const comps = showSubAssemblies
-          ? all
-          : all.filter((c) => !c.descente && !c.couvertParOf)
-        if (comps.length === 0)
-          return (
-            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
-              —
-            </span>
-          )
+        const comps = showSubAssemblies ? all : all.filter((c) => !c.descente && !c.couvertParOf)
+        if (comps.length === 0) return null
         return (
           <div className="flex flex-col gap-1">
             {comps.slice(0, 4).map((c) => (
@@ -348,9 +344,7 @@ export function createProactiveColumns({
                       'shrink-0 font-mono text-[10.5px] font-bold',
                       c.descente || c.couvertParOf ? 'text-planifie' : 'text-foreground'
                     )}
-                    title={
-                      c.descente || c.couvertParOf ? 'Sous-ensemble fabriqué' : undefined
-                    }
+                    title={c.descente || c.couvertParOf ? 'Sous-ensemble fabriqué' : undefined}
                   >
                     {c.art}
                   </span>
@@ -365,7 +359,7 @@ export function createProactiveColumns({
                   {/* Un SE couvert par production n'est PAS en manque : pas de signe « − »,
                       qui se lirait comme une rupture. */}
                   <span className="ml-auto shrink-0 rounded bg-secondary px-1 font-mono text-[10px] font-semibold text-muted-foreground tabular-nums">
-                    {c.couvertParOf ? c.qty : `−${c.qty}`}
+                    {c.couvertParOf ? fr(c.qty) : `−${fr(c.qty)}`}
                   </span>
                 </div>
                 {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
@@ -378,9 +372,13 @@ export function createProactiveColumns({
                         contrôle réception, pas par la production. */}
                     {c.qc > 0 && (
                       <div className="flex items-center gap-1">
-                        <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                        <CornerDownRight
+                          size={10}
+                          strokeWidth={1.75}
+                          className="leading-none text-muted-foreground/60"
+                        />
                         <span>
-                          <span className="font-bold text-foreground">{c.qc}</span> en statut Q
+                          <span className="font-bold text-foreground">{fr(c.qc)}</span> en statut Q
                           (contrôle réception)
                         </span>
                       </div>
@@ -388,10 +386,14 @@ export function createProactiveColumns({
                     {c.couvertParOf.ofs.length === 0
                       ? c.couvertParOf.parOf > 0 && (
                           <div className="flex items-center gap-1">
-                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <CornerDownRight
+                              size={10}
+                              strokeWidth={1.75}
+                              className="leading-none text-muted-foreground/60"
+                            />
                             <span>
                               <span className="font-bold text-foreground">
-                                {c.couvertParOf.parOf}
+                                {fr(c.couvertParOf.parOf)}
                               </span>{' '}
                               sans OF producteur
                             </span>
@@ -399,10 +401,14 @@ export function createProactiveColumns({
                         )
                       : c.couvertParOf.ofs.map((of) => (
                           <div key={of.numOf} className="flex items-center gap-1">
-                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <CornerDownRight
+                              size={10}
+                              strokeWidth={1.75}
+                              className="leading-none text-muted-foreground/60"
+                            />
                             <span>
                               <span className="font-bold text-foreground">
-                                {c.couvertParOf!.parOf}
+                                {fr(c.couvertParOf!.parOf)}
                               </span>{' '}
                               par <span className="font-bold text-foreground">{of.numOf}</span>
                               {of.dateFin && (
@@ -422,10 +428,16 @@ export function createProactiveColumns({
                           title={p.desc}
                         >
                           <div className="flex items-center gap-1">
-                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                            <CornerDownRight
+                              size={10}
+                              strokeWidth={1.75}
+                              className="leading-none text-muted-foreground/60"
+                            />
                             <span>
                               Bloqué par <span className="font-bold text-foreground">{p.art}</span>{' '}
-                              <span className="font-bold text-muted-foreground">−{p.manque}</span>
+                              <span className="font-bold text-muted-foreground">
+                                −{fr(p.manque)}
+                              </span>
                             </span>
                           </div>
                           {p.reception ? (
@@ -438,7 +450,12 @@ export function createProactiveColumns({
                               )}
                               title={p.reception.supplier}
                             >
-                              <DynamicIcon name={p.reception.overdue ? 'warning' : 'local_shipping'} size={10} strokeWidth={1.75} className="leading-none opacity-80" />
+                              <DynamicIcon
+                                name={p.reception.overdue ? 'warning' : 'local_shipping'}
+                                size={10}
+                                strokeWidth={1.75}
+                                className="leading-none opacity-80"
+                              />
                               <span>
                                 {p.reception.overdue
                                   ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
@@ -447,7 +464,11 @@ export function createProactiveColumns({
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium text-muted-foreground/60">
-                              <CalendarX size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
+                              <CalendarX
+                                size={10}
+                                strokeWidth={1.75}
+                                className="leading-none text-muted-foreground/50"
+                              />
                               Aucune couverture prévue
                             </div>
                           )}
@@ -461,7 +482,11 @@ export function createProactiveColumns({
                     </div>
                   ) : (
                     <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-muted-foreground">
-                      <CornerDownRight size={11} strokeWidth={1.75} className="leading-none text-muted-foreground" />
+                      <CornerDownRight
+                        size={11}
+                        strokeWidth={1.75}
+                        className="leading-none text-muted-foreground"
+                      />
                       ↳ SE à lancer (composants dispo)
                     </div>
                   )
@@ -475,7 +500,12 @@ export function createProactiveColumns({
                     )}
                     title={`Fournisseur: ${c.reception.supplier}`}
                   >
-                    <DynamicIcon name={c.reception.overdue ? 'warning' : 'local_shipping'} size={11} strokeWidth={1.75} className="leading-none opacity-80" />
+                    <DynamicIcon
+                      name={c.reception.overdue ? 'warning' : 'local_shipping'}
+                      size={11}
+                      strokeWidth={1.75}
+                      className="leading-none opacity-80"
+                    />
                     <span>
                       {c.reception.overdue
                         ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
@@ -484,7 +514,11 @@ export function createProactiveColumns({
                   </div>
                 ) : (
                   <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground/60">
-                    <CalendarX size={11} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
+                    <CalendarX
+                      size={11}
+                      strokeWidth={1.75}
+                      className="leading-none text-muted-foreground/50"
+                    />
                     Aucune couverture prévue
                   </div>
                 )}
@@ -492,9 +526,13 @@ export function createProactiveColumns({
                     porte déjà la sienne dans son bloc `couvertParOf`. */}
                 {!c.couvertParOf && c.qc > 0 && (
                   <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground">
-                    <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
+                    <CornerDownRight
+                      size={10}
+                      strokeWidth={1.75}
+                      className="leading-none text-muted-foreground/60"
+                    />
                     <span>
-                      dont <span className="font-bold text-foreground">{c.qc}</span> en statut Q
+                      dont <span className="font-bold text-foreground">{fr(c.qc)}</span> en statut Q
                       (contrôle réception)
                     </span>
                   </div>
