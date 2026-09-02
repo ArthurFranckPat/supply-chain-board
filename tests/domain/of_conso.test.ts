@@ -462,3 +462,88 @@ test.group('CommandeOFMatcher — #99 commande déjà couverte par un OF ferme',
     assert.deepEqual(ofsDe(juil1), ['SGAE10654696101'])
   })
 })
+
+/**
+ * Scénario réel AEA731XX du 02/09/2026 : le choix de l'OF doit suivre la CHRONOLOGIE du CBN,
+ * pas l'écart absolu de date.
+ *
+ * Prévisionnel X3 (écran « ordres », article AEA731XX) — stock 12 au départ :
+ *   12/09  WOS SGAE10663190683  +3609  → 3621
+ *   15/09  SOF AR2603652        −1809  → 1812
+ *   16/09  SOF AR2604129        −1809  →    3
+ *   19/09  WOS SGAE10663190684  +1809  → 1812
+ *   22/09  SOF AR2603805        −1809  →    3
+ *
+ * AR2604129 (16/09) est donc servie par ...683, qui a encore 1812 de capacité — pas par
+ * ...684, qui n'arrive que le 19/09, APRÈS son expédition.
+ *
+ * L'ancien tri (`Math.abs(ofDate - demandDate)`) élisait ...684 : |19−16| = 3 < |12−16| = 4.
+ * Conséquence en production : la commande héritait des manquants du mauvais OF (A1692E01
+ * −1082) et s'affichait « Bloquée » dans la vue proactive, alors que son OF réel est faisable.
+ */
+test.group('CommandeOFMatcher — chronologie CBN (AEA731XX)', () => {
+  const ART = 'AEA731XX'
+  const of683 = () => makeOfFlow('SGAE10663190683', ART, 3, 3609, new Date('2026-09-12'))
+  const of684 = () => makeOfFlow('SGAE10663190684', ART, 3, 1809, new Date('2026-09-19'))
+  const of685 = () => makeOfFlow('SGAE10663190685', ART, 3, 3618, new Date('2026-09-26'))
+  const stock12 = (): Flow => ({
+    article: ART,
+    quantity: 12,
+    direction: 'supply',
+    date: null,
+    origin: { type: 'stock', pmp: null },
+  })
+  const articles = () => new Map([[ART, makeArticle(ART)]])
+  const demandes = () => [
+    makeDemandFlow('AR2603652', ART, 1809, new Date('2026-09-15')),
+    makeDemandFlow('AR2604129', ART, 1809, new Date('2026-09-16')),
+    makeDemandFlow('AR2603805', ART, 1809, new Date('2026-09-22')),
+  ]
+  const ofsDe = (r: { ofAllocations: Array<{ ofFlow: Flow }> }) =>
+    r.ofAllocations.map((a) => (a.ofFlow.origin as Extract<FlowOrigin, { type: 'of' }>).id)
+
+  test('un OF postérieur au besoin ne passe pas devant un OF antérieur encore disponible', ({
+    assert,
+  }) => {
+    const matcher = new CommandeOFMatcher(
+      [of683(), of684(), of685(), stock12()],
+      articles(),
+      new Map(),
+      30
+    )
+    const [sept15, sept16, sept22] = matcher.matchCommandes(demandes())
+
+    // 15/09 : 12 de stock + 1797 sur ...683 → il reste 1812 sur ...683.
+    assert.equal(sept15.stockAllocation!.qteAllouee, 12)
+    assert.deepEqual(ofsDe(sept15), ['SGAE10663190683'])
+    assert.equal(sept15.ofAllocations[0].qteAllouee, 1797)
+
+    // 16/09 : le reliquat de ...683 sert AVANT ...684 (fin 19/09, postérieure à l'expédition).
+    assert.deepEqual(ofsDe(sept16), ['SGAE10663190683'])
+    assert.equal(sept16.ofAllocations[0].qteAllouee, 1809)
+    assert.equal(sept16.remainingUncoveredQty, 0)
+
+    // 22/09 : ...683 est vidé (3 restants), le complément vient de ...684 — jamais de ...685.
+    assert.deepEqual(ofsDe(sept22), ['SGAE10663190683', 'SGAE10663190684'])
+    assert.equal(sept22.remainingUncoveredQty, 0)
+  })
+
+  test('à égalité de statut, le plus tôt gagne même quand un OF plus tardif est plus proche', ({
+    assert,
+  }) => {
+    // Sans la commande du 15/09 : ...683 (J−4) doit encore battre ...684 (J+3).
+    const matcher = new CommandeOFMatcher([of683(), of684()], articles(), new Map(), 30)
+    const [seul] = matcher.matchCommandes([
+      makeDemandFlow('AR2604129', ART, 1809, new Date('2026-09-16')),
+    ])
+    assert.deepEqual(ofsDe(seul), ['SGAE10663190683'])
+  })
+
+  test('aucun OF avant le besoin → repli sur le moins en retard', ({ assert }) => {
+    const matcher = new CommandeOFMatcher([of685(), of684()], articles(), new Map(), 30)
+    const [tardif] = matcher.matchCommandes([
+      makeDemandFlow('AR2604129', ART, 1809, new Date('2026-09-16')),
+    ])
+    assert.deepEqual(ofsDe(tardif), ['SGAE10663190684'])
+  })
+})

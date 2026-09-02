@@ -305,13 +305,19 @@ export class CommandeOFMatcher {
         if (c.article !== demand.article || c.qteDisponible <= 0) return false
         return c.reservePour === null || c.reservePour === numCommande
       })
+      // Chronologie CBN, pas écart absolu (cf. `iterOfCandidates` pour la démonstration
+      // complète). Un OF qui finit APRÈS le besoin ne doit jamais passer devant un OF plus
+      // tôt qui a encore de la capacité. OF sans date = fin de file (Infinity → en retard).
       .sort((a, b) => {
         const pa = statutPriority(a.statutNum)
         const pb = statutPriority(b.statutNum)
         if (pa !== pb) return pa - pb
         const dateA = a.ofFlow.date?.getTime() ?? Infinity
         const dateB = b.ofFlow.date?.getTime() ?? Infinity
-        return Math.abs(dateA - demandDate) - Math.abs(dateB - demandDate)
+        const retardA = dateA > demandDate ? 1 : 0
+        const retardB = dateB > demandDate ? 1 : 0
+        if (retardA !== retardB) return retardA - retardB
+        return dateA - dateB
       })
 
     // Couverture CUMULATIVE (comme matchNorMto) : un OF ne couvrant qu'une partie du besoin
@@ -394,11 +400,22 @@ export class CommandeOFMatcher {
 
       const ofDate = conso.ofFlow.date?.getTime() ?? 0
       const ecartDays = Math.abs(ofDate - demandDate) / 86400000
+      // Périmètre de recherche INCHANGÉ : écart absolu, dans les deux sens. C'est un
+      // garde-fou « jusqu'où regarder », pas un critère de choix.
       if (ecartDays > this.dateToleranceDays) continue
 
-      const weekGap = Math.floor(ecartDays / 7)
+      // Choix CHRONOLOGIQUE (règle CBN), pas par écart absolu. L'ancien tri prenait
+      // `Math.abs(ofDate - demandDate)` : un OF qui finit APRÈS le besoin passait devant un
+      // OF plus tôt qui avait encore de la capacité. Cas prouvé sur X3 (AEA731XX) — demande
+      // AR2604129 du 16/09 : OF ...683 fin 12/09 (J−4, reste 1812) vs ...684 fin 19/09
+      // (J+3) → l'écart absolu élisait ...684, alors que le prévisionnel X3 (3621 → 1812 → 3)
+      // montre que les 1809 sortent de ...683. Conséquence : la commande héritait du manque
+      // du MAUVAIS OF et basculait « Bloquée ».
+      // Deux poches, dans cet ordre : OF disponibles à ≤ date besoin (plus tôt d'abord, FIFO
+      // comme la projection de stock), puis OF en retard (moins en retard d'abord).
+      const enRetard = ofDate > demandDate ? 1 : 0
       const priorite = statutPriority(conso.statutNum)
-      candidates.push([priorite, weekGap, ecartDays, conso])
+      candidates.push([priorite, enRetard, ofDate, conso])
     }
 
     candidates.sort((a, b) => {
