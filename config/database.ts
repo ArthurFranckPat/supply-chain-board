@@ -59,6 +59,14 @@ const dbConfig = defineConfig({
       } as any,
       // max>1 : permet aux requêtes d'un Promise.all de partir en parallèle
       // (SOAP Syracuse supporte la concurrence) au lieu d'être sérialisées.
+      //
+      // CE 4 N'EST PAS la concurrence de l'app contre X3, et ne l'a jamais été :
+      // il ne borne QUE ce pool Lucid. Dix-sept fichiers instancient leur propre
+      // `X3Database` avec son knex et son pool à 1, hors de portée d'ici. La
+      // borne globale, elle, est posée dans `app/x3/x3_concurrency.ts`, sur
+      // `sendSoap` — l'unique étranglement de toutes les lectures X3 (#183).
+      // Changer le chiffre ci-dessous ne change donc pas la charge vue par
+      // l'ERP ; c'est `X3_MAX_CONCURRENCY` qui la commande.
       pool: { min: 1, max: 4 },
 
       /**
@@ -84,8 +92,12 @@ const dbConfig = defineConfig({
        * plan qui attend. Le mur de 250 s ne concerne que les chemins réellement
        * froids.
        *
-       * Si cette valeur change, changer `--max-time` avec elle : c'est le couple
-       * qui doit rester cohérent, pas chaque nombre pris isolément.
+       * Si cette valeur change, changer `--max-time` avec elle — et regarder
+       * `DEFAULT_QUEUE_WAIT_MS` (`app/x3/x3_concurrency.ts`) : depuis la file
+       * globale, un appelant Lucid tient son slot PENDANT qu'il fait la queue,
+       * donc les trois nombres forment une seule arithmétique
+       * (file 120 s + curl 125 s = 245 s < 250 s ici). C'est l'ensemble qui doit
+       * rester cohérent, pas chaque nombre pris isolément.
        */
       acquireConnectionTimeout: 250_000,
     } as any,

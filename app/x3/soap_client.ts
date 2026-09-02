@@ -12,6 +12,7 @@ import { randomBytes } from 'node:crypto'
 import type { SoapResponse } from './types.js'
 import { buildConcatSql } from './sql_builder.js'
 import { parseResponse } from './response_parser.js'
+import { withX3Slot, x3ConcurrencyStats, X3QueueSaturatedError } from './x3_concurrency.js'
 
 export interface X3SoapConfig {
   host: string
@@ -25,8 +26,34 @@ export interface X3SoapConfig {
   grpCount: string
 }
 
-/** Send a single SOAP request to Syracuse via curl. */
+/**
+ * Envoie une requête SOAP à Syracuse, en tenant un slot de concurrence (#183).
+ *
+ * `spawnSoap` fait le travail ; ce wrapper ne fait que le placer derrière la
+ * borne globale de `x3_concurrency`. C'est le seul étranglement de toutes les
+ * lectures SQL X3 — `X3Connection.query` est l'unique appelant de `callSoap`, et
+ * tout repository y aboutit, qu'il vienne du pool Lucid ou d'une `X3Database`
+ * isolée. Voir l'en-tête de `x3_concurrency.ts` pour le pourquoi.
+ *
+ * Le slot est pris AVANT la construction de l'enveloppe et l'écriture du fichier
+ * temporaire, pour qu'un abandon de file ne laisse rien derrière lui.
+ *
+ * Contrat inchangé : cette fonction ne jette pas. Une file saturée devient une
+ * `SoapResponse` en échec, comme une erreur curl.
+ */
 export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapResponse> {
+  try {
+    return await withX3Slot(() => spawnSoap(sql, config))
+  } catch (e) {
+    if (e instanceof X3QueueSaturatedError) {
+      return { status: null, data: [], count: 0, error: e.message }
+    }
+    throw e
+  }
+}
+
+/** Corps réel de l'appel : enveloppe, fichier temporaire, curl, parsing. */
+async function spawnSoap(sql: string, config: X3SoapConfig): Promise<SoapResponse> {
   const concatSql = buildConcatSql(sql)
   const inputJson = JSON.stringify({
     [config.grpSql]: { W_SQL: concatSql },
@@ -68,6 +95,9 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   ]
 
   const startedAt = Date.now()
+  // Capturé À L'ENTRÉE du slot : après coup, la file s'est vidée et le chiffre
+  // ne dirait plus rien de la contention qu'a subie CET appel.
+  const concurrency = x3ConcurrencyStats()
 
   return new Promise((resolve) => {
     execFile('curl', args, { timeout: 125_000 }, (error, stdout, stderr) => {
@@ -92,7 +122,10 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
           ? `srv=${t.total ?? '?'} load=${t.loadWebs ?? '?'} wait=${t.poolWait ?? '?'} distrib=${t.poolDistrib ?? '?'} exec=${t.poolExec ?? '?'} entry=${t.poolEntryIdx ?? '?'}`
           : 'no-tech'
 
-        console.log(`[x3.soap] transport=${transportMs}ms ${breakdown} rows=${result.data.length}`)
+        console.log(
+          `[x3.soap] transport=${transportMs}ms ${breakdown} rows=${result.data.length} ` +
+            `slots=${concurrency.inFlight}/${concurrency.max} queued=${concurrency.queued}`
+        )
       }
       resolve(result)
     })
