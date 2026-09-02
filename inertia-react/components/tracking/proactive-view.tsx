@@ -79,6 +79,7 @@ export function ProactiveView(props: ProactiveViewProps) {
             tableClass="min-w-[1252px] table-fixed"
             scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
             theadRowClass="sticky top-0 z-10 bg-secondary"
+            columnDividers
             onRowClick={props.onRowClick}
             selectedRowKey={props.selectedRowKey}
             getRowKey={suiviRowKey}
@@ -86,7 +87,11 @@ export function ProactiveView(props: ProactiveViewProps) {
               <div className="flex flex-1 items-center justify-center p-12 text-center">
                 <div className="flex flex-col items-center">
                   <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                    <DynamicIcon name={props.view.x3Error ? 'cloud_off' : 'search_off'} size={28} strokeWidth={1.75} />
+                    <DynamicIcon
+                      name={props.view.x3Error ? 'cloud_off' : 'search_off'}
+                      size={28}
+                      strokeWidth={1.75}
+                    />
                   </div>
                   <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
                     {props.view.x3Error ? 'Erreur de connexion Sage X3' : 'Aucun résultat trouvé'}

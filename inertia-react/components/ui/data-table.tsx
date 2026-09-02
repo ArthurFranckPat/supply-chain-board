@@ -48,6 +48,13 @@ export interface DataTableProps<TRow> {
   tableClass?: string
   scrollContainerClass?: string
   theadRowClass?: string
+  /**
+   * Filets verticaux discrets entre colonnes (hairline-soft, même gramme que
+   * les séparateurs de lignes). Opt-in : les tables denses à colonnes étroites
+   * s'en passent. Appliqué sur les `tr` → Tailwind cible les td/th enfants,
+   * sans trait avant la 1ʳᵉ colonne ni sur les lignes de padding virtuel.
+   */
+  columnDividers?: boolean
   getRowClass?: (row: TRow, virtualIndex: number) => string | undefined
   onRowClick?: (row: TRow) => void
   selectedRowKey?: string | null
@@ -66,6 +73,7 @@ export function DataTable<TRow>({
   tableClass,
   scrollContainerClass,
   theadRowClass,
+  columnDividers,
   getRowClass,
   onRowClick,
   selectedRowKey,
@@ -140,7 +148,11 @@ export function DataTable<TRow>({
     const sorted = sorting.find((s) => s.id === colId(col))
     if (!sorted) {
       return (
-        <ChevronsUpDown size={12} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
+        <ChevronsUpDown
+          size={12}
+          strokeWidth={1.75}
+          className="leading-none text-muted-foreground/50"
+        />
       )
     }
     return sorted.desc ? (
@@ -155,7 +167,13 @@ export function DataTable<TRow>({
       {rows.length > 0 ? (
         <table className={cn('w-full border-collapse text-left text-sm', tableClass)}>
           <thead className="sticky top-0 z-10 bg-card">
-            <tr className={cn('border-b', theadRowClass)}>
+            <tr
+              className={cn(
+                'border-b',
+                theadRowClass,
+                columnDividers && 'divide-x divide-rule-soft'
+              )}
+            >
               {indexColumn && (
                 <th
                   className={cn(
@@ -217,8 +235,7 @@ export function DataTable<TRow>({
               const row = rows[virtualRow.index]
               if (!row) return null
 
-              const isSelected =
-                selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
+              const isSelected = selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
               const rowKey = uniqueKeys[virtualRow.index] ?? virtualRow.index
               const rowStyle: CSSProperties | undefined = onRowClick
                 ? { cursor: 'pointer' }
@@ -232,7 +249,8 @@ export function DataTable<TRow>({
                   className={cn(
                     'border-b transition-colors last:border-b-0 hover:bg-muted/50',
                     getRowClass?.(row, virtualRow.index),
-                    isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40'
+                    isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40',
+                    columnDividers && 'divide-x divide-rule-soft'
                   )}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={rowStyle}
