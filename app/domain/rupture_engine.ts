@@ -193,6 +193,27 @@ interface ResolvedRequirement {
   fabricated: boolean
 }
 
+/**
+ * Ordre de passage des OF dans le moteur : chronologie du besoin en contention (date besoin,
+ * puis statut, puis n°), ordre d'entrée en photo (chaque OF est seul, l'ordre n'a aucun effet).
+ *
+ * Exporté pour que toute passe qui REJOUE cette consommation — l'attribution nominative des
+ * OF producteurs (`allocateSeCoveringOfs`) — le fasse dans le même ordre. Deux tris écrits
+ * séparément finissent par diverger, et une divergence ici nomme le mauvais OF couvrant.
+ */
+export function orderOfsForMode<
+  T extends Pick<RuptureOfInput, 'numOf' | 'statutNum' | 'dateBesoin'>,
+>(ofs: T[], mode: RuptureMode): T[] {
+  if (mode !== 'contention') return ofs
+  return [...ofs].sort((a, b) => {
+    const ta = a.dateBesoin?.getTime() ?? Number.POSITIVE_INFINITY
+    const tb = b.dateBesoin?.getTime() ?? Number.POSITIVE_INFINITY
+    if (ta !== tb) return ta - tb
+    if (a.statutNum !== b.statutNum) return a.statutNum - b.statutNum
+    return a.numOf.localeCompare(b.numOf)
+  })
+}
+
 export function evaluateRuptures(
   ofs: RuptureOfInput[],
   dataset: RuptureDataset,
@@ -201,16 +222,7 @@ export function evaluateRuptures(
   const verdicts = new Map<string, RuptureVerdict>()
   const vstock = new VirtualStock(dataset.stockNet, dataset.ofSupply)
 
-  const ordered =
-    mode === 'contention'
-      ? [...ofs].sort((a, b) => {
-          const ta = a.dateBesoin?.getTime() ?? Number.POSITIVE_INFINITY
-          const tb = b.dateBesoin?.getTime() ?? Number.POSITIVE_INFINITY
-          if (ta !== tb) return ta - tb
-          if (a.statutNum !== b.statutNum) return a.statutNum - b.statutNum
-          return a.numOf.localeCompare(b.numOf)
-        })
-      : ofs
+  const ordered = orderOfsForMode(ofs, mode)
 
   for (const of of ordered) {
     verdicts.set(of.numOf, checkOne(of, dataset, vstock, mode === 'contention'))

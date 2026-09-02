@@ -23,8 +23,99 @@ import {
   evaluateRuptures,
   buildOfSupply,
   directMissing,
+  orderOfsForMode,
   type RuptureOfInput,
 } from './rupture_engine.js'
+
+/** Part de production nommément attribuée à un OF consommateur : quel OF producteur, combien. */
+export interface CoveringOfPart {
+  numOf: string
+  /** Date de fin de l'OF producteur (ISO YYYY-MM-DD) — null si inconnue. */
+  dateFin: string | null
+  /** Part PRISE SUR CET OF pour ce besoin-là : jamais sa quantité d'ordre. */
+  qty: number
+}
+
+/** Tolérance de comparaison des quantités (flottants issus de coefficients de nomenclature). */
+const QTY_EPSILON = 1e-6
+
+/**
+ * Attribution NOMINATIVE de la production aux besoins qu'elle couvre : quel OF producteur
+ * couvre la part `seComponents` de quel OF consommateur, et à hauteur de combien.
+ *
+ * Pourquoi une passe dédiée : `ofSupply` est un COMPTEUR PLAT par article (Σ des qtés
+ * restantes). Le moteur sait qu'il reste de la production, pas LAQUELLE — il ne peut donc
+ * nommer aucun OF. La vue, elle, doit en nommer un ; sans cette passe elle repartait du
+ * premier OF de la liste pour CHAQUE ligne d'affichage, si bien que le même OF producteur
+ * était annoncé couvrant partout, très au-delà de ce qu'il produit. Relevé PROD 02/09/2026,
+ * SE EH4276 : F126-49910 (1 700 pièces) annoncé couvrant sur 7 lignes pour un total de plus
+ * de 4 000 pièces, pendant que SGAE10663280358 (2 289) n'apparaissait nulle part — là où la
+ * grille X3 fait bien basculer les besoins du 03/09 sur ce second OF.
+ *
+ * La capacité de chaque producteur est donc DÉCRÉMENTÉE au fil des consommateurs, dans la
+ * chronologie exacte du moteur (`orderOfsForMode`) : un OF déjà entièrement pris par un besoin
+ * antérieur ne peut plus être nommé sur le suivant. Producteurs servis au plus tôt d'abord,
+ * comme le fait la projection de stock de X3.
+ *
+ * En mode PHOTO (`consume: false`) la capacité n'est pas décrémentée : chaque OF y est évalué
+ * seul contre la production entière, décrémenter contredirait le verdict rendu.
+ *
+ * Les besoins sont ceux mesurés par le moteur (`seComponents` = part réellement prise sur la
+ * production), donc leur somme ne dépasse pas la capacité du pool : la somme des parts d'un
+ * consommateur vaut son besoin, sauf pool épuisé où elle vaut ce qui restait — jamais plus,
+ * on n'invente pas de production.
+ *
+ * `consumers` DOIT déjà être trié (cf. `orderOfsForMode`) : cette fonction ne retrie pas, elle
+ * sert le premier arrivé d'abord.
+ */
+export function allocateSeCoveringOfs(
+  producers: Array<{ numOf: string; article: string; qteRestante: number; dateFin: string | null }>,
+  consumers: Array<{ numOf: string; seComponents: Record<string, number> }>,
+  options: { consume: boolean }
+): Map<string, Record<string, CoveringOfPart[]>> {
+  const pool = new Map<string, Array<{ numOf: string; dateFin: string | null; reste: number }>>()
+  for (const p of producers) {
+    if (p.qteRestante <= 0) continue
+    const arr = pool.get(p.article) ?? []
+    arr.push({ numOf: p.numOf, dateFin: p.dateFin, reste: p.qteRestante })
+    pool.set(p.article, arr)
+  }
+  // Au plus tôt d'abord : c'est l'OF qui arrive AVANT le besoin qui le couvre. Date inconnue
+  // en dernier (on ne peut rien promettre d'une production non jalonnée).
+  for (const arr of pool.values()) {
+    arr.sort((a, b) => {
+      const d = (a.dateFin ?? '9999-12-31').localeCompare(b.dateFin ?? '9999-12-31')
+      return d !== 0 ? d : a.numOf.localeCompare(b.numOf)
+    })
+  }
+
+  const out = new Map<string, Record<string, CoveringOfPart[]>>()
+  for (const consumer of consumers) {
+    const parts: Record<string, CoveringOfPart[]> = {}
+    for (const [article, besoin] of Object.entries(consumer.seComponents)) {
+      if (besoin <= QTY_EPSILON) continue
+      const arr = pool.get(article)
+      if (!arr) continue
+      let reste = besoin
+      const list: CoveringOfPart[] = []
+      for (const producer of arr) {
+        if (reste <= QTY_EPSILON) break
+        const part = Math.min(reste, producer.reste)
+        if (part <= QTY_EPSILON) continue
+        list.push({
+          numOf: producer.numOf,
+          dateFin: producer.dateFin,
+          qty: Math.round(part * 100) / 100,
+        })
+        reste -= part
+        if (options.consume) producer.reste -= part
+      }
+      if (list.length > 0) parts[article] = list
+    }
+    if (Object.keys(parts).length > 0) out.set(consumer.numOf, parts)
+  }
+  return out
+}
 
 export interface OrderImpactRow {
   numCommande: string
@@ -81,6 +172,13 @@ export interface OrderImpactRow {
      * Optionnel dans le TYPE seulement (fixtures de tests).
      */
     seQcComponents?: Record<string, number>
+    /**
+     * OF producteurs NOMMÉS pour chaque article de `seComponents`, avec la part prise sur
+     * chacun (cf. `allocateSeCoveringOfs`). La capacité d'un producteur est décrémentée au fil
+     * des consommateurs : le même OF ne peut pas être annoncé couvrant partout.
+     * Optionnel dans le TYPE seulement (fixtures de tests).
+     */
+    seCoveringOfs?: Record<string, CoveringOfPart[]>
     modified: boolean
     statutNum: number
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
@@ -112,6 +210,8 @@ export interface OrderImpactResult {
     seComponents?: Record<string, number>
     /** Part CQ de ces SE, mesurée sans production (cf. `orders[].ofs[].seQcComponents`). */
     seQcComponents?: Record<string, number>
+    /** OF producteurs nommés pour ces SE (cf. `orders[].ofs[].seCoveringOfs`). */
+    seCoveringOfs?: Record<string, CoveringOfPart[]>
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
     estDebuté?: boolean
   }>
@@ -387,6 +487,23 @@ export function evaluateOrderImpacts(
     return out
   }
 
+  /**
+   * Attribution nominative de la production aux SE couverts, une fois pour toute la fenêtre.
+   * Rejouée dans la chronologie du moteur (`orderOfsForMode`) sur les MÊMES entrées, capacité
+   * de chaque producteur décrémentée — cf. `allocateSeCoveringOfs`. Sautée quand aucune
+   * production n'est créditée (`verdictsNoOfSupply` absent) : `seDelta` rend {} partout.
+   */
+  const seCoveringByOf = verdictsNoOfSupply
+    ? allocateSeCoveringOfs(
+        ofInputs,
+        orderOfsForMode(engineOfs, engineMode).map((o) => ({
+          numOf: o.numOf,
+          seComponents: seDelta(o.numOf),
+        })),
+        { consume: engineMode === 'contention' }
+      )
+    : new Map<string, Record<string, CoveringOfPart[]>>()
+
   /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
   const qcDelta = (ofId: string): Record<string, number> => {
     const strict = verdictsStrict?.get(ofId)
@@ -411,6 +528,7 @@ export function evaluateOrderImpacts(
     qcComponents: Record<string, number>
     seComponents: Record<string, number>
     seQcComponents: Record<string, number>
+    seCoveringOfs: Record<string, CoveringOfPart[]>
   } => {
     const pre = precomputedFeasibility?.get(ofId)
     if (pre) {
@@ -422,6 +540,7 @@ export function evaluateOrderImpacts(
         qcComponents: pre.qcComponents ?? {},
         seComponents: {},
         seQcComponents: {},
+        seCoveringOfs: {},
       }
     }
     const verdict = verdicts.get(ofId)
@@ -432,6 +551,7 @@ export function evaluateOrderImpacts(
       qcComponents: qcDelta(ofId),
       seComponents,
       seQcComponents: seQcDelta(ofId, seComponents),
+      seCoveringOfs: seCoveringByOf.get(ofId) ?? {},
     }
   }
 
@@ -503,6 +623,7 @@ export function evaluateOrderImpacts(
         qcComponents: resolved.qcComponents,
         seComponents: resolved.seComponents,
         seQcComponents: resolved.seQcComponents,
+        seCoveringOfs: resolved.seCoveringOfs,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
@@ -585,6 +706,7 @@ export function evaluateOrderImpacts(
         qcComponents: resolved.qcComponents,
         seComponents: resolved.seComponents,
         seQcComponents: resolved.seQcComponents,
+        seCoveringOfs: resolved.seCoveringOfs,
         estDebuté: avancementByOf?.get(o.numOf)?.estDebuté,
       }
     }),

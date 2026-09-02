@@ -603,36 +603,41 @@ export function explodeBomForSearch(
 }
 
 /**
- * OF réellement nécessaires pour couvrir `manque` : cumul par date croissante, on s'arrête dès
- * que la quantité est atteinte. Même lentille que `resolveCoveringReception` côté achats —
- * lister les OF suivants serait FAUX, ils ne couvrent pas ce manque-là. Vérifié sur EBH1257AL /
- * F426-42920 : manque 50 sur EH6139 → SGAE…102 (35) puis SGAE…103 (3744) suffisent, SGAE…104
- * n'a rien à voir avec cette commande.
- * `ofs` DOIT être trié par date croissante (l'appelant s'en charge une fois par article).
+ * OF producteurs couvrant UN sous-ensemble, vus de la LIGNE de commande : somme des parts que
+ * le domaine a nommément attribuées à chacun des OF de la ligne (`seCoveringOfs`), au plus tôt
+ * d'abord.
  *
- * `qty` rendu = PART PRISE SUR CET OF, pas sa quantité d'ordre : `min(reste à couvrir, capacité)`.
- * Le dernier OF de la liste n'est presque jamais consommé en entier, et les précédents le sont
- * à hauteur de ce qu'ils ont. Sans cette part, l'appelant n'a qu'un total et le rendu répète le
- * même chiffre sur chaque ligne — c'est ce qui affichait « 849 par F126-49633 » sur un OF dont
- * il ne reste qu'UNE pièce (EAR1245EX / EH4276, relevé du 02/09/2026 : 849 = 1 + 431 + 417).
- * La somme des parts vaut donc `manque`, sauf couverture insuffisante où elle vaut la capacité
- * totale — jamais plus : on n'invente pas de production.
+ * L'attribution elle-même est faite une fois pour toute la fenêtre par `allocateSeCoveringOfs`,
+ * capacité de chaque producteur décrémentée dans la chronologie du moteur. Elle ne peut pas
+ * être refaite ligne par ligne : chaque ligne repartirait du premier OF producteur et le même
+ * OF serait annoncé couvrant partout — le défaut relevé le 02/09/2026 sur EH4276, où
+ * F126-49910 (1 700 pièces) couvrait 7 lignes pour plus de 4 000 pièces pendant que
+ * SGAE10663280358 n'apparaissait nulle part.
+ *
+ * Dédoublonné par OF consommateur : deux allocations d'un même OF sur la ligne portent le même
+ * besoin, les cumuler le doublerait.
  */
-export function coveringOfs(
-  ofs: { numOf: string; dateFin: string | null; qty: number }[],
-  manque: number
+function mergeCoveringOfs(
+  ofs: OrderImpactResult['orders'][number]['ofs'],
+  art: string
 ): { numOf: string; dateFin: string | null; qty: number }[] {
-  const out: { numOf: string; dateFin: string | null; qty: number }[] = []
-  let reste = manque
+  const vus = new Set<string>()
+  const parts = new Map<string, { numOf: string; dateFin: string | null; qty: number }>()
   for (const of of ofs) {
-    // `Math.max(0, …)` : un OF de capacité négative n'existe pas, mais une part négative
-    // s'afficherait telle quelle. Le cumul, lui, ne recule jamais.
-    const part = Math.max(0, Math.min(reste, of.qty))
-    out.push({ numOf: of.numOf, dateFin: of.dateFin, qty: Math.round(part * 100) / 100 })
-    reste -= of.qty
-    if (reste <= 0) break
+    if (vus.has(of.numOf)) continue
+    vus.add(of.numOf)
+    for (const part of of.seCoveringOfs?.[art] ?? []) {
+      const cumul = parts.get(part.numOf)
+      if (cumul) cumul.qty += part.qty
+      else parts.set(part.numOf, { numOf: part.numOf, dateFin: part.dateFin, qty: part.qty })
+    }
   }
-  return out
+  return [...parts.values()]
+    .map((p) => ({ ...p, qty: Math.round(p.qty * 100) / 100 }))
+    .sort((a, b) => {
+      const d = (a.dateFin ?? '9999-12-31').localeCompare(b.dateFin ?? '9999-12-31')
+      return d !== 0 ? d : a.numOf.localeCompare(b.numOf)
+    })
 }
 
 /** Formate une date ISO (YYYY-MM-DD) en JJ/MM — '' si absente. */
@@ -870,27 +875,6 @@ export function buildProactiveDisplay(
     }
   }
 
-  // Index des OF producteurs par article (fenêtre courante), le plus tôt d'abord — sert à
-  // nommer l'OF dont dépend un SE couvert par production (`couvertParOf`).
-  const ofsByProducedArticle = new Map<
-    string,
-    { numOf: string; dateFin: string | null; qty: number }[]
-  >()
-  for (const f of bomContext?.supplyFlows ?? []) {
-    if (f.direction !== 'supply' || f.origin.type !== 'of' || f.quantity <= 0) continue
-    const numOf = ((f.origin as { id?: string }).id ?? '').trim()
-    if (!numOf) continue
-    const arr = ofsByProducedArticle.get(f.article) ?? []
-    arr.push({ numOf, dateFin: f.date ? isoLocalDay(f.date) : null, qty: f.quantity })
-    ofsByProducedArticle.set(f.article, arr)
-  }
-  for (const arr of ofsByProducedArticle.values()) {
-    arr.sort((a, b) => {
-      const d = (a.dateFin ?? '9999').localeCompare(b.dateFin ?? '9999')
-      return d !== 0 ? d : a.numOf.localeCompare(b.numOf)
-    })
-  }
-
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
     .filter((o) => !o.dateExpedition || o.dateExpedition <= horizonIso.toISOString().slice(0, 10))
@@ -1026,9 +1010,11 @@ export function buildProactiveDisplay(
             qc: Math.round(qc * 100) / 100,
             couvertParOf: {
               parOf: Math.round(parOf * 100) / 100,
-              // Cumul sur `parOf` SEUL : la part couverte par le Q n'est pas à couvrir par
-              // un OF, l'inclure ferait remonter des OF qui ne servent pas ce manque.
-              ofs: coveringOfs(ofsByProducedArticle.get(art) ?? [], parOf).map((of) => ({
+              // Parts nommément attribuées par le domaine (jamais recalculées ici, cf.
+              // `mergeCoveringOfs`). Elles portent sur `parOf` SEUL : la part couverte par le Q
+              // n'est pas à couvrir par un OF, l'inclure ferait remonter des OF étrangers au
+              // manque.
+              ofs: mergeCoveringOfs(o.ofs, art).map((of) => ({
                 numOf: of.numOf,
                 dateFin: of.dateFin ? fmtFrDay(of.dateFin) : null,
                 qty: of.qty,
