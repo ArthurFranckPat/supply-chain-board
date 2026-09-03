@@ -136,6 +136,9 @@ export default function Tracking(props: SuiviPageProps) {
   const [searchBom, setSearchBom] = useState(false)
   // Ne garder que les lignes dont la colonne « Composants en rupture » est renseignée.
   const [ruptureOnly, setRuptureOnly] = useState(false)
+  // Ne garder que les lignes dont une part de la couverture repose sur du stock statut Q
+  // (issue #185) : c'est la liste à donner au contrôle réception, sans la relire ligne à ligne.
+  const [cqOnly, setCqOnly] = useState(false)
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(DEFAULT_TYPES))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
@@ -172,10 +175,13 @@ export default function Tracking(props: SuiviPageProps) {
 
   // « A des composants en rupture » = colonne Composants non vide, avec le MÊME périmètre
   // que son affichage (sous-ensembles inclus seulement si le chip Sous-ensembles est actif).
+  // Les entrées `cqSeul` (manque entièrement tenu par du stock statut Q) en sont exclues : le
+  // moteur les compte disponibles, ce ne sont pas des ruptures — les compter ici gonflerait le
+  // chip d'un manque qui n'existe pas. Elles ont leur propre filtre, « Dépend du CQ ».
   const hasRupture = (row: ProactiveDisplayRow) =>
     showSubAssemblies
-      ? row.composants.length > 0
-      : row.composants.some((c) => !c.descente && !c.couvertParOf)
+      ? row.composants.some((c) => !c.cqSeul)
+      : row.composants.some((c) => !c.descente && !c.couvertParOf && !c.cqSeul)
 
   // Filtrage (le tri est de la responsabilité de chaque vue).
   const reactiveFilteredRows = useMemo(() => {
@@ -201,6 +207,7 @@ export default function Tracking(props: SuiviPageProps) {
       (row) =>
         (verdictFilter === 'all' || row.verdictKey === verdictFilter) &&
         (!ruptureOnly || hasRupture(row)) &&
+        (!cqOnly || row.cq !== null) &&
         typeFilter.has(row.type) &&
         (atelierFilter.size === 0 || atelierFilter.has(row.atelier)) &&
         inRangeOrLate(row.dateExpIso)
@@ -216,7 +223,19 @@ export default function Tracking(props: SuiviPageProps) {
     }
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proView.rows, proView.bomIndex, query, verdictFilter, typeFilter, atelierFilter, dateRange, searchBom, ruptureOnly, showSubAssemblies])
+  }, [
+    proView.rows,
+    proView.bomIndex,
+    query,
+    verdictFilter,
+    typeFilter,
+    atelierFilter,
+    dateRange,
+    searchBom,
+    ruptureOnly,
+    cqOnly,
+    showSubAssemblies,
+  ])
 
   // Nb de lignes avec composants en rupture — compte du chip « En rupture uniquement ».
   const ruptureCount = useMemo(
@@ -224,6 +243,9 @@ export default function Tracking(props: SuiviPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [proView.rows, showSubAssemblies]
   )
+
+  // Nb de lignes dont une part de la couverture repose sur du stock statut Q (issue #185).
+  const cqCount = useMemo(() => proView.rows.filter((r) => r.cq !== null).length, [proView.rows])
 
   // Toujours "aujourd'hui" réel (verdicts/statuts calculés par rapport à maintenant).
   const refLabel = TODAY.toLocaleDateString('fr-FR', {
@@ -286,6 +308,7 @@ export default function Tracking(props: SuiviPageProps) {
     (mode === 'reactif' && statusFilter !== 'all') ||
     (mode === 'proactif' && verdictFilter !== 'all') ||
     (mode === 'proactif' && ruptureOnly) ||
+    (mode === 'proactif' && cqOnly) ||
     (mode === 'proactif' && !showSubAssemblies) ||
     (mode === 'proactif' && searchBom) ||
     DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ||
@@ -299,6 +322,7 @@ export default function Tracking(props: SuiviPageProps) {
     setStatusFilter('all')
     setVerdictFilter('all')
     setRuptureOnly(false)
+    setCqOnly(false)
     setShowSubAssemblies(true)
     setSearchBom(false)
     setTypeFilter(new Set(DEFAULT_TYPES))
@@ -324,7 +348,6 @@ export default function Tracking(props: SuiviPageProps) {
         </>
       }
     >
-
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
           la toolbar et de la vue en dessous ne se dimensionnent contre rien
@@ -369,7 +392,9 @@ export default function Tracking(props: SuiviPageProps) {
           <FilterMenu
             label="Filtres"
             indicators={
-              filtersActive ? <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" /> : null
+              filtersActive ? (
+                <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+              ) : null
             }
           >
             {mode === 'reactif' && (
@@ -411,6 +436,14 @@ export default function Tracking(props: SuiviPageProps) {
                     title="Inclure les sous-ensembles (semi-finis) fabriqués en rupture, en plus des composants achetés"
                   >
                     Sous-ensembles
+                  </SegmentButton>
+                  <SegmentButton
+                    active={cqOnly}
+                    onClick={() => setCqOnly((v) => !v)}
+                    title="N'afficher que les commandes dont une part de la couverture repose sur du stock en statut Q — la liste à donner au contrôle réception"
+                  >
+                    Dépend du CQ
+                    {chipCount(cqOnly, cqCount)}
                   </SegmentButton>
                   <SegmentButton
                     active={searchBom}
@@ -530,25 +563,25 @@ export default function Tracking(props: SuiviPageProps) {
         )}
       </div>
 
-        {/* Drawer diagnostic de ligne */}
-        <Sheet open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
-          {selectedRow && (
-            <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
-              <SheetHeader>
-                <SheetTitle>Diagnostic de la ligne</SheetTitle>
-                <SheetDescription>
-                  Détails opérationnels et goulets d'étranglement de la commande client.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="px-4">
-                <SuiviDetailSheet type={selectedRow.type} row={selectedRow.row} />
-              </div>
-            </SheetContent>
-          )}
-        </Sheet>
+      {/* Drawer diagnostic de ligne */}
+      <Sheet open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
+        {selectedRow && (
+          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle>Diagnostic de la ligne</SheetTitle>
+              <SheetDescription>
+                Détails opérationnels et goulets d'étranglement de la commande client.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="px-4">
+              <SuiviDetailSheet type={selectedRow.type} row={selectedRow.row} />
+            </div>
+          </SheetContent>
+        )}
+      </Sheet>
 
-        {/* Drawer détail OF (faisabilité) — n° d'OF cliqué en colonne Couverture (proactif). */}
-        <OfDetailSheet num={selectedOf} open={ofDetailOpen} onOpenChange={setOfDetailOpen} />
+      {/* Drawer détail OF (faisabilité) — n° d'OF cliqué en colonne Couverture (proactif). */}
+      <OfDetailSheet num={selectedOf} open={ofDetailOpen} onOpenChange={setOfDetailOpen} />
     </AppLayout>
   )
 }

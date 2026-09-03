@@ -3,7 +3,18 @@
  * inertia/components/tracking/suivi-detail-sheet.tsx.
  */
 import { cn } from '@r/lib/utils'
-import { Receipt, Factory, Package, BookmarkCheck, Truck, Clock, CalendarX, CornerDownRight, CircleCheck } from 'lucide-react'
+import {
+  Receipt,
+  Factory,
+  Package,
+  BookmarkCheck,
+  Truck,
+  Clock,
+  CalendarX,
+  CornerDownRight,
+  CircleCheck,
+  FlaskConical,
+} from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
 import type { SuiviDisplayRow, ProactiveDisplayRow } from '@r/lib/suivi/types'
@@ -19,8 +30,7 @@ type StepState = 'green' | 'amber' | 'gray' | 'purple'
 // suggere #fc642d, planifie #00a699 (ex-« purple » CQ : pas de violet dans
 // la grammaire, replié sur l'accent secondaire teal).
 const STEP_CIRCLE: Record<StepState, string> = {
-  green:
-    'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
+  green: 'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
   amber:
     'bg-suggere text-white animate-pulse shadow-[0_0_12px_rgba(252,100,45,0.3)] border border-suggere',
   purple:
@@ -99,9 +109,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
   // Quantity bar
   const strictVal = isReactif ? reactiveRow.allocStrict : proactiveRow.qteAllouee
   const cqVal = isReactif ? reactiveRow.allocCq : 0
-  const reliquatVal = isReactif
-    ? Math.max(0, total - strictVal - cqVal)
-    : proactiveRow.reliquat
+  const reliquatVal = isReactif ? Math.max(0, total - strictVal - cqVal) : proactiveRow.reliquat
 
   const pctStrict = Math.round((strictVal / total) * 100)
   const pctCq = Math.round((cqVal / total) * 100)
@@ -297,10 +305,19 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         )}
       >
         <div className="absolute right-0 top-0 -translate-y-3 translate-x-3 opacity-[0.04]">
-          <DynamicIcon name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'} size={72} strokeWidth={1.75} className="leading-none" />
+          <DynamicIcon
+            name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
+            size={72}
+            strokeWidth={1.75}
+            className="leading-none"
+          />
         </div>
         <div className="flex items-center gap-2">
-          <DynamicIcon name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'} size={18} strokeWidth={1.75} />
+          <DynamicIcon
+            name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
+            size={18}
+            strokeWidth={1.75}
+          />
           <span className="text-[10px] font-extrabold uppercase tracking-wider">
             Recommandation Supply-Chain
           </span>
@@ -367,9 +384,18 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             </span>
           </div>
           <div className="relative flex h-3 w-full overflow-hidden rounded-full border border-rule-soft bg-secondary/50">
-            <div className="h-full bg-ferme transition-all duration-500" style={{ width: `${pctStrict}%` }} />
-            <div className="h-full bg-planifie transition-all duration-500" style={{ width: `${pctCq}%` }} />
-            <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${pctReliquat}%` }} />
+            <div
+              className="h-full bg-ferme transition-all duration-500"
+              style={{ width: `${pctStrict}%` }}
+            />
+            <div
+              className="h-full bg-planifie transition-all duration-500"
+              style={{ width: `${pctCq}%` }}
+            />
+            <div
+              className="h-full bg-secondary transition-all duration-500"
+              style={{ width: `${pctReliquat}%` }}
+            />
           </div>
         </div>
 
@@ -412,6 +438,26 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         </div>
       </div>
 
+      {/* 6bis. Dépendance au contrôle qualité (issue #185) — même bannière et même
+          vocabulaire que le détail OF : la matière est sur site, l'action est la levée du
+          contrôle réception, pas une relance fournisseur. En TÊTE des composants : quand le
+          statut Q tient tout le manque (`cq.seul`), c'est le seul levier de déblocage. */}
+      {!isReactif && proactiveRow.cq && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3">
+          <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-warning">
+            <FlaskConical size={14} strokeWidth={1.75} />
+            {proactiveRow.cq.articles} COMPOSANT{proactiveRow.cq.articles > 1 ? 'S' : ''} SOUS
+            CONTRÔLE QUALITÉ — {proactiveRow.cq.qty} U
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {proactiveRow.cq.seul
+              ? "Aucun autre manque sur cette ligne : faire lever le contrôle réception suffit à la débloquer — aucune réception fournisseur n'est en cause."
+              : 'Ces quantités sont comptées disponibles mais restent bloquées en statut Q ; un manque subsiste par ailleurs.'}{' '}
+            Action : contacter le contrôle réception pour faire lever le contrôle.
+          </p>
+        </div>
+      )}
+
       {/* 6. Composants en rupture & Approvisionnements (BOM) */}
       {!isReactif && proactiveRow.composants.length > 0 && (
         <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
@@ -425,14 +471,38 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 className="flex flex-col gap-2 border-b border-rule-soft pb-4 last:border-0 last:pb-0"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[12.5px] font-bold text-destructive">{c.art}</span>
-                  <span className="rounded bg-destructive/10 px-2 py-0.5 font-mono text-[10px] font-extrabold text-destructive">
-                    −{c.qty} manquants
+                  <span
+                    className={cn(
+                      'font-mono text-[12.5px] font-bold',
+                      c.cqSeul ? 'text-warning' : 'text-destructive'
+                    )}
+                  >
+                    {c.art}
+                  </span>
+                  {/* `cqSeul` : rien ne manque, la pièce est là mais immobilisée — l'annoncer
+                      « −N manquants » en rouge désignerait le fournisseur à tort (issue #185). */}
+                  <span
+                    className={cn(
+                      'rounded px-2 py-0.5 font-mono text-[10px] font-extrabold',
+                      c.cqSeul ? 'bg-warning/15 text-warning' : 'bg-destructive/10 text-destructive'
+                    )}
+                  >
+                    {c.cqSeul ? `${c.qty} sous contrôle qualité` : `−${c.qty} manquants`}
                   </span>
                 </div>
                 <div className="text-[12px] font-medium leading-normal text-secondary-foreground">
                   {c.desc}
                 </div>
+
+                {/* Part tenue par le statut Q, AVANT la lentille réception : c'est l'action qui
+                    débloque, et elle ne passe pas par les achats. */}
+                {c.qc > 0 && (
+                  <div className="flex w-fit items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-1 font-mono text-[10.5px] font-bold text-warning">
+                    <FlaskConical size={13} strokeWidth={1.75} className="leading-none" />
+                    {c.qc} en statut Q — lever le contrôle réception
+                    {!c.cqSeul && c.reception && ` · reste ${c.qty} par ${c.reception.po}`}
+                  </div>
+                )}
 
                 {/* Reception Directe (Acheminement) */}
                 {c.reception ? (
@@ -444,7 +514,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                           c.reception.overdue ? 'text-destructive' : 'text-brand'
                         )}
                       >
-                        <DynamicIcon name={c.reception.overdue ? 'warning' : 'local_shipping'} size={16} strokeWidth={1.75} />
+                        <DynamicIcon
+                          name={c.reception.overdue ? 'warning' : 'local_shipping'}
+                          size={16}
+                          strokeWidth={1.75}
+                        />
                         <span>
                           {c.reception.overdue
                             ? `Retard d'approvisionnement (+${c.reception.retardJ}j)`
@@ -474,9 +548,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                         <span
                           className={cn(
                             'text-[8px] font-extrabold uppercase',
-                            c.reception.overdue
-                              ? 'font-bold text-destructive'
-                              : 'text-ferme'
+                            c.reception.overdue ? 'font-bold text-destructive' : 'text-ferme'
                           )}
                         >
                           Transit
@@ -510,7 +582,8 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     </div>
                   </div>
                 ) : (
-                  !c.descente && (
+                  !c.descente &&
+                  !c.cqSeul && (
                     <div className="flex w-fit items-center gap-1 rounded-lg border border-destructive/10 bg-destructive/5 px-2.5 py-1 font-mono text-[10px] font-bold text-destructive/80">
                       <CalendarX size={13} strokeWidth={1.75} className="leading-none" />
                       Aucune réception d'achat de couverture prévue.
@@ -560,7 +633,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                                     p.reception.overdue ? 'text-destructive' : 'text-foreground/75'
                                   )}
                                 >
-                                  <DynamicIcon name={p.reception.overdue ? 'warning' : 'local_shipping'} size={12} strokeWidth={1.75} />
+                                  <DynamicIcon
+                                    name={p.reception.overdue ? 'warning' : 'local_shipping'}
+                                    size={12}
+                                    strokeWidth={1.75}
+                                  />
                                   <span>
                                     {p.reception.overdue
                                       ? `Retard +${p.reception.retardJ}j`
@@ -663,7 +740,9 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       </div>
                     </div>
                     <div>
-                      <span className="font-semibold text-foreground/60">État de faisabilité :</span>
+                      <span className="font-semibold text-foreground/60">
+                        État de faisabilité :
+                      </span>
                       <div className="mt-0.5">
                         <span
                           className={cn(
@@ -671,7 +750,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                             of.feasible ? 'text-ferme' : 'text-destructive'
                           )}
                         >
-                          <DynamicIcon name={of.feasible ? 'check_circle' : 'cancel'} size={13} strokeWidth={1.75} className="leading-none" />
+                          <DynamicIcon
+                            name={of.feasible ? 'check_circle' : 'cancel'}
+                            size={13}
+                            strokeWidth={1.75}
+                            className="leading-none"
+                          />
                           {of.feasible === null ? '—' : of.feasible ? 'Prêt à produire' : 'Bloqué'}
                         </span>
                       </div>
@@ -716,7 +800,11 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               >
                 <div className="flex items-center gap-3">
                   <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground/75">
-                    <DynamicIcon name={e.source === 'STOALL' ? 'inventory' : 'shelves'} size={18} strokeWidth={1.75} />
+                    <DynamicIcon
+                      name={e.source === 'STOALL' ? 'inventory' : 'shelves'}
+                      size={18}
+                      strokeWidth={1.75}
+                    />
                   </div>
                   <div>
                     <div className="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>

@@ -530,6 +530,14 @@ export interface ProactiveDisplayRow {
      */
     qc: number
     /**
+     * Le manque strict est ENTIÈREMENT tenu par le stock statut Q : rien à acheter, rien à
+     * produire, `qty` vaut `qc` et `reception` est toujours `null` — une arrivée ne débloque
+     * rien ici, la seule action est la levée du contrôle réception (issue #185). Ces articles
+     * sont absents de `missingComponents` (le moteur compte le Q disponible) : sans cette
+     * entrée, la dépendance n'apparaîtrait nulle part sur la ligne.
+     */
+    cqSeul: boolean
+    /**
      * Sous-ensemble fabriqué dont la couverture ne tient QUE grâce à un OF producteur. Ce n'est
      * PAS une rupture (le verdict de la ligne est inchangé) — c'est une dépendance à rendre
      * visible : si l'OF producteur glisse, la commande tombe.
@@ -543,6 +551,14 @@ export interface ProactiveDisplayRow {
       ofs: { numOf: string; dateFin: string | null; qty: number }[]
     } | null
   }[]
+  /**
+   * Dépendance au contrôle qualité agrégée sur la ligne (issue #185) — `null` si aucune.
+   * `seul` : la levée du contrôle réception SUFFIT à débloquer — plus aucun manque résiduel et
+   * plus aucune part de sous-ensemble suspendue à un OF producteur. C'est la distinction de
+   * pilotage que la ligne taisait : un blocage contrôle qualité s'adresse au service réception
+   * (matière déjà sur site), pas au fournisseur ni à l'atelier.
+   */
+  cq: { qty: number; articles: number; seul: boolean } | null
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
   atelier: string
@@ -915,9 +931,26 @@ export function buildProactiveDisplay(
           if (qty > 0) seQcParArticle.set(art, (seQcParArticle.get(art) ?? 0) + qty)
         }
       }
+      // Composants dont le manque strict est ENTIÈREMENT tenu par le stock statut Q (issue
+      // #185) : absents de `missingComponents` (le moteur compte le Q disponible) et absents
+      // de `seCouverts` (rien à produire). Sans cette liste ils n'apparaissaient NULLE PART
+      // sur la ligne — la matière est physiquement sur site, immobilisée au contrôle
+      // réception, et l'écran n'en disait rien. Ce n'est pas un manque : pas de réception
+      // couvrante à afficher, une seule action — faire lever le contrôle.
+      const qcSeuls = new Map<string, number>()
+      for (const [art, qty] of qcParArticle) {
+        if (!composants.has(art) && !seCouverts.has(art)) qcSeuls.set(art, qty)
+      }
+
       // Lentille réception partagée composant/descente : 1ère réception d'achat dont le
       // cumul atteint la qté manquante → ETA + n° commande d'achat. Overdue = attendue
       // dans le passé (retard de livraison) → lateness = today − attendue.
+      //
+      // Issue #185 : `qty` est le manque RÉSIDUEL, déjà net de la poche Q créditée à la
+      // tranche (le moteur compte le Q disponible, cf. `qcDelta`). La réception n'est donc
+      // jamais annoncée couvrante pour une part que le contrôle réception tient déjà — et
+      // quand le Q couvre la totalité, il n'y a plus de résiduel, donc plus de réception
+      // du tout (`qcSeuls` ci-dessus, `reception: null`).
       const coveringReception = (art: string, qty: number) => {
         const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qty, {
           overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
@@ -986,6 +1019,26 @@ export function buildProactiveDisplay(
             reception: coveringReception(art, qtyR),
             descente,
             qc: Math.round((qcParArticle.get(art) ?? 0) * 100) / 100,
+            cqSeul: false,
+            couvertParOf: null,
+          }
+        })
+
+      // Dépendances CQ pures : même forme que les composants, mais `qty` = la part sous
+      // contrôle (il n'y a pas d'autre manque) et aucune réception — une arrivée qui ne
+      // débloque rien ne doit pas s'afficher comme sauveteuse (issue #185).
+      const qcComps = [...qcSeuls.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([art, qty]) => {
+          const qcR = Math.round(qty * 100) / 100
+          return {
+            art,
+            desc: articles.get(art)?.description ?? '',
+            qty: qcR,
+            reception: null,
+            descente: null,
+            qc: qcR,
+            cqSeul: true,
             couvertParOf: null,
           }
         })
@@ -1006,6 +1059,7 @@ export function buildProactiveDisplay(
             reception: null,
             descente: null,
             qc: Math.round(qc * 100) / 100,
+            cqSeul: false,
             couvertParOf: {
               parOf: Math.round(parOf * 100) / 100,
               // Parts nommément attribuées par le domaine (jamais recalculées ici, cf.
@@ -1074,9 +1128,32 @@ export function buildProactiveDisplay(
       const compsTxt = [
         ...comps.map((c) => `${c.art} -${c.qty}`),
         ...comps.flatMap((c) => (c.descente?.par ?? []).map((p) => p.art)),
+        ...qcComps.map((c) => `${c.art} ${c.qty}`),
         ...seComps.map((c) => `${c.art} -${c.qty}`),
         ...seComps.flatMap((c) => (c.couvertParOf?.ofs ?? []).map((of) => of.numOf)),
       ].join(' ')
+
+      // Dépendance au contrôle qualité, agrégée sur la LIGNE (issue #185) : de quoi trancher
+      // « faut-il appeler le contrôle réception, le fournisseur ou l'atelier ? » sans lire les
+      // composants un par un.
+      //
+      // `seul` = la levée de contrôle SUFFIT à débloquer la ligne. Deux conditions, les deux
+      // vérifiées sur le relevé PROD du 03/09/2026 : aucun manque résiduel (sinon c'est le
+      // fournisseur), et aucune part de SE encore suspendue à un OF producteur. Sans la
+      // seconde, 11 des 19 lignes à dépendance CQ se déclaraient « CQ seul » alors qu'elles
+      // attendaient surtout de la production — EAR1245EX : 790,2 pièces d'EH4276 par
+      // F126-49910 contre 13,5 en statut Q. Promettre « la levée suffit » y serait faux.
+      const cqArticles = [...comps, ...qcComps, ...seComps].filter((c) => c.qc > 0)
+      const cqQty = cqArticles.reduce((s, c) => s + c.qc, 0)
+      const productionAttendue = seComps.some((c) => c.couvertParOf.parOf > 0)
+      const cq =
+        cqArticles.length > 0
+          ? {
+              qty: Math.round(cqQty * 100) / 100,
+              articles: cqArticles.length,
+              seul: comps.length === 0 && !productionAttendue,
+            }
+          : null
       // Mode de couverture : Stock (stock_complete) | OF contremarque/cumulatif (n° OF) |
       // Achat (purchase_supply) | — (none). Affiche QUEL OF couvre la commande.
       const ofsNum = ofsFinal.map((f) => f.numOf)
@@ -1115,14 +1192,15 @@ export function buildProactiveDisplay(
             : null,
         couverture,
         joursRetard: o.joursRetard,
-        composants: [...comps, ...seComps],
+        composants: [...comps, ...qcComps, ...seComps],
+        cq,
         ofs: ofsFinal,
         atelier: atelier.code,
         atelierLabel: atelier.label,
         poste: atelier.poste,
         posteLabel: atelier.posteLabel,
         filter:
-          `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label} ${atelier.poste}`.toLowerCase(),
+          `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label} ${atelier.poste}${cq ? ` cq contrôle qualité contrôle réception statut q${cq.seul ? ' dépend du cq' : ''}` : ''}`.toLowerCase(),
       }
     })
 

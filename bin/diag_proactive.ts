@@ -210,10 +210,19 @@ for (const r of rows) {
     console.log(`        manquants: ${miss}`)
   }
 
+  if (r.cq) {
+    console.log(
+      `  -- 2bis. CONTRÔLE QUALITÉ -- ${r.cq.qty} u sur ${r.cq.articles} article(s)` +
+        (r.cq.seul ? ' · SEUL levier de déblocage (lever le contrôle réception)' : '')
+    )
+  }
+
   console.log('  -- 3. COLONNE COMPOSANTS EN RUPTURE --')
   for (const c of r.composants) {
-    const parts = [`${c.art} manque ${c.qty}`]
-    if (c.qc) parts.push(`dont Q=${c.qc}`)
+    // `cqSeul` : rien ne manque, la pièce est sur site mais immobilisée au contrôle
+    // réception (issue #185) — l'écrire « manque » mènerait le diagnostic vers l'appro.
+    const parts = [c.cqSeul ? `${c.art} sous CQ ${c.qty}` : `${c.art} manque ${c.qty}`]
+    if (c.qc && !c.cqSeul) parts.push(`dont Q=${c.qc}`)
     if (c.couvertParOf) {
       parts.push(
         `couvert par OF ${c.couvertParOf.ofs.map((x: any) => `${x.numOf}:${x.qty}`).join(' + ')} = ${c.couvertParOf.parOf}`

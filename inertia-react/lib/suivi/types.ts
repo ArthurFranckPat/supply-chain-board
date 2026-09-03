@@ -222,6 +222,12 @@ export interface ProactiveDisplayRow {
     /** Qté qui manquerait sans le stock sous contrôle qualité (statut Q). 0 = pas de dépendance. */
     qc: number
     /**
+     * Manque strict ENTIÈREMENT tenu par le stock statut Q : `qty` vaut `qc`, `reception` est
+     * toujours `null` (une arrivée ne débloque rien) et la seule action est la levée du
+     * contrôle réception (issue #185). Pas une rupture : le moteur compte le Q disponible.
+     */
+    cqSeul: boolean
+    /**
      * SE fabriqué dont la couverture ne tient QUE grâce à un OF producteur (stock physique
      * insuffisant). Pas une rupture : une dépendance. `qty` = manque total vs stock strict,
      * décomposé en `qc` (statut Q) + `parOf` (production). Ex. EH6139 : 50 = 15 Q + 35 OF.
@@ -233,6 +239,13 @@ export interface ProactiveDisplayRow {
       ofs: { numOf: string; dateFin: string | null; qty: number }[]
     } | null
   }[]
+  /**
+   * Dépendance au contrôle qualité agrégée sur la ligne (issue #185) — `null` si aucune.
+   * `qty` = total en statut Q crédité à la ligne, `articles` = nb d'articles concernés,
+   * `seul` = aucun manque résiduel : la levée du contrôle réception suffit à débloquer, le
+   * fournisseur n'y est pour rien. Pilote le badge « Dépend du CQ » et son filtre.
+   */
+  cq: { qty: number; articles: number; seul: boolean } | null
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */
   atelier: string

@@ -14,11 +14,39 @@ import {
   LATE_TONE,
   getRelativeDateLabel,
 } from '@r/lib/suivi/tracking-shared'
-import { CalendarX, CornerDownRight } from 'lucide-react'
+import { CalendarX, CornerDownRight, FlaskConical } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 /** Séparateur décimal français : la virgule, pas le point (entier = inchangé). */
 const fr = (n: number) => n.toString().replace('.', ',')
+
+/** Vocabulaire de la bannière CQ du détail OF (of-detail-sheet) — une seule formulation. */
+const CQ_ACTION_TITLE =
+  'Ces quantités sont comptées disponibles mais restent bloquées en statut Q. ' +
+  'Action : contacter le contrôle réception pour faire lever le contrôle.'
+
+/**
+ * Dépendance au contrôle qualité d'un composant (issue #185).
+ *
+ * Ambre et EN TÊTE des sous-lignes : quand une part du manque est tenue par du stock statut Q,
+ * le levier n'est pas le fournisseur — la matière est déjà sur site, il faut faire lever le
+ * contrôle réception, action faisable le jour même. Reléguée en dernière sous-ligne discrète,
+ * elle laissait lire « commande en retard à cause du fournisseur » (AR2604014 / 11016938 :
+ * 779 pièces en Q pour 108 réellement manquantes, arrivée annoncée APRÈS l'expédition).
+ */
+function CqLine({ qty }: { qty: number }) {
+  return (
+    <div
+      className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-snug text-warning"
+      title={CQ_ACTION_TITLE}
+    >
+      <FlaskConical size={10} strokeWidth={1.75} className="shrink-0 leading-none" />
+      <span>
+        <span className="font-bold">{fr(qty)}</span> en statut Q — lever le contrôle réception
+      </span>
+    </div>
+  )
+}
 
 export interface ProactiveColumnsDeps {
   referenceDate: string
@@ -286,12 +314,38 @@ export function createProactiveColumns({
       cell: ({ row }) => {
         const o = row.original
         return (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
-            <span className={cn('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
-              {o.verdictLabel}
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
+              <span className={cn('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
+                {o.verdictLabel}
+              </span>
             </span>
-          </span>
+            {/* Pilotage CQ (issue #185) : un blocage derrière une levée de contrôle s'adresse au
+                service réception — matière déjà sur site — pas au fournisseur. Le verdict de
+                livraison reste dit tel quel (un retard ne se laisse pas repeindre en « CQ ») ;
+                `seul` = plus aucun manque résiduel, la levée SUFFIT → pastille ambre pleine. */}
+            {o.cq && (
+              <span
+                className={cn(
+                  'inline-flex cursor-help items-center gap-1 whitespace-nowrap font-mono leading-none',
+                  o.cq.seul
+                    ? 'rounded bg-warning/15 px-1 py-0.5 text-[8.5px] font-bold text-warning'
+                    : 'text-[8.5px] font-semibold text-muted-foreground'
+                )}
+                title={
+                  `${o.cq.qty} u en statut Q sur ${o.cq.articles} article${o.cq.articles > 1 ? 's' : ''}. ` +
+                  (o.cq.seul
+                    ? 'Aucun autre manque : faire lever le contrôle réception suffit à débloquer la ligne.'
+                    : "Un manque subsiste par ailleurs — la levée du contrôle n'y suffira pas seule.") +
+                  ` ${CQ_ACTION_TITLE}`
+                }
+              >
+                <FlaskConical size={9} strokeWidth={2} className="shrink-0 leading-none" />
+                {o.cq.seul ? 'Dépend du CQ' : `CQ ${fr(o.cq.qty)}`}
+              </span>
+            )}
+          </div>
         )
       },
       meta: {
@@ -342,9 +396,19 @@ export function createProactiveColumns({
                   <span
                     className={cn(
                       'shrink-0 font-mono text-[10.5px] font-bold',
-                      c.descente || c.couvertParOf ? 'text-planifie' : 'text-foreground'
+                      c.cqSeul
+                        ? 'text-warning'
+                        : c.descente || c.couvertParOf
+                          ? 'text-planifie'
+                          : 'text-foreground'
                     )}
-                    title={c.descente || c.couvertParOf ? 'Sous-ensemble fabriqué' : undefined}
+                    title={
+                      c.cqSeul
+                        ? 'Immobilisé au contrôle réception (statut Q) — pas une rupture'
+                        : c.descente || c.couvertParOf
+                          ? 'Sous-ensemble fabriqué'
+                          : undefined
+                    }
                   >
                     {c.art}
                   </span>
@@ -356,210 +420,212 @@ export function createProactiveColumns({
                       {c.desc}
                     </span>
                   )}
-                  {/* Un SE couvert par production n'est PAS en manque : pas de signe « − »,
-                      qui se lirait comme une rupture. */}
-                  <span className="ml-auto shrink-0 rounded bg-secondary px-1 font-mono text-[10px] font-semibold text-muted-foreground tabular-nums">
-                    {c.couvertParOf ? fr(c.qty) : `−${fr(c.qty)}`}
+                  {/* Ni un SE couvert par production ni une pièce immobilisée en statut Q ne
+                      sont en manque : pas de signe « − », qui se lirait comme une rupture. */}
+                  <span
+                    className={cn(
+                      'ml-auto shrink-0 rounded px-1 font-mono text-[10px] font-semibold tabular-nums',
+                      c.cqSeul ? 'bg-warning/15 text-warning' : 'bg-secondary text-muted-foreground'
+                    )}
+                  >
+                    {c.couvertParOf || c.cqSeul ? fr(c.qty) : `−${fr(c.qty)}`}
                   </span>
                 </div>
                 {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
                     soit les feuilles réellement bloquantes avec leur réception. La lentille
                     réception directe ne s'affiche que pour les composants SANS descente
                     (achetés) — pour un SE elle serait du bruit (pas d'achat sur un fabriqué). */}
-                {c.couvertParOf ? (
-                  <div className="mt-0.5 flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground">
-                    {/* Part couverte par du stock sous contrôle qualité — à débloquer par le
+                {/* Issue #185 — hiérarchie : quand une part du manque est tenue par le statut Q,
+                    l'action « lever le contrôle réception » passe DEVANT la réception
+                    fournisseur. `cqSeul` = le Q couvre tout : plus rien d'autre à dire, et
+                    surtout aucune arrivée à mettre en avant (elle ne débloquerait rien). */}
+                {c.cqSeul ? (
+                  <CqLine qty={c.qc} />
+                ) : (
+                  <>
+                    {!c.couvertParOf && c.qc > 0 && <CqLine qty={c.qc} />}
+                    {c.couvertParOf ? (
+                      <div className="mt-0.5 flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground">
+                        {/* Part couverte par du stock sous contrôle qualité — à débloquer par le
                         contrôle réception, pas par la production. */}
-                    {c.qc > 0 && (
-                      <div className="flex items-center gap-1">
-                        <CornerDownRight
-                          size={10}
-                          strokeWidth={1.75}
-                          className="leading-none text-muted-foreground/60"
-                        />
-                        <span>
-                          <span className="font-bold text-foreground">{fr(c.qc)}</span> en statut Q
-                          (contrôle réception)
-                        </span>
-                      </div>
-                    )}
-                    {c.couvertParOf.ofs.length === 0
-                      ? c.couvertParOf.parOf > 0 && (
-                          <div className="flex items-center gap-1">
-                            <CornerDownRight
-                              size={10}
-                              strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/60"
-                            />
-                            <span>
-                              <span className="font-bold text-foreground">
-                                {fr(c.couvertParOf.parOf)}
-                              </span>{' '}
-                              sans OF producteur
-                            </span>
-                          </div>
-                        )
-                      : /* `of.qty` = part prise sur CET OF, jamais `parOf` (le total) : le
+                        {c.qc > 0 && <CqLine qty={c.qc} />}
+                        {c.couvertParOf.ofs.length === 0
+                          ? c.couvertParOf.parOf > 0 && (
+                              <div className="flex items-center gap-1">
+                                <CornerDownRight
+                                  size={10}
+                                  strokeWidth={1.75}
+                                  className="leading-none text-muted-foreground/60"
+                                />
+                                <span>
+                                  <span className="font-bold text-foreground">
+                                    {fr(c.couvertParOf.parOf)}
+                                  </span>{' '}
+                                  sans OF producteur
+                                </span>
+                              </div>
+                            )
+                          : /* `of.qty` = part prise sur CET OF, jamais `parOf` (le total) : le
                            dernier OF de la liste n'est presque jamais consommé en entier, et
                            répéter le total faisait dire à un OF d'1 pièce qu'il en fournit 849. */
-                        c.couvertParOf.ofs.map((of) => (
-                          <div key={of.numOf} className="flex items-center gap-1">
-                            <CornerDownRight
-                              size={10}
-                              strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/60"
-                            />
-                            <span>
-                              <span className="font-bold text-foreground">{fr(of.qty)}</span> par{' '}
-                              <span className="font-bold text-foreground">{of.numOf}</span>
-                              {of.dateFin && (
-                                <span className="text-muted-foreground"> (fin {of.dateFin})</span>
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                  </div>
-                ) : c.descente ? (
-                  c.descente.statut === 'bloque' ? (
-                    <div className="mt-0.5 flex flex-col gap-px border-l border-rule-soft pl-2">
-                      {c.descente.par.slice(0, 3).map((p) => (
-                        <div
-                          key={p.art}
-                          className="flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground"
-                          title={p.desc}
-                        >
-                          <div className="flex items-center gap-1">
-                            <CornerDownRight
-                              size={10}
-                              strokeWidth={1.75}
-                              className="leading-none text-muted-foreground/60"
-                            />
-                            <span>
-                              Bloqué par <span className="font-bold text-foreground">{p.art}</span>{' '}
-                              <span className="font-bold text-muted-foreground">
-                                −{fr(p.manque)}
-                              </span>
-                            </span>
-                          </div>
-                          {p.reception ? (
+                            c.couvertParOf.ofs.map((of) => (
+                              <div key={of.numOf} className="flex items-center gap-1">
+                                <CornerDownRight
+                                  size={10}
+                                  strokeWidth={1.75}
+                                  className="leading-none text-muted-foreground/60"
+                                />
+                                <span>
+                                  <span className="font-bold text-foreground">{fr(of.qty)}</span>{' '}
+                                  par <span className="font-bold text-foreground">{of.numOf}</span>
+                                  {of.dateFin && (
+                                    <span className="text-muted-foreground">
+                                      {' '}
+                                      (fin {of.dateFin})
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                      </div>
+                    ) : c.descente ? (
+                      c.descente.statut === 'bloque' ? (
+                        <div className="mt-0.5 flex flex-col gap-px border-l border-rule-soft pl-2">
+                          {c.descente.par.slice(0, 3).map((p) => (
                             <div
-                              className={cn(
-                                'flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium',
-                                // Même règle que la lentille composant : rouge = après l'expé.
-                                p.reception.apresExpedition
-                                  ? 'font-bold text-destructive'
-                                  : p.reception.overdue
-                                    ? 'font-bold text-foreground'
-                                    : 'text-muted-foreground/80'
-                              )}
-                              title={
-                                (p.reception.apresExpedition
-                                  ? `Arrive après l'expédition de la commande (${row.original.dateExp}) — `
-                                  : '') + p.reception.supplier
-                              }
+                              key={p.art}
+                              className="flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground"
+                              title={p.desc}
                             >
-                              <DynamicIcon
-                                name={
-                                  p.reception.apresExpedition || p.reception.overdue
-                                    ? 'warning'
-                                    : 'local_shipping'
-                                }
-                                size={10}
-                                strokeWidth={1.75}
-                                className="leading-none opacity-80"
-                              />
-                              <span>
-                                {p.reception.overdue
-                                  ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
-                                  : `Arrivée ${p.reception.eta} · ${p.reception.po}`}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <CornerDownRight
+                                  size={10}
+                                  strokeWidth={1.75}
+                                  className="leading-none text-muted-foreground/60"
+                                />
+                                <span>
+                                  Bloqué par{' '}
+                                  <span className="font-bold text-foreground">{p.art}</span>{' '}
+                                  <span className="font-bold text-muted-foreground">
+                                    −{fr(p.manque)}
+                                  </span>
+                                </span>
+                              </div>
+                              {p.reception ? (
+                                <div
+                                  className={cn(
+                                    'flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium',
+                                    // Même règle que la lentille composant : rouge = après l'expé.
+                                    p.reception.apresExpedition
+                                      ? 'font-bold text-destructive'
+                                      : p.reception.overdue
+                                        ? 'font-bold text-foreground'
+                                        : 'text-muted-foreground/80'
+                                  )}
+                                  title={
+                                    (p.reception.apresExpedition
+                                      ? `Arrive après l'expédition de la commande (${row.original.dateExp}) — `
+                                      : '') + p.reception.supplier
+                                  }
+                                >
+                                  <DynamicIcon
+                                    name={
+                                      p.reception.apresExpedition || p.reception.overdue
+                                        ? 'warning'
+                                        : 'local_shipping'
+                                    }
+                                    size={10}
+                                    strokeWidth={1.75}
+                                    className="leading-none opacity-80"
+                                  />
+                                  <span>
+                                    {p.reception.overdue
+                                      ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
+                                      : `Arrivée ${p.reception.eta} · ${p.reception.po}`}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium text-muted-foreground/60">
+                                  <CalendarX
+                                    size={10}
+                                    strokeWidth={1.75}
+                                    className="leading-none text-muted-foreground/50"
+                                  />
+                                  Aucune couverture prévue
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium text-muted-foreground/60">
-                              <CalendarX
-                                size={10}
-                                strokeWidth={1.75}
-                                className="leading-none text-muted-foreground/50"
-                              />
-                              Aucune couverture prévue
+                          ))}
+                          {c.descente.par.length > 3 && (
+                            <div className="pl-3.5 font-mono text-[8.5px] font-medium text-muted-foreground/70">
+                              +{c.descente.par.length - 3} autre(s)
                             </div>
                           )}
                         </div>
-                      ))}
-                      {c.descente.par.length > 3 && (
-                        <div className="pl-3.5 font-mono text-[8.5px] font-medium text-muted-foreground/70">
-                          +{c.descente.par.length - 3} autre(s)
+                      ) : (
+                        <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-muted-foreground">
+                          <CornerDownRight
+                            size={11}
+                            strokeWidth={1.75}
+                            className="leading-none text-muted-foreground"
+                          />
+                          ↳ SE à lancer (composants dispo)
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-muted-foreground">
-                      <CornerDownRight
-                        size={11}
-                        strokeWidth={1.75}
-                        className="leading-none text-muted-foreground"
-                      />
-                      ↳ SE à lancer (composants dispo)
-                    </div>
-                  )
-                ) : c.reception ? (
-                  <div
-                    className={cn(
-                      'mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none',
-                      // Rouge = la pièce arrive APRÈS la date d'expé de la commande :
-                      // même « à l'heure » fournisseur, elle ne la servira pas à temps.
-                      c.reception.apresExpedition
-                        ? 'font-bold text-destructive'
-                        : c.reception.overdue
-                          ? 'font-bold text-foreground'
-                          : 'font-medium text-muted-foreground'
+                      )
+                    ) : c.reception ? (
+                      <div
+                        className={cn(
+                          'mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none',
+                          // Rouge = la pièce arrive APRÈS la date d'expé de la commande :
+                          // même « à l'heure » fournisseur, elle ne la servira pas à temps.
+                          c.reception.apresExpedition
+                            ? 'font-bold text-destructive'
+                            : c.reception.overdue
+                              ? 'font-bold text-foreground'
+                              : 'font-medium text-muted-foreground'
+                        )}
+                        title={
+                          (c.reception.apresExpedition
+                            ? `Arrive après l'expédition de la commande (${row.original.dateExp}) — `
+                            : '') + `Fournisseur: ${c.reception.supplier}`
+                        }
+                      >
+                        <DynamicIcon
+                          name={
+                            c.reception.apresExpedition || c.reception.overdue
+                              ? 'warning'
+                              : 'local_shipping'
+                          }
+                          size={11}
+                          strokeWidth={1.75}
+                          className="leading-none opacity-80"
+                        />
+                        {/* Couverture partagée (issue #185) : la réception ne tient que le manque
+                        RÉSIDUEL, celui que le statut Q ne couvre pas. On l'annonce avec sa
+                        quantité pour que les deux parts se lisent d'un coup d'œil — « 779 en
+                        statut Q » au-dessus, « 108 par l'arrivée CG2601882 » ici. */}
+                        <span>
+                          {c.qc > 0 && (
+                            <span className="font-bold">{fr(c.qty)} par l&apos;arrivée </span>
+                          )}
+                          {c.reception.overdue
+                            ? `${c.qc > 0 ? `${c.reception.po} — en retard` : 'En retard'} +${c.reception.retardJ} j (${c.reception.eta})`
+                            : c.qc > 0
+                              ? `${c.reception.po} (${c.reception.eta})`
+                              : `Arrivée ${c.reception.eta} · ${c.reception.po}`}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground/60">
+                        <CalendarX
+                          size={11}
+                          strokeWidth={1.75}
+                          className="leading-none text-muted-foreground/50"
+                        />
+                        Aucune couverture prévue
+                      </div>
                     )}
-                    title={
-                      (c.reception.apresExpedition
-                        ? `Arrive après l'expédition de la commande (${row.original.dateExp}) — `
-                        : '') + `Fournisseur: ${c.reception.supplier}`
-                    }
-                  >
-                    <DynamicIcon
-                      name={
-                        c.reception.apresExpedition || c.reception.overdue
-                          ? 'warning'
-                          : 'local_shipping'
-                      }
-                      size={11}
-                      strokeWidth={1.75}
-                      className="leading-none opacity-80"
-                    />
-                    <span>
-                      {c.reception.overdue
-                        ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
-                        : `Arrivée ${c.reception.eta} · ${c.reception.po}`}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground/60">
-                    <CalendarX
-                      size={11}
-                      strokeWidth={1.75}
-                      className="leading-none text-muted-foreground/50"
-                    />
-                    Aucune couverture prévue
-                  </div>
-                )}
-                {/* Dette envers le contrôle qualité sur un composant acheté — la ligne SE
-                    porte déjà la sienne dans son bloc `couvertParOf`. */}
-                {!c.couvertParOf && c.qc > 0 && (
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-muted-foreground">
-                    <CornerDownRight
-                      size={10}
-                      strokeWidth={1.75}
-                      className="leading-none text-muted-foreground/60"
-                    />
-                    <span>
-                      dont <span className="font-bold text-foreground">{fr(c.qc)}</span> en statut Q
-                      (contrôle réception)
-                    </span>
-                  </div>
+                  </>
                 )}
               </div>
             ))}

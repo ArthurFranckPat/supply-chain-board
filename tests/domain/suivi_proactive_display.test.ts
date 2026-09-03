@@ -373,3 +373,130 @@ test.group('buildProactiveDisplay — recherche par composant', () => {
     assert.include(rows[0].filter, 'eh6139', '…et donc cherchable')
   })
 })
+
+/**
+ * Dépendance au contrôle qualité au niveau de la LIGNE (issue #185).
+ *
+ * Le moteur compte le stock statut Q comme disponible : `missingComponents` est donc le manque
+ * RÉSIDUEL, net de la poche Q créditée à la tranche, et `qcComponents` en est la part tenue par
+ * le contrôle réception. La ligne doit rendre cette part lisible — et surtout ne pas désigner
+ * une réception fournisseur comme sauveteuse quand le Q couvre déjà tout (relevé AR2604014 :
+ * arrivée annoncée le 08/09 pour une expédition le 07/09, alors que l'action tenant le délai
+ * est la levée de contrôle, faisable le jour même).
+ */
+test.group('buildProactiveDisplay — dépendance contrôle qualité', () => {
+  const withQc = (missing: Record<string, number>, qc: Record<string, number>) =>
+    result({
+      statut: missing.C1 ? 'bloquee' : 'on_time',
+      ofs: [
+        {
+          numOf: 'F426-50312',
+          article: '11033025',
+          qteAllouee: 28,
+          dateFin: new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10),
+          feasible: !missing.C1,
+          missingComponents: missing,
+          qcComponents: qc,
+          modified: false,
+          statutNum: 2,
+        },
+      ],
+    })
+
+  /** Réception d'achat couvrant `quantity` pièces de C1, arrivée dans 5 jours. */
+  const receptions = (quantity: number) =>
+    new Map([
+      [
+        'C1',
+        [
+          {
+            id: 'CG2601882',
+            article: 'C1',
+            supplier: 'ACME',
+            quantity,
+            date: new Date(Date.now() + 5 * 86_400_000),
+          },
+        ],
+      ],
+    ])
+
+  test('manque entièrement tenu par le Q → composant affiché, aucune réception couvrante', ({
+    assert,
+  }) => {
+    // Rien dans `missingComponents` (le Q couvre tout) : sans l'entrée dédiée, la dépendance
+    // n'apparaîtrait NULLE PART sur la ligne.
+    const { rows } = buildProactiveDisplay(withQc({}, { C1: 779 }), new Map(), receptions(1000))
+    const c = rows[0].composants
+    assert.lengthOf(c, 1)
+    assert.equal(c[0].art, 'C1')
+    assert.isTrue(c[0].cqSeul)
+    assert.equal(c[0].qty, 779, 'la qté affichée est la part sous contrôle, pas un manque')
+    assert.equal(c[0].qc, 779)
+    assert.isNull(c[0].reception, 'une arrivée qui ne débloque rien ne doit pas être affichée')
+    assert.deepEqual(rows[0].cq, { qty: 779, articles: 1, seul: true })
+  })
+
+  test('couverture partielle → les deux parts, la réception bornée au résiduel', ({ assert }) => {
+    // 887 manquants vs stock strict = 779 tenus par le Q + 108 résiduels.
+    const { rows } = buildProactiveDisplay(
+      withQc({ C1: 108 }, { C1: 779 }),
+      new Map(),
+      // 150 pièces : insuffisant pour les 887 stricts, suffisant pour les 108 résiduels.
+      receptions(150)
+    )
+    const c = rows[0].composants
+    assert.lengthOf(c, 1)
+    assert.isFalse(c[0].cqSeul)
+    assert.equal(c[0].qty, 108)
+    assert.equal(c[0].qc, 779)
+    assert.equal(c[0].reception?.po, 'CG2601882', 'la réception ne couvre que le résiduel')
+    assert.deepEqual(rows[0].cq, { qty: 779, articles: 1, seul: false })
+  })
+
+  test('un manque résiduel ailleurs invalide « CQ seul »', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(withQc({ C1: 186 }, { C2: 779 }), new Map(), new Map())
+    assert.isFalse(rows[0].cq!.seul, 'C1 manque vraiment : le contrôle réception ne suffit pas')
+    assert.equal(rows[0].cq!.qty, 779)
+    assert.equal(rows[0].cq!.articles, 1)
+  })
+
+  test('la ligne dépendante du CQ est cherchable (filtre de pilotage)', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(withQc({}, { C1: 779 }), new Map(), new Map())
+    assert.include(rows[0].filter, 'contrôle réception')
+    assert.include(rows[0].filter, 'dépend du cq')
+  })
+
+  test('un SE encore suspendu à un OF producteur invalide « CQ seul »', ({ assert }) => {
+    // Relevé PROD 03/09/2026, EAR1245EX / F126-49779 : 790,2 pièces d'EH4276 attendues de
+    // F126-49910 contre 13,5 en statut Q. Promettre « la levée du contrôle suffit » y serait
+    // faux — il faut d'abord que l'OF producteur tourne.
+    const { rows } = buildProactiveDisplay(
+      result({
+        ofs: [
+          {
+            numOf: 'F126-49779',
+            article: '11033025',
+            qteAllouee: 28,
+            dateFin: new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10),
+            feasible: true,
+            missingComponents: {},
+            seComponents: { EH4276: 790.2 },
+            seQcComponents: { EH4276: 13.5 },
+            modified: false,
+            statutNum: 1,
+          },
+        ],
+      })
+    )
+    assert.equal(rows[0].cq!.qty, 13.5)
+    assert.isFalse(rows[0].cq!.seul, "la production reste à faire : le CQ n'est pas le seul levier")
+    assert.equal(rows[0].composants[0].qty, 803.7, 'manque total vs stock strict = 790,2 + 13,5')
+  })
+
+  test('sans stock Q → cq null, aucune entrée parasite', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(withQc({ C1: 108 }, {}), new Map(), receptions(150))
+    assert.isNull(rows[0].cq)
+    assert.isFalse(rows[0].composants[0].cqSeul)
+    assert.equal(rows[0].composants[0].qc, 0)
+  })
+})
