@@ -12,6 +12,7 @@
 
 import type { HttpContext } from '@adonisjs/core/http'
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OrderLineForLoad } from '#repositories/order_line_repository'
@@ -473,7 +474,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
     key: cacheKey,
     ttl: 2 * 60 * 1000,
     timeout: 0,
-    factory: async () => {
+    factory: stamped(async () => {
       // Buckets mensuels.
       const monthBuckets: { key: string; label: string }[] = []
       const monthIdxByKey = new Map<string, number>()
@@ -691,7 +692,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
         x3Error,
       }
-    },
+    }),
   })
 }
 

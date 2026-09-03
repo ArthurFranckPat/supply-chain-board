@@ -213,10 +213,19 @@ export default class SuiviController {
     }
     let ateliers: AtelierOption[] = []
     let x3Error: string | null = null
+    /** Fraîcheur du snapshot caché d'où viennent les lignes (absent si erreur). */
+    let computedAt: number | undefined
 
     try {
+      const svc = new SuiviService()
       const [assignments, atelierByArticle] = await Promise.all([
-        new SuiviService().assignFromLatest(refDate, forceRefresh),
+        // assignFromLatest déplié : il faut le contexte pour lire la fraîcheur
+        // du snapshot caché (computedAt) et la publier au client — la pastille
+        // du masthead affiche l'âge de la DONNÉE, pas celui de sa réception.
+        svc.buildContext(forceRefresh).then((c) => {
+          computedAt = c.computedAt
+          return svc.assign(c, refDate)
+        }),
         buildAtelierByArticle(),
       ])
       const built = buildSuiviDisplay(assignments, refDate, atelierByArticle)
@@ -238,6 +247,7 @@ export default class SuiviController {
       rows,
       x3Error,
       referenceDate: refDate.toISOString().slice(0, 10),
+      computedAt,
     }
   }
 

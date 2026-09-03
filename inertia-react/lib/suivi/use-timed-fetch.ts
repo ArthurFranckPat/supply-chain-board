@@ -54,7 +54,14 @@ export function useTimedFetch<T>(url: string | null) {
         settled = true
         setMs(Date.now() - t0)
         setData(json)
-        useDataStatusStore.getState().end(Date.now() - t0)
+        // Tampon serveur `computedAt` (app/services/computed_age.ts) : l'âge
+        // de FABRICATION de la donnée, pas celui de sa réception — un payload
+        // servi du cache (grace SWR comprise) porte sa vraie date de naissance.
+        // Absent → undefined : la fraîcheur retombe sur l'heure de réception.
+        const computedAt = (json as { computedAt?: unknown } | null)?.computedAt
+        useDataStatusStore
+          .getState()
+          .end(Date.now() - t0, typeof computedAt === 'number' ? computedAt : undefined)
       })
       .catch((e: Error) => {
         if (cancelled) return

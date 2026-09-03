@@ -34,6 +34,15 @@ interface DataStatusState {
   ms: number | null
   /** Horodatage (epoch ms) du dernier chargement de données terminé. */
   loadedAt: number | null
+  /**
+   * Horodatage (epoch ms) de FABRICATION de la donnée affichée — tampon
+   * `computedAt` posé dans le payload caché côté serveur
+   * (app/services/computed_age.ts). Null = endpoint sans tampon : la fraîcheur
+   * retombe sur `loadedAt` (heure de réception), qui ne dit rien de l'âge réel.
+   * Fusion des fragments : le PLUS VIEUX gagne — une page est aussi fraîche
+   * que son fragment le plus vieux.
+   */
+  dataAt: number | null
   /** Message de la dernière erreur de chargement (null si OK). */
   error: string | null
   /** Incrémenté à chaque clic « recharger » — consommé par useTimedFetch. */
@@ -48,8 +57,11 @@ interface DataStatusState {
 
   /** Déclare le démarrage d'une requête (incrémente active, pose le chrono). */
   begin: () => void
-  /** Termine une requête en succès : ms + heure de mise à jour. */
-  end: (ms: number) => void
+  /**
+   * Termine une requête en succès : ms + heure de mise à jour, et le tampon
+   * serveur `computedAt` quand le endpoint en porte un.
+   */
+  end: (ms: number, dataAt?: number) => void
   /** Termine une requête en échec : l'erreur est affichée, ms inchangés. */
   fail: (error: string) => void
   /** Abandon (unmount pendant le vol) : décompte sans toucher ms/maj. */
@@ -70,6 +82,13 @@ interface DataStatusState {
   publishDiff: (source: string, nonce: number, counts: DiffCounts) => void
   /** Efface le récap — navigation, ou rechargement suivant. */
   clearDiff: () => void
+  /**
+   * Oublie le tampon de fraîcheur — au changement de page : l'âge de la
+   * donnée de la page PRÉCÉDENTE ne doit pas s'afficher sur la suivante (le
+   * store survit aux navigations Inertia). Distinct de `clearDiff`, aussi
+   * appelé par l'écran Affichage sans changer de page.
+   */
+  resetDataAge: () => void
 }
 
 export const useDataStatusStore = create<DataStatusState>((set) => ({
@@ -77,6 +96,7 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
   t0: null,
   ms: null,
   loadedAt: null,
+  dataAt: null,
   error: null,
   nonce: 0,
   diffBySource: {},
@@ -89,7 +109,7 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
       error: null,
     })),
 
-  end: (ms) =>
+  end: (ms, dataAt) =>
     set((s) => {
       const active = Math.max(0, s.active - 1)
       return {
@@ -97,6 +117,8 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
         ms,
         loadedAt: Date.now(),
         error: null,
+        dataAt:
+          dataAt === undefined ? s.dataAt : s.dataAt === null ? dataAt : Math.min(s.dataAt, dataAt),
         // Dernière requête terminée : le chrono s'arrête.
         ...(active === 0 ? { t0: null } : {}),
       }
@@ -120,8 +142,11 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
 
   // Le récap du rechargement précédent disparaît dès qu'on en redemande un :
   // laisser « 12 changements » à l'écran pendant le nouveau chargement
-  // laisserait croire qu'il décrit les données en train d'arriver.
-  bump: () => set((s) => ({ nonce: s.nonce + 1, diffBySource: {}, diffNonce: s.nonce + 1 })),
+  // laisserait croire qu'il décrit les données en train d'arriver. Le tampon
+  // de fraîcheur aussi : un rechargement re-court TOUS les fragments, la
+  // page repart d'une fraîcheur inconnue que le min() reconstruira.
+  bump: () =>
+    set((s) => ({ nonce: s.nonce + 1, diffBySource: {}, diffNonce: s.nonce + 1, dataAt: null })),
 
   seed: (ms) => set((s) => (s.loadedAt === null ? { ms, loadedAt: Date.now() } : {})),
 
@@ -133,6 +158,7 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
     })),
 
   clearDiff: () => set({ diffBySource: {}, diffNonce: 0 }),
+  resetDataAge: () => set({ dataAt: null }),
 }))
 
 /** Somme des récaps publiés — `null` si aucun changement à annoncer. */

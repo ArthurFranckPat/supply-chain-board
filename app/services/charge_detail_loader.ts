@@ -22,6 +22,7 @@
  */
 
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import type { Article } from '#app/domain/models/article'
@@ -154,7 +155,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
     key: cacheKey,
     ttl: 2 * 60 * 1000,
     timeout: 0,
-    factory: async (): Promise<ChargeDetail> => {
+    factory: stamped(async (): Promise<ChargeDetail> => {
       // Version connue : on relit les entrées et le stock figés par LE factory
       // qui a produit la barre, pas les caches SWR de boardDataset qui ont pu
       // tourner depuis — c'est toute la différence entre une table alignée et
@@ -262,6 +263,6 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         cmdRows,
         x3Error: inputs.x3Error,
       }
-    },
+    }),
   })
 }

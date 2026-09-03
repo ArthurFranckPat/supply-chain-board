@@ -7,8 +7,10 @@
  *      dernier chargement (fetch JSON minutés + navigation Inertia, via le
  *      store data-status) passe au survol ;
  *   2. fraîcheur — heure de la dernière mise à jour des données de la page +
- *      date de la dernière extraction X3 (tables statiques, shared prop
- *      `x3LastSync`), la pastille passant au rouge quand l'extraction vieillit ;
+ *      ÂGE DE LA DONNÉE quand le endpoint le porte (`computedAt`, tampon posé
+ *      dans le cache côté serveur) + date de la dernière extraction X3 (tables
+ *      statiques, shared prop `x3LastSync`), la pastille passant au rouge
+ *      quand l'extraction vieillit ;
  *   3. rechargement — le bouton ⟳ re-déclenche les fetch minutés (nonce du
  *      store) ET un `router.reload()` (pages dont les données sont en props).
  *
@@ -32,6 +34,24 @@ import { cn } from '@r/lib/utils'
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
 const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`)
+
+/** « à l'instant », « il y a 3 min », « il y a 2 h », « il y a 4 j » — l'âge
+ *  affiché est celui de la DONNÉE (tampon serveur computedAt), pas celui de sa
+ *  réception : recharger une page servie du cache ne rajeunit pas la donnée. */
+const fmtAge = (ageMs: number) => {
+  const min = Math.floor(ageMs / 60_000)
+  if (min < 1) return 'à l’instant'
+  if (min < 90) return `il y a ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 48) return `il y a ${h} h`
+  return `il y a ${Math.floor(h / 24)} j`
+}
+
+/** Seuils d'âge : les caches de réponse font 2 à 5 min — vert jusque-là ;
+ *  au-delà la page est restée ouverte (ou grace SWR) : ambre, puis rouge
+ *  passé 30 min, où un rechargement devient le geste évident. */
+const ageCls = (ageMs: number) =>
+  ageMs < 5 * 60_000 ? 'text-ferme' : ageMs < 30 * 60_000 ? 'text-amber-600' : 'text-destructive'
 
 /** 14:32 le jour même, sinon 02/09 14:32 — une page laissée ouverte ne doit
  *  pas suggérer une fraîcheur trompeuse. */
@@ -91,6 +111,7 @@ function bindInertiaTiming() {
     if (url === lastUrl) return
     lastUrl = url
     useDataStatusStore.getState().clearDiff()
+    useDataStatusStore.getState().resetDataAge()
   })
 }
 
@@ -118,19 +139,21 @@ const fmtDiff = (d: { changed: number; entered: number; exited: number }) =>
     .join(' · ')
 
 export function DataStatus() {
-  const { active, t0, ms, loadedAt, error, bump, diffBySource } = useDataStatusStore()
+  const { active, t0, ms, loadedAt, dataAt, error, bump, diffBySource } = useDataStatusStore()
   const loading = active > 0
   const diff = totalDiff(diffBySource)
   const page = usePage<{ x3LastSync?: number | null }>()
   const x3LastSync = page.props.x3LastSync
 
-  // Chrono live pendant le chargement (re-render à 200 ms).
+  // Chrono live pendant le chargement (re-render à 200 ms) ; au repos, l'âge
+  // de la donnée vieillit seul — un tick de 10 s suffit à le faire avancer.
   const [, setNow] = useState(0)
   useEffect(() => {
-    if (!loading) return
-    const tick = setInterval(() => setNow((n) => n + 1), 200)
+    const period = loading ? 200 : dataAt !== null ? 10_000 : 0
+    if (!period) return
+    const tick = setInterval(() => setNow((n) => n + 1), period)
     return () => clearInterval(tick)
-  }, [loading])
+  }, [loading, dataAt])
 
   // Chargement initial du document : aucun événement Inertia ne circule, la
   // durée connue côté client est le temps écoulé depuis la navigation. Les
@@ -151,6 +174,7 @@ export function DataStatus() {
     'Données de la page',
     loadedAt !== null &&
       `Mise à jour : ${fmtComplet(loadedAt)}${ms !== null ? ` (chargée en ${fmtMs(ms)})` : ''}`,
+    dataAt !== null && `Données calculées : ${fmtComplet(dataAt)} (cache serveur inclus)`,
     x3LastSync
       ? `Extraction X3 (tables statiques) : ${fmtComplet(x3LastSync)}`
       : 'Extraction X3 : jamais synchronisée',
@@ -179,6 +203,15 @@ export function DataStatus() {
           : loadedAt !== null
             ? `maj ${fmtMaj(loadedAt)}`
             : 'données non chargées'}
+        {/* Âge de la DONNÉE (tampon serveur) — pas celui de sa réception : une
+            page servie du cache affiche son vrai âge même rechargée à
+            l'instant. C'est la réponse à « remise à jour ou cache servi ? ». */}
+        {!loading && dataAt !== null && (
+          <span className={cn('font-semibold', ageCls(Date.now() - dataAt))}>
+            {' · '}
+            {fmtAge(Date.now() - dataAt)}
+          </span>
+        )}
       </span>
       {/* Récap du diff du dernier rechargement (issue #186) — porte les
           changements HORS écran (autres pages de tri, lignes filtrées), que le

@@ -29,6 +29,7 @@
  */
 
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
@@ -214,7 +215,7 @@ export async function loadStockArticleDetail(
     key: cacheKey,
     ttl: 2 * 60 * 1000,
     timeout: 0,
-    factory: async (): Promise<StockArticleDetailResult> => {
+    factory: stamped(async (): Promise<StockArticleDetailResult> => {
       const history = await boardDataset.getStockArticleHistory(article, refDate)
       if (!history) return { detail: null, x3Error: null }
 
@@ -295,6 +296,6 @@ export async function loadStockArticleDetail(
         },
         x3Error,
       }
-    },
+    }),
   })
 }

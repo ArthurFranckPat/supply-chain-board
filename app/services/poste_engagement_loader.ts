@@ -15,6 +15,7 @@ import {
   type PosteNature,
 } from '#app/domain/atelier'
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import { isoDay } from '#app/utils/dates'
 
 /**
@@ -383,7 +384,7 @@ export async function loadPosteSummaries(
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
-    factory: async (): Promise<EngagementSummaryDataset> => {
+    factory: stamped(async (): Promise<EngagementSummaryDataset> => {
       // Matching commandes [lookback, +120 j] → OF alloués.
       const matched = await loadLancerFromProgramme({
         force,
@@ -509,7 +510,7 @@ export async function loadPosteSummaries(
       })
 
       return { postes, window }
-    },
+    }),
   })
 }
 
@@ -529,7 +530,7 @@ export async function loadPosteEngagement(
   return engagementCache().getOrSet({
     key: cacheKey,
     ttl: ENGAGEMENT_TTL,
-    factory: async (): Promise<PosteEngagement> => {
+    factory: stamped(async (): Promise<PosteEngagement> => {
       const errors: string[] = []
 
       const matched = await loadLancerFromProgramme({
@@ -624,6 +625,6 @@ export async function loadPosteEngagement(
         rows,
         x3Error: errors.length ? errors.join(' | ') : null,
       }
-    },
+    }),
   })
 }

@@ -41,6 +41,7 @@ import {
   type GammeOperation,
 } from '#app/domain/models/gamme'
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import type { OfRecord, StockRecord } from '#app/domain/recursive_checker'
 import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture_engine'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
@@ -289,6 +290,8 @@ async function buildGammeChargeCalculator(): Promise<ChargeCalculatorPort> {
 // ---------------------------------------------------------------------------
 
 export interface SuiviContext {
+  /** Fraîcheur du snapshot brut d'où vient le contexte (cf. RawSuiviData). */
+  computedAt?: number
   lines: OrderLine[]
   stockProvider: StockProvider
   ofMatcher: OfMatcherPort
@@ -319,6 +322,12 @@ interface RawSuiviData {
    * Optionnel : absent des snapshots cachés antérieurs (grace) → dégrade en Map vide.
    */
   allocationsByOf?: Map<string, ErpAllocation[]>
+  /**
+   * Instant de fabrication du snapshot (epoch ms), posé par `stamped()` dans la
+   * factory : un hit cache (TTL comme grace SWR) rend la marque d'origine, pas
+   * l'instant de la relecture. Absent des snapshots cachés antérieurs.
+   */
+  computedAt?: number
 }
 
 // Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
@@ -367,7 +376,7 @@ export class SuiviService {
       // remettre `timeout: 1000` : avec un timeout > 0, le refresh tourne hors mode background ; quand
       // il rejette (loadRaw échoue en tâche de fond) la promesse orpheline → unhandled rejection →
       // crash du serveur → la page /suivi tourne dans le vide. Cold start : pas de grace → attend la factory.
-      factory: () => this.loadRaw(force),
+      factory: stamped(() => this.loadRaw(force)),
     })
     return this.assembleContext(raw)
   }
@@ -510,6 +519,7 @@ export class SuiviService {
     applyEmplacements(lines, raw.detailedByOrderLine, raw.stockByArticle)
 
     return {
+      computedAt: raw.computedAt,
       lines,
       stockProvider: new MapStockProvider(breakdown),
       ofMatcher: new FlowOfMatcher(raw.ofFlows, raw.allocationsByOf ?? new Map()),

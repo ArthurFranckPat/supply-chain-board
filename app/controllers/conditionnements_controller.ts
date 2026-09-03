@@ -1,5 +1,6 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import logger from '@adonisjs/core/services/logger'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import boardDataset from '#services/board_dataset'
@@ -122,7 +123,7 @@ export default class ConditionnementsController {
         key: 'rows',
         ttl: 5 * 60 * 1000,
         timeout: 0,
-        factory: async () => this.computeRows(),
+        factory: stamped(() => this.computeRows()),
       })
       rows = cached.rows
       stats = cached.stats
@@ -167,7 +168,7 @@ export default class ConditionnementsController {
         key: cacheKey,
         ttl: 5 * 60 * 1000,
         timeout: 0,
-        factory: async () => this.computeEnrichissements(articles),
+        factory: stamped(() => this.computeEnrichissements(articles)),
       })
       enrichissements = cached
     } catch (e) {

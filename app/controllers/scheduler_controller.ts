@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { cacheNs } from '#services/cache_ns'
+import { stamped } from '#services/computed_age'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
@@ -210,7 +211,7 @@ export default class SchedulerController {
       // INSTANTANÉMENT, le recalcul part en arrière-plan (isBackground → erreurs avalées). Mur froid
       // limité au tout premier chargement. NE PAS mettre > 0 : refresh hors background → à son rejet
       // la promesse orpheline → unhandled rejection → crash serveur (cf. board_dataset / suivi).
-      factory: async () => {
+      factory: stamped(async () => {
         // loadBoardData (getOrders + référentiel) et loadOrderImpacts (getLive + MFGMAT + stock)
         // sont indépendants → parallélisés. Les maps placedByOf/colIdx sont construites APRÈS
         // les deux, depuis les résultats assemblés.
@@ -334,7 +335,7 @@ export default class SchedulerController {
           x3Error,
           cached: data.cached,
         }
-      },
+      }),
     })
   }
 
