@@ -3,9 +3,9 @@
  * masthead (présent sur toutes les pages, y compris les vues denses qui
  * masquent le footer). Trois informations demandées sur chaque page :
  *
- *   1. temps de chargement — chrono live pendant le chargement ; la durée du
- *      dernier chargement (fetch JSON minutés + navigation Inertia, via le
- *      store data-status) passe au survol ;
+ *   1. temps de chargement — chrono live pendant le chargement, puis durée du
+ *      dernier chargement en clair (« chargé en 1,2 s » ; fetch JSON minutés +
+ *      navigation Inertia, via le store data-status) ;
  *   2. fraîcheur — INSTANT DE CALCUL de la donnée (« maj » : réception moins
  *      âge mesuré, cohérent avec l'âge affiché à ses côtés) + ÂGE DE LA
  *      DONNÉE quand le endpoint le porte (`computedAt`, tampon posé dans le
@@ -228,6 +228,11 @@ export function DataStatus() {
             {' · '}
             {fmtAge(dataAge)}
           </span>
+        )}
+        {/* Durée du dernier chargement — la contrepartie figée du chrono live
+            affiché pendant le chargement ; la date complète reste au survol. */}
+        {!loading && ms !== null && (
+          <span className="whitespace-nowrap"> · chargé en {fmtMs(ms)}</span>
         )}
       </span>
       {/* Récap du diff du dernier rechargement (issue #186) — porte les
