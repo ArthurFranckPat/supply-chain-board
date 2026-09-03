@@ -305,13 +305,9 @@ export async function fetchChargeInputs(
   }
 }
 
-/**
- * Vue commande : explosion depth-4 + netting stock (suite issue #42).
- * ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
- * Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
- */
-export async function computeChargeNeeds(inputs: ChargeInputs): Promise<ChargeNeed[]> {
-  const chargeRaws = explodeCharge(
+/** Explosion BOM des lignes de demande — partagée entre charge et stock. */
+function explodeInputs(inputs: ChargeInputs) {
+  return explodeCharge(
     inputs.orderLines.map((l) => ({
       article: l.article,
       quantite: l.quantite,
@@ -327,8 +323,18 @@ export async function computeChargeNeeds(inputs: ChargeInputs): Promise<ChargeNe
     inputs.bomByParent,
     inputs.gammeMap
   )
-  const chargeArticles = [...new Set(chargeRaws.map((r) => r.article))]
+}
+
+/**
+ * Stock strict+CQ des articles de charge. C'est la SEULE entrée du netting lue
+ * hors des `ChargeInputs` (boardDataset, cache tournant) : elle doit être figée
+ * avec le reste dans le snapshot graphe ↔ détail, sinon la table pouvait encore
+ * diverger de la barre d'un rotation de cache de stock.
+ */
+export async function computeChargeStock(inputs: ChargeInputs): Promise<Map<string, number>> {
+  const chargeRaws = explodeInputs(inputs)
   const stockByArticle = new Map<string, number>()
+  const chargeArticles = [...new Set(chargeRaws.map((r) => r.article))]
   if (chargeArticles.length > 0) {
     const flows = await boardDataset.getStock(chargeArticles).catch(() => [] as Flow[])
     for (const f of flows) {
@@ -338,6 +344,23 @@ export async function computeChargeNeeds(inputs: ChargeInputs): Promise<ChargeNe
       }
     }
   }
+  return stockByArticle
+}
+
+/**
+ * Vue commande : explosion depth-4 + netting stock (suite issue #42).
+ * ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
+ * Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
+ *
+ * `pinnedStock` : stock figé par le snapshot du payload (`computeChargeStock`)
+ * — le détail d'un bucket le re-passe pour nettinguer exactement comme la barre.
+ */
+export async function computeChargeNeeds(
+  inputs: ChargeInputs,
+  pinnedStock?: Map<string, number>
+): Promise<ChargeNeed[]> {
+  const chargeRaws = explodeInputs(inputs)
+  const stockByArticle = pinnedStock ?? (await computeChargeStock(inputs))
   return netCharge(chargeRaws, stockByArticle, buildEncoursByArticle(inputs))
 }
 
@@ -364,6 +387,69 @@ function buildEncoursByArticle(inputs: ChargeInputs): Map<string, number> {
     if (encours > 0) out.set(mo.article, (out.get(mo.article) ?? 0) + encours)
   }
   return out
+}
+
+/**
+ * Versions d'entrées figées conservées simultanément. Une page ouverte peut
+ * servir d'un payload périmé (SWR) tant qu'une ou deux générations de reload
+ * sont passées : au-delà, le détail retombe sur la relecture live (comportement
+ * historique) — rare, et le hard refresh reste la sortie de secours.
+ */
+const PINNED_INPUTS_KEPT = 5
+const PINNED_INPUTS_TTL = 12 * 60 * 60 * 1000
+
+/** Snapshot d'une exécution du factory payload, réclamable par le détail. */
+interface PinnedChargeSnapshot {
+  inputs: ChargeInputs
+  /** Stock strict+CQ des articles de charge (`computeChargeStock`). */
+  stock: Map<string, number>
+}
+
+/**
+ * Fige les entrées X3 et le stock d'une exécution du factory payload sous une
+ * version.
+ *
+ * Le détail d'un bucket (`loadChargeDetail`) réclame cette version : il est
+ * alors calculé depuis EXACTEMENT les mêmes entrées que la barre affichée, au
+ * lieu de relire les caches SWR de boardDataset qui ont pu tourner entre le
+ * rendu de la page et le clic — c'est ce décalage qui faisait afficher 14 h à
+ * la barre et 9,9 h à la table pour la même semaine.
+ *
+ * Coût mémoire faible : `mos` / `orderLines` / gammes sont déjà résidents via
+ * les caches de boardDataset — on ne stocke ici que l'enveloppe et les Map
+ * dérivées, qui référencent les mêmes objets.
+ */
+export async function pinChargeInputs(
+  version: string,
+  snapshot: PinnedChargeSnapshot
+): Promise<void> {
+  await cacheNs('charge').set({
+    key: `charge:inputs:${version}`,
+    value: snapshot,
+    ttl: PINNED_INPUTS_TTL,
+  })
+  const indexEntry = await cacheNs('charge')
+    .get<{ v: string[] }>({ key: 'charge:inputs:index' })
+    .catch(() => null)
+  const known = indexEntry?.v ?? []
+  const kept = [version, ...known.filter((v) => v !== version)].slice(0, PINNED_INPUTS_KEPT)
+  await cacheNs('charge').set({
+    key: 'charge:inputs:index',
+    value: { v: kept },
+    ttl: PINNED_INPUTS_TTL,
+  })
+  for (const stale of known) {
+    if (!kept.includes(stale)) {
+      await cacheNs('charge').delete({ key: `charge:inputs:${stale}` }).catch(() => {})
+    }
+  }
+}
+
+/** Snapshot figé d'une version, ou null (inconnue / expirée). */
+export async function getPinnedChargeInputs(version: string): Promise<PinnedChargeSnapshot | null> {
+  return cacheNs('charge')
+    .get<PinnedChargeSnapshot>({ key: `charge:inputs:${version}` })
+    .catch(() => null)
 }
 
 /**
@@ -412,6 +498,13 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       }
 
       const inputs = await fetchChargeInputs(monthStart, horizonEnd, force)
+      // Snapshot graphe ↔ détail : chaque exécution du factory fige ses entrées
+      // ET son stock sous une version que le détail d'un bucket renvoie en
+      // `?v=`. Le panneau est donc calculé du même instant X3 que la barre
+      // cliquée, même quand boardDataset a tourné entre-temps.
+      const version = Date.now().toString(36)
+      const pinnedStock = await computeChargeStock(inputs)
+      await pinChargeInputs(version, { inputs, stock: pinnedStock }).catch(() => {})
       const { mos, gammeMap, workstations, wstLabels, categoryByArticle, x3Error } = inputs
       const posteNatureByWst = buildPosteNatureByWorkstation(
         [...gammeMap.values()].flat(),
@@ -523,7 +616,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       }
 
       // ── Charge commande : explosion depth-4 + netting stock (suite issue #42).
-      const chargeNeeds = await computeChargeNeeds(inputs)
+      const chargeNeeds = await computeChargeNeeds(inputs, pinnedStock)
 
       const ofLines = buildLines(
         mos.flatMap((mo) => {
@@ -581,6 +674,9 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         // Ancre d'horizon résolue (1er du mois de départ) : le détail d'un
         // bucket la renvoie pour viser exactement la même fenêtre.
         startIso: isoDay(monthStart),
+        // Version du snapshot : le client la renvoie au détail (`?v=`) pour un
+        // total de table aligné sur la hauteur de la barre, snapshot compris.
+        version,
         months: monthBuckets.map((m) => m.label),
         weeks: weekBuckets.map((w) => w.label),
         // Clés de bucket (non affichées) : le client les renvoie telles quelles

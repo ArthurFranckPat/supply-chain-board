@@ -29,6 +29,9 @@ export default class LoadController {
         view: view as ChargeDetailView,
         gran: gran as ChargeGran,
         bucket: String(request.input('bucket') ?? ''),
+        // Version du snapshot charge émise par le payload — aligne la table sur
+        // la barre cliquée, snapshot X3 compris.
+        version: (request.input('v') as string | undefined) || undefined,
         refresh: !!request.input('refresh'),
       })
       return response.json(detail)

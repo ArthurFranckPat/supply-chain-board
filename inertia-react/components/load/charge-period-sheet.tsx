@@ -83,6 +83,10 @@ export interface ChargePeriodSheetProps {
   view: LoadView
   /** Ancrage d'horizon de la page — le détail doit viser la même fenêtre. */
   start?: string
+  /** Version du snapshot charge (portée par le payload). Envoyée en `?v=` :
+   *  le serveur calcule alors la table depuis les mêmes entrées X3 que la
+   *  barre cliquée, au lieu d'une relecture potentiellement plus récente. */
+  version?: string | null
   /** Segments actifs (ids d'option), miroir du filtre de la toolbar. */
   activeSegs: ReadonlySet<string>
   /** Cran de quantité de la vue commande (brut / net / reste à produire). */
@@ -160,7 +164,7 @@ function groupByDay<R>(
 }
 
 export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
-  const { target, view, start, activeSegs, qtyMode } = props
+  const { target, view, start, activeSegs, qtyMode, version } = props
   const [data, setData] = useState<DetailPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -176,6 +180,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     setError(null)
     const qs = new URLSearchParams({ poste, bucket: bucketKey, gran, view })
     if (start) qs.set('start', start)
+    if (version) qs.set('v', version)
     // Relaie le `?refresh=1` de la page : sans lui le graphe se rafraîchissait
     // mais pas cette table, qui a son propre cache. Tant que l'URL porte le
     // paramètre, chaque ouverture repart de X3 — c'est coûteux, mais c'est
@@ -196,7 +201,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       })
       .finally(() => setLoading(false))
     return () => ctrl.abort()
-  }, [props.open, poste, bucketKey, gran, view, start])
+  }, [props.open, poste, bucketKey, gran, view, start, version])
 
   // Masque identique à celui du graphe — même source (`segKeys`).
   const keep = useMemo(() => segKeys(view, activeSegs), [view, activeSegs])

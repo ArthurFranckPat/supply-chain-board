@@ -556,6 +556,7 @@ export default function Load(props: LoadPageProps) {
         target={periodTarget}
         view={view}
         start={props.startIso}
+        version={props.version}
         activeSegs={activeSegs}
         qtyMode={qtyMode}
       />

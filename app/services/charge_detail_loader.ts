@@ -13,6 +13,12 @@
  * client masque avec le même jeu de segments qu'il applique déjà au graphe.
  * C'est ce qui garantit que le total de la table suit la hauteur de la barre
  * quel que soit le filtre actif.
+ *
+ * Alignement temporel : quand la page passe la `version` du payload (`?v=`),
+ * les entrées X3 relues sont celles FIGÉES par l'exécution du payload qui a
+ * produit la barre — la table ne peut pas diverger de la barre par un effet de
+ * cache périmé (deux snapshots X3 différents), seulement par un filtre choisi
+ * à l'écran.
  */
 
 import { cacheNs } from '#services/cache_ns'
@@ -32,7 +38,9 @@ import {
   chargeHorizon,
   computeChargeNeeds,
   fetchChargeInputs,
+  getPinnedChargeInputs,
   ofResteAProduire,
+  type ChargeInputs,
 } from '#services/load_payload_loader'
 
 export type ChargeGran = 'month' | 'week'
@@ -96,7 +104,19 @@ export interface ChargeDetailParams {
   gran: ChargeGran
   bucket: string
   /**
-   * Purge le cache du détail ET celui des entrées X3 sous-jacentes.
+   * Version du snapshot charge (`?v=`), émise par le factory du payload.
+   *
+   * Connue du serveur : le détail est calculé depuis les entrées X3 FIGÉES par
+   * l'exécution du payload qui a produit la barre cliquée — table et barre sont
+   * du même snapshot X3, et leur total retombe sur la même hauteur même quand
+   * les caches de boardDataset tournent entre le rendu de la page et le clic
+   * (c'est ce décalage qui montrait 14 h à la barre et 9,9 h à la table).
+   * Inconnue ou expirée : repli sur la relecture live, historique.
+   */
+  version?: string
+  /**
+   * Purge le cache du détail ET — sur la seule branche sans version — celui des
+   * entrées X3 sous-jacentes.
    *
    * Sans ça, le `?refresh=1` de la page rafraîchissait le GRAPHE mais pas le
    * panneau : celui-ci a sa propre clé, que rien n'invalidait. Avec un TTL de
@@ -104,6 +124,10 @@ export interface ChargeDetailParams {
    * périmée était servie telle quelle et le rafraîchissement partait en arrière-
    * plan — donc le premier clic après un changement de données montrait encore
    * l'ancienne table, sans aucun moyen de forcer.
+   *
+   * Avec une version, ce paramètre ne touche plus X3 : le changement de version
+   * EST le refresh, et re-purger les entrées casserait l'alignement graphe ↔
+   * table qu'il est censé garantir.
    */
   refresh?: boolean
 }
@@ -115,12 +139,16 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   const poste = params.poste.trim()
   if (!poste) throw new ChargeDetailBadRequest('Poste manquant')
 
+  // Version nettoyée : c'est un fragment de clé de cache, pas une donnée métier.
+  const version =
+    params.version && /^[a-z0-9]{4,24}$/i.test(params.version) ? params.version : null
+
   const range = chargeBucketRange(params.gran, params.bucket)
   if (!range) throw new ChargeDetailBadRequest(`Période illisible : ${params.bucket}`)
 
   const { monthStart, horizonEnd } = chargeHorizon(params.start)
 
-  const cacheKey = `detail:charge:${isoDay(monthStart)}:${params.view}:${poste}:${params.gran}:${params.bucket}`
+  const cacheKey = `detail:charge:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({
@@ -128,10 +156,15 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
     ttl: 2 * 60 * 1000,
     timeout: 0,
     factory: async (): Promise<ChargeDetail> => {
-      // `force` propagé : purger la seule clé du détail ne servirait à rien si les
-      // entrées X3 (OF, lignes de commande, pointages) restaient servies périmées
-      // par les caches SWR de boardDataset.
-      const inputs = await fetchChargeInputs(monthStart, horizonEnd, force)
+      // Version connue : on relit les entrées et le stock figés par LE factory
+      // qui a produit la barre, pas les caches SWR de boardDataset qui ont pu
+      // tourner depuis — c'est toute la différence entre une table alignée et
+      // le bug 14 h ≠ 9,9 h. Le `force` n'y change rien : la version est le
+      // refresh.
+      const pinned = version ? await getPinnedChargeInputs(version) : null
+      const inputs: ChargeInputs = pinned
+        ? pinned.inputs
+        : await fetchChargeInputs(monthStart, horizonEnd, force)
 
       const inBucket = (d: Date | null): boolean =>
         !!d && d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime()
@@ -180,7 +213,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         }
       }
 
-      const allNeeds = await computeChargeNeeds(inputs)
+      const allNeeds = await computeChargeNeeds(inputs, pinned?.stock)
       const needs = allNeeds.filter((n) => n.wst === poste && inBucket(n.date) && n.brutHours > 0)
 
       // Désignations : référentiel articles LOCAL (SQLite), pas X3.
