@@ -56,6 +56,7 @@ import {
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { ReactiveView } from '@r/components/tracking/reactive-view'
 import { ProactiveView } from '@r/components/tracking/proactive-view'
+import { ClientFilterPill, type ClientOption } from '@r/components/tracking/client-filter-pill'
 import { SuiviDetailSheet } from '@r/components/tracking/suivi-detail-sheet'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 
@@ -185,6 +186,8 @@ export default function Tracking(props: SuiviPageProps) {
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(DEFAULT_TYPES))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
+  // Filtre client (dropdown) : nom retenu, null = tous. Transverse aux 2 vues.
+  const [clientFilter, setClientFilter] = useState<string | null>(null)
 
   const [selectedRow, setSelectedRow] = useState<{
     type: 'reactif' | 'proactif'
@@ -216,6 +219,20 @@ export default function Tracking(props: SuiviPageProps) {
   // Ateliers de la vue active (réactif/proactif), pour les chips de filtre.
   const ateliers = mode === 'proactif' ? proView.ateliers : view.ateliers
 
+  // Clients distincts de la vue active (comme ateliers : calculés sur TOUTES les
+  // lignes, pas sur le résultat des autres filtres) — options du dropdown client.
+  const clients = useMemo<ClientOption[]>(() => {
+    const rows = mode === 'proactif' ? proRows : reactiveRows
+    const m = new Map<string, number>()
+    for (const r of rows) {
+      const c = r.client?.trim()
+      if (c) m.set(c, (m.get(c) ?? 0) + 1)
+    }
+    return [...m.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [mode, reactiveRows, proRows])
+
   // « A des composants en rupture » = colonne Composants non vide, avec le MÊME périmètre
   // que son affichage (sous-ensembles inclus seulement si le chip Sous-ensembles est actif).
   // Les entrées `cqSeul` (manque entièrement tenu par du stock statut Q) en sont exclues : le
@@ -234,6 +251,7 @@ export default function Tracking(props: SuiviPageProps) {
         (statusFilter === 'all' || row.statusKey === statusFilter) &&
         typeFilter.has(row.type) &&
         (atelierFilter.size === 0 || atelierFilter.has(row.atelier)) &&
+        (clientFilter === null || row.client === clientFilter) &&
         inRangeOrLate(row.dateExpIso)
     )
     if (q) {
@@ -242,7 +260,7 @@ export default function Tracking(props: SuiviPageProps) {
     }
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reactiveRows, query, statusFilter, typeFilter, atelierFilter, dateRange])
+  }, [reactiveRows, query, statusFilter, typeFilter, atelierFilter, clientFilter, dateRange])
 
   const proFilteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -253,6 +271,7 @@ export default function Tracking(props: SuiviPageProps) {
         (!cqOnly || row.cq !== null) &&
         typeFilter.has(row.type) &&
         (atelierFilter.size === 0 || atelierFilter.has(row.atelier)) &&
+        (clientFilter === null || row.client === clientFilter) &&
         inRangeOrLate(row.dateExpIso)
     )
     if (q) {
@@ -273,6 +292,7 @@ export default function Tracking(props: SuiviPageProps) {
     verdictFilter,
     typeFilter,
     atelierFilter,
+    clientFilter,
     dateRange,
     searchBom,
     ruptureOnly,
@@ -355,7 +375,8 @@ export default function Tracking(props: SuiviPageProps) {
     (mode === 'proactif' && !showSubAssemblies) ||
     (mode === 'proactif' && searchBom) ||
     DEFAULT_TYPES.some((t) => !typeFilter.has(t)) ||
-    atelierFilter.size > 0
+    atelierFilter.size > 0 ||
+    clientFilter !== null
   const isFiltered = !!query.trim() || filtersActive
   const filteredCount = mode === 'reactif' ? reactiveFilteredRows.length : proFilteredRows.length
   const totalCount = mode === 'reactif' ? view.total : proView.total
@@ -370,6 +391,7 @@ export default function Tracking(props: SuiviPageProps) {
     setSearchBom(false)
     setTypeFilter(new Set(DEFAULT_TYPES))
     setAtelierFilter(new Set())
+    setClientFilter(null)
   }
 
   return (
@@ -529,6 +551,12 @@ export default function Tracking(props: SuiviPageProps) {
               </>
             )}
           </FilterMenu>
+
+          {/* Filtre client — dropdown dédié, transverse aux 2 vues (masqué
+              si la vue ne porte aucun client, même dégradation que l'atelier). */}
+          {clients.length > 0 && (
+            <ClientFilterPill clients={clients} value={clientFilter} onChange={setClientFilter} />
+          )}
 
           <ToolbarSpacer />
 
