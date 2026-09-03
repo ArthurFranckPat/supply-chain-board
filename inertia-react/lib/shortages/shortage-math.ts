@@ -53,18 +53,35 @@ export const VERDICT_RANK: Record<ShortageDisplayRow['verdictKey'], number> = {
   couvert: 0,
 }
 
-/** Badge couverture de la vue « Par composant » (pire verdict du groupe). Teintes du
- *  design system — miroir du VERDICT_PRESET serveur, sans les icônes (libellé seul). */
-export const VERDICT_BADGE: Record<
+/**
+ * Marque de couverture de la vue « Par composant » (pire verdict du groupe).
+ *
+ * Grammaire du Suivi proactif (VERDICT_DOT + VERDICT_TEXT de lib/suivi/tracking-shared) :
+ * pastille pleine + libellé coloré, JAMAIS de pill à fond teinté. Le fond coloré est
+ * réservé au signal « ligne en retard » ; deux fonds teintés dans la même ligne et la
+ * hiérarchie s'effondre. Teintes du design system, miroir du VERDICT_PRESET serveur.
+ */
+export const VERDICT_MARK: Record<
   ShortageDisplayRow['verdictKey'],
-  { cls: string; label: string }
+  { dot: string; text: string; label: string }
 > = {
-  couvert: { cls: 'bg-ferme/15 text-ferme', label: 'Couvert' },
-  a_risque: { cls: 'bg-suggere/15 text-suggere', label: 'À risque' },
-  retard: { cls: 'bg-destructive/10 text-destructive', label: 'Retard' },
-  sous_ensemble: { cls: 'bg-planifie/15 text-planifie', label: 'S/E à lancer' },
-  sans_couverture: { cls: 'bg-destructive/10 text-destructive', label: 'Sans couv.' },
+  couvert: { dot: 'bg-ferme', text: 'text-ferme', label: 'Couvert' },
+  a_risque: { dot: 'bg-suggere', text: 'text-suggere', label: 'À risque' },
+  retard: { dot: 'bg-destructive', text: 'text-destructive', label: 'Retard' },
+  sous_ensemble: { dot: 'bg-planifie', text: 'text-planifie', label: 'S/E à lancer' },
+  sans_couverture: { dot: 'bg-destructive', text: 'text-destructive', label: 'Sans couv.' },
 }
+
+/**
+ * Gravité d'un verdict rupture, dans le vocabulaire du Suivi proactif
+ * (`lateSeverity` → LATE_TONE.bar/bg) : c'est ce qui pilote la barre latérale
+ * de la colonne N°. `sans_couverture` / `retard` = rouge, `a_risque` = ambre,
+ * le reste ne porte aucune teinte.
+ */
+export const verdictSeverity = (
+  v: ShortageDisplayRow['verdictKey']
+): 'tolerance' | 'critical' | null =>
+  v === 'retard' || v === 'sans_couverture' ? 'critical' : v === 'a_risque' ? 'tolerance' : null
 
 /** Agrège les lignes par composant. `rows` arrive trié par urgence (expé asc) du parent. */
 export const groupByComponent = (rows: ShortageDisplayRow[]): ComponentGroup[] => {
