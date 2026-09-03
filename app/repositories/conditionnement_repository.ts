@@ -47,7 +47,7 @@ export interface ArticleConditionnement {
  *    vers une zone transitoire (S9P, REC) qui n'est pas une palette stockée.
  *
  * Le SOAP Syracuse n'accepte ni COUNT(*) ni GROUP BY agrégé → on remonte les lignes
- * brutes et on agrège côté application (cf. expedition_repository, même motif).
+ * brutes et on agrège côté application.
  */
 
 type RawRow = Record<string, string | null>

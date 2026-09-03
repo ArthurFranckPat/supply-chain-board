@@ -3,8 +3,7 @@
  *
  * Calcul du nombre de palettes attendues à partir des quantités commandées (US) et
  * des coefficients de conditionnement article (ITMMASTER). Sans logique ESH/VB dans
- * un premier temps (simplification volontaire — cf. expedition_repository pour la
- * variante complète avec facteur de surface).
+ * un premier temps (simplification volontaire).
  *
  * AUCUN accès X3 ici : ce module ne fait que transformer des données déjà chargées
  * (testable isolément, cf. tests/domain/receptions.test.ts).
@@ -92,7 +91,7 @@ export function pickReceptionDate(
  * l'article sera visible dans le tableau mais n'alimentera pas la charge palette).
  *
  * On arrondit au supérieur : une palette partielle occupe physiquement une palette
- * au sol. (Variante ESH / familles VB non gérée ici — cf. expedition_repository.)
+ * au sol. (Variante ESH / familles VB non gérée ici.)
  */
 export function calcPalettes(qteUs: number, usParPal: number | null): number {
   if (!Number.isFinite(qteUs) || qteUs <= 0) return 0

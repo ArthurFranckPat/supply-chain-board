@@ -19,10 +19,6 @@ import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
  *   - /api/v1/dashboard/kpis  → charge en retard (stable, rechargé uniquement au refresh)
  *   - /api/v1/dashboard/otd   → OTD (volatile : mode + plage date changent côté client)
  *   - /api/v1/dashboard/stock → valorisation du stock sur 12 mois (AE1)
- *
- * Les expéditions (issue #44) vivent désormais dans leur propre onglet dédié
- * (/expeditions, ExpeditionsController) — retiré du dashboard car une carte résumée
- * ne suffisait pas à l'usage opérationnel (vérification camion par camion).
  */
 export default class DashboardController {
   /** GET / — coquille du tableau de bord. */

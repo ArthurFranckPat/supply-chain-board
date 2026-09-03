@@ -15,7 +15,7 @@ import {
  * Page « Réceptions fournisseurs » : planning des réceptions attendues + charge palettes
  * par jour pour anticiper la charge du service réception.
  *
- * Même motif que /expeditions et /ruptures : coquille Inertia instantanée, calcul lourd
+ * Même motif que /ruptures : coquille Inertia instantanée, calcul lourd
  * (X3 + calcul palette + agrégation) chargé en différé via /api/v1/receptions/rows.
  *
  * Le calcul lui-même vit dans `#services/reception_payload_loader` — partagé avec le

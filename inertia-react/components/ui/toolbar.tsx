@@ -6,7 +6,7 @@ import { cn } from "@r/lib/utils"
 import { DynamicIcon } from "./dynamic-icon"
 
 // Toolbar — composant unifié pour les barres de filtrage au-dessus des pages
-// métier (dashboard, suivi, ruptures, expeditions, receptions, etc.).
+// métier (dashboard, suivi, ruptures, receptions, etc.).
 //
 // Extrait du pattern dupliqué à 8 endroits dans le codebase :
 //   <div className="flex flex-none flex-wrap items-center gap-2.5 border-b

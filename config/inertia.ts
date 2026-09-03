@@ -65,15 +65,6 @@ declare module '@adonisjs/inertia/types' {
         printOrder: ('charge' | 'profondeur' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
       }
     }
-    // Expéditions (issue #44 + #104) — rétroviseur + prévision charge transport.
-    'expeditions': {
-      referenceDate: string
-      rowsHref: string
-      forecastHref: string
-      defaultGapMinutes: number
-      maxPalettesCamion: number
-      forecastDefaultDays: number
-    }
     // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
     'receptions': {
       from: string

@@ -39,7 +39,7 @@ import type {
  *
  * Coquille Inertia instantanée ; le calcul lourd (X3 + palette + agrégation)
  * est chargé en différé via useTimedFetch sur rowsHref. Même motif que
- * /expeditions, /ruptures, /suivi.
+ * /ruptures, /suivi.
  */
 
 const fold = (s: string): string =>

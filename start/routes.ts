@@ -120,7 +120,6 @@ router
     // Séquenceur (#46/#100) : board /programme en table, filtre poste côté client.
     router.get('/sequenceur', '#controllers/scheduler_controller.sequenceur').as('sequenceur.index')
     router.get('/charge', '#controllers/load_controller.index')
-    router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
     router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
@@ -270,11 +269,6 @@ router
     router
       .patch('/api/v1/user/dashboard-layout', '#controllers/dashboard_layout_controller.update')
       .as('user.dashboard_layout.update')
-
-    // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
-    router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
-    // Prévision charge transport J→J+n (issue #104).
-    router.get('/api/v1/expeditions/forecast', '#controllers/expeditions_controller.forecast')
 
     // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
     router

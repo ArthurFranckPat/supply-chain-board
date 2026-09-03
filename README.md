@@ -1,6 +1,6 @@
 # Supply Chain Board
 
-App AdonisJS (Inertia + SolidJS) qui regroupe le programme d'ordonnancement, le suivi des commandes, les ruptures, la charge, les expéditions/réceptions et un tableau de bord KPI. S'appuie sur SQLite en local et interroge Sage X3 via SOAP/SQL.
+App AdonisJS (Inertia + SolidJS) qui regroupe le programme d'ordonnancement, le suivi des commandes, les ruptures, la charge, les réceptions et un tableau de bord KPI. S'appuie sur SQLite en local et interroge Sage X3 via SOAP/SQL.
 
 ## Stack
 
@@ -97,7 +97,6 @@ Toutes les routes (hors `/login`, `/health`, assets) sont protégées par `auth`
 - `GET /suivi` — Suivi des commandes
 - `GET /ruptures` — Suivi des ruptures
 - `GET /charge` — Charge par atelier/poste
-- `GET /expeditions` — Expéditions
 - `GET /receptions` — Réceptions fournisseurs
 - `GET /conditionnements` — Coefs de conditionnement manquants
 - `GET /configuration/calendrier` — Calendrier usine (fériés, fermetures par ligne)
@@ -118,7 +117,7 @@ Toutes les routes (hors `/login`, `/health`, assets) sont protégées par `auth`
 
 - `POST /api/v1/status/{assign,from-latest-export,palette,retard-charge}`, `GET /rows`, `GET /proactive-rows`
 - `GET /api/v1/dashboard/{kpis,otd,stock}`
-- `GET /api/v1/expeditions/rows`, `GET /api/v1/receptions/rows`
+- `GET /api/v1/receptions/rows`
 - `GET /api/v1/conditionnements/{rows,estimations}`
 - `GET /api/v1/static/status`, `POST /api/v1/static/sync` — Sync X3 → SQLite
 - `POST /api/v1/config/holidays/toggle`, `POST/PATCH/DELETE /api/v1/config/closures...`
