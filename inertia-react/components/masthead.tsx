@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, usePage } from '@inertiajs/react'
 import { ChevronDown } from 'lucide-react'
 
+import { DataStatus } from '@r/components/data-status'
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 import UserMenu from '@r/components/user-menu'
@@ -332,7 +333,7 @@ export function Masthead(props: {
           />
         </nav>
 
-        {/* Bloc droit : meta (optionnel) + actions + UserMenu. */}
+        {/* Bloc droit : meta (optionnel) + actions + statut données + UserMenu. */}
         <div className="flex items-center gap-3">
           {props.meta && (
             <div className="hidden text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground xl:block">
@@ -340,6 +341,7 @@ export function Masthead(props: {
             </div>
           )}
           {props.actions}
+          <DataStatus />
           <UserMenu />
         </div>
       </header>
@@ -421,6 +423,7 @@ export function Masthead(props: {
         />
         <div className="ml-auto flex items-center gap-2 py-1.5">
           {props.actions}
+          <DataStatus />
           <UserMenu />
         </div>
       </nav>

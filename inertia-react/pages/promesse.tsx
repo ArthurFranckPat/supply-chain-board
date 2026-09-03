@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import AppLayout from '@r/layouts/app'
+import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 import type { PromiseResult, PromiseNode, PromiseReason } from '@r/lib/promesse/types'
@@ -169,6 +170,11 @@ export default function Promesse() {
     setLoading(true)
     setError('')
     setResult(null)
+    // Widget « fraîcheur des données » du masthead : la requête CTP est le
+    // chargement de données de cette page — elle alimente chrono + heure de maj.
+    const status = useDataStatusStore.getState()
+    status.begin()
+    const t0 = Date.now()
     try {
       const params = new URLSearchParams({
         article: article.trim(),
@@ -179,8 +185,10 @@ export default function Promesse() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur serveur')
       setResult(data)
+      status.end(Date.now() - t0)
     } catch (err) {
       setError((err as Error).message)
+      status.fail((err as Error).message)
     } finally {
       setLoading(false)
     }

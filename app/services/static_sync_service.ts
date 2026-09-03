@@ -384,6 +384,17 @@ FROM (
     }))
   }
 
+  /**
+   * Date (epoch ms) de la dernière extraction statique X3 → SQLite. Même
+   * source que `counts().lastSync` (nomenclatures = table la plus fréquemment
+   * resynchronisée) mais en une seule requête — consommée par les shared props
+   * Inertia à chaque navigation.
+   */
+  async lastSync(): Promise<number | null> {
+    const row = await db.from('static_nomenclatures').max('synced_at as ts').first()
+    return (row as any)?.ts ? Number((row as any).ts) : null
+  }
+
   async counts(): Promise<{
     articles: number
     gammes: number
@@ -397,13 +408,13 @@ FROM (
       db.from('static_nomenclatures').count('* as total').first(),
       db.from('static_workstations').count('* as total').first(),
     ])
-    const lastSync = await db.from('static_nomenclatures').max('synced_at as ts').first()
+    const lastSync = await this.lastSync()
     return {
       articles: Number((a as any)?.total ?? 0),
       gammes: Number((g as any)?.total ?? 0),
       nomenclatures: Number((n as any)?.total ?? 0),
       workstations: Number((w as any)?.total ?? 0),
-      lastSync: (lastSync as any)?.ts ? Number((lastSync as any).ts) : null,
+      lastSync,
     }
   }
 }
