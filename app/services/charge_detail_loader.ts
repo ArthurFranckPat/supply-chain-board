@@ -140,8 +140,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   if (!poste) throw new ChargeDetailBadRequest('Poste manquant')
 
   // Version nettoyée : c'est un fragment de clé de cache, pas une donnée métier.
-  const version =
-    params.version && /^[a-z0-9]{4,24}$/i.test(params.version) ? params.version : null
+  const version = params.version && /^[a-z0-9]{4,24}$/i.test(params.version) ? params.version : null
 
   const range = chargeBucketRange(params.gran, params.bucket)
   if (!range) throw new ChargeDetailBadRequest(`Période illisible : ${params.bucket}`)

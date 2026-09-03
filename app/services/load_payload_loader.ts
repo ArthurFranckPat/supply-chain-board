@@ -440,7 +440,9 @@ export async function pinChargeInputs(
   })
   for (const stale of known) {
     if (!kept.includes(stale)) {
-      await cacheNs('charge').delete({ key: `charge:inputs:${stale}` }).catch(() => {})
+      await cacheNs('charge')
+        .delete({ key: `charge:inputs:${stale}` })
+        .catch(() => {})
     }
   }
 }
