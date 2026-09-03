@@ -684,9 +684,22 @@ export function evaluateOrderImpacts(
         if (manque > QTY_EPSILON) manquants[art] = Math.round(manque * 100) / 100
 
         const resteOf = surManque ? qcResteOf : seQcResteOf
-        const qcVoulu = (surManque ? (lens.qc[art] ?? 0) : (lens.seQc[art] ?? 0)) * tranche.ratio
+        // La poche Q sert les tranches DANS L'ORDRE, jamais au prorata : une pièce sous
+        // contrôle réception ne se coupe pas en deux. `× tranche.ratio` sur la dette CQ
+        // affichait « 13,5 en statut Q » sur une ligne et « 1,5 » sur l'autre pour les 15
+        // pièces d'EH4276 (relevé PROD 03/09/2026, F126-49779 servant 1296 + 144). C'est la
+        // règle déjà actée pour la production (15a5e289 : « le stock va en entier à la
+        // première servie ») — elle était énoncée dans le commit, pas appliquée ici.
+        //
+        // Plafond de la tranche = sa part du manque vs stock STRICT, ce qu'elle peut
+        // réellement consommer : sans lui, une tranche d'une pièce revendiquerait la poche
+        // entière. Le reste (`resteOf`, déjà décrémenté) passe à la tranche suivante.
+        const besoinStrictTranche =
+          (surManque
+            ? (lens.missing[art] ?? 0) + (lens.qc[art] ?? 0)
+            : (lens.se[art] ?? 0) + (lens.seQc[art] ?? 0)) * tranche.ratio
         const dispoQc = consommeLesPoches ? (qcPool.get(art) ?? 0) : Number.POSITIVE_INFINITY
-        const qc = Math.max(0, Math.min(resteOf[art] ?? 0, qcVoulu, dispoQc))
+        const qc = Math.max(0, Math.min(resteOf[art] ?? 0, besoinStrictTranche, dispoQc))
         if (qc > QTY_EPSILON) {
           resteOf[art] = (resteOf[art] ?? 0) - qc
           if (consommeLesPoches) qcPool.set(art, (qcPool.get(art) ?? 0) - qc)

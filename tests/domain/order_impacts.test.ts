@@ -841,8 +841,18 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
    * 25 pièces en statut Q promises deux fois.
    *
    * Ici : besoin 100 de C1, stock strict 60 + Q 25 → manque 15, dont toute la dette CQ
-   * vaut 25. Deux lignes (60 + 40) servies par le même OF : 9 + 6 de manque, 15 + 10 de
-   * dette CQ — jamais plus que les 25 pièces réellement en statut Q.
+   * vaut 25. Deux lignes (60 + 40) servies par le même OF : 9 + 6 de manque, et la poche Q
+   * servie DANS L'ORDRE — jamais plus que les 25 pièces réellement en statut Q.
+   *
+   * La 1re ligne prend sa part entière du manque vs stock strict (40 × 0,6 = 24), la 2nde le
+   * reliquat (1). Le prorata précédent (15 + 10) coupait les pièces en deux dès que le
+   * partage tombait mal : 13,5 et 1,5 sur EH4276 en PROD (03/09/2026).
+   *
+   * LIMITE ASSUMÉE : la réponse physiquement exacte serait 0 + 25 — la 1re ligne (60 pièces)
+   * est entièrement servie par les 60 du stock strict, le Q ne sert que la 2nde. L'obtenir
+   * suppose de servir chaque tranche depuis les POCHES dans l'ordre (stock → Q → production),
+   * donc de découper le besoin et non plus le manque : ça déplacerait tous les manques
+   * affichés sur le board. Chantier à part.
    */
   test('manquant ACHETÉ : la dette CQ suit la tranche de chaque ligne', ({ assert }) => {
     const nomenclatures = new Map<string, Nomenclature>([
@@ -897,9 +907,13 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
 
     const [ligne1, ligne2] = result.orders
     assert.deepEqual(ligne1.ofs[0].missingComponents, { C1: 9 }, 'sa tranche du manque (15 × 0,6)')
-    assert.deepEqual(ligne1.ofs[0].qcComponents, { C1: 15 }, 'sa tranche de la dette CQ')
+    assert.deepEqual(
+      ligne1.ofs[0].qcComponents,
+      { C1: 24 },
+      "la poche Q sert la 1re ligne à hauteur de ce qu'elle peut consommer, pas au prorata"
+    )
     assert.deepEqual(ligne2.ofs[0].missingComponents, { C1: 6 }, 'le reliquat du manque')
-    assert.deepEqual(ligne2.ofs[0].qcComponents, { C1: 10 }, 'le reliquat de la dette CQ')
+    assert.deepEqual(ligne2.ofs[0].qcComponents, { C1: 1 }, 'le reliquat de la poche Q')
     assert.equal(
       (ligne1.ofs[0].qcComponents!.C1 ?? 0) + (ligne2.ofs[0].qcComponents!.C1 ?? 0),
       25,
