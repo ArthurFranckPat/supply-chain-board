@@ -27,6 +27,7 @@ import {
   ToolbarRow,
   ToolbarSpacer,
   FilterMenu,
+  FilterMenuSectionLabel,
   DateWindowPill,
 } from '@r/components/vision/toolbar'
 import {
@@ -102,6 +103,10 @@ const STATUS_DOT_CLASS: Record<StatusKey, string> = {
   2: 'bg-planifie',
   3: 'bg-suggere',
 }
+
+/** ✕ de réinitialisation d'une section du menu « Filtres » (standard /suivi). */
+const RESET_BTN_CLASS =
+  'rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground'
 
 /** Couleur de libellé de statut — même sémantique que /programme. */
 function statusTextClass(status: number | undefined): string {
@@ -490,6 +495,21 @@ export default function Sequenceur(props: SequenceurPageProps) {
     })
   }
 
+  const resetPosteNature = () => {
+    setPosteNatureFilter(new Set(ALL_POSTE_NATURES))
+    writeStoredFilters({ posteNatures: [...ALL_POSTE_NATURES] })
+  }
+
+  const resetStatus = () => {
+    setStatusFilter(new Set(ALL_STATUSES))
+    writeStoredFilters({ statusFilter: [...ALL_STATUSES] })
+  }
+
+  const resetAteliers = () => {
+    setAtelierFilter(new Set())
+    writeStoredFilters({ ateliers: [] })
+  }
+
   const setQueryPersisted = (value: string) => {
     setQuery(value)
     writeStoredFilters({ query: value })
@@ -852,6 +872,39 @@ export default function Sequenceur(props: SequenceurPageProps) {
     if (nbOk > 0) setTimeout(() => router.reload(), 1500)
   }
 
+  // État des filtres secondaires (menu « Filtres ») — pilote les indicateurs du
+  // déclencheur et les ✕ de réinitialisation par section.
+  const natureFiltered = posteNatureFilter.size < POSTE_NATURE_CHIPS.length
+  const statusFiltered = statusFilter.size < STATUS_FILTER_CHIPS.length
+  const ateliersFiltered = atelierFilter.size > 0
+  const otherFiltered =
+    feasFilter !== 'all' || (detail && urgencyFilter !== 'all') || ateliersFiltered
+
+  const filterIndicators = (
+    <>
+      {natureFiltered && posteNatureFilter.size > 0 && (
+        <span
+          className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
+          aria-hidden="true"
+        >
+          {POSTE_NATURE_CHIPS.filter(({ k }) => posteNatureFilter.has(k))
+            .map(({ k }) => (k === 'assemblage_pf' ? 'PF' : 'S/E'))
+            .join('+')}
+        </span>
+      )}
+      {statusFiltered && (
+        <span className="ml-0.5 flex items-center gap-0.5" aria-hidden="true">
+          {STATUS_FILTER_CHIPS.filter(({ k }) => statusFilter.has(k)).map(({ k }) => (
+            <span key={k} className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
+          ))}
+        </span>
+      )}
+      {otherFiltered && (
+        <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+      )}
+    </>
+  )
+
   return (
     <AppLayout
       title="Séquenceur"
@@ -886,8 +939,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
           </div>
         )}
 
-        <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-          <div ref={anchorRef}>
+        <ToolbarRow
+          className="select-none text-xs font-semibold text-secondary-foreground"
+          noWrap
+        >
+          <div ref={anchorRef} className="shrink-0">
             <Combobox
               value={posteFilter ?? ''}
               onValueChange={(v) => selectPoste(v ? String(v) : null)}
@@ -916,70 +972,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
             </Combobox>
           </div>
 
-          {props.ateliers.length > 0 && (
-            <Segment className="flex-wrap">
-              {props.ateliers.map((a) => (
-                <SegmentButton
-                  key={a.code}
-                  active={atelierFilter.has(a.code)}
-                  onClick={() => toggleAtelier(a.code)}
-                  title={a.code}
-                >
-                  {a.label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          )}
-
-          <FilterMenu
-            label="Poste"
-            indicators={
-              POSTE_NATURE_CHIPS.some(({ k }) => posteNatureFilter.has(k)) ? (
-                <span
-                  className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  {POSTE_NATURE_CHIPS.filter(({ k }) => posteNatureFilter.has(k))
-                    .map(({ k }) => (k === 'assemblage_pf' ? 'PF' : 'S/E'))
-                    .join('+')}
-                </span>
-              ) : null
-            }
-          >
-            <Segment className="w-full justify-between">
-              {POSTE_NATURE_CHIPS.map(({ k, label }) => (
-                <SegmentButton
-                  key={k}
-                  active={posteNatureFilter.has(k)}
-                  onClick={() => togglePosteNature(k)}
-                >
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          </FilterMenu>
-
-          <FilterMenu
-            label="Statut"
-            indicators={
-              STATUS_FILTER_CHIPS.some(({ k }) => statusFilter.has(k)) ? (
-                <span className="ml-0.5 flex items-center gap-0.5" aria-hidden="true">
-                  {STATUS_FILTER_CHIPS.filter(({ k }) => statusFilter.has(k)).map(({ k }) => (
-                    <span key={k} className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
-                  ))}
-                </span>
-              ) : null
-            }
-          >
-            <Segment className="w-full justify-between">
-              {STATUS_FILTER_CHIPS.map(({ k, label }) => (
-                <SegmentButton key={k} active={statusFilter.has(k)} onClick={() => toggleStatus(k)}>
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          </FilterMenu>
-
           <DateWindowPill
             open={dateOpen}
             onOpenChange={setDateOpen}
@@ -991,50 +983,164 @@ export default function Sequenceur(props: SequenceurPageProps) {
             title="Filtrer par date de livraison"
           />
 
-          <Segment role="radiogroup" ariaLabel="Faisabilité">
-            {(
-              [
-                ['all', 'Tous', null as number | null],
-                ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
-                ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
-                ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
-              ] as const
-            ).map(([id, label, count]) => (
-              <SegmentButton
-                key={id}
-                role="radio"
-                active={feasFilter === id}
-                onClick={() => setFeasFilterPersisted(id)}
-              >
-                {label}
-                {count !== null && count > 0 && (
-                  <span className="ml-1 tabular-nums opacity-70">{count}</span>
-                )}
-              </SegmentButton>
-            ))}
-          </Segment>
-
-          {detail && (
-            <Segment role="radiogroup" ariaLabel="Urgence">
-              {(
-                [
-                  ['all', 'Toutes'],
-                  ['overdue', 'En retard'],
-                  ['week', 'Cette semaine'],
-                  ['later', 'À venir'],
-                ] as const
-              ).map(([id, label]) => (
+          {/* Standard /suivi : un seul déclencheur regroupe les filtres non
+              essentiels (nature de poste, statut, faisabilité, urgence,
+              atelier) — la rangée ne garde que poste, dates, action et
+              recherche. */}
+          <FilterMenu label="Filtres" indicators={filterIndicators}>
+            <div className="flex items-center justify-between">
+              <FilterMenuSectionLabel>Poste</FilterMenuSectionLabel>
+              {natureFiltered && (
+                <button
+                  type="button"
+                  className={RESET_BTN_CLASS}
+                  onClick={resetPosteNature}
+                  title="Tous les types de poste"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <Segment className="w-full flex-wrap">
+              {POSTE_NATURE_CHIPS.map(({ k, label }) => (
                 <SegmentButton
-                  key={id}
-                  role="radio"
-                  active={urgencyFilter === id}
-                  onClick={() => setUrgencyPersisted(id)}
+                  key={k}
+                  active={posteNatureFilter.has(k)}
+                  onClick={() => togglePosteNature(k)}
                 >
                   {label}
                 </SegmentButton>
               ))}
             </Segment>
-          )}
+
+            <div className="my-2.5 border-t border-rule-soft" />
+            <div className="flex items-center justify-between">
+              <FilterMenuSectionLabel>Statut</FilterMenuSectionLabel>
+              {statusFiltered && (
+                <button
+                  type="button"
+                  className={RESET_BTN_CLASS}
+                  onClick={resetStatus}
+                  title="Tous les statuts"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <Segment className="w-full flex-wrap">
+              {STATUS_FILTER_CHIPS.map(({ k, label }) => (
+                <SegmentButton key={k} active={statusFilter.has(k)} onClick={() => toggleStatus(k)}>
+                  {label}
+                </SegmentButton>
+              ))}
+            </Segment>
+
+            <div className="my-2.5 border-t border-rule-soft" />
+            <div className="flex items-center justify-between">
+              <FilterMenuSectionLabel>Faisabilité</FilterMenuSectionLabel>
+              {feasFilter !== 'all' && (
+                <button
+                  type="button"
+                  className={RESET_BTN_CLASS}
+                  onClick={() => setFeasFilterPersisted('all')}
+                  title="Toutes les faisabilités"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <Segment className="w-full flex-wrap">
+              {(
+                [
+                  ['all', 'Tous', null as number | null],
+                  ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
+                  ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
+                  ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
+                ] as const
+              ).map(([id, label, count]) => (
+                <SegmentButton
+                  key={id}
+                  role="radio"
+                  active={feasFilter === id}
+                  onClick={() => setFeasFilterPersisted(id)}
+                >
+                  {label}
+                  {count !== null && count > 0 && (
+                    <span className="ml-1 tabular-nums opacity-70">{count}</span>
+                  )}
+                </SegmentButton>
+              ))}
+            </Segment>
+
+            {detail && (
+              <>
+                <div className="my-2.5 border-t border-rule-soft" />
+                <div className="flex items-center justify-between">
+                  <FilterMenuSectionLabel>Urgence livraison</FilterMenuSectionLabel>
+                  {urgencyFilter !== 'all' && (
+                    <button
+                      type="button"
+                      className={RESET_BTN_CLASS}
+                      onClick={() => setUrgencyPersisted('all')}
+                      title="Toutes les urgences"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <Segment className="w-full flex-wrap">
+                  {(
+                    [
+                      ['all', 'Toutes'],
+                      ['overdue', 'En retard'],
+                      ['week', 'Cette semaine'],
+                      ['later', 'À venir'],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <SegmentButton
+                      key={id}
+                      role="radio"
+                      active={urgencyFilter === id}
+                      onClick={() => setUrgencyPersisted(id)}
+                    >
+                      {label}
+                    </SegmentButton>
+                  ))}
+                </Segment>
+              </>
+            )}
+
+            {props.ateliers.length > 0 && (
+              <>
+                <div className="my-2.5 border-t border-rule-soft" />
+                <div className="flex items-center justify-between">
+                  <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
+                  {ateliersFiltered && (
+                    <button
+                      type="button"
+                      className={RESET_BTN_CLASS}
+                      onClick={resetAteliers}
+                      title="Tous les ateliers"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <Segment className="w-full flex-wrap">
+                  {props.ateliers.map((a) => (
+                    <SegmentButton
+                      key={a.code}
+                      active={atelierFilter.has(a.code)}
+                      onClick={() => toggleAtelier(a.code)}
+                      title={a.code}
+                    >
+                      {a.label}
+                    </SegmentButton>
+                  ))}
+                </Segment>
+              </>
+            )}
+          </FilterMenu>
 
           <ToolbarSpacer />
 
