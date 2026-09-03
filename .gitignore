@@ -44,3 +44,12 @@ excalidraw.log
 .hallmark/
 .qwen/
 .gstack/
+
+# Types régénérés par le dev server Adonis — jamais versionnés
+.adonisjs/
+# Notes et config locales
+allocations-mwf.md
+AGENTS.md
+.claude/ralph-loop.local.md
+# Worktrees d'agents
+.worktrees/
