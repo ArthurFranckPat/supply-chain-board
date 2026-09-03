@@ -597,6 +597,35 @@ export function evaluateOrderImpacts(
   /** Clé d'une tranche : identifie le couple (ligne de commande, OF) — cf. `matchingResults`. */
   const trancheKey = (matchIndex: number, ofId: string) => `${matchIndex}|${ofId}`
 
+  /**
+   * Répartit une quantité d'OF entre ses tranches, dans l'ordre de service.
+   *
+   * UN TOTAL ENTIER SE RÉPARTIT EN ENTIERS (méthode des plus forts restes, somme conservée) :
+   * on n'invente pas une fraction que la source n'a pas. Le prorata brut produisait « 955,63 »
+   * pour une ligne qui prend 2591 pièces d'un OF de 2592 — 0,63 de pièce née d'un ratio à
+   * 99,96 % (relevé PROD 03/09/2026, EMM707PO / F126-49951 / EH1706, manque OF = 956).
+   * À égalité de partie fractionnaire, la pièce va à la tranche servie en premier.
+   *
+   * Un total DÉJÀ fractionnaire (article à unité continue : kg, mètres, ou lien de
+   * nomenclature non entier) garde son prorata au centième — l'arrondir fausserait la mesure.
+   */
+  const repartir = (total: number, ratios: number[]): number[] => {
+    if (total <= QTY_EPSILON) return ratios.map(() => 0)
+    const brut = ratios.map((r) => total * r)
+    if (!Number.isInteger(total)) return brut.map((v) => Math.round(v * 100) / 100)
+    const parts = brut.map((v) => Math.floor(v))
+    let reste = Math.round(total - parts.reduce((somme, v) => somme + v, 0))
+    const parPlusFortReste = brut
+      .map((v, i) => ({ i, frac: v - parts[i] }))
+      .sort((a, b) => b.frac - a.frac || a.i - b.i)
+    for (const { i } of parPlusFortReste) {
+      if (reste <= 0) break
+      parts[i] += 1
+      reste -= 1
+    }
+    return parts
+  }
+
   const tranchesByOf = new Map<string, Array<{ key: string; ratio: number; ordre: string }>>()
   matchingResults.forEach((match, matchIndex) => {
     const demande = match.demandFlow
@@ -668,7 +697,28 @@ export function evaluateOrderImpacts(
     const qcResteOf: Record<string, number> = { ...lens.qc }
     const seQcResteOf: Record<string, number> = { ...lens.seQc }
 
-    for (const tranche of tranches) {
+    // Répartition ENTIÈRE des quantités de l'OF entre ses tranches, calculée une fois pour
+    // toutes (une part par tranche, somme conservée). Faite ici et pas tranche par tranche :
+    // les plus forts restes ont besoin de voir toutes les parts à la fois.
+    const ratios = tranches.map((t) => t.ratio)
+    const partManque = new Map<string, number[]>()
+    const partStricte = new Map<string, number[]>()
+    for (const art of articlesLentille) {
+      const surManque = (lens.missing[art] ?? 0) > QTY_EPSILON
+      partManque.set(art, repartir(lens.missing[art] ?? 0, ratios))
+      // Manque vs stock STRICT : ce que la tranche a à couvrir avant le Q et la production.
+      partStricte.set(
+        art,
+        repartir(
+          surManque
+            ? (lens.missing[art] ?? 0) + (lens.qc[art] ?? 0)
+            : (lens.se[art] ?? 0) + (lens.seQc[art] ?? 0),
+          ratios
+        )
+      )
+    }
+
+    for (const [indexTranche, tranche] of tranches.entries()) {
       const manquants: Record<string, number> = {}
       const qcPris: Record<string, number> = {}
       const besoinsSe: Record<string, number> = {}
@@ -680,7 +730,7 @@ export function evaluateOrderImpacts(
         // la sienne sur `seQc`. Sans ce choix, l'article puiserait DEUX fois dans la poche.
         const surManque = (lens.missing[art] ?? 0) > QTY_EPSILON
 
-        const manque = (lens.missing[art] ?? 0) * tranche.ratio
+        const manque = partManque.get(art)![indexTranche]
         if (manque > QTY_EPSILON) manquants[art] = Math.round(manque * 100) / 100
 
         const resteOf = surManque ? qcResteOf : seQcResteOf
@@ -694,10 +744,7 @@ export function evaluateOrderImpacts(
         // Plafond de la tranche = sa part du manque vs stock STRICT, ce qu'elle peut
         // réellement consommer : sans lui, une tranche d'une pièce revendiquerait la poche
         // entière. Le reste (`resteOf`, déjà décrémenté) passe à la tranche suivante.
-        const besoinStrictTranche =
-          (surManque
-            ? (lens.missing[art] ?? 0) + (lens.qc[art] ?? 0)
-            : (lens.se[art] ?? 0) + (lens.seQc[art] ?? 0)) * tranche.ratio
+        const besoinStrictTranche = partStricte.get(art)![indexTranche]
         const dispoQc = consommeLesPoches ? (qcPool.get(art) ?? 0) : Number.POSITIVE_INFINITY
         const qc = Math.max(0, Math.min(resteOf[art] ?? 0, besoinStrictTranche, dispoQc))
         if (qc > QTY_EPSILON) {
@@ -711,7 +758,7 @@ export function evaluateOrderImpacts(
           // Le besoin du SE vs stock strict = part production + part CQ. Ce que la poche CQ
           // n'a pas donné bascule sur la production : le manque total de la tranche ne bouge
           // pas, seule sa décomposition change.
-          const besoin = ((lens.se[art] ?? 0) + (lens.seQc[art] ?? 0)) * tranche.ratio - qc
+          const besoin = besoinStrictTranche - qc
           if (besoin > QTY_EPSILON) besoinsSe[art] = besoin
         }
       }

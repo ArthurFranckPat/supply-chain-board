@@ -922,6 +922,64 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
   })
 
   /**
+   * Répartition ENTIÈRE des quantités d'un OF entre ses tranches (plus forts restes).
+   *
+   * Relevé PROD 03/09/2026, EMM707PO / F126-49951 / EH1706 : la ligne prend 2591 pièces d'un
+   * OF de 2592, soit un ratio de 99,96 % — le prorata brut affichait « 955,63 » pour un manque
+   * d'OF de 956. Une pièce ne se coupe pas en deux, et la part non rattachée à une ligne
+   * (0,37 de pièce) n'existe pas.
+   */
+  test('un total entier se répartit en entiers, jamais en virgules', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['C1', makeArticle('C1', 'ACHAT')],
+    ])
+    // Besoin 2592 de C1, stock 1636 → manque 956 pour l'OF entier.
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 2592, daysFromNow(8)),
+      makeStockFlow('C1', 1636),
+    ]
+    // Une seule ligne, servie à 2591/2592 : le reliquat d'une pièce n'est rattaché à personne.
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 2591, daysFromNow(10))]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    assert.deepEqual(
+      result.orders[0].ofs[0].missingComponents,
+      { C1: 956 },
+      "la ligne porte le manque entier — 956 × 2591/2592 = 955,63 n'est pas une quantité"
+    )
+  })
+
+  /**
    * Le manque prime sur la dépendance (règle de l'écran, cf. suivi_controller) : un article
    * ENCORE manquant malgré le Q et la production ne raconte pas EN PLUS sa part couverte par
    * un OF producteur — la décomposition SE/CQ n'existe que pour un article non manquant.
