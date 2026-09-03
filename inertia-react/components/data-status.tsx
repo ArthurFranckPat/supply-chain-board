@@ -140,7 +140,8 @@ const fmtDiff = (d: { changed: number; entered: number; exited: number }) =>
     .join(' · ')
 
 export function DataStatus() {
-  const { active, t0, ms, loadedAt, dataAgeMs, error, bump, diffBySource } = useDataStatusStore()
+  const { active, t0, ms, loadedAt, dataAgeMs, dataAgePresumed, error, bump, diffBySource } =
+    useDataStatusStore()
   const loading = active > 0
   const diff = totalDiff(diffBySource)
   const page = usePage<{ x3LastSync?: number | null }>()
@@ -180,7 +181,9 @@ export function DataStatus() {
     loadedAt !== null &&
       `Mise à jour : ${fmtComplet(loadedAt)}${ms !== null ? ` (chargée en ${fmtMs(ms)})` : ''}`,
     dataAgeMs !== null &&
-      `Âge des données au chargement : ${fmtAge(dataAgeMs)} (cache serveur inclus)`,
+      (dataAgePresumed
+        ? 'Données reconstruites à la requête (endpoint sans cache de réponse)'
+        : `Âge des données au chargement : ${fmtAge(dataAgeMs)} (cache serveur inclus)`),
     x3LastSync
       ? `Extraction X3 (tables statiques) : ${fmtComplet(x3LastSync)}`
       : 'Extraction X3 : jamais synchronisée',
@@ -209,12 +212,13 @@ export function DataStatus() {
           : loadedAt !== null
             ? `maj ${fmtMaj(loadedAt)}`
             : 'données non chargées'}
-        {/* Âge de la DONNÉE (tampon serveur, corrigé du décalage d'horloge) —
-            pas celui de sa réception : une page servie du cache affiche son
-            vrai âge même rechargée à l'instant. C'est la réponse à « remise à
-            jour ou cache servi ? ». */}
+        {/* Âge de la DONNÉE — pas celui de sa réception : une page servie du
+            cache affiche son vrai âge même rechargée à l'instant (c'est la
+            réponse à « remise à jour ou cache servi ? »). Coloré = mesuré via
+            le tampon serveur ; sans couleur = frais présumé (endpoint sans
+            cache de réponse, la donnée vient d'être fabriquée). */}
         {!loading && dataAge !== null && (
-          <span className={cn('font-semibold', ageCls(dataAge))}>
+          <span className={cn('font-semibold', !dataAgePresumed && ageCls(dataAge))}>
             {' · '}
             {fmtAge(dataAge)}
           </span>

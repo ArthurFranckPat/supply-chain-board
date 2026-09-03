@@ -47,6 +47,14 @@ interface DataStatusState {
    * que son fragment le plus vieux.
    */
   dataAgeMs: number | null
+  /**
+   * Vrai tant qu'AUCUN fragment de la page n'a porté de tampon : l'endpoint
+   * reconstruit la donnée à chaque requête (aucun cache de réponse — tous les
+   * endpoints cachés tamponnent, cf. app/services/computed_age.ts), donc
+   * l'âge démarre à 0 par construction. L'âge « présumé » s'affiche sans
+   * couleur : frais présumé, pas frais mesuré.
+   */
+  dataAgePresumed: boolean
   /** Message de la dernière erreur de chargement (null si OK). */
   error: string | null
   /** Incrémenté à chaque clic « recharger » — consommé par useTimedFetch. */
@@ -103,6 +111,7 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
   ms: null,
   loadedAt: null,
   dataAgeMs: null,
+  dataAgePresumed: true,
   error: null,
   nonce: 0,
   diffBySource: {},
@@ -120,15 +129,17 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
       const active = Math.max(0, s.active - 1)
       // Âge à la réception, mesuré par l'horloge du NAVIGATEUR (borné à 0 : un
       // serveur en avance ne doit pas produire un âge négatif). Le plus vieux
-      // des fragments gagne au fil des `end`.
-      const age = computedAt === undefined ? null : Math.max(0, Date.now() - computedAt)
+      // des fragments gagne au fil des `end`. Sans tampon, la donnée est
+      // fabriquée à la requête : âge 0, marqué « présumé ».
+      const age = computedAt === undefined ? 0 : Math.max(0, Date.now() - computedAt)
       return {
         active,
         ms,
         loadedAt: Date.now(),
         error: null,
-        dataAgeMs:
-          age === null ? s.dataAgeMs : s.dataAgeMs === null ? age : Math.max(s.dataAgeMs, age),
+        dataAgeMs: s.dataAgeMs === null ? age : Math.max(s.dataAgeMs, age),
+        dataAgePresumed:
+          computedAt === undefined ? (s.dataAgeMs === null ? true : s.dataAgePresumed) : false,
         // Dernière requête terminée : le chrono s'arrête.
         ...(active === 0 ? { t0: null } : {}),
       }
@@ -161,6 +172,7 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
       diffBySource: {},
       diffNonce: s.nonce + 1,
       dataAgeMs: null,
+      dataAgePresumed: true,
     })),
 
   seed: (ms) => set((s) => (s.loadedAt === null ? { ms, loadedAt: Date.now() } : {})),
@@ -173,7 +185,7 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
     })),
 
   clearDiff: () => set({ diffBySource: {}, diffNonce: 0 }),
-  resetDataAge: () => set({ dataAgeMs: null }),
+  resetDataAge: () => set({ dataAgeMs: null, dataAgePresumed: true }),
 }))
 
 /** Somme des récaps publiés — `null` si aucun changement à annoncer. */
