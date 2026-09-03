@@ -164,7 +164,7 @@ type StoredFilters = {
   /** Fenêtre de dates de livraison (ISO yyyy-MM-dd) — filtre client. */
   dateFrom: string | null
   dateTo: string | null
-  /** Poste sélectionné (filtre client) — aussi synchronisé en `?poste=`. */
+  /** Poste sélectionné (filtre client, purement session — jamais dans l'URL). */
   poste: string | null
 }
 
@@ -252,29 +252,6 @@ function natureOk(nature: PosteNature | undefined, filter: Set<PosteNatureFilter
     return filter.has('assemblage_pf') && filter.has('assemble_sous_ensemble')
   }
   return filter.has(n)
-}
-
-/** Poste initial : `?poste=` prime sur sessionStorage. */
-function readInitialPoste(stored: StoredFilters): string | null {
-  try {
-    const q = new URLSearchParams(window.location.search).get('poste')?.trim()
-    if (q) return q
-  } catch {
-    // SSR / pas de window
-  }
-  return stored.poste
-}
-
-function syncPosteQueryParam(poste: string | null) {
-  try {
-    const url = new URL(window.location.href)
-    if (poste) url.searchParams.set('poste', poste)
-    else url.searchParams.delete('poste')
-    url.searchParams.delete('vue')
-    window.history.replaceState({}, '', url)
-  } catch {
-    // ignore
-  }
 }
 
 function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined, ofStatus?: number) {
@@ -545,13 +522,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const posteByCode = useMemo(() => new Map(props.postes.map((p) => [p.code, p])), [props.postes])
   const posteRank = useMemo(() => new Map(props.postes.map((p, i) => [p.code, i])), [props.postes])
 
-  const [posteFilter, setPosteFilter] = useState<string | null>(() => readInitialPoste(stored))
-
-  // Sync URL une fois au montage si sessionStorage avait un poste sans query.
-  useEffect(() => {
-    syncPosteQueryParam(posteFilter)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const [posteFilter, setPosteFilter] = useState<string | null>(() => stored.poste)
 
   // Reset sélection / faisabilité quand le dataset change.
   useEffect(() => {
@@ -564,7 +535,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
   function selectPoste(poste: string | null) {
     setPosteFilter(poste)
     writeStoredFilters({ poste })
-    syncPosteQueryParam(poste)
   }
 
   const activePoste = posteFilter ? props.postes.find((p) => p.code === posteFilter) : null
