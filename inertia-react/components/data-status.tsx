@@ -8,9 +8,10 @@
  *      store data-status) passe au survol ;
  *   2. fraîcheur — heure de la dernière mise à jour des données de la page +
  *      ÂGE DE LA DONNÉE quand le endpoint le porte (`computedAt`, tampon posé
- *      dans le cache côté serveur) + date de la dernière extraction X3 (tables
- *      statiques, shared prop `x3LastSync`), la pastille passant au rouge
- *      quand l'extraction vieillit ;
+ *      dans le cache côté serveur, re-ancré sur l'horloge du navigateur à la
+ *      réception pour rester immunisé au décalage d'horloge serveur) + date de
+ *      la dernière extraction X3 (tables statiques, shared prop `x3LastSync`),
+ *      la pastille passant au rouge quand l'extraction vieillit ;
  *   3. rechargement — le bouton ⟳ re-déclenche les fetch minutés (nonce du
  *      store) ET un `router.reload()` (pages dont les données sont en props).
  *
@@ -139,7 +140,7 @@ const fmtDiff = (d: { changed: number; entered: number; exited: number }) =>
     .join(' · ')
 
 export function DataStatus() {
-  const { active, t0, ms, loadedAt, dataAt, error, bump, diffBySource } = useDataStatusStore()
+  const { active, t0, ms, loadedAt, dataAgeMs, error, bump, diffBySource } = useDataStatusStore()
   const loading = active > 0
   const diff = totalDiff(diffBySource)
   const page = usePage<{ x3LastSync?: number | null }>()
@@ -149,11 +150,11 @@ export function DataStatus() {
   // de la donnée vieillit seul — un tick de 10 s suffit à le faire avancer.
   const [, setNow] = useState(0)
   useEffect(() => {
-    const period = loading ? 200 : dataAt !== null ? 10_000 : 0
+    const period = loading ? 200 : dataAgeMs !== null ? 10_000 : 0
     if (!period) return
     const tick = setInterval(() => setNow((n) => n + 1), period)
     return () => clearInterval(tick)
-  }, [loading, dataAt])
+  }, [loading, dataAgeMs])
 
   // Chargement initial du document : aucun événement Inertia ne circule, la
   // durée connue côté client est le temps écoulé depuis la navigation. Les
@@ -165,6 +166,10 @@ export function DataStatus() {
   }, [])
 
   const elapsed = t0 !== null ? Date.now() - t0 : null
+  // Âge courant de la donnée : âge mesuré À LA RÉCEPTION (ancré sur l'horloge
+  // du navigateur, immunisé au décalage serveur) + le temps qui a passé depuis.
+  const dataAge =
+    dataAgeMs !== null && loadedAt !== null ? dataAgeMs + (Date.now() - loadedAt) : null
   const refresh = () => {
     bump()
     router.reload()
@@ -174,7 +179,8 @@ export function DataStatus() {
     'Données de la page',
     loadedAt !== null &&
       `Mise à jour : ${fmtComplet(loadedAt)}${ms !== null ? ` (chargée en ${fmtMs(ms)})` : ''}`,
-    dataAt !== null && `Données calculées : ${fmtComplet(dataAt)} (cache serveur inclus)`,
+    dataAgeMs !== null &&
+      `Âge des données au chargement : ${fmtAge(dataAgeMs)} (cache serveur inclus)`,
     x3LastSync
       ? `Extraction X3 (tables statiques) : ${fmtComplet(x3LastSync)}`
       : 'Extraction X3 : jamais synchronisée',
@@ -203,13 +209,14 @@ export function DataStatus() {
           : loadedAt !== null
             ? `maj ${fmtMaj(loadedAt)}`
             : 'données non chargées'}
-        {/* Âge de la DONNÉE (tampon serveur) — pas celui de sa réception : une
-            page servie du cache affiche son vrai âge même rechargée à
-            l'instant. C'est la réponse à « remise à jour ou cache servi ? ». */}
-        {!loading && dataAt !== null && (
-          <span className={cn('font-semibold', ageCls(Date.now() - dataAt))}>
+        {/* Âge de la DONNÉE (tampon serveur, corrigé du décalage d'horloge) —
+            pas celui de sa réception : une page servie du cache affiche son
+            vrai âge même rechargée à l'instant. C'est la réponse à « remise à
+            jour ou cache servi ? ». */}
+        {!loading && dataAge !== null && (
+          <span className={cn('font-semibold', ageCls(dataAge))}>
             {' · '}
-            {fmtAge(Date.now() - dataAt)}
+            {fmtAge(dataAge)}
           </span>
         )}
       </span>
