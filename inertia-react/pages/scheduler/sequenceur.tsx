@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Head, router } from '@inertiajs/react'
+import { format, parseISO } from 'date-fns'
 import {
   ArrowDown,
   ArrowUp,
@@ -26,6 +27,7 @@ import {
   ToolbarRow,
   ToolbarSpacer,
   FilterMenu,
+  DateWindowPill,
 } from '@r/components/vision/toolbar'
 import {
   Combobox,
@@ -154,8 +156,17 @@ type StoredFilters = {
   urgencyFilter: Urgency | 'all'
   feasFilter: FeasFilter
   statusFilter: StatusKey[]
+  /** Fenêtre de dates de livraison (ISO yyyy-MM-dd) — filtre client. */
+  dateFrom: string | null
+  dateTo: string | null
   /** Poste sélectionné (filtre client) — aussi synchronisé en `?poste=`. */
   poste: string | null
+}
+
+function parseStoredDay(iso: string | null | undefined): Date | undefined {
+  if (!iso) return undefined
+  const d = parseISO(iso)
+  return Number.isNaN(d.getTime()) ? undefined : d
 }
 
 function readStoredFilters(): StoredFilters {
@@ -166,6 +177,8 @@ function readStoredFilters(): StoredFilters {
     urgencyFilter: 'all',
     feasFilter: 'all',
     statusFilter: [...ALL_STATUSES],
+    dateFrom: null,
+    dateTo: null,
     poste: null,
   }
   try {
@@ -210,6 +223,8 @@ function readStoredFilters(): StoredFilters {
             ) as StatusKey[])
           : [...ALL_STATUSES],
       poste: typeof parsed.poste === 'string' && parsed.poste ? parsed.poste : null,
+      dateFrom: typeof parsed.dateFrom === 'string' && parsed.dateFrom ? parsed.dateFrom : null,
+      dateTo: typeof parsed.dateTo === 'string' && parsed.dateTo ? parsed.dateTo : null,
     }
   } catch {
     return defaults
@@ -424,6 +439,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
     () => new Set(stored.statusFilter)
   )
   const [feasFilter, setFeasFilter] = useState<FeasFilter>(stored.feasFilter)
+  /** Fenêtre de dates de livraison — filtre client (bornes incluses). */
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>(() => ({
+    from: parseStoredDay(stored.dateFrom),
+    to: parseStoredDay(stored.dateTo),
+  }))
+  const [dateOpen, setDateOpen] = useState(false)
   const [feasibility, setFeasibility] = useState<Record<string, FeasStatus>>({})
   const [feasLoading, setFeasLoading] = useState(false)
   const [feasDone, setFeasDone] = useState(false)
@@ -484,6 +505,15 @@ export default function Sequenceur(props: SequenceurPageProps) {
     writeStoredFilters({ feasFilter: value })
   }
 
+  const setDateRangePersisted = (range: { from?: Date; to?: Date } | undefined) => {
+    const next = { from: range?.from, to: range?.to }
+    setDateRange(next)
+    writeStoredFilters({
+      dateFrom: next.from ? format(next.from, 'yyyy-MM-dd') : null,
+      dateTo: next.to ? format(next.to, 'yyyy-MM-dd') : null,
+    })
+  }
+
   const posteAtelier = useMemo(
     () => new Map(props.postes.map((p) => [p.code, p.atelier])),
     [props.postes]
@@ -528,6 +558,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
       .filter((p) => natureOk(p.nature, posteNatureFilter))
       .filter((p) => atelierFilter.size === 0 || atelierFilter.has(p.atelier))
       .filter((p) => !q || p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q))
+      // Poste sans OF : rien à séquencer, il ne doit ni encombrer la bande de
+      // pillules ni être sélectionnable dans le combobox.
+      .filter((p) => p.count > 0)
   }, [props.postes, posteQuery, atelierFilter, posteNatureFilter])
 
   const runFeasibility = useCallback(async () => {
@@ -556,7 +589,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
       }
       setFeasibility(scoped)
       setFeasDone(true)
-      if (nbOk > 0) setFeasFilterPersisted('ok')
       const parts = [
         nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,
         nbQc > 0 ? `${nbQc} sous CQ` : null,
@@ -570,6 +602,10 @@ export default function Sequenceur(props: SequenceurPageProps) {
     }
   }, [feasLoading, props.rows, props.feasibilityWindow, posteFilter])
 
+  /** Bornes de la fenêtre de dates au format des lignes (yyyy-MM-dd, comparaison lexicographique). */
+  const dateFromIso = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null
+  const dateToIso = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null
+
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = props.rows
@@ -579,6 +615,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
         (r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? '')
       )
       .filter((r) => statusFilter.has((r.status ?? 1) as StatusKey))
+      .filter((r) => {
+        if (!dateFromIso && !dateToIso) return true
+        // Fenêtre posée : les OF sans date de livraison sortent du périmètre.
+        if (!r.livraisonIso) return false
+        if (dateFromIso && r.livraisonIso < dateFromIso) return false
+        if (dateToIso && r.livraisonIso > dateToIso) return false
+        return true
+      })
       .filter(
         (r) => !detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
       )
@@ -648,6 +692,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
     feasibility,
     feasDone,
     sorting,
+    dateFromIso,
+    dateToIso,
   ])
 
   const feasCounts = useMemo(() => {
@@ -661,6 +707,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
       if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
         continue
       if (!statusFilter.has((r.status ?? 1) as StatusKey)) continue
+      if (dateFromIso || dateToIso) {
+        if (!r.livraisonIso) continue
+        if (dateFromIso && r.livraisonIso < dateFromIso) continue
+        if (dateToIso && r.livraisonIso > dateToIso) continue
+      }
       const st = feasibility[r.numOf]?.st
       if (st === 'ok') ok++
       else if (st === 'qc') qc++
@@ -677,15 +728,15 @@ export default function Sequenceur(props: SequenceurPageProps) {
     posteNatureFilter,
     statusFilter,
     feasibility,
+    dateFromIso,
+    dateToIso,
   ])
 
-  // Sélectionnables (affermissables) parmi les lignes affichées + faisabilité ok —
-  // seul périmètre légitime pour « Tout sélectionner » (les fermes ne s'affermissent pas).
-  const affirmableOkCount = useMemo(
-    () =>
-      filteredRows.filter((r) => affirmable(r.status) && feasibility[r.numOf]?.st === 'ok').length,
-    [filteredRows, feasibility]
-  )
+  // Sélectionnables (affermissables) parmi les lignes affichées — utilisé par le
+  // « Tout sélectionner » de la barre récap d'un poste filtré.
+  const allSelectableIds = useMemo(() => selectableIds(filteredRows), [filteredRows, feasibility])
+  const allSelectable = allSelectableIds.length
+  const allSelectableToggled = allSelectable > 0 && allSelectableIds.every((id) => selected.has(id))
 
   const rowGroups = useMemo(() => {
     // Groupes poste uniquement en tri défaut (ou tri explicite sur poste) —
@@ -727,12 +778,28 @@ export default function Sequenceur(props: SequenceurPageProps) {
     })
   }
 
-  function selectAllLaunchable() {
-    const next = new Set<string>()
-    for (const r of filteredRows) {
-      if (affirmable(r.status) && feasibility[r.numOf]?.st === 'ok') next.add(r.numOf)
-    }
-    setSelected(next)
+  /** OF du bloc sélectionnables (affermissables + faisabilité ok) — les fermes
+   *  ne s'affermissent pas, seul périmètre légitime de « Tout sélectionner ». */
+  function selectableIds(rows: SequenceurRow[]): string[] {
+    return rows
+      .filter((r) => affirmable(r.status) && feasibility[r.numOf]?.st === 'ok')
+      .map((r) => r.numOf)
+  }
+
+  /** Bascule « tout sélectionner » d'un bloc de lignes : coche tout, ou décoche
+   *  tout si le bloc est déjà entièrement coché. */
+  function toggleGroupSelect(rows: SequenceurRow[]) {
+    const ids = selectableIds(rows)
+    if (ids.length === 0) return
+    setSelected((prev) => {
+      const all = ids.every((id) => prev.has(id))
+      const next = new Set(prev)
+      for (const id of ids) {
+        if (all) next.delete(id)
+        else next.add(id)
+      }
+      return next
+    })
   }
 
   async function batchFirm(ids: string[]) {
@@ -913,6 +980,17 @@ export default function Sequenceur(props: SequenceurPageProps) {
             </Segment>
           </FilterMenu>
 
+          <DateWindowPill
+            open={dateOpen}
+            onOpenChange={setDateOpen}
+            selected={dateRange}
+            onSelect={(range) => setDateRangePersisted(range ?? undefined)}
+            onClear={() => setDateRangePersisted(undefined)}
+            emptyLabel="Dates"
+            align="left"
+            title="Filtrer par date de livraison"
+          />
+
           <Segment role="radiogroup" ariaLabel="Faisabilité">
             {(
               [
@@ -936,7 +1014,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
             ))}
           </Segment>
 
-          {detail ? (
+          {detail && (
             <Segment role="radiogroup" ariaLabel="Urgence">
               {(
                 [
@@ -956,10 +1034,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 </SegmentButton>
               ))}
             </Segment>
-          ) : (
-            <span className="font-mono text-2xs italic text-muted-foreground">
-              Sélectionnez un poste pour filtrer par urgence de livraison
-            </span>
           )}
 
           <ToolbarSpacer />
@@ -974,17 +1048,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
             <RefreshCw size={15} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
             {feasLoading ? 'Calcul…' : 'Faisabilité'}
           </button>
-          {feasDone && affirmableOkCount > 0 && (
-            <button
-              type="button"
-              className={cn(PILL, 'gap-1.5')}
-              onClick={selectAllLaunchable}
-              disabled={batchRunning}
-            >
-              <Check size={15} strokeWidth={1.75} />
-              Tout sélectionner ({affirmableOkCount})
-            </button>
-          )}
 
           <div className={PILL}>
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
@@ -1093,6 +1156,18 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   <span className="text-destructive">{feasCounts.blocked} bloqués</span>
                 )}
               </div>
+            )}
+            {feasDone && allSelectable > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleGroupSelect(filteredRows)}
+                disabled={batchRunning}
+                title="Sélectionner les OF lançables et faisables de ce poste"
+                className="flex items-center gap-1.5 rounded font-mono text-[11px] font-semibold text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
+              >
+                <Check size={13} strokeWidth={2.25} />
+                {allSelectableToggled ? 'Tout décocher' : 'Tout sélectionner'} ({allSelectable})
+              </button>
             )}
           </div>
         )}
@@ -1206,12 +1281,28 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
                 const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
                 const groupCharge = splitChargeHours(group.rows)
+                const groupSelectable = selectableIds(group.rows)
+                const groupAllToggled =
+                  groupSelectable.length > 0 && groupSelectable.every((id) => selected.has(id))
                 return (
                   <div key={group.posteCode ?? 'all'}>
                     {showPosteCol && poste && (
                       <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
                         <span className="text-brand">{poste.code}</span>
                         <span className="truncate text-muted-foreground">{poste.label}</span>
+                        {groupSelectable.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupSelect(group.rows)}
+                            disabled={batchRunning}
+                            title="Sélectionner les OF lançables et faisables de ce poste"
+                            className="flex items-center gap-1 rounded text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
+                          >
+                            <Check size={11} strokeWidth={2.25} />
+                            {groupAllToggled ? 'Tout décocher' : 'Tout sélectionner'} (
+                            {groupSelectable.length})
+                          </button>
+                        )}
                         <span className="ml-auto flex items-center gap-2.5 text-muted-foreground">
                           <span>{group.rows.length}</span>
                           <span>{fmtH(groupHours)} h</span>

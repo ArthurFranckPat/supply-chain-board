@@ -3,7 +3,7 @@ import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Link } from '@inertiajs/react'
 import { Popover } from '@base-ui/react/popover'
-import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
+import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
@@ -120,12 +120,19 @@ export function DateWindowPill(props: {
   align?: 'left' | 'right'
   numberOfMonths?: number
   title?: string
+  /** Libellé affiché quand aucune borne n'est choisie (défaut « — »). */
+  emptyLabel?: string
+  /** Présent => croix d'effacement affichée dès qu'une borne existe. */
+  onClear?: () => void
   /** Passthrough vers <Calendar> — ex. `{ after: new Date() }` pour interdire
    *  les dates futures (expéditions : pas de sélection au-delà d'aujourd'hui). */
   disabled?: ComponentProps<typeof Calendar>['disabled']
 }) {
   const align = props.align ?? 'left'
-  const label = formatWindowLabel(props.selected.from, props.selected.to)
+  const hasRange = Boolean(props.selected.from || props.selected.to)
+  const label = hasRange
+    ? formatWindowLabel(props.selected.from, props.selected.to)
+    : (props.emptyLabel ?? '—')
   const { selected, onSelect } = useRangeCalendar({
     open: props.open,
     value: props.selected.from
@@ -143,6 +150,20 @@ export function DateWindowPill(props: {
         >
           <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
           <span className="whitespace-nowrap font-mono tabular-nums">{label}</span>
+          {props.onClear && hasRange && (
+            <span
+              role="button"
+              tabIndex={-1}
+              aria-label="Effacer la plage de dates"
+              onClick={(e) => {
+                e.stopPropagation()
+                props.onClear?.()
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X size={13} strokeWidth={2} />
+            </span>
+          )}
           <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
         </Popover.Trigger>
         {/* Positioner base-ui = évitement de collision natif : le panneau ne sort
