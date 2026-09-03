@@ -3,14 +3,18 @@
  * masthead (présent sur toutes les pages, y compris les vues denses qui
  * masquent le footer). Trois informations demandées sur chaque page :
  *
- *   1. temps de chargement — chrono live pendant le chargement, puis durée du
+ *   1. temps de chargement — chrono live pendant le chargement ; la durée du
  *      dernier chargement (fetch JSON minutés + navigation Inertia, via le
- *      store data-status) ;
+ *      store data-status) passe au survol ;
  *   2. fraîcheur — heure de la dernière mise à jour des données de la page +
  *      date de la dernière extraction X3 (tables statiques, shared prop
  *      `x3LastSync`), la pastille passant au rouge quand l'extraction vieillit ;
  *   3. rechargement — le bouton ⟳ re-déclenche les fetch minutés (nonce du
  *      store) ET un `router.reload()` (pages dont les données sont en props).
+ *
+ * Forme : cluster nu, pas de pilule encadrée — dans le header, une boîte se
+ * lit comme un bouton qui n'en est pas un ; seul le ⟳ est cliquable. Le
+ * spinner est logé DANS le bouton (le ⟳ devient ◌), pas ajouté à côté.
  *
  * S'y ajoute (issue #186) le RÉCAP du diff produit par ce rechargement —
  * « n changements · n nouvelles · n sorties ». Il compte les lignes du payload
@@ -38,9 +42,6 @@ const fmtMaj = (ts: number) => {
     ? hm
     : `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${hm}`
 }
-
-/** Extrait X3 : 06:12 aujourd'hui, 02/09 sinon (synchro nocturne habituelle). */
-const fmtX3 = fmtMaj
 
 const fmtComplet = (ts: number) => {
   const d = new Date(ts)
@@ -161,45 +162,47 @@ export function DataStatus() {
 
   return (
     <div
-      className="flex items-center gap-1 rounded-full border border-rule bg-card py-[3px] pl-2.5 pr-1 font-mono text-[11px] tabular-nums text-muted-foreground"
+      className="flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground"
       title={tooltip}
       data-data-status
     >
-      {loading && (
-        <LoaderCircle size={12} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-      )}
+      {/* Fraîcheur de l'extraction X3 (tables statiques) — la pastille encode
+          l'âge (vert < 24 h, orange < 7 j, rouge au-delà ou jamais
+          synchronisée) ; la date complète vit dans le title du cluster. */}
+      <span
+        className={cn('size-[7px] shrink-0 rounded-full', dotCls(x3LastSync))}
+        aria-hidden="true"
+      />
       <span className="whitespace-nowrap">
         {loading
           ? `Chargement ${elapsed !== null ? (elapsed / 1000).toFixed(1) : '0.0'} s`
           : loadedAt !== null
-            ? `${ms !== null ? `${fmtMs(ms)} · ` : ''}maj ${fmtMaj(loadedAt)}`
+            ? `maj ${fmtMaj(loadedAt)}`
             : 'données non chargées'}
       </span>
       {/* Récap du diff du dernier rechargement (issue #186) — porte les
           changements HORS écran (autres pages de tri, lignes filtrées), que le
-          flash des cellules ne peut par construction pas montrer. Disparaît au
+          flash des cellules ne peut par construction pas montrer. Chip ambrée :
+          c'est un événement, pas du régime permanent. Disparaît au
           rechargement suivant (bump) ou au changement de page. */}
       {!loading && diff && (
-        <span className="whitespace-nowrap border-l border-rule pl-1.5 font-bold text-[var(--flash-change)]">
+        <span className="whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--flash-change)_14%,transparent)] px-2 py-[2px] font-semibold text-[var(--flash-change)]">
           {fmtDiff(diff)}
         </span>
       )}
-      {/* Fraîcheur de l'extraction X3 (tables statiques) — visible en clair,
-          la date complète au survol ; la pastille encode l'âge (vert < 24 h,
-          orange < 7 j, rouge au-delà ou jamais synchronisée). */}
-      <span className="hidden items-center gap-1.5 whitespace-nowrap border-l border-rule pl-1.5 xl:flex">
-        <span className={cn('size-[6px] rounded-full', dotCls(x3LastSync))} aria-hidden="true" />
-        X3 {x3LastSync ? fmtX3(x3LastSync) : '—'}
-      </span>
       <button
         type="button"
         onClick={refresh}
         disabled={loading}
         aria-label="Recharger les données"
         title="Recharger les données (fragments + props de la page)"
-        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+        className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
       >
-        <RefreshCw size={12} strokeWidth={2} aria-hidden="true" />
+        {loading ? (
+          <LoaderCircle size={13} strokeWidth={2} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <RefreshCw size={13} strokeWidth={2} aria-hidden="true" />
+        )}
       </button>
     </div>
   )
