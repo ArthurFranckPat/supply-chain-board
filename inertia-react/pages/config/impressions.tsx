@@ -14,6 +14,7 @@ import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import ConfigNav from '@r/components/config/config-nav'
 
 /**
  * Routage d'impression du dossier d'OF (issue #85, lot 2).
@@ -654,23 +655,17 @@ export default function ImpressionsConfig(props: PageProps) {
       }
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 py-6">
-        <nav className="flex items-center gap-2 text-[12.5px]">
-          <a
-            href={route('calendar_config.index')}
-            className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Calendrier usine
-          </a>
-          <span className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold text-brand">
-            Impressions
-          </span>
-          <a
-            href={route('print_journal')}
-            className="ml-auto rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Journal des tirages →
-          </a>
-        </nav>
+        <ConfigNav
+          active="impressions"
+          trailing={
+            <a
+              href={route('print_journal')}
+              className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Journal des tirages →
+            </a>
+          }
+        />
 
         <div>
           <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">

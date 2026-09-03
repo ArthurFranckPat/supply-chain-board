@@ -201,6 +201,9 @@ declare module '@adonisjs/inertia/types' {
       autoPrintMode: string
       since: number
     }
+    // Réglages d'affichage (issue #186) — aucune prop : les préférences vivent
+    // dans le navigateur (lib/display-prefs-store.ts), pas côté serveur.
+    'config/affichage': {}
     // Routage d'impression du dossier d'OF (issue #85, lot 2).
     'config/impressions': {
       ateliers: { code: string; label: string }[]

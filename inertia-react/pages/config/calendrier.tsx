@@ -31,6 +31,7 @@ import {
 } from '@r/components/ui/combobox'
 import { cn } from '@r/lib/utils'
 import { route } from '@r/lib/routes'
+import ConfigNav from '@r/components/config/config-nav'
 
 /**
  * Configuration du calendrier usine (issue #37) — port React du Solid
@@ -484,17 +485,7 @@ export default function Calendrier(props: CalendrierPageProps) {
           }
         >
         <div className="mx-auto w-full max-w-[1280px] px-7 py-6">
-          <nav className="mb-4 flex items-center gap-2 text-[12.5px]">
-            <span className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold text-brand">
-              Calendrier usine
-            </span>
-            <a
-              href={route('print_config.index')}
-              className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
-            >
-              Impressions
-            </a>
-          </nav>
+          <ConfigNav active="calendrier" className="mb-4 flex items-center gap-2 text-[12.5px]" />
           <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
             Calendrier usine {props.year}
           </h1>

@@ -13,6 +13,11 @@
  * photo de référence, sans rien animer. C'est la règle : on n'anime QUE ce que
  * l'utilisateur a lui-même demandé.
  *
+ * Réglable : la préférence d'affichage `diffFlash` (/configuration/affichage)
+ * éteint l'animation ET le récap. Éteinte, la photo de référence continue
+ * d'être tenue à jour — rallumer le réglage anime donc le rechargement
+ * SUIVANT, jamais un diff accumulé pendant que c'était coupé.
+ *
  * Sorties :
  *   • `flash`  — quoi teinter, à passer tel quel au DataTable ;
  *   • `ghosts` — les lignes SORTIES, à réinjecter dans la liste affichée le
@@ -31,6 +36,7 @@ import {
   type RowFlash,
 } from '@r/lib/diff-flash'
 import { useDataStatusStore } from '@r/lib/data-status-store'
+import { useDisplayPrefsStore } from '@r/lib/display-prefs-store'
 
 interface DiffFlashState<TRow> {
   flash: RowFlash | null
@@ -85,6 +91,11 @@ export function useDiffFlash<TRow>(
     // republiées) — le flash a déjà eu lieu, ne pas le rejouer.
     if (nonce === 0 || nonce === diffedNonceRef.current) return
     diffedNonceRef.current = nonce
+
+    // Réglage éteint : on sort APRÈS avoir reposé la photo (fait plus haut) et
+    // consommé le nonce. Rallumer n'exhume donc pas les changements d'un
+    // rechargement passé — le prochain rechargement repart d'une base saine.
+    if (!useDisplayPrefsStore.getState().diffFlash) return
 
     const d = diffRows(prev, rows, configRef.current)
     if (isEmptyDiff(d)) return

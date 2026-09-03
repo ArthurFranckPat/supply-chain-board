@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 107 routes nommées.
+ * 108 routes nommées.
  */
 
 export const MANIFEST = {
@@ -41,6 +41,7 @@ export const MANIFEST = {
   'data.load': { method: 'POST', pattern: '/api/v1/data/load' },
   'design_system': { method: 'GET', pattern: '/design-system' },
   'diagnostic_test': { method: 'GET', pattern: '/diagnostic-test' },
+  'display_config.index': { method: 'GET', pattern: '/configuration/affichage' },
   'expeditions.forecast': { method: 'GET', pattern: '/api/v1/expeditions/forecast' },
   'expeditions.index': { method: 'GET', pattern: '/expeditions' },
   'expeditions.rows': { method: 'GET', pattern: '/api/v1/expeditions/rows' },
@@ -184,6 +185,7 @@ export type RouteParams = {
   'data.load': void
   'design_system': void
   'diagnostic_test': void
+  'display_config.index': void
   'expeditions.forecast': void
   'expeditions.index': void
   'expeditions.rows': void

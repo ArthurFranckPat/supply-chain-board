@@ -131,6 +131,11 @@ router
     router
       .get('/configuration/impressions', '#controllers/print_config_controller.index')
       .as('print_config.index')
+    // Réglages d'affichage (issue #186) — coquille pure : les préférences sont
+    // stockées côté navigateur, pas en base (cf. DisplayConfigController).
+    router
+      .get('/configuration/affichage', '#controllers/display_config_controller.index')
+      .as('display_config.index')
     router.get('/impressions', '#controllers/print_journal_controller.index').as('print_journal')
 
     // Configuration calendrier usine — API JSON (issue #37).
