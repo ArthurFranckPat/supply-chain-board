@@ -203,17 +203,7 @@ export default function Copilote() {
     <>
       <Head title="Copilote" />
       <div className="theme-airbnb flex h-screen flex-col bg-background text-foreground">
-        <Masthead
-          subtitle="Copilote supply — lecture seule"
-          active="copilote"
-          variant="airbnb"
-          meta={
-            <div className="text-right text-[11px] leading-tight text-secondary-foreground">
-              <div className="font-semibold text-foreground">Agentique v1</div>
-              <div>{model ?? 'zai / glm-5.2'}</div>
-            </div>
-          }
-        />
+        <Masthead subtitle="Copilote supply — lecture seule" active="copilote" variant="airbnb" />
 
         <AppShell
           navCollapsed={navCollapsed}

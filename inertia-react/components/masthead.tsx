@@ -230,7 +230,6 @@ function MoreMenu({
 export function Masthead(props: {
   subtitle: string
   active: MastheadTab
-  meta?: ReactNode
   actions?: ReactNode
   /** Variant visuel. Défaut : `stock` (préserve les pages migrées). */
   variant?: 'stock' | 'airbnb'
@@ -333,13 +332,8 @@ export function Masthead(props: {
           />
         </nav>
 
-        {/* Bloc droit : meta (optionnel) + actions + statut données + UserMenu. */}
+        {/* Bloc droit : actions + statut données + UserMenu. */}
         <div className="flex items-center gap-3">
-          {props.meta && (
-            <div className="hidden text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground xl:block">
-              {props.meta}
-            </div>
-          )}
           {props.actions}
           <DataStatus />
           <UserMenu />
@@ -382,11 +376,6 @@ export function Masthead(props: {
             </span>
           )}
         </div>
-        {props.meta && (
-          <div className="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
-            {props.meta}
-          </div>
-        )}
       </div>
 
       <nav className="flex min-h-[44px] items-center gap-1 border-t px-7">

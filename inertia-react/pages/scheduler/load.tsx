@@ -255,17 +255,6 @@ export default function Load(props: LoadPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
-            {props.rangeLabel}
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{lines.length}</b> postes de charge ·{' '}
-            {view === 'of' ? 'charge OF' : 'charge commandes'}
-          </div>
-        </>
-      }
     >
       <HatchDefs />
 

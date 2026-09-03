@@ -121,17 +121,6 @@ export default function ControleProd(props: Props) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            Contrôle prod
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{viewData.stats.nbEcarts}</b> écarts · Σ{' '}
-            <b className="font-bold text-foreground">{fmt(viewData.stats.totalEcart)}</b> pcs
-          </div>
-        </>
-      }
     >
       <div className="flex h-full min-h-0 flex-col">
         <ToolbarRow>

@@ -174,17 +174,6 @@ export default function Expeditions(props: ExpeditionsPageProps) {
   const gapStep = (delta: number) => setGapMin((v) => Math.max(0, (v ?? gapEff) + delta))
   const horizonStep = (delta: number) => setHorizonDays((v) => Math.min(90, Math.max(1, v + delta)))
 
-  const metaLabel = isPrevision
-    ? forecast
-      ? `${forecast.from.slice(8)}/${forecast.from.slice(5, 7)} → ${forecast.to.slice(8)}/${forecast.to.slice(5, 7)}`
-      : 'Prévision'
-    : exp.label || '—'
-  const metaCount = isPrevision
-    ? forecast
-      ? `${forecast.days.filter((d) => d.spot).length} spot`
-      : '—'
-    : `${exp.nbCamions} camion${exp.nbCamions > 1 ? 's' : ''}`
-
   return (
     <AppLayout
       title="Expéditions"
@@ -193,16 +182,6 @@ export default function Expeditions(props: ExpeditionsPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            {metaLabel}
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{metaCount}</b>
-          </div>
-        </>
-      }
     >
       {/* ═══ Toolbar ═══ */}
       <ToolbarRow>

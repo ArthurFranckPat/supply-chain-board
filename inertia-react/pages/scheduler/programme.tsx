@@ -1057,24 +1057,7 @@ export default function Programme(props: VisionProps) {
     <>
       <Head title="Programme" />
       <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead
-          subtitle="Programme · Flux OF ↔ commandes"
-          active="programme"
-          variant="airbnb"
-          meta={
-            <>
-              <div className="font-fraunces text-xs font-bold not-italic text-brand">
-                {props.weekLabel}
-              </div>
-              <div>
-                Fenêtre <b className="font-bold text-foreground">{props.horizon} j</b> ·{' '}
-                <b className="font-bold text-foreground">{props.totalOf}</b> OF ·{' '}
-                <b className="font-bold text-foreground">{props.lineCount}</b> postes ·{' '}
-                <b className="font-bold text-foreground">{props.commandes.length}</b> commandes
-              </div>
-            </>
-          }
-        />
+        <Masthead subtitle="Programme · Flux OF ↔ commandes" active="programme" variant="airbnb" />
 
         <ProgrammeToolbar
           mode={mode}

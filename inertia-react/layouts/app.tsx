@@ -48,8 +48,6 @@ interface AppLayoutProps {
   active: MastheadTab
   /** Sous-titre affiché dans le Masthead (contexte de la page). */
   subtitle: string
-  /** Métadonnées affichées en haut à droite du Masthead (dates, compteurs). */
-  meta?: React.ReactNode
   /** Actions poussées à droite de la nav (à côté du UserMenu). */
   mastheadActions?: React.ReactNode
   /** Slot toolbar — pills de filtrage, sélecteurs de période, etc. */
@@ -81,7 +79,6 @@ const THEME_SCOPE: Record<ThemeVariant, string> = {
 export function AppLayout({
   active,
   subtitle,
-  meta,
   mastheadActions,
   toolbar,
   footer,
@@ -110,7 +107,6 @@ export function AppLayout({
         subtitle={subtitle}
         active={active}
         variant={mastheadVariant}
-        meta={meta}
         actions={mastheadActions}
       />
 

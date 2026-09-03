@@ -544,13 +544,15 @@ export default function Sequenceur(props: SequenceurPageProps) {
 
   const filteredPostes = useMemo(() => {
     const q = posteQuery.trim().toLowerCase()
-    return props.postes
-      .filter((p) => natureOk(p.nature, posteNatureFilter))
-      .filter((p) => atelierFilter.size === 0 || atelierFilter.has(p.atelier))
-      .filter((p) => !q || p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q))
-      // Poste sans OF : rien à séquencer, il ne doit ni encombrer la bande de
-      // pillules ni être sélectionnable dans le combobox.
-      .filter((p) => p.count > 0)
+    return (
+      props.postes
+        .filter((p) => natureOk(p.nature, posteNatureFilter))
+        .filter((p) => atelierFilter.size === 0 || atelierFilter.has(p.atelier))
+        .filter((p) => !q || p.code.toLowerCase().includes(q) || p.label.toLowerCase().includes(q))
+        // Poste sans OF : rien à séquencer, il ne doit ni encombrer la bande de
+        // pillules ni être sélectionnable dans le combobox.
+        .filter((p) => p.count > 0)
+    )
   }, [props.postes, posteQuery, atelierFilter, posteNatureFilter])
 
   const runFeasibility = useCallback(async () => {
@@ -857,10 +859,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const filterIndicators = (
     <>
       {natureFiltered && posteNatureFilter.size > 0 && (
-        <span
-          className="ml-0.5 text-[10px] font-semibold text-muted-foreground"
-          aria-hidden="true"
-        >
+        <span className="ml-0.5 text-[10px] font-semibold text-muted-foreground" aria-hidden="true">
           {POSTE_NATURE_CHIPS.filter(({ k }) => posteNatureFilter.has(k))
             .map(({ k }) => (k === 'assemblage_pf' ? 'PF' : 'S/E'))
             .join('+')}
@@ -887,21 +886,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <div>
-          <b className="font-bold text-foreground">{filteredRows.length}</b> OF ·{' '}
-          <b className="font-bold text-foreground">{fmtH(totalHours)}</b> h{' · '}
-          <b className="font-bold text-ferme">{fmtH(chargeSplit.ferme)}</b> h ferme
-          {' · '}
-          <b className="font-bold text-planifie">{fmtH(chargeSplit.lancable)}</b> h lançable
-          {feasDone && (
-            <>
-              {' '}
-              · <b className="font-bold text-ferme">{feasCounts.ok}</b> faisables
-            </>
-          )}
-        </div>
-      }
     >
       <Head title="Séquenceur" />
       <div className="flex h-full min-h-0 flex-col">
@@ -913,10 +897,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
           </div>
         )}
 
-        <ToolbarRow
-          className="select-none text-xs font-semibold text-secondary-foreground"
-          noWrap
-        >
+        <ToolbarRow className="select-none text-xs font-semibold text-secondary-foreground" noWrap>
           <div ref={anchorRef} className="shrink-0">
             <Combobox
               value={posteFilter ?? ''}

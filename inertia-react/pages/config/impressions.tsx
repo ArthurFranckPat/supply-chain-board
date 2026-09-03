@@ -263,7 +263,12 @@ function DocumentsSetting({ documents }: { documents: Doc[] }) {
   }
 
   const toggle = async (d: Doc) => {
-    const saved = await save({ code: d.code, label: d.label, position: d.position, active: !d.active })
+    const saved = await save({
+      code: d.code,
+      label: d.label,
+      position: d.position,
+      active: !d.active,
+    })
     if (saved) setDocs((prev) => prev.map((x) => (x.id === saved.id ? saved : x)))
   }
 
@@ -645,16 +650,6 @@ export default function ImpressionsConfig(props: PageProps) {
       active="config"
       subtitle="Routage des impressions d’OF"
       theme="airbnb"
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
-            {rules.length} règle{rules.length > 1 ? 's' : ''}
-          </div>
-          <div>
-            {papier} vers une imprimante · {rules.length - papier} sans effet physique
-          </div>
-        </>
-      }
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 py-6">
         <ConfigNav
@@ -675,8 +670,7 @@ export default function ImpressionsConfig(props: PageProps) {
           </h1>
           <p className="text-[13px] text-muted-foreground">
             À l’affermissement d’un OF, le bon de travail et le bon de sortie matière partent vers
-            l’imprimante de l’atelier concerné. Cet écran décide de la cible ; il ne déclenche
-            rien.
+            l’imprimante de l’atelier concerné. Cet écran décide de la cible ; il ne déclenche rien.
           </p>
         </div>
 

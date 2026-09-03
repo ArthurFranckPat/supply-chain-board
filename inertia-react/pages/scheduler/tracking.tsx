@@ -380,16 +380,6 @@ export default function Tracking(props: SuiviPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            {refLabel}
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{totalCount}</b> lignes ouvertes
-          </div>
-        </>
-      }
     >
       {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de

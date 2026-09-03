@@ -260,37 +260,6 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            {stats.totalArticles} article{stats.totalArticles > 1 ? 's' : ''}
-          </div>
-          <div>
-            <b className="font-bold text-ferme">{stats.nbComplets}</b> complet
-            {stats.nbComplets > 1 ? 's' : ''}
-            {' · '}
-            <b className="font-bold text-destructive">
-              {stats.nbManquant0 + stats.nbManquant1 + stats.nbManquantLesDeux}
-            </b>{' '}
-            à rattraper
-          </div>
-          <div>
-            Remplissage&nbsp;
-            <b
-              className={cn(
-                'font-bold tabular-nums',
-                tauxRemplissageFiltre >= 0.8
-                  ? 'text-ferme'
-                  : tauxRemplissageFiltre >= 0.5
-                    ? 'text-suggere'
-                    : 'text-destructive'
-              )}
-            >
-              {(tauxRemplissageFiltre * 100).toFixed(0)}%
-            </b>
-          </div>
-        </>
-      }
     >
       {/* Colonne flex plein écran (même coquille que Réceptions / Expéditions) :
           `dense` + `scrollable={false}` donnent un <main> en overflow-hidden, donc

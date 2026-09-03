@@ -1,6 +1,18 @@
 import { useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { X, Search, SlidersHorizontal, Lightbulb, TriangleAlert, LoaderCircle, CircleX, Inbox, CloudOff, Package, Printer } from 'lucide-react'
+import {
+  X,
+  Search,
+  SlidersHorizontal,
+  Lightbulb,
+  TriangleAlert,
+  LoaderCircle,
+  CircleX,
+  Inbox,
+  CloudOff,
+  Package,
+  Printer,
+} from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/reception-views'
@@ -175,20 +187,6 @@ export default function Receptions(props: ReceptionsPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-            {rangeLabel}
-          </div>
-          <div>
-            <b className="font-bold text-foreground">{stats.totalPalettes}</b> palette
-            {stats.totalPalettes > 1 ? 's' : ''}
-            {' · '}
-            <b className="font-bold text-foreground">{stats.totalLignes}</b> réception
-            {stats.totalLignes > 1 ? 's' : ''}
-          </div>
-        </>
-      }
     >
       {/* Colonne flex plein écran : `dense` + `scrollable={false}` donnent un
           conteneur en `overflow-hidden` — sans cette coquille les `flex-1` des
@@ -242,10 +240,18 @@ export default function Receptions(props: ReceptionsPageProps) {
 
           {/* Vue — segment (Tableau / Charge par jour) */}
           <Segment role="radiogroup" ariaLabel="Vue">
-            <SegmentButton role="radio" active={view === 'tableau'} onClick={() => setView('tableau')}>
+            <SegmentButton
+              role="radio"
+              active={view === 'tableau'}
+              onClick={() => setView('tableau')}
+            >
               Tableau
             </SegmentButton>
-            <SegmentButton role="radio" active={view === 'calendrier'} onClick={() => setView('calendrier')}>
+            <SegmentButton
+              role="radio"
+              active={view === 'calendrier'}
+              onClick={() => setView('calendrier')}
+            >
               Charge par jour
             </SegmentButton>
             <SegmentButton role="radio" active={view === 'board'} onClick={() => setView('board')}>
@@ -345,13 +351,16 @@ export default function Receptions(props: ReceptionsPageProps) {
 
         {/* ═══ Bandeau vue (drill-down + compteurs) ═══ */}
         <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5 print:hidden">
-
           {/* Filtre jour actif (drill-down) */}
           {selectedDay && (
             <span className="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-semibold text-brand">
               <SlidersHorizontal size={13} strokeWidth={1.75} />
               {charge.find((c) => c.day === selectedDay)?.dayFmt ?? selectedDay}
-              <button type="button" onClick={() => setSelectedDay(null)} className="hover:opacity-70">
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="hover:opacity-70"
+              >
                 <X size={12} strokeWidth={1.75} />
               </button>
             </span>
@@ -427,7 +436,9 @@ export default function Receptions(props: ReceptionsPageProps) {
                     <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
                       <Inbox size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
                       <span className="font-fraunces text-[14px] italic text-muted-foreground">
-                        {selectedDay ? 'Aucune réception ce jour.' : 'Aucune réception sur la période.'}
+                        {selectedDay
+                          ? 'Aucune réception ce jour.'
+                          : 'Aucune réception sur la période.'}
                       </span>
                     </div>
                   }

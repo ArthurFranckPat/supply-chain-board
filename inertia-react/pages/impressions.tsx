@@ -302,27 +302,7 @@ export default function Impressions(props: PageProps) {
   }
 
   return (
-    <AppLayout
-      title="Impressions"
-      active="config"
-      subtitle="Impressions"
-      theme="airbnb"
-      meta={
-        <>
-          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
-            {counts.total} tirage{counts.total > 1 ? 's' : ''}
-          </div>
-          <div>
-            {counts.ko > 0 ? (
-              <b className="font-bold text-red-700">{counts.ko} en échec</b>
-            ) : (
-              'aucun échec'
-            )}
-            {counts.wait > 0 ? ` · ${counts.wait} sans verdict` : ''}
-          </div>
-        </>
-      }
-    >
+    <AppLayout title="Impressions" active="config" subtitle="Impressions" theme="airbnb">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
         <div>
           <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
