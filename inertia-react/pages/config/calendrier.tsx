@@ -4,7 +4,6 @@ import { fr } from 'react-day-picker/locale'
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
-import { Segment, SegmentButton } from '@r/components/vision/toolbar'
 import { Button } from '@r/components/ui/button'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import {
@@ -17,7 +16,6 @@ import {
   Pencil,
   Trash2,
   Plus,
-  CalendarRange,
 } from 'lucide-react'
 import {
   Combobox,
@@ -71,8 +69,6 @@ interface CalendrierPageProps {
   postes: Poste[]
   ateliers: Atelier[]
 }
-
-type View = 'registre' | 'frise'
 
 const MOIS = [
   'janv.',
@@ -391,7 +387,6 @@ function ClosureForm({
 }
 
 export default function Calendrier(props: CalendrierPageProps) {
-  const [view, setView] = useState<View>('registre')
   const [holidays, setHolidays] = useState<Holiday[]>(props.holidays)
   const [closures, setClosures] = useState<Closure[]>(props.closures)
   const [formState, setFormState] = useState<
@@ -461,15 +456,6 @@ export default function Calendrier(props: CalendrierPageProps) {
       theme="airbnb"
       dense
       scrollable={false}
-      mastheadActions={
-        <Segment role="radiogroup" ariaLabel="Vue">
-          {(['registre', 'frise'] as const).map((v) => (
-            <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-              {v === 'registre' ? 'Registre' : 'Frise'}
-            </SegmentButton>
-          ))}
-        </Segment>
-      }
     >
       <div className="mx-auto w-full max-w-[1280px] px-7 py-6">
         <ConfigNav active="calendrier" className="mb-4 flex items-center gap-2 text-[12.5px]" />
@@ -495,189 +481,178 @@ export default function Calendrier(props: CalendrierPageProps) {
           </div>
         )}
 
-        {view === 'registre' ? (
-          <div className="grid grid-cols-[380px_1fr] items-start gap-6">
-            {/* Jours fériés */}
-            <section className="overflow-hidden rounded-lg border border-rule bg-card">
-              <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                <CalendarDays size={18} className="text-brand" />
-                <span className="font-fraunces text-[15px] font-bold">Jours fériés France</span>
-                <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
-                  {activeCount} actifs
+        <div className="grid grid-cols-[380px_1fr] items-start gap-6">
+          {/* Jours fériés */}
+          <section className="overflow-hidden rounded-lg border border-rule bg-card">
+            <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
+              <CalendarDays size={18} className="text-brand" />
+              <span className="font-fraunces text-[15px] font-bold">Jours fériés France</span>
+              <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
+                {activeCount} actifs
+              </span>
+            </header>
+            {holidays.map((h) => (
+              <div
+                key={h.date}
+                className="flex items-center gap-3 border-b border-rule-soft px-4 py-2.5 last:border-0"
+              >
+                <span className="w-[58px] flex-none font-mono text-[12px] font-bold text-brand">
+                  {frShort(h.date)}
                 </span>
-              </header>
-              {holidays.map((h) => (
-                <div
-                  key={h.date}
-                  className="flex items-center gap-3 border-b border-rule-soft px-4 py-2.5 last:border-0"
+                <span className="text-[13px] font-medium">
+                  {h.name}
+                  <span className="block text-[10.5px] font-normal text-muted-foreground">
+                    {h.active ? 'chômé · capacité 0 h' : 'travaillé (désactivé)'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={h.active}
+                  onClick={() => toggleHoliday(h.date)}
+                  className={cn(
+                    'relative ml-auto h-[22px] w-[38px] flex-none rounded-full transition-colors',
+                    h.active ? 'bg-ferme' : 'bg-rule'
+                  )}
                 >
-                  <span className="w-[58px] flex-none font-mono text-[12px] font-bold text-brand">
-                    {frShort(h.date)}
-                  </span>
-                  <span className="text-[13px] font-medium">
-                    {h.name}
-                    <span className="block text-[10.5px] font-normal text-muted-foreground">
-                      {h.active ? 'chômé · capacité 0 h' : 'travaillé (désactivé)'}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={h.active}
-                    onClick={() => toggleHoliday(h.date)}
+                  <span
                     className={cn(
-                      'relative ml-auto h-[22px] w-[38px] flex-none rounded-full transition-colors',
-                      h.active ? 'bg-ferme' : 'bg-rule'
+                      'absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all',
+                      h.active ? 'left-[18px]' : 'left-[2px]'
                     )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all',
-                        h.active ? 'left-[18px]' : 'left-[2px]'
-                      )}
-                    />
-                  </button>
-                </div>
-              ))}
-            </section>
+                  />
+                </button>
+              </div>
+            ))}
+          </section>
 
-            {/* Fermetures par ligne */}
-            <section className="rounded-lg border border-rule bg-card">
-              <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                <Wrench size={18} className="text-suggere" />
-                <span className="font-fraunces text-[15px] font-bold">
-                  Fermetures par ligne de production
-                </span>
-                <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
-                  {closures.length} actives
-                </span>
-              </header>
+          {/* Fermetures par ligne */}
+          <section className="rounded-lg border border-rule bg-card">
+            <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
+              <Wrench size={18} className="text-suggere" />
+              <span className="font-fraunces text-[15px] font-bold">
+                Fermetures par ligne de production
+              </span>
+              <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
+                {closures.length} actives
+              </span>
+            </header>
 
-              {closures.length === 0 ? (
-                <div className="px-4 py-8 text-center font-fraunces text-[13px] italic text-muted-foreground">
-                  Aucune fermeture saisie.
-                </div>
-              ) : (
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr>
-                      {['Ligne', 'Du', 'Au', 'Motif', 'Capacité', ''].map((h) => (
-                        <th
-                          key={h}
-                          className="border-b border-rule-soft px-3.5 py-2.5 text-left font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {closures.map((c) => {
-                      const chip = scopeChip(c)
-                      return (
-                        <tr key={c.id} className="hover:bg-rule/10">
-                          <td className="border-b border-rule-soft px-3.5 py-2.5">
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-0.5 font-mono text-[11px] font-bold">
-                              <span
-                                className="size-[7px] rounded-[2px]"
-                                style={{ background: chip.dot }}
-                              />
-                              {chip.label}
-                            </span>
-                          </td>
-                          <td className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">
-                            {frNum(c.from)}
-                          </td>
-                          <td className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">
-                            {frNum(c.to)}
-                          </td>
-                          <td className="border-b border-rule-soft px-3.5 py-2.5">
+            {closures.length === 0 ? (
+              <div className="px-4 py-8 text-center font-fraunces text-[13px] italic text-muted-foreground">
+                Aucune fermeture saisie.
+              </div>
+            ) : (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    {['Ligne', 'Du', 'Au', 'Motif', 'Capacité', ''].map((h) => (
+                      <th
+                        key={h}
+                        className="border-b border-rule-soft px-3.5 py-2.5 text-left font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {closures.map((c) => {
+                    const chip = scopeChip(c)
+                    return (
+                      <tr key={c.id} className="hover:bg-rule/10">
+                        <td className="border-b border-rule-soft px-3.5 py-2.5">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-0.5 font-mono text-[11px] font-bold">
                             <span
-                              className="inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold"
-                              style={{
-                                background:
-                                  c.motif === 'maintenance'
-                                    ? 'color-mix(in srgb, var(--color-suggere) 18%, transparent)'
-                                    : 'color-mix(in srgb, var(--color-planifie) 16%, transparent)',
-                                /* orange sombre grammaire (b-suggere du showcase) */
-                                color:
-                                  c.motif === 'maintenance' ? '#c2410c' : 'var(--color-planifie)',
-                              }}
-                            >
-                              {motifLabel(c.motif)}
-                            </span>
-                          </td>
-                          <td
-                            className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px] font-bold"
+                              className="size-[7px] rounded-[2px]"
+                              style={{ background: chip.dot }}
+                            />
+                            {chip.label}
+                          </span>
+                        </td>
+                        <td className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">
+                          {frNum(c.from)}
+                        </td>
+                        <td className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">
+                          {frNum(c.to)}
+                        </td>
+                        <td className="border-b border-rule-soft px-3.5 py-2.5">
+                          <span
+                            className="inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold"
                             style={{
-                              color: c.factor <= 0 ? 'var(--color-danger)' : 'var(--color-suggere)',
+                              background:
+                                c.motif === 'maintenance'
+                                  ? 'color-mix(in srgb, var(--color-suggere) 18%, transparent)'
+                                  : 'color-mix(in srgb, var(--color-planifie) 16%, transparent)',
+                              /* orange sombre grammaire (b-suggere du showcase) */
+                              color:
+                                c.motif === 'maintenance' ? '#c2410c' : 'var(--color-planifie)',
                             }}
                           >
-                            {factorLabel(c.factor)}
-                          </td>
-                          <td className="border-b border-rule-soft px-3.5 py-2.5">
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setFormState({ mode: 'edit', closure: c })}
-                                className="text-muted-foreground transition-colors hover:text-brand"
-                                title="Éditer"
-                              >
-                                <Pencil size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeClosure(c.id)}
-                                className="text-muted-foreground transition-colors hover:text-danger"
-                                title="Supprimer"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
+                            {motifLabel(c.motif)}
+                          </span>
+                        </td>
+                        <td
+                          className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px] font-bold"
+                          style={{
+                            color: c.factor <= 0 ? 'var(--color-danger)' : 'var(--color-suggere)',
+                          }}
+                        >
+                          {factorLabel(c.factor)}
+                        </td>
+                        <td className="border-b border-rule-soft px-3.5 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setFormState({ mode: 'edit', closure: c })}
+                              className="text-muted-foreground transition-colors hover:text-brand"
+                              title="Éditer"
+                            >
+                              <Pencil size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeClosure(c.id)}
+                              className="text-muted-foreground transition-colors hover:text-danger"
+                              title="Supprimer"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
 
-              {formState === null ? (
-                <div className="flex items-center justify-between px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormState({ mode: 'add' })}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
-                  >
-                    <Plus size={16} />
-                    Nouvelle fermeture
-                  </button>
-                  <span className="font-fraunces text-[11.5px] italic text-muted-foreground">
-                    Portée : poste (WST) ou atelier (STOLOC). 0 % = fermé · 50 % = demi-journée.
-                  </span>
-                </div>
-              ) : (
-                <ClosureForm
-                  postes={props.postes}
-                  ateliers={props.ateliers}
-                  edit={formState.mode === 'edit' ? formState.closure : undefined}
-                  onCancel={() => setFormState(null)}
-                  onResult={applyResult}
-                  onDone={() => setFormState(null)}
-                />
-              )}
-            </section>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-rule bg-card px-6 py-20 text-center">
-            <CalendarRange size={34} className="text-brand/60" />
-            <div className="font-fraunces text-[16px] font-bold">Vue Frise — bientôt</div>
-            <p className="max-w-md text-[12.5px] text-muted-foreground">
-              Timeline par poste sur l'année (fériés + fermetures déplaçables). Conçue, pas encore
-              câblée — la vue Registre reste la source d'édition.
-            </p>
-          </div>
-        )}
+            {formState === null ? (
+              <div className="flex items-center justify-between px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setFormState({ mode: 'add' })}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
+                >
+                  <Plus size={16} />
+                  Nouvelle fermeture
+                </button>
+                <span className="font-fraunces text-[11.5px] italic text-muted-foreground">
+                  Portée : poste (WST) ou atelier (STOLOC). 0 % = fermé · 50 % = demi-journée.
+                </span>
+              </div>
+            ) : (
+              <ClosureForm
+                postes={props.postes}
+                ateliers={props.ateliers}
+                edit={formState.mode === 'edit' ? formState.closure : undefined}
+                onCancel={() => setFormState(null)}
+                onResult={applyResult}
+                onDone={() => setFormState(null)}
+              />
+            )}
+          </section>
+        </div>
       </div>
     </AppLayout>
   )
