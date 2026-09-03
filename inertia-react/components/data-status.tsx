@@ -6,12 +6,14 @@
  *   1. temps de chargement — chrono live pendant le chargement ; la durée du
  *      dernier chargement (fetch JSON minutés + navigation Inertia, via le
  *      store data-status) passe au survol ;
- *   2. fraîcheur — heure de la dernière mise à jour des données de la page +
- *      ÂGE DE LA DONNÉE quand le endpoint le porte (`computedAt`, tampon posé
- *      dans le cache côté serveur, re-ancré sur l'horloge du navigateur à la
- *      réception pour rester immunisé au décalage d'horloge serveur) + date de
- *      la dernière extraction X3 (tables statiques, shared prop `x3LastSync`),
- *      la pastille passant au rouge quand l'extraction vieillit ;
+ *   2. fraîcheur — INSTANT DE CALCUL de la donnée (« maj » : réception moins
+ *      âge mesuré, cohérent avec l'âge affiché à ses côtés) + ÂGE DE LA
+ *      DONNÉE quand le endpoint le porte (`computedAt`, tampon posé dans le
+ *      cache côté serveur, re-ancré sur l'horloge du navigateur à la
+ *      réception pour rester immunisé au décalage d'horloge serveur) + date
+ *      de la dernière extraction X3 (tables statiques, shared prop
+ *      `x3LastSync`), la pastille passant au rouge quand l'extraction
+ *      vieillit ;
  *   3. rechargement — le bouton ⟳ re-déclenche les fetch minutés (nonce du
  *      store) ET un `router.reload()` (pages dont les données sont en props).
  *
@@ -171,6 +173,11 @@ export function DataStatus() {
   // du navigateur, immunisé au décalage serveur) + le temps qui a passé depuis.
   const dataAge =
     dataAgeMs !== null && loadedAt !== null ? dataAgeMs + (Date.now() - loadedAt) : null
+  // « maj » = instant de CALCUL de la donnée (réception − âge mesuré), pas
+  // celui de sa réception : c'est ce qui rend l'affichage cohérent —
+  // « maj 22:25 · il y a 6 min » dit UNE chose, deux fois. Sans tampon, calcul
+  // et réception coïncident.
+  const majTs = dataAgeMs !== null && loadedAt !== null ? loadedAt - dataAgeMs : loadedAt
   const refresh = () => {
     bump()
     router.reload()
@@ -178,12 +185,11 @@ export function DataStatus() {
 
   const tooltip = [
     'Données de la page',
-    loadedAt !== null &&
-      `Mise à jour : ${fmtComplet(loadedAt)}${ms !== null ? ` (chargée en ${fmtMs(ms)})` : ''}`,
-    dataAgeMs !== null &&
-      (dataAgePresumed
-        ? 'Données reconstruites à la requête (endpoint sans cache de réponse)'
-        : `Âge des données au chargement : ${fmtAge(dataAgeMs)} (cache serveur inclus)`),
+    majTs !== null &&
+      `Calculée : ${fmtComplet(majTs)}${dataAgePresumed ? ' (à la requête)' : ' (cache serveur inclus)'}`,
+    !dataAgePresumed &&
+      loadedAt !== null &&
+      `Reçue : ${fmtComplet(loadedAt)}${ms !== null ? ` (chargée en ${fmtMs(ms)})` : ''}`,
     x3LastSync
       ? `Extraction X3 (tables statiques) : ${fmtComplet(x3LastSync)}`
       : 'Extraction X3 : jamais synchronisée',
@@ -209,8 +215,8 @@ export function DataStatus() {
       <span className="whitespace-nowrap">
         {loading
           ? `Chargement ${elapsed !== null ? (elapsed / 1000).toFixed(1) : '0.0'} s`
-          : loadedAt !== null
-            ? `maj ${fmtMaj(loadedAt)}`
+          : majTs !== null
+            ? `maj ${fmtMaj(majTs)}`
             : 'données non chargées'}
         {/* Âge de la DONNÉE — pas celui de sa réception : une page servie du
             cache affiche son vrai âge même rechargée à l'instant (c'est la
