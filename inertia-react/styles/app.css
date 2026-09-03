@@ -716,3 +716,99 @@
   border-bottom: 2.5px solid var(--brand);
   border-radius: 1px;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Flash du diff au rechargement (issue #186)
+   ────────────────────────────────────────────────────────────
+   Après un rechargement EXPLICITE, les cellules dont la valeur a
+   bougé s'allument brièvement puis s'éteignent sans laisser de
+   trace ; les lignes entrées/sorties flashent en entier.
+
+   Chromatique arrêtée : ambre = « a changé », sans encoder le
+   sens de la variation (hausse/baisse) — le vert et le rouge
+   sont réservés aux entrées et aux sorties, où ils veulent dire
+   « apparue » / « partie », pas « bonne nouvelle » / « mauvaise ».
+
+   Les marqueurs `data-flash` sont posés par components/ui/
+   data-table.tsx à partir de la carte calculée par
+   lib/use-diff-flash.ts. Les durées viennent de lib/diff-flash.ts
+   (FLASH_MS / EXIT_MS), recopiées sur :root par <DataStatus /> —
+   les valeurs de repli ci-dessous doivent leur rester identiques.
+   ════════════════════════════════════════════════════════════ */
+
+:root {
+  --flash-change: #b45309; /* ambre profond — lisible sur fond clair */
+  --flash-in: var(--ferme);
+  --flash-out: var(--destructive);
+}
+
+@keyframes flash-cell-change {
+  from {
+    background-color: color-mix(in srgb, var(--flash-change) 30%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes flash-cell-in {
+  from {
+    background-color: color-mix(in srgb, var(--flash-in) 26%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* La sortie ne s'éteint PAS complètement : la ligne est retirée du DOM au
+ * terme de l'animation, elle doit rester lisible jusqu'au bout. */
+@keyframes flash-cell-out {
+  from {
+    background-color: color-mix(in srgb, var(--flash-out) 30%, transparent);
+  }
+  to {
+    background-color: color-mix(in srgb, var(--flash-out) 14%, transparent);
+  }
+}
+
+/* Cellule modifiée. Le fond est porté par le `td` (et non la ligne) pour
+ * passer par-dessus les fonds alternés et la teinte de retard portés par
+ * le `tr`. */
+td[data-flash='chg'] {
+  animation: flash-cell-change var(--flash-ms, 2000ms) ease-out both;
+}
+
+tr[data-flash='in'] > td {
+  animation: flash-cell-in var(--flash-ms, 2000ms) ease-out both;
+}
+
+tr[data-flash='out'] > td {
+  animation: flash-cell-out var(--flash-exit-ms, 1000ms) ease-out both;
+}
+
+/* Ligne sortante : barrée et estompée en plus du flash — la couleur seule
+ * ne dit pas « celle-ci n'existe plus », elle dit seulement « regarde ». */
+tr[data-flash='out'] {
+  opacity: 0.7;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--flash-out) 60%, transparent);
+}
+
+/* Mouvement réduit : la teinte reste (c'est l'information), l'estompement
+ * disparaît. React retire l'attribut au terme du même délai. */
+@media (prefers-reduced-motion: reduce) {
+  td[data-flash='chg'],
+  tr[data-flash='in'] > td,
+  tr[data-flash='out'] > td {
+    animation: none;
+  }
+  td[data-flash='chg'] {
+    background-color: color-mix(in srgb, var(--flash-change) 20%, transparent);
+  }
+  tr[data-flash='in'] > td {
+    background-color: color-mix(in srgb, var(--flash-in) 18%, transparent);
+  }
+  tr[data-flash='out'] > td {
+    background-color: color-mix(in srgb, var(--flash-out) 20%, transparent);
+  }
+}

@@ -6,7 +6,14 @@
 import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
-import { BADGE_TONE, BADGE_DOT, BADGE_TEXT, LATE_TONE, empKey, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
+import {
+  BADGE_TONE,
+  BADGE_DOT,
+  BADGE_TEXT,
+  LATE_TONE,
+  empKey,
+  getRelativeDateLabel,
+} from '@r/lib/suivi/tracking-shared'
 import { FlaskConical, Hourglass } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
@@ -121,7 +128,9 @@ export function createReactiveColumns({
         return (
           <span className="font-mono text-[13px] font-bold leading-none tracking-tight text-foreground tabular-nums">
             {restante}
-            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">/ {commandee}</span>
+            <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">
+              / {commandee}
+            </span>
           </span>
         )
       },
@@ -138,7 +147,9 @@ export function createReactiveColumns({
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
           <div className="leading-tight">
-            <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
+            <div className="font-mono text-[11px] font-semibold text-foreground">
+              {(getValue() as string) || '—'}
+            </div>
             {rel && (
               <div
                 className={cn(
@@ -358,4 +369,33 @@ export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> 
         LATE_TONE.bar(row.lateSeverity)
       ),
   }
+}
+
+/**
+ * Contrat de diff de la vue réactive (issue #186) — même principe que
+ * PROACTIVE_DIFF_FIELDS : une entrée par identifiant de colonne, comparant ce
+ * que la cellule montre. Voir lib/diff-flash.ts pour le moteur.
+ */
+export const REACTIVE_DIFF_FIELDS: Record<string, (row: SuiviDisplayRow) => unknown> = {
+  numCommande: (r) => `${r.numCommande}|${r.client}|${r.refCommandeClient ?? ''}`,
+  article: (r) => `${r.article}|${r.designation}|${r.refArticleClient ?? ''}`,
+  type: (r) => r.type,
+  poste: (r) => `${r.poste}|${r.posteLabel}`,
+  qteRestante: (r) => r.qteRestante,
+  dateExp: (r) => r.dateExpIso ?? r.dateExp,
+  // Emplacements : palette, zone et quantité — ce que la pile de pills affiche.
+  emplacements: (r) =>
+    r.emplacements.map((e) => `${e.nom}:${e.qte}:${e.source}:${e.hum ?? ''}`).join(','),
+  statusKey: (r) => `${r.statusKey}|${r.cq}|${r.allocCq}|${r.attenteLignes}`,
+  cause: (r) =>
+    r.cause === null
+      ? ''
+      : [
+          r.cause.type,
+          r.cause.comps.map((c) => `${c.art}:${c.qty}`).join('+'),
+          r.cause.reception ? `${r.cause.reception.eta}:${r.cause.reception.po}` : '',
+          r.cause.retro?.composant
+            ? `${r.cause.retro.composant.art}:${r.cause.retro.composant.dispoA}`
+            : '',
+        ].join('|'),
 }

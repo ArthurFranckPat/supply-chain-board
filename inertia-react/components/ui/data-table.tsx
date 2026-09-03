@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
+import type { RowFlash } from '@r/lib/diff-flash'
 
 /**
  * Wrapper DataTable maison (plan §6) : table HTML + tri contrôlé +
@@ -60,6 +61,22 @@ export interface DataTableProps<TRow> {
   selectedRowKey?: string | null
   getRowKey?: (row: TRow) => string
   emptyState?: ReactNode
+  /**
+   * Diff du dernier rechargement (issue #186) : pose `data-flash` sur les
+   * cellules modifiées (`chg`) et sur les lignes entrées/sorties (`in`/`out`),
+   * les keyframes vivant dans app.css. Le tableau ne décide de rien : il
+   * applique la carte que le hook `useDiffFlash` lui donne.
+   */
+  flash?: RowFlash | null
+  /**
+   * Identité utilisée pour retrouver une ligne dans `flash` — par défaut
+   * `getRowKey`. À surcharger quand la clé de rendu inclut un champ qu'on veut
+   * voir CHANGER plutôt que disparaître : sur le Suivi, la date d'expédition
+   * fait partie de `getRowKey`, donc un décalage de date se lirait comme une
+   * sortie suivie d'une entrée au lieu d'un flash sur la cellule Expé.
+   * DOIT être la même fonction que le `key` du DiffConfig de la page.
+   */
+  getFlashKey?: (row: TRow) => string
 }
 
 const DEFAULT_SCROLL_CLASS = 'h-full overflow-auto rounded-lg border bg-card shadow-xs'
@@ -79,6 +96,8 @@ export function DataTable<TRow>({
   selectedRowKey,
   getRowKey,
   emptyState,
+  flash,
+  getFlashKey,
 }: DataTableProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -241,11 +260,27 @@ export function DataTable<TRow>({
                 ? { cursor: 'pointer' }
                 : undefined
 
+              // Identité MÉTIER (pas la clé React dédoublonnée) : c'est celle
+              // que le diff manipule. Une ligne entrée/sortie flashe en entier,
+              // sinon le flash descend à la cellule (cf. td plus bas).
+              const keyForFlash = getFlashKey ?? getRowKey
+              const flashKey = flash && keyForFlash ? keyForFlash(row) : null
+              const rowFlash = flashKey
+                ? flash!.entered.has(flashKey)
+                  ? 'in'
+                  : flash!.exited.has(flashKey)
+                    ? 'out'
+                    : undefined
+                : undefined
+              const changedCols =
+                rowFlash === undefined && flashKey ? flash!.changed.get(flashKey) : undefined
+
               return (
                 <tr
                   key={rowKey}
                   ref={rowVirtualizer.measureElement}
                   data-index={virtualRow.index}
+                  data-flash={rowFlash}
                   className={cn(
                     'border-b transition-colors last:border-b-0 hover:bg-muted/50',
                     getRowClass?.(row, virtualRow.index),
@@ -265,7 +300,11 @@ export function DataTable<TRow>({
                     const val = getValue(row, col)
 
                     return (
-                      <td key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
+                      <td
+                        key={columnId}
+                        data-flash={changedCols?.has(columnId) ? 'chg' : undefined}
+                        className={cn('px-3 py-2', col.meta?.tdClass)}
+                      >
                         {col.cell
                           ? col.cell({
                               row: { original: row },

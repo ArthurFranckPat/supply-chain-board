@@ -13,8 +13,17 @@
  * requête court (une page peut charger plusieurs fragments en parallèle) ;
  * `ms`/`loadedAt` reflètent le dernier fetch terminé (sur une page, c'est le
  * plus lent qui finit par s'afficher — celui que l'utilisateur perçoit).
+ *
+ * Le store loge aussi le RÉCAPITULATIF du diff de rechargement (issue #186) :
+ * chaque source de données (un fetch minuté, les props d'une visite Inertia)
+ * publie ses compteurs sous son propre nom, la barre en affiche la somme. Les
+ * compteurs sont rattachés au `nonce` du rechargement qui les a produits — une
+ * publication portant un autre nonce remplace la précédente au lieu de s'y
+ * ajouter, ce qui évite d'additionner deux rechargements successifs.
  */
 import { create } from 'zustand'
+
+import type { DiffCounts } from '@r/lib/diff-flash'
 
 interface DataStatusState {
   /** Requêtes données en cours (fetch JSON + navigation Inertia). */
@@ -29,6 +38,13 @@ interface DataStatusState {
   error: string | null
   /** Incrémenté à chaque clic « recharger » — consommé par useTimedFetch. */
   nonce: number
+  /**
+   * Récap du diff du dernier rechargement, par source (issue #186). Vide tant
+   * qu'aucun rechargement explicite n'a produit de changement.
+   */
+  diffBySource: Record<string, DiffCounts>
+  /** Nonce du rechargement auquel `diffBySource` se rapporte. */
+  diffNonce: number
 
   /** Déclare le démarrage d'une requête (incrémente active, pose le chrono). */
   begin: () => void
@@ -46,6 +62,14 @@ interface DataStatusState {
    * Sans effet si une vraie requête a déjà alimenté le store.
    */
   seed: (ms: number) => void
+  /**
+   * Publie le récap de diff d'une source pour un rechargement donné. Une
+   * publication portant un nonce plus récent efface les compteurs du
+   * rechargement précédent (on ne cumule jamais deux rechargements).
+   */
+  publishDiff: (source: string, nonce: number, counts: DiffCounts) => void
+  /** Efface le récap — navigation, ou rechargement suivant. */
+  clearDiff: () => void
 }
 
 export const useDataStatusStore = create<DataStatusState>((set) => ({
@@ -55,6 +79,8 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
   loadedAt: null,
   error: null,
   nonce: 0,
+  diffBySource: {},
+  diffNonce: 0,
 
   begin: () =>
     set((s) => ({
@@ -92,7 +118,32 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
       return { active, ...(active === 0 ? { t0: null } : {}) }
     }),
 
-  bump: () => set((s) => ({ nonce: s.nonce + 1 })),
+  // Le récap du rechargement précédent disparaît dès qu'on en redemande un :
+  // laisser « 12 changements » à l'écran pendant le nouveau chargement
+  // laisserait croire qu'il décrit les données en train d'arriver.
+  bump: () => set((s) => ({ nonce: s.nonce + 1, diffBySource: {}, diffNonce: s.nonce + 1 })),
 
   seed: (ms) => set((s) => (s.loadedAt === null ? { ms, loadedAt: Date.now() } : {})),
+
+  publishDiff: (source, nonce, counts) =>
+    set((s) => ({
+      diffNonce: nonce,
+      diffBySource:
+        s.diffNonce === nonce ? { ...s.diffBySource, [source]: counts } : { [source]: counts },
+    })),
+
+  clearDiff: () => set({ diffBySource: {}, diffNonce: 0 }),
 }))
+
+/** Somme des récaps publiés — `null` si aucun changement à annoncer. */
+export function totalDiff(bySource: Record<string, DiffCounts>): DiffCounts | null {
+  let changed = 0
+  let entered = 0
+  let exited = 0
+  for (const c of Object.values(bySource)) {
+    changed += c.changed
+    entered += c.entered
+    exited += c.exited
+  }
+  return changed + entered + exited === 0 ? null : { changed, entered, exited }
+}

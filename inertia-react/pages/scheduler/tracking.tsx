@@ -21,7 +21,17 @@ import type {
   ProactiveDisplayRow,
 } from '@r/lib/suivi/types'
 import { toIso, startOfDay } from '@r/lib/vision/date-utils'
-import { EMPTY, PROACTIVE_EMPTY, fmtMs, suiviRowKey } from '@r/lib/suivi/tracking-shared'
+import {
+  EMPTY,
+  PROACTIVE_EMPTY,
+  fmtMs,
+  suiviRowKey,
+  suiviDiffKey,
+} from '@r/lib/suivi/tracking-shared'
+import { useDiffFlash } from '@r/lib/use-diff-flash'
+import { useDataStatusStore } from '@r/lib/data-status-store'
+import { REACTIVE_DIFF_FIELDS } from '@r/lib/suivi/reactive-columns'
+import { PROACTIVE_DIFF_FIELDS } from '@r/lib/suivi/proactive-columns'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -76,9 +86,16 @@ interface DateRange {
 }
 
 export default function Tracking(props: SuiviPageProps) {
-  // Calcul lourd différé : fetch client-side, relancé au bust (bouton refresh
-  // → ?refresh=N invalide le cache serveur).
-  const [bust, setBust] = useState(0)
+  // Calcul lourd différé : fetch client-side, relancé à chaque rechargement
+  // explicite (?refresh=N invalide le cache de contexte ET force le re-fetch X3).
+  //
+  // Le compteur de rechargement est le `nonce` du store data-status, et non un
+  // état local : les DEUX boutons (le ⟳ du masthead et celui de la toolbar)
+  // doivent emprunter le même chemin. Sans cela, le ⟳ du masthead se contentait
+  // d'ajouter `_r=N` — le serveur reservait ses données X3 en cache (TTL 5 min,
+  // servies stale par le SWR), le payload revenait identique, et le diff de
+  // l'issue #186 n'avait par construction jamais rien à montrer.
+  const bust = useDataStatusStore((s) => s.nonce)
 
   const rowsUrl = `${props.rowsHref}${bust ? `?refresh=${bust}` : ''}`
   const proUrl = `${props.proactiveRowsHref}${bust ? `?refresh=${bust}` : ''}`
@@ -103,6 +120,32 @@ export default function Tracking(props: SuiviPageProps) {
     elapsed: proElapsed,
   } = useTimedFetch<ProactiveRowsResponse>(proUrl)
   const proView = proData ?? PROACTIVE_EMPTY
+
+  // ── Diff du rechargement (issue #186) ──────────────────────────────────
+  // Une source par fragment : le récap de la barre data-status somme les deux,
+  // et chaque vue ne flashe que ses propres lignes. `ghosts` = les lignes
+  // sorties, réinjectées dans la liste le temps de leur flash rouge.
+  const reactiveDiff = useDiffFlash('suivi:reactif', data?.rows ?? null, {
+    key: suiviDiffKey,
+    fields: REACTIVE_DIFF_FIELDS,
+  })
+  const proactiveDiff = useDiffFlash('suivi:proactif', proData?.rows ?? null, {
+    key: suiviDiffKey,
+    fields: PROACTIVE_DIFF_FIELDS,
+  })
+
+  // Les fantômes rejoignent les lignes SOUMISES AUX FILTRES, jamais les
+  // compteurs (total, chip « en rupture »…) : une ligne qui vient de sortir ne
+  // doit pas regonfler des statistiques qui décrivent l'état actuel.
+  const reactiveRows = useMemo(
+    () => (reactiveDiff.ghosts.length > 0 ? [...view.rows, ...reactiveDiff.ghosts] : view.rows),
+    [view.rows, reactiveDiff.ghosts]
+  )
+  const proRows = useMemo(
+    () =>
+      proactiveDiff.ghosts.length > 0 ? [...proView.rows, ...proactiveDiff.ghosts] : proView.rows,
+    [proView.rows, proactiveDiff.ghosts]
+  )
 
   // Plage de dates d'expédition affichée — filtre CLIENT pur (pas de re-fetch).
   // Les lignes déjà en retard restent TOUJOURS visibles hors plage, plafonnées
@@ -186,7 +229,7 @@ export default function Tracking(props: SuiviPageProps) {
   // Filtrage (le tri est de la responsabilité de chaque vue).
   const reactiveFilteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let r = view.rows.filter(
+    let r = reactiveRows.filter(
       (row) =>
         (statusFilter === 'all' || row.statusKey === statusFilter) &&
         typeFilter.has(row.type) &&
@@ -199,11 +242,11 @@ export default function Tracking(props: SuiviPageProps) {
     }
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view.rows, query, statusFilter, typeFilter, atelierFilter, dateRange])
+  }, [reactiveRows, query, statusFilter, typeFilter, atelierFilter, dateRange])
 
   const proFilteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let r = proView.rows.filter(
+    let r = proRows.filter(
       (row) =>
         (verdictFilter === 'all' || row.verdictKey === verdictFilter) &&
         (!ruptureOnly || hasRupture(row)) &&
@@ -224,7 +267,7 @@ export default function Tracking(props: SuiviPageProps) {
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    proView.rows,
+    proRows,
     proView.bomIndex,
     query,
     verdictFilter,
@@ -535,7 +578,10 @@ export default function Tracking(props: SuiviPageProps) {
               {fmtMs(lastMs)}
             </span>
           )}
-          <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
+          {/* Même geste, même chemin que le ⟳ de la barre data-status : le bump
+              incrémente le nonce, qui relance les fetch AVEC ?refresh et arme le
+              diff (issue #186). */}
+          <RefreshPill loading={loading} onClick={() => useDataStatusStore.getState().bump()} />
         </ToolbarRow>
 
         {mode === 'reactif' ? (
@@ -547,6 +593,7 @@ export default function Tracking(props: SuiviPageProps) {
             onResetFilters={resetFilters}
             onRowClick={(row) => setSelectedRow({ type: 'reactif', row })}
             selectedRowKey={selectedRowKey}
+            flash={reactiveDiff.flash}
           />
         ) : (
           <ProactiveView
@@ -559,6 +606,7 @@ export default function Tracking(props: SuiviPageProps) {
             selectedRowKey={selectedRowKey}
             onSelectOf={onSelectOf}
             showSubAssemblies={showSubAssemblies}
+            flash={proactiveDiff.flash}
           />
         )}
       </div>

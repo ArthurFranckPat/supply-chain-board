@@ -11,12 +11,18 @@
  *      `x3LastSync`), la pastille passant au rouge quand l'extraction vieillit ;
  *   3. rechargement — le bouton ⟳ re-déclenche les fetch minutés (nonce du
  *      store) ET un `router.reload()` (pages dont les données sont en props).
+ *
+ * S'y ajoute (issue #186) le RÉCAP du diff produit par ce rechargement —
+ * « n changements · n nouvelles · n sorties ». Il compte les lignes du payload
+ * entier, y compris celles qu'un filtre ou une pagination cache : le flash ne
+ * montre que ce qui est à l'écran, ce compteur dit combien a bougé en tout.
  */
 import { useEffect, useState } from 'react'
 import { router, usePage } from '@inertiajs/react'
 import { LoaderCircle, RefreshCw } from 'lucide-react'
 
-import { useDataStatusStore } from '@r/lib/data-status-store'
+import { useDataStatusStore, totalDiff } from '@r/lib/data-status-store'
+import { EXIT_MS, FLASH_MS } from '@r/lib/diff-flash'
 import { cn } from '@r/lib/utils'
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -65,6 +71,11 @@ function bindInertiaTiming() {
   if (inertiaTimingBound) return
   inertiaTimingBound = true
   let visitT0: number | null = null
+  // Le store survit aux navigations Inertia (module, pas composant) : sans
+  // cette mémoire de l'URL, le récap de diff d'une page suivrait l'utilisateur
+  // sur la suivante. On l'efface au changement d'URL — et à lui seul, car un
+  // `router.reload()` émet lui aussi `navigate`, sur la MÊME URL.
+  let lastUrl = typeof window !== 'undefined' ? window.location.pathname : ''
   router.on('start', () => {
     visitT0 = Date.now()
     useDataStatusStore.getState().begin()
@@ -74,11 +85,41 @@ function bindInertiaTiming() {
     useDataStatusStore.getState().end(Date.now() - visitT0)
     visitT0 = null
   })
+  router.on('navigate', () => {
+    const url = window.location.pathname
+    if (url === lastUrl) return
+    lastUrl = url
+    useDataStatusStore.getState().clearDiff()
+  })
 }
 
+/**
+ * Recopie les durées du flash sur `:root` pour que les keyframes d'app.css les
+ * suivent. C'est ce qui fait de lib/diff-flash.ts LA source unique : les
+ * valeurs écrites en dur dans la feuille de style ne sont que des replis, à
+ * garder identiques. Posé ici parce que <DataStatus /> est sur toutes les
+ * pages — et parce que le moteur de diff, lui, doit rester sans DOM.
+ */
+function applyFlashDurations() {
+  const root = document.documentElement.style
+  root.setProperty('--flash-ms', `${FLASH_MS}ms`)
+  root.setProperty('--flash-exit-ms', `${EXIT_MS}ms`)
+}
+
+/** « 12 changements · 3 nouvelles · 1 sortie » — les zéros sont tus. */
+const fmtDiff = (d: { changed: number; entered: number; exited: number }) =>
+  [
+    d.changed > 0 && `${d.changed} changement${d.changed > 1 ? 's' : ''}`,
+    d.entered > 0 && `${d.entered} nouvelle${d.entered > 1 ? 's' : ''}`,
+    d.exited > 0 && `${d.exited} sortie${d.exited > 1 ? 's' : ''}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
 export function DataStatus() {
-  const { active, t0, ms, loadedAt, error, bump } = useDataStatusStore()
+  const { active, t0, ms, loadedAt, error, bump, diffBySource } = useDataStatusStore()
   const loading = active > 0
+  const diff = totalDiff(diffBySource)
   const page = usePage<{ x3LastSync?: number | null }>()
   const x3LastSync = page.props.x3LastSync
 
@@ -95,6 +136,7 @@ export function DataStatus() {
   // pages à fetch JSON le remplaceront par la durée réelle du calcul.
   useEffect(() => {
     bindInertiaTiming()
+    applyFlashDurations()
     useDataStatusStore.getState().seed(Math.round(performance.now()))
   }, [])
 
@@ -111,6 +153,7 @@ export function DataStatus() {
     x3LastSync
       ? `Extraction X3 (tables statiques) : ${fmtComplet(x3LastSync)}`
       : 'Extraction X3 : jamais synchronisée',
+    diff && `Depuis le rechargement : ${fmtDiff(diff)}`,
     error && `Erreur : ${error}`,
   ]
     .filter(Boolean)
@@ -132,14 +175,20 @@ export function DataStatus() {
             ? `${ms !== null ? `${fmtMs(ms)} · ` : ''}maj ${fmtMaj(loadedAt)}`
             : 'données non chargées'}
       </span>
+      {/* Récap du diff du dernier rechargement (issue #186) — porte les
+          changements HORS écran (autres pages de tri, lignes filtrées), que le
+          flash des cellules ne peut par construction pas montrer. Disparaît au
+          rechargement suivant (bump) ou au changement de page. */}
+      {!loading && diff && (
+        <span className="whitespace-nowrap border-l border-rule pl-1.5 font-bold text-[var(--flash-change)]">
+          {fmtDiff(diff)}
+        </span>
+      )}
       {/* Fraîcheur de l'extraction X3 (tables statiques) — visible en clair,
           la date complète au survol ; la pastille encode l'âge (vert < 24 h,
           orange < 7 j, rouge au-delà ou jamais synchronisée). */}
       <span className="hidden items-center gap-1.5 whitespace-nowrap border-l border-rule pl-1.5 xl:flex">
-        <span
-          className={cn('size-[6px] rounded-full', dotCls(x3LastSync))}
-          aria-hidden="true"
-        />
+        <span className={cn('size-[6px] rounded-full', dotCls(x3LastSync))} aria-hidden="true" />
         X3 {x3LastSync ? fmtX3(x3LastSync) : '—'}
       </span>
       <button

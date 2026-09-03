@@ -6,12 +6,13 @@
 import { useState } from 'react'
 
 import { cn } from '@r/lib/utils'
+import type { RowFlash } from '@r/lib/diff-flash'
 import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@r/lib/suivi/types'
-import { sortRows, LATE_TONE, suiviRowKey } from '@r/lib/suivi/tracking-shared'
+import { sortRows, LATE_TONE, suiviRowKey, suiviDiffKey } from '@r/lib/suivi/tracking-shared'
 import { createProactiveColumns, createProactiveIndexCol } from '@r/lib/suivi/proactive-columns'
 
 export interface ProactiveViewProps {
@@ -26,6 +27,8 @@ export interface ProactiveViewProps {
   onSelectOf?: (numOf: string) => void
   /** Inclure les sous-ensembles (semi-finis) en rupture dans la colonne « Composants en rupture ». */
   showSubAssemblies?: boolean
+  /** Diff du dernier rechargement (issue #186) — relayé tel quel au DataTable. */
+  flash?: RowFlash | null
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
@@ -84,6 +87,8 @@ export function ProactiveView(props: ProactiveViewProps) {
             onRowClick={props.onRowClick}
             selectedRowKey={props.selectedRowKey}
             getRowKey={suiviRowKey}
+            getFlashKey={suiviDiffKey}
+            flash={props.flash}
             emptyState={
               <div className="flex flex-1 items-center justify-center p-12 text-center">
                 <div className="flex flex-col items-center">

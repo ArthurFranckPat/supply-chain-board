@@ -666,3 +666,37 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
     },
   }
 }
+
+/**
+ * Contrat de diff de la vue proactive (issue #186) — déclaratif, co-localisé
+ * avec les colonnes qu'il décrit : ajouter une colonne sans lui donner ici son
+ * extracteur, c'est simplement ne jamais la voir flasher.
+ *
+ * Les identifiants sont ceux des `ColumnDef` ci-dessus (`id ?? accessorKey`) :
+ * c'est ce qui permet au DataTable de poser le flash sur la BONNE cellule sans
+ * table de correspondance. Chaque extracteur rend ce que la cellule MONTRE —
+ * pas la ligne entière : comparer l'objet complet ferait flasher les 10
+ * colonnes dès qu'un champ invisible bouge.
+ */
+export const PROACTIVE_DIFF_FIELDS: Record<string, (row: ProactiveDisplayRow) => unknown> = {
+  numCommande: (r) => `${r.numCommande}|${r.client}|${r.refCommandeClient ?? ''}`,
+  article: (r) => `${r.article}|${r.designation}|${r.refArticleClient ?? ''}`,
+  type: (r) => r.type,
+  poste: (r) => `${r.poste}|${r.posteLabel}`,
+  qteRestante: (r) => r.qteRestante,
+  dateExp: (r) => r.dateExpIso ?? r.dateExp,
+  // Couverture : le n° et le statut X3 de chaque OF + la quantité qu'il porte.
+  // Les pièces déjà faites sont volontairement HORS comparaison — elles bougent
+  // à chaque pointage d'atelier et feraient clignoter la colonne en permanence.
+  couverture: (r) =>
+    `${r.couverture}#${r.ofs.map((o) => `${o.numOf}:${o.statutNum}:${o.qteAllouee}:${o.feasible}`).join(',')}`,
+  verdictKey: (r) => `${r.verdictKey}|${r.cq ? `${r.cq.qty}:${r.cq.articles}:${r.cq.seul}` : ''}`,
+  chargeHeures: (r) => r.ofs.reduce((sum, o) => sum + (o.chargeHeures ?? 0), 0),
+  // Composants en rupture : article + manque + ETA de la réception couvrante.
+  // Le détail de la descente BOM n'entre pas dans la comparaison (il dérive des
+  // mêmes manques et gonflerait la sérialisation sans rien ajouter au signal).
+  composants: (r) =>
+    r.composants
+      .map((c) => `${c.art}:${c.qty}:${c.qc}:${c.cqSeul}:${c.reception?.eta ?? ''}`)
+      .join(','),
+}

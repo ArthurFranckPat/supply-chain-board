@@ -244,3 +244,20 @@ export function sortRows<T extends { numCommande: string; dateExpIso: string | n
   })
   return desc ? sorted.reverse() : sorted
 }
+
+/**
+ * Clé d'identité du DIFF de rechargement (issue #186) — volontairement PLUS
+ * LARGE que `suiviRowKey`.
+ *
+ * `suiviRowKey` embarque la date d'expédition parce qu'elle sert de clé de
+ * rendu React, où l'unicité prime. Le diff, lui, veut voir un décalage de date
+ * comme un CHANGEMENT (flash ambre sur la cellule Expé) et non comme une ligne
+ * qui sort suivie d'une ligne qui entre — or c'est exactement ce que produirait
+ * une clé contenant la date qui vient de bouger.
+ *
+ * Contrepartie assumée : deux lignes de même commande/article à deux dates
+ * distinctes partagent cette clé et sont donc comparées — et flashées —
+ * ensemble (cf. `groupByKey` dans lib/diff-flash.ts).
+ */
+export const suiviDiffKey = (row: { numCommande: string; article: string }): string =>
+  `${row.numCommande}::${row.article}`

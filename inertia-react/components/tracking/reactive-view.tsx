@@ -6,12 +6,13 @@
 import { useState } from 'react'
 
 import { cn } from '@r/lib/utils'
+import type { RowFlash } from '@r/lib/diff-flash'
 import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { SuiviRowsResponse, SuiviDisplayRow } from '@r/lib/suivi/types'
-import { sortRows, LATE_TONE, suiviRowKey } from '@r/lib/suivi/tracking-shared'
+import { sortRows, LATE_TONE, suiviRowKey, suiviDiffKey } from '@r/lib/suivi/tracking-shared'
 import { createReactiveColumns, createReactiveIndexCol } from '@r/lib/suivi/reactive-columns'
 
 export interface ReactiveViewProps {
@@ -22,6 +23,8 @@ export interface ReactiveViewProps {
   onResetFilters?: () => void
   onRowClick?: (row: SuiviDisplayRow) => void
   selectedRowKey?: string | null
+  /** Diff du dernier rechargement (issue #186) — relayé tel quel au DataTable. */
+  flash?: RowFlash | null
 }
 
 export function ReactiveView(props: ReactiveViewProps) {
@@ -84,11 +87,17 @@ export function ReactiveView(props: ReactiveViewProps) {
             onRowClick={props.onRowClick}
             selectedRowKey={props.selectedRowKey}
             getRowKey={suiviRowKey}
+            getFlashKey={suiviDiffKey}
+            flash={props.flash}
             emptyState={
               <div className="flex flex-1 items-center justify-center p-12 text-center">
                 <div className="flex flex-col items-center">
                   <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                    <DynamicIcon name={props.view.x3Error ? 'cloud_off' : 'search_off'} size={28} strokeWidth={1.75} />
+                    <DynamicIcon
+                      name={props.view.x3Error ? 'cloud_off' : 'search_off'}
+                      size={28}
+                      strokeWidth={1.75}
+                    />
                   </div>
                   <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
                     {props.view.x3Error ? 'Erreur de connexion Sage X3' : 'Aucun résultat trouvé'}
