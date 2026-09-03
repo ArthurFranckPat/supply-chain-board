@@ -643,23 +643,27 @@ export default function Sequenceur(props: SequenceurPageProps) {
     }
 
     return [...rows].sort((a, b) => {
-      if (feasDone) {
-        // Lançables d'abord, puis CQ, bloqués, inconnus.
-        const ra = feasRank(feasibility[a.numOf]?.st)
-        const rb = feasRank(feasibility[b.numOf]?.st)
-        if (ra !== rb) return ra - rb
-      }
+      // La faisabilité n'est JAMAIS la clé primaire du tri : en vue tous
+      // postes elle ne classe que DANS un poste (les blocs poste restent
+      // soudés), en vue poste elle vient derrière l'urgence (les buckets de
+      // livraison restent lisibles). Clé primaire, elle réorganisait tout le
+      // board au lancement du calcul et les postes « sautaient » à l'écran.
+      const ra = feasDone ? feasRank(feasibility[a.numOf]?.st) : -1
+      const rb = feasDone ? feasRank(feasibility[b.numOf]?.st) : -1
       if (showPosteCol) {
-        const ra = posteRank.get(a.posteCode) ?? Infinity
-        const rb = posteRank.get(b.posteCode) ?? Infinity
+        const pa = posteRank.get(a.posteCode) ?? Infinity
+        const pb = posteRank.get(b.posteCode) ?? Infinity
+        if (pa !== pb) return pa - pb
+        if (ra !== rb) return ra - rb
+      } else {
+        const aNoCmd = detail && a.commandes.length === 0
+        const bNoCmd = detail && b.commandes.length === 0
+        if (aNoCmd !== bNoCmd) return aNoCmd ? 1 : -1
+        const ua = urgencyOf(a.livraisonIso)
+        const ub = urgencyOf(b.livraisonIso)
+        if (URGENCY_RANK[ua] !== URGENCY_RANK[ub]) return URGENCY_RANK[ua] - URGENCY_RANK[ub]
         if (ra !== rb) return ra - rb
       }
-      const aNoCmd = detail && a.commandes.length === 0
-      const bNoCmd = detail && b.commandes.length === 0
-      if (aNoCmd !== bNoCmd) return aNoCmd ? 1 : -1
-      const ua = urgencyOf(a.livraisonIso)
-      const ub = urgencyOf(b.livraisonIso)
-      if (URGENCY_RANK[ua] !== URGENCY_RANK[ub]) return URGENCY_RANK[ua] - URGENCY_RANK[ub]
       if (!a.livraisonIso && !b.livraisonIso) return a.numOf.localeCompare(b.numOf)
       if (!a.livraisonIso) return 1
       if (!b.livraisonIso) return -1
