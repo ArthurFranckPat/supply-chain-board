@@ -659,6 +659,12 @@ function OfRow({ row: r }: { row: DetailOfRow }) {
 
 function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }) {
   const forecast = isForecastPulled(r.field)
+  // Ligne affichée à zéro parce qu'entièrement couverte : en cran net, le stock
+  // suffit ; en cran reste, l'en-cours peut compléter le stock. Sans mention,
+  // un « 0 / 0,0 » se lit comme une donnée cassée. En cran brut rien n'est
+  // masqué, la mention n'a pas de sens.
+  const stockCovered = qtyMode !== 'brut' && r.brutQty > 0 && r.netQty <= 0
+  const encoursCovered = qtyMode === 'reste' && r.brutQty > 0 && r.netQty > 0 && r.resteQty <= 0
   return (
     <>
       {/* Liseré sur toute la ligne : une charge tirée par une prévision se
@@ -683,6 +689,24 @@ function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }
         )}
       </div>
       <div className={cn(CELL, 'truncate text-muted-foreground')}>
+        {(stockCovered || encoursCovered) && (
+          <span
+            className="mr-1.5 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
+            style={{
+              color: stockCovered ? 'var(--color-ferme)' : 'var(--color-planifie)',
+              background: stockCovered
+                ? 'color-mix(in srgb, var(--color-ferme) 14%, transparent)'
+                : 'color-mix(in srgb, var(--color-planifie) 14%, transparent)',
+            }}
+            title={
+              stockCovered
+                ? 'Besoin entièrement couvert par le stock disponible — plus rien à produire sur cette ligne'
+                : 'Besoin couvert par l’en-cours déjà produit sur un OF démarré — plus rien à lancer'
+            }
+          >
+            {stockCovered ? 'stock' : 'en-cours'}
+          </span>
+        )}
         {forecast && (
           <span
             className="mr-1.5 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
