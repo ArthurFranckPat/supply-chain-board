@@ -10,6 +10,8 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 
+import { Link } from '@inertiajs/react'
+
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
@@ -334,9 +336,9 @@ export default function Impressions(props: PageProps) {
                 {' '}
                 L’impression automatique à l’affermissement est{' '}
                 <b className="text-foreground">désactivée</b> —{' '}
-                <a href={route('print_config.index')} className="underline">
+                <Link href={route('print_config.index')} className="underline">
                   réglages
-                </a>
+                </Link>
                 .
               </>
             )}
@@ -417,13 +419,13 @@ export default function Impressions(props: PageProps) {
               <RefreshCw size={14} className={busy ? 'animate-spin' : undefined} />
               Rafraîchir
             </Button>
-            <a
+            <Link
               href={route('print_config.index')}
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground"
             >
               <Settings2 size={14} />
               Configuration
-            </a>
+            </Link>
           </span>
         </div>
 

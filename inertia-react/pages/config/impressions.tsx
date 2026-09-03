@@ -9,6 +9,8 @@ import {
   Settings2,
 } from 'lucide-react'
 
+import { Link } from '@inertiajs/react'
+
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
@@ -658,12 +660,12 @@ export default function ImpressionsConfig(props: PageProps) {
         <ConfigNav
           active="impressions"
           trailing={
-            <a
+            <Link
               href={route('print_journal')}
               className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
             >
               Journal des tirages →
-            </a>
+            </Link>
           }
         />
 

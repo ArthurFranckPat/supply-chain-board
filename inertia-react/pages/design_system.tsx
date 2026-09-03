@@ -332,6 +332,9 @@ export default function DesignSystem() {
             </div>
             <nav className="mt-6 flex flex-col gap-0.5">
               {NAV.map((item) => (
+                // Ancre NATIVE, volontairement : `#id` fait défiler la page
+                // courante, ce n'est pas une navigation. Un <Link> Inertia
+                // déclencherait une visite inutile vers la même page.
                 <a
                   key={item.id}
                   href={`#${item.id}`}

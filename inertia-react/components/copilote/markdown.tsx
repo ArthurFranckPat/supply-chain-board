@@ -53,6 +53,10 @@ function makeComponents(onFlash: (tool: string) => void): Components {
         const detail = typeof children === 'string' ? children : undefined
         return <SourceTag tool={tool} detail={detail} onFlash={onFlash} />
       }
+      // Ancre NATIVE, volontairement : ces URL viennent de la réponse du modèle,
+      // elles sont arbitraires et le plus souvent externes. Un <Link> Inertia
+      // les traiterait comme des routes de l'application et casserait aussi
+      // l'ouverture dans un nouvel onglet.
       return (
         <a
           href={href}

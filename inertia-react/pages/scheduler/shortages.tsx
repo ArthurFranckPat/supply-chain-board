@@ -8,6 +8,7 @@
  * (agrégation dégâts) et « Couverture » (frise réception ↔ expédition).
  */
 import { useMemo, useState } from 'react'
+import { router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search, TriangleAlert, LoaderCircle, CircleX } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
@@ -89,8 +90,10 @@ export default function Shortages(props: ShortagesProps) {
       (startOfDay(next.end).getTime() - startOfDay(next.start).getTime()) / DAY_MS
     )
     const days = Math.min(MAX_HORIZON, Math.max(MIN_HORIZON, span))
-    window.location.href =
-      route('scheduler.shortage_tracker') + `?start=${toIso(next.start)}&days=${days}`
+    // La plage vit dans l'URL (le calcul est fait côté serveur) : c'est bien une
+    // navigation, mais une visite Inertia suffit — recharger le document entier
+    // pour changer deux paramètres de query rejouait tout le bundle.
+    router.visit(route('scheduler.shortage_tracker') + `?start=${toIso(next.start)}&days=${days}`)
   }
 
   // Fetch des données

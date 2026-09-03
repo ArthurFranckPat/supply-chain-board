@@ -7,6 +7,7 @@
  * que l'onglet où elle se trouve.
  */
 import type { ReactNode } from 'react'
+import { Link } from '@inertiajs/react'
 
 import { route } from '@r/lib/routes'
 
@@ -38,13 +39,13 @@ export function ConfigNav({ active, trailing, className }: ConfigNavProps) {
             {t.label}
           </span>
         ) : (
-          <a
+          <Link
             key={t.key}
             href={t.href}
             className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
           >
             {t.label}
-          </a>
+          </Link>
         )
       )}
       {trailing && <div className="ml-auto">{trailing}</div>}

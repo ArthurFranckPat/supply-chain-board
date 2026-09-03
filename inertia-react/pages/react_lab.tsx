@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { usePage } from '@inertiajs/react'
+import { Link, usePage } from '@inertiajs/react'
 import { toast } from 'sonner'
 
 import AppLayout from '@r/layouts/app'
@@ -390,15 +390,15 @@ export default function ReactLab() {
             <Separator />
 
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <a className="underline underline-offset-4 hover:text-muted-foreground" href="/">
-                → Tableau (Solid, a natif)
-              </a>
-              <a
+              <Link className="underline underline-offset-4 hover:text-muted-foreground" href="/">
+                → Tableau
+              </Link>
+              <Link
                 className="underline underline-offset-4 hover:text-muted-foreground"
                 href="/programme"
               >
-                → Programme (Solid, a natif)
-              </a>
+                → Programme
+              </Link>
             </div>
 
             <div className="flex justify-between pt-1 text-xs text-muted-foreground">

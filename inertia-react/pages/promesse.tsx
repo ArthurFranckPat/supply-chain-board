@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { router } from '@inertiajs/react'
 import AppLayout from '@r/layouts/app'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
@@ -209,7 +210,10 @@ export default function Promesse() {
         date: result.engageante.promiseDate,
       })
     )
-    window.location.href = route('scheduler.programme')
+    // Visite Inertia, pas un rechargement complet : le pont passe par
+    // sessionStorage (conservé d'une visite à l'autre dans le même onglet), il
+    // n'y a donc aucune raison de recharger tout le bundle pour changer de page.
+    router.visit(route('scheduler.programme'))
   }
 
   return (
