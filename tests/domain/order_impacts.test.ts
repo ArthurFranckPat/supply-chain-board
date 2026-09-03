@@ -822,11 +822,160 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
     const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
     assert.deepEqual(of.missingComponents, {}, 'Q + production couvrent tout : aucun manque')
     assert.deepEqual(of.seComponents, { SE1: 35 }, 'part à couvrir par la production')
-    assert.deepEqual(of.qcComponents, { SE1: 15 }, 'part qui ne tient que grâce au statut Q')
+    // Une seule lentille par article (règle de l'écran : le manque prime) — SE1 n'est pas
+    // réellement manquant, sa part CQ vit donc dans la lentille SE, pas sur les manquants.
+    assert.deepEqual(of.qcComponents, {}, 'aucune dette CQ sur les manquants : rien ne manque')
     // Les deux parts se somment bien au manque vs stock strict (2016 − 1966).
-    assert.equal(of.seComponents!.SE1 + of.qcComponents!.SE1, 50)
-    // Couverture TENDUE : la production n'absorbe rien, `seQcComponents` retrouve le même 15.
-    assert.deepEqual(of.seQcComponents, { SE1: 15 }, 'même mesure quand la production est juste')
+    assert.equal(of.seComponents!.SE1 + of.seQcComponents!.SE1, 50)
+    // Couverture TENDUE : la production n'absorbe rien. Le 15 vit ICI et seulement ici —
+    // une pièce sous contrôle réception ne s'affiche pas deux fois.
+    assert.deepEqual(of.seQcComponents, { SE1: 15 }, 'part qui ne tient que grâce au statut Q')
+  })
+
+  /**
+   * Composant ACHETÉ réellement manquant : la dette CQ est découpée PAR LIGNE et la poche
+   * globale n'est promise qu'une fois.
+   *
+   * Le défaut nommé en `Directive` du commit 15a5e289 : `qcComponents` d'un manquant
+   * n'était pas découpé par ligne — chaque ligne servie par l'OF voyait la dette ENTIÈRE,
+   * 25 pièces en statut Q promises deux fois.
+   *
+   * Ici : besoin 100 de C1, stock strict 60 + Q 25 → manque 15, dont toute la dette CQ
+   * vaut 25. Deux lignes (60 + 40) servies par le même OF : 9 + 6 de manque, 15 + 10 de
+   * dette CQ — jamais plus que les 25 pièces réellement en statut Q.
+   */
+  test('manquant ACHETÉ : la dette CQ suit la tranche de chaque ligne', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['C1', makeArticle('C1', 'ACHAT')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 100, daysFromNow(8)),
+      makeStockFlow('C1', 60),
+      {
+        article: 'C1',
+        quantity: 25,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(10)),
+      makeDemand('CMD-2', 'PF1', 40, daysFromNow(11)),
+    ]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    const [ligne1, ligne2] = result.orders
+    assert.deepEqual(ligne1.ofs[0].missingComponents, { C1: 9 }, 'sa tranche du manque (15 × 0,6)')
+    assert.deepEqual(ligne1.ofs[0].qcComponents, { C1: 15 }, 'sa tranche de la dette CQ')
+    assert.deepEqual(ligne2.ofs[0].missingComponents, { C1: 6 }, 'le reliquat du manque')
+    assert.deepEqual(ligne2.ofs[0].qcComponents, { C1: 10 }, 'le reliquat de la dette CQ')
+    assert.equal(
+      (ligne1.ofs[0].qcComponents!.C1 ?? 0) + (ligne2.ofs[0].qcComponents!.C1 ?? 0),
+      25,
+      'les 25 pièces en statut Q ne sont promises qu’une fois'
+    )
+  })
+
+  /**
+   * Le manque prime sur la dépendance (règle de l'écran, cf. suivi_controller) : un article
+   * ENCORE manquant malgré le Q et la production ne raconte pas EN PLUS sa part couverte par
+   * un OF producteur — la décomposition SE/CQ n'existe que pour un article non manquant.
+   *
+   * Ici : besoin 100 de SE1, strict 15 + Q 15 + production 10. Il manque toujours 60 —
+   * c'est lui qui s'affiche, avec sa dette CQ de 15 ; pas de colonne production.
+   */
+  test('le manque prime : un article manquant n’affiche pas sa part production', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 100, daysFromNow(8)),
+      makeOfFlow('WOS-COURT', 'SE1', 3, 10, daysFromNow(1)),
+      makeStockFlow('SE1', 15),
+      {
+        article: 'SE1',
+        quantity: 15,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+
+    const result = evaluateOrderImpacts(
+      [makeDemand('CMD-1', 'PF1', 100, daysFromNow(10))],
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(
+      of.missingComponents,
+      { SE1: 60 },
+      'manque résiduel après strict + Q + production (100 − 40)'
+    )
+    assert.deepEqual(of.qcComponents, { SE1: 15 }, 'dette CQ portée par le manquant')
+    assert.deepEqual(
+      of.seComponents,
+      {},
+      'pas de décomposition production pour un article manquant'
+    )
+    assert.deepEqual(of.seQcComponents, {}, 'ni sa part CQ : une seule lentille par article')
   })
 
   /**

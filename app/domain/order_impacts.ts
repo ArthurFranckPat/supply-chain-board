@@ -528,6 +528,51 @@ export function evaluateOrderImpacts(
     return out
   }
 
+  /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
+  const qcDelta = (ofId: string): Record<string, number> => {
+    const strict = verdictsStrict?.get(ofId)
+    if (!strict) return {}
+    const withQc = verdicts.get(ofId)
+    const missWithQc = withQc ? directMissing(withQc) : {}
+    const out: Record<string, number> = {}
+    for (const [article, shortage] of Object.entries(directMissing(strict))) {
+      const covered = shortage - (missWithQc[article] ?? 0)
+      if (covered > 0) out[article] = covered
+    }
+    return out
+  }
+
+  /**
+   * Les quatre lentilles d'un OF, mesurées sur l'OF ENTIER : manquants, dette CQ, SE couverts
+   * par production, part CQ de ces SE. C'est la matière première des tranches — et le chemin
+   * MFGMAT (verdict précalculé sur matières réelles) y est traité comme dans
+   * `resolveFeasibility` : pas de production créditée, donc pas de lentille SE.
+   */
+  const ofLensCache = new Map<
+    string,
+    {
+      missing: Record<string, number>
+      qc: Record<string, number>
+      se: Record<string, number>
+      seQc: Record<string, number>
+    }
+  >()
+  const ofLens = (ofId: string) => {
+    const cached = ofLensCache.get(ofId)
+    if (cached) return cached
+    const pre = precomputedFeasibility?.get(ofId)
+    const verdict = verdicts.get(ofId)
+    const se = pre ? {} : seDelta(ofId)
+    const computed = {
+      missing: pre ? pre.missingComponents : verdict ? directMissing(verdict) : {},
+      qc: pre ? (pre.qcComponents ?? {}) : qcDelta(ofId),
+      se,
+      seQc: pre ? {} : seQcDelta(ofId, se),
+    }
+    ofLensCache.set(ofId, computed)
+    return computed
+  }
+
   /**
    * ATTRIBUTION NOMINATIVE DE LA PRODUCTION, une fois pour toute la fenêtre.
    *
@@ -592,53 +637,78 @@ export function evaluateOrderImpacts(
 
   /** OF porteur de chaque tranche — la vue OF de l'attribution recolle les tranches par là. */
   const ofIdByTranche = new Map<string, string>()
+  /** Manquants RÉELS de la tranche (composants achetés et SE en rupture). */
+  const missingByTranche = new Map<string, Record<string, number>>()
+  /** Dette CQ de la tranche sur ces manquants — tirée de la poche globale, pas d'un prorata. */
+  const qcByTranche = new Map<string, Record<string, number>>()
   /** Besoin de production par tranche (part CQ déjà retirée), dans l'ordre de service. */
   const seNeedByTranche = new Map<string, Record<string, number>>()
-  /** Part CQ tirée par chaque tranche — le solde du réservoir CQ de l'OF, pas un prorata. */
+  /** Part CQ des SE couverts par production, même poche globale. */
   const seQcByTranche = new Map<string, Record<string, number>>()
   const seConsumers: Array<{ numOf: string; seComponents: Record<string, number> }> = []
-  if (verdictsNoOfSupply) {
-    for (const of of orderOfsForMode(engineOfs, engineMode)) {
-      // Chemin MFGMAT : le verdict ne crédite aucune production, la lentille SE est éteinte
-      // pour cet OF — il ne doit donc rien consommer ici non plus.
-      if (precomputedFeasibility?.get(of.numOf)) continue
-      const parOfTotal = seDelta(of.numOf)
-      const qcTotal = seQcDelta(of.numOf, parOfTotal)
-      const seArticles = new Set([...Object.keys(parOfTotal), ...Object.keys(qcTotal)])
-      if (seArticles.size === 0) continue
 
-      const tranches = [...(tranchesByOf.get(of.numOf) ?? [])]
-      const couvert = tranches.reduce((somme, t) => somme + t.ratio, 0)
-      if (couvert < 1 - RATIO_EPSILON) {
-        tranches.push({ key: `${of.numOf}|__reste__`, ratio: 1 - couvert, ordre: '' })
-      }
+  for (const of of orderOfsForMode(engineOfs, engineMode)) {
+    const lens = ofLens(of.numOf)
+    const articlesLentille = new Set([
+      ...Object.keys(lens.missing),
+      ...Object.keys(lens.qc),
+      ...Object.keys(lens.se),
+      ...Object.keys(lens.seQc),
+    ])
+    if (articlesLentille.size === 0) continue
 
-      const qcReste: Record<string, number> = { ...qcTotal }
-      for (const tranche of tranches) {
-        const besoins: Record<string, number> = {}
-        const qcPris: Record<string, number> = {}
-        for (const art of seArticles) {
-          const part = ((parOfTotal[art] ?? 0) + (qcTotal[art] ?? 0)) * tranche.ratio
-          if (part <= QTY_EPSILON) continue
-          // Deux plafonds : ce que le moteur crédite au CQ pour CET OF (`qcReste`) et ce qui
-          // reste RÉELLEMENT en statut Q dans l'usine (`qcPool`, partagé par tous). Sans le
-          // second, les 15 pièces sous contrôle réception d'un SE se retrouvent promises à
-          // chaque commande — le défaut relevé le 02/09/2026.
-          const dispoQc = consommeLesPoches ? (qcPool.get(art) ?? 0) : Number.POSITIVE_INFINITY
-          const qc = Math.min(qcReste[art] ?? 0, part, dispoQc)
-          if (qc > QTY_EPSILON) {
-            qcReste[art] = (qcReste[art] ?? 0) - qc
-            if (consommeLesPoches) qcPool.set(art, (qcPool.get(art) ?? 0) - qc)
-            qcPris[art] = Math.round(qc * 100) / 100
-          }
-          const production = part - Math.max(0, qc)
-          if (production > QTY_EPSILON) besoins[art] = production
+    const tranches = [...(tranchesByOf.get(of.numOf) ?? [])]
+    const couvert = tranches.reduce((somme, t) => somme + t.ratio, 0)
+    if (couvert < 1 - RATIO_EPSILON) {
+      tranches.push({ key: `${of.numOf}|__reste__`, ratio: 1 - couvert, ordre: '' })
+    }
+
+    // Plafond par OF : ce que le moteur crédite au CQ pour LUI. La poche globale (`qcPool`)
+    // retire en plus ce qui a déjà été promis ailleurs — les deux sont nécessaires.
+    const qcResteOf: Record<string, number> = { ...lens.qc }
+    const seQcResteOf: Record<string, number> = { ...lens.seQc }
+
+    for (const tranche of tranches) {
+      const manquants: Record<string, number> = {}
+      const qcPris: Record<string, number> = {}
+      const besoinsSe: Record<string, number> = {}
+      const seQcPris: Record<string, number> = {}
+
+      for (const art of articlesLentille) {
+        // Une seule lentille par article, la même règle que l'écran : un composant réellement
+        // manquant porte sa dette CQ sur `qc` ; ailleurs, un SE couvert par production porte
+        // la sienne sur `seQc`. Sans ce choix, l'article puiserait DEUX fois dans la poche.
+        const surManque = (lens.missing[art] ?? 0) > QTY_EPSILON
+
+        const manque = (lens.missing[art] ?? 0) * tranche.ratio
+        if (manque > QTY_EPSILON) manquants[art] = Math.round(manque * 100) / 100
+
+        const resteOf = surManque ? qcResteOf : seQcResteOf
+        const qcVoulu = (surManque ? (lens.qc[art] ?? 0) : (lens.seQc[art] ?? 0)) * tranche.ratio
+        const dispoQc = consommeLesPoches ? (qcPool.get(art) ?? 0) : Number.POSITIVE_INFINITY
+        const qc = Math.max(0, Math.min(resteOf[art] ?? 0, qcVoulu, dispoQc))
+        if (qc > QTY_EPSILON) {
+          resteOf[art] = (resteOf[art] ?? 0) - qc
+          if (consommeLesPoches) qcPool.set(art, (qcPool.get(art) ?? 0) - qc)
+          if (surManque) qcPris[art] = Math.round(qc * 100) / 100
+          else seQcPris[art] = Math.round(qc * 100) / 100
         }
-        ofIdByTranche.set(tranche.key, of.numOf)
-        seNeedByTranche.set(tranche.key, besoins)
-        seQcByTranche.set(tranche.key, qcPris)
-        seConsumers.push({ numOf: tranche.key, seComponents: besoins })
+
+        if (!surManque) {
+          // Le besoin du SE vs stock strict = part production + part CQ. Ce que la poche CQ
+          // n'a pas donné bascule sur la production : le manque total de la tranche ne bouge
+          // pas, seule sa décomposition change.
+          const besoin = ((lens.se[art] ?? 0) + (lens.seQc[art] ?? 0)) * tranche.ratio - qc
+          if (besoin > QTY_EPSILON) besoinsSe[art] = besoin
+        }
       }
+
+      ofIdByTranche.set(tranche.key, of.numOf)
+      missingByTranche.set(tranche.key, manquants)
+      qcByTranche.set(tranche.key, qcPris)
+      seNeedByTranche.set(tranche.key, besoinsSe)
+      seQcByTranche.set(tranche.key, seQcPris)
+      seConsumers.push({ numOf: tranche.key, seComponents: besoinsSe })
     }
   }
 
@@ -665,20 +735,6 @@ export function evaluateOrderImpacts(
       cumulOf[art] = [...cumul.values()]
     }
     seCoveringByOf.set(ofId, cumulOf)
-  }
-
-  /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
-  const qcDelta = (ofId: string): Record<string, number> => {
-    const strict = verdictsStrict?.get(ofId)
-    if (!strict) return {}
-    const withQc = verdicts.get(ofId)
-    const missWithQc = withQc ? directMissing(withQc) : {}
-    const out: Record<string, number> = {}
-    for (const [article, shortage] of Object.entries(directMissing(strict))) {
-      const covered = shortage - (missWithQc[article] ?? 0)
-      if (covered > 0) out[article] = covered
-    }
-    return out
   }
 
   // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur.
@@ -775,10 +831,12 @@ export function evaluateOrderImpacts(
         if (lateness > ofLatenessDays) ofLatenessDays = lateness
       }
 
-      // Lentille SE ramenée à CETTE ligne de commande : sa tranche du besoin de l'OF, servie
-      // en séquence (cf. l'attribution nominative plus haut). L'OF entier reste lisible dans
-      // `result.ofs[]` — ici, deux lignes servies par le même OF ne racontent plus deux fois
-      // le même manque ni la même production.
+      // Lentilles ramenées à CETTE ligne de commande : sa tranche des manquants, de la dette
+      // CQ et du besoin de production de l'OF, servies en séquence (cf. l'attribution
+      // nominative plus haut). L'OF entier reste lisible dans `result.ofs[]` — ici, deux
+      // lignes servies par le même OF ne racontent plus deux fois le même manque, la même
+      // production ni les mêmes pièces sous contrôle réception.
+      // Repli sur la mesure OF si la tranche n'existe pas (OF hors chronologie moteur).
       const tranche = trancheKey(matchIndex, ofId)
 
       ofRows.push({
@@ -788,8 +846,8 @@ export function evaluateOrderImpacts(
         // Informatif seulement (jalonnement X3 brut) — n'entre plus dans le calcul de retard.
         dateFin: effFin?.toISOString().slice(0, 10) ?? '',
         feasible: ofFeasible,
-        missingComponents: resolved.missingComponents,
-        qcComponents: resolved.qcComponents,
+        missingComponents: missingByTranche.get(tranche) ?? resolved.missingComponents,
+        qcComponents: qcByTranche.get(tranche) ?? resolved.qcComponents,
         seComponents: roundQties(seNeedByTranche.get(tranche) ?? {}),
         seQcComponents: seQcByTranche.get(tranche) ?? {},
         seCoveringOfs: seCoveringByTranche.get(tranche) ?? {},
