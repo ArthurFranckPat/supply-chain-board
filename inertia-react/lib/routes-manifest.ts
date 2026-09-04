@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 105 routes nommées.
+ * 108 routes nommées.
  */
 
 export const MANIFEST = {
@@ -14,6 +14,7 @@ export const MANIFEST = {
   'agent.mcp.app': { method: 'GET', pattern: '/api/v1/agent/mcp/app' },
   'agent.mcp.call': { method: 'POST', pattern: '/api/v1/agent/mcp/call' },
   'agent.show': { method: 'GET', pattern: '/copilote' },
+  'approvisionnement.index': { method: 'GET', pattern: '/approvisionnement' },
   'assets.css': { method: 'GET', pattern: '/css/app.css' },
   'assets.js': { method: 'GET', pattern: '/js/app.js' },
   'auth.attempt': { method: 'POST', pattern: '/login' },
@@ -44,6 +45,8 @@ export const MANIFEST = {
   'display_config.index': { method: 'GET', pattern: '/configuration/affichage' },
   'health.index': { method: 'GET', pattern: '/health' },
   'load.index': { method: 'GET', pattern: '/charge' },
+  'material.detail': { method: 'GET', pattern: '/api/v1/planning/material-plan/detail' },
+  'material.plan': { method: 'GET', pattern: '/api/v1/planning/material-plan' },
   'order_planning.index': { method: 'GET', pattern: '/api/v1/planning/order-lines' },
   'order_planning.line_detail': {
     method: 'GET',
@@ -158,6 +161,7 @@ export type RouteParams = {
   'agent.mcp.app': void
   'agent.mcp.call': void
   'agent.show': void
+  'approvisionnement.index': void
   'assets.css': void
   'assets.js': void
   'auth.attempt': void
@@ -185,6 +189,8 @@ export type RouteParams = {
   'display_config.index': void
   'health.index': void
   'load.index': void
+  'material.detail': void
+  'material.plan': void
   'order_planning.index': void
   'order_planning.line_detail': { order: string | number; line: string | number }
   'order_planning.reset_override': { order: string | number; line: string | number }

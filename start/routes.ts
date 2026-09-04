@@ -120,6 +120,9 @@ router
     // Séquenceur (#46/#100) : board /programme en table, filtre poste côté client.
     router.get('/sequenceur', '#controllers/scheduler_controller.sequenceur').as('sequenceur.index')
     router.get('/charge', '#controllers/load_controller.index')
+    // Plan d'approvisionnement (lot 1) : besoins matières ferme/prévision.
+    // Nom auto `approvisionnement.index` (convention contrôleur, comme `load.index`).
+    router.get('/approvisionnement', '#controllers/approvisionnement_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
     router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
@@ -239,6 +242,16 @@ router
     router
       .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')
       .as('charge.detail')
+    // Plan d'approvisionnement : grille besoins + drill-down « appelé par ».
+    router
+      .get('/api/v1/planning/material-plan', '#controllers/approvisionnement_controller.payload')
+      .as('material.plan')
+    router
+      .get(
+        '/api/v1/planning/material-plan/detail',
+        '#controllers/approvisionnement_controller.detail'
+      )
+      .as('material.detail')
 
     // Suivi Commandes
     router

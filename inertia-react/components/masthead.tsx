@@ -28,6 +28,7 @@ export type MastheadTab =
   | 'programme'
   | 'sequenceur'
   | 'load'
+  | 'approvisionnement'
   | 'ruptures'
   | 'controle-prod'
   | 'tracking'
@@ -52,11 +53,23 @@ const SUIVI_COMMANDES: Tab = {
   label: 'Suivi commandes',
   href: route('suivi.board'),
 }
-const PLANIFICATION: Tab = {
-  key: 'load',
-  label: 'Planification',
-  href: route('load.index'),
-}
+/**
+ * Menu « Planification » — deux lectures de la même explosion sous le même
+ * chapeau : à gauche ce que ça coûte en heures (/charge), à droite ce que ça
+ * appelle en matière (/approvisionnement).
+ */
+const PLANIFICATION_GROUPS: TabGroup[] = [
+  {
+    tabs: [
+      { key: 'load', label: 'Charge', href: route('load.index') },
+      {
+        key: 'approvisionnement',
+        label: 'Approvisionnement',
+        href: route('approvisionnement.index'),
+      },
+    ],
+  },
+]
 
 /** Groupe d'onglets — `label` optionnel : sans label = liens nus (sans en-tête). */
 type TabGroup = { label?: string; tabs: Tab[] }
@@ -308,10 +321,15 @@ export function Masthead(props: {
           >
             {SUIVI_COMMANDES.label}
           </Link>
-          {/* Planification */}
-          <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
-            {PLANIFICATION.label}
-          </Link>
+          {/* Planification ▾ */}
+          <MoreMenu
+            label="Planification"
+            groups={PLANIFICATION_GROUPS}
+            active={props.active}
+            triggerCls={tabCls(
+              PLANIFICATION_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
+            )}
+          />
           {/* Logistique ▾ */}
           <MoreMenu
             label="Logistique"
@@ -391,9 +409,14 @@ export function Masthead(props: {
         <Link href={SUIVI_COMMANDES.href} className={tabCls(SUIVI_COMMANDES.key === props.active)}>
           {SUIVI_COMMANDES.label}
         </Link>
-        <Link href={PLANIFICATION.href} className={tabCls(PLANIFICATION.key === props.active)}>
-          {PLANIFICATION.label}
-        </Link>
+        <MoreMenu
+          label="Planification"
+          groups={PLANIFICATION_GROUPS}
+          active={props.active}
+          triggerCls={tabCls(
+            PLANIFICATION_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
+          )}
+        />
         <MoreMenu
           label="Logistique"
           groups={LOGISTIQUE_GROUPS}

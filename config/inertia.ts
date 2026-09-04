@@ -97,6 +97,8 @@ declare module '@adonisjs/inertia/types' {
       x3Error: string | null
     }
     'diagnostic-test': Record<string, never>
+    // Plan d'approvisionnement (lot 1) : coquille, calcul fetché côté client.
+    'approvisionnement': Record<string, never>
     'writeback-test': { firmSubprog: string }
     // Impression X3 (issue #85) — appel direct de ZSOAPPRINT sur un OF.
     // Le dossier ciblé suit la session : la page doit l'annoncer avant le tir.
