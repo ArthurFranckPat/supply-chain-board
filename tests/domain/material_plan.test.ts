@@ -181,3 +181,92 @@ test.group('netMaterial — priorite ferme', () => {
     assert.equal(previ.encoursQty, 0)
   })
 })
+
+test.group('explodeMaterialNeeds — stock fantome (revue lots 0-1, constat 1)', () => {
+  // PF1 → FANT (×1) → ACH (acheté ×2). Règle 2 de `rupture_engine` : le stock
+  // du fantôme couvre d'abord, seul le reliquat descend — jamais de ligne FANT.
+  const phantomEntries = [entry('PF1', 'FANT', 1), entry('FANT', 'ACH', 2, 'ACHETE')]
+  const phantomOpts = {
+    isPhantom: (a: string) => a === 'FANT',
+    isPurchased: (a: string) => a === 'ACH',
+  }
+
+  test('le stock du fantome couvre avant descente du reliquat', ({ assert }) => {
+    const raws = explodeMaterialNeeds([line('PF1', 100, D1)], phantomEntries, {
+      ...phantomOpts,
+      phantomStock: new Map([['FANT', 60]]),
+    })
+    assert.isUndefined(raws.find((r) => r.article === 'FANT')) // jamais une ligne
+    assert.equal(raws.find((r) => r.article === 'ACH')!.qty, 80) // (100 − 60) × 2
+  })
+
+  test('stock fantome nul : descente pleine (comportement historique)', ({ assert }) => {
+    const raws = explodeMaterialNeeds([line('PF1', 100, D1)], phantomEntries, {
+      ...phantomOpts,
+      phantomStock: new Map(),
+    })
+    assert.equal(raws.find((r) => r.article === 'ACH')!.qty, 200)
+  })
+
+  test('couverture totale : rien ne descend', ({ assert }) => {
+    const raws = explodeMaterialNeeds([line('PF1', 100, D1)], phantomEntries, {
+      ...phantomOpts,
+      phantomStock: new Map([['FANT', 1000]]),
+    })
+    assert.isUndefined(raws.find((r) => r.article === 'ACH'))
+  })
+
+  test('le ferme consomme le stock fantome avant la prevision', ({ assert }) => {
+    const raws = explodeMaterialNeeds(
+      // Ordre d'appel inversé volontairement : le ferme (D1) passe quand même d'abord.
+      [line('PF1', 100, D2, 'prevision'), line('PF1', 100, D1, 'ferme')],
+      phantomEntries,
+      { ...phantomOpts, phantomStock: new Map([['FANT', 60]]) }
+    )
+    const ach = (n: { article: string }) => n.article === 'ACH'
+    const ferme = raws.find((r) => ach(r) && r.nature === 'ferme')!
+    const previ = raws.find((r) => ach(r) && r.nature !== 'ferme')!
+    assert.equal(ferme.qty, 80) // (100 − 60) × 2
+    assert.equal(previ.qty, 200) // reliquat nul pour la prévision
+  })
+
+  test('netFerme == calcul ferme-seul avec stock fantome', ({ assert }) => {
+    const stock = new Map([['FANT', 60]])
+    const full = explodeMaterialNeeds(
+      [line('PF1', 100, D1, 'ferme'), line('PF1', 100, D1, 'prevision')],
+      phantomEntries,
+      { ...phantomOpts, phantomStock: stock }
+    )
+    const seul = explodeMaterialNeeds([line('PF1', 100, D1, 'ferme')], phantomEntries, {
+      ...phantomOpts,
+      phantomStock: stock,
+    })
+    const ach = (n: { article: string }) => n.article === 'ACH'
+    const netFull = netMaterial(full, new Map()).find((n) => ach(n) && n.nature === 'ferme')!
+    const netSeul = netMaterial(seul, new Map()).find(ach)!
+    assert.equal(netFull.netQty, netSeul.netQty)
+    assert.equal(netFull.netQty, 80)
+  })
+})
+
+test.group('troncature — feuille par regle (revue lots 0-1, constat 6)', () => {
+  test('un enfant achete coupe ne compte pas, parent quand meme marque', ({ assert }) => {
+    // SE → SSE : lien FABRIQUE mais article ACHAT — feuille par règle, pas troncature.
+    const entries = [entry('PF1', 'SE', 1), entry('SE', 'SSE', 1)]
+    const stats: { truncated: number; cutParents?: string[] } = { truncated: 0, cutParents: [] }
+    explodeMaterialNeeds([line('PF1', 10, D1)], entries, {
+      maxDepth: 1,
+      isPurchased: (a) => a === 'SSE',
+      stats,
+    })
+    assert.equal(stats.truncated, 0)
+    assert.deepEqual(stats.cutParents, ['SE'])
+  })
+
+  test('sans isPurchased : repli historique sur le type de lien', ({ assert }) => {
+    const entries = [entry('PF1', 'SE', 1), entry('SE', 'SSE', 1)]
+    const stats: { truncated: number; cutParents?: string[] } = { truncated: 0, cutParents: [] }
+    explodeMaterialNeeds([line('PF1', 10, D1)], entries, { maxDepth: 1, stats })
+    assert.equal(stats.truncated, 1)
+  })
+})

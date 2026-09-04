@@ -6,7 +6,8 @@
  * Chaîne :
  * 1. `explodeMaterialNeeds` — explosion QUANTITÉ (un besoin par article, sans
  *    exigence de gamme) avec ARRÊT SUR ACHETÉ (feuille à acheter) et descente
- *    des sous-ensembles fabriqués jusqu'à `maxDepth` (fantômes aplatis).
+ *    des sous-ensembles fabriqués jusqu'à `maxDepth` (fantômes aplatis, stock
+ *    fantôme consommé d'abord — règle 2 de `rupture_engine`).
  * 2. `netMaterial` — netting à PRIORITÉ FERME : le stock couvre d'abord le
  *    ferme (FIFO par date), le reliquat couvre la prévision. Propriété clé :
  *    `netFerme` vaut EXACTEMENT ce que donnerait un calcul ferme-seul (même
@@ -33,10 +34,17 @@ export interface MaterialExplodeOptions {
   /** Fantômes aplatis (ni émis, ni comptés, traversés sans consommer de profondeur). */
   isPhantom?: (article: string) => boolean
   /**
-   * Articles achetés : pas de descente depuis eux (feuilles à acheter).
-   * Construit par l'appelant depuis les types d'approvisionnement.
+   * Articles achetés : pas de descente depuis eux (feuilles à acheter) et pas
+   * de troncature comptée sur eux. Construit par l'appelant depuis les types
+   * d'approvisionnement.
    */
   isPurchased?: (article: string) => boolean
+  /**
+   * Stock des fantômes : couvre le besoin avant descente du reliquat, ferme
+   * d'abord (règle 2 de `rupture_engine`). Sans lui, descente pleine —
+   * le stock du fantôme serait perdu.
+   */
+  phantomStock?: Map<string, number>
   /** Remonté tel quel vers `explodeQuantity` (troncature + parents coupés). */
   stats?: QuantityExplodeOptions['stats']
 }
@@ -59,6 +67,8 @@ export function explodeMaterialNeeds(
   return explodeQuantity(orderLines, bomByParent, {
     maxDepth: opts.maxDepth,
     isPhantom: opts.isPhantom,
+    isPurchased: opts.isPurchased,
+    phantomStock: opts.phantomStock,
     stats: opts.stats,
   })
 }

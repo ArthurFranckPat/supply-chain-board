@@ -3,8 +3,8 @@
  *
  * Calcule, sur une fenêtre [from, to] et une maille (jour / semaine / mois), les
  * besoins matières ventilés ferme / prévision par article composant :
- * explosion quantité (arrêt sur acheté, fantômes aplatis) + netting à priorité
- * ferme (stock puis en-cours).
+ * explosion quantité (arrêt sur acheté, fantômes aplatis avec stock consommé
+ * d'abord) + netting à priorité ferme (stock puis en-cours).
  *
  * Sources (caches SWR `boardDataset`, comme la charge) : lignes de demande
  * ORDERS WIPTYP=1 (`getOrderLinesForLoad`), nomenclature complète SQLite,
@@ -292,6 +292,9 @@ function explodeAndNet(inputs: MaterialInputs, stock: Map<string, number>): Expl
   const raws = explodeMaterialNeeds(inputs.orderLines, inputs.entries, {
     isPhantom: (a) => isPhantomCat(catByArticle[a]),
     isPurchased: (a) => supplyByArticle[a] === 'ACHAT',
+    // Le stock inclut les fantômes traversés (lus par l'agrégat, repinnés
+    // pour le détail) : couvre d'abord, descente du reliquat.
+    phantomStock: stock,
     stats,
   })
   const encours = buildEncoursByArticle({
@@ -384,6 +387,13 @@ export interface MaterialParams {
   force?: boolean
 }
 
+/**
+ * Pas de `fence` ici, volontairement : l'horizon de demande est au lot 3,
+ * branché sur le FOH par produit fini (`ITMFACILIT.FOH_0` — plan D7, §8),
+ * jamais une clôture globale ressaisie à la main. Le jour où il revient, il
+ * s'applique au niveau 0 AVANT explosion (pas après, pour ne pas fausser le
+ * netting) — et « clôture = +∞ » INCLUT tout, pas l'inverse.
+ */
 function parseParams(
   params: MaterialParams
 ): { from: Date; to: Date; gran: MaterialGran } | { error: string } {
@@ -425,22 +435,29 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
     timeout: 0,
     factory: stamped(async (): Promise<MaterialPayload> => {
       const inputs = await fetchMaterialInputs(from, to, force)
-      // Explosion d'abord (nomenclature complète), stock ensuite : le stock
-      // n'est lu que pour les articles réellement appelés.
-      const stats: { truncated: number; cutParents?: string[] } = { truncated: 0, cutParents: [] }
-      const raws = explodeMaterialNeeds(inputs.orderLines, inputs.entries, {
-        isPhantom: (a) => isPhantomCat(inputs.catByArticle[a]),
-        isPurchased: (a) => inputs.supplyByArticle[a] === 'ACHAT',
-        stats,
+      const isPhantom = (a: string): boolean => isPhantomCat(inputs.catByArticle[a])
+      const isPurchased = (a: string): boolean => inputs.supplyByArticle[a] === 'ACHAT'
+      // Stock lu sur les articles appelés + les fantômes traversés : jamais
+      // émis (pas des lignes du tableau), mais leur stock couvre les enfants
+      // avant descente du reliquat (règle 2 de `rupture_engine`).
+      // Passe de découverte sans déduction — le calcul final passe par
+      // `explodeAndNet`, comme le détail depuis le snapshot pinné.
+      const traversedPhantoms = new Set<string>()
+      const discovery = explodeMaterialNeeds(inputs.orderLines, inputs.entries, {
+        isPhantom: (a) => {
+          const p = isPhantom(a)
+          if (p) traversedPhantoms.add(a)
+          return p
+        },
+        isPurchased,
       })
-      const explodedArticles = [...new Set(raws.map((r) => r.article))]
+      const explodedArticles = [
+        ...new Set([...discovery.map((r) => r.article), ...traversedPhantoms]),
+      ]
       const { stock, pmp } = await computeMaterialStock(explodedArticles)
-      const encours = buildEncoursByArticle({
-        mos: inputs.mos,
-        avancementByOf: computeAvancement(inputs.operations),
-      })
-      const needs = netMaterial(raws, stock, encours)
-      const cutParents = new Set(stats.cutParents ?? [])
+      // Un seul chemin de calcul agrégat ↔ détail : le snapshot pinné rejoue
+      // exactement cette fonction.
+      const { needs, truncated, cutParents } = explodeAndNet(inputs, stock)
 
       const rows = new Map<string, MaterialRow>()
       const rowFor = (article: string): MaterialRow => {
@@ -462,13 +479,27 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         if (idx === undefined) continue // override sorti de fenêtre
         const row = rowFor(n.article)
         if (n.nature === 'ferme') {
-          row.brutFerme[idx] = round2(row.brutFerme[idx] + n.brutQty)
-          row.netFerme[idx] = round2(row.netFerme[idx] + n.netQty)
-          row.resteFerme[idx] = round2(row.resteFerme[idx] + n.resteQty)
+          row.brutFerme[idx] += n.brutQty
+          row.netFerme[idx] += n.netQty
+          row.resteFerme[idx] += n.resteQty
         } else {
-          row.brutPrevi[idx] = round2(row.brutPrevi[idx] + n.brutQty)
-          row.netPrevi[idx] = round2(row.netPrevi[idx] + n.netQty)
-          row.restePrevi[idx] = round2(row.restePrevi[idx] + n.resteQty)
+          row.brutPrevi[idx] += n.brutQty
+          row.netPrevi[idx] += n.netQty
+          row.restePrevi[idx] += n.resteQty
+        }
+      }
+      // Arrondi UNIQUE en fin d'accumulation : arrondir à chaque ajout dérive
+      // sur les gros consommateurs (E7768 : 332 nomenclatures parentes).
+      for (const row of rows.values()) {
+        for (const arr of [
+          row.brutFerme,
+          row.brutPrevi,
+          row.netFerme,
+          row.netPrevi,
+          row.resteFerme,
+          row.restePrevi,
+        ]) {
+          for (let i = 0; i < arr.length; i++) arr[i] = round2(arr[i])
         }
       }
       const sorted = [...rows.values()].sort((a, b) => {
@@ -487,7 +518,7 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         buckets,
         rows: sorted,
         version: cacheKey,
-        truncated: stats.truncated,
+        truncated,
         x3Error: inputs.x3Error,
       }
     }),
@@ -523,7 +554,7 @@ export async function loadMaterialDetailData(
     const key = `${s?.numCommande ?? ''}#${s?.ligne ?? ''}#${s?.pfArticle ?? ''}#${n.nature}#${n.path.join('>')}`
     const line = grouped.get(key)
     if (line) {
-      line.quantite = round2(line.quantite + n.brutQty)
+      line.quantite += n.brutQty
     } else {
       grouped.set(key, {
         numCommande: s?.numCommande ?? null,
@@ -531,11 +562,14 @@ export async function loadMaterialDetailData(
         client: s?.client ?? null,
         pfArticle: s?.pfArticle ?? n.article,
         nature: n.nature === 'ferme' ? 'ferme' : 'prevision',
-        quantite: round2(n.brutQty),
+        quantite: n.brutQty,
         path: n.path,
       })
     }
   }
-  const lignes = [...grouped.values()].sort((a, b) => b.quantite - a.quantite)
+  // Arrondi unique en fin d'accumulation (cf. agrégat).
+  const lignes = [...grouped.values()]
+    .map((l) => ({ ...l, quantite: round2(l.quantite) }))
+    .sort((a, b) => b.quantite - a.quantite)
   return { article, lignes }
 }

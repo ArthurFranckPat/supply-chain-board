@@ -158,6 +158,13 @@ interface WalkerHooks {
    * La garde anti-cycle reste active — une boucle de fantômes ne boucle pas.
    */
   isPassThrough?: (article: string) => boolean
+  /**
+   * Quantité qui descend SOUS un fantôme (défaut : identité). Le stock du
+   * fantôme n'est pas perdu : il couvre d'abord le besoin, seul le reliquat
+   * descend (règle 2 de `rupture_engine`, reprise par le plan appro).
+   * Zéro ou moins → la descente est élaguée, rien ne manque sous ce fantôme.
+   */
+  passThroughQty?: (article: string, qty: number) => number
   /** Enfants présents mais non descendus cause plafond — le hook compte ce qu'il veut. */
   onDepthCut?: (article: string, children: NomenclatureEntry[]) => void
 }
@@ -187,6 +194,9 @@ function walkExplosion(
     const passThrough = hooks.isPassThrough?.(article) ?? false
     if (!passThrough) {
       hooks.emit?.({ article, qty, nature, date, depth, path, source })
+    } else if (hooks.passThroughQty) {
+      qty = hooks.passThroughQty(article, qty)
+      if (qty <= 0) return // stock fantôme couvre tout : rien ne descend
     }
     const bom = bomByParent.get(article)
     if (!bom?.length) return
@@ -271,11 +281,28 @@ export interface QuantityExplodeOptions {
    */
   isPhantom?: (article: string) => boolean
   /**
-   * Compteur incrémenté des enfants FABRIQUÉS non-fantômes coupés par le plafond,
-   * + parents coupés (une entrée par coupe, doublons possibles — l'appelant
-   * déduplique) pour marquer les lignes à descendance incomplète à l'écran.
+   * Compteur incrémenté des enfants coupés par le plafond qui AURAIENT été
+   * descendus (ni fantômes transparents, ni feuilles par règle — voir
+   * `isPurchased`), + parents coupés (une entrée par coupe, doublons
+   * possibles — l'appelant déduplique) pour marquer les lignes à descendance
+   * incomplète à l'écran.
    */
   stats?: { truncated: number; cutParents?: string[] }
+  /**
+   * Articles achetés : feuilles par règle, jamais une troncature. Sans lui,
+   * repli historique sur `componentType === 'FABRIQUE'` (mode heures).
+   */
+  isPurchased?: (article: string) => boolean
+  /**
+   * Stock des fantômes (snapshot strict+CQ) : couvre le besoin AVANT descente
+   * du reliquat, ferme d'abord (même priorité que `netMaterial` — les lignes
+   * sont triées ferme-par-date avant la marche, l'aval re-triant déjà).
+   * Absent → identité, comportement historique (descente pleine).
+   *
+   * Limite connue : sous un fantôme partiellement couvert, un lien FORFAIT
+   * émet sa quantité fixe entière (pas de prorata) — choix conservateur.
+   */
+  phantomStock?: Map<string, number>
 }
 
 /**
@@ -296,20 +323,52 @@ export function explodeQuantity(
   const raws: ChargeRaw[] = []
   const maxDepth = opts.maxDepth ?? DEFAULT_MAX_DEPTH
   const isPhantom = opts.isPhantom ?? (() => false)
-  walkExplosion(orderLines, bomByParent, maxDepth, {
+  const isPurchased = opts.isPurchased
+  // Allocation du stock fantôme : le ferme consomme le pool avant la
+  // prévision (même priorité que `netMaterial`). Tri local : l'aval re-trie
+  // déjà par article puis nature/date, l'ordre d'émission est neutre.
+  const lines =
+    opts.phantomStock === undefined
+      ? orderLines
+      : [...orderLines].sort((a, b) =>
+          a.nature === b.nature
+            ? a.date.getTime() - b.date.getTime()
+            : a.nature === 'ferme'
+              ? -1
+              : 1
+        )
+  const phantomLeft = new Map<string, number>()
+  walkExplosion(lines, bomByParent, maxDepth, {
     emit: ({ article, qty, nature, date, depth, path, source }) => {
       raws.push({ article, wst: '', date, nature, depth, qty, rate: 0, path, source })
     },
     isPassThrough: isPhantom,
+    passThroughQty:
+      opts.phantomStock === undefined
+        ? undefined
+        : (article, qty) => {
+            let left = phantomLeft.get(article)
+            if (left === undefined) {
+              left = opts.phantomStock!.get(article) ?? 0
+              phantomLeft.set(article, left)
+            }
+            if (left <= 0 || qty <= 0) return qty
+            const covered = Math.min(left, qty)
+            phantomLeft.set(article, left - covered)
+            return qty - covered
+          },
     onDepthCut: (article, children) => {
       if (!opts.stats) return
       let cut = false
       for (const c of children) {
         if (isPhantom(c.componentArticle)) continue // transparent : rien ne disparaît
         cut = true
-        // Seule la descendance « attendue » compte : un acheté est une feuille
-        // par règle, pas une troncature.
-        if (c.componentType === 'FABRIQUE') opts.stats.truncated += 1
+        // Seule la descendance « attendue » compte : une feuille par règle
+        // (acheté) n'est pas une troncature. Sans `isPurchased` (mode heures),
+        // repli historique sur le type de lien.
+        if (isPurchased ? !isPurchased(c.componentArticle) : c.componentType === 'FABRIQUE') {
+          opts.stats.truncated += 1
+        }
       }
       if (cut) opts.stats.cutParents?.push(article)
     },
