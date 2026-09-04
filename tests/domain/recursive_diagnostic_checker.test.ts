@@ -11,6 +11,7 @@ import type { MfgMaterialInput } from '#app/domain/of_feasibility'
 import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive_checker'
 import {
   RecursiveDiagnosticChecker,
+  type CompetingDemand,
   type DiagnosticLoader,
   type RecursiveDiagnosticResult,
 } from '#app/domain/recursive_diagnostic_checker'
@@ -42,11 +43,19 @@ class MemLoader implements DiagnosticLoader {
   allocations = new Map<string, ErpAllocation[]>()
   ofs: OfRecord[] = []
   mfgmat = new Map<string, MfgMaterialInput[]>()
-  /** Concurrence simulée par article — absente = port non implémenté (cas par défaut). */
-  competing = new Map<string, { quantity: number; ofCount: number }>()
+  /** Concurrence simulée par article — absente = aucun concurrent (cas par défaut). */
+  competing = new Map<string, CompetingDemand>()
 
-  getCompetingDemand(article: string) {
-    return this.competing.get(article) ?? { quantity: 0, ofCount: 0 }
+  async getCompetingDemand(article: string): Promise<CompetingDemand> {
+    return (
+      this.competing.get(article) ?? {
+        quantity: 0,
+        ofCount: 0,
+        measuredCount: 0,
+        partial: false,
+        sample: [],
+      }
+    )
   }
 
   getArticle(a: string) {
@@ -365,12 +374,19 @@ test.group('RecursiveDiagnosticChecker', () => {
     loader.mfgmat.set('OF2', [mat('C1', 1)])
     loader.stocks.set('C1', { stockPhysique: 1000, stockAlloue: 0 })
     // Un autre OF, hors de cet arbre, réclame 900 du même SE plus tôt.
-    loader.competing.set('SE', { quantity: 900, ofCount: 3 })
+    loader.competing.set('SE', {
+      quantity: 900,
+      ofCount: 3,
+      measuredCount: 3,
+      partial: false,
+      sample: [{ numOf: 'OF_X', quantity: 900 }],
+    })
 
     const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
 
     const se = r.tree.shorts[0]
-    assert.deepEqual(se.sharedDemand, { quantity: 900, ofCount: 3 })
+    assert.equal(se.sharedDemand?.quantity, 900)
+    assert.equal(se.sharedDemand?.ofCount, 3)
     // Photo assumée : l'OF est vu seul, la concurrence informe sans arbitrer.
     assert.equal(se.status, 'ok')
     assert.isTrue(r.feasible)

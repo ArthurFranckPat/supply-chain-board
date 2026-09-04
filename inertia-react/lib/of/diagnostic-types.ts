@@ -46,8 +46,16 @@ export interface DiagShort {
   /** Σ des parts réellement promises à CE parent (Σ `covering[].credited`). */
   coveredQuantity: number
   /** Ce que d'autres OF réclament du même composant, plus tôt. Affichage seul. */
-  sharedDemand?: { quantity: number; ofCount: number }
+  sharedDemand?: DiagCompetingDemand
   status: NodeStatus
+}
+/** Concurrence mesurée sur un composant — `partial` = `quantity` est un plancher. */
+export interface DiagCompetingDemand {
+  quantity: number
+  ofCount: number
+  measuredCount: number
+  partial: boolean
+  sample: Array<{ numOf: string; quantity: number }>
 }
 export interface DiagCovering {
   numOf: string

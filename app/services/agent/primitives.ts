@@ -361,7 +361,15 @@ type DiagShort = {
   fabricated: boolean
   status: string
   coveredQuantity: number
-  sharedDemand?: { quantity: number; ofCount: number }
+  sharedDemand?: {
+    quantity: number
+    ofCount: number
+    measuredCount: number
+    /** true = `quantity` est un PLANCHER (concurrents non mesurés) — ne jamais l'annoncer
+     *  comme un total. */
+    partial: boolean
+    sample: Array<{ numOf: string; quantity: number }>
+  }
   covering: Array<{
     numOf: string
     statut: number

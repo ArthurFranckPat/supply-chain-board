@@ -31,6 +31,16 @@ import type { Article } from '#app/domain/models/article'
 import { requiredQuantity, type NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 /**
+ * Nombre max d'OF concurrents dont on LIT la MFGMAT pour mesurer leur besoin réel. Chaque
+ * lecture est un appel SOAP (memoïsé, partagé avec la descente). Au-delà, les concurrents
+ * sont comptés mais leur quantité n'est pas devinée : mieux vaut un plancher annoncé comme
+ * tel qu'un total théorique faux.
+ */
+const COMPETING_MEASURE_CAP = 8
+/** Concurrents nommés à l'écran (les plus proches du besoin). */
+const COMPETING_SAMPLE_CAP = 3
+
+/**
  * Diagnostic récursif d'un OF. Pure-ish (I/O board + MFGMAT), sans HttpContext —
  * appelable depuis controller HTTP **et** tools agent.
  *
@@ -183,13 +193,29 @@ export async function loadOfMaterialsDiagnostic(numOf: string) {
       return f
     },
     /**
-     * Qui d'autre veut ce composant AVANT moi. Pur mémoire (pool + nomenclatures déjà
-     * chargés) : zéro requête X3. Les OF sans date sont exclus — on ne compte que les
-     * concurrents dont l'antériorité est démontrable.
+     * Qui d'autre veut ce composant AVANT moi.
+     *
+     * Le REPÉRAGE des concurrents est pur mémoire (pool + nomenclatures déjà chargés). Leur
+     * BESOIN, lui, suit la règle 1 : MFGMAT quand l'OF est éclaté (une lecture memoïsée,
+     * partagée avec la descente), nomenclature théorique seulement en repli — un OF éclaté
+     * de 2592 pièces peut n'avoir besoin que de 956 unités du composant, et la théorique
+     * seule affichait 2592. Lecture plafonnée à COMPETING_MEASURE_CAP OF, les plus proches
+     * du besoin d'abord ; au-delà, l'OF est compté mais sa quantité n'est PAS devinée
+     * (`partial` le dit, la quantité devient un plancher).
+     *
+     * Les OF sans date sont exclus : on ne compte que les concurrents dont l'antériorité est
+     * démontrable.
      */
-    getCompetingDemand: (article, before, excludeOfs) => {
+    getCompetingDemand: async (article, before, excludeOfs) => {
+      const empty = {
+        quantity: 0,
+        ofCount: 0,
+        measuredCount: 0,
+        partial: false,
+        sample: [] as Array<{ numOf: string; quantity: number }>,
+      }
       const links = getParentLinks().get(article)
-      if (!links || links.length === 0) return { quantity: 0, ofCount: 0 }
+      if (!links || links.length === 0) return empty
       // Un parent peut lister le composant plusieurs fois : un seul lien retenu par parent,
       // sinon la demande d'un même OF serait comptée autant de fois qu'il y a de lignes.
       const linkByParent = new Map<string, NomenclatureEntry>()
@@ -197,19 +223,47 @@ export async function loadOfMaterialsDiagnostic(numOf: string) {
         if (!linkByParent.has(link.parentArticle)) linkByParent.set(link.parentArticle, link)
       }
       const excluded = new Set(excludeOfs)
+      const candidates = pool.filter(
+        (o) =>
+          !excluded.has(o.numOf) &&
+          o.dateFin !== undefined &&
+          o.dateFin !== null &&
+          o.dateFin <= before &&
+          linkByParent.has(o.article)
+      )
+      if (candidates.length === 0) return empty
+
+      // Les plus proches du besoin d'abord : ce sont eux qui se disputent réellement la
+      // production, et ce sont eux qu'on mesure si le plafond oblige à choisir.
+      candidates.sort((a, b) => (b.dateFin?.getTime() ?? 0) - (a.dateFin?.getTime() ?? 0))
+
       let quantity = 0
-      let ofCount = 0
-      for (const o of pool) {
-        if (excluded.has(o.numOf)) continue
-        if (!o.dateFin || o.dateFin > before) continue
-        const link = linkByParent.get(o.article)
-        if (!link) continue
-        const need = requiredQuantity(link, o.qteRestante)
+      let measuredCount = 0
+      const sample: Array<{ numOf: string; quantity: number }> = []
+      for (const o of candidates.slice(0, COMPETING_MEASURE_CAP)) {
+        const materials = await loadMfgmat(o.numOf).catch(() => [])
+        let need: number
+        if (materials.length > 0) {
+          // Règle 1 : MFGMAT = besoin réel, net de l'alloué (règle 3).
+          need = materials
+            .filter((m) => m.article === article)
+            .reduce((sum, m) => sum + Math.max(0, m.remaining - (m.allocated ?? 0)), 0)
+        } else {
+          need = requiredQuantity(linkByParent.get(o.article)!, o.qteRestante)
+        }
         if (need <= 0) continue
         quantity += need
-        ofCount++
+        measuredCount++
+        if (sample.length < COMPETING_SAMPLE_CAP) sample.push({ numOf: o.numOf, quantity: need })
       }
-      return { quantity, ofCount }
+
+      return {
+        quantity,
+        ofCount: candidates.length,
+        measuredCount,
+        partial: candidates.length > COMPETING_MEASURE_CAP,
+        sample,
+      }
     },
   }
 

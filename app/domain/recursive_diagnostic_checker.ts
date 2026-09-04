@@ -63,8 +63,19 @@ export interface CoveringOf {
  * Information d'affichage PURE : jamais déduite du verdict (cf. `classifyFabricated`).
  */
 export interface CompetingDemand {
+  /**
+   * Somme des besoins RÉELS mesurés (MFGMAT quand l'OF est éclaté, règle 1). Ne vaut que
+   * pour les OF effectivement mesurés : voir `partial`.
+   */
   quantity: number
+  /** Nombre total d'OF concurrents, mesurés ou non. */
   ofCount: number
+  /** Nombre d'OF dont le besoin a été mesuré (≤ ofCount). */
+  measuredCount: number
+  /** true si des OF concurrents n'ont pas été mesurés → `quantity` est un plancher. */
+  partial: boolean
+  /** Échantillon pour l'affichage : les concurrents les plus proches, besoin mesuré. */
+  sample: Array<{ numOf: string; quantity: number }>
 }
 
 /** Un composant en manque sous un OF. */
@@ -140,11 +151,15 @@ export interface DiagnosticLoader {
    * réclament du même article à une date de besoin ANTÉRIEURE. Optionnel : sans lui le
    * diagnostic est identique, il n'affiche simplement pas la concurrence.
    *
+   * Le besoin de chaque concurrent obéit à la RÈGLE 1 comme partout ailleurs : MFGMAT si
+   * l'OF est éclaté, nomenclature théorique seulement en repli. La théorique seule mentait —
+   * un OF de 2592 pièces peut n'avoir besoin que de 956 unités d'un composant.
+   *
    * Volontairement NON déduit du verdict — ces OF concurrents peuvent être servis par du
    * stock ou par d'autres OF, et trancher demanderait le mode contention, que ce diagnostic
    * refuse par construction (photo, un OF vu seul). On DIVULGUE le conflit, on ne l'arbitre pas.
    */
-  getCompetingDemand?(article: string, before: Date, excludeOfs: string[]): CompetingDemand
+  getCompetingDemand?(article: string, before: Date, excludeOfs: string[]): Promise<CompetingDemand>
 }
 
 export interface DiagnosticOptions {
@@ -473,7 +488,7 @@ export class RecursiveDiagnosticChecker {
 
       const sharedDemand =
         covering.length > 0
-          ? this.loader.getCompetingDemand?.(s.article, date, [of.numOf])
+          ? await this.loader.getCompetingDemand?.(s.article, date, [of.numOf])
           : undefined
 
       shorts.push({

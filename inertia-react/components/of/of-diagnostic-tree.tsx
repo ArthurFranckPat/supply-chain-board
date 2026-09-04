@@ -125,13 +125,18 @@ function DiagShortRow({ short }: { short: DiagShort }) {
     <div className="border-b border-rule-soft last:border-b-0">
       <DiagRow short={short} />
 
-      {/* Concurrence divulguée, jamais arbitrée : le verdict ci-dessus voit cet OF SEUL. */}
-      {short.sharedDemand && (
+      {/* Concurrence divulguée, jamais arbitrée : le verdict ci-dessus voit cet OF SEUL.
+          Les concurrents sont NOMMÉS — c'est ce qui rend le chiffre vérifiable d'un clic. */}
+      {short.sharedDemand && short.sharedDemand.quantity > 0 && (
         <div className="ml-[12.5rem] flex items-start gap-1.5 pb-1 pl-3 font-mono text-[9px] leading-snug text-warning">
           <TriangleAlert size={10} strokeWidth={2} className="mt-0.5 flex-none" />
           <span>
-            {short.sharedDemand.quantity} déjà demandé(s) par {short.sharedDemand.ofCount} autre
-            {short.sharedDemand.ofCount > 1 ? 's OF' : ' OF'} à besoin antérieur — non arbitré ici
+            {short.sharedDemand.partial ? 'au moins ' : ''}
+            {short.sharedDemand.quantity} déjà demandé(s) par{' '}
+            {short.sharedDemand.sample.map((o) => `${o.numOf} (${o.quantity})`).join(', ')}
+            {short.sharedDemand.ofCount > short.sharedDemand.sample.length &&
+              ` +${short.sharedDemand.ofCount - short.sharedDemand.sample.length} autre(s) OF`}
+            {' — besoin antérieur, non arbitré ici'}
           </span>
         </div>
       )}
