@@ -1057,7 +1057,7 @@ function ApproTable(props: {
         sorting={[]}
         onSortingChange={() => {}}
         tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
-        scrollContainerClass="h-full overflow-auto bg-background-primary-default"
+        scrollContainerClass="h-full overflow-auto !rounded-none !border-0 !shadow-none bg-background-primary-default"
         theadRowClass="sticky top-0 z-10 border-0 bg-background-secondary-default"
         // Densité colonne par colonne (`py-1.5` dans tdClass) pour que la teinte
         // `heatStyle` remplisse la cellule (`p-0` côté période).
