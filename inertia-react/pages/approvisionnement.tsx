@@ -72,7 +72,7 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
 import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
-import { TRIGGER_SECONDARY } from '@r/components/appro/chrome'
+import { TRIGGER_SECONDARY, segmentItemDense } from '@r/components/appro/chrome'
 import type {
   ApproBucket,
   ApproCran,
@@ -332,217 +332,230 @@ export default function Approvisionnement() {
       scrollable={false}
     >
       <div className="flex h-full min-h-0 flex-col bg-background-secondary-default">
-        {/* ═══ Toolbar ═══ */}
+        {/* ═══ Toolbar ═══
+            Deux groupes, et c'est structurel : les contrôles BoardUI sont
+            plus larges que les pills 12 px d'avant, donc la rangée déborde
+            aux fenêtres étroites. Le groupe GAUCHE défile horizontalement ;
+            le groupe DROITE (recherche, compteurs, ⟳) est épinglé — sinon il
+            sort de l'écran et devient inatteignable sans scroller la barre,
+            ce qu'aucun raccourci ne rattrape. */}
         <div
           data-print-toolbar
-          className="flex min-h-[52px] flex-none select-none flex-nowrap items-center gap-2 overflow-x-auto border-b border-separator-border bg-background-primary-default px-5 py-2"
+          className="flex min-h-[48px] flex-none select-none items-center gap-2 border-b border-separator-border bg-background-primary-default px-5 py-2"
         >
-          <SegmentedControl
-            aria-label="Fenêtre"
-            className="shrink-0"
-            selectedKeys={[preset]}
-            onSelectionChange={(keys) => {
-              const next = [...keys][0] as Preset | undefined
-              if (next) setPreset(next)
-            }}
-          >
-            {PRESETS.map((p) => (
-              <SegmentedControlItem key={p.id} id={p.id}>
-                {p.label}
-              </SegmentedControlItem>
-            ))}
-          </SegmentedControl>
-
-          {preset === 'libre' && (
-            <span className="flex shrink-0 items-center gap-1.5">
-              <DatePicker
-                aria-label="Début de fenêtre"
-                value={toCalendarDate(custom.from)}
-                onChange={(d) => d && setCustom((c) => ({ ...c, from: d.toString() }))}
-              />
-              <span className="text-body-regular text-text-tertiary">→</span>
-              <DatePicker
-                aria-label="Fin de fenêtre"
-                value={toCalendarDate(custom.to)}
-                onChange={(d) => d && setCustom((c) => ({ ...c, to: d.toString() }))}
-              />
-            </span>
-          )}
-
-          <SegmentedControl
-            aria-label="Maille"
-            className="shrink-0"
-            selectedKeys={[gran]}
-            onSelectionChange={(keys) => {
-              const next = [...keys][0] as ApproGran | undefined
-              if (next) setGran(next)
-            }}
-          >
-            {GRANS.map((g) => {
-              const ok = granAllowed(g.id)
-              const item = (
-                <SegmentedControlItem id={g.id} isDisabled={!ok}>
-                  {g.label}
-                </SegmentedControlItem>
-              )
-              return ok ? (
-                <Fragment key={g.id}>{item}</Fragment>
-              ) : (
-                <TooltipTrigger key={g.id}>
-                  {item}
-                  <Tooltip>
-                    Hors plafond 14 périodes à cette fenêtre — élargissez la maille
-                  </Tooltip>
-                </TooltipTrigger>
-              )
-            })}
-          </SegmentedControl>
-
-          <SegmentedControl
-            aria-label="Cran de quantité"
-            className="shrink-0"
-            selectedKeys={[cran]}
-            onSelectionChange={(keys) => {
-              const next = [...keys][0] as ApproCran | undefined
-              if (next) setCran(next)
-            }}
-          >
-            {CRANS.map((c) => (
-              <TooltipTrigger key={c.id}>
-                <SegmentedControlItem id={c.id}>{c.label}</SegmentedControlItem>
-                <Tooltip>{c.hint}</Tooltip>
-              </TooltipTrigger>
-            ))}
-          </SegmentedControl>
-
-          {/* ─── Menu Filtres (filtres secondaires) ─── */}
-          <Dropdown>
-            <DropdownTrigger
-              aria-label="Filtres"
-              className={cx(
-                TRIGGER_SECONDARY,
-                'shrink-0',
-                filtersActive && 'border-border-button-active bg-background-primary-hover'
-              )}
-            >
-              <RiFilter3Line
-                className="size-[18px] shrink-0 text-foreground-icon-secondary"
-                aria-hidden
-              />
-              <span>Filtres</span>
-              {filtersActive && (
-                <span className="ml-0.5 size-1.5 rounded-full bg-accent-500" aria-hidden />
-              )}
-            </DropdownTrigger>
-            <DropdownPopover aria-label="Filtres" className="w-[248px]">
-              <DropdownGroup label="Type">
-                {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
-                  <DropdownItem
-                    key={s}
-                    selected={supply === s}
-                    onSelect={() => setSupply(s)}
-                    className="px-2 py-1.5"
-                  >
-                    {SUPPLY_LABEL[s]}
-                  </DropdownItem>
-                ))}
-              </DropdownGroup>
-              <DropdownDivider />
-              <DropdownGroup label="Affichage">
-                <Checkbox
-                  size="sm"
-                  className="w-full justify-between px-2 py-1.5"
-                  isSelected={manquesOnly}
-                  onChange={setManquesOnly}
-                >
-                  <span className="flex flex-1 items-center justify-between gap-2">
-                    <span className="text-body-medium text-text-primary">Manques seuls</span>
-                    {manquesCount > 0 && (
-                      <Badge
-                        color={manquesOnly ? 'primary' : 'neutral'}
-                        className="tabular-nums"
-                        title="Composants dont le reste à couvrir est non nul"
-                      >
-                        {manquesCount}
-                      </Badge>
-                    )}
-                  </span>
-                </Checkbox>
-              </DropdownGroup>
-              <DropdownDivider />
-              <DropdownGroup label="Tri">
-                {(['valeur', 'net', 'article'] as SortKey[]).map((k) => (
-                  <DropdownItem
-                    key={k}
-                    selected={sort === k}
-                    onSelect={() => setSort(k)}
-                    className="px-2 py-1.5"
-                  >
-                    {SORT_LABEL[k]}
-                  </DropdownItem>
-                ))}
-              </DropdownGroup>
-            </DropdownPopover>
-          </Dropdown>
-
-          {/* Filtre ligne de production — dropdown dédié, masqué si la fenêtre
-              ne porte aucune ligne routée. Serveur : voir commentaire du state. */}
-          {(data?.lignes.length ?? 0) > 0 && (
-            <LigneFilterPill lignes={data?.lignes ?? []} value={ligne} onChange={setLigne} />
-          )}
-
-          <div className="flex-1" />
-
-          <Input
-            size="small"
-            aria-label="Rechercher un composant"
-            placeholder="Article, désignation…"
-            leadingIcon={RiSearchLine}
-            className="w-[220px] shrink-0"
-            value={query}
-            onChange={setQuery}
-          />
-
-          {isFiltered && (
-            <span className="shrink-0 font-mono text-caption-1-semibold tabular-nums text-text-primary">
-              {rows.length}
-              <span className="text-text-tertiary"> / {view.length}</span>
-            </span>
-          )}
-          {loading && (
-            <span className="shrink-0 font-mono text-caption-1-medium tabular-nums text-text-secondary">
-              {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
-            </span>
-          )}
-          {!loading && ms !== null && (
-            <TooltipTrigger>
-              <span
-                role="note"
-                tabIndex={0}
-                className="shrink-0 font-mono text-caption-1-medium tabular-nums text-text-tertiary outline-none"
-              >
-                {ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}
-              </span>
-              <Tooltip>Durée du dernier chargement X3</Tooltip>
-            </TooltipTrigger>
-          )}
-          <TooltipTrigger>
-            <Button
-              variant="secondary"
-              size="small"
-              iconOnly
+          <div className="no-scrollbar flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto">
+            <SegmentedControl
+              aria-label="Fenêtre"
               className="shrink-0"
-              aria-label="Actualiser"
-              disabled={loading}
-              leadingIcon={loading ? RefreshSpinning : RiRefreshLine}
-              onClick={() => useDataStatusStore.getState().bump()}
+              selectedKeys={[preset]}
+              onSelectionChange={(keys) => {
+                const next = [...keys][0] as Preset | undefined
+                if (next) setPreset(next)
+              }}
+            >
+              {PRESETS.map((p) => (
+                <SegmentedControlItem key={p.id} id={p.id} className={segmentItemDense}>
+                  {p.label}
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
+
+            {preset === 'libre' && (
+              <span className="flex shrink-0 items-center gap-1.5">
+                <DatePicker
+                  aria-label="Début de fenêtre"
+                  className="h-8 gap-0 px-2 [&>span]:text-caption-1-semibold [&>svg]:size-4"
+                  value={toCalendarDate(custom.from)}
+                  onChange={(d) => d && setCustom((c) => ({ ...c, from: d.toString() }))}
+                />
+                <span className="text-caption-1-medium text-text-tertiary">→</span>
+                <DatePicker
+                  aria-label="Fin de fenêtre"
+                  className="h-8 gap-0 px-2 [&>span]:text-caption-1-semibold [&>svg]:size-4"
+                  value={toCalendarDate(custom.to)}
+                  onChange={(d) => d && setCustom((c) => ({ ...c, to: d.toString() }))}
+                />
+              </span>
+            )}
+
+            <SegmentedControl
+              aria-label="Maille"
+              className="shrink-0"
+              selectedKeys={[gran]}
+              onSelectionChange={(keys) => {
+                const next = [...keys][0] as ApproGran | undefined
+                if (next) setGran(next)
+              }}
+            >
+              {GRANS.map((g) => {
+                const ok = granAllowed(g.id)
+                const item = (
+                  <SegmentedControlItem id={g.id} isDisabled={!ok} className={segmentItemDense}>
+                    {g.label}
+                  </SegmentedControlItem>
+                )
+                return ok ? (
+                  <Fragment key={g.id}>{item}</Fragment>
+                ) : (
+                  <TooltipTrigger key={g.id}>
+                    {item}
+                    <Tooltip>
+                      Hors plafond 14 périodes à cette fenêtre — élargissez la maille
+                    </Tooltip>
+                  </TooltipTrigger>
+                )
+              })}
+            </SegmentedControl>
+
+            <SegmentedControl
+              aria-label="Cran de quantité"
+              className="shrink-0"
+              selectedKeys={[cran]}
+              onSelectionChange={(keys) => {
+                const next = [...keys][0] as ApproCran | undefined
+                if (next) setCran(next)
+              }}
+            >
+              {CRANS.map((c) => (
+                <TooltipTrigger key={c.id}>
+                  <SegmentedControlItem id={c.id} className={segmentItemDense}>
+                    {c.label}
+                  </SegmentedControlItem>
+                  <Tooltip>{c.hint}</Tooltip>
+                </TooltipTrigger>
+              ))}
+            </SegmentedControl>
+
+            {/* ─── Menu Filtres (filtres secondaires) ─── */}
+            <Dropdown>
+              <DropdownTrigger
+                aria-label="Filtres"
+                className={cx(
+                  TRIGGER_SECONDARY,
+                  'shrink-0',
+                  filtersActive && 'border-border-button-active bg-background-primary-hover'
+                )}
+              >
+                <RiFilter3Line
+                  className="size-4 shrink-0 text-foreground-icon-secondary"
+                  aria-hidden
+                />
+                <span>Filtres</span>
+                {filtersActive && (
+                  <span className="ml-0.5 size-1.5 rounded-full bg-accent-500" aria-hidden />
+                )}
+              </DropdownTrigger>
+              <DropdownPopover aria-label="Filtres" className="w-[248px]">
+                <DropdownGroup label="Type">
+                  {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
+                    <DropdownItem
+                      key={s}
+                      selected={supply === s}
+                      onSelect={() => setSupply(s)}
+                      className="px-2 py-1.5"
+                    >
+                      {SUPPLY_LABEL[s]}
+                    </DropdownItem>
+                  ))}
+                </DropdownGroup>
+                <DropdownDivider />
+                <DropdownGroup label="Affichage">
+                  <Checkbox
+                    size="sm"
+                    className="w-full justify-between px-2 py-1.5"
+                    isSelected={manquesOnly}
+                    onChange={setManquesOnly}
+                  >
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      <span className="text-body-medium text-text-primary">Manques seuls</span>
+                      {manquesCount > 0 && (
+                        <Badge
+                          color={manquesOnly ? 'primary' : 'neutral'}
+                          className="tabular-nums"
+                          title="Composants dont le reste à couvrir est non nul"
+                        >
+                          {manquesCount}
+                        </Badge>
+                      )}
+                    </span>
+                  </Checkbox>
+                </DropdownGroup>
+                <DropdownDivider />
+                <DropdownGroup label="Tri">
+                  {(['valeur', 'net', 'article'] as SortKey[]).map((k) => (
+                    <DropdownItem
+                      key={k}
+                      selected={sort === k}
+                      onSelect={() => setSort(k)}
+                      className="px-2 py-1.5"
+                    >
+                      {SORT_LABEL[k]}
+                    </DropdownItem>
+                  ))}
+                </DropdownGroup>
+              </DropdownPopover>
+            </Dropdown>
+
+            {/* Filtre ligne de production — dropdown dédié, masqué si la fenêtre
+                ne porte aucune ligne routée. Serveur : voir commentaire du state. */}
+            {(data?.lignes.length ?? 0) > 0 && (
+              <LigneFilterPill lignes={data?.lignes ?? []} value={ligne} onChange={setLigne} />
+            )}
+          </div>
+
+          {/* Groupe épinglé — jamais poussé hors écran par le groupe gauche. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <Input
+              size="small"
+              aria-label="Rechercher un composant"
+              placeholder="Article, désignation…"
+              leadingIcon={RiSearchLine}
+              className="w-[200px]"
+              fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium"
+              value={query}
+              onChange={setQuery}
             />
-            <Tooltip>
-              {loading
-                ? 'Actualisation en cours…'
-                : 'Recharger les données X3 (cache → re-fetch live)'}
-            </Tooltip>
-          </TooltipTrigger>
+
+            {isFiltered && (
+              <span className="font-mono text-caption-1-semibold tabular-nums text-text-primary">
+                {rows.length}
+                <span className="text-text-tertiary"> / {view.length}</span>
+              </span>
+            )}
+            {loading && (
+              <span className="font-mono text-caption-1-medium tabular-nums text-text-secondary">
+                {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
+              </span>
+            )}
+            {!loading && ms !== null && (
+              <TooltipTrigger>
+                <span
+                  role="note"
+                  tabIndex={0}
+                  className="font-mono text-caption-1-medium tabular-nums text-text-tertiary outline-none"
+                >
+                  {ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}
+                </span>
+                <Tooltip>Durée du dernier chargement X3</Tooltip>
+              </TooltipTrigger>
+            )}
+            <TooltipTrigger>
+              <Button
+                variant="secondary"
+                size="small"
+                iconOnly
+                aria-label="Actualiser"
+                disabled={loading}
+                leadingIcon={loading ? RefreshSpinning : RiRefreshLine}
+                onClick={() => useDataStatusStore.getState().bump()}
+              />
+              <Tooltip>
+                {loading
+                  ? 'Actualisation en cours…'
+                  : 'Recharger les données X3 (cache → re-fetch live)'}
+              </Tooltip>
+            </TooltipTrigger>
+          </div>
         </div>
 
         {/* ═══ Bandeaux ═══
@@ -743,13 +756,16 @@ function ApproTable(props: {
         enableSorting: false,
         meta: {
           thClass: 'w-[110px] overflow-hidden text-caption-1-medium text-text-tertiary',
-          tdClass: 'overflow-hidden whitespace-nowrap',
+          tdClass: 'overflow-hidden whitespace-nowrap text-body-2-regular text-text-secondary',
         },
-        cell: ({ row }) => (
-          <Chip variant="caption" color={row.original.supplyType === 'ACHAT' ? 'blue' : 'soft'}>
-            {row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
-          </Chip>
-        ),
+        // Texte nu, PAS un `Chip` : « Acheté » est une catégorie que porte
+        // chaque ligne, pas un statut. En chip, la colonne devient un mur de
+        // pastilles bleues qui ne distingue rien (le filtre Type est d'ailleurs
+        // sur ACHAT par défaut : toutes les lignes disent la même chose), et le
+        // padding vertical du chip fait grossir la rangée de ~14 px sur une
+        // page `dense`. Le chip reste au drawer, pour Ferme/Prévision, où la
+        // distinction est réelle et binaire.
+        cell: ({ row }) => (row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'),
       },
       {
         id: 'stock',
@@ -773,10 +789,7 @@ function ApproTable(props: {
         },
         cell: ({ row }) =>
           row.original.valeur == null ? (
-            <span
-              className="text-text-tertiary"
-              title="PMP inconnu — Stock × PMP actuel (ITMMVT)"
-            >
+            <span className="text-text-tertiary" title="PMP inconnu — Stock × PMP actuel (ITMMVT)">
               —
             </span>
           ) : (
@@ -853,7 +866,12 @@ function ApproTable(props: {
       tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
       scrollContainerClass="h-full rounded-2xl border border-border-table bg-background-primary-default shadow-card"
       theadRowClass="sticky top-0 z-10 border-separator-border bg-background-secondary-default"
-      getRowClass={() => 'border-separator-border hover:bg-background-primary-hover'}
+      // `[&>td]:py-1.5` : DataTable code en dur `px-3 py-2` sur ses cellules.
+      // Le sélecteur d'enfant a une spécificité supérieure à l'utilitaire, donc
+      // il gagne sans toucher au composant partagé — c'est ce qui rend la
+      // rangée à la densité du board (≈40 px) plutôt qu'aux ~54 px auxquels
+      // l'échelle BoardUI l'amenait.
+      getRowClass={() => 'border-separator-border [&>td]:py-1.5 hover:bg-background-primary-hover'}
       rowSelectedClass="bg-background-secondary-default ring-2 ring-inset ring-border-focus-ring"
       getRowKey={(r) => r.article}
       onRowClick={(r) => props.onSelect(r.article)}
