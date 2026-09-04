@@ -29,6 +29,8 @@ import { Fragment, useMemo, useState, type ComponentType, type ReactNode } from 
 import { CalendarDate, parseDate } from '@internationalized/date'
 import {
   RiAlertLine,
+  RiArrowDownSLine,
+  RiCalendarLine,
   RiCloudOffLine,
   RiErrorWarningLine,
   RiFilter3Line,
@@ -52,7 +54,7 @@ import { Chip } from '@r/components/base/badges/chip'
 import { StatusDot } from '@r/components/base/badges/status-dot'
 import { Button } from '@r/components/base/buttons/button'
 import { Checkbox } from '@r/components/base/checkbox/checkbox'
-import { DatePicker } from '@r/components/base/date-picker/date-picker'
+import { DateChipInput, formatChipDate } from '@r/components/base/date-picker/shared'
 import {
   Dropdown,
   DropdownDivider,
@@ -273,6 +275,18 @@ export default function Approvisionnement() {
   const folded = effGran !== gran
   const overCap = !granAllowed(effGran)
 
+  // Libellés du déclencheur « Période ». La fenêtre libre s'énonce par ses
+  // bornes (« 04/09/2026 → 17/09/2026 ») et non par le mot « Libre », qui ne
+  // dirait rien de ce qui est calculé.
+  const from = toCalendarDate(range.from)
+  const to = toCalendarDate(range.to)
+  const windowLabel =
+    preset === 'libre' && from && to
+      ? `${formatChipDate(from)} → ${formatChipDate(to)}`
+      : (PRESETS.find((p) => p.id === preset)?.label ?? '')
+  const granLabel = GRANS.find((g) => g.id === gran)?.label ?? ''
+  const effGranLabel = GRANS.find((g) => g.id === effGran)?.label ?? ''
+
   // Même geste, même chemin que le ⟳ du masthead (cf. tracking.tsx) : le bump
   // incrémente le nonce, qui relance le fetch AVEC ?refresh (force le re-fetch
   // X3 côté serveur au lieu du cache SWR).
@@ -344,68 +358,99 @@ export default function Approvisionnement() {
           className="flex min-h-[48px] flex-none select-none items-center gap-2 border-b border-separator-border bg-background-primary-default px-5 py-2"
         >
           <div className="no-scrollbar flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto">
-            <SegmentedControl
-              aria-label="Fenêtre"
-              className="shrink-0"
-              selectedKeys={[preset]}
-              onSelectionChange={(keys) => {
-                const next = [...keys][0] as Preset | undefined
-                if (next) setPreset(next)
-              }}
-            >
-              {PRESETS.map((p) => (
-                <SegmentedControlItem key={p.id} id={p.id} className={segmentItemDense}>
-                  {p.label}
-                </SegmentedControlItem>
-              ))}
-            </SegmentedControl>
-
-            {preset === 'libre' && (
-              <span className="flex shrink-0 items-center gap-1.5">
-                <DatePicker
-                  aria-label="Début de fenêtre"
-                  className="h-8 gap-0 px-2 [&>span]:text-caption-1-semibold [&>svg]:size-4"
-                  value={toCalendarDate(custom.from)}
-                  onChange={(d) => d && setCustom((c) => ({ ...c, from: d.toString() }))}
+            {/* ─── Menu « Période » : fenêtre + dates libres + maille ───
+                Trois contrôles (9 segments, ~600 px) repliés en un seul
+                déclencheur qui énonce l'état courant. La maille affichée est
+                la maille EFFECTIVE : quand le plafond de 14 périodes replie
+                le choix de l'utilisateur, c'est celle-ci qui décrit ce que
+                l'écran montre — passée en ambre, avec la raison au survol. */}
+            <Dropdown>
+              <DropdownTrigger
+                aria-label={`Période : ${windowLabel}, maille ${effGranLabel}`}
+                className={cx(TRIGGER_SECONDARY, 'shrink-0')}
+              >
+                <RiCalendarLine
+                  className="size-4 shrink-0 text-foreground-icon-secondary"
+                  aria-hidden
                 />
-                <span className="text-caption-1-medium text-text-tertiary">→</span>
-                <DatePicker
-                  aria-label="Fin de fenêtre"
-                  className="h-8 gap-0 px-2 [&>span]:text-caption-1-semibold [&>svg]:size-4"
-                  value={toCalendarDate(custom.to)}
-                  onChange={(d) => d && setCustom((c) => ({ ...c, to: d.toString() }))}
+                <span>{windowLabel}</span>
+                <span className="text-text-tertiary">·</span>
+                <span
+                  className={cx(folded && 'text-status-yellow-text')}
+                  title={
+                    folded
+                      ? `Maille repliée sur ${effGranLabel} (plafond 14 périodes) — votre choix (${granLabel}) est conservé pour les fenêtres plus courtes.`
+                      : undefined
+                  }
+                >
+                  {effGranLabel}
+                </span>
+                <RiArrowDownSLine
+                  className="size-4 shrink-0 text-foreground-icon-secondary"
+                  aria-hidden
                 />
-              </span>
-            )}
-
-            <SegmentedControl
-              aria-label="Maille"
-              className="shrink-0"
-              selectedKeys={[gran]}
-              onSelectionChange={(keys) => {
-                const next = [...keys][0] as ApproGran | undefined
-                if (next) setGran(next)
-              }}
-            >
-              {GRANS.map((g) => {
-                const ok = granAllowed(g.id)
-                const item = (
-                  <SegmentedControlItem id={g.id} isDisabled={!ok} className={segmentItemDense}>
-                    {g.label}
-                  </SegmentedControlItem>
-                )
-                return ok ? (
-                  <Fragment key={g.id}>{item}</Fragment>
-                ) : (
-                  <TooltipTrigger key={g.id}>
-                    {item}
-                    <Tooltip>
-                      Hors plafond 14 périodes à cette fenêtre — élargissez la maille
-                    </Tooltip>
-                  </TooltipTrigger>
-                )
-              })}
-            </SegmentedControl>
+              </DropdownTrigger>
+              <DropdownPopover aria-label="Période" className="w-[276px]">
+                <DropdownGroup label="Fenêtre">
+                  {PRESETS.map((pr) => (
+                    <DropdownItem
+                      key={pr.id}
+                      selected={preset === pr.id}
+                      onSelect={() => setPreset(pr.id)}
+                      className="px-2 py-1.5"
+                    >
+                      {pr.label}
+                    </DropdownItem>
+                  ))}
+                </DropdownGroup>
+                {preset === 'libre' && from && to && (
+                  // Saisie TEXTE (`DateChipInput`, le champ que BoardUI met
+                  // lui-même dans son calendrier) et pas le `DatePicker` :
+                  // celui-ci ouvre son propre popover, portalé hors du menu —
+                  // le premier clic dedans est vu comme un clic « dehors » et
+                  // referme le menu. Un calendrier imbriqué demanderait de
+                  // trouer la fermeture du Dropdown ; le format jj/mm/aaaa est
+                  // de toute façon la convention de dates du board.
+                  <div className="flex items-center gap-1.5 px-2 pt-1.5">
+                    <DateChipInput
+                      date={from}
+                      label="Début de fenêtre"
+                      onCommit={(d) => setCustom((c) => ({ ...c, from: d.toString() }))}
+                    />
+                    <span className="text-caption-1-medium text-text-tertiary">→</span>
+                    <DateChipInput
+                      date={to}
+                      label="Fin de fenêtre"
+                      onCommit={(d) => setCustom((c) => ({ ...c, to: d.toString() }))}
+                    />
+                  </div>
+                )}
+                <DropdownDivider />
+                <DropdownGroup label="Maille">
+                  {GRANS.map((g) => {
+                    const ok = granAllowed(g.id)
+                    return (
+                      <DropdownItem
+                        key={g.id}
+                        selected={gran === g.id}
+                        onSelect={() => ok && setGran(g.id)}
+                        className={cx(
+                          'justify-between px-2 py-1.5',
+                          !ok && 'cursor-not-allowed text-text-disabled'
+                        )}
+                      >
+                        {g.label}
+                        {!ok && (
+                          <span className="text-caption-2-medium text-text-tertiary">
+                            hors plafond
+                          </span>
+                        )}
+                      </DropdownItem>
+                    )
+                  })}
+                </DropdownGroup>
+              </DropdownPopover>
+            </Dropdown>
 
             <SegmentedControl
               aria-label="Cran de quantité"
