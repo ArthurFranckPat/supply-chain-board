@@ -121,6 +121,13 @@ function countPeriods(fromIso: string, toIso: string, gran: ApproGran): number |
 /** Séparateur décimal français : la virgule, pas le point (convention suivi). */
 const fr = (n: number): string => n.toString().replace('.', ',')
 
+/** Valorisation stock en euros — même formatter que la fiche article dashboard. */
+const fmtEuro = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+})
+
 const fold = (s: string): string =>
   s
     .normalize('NFD')
@@ -394,7 +401,8 @@ export default function Approvisionnement() {
         {/* Mentions explicites non négociables (D1, §6.2) — ligne discrète,
             pas de titre : le contexte est déjà porté par le Masthead. */}
         <div className="flex-none px-7 pt-1.5 text-[11px] leading-snug text-muted-foreground">
-          Besoins datés à la date de demande client, sans décalage de délai · Stock affecté au{' '}
+          Besoins datés à la date de demande client, sans décalage de délai · Quantités en unités de
+          stock (pas en unités d'achat) · Stock affecté au{' '}
           <span className="font-semibold text-foreground">ferme en priorité</span> (lecture
           différente de /charge) · Voici mon besoin, pas « à commander ».
         </div>
@@ -580,12 +588,16 @@ export default function Approvisionnement() {
                         </td>
                         <td
                           className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground"
-                          title={r.valeur == null ? 'PMP inconnu' : 'Stock × PMP actuel'}
+                          title={
+                            r.valeur == null
+                              ? 'PMP inconnu'
+                              : `Stock × PMP actuel = ${fmtEuro.format(r.valeur)}`
+                          }
                         >
                           {r.valeur == null ? (
                             <span className="text-muted-foreground/50">—</span>
                           ) : (
-                            fr(r.valeur)
+                            fmtEuro.format(r.valeur)
                           )}
                         </td>
                         <td className="px-3 py-2 text-right font-mono font-bold tabular-nums">
