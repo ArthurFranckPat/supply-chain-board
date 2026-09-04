@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { explodeCharge, netCharge } from '#app/domain/charge_explosion'
+import { collectBom, explodeCharge, explodeQuantity, netCharge } from '#app/domain/charge_explosion'
 import { groupGammeByArticle, type GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
@@ -238,5 +238,140 @@ test.group('netCharge — passe en-cours', () => {
     assert.equal(out[0].netQty, 70)
     assert.equal(out[0].resteQty, 70)
     assert.equal(out[0].encoursQty, 0)
+  })
+})
+
+test.group('explodeQuantity — mode quantite (plan appro)', () => {
+  // PF1 → C1 acheté (×2) + C2 fabriqué (×3, avec gamme) → S1 (×1, avec gamme).
+  const qtyBom = new Map<string, NomenclatureEntry[]>([
+    ['PF1', [entry('PF1', 'C1', 2, 'ACHETE'), entry('PF1', 'C2', 3)]],
+    ['C2', [entry('C2', 'S1', 1)]],
+  ])
+  test('achetes inclus sans gamme, emission sans poste', ({ assert }) => {
+    const raws = explodeQuantity(
+      [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
+      qtyBom
+    )
+    const byArt = new Map(raws.map((r) => [r.article, r]))
+    assert.equal(raws.length, 4) // PF1 + C1 + C2 + S1
+    assert.equal(byArt.get('C1')!.qty, 20)
+    assert.equal(byArt.get('C1')!.depth, 1)
+    assert.equal(byArt.get('C1')!.wst, '')
+    assert.equal(byArt.get('C1')!.rate, 0)
+    assert.equal(byArt.get('C2')!.qty, 30)
+    assert.equal(byArt.get('S1')!.qty, 30)
+  })
+
+  test('PF sans gamme : explode quand meme (pas de route = quand meme besoin matiere)', ({
+    assert,
+  }) => {
+    const raws = explodeQuantity(
+      [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
+      qtyBom
+    )
+    // Aucune gamme passée : le mode heures n'émettrait rien, le mode quantité tout.
+    assert.equal(raws.length, 4) // PF1 + C1 + C2 + S1
+    assert.equal(
+      explodeCharge(
+        [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
+        qtyBom,
+        new Map()
+      ).length,
+      0
+    )
+  })
+
+  test('multi-poste : un seul besoin par article (pas de double consommation stock)', ({
+    assert,
+  }) => {
+    const raws = explodeQuantity(
+      [{ article: 'MULTI', quantite: 10, date: D1, nature: 'ferme' }],
+      new Map(),
+      {}
+    )
+    assert.equal(raws.length, 1)
+    assert.equal(raws[0].qty, 10)
+    // Branché sur netCharge : le pool n'est consommé qu'une fois.
+    const needs = netCharge(raws, new Map([['MULTI', 4]]))
+    assert.equal(needs[0].netQty, 6)
+  })
+
+  test('fantome aplati : ni emis, ni compté, enfants exploses sans consommer de profondeur', ({
+    assert,
+  }) => {
+    const bom = new Map<string, NomenclatureEntry[]>([
+      ['PF1', [entry('PF1', 'FANT', 1)]],
+      ['FANT', [entry('FANT', 'C1', 2, 'ACHETE')]],
+    ])
+    const isPhantom = (a: string) => a === 'FANT'
+    const raws = explodeQuantity(
+      [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
+      bom,
+      { isPhantom, maxDepth: 1 }
+    )
+    const arts = raws.map((r) => r.article)
+    assert.isFalse(arts.includes('FANT'))
+    assert.isTrue(arts.includes('C1'))
+    // Le fantôme n'a pas consommé de profondeur : C1 sort à depth 1 malgré maxDepth 1.
+    assert.equal(raws.find((r) => r.article === 'C1')!.depth, 1)
+    assert.equal(raws.find((r) => r.article === 'C1')!.qty, 20)
+  })
+
+  test('garde anti-cycle active aussi en mode quantite', ({ assert }) => {
+    const cycBom = new Map<string, NomenclatureEntry[]>([
+      ['A', [entry('A', 'B', 1, 'ACHETE')]],
+      ['B', [entry('B', 'A', 1, 'ACHETE')]],
+    ])
+    const raws = explodeQuantity(
+      [{ article: 'A', quantite: 1, date: D1, nature: 'ferme' }],
+      cycBom,
+      { maxDepth: 10 }
+    )
+    assert.equal(raws.filter((r) => r.article === 'A').length, 1)
+    assert.equal(raws.filter((r) => r.article === 'B').length, 1)
+  })
+
+  test('troncature : seul le fabrique non-fantome coupe compte', ({ assert }) => {
+    const bom = new Map<string, NomenclatureEntry[]>([
+      [
+        'PF1',
+        [entry('PF1', 'Cfab', 1), entry('PF1', 'Cach', 1, 'ACHETE'), entry('PF1', 'FANT', 1)],
+      ],
+    ])
+    const stats: { truncated: number; cutParents?: string[] } = { truncated: 0, cutParents: [] }
+    explodeQuantity([{ article: 'PF1', quantite: 1, date: D1, nature: 'ferme' }], bom, {
+      maxDepth: 0,
+      isPhantom: (a) => a === 'FANT',
+      stats,
+    })
+    assert.equal(stats.truncated, 1) // Cfab seul : acheté = feuille, fantôme = transparent
+    assert.deepEqual(stats.cutParents, ['PF1']) // parent à marquer « descendance incomplète »
+  })
+
+  test('provenance et chemin conserves comme en mode heures', ({ assert }) => {
+    const source = { numCommande: 'AR1', ligne: '10', client: 'C', pfArticle: 'PF1' }
+    const raws = explodeQuantity(
+      [{ article: 'PF1', quantite: 10, date: D1, nature: 'prevision', source }],
+      qtyBom
+    )
+    const c1 = raws.find((r) => r.article === 'C1')!
+    assert.equal(c1.source!.numCommande, 'AR1')
+    assert.deepEqual(c1.path, ['PF1'])
+    assert.equal(c1.nature, 'prevision')
+  })
+})
+
+test.group('collectBom — filtre unique heures/quantite', () => {
+  const entries = [entry('P', 'FAB', 1), entry('P', 'ACH', 1, 'ACHETE')]
+
+  test('defaut (heures) : fabriques seuls', ({ assert }) => {
+    const map = collectBom(entries)
+    assert.equal(map.get('P')!.length, 1)
+    assert.equal(map.get('P')![0].componentArticle, 'FAB')
+  })
+
+  test('includePurchased : nomenclature complete', ({ assert }) => {
+    const map = collectBom(entries, { includePurchased: true })
+    assert.equal(map.get('P')!.length, 2)
   })
 })

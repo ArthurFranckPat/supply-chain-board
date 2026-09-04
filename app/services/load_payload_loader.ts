@@ -33,9 +33,10 @@ import {
 } from '#app/domain/atelier'
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
-import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
+import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import {
   chargeSegment,
+  collectBom,
   explodeCharge,
   netCharge,
   ofSegment,
@@ -266,13 +267,9 @@ export async function fetchChargeInputs(
     x3Error = x3Error ?? (olR.reason as Error).message
   }
   // BOM (composants FABRIQUÉS) pour la charge induite (vue commande).
+  // Mode heures : achetés exclus (pas de poste) — cf. `collectBom`.
   if (nomR.status === 'fulfilled') {
-    for (const e of nomR.value) {
-      if (!isManufactured(e)) continue
-      const arr = bomByParent.get(e.parentArticle)
-      if (arr) arr.push(e)
-      else bomByParent.set(e.parentArticle, [e])
-    }
+    for (const [parent, entries] of collectBom(nomR.value)) bomByParent.set(parent, entries)
   }
 
   const wstLabels = new Map<string, string>()
@@ -381,7 +378,15 @@ export async function computeChargeNeeds(
  * branches : F326-02020 → 640−250 = 390 (non déclaré, à déduire ici) ;
  * F326-02036 → 1236−1236 = 0 (480 déclarées, déjà dans le pool stock).
  */
-function buildEncoursByArticle(inputs: ChargeInputs): Map<string, number> {
+/**
+ * En-cours INVISIBLE du stock par article — exporté pour le plan appro
+ * (`material_plan_loader`), qui applique le même cran « reste ». Signature
+ * resserrée au strict nécessaire : l'appelant charge n'est pas affecté.
+ */
+export function buildEncoursByArticle(inputs: {
+  mos: ChargeInputs['mos']
+  avancementByOf: ChargeInputs['avancementByOf']
+}): Map<string, number> {
   const out = new Map<string, number>()
   for (const mo of inputs.mos) {
     const encours = mo.quantity - ofResteAProduire(mo, inputs.avancementByOf)

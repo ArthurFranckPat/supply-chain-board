@@ -13,7 +13,8 @@ export interface Article {
   famille?: string
   /** Typologie fine X3 (TSICOD_4) — ex: ESH10-60, BDH60 (bouche), BDH10 (module hygro). Optionnel. */
   typologie?: string
-  reorderDelay: number
+  /** Délai X3, NULL si non renseigné — chaque consommateur applique son repli. */
+  reorderDelay: number | null
   productFamily: string | null
   pmp: number | null
   economicLot: number | null

@@ -139,6 +139,86 @@ export interface ChargeNeed {
 
 const DEFAULT_MAX_DEPTH = 4
 
+/** Nœud visité pendant la descente — transmis aux hooks du marcheur. */
+interface WalkNode {
+  article: string
+  qty: number
+  nature: ChargeNature
+  date: Date
+  depth: number
+  path: string[]
+  source: ChargeSource | null
+}
+
+interface WalkerHooks {
+  /** Émission du besoin pour le nœud visité (silence pour un fantôme aplati). */
+  emit?: (node: WalkNode) => void
+  /**
+   * Fantôme : traversé SANS émettre et SANS consommer de profondeur (transparent).
+   * La garde anti-cycle reste active — une boucle de fantômes ne boucle pas.
+   */
+  isPassThrough?: (article: string) => boolean
+  /** Enfants présents mais non descendus cause plafond — le hook compte ce qu'il veut. */
+  onDepthCut?: (article: string, children: NomenclatureEntry[]) => void
+}
+
+/**
+ * Marcheur BOM partagé (mode heures + mode quantité). Sémantique de descente
+ * UNIQUE : garde anti-cycle (Set d'ancêtres), cap de profondeur, chemin complet.
+ * Seule l'ÉMISSION diffère par mode — jamais la traversée.
+ */
+function walkExplosion(
+  orderLines: ChargeOrderLine[],
+  bomByParent: Map<string, NomenclatureEntry[]>,
+  maxDepth: number,
+  hooks: WalkerHooks
+): void {
+  const visit = (
+    article: string,
+    qty: number,
+    nature: ChargeNature,
+    date: Date,
+    depth: number,
+    ancestors: Set<string>,
+    path: string[],
+    source: ChargeSource | null
+  ): void => {
+    if (ancestors.has(article)) return // garde anti-cycle
+    const passThrough = hooks.isPassThrough?.(article) ?? false
+    if (!passThrough) {
+      hooks.emit?.({ article, qty, nature, date, depth, path, source })
+    }
+    const bom = bomByParent.get(article)
+    if (!bom?.length) return
+    // Fantôme aplati : les enfants héritent de la profondeur du fantôme.
+    // `depth + 1 > maxDepth` ⟺ ancien `depth >= maxDepth` (parité stricte).
+    const nextDepth = passThrough ? depth : depth + 1
+    if (nextDepth > maxDepth) {
+      hooks.onDepthCut?.(article, bom)
+      return
+    }
+    const next = new Set(ancestors).add(article)
+    for (const entry of bom) {
+      visit(
+        entry.componentArticle,
+        requiredQuantity(entry, qty),
+        nature,
+        date,
+        nextDepth,
+        next,
+        // Le chemin s'allonge de l'article courant : l'enfant hérite de toute
+        // la lignée, pas seulement de son parent.
+        [...path, article],
+        source
+      )
+    }
+  }
+
+  for (const l of orderLines) {
+    visit(l.article, l.quantite, l.nature, l.date, 0, new Set(), [], l.source ?? null)
+  }
+}
+
 /**
  * Explosion théorique de la nomenclature (composants FABRIQUÉS uniquement),
  * PF inclus (depth 0). Garde anti-cycle (Set d'ancêtres) + cap de profondeur.
@@ -153,50 +233,110 @@ export function explodeCharge(
   maxDepth: number = DEFAULT_MAX_DEPTH
 ): ChargeRaw[] {
   const raws: ChargeRaw[] = []
-
-  const explode = (
-    article: string,
-    qty: number,
-    nature: ChargeNature,
-    date: Date,
-    depth: number,
-    ancestors: Set<string>,
-    path: string[],
-    source: ChargeSource | null
-  ): void => {
-    if (ancestors.has(article)) return // garde anti-cycle
-    for (const gamme of gammeMap.get(article) ?? []) {
-      const rate = gamme.rate ?? 0
-      if (gamme.workstation && rate > 0) {
-        raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate, path, source })
-      }
-    }
-    if (depth >= maxDepth) return
-    const bom = bomByParent.get(article)
-    if (!bom?.length) return
-    const next = new Set(ancestors).add(article)
-    for (const entry of bom) {
-      explode(
-        entry.componentArticle,
-        requiredQuantity(entry, qty),
-        nature,
-        date,
-        depth + 1,
-        next,
-        // Le chemin s'allonge de l'article courant : l'enfant hérite de toute
-        // la lignée, pas seulement de son parent.
-        [...path, article],
-        source
-      )
-    }
-  }
-
-  for (const l of orderLines) {
+  walkExplosion(
     // PF sans gamme → ligne ignorée (consistance depth-1 : pas de route = pas planifiable).
-    if (!hasChargeRoute(gammeMap.get(l.article))) continue
-    explode(l.article, l.quantite, l.nature, l.date, 0, new Set(), [], l.source ?? null)
-  }
+    orderLines.filter((l) => hasChargeRoute(gammeMap.get(l.article))),
+    bomByParent,
+    maxDepth,
+    {
+      emit: ({ article, qty, nature, date, depth, path, source }) => {
+        for (const gamme of gammeMap.get(article) ?? []) {
+          const rate = gamme.rate ?? 0
+          if (gamme.workstation && rate > 0) {
+            raws.push({
+              article,
+              wst: gamme.workstation,
+              date,
+              nature,
+              depth,
+              qty,
+              rate,
+              path,
+              source,
+            })
+          }
+        }
+      },
+    }
+  )
   return raws
+}
+
+export interface QuantityExplodeOptions {
+  maxDepth?: number
+  /**
+   * Fantômes aplatis : traversés sans émettre (un fantôme n'est ni stocké ni
+   * lancé — l'émettre créerait un « manque » permanent + un double compte avec
+   * ses enfants). Construit par l'appelant depuis les catégories article.
+   */
+  isPhantom?: (article: string) => boolean
+  /**
+   * Compteur incrémenté des enfants FABRIQUÉS non-fantômes coupés par le plafond,
+   * + parents coupés (une entrée par coupe, doublons possibles — l'appelant
+   * déduplique) pour marquer les lignes à descendance incomplète à l'écran.
+   */
+  stats?: { truncated: number; cutParents?: string[] }
+}
+
+/**
+ * Explosion QUANTITÉ (plan d'approvisionnement) : un besoin PAR ARTICLE, sans
+ * exigence de gamme (un PF sans route et un composant acheté ont quand même
+ * besoin de matière). Les achetés sont inclus dès que la nomenclature passée
+ * les contient (cf. `collectBom`) — l'arrêt sur acheté se fait dans
+ * `material_plan`, pas ici.
+ *
+ * Émission « sans poste » (wst vide, rate 0) : les heures valent 0, les
+ * quantités portent le besoin. `netCharge` fonctionne tel quel dessus.
+ */
+export function explodeQuantity(
+  orderLines: ChargeOrderLine[],
+  bomByParent: Map<string, NomenclatureEntry[]>,
+  opts: QuantityExplodeOptions = {}
+): ChargeRaw[] {
+  const raws: ChargeRaw[] = []
+  const maxDepth = opts.maxDepth ?? DEFAULT_MAX_DEPTH
+  const isPhantom = opts.isPhantom ?? (() => false)
+  walkExplosion(orderLines, bomByParent, maxDepth, {
+    emit: ({ article, qty, nature, date, depth, path, source }) => {
+      raws.push({ article, wst: '', date, nature, depth, qty, rate: 0, path, source })
+    },
+    isPassThrough: isPhantom,
+    onDepthCut: (article, children) => {
+      if (!opts.stats) return
+      let cut = false
+      for (const c of children) {
+        if (isPhantom(c.componentArticle)) continue // transparent : rien ne disparaît
+        cut = true
+        // Seule la descendance « attendue » compte : un acheté est une feuille
+        // par règle, pas une troncature.
+        if (c.componentType === 'FABRIQUE') opts.stats.truncated += 1
+      }
+      if (cut) opts.stats.cutParents?.push(article)
+    },
+  })
+  return raws
+}
+
+/**
+ * Index BOM parent → enfants depuis des entrées brutes.
+ *
+ * Mode heures (défaut) : FABRIQUÉS seuls — un acheté n'a pas de poste, pas de
+ * charge induite. Mode quantité (`includePurchased`) : nomenclature complète,
+ * feuilles achetées incluses. Le filtre vit ICI et nulle part ailleurs : un
+ * seul endroit à auditer quand un besoin manque.
+ */
+export function collectBom(
+  entries: NomenclatureEntry[],
+  opts: { includePurchased?: boolean } = {}
+): Map<string, NomenclatureEntry[]> {
+  const map = new Map<string, NomenclatureEntry[]>()
+  for (const e of entries) {
+    if (!opts.includePurchased && e.componentType !== 'FABRIQUE') continue
+    const arr = map.get(e.parentArticle)
+    if (arr) arr.push(e)
+    else map.set(e.parentArticle, [e])
+  }
+  return map
 }
 
 /**

@@ -26,6 +26,16 @@ export interface SyncResult {
   errors: string[]
 }
 
+/**
+ * Délai X3 brut → `number | null`. NULL = non renseigné (vide, nul, ≤ 0 ou non
+ * numérique) : un délai de réappro inconnu et un délai nul ne se pilotent pas
+ * pareil, le repli appartient au consommateur. Pure et testée sans X3.
+ */
+export function parseReorderDelay(raw: unknown): number | null {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 export class StaticSyncService {
   async syncAll(): Promise<SyncResult> {
     const start = Date.now()
@@ -128,12 +138,12 @@ FROM (
         const category = String(r.TCLCOD_0 ?? '').trim()
         const supplyType = String(r.MFGFLG_0 ?? '1') === '2' ? 'FABRICATION' : 'ACHAT'
 
-        let delay = 14
-        if (supplyType === 'FABRICATION') {
-          delay = Number(r.MFGLTI_0) || 10
-        } else {
-          delay = Number(r.PRPLTI_0) || 14
-        }
+        // Délai X3 tel quel (PRPLTI achat / MFGLTI fabrication), NULL si absent.
+        // L'ancien `Number(x) || 14` confondait « renseigné à 14 » et « inconnu ».
+        const delay =
+          supplyType === 'FABRICATION'
+            ? parseReorderDelay(r.MFGLTI_0)
+            : parseReorderDelay(r.PRPLTI_0)
 
         return {
           code,
@@ -354,7 +364,7 @@ FROM (
       supplyType: r.supplyType as 'ACHAT' | 'FABRICATION',
       famille: r.famille ?? '',
       typologie: r.typologie ?? '',
-      reorderDelay: r.reorderDelay ?? 0,
+      reorderDelay: r.reorderDelay ?? null,
       productFamily: null,
       pmp: null,
       economicLot: null,

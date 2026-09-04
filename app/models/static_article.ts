@@ -23,8 +23,13 @@ export default class StaticArticle extends BaseModel {
   @column()
   declare typologie: string
 
+  /**
+   * Délai X3 (PRPLTI_0 achat / MFGLTI_0 fabrication), NULL si non renseigné —
+   * cf. migration 1783600000000. Un délai inconnu et un délai nul ne se pilotent
+   * pas pareil : le repli est décidé par chaque consommateur (`?? 14`, …), jamais ici.
+   */
   @column({ columnName: 'reorder_delay' })
-  declare reorderDelay: number
+  declare reorderDelay: number | null
 
   @column({ columnName: 'synced_at' })
   declare syncedAt: number

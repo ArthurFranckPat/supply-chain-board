@@ -5,7 +5,7 @@ import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { OverrideStore } from '#services/override_store'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
 import { resolveHorizon, type WindowParams } from '#services/board_payload_loader'
-import { explodeCharge } from '#app/domain/charge_explosion'
+import { collectBom, explodeCharge } from '#app/domain/charge_explosion'
 import {
   groupGammeByArticle,
   hoursForQuantity,
@@ -13,7 +13,7 @@ import {
 } from '#app/domain/models/gamme'
 import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
-import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
+import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import {
   isMoteurEntry,
   moteurRefFor,
@@ -397,16 +397,15 @@ export async function loadOrderBoardData(
     matchDemand = demandRecep.demand
     matchSupply = ordWindow.supply
     matchArticles = new Map(articlesList.map((a) => [a.code, a]))
+    // BOM (composants FABRIQUÉS) pour la charge induite — achetés exclus
+    // (pas de poste). Mode heures : cf. `collectBom`.
+    bomByParent = collectBom(nomEntries)
     for (const e of nomEntries) {
       if (isMoteurEntry(e)) {
         const moteurs = moteurBom.get(e.parentArticle)
         if (moteurs) moteurs.push(e)
         else moteurBom.set(e.parentArticle, [e])
       }
-      if (!isManufactured(e)) continue // acheté → pas de poste, pas de charge induite
-      const arr = bomByParent.get(e.parentArticle)
-      if (arr) arr.push(e)
-      else bomByParent.set(e.parentArticle, [e])
       if (e.componentDescription) componentDesc.set(e.componentArticle, e.componentDescription)
     }
     for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)

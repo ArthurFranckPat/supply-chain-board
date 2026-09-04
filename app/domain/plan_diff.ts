@@ -822,10 +822,10 @@ function getOfDate(
  * avancé sortait « rupture inévitable » sur l'intégralité de sa nomenclature, stock
  * plein compris — le panneau devenait illisible et faux.
  *
- * Caveat délai : `reorderDelay` vient d'ITMMASTER (PRPLTI/MFGLTI). Ces champs sont
- * très majoritairement vides côté X3 → la valeur est le plus souvent le repli de
- * `static_sync_service` (14 j achat / 10 j fabrication). La frontière inevitable ↔
- * recalable est donc indicative tant que le référentiel n'est pas rempli.
+ * Caveat délai : `reorderDelay` vient d'ITMMASTER (PRPLTI/MFGLTI), NULL si non
+ * renseigné (cf. migration 1783600000000). Les `?? 14` / `?? 1` ci-dessous sont les
+ * replis explicites du consommateur — la frontière inevitable ↔ recalable reste
+ * indicative tant que le référentiel n'est pas rempli.
  */
 function approVerdicts(
   inputs: PlanDiffInputs,
