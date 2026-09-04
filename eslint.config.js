@@ -23,6 +23,7 @@ export default [
       // Le code qui les CONSOMME (pages, components/appro/**) reste linté.
       'inertia-react/components/base/**',
       'inertia-react/components/foundations/**',
+      'inertia-react/components/application/**',
       'inertia-react/utils/**',
     ],
   },

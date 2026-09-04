@@ -30,16 +30,28 @@ import { CalendarDate, parseDate } from '@internationalized/date'
 import {
   RiAlertLine,
   RiArrowDownSLine,
+  RiBarChartLine,
   RiCalendarLine,
+  RiChatAiLine,
+  RiCheckboxCircleLine,
   RiCloudOffLine,
+  RiDashboardLine,
   RiErrorWarningLine,
   RiFilter3Line,
   RiFilterOffLine,
+  RiInboxLine,
   RiSearchLine,
+  RiSettings4Line,
+  RiShoppingCartLine,
+  RiTruckLine,
 } from '@remixicon/react'
 
 import AppLayout from '@r/layouts/app'
 import { cx } from '@r/utils/cx'
+import {
+  DashboardSidebar,
+  type DashboardNavItem,
+} from '@r/components/application/dashboard/dashboard-sidebar'
 import {
   Sheet,
   SheetContent,
@@ -89,6 +101,38 @@ import type {
   ApproPayload,
   ApproRow,
 } from '@r/lib/appro/types'
+
+/**
+ * Navigation BoardUI pour la page Approvisionnement — mapping des routes
+ * métier en entrées `DashboardNavItem`. La sidebar flottante vit en
+ * complément du `Masthead` (top nav) : masquée sous `lg`, elle évite de
+ * dérober de la largeur sur tablette, tandis que le rail desktop offre un
+ * accès latéral direct aux modules principaux.
+ *
+ * Icônes : Remix, même famille que les contrôles de la page (`Ri*Line`).
+ * `selected="approvisionnement"` est passé au `DashboardSidebar` plus bas.
+ */
+const APPRO_NAV: DashboardNavItem[] = [
+  { key: 'dashboard', label: 'Tableau de bord', icon: RiDashboardLine, href: route('dashboard') },
+  { key: 'load', label: 'Charge', icon: RiBarChartLine, href: route('load.index') },
+  {
+    key: 'approvisionnement',
+    label: 'Approvisionnement',
+    icon: RiShoppingCartLine,
+    href: route('approvisionnement.index'),
+  },
+  {
+    key: 'ruptures',
+    label: 'Ruptures',
+    icon: RiAlertLine,
+    href: route('scheduler.shortage_tracker'),
+  },
+  { key: 'tracking', label: 'Suivi commandes', icon: RiTruckLine, href: route('suivi.board') },
+  { key: 'receptions', label: 'Réceptions', icon: RiInboxLine, href: route('receptions.index') },
+  { key: 'promesse', label: 'Promesse', icon: RiCheckboxCircleLine, href: route('promesse.show') },
+  { key: 'copilote', label: 'Copilote', icon: RiChatAiLine, href: route('agent.show') },
+  { key: 'config', label: 'Config', icon: RiSettings4Line, href: route('calendar_config.index') },
+]
 
 type Preset = '2sem' | 'mois' | 'moisprochain' | '3mois' | '6mois' | 'libre'
 
@@ -345,351 +389,365 @@ export default function Approvisionnement() {
       dense
       scrollable={false}
     >
-      <div className="flex h-full min-h-0 flex-col bg-background-secondary-default">
-        {/* ═══ Toolbar ═══
+      {/* Layout BoardUI : rail latéral flottant + contenu principal.
+          - Le rail (`DashboardSidebar`) est masqué sous `lg` : il n'écrase pas
+            la grille dense sur tablette, le `Masthead` restant la nav principale.
+          - Le contenu (`bg-background-secondary-default`) garde sa logique
+            toolbar + table maison, simplement encapsulé dans un conteneur
+            `bg-background-full` pour faire respirer le rail flottant. */}
+      <div className="flex h-full min-h-0 gap-3 bg-background-full p-3">
+        <div className="hidden shrink-0 lg:flex">
+          <DashboardSidebar selected="approvisionnement" items={APPRO_NAV} />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-primary-default shadow-card">
+          <div className="flex h-full min-h-0 flex-col bg-background-secondary-default">
+            {/* ═══ Toolbar ═══
             Deux groupes, et c'est structurel : les contrôles BoardUI sont
             plus larges que les pills 12 px d'avant, donc la rangée déborde
             aux fenêtres étroites. Le groupe GAUCHE défile horizontalement ;
             le groupe DROITE (recherche, compteurs, ⟳) est épinglé — sinon il
             sort de l'écran et devient inatteignable sans scroller la barre,
             ce qu'aucun raccourci ne rattrape. */}
-        <div
-          data-print-toolbar
-          className="flex min-h-[48px] flex-none select-none items-center gap-2 border-b border-separator-border bg-background-primary-default px-5 py-2"
-        >
-          <div className="no-scrollbar flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto">
-            {/* ─── Menu « Période » : fenêtre + dates libres + maille ───
+            <div
+              data-print-toolbar
+              className="flex min-h-[48px] flex-none select-none items-center gap-2 border-b border-separator-border bg-background-primary-default px-5 py-2"
+            >
+              <div className="no-scrollbar flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto">
+                {/* ─── Menu « Période » : fenêtre + dates libres + maille ───
                 Trois contrôles (9 segments, ~600 px) repliés en un seul
                 déclencheur qui énonce l'état courant. La maille affichée est
                 la maille EFFECTIVE : quand le plafond de 14 périodes replie
                 le choix de l'utilisateur, c'est celle-ci qui décrit ce que
                 l'écran montre — passée en ambre, avec la raison au survol. */}
-            <Dropdown>
-              <DropdownTrigger
-                aria-label={`Période : ${windowLabel}, maille ${effGranLabel}`}
-                className={cx(TRIGGER_SECONDARY, 'shrink-0')}
-              >
-                <RiCalendarLine
-                  className="size-4 shrink-0 text-foreground-icon-secondary"
-                  aria-hidden
-                />
-                <span>{windowLabel}</span>
-                <span className="text-text-tertiary">·</span>
-                <span
-                  className={cx(folded && 'text-status-yellow-text')}
-                  title={
-                    folded
-                      ? `Maille repliée sur ${effGranLabel} (plafond 14 périodes) — votre choix (${granLabel}) est conservé pour les fenêtres plus courtes.`
-                      : undefined
-                  }
-                >
-                  {effGranLabel}
-                </span>
-                <RiArrowDownSLine
-                  className="size-4 shrink-0 text-foreground-icon-secondary"
-                  aria-hidden
-                />
-              </DropdownTrigger>
-              <DropdownPopover aria-label="Période" className="w-[276px]">
-                <DropdownGroup label="Fenêtre">
-                  {PRESETS.map((pr) => (
-                    <DropdownItem
-                      key={pr.id}
-                      selected={preset === pr.id}
-                      onSelect={() => setPreset(pr.id)}
-                      className="px-2 py-1.5"
-                    >
-                      {pr.label}
-                    </DropdownItem>
-                  ))}
-                </DropdownGroup>
-                {preset === 'libre' && from && to && (
-                  // Saisie TEXTE (`DateChipInput`, le champ que BoardUI met
-                  // lui-même dans son calendrier) et pas le `DatePicker` :
-                  // celui-ci ouvre son propre popover, portalé hors du menu —
-                  // le premier clic dedans est vu comme un clic « dehors » et
-                  // referme le menu. Un calendrier imbriqué demanderait de
-                  // trouer la fermeture du Dropdown ; le format jj/mm/aaaa est
-                  // de toute façon la convention de dates du board.
-                  <div className="flex items-center gap-1.5 px-2 pt-1.5">
-                    <DateChipInput
-                      date={from}
-                      label="Début de fenêtre"
-                      onCommit={(d) => setCustom((c) => ({ ...c, from: d.toString() }))}
-                    />
-                    <span className="text-caption-1-medium text-text-tertiary">→</span>
-                    <DateChipInput
-                      date={to}
-                      label="Fin de fenêtre"
-                      onCommit={(d) => setCustom((c) => ({ ...c, to: d.toString() }))}
-                    />
-                  </div>
-                )}
-                <DropdownDivider />
-                <DropdownGroup label="Maille">
-                  {GRANS.map((g) => {
-                    const ok = granAllowed(g.id)
-                    return (
-                      <DropdownItem
-                        key={g.id}
-                        selected={gran === g.id}
-                        onSelect={() => ok && setGran(g.id)}
-                        className={cx(
-                          'justify-between px-2 py-1.5',
-                          !ok && 'cursor-not-allowed text-text-disabled'
-                        )}
-                      >
-                        {g.label}
-                        {!ok && (
-                          <span className="text-caption-2-medium text-text-tertiary">
-                            hors plafond
-                          </span>
-                        )}
-                      </DropdownItem>
-                    )
-                  })}
-                </DropdownGroup>
-              </DropdownPopover>
-            </Dropdown>
-
-            <SegmentedControl
-              aria-label="Cran de quantité"
-              className="shrink-0"
-              selectedKeys={[cran]}
-              onSelectionChange={(keys) => {
-                const next = [...keys][0] as ApproCran | undefined
-                if (next) setCran(next)
-              }}
-            >
-              {CRANS.map((c) => (
-                <TooltipTrigger key={c.id}>
-                  <SegmentedControlItem
-                    id={c.id}
-                    // « Reste à couvrir » prend le rose des manques de la
-                    // grille : c'est la lecture « risque », la barre et le
-                    // tableau doivent le dire de la même couleur.
-                    className={
-                      c.id === 'reste'
-                        ? segmentItemTinted('text-status-rose-text')
-                        : segmentItemDense
-                    }
+                <Dropdown>
+                  <DropdownTrigger
+                    aria-label={`Période : ${windowLabel}, maille ${effGranLabel}`}
+                    className={cx(TRIGGER_SECONDARY, 'shrink-0')}
                   >
-                    {c.label}
-                  </SegmentedControlItem>
-                  <Tooltip>{c.hint}</Tooltip>
-                </TooltipTrigger>
-              ))}
-            </SegmentedControl>
-
-            {/* ─── Menu Filtres (filtres secondaires) ─── */}
-            <Dropdown>
-              <DropdownTrigger
-                aria-label="Filtres"
-                className={cx(TRIGGER_SECONDARY, 'shrink-0', filtersActive && TRIGGER_ACTIVE)}
-              >
-                <RiFilter3Line
-                  className="size-4 shrink-0 text-foreground-icon-secondary"
-                  aria-hidden
-                />
-                <span>Filtres</span>
-                {filtersActive && (
-                  <span className="ml-0.5 size-1.5 rounded-full bg-accent-500" aria-hidden />
-                )}
-              </DropdownTrigger>
-              <DropdownPopover aria-label="Filtres" className="w-[248px]">
-                <DropdownGroup label="Type">
-                  {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
-                    <DropdownItem
-                      key={s}
-                      selected={supply === s}
-                      onSelect={() => setSupply(s)}
-                      className="px-2 py-1.5"
+                    <RiCalendarLine
+                      className="size-4 shrink-0 text-foreground-icon-secondary"
+                      aria-hidden
+                    />
+                    <span>{windowLabel}</span>
+                    <span className="text-text-tertiary">·</span>
+                    <span
+                      className={cx(folded && 'text-status-yellow-text')}
+                      title={
+                        folded
+                          ? `Maille repliée sur ${effGranLabel} (plafond 14 périodes) — votre choix (${granLabel}) est conservé pour les fenêtres plus courtes.`
+                          : undefined
+                      }
                     >
-                      {SUPPLY_LABEL[s]}
-                    </DropdownItem>
-                  ))}
-                </DropdownGroup>
-                <DropdownDivider />
-                <DropdownGroup label="Affichage">
-                  <Checkbox
-                    size="sm"
-                    className="w-full justify-between px-2 py-1.5"
-                    isSelected={manquesOnly}
-                    onChange={setManquesOnly}
-                  >
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      <span className="text-body-medium text-text-primary">Manques seuls</span>
-                      {manquesCount > 0 && (
-                        <Badge
-                          color={manquesOnly ? 'primary' : 'neutral'}
-                          className="tabular-nums"
-                          title="Composants dont le reste à couvrir est non nul"
-                        >
-                          {manquesCount}
-                        </Badge>
-                      )}
+                      {effGranLabel}
                     </span>
-                  </Checkbox>
-                </DropdownGroup>
-                <DropdownDivider />
-                <DropdownGroup label="Tri">
-                  {(['valeur', 'net', 'article'] as SortKey[]).map((k) => (
-                    <DropdownItem
-                      key={k}
-                      selected={sort === k}
-                      onSelect={() => setSort(k)}
-                      className="px-2 py-1.5"
-                    >
-                      {SORT_LABEL[k]}
-                    </DropdownItem>
+                    <RiArrowDownSLine
+                      className="size-4 shrink-0 text-foreground-icon-secondary"
+                      aria-hidden
+                    />
+                  </DropdownTrigger>
+                  <DropdownPopover aria-label="Période" className="w-[276px]">
+                    <DropdownGroup label="Fenêtre">
+                      {PRESETS.map((pr) => (
+                        <DropdownItem
+                          key={pr.id}
+                          selected={preset === pr.id}
+                          onSelect={() => setPreset(pr.id)}
+                          className="px-2 py-1.5"
+                        >
+                          {pr.label}
+                        </DropdownItem>
+                      ))}
+                    </DropdownGroup>
+                    {preset === 'libre' && from && to && (
+                      // Saisie TEXTE (`DateChipInput`, le champ que BoardUI met
+                      // lui-même dans son calendrier) et pas le `DatePicker` :
+                      // celui-ci ouvre son propre popover, portalé hors du menu —
+                      // le premier clic dedans est vu comme un clic « dehors » et
+                      // referme le menu. Un calendrier imbriqué demanderait de
+                      // trouer la fermeture du Dropdown ; le format jj/mm/aaaa est
+                      // de toute façon la convention de dates du board.
+                      <div className="flex items-center gap-1.5 px-2 pt-1.5">
+                        <DateChipInput
+                          date={from}
+                          label="Début de fenêtre"
+                          onCommit={(d) => setCustom((c) => ({ ...c, from: d.toString() }))}
+                        />
+                        <span className="text-caption-1-medium text-text-tertiary">→</span>
+                        <DateChipInput
+                          date={to}
+                          label="Fin de fenêtre"
+                          onCommit={(d) => setCustom((c) => ({ ...c, to: d.toString() }))}
+                        />
+                      </div>
+                    )}
+                    <DropdownDivider />
+                    <DropdownGroup label="Maille">
+                      {GRANS.map((g) => {
+                        const ok = granAllowed(g.id)
+                        return (
+                          <DropdownItem
+                            key={g.id}
+                            selected={gran === g.id}
+                            onSelect={() => ok && setGran(g.id)}
+                            className={cx(
+                              'justify-between px-2 py-1.5',
+                              !ok && 'cursor-not-allowed text-text-disabled'
+                            )}
+                          >
+                            {g.label}
+                            {!ok && (
+                              <span className="text-caption-2-medium text-text-tertiary">
+                                hors plafond
+                              </span>
+                            )}
+                          </DropdownItem>
+                        )
+                      })}
+                    </DropdownGroup>
+                  </DropdownPopover>
+                </Dropdown>
+
+                <SegmentedControl
+                  aria-label="Cran de quantité"
+                  className="shrink-0"
+                  selectedKeys={[cran]}
+                  onSelectionChange={(keys) => {
+                    const next = [...keys][0] as ApproCran | undefined
+                    if (next) setCran(next)
+                  }}
+                >
+                  {CRANS.map((c) => (
+                    <TooltipTrigger key={c.id}>
+                      <SegmentedControlItem
+                        id={c.id}
+                        // « Reste à couvrir » prend le rose des manques de la
+                        // grille : c'est la lecture « risque », la barre et le
+                        // tableau doivent le dire de la même couleur.
+                        className={
+                          c.id === 'reste'
+                            ? segmentItemTinted('text-status-rose-text')
+                            : segmentItemDense
+                        }
+                      >
+                        {c.label}
+                      </SegmentedControlItem>
+                      <Tooltip>{c.hint}</Tooltip>
+                    </TooltipTrigger>
                   ))}
-                </DropdownGroup>
-              </DropdownPopover>
-            </Dropdown>
+                </SegmentedControl>
 
-            {/* Filtre ligne de production — dropdown dédié, masqué si la fenêtre
+                {/* ─── Menu Filtres (filtres secondaires) ─── */}
+                <Dropdown>
+                  <DropdownTrigger
+                    aria-label="Filtres"
+                    className={cx(TRIGGER_SECONDARY, 'shrink-0', filtersActive && TRIGGER_ACTIVE)}
+                  >
+                    <RiFilter3Line
+                      className="size-4 shrink-0 text-foreground-icon-secondary"
+                      aria-hidden
+                    />
+                    <span>Filtres</span>
+                    {filtersActive && (
+                      <span className="ml-0.5 size-1.5 rounded-full bg-accent-500" aria-hidden />
+                    )}
+                  </DropdownTrigger>
+                  <DropdownPopover aria-label="Filtres" className="w-[248px]">
+                    <DropdownGroup label="Type">
+                      {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
+                        <DropdownItem
+                          key={s}
+                          selected={supply === s}
+                          onSelect={() => setSupply(s)}
+                          className="px-2 py-1.5"
+                        >
+                          {SUPPLY_LABEL[s]}
+                        </DropdownItem>
+                      ))}
+                    </DropdownGroup>
+                    <DropdownDivider />
+                    <DropdownGroup label="Affichage">
+                      <Checkbox
+                        size="sm"
+                        className="w-full justify-between px-2 py-1.5"
+                        isSelected={manquesOnly}
+                        onChange={setManquesOnly}
+                      >
+                        <span className="flex flex-1 items-center justify-between gap-2">
+                          <span className="text-body-medium text-text-primary">Manques seuls</span>
+                          {manquesCount > 0 && (
+                            <Badge
+                              color={manquesOnly ? 'primary' : 'neutral'}
+                              className="tabular-nums"
+                              title="Composants dont le reste à couvrir est non nul"
+                            >
+                              {manquesCount}
+                            </Badge>
+                          )}
+                        </span>
+                      </Checkbox>
+                    </DropdownGroup>
+                    <DropdownDivider />
+                    <DropdownGroup label="Tri">
+                      {(['valeur', 'net', 'article'] as SortKey[]).map((k) => (
+                        <DropdownItem
+                          key={k}
+                          selected={sort === k}
+                          onSelect={() => setSort(k)}
+                          className="px-2 py-1.5"
+                        >
+                          {SORT_LABEL[k]}
+                        </DropdownItem>
+                      ))}
+                    </DropdownGroup>
+                  </DropdownPopover>
+                </Dropdown>
+
+                {/* Filtre ligne de production — dropdown dédié, masqué si la fenêtre
                 ne porte aucune ligne routée. Serveur : voir commentaire du state. */}
-            {(data?.lignes.length ?? 0) > 0 && (
-              <LigneFilterPill lignes={data?.lignes ?? []} value={ligne} onChange={setLigne} />
-            )}
-          </div>
+                {(data?.lignes.length ?? 0) > 0 && (
+                  <LigneFilterPill lignes={data?.lignes ?? []} value={ligne} onChange={setLigne} />
+                )}
+              </div>
 
-          {/* Groupe épinglé — jamais poussé hors écran par le groupe gauche.
+              {/* Groupe épinglé — jamais poussé hors écran par le groupe gauche.
               Ni chrono de chargement ni ⟳ ici : le masthead porte déjà les
               deux (« chargé en 59 ms » + un bouton câblé sur le MÊME
               `bump()` du data-status-store). Les répéter dans la barre
               n'ajoutait rien qu'un doublon dans un espace disputé. */}
-          <div className="flex shrink-0 items-center gap-2">
-            <Input
-              size="small"
-              aria-label="Rechercher un composant"
-              placeholder="Article, désignation…"
-              leadingIcon={RiSearchLine}
-              className="w-[200px]"
-              fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium"
-              value={query}
-              onChange={setQuery}
-            />
+              <div className="flex shrink-0 items-center gap-2">
+                <Input
+                  size="small"
+                  aria-label="Rechercher un composant"
+                  placeholder="Article, désignation…"
+                  leadingIcon={RiSearchLine}
+                  className="w-[200px]"
+                  fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium"
+                  value={query}
+                  onChange={setQuery}
+                />
 
-            {isFiltered && (
-              <span className="font-mono text-caption-1-semibold tabular-nums text-accent-600">
-                {rows.length}
-                <span className="text-text-tertiary"> / {view.length}</span>
-              </span>
-            )}
-            {loading && (
-              <span className="font-mono text-caption-1-medium tabular-nums text-text-secondary">
-                {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
-              </span>
-            )}
-          </div>
-        </div>
+                {isFiltered && (
+                  <span className="font-mono text-caption-1-semibold tabular-nums text-accent-600">
+                    {rows.length}
+                    <span className="text-text-tertiary"> / {view.length}</span>
+                  </span>
+                )}
+                {loading && (
+                  <span className="font-mono text-caption-1-medium tabular-nums text-text-secondary">
+                    {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
+                  </span>
+                )}
+              </div>
+            </div>
 
-        {/* ═══ Bandeaux ═══
+            {/* ═══ Bandeaux ═══
             `Notification` BoardUI en bandeau inline : non refermable (l'état
             qu'il décrit n'est pas dismissible, il disparaît quand la cause
             disparaît) et sans coins ni ombre flottante, pour lire comme une
             barre pleine largeur sous la toolbar. */}
-        {(data?.x3Error || (data && data.truncated > 0) || overCap || (folded && !overCap)) && (
-          <div className="flex flex-none flex-col gap-2 border-b border-separator-border bg-background-secondary-default px-5 py-2.5">
-            {data?.x3Error && (
-              <Notification
-                status="error"
-                dismissible={false}
-                className="rounded-xl p-3 pr-3 shadow-none"
-                title="Erreur de chargement"
-                description={<span className="font-mono">{data.x3Error}</span>}
-              />
-            )}
-            {data && data.truncated > 0 && (
-              <Notification
-                status="neutral"
-                icon={RiAlertLine}
-                dismissible={false}
-                className="rounded-xl p-3 pr-3 shadow-none"
-                title="Profondeur tronquée"
-                description={`${data.truncated} branche(s) coupée(s) — les lignes marquées ⚠ ont une descendance incomplète.`}
-              />
-            )}
-            {/* Sélection hors plafond : bandeau, PAS remplacement — le dernier
+            {(data?.x3Error || (data && data.truncated > 0) || overCap || (folded && !overCap)) && (
+              <div className="flex flex-none flex-col gap-2 border-b border-separator-border bg-background-secondary-default px-5 py-2.5">
+                {data?.x3Error && (
+                  <Notification
+                    status="error"
+                    dismissible={false}
+                    className="rounded-xl p-3 pr-3 shadow-none"
+                    title="Erreur de chargement"
+                    description={<span className="font-mono">{data.x3Error}</span>}
+                  />
+                )}
+                {data && data.truncated > 0 && (
+                  <Notification
+                    status="neutral"
+                    icon={RiAlertLine}
+                    dismissible={false}
+                    className="rounded-xl p-3 pr-3 shadow-none"
+                    title="Profondeur tronquée"
+                    description={`${data.truncated} branche(s) coupée(s) — les lignes marquées ⚠ ont une descendance incomplète.`}
+                  />
+                )}
+                {/* Sélection hors plafond : bandeau, PAS remplacement — le dernier
                 plan calculé reste affiché, le calcul est suspendu (url null). */}
-            {overCap && (
-              <Notification
-                status="neutral"
-                icon={RiAlertLine}
-                dismissible={false}
-                className="rounded-xl p-3 pr-3 shadow-none"
-                title="Sélection hors plafond"
-                description="14 périodes max — dernier plan affiché, élargissez la maille ou réduisez la fenêtre pour recalculer."
-              />
+                {overCap && (
+                  <Notification
+                    status="neutral"
+                    icon={RiAlertLine}
+                    dismissible={false}
+                    className="rounded-xl p-3 pr-3 shadow-none"
+                    title="Sélection hors plafond"
+                    description="14 périodes max — dernier plan affiché, élargissez la maille ou réduisez la fenêtre pour recalculer."
+                  />
+                )}
+                {folded && !overCap && (
+                  <p className="px-1 text-caption-1-regular text-text-secondary">
+                    Maille repliée sur {GRANS.find((g) => g.id === effGran)?.label} (plafond 14
+                    périodes) — votre choix ({GRANS.find((g) => g.id === gran)?.label}) est conservé
+                    pour les fenêtres plus courtes.
+                  </p>
+                )}
+              </div>
             )}
-            {folded && !overCap && (
-              <p className="px-1 text-caption-1-regular text-text-secondary">
-                Maille repliée sur {GRANS.find((g) => g.id === effGran)?.label} (plafond 14
-                périodes) — votre choix ({GRANS.find((g) => g.id === gran)?.label}) est conservé
-                pour les fenêtres plus courtes.
-              </p>
-            )}
-          </div>
-        )}
 
-        {/* ═══ Table ═══
+            {/* ═══ Table ═══
             Le plan précédent reste affiché pendant le re-fetch (donnée gardée
             par useTimedFetch) : changer de filtre ne vide jamais l'écran. */}
-        {loading && !data ? (
-          <div className="flex-1 overflow-hidden p-5">
-            <SkeletonRow count={6} />
-          </div>
-        ) : error && !data ? (
-          <EmptyState
-            icon={RiCloudOffLine}
-            title="Erreur de connexion Sage X3"
-            body="Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3."
-          />
-        ) : !data ? (
-          <EmptyState
-            icon={RiErrorWarningLine}
-            title="Fenêtre trop large pour cette maille"
-            body="Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre."
-          />
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={RiSearchLine}
-            title="Aucun résultat trouvé"
-            body="Aucun composant ne correspond aux filtres ou à la recherche actuels."
-            action={
-              <Button
-                variant="secondary"
-                size="small"
-                leadingIcon={RiFilterOffLine}
-                onClick={resetFilters}
-              >
-                Réinitialiser les filtres
-              </Button>
-            }
-          />
-        ) : (
-          data && (
-            <div className="min-h-0 flex-1 overflow-hidden p-5">
-              <ApproTable
-                buckets={data.buckets}
-                rows={rows}
-                cran={cran}
-                gran={gran}
-                selected={selected}
-                onSelect={setSelected}
+            {loading && !data ? (
+              <div className="flex-1 overflow-hidden p-5">
+                <SkeletonRow count={6} />
+              </div>
+            ) : error && !data ? (
+              <EmptyState
+                icon={RiCloudOffLine}
+                title="Erreur de connexion Sage X3"
+                body="Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3."
               />
-            </div>
-          )
-        )}
-        {/* Drawer « appelé par » — même motif que le diagnostic de ligne suivi. */}
-        <ApproDetailSheet
-          article={selected}
-          version={data?.version ?? null}
-          from={range.from}
-          to={range.to}
-          onClose={() => setSelected(null)}
-        />
+            ) : !data ? (
+              <EmptyState
+                icon={RiErrorWarningLine}
+                title="Fenêtre trop large pour cette maille"
+                body="Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre."
+              />
+            ) : rows.length === 0 ? (
+              <EmptyState
+                icon={RiSearchLine}
+                title="Aucun résultat trouvé"
+                body="Aucun composant ne correspond aux filtres ou à la recherche actuels."
+                action={
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    leadingIcon={RiFilterOffLine}
+                    onClick={resetFilters}
+                  >
+                    Réinitialiser les filtres
+                  </Button>
+                }
+              />
+            ) : (
+              data && (
+                <div className="min-h-0 flex-1 overflow-hidden p-5">
+                  <ApproTable
+                    buckets={data.buckets}
+                    rows={rows}
+                    cran={cran}
+                    gran={gran}
+                    selected={selected}
+                    onSelect={setSelected}
+                  />
+                </div>
+              )
+            )}
+            {/* Drawer « appelé par » — même motif que le diagnostic de ligne suivi. */}
+            <ApproDetailSheet
+              article={selected}
+              version={data?.version ?? null}
+              from={range.from}
+              to={range.to}
+              onClose={() => setSelected(null)}
+            />
+          </div>
+        </div>
       </div>
     </AppLayout>
   )
