@@ -32,8 +32,6 @@ import {
   RiArrowDownSLine,
   RiBarChartLine,
   RiCalendarLine,
-  RiChatAiLine,
-  RiCheckboxCircleLine,
   RiCloudOffLine,
   RiDashboardLine,
   RiErrorWarningLine,
@@ -41,7 +39,6 @@ import {
   RiFilterOffLine,
   RiInboxLine,
   RiSearchLine,
-  RiSettings4Line,
   RiShoppingCartLine,
   RiTruckLine,
 } from '@remixicon/react'
@@ -129,9 +126,6 @@ const APPRO_NAV: DashboardNavItem[] = [
   },
   { key: 'tracking', label: 'Suivi commandes', icon: RiTruckLine, href: route('suivi.board') },
   { key: 'receptions', label: 'Réceptions', icon: RiInboxLine, href: route('receptions.index') },
-  { key: 'promesse', label: 'Promesse', icon: RiCheckboxCircleLine, href: route('promesse.show') },
-  { key: 'copilote', label: 'Copilote', icon: RiChatAiLine, href: route('agent.show') },
-  { key: 'config', label: 'Config', icon: RiSettings4Line, href: route('calendar_config.index') },
 ]
 
 type Preset = '2sem' | 'mois' | 'moisprochain' | '3mois' | '6mois' | 'libre'
