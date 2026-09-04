@@ -580,10 +580,11 @@ function ApproTable(props: {
         header: 'Désignation',
         accessorFn: (r) => r.description,
         enableSorting: false,
-        // Plancher anti-écrasement : flexible au-delà, jamais sous le libellé.
+        // Largeur fixe : en layout fixe, sans width la colonne absorbe tout
+        // l'espace restant. Tronquée avec ellipsis (+ title = texte complet).
         meta: {
-          thClass: 'min-w-[220px] overflow-hidden',
-          tdClass: 'min-w-[220px] overflow-hidden',
+          thClass: 'w-[260px] overflow-hidden',
+          tdClass: 'w-[260px] overflow-hidden',
         },
         cell: ({ row }) => (
           <span className="block truncate text-muted-foreground" title={row.original.description}>
