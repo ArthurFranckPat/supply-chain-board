@@ -544,12 +544,14 @@ export function DashboardSidebar({
           )}
         </nav>
 
-        {/* DataStatus intégré après retrait du topbar — remplace le Board team.
-            Masqué en collapsed (60px) : le cluster `màj 21:12 · il y a …` ne
-            tient pas dans le rail. */}
+        {/* DataStatus intégré après retrait du topbar — remplace Board team.
+            Pill ne doit pas déborder du rail 260px : le cluster `màj …` passe
+            en wrap et tronque proprement, pas en overflow hors `rounded-xl`. */}
         {!collapsed && (
-          <div className="rounded-xl border border-border-button-default bg-background-primary-default px-2.5 py-2">
-            <DataStatus />
+          <div className="overflow-hidden rounded-xl border border-border-button-default bg-background-primary-default px-2.5 py-2">
+            <div className="min-w-0 w-full overflow-hidden [&>div]:!flex-wrap [&>div]:!gap-y-1 [&_span]:!whitespace-normal">
+              <DataStatus />
+            </div>
           </div>
         )}
       </div>
