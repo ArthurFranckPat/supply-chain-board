@@ -56,6 +56,8 @@ interface AppLayoutProps {
   footer?: React.ReactNode
   /** Désactive le footer (mode dense, board plein écran). */
   hideFooter?: boolean
+  /** Masque le Masthead complet (topbar). */
+  hideMasthead?: boolean
   /** Variant thème. */
   theme?: ThemeVariant
   /** Mode dense : pas de padding, maxWidth full. Pour board / programme. */
@@ -83,6 +85,7 @@ export function AppLayout({
   toolbar,
   footer,
   hideFooter = false,
+  hideMasthead = false,
   theme = 'airbnb',
   dense = false,
   scrollable = true,
@@ -103,12 +106,14 @@ export function AppLayout({
     >
       {title && <Head title={title} />}
 
-      <Masthead
-        subtitle={subtitle}
-        active={active}
-        variant={mastheadVariant}
-        actions={mastheadActions}
-      />
+      {!hideMasthead && (
+        <Masthead
+          subtitle={subtitle}
+          active={active}
+          variant={mastheadVariant}
+          actions={mastheadActions}
+        />
+      )}
 
       {/* Toolbar — 56px, pills de filtrage.
           Pas de border-top (Masthead a déjà un border-bottom), border-bottom

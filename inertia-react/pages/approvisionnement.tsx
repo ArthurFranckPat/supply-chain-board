@@ -382,13 +382,14 @@ export default function Approvisionnement() {
       theme="airbnb"
       dense
       scrollable={false}
+      hideMasthead
     >
-      {/* Layout BoardUI : rail latéral flottant + contenu principal.
-          - Le rail (`DashboardSidebar`) est masqué sous `lg` : il n'écrase pas
-            la grille dense sur tablette, le `Masthead` restant la nav principale.
-          - Le contenu (`bg-background-secondary-default`) garde sa logique
-            toolbar + table maison, simplement encapsulé dans un conteneur
-            `bg-background-full` pour faire respirer le rail flottant. */}
+      {/* Layout BoardUI sans topbar : le Masthead est masqué (`hideMasthead`),
+          le `DataStatus` (`màj 21:12 · il y a 15 min · chargé en 50 ms`) vit
+          désormais dans le footer du `DashboardSidebar` (remplace le
+          `Board team`). Le rail est masqué sous `lg` mais la page reste
+          navigable via URL directe sur mobile — le dense board privilégie
+          la largeur de grille. */}
       <div className="flex h-full min-h-0 gap-3 bg-background-full p-3">
         <div className="hidden shrink-0 lg:flex">
           <DashboardSidebar selected="approvisionnement" items={APPRO_NAV} />
