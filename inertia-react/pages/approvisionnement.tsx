@@ -5,7 +5,8 @@
  * netting priorité ferme) est fetché via useTimedFetch — même motif que
  * /suivi. Mise en page alignée sur scheduler/tracking.tsx (thème airbnb
  * dense, ToolbarRow unique, FilterMenu, PILL recherche, DataTable officiel,
- * drawer latéral) : en-têtes de périodes empilés sur une rangée.
+ * drawer latéral) : en-têtes de périodes empilés sur une rangée (DataTable
+ * ne gère pas le colSpan — le libellé n'est rendu qu'une fois, côté Ferme).
  */
 import { Fragment, useMemo, useState } from 'react'
 import { CircleX, FilterX, Search, TriangleAlert } from 'lucide-react'
@@ -577,6 +578,8 @@ function ApproTable(props: {
         header: 'Désignation',
         accessorFn: (r) => r.description,
         enableSorting: false,
+        // Plancher anti-écrasement : flexible au-delà, jamais sous le libellé.
+        meta: { thClass: 'min-w-[220px]', tdClass: 'min-w-[220px]' },
         cell: ({ row }) => (
           <span className="block truncate text-muted-foreground" title={row.original.description}>
             {row.original.description}
@@ -636,11 +639,14 @@ function ApproTable(props: {
         },
         cell: ({ row }) => fr(cranTotal(row.original, cran)),
       },
+      // En-tête groupé sans colSpan (DataTable : une rangée) : le libellé de
+      // période n'est rendu qu'une fois, côté Ferme — le filet vertical marque
+      // le début du groupe, comme un colSpan visuel.
       ...buckets.flatMap((b, i) => [
         {
           id: `${b.key}-ferme`,
           header: (
-            <span className="flex flex-col items-end leading-tight">
+            <span className="flex flex-col items-end whitespace-nowrap leading-tight">
               <span className="font-bold text-foreground">{b.label}</span>
               <span className="text-[11px] font-medium">Ferme</span>
             </span>
@@ -648,7 +654,7 @@ function ApproTable(props: {
           accessorFn: (r: ApproRow) => cranOf(r, cran, i, true),
           enableSorting: false,
           meta: {
-            thClass: 'w-[88px] border-l border-rule text-right',
+            thClass: 'w-[104px] border-l border-rule text-right',
             tdClass: 'border-l border-rule text-right font-mono tabular-nums',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
@@ -659,15 +665,14 @@ function ApproTable(props: {
         {
           id: `${b.key}-prevision`,
           header: (
-            <span className="flex flex-col items-end leading-tight">
-              <span className="font-bold text-foreground">{b.label}</span>
-              <span className="text-[11px] font-medium text-muted-foreground/70">Prév.</span>
+            <span className="text-[11px] font-medium whitespace-nowrap text-muted-foreground/70">
+              Prév.
             </span>
           ),
           accessorFn: (r: ApproRow) => cranOf(r, cran, i, false),
           enableSorting: false,
           meta: {
-            thClass: 'w-[88px] text-right',
+            thClass: 'w-[104px] text-right',
             tdClass: 'text-right font-mono tabular-nums text-muted-foreground',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
