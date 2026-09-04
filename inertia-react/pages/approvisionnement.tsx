@@ -655,7 +655,7 @@ function ApproTable(props: {
           accessorFn: (r: ApproRow) => cranOf(r, cran, i, true),
           enableSorting: false,
           meta: {
-            thClass: 'w-[104px] border-l border-rule text-right',
+            thClass: 'w-[88px] border-l border-rule text-right',
             tdClass: 'border-l border-rule text-right font-mono tabular-nums',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
@@ -673,7 +673,7 @@ function ApproTable(props: {
           accessorFn: (r: ApproRow) => cranOf(r, cran, i, false),
           enableSorting: false,
           meta: {
-            thClass: 'w-[104px] text-right',
+            thClass: 'w-[72px] text-right',
             tdClass: 'text-right font-mono tabular-nums text-muted-foreground',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
@@ -692,7 +692,7 @@ function ApproTable(props: {
       rows={rows}
       sorting={[]}
       onSortingChange={() => {}}
-      tableClass={gran === 'jour' ? 'min-w-[1800px] table-fixed' : 'min-w-[2400px] table-fixed'}
+      tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowKey={(r) => r.article}
