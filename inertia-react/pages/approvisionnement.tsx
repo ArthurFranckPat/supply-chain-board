@@ -641,7 +641,7 @@ export default function Approvisionnement() {
             qu'il décrit n'est pas dismissible, il disparaît quand la cause
             disparaît) et sans coins ni ombre flottante, pour lire comme une
             barre pleine largeur sous la toolbar. */}
-            {(data?.x3Error || (data && data.truncated > 0) || overCap || (folded && !overCap)) && (
+            {(data?.x3Error || overCap || (folded && !overCap)) && (
               <div className="flex flex-none flex-col gap-2 border-b border-separator-border bg-background-secondary-default px-5 py-2.5">
                 {data?.x3Error && (
                   <Notification
@@ -650,16 +650,6 @@ export default function Approvisionnement() {
                     className="rounded-xl p-3 pr-3 shadow-none"
                     title="Erreur de chargement"
                     description={<span className="font-mono">{data.x3Error}</span>}
-                  />
-                )}
-                {data && data.truncated > 0 && (
-                  <Notification
-                    status="neutral"
-                    icon={RiAlertLine}
-                    dismissible={false}
-                    className="rounded-xl p-3 pr-3 shadow-none"
-                    title="Profondeur tronquée"
-                    description={`${data.truncated} branche(s) coupée(s) — les lignes marquées ⚠ ont une descendance incomplète.`}
                   />
                 )}
                 {/* Sélection hors plafond : bandeau, PAS remplacement — le dernier
@@ -846,22 +836,24 @@ function ApproTable(props: {
           const manque = resteTotal(row.original) > 0
           return (
             <span
-              className={cx(manque && 'text-status-rose-text')}
-              title={
-                manque
-                  ? "Reste à couvrir non nul — voir l'origine du besoin"
-                  : "Voir l'origine du besoin (appelé par)"
-              }
+              className={cx('inline-flex items-center gap-1', manque && 'text-status-rose-text')}
             >
-              {row.original.article}
+              <span
+                title={
+                  manque
+                    ? 'Reste à couvrir non nul — voir l’origine du besoin'
+                    : 'Voir l’origine du besoin (appelé par)'
+                }
+              >
+                {row.original.article}
+              </span>
               {row.original.tronque && (
-                <span
-                  className="text-status-yellow-text"
-                  title="Descendance incomplète (plafond de profondeur)"
-                >
-                  {' '}
-                  ⚠
-                </span>
+                <TooltipTrigger delay={0}>
+                  <span className="inline-flex cursor-help items-center text-status-yellow-text">
+                    ⚠
+                  </span>
+                  <Tooltip>Descendance incomplète</Tooltip>
+                </TooltipTrigger>
               )}
             </span>
           )
@@ -1025,26 +1017,59 @@ function ApproTable(props: {
     [buckets, cran, rowMax]
   )
 
+  const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
+
   return (
-    <DataTable
-      columns={columns}
-      rows={rows}
-      sorting={[]}
-      onSortingChange={() => {}}
-      tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
-      scrollContainerClass="h-full rounded-2xl border border-border-table bg-background-primary-default shadow-card"
-      theadRowClass="sticky top-0 z-10 border-separator-border bg-background-secondary-default"
-      // La densité descend colonne par colonne (`py-1.5` dans chaque tdClass)
-      // et PAS via un `[&>td]:py-1.5` sur la ligne : le sélecteur d'enfant a
-      // une spécificité supérieure à l'utilitaire, il réimposerait un padding
-      // aux cellules de période — qui doivent être à `p-0` pour que la teinte
-      // de la carte de chaleur remplisse la cellule jusqu'aux filets.
-      getRowClass={() => 'border-separator-border hover:bg-background-primary-hover'}
-      rowSelectedClass="bg-background-secondary-default ring-2 ring-inset ring-border-focus-ring"
-      getRowKey={(r) => r.article}
-      onRowClick={(r) => props.onSelect(r.article)}
-      selectedRowKey={props.selected}
-    />
+    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border-button-white bg-background-primary-default shadow-sidebar">
+      {/* Header BoardUI — remplace le bandeau tronqué : contexte + légende carte de chaleur */}
+      <div className="flex items-center justify-between border-b border-separator-border bg-background-secondary-default px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-caption-1-semibold text-text-secondary">
+            {rows.length} composants
+          </span>
+          {manquesInView > 0 && (
+            <Chip variant="caption" color="rose">
+              {manquesInView} manques
+            </Chip>
+          )}
+          <Badge color="neutral" className="hidden sm:inline-flex">
+            {cran}
+          </Badge>
+        </div>
+        <div className="hidden items-center gap-3 sm:flex">
+          <span className="text-caption-2-medium text-text-tertiary">
+            Carte de chaleur par ligne
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-accent-500" aria-hidden />
+            <span className="text-caption-2-medium text-text-secondary">Ferme</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-purple-500" aria-hidden />
+            <span className="text-caption-2-medium text-text-secondary">Prév.</span>
+          </span>
+        </div>
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        sorting={[]}
+        onSortingChange={() => {}}
+        tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
+        scrollContainerClass="h-full overflow-auto bg-background-primary-default"
+        theadRowClass="sticky top-0 z-10 border-b border-separator-border bg-background-secondary-default"
+        // Densité colonne par colonne (`py-1.5` dans tdClass) pour que la teinte
+        // `heatStyle` remplisse la cellule (`p-0` côté période).
+        getRowClass={() =>
+          'border-b border-separator-border last:border-0 hover:bg-background-secondary-hover transition-colors'
+        }
+        rowSelectedClass="bg-background-secondary-hover ring-2 ring-inset ring-border-focus-ring"
+        getRowKey={(r) => r.article}
+        onRowClick={(r) => props.onSelect(r.article)}
+        selectedRowKey={props.selected}
+      />
+    </div>
   )
 }
 
