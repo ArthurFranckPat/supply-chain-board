@@ -33,7 +33,7 @@ export const TRIGGER_SECONDARY = cx(
  * conflits entre utilitaires typographiques composites, donc le dernier gagne).
  */
 export const segmentItemDense = (state: { isSelected: boolean }): string =>
-  state.isSelected ? 'px-2 text-caption-1-semibold' : 'px-2 text-caption-1-medium'
+  state.isSelected ? 'px-2 text-caption-1-semibold text-accent-600' : 'px-2 text-caption-1-medium'
 
 /**
  * Item de segment teinté quand il est retenu. Sert au cran « Reste à couvrir »,

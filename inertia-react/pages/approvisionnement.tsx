@@ -83,12 +83,7 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
 import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
-import {
-  TRIGGER_ACTIVE,
-  TRIGGER_SECONDARY,
-  segmentItemDense,
-  segmentItemTinted,
-} from '@r/components/appro/chrome'
+import { TRIGGER_ACTIVE, TRIGGER_SECONDARY, segmentItemDense } from '@r/components/appro/chrome'
 import type {
   ApproBucket,
   ApproCran,
@@ -527,17 +522,7 @@ export default function Approvisionnement() {
                 >
                   {CRANS.map((c) => (
                     <TooltipTrigger key={c.id}>
-                      <SegmentedControlItem
-                        id={c.id}
-                        // « Reste à couvrir » prend le rose des manques de la
-                        // grille : c'est la lecture « risque », la barre et le
-                        // tableau doivent le dire de la même couleur.
-                        className={
-                          c.id === 'reste'
-                            ? segmentItemTinted('text-status-rose-text')
-                            : segmentItemDense
-                        }
-                      >
+                      <SegmentedControlItem id={c.id} className={segmentItemDense}>
                         {c.label}
                       </SegmentedControlItem>
                       <Tooltip>{c.hint}</Tooltip>
@@ -630,7 +615,7 @@ export default function Approvisionnement() {
                   placeholder="Article, désignation…"
                   leadingIcon={RiSearchLine}
                   className="w-[200px]"
-                  fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium"
+                  fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium !bg-background-primary-default !ring-1 !ring-border-button-default dark:!bg-neutral-800"
                   value={query}
                   onChange={setQuery}
                 />
