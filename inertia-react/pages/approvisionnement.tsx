@@ -1,23 +1,41 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { CircleX, Inbox, LoaderCircle, TriangleAlert } from 'lucide-react'
-
-import AppLayout from '@r/layouts/app'
-import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
-import { LoadingState } from '@r/components/ui/loading-state'
-import { Segment, SegmentButton, ToolbarRow, ToolbarSpacer } from '@r/components/vision/toolbar'
-import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
-import type { ApproCran, ApproDetail, ApproGran, ApproPayload, ApproRow } from '@r/lib/appro/types'
-
 /**
  * Page « Approvisionnement » — plan besoins matières (lot 1).
  *
  * Coquille Inertia instantanée ; le calcul (explosion nomenclature complète +
- * netting priorité ferme) est fetché via useTimedFetch, même motif que
- * /receptions. Lecture approvisionneur : lignes = composants, colonnes =
- * périodes × (Ferme | Prévision).
+ * netting priorité ferme) est fetché via useTimedFetch — même motif que
+ * /suivi. Mise en page alignée sur scheduler/tracking.tsx (thème airbnb
+ * dense, ToolbarRow unique, FilterMenu, PILL recherche, DataTable tokens,
+ * drawer latéral) : la table reste native (en-têtes groupés Ferme/Prév.),
+ * tout le reste reprend les composants partagés.
  */
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { CircleX, FilterX, Search, TriangleAlert } from 'lucide-react'
+
+import AppLayout from '@r/layouts/app'
+import { cn } from '@r/lib/utils'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@r/components/ui/sheet'
+import { SkeletonRow } from '@r/components/ui/skeleton'
+import { DynamicIcon } from '@r/components/ui/dynamic-icon'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  RefreshPill,
+  ToolbarRow,
+  ToolbarSpacer,
+  FilterMenu,
+  FilterMenuSectionLabel,
+} from '@r/components/vision/toolbar'
+import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
+import { useDataStatusStore } from '@r/lib/data-status-store'
+import { route } from '@r/lib/routes'
+import type { ApproCran, ApproDetail, ApproGran, ApproPayload, ApproRow } from '@r/lib/appro/types'
 
 type Preset = '2sem' | 'mois' | 'moisprochain' | '3mois' | '6mois' | 'libre'
 
@@ -100,13 +118,15 @@ function countPeriods(fromIso: string, toIso: string, gran: ApproGran): number |
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + 1
 }
 
-const fmtQty = (n: number): string => n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+/** Séparateur décimal français : la virgule, pas le point (convention suivi). */
+const fr = (n: number): string => n.toString().replace('.', ',')
 
 const fold = (s: string): string =>
   s
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+
 type SupplyFilter = 'TOUS' | 'ACHAT' | 'FABRICATION'
 type SortKey = 'net' | 'article'
 
@@ -159,15 +179,19 @@ export default function Approvisionnement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset, today])
 
+  // Même geste, même chemin que le ⟳ du masthead (cf. tracking.tsx) : le bump
+  // incrémente le nonce, qui relance le fetch AVEC ?refresh (force le re-fetch
+  // X3 côté serveur au lieu du cache SWR).
+  const bust = useDataStatusStore((s) => s.nonce)
   const url = overCap
     ? null
-    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${gran}`
-  const { data, loading, error } = useTimedFetch<ApproPayload>(url)
+    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${gran}${bust ? `&refresh=${bust}` : ''}`
+  const { data, loading, error, ms, elapsed } = useTimedFetch<ApproPayload>(url)
+  const view = useMemo(() => data?.rows ?? [], [data])
 
   const rows = useMemo(() => {
-    if (!data) return []
     const q = fold(query.trim())
-    const out = data.rows.filter((r) => {
+    const out = view.filter((r) => {
       if (supply !== 'TOUS' && r.supplyType !== supply) return false
       if (manquesOnly && resteTotal(r) <= 0) return false
       if (q && !fold(`${r.article} ${r.description}`).includes(q)) return false
@@ -179,53 +203,79 @@ export default function Approvisionnement() {
         : cranTotal(b, cran) - cranTotal(a, cran)
     )
     return out
-  }, [data, query, supply, manquesOnly, sort, cran])
+  }, [view, query, supply, manquesOnly, sort, cran])
 
+  // Filtres secondaires uniquement (hors recherche, toujours visible) — même
+  // doctrine que suivi : un filtre est « actif » quand il s'écarte du défaut.
+  const filtersActive = supply !== 'ACHAT' || manquesOnly || sort !== 'net'
+  const isFiltered = !!query.trim() || filtersActive
+
+  const resetFilters = () => {
+    setQuery('')
+    setSupply('ACHAT')
+    setManquesOnly(false)
+    setSort('net')
+  }
+
+  const chipCount = (on: boolean, count?: number) =>
+    count !== undefined && count > 0 ? (
+      <span
+        className={cn(
+          'rounded-full px-1.5 py-px text-[8px] font-extrabold leading-none tabular-nums',
+          on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'
+        )}
+      >
+        {count}
+      </span>
+    ) : null
+
+  const manquesCount = useMemo(() => view.filter((r) => resteTotal(r) > 0).length, [view])
   const granAllowed = (g: ApproGran): boolean => (countPeriods(range.from, range.to, g) ?? 99) <= 14
 
   return (
-    <AppLayout active="approvisionnement" subtitle="Approvisionnement">
-      <div className="flex flex-col gap-3 px-7 py-4">
-        {/* En-tête — mentions explicites non négociables (D1, §6.2). */}
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-[18px] font-bold">Plan d&apos;approvisionnement</h1>
-          <span className="text-[12px] text-muted-foreground">
-            Besoins datés à la date de demande client — sans décalage de délai.
-          </span>
-        </div>
-        <p className="max-w-4xl text-[12px] leading-snug text-muted-foreground">
-          Voici mon besoin (brut − stock, puis reste après en-cours), pas encore « ce qu&apos;il
-          faut commander » : ni commandes d&apos;achat en cours, ni OF lancés déduits. Le stock
-          couvre le <strong>ferme en priorité</strong> — lecture différente de /charge, qui nette en
-          FIFO global.
-        </p>
-        {/* Toolbar : fenêtre, maille contrainte, cran, recherche, filtres. */}
-        <ToolbarRow>
-          <Segment>
+    <AppLayout
+      title="Approvisionnement"
+      active="approvisionnement"
+      subtitle="Approvisionnement · Besoins matières"
+      theme="airbnb"
+      dense
+      scrollable={false}
+    >
+      <div className="flex h-full min-h-0 flex-col">
+        {/* ═══ Toolbar ═══ */}
+        <ToolbarRow className="select-none" noWrap>
+          <Segment role="radiogroup" ariaLabel="Fenêtre" className="shrink-0">
             {PRESETS.map((p) => (
-              <SegmentButton key={p.id} active={preset === p.id} onClick={() => setPreset(p.id)}>
+              <SegmentButton
+                key={p.id}
+                role="radio"
+                active={preset === p.id}
+                onClick={() => setPreset(p.id)}
+              >
                 {p.label}
               </SegmentButton>
             ))}
           </Segment>
           {preset === 'libre' && (
-            <span className="flex items-center gap-1 text-[12px]">
+            <span className="flex shrink-0 items-center gap-1 text-xs">
               <input
                 type="date"
                 value={custom.from}
                 onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
-                className="rounded-md border border-rule bg-card px-2 py-1"
+                aria-label="Début de fenêtre"
+                className="min-h-[30px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
               />
               <span className="text-muted-foreground">→</span>
               <input
                 type="date"
                 value={custom.to}
                 onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
-                className="rounded-md border border-rule bg-card px-2 py-1"
+                aria-label="Fin de fenêtre"
+                className="min-h-[30px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
               />
             </span>
           )}
-          <Segment>
+          <Segment role="radiogroup" ariaLabel="Maille" className="shrink-0">
             {GRANS.map((g) => {
               const ok = granAllowed(g.id)
               return (
@@ -236,193 +286,281 @@ export default function Approvisionnement() {
                       ? undefined
                       : 'Hors plafond 14 périodes à cette fenêtre — élargissez la maille'
                   }
+                  className={cn(!ok && 'opacity-40')}
                 >
-                  <SegmentButton active={gran === g.id} onClick={() => ok && setGran(g.id)}>
+                  <SegmentButton
+                    role="radio"
+                    active={gran === g.id}
+                    onClick={() => ok && setGran(g.id)}
+                  >
                     {g.label}
                   </SegmentButton>
                 </span>
               )
             })}
           </Segment>
-          <ToolbarSpacer />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Article, désignation…"
-            aria-label="Rechercher un composant"
-            className="w-56 rounded-md border border-rule bg-card px-2 py-1 text-[12px]"
-          />
-        </ToolbarRow>
-
-        <ToolbarRow>
-          <Segment>
+          <Segment role="radiogroup" ariaLabel="Cran de quantité" className="shrink-0">
             {CRANS.map((c) => (
-              <span key={c.id} title={c.hint}>
-                <SegmentButton active={cran === c.id} onClick={() => setCran(c.id)}>
-                  {c.label}
-                </SegmentButton>
-              </span>
-            ))}
-          </Segment>
-          <Segment>
-            {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
-              <SegmentButton key={s} active={supply === s} onClick={() => setSupply(s)}>
-                {s === 'TOUS' ? 'Tous' : s === 'ACHAT' ? 'Achetés' : 'Fabriqués'}
+              <SegmentButton
+                key={c.id}
+                role="radio"
+                active={cran === c.id}
+                onClick={() => setCran(c.id)}
+                title={c.hint}
+              >
+                {c.label}
               </SegmentButton>
             ))}
           </Segment>
-          <Segment>
-            <SegmentButton active={manquesOnly} onClick={() => setManquesOnly((v) => !v)}>
-              Manques seuls
-            </SegmentButton>
-          </Segment>
-          <Segment>
-            <SegmentButton active={sort === 'net'} onClick={() => setSort('net')}>
-              Tri net ↓
-            </SegmentButton>
-            <SegmentButton active={sort === 'article'} onClick={() => setSort('article')}>
-              Tri A→Z
-            </SegmentButton>
-          </Segment>
+          <FilterMenu
+            label="Filtres"
+            indicators={
+              filtersActive ? (
+                <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+              ) : null
+            }
+          >
+            <FilterMenuSectionLabel>Type</FilterMenuSectionLabel>
+            <Segment className="w-full justify-between">
+              {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
+                <SegmentButton key={s} active={supply === s} onClick={() => setSupply(s)}>
+                  {s === 'TOUS' ? 'Tous' : s === 'ACHAT' ? 'Achetés' : 'Fabriqués'}
+                </SegmentButton>
+              ))}
+            </Segment>
+            <div className="my-2.5 border-t border-rule-soft" />
+            <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
+            <Segment className="w-full flex-wrap">
+              <SegmentButton
+                active={manquesOnly}
+                onClick={() => setManquesOnly((v) => !v)}
+                title="N'afficher que les composants dont le reste à couvrir est non nul"
+              >
+                Manques seuls
+                {chipCount(manquesOnly, manquesCount)}
+              </SegmentButton>
+            </Segment>
+            <div className="my-2.5 border-t border-rule-soft" />
+            <FilterMenuSectionLabel>Tri</FilterMenuSectionLabel>
+            <Segment className="w-full justify-between">
+              <SegmentButton active={sort === 'net'} onClick={() => setSort('net')}>
+                Net ↓
+              </SegmentButton>
+              <SegmentButton active={sort === 'article'} onClick={() => setSort('article')}>
+                A→Z
+              </SegmentButton>
+            </Segment>
+          </FilterMenu>
+          <ToolbarSpacer />
+          <div className={cn(PILL, 'shrink-0')}>
+            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+            <input
+              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+              placeholder="Article, désignation…"
+              type="text"
+              autoComplete="off"
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+            />
+          </div>
+          {isFiltered && (
+            <span className="font-mono text-xs font-bold tabular-nums text-brand">
+              {rows.length}{' '}
+              <span className="font-medium text-muted-foreground">/ {view.length}</span>
+            </span>
+          )}
+          {loading && (
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
+            </span>
+          )}
+          {!loading && ms !== null && (
+            <span
+              className="font-mono text-xs tabular-nums text-muted-foreground/60"
+              title="Durée dernier chargement X3"
+            >
+              {ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}
+            </span>
+          )}
+          <RefreshPill loading={loading} onClick={() => useDataStatusStore.getState().bump()} />
         </ToolbarRow>
-
-        {/* Bannières : erreur X3, troncature, plafond. */}
+        {/* Mentions explicites non négociables (D1, §6.2) — ligne discrète,
+            pas de titre : le contexte est déjà porté par le Masthead. */}
+        <div className="flex-none px-7 pt-1.5 text-[11px] leading-snug text-muted-foreground">
+          Besoins datés à la date de demande client, sans décalage de délai · Stock affecté au{' '}
+          <span className="font-semibold text-foreground">ferme en priorité</span> (lecture
+          différente de /charge) · Voici mon besoin, pas « à commander ».
+        </div>
+        {/* ═══ Bannières ═══ */}
         {data?.x3Error && (
-          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-            <TriangleAlert size={15} /> Données partiellement indisponibles : {data.x3Error}
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
+            <span className="font-bold">Erreur chargement :</span>
+            <span className="font-mono">{data.x3Error}</span>
           </div>
         )}
         {data && data.truncated > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[12px]">
-            <TriangleAlert size={15} /> {data.truncated} branche(s) coupée(s) par le plafond de
-            profondeur — les lignes marquées ⚠ ont une descendance incomplète.
-          </div>
-        )}
-        {overCap && (
-          <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] text-muted-foreground">
-            <CircleX size={15} /> Fenêtre trop large pour cette maille (plafond 14 périodes) —
-            choisissez une maille plus large.
+          <div className="flex flex-none items-center gap-2 border-b border-warning/40 bg-warning/10 px-7 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-warning" />
+            <span className="font-bold">Profondeur tronquée :</span>
+            <span>
+              {data.truncated} branche(s) coupée(s) — les lignes marquées ⚠ ont une descendance
+              incomplète.
+            </span>
           </div>
         )}
 
-        {/* Table : lignes = composants, colonnes = périodes × (Ferme | Prév.). */}
+        {/* ═══ Table ═══ */}
         {loading && !data ? (
-          <LoadingState title="Calcul du plan…" description="Explosion nomenclature + netting" />
-        ) : error ? (
-          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 px-3 py-6 text-[13px] text-destructive">
-            <CircleX size={18} /> {error.message}
+          <div className="flex-1 overflow-hidden p-5">
+            <SkeletonRow count={6} />
           </div>
-        ) : rows.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-lg border px-3 py-6 text-[13px] text-muted-foreground">
-            <Inbox size={18} /> Aucun besoin sur cette fenêtre (ou filtré).
+        ) : error || overCap || rows.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center p-12 text-center">
+            <div className="flex flex-col items-center">
+              <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
+                <DynamicIcon
+                  name={error ? 'cloud_off' : 'search_off'}
+                  size={28}
+                  strokeWidth={1.75}
+                />
+              </div>
+              <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
+                {error
+                  ? 'Erreur de connexion Sage X3'
+                  : overCap
+                    ? 'Fenêtre trop large pour cette maille'
+                    : 'Aucun résultat trouvé'}
+              </h3>
+              <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
+                {error
+                  ? 'Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3.'
+                  : overCap
+                    ? 'Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre.'
+                    : 'Aucun composant ne correspond aux filtres ou à la recherche actuels.'}
+              </p>
+              {!error && !overCap && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-4 py-1.5 font-sans text-[11px] font-bold text-foreground transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand"
+                >
+                  <FilterX size={13} strokeWidth={1.75} className="leading-none" />
+                  Réinitialiser les filtres
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           data && (
-            <div className="overflow-auto rounded-lg border">
-              <table className="w-full border-collapse text-[12px]">
-                <thead>
-                  <tr className="bg-muted/60">
-                    <th
-                      rowSpan={2}
-                      className="sticky left-0 bg-muted px-2 py-1.5 text-left font-semibold"
-                    >
-                      Composant
-                    </th>
-                    <th rowSpan={2} className="px-2 py-1.5 text-left font-semibold">
-                      Désignation
-                    </th>
-                    <th rowSpan={2} className="px-2 py-1.5 text-left font-semibold">
-                      Type
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className="px-2 py-1.5 text-right font-semibold"
-                      title="Stock strict + CQ à maintenant"
-                    >
-                      Stock
-                    </th>
-                    <th rowSpan={2} className="px-2 py-1.5 text-right font-semibold">
-                      Total {cran}
-                    </th>
-                    {data.buckets.map((b) => (
-                      <th
-                        key={b.key}
-                        colSpan={2}
-                        className="border-l px-2 py-1.5 text-center font-semibold"
-                      >
-                        {b.label}
+            <div className="min-h-0 flex-1 overflow-hidden p-5">
+              <div className="h-full overflow-auto rounded-lg border border-rule bg-card shadow-float">
+                <table className="w-full border-collapse text-[12px]">
+                  <thead className="sticky top-0 z-10 bg-secondary">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                        Composant
                       </th>
-                    ))}
-                  </tr>
-                  <tr className="bg-muted/60">
-                    {data.buckets.map((b) => (
-                      <Fragment key={b.key}>
-                        <th className="border-l px-2 py-1 font-medium">Ferme</th>
-                        <th className="px-2 py-1 font-medium text-muted-foreground">Prév.</th>
-                      </Fragment>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr
-                      key={r.article}
-                      onClick={() => setSelected(r.article)}
-                      className="cursor-pointer border-t hover:bg-muted/40"
-                      title="Voir l'origine du besoin (appelé par)"
-                    >
-                      <td className="sticky left-0 bg-card px-2 py-1 font-mono font-semibold">
-                        {r.article}
-                        {r.tronque && (
-                          <span title="Descendance incomplète (plafond de profondeur)"> ⚠</span>
-                        )}
-                      </td>
-                      <td
-                        className="max-w-56 truncate px-2 py-1 text-muted-foreground"
-                        title={r.description}
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                        Désignation
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                        Type
+                      </th>
+                      <th
+                        className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                        title="Stock strict + CQ à maintenant"
                       >
-                        {r.description}
-                      </td>
-                      <td className="px-2 py-1 text-muted-foreground">
-                        {r.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono">{fmtQty(r.stock)}</td>
-                      <td className="px-2 py-1 text-right font-mono font-bold">
-                        {fmtQty(cranTotal(r, cran))}
-                      </td>
-                      {data.buckets.map((b, i) => {
-                        const f = cranOf(r, cran, i, true)
-                        const p = cranOf(r, cran, i, false)
-                        return (
-                          <Fragment key={b.key}>
-                            <td
-                              className={cn(
-                                'border-l px-2 py-1 text-right font-mono',
-                                f === 0 && 'text-muted-foreground/50'
-                              )}
-                            >
-                              {f === 0 ? '—' : fmtQty(f)}
-                            </td>
-                            <td
-                              className={cn(
-                                'px-2 py-1 text-right font-mono text-muted-foreground',
-                                p === 0 && 'text-muted-foreground/50'
-                              )}
-                            >
-                              {p === 0 ? '—' : fmtQty(p)}
-                            </td>
-                          </Fragment>
-                        )
-                      })}
+                        Stock
+                      </th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-foreground">
+                        Total {cran}
+                      </th>
+                      {data.buckets.map((b) => (
+                        <th
+                          key={b.key}
+                          colSpan={2}
+                          className="border-l border-rule px-3 py-2 text-center text-xs font-bold text-foreground"
+                        >
+                          {b.label}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <tr>
+                      {/* Les 5 colonnes fixes sont couvertes par la 1re rangée. */}
+                      <th colSpan={5} aria-hidden="true" className="p-0" />
+                      {data.buckets.map((b) => (
+                        <Fragment key={b.key}>
+                          <th className="border-l border-rule px-3 py-1 text-right text-xs font-medium text-muted-foreground">
+                            Ferme
+                          </th>
+                          <th className="px-3 py-1 text-right text-xs font-medium text-muted-foreground/70">
+                            Prév.
+                          </th>
+                        </Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr
+                        key={r.article}
+                        onClick={() => setSelected(r.article)}
+                        title="Voir l'origine du besoin (appelé par)"
+                        className="cursor-pointer border-t border-rule-soft transition-colors even:bg-foreground/[0.015]"
+                      >
+                        <td className="px-3 py-2 font-mono text-[12px] font-bold tracking-tight text-foreground">
+                          {r.article}
+                          {r.tronque && (
+                            <span title="Descendance incomplète (plafond de profondeur)"> ⚠</span>
+                          )}
+                        </td>
+                        <td
+                          className="max-w-56 truncate px-3 py-2 text-muted-foreground"
+                          title={r.description}
+                        >
+                          {r.description}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {r.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">
+                          {fr(r.stock)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-bold tabular-nums">
+                          {fr(cranTotal(r, cran))}
+                        </td>
+                        {data.buckets.map((b, i) => {
+                          const f = cranOf(r, cran, i, true)
+                          const p = cranOf(r, cran, i, false)
+                          return (
+                            <Fragment key={b.key}>
+                              <td className="border-l border-rule px-3 py-2 text-right font-mono tabular-nums">
+                                {f === 0 ? (
+                                  <span className="text-muted-foreground/50">—</span>
+                                ) : (
+                                  fr(f)
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">
+                                {p === 0 ? (
+                                  <span className="text-muted-foreground/50">—</span>
+                                ) : (
+                                  fr(p)
+                                )}
+                              </td>
+                            </Fragment>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )
         )}
-        {/* Drill-down « appelé par » — rejoué depuis le snapshot pinné. */}
+        {/* Drawer « appelé par » — même motif que le diagnostic de ligne suivi. */}
         <ApproDetailSheet
           article={selected}
           version={data?.version ?? null}
@@ -450,81 +588,83 @@ function ApproDetailSheet(props: {
 
   return (
     <Sheet open={props.article !== null} onOpenChange={(open) => !open && props.onClose()}>
-      <SheetContent
-        side="bottom"
-        className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[78vh] data-[side=bottom]:max-w-none"
-      >
-        {loading ? (
-          <LoadingState
-            title="Origine du besoin…"
-            description="Rejoué depuis le snapshot de la grille"
-          />
-        ) : error ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-destructive">
-            <CircleX size={26} strokeWidth={1.75} />
-            <span className="text-sm font-medium">{error.message}</span>
-          </div>
-        ) : !data ? null : (
-          <>
-            <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border bg-secondary px-5 py-2.5 pr-14">
-              <span className="font-mono text-[13px] font-bold text-foreground">
-                {data.article}
-              </span>
-              <SheetTitle className="text-[13px] font-medium text-muted-foreground">
-                Appelé par — {data.lignes.length} origine(s)
-              </SheetTitle>
-            </div>
-            <div className="flex-1 overflow-auto px-5 py-3">
+      {props.article &&
+        (loading || !data ? (
+          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle className="font-mono">{props.article}</SheetTitle>
+              <SheetDescription>{error ? error.message : 'Origines du besoin…'}</SheetDescription>
+            </SheetHeader>
+          </SheetContent>
+        ) : (
+          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle className="font-mono">{data.article}</SheetTitle>
+              <SheetDescription>
+                Appelé par — {data.lignes.length} origine(s), rejouée(s) depuis le snapshot de la
+                grille.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="px-4 pb-6">
               {data.lignes.length === 0 ? (
-                <div className="flex items-center gap-2 py-6 text-[13px] text-muted-foreground">
-                  <Inbox size={18} /> Aucune origine sur cette fenêtre.
-                </div>
+                <p className="py-6 text-center text-[12px] text-muted-foreground">
+                  Aucune origine sur cette fenêtre.
+                </p>
               ) : (
                 <table className="w-full border-collapse text-[12px]">
                   <thead>
-                    <tr className="text-left text-muted-foreground">
-                      <th className="px-2 py-1 font-medium">Commande</th>
-                      <th className="px-2 py-1 font-medium">Client</th>
-                      <th className="px-2 py-1 font-medium">Produit fini</th>
-                      <th className="px-2 py-1 font-medium">Nature</th>
-                      <th className="px-2 py-1 text-right font-medium">Qté appelée</th>
-                      <th className="px-2 py-1 font-medium">Chaîne BOM</th>
+                    <tr className="text-left text-xs font-medium text-muted-foreground">
+                      <th className="px-2 py-1.5 font-medium">Commande</th>
+                      <th className="px-2 py-1.5 font-medium">Client</th>
+                      <th className="px-2 py-1.5 font-medium">Produit fini</th>
+                      <th className="px-2 py-1.5 font-medium">Nature</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Qté appelée</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.lignes.map((l, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="px-2 py-1 font-mono">
-                          {l.numCommande ?? '—'}
-                          {l.ligne ? ` · L${l.ligne}` : ''}
-                        </td>
-                        <td className="px-2 py-1">{l.client || '—'}</td>
-                        <td className="px-2 py-1 font-mono">{l.pfArticle}</td>
-                        <td className="px-2 py-1">
-                          {l.nature === 'ferme' ? (
-                            'Ferme'
-                          ) : (
-                            <span className="text-muted-foreground">Prévision</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono font-semibold">
-                          {fmtQty(l.quantite)}
-                        </td>
-                        <td
-                          className="max-w-80 truncate px-2 py-1 font-mono text-[11px] text-muted-foreground"
-                          title={l.path.join(' › ')}
-                        >
-                          {l.path.length > 0 ? l.path.join(' › ') : 'direct'}
-                        </td>
-                      </tr>
+                      <Fragment key={i}>
+                        <tr className="border-t border-rule-soft">
+                          <td className="px-2 py-1.5 font-mono font-bold tracking-tight">
+                            {l.numCommande ?? '—'}
+                            {l.ligne ? (
+                              <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">
+                                L{l.ligne}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-1.5 text-muted-foreground">{l.client || '—'}</td>
+                          <td className="px-2 py-1.5 font-mono">{l.pfArticle}</td>
+                          <td className="px-2 py-1.5">
+                            {l.nature === 'ferme' ? (
+                              'Ferme'
+                            ) : (
+                              <span className="text-muted-foreground">Prévision</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono font-bold tabular-nums">
+                            {fr(l.quantite)}
+                          </td>
+                        </tr>
+                        {l.path.length > 0 && (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="px-2 pb-1.5 font-mono text-[10px] text-muted-foreground"
+                              title={l.path.join(' › ')}
+                            >
+                              via {l.path.join(' › ')}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
               )}
             </div>
-          </>
-        )}
-      </SheetContent>
+          </SheetContent>
+        ))}
     </Sheet>
   )
 }
