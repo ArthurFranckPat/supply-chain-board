@@ -4,9 +4,8 @@
  * Coquille Inertia instantanée ; le calcul (explosion nomenclature complète +
  * netting priorité ferme) est fetché via useTimedFetch — même motif que
  * /suivi. Mise en page alignée sur scheduler/tracking.tsx (thème airbnb
- * dense, ToolbarRow unique, FilterMenu, PILL recherche, DataTable tokens,
- * drawer latéral) : la table reste native (en-têtes groupés Ferme/Prév.),
- * tout le reste reprend les composants partagés.
+ * dense, ToolbarRow unique, FilterMenu, PILL recherche, DataTable officiel,
+ * drawer latéral) : en-têtes de périodes empilés sur une rangée.
  */
 import { Fragment, useMemo, useState } from 'react'
 import { CircleX, FilterX, Search, TriangleAlert } from 'lucide-react'
