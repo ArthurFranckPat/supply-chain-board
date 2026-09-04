@@ -8,7 +8,7 @@
  * drawer latéral) : la table reste native (en-têtes groupés Ferme/Prév.),
  * tout le reste reprend les composants partagés.
  */
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { CircleX, FilterX, Search, TriangleAlert } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
@@ -128,7 +128,8 @@ const fold = (s: string): string =>
     .toLowerCase()
 
 type SupplyFilter = 'TOUS' | 'ACHAT' | 'FABRICATION'
-type SortKey = 'net' | 'article'
+/** Tri par défaut : valorisation du stock (enjeu financier d'abord). */
+type SortKey = 'valeur' | 'net' | 'article'
 
 const cranOf = (row: ApproRow, cran: ApproCran, i: number, ferme: boolean): number => {
   if (cran === 'brut') return ferme ? row.brutFerme[i] : row.brutPrevi[i]
@@ -158,26 +159,19 @@ export default function Approvisionnement() {
   const [query, setQuery] = useState('')
   const [supply, setSupply] = useState<SupplyFilter>('ACHAT')
   const [manquesOnly, setManquesOnly] = useState(false)
-  const [sort, setSort] = useState<SortKey>('net')
+  const [sort, setSort] = useState<SortKey>('valeur')
   const [selected, setSelected] = useState<string | null>(null)
 
   const range = preset === 'libre' ? custom : presetRange(preset, today)
-  const periods = countPeriods(range.from, range.to, gran)
-  const overCap = periods === null || periods > 14
-
-  // Repli maille auto : la maille se replie sur la plus fine encore permise
-  // quand la fenêtre change (choix utilisateur sinon conservé).
-  useEffect(() => {
-    if (preset === 'libre') return
-    const r = presetRange(preset, today)
-    if ((countPeriods(r.from, r.to, gran) ?? 99) > 14) {
-      const ok = (['jour', 'semaine', 'mois'] as ApproGran[]).find(
-        (g) => (countPeriods(r.from, r.to, g) ?? 99) <= 14
-      )
-      if (ok) setGran(ok)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, today])
+  const granAllowed = (g: ApproGran): boolean => (countPeriods(range.from, range.to, g) ?? 99) <= 14
+  // Maille effective DÉRIVÉE (pas d'état, pas de double fetch) : repli sur la
+  // plus fine encore permise quand le choix dépasse le plafond — signalé par
+  // le liseré, jamais corrigé en silence.
+  const effGran: ApproGran = granAllowed(gran)
+    ? gran
+    : ((['jour', 'semaine', 'mois'] as ApproGran[]).find((g) => granAllowed(g)) ?? gran)
+  const folded = effGran !== gran
+  const overCap = !granAllowed(effGran)
 
   // Même geste, même chemin que le ⟳ du masthead (cf. tracking.tsx) : le bump
   // incrémente le nonce, qui relance le fetch AVEC ?refresh (force le re-fetch
@@ -185,7 +179,7 @@ export default function Approvisionnement() {
   const bust = useDataStatusStore((s) => s.nonce)
   const url = overCap
     ? null
-    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${gran}${bust ? `&refresh=${bust}` : ''}`
+    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${effGran}${bust ? `&refresh=${bust}` : ''}`
   const { data, loading, error, ms, elapsed } = useTimedFetch<ApproPayload>(url)
   const view = useMemo(() => data?.rows ?? [], [data])
 
@@ -197,24 +191,31 @@ export default function Approvisionnement() {
       if (q && !fold(`${r.article} ${r.description}`).includes(q)) return false
       return true
     })
-    out.sort((a, b) =>
-      sort === 'article'
-        ? a.article.localeCompare(b.article)
-        : cranTotal(b, cran) - cranTotal(a, cran)
-    )
+    // Valorisation : décroissante, PMP inconnu en dernier (pas de valeur = pas
+    // de priorité financière, jamais l'inverse).
+    out.sort((a, b) => {
+      if (sort === 'article') return a.article.localeCompare(b.article)
+      if (sort === 'valeur') {
+        if (a.valeur == null && b.valeur == null) return 0
+        if (a.valeur == null) return 1
+        if (b.valeur == null) return -1
+        return b.valeur - a.valeur
+      }
+      return cranTotal(b, cran) - cranTotal(a, cran)
+    })
     return out
   }, [view, query, supply, manquesOnly, sort, cran])
 
   // Filtres secondaires uniquement (hors recherche, toujours visible) — même
   // doctrine que suivi : un filtre est « actif » quand il s'écarte du défaut.
-  const filtersActive = supply !== 'ACHAT' || manquesOnly || sort !== 'net'
+  const filtersActive = supply !== 'ACHAT' || manquesOnly || sort !== 'valeur'
   const isFiltered = !!query.trim() || filtersActive
 
   const resetFilters = () => {
     setQuery('')
     setSupply('ACHAT')
     setManquesOnly(false)
-    setSort('net')
+    setSort('valeur')
   }
 
   const chipCount = (on: boolean, count?: number) =>
@@ -230,7 +231,6 @@ export default function Approvisionnement() {
     ) : null
 
   const manquesCount = useMemo(() => view.filter((r) => resteTotal(r) > 0).length, [view])
-  const granAllowed = (g: ApproGran): boolean => (countPeriods(range.from, range.to, g) ?? 99) <= 14
 
   return (
     <AppLayout
@@ -342,7 +342,14 @@ export default function Approvisionnement() {
             </Segment>
             <div className="my-2.5 border-t border-rule-soft" />
             <FilterMenuSectionLabel>Tri</FilterMenuSectionLabel>
-            <Segment className="w-full justify-between">
+            <Segment className="w-full flex-wrap">
+              <SegmentButton
+                active={sort === 'valeur'}
+                onClick={() => setSort('valeur')}
+                title="Stock × PMP actuel, décroissant (PMP inconnu en dernier)"
+              >
+                Valorisation
+              </SegmentButton>
               <SegmentButton active={sort === 'net'} onClick={() => setSort('net')}>
                 Net ↓
               </SegmentButton>
@@ -410,45 +417,83 @@ export default function Approvisionnement() {
           </div>
         )}
 
-        {/* ═══ Table ═══ */}
+        {/* Sélection hors plafond : liseré, PAS remplacement — le dernier plan
+            calculé reste affiché, le calcul est suspendu (url null). */}
+        {overCap && (
+          <div className="flex flex-none items-center gap-2 border-b border-warning/40 bg-warning/10 px-7 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-warning" />
+            <span className="font-bold">Sélection hors plafond :</span>
+            <span>
+              14 périodes max — dernier plan affiché, élargissez la maille ou réduisez la fenêtre
+              pour recalculer.
+            </span>
+          </div>
+        )}
+        {folded && !overCap && (
+          <div className="flex flex-none items-center gap-2 px-7 pt-1 text-[11px] text-muted-foreground">
+            <span>
+              Maille repliée sur {GRANS.find((g) => g.id === effGran)?.label} (plafond 14 périodes)
+              — votre choix ({GRANS.find((g) => g.id === gran)?.label}) est conservé pour les
+              fenêtres plus courtes.
+            </span>
+          </div>
+        )}
+
+        {/* ═══ Table ═══
+            Le plan précédent reste affiché pendant le re-fetch (donnée gardée
+            par useTimedFetch) : changer de filtre ne vide jamais l'écran. */}
         {loading && !data ? (
           <div className="flex-1 overflow-hidden p-5">
             <SkeletonRow count={6} />
           </div>
-        ) : error || overCap || rows.length === 0 ? (
+        ) : error && !data ? (
           <div className="flex flex-1 items-center justify-center p-12 text-center">
             <div className="flex flex-col items-center">
               <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                <DynamicIcon
-                  name={error ? 'cloud_off' : 'search_off'}
-                  size={28}
-                  strokeWidth={1.75}
-                />
+                <DynamicIcon name="cloud_off" size={28} strokeWidth={1.75} />
               </div>
               <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
-                {error
-                  ? 'Erreur de connexion Sage X3'
-                  : overCap
-                    ? 'Fenêtre trop large pour cette maille'
-                    : 'Aucun résultat trouvé'}
+                Erreur de connexion Sage X3
               </h3>
               <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
-                {error
-                  ? 'Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3.'
-                  : overCap
-                    ? 'Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre.'
-                    : 'Aucun composant ne correspond aux filtres ou à la recherche actuels.'}
+                Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3.
               </p>
-              {!error && !overCap && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-4 py-1.5 font-sans text-[11px] font-bold text-foreground transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand"
-                >
-                  <FilterX size={13} strokeWidth={1.75} className="leading-none" />
-                  Réinitialiser les filtres
-                </button>
-              )}
+            </div>
+          </div>
+        ) : !data ? (
+          <div className="flex flex-1 items-center justify-center p-12 text-center">
+            <div className="flex flex-col items-center">
+              <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
+                <DynamicIcon name="search_off" size={28} strokeWidth={1.75} />
+              </div>
+              <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
+                Fenêtre trop large pour cette maille
+              </h3>
+              <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
+                Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre.
+              </p>
+            </div>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center p-12 text-center">
+            <div className="flex flex-col items-center">
+              <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
+                <DynamicIcon name="search_off" size={28} strokeWidth={1.75} />
+              </div>
+              <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
+                Aucun résultat trouvé
+              </h3>
+              <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
+                Aucun composant ne correspond aux filtres ou à la recherche actuels.
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-4 py-1.5 font-sans text-[11px] font-bold text-foreground transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand"
+              >
+                <FilterX size={13} strokeWidth={1.75} className="leading-none" />
+                Réinitialiser les filtres
+              </button>
             </div>
           </div>
         ) : (
@@ -473,6 +518,12 @@ export default function Approvisionnement() {
                       >
                         Stock
                       </th>
+                      <th
+                        className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                        title="Stock × PMP actuel (ITMMVT) — même convention que le KPI stock"
+                      >
+                        Valo
+                      </th>
                       <th className="px-3 py-2 text-right text-xs font-bold text-foreground">
                         Total {cran}
                       </th>
@@ -487,8 +538,8 @@ export default function Approvisionnement() {
                       ))}
                     </tr>
                     <tr>
-                      {/* Les 5 colonnes fixes sont couvertes par la 1re rangée. */}
-                      <th colSpan={5} aria-hidden="true" className="p-0" />
+                      {/* Les 6 colonnes fixes sont couvertes par la 1re rangée. */}
+                      <th colSpan={6} aria-hidden="true" className="p-0" />
                       {data.buckets.map((b) => (
                         <Fragment key={b.key}>
                           <th className="border-l border-rule px-3 py-1 text-right text-xs font-medium text-muted-foreground">
@@ -526,6 +577,16 @@ export default function Approvisionnement() {
                         </td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums">
                           {fr(r.stock)}
+                        </td>
+                        <td
+                          className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground"
+                          title={r.valeur == null ? 'PMP inconnu' : 'Stock × PMP actuel'}
+                        >
+                          {r.valeur == null ? (
+                            <span className="text-muted-foreground/50">—</span>
+                          ) : (
+                            fr(r.valeur)
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right font-mono font-bold tabular-nums">
                           {fr(cranTotal(r, cran))}

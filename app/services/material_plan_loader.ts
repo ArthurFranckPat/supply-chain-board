@@ -53,6 +53,11 @@ export interface MaterialRow {
   description: string
   supplyType: 'ACHAT' | 'FABRICATION'
   stock: number
+  /**
+   * Valorisation du stock (stock × PMP actuel ITMMVT, même convention que le
+   * KPI stock dashboard), NULL si PMP inconnu — sert au tri « Valorisation ».
+   */
+  valeur: number | null
   brutFerme: number[]
   brutPrevi: number[]
   netFerme: number[]
@@ -249,19 +254,30 @@ export async function fetchMaterialInputs(
 
 const isPhantomCat = (cat: string | undefined): boolean => (cat ?? '').toUpperCase() === 'AFANT'
 
-/** Stock strict+CQ des articles explosés — seule lecture hors inputs (cf. charge). */
-async function computeMaterialStock(explodedArticles: string[]): Promise<Map<string, number>> {
+/**
+ * Stock strict+CQ des articles explosés — seule lecture hors inputs (cf. charge).
+ * Remonte aussi le PMP (déjà présent sur les flows, `AVC_0`) pour la valorisation :
+ * zéro requête en plus.
+ */
+async function computeMaterialStock(
+  explodedArticles: string[]
+): Promise<{ stock: Map<string, number>; pmp: Map<string, number> }> {
   const stockByArticle = new Map<string, number>()
-  if (explodedArticles.length === 0) return stockByArticle
+  const pmpByArticle = new Map<string, number>()
+  if (explodedArticles.length === 0) return { stock: stockByArticle, pmp: pmpByArticle }
   const flows = await boardDataset.getStock(explodedArticles).catch(() => [] as Flow[])
   for (const f of flows) {
     if (f.origin.type !== 'stock') continue
-    const sub = (f.origin as { subType?: string }).subType
+    const sub = f.origin.subType
     if (sub === 'strict' || sub === 'qc') {
       stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
+      // PMP par article (identique sur les deux flows) — premier non nul gagne.
+      if (!pmpByArticle.has(f.article) && f.origin.pmp != null && f.origin.pmp > 0) {
+        pmpByArticle.set(f.article, f.origin.pmp)
+      }
     }
   }
-  return stockByArticle
+  return { stock: stockByArticle, pmp: pmpByArticle }
 }
 
 interface Exploded {
@@ -311,6 +327,7 @@ function emptyRow(
     description: descByArticle[article] ?? '',
     supplyType: supplyByArticle[article] === 'ACHAT' ? 'ACHAT' : 'FABRICATION',
     stock: 0,
+    valeur: null,
     brutFerme: zeros(),
     brutPrevi: zeros(),
     netFerme: zeros(),
@@ -417,7 +434,7 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         stats,
       })
       const explodedArticles = [...new Set(raws.map((r) => r.article))]
-      const stock = await computeMaterialStock(explodedArticles)
+      const { stock, pmp } = await computeMaterialStock(explodedArticles)
       const encours = buildEncoursByArticle({
         mos: inputs.mos,
         avancementByOf: computeAvancement(inputs.operations),
@@ -430,7 +447,10 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         let row = rows.get(article)
         if (!row) {
           row = emptyRow(article, buckets.length, inputs.descByArticle, inputs.supplyByArticle)
-          row.stock = round2(stock.get(article) ?? 0)
+          const qty = stock.get(article) ?? 0
+          const unit = pmp.get(article)
+          row.stock = round2(qty)
+          row.valeur = unit == null ? null : round2(qty * unit)
           row.tronque = cutParents.has(article)
           rows.set(article, row)
         }

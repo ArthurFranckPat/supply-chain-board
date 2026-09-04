@@ -18,6 +18,8 @@ export interface ApproRow {
   description: string
   supplyType: 'ACHAT' | 'FABRICATION'
   stock: number
+  /** Valorisation du stock (stock × PMP), NULL si PMP inconnu. */
+  valeur: number | null
   brutFerme: number[]
   brutPrevi: number[]
   netFerme: number[]
