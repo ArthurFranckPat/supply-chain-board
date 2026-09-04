@@ -1020,8 +1020,8 @@ function ApproTable(props: {
   const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-primary-default shadow-sidebar">
-      {/* Header BoardUI — bordure unique, pas de double trait avec le thead */}
+    <div className="flex h-full flex-col overflow-hidden border border-separator-border bg-background-primary-default">
+      {/* Header BoardUI — sans rounded top, bordure unique avec le thead */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-separator-border bg-background-secondary-default px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="whitespace-nowrap text-caption-1-semibold text-text-secondary">
@@ -1058,7 +1058,7 @@ function ApproTable(props: {
         onSortingChange={() => {}}
         tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
         scrollContainerClass="h-full overflow-auto bg-background-primary-default"
-        theadRowClass="sticky top-0 z-10 bg-background-secondary-default"
+        theadRowClass="sticky top-0 z-10 border-0 bg-background-secondary-default"
         // Densité colonne par colonne (`py-1.5` dans tdClass) pour que la teinte
         // `heatStyle` remplisse la cellule (`p-0` côté période).
         getRowClass={() =>

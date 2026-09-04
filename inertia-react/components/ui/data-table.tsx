@@ -230,7 +230,7 @@ export function DataTable<TRow>({
                         : undefined
                     }
                     className={cn(
-                      'px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
+                      'px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-none',
                       col.meta?.thClass,
                       canSort && 'cursor-pointer transition-colors hover:text-foreground',
                       isSorted && 'font-bold text-foreground'
