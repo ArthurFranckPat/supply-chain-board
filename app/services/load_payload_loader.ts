@@ -21,7 +21,7 @@ import {
   groupGammeByArticle,
   type GammeOperation,
 } from '#app/domain/models/gamme'
-import { atMidnight, DAY_MS, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
+import { addDays, atMidnight, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
@@ -142,7 +142,7 @@ export function chargeBucketRange(
   if (!m) return null
   const from = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0)
   if (Number.isNaN(from.getTime())) return null
-  const to = new Date(from.getTime() + 6 * DAY_MS)
+  const to = addDays(from, 6)
   to.setHours(23, 59, 59, 999)
   const dd = String(from.getDate()).padStart(2, '0')
   const mm = String(from.getMonth() + 1).padStart(2, '0')
@@ -493,11 +493,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       // Buckets hebdo : lundis de l'horizon.
       const weekBuckets: { key: string; label: string }[] = []
       const weekIdxByKey = new Map<string, number>()
-      for (
-        let cur = mondayOf(monthStart);
-        cur <= horizonEnd;
-        cur = new Date(cur.getTime() + 7 * DAY_MS)
-      ) {
+      for (let cur = mondayOf(monthStart); cur <= horizonEnd; cur = addDays(cur, 7)) {
         const key = isoDay(cur)
         weekIdxByKey.set(key, weekBuckets.length)
         const dd = String(cur.getDate()).padStart(2, '0')
@@ -528,8 +524,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       for (const w of workstations) {
         const monthly = monthBuckets.map(() => 0)
         const weekly = weekBuckets.map(() => 0)
-        for (let t = monthStart.getTime(); t <= horizonEnd.getTime(); t += DAY_MS) {
-          const d = new Date(t)
+        for (let d = new Date(monthStart); d <= horizonEnd; d = addDays(d, 1)) {
           const factor = calendar ? calendar.factor(w, isoDay(d)) : 1
           if (factor <= 0) continue
           const c = capDay(w, d) * factor

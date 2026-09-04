@@ -36,7 +36,7 @@ import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { OperationRecord } from '#repositories/operation_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { atMidnight, DAY_MS, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
+import { addDays, atMidnight, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement } from '#app/domain/of_avancement'
 import { buildEncoursByArticle } from '#services/load_payload_loader'
 import { explodeMaterialNeeds, netMaterial } from '#app/domain/material_plan'
@@ -134,13 +134,13 @@ export function materialBuckets(
   if (start > end) return { error: 'from doit précéder to (YYYY-MM-DD)' }
   const buckets: MaterialBucket[] = []
   if (gran === 'jour') {
-    for (let cur = new Date(start); cur <= end; cur = new Date(cur.getTime() + DAY_MS)) {
+    for (let cur = new Date(start); cur <= end; cur = addDays(cur, 1)) {
       const dd = String(cur.getDate()).padStart(2, '0')
       const mm = String(cur.getMonth() + 1).padStart(2, '0')
       buckets.push({ key: isoDay(cur), label: `${dd}/${mm}` })
     }
   } else if (gran === 'semaine') {
-    for (let cur = mondayOf(start); cur <= end; cur = new Date(cur.getTime() + 7 * DAY_MS)) {
+    for (let cur = mondayOf(start); cur <= end; cur = addDays(cur, 7)) {
       const dd = String(cur.getDate()).padStart(2, '0')
       const mm = String(cur.getMonth() + 1).padStart(2, '0')
       buckets.push({ key: isoDay(cur), label: `S${isoWeek(cur)} · ${dd}/${mm}` })
@@ -198,20 +198,43 @@ const toYYYYMMDD = (d: Date): string => {
 }
 
 /**
+ * Lookback des OF porteurs d'en-cours : un OF démarré il y a plus de 90 jours et
+ * toujours ouvert relève de l'anomalie, pas du plan. Même borne que le lookback
+ * ENDDAT de `getOrders()`.
+ */
+const ENCOURS_LOOKBACK_DAYS = 90
+
+/**
  * Lecture des sources sur [from, to]. Les overrides de dates (/planification)
  * sont appliqués aux lignes COMMANDE : le plan appro suit l'intention
  * planificateur, même quand elle a bougé depuis ENDDAT_0.
+ *
+ * L'EN-COURS ne se lit PAS sur [from, to] : c'est un état présent de l'atelier,
+ * pas une projection. `getOrdersForWindow` étant scopé STRDAT, lire la fenêtre
+ * d'affichage donnait zéro OF démarré dès qu'elle était future — le cran
+ * « reste » retombait alors silencieusement sur « net », ce qui est le cas du
+ * préréglage par défaut (« mois prochain ») — et amputait l'en-cours des OF
+ * lancés avant `from` sur une fenêtre courte. On lit donc [J-90, aujourd'hui] :
+ * clé de cache stable à la journée, partagée par toutes les fenêtres de la page.
  */
 export async function fetchMaterialInputs(
   from: Date,
   to: Date,
   force = false
 ): Promise<MaterialInputs> {
+  const today = atMidnight(new Date())
+  const encoursFrom = addDays(today, -ENCOURS_LOOKBACK_DAYS)
   const [olR, nomR, artR, ordR, ovMap, gamR] = await Promise.allSettled([
     boardDataset.getOrderLinesForLoad(toYYYYMMDD(from), toYYYYMMDD(to), force),
     staticSync.readNomenclatures(),
-    boardDataset.getArticles(),
-    boardDataset.getOrdersForWindow(from, to, force),
+    // `staticSync.readArticles()` en direct et non `boardDataset.getArticles()` :
+    // ce dernier avale l'échec en `[]`, ce qui rendait la branche `x3Error`
+    // ci-dessous inatteignable. Sans types d'appro, l'arrêt sur acheté disparaît,
+    // TOUTES les lignes passent en FABRICATION et la page — dont le filtre par
+    // défaut est ACHAT — s'affiche vide, sans un mot. Un référentiel manquant
+    // doit se dire.
+    staticSync.readArticles(),
+    boardDataset.getOrdersForWindow(encoursFrom, today, force),
     new OrderLineOverrideStore().getMap(),
     staticSync.readGammes(),
   ])
@@ -261,11 +284,12 @@ export async function fetchMaterialInputs(
   }
 
   // Pointages atelier — même cadrage que la charge : OF fermes démarrés seuls.
-  const today = atMidnight(new Date())
-  const startedOfs = mos
-    .filter((mo) => mo.status === 1 && mo.startDate && atMidnight(mo.startDate) <= today)
-    .map((mo) => mo.numOf)
-  const operations = await boardDataset.getOperations(startedOfs).catch(() => [])
+  const startedMos = mos.filter(
+    (mo) => mo.status === 1 && mo.startDate && atMidnight(mo.startDate) <= today
+  )
+  const operations = await boardDataset
+    .getOperations(startedMos.map((mo) => mo.numOf))
+    .catch(() => [])
 
   return {
     orderLines,
@@ -275,7 +299,15 @@ export async function fetchMaterialInputs(
     descByArticle,
     ligneByArticle: buildLigneByArticle(gammes),
     ligneLabelByWst: buildLigneLabelByWst(gammes),
-    mos,
+    // Volontairement RESTREINT aux OF fermes démarrés — le pool d'en-cours ne
+    // doit contenir que les OF dont les pointages ont effectivement été lus.
+    // `buildEncoursByArticle` calcule `quantity − resteAProduire(...)`, or
+    // `resteAProduire` vaut 0 quand EXTQTY_0 est nul : un OF suggéré ou
+    // planifié y créditerait sa quantité ENTIÈRE comme « déjà produite mais pas
+    // déclarée ». Le garde annoncé par la doc de `buildEncoursByArticle`
+    // (« EXTQTY === RMNEXTQTY ») ne tient que sur les OF lancés : on ne lui
+    // donne que ceux-là.
+    mos: startedMos,
     operations,
     x3Error,
   }
@@ -289,12 +321,13 @@ const isPhantomCat = (cat: string | undefined): boolean => (cat ?? '').toUpperCa
  * zéro requête en plus.
  */
 async function computeMaterialStock(
-  explodedArticles: string[]
+  explodedArticles: string[],
+  force = false
 ): Promise<{ stock: Map<string, number>; pmp: Map<string, number> }> {
   const stockByArticle = new Map<string, number>()
   const pmpByArticle = new Map<string, number>()
   if (explodedArticles.length === 0) return { stock: stockByArticle, pmp: pmpByArticle }
-  const flows = await boardDataset.getStock(explodedArticles).catch(() => [] as Flow[])
+  const flows = await boardDataset.getStock(explodedArticles, force).catch(() => [] as Flow[])
   for (const f of flows) {
     if (f.origin.type !== 'stock') continue
     const sub = f.origin.subType
@@ -370,14 +403,53 @@ function emptyRow(
   }
 }
 
+/**
+ * Sous-ensemble du BOM réellement utilisable par une explosion : les liens dont
+ * le PARENT a été visité par la passe de découverte.
+ *
+ * Le marcheur ne consulte `bomByParent` que pour les nœuds qu'il visite, et
+ * `explodeAndNet` visite un SOUS-ensemble de la découverte (mêmes lignes, mêmes
+ * prédicats, plus l'élagage par stock fantôme). Filtrer sur `reached` est donc
+ * exact, pas approché : aucun lien atteignable n'est retiré.
+ *
+ * Motif : le snapshot pinné embarquait les ~34 000 entrées de la nomenclature
+ * COMPLÈTE, retraversées par superjson vers le L2 (fichier en dev, Redis en
+ * prod) à CHAQUE calcul de payload, pour une explosion qui n'en touche qu'une
+ * fraction. C'est ce qui rend `PINNED_KEPT = 24` tenable.
+ */
+function reachableBom(entries: NomenclatureEntry[], reached: Set<string>): NomenclatureEntry[] {
+  return entries.filter((e) => reached.has(e.parentArticle))
+}
+
 /** Snapshot pinné d'une exécution — le détail rejoue EXACTEMENT la même matière. */
 interface PinnedMaterialSnapshot {
   inputs: MaterialInputs
   stock: Array<[string, number]>
 }
 
-const PINNED_KEPT = 5
+/**
+ * Snapshots simultanément conservés. Plus large que les 5 de la charge : depuis
+ * que la version est unique PAR EXÉCUTION (et non par fenêtre), un rafraîchi SWR
+ * de fond pousse une version de plus toutes les 2 min. À 5, une page laissée
+ * ouverte quelques minutes voyait son propre snapshot évincé, et le détail
+ * répondait « Snapshot expiré » sur une grille pourtant encore affichée. Le coût
+ * mémoire est tenu par la réduction du BOM pinné (cf. `reachableBom`).
+ */
+const PINNED_KEPT = 24
 const PINNED_TTL = 12 * 60 * 60 * 1000
+
+/**
+ * Identifiant unique d'une exécution du calcul.
+ *
+ * SURTOUT PAS la clé de cache du payload : elle est déterministe, donc chaque
+ * recalcul (SWR de fond, ⟳, expiration du TTL) écrasait le snapshot sous la MÊME
+ * version. La grille gardait ses chiffres pendant que le détail rejouait des
+ * entrées plus récentes — exactement la divergence que le pinning existe pour
+ * supprimer (cf. `pinChargeInputs`). Suffixe aléatoire : deux calculs concurrents
+ * peuvent tomber dans la même milliseconde.
+ */
+const newVersion = (): string =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 async function pinMaterialInputs(version: string, snapshot: PinnedMaterialSnapshot): Promise<void> {
   await cacheNs('material').set({
@@ -461,6 +533,22 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
   const { buckets } = bucketed
   const idxByKey = new Map(buckets.map((bk, i) => [bk.key, i]))
 
+  // Validation du poste AVANT le cache, et non dans la factory : bentocache
+  // enveloppe toute erreur de factory dans un `E_FACTORY_ERROR` (cf. son
+  // `#processFactoryError`), le `instanceof MaterialBadRequest` du contrôleur ne
+  // matchait donc plus et une ligne inconnue rendait 500 au lieu de 400.
+  // Un poste inconnu du référentiel gammes est un paramètre faux ; une ligne
+  // connue sans demande sur la fenêtre rend honnêtement zéro ligne.
+  // Lecture SQLite (~2 900 lignes), payée seulement quand un filtre est posé.
+  if (ligne) {
+    const labels = buildLigneLabelByWst(await staticSync.readGammes())
+    // `Object.hasOwn` et non `!== undefined` : sur un objet nu, `__proto__` ou
+    // `constructor` passeraient la garde et rendraient une grille vide.
+    if (!Object.hasOwn(labels, ligne)) {
+      throw new MaterialBadRequest(`ligne de production inconnue : ${ligne}`)
+    }
+  }
+
   // Suffixe ligne : une valeur pinnée « toutes » ne doit jamais servir à une
   // ligne (et réciproquement) — populations et versions divergentes.
   const cacheKey = `payload:material:${isoDay(from)}:${isoDay(to)}:${gran}${ligne ? `:${ligne}` : ''}`
@@ -473,12 +561,6 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
     timeout: 0,
     factory: stamped(async (): Promise<MaterialPayload> => {
       const inputs = await fetchMaterialInputs(from, to, force)
-      // Un poste inconnu du référentiel gammes est un paramètre faux (400), pas
-      // un résultat vide. Une ligne connue sans demande sur la fenêtre rend
-      // honnêtement zéro ligne — même dégradation que « aucun résultat ».
-      if (ligne && inputs.ligneLabelByWst[ligne] === undefined) {
-        throw new MaterialBadRequest(`ligne de production inconnue : ${ligne}`)
-      }
       // Filtrage AVANT explosion ET pinning : le détail rejoue exactement la
       // population de la ligne choisie (un seul chemin de calcul, même motif
       // que agrégat ↔ détail).
@@ -511,10 +593,11 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         },
         isPurchased,
       })
-      const explodedArticles = [
-        ...new Set([...discovery.map((r) => r.article), ...traversedPhantoms]),
-      ]
-      const { stock, pmp } = await computeMaterialStock(explodedArticles)
+      // Tous les nœuds VISITÉS par la découverte : émis (non fantômes) +
+      // fantômes traversés. Sert deux fois — périmètre de lecture du stock, et
+      // réduction du BOM pinné (`reachableBom`).
+      const reached = new Set([...discovery.map((r) => r.article), ...traversedPhantoms])
+      const { stock, pmp } = await computeMaterialStock([...reached], force)
       // Un seul chemin de calcul agrégat ↔ détail : le snapshot pinné rejoue
       // exactement cette fonction.
       const { needs, truncated, cutParents } = explodeAndNet(activeInputs, stock)
@@ -575,8 +658,9 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
 
       // Pinne les ENTRÉES (pas le résultat) : le détail rejoue le même calcul —
       // ici la population FILTRÉE par ligne, pour un détail cohérent.
-      await pinMaterialInputs(cacheKey, {
-        inputs: activeInputs,
+      const version = newVersion()
+      await pinMaterialInputs(version, {
+        inputs: { ...activeInputs, entries: reachableBom(activeInputs.entries, reached) },
         stock: [...stock.entries()],
       })
 
@@ -584,7 +668,7 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         buckets,
         lignes,
         rows: sorted,
-        version: cacheKey,
+        version,
         truncated,
         x3Error: activeInputs.x3Error,
       }

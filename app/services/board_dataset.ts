@@ -480,12 +480,16 @@ class BoardDataset {
     })
   }
 
-  /** Stock scopé aux articles fournis. SWR 2min — suffisant pour un outil de planning. */
-  async getStock(articles: string[]): Promise<Flow[]> {
+  /** Stock scopé aux articles fournis. SWR 2min — suffisant pour un outil de planning.
+   * `force` : le ⟳ d'une page doit pouvoir rafraîchir le stock comme il rafraîchit
+   * les commandes et les OF. Sans lui, « recharger » rendait un plan dont les
+   * besoins étaient frais et le stock vieux de la grâce (12 h). */
+  async getStock(articles: string[], force = false): Promise<Flow[]> {
     if (!articles.length) return []
     const key = `stock:${createHash('md5')
       .update([...articles].sort().join(','))
       .digest('hex')}`
+    if (force) await board().delete({ key })
     return board().getOrSet({
       key,
       ttl: STOCK_TTL,
@@ -670,7 +674,15 @@ class BoardDataset {
     return { supply: orders.supply, mos: orders.mos }
   }
 
-  /** Articles (lecture SQLite). Utilisé pour la classification ACHAT/FABRICATION dans la faisabilité. */
+  /**
+   * Articles (lecture SQLite). Utilisé pour la classification ACHAT/FABRICATION dans la faisabilité.
+   *
+   * Avale l'échec en `[]` — six appelants s'appuient sur cette tolérance. Un
+   * appelant qui a besoin de SAVOIR que le référentiel manque doit passer par
+   * `staticSync.readArticles()` en direct (cf. `fetchMaterialInputs`) : sans
+   * types d'appro, l'arrêt sur acheté disparaît et un plan matières se remplit
+   * de lignes fausses au lieu de se déclarer dégradé.
+   */
   async getArticles(): Promise<import('#app/domain/models/article').Article[]> {
     return staticSync.readArticles().catch(() => [])
   }

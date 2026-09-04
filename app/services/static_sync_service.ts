@@ -274,7 +274,16 @@ FROM (
 
   /** Lecture locale gammes (SQLite) */
   async readGammes(): Promise<GammeOperation[]> {
-    const rows = await StaticGamme.all()
+    // `orderBy('id')` explicite, JAMAIS `StaticGamme.all()` : Lucid définit
+    // `all()` comme `query().orderBy(primaryKey, 'desc')`, ce qui RENVERSE
+    // l'ordre d'insertion. Or `syncGammes` insère en `ORDER BY ITMREF_0,
+    // OPENUM_0`, et `buildLigneByArticle` prend `ops[0]` comme PREMIÈRE
+    // opération de la gamme pour en déduire la ligne de production. Avec
+    // `all()`, il prenait la DERNIÈRE — le filtre « ligne » de
+    // /approvisionnement rangeait les produits finis sur leur poste de fin de
+    // gamme. Invisible tant qu'une seule opération était synchronisée par
+    // article (base d'avant #96), faux dès le premier sync multi-opérations.
+    const rows = await StaticGamme.query().orderBy('id', 'asc')
     return rows.map((r) => ({
       article: r.article,
       workstation: r.workstation,

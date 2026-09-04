@@ -35,3 +35,18 @@ export function mondayOf(d: Date): Date {
   x.setDate(x.getDate() - dow)
   return x
 }
+
+/**
+ * Décale `d` de `n` jours CIVILS (minuit local conservé), pas de `n × DAY_MS`.
+ *
+ * L'arithmétique en millisecondes dérive d'une heure à chaque changement
+ * d'heure : `lundi 19/10 00:00 CEST + 7×DAY_MS` vaut `dimanche 25/10 23:00 CET`,
+ * dont `isoDay` rend « 2026-10-25 » — un lundi qui n'en est plus un. Toute
+ * boucle de buckets datés doit passer par ici, sous peine de fabriquer des clés
+ * qui ne retombent plus sur celles des besoins qu'elle classe.
+ */
+export function addDays(d: Date, n: number): Date {
+  const x = new Date(d)
+  x.setDate(x.getDate() + n)
+  return x
+}
