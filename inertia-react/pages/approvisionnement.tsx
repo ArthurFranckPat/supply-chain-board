@@ -42,6 +42,7 @@ import type {
   ApproBucket,
   ApproCran,
   ApproDetail,
+  ApproDetailLine,
   ApproGran,
   ApproPayload,
   ApproRow,
@@ -79,6 +80,22 @@ const isoDay = (d: Date): string => {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const da = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${da}`
+}
+
+/** Lundi de la semaine ISO (minuit local, via setDate : sûr en DST) — serveur. */
+const mondayOf = (d: Date): Date => {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7))
+  return x
+}
+
+/** Numéro de semaine ISO — même algorithme que `app/utils/dates.ts`. */
+const isoWeek = (d: Date): number => {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const dow = t.getUTCDay() || 7
+  t.setUTCDate(t.getUTCDate() + 4 - dow)
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
 }
 
 const endOfMonth = (d: Date): Date => new Date(d.getFullYear(), d.getMonth() + 1, 0)
@@ -717,6 +734,12 @@ function ApproTable(props: {
   )
 }
 
+/**
+ * Drawer « appelé par » — même motif que le diagnostic de ligne suivi. Les
+ * origines sont regroupées par semaine ISO (lundi), triées par date : mêmes
+ * libellés que les en-têtes de périodes de la grille (S36 · 01/09), total
+ * appelé par semaine en tête de groupe.
+ */
 function ApproDetailSheet(props: {
   article: string | null
   version: string | null
@@ -729,6 +752,28 @@ function ApproDetailSheet(props: {
       ? `${route('material.detail')}?v=${encodeURIComponent(props.version)}&article=${encodeURIComponent(props.article)}&from=${props.from}&to=${props.to}`
       : null
   const { data, loading, error } = useTimedFetch<ApproDetail>(url)
+
+  // Regroupement par semaine — les lignes arrivent déjà triées par date (puis
+  // quantité au sein d'un jour) côté serveur ; le groupement préserve cet ordre.
+  const weeks = useMemo(() => {
+    const out: { key: string; label: string; total: number; lignes: ApproDetailLine[] }[] = []
+    const byKey = new Map<string, (typeof out)[number]>()
+    for (const l of data?.lignes ?? []) {
+      const monday = mondayOf(new Date(`${l.date}T00:00:00`))
+      const key = isoDay(monday)
+      let w = byKey.get(key)
+      if (!w) {
+        const dd = String(monday.getDate()).padStart(2, '0')
+        const mm = String(monday.getMonth() + 1).padStart(2, '0')
+        w = { key, label: `S${isoWeek(monday)} · ${dd}/${mm}`, total: 0, lignes: [] }
+        byKey.set(key, w)
+        out.push(w)
+      }
+      w.total += l.quantite
+      w.lignes.push(l)
+    }
+    return out
+  }, [data])
 
   return (
     <Sheet open={props.article !== null} onOpenChange={(open) => !open && props.onClose()}>
@@ -745,8 +790,8 @@ function ApproDetailSheet(props: {
             <SheetHeader>
               <SheetTitle className="font-mono">{data.article}</SheetTitle>
               <SheetDescription>
-                Appelé par — {data.lignes.length} origine(s), rejouée(s) depuis le snapshot de la
-                grille.
+                Appelé par — {data.lignes.length} origine(s) sur {weeks.length} semaine(s),
+                rejouée(s) depuis le snapshot de la grille.
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-6">
@@ -758,6 +803,7 @@ function ApproDetailSheet(props: {
                 <table className="w-full border-collapse text-[12px]">
                   <thead>
                     <tr className="text-left text-xs font-medium text-muted-foreground">
+                      <th className="px-2 py-1.5 font-medium">Jour</th>
                       <th className="px-2 py-1.5 font-medium">Commande</th>
                       <th className="px-2 py-1.5 font-medium">Client</th>
                       <th className="px-2 py-1.5 font-medium">Produit fini</th>
@@ -766,41 +812,63 @@ function ApproDetailSheet(props: {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.lignes.map((l, i) => (
-                      <Fragment key={i}>
-                        <tr className="border-t border-rule-soft">
-                          <td className="px-2 py-1.5 font-mono font-bold tracking-tight">
-                            {l.numCommande ?? '—'}
-                            {l.ligne ? (
-                              <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">
-                                L{l.ligne}
+                    {weeks.map((w) => (
+                      <Fragment key={w.key}>
+                        <tr className="bg-secondary/60">
+                          <td colSpan={6} className="px-2 py-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-foreground">{w.label}</span>
+                              <span
+                                className="font-mono text-xs font-bold tabular-nums text-foreground"
+                                title="Total appelé sur la semaine"
+                              >
+                                {fr(w.total)}
                               </span>
-                            ) : null}
-                          </td>
-                          <td className="px-2 py-1.5 text-muted-foreground">{l.client || '—'}</td>
-                          <td className="px-2 py-1.5 font-mono">{l.pfArticle}</td>
-                          <td className="px-2 py-1.5">
-                            {l.nature === 'ferme' ? (
-                              'Ferme'
-                            ) : (
-                              <span className="text-muted-foreground">Prévision</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-mono font-bold tabular-nums">
-                            {fr(l.quantite)}
+                            </div>
                           </td>
                         </tr>
-                        {l.path.length > 0 && (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-2 pb-1.5 font-mono text-[10px] text-muted-foreground"
-                              title={l.path.join(' › ')}
-                            >
-                              via {l.path.join(' › ')}
-                            </td>
-                          </tr>
-                        )}
+                        {w.lignes.map((l, i) => (
+                          <Fragment key={i}>
+                            <tr className="border-t border-rule-soft">
+                              <td className="px-2 py-1.5 font-mono text-muted-foreground">
+                                {l.date.slice(8, 10)}/{l.date.slice(5, 7)}
+                              </td>
+                              <td className="px-2 py-1.5 font-mono font-bold tracking-tight">
+                                {l.numCommande ?? '—'}
+                                {l.ligne ? (
+                                  <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">
+                                    L{l.ligne}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td className="px-2 py-1.5 text-muted-foreground">
+                                {l.client || '—'}
+                              </td>
+                              <td className="px-2 py-1.5 font-mono">{l.pfArticle}</td>
+                              <td className="px-2 py-1.5">
+                                {l.nature === 'ferme' ? (
+                                  'Ferme'
+                                ) : (
+                                  <span className="text-muted-foreground">Prévision</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono font-bold tabular-nums">
+                                {fr(l.quantite)}
+                              </td>
+                            </tr>
+                            {l.path.length > 0 && (
+                              <tr>
+                                <td
+                                  colSpan={6}
+                                  className="px-2 pb-1.5 font-mono text-[10px] text-muted-foreground"
+                                  title={l.path.join(' › ')}
+                                >
+                                  via {l.path.join(' › ')}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        ))}
                       </Fragment>
                     ))}
                   </tbody>

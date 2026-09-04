@@ -52,6 +52,8 @@ export interface ApproPayload {
 }
 
 export interface ApproDetailLine {
+  /** Jour de la demande (YYYY-MM-DD) — le panneau regroupe par semaine. */
+  date: string
   numCommande: string | null
   ligne: string | null
   client: string | null

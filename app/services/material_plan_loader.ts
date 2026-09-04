@@ -94,6 +94,8 @@ export interface MaterialPayload {
 }
 
 export interface MaterialDetailLine {
+  /** Jour de la demande (YYYY-MM-DD) — le panneau regroupe par semaine. */
+  date: string
   numCommande: string | null
   ligne: string | null
   client: string | null
@@ -616,12 +618,15 @@ export async function loadMaterialDetailData(
     if (n.date < fromD || n.date > toD) continue
     if (!keepRow(n.article, n.depth, pinned.inputs.supplyByArticle)) continue
     const s = n.source
-    const key = `${s?.numCommande ?? ''}#${s?.ligne ?? ''}#${s?.pfArticle ?? ''}#${n.nature}#${n.path.join('>')}`
+    // La date fait partie de l'identité : le panneau regroupe par semaine, une
+    // agrégation toutes dates confondues rendrait ce regroupement impossible.
+    const key = `${s?.numCommande ?? ''}#${s?.ligne ?? ''}#${s?.pfArticle ?? ''}#${n.nature}#${n.path.join('>')}:${isoDay(n.date)}`
     const line = grouped.get(key)
     if (line) {
       line.quantite += n.brutQty
     } else {
       grouped.set(key, {
+        date: isoDay(n.date),
         numCommande: s?.numCommande ?? null,
         ligne: s?.ligne ?? null,
         client: s?.client ?? null,
@@ -632,9 +637,15 @@ export async function loadMaterialDetailData(
       })
     }
   }
-  // Arrondi unique en fin d'accumulation (cf. agrégat).
+  // Chronologique d'abord (lecture semaines), puis le manque en tête au sein
+  // d'un même jour — l'ancien tri pur quantité scindait une semaine en morceaux.
   const lignes = [...grouped.values()]
     .map((l) => ({ ...l, quantite: round2(l.quantite) }))
-    .sort((a, b) => b.quantite - a.quantite)
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        b.quantite - a.quantite ||
+        (a.numCommande ?? '').localeCompare(b.numCommande ?? '')
+    )
   return { article, lignes }
 }
