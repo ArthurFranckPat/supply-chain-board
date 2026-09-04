@@ -519,6 +519,7 @@ export default function Approvisionnement() {
                 buckets={data.buckets}
                 rows={rows}
                 cran={cran}
+                gran={gran}
                 selected={selected}
                 onSelect={setSelected}
               />
@@ -548,10 +549,11 @@ function ApproTable(props: {
   buckets: ApproBucket[]
   rows: ApproRow[]
   cran: ApproCran
+  gran: ApproGran
   selected: string | null
   onSelect: (article: string) => void
 }) {
-  const { buckets, rows, cran } = props
+  const { buckets, rows, cran, gran } = props
 
   const columns = useMemo<ColumnDef<ApproRow>[]>(
     () => [
@@ -579,7 +581,10 @@ function ApproTable(props: {
         accessorFn: (r) => r.description,
         enableSorting: false,
         // Plancher anti-écrasement : flexible au-delà, jamais sous le libellé.
-        meta: { thClass: 'min-w-[220px]', tdClass: 'min-w-[220px]' },
+        meta: {
+          thClass: 'min-w-[220px] overflow-hidden',
+          tdClass: 'min-w-[220px] overflow-hidden',
+        },
         cell: ({ row }) => (
           <span className="block truncate text-muted-foreground" title={row.original.description}>
             {row.original.description}
@@ -591,7 +596,10 @@ function ApproTable(props: {
         header: 'Type',
         accessorFn: (r) => r.supplyType,
         enableSorting: false,
-        meta: { thClass: 'w-[80px]', tdClass: 'text-muted-foreground' },
+        meta: {
+          thClass: 'w-[110px] overflow-hidden',
+          tdClass: 'overflow-hidden whitespace-nowrap text-muted-foreground',
+        },
         cell: ({ row }) => (row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'),
       },
       {
@@ -691,7 +699,7 @@ function ApproTable(props: {
       rows={rows}
       sorting={[]}
       onSortingChange={() => {}}
-      tableClass="table-fixed"
+      tableClass={gran === 'jour' ? 'min-w-[1800px] table-fixed' : 'min-w-[2400px] table-fixed'}
       scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowKey={(r) => r.article}
