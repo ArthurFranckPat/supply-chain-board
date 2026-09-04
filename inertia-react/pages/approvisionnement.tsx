@@ -20,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@r/components/ui/sheet'
+import DataTable, { type ColumnDef } from '@r/components/ui/data-table'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '@r/components/ui/dynamic-icon'
 import {
@@ -35,7 +36,14 @@ import {
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
-import type { ApproCran, ApproDetail, ApproGran, ApproPayload, ApproRow } from '@r/lib/appro/types'
+import type {
+  ApproBucket,
+  ApproCran,
+  ApproDetail,
+  ApproGran,
+  ApproPayload,
+  ApproRow,
+} from '@r/lib/appro/types'
 
 type Preset = '2sem' | 'mois' | 'moisprochain' | '3mois' | '6mois' | 'libre'
 
@@ -507,146 +515,13 @@ export default function Approvisionnement() {
         ) : (
           data && (
             <div className="min-h-0 flex-1 overflow-hidden p-5">
-              <div className="h-full overflow-auto rounded-lg border border-rule bg-card shadow-float">
-                {/* Layout FIXE : les largeurs ne bougent plus quand les valeurs
-                    changent (cran brut/net/reste) ou quand les données arrivent.
-                    La désignation absorbe l'espace restant. */}
-                <table className="w-full table-fixed border-collapse text-[12px]">
-                  <colgroup>
-                    <col style={{ width: 110 }} />
-                    <col />
-                    <col style={{ width: 80 }} />
-                    <col style={{ width: 95 }} />
-                    <col style={{ width: 100 }} />
-                    <col style={{ width: 150 }} />
-                    {data.buckets.map((b) => (
-                      <Fragment key={b.key}>
-                        <col style={{ width: 88 }} />
-                        <col style={{ width: 88 }} />
-                      </Fragment>
-                    ))}
-                  </colgroup>
-                  <thead className="sticky top-0 z-10 bg-secondary">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                        Composant
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                        Désignation
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                        Type
-                      </th>
-                      <th
-                        className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
-                        title="Stock strict + CQ à maintenant"
-                      >
-                        Stock
-                      </th>
-                      <th
-                        className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
-                        title="Stock × PMP actuel (ITMMVT) — même convention que le KPI stock"
-                      >
-                        Valo
-                      </th>
-                      <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-bold text-foreground">
-                        Total {cran}
-                      </th>
-                      {data.buckets.map((b) => (
-                        <th
-                          key={b.key}
-                          colSpan={2}
-                          className="border-l border-rule px-3 py-2 text-center text-xs font-bold text-foreground"
-                        >
-                          {b.label}
-                        </th>
-                      ))}
-                    </tr>
-                    <tr>
-                      {/* Les 6 colonnes fixes sont couvertes par la 1re rangée. */}
-                      <th colSpan={6} aria-hidden="true" className="p-0" />
-                      {data.buckets.map((b) => (
-                        <Fragment key={b.key}>
-                          <th className="border-l border-rule px-3 py-1 text-right text-xs font-medium text-muted-foreground">
-                            Ferme
-                          </th>
-                          <th className="px-3 py-1 text-right text-xs font-medium text-muted-foreground/70">
-                            Prév.
-                          </th>
-                        </Fragment>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr
-                        key={r.article}
-                        onClick={() => setSelected(r.article)}
-                        title="Voir l'origine du besoin (appelé par)"
-                        className="cursor-pointer border-t border-rule-soft transition-colors even:bg-foreground/[0.015]"
-                      >
-                        <td className="px-3 py-2 font-mono text-[12px] font-bold tracking-tight text-foreground">
-                          {r.article}
-                          {r.tronque && (
-                            <span title="Descendance incomplète (plafond de profondeur)"> ⚠</span>
-                          )}
-                        </td>
-                        <td
-                          className="truncate px-3 py-2 text-muted-foreground"
-                          title={r.description}
-                        >
-                          {r.description}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {r.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">
-                          {fr(r.stock)}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground"
-                          title={
-                            r.valeur == null
-                              ? 'PMP inconnu'
-                              : `Stock × PMP actuel = ${fmtEuro.format(r.valeur)}`
-                          }
-                        >
-                          {r.valeur == null ? (
-                            <span className="text-muted-foreground/50">—</span>
-                          ) : (
-                            fmtEuro.format(r.valeur)
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono font-bold tabular-nums">
-                          {fr(cranTotal(r, cran))}
-                        </td>
-                        {data.buckets.map((b, i) => {
-                          const f = cranOf(r, cran, i, true)
-                          const p = cranOf(r, cran, i, false)
-                          return (
-                            <Fragment key={b.key}>
-                              <td className="border-l border-rule px-3 py-2 text-right font-mono tabular-nums">
-                                {f === 0 ? (
-                                  <span className="text-muted-foreground/50">—</span>
-                                ) : (
-                                  fr(f)
-                                )}
-                              </td>
-                              <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">
-                                {p === 0 ? (
-                                  <span className="text-muted-foreground/50">—</span>
-                                ) : (
-                                  fr(p)
-                                )}
-                              </td>
-                            </Fragment>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ApproTable
+                buckets={data.buckets}
+                rows={rows}
+                cran={cran}
+                selected={selected}
+                onSelect={setSelected}
+              />
             </div>
           )
         )}
@@ -660,6 +535,165 @@ export default function Approvisionnement() {
         />
       </div>
     </AppLayout>
+  )
+}
+
+/**
+ * Table besoins — composant `DataTable` officiel (même rendu que /suivi :
+ * virtualisation, surlignage de sélection, filets). Tri désactivé colonne par
+ * colonne (le tri reste piloté par le menu Filtres › Tri) ; en-têtes de
+ * périodes empilés (période + Ferme/Prév.) sur une seule rangée.
+ */
+function ApproTable(props: {
+  buckets: ApproBucket[]
+  rows: ApproRow[]
+  cran: ApproCran
+  selected: string | null
+  onSelect: (article: string) => void
+}) {
+  const { buckets, rows, cran } = props
+
+  const columns = useMemo<ColumnDef<ApproRow>[]>(
+    () => [
+      {
+        id: 'article',
+        header: 'Composant',
+        accessorFn: (r) => r.article,
+        enableSorting: false,
+        meta: {
+          thClass: 'w-[110px]',
+          tdClass: 'font-mono text-[12px] font-bold tracking-tight text-foreground',
+        },
+        cell: ({ row }) => (
+          <span title="Voir l'origine du besoin (appelé par)">
+            {row.original.article}
+            {row.original.tronque && (
+              <span title="Descendance incomplète (plafond de profondeur)"> ⚠</span>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: 'description',
+        header: 'Désignation',
+        accessorFn: (r) => r.description,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="block truncate text-muted-foreground" title={row.original.description}>
+            {row.original.description}
+          </span>
+        ),
+      },
+      {
+        id: 'type',
+        header: 'Type',
+        accessorFn: (r) => r.supplyType,
+        enableSorting: false,
+        meta: { thClass: 'w-[80px]', tdClass: 'text-muted-foreground' },
+        cell: ({ row }) => (row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'),
+      },
+      {
+        id: 'stock',
+        header: 'Stock',
+        accessorFn: (r) => r.stock,
+        enableSorting: false,
+        meta: {
+          thClass: 'w-[95px] text-right',
+          tdClass: 'text-right font-mono tabular-nums',
+        },
+        cell: ({ row }) => fr(row.original.stock),
+      },
+      {
+        id: 'valeur',
+        header: 'Valo',
+        accessorFn: (r) => r.valeur,
+        enableSorting: false,
+        meta: {
+          thClass: 'w-[100px] text-right',
+          tdClass: 'text-right font-mono tabular-nums text-muted-foreground',
+        },
+        cell: ({ row }) =>
+          row.original.valeur == null ? (
+            <span
+              className="text-muted-foreground/50"
+              title="PMP inconnu — Stock × PMP actuel (ITMMVT)"
+            >
+              —
+            </span>
+          ) : (
+            <span title={`Stock × PMP actuel = ${fmtEuro.format(row.original.valeur)}`}>
+              {fmtEuro.format(row.original.valeur)}
+            </span>
+          ),
+      },
+      {
+        id: 'total',
+        header: `Total ${cran}`,
+        accessorFn: (r) => cranTotal(r, cran),
+        enableSorting: false,
+        meta: {
+          thClass: 'w-[150px] text-right font-bold text-foreground whitespace-nowrap',
+          tdClass: 'text-right font-mono font-bold tabular-nums',
+        },
+        cell: ({ row }) => fr(cranTotal(row.original, cran)),
+      },
+      ...buckets.flatMap((b, i) => [
+        {
+          id: `${b.key}-ferme`,
+          header: (
+            <span className="flex flex-col items-end leading-tight">
+              <span className="font-bold text-foreground">{b.label}</span>
+              <span className="text-[11px] font-medium">Ferme</span>
+            </span>
+          ),
+          accessorFn: (r: ApproRow) => cranOf(r, cran, i, true),
+          enableSorting: false,
+          meta: {
+            thClass: 'w-[88px] border-l border-rule text-right',
+            tdClass: 'border-l border-rule text-right font-mono tabular-nums',
+          },
+          cell: ({ row }: { row: { original: ApproRow } }) => {
+            const v = cranOf(row.original, cran, i, true)
+            return v === 0 ? <span className="text-muted-foreground/50">—</span> : fr(v)
+          },
+        },
+        {
+          id: `${b.key}-prevision`,
+          header: (
+            <span className="flex flex-col items-end leading-tight">
+              <span className="font-bold text-foreground">{b.label}</span>
+              <span className="text-[11px] font-medium text-muted-foreground/70">Prév.</span>
+            </span>
+          ),
+          accessorFn: (r: ApproRow) => cranOf(r, cran, i, false),
+          enableSorting: false,
+          meta: {
+            thClass: 'w-[88px] text-right',
+            tdClass: 'text-right font-mono tabular-nums text-muted-foreground',
+          },
+          cell: ({ row }: { row: { original: ApproRow } }) => {
+            const v = cranOf(row.original, cran, i, false)
+            return v === 0 ? <span className="text-muted-foreground/50">—</span> : fr(v)
+          },
+        },
+      ]),
+    ],
+    [buckets, cran]
+  )
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      sorting={[]}
+      onSortingChange={() => {}}
+      tableClass="table-fixed"
+      scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
+      theadRowClass="sticky top-0 z-10 bg-secondary"
+      getRowKey={(r) => r.article}
+      onRowClick={(r) => props.onSelect(r.article)}
+      selectedRowKey={props.selected}
+    />
   )
 }
 
