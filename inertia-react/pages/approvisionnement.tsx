@@ -508,7 +508,24 @@ export default function Approvisionnement() {
           data && (
             <div className="min-h-0 flex-1 overflow-hidden p-5">
               <div className="h-full overflow-auto rounded-lg border border-rule bg-card shadow-float">
-                <table className="w-full border-collapse text-[12px]">
+                {/* Layout FIXE : les largeurs ne bougent plus quand les valeurs
+                    changent (cran brut/net/reste) ou quand les données arrivent.
+                    La désignation absorbe l'espace restant. */}
+                <table className="w-full table-fixed border-collapse text-[12px]">
+                  <colgroup>
+                    <col style={{ width: 110 }} />
+                    <col />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 95 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 150 }} />
+                    {data.buckets.map((b) => (
+                      <Fragment key={b.key}>
+                        <col style={{ width: 88 }} />
+                        <col style={{ width: 88 }} />
+                      </Fragment>
+                    ))}
+                  </colgroup>
                   <thead className="sticky top-0 z-10 bg-secondary">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
@@ -532,7 +549,7 @@ export default function Approvisionnement() {
                       >
                         Valo
                       </th>
-                      <th className="px-3 py-2 text-right text-xs font-bold text-foreground">
+                      <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-bold text-foreground">
                         Total {cran}
                       </th>
                       {data.buckets.map((b) => (
@@ -575,7 +592,7 @@ export default function Approvisionnement() {
                           )}
                         </td>
                         <td
-                          className="max-w-56 truncate px-3 py-2 text-muted-foreground"
+                          className="truncate px-3 py-2 text-muted-foreground"
                           title={r.description}
                         >
                           {r.description}
