@@ -50,6 +50,7 @@ import DataTable, { type ColumnDef } from '@r/components/ui/data-table'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { Badge } from '@r/components/base/badges/badge'
 import { Chip } from '@r/components/base/badges/chip'
+import { StatusDot } from '@r/components/base/badges/status-dot'
 import { Button } from '@r/components/base/buttons/button'
 import { Checkbox } from '@r/components/base/checkbox/checkbox'
 import { DatePicker } from '@r/components/base/date-picker/date-picker'
@@ -699,6 +700,28 @@ function EmptyState(props: {
  * une seule rangée — `DataTable` ne gère pas le colSpan, le libellé n'est
  * donc rendu qu'une fois, côté Ferme, et le filet vertical fait le groupe.
  */
+/**
+ * Teinte d'intensité d'une cellule de période, NORMALISÉE PAR LIGNE.
+ *
+ * Une grille de besoins matières est une carte de chaleur par nature : ce
+ * qu'on cherche à voir d'un coup d'œil, c'est QUAND un composant est appelé,
+ * pas seulement combien. La normalisation est donc par ligne (le maximum de
+ * CE composant sur la fenêtre) et jamais globale : sans ça, les articles à
+ * gros volumes écrasent tous les autres et la grille redevient uniforme.
+ *
+ * Plafonné à 18 % : au-delà, le fond mange les chiffres — la couleur doit
+ * rester une lecture périphérique, la valeur exacte reste le texte.
+ * Ferme et Prévision prennent deux familles distinctes (accent / violet) :
+ * c'est la distinction structurante de la grille, engagement vs hypothèse.
+ */
+const heatStyle = (value: number, rowMax: number, ferme: boolean) => {
+  if (value <= 0 || rowMax <= 0) return undefined
+  const pct = Math.round((value / rowMax) * 18)
+  if (pct <= 0) return undefined
+  const hue = ferme ? 'var(--color-accent-500)' : 'var(--color-purple-500)'
+  return { backgroundColor: `color-mix(in oklab, ${hue} ${pct}%, transparent)` }
+}
+
 function ApproTable(props: {
   buckets: ApproBucket[]
   rows: ApproRow[]
@@ -709,6 +732,21 @@ function ApproTable(props: {
 }) {
   const { buckets, rows, cran, gran } = props
 
+  // Maximum par ligne sur la fenêtre (fermes ET prévisions confondus) —
+  // dénominateur de la carte de chaleur. Mémoïsé : le calculer dans la cellule
+  // le referait une fois par cellule rendue.
+  const rowMax = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of rows) {
+      let max = 0
+      for (let i = 0; i < buckets.length; i++) {
+        max = Math.max(max, cranOf(r, cran, i, true), cranOf(r, cran, i, false))
+      }
+      m.set(r.article, max)
+    }
+    return m
+  }, [rows, buckets, cran])
+
   const columns = useMemo<ColumnDef<ApproRow>[]>(
     () => [
       {
@@ -718,16 +756,37 @@ function ApproTable(props: {
         enableSorting: false,
         meta: {
           thClass: 'w-[110px] text-caption-1-medium text-text-tertiary',
-          tdClass: 'font-mono text-body-2-semibold tracking-tight text-text-primary',
+          tdClass: 'py-1.5 font-mono text-body-2-semibold tracking-tight text-text-primary',
         },
-        cell: ({ row }) => (
-          <span title="Voir l'origine du besoin (appelé par)">
-            {row.original.article}
-            {row.original.tronque && (
-              <span title="Descendance incomplète (plafond de profondeur)"> ⚠</span>
-            )}
-          </span>
-        ),
+        // Rose = ce composant a un reste à couvrir sur la fenêtre. C'est LE
+        // signal actionnable de la page ; il vaut d'être lisible sans passer
+        // par le filtre « Manques seuls ». Ambre = descendance incomplète,
+        // qui est un doute sur la donnée, pas un manque — deux couleurs, deux
+        // natures de problème, jamais mélangées.
+        cell: ({ row }) => {
+          const manque = resteTotal(row.original) > 0
+          return (
+            <span
+              className={cx(manque && 'text-status-rose-text')}
+              title={
+                manque
+                  ? "Reste à couvrir non nul — voir l'origine du besoin"
+                  : "Voir l'origine du besoin (appelé par)"
+              }
+            >
+              {row.original.article}
+              {row.original.tronque && (
+                <span
+                  className="text-status-yellow-text"
+                  title="Descendance incomplète (plafond de profondeur)"
+                >
+                  {' '}
+                  ⚠
+                </span>
+              )}
+            </span>
+          )
+        },
       },
       {
         id: 'description',
@@ -738,7 +797,7 @@ function ApproTable(props: {
         // l'espace restant. Tronquée avec ellipsis (+ title = texte complet).
         meta: {
           thClass: 'w-[260px] overflow-hidden text-caption-1-medium text-text-tertiary',
-          tdClass: 'w-[260px] overflow-hidden',
+          tdClass: 'w-[260px] overflow-hidden py-1.5',
         },
         cell: ({ row }) => (
           <span
@@ -756,16 +815,21 @@ function ApproTable(props: {
         enableSorting: false,
         meta: {
           thClass: 'w-[110px] overflow-hidden text-caption-1-medium text-text-tertiary',
-          tdClass: 'overflow-hidden whitespace-nowrap text-body-2-regular text-text-secondary',
+          tdClass:
+            'overflow-hidden whitespace-nowrap py-1.5 text-body-2-regular text-text-secondary',
         },
-        // Texte nu, PAS un `Chip` : « Acheté » est une catégorie que porte
-        // chaque ligne, pas un statut. En chip, la colonne devient un mur de
-        // pastilles bleues qui ne distingue rien (le filtre Type est d'ailleurs
-        // sur ACHAT par défaut : toutes les lignes disent la même chose), et le
-        // padding vertical du chip fait grossir la rangée de ~14 px sur une
-        // page `dense`. Le chip reste au drawer, pour Ferme/Prévision, où la
-        // distinction est réelle et binaire.
-        cell: ({ row }) => (row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'),
+        // `StatusDot` et pas `Chip` : « Acheté » est une catégorie que porte
+        // chaque ligne, pas un statut. En chip, la colonne devenait un mur de
+        // pastilles bleues qui ne distingue rien, et son padding vertical
+        // gonflait la rangée de ~14 px sur une page `dense`. La pastille donne
+        // la couleur pour un coût de hauteur nul. Le chip reste au drawer, sur
+        // Ferme/Prévision, où la distinction est réelle et binaire.
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1.5">
+            <StatusDot color={row.original.supplyType === 'ACHAT' ? 'indigo' : 'green'} />
+            {row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
+          </span>
+        ),
       },
       {
         id: 'stock',
@@ -774,7 +838,7 @@ function ApproTable(props: {
         enableSorting: false,
         meta: {
           thClass: 'w-[95px] text-right text-caption-1-medium text-text-tertiary',
-          tdClass: 'text-right font-mono text-body-2-regular tabular-nums text-text-primary',
+          tdClass: 'py-1.5 text-right font-mono text-body-2-regular tabular-nums text-text-primary',
         },
         cell: ({ row }) => fr(row.original.stock),
       },
@@ -785,7 +849,8 @@ function ApproTable(props: {
         enableSorting: false,
         meta: {
           thClass: 'w-[100px] text-right text-caption-1-medium text-text-tertiary',
-          tdClass: 'text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
+          tdClass:
+            'py-1.5 text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
         },
         cell: ({ row }) =>
           row.original.valeur == null ? (
@@ -806,9 +871,14 @@ function ApproTable(props: {
         meta: {
           thClass:
             'w-[150px] whitespace-nowrap text-right text-caption-1-semibold text-text-primary',
-          tdClass: 'text-right font-mono text-body-2-semibold tabular-nums text-text-primary',
+          tdClass:
+            'py-1.5 text-right font-mono text-body-2-semibold tabular-nums text-text-primary',
         },
-        cell: ({ row }) => fr(cranTotal(row.original, cran)),
+        cell: ({ row }) => (
+          <span className={cx(resteTotal(row.original) > 0 && 'text-status-rose-text')}>
+            {fr(cranTotal(row.original, cran))}
+          </span>
+        ),
       },
       // En-tête groupé sans colSpan (DataTable : une rangée) : le libellé de
       // période n'est rendu qu'une fois, côté Ferme — le filet vertical marque
@@ -819,25 +889,36 @@ function ApproTable(props: {
           header: (
             <span className="flex flex-col items-end whitespace-nowrap leading-tight">
               <span className="text-caption-1-semibold text-text-primary">{b.label}</span>
-              <span className="text-caption-2-medium text-text-secondary">Ferme</span>
+              <span className="text-caption-2-medium text-status-blue-text">Ferme</span>
             </span>
           ),
           accessorFn: (r: ApproRow) => cranOf(r, cran, i, true),
           enableSorting: false,
           meta: {
             thClass: 'w-[88px] border-l border-separator-border text-right',
+            // p-0 : la teinte est portée par un span interne qui remplit la
+            // cellule (le rendu de cellule ne peut pas styler son <td>). Le
+            // padding descend donc sur le span, sinon la teinte laisserait un
+            // liseré blanc sur les quatre bords.
             tdClass:
-              'border-l border-separator-border text-right font-mono text-body-2-regular tabular-nums text-text-primary',
+              'border-l border-separator-border p-0 text-right font-mono text-body-2-regular tabular-nums text-text-primary',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
             const v = cranOf(row.original, cran, i, true)
-            return v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)
+            return (
+              <span
+                className="block px-3 py-1.5"
+                style={heatStyle(v, rowMax.get(row.original.article) ?? 0, true)}
+              >
+                {v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)}
+              </span>
+            )
           },
         },
         {
           id: `${b.key}-prevision`,
           header: (
-            <span className="whitespace-nowrap text-caption-2-medium text-text-tertiary">
+            <span className="whitespace-nowrap text-caption-2-medium text-status-purple-text">
               Prév.
             </span>
           ),
@@ -845,16 +926,24 @@ function ApproTable(props: {
           enableSorting: false,
           meta: {
             thClass: 'w-[72px] text-right',
-            tdClass: 'text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
+            tdClass:
+              'p-0 text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
             const v = cranOf(row.original, cran, i, false)
-            return v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)
+            return (
+              <span
+                className="block px-3 py-1.5"
+                style={heatStyle(v, rowMax.get(row.original.article) ?? 0, false)}
+              >
+                {v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)}
+              </span>
+            )
           },
         },
       ]),
     ],
-    [buckets, cran]
+    [buckets, cran, rowMax]
   )
 
   return (
@@ -866,12 +955,12 @@ function ApproTable(props: {
       tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
       scrollContainerClass="h-full rounded-2xl border border-border-table bg-background-primary-default shadow-card"
       theadRowClass="sticky top-0 z-10 border-separator-border bg-background-secondary-default"
-      // `[&>td]:py-1.5` : DataTable code en dur `px-3 py-2` sur ses cellules.
-      // Le sélecteur d'enfant a une spécificité supérieure à l'utilitaire, donc
-      // il gagne sans toucher au composant partagé — c'est ce qui rend la
-      // rangée à la densité du board (≈40 px) plutôt qu'aux ~54 px auxquels
-      // l'échelle BoardUI l'amenait.
-      getRowClass={() => 'border-separator-border [&>td]:py-1.5 hover:bg-background-primary-hover'}
+      // La densité descend colonne par colonne (`py-1.5` dans chaque tdClass)
+      // et PAS via un `[&>td]:py-1.5` sur la ligne : le sélecteur d'enfant a
+      // une spécificité supérieure à l'utilitaire, il réimposerait un padding
+      // aux cellules de période — qui doivent être à `p-0` pour que la teinte
+      // de la carte de chaleur remplisse la cellule jusqu'aux filets.
+      getRowClass={() => 'border-separator-border hover:bg-background-primary-hover'}
       rowSelectedClass="bg-background-secondary-default ring-2 ring-inset ring-border-focus-ring"
       getRowKey={(r) => r.article}
       onRowClick={(r) => props.onSelect(r.article)}
