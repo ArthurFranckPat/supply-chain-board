@@ -328,10 +328,23 @@ export default function Approvisionnement() {
   // Même geste, même chemin que le ⟳ du masthead (cf. tracking.tsx) : le bump
   // incrémente le nonce, qui relance le fetch AVEC ?refresh (force le re-fetch
   // X3 côté serveur au lieu du cache SWR).
+  //
+  // Le nonce est GLOBAL et monotone : le comparer à zéro rendait le forçage
+  // COLLANT — après un seul ⟳, chaque changement de fenêtre, de maille ou de
+  // ligne repartait en `?refresh` pour le reste de la session, donc en purge des
+  // caches board et en requête ZSOAPSQL complète à chaque geste de toolbar. On
+  // le compare donc au nonce observé quand la question courante a été POSÉE :
+  // seul l'écart créé par un clic ⟳ vaut forçage. `asked` est réajusté pendant
+  // le rendu (motif React d'état dérivé) et non dans un effet, sans quoi le
+  // changement de filtre déclencherait d'abord un fetch forcé, puis un second.
   const bust = useDataStatusStore((s) => s.nonce)
+  const question = `${range.from}|${range.to}|${effGran}|${ligne ?? ''}`
+  const [asked, setAsked] = useState({ question, nonce: bust })
+  if (asked.question !== question) setAsked({ question, nonce: bust })
+  const forced = asked.question === question && bust > asked.nonce
   const url = overCap
     ? null
-    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${effGran}${ligne ? `&ligne=${encodeURIComponent(ligne)}` : ''}${bust ? `&refresh=${bust}` : ''}`
+    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${effGran}${ligne ? `&ligne=${encodeURIComponent(ligne)}` : ''}${forced ? `&refresh=${bust}` : ''}`
   const { data, loading, error, elapsed } = useTimedFetch<ApproPayload>(url)
   const view = useMemo(() => data?.rows ?? [], [data])
 
@@ -1020,9 +1033,9 @@ function ApproTable(props: {
   const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border border-separator-border bg-background-primary-default">
-      {/* Header BoardUI — sans rounded top, bordure unique avec le thead */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-separator-border bg-background-secondary-default px-4 py-2.5">
+    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-separator-border bg-background-primary-default">
+      {/* Header BoardUI — rounded top sur 1118, tableau en dessous carré */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-3xl border-b border-separator-border bg-background-secondary-default px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="whitespace-nowrap text-caption-1-semibold text-text-secondary">
             {rows.length} composants
