@@ -13,6 +13,14 @@ export interface ApproBucket {
   label: string
 }
 
+/** Ligne de production portant du besoin (miroir `MaterialLigneOption`). */
+export interface ApproLigne {
+  /** Poste de charge (1ʳᵉ opération de gamme du PF), ex. `PP_830`. */
+  code: string
+  label: string
+  count: number
+}
+
 export interface ApproRow {
   article: string
   description: string
@@ -33,6 +41,8 @@ export interface ApproRow {
 export interface ApproPayload {
   buckets: ApproBucket[]
   rows: ApproRow[]
+  /** Lignes de production de la fenêtre (population complète, hors filtre). */
+  lignes: ApproLigne[]
   /** Version du snapshot pinné — le détail la réclame. */
   version: string
   /** Branches coupées par le plafond de profondeur (diagnostic). */

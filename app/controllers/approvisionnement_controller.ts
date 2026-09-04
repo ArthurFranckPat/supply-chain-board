@@ -16,13 +16,14 @@ export default class ApprovisionnementController {
     return ctx.inertia.render('approvisionnement', {})
   }
 
-  /** GET /api/v1/planning/material-plan?from=&to=&gran=jour|semaine|mois */
+  /** GET /api/v1/planning/material-plan?from=&to=&gran=jour|semaine|mois&ligne=PP_830 */
   async payload({ request, response }: HttpContext) {
     try {
       const data = await loadMaterialPayloadData({
         from: String(request.input('from') ?? ''),
         to: String(request.input('to') ?? ''),
         gran: String(request.input('gran') ?? ''),
+        ligne: String(request.input('ligne') ?? ''),
         force: !!request.input('refresh'),
       })
       return response.json(data)

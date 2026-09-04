@@ -4,9 +4,10 @@
  * Coquille Inertia instantanée ; le calcul (explosion nomenclature complète +
  * netting priorité ferme) est fetché via useTimedFetch — même motif que
  * /suivi. Mise en page alignée sur scheduler/tracking.tsx (thème airbnb
- * dense, ToolbarRow unique, FilterMenu, PILL recherche, DataTable officiel,
- * drawer latéral) : en-têtes de périodes empilés sur une rangée (DataTable
- * ne gère pas le colSpan — le libellé n'est rendu qu'une fois, côté Ferme).
+ * dense, ToolbarRow unique, FilterMenu, pill ligne de production, PILL
+ * recherche, DataTable officiel, drawer latéral) : en-têtes de périodes
+ * empilés sur une rangée (DataTable ne gère pas le colSpan — le libellé
+ * n'est rendu qu'une fois, côté Ferme).
  */
 import { Fragment, useMemo, useState } from 'react'
 import { CircleX, FilterX, Search, TriangleAlert } from 'lucide-react'
@@ -36,6 +37,7 @@ import {
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
+import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
 import type {
   ApproBucket,
   ApproCran,
@@ -174,6 +176,11 @@ export default function Approvisionnement() {
   const [query, setQuery] = useState('')
   const [supply, setSupply] = useState<SupplyFilter>('ACHAT')
   const [manquesOnly, setManquesOnly] = useState(false)
+  // Ligne de production retenue (poste 1ʳᵉ op) — null = toutes. Filtre
+  // SERVEUR : il entre dans l'URL, le plan est recalculé sur la population
+  // de la ligne (quantités exactes), l'écran garde le plan précédent pendant
+  // le re-fetch (même doctrine que le reste de la page).
+  const [ligne, setLigne] = useState<string | null>(null)
   const [sort, setSort] = useState<SortKey>('valeur')
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -194,7 +201,7 @@ export default function Approvisionnement() {
   const bust = useDataStatusStore((s) => s.nonce)
   const url = overCap
     ? null
-    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${effGran}${bust ? `&refresh=${bust}` : ''}`
+    : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${effGran}${ligne ? `&ligne=${encodeURIComponent(ligne)}` : ''}${bust ? `&refresh=${bust}` : ''}`
   const { data, loading, error, ms, elapsed } = useTimedFetch<ApproPayload>(url)
   const view = useMemo(() => data?.rows ?? [], [data])
 
@@ -221,15 +228,17 @@ export default function Approvisionnement() {
     return out
   }, [view, query, supply, manquesOnly, sort, cran])
 
-  // Filtres secondaires uniquement (hors recherche, toujours visible) — même
-  // doctrine que suivi : un filtre est « actif » quand il s'écarte du défaut.
-  const filtersActive = supply !== 'ACHAT' || manquesOnly || sort !== 'valeur'
+  // Filtres secondaires uniquement (hors recherche + pill ligne, toujours
+  // visibles) — même doctrine que suivi : un filtre est « actif » quand il
+  // s'écarte du défaut.
+  const filtersActive = supply !== 'ACHAT' || manquesOnly || sort !== 'valeur' || ligne !== null
   const isFiltered = !!query.trim() || filtersActive
 
   const resetFilters = () => {
     setQuery('')
     setSupply('ACHAT')
     setManquesOnly(false)
+    setLigne(null)
     setSort('valeur')
   }
 
@@ -373,6 +382,12 @@ export default function Approvisionnement() {
               </SegmentButton>
             </Segment>
           </FilterMenu>
+          {/* Filtre ligne de production — dropdown dédié (même grammaire que le
+              filtre client du Suivi), masqué si la fenêtre ne porte aucune
+              ligne routée. Serveur : voir commentaire du state. */}
+          {(data?.lignes.length ?? 0) > 0 && (
+            <LigneFilterPill lignes={data?.lignes ?? []} value={ligne} onChange={setLigne} />
+          )}
           <ToolbarSpacer />
           <div className={cn(PILL, 'shrink-0')}>
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />

@@ -27,6 +27,8 @@ import {
   type ChargeRaw,
   type QuantityExplodeOptions,
 } from './charge_explosion.js'
+import { groupGammeByArticle } from './models/gamme.js'
+import type { GammeOperation } from './models/gamme.js'
 import type { NomenclatureEntry } from './models/nomenclature.js'
 
 export interface MaterialExplodeOptions {
@@ -47,6 +49,66 @@ export interface MaterialExplodeOptions {
   phantomStock?: Map<string, number>
   /** Remonté tel quel vers `explodeQuantity` (troncature + parents coupés). */
   stats?: QuantityExplodeOptions['stats']
+}
+
+/**
+ * Ligne de production portant du besoin — option du sélecteur de la page
+ * approvisionnement. `count` = nombre de lignes de demande acheminées.
+ */
+export interface MaterialLigneOption {
+  /** Poste de charge (1ʳᵉ opération de gamme du PF), ex. `PP_830`. */
+  code: string
+  /** Libellé X3 du poste (repli : le code). */
+  label: string
+  count: number
+}
+
+/**
+ * Ligne de production d'un article : le poste de sa **1ʳᵉ opération** de gamme
+ * — même règle que le rattachement des OF au board
+ * (`buildPosteNatureByWorkstation`). L'ordre de lecture de la sync statique
+ * (OPENUM ascendant) porte la 1ʳᵇ opération en tête de groupe.
+ * Record sérialisable : traverse le pinning du snapshot tel quel.
+ */
+export function buildLigneByArticle(gammeOps: GammeOperation[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [article, ops] of groupGammeByArticle(gammeOps)) {
+    const wst = (ops[0]?.workstation ?? '').trim()
+    if (wst) out[article] = wst
+  }
+  return out
+}
+
+/** Libellé lisible par poste de charge (1ʳᵉ occurrence de la sync), repli code. */
+export function buildLigneLabelByWst(gammeOps: GammeOperation[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const g of gammeOps) {
+    const wst = (g.workstation ?? '').trim()
+    if (wst && out[wst] === undefined) out[wst] = g.workstationLabel?.trim() || wst
+  }
+  return out
+}
+
+/**
+ * Options du sélecteur de ligne : les lignes qui portent au moins une demande
+ * de la fenêtre, TOUTES natures confondues et indépendamment du filtre actif —
+ * le dropdown ne se réduit pas quand une ligne est choisie. Un PF sans route
+ * (anomalie référentiel) reste dans « toutes les lignes » mais hors sélecteur.
+ */
+export function collectLigneOptions(
+  orderLines: ChargeOrderLine[],
+  ligneByArticle: Record<string, string>,
+  labelByWst: Record<string, string>
+): MaterialLigneOption[] {
+  const counts = new Map<string, number>()
+  for (const l of orderLines) {
+    const wst = ligneByArticle[l.article]
+    if (!wst) continue
+    counts.set(wst, (counts.get(wst) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([code, count]) => ({ code, label: labelByWst[code] || code, count }))
+    .sort((a, b) => a.code.localeCompare(b.code))
 }
 
 /**

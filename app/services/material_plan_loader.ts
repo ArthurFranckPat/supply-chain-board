@@ -21,7 +21,11 @@
  * - lignes depth 0 exclues (la demande elle-même), SAUF racine achetée (négoce :
  *   le besoin d'achat du PF est réel) ;
  * - besoins hors buckets (override sorti de fenêtre) ignorés ;
- * - plafond 14 périodes → 400 explicite, jamais de tableau dégénéré.
+ * - plafond 14 périodes → 400 explicite, jamais de tableau dégénéré ;
+ * - filtre `ligne` (poste 1ʳᵉ op de gamme du PF de tête) : restreint les lignes
+ *   de demande AVANT explosion — quantités exactes de la ligne, pas un masque
+ *   sur des totaux toutes lignes confondues. Options du sélecteur rendues dans
+ *   le payload (`lignes`), calculées sur la population complète.
  */
 import { cacheNs } from '#services/cache_ns'
 import { stamped } from '#services/computed_age'
@@ -36,6 +40,12 @@ import { atMidnight, DAY_MS, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement } from '#app/domain/of_avancement'
 import { buildEncoursByArticle } from '#services/load_payload_loader'
 import { explodeMaterialNeeds, netMaterial } from '#app/domain/material_plan'
+import {
+  buildLigneByArticle,
+  buildLigneLabelByWst,
+  collectLigneOptions,
+  type MaterialLigneOption,
+} from '#app/domain/material_plan'
 import type { ChargeNeed, ChargeOrderLine } from '#app/domain/charge_explosion'
 
 export type MaterialGran = 'jour' | 'semaine' | 'mois'
@@ -71,6 +81,11 @@ export interface MaterialRow {
 export interface MaterialPayload {
   buckets: MaterialBucket[]
   rows: MaterialRow[]
+  /**
+   * Lignes de production portant du besoin sur la fenêtre (toutes — le
+   * sélecteur ne se réduit pas quand une ligne est choisie).
+   */
+  lignes: MaterialLigneOption[]
   /** Version du snapshot pinné — le détail d'un article la réclame. */
   version: string
   /** Branches coupées par le plafond de profondeur (diagnostic). */
@@ -161,6 +176,13 @@ export interface MaterialInputs {
   /** Type appro (arrêt sur acheté + racines négoce) — idem. */
   supplyByArticle: Record<string, string>
   descByArticle: Record<string, string>
+  /**
+   * Ligne de production (poste 1ʳᵉ op de gamme) par article PF — idem,
+   * sérialisable : le filtre ligne sert avant explosion ET avant pinning.
+   */
+  ligneByArticle: Record<string, string>
+  /** Libellé par poste de charge — idem. */
+  ligneLabelByWst: Record<string, string>
   mos: ManufacturingOrder[]
   operations: OperationRecord[]
   x3Error: string | null
@@ -183,12 +205,13 @@ export async function fetchMaterialInputs(
   to: Date,
   force = false
 ): Promise<MaterialInputs> {
-  const [olR, nomR, artR, ordR, ovMap] = await Promise.allSettled([
+  const [olR, nomR, artR, ordR, ovMap, gamR] = await Promise.allSettled([
     boardDataset.getOrderLinesForLoad(toYYYYMMDD(from), toYYYYMMDD(to), force),
     staticSync.readNomenclatures(),
     boardDataset.getArticles(),
     boardDataset.getOrdersForWindow(from, to, force),
     new OrderLineOverrideStore().getMap(),
+    staticSync.readGammes(),
   ])
 
   let x3Error: string | null = null
@@ -201,6 +224,8 @@ export async function fetchMaterialInputs(
   const mos = ordR.status === 'fulfilled' ? ordR.value.mos : []
   if (ordR.status !== 'fulfilled') x3Error = x3Error ?? (ordR.reason as Error).message
   const overrides = ovMap.status === 'fulfilled' ? ovMap.value : new Map<string, string>()
+  const gammes = gamR.status === 'fulfilled' ? gamR.value : []
+  if (gamR.status !== 'fulfilled') x3Error = x3Error ?? (gamR.reason as Error).message
 
   const orderLines: ChargeOrderLine[] = rawLines.map((l) => {
     let date = atMidnight(l.dateLivraison)
@@ -246,6 +271,8 @@ export async function fetchMaterialInputs(
     catByArticle,
     supplyByArticle,
     descByArticle,
+    ligneByArticle: buildLigneByArticle(gammes),
+    ligneLabelByWst: buildLigneLabelByWst(gammes),
     mos,
     operations,
     x3Error,
@@ -385,6 +412,12 @@ export interface MaterialParams {
   to: string
   gran: string
   force?: boolean
+  /**
+   * Ligne de production retenue (poste 1ʳᵉ op de gamme du PF de tête) —
+   * absent/vide = toutes. Le filtrage porte sur les lignes de demande AVANT
+   * explosion : les quantités affichées sont exactement celles de la ligne.
+   */
+  ligne?: string
 }
 
 /**
@@ -419,13 +452,16 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
   if ('error' in parsed) throw new MaterialBadRequest(parsed.error)
   const { from, to, gran } = parsed
   const force = !!params.force
+  const ligne = (params.ligne ?? '').trim()
 
   const bucketed = materialBuckets(from, to, gran)
   if ('error' in bucketed) throw new MaterialBadRequest(bucketed.error)
   const { buckets } = bucketed
   const idxByKey = new Map(buckets.map((bk, i) => [bk.key, i]))
 
-  const cacheKey = `payload:material:${isoDay(from)}:${isoDay(to)}:${gran}`
+  // Suffixe ligne : une valeur pinnée « toutes » ne doit jamais servir à une
+  // ligne (et réciproquement) — populations et versions divergentes.
+  const cacheKey = `payload:material:${isoDay(from)}:${isoDay(to)}:${gran}${ligne ? `:${ligne}` : ''}`
   const materialCache = () => cacheNs('material')
   if (force) await materialCache().delete({ key: cacheKey })
 
@@ -435,15 +471,37 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
     timeout: 0,
     factory: stamped(async (): Promise<MaterialPayload> => {
       const inputs = await fetchMaterialInputs(from, to, force)
-      const isPhantom = (a: string): boolean => isPhantomCat(inputs.catByArticle[a])
-      const isPurchased = (a: string): boolean => inputs.supplyByArticle[a] === 'ACHAT'
+      // Un poste inconnu du référentiel gammes est un paramètre faux (400), pas
+      // un résultat vide. Une ligne connue sans demande sur la fenêtre rend
+      // honnêtement zéro ligne — même dégradation que « aucun résultat ».
+      if (ligne && inputs.ligneLabelByWst[ligne] === undefined) {
+        throw new MaterialBadRequest(`ligne de production inconnue : ${ligne}`)
+      }
+      // Filtrage AVANT explosion ET pinning : le détail rejoue exactement la
+      // population de la ligne choisie (un seul chemin de calcul, même motif
+      // que agrégat ↔ détail).
+      const activeInputs: MaterialInputs = ligne
+        ? {
+            ...inputs,
+            orderLines: inputs.orderLines.filter((l) => inputs.ligneByArticle[l.article] === ligne),
+          }
+        : inputs
+      // Options TOUJOURS sur la population complète : le sélecteur ne se
+      // réduit pas quand une ligne est choisie.
+      const lignes = collectLigneOptions(
+        inputs.orderLines,
+        inputs.ligneByArticle,
+        inputs.ligneLabelByWst
+      )
+      const isPhantom = (a: string): boolean => isPhantomCat(activeInputs.catByArticle[a])
+      const isPurchased = (a: string): boolean => activeInputs.supplyByArticle[a] === 'ACHAT'
       // Stock lu sur les articles appelés + les fantômes traversés : jamais
       // émis (pas des lignes du tableau), mais leur stock couvre les enfants
       // avant descente du reliquat (règle 2 de `rupture_engine`).
       // Passe de découverte sans déduction — le calcul final passe par
       // `explodeAndNet`, comme le détail depuis le snapshot pinné.
       const traversedPhantoms = new Set<string>()
-      const discovery = explodeMaterialNeeds(inputs.orderLines, inputs.entries, {
+      const discovery = explodeMaterialNeeds(activeInputs.orderLines, activeInputs.entries, {
         isPhantom: (a) => {
           const p = isPhantom(a)
           if (p) traversedPhantoms.add(a)
@@ -457,13 +515,18 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
       const { stock, pmp } = await computeMaterialStock(explodedArticles)
       // Un seul chemin de calcul agrégat ↔ détail : le snapshot pinné rejoue
       // exactement cette fonction.
-      const { needs, truncated, cutParents } = explodeAndNet(inputs, stock)
+      const { needs, truncated, cutParents } = explodeAndNet(activeInputs, stock)
 
       const rows = new Map<string, MaterialRow>()
       const rowFor = (article: string): MaterialRow => {
         let row = rows.get(article)
         if (!row) {
-          row = emptyRow(article, buckets.length, inputs.descByArticle, inputs.supplyByArticle)
+          row = emptyRow(
+            article,
+            buckets.length,
+            activeInputs.descByArticle,
+            activeInputs.supplyByArticle
+          )
           const qty = stock.get(article) ?? 0
           const unit = pmp.get(article)
           row.stock = round2(qty)
@@ -474,7 +537,7 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         return row
       }
       for (const n of needs) {
-        if (!keepRow(n.article, n.depth, inputs.supplyByArticle)) continue
+        if (!keepRow(n.article, n.depth, activeInputs.supplyByArticle)) continue
         const idx = idxByKey.get(needBucketKey(n.date, gran))
         if (idx === undefined) continue // override sorti de fenêtre
         const row = rowFor(n.article)
@@ -508,18 +571,20 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
         return netB - netA
       })
 
-      // Pinne les ENTRÉES (pas le résultat) : le détail rejoue le même calcul.
+      // Pinne les ENTRÉES (pas le résultat) : le détail rejoue le même calcul —
+      // ici la population FILTRÉE par ligne, pour un détail cohérent.
       await pinMaterialInputs(cacheKey, {
-        inputs,
+        inputs: activeInputs,
         stock: [...stock.entries()],
       })
 
       return {
         buckets,
+        lignes,
         rows: sorted,
         version: cacheKey,
         truncated,
-        x3Error: inputs.x3Error,
+        x3Error: activeInputs.x3Error,
       }
     }),
   })

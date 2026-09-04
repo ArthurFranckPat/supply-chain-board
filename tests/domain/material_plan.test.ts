@@ -1,6 +1,13 @@
 import { test } from '@japa/runner'
-import { explodeMaterialNeeds, netMaterial } from '#app/domain/material_plan'
+import {
+  buildLigneByArticle,
+  buildLigneLabelByWst,
+  collectLigneOptions,
+  explodeMaterialNeeds,
+  netMaterial,
+} from '#app/domain/material_plan'
 import type { ChargeOrderLine } from '#app/domain/charge_explosion'
+import type { GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 /**
@@ -268,5 +275,57 @@ test.group('troncature — feuille par regle (revue lots 0-1, constat 6)', () =>
     const stats: { truncated: number; cutParents?: string[] } = { truncated: 0, cutParents: [] }
     explodeMaterialNeeds([line('PF1', 10, D1)], entries, { maxDepth: 1, stats })
     assert.equal(stats.truncated, 1)
+  })
+})
+
+test.group('ligne de production', () => {
+  const op = (
+    article: string,
+    workstation: string,
+    workstationLabel = '',
+    rate = 1
+  ): GammeOperation => ({ article, workstation, workstationLabel, rate })
+
+  test('ligne = poste de la premiere operation seulement', ({ assert }) => {
+    const map = buildLigneByArticle([
+      op('PF1', 'PP_830'),
+      op('PF1', 'PP_153'), // 2ᵉ opération : jamais la ligne du PF
+      op('PF2', 'PP_153'),
+    ])
+    assert.deepEqual(map, { PF1: 'PP_830', PF2: 'PP_153' })
+  })
+
+  test('article sans poste de charge : pas de ligne', ({ assert }) => {
+    const map = buildLigneByArticle([op('PF1', ''), op('PF2', '  ')])
+    assert.deepEqual(map, {})
+  })
+
+  test('libelle du poste, repli sur le code, premiere occurrence gagne', ({ assert }) => {
+    const labels = buildLigneLabelByWst([
+      op('PF1', 'PP_830', 'Ligne bouches'),
+      op('PF2', 'PP_830', 'Autre libellé'), // doublon : le premier reste
+      op('PF3', 'PP_153'),
+    ])
+    assert.deepEqual(labels, { PP_830: 'Ligne bouches', PP_153: 'PP_153' })
+  })
+
+  test('options : comptage par ligne de demande, tri par code, PF sans route exclu', ({
+    assert,
+  }) => {
+    const ligneByArticle = { PF1: 'PP_830', PF2: 'PP_153' }
+    const labelByWst = { PP_830: 'Ligne bouches', PP_153: 'PP_153' }
+    const options = collectLigneOptions(
+      [line('PF1', 10, D1), line('PF1', 5, D2), line('PF2', 7, D1), line('PFX', 3, D1)],
+      ligneByArticle,
+      labelByWst
+    )
+    assert.deepEqual(options, [
+      { code: 'PP_153', label: 'PP_153', count: 1 },
+      { code: 'PP_830', label: 'Ligne bouches', count: 2 },
+    ])
+  })
+
+  test('options : aucune demande, aucune option', ({ assert }) => {
+    assert.deepEqual(collectLigneOptions([], { PF1: 'PP_830' }, { PP_830: 'Ligne' }), [])
   })
 })
