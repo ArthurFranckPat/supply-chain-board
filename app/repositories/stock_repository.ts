@@ -82,7 +82,17 @@ export class X3StockRepository {
           quantity: strict,
           direction: 'supply',
           date: null,
-          origin: { type: 'stock', subType: 'strict', pmp },
+          // `allocated` plafonné au physique : `strict + allocated` redonne alors
+          // EXACTEMENT `physique`, y compris quand X3 alloue au-delà du stock.
+          // Aucun flux ajouté ni retiré — un sous-type de plus serait compté
+          // comme de l'offre par `of_conso` et `orders.isSupply`, qui ne
+          // filtrent pas `subType`.
+          origin: {
+            type: 'stock',
+            subType: 'strict',
+            pmp,
+            allocated: Math.min(allouePhys + alloueGlob, physique),
+          },
         })
       }
       if (cq > 0) {

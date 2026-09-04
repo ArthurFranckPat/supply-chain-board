@@ -13,7 +13,22 @@
 export type FlowDirection = 'supply' | 'demand'
 
 export type FlowOrigin =
-  | { type: 'stock'; subType?: 'strict' | 'qc' | 'rejected'; pmp: number | null }
+  | {
+      type: 'stock'
+      subType?: 'strict' | 'qc' | 'rejected'
+      pmp: number | null
+      /**
+       * Part RÉSERVÉE (PHYALL + GLOALL, plafonnée au physique) déjà retirée de
+       * la quantité du flux `strict`. Portée pour que les consommateurs qui
+       * comptent la demande SANS déduire les allocations puissent revenir au
+       * stock physique — cf. `sumAvailableStock` (plan d'approvisionnement).
+       *
+       * Volontairement un CHAMP et non un sous-type : `of_conso` et
+       * `orders.isSupply` somment les flux de stock sans filtrer `subType`, un
+       * flux supplémentaire y serait compté comme de l'offre en plus.
+       */
+      allocated?: number
+    }
   | {
       type: 'reception'
       id: string

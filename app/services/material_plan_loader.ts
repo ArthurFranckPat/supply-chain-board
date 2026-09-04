@@ -9,7 +9,7 @@
  * Sources (caches SWR `boardDataset`, comme la charge) : lignes de demande
  * ORDERS WIPTYP=1 (`getOrderLinesForLoad`), nomenclature complète SQLite,
  * articles (types appro + catégories), OF fenêtre + pointages (en-cours),
- * stock strict+CQ.
+ * stock PHYSIQUE + CQ (allocations ERP réintégrées, cf. `sumAvailableStock`).
  *
  * Divergences assumées avec /charge (écrites ici, pas subies) :
  * - les OVERRIDES de dates posés par les drags de /planification SONT appliqués
@@ -316,30 +316,65 @@ export async function fetchMaterialInputs(
 const isPhantomCat = (cat: string | undefined): boolean => (cat ?? '').toUpperCase() === 'AFANT'
 
 /**
- * Stock strict+CQ des articles explosés — seule lecture hors inputs (cf. charge).
- * Remonte aussi le PMP (déjà présent sur les flows, `AVC_0`) pour la valorisation :
- * zéro requête en plus.
+ * Stock des articles explosés — seule lecture hors inputs (cf. charge). Remonte
+ * aussi le PMP (déjà présent sur les flows, `AVC_0`) pour la valorisation : zéro
+ * requête en plus. La RÈGLE DE COMPTAGE vit dans `sumAvailableStock`.
  */
+/**
+ * Pool de stock du plan appro, par article : **physique + CQ**, allocations
+ * ERP RÉINTÉGRÉES. Pur et exporté — c'est la règle de comptage de la page.
+ *
+ * Pourquoi réintégrer, alors que le reste du projet nette sur `strict` :
+ * une allocation ERP réserve du composant à un OF, et cet OF sert une commande
+ * client que cette page compte DÉJÀ dans son besoin. La retirer du stock sans
+ * retirer le besoin correspondant fait payer la même réservation deux fois.
+ * Mesuré sur 11022900 au 04/09/2026 : 1 162 unités réservées à 6 OF dont les
+ * 6 commandes figurent toutes dans le brut — manque annoncé 1 472, manque réel
+ * 310, écart exactement égal aux 1 162.
+ *
+ * Deux conventions cohérentes existaient ; c'est la moins chère qui est prise :
+ *  - besoin brut  contre stock physique          → 7 756 / 7 446 = 310 ;
+ *  - besoin net des allocations contre `strict`  → 6 594 / 6 284 = 310.
+ * La seconde est plus fidèle (elle daterait la réservation) mais suppose de
+ * savoir QUELLE commande chaque OF sert : c'est la règle 3 de `rupture_engine`,
+ * qui part des OF et dispose de `allocationsByOf`. Le plan appro part de la
+ * demande client et n'a aucune couche OF — l'y brancher suppose le matching
+ * commande↔OF, pas ce correctif.
+ *
+ * APPROXIMATION ASSUMÉE : une réservation servant une demande HORS fenêtre est
+ * ici recréditée. C'est la même simplification que le reste du modèle, qui
+ * étale un stock « maintenant » sur tout l'horizon sans le dater.
+ *
+ * LIMITE CONNUE, inchangée : quand X3 alloue au-delà du physique, aucun flux
+ * `strict` n'est émis (garde `strict > 0` du repository) et l'article retombe
+ * sur son seul CQ. Comportement d'avant ce correctif, pas une régression.
+ */
+export function sumAvailableStock(flows: Flow[]): {
+  stock: Map<string, number>
+  pmp: Map<string, number>
+} {
+  const stockByArticle = new Map<string, number>()
+  const pmpByArticle = new Map<string, number>()
+  for (const f of flows) {
+    if (f.origin.type !== 'stock') continue
+    const sub = f.origin.subType
+    if (sub !== 'strict' && sub !== 'qc') continue
+    const reserved = sub === 'strict' ? (f.origin.allocated ?? 0) : 0
+    stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity + reserved)
+    // PMP par article (identique sur les deux flows) — premier non nul gagne.
+    if (!pmpByArticle.has(f.article) && f.origin.pmp != null && f.origin.pmp > 0) {
+      pmpByArticle.set(f.article, f.origin.pmp)
+    }
+  }
+  return { stock: stockByArticle, pmp: pmpByArticle }
+}
+
 async function computeMaterialStock(
   explodedArticles: string[],
   force = false
 ): Promise<{ stock: Map<string, number>; pmp: Map<string, number> }> {
-  const stockByArticle = new Map<string, number>()
-  const pmpByArticle = new Map<string, number>()
-  if (explodedArticles.length === 0) return { stock: stockByArticle, pmp: pmpByArticle }
-  const flows = await boardDataset.getStock(explodedArticles, force).catch(() => [] as Flow[])
-  for (const f of flows) {
-    if (f.origin.type !== 'stock') continue
-    const sub = f.origin.subType
-    if (sub === 'strict' || sub === 'qc') {
-      stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
-      // PMP par article (identique sur les deux flows) — premier non nul gagne.
-      if (!pmpByArticle.has(f.article) && f.origin.pmp != null && f.origin.pmp > 0) {
-        pmpByArticle.set(f.article, f.origin.pmp)
-      }
-    }
-  }
-  return { stock: stockByArticle, pmp: pmpByArticle }
+  if (explodedArticles.length === 0) return { stock: new Map(), pmp: new Map() }
+  return sumAvailableStock(await boardDataset.getStock(explodedArticles, force).catch(() => []))
 }
 
 interface Exploded {

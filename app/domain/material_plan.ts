@@ -16,7 +16,14 @@
  *
  * Conventions reprises de la charge SANS les dupliquer : besoin daté à la date
  * de demande client (pas de décalage de délai, D1 assumé), stock snapshot
- * « maintenant » (strict + CQ), en-cours = cran « reste ».
+ * « maintenant », en-cours = cran « reste ».
+ *
+ * DIVERGENCE assumée avec la charge sur le pool de stock : `netMaterial` reçoit
+ * le stock PHYSIQUE + CQ, allocations ERP réintégrées, là où la charge nette sur
+ * `strict`. Motif dans `sumAvailableStock` — cette page compte la demande sans
+ * retirer les allocations composant, retirer celles-ci du stock ferait payer la
+ * même réservation deux fois. Le pool reste un paramètre : ce moteur ne décide
+ * pas de sa composition.
  */
 import {
   collectBom,
