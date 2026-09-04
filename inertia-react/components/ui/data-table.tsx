@@ -59,6 +59,14 @@ export interface DataTableProps<TRow> {
   getRowClass?: (row: TRow, virtualIndex: number) => string | undefined
   onRowClick?: (row: TRow) => void
   selectedRowKey?: string | null
+  /**
+   * Habillage de la ligne sélectionnée. Défaut = la grammaire shadcn du board
+   * (anneau `primary`). Surchargeable pour les pages qui rendent dans un autre
+   * système de tokens — /approvisionnement passe en tokens BoardUI. Posé APRÈS
+   * `getRowClass` dans le `cn()`, donc il gagne toujours sur l'habillage de
+   * ligne ordinaire.
+   */
+  rowSelectedClass?: string
   getRowKey?: (row: TRow) => string
   emptyState?: ReactNode
   /**
@@ -94,6 +102,7 @@ export function DataTable<TRow>({
   getRowClass,
   onRowClick,
   selectedRowKey,
+  rowSelectedClass = 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40',
   getRowKey,
   emptyState,
   flash,
@@ -284,7 +293,7 @@ export function DataTable<TRow>({
                   className={cn(
                     'border-b transition-colors last:border-b-0 hover:bg-muted/50',
                     getRowClass?.(row, virtualRow.index),
-                    isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40',
+                    isSelected && rowSelectedClass,
                     columnDividers && 'divide-x divide-rule-soft'
                   )}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}

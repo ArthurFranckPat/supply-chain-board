@@ -1,3 +1,10 @@
 .adonisjs
 node_modules
 build
+
+# Sources vendorisées BoardUI (MCP `boardui`) — style upstream conservé,
+# cf. le commentaire dans eslint.config.js.
+inertia-react/components/base
+inertia-react/components/foundations
+inertia-react/utils
+inertia-react/styles/boardui

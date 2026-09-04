@@ -28,7 +28,33 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
 
+/* ── BoardUI (design system React + Tailwind v4, MCP `boardui`) ──
+   Posé AVANT le bloc `@theme inline` du projet : en Tailwind v4 la
+   dernière déclaration gagne, donc le thème Airbnb ci-dessous garde
+   la main sur --font-sans / --font-mono, que BoardUI redéfinit sur
+   Inter + JetBrains Mono. Les tokens BoardUI (text-text-primary,
+   bg-background-*-default, border-separator-border, l'échelle
+   text-body-medium…) vivent dans un espace de noms disjoint des
+   tokens shadcn du projet : aucune collision d'utilitaire.
+   `globals.css` est la version amputée (voir son en-tête). ── */
+@import './boardui/theme.css';
+@import './boardui/typography.css';
+@import './boardui/globals.css';
+
 @custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* BoardUI (theme.css) redéfinit ces quatre ombres sur la recette Figma
+     (6%/10%, plus douce que le 10%/10% de Tailwind v4). Elles sont portées
+     par 21 composants du projet qui n'ont rien demandé — on les repique aux
+     valeurs Tailwind par défaut pour que l'arrivée de BoardUI ne change
+     RIEN hors /approvisionnement. Les composants BoardUI n'utilisent que
+     shadow-2xs / shadow-xs / shadow-card / shadow-dropdown, intacts. */
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
 
 @theme inline {
   /* ── Typo — Plus Jakarta Sans Variable (substitut de Cereal VF,

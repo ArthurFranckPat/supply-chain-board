@@ -1,18 +1,29 @@
 /**
- * Filtre « ligne de production » de la toolbar Approvisionnement — pill
- * dropdown dédiée (même grammaire que le filtre client du Suivi : Popover
- * base-ui + PILL). Contrairement aux filtres secondaires du menu, changer de
- * ligne REFETCH le plan : les quantités sont recalculées serveur sur la
- * population de la ligne (pas un masque sur des totaux toutes lignes).
- * Sélection unique — « Toutes les lignes » par défaut, croix d'effacement,
- * compte de lignes de demande par ligne de production.
+ * Filtre « ligne de production » de la toolbar Approvisionnement.
+ *
+ * Porté en grammaire BoardUI (MCP `boardui`) : `Dropdown` + `DropdownItem`
+ * pour le menu, `Input` pour la recherche, `Badge` pour le compte de lignes
+ * de demande. Le déclencheur reprend la recette du bouton secondaire BoardUI
+ * (cf. `./chrome`) — pas un sosie dessiné à la main.
+ *
+ * Contrairement aux filtres secondaires du menu Filtres, changer de ligne
+ * REFETCH le plan : les quantités sont recalculées serveur sur la population
+ * de la ligne, pas masquées sur des totaux toutes lignes. Sélection unique,
+ * « Toutes les lignes » par défaut, croix d'effacement sur le déclencheur.
  */
 import { useState } from 'react'
-import { Popover } from '@base-ui/react/popover'
-import { ChevronDown, Factory, Search, X } from 'lucide-react'
+import { RiArrowDownSLine, RiBuilding2Line, RiCloseLine, RiSearchLine } from '@remixicon/react'
 
-import { cn } from '@r/lib/utils'
-import { PILL } from '@r/components/vision/toolbar'
+import { cx } from '@r/utils/cx'
+import { Badge } from '@r/components/base/badges/badge'
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownPopover,
+  DropdownTrigger,
+} from '@r/components/base/dropdown/dropdown'
+import { Input } from '@r/components/base/input/input'
+import { TRIGGER_SECONDARY } from '@r/components/appro/chrome'
 import type { ApproLigne } from '@r/lib/appro/types'
 
 const fold = (s: string): string =>
@@ -36,116 +47,104 @@ export function LigneFilterPill(props: {
     : props.lignes
   const active = props.value ? props.lignes.find((l) => l.code === props.value) : null
 
+  const pick = (code: string | null) => {
+    props.onChange(code)
+    setOpen(false)
+  }
+
   return (
-    <Popover.Root
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) setQuery('')
-      }}
-    >
-      <div data-print-keep className="relative">
-        <Popover.Trigger
-          aria-label={`Ligne de production : ${active?.label ?? 'toutes'}${open ? ' — fermer' : ' — ouvrir'}`}
-          title="Filtrer par ligne de production"
-          className={cn(PILL, props.value && 'border-brand')}
+    <span data-print-keep>
+      <Dropdown
+        isOpen={open}
+        onOpenChange={(o) => {
+          setOpen(o)
+          if (!o) setQuery('')
+        }}
+      >
+        <DropdownTrigger
+          aria-label={`Ligne de production : ${active?.label ?? 'toutes'}`}
+          className={cx(
+            TRIGGER_SECONDARY,
+            props.value && 'border-border-button-active bg-background-primary-hover'
+          )}
         >
-          <Factory size={14} strokeWidth={1.75} className="text-muted-foreground" />
+          <RiBuilding2Line
+            className="size-[18px] shrink-0 text-foreground-icon-secondary"
+            aria-hidden
+          />
           <span
-            className={cn(
-              'max-w-[160px] truncate whitespace-nowrap',
-              !props.value && 'text-muted-foreground'
+            className={cx(
+              'max-w-[150px] truncate whitespace-nowrap',
+              !props.value && 'text-text-secondary'
             )}
           >
             {active ? active.label : 'Ligne de prod'}
           </span>
           {props.value && (
+            // `span` et non `button` : on est déjà à l'intérieur du bouton
+            // déclencheur, un bouton imbriqué est un markup invalide.
             <span
               role="button"
               tabIndex={-1}
               aria-label="Retirer le filtre ligne de production"
-              onClick={(e) => {
+              onPointerDown={(e) => {
                 e.stopPropagation()
-                props.onChange(null)
+                e.preventDefault()
+                pick(null)
               }}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-foreground-icon-secondary hover:text-foreground-icon-hover"
             >
-              <X size={13} strokeWidth={2} />
+              <RiCloseLine className="size-4" aria-hidden />
             </span>
           )}
-          <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Positioner
-            side="bottom"
-            align="start"
-            sideOffset={8}
-            collisionPadding={8}
-            className="z-50"
-          >
-            <Popover.Popup className="w-[280px] rounded-lg border border-rule bg-popover p-2 shadow-lg">
-              <div className="flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3">
-                <Search size={13} strokeWidth={1.75} className="text-muted-foreground" />
-                <input
-                  className="w-full border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-                  placeholder="Rechercher une ligne…"
-                  type="text"
-                  autoComplete="off"
-                  value={query}
-                  onChange={(e) => setQuery(e.currentTarget.value)}
-                />
-              </div>
-              <div className="mt-1.5 max-h-[280px] overflow-y-auto">
-                <button
-                  type="button"
-                  className={cn(
-                    'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
-                    !props.value
-                      ? 'bg-brand-soft font-semibold text-brand'
-                      : 'text-foreground hover:bg-secondary'
+          <RiArrowDownSLine
+            className="size-[18px] shrink-0 text-foreground-icon-secondary"
+            aria-hidden
+          />
+        </DropdownTrigger>
+        <DropdownPopover aria-label="Lignes de production" className="w-[288px]">
+          <Input
+            size="small"
+            aria-label="Rechercher une ligne de production"
+            placeholder="Rechercher une ligne…"
+            leadingIcon={RiSearchLine}
+            value={query}
+            onChange={setQuery}
+          />
+          <div className="-mr-1 max-h-[280px] overflow-y-auto pr-1">
+            <DropdownItem
+              selected={!props.value}
+              onSelect={() => pick(null)}
+              className="px-2 py-1.5"
+            >
+              Toutes les lignes
+            </DropdownItem>
+            {filtered.map((l) => (
+              <DropdownItem
+                key={l.code}
+                selected={l.code === props.value}
+                onSelect={() => pick(l.code === props.value ? null : l.code)}
+                className="justify-between px-2 py-1.5"
+              >
+                <span className="min-w-0 truncate">
+                  {l.label}
+                  {l.label !== l.code && (
+                    <span className="ml-1.5 font-mono text-caption-2-medium text-text-tertiary">
+                      {l.code}
+                    </span>
                   )}
-                  onClick={() => props.onChange(null)}
-                >
-                  Toutes les lignes
-                </button>
-                {filtered.map((l) => {
-                  const isActive = l.code === props.value
-                  return (
-                    <button
-                      key={l.code}
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
-                        isActive
-                          ? 'bg-brand-soft font-semibold text-brand'
-                          : 'text-foreground hover:bg-secondary'
-                      )}
-                      onClick={() => props.onChange(isActive ? null : l.code)}
-                    >
-                      <span className="truncate">
-                        {l.label}
-                        {l.label !== l.code && (
-                          <span className="ml-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                            {l.code}
-                          </span>
-                        )}
-                      </span>
-                      <span className="font-mono text-2xs tabular-nums text-muted-foreground">
-                        {l.count}
-                      </span>
-                    </button>
-                  )
-                })}
-                {filtered.length === 0 && (
-                  <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    Aucune ligne ne correspond.
-                  </p>
-                )}
-              </div>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
-      </div>
-    </Popover.Root>
+                </span>
+                <Badge className="tabular-nums">{l.count}</Badge>
+              </DropdownItem>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-2 py-3 text-center text-body-regular text-text-secondary">
+                Aucune ligne ne correspond.
+              </p>
+            )}
+          </div>
+        </DropdownPopover>
+      </Dropdown>
+    </span>
   )
 }

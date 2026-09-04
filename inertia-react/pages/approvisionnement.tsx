@@ -3,17 +3,42 @@
  *
  * Coquille Inertia instantanée ; le calcul (explosion nomenclature complète +
  * netting priorité ferme) est fetché via useTimedFetch — même motif que
- * /suivi. Mise en page alignée sur scheduler/tracking.tsx (thème airbnb
- * dense, ToolbarRow unique, FilterMenu, pill ligne de production, PILL
- * recherche, DataTable officiel, drawer latéral) : en-têtes de périodes
- * empilés sur une rangée (DataTable ne gère pas le colSpan — le libellé
- * n'est rendu qu'une fois, côté Ferme).
+ * /suivi. Le calcul, les filtres et la doctrine d'affichage sont inchangés :
+ * seule la COUCHE UI a changé.
+ *
+ * ─── Habillage : BoardUI (MCP `boardui`) ───────────────────────────────────
+ * Les contrôles viennent maintenant du design system BoardUI installé sous
+ * `components/base/*` : `SegmentedControl` (fenêtre / maille / cran),
+ * `Dropdown` (menu Filtres), `Input` (recherche), `Button` (actions),
+ * `DatePicker` (fenêtre libre), `Checkbox`, `Badge`, `Chip`, `Tooltip`,
+ * `Notification` (bandeaux). Le style passe exclusivement par les tokens
+ * sémantiques BoardUI (`text-text-*`, `bg-background-*`, `border-*`) et par
+ * l'échelle typographique composite (`text-body-medium`, `text-caption-1-*`)
+ * — jamais de classe de palette brute.
+ *
+ * Deux exceptions assumées, faute d'équivalent BoardUI :
+ *  - la GRILLE reste le `DataTable` maison (virtualisation @tanstack, en-tête
+ *    collant, colonnes de périodes dynamiques). Le `Table` de BoardUI est un
+ *    collection component react-aria à lignes de 48/64 px, non virtualisé :
+ *    l'adopter coûterait la tenue en charge de la page. Il est habillé en
+ *    tokens BoardUI depuis ici, via ses props de classes ;
+ *  - le drawer reste le `Sheet` du projet (BoardUI n'expose pas de tiroir),
+ *    son contenu étant lui aussi retokenisé.
  */
-import { Fragment, useMemo, useState } from 'react'
-import { CircleX, FilterX, Search, TriangleAlert } from 'lucide-react'
+import { Fragment, useMemo, useState, type ComponentType, type ReactNode } from 'react'
+import { CalendarDate, parseDate } from '@internationalized/date'
+import {
+  RiAlertLine,
+  RiCloudOffLine,
+  RiErrorWarningLine,
+  RiFilter3Line,
+  RiFilterOffLine,
+  RiRefreshLine,
+  RiSearchLine,
+} from '@remixicon/react'
 
 import AppLayout from '@r/layouts/app'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/utils/cx'
 import {
   Sheet,
   SheetContent,
@@ -23,21 +48,31 @@ import {
 } from '@r/components/ui/sheet'
 import DataTable, { type ColumnDef } from '@r/components/ui/data-table'
 import { SkeletonRow } from '@r/components/ui/skeleton'
-import { DynamicIcon } from '@r/components/ui/dynamic-icon'
+import { Badge } from '@r/components/base/badges/badge'
+import { Chip } from '@r/components/base/badges/chip'
+import { Button } from '@r/components/base/buttons/button'
+import { Checkbox } from '@r/components/base/checkbox/checkbox'
+import { DatePicker } from '@r/components/base/date-picker/date-picker'
 import {
-  PILL,
-  Segment,
-  SegmentButton,
-  RefreshPill,
-  ToolbarRow,
-  ToolbarSpacer,
-  FilterMenu,
-  FilterMenuSectionLabel,
-} from '@r/components/vision/toolbar'
+  Dropdown,
+  DropdownDivider,
+  DropdownGroup,
+  DropdownItem,
+  DropdownPopover,
+  DropdownTrigger,
+} from '@r/components/base/dropdown/dropdown'
+import { Input } from '@r/components/base/input/input'
+import { Notification } from '@r/components/base/notification/notification'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@r/components/base/segmented-control/segmented-control'
+import { Tooltip, TooltipTrigger } from '@r/components/base/tooltip/tooltip'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
 import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
+import { TRIGGER_SECONDARY } from '@r/components/appro/chrome'
 import type {
   ApproBucket,
   ApproCran,
@@ -161,9 +196,30 @@ const fold = (s: string): string =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 
+/** ISO `YYYY-MM-DD` ↔ `CalendarDate` du DatePicker BoardUI. */
+const toCalendarDate = (iso: string): CalendarDate | null => {
+  try {
+    return parseDate(iso)
+  } catch {
+    return null
+  }
+}
+
 type SupplyFilter = 'TOUS' | 'ACHAT' | 'FABRICATION'
 /** Tri par défaut : valorisation du stock (enjeu financier d'abord). */
 type SortKey = 'valeur' | 'net' | 'article'
+
+const SUPPLY_LABEL: Record<SupplyFilter, string> = {
+  TOUS: 'Tous',
+  ACHAT: 'Achetés',
+  FABRICATION: 'Fabriqués',
+}
+
+const SORT_LABEL: Record<SortKey, string> = {
+  valeur: 'Valorisation',
+  net: 'Net décroissant',
+  article: 'Article A→Z',
+}
 
 const cranOf = (row: ApproRow, cran: ApproCran, i: number, ferme: boolean): number => {
   if (cran === 'brut') return ferme ? row.brutFerme[i] : row.brutPrevi[i]
@@ -183,6 +239,11 @@ const cranTotal = (row: ApproRow, cran: ApproCran): number => {
 
 const resteTotal = (row: ApproRow): number =>
   row.resteFerme.reduce((s, v) => s + v, 0) + row.restePrevi.reduce((s, v) => s + v, 0)
+
+/** Icône de rafraîchissement qui tourne — `Button` n'accepte qu'un composant. */
+const RefreshSpinning: ComponentType<{ className?: string }> = ({ className }) => (
+  <RiRefreshLine className={cx(className, 'animate-spin')} aria-hidden />
+)
 
 export default function Approvisionnement() {
   const today = useMemo(() => new Date(), [])
@@ -259,18 +320,6 @@ export default function Approvisionnement() {
     setSort('valeur')
   }
 
-  const chipCount = (on: boolean, count?: number) =>
-    count !== undefined && count > 0 ? (
-      <span
-        className={cn(
-          'rounded-full px-1.5 py-px text-[8px] font-extrabold leading-none tabular-nums',
-          on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'
-        )}
-      >
-        {count}
-      </span>
-    ) : null
-
   const manquesCount = useMemo(() => view.filter((r) => resteTotal(r) > 0).length, [view])
 
   return (
@@ -282,200 +331,265 @@ export default function Approvisionnement() {
       dense
       scrollable={false}
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col bg-background-secondary-default">
         {/* ═══ Toolbar ═══ */}
-        <ToolbarRow className="select-none" noWrap>
-          <Segment role="radiogroup" ariaLabel="Fenêtre" className="shrink-0">
+        <div
+          data-print-toolbar
+          className="flex min-h-[52px] flex-none select-none flex-nowrap items-center gap-2 overflow-x-auto border-b border-separator-border bg-background-primary-default px-5 py-2"
+        >
+          <SegmentedControl
+            aria-label="Fenêtre"
+            className="shrink-0"
+            selectedKeys={[preset]}
+            onSelectionChange={(keys) => {
+              const next = [...keys][0] as Preset | undefined
+              if (next) setPreset(next)
+            }}
+          >
             {PRESETS.map((p) => (
-              <SegmentButton
-                key={p.id}
-                role="radio"
-                active={preset === p.id}
-                onClick={() => setPreset(p.id)}
-              >
+              <SegmentedControlItem key={p.id} id={p.id}>
                 {p.label}
-              </SegmentButton>
+              </SegmentedControlItem>
             ))}
-          </Segment>
+          </SegmentedControl>
+
           {preset === 'libre' && (
-            <span className="flex shrink-0 items-center gap-1 text-xs">
-              <input
-                type="date"
-                value={custom.from}
-                onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
+            <span className="flex shrink-0 items-center gap-1.5">
+              <DatePicker
                 aria-label="Début de fenêtre"
-                className="min-h-[30px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
+                value={toCalendarDate(custom.from)}
+                onChange={(d) => d && setCustom((c) => ({ ...c, from: d.toString() }))}
               />
-              <span className="text-muted-foreground">→</span>
-              <input
-                type="date"
-                value={custom.to}
-                onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
+              <span className="text-body-regular text-text-tertiary">→</span>
+              <DatePicker
                 aria-label="Fin de fenêtre"
-                className="min-h-[30px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
+                value={toCalendarDate(custom.to)}
+                onChange={(d) => d && setCustom((c) => ({ ...c, to: d.toString() }))}
               />
             </span>
           )}
-          <Segment role="radiogroup" ariaLabel="Maille" className="shrink-0">
+
+          <SegmentedControl
+            aria-label="Maille"
+            className="shrink-0"
+            selectedKeys={[gran]}
+            onSelectionChange={(keys) => {
+              const next = [...keys][0] as ApproGran | undefined
+              if (next) setGran(next)
+            }}
+          >
             {GRANS.map((g) => {
               const ok = granAllowed(g.id)
-              return (
-                <span
-                  key={g.id}
-                  title={
-                    ok
-                      ? undefined
-                      : 'Hors plafond 14 périodes à cette fenêtre — élargissez la maille'
-                  }
-                  className={cn(!ok && 'opacity-40')}
-                >
-                  <SegmentButton
-                    role="radio"
-                    active={gran === g.id}
-                    onClick={() => ok && setGran(g.id)}
-                  >
-                    {g.label}
-                  </SegmentButton>
-                </span>
+              const item = (
+                <SegmentedControlItem id={g.id} isDisabled={!ok}>
+                  {g.label}
+                </SegmentedControlItem>
+              )
+              return ok ? (
+                <Fragment key={g.id}>{item}</Fragment>
+              ) : (
+                <TooltipTrigger key={g.id}>
+                  {item}
+                  <Tooltip>
+                    Hors plafond 14 périodes à cette fenêtre — élargissez la maille
+                  </Tooltip>
+                </TooltipTrigger>
               )
             })}
-          </Segment>
-          <Segment role="radiogroup" ariaLabel="Cran de quantité" className="shrink-0">
-            {CRANS.map((c) => (
-              <SegmentButton
-                key={c.id}
-                role="radio"
-                active={cran === c.id}
-                onClick={() => setCran(c.id)}
-                title={c.hint}
-              >
-                {c.label}
-              </SegmentButton>
-            ))}
-          </Segment>
-          <FilterMenu
-            label="Filtres"
-            indicators={
-              filtersActive ? (
-                <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
-              ) : null
-            }
+          </SegmentedControl>
+
+          <SegmentedControl
+            aria-label="Cran de quantité"
+            className="shrink-0"
+            selectedKeys={[cran]}
+            onSelectionChange={(keys) => {
+              const next = [...keys][0] as ApproCran | undefined
+              if (next) setCran(next)
+            }}
           >
-            <FilterMenuSectionLabel>Type</FilterMenuSectionLabel>
-            <Segment className="w-full justify-between">
-              {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
-                <SegmentButton key={s} active={supply === s} onClick={() => setSupply(s)}>
-                  {s === 'TOUS' ? 'Tous' : s === 'ACHAT' ? 'Achetés' : 'Fabriqués'}
-                </SegmentButton>
-              ))}
-            </Segment>
-            <div className="my-2.5 border-t border-rule-soft" />
-            <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
-            <Segment className="w-full flex-wrap">
-              <SegmentButton
-                active={manquesOnly}
-                onClick={() => setManquesOnly((v) => !v)}
-                title="N'afficher que les composants dont le reste à couvrir est non nul"
-              >
-                Manques seuls
-                {chipCount(manquesOnly, manquesCount)}
-              </SegmentButton>
-            </Segment>
-            <div className="my-2.5 border-t border-rule-soft" />
-            <FilterMenuSectionLabel>Tri</FilterMenuSectionLabel>
-            <Segment className="w-full flex-wrap">
-              <SegmentButton
-                active={sort === 'valeur'}
-                onClick={() => setSort('valeur')}
-                title="Stock × PMP actuel, décroissant (PMP inconnu en dernier)"
-              >
-                Valorisation
-              </SegmentButton>
-              <SegmentButton active={sort === 'net'} onClick={() => setSort('net')}>
-                Net ↓
-              </SegmentButton>
-              <SegmentButton active={sort === 'article'} onClick={() => setSort('article')}>
-                A→Z
-              </SegmentButton>
-            </Segment>
-          </FilterMenu>
-          {/* Filtre ligne de production — dropdown dédié (même grammaire que le
-              filtre client du Suivi), masqué si la fenêtre ne porte aucune
-              ligne routée. Serveur : voir commentaire du state. */}
+            {CRANS.map((c) => (
+              <TooltipTrigger key={c.id}>
+                <SegmentedControlItem id={c.id}>{c.label}</SegmentedControlItem>
+                <Tooltip>{c.hint}</Tooltip>
+              </TooltipTrigger>
+            ))}
+          </SegmentedControl>
+
+          {/* ─── Menu Filtres (filtres secondaires) ─── */}
+          <Dropdown>
+            <DropdownTrigger
+              aria-label="Filtres"
+              className={cx(
+                TRIGGER_SECONDARY,
+                'shrink-0',
+                filtersActive && 'border-border-button-active bg-background-primary-hover'
+              )}
+            >
+              <RiFilter3Line
+                className="size-[18px] shrink-0 text-foreground-icon-secondary"
+                aria-hidden
+              />
+              <span>Filtres</span>
+              {filtersActive && (
+                <span className="ml-0.5 size-1.5 rounded-full bg-accent-500" aria-hidden />
+              )}
+            </DropdownTrigger>
+            <DropdownPopover aria-label="Filtres" className="w-[248px]">
+              <DropdownGroup label="Type">
+                {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
+                  <DropdownItem
+                    key={s}
+                    selected={supply === s}
+                    onSelect={() => setSupply(s)}
+                    className="px-2 py-1.5"
+                  >
+                    {SUPPLY_LABEL[s]}
+                  </DropdownItem>
+                ))}
+              </DropdownGroup>
+              <DropdownDivider />
+              <DropdownGroup label="Affichage">
+                <Checkbox
+                  size="sm"
+                  className="w-full justify-between px-2 py-1.5"
+                  isSelected={manquesOnly}
+                  onChange={setManquesOnly}
+                >
+                  <span className="flex flex-1 items-center justify-between gap-2">
+                    <span className="text-body-medium text-text-primary">Manques seuls</span>
+                    {manquesCount > 0 && (
+                      <Badge
+                        color={manquesOnly ? 'primary' : 'neutral'}
+                        className="tabular-nums"
+                        title="Composants dont le reste à couvrir est non nul"
+                      >
+                        {manquesCount}
+                      </Badge>
+                    )}
+                  </span>
+                </Checkbox>
+              </DropdownGroup>
+              <DropdownDivider />
+              <DropdownGroup label="Tri">
+                {(['valeur', 'net', 'article'] as SortKey[]).map((k) => (
+                  <DropdownItem
+                    key={k}
+                    selected={sort === k}
+                    onSelect={() => setSort(k)}
+                    className="px-2 py-1.5"
+                  >
+                    {SORT_LABEL[k]}
+                  </DropdownItem>
+                ))}
+              </DropdownGroup>
+            </DropdownPopover>
+          </Dropdown>
+
+          {/* Filtre ligne de production — dropdown dédié, masqué si la fenêtre
+              ne porte aucune ligne routée. Serveur : voir commentaire du state. */}
           {(data?.lignes.length ?? 0) > 0 && (
             <LigneFilterPill lignes={data?.lignes ?? []} value={ligne} onChange={setLigne} />
           )}
-          <ToolbarSpacer />
-          <div className={cn(PILL, 'shrink-0')}>
-            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <input
-              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="Article, désignation…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-          </div>
+
+          <div className="flex-1" />
+
+          <Input
+            size="small"
+            aria-label="Rechercher un composant"
+            placeholder="Article, désignation…"
+            leadingIcon={RiSearchLine}
+            className="w-[220px] shrink-0"
+            value={query}
+            onChange={setQuery}
+          />
+
           {isFiltered && (
-            <span className="font-mono text-xs font-bold tabular-nums text-brand">
-              {rows.length}{' '}
-              <span className="font-medium text-muted-foreground">/ {view.length}</span>
+            <span className="shrink-0 font-mono text-caption-1-semibold tabular-nums text-text-primary">
+              {rows.length}
+              <span className="text-text-tertiary"> / {view.length}</span>
             </span>
           )}
           {loading && (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="shrink-0 font-mono text-caption-1-medium tabular-nums text-text-secondary">
               {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
             </span>
           )}
           {!loading && ms !== null && (
-            <span
-              className="font-mono text-xs tabular-nums text-muted-foreground/60"
-              title="Durée dernier chargement X3"
-            >
-              {ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}
-            </span>
+            <TooltipTrigger>
+              <span
+                role="note"
+                tabIndex={0}
+                className="shrink-0 font-mono text-caption-1-medium tabular-nums text-text-tertiary outline-none"
+              >
+                {ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}
+              </span>
+              <Tooltip>Durée du dernier chargement X3</Tooltip>
+            </TooltipTrigger>
           )}
-          <RefreshPill loading={loading} onClick={() => useDataStatusStore.getState().bump()} />
-        </ToolbarRow>
-        {/* ═══ Bannières ═══ */}
-        {data?.x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
-            <span className="font-bold">Erreur chargement :</span>
-            <span className="font-mono">{data.x3Error}</span>
-          </div>
-        )}
-        {data && data.truncated > 0 && (
-          <div className="flex flex-none items-center gap-2 border-b border-warning/40 bg-warning/10 px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-warning" />
-            <span className="font-bold">Profondeur tronquée :</span>
-            <span>
-              {data.truncated} branche(s) coupée(s) — les lignes marquées ⚠ ont une descendance
-              incomplète.
-            </span>
-          </div>
-        )}
+          <TooltipTrigger>
+            <Button
+              variant="secondary"
+              size="small"
+              iconOnly
+              className="shrink-0"
+              aria-label="Actualiser"
+              disabled={loading}
+              leadingIcon={loading ? RefreshSpinning : RiRefreshLine}
+              onClick={() => useDataStatusStore.getState().bump()}
+            />
+            <Tooltip>
+              {loading
+                ? 'Actualisation en cours…'
+                : 'Recharger les données X3 (cache → re-fetch live)'}
+            </Tooltip>
+          </TooltipTrigger>
+        </div>
 
-        {/* Sélection hors plafond : liseré, PAS remplacement — le dernier plan
-            calculé reste affiché, le calcul est suspendu (url null). */}
-        {overCap && (
-          <div className="flex flex-none items-center gap-2 border-b border-warning/40 bg-warning/10 px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-warning" />
-            <span className="font-bold">Sélection hors plafond :</span>
-            <span>
-              14 périodes max — dernier plan affiché, élargissez la maille ou réduisez la fenêtre
-              pour recalculer.
-            </span>
-          </div>
-        )}
-        {folded && !overCap && (
-          <div className="flex flex-none items-center gap-2 px-7 pt-1 text-[11px] text-muted-foreground">
-            <span>
-              Maille repliée sur {GRANS.find((g) => g.id === effGran)?.label} (plafond 14 périodes)
-              — votre choix ({GRANS.find((g) => g.id === gran)?.label}) est conservé pour les
-              fenêtres plus courtes.
-            </span>
+        {/* ═══ Bandeaux ═══
+            `Notification` BoardUI en bandeau inline : non refermable (l'état
+            qu'il décrit n'est pas dismissible, il disparaît quand la cause
+            disparaît) et sans coins ni ombre flottante, pour lire comme une
+            barre pleine largeur sous la toolbar. */}
+        {(data?.x3Error || (data && data.truncated > 0) || overCap || (folded && !overCap)) && (
+          <div className="flex flex-none flex-col gap-2 border-b border-separator-border bg-background-secondary-default px-5 py-2.5">
+            {data?.x3Error && (
+              <Notification
+                status="error"
+                dismissible={false}
+                className="rounded-xl p-3 pr-3 shadow-none"
+                title="Erreur de chargement"
+                description={<span className="font-mono">{data.x3Error}</span>}
+              />
+            )}
+            {data && data.truncated > 0 && (
+              <Notification
+                status="neutral"
+                icon={RiAlertLine}
+                dismissible={false}
+                className="rounded-xl p-3 pr-3 shadow-none"
+                title="Profondeur tronquée"
+                description={`${data.truncated} branche(s) coupée(s) — les lignes marquées ⚠ ont une descendance incomplète.`}
+              />
+            )}
+            {/* Sélection hors plafond : bandeau, PAS remplacement — le dernier
+                plan calculé reste affiché, le calcul est suspendu (url null). */}
+            {overCap && (
+              <Notification
+                status="neutral"
+                icon={RiAlertLine}
+                dismissible={false}
+                className="rounded-xl p-3 pr-3 shadow-none"
+                title="Sélection hors plafond"
+                description="14 périodes max — dernier plan affiché, élargissez la maille ou réduisez la fenêtre pour recalculer."
+              />
+            )}
+            {folded && !overCap && (
+              <p className="px-1 text-caption-1-regular text-text-secondary">
+                Maille repliée sur {GRANS.find((g) => g.id === effGran)?.label} (plafond 14
+                périodes) — votre choix ({GRANS.find((g) => g.id === gran)?.label}) est conservé
+                pour les fenêtres plus courtes.
+              </p>
+            )}
           </div>
         )}
 
@@ -487,55 +601,33 @@ export default function Approvisionnement() {
             <SkeletonRow count={6} />
           </div>
         ) : error && !data ? (
-          <div className="flex flex-1 items-center justify-center p-12 text-center">
-            <div className="flex flex-col items-center">
-              <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                <DynamicIcon name="cloud_off" size={28} strokeWidth={1.75} />
-              </div>
-              <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
-                Erreur de connexion Sage X3
-              </h3>
-              <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
-                Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3.
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={RiCloudOffLine}
+            title="Erreur de connexion Sage X3"
+            body="Impossible de récupérer le plan besoins depuis le serveur ERP Sage X3."
+          />
         ) : !data ? (
-          <div className="flex flex-1 items-center justify-center p-12 text-center">
-            <div className="flex flex-col items-center">
-              <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                <DynamicIcon name="search_off" size={28} strokeWidth={1.75} />
-              </div>
-              <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
-                Fenêtre trop large pour cette maille
-              </h3>
-              <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
-                Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre.
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={RiErrorWarningLine}
+            title="Fenêtre trop large pour cette maille"
+            body="Plafond 14 périodes : élargissez la maille ou réduisez la fenêtre."
+          />
         ) : rows.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center p-12 text-center">
-            <div className="flex flex-col items-center">
-              <div className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-secondary text-muted-foreground/60">
-                <DynamicIcon name="search_off" size={28} strokeWidth={1.75} />
-              </div>
-              <h3 className="mb-1 font-sans text-[14px] font-bold text-foreground">
-                Aucun résultat trouvé
-              </h3>
-              <p className="mb-5 max-w-sm font-sans text-[12px] leading-normal text-muted-foreground">
-                Aucun composant ne correspond aux filtres ou à la recherche actuels.
-              </p>
-              <button
-                type="button"
+          <EmptyState
+            icon={RiSearchLine}
+            title="Aucun résultat trouvé"
+            body="Aucun composant ne correspond aux filtres ou à la recherche actuels."
+            action={
+              <Button
+                variant="secondary"
+                size="small"
+                leadingIcon={RiFilterOffLine}
                 onClick={resetFilters}
-                className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-4 py-1.5 font-sans text-[11px] font-bold text-foreground transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand"
               >
-                <FilterX size={13} strokeWidth={1.75} className="leading-none" />
                 Réinitialiser les filtres
-              </button>
-            </div>
-          </div>
+              </Button>
+            }
+          />
         ) : (
           data && (
             <div className="min-h-0 flex-1 overflow-hidden p-5">
@@ -563,11 +655,36 @@ export default function Approvisionnement() {
   )
 }
 
+/** État vide / erreur — cercle d'icône + titre + corps, en tokens BoardUI. */
+function EmptyState(props: {
+  icon: ComponentType<{ className?: string }>
+  title: string
+  body: string
+  action?: ReactNode
+}) {
+  const Icon = props.icon
+  return (
+    <div className="flex flex-1 items-center justify-center p-12 text-center">
+      <div className="flex flex-col items-center">
+        <span className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-background-tertiary-default text-foreground-icon-tertiary">
+          <Icon className="size-7" />
+        </span>
+        <h3 className="mb-1 text-headline-semibold text-text-primary">{props.title}</h3>
+        <p className="mb-5 max-w-sm text-body-regular text-text-secondary">{props.body}</p>
+        {props.action}
+      </div>
+    </div>
+  )
+}
+
 /**
- * Table besoins — composant `DataTable` officiel (même rendu que /suivi :
- * virtualisation, surlignage de sélection, filets). Tri désactivé colonne par
- * colonne (le tri reste piloté par le menu Filtres › Tri) ; en-têtes de
- * périodes empilés (période + Ferme/Prév.) sur une seule rangée.
+ * Table besoins — `DataTable` maison (virtualisation, en-tête collant,
+ * sélection), habillée ici en tokens BoardUI via ses props de classes : la
+ * page choisit son système de tokens, le composant ne connaît que des
+ * chaînes. Tri désactivé colonne par colonne (le tri reste piloté par le menu
+ * Filtres › Tri) ; en-têtes de périodes empilés (période + Ferme/Prév.) sur
+ * une seule rangée — `DataTable` ne gère pas le colSpan, le libellé n'est
+ * donc rendu qu'une fois, côté Ferme, et le filet vertical fait le groupe.
  */
 function ApproTable(props: {
   buckets: ApproBucket[]
@@ -587,8 +704,8 @@ function ApproTable(props: {
         accessorFn: (r) => r.article,
         enableSorting: false,
         meta: {
-          thClass: 'w-[110px]',
-          tdClass: 'font-mono text-[12px] font-bold tracking-tight text-foreground',
+          thClass: 'w-[110px] text-caption-1-medium text-text-tertiary',
+          tdClass: 'font-mono text-body-2-semibold tracking-tight text-text-primary',
         },
         cell: ({ row }) => (
           <span title="Voir l'origine du besoin (appelé par)">
@@ -607,11 +724,14 @@ function ApproTable(props: {
         // Largeur fixe : en layout fixe, sans width la colonne absorbe tout
         // l'espace restant. Tronquée avec ellipsis (+ title = texte complet).
         meta: {
-          thClass: 'w-[260px] overflow-hidden',
+          thClass: 'w-[260px] overflow-hidden text-caption-1-medium text-text-tertiary',
           tdClass: 'w-[260px] overflow-hidden',
         },
         cell: ({ row }) => (
-          <span className="block truncate text-muted-foreground" title={row.original.description}>
+          <span
+            className="block truncate text-body-2-regular text-text-secondary"
+            title={row.original.description}
+          >
             {row.original.description}
           </span>
         ),
@@ -622,10 +742,14 @@ function ApproTable(props: {
         accessorFn: (r) => r.supplyType,
         enableSorting: false,
         meta: {
-          thClass: 'w-[110px] overflow-hidden',
-          tdClass: 'overflow-hidden whitespace-nowrap text-muted-foreground',
+          thClass: 'w-[110px] overflow-hidden text-caption-1-medium text-text-tertiary',
+          tdClass: 'overflow-hidden whitespace-nowrap',
         },
-        cell: ({ row }) => (row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'),
+        cell: ({ row }) => (
+          <Chip variant="caption" color={row.original.supplyType === 'ACHAT' ? 'blue' : 'soft'}>
+            {row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
+          </Chip>
+        ),
       },
       {
         id: 'stock',
@@ -633,8 +757,8 @@ function ApproTable(props: {
         accessorFn: (r) => r.stock,
         enableSorting: false,
         meta: {
-          thClass: 'w-[95px] text-right',
-          tdClass: 'text-right font-mono tabular-nums',
+          thClass: 'w-[95px] text-right text-caption-1-medium text-text-tertiary',
+          tdClass: 'text-right font-mono text-body-2-regular tabular-nums text-text-primary',
         },
         cell: ({ row }) => fr(row.original.stock),
       },
@@ -644,13 +768,13 @@ function ApproTable(props: {
         accessorFn: (r) => r.valeur,
         enableSorting: false,
         meta: {
-          thClass: 'w-[100px] text-right',
-          tdClass: 'text-right font-mono tabular-nums text-muted-foreground',
+          thClass: 'w-[100px] text-right text-caption-1-medium text-text-tertiary',
+          tdClass: 'text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
         },
         cell: ({ row }) =>
           row.original.valeur == null ? (
             <span
-              className="text-muted-foreground/50"
+              className="text-text-tertiary"
               title="PMP inconnu — Stock × PMP actuel (ITMMVT)"
             >
               —
@@ -667,8 +791,9 @@ function ApproTable(props: {
         accessorFn: (r) => cranTotal(r, cran),
         enableSorting: false,
         meta: {
-          thClass: 'w-[150px] text-right font-bold text-foreground whitespace-nowrap',
-          tdClass: 'text-right font-mono font-bold tabular-nums',
+          thClass:
+            'w-[150px] whitespace-nowrap text-right text-caption-1-semibold text-text-primary',
+          tdClass: 'text-right font-mono text-body-2-semibold tabular-nums text-text-primary',
         },
         cell: ({ row }) => fr(cranTotal(row.original, cran)),
       },
@@ -680,25 +805,26 @@ function ApproTable(props: {
           id: `${b.key}-ferme`,
           header: (
             <span className="flex flex-col items-end whitespace-nowrap leading-tight">
-              <span className="font-bold text-foreground">{b.label}</span>
-              <span className="text-[11px] font-medium">Ferme</span>
+              <span className="text-caption-1-semibold text-text-primary">{b.label}</span>
+              <span className="text-caption-2-medium text-text-secondary">Ferme</span>
             </span>
           ),
           accessorFn: (r: ApproRow) => cranOf(r, cran, i, true),
           enableSorting: false,
           meta: {
-            thClass: 'w-[88px] border-l border-rule text-right',
-            tdClass: 'border-l border-rule text-right font-mono tabular-nums',
+            thClass: 'w-[88px] border-l border-separator-border text-right',
+            tdClass:
+              'border-l border-separator-border text-right font-mono text-body-2-regular tabular-nums text-text-primary',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
             const v = cranOf(row.original, cran, i, true)
-            return v === 0 ? <span className="text-muted-foreground/50">—</span> : fr(v)
+            return v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)
           },
         },
         {
           id: `${b.key}-prevision`,
           header: (
-            <span className="text-[11px] font-medium whitespace-nowrap text-muted-foreground/70">
+            <span className="whitespace-nowrap text-caption-2-medium text-text-tertiary">
               Prév.
             </span>
           ),
@@ -706,11 +832,11 @@ function ApproTable(props: {
           enableSorting: false,
           meta: {
             thClass: 'w-[72px] text-right',
-            tdClass: 'text-right font-mono tabular-nums text-muted-foreground',
+            tdClass: 'text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
           },
           cell: ({ row }: { row: { original: ApproRow } }) => {
             const v = cranOf(row.original, cran, i, false)
-            return v === 0 ? <span className="text-muted-foreground/50">—</span> : fr(v)
+            return v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)
           },
         },
       ]),
@@ -725,8 +851,10 @@ function ApproTable(props: {
       sorting={[]}
       onSortingChange={() => {}}
       tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
-      scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
-      theadRowClass="sticky top-0 z-10 bg-secondary"
+      scrollContainerClass="h-full rounded-2xl border border-border-table bg-background-primary-default shadow-card"
+      theadRowClass="sticky top-0 z-10 border-separator-border bg-background-secondary-default"
+      getRowClass={() => 'border-separator-border hover:bg-background-primary-hover'}
+      rowSelectedClass="bg-background-secondary-default ring-2 ring-inset ring-border-focus-ring"
       getRowKey={(r) => r.article}
       onRowClick={(r) => props.onSelect(r.article)}
       selectedRowKey={props.selected}
@@ -735,10 +863,11 @@ function ApproTable(props: {
 }
 
 /**
- * Drawer « appelé par » — même motif que le diagnostic de ligne suivi. Les
- * origines sont regroupées par semaine ISO (lundi), triées par date : mêmes
- * libellés que les en-têtes de périodes de la grille (S36 · 01/09), total
- * appelé par semaine en tête de groupe.
+ * Drawer « appelé par ». Les origines sont regroupées par semaine ISO (lundi),
+ * triées par date : mêmes libellés que les en-têtes de périodes de la grille
+ * (S36 · 01/09), total appelé par semaine en tête de groupe. Le tiroir reste
+ * le `Sheet` du projet (BoardUI n'a pas de tiroir) ; son contenu est en tokens
+ * BoardUI comme le reste de la page.
  */
 function ApproDetailSheet(props: {
   article: string | null
@@ -796,30 +925,32 @@ function ApproDetailSheet(props: {
             </SheetHeader>
             <div className="px-4 pb-6">
               {data.lignes.length === 0 ? (
-                <p className="py-6 text-center text-[12px] text-muted-foreground">
+                <p className="py-6 text-center text-body-regular text-text-secondary">
                   Aucune origine sur cette fenêtre.
                 </p>
               ) : (
-                <table className="w-full border-collapse text-[12px]">
+                <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="text-left text-xs font-medium text-muted-foreground">
-                      <th className="px-2 py-1.5 font-medium">Jour</th>
-                      <th className="px-2 py-1.5 font-medium">Commande</th>
-                      <th className="px-2 py-1.5 font-medium">Client</th>
-                      <th className="px-2 py-1.5 font-medium">Produit fini</th>
-                      <th className="px-2 py-1.5 font-medium">Nature</th>
-                      <th className="px-2 py-1.5 text-right font-medium">Qté appelée</th>
+                    <tr className="text-caption-1-medium text-text-tertiary">
+                      <th className="px-2 py-1.5 font-[inherit]">Jour</th>
+                      <th className="px-2 py-1.5 font-[inherit]">Commande</th>
+                      <th className="px-2 py-1.5 font-[inherit]">Client</th>
+                      <th className="px-2 py-1.5 font-[inherit]">Produit fini</th>
+                      <th className="px-2 py-1.5 font-[inherit]">Nature</th>
+                      <th className="px-2 py-1.5 text-right font-[inherit]">Qté appelée</th>
                     </tr>
                   </thead>
                   <tbody>
                     {weeks.map((w) => (
                       <Fragment key={w.key}>
-                        <tr className="bg-secondary/60">
+                        <tr className="bg-background-secondary-default">
                           <td colSpan={6} className="px-2 py-1.5">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-foreground">{w.label}</span>
+                              <span className="text-caption-1-semibold text-text-primary">
+                                {w.label}
+                              </span>
                               <span
-                                className="font-mono text-xs font-bold tabular-nums text-foreground"
+                                className="font-mono text-caption-1-semibold tabular-nums text-text-primary"
                                 title="Total appelé sur la semaine"
                               >
                                 {fr(w.total)}
@@ -829,30 +960,33 @@ function ApproDetailSheet(props: {
                         </tr>
                         {w.lignes.map((l, i) => (
                           <Fragment key={i}>
-                            <tr className="border-t border-rule-soft">
-                              <td className="px-2 py-1.5 font-mono text-muted-foreground">
+                            <tr className="border-t border-separator-border">
+                              <td className="px-2 py-1.5 font-mono text-body-2-regular text-text-secondary">
                                 {l.date.slice(8, 10)}/{l.date.slice(5, 7)}
                               </td>
-                              <td className="px-2 py-1.5 font-mono font-bold tracking-tight">
+                              <td className="px-2 py-1.5 font-mono text-body-2-semibold tracking-tight text-text-primary">
                                 {l.numCommande ?? '—'}
                                 {l.ligne ? (
-                                  <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">
+                                  <span className="ml-1.5 text-caption-2-medium text-text-tertiary">
                                     L{l.ligne}
                                   </span>
                                 ) : null}
                               </td>
-                              <td className="px-2 py-1.5 text-muted-foreground">
+                              <td className="px-2 py-1.5 text-body-2-regular text-text-secondary">
                                 {l.client || '—'}
                               </td>
-                              <td className="px-2 py-1.5 font-mono">{l.pfArticle}</td>
-                              <td className="px-2 py-1.5">
-                                {l.nature === 'ferme' ? (
-                                  'Ferme'
-                                ) : (
-                                  <span className="text-muted-foreground">Prévision</span>
-                                )}
+                              <td className="px-2 py-1.5 font-mono text-body-2-regular text-text-primary">
+                                {l.pfArticle}
                               </td>
-                              <td className="px-2 py-1.5 text-right font-mono font-bold tabular-nums">
+                              <td className="px-2 py-1.5">
+                                <Chip
+                                  variant="caption"
+                                  color={l.nature === 'ferme' ? 'blue' : 'soft'}
+                                >
+                                  {l.nature === 'ferme' ? 'Ferme' : 'Prévision'}
+                                </Chip>
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono text-body-2-semibold tabular-nums text-text-primary">
                                 {fr(l.quantite)}
                               </td>
                             </tr>
@@ -860,7 +994,7 @@ function ApproDetailSheet(props: {
                               <tr>
                                 <td
                                   colSpan={6}
-                                  className="px-2 pb-1.5 font-mono text-[10px] text-muted-foreground"
+                                  className="px-2 pb-1.5 font-mono text-caption-2-regular text-text-tertiary"
                                   title={l.path.join(' › ')}
                                 >
                                   via {l.path.join(' › ')}

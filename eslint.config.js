@@ -13,6 +13,17 @@ export default [
       '.claude/**',
       '.pi/**',
       '.zcode/**',
+      // Sources VENDORISÉES du design system BoardUI (écrites par le MCP
+      // `boardui` : init_boardui + install_components). Elles arrivent en
+      // style upstream — double quotes, point-virgules — que prettier
+      // refuserait ligne à ligne. Les reformater au style maison serait à
+      // refaire à CHAQUE réinstallation ou mise à jour d'un composant, et
+      // rendrait tout diff amont illisible. On les laisse telles quelles :
+      // ce sont des dépendances copiées, pas du code applicatif.
+      // Le code qui les CONSOMME (pages, components/appro/**) reste linté.
+      'inertia-react/components/base/**',
+      'inertia-react/components/foundations/**',
+      'inertia-react/utils/**',
     ],
   },
   ...configApp(),
