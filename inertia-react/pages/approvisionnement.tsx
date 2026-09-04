@@ -406,14 +406,6 @@ export default function Approvisionnement() {
           )}
           <RefreshPill loading={loading} onClick={() => useDataStatusStore.getState().bump()} />
         </ToolbarRow>
-        {/* Mentions explicites non négociables (D1, §6.2) — ligne discrète,
-            pas de titre : le contexte est déjà porté par le Masthead. */}
-        <div className="flex-none px-7 pt-1.5 text-[11px] leading-snug text-muted-foreground">
-          Besoins datés à la date de demande client, sans décalage de délai · Quantités en unités de
-          stock (pas en unités d'achat) · Stock affecté au{' '}
-          <span className="font-semibold text-foreground">ferme en priorité</span> (lecture
-          différente de /charge) · Voici mon besoin, pas « à commander ».
-        </div>
         {/* ═══ Bannières ═══ */}
         {data?.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
