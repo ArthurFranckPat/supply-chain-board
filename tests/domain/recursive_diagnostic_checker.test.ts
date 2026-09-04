@@ -42,6 +42,12 @@ class MemLoader implements DiagnosticLoader {
   allocations = new Map<string, ErpAllocation[]>()
   ofs: OfRecord[] = []
   mfgmat = new Map<string, MfgMaterialInput[]>()
+  /** Concurrence simulée par article — absente = port non implémenté (cas par défaut). */
+  competing = new Map<string, { quantity: number; ofCount: number }>()
+
+  getCompetingDemand(article: string) {
+    return this.competing.get(article) ?? { quantity: 0, ofCount: 0 }
+  }
 
   getArticle(a: string) {
     return this.articles.get(a)
@@ -294,6 +300,80 @@ test.group('RecursiveDiagnosticChecker', () => {
     // OF_SUB atteint par les 2 branches (SE1 et SE2) mais diagnostiqué une seule fois.
     assert.equal(calls.get('OF_SUB'), 1)
     assert.equal(r.rootCause, 'rupture_matiere')
+  })
+
+  test('OF couvrant ferme mais trop petit → couverture_insuffisante (pas « à lancer »)', async ({
+    assert,
+  }) => {
+    const loader = new MemLoader()
+    loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
+    loader.mfgmat.set('OF1', [mat('SE', 100)]) // besoin 100, stock 0 → manque 100
+    // OF2 ferme et faisable, mais ne produit que 60.
+    loader.ofs.push(ofRecord('OF2', 'SE', 60, 1))
+    loader.mfgmat.set('OF2', [mat('C1', 1)])
+    loader.stocks.set('C1', { stockPhysique: 1000, stockAlloue: 0 })
+
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
+
+    assert.isFalse(r.feasible)
+    assert.equal(r.rootCause, 'couverture_insuffisante')
+    const se = r.tree.shorts[0]
+    assert.equal(se.status, 'couverture_insuffisante')
+    // La part promise est bien 60, pas les 100 manquants ni « rien ».
+    assert.equal(se.coveredQuantity, 60)
+    assert.equal(se.covering[0].credited, 60)
+    assert.equal(se.covering[0].quantity, 60)
+  })
+
+  test('un OF couvrant n’est promis qu’UNE fois dans un arbre (pas de double comptage)', async ({
+    assert,
+  }) => {
+    const loader = new MemLoader()
+    // PF consomme SE1 et SE2 ; chacun est couvert par son propre OF ferme…
+    loader.nomenclatures.set('SE1', mkBom('SE1', [{ article: 'SEC', qty: 1, type: 'FABRIQUE' }]))
+    loader.nomenclatures.set('SE2', mkBom('SE2', [{ article: 'SEC', qty: 1, type: 'FABRIQUE' }]))
+    loader.nomenclatures.set('SEC', mkBom('SEC', [{ article: 'C1', qty: 1 }]))
+    loader.mfgmat.set('OF1', [mat('SE1', 10), mat('SE2', 10)])
+    loader.ofs.push(ofRecord('OF_S1', 'SE1', 10, 1), ofRecord('OF_S2', 'SE2', 10, 1))
+    // …et les DEUX ont besoin du même sous-ensemble SEC, couvert par un seul OF de 10.
+    loader.mfgmat.set('OF_S1', [mat('SEC', 10)])
+    loader.mfgmat.set('OF_S2', [mat('SEC', 10)])
+    loader.ofs.push(ofRecord('OF_C', 'SEC', 10, 1))
+    loader.mfgmat.set('OF_C', [mat('C1', 1)])
+    loader.stocks.set('C1', { stockPhysique: 1000, stockAlloue: 0 })
+
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
+
+    // Les 10 pièces d'OF_C ne peuvent pas couvrir 10 + 10 : la 2e branche reste découverte.
+    assert.equal(r.rootCause, 'couverture_insuffisante')
+    const [se1, se2] = r.tree.shorts
+    const secOf = (se: (typeof r.tree.shorts)[number]) => se.covering[0].node.shorts[0]
+    assert.equal(secOf(se1).coveredQuantity, 10) // 1re servie
+    assert.equal(secOf(se2).coveredQuantity, 0) // 2e : production déjà promise
+    assert.equal(secOf(se2).status, 'couverture_insuffisante')
+    assert.equal(se1.status, 'ok')
+    assert.equal(se2.status, 'couverture_insuffisante')
+  })
+
+  test('la concurrence d’autres OF est divulguée mais ne change PAS le verdict', async ({
+    assert,
+  }) => {
+    const loader = new MemLoader()
+    loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
+    loader.mfgmat.set('OF1', [mat('SE', 5)])
+    loader.ofs.push(ofRecord('OF2', 'SE', 10, 1))
+    loader.mfgmat.set('OF2', [mat('C1', 1)])
+    loader.stocks.set('C1', { stockPhysique: 1000, stockAlloue: 0 })
+    // Un autre OF, hors de cet arbre, réclame 900 du même SE plus tôt.
+    loader.competing.set('SE', { quantity: 900, ofCount: 3 })
+
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
+
+    const se = r.tree.shorts[0]
+    assert.deepEqual(se.sharedDemand, { quantity: 900, ofCount: 3 })
+    // Photo assumée : l'OF est vu seul, la concurrence informe sans arbitrer.
+    assert.equal(se.status, 'ok')
+    assert.isTrue(r.feasible)
   })
 
   test('profondeur max dépassée → bloqué + alerte profondeur', async ({ assert }) => {

@@ -30,11 +30,7 @@ import { type DiagResult } from '@r/lib/of/diagnostic-types'
 import { route } from '@r/lib/routes'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
-import {
-  OfPrintVerdict,
-  OfReprintButton,
-  type PrintReport,
-} from './of-print-verdict'
+import { OfPrintVerdict, OfReprintButton, type PrintReport } from './of-print-verdict'
 
 export function OfDetailSheet(props: {
   num: string | null
@@ -219,7 +215,14 @@ export function OfDetailSheet(props: {
               <Badge variant={statusVariant(d.statusLabel)} className="ml-0.5">
                 {d.statusLabel}
               </Badge>
-              {d.bomBlocked > 0 && <Badge variant="destructive">{d.bomBlocked} rupture(s)</Badge>}
+              {/* Vient du calcul MFGMAT DIRECT (1 niveau, stock strict) — pas du diagnostic
+                  récursif, qui peut conclure « lançable » via un OF couvrant. Deux calculs,
+                  deux mots : sans ce libellé, l'en-tête et l'onglet semblaient se contredire. */}
+              {d.bomBlocked > 0 && (
+                <Badge variant="destructive" title="Composants non disponibles en stock (niveau 1)">
+                  {d.bomBlocked} composant(s) hors stock
+                </Badge>
+              )}
               <span className="flex-1" />
               {/* Deux verdicts empilés, jamais fusionnés : l'affermissement a
                   réussi ou non, l'impression a abouti ou non (#85, invariant 1). */}

@@ -9,7 +9,7 @@
  * [dispo 3rem] [manque 4rem] [réception 6.5rem]
  */
 import { Badge } from '@r/components/ui/badge'
-import { CornerDownRight, CircleCheck } from 'lucide-react'
+import { CornerDownRight, CircleCheck, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import {
   type DiagResult,
@@ -42,7 +42,8 @@ function DiagRow({ short }: { short: DiagShort }) {
       className={cn(
         'flex items-center gap-3 px-3 py-2',
         short.status === 'rupture_matiere' && 'bg-destructive/10',
-        short.status === 'qc_a_controler' && 'bg-warning/10'
+        short.status === 'qc_a_controler' && 'bg-warning/10',
+        short.status === 'couverture_insuffisante' && 'bg-warning/10'
       )}
     >
       <div className="w-[6.5rem] flex-none">
@@ -73,7 +74,19 @@ function DiagRow({ short }: { short: DiagShort }) {
           <>{short.available}</>
         )}
       </span>
-      <span className="w-10 flex-none text-right font-mono text-[11px] font-bold text-destructive">
+      {/* Le manque reste vrai même couvert par un OF : on l'affiche toujours, mais en rouge
+          seulement quand rien ne le couvre — sinon la ligne « OK » se lisait en alerte. */}
+      <span
+        className={cn(
+          'w-10 flex-none text-right font-mono text-[11px] font-bold',
+          short.status === 'ok' ? 'text-muted-foreground' : 'text-destructive'
+        )}
+        title={
+          short.coveredQuantity > 0
+            ? `${short.coveredQuantity} promis par un OF sur ${short.quantityMissing} manquants`
+            : undefined
+        }
+      >
         −{short.quantityMissing}
       </span>
       <div className="w-[13rem] flex-none font-mono text-[10px]">
@@ -112,6 +125,17 @@ function DiagShortRow({ short }: { short: DiagShort }) {
     <div className="border-b border-rule-soft last:border-b-0">
       <DiagRow short={short} />
 
+      {/* Concurrence divulguée, jamais arbitrée : le verdict ci-dessus voit cet OF SEUL. */}
+      {short.sharedDemand && (
+        <div className="ml-[12.5rem] flex items-start gap-1.5 pb-1 pl-3 font-mono text-[9px] leading-snug text-warning">
+          <TriangleAlert size={10} strokeWidth={2} className="mt-0.5 flex-none" />
+          <span>
+            {short.sharedDemand.quantity} déjà demandé(s) par {short.sharedDemand.ofCount} autre
+            {short.sharedDemand.ofCount > 1 ? 's OF' : ' OF'} à besoin antérieur — non arbitré ici
+          </span>
+        </div>
+      )}
+
       {short.covering.length > 0 && (
         <div className="mb-1 ml-[12.5rem] border-l-2 border-border/40">
           {short.covering.map((cov) => (
@@ -122,7 +146,9 @@ function DiagShortRow({ short }: { short: DiagShort }) {
                 <span className="font-semibold tracking-wider">COUVERT PAR</span>
                 <span className="text-[11px] font-bold text-foreground">{cov.numOf}</span>
                 <Badge
-                  variant={cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'}
+                  variant={
+                    cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'
+                  }
                   className="text-[8px]"
                 >
                   {STATUT_OF[cov.statut] ?? `statut ${cov.statut}`}
@@ -133,7 +159,17 @@ function DiagShortRow({ short }: { short: DiagShort }) {
                 >
                   {cov.node.source === 'MFGMAT' ? 'réel' : 'théorique'}
                 </Badge>
-                <span>qté {cov.quantity}</span>
+                {/* La taille de l'OF n'est PAS un dû : elle est partagée entre tous ses
+                    demandeurs. On affiche la part réellement promise à CET OF-ci. */}
+                {cov.credited > 0 ? (
+                  <span className="font-semibold text-ferme">
+                    couvre {cov.credited} de vos {short.quantityMissing}
+                  </span>
+                ) : cov.statut === 1 && cov.node.status === 'ok' ? (
+                  <span className="text-warning">qté {cov.quantity} · déjà promise ailleurs</span>
+                ) : (
+                  <span>qté {cov.quantity} · pas encore une couverture</span>
+                )}
                 <Badge variant={STATUS_VARIANT[cov.node.status]} className="text-[8px]">
                   {TREE_STATUS_LABEL[cov.node.status]}
                 </Badge>
@@ -170,17 +206,24 @@ export function OfDiagnosticTree({ result }: { result: DiagResult }) {
           variant={
             result.feasible
               ? 'success'
-              : result.rootCause === 'qc_a_controler'
+              : result.rootCause === 'qc_a_controler' ||
+                  result.rootCause === 'couverture_insuffisante'
                 ? 'warning'
                 : 'destructive'
           }
         >
           {result.feasible
-            ? 'Faisable'
+            ? 'Lançable maintenant'
             : result.rootCause === 'qc_a_controler'
-              ? 'Faisable sous réserve CQ'
+              ? 'Lançable dès le CQ levé'
               : 'Bloqué'}
         </Badge>
+        {/* Le bandeau doit dire à QUELLE question il répond : le compteur de ruptures de
+            l'en-tête vient d'un autre calcul (MFGMAT direct), et « faisable » tout court
+            laissait croire que les deux se contredisaient. */}
+        <span className="font-mono text-[9px] text-muted-foreground">
+          cet OF seul · stock strict, hors réceptions
+        </span>
         <span className="ml-auto font-mono text-[10px] text-muted-foreground">
           {result.componentsChecked} composant(s) · profondeur {result.maxDepthReached}
         </span>

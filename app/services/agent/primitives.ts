@@ -360,7 +360,15 @@ type DiagShort = {
   receptionOrderId?: string
   fabricated: boolean
   status: string
-  covering: Array<{ numOf: string; statut: number; quantity: number; node: DiagNode }>
+  coveredQuantity: number
+  sharedDemand?: { quantity: number; ofCount: number }
+  covering: Array<{
+    numOf: string
+    statut: number
+    quantity: number
+    credited: number
+    node: DiagNode
+  }>
 }
 type DiagNode = {
   numOf: string
@@ -393,10 +401,15 @@ function slimDiagNode(node: DiagNode): Record<string, unknown> {
       ...(s.receptionOrderId ? { receptionOrderId: s.receptionOrderId } : {}),
       fabricated: s.fabricated,
       status: s.status,
+      // `credited` (part promise à CET OF) et non `quantity` seule (taille de l'OF couvrant,
+      // partagée) : sans lui le copilote annonçait un OF couvrant comme un dû entier.
+      coveredQuantity: s.coveredQuantity,
+      ...(s.sharedDemand ? { sharedDemand: s.sharedDemand } : {}),
       covering: s.covering.slice(0, BOM_MAX_COVERING).map((c) => ({
         numOf: c.numOf,
         statut: c.statut,
         quantity: c.quantity,
+        credited: c.credited,
         node: slimDiagNode(c.node),
       })),
       ...(s.covering.length > BOM_MAX_COVERING ? { coveringTruncated: s.covering.length } : {}),

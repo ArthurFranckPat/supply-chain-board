@@ -12,7 +12,12 @@
 // ---------------------------------------------------------------------------
 
 export type NodeStatus =
-  'ok' | 'qc_a_controler' | 'rupture_matiere' | 'sous_ensemble_a_lancer' | 'indetermine'
+  | 'ok'
+  | 'qc_a_controler'
+  | 'rupture_matiere'
+  | 'couverture_insuffisante'
+  | 'sous_ensemble_a_lancer'
+  | 'indetermine'
 export type NodeSource = 'MFGMAT' | 'NOMENCLATURE'
 
 export interface DiagNode {
@@ -38,12 +43,19 @@ export interface DiagShort {
   receptionOrderId?: string
   fabricated: boolean
   covering: DiagCovering[]
+  /** Σ des parts réellement promises à CE parent (Σ `covering[].credited`). */
+  coveredQuantity: number
+  /** Ce que d'autres OF réclament du même composant, plus tôt. Affichage seul. */
+  sharedDemand?: { quantity: number; ofCount: number }
   status: NodeStatus
 }
 export interface DiagCovering {
   numOf: string
   statut: number
+  /** Taille de l'OF couvrant — partagée entre tous ses demandeurs, jamais un dû. */
   quantity: number
+  /** Part de `quantity` réellement promise à ce parent. LE chiffre qui compte. */
+  credited: number
   node: DiagNode
 }
 export interface DiagResult {
@@ -65,6 +77,7 @@ export const STATUS_LABEL: Record<NodeStatus, string> = {
   ok: 'OK',
   qc_a_controler: 'Contrôle qualité',
   rupture_matiere: 'Rupture matière',
+  couverture_insuffisante: 'Couverture insuffisante',
   sous_ensemble_a_lancer: 'Sous-ensemble à lancer',
   indetermine: 'Indéterminé',
 }
@@ -73,6 +86,7 @@ export const STATUS_VARIANT: Record<NodeStatus, BadgeVariant> = {
   ok: 'success',
   qc_a_controler: 'warning',
   rupture_matiere: 'destructive',
+  couverture_insuffisante: 'warning',
   sous_ensemble_a_lancer: 'warning',
   indetermine: 'secondary',
 }
@@ -83,6 +97,7 @@ export const TREE_STATUS_LABEL: Record<NodeStatus, string> = {
   ok: 'OK',
   qc_a_controler: 'CQ requis',
   rupture_matiere: 'Rupture',
+  couverture_insuffisante: 'Couverture partielle',
   sous_ensemble_a_lancer: 'À lancer',
   indetermine: '?',
 }
