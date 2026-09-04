@@ -34,3 +34,22 @@ export const TRIGGER_SECONDARY = cx(
  */
 export const segmentItemDense = (state: { isSelected: boolean }): string =>
   state.isSelected ? 'px-2 text-caption-1-semibold' : 'px-2 text-caption-1-medium'
+
+/**
+ * Item de segment teinté quand il est retenu. Sert au cran « Reste à couvrir »,
+ * qui prend le rose des manques de la grille : la barre et le tableau parlent
+ * alors la même langue — choisir cette lecture, c'est passer en vue risque.
+ */
+export const segmentItemTinted =
+  (selectedClass: string) =>
+  (state: { isSelected: boolean }): string =>
+    state.isSelected
+      ? `px-2 text-caption-1-semibold ${selectedClass}`
+      : 'px-2 text-caption-1-medium'
+
+/**
+ * Habillage d'un déclencheur de menu qui porte un filtre ACTIF. Accent plutôt
+ * que gris : un filtre actif restreint ce que l'écran montre, c'est un état
+ * qu'on doit repérer sans lire les libellés.
+ */
+export const TRIGGER_ACTIVE = 'border-accent-500 text-accent-700'

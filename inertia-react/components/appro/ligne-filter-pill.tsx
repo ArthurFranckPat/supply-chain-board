@@ -23,7 +23,7 @@ import {
   DropdownTrigger,
 } from '@r/components/base/dropdown/dropdown'
 import { Input } from '@r/components/base/input/input'
-import { TRIGGER_SECONDARY } from '@r/components/appro/chrome'
+import { TRIGGER_ACTIVE, TRIGGER_SECONDARY } from '@r/components/appro/chrome'
 import type { ApproLigne } from '@r/lib/appro/types'
 
 const fold = (s: string): string =>
@@ -63,10 +63,7 @@ export function LigneFilterPill(props: {
       >
         <DropdownTrigger
           aria-label={`Ligne de production : ${active?.label ?? 'toutes'}`}
-          className={cx(
-            TRIGGER_SECONDARY,
-            props.value && 'border-border-button-active bg-background-primary-hover'
-          )}
+          className={cx(TRIGGER_SECONDARY, props.value && TRIGGER_ACTIVE)}
         >
           <RiBuilding2Line
             className="size-[18px] shrink-0 text-foreground-icon-secondary"

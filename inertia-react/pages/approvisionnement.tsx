@@ -33,7 +33,6 @@ import {
   RiErrorWarningLine,
   RiFilter3Line,
   RiFilterOffLine,
-  RiRefreshLine,
   RiSearchLine,
 } from '@remixicon/react'
 
@@ -73,7 +72,12 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
 import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
-import { TRIGGER_SECONDARY, segmentItemDense } from '@r/components/appro/chrome'
+import {
+  TRIGGER_ACTIVE,
+  TRIGGER_SECONDARY,
+  segmentItemDense,
+  segmentItemTinted,
+} from '@r/components/appro/chrome'
 import type {
   ApproBucket,
   ApproCran,
@@ -241,11 +245,6 @@ const cranTotal = (row: ApproRow, cran: ApproCran): number => {
 const resteTotal = (row: ApproRow): number =>
   row.resteFerme.reduce((s, v) => s + v, 0) + row.restePrevi.reduce((s, v) => s + v, 0)
 
-/** Icône de rafraîchissement qui tourne — `Button` n'accepte qu'un composant. */
-const RefreshSpinning: ComponentType<{ className?: string }> = ({ className }) => (
-  <RiRefreshLine className={cx(className, 'animate-spin')} aria-hidden />
-)
-
 export default function Approvisionnement() {
   const today = useMemo(() => new Date(), [])
   const [preset, setPreset] = useState<Preset>('moisprochain')
@@ -281,7 +280,7 @@ export default function Approvisionnement() {
   const url = overCap
     ? null
     : `${route('material.plan')}?from=${range.from}&to=${range.to}&gran=${effGran}${ligne ? `&ligne=${encodeURIComponent(ligne)}` : ''}${bust ? `&refresh=${bust}` : ''}`
-  const { data, loading, error, ms, elapsed } = useTimedFetch<ApproPayload>(url)
+  const { data, loading, error, elapsed } = useTimedFetch<ApproPayload>(url)
   const view = useMemo(() => data?.rows ?? [], [data])
 
   const rows = useMemo(() => {
@@ -419,7 +418,17 @@ export default function Approvisionnement() {
             >
               {CRANS.map((c) => (
                 <TooltipTrigger key={c.id}>
-                  <SegmentedControlItem id={c.id} className={segmentItemDense}>
+                  <SegmentedControlItem
+                    id={c.id}
+                    // « Reste à couvrir » prend le rose des manques de la
+                    // grille : c'est la lecture « risque », la barre et le
+                    // tableau doivent le dire de la même couleur.
+                    className={
+                      c.id === 'reste'
+                        ? segmentItemTinted('text-status-rose-text')
+                        : segmentItemDense
+                    }
+                  >
                     {c.label}
                   </SegmentedControlItem>
                   <Tooltip>{c.hint}</Tooltip>
@@ -431,11 +440,7 @@ export default function Approvisionnement() {
             <Dropdown>
               <DropdownTrigger
                 aria-label="Filtres"
-                className={cx(
-                  TRIGGER_SECONDARY,
-                  'shrink-0',
-                  filtersActive && 'border-border-button-active bg-background-primary-hover'
-                )}
+                className={cx(TRIGGER_SECONDARY, 'shrink-0', filtersActive && TRIGGER_ACTIVE)}
               >
                 <RiFilter3Line
                   className="size-4 shrink-0 text-foreground-icon-secondary"
@@ -504,7 +509,11 @@ export default function Approvisionnement() {
             )}
           </div>
 
-          {/* Groupe épinglé — jamais poussé hors écran par le groupe gauche. */}
+          {/* Groupe épinglé — jamais poussé hors écran par le groupe gauche.
+              Ni chrono de chargement ni ⟳ ici : le masthead porte déjà les
+              deux (« chargé en 59 ms » + un bouton câblé sur le MÊME
+              `bump()` du data-status-store). Les répéter dans la barre
+              n'ajoutait rien qu'un doublon dans un espace disputé. */}
           <div className="flex shrink-0 items-center gap-2">
             <Input
               size="small"
@@ -518,7 +527,7 @@ export default function Approvisionnement() {
             />
 
             {isFiltered && (
-              <span className="font-mono text-caption-1-semibold tabular-nums text-text-primary">
+              <span className="font-mono text-caption-1-semibold tabular-nums text-accent-600">
                 {rows.length}
                 <span className="text-text-tertiary"> / {view.length}</span>
               </span>
@@ -528,34 +537,6 @@ export default function Approvisionnement() {
                 {elapsed >= 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`}
               </span>
             )}
-            {!loading && ms !== null && (
-              <TooltipTrigger>
-                <span
-                  role="note"
-                  tabIndex={0}
-                  className="font-mono text-caption-1-medium tabular-nums text-text-tertiary outline-none"
-                >
-                  {ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}
-                </span>
-                <Tooltip>Durée du dernier chargement X3</Tooltip>
-              </TooltipTrigger>
-            )}
-            <TooltipTrigger>
-              <Button
-                variant="secondary"
-                size="small"
-                iconOnly
-                aria-label="Actualiser"
-                disabled={loading}
-                leadingIcon={loading ? RefreshSpinning : RiRefreshLine}
-                onClick={() => useDataStatusStore.getState().bump()}
-              />
-              <Tooltip>
-                {loading
-                  ? 'Actualisation en cours…'
-                  : 'Recharger les données X3 (cache → re-fetch live)'}
-              </Tooltip>
-            </TooltipTrigger>
           </div>
         </div>
 
