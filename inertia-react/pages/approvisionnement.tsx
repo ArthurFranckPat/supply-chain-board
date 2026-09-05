@@ -41,9 +41,13 @@ import {
   RiArrowRightSLine,
   RiBarChartLine,
   RiBox3Line,
+  RiCalendarCheckLine,
   RiCalendarLine,
+  RiChatAiLine,
+  RiCheckboxCircleLine,
   RiCloudOffLine,
   RiDashboardLine,
+  RiEqualizer3Line,
   RiErrorWarningLine,
   RiFileDownloadLine,
   RiFileList3Line,
@@ -51,6 +55,8 @@ import {
   RiFilterOffLine,
   RiHashtag,
   RiInboxLine,
+  RiListOrdered,
+  RiRoadMapLine,
   RiRouteLine,
   RiSearchLine,
   RiShoppingCartLine,
@@ -62,7 +68,7 @@ import AppLayout from '@r/layouts/app'
 import { cx } from '@r/utils/cx'
 import {
   DashboardSidebar,
-  type DashboardNavItem,
+  type DashboardNavGroup,
 } from '@r/components/application/dashboard/dashboard-sidebar'
 import {
   Sheet,
@@ -123,32 +129,100 @@ import type {
 } from '@r/lib/appro/types'
 
 /**
- * Navigation BoardUI pour la page Approvisionnement — mapping des routes
- * métier en entrées `DashboardNavItem`. La sidebar flottante vit en
- * complément du `Masthead` (top nav) : masquée sous `lg`, elle évite de
+ * Navigation de la sidebar — LES MÊMES liens que le masthead, en groupes.
+ * Reprise 1:1 des menus du top nav (cf. `components/masthead.tsx`) : liens
+ * nus (Tableau de bord, Suivi commandes) en tête sans en-tête, puis les
+ * groupes Ordonnancement / Planification / Logistique / Outils. La sidebar
+ * flottante vit en complément du masthead : masquée sous `lg`, elle évite de
  * dérober de la largeur sur tablette, tandis que le rail desktop offre un
- * accès latéral direct aux modules principaux.
+ * accès latéral direct à tous les modules, sans menu déroulant.
  *
  * Icônes : Remix, même famille que les contrôles de la page (`Ri*Line`).
  * `selected="approvisionnement"` est passé au `DashboardSidebar` plus bas.
  */
-const APPRO_NAV: DashboardNavItem[] = [
-  { key: 'dashboard', label: 'Tableau de bord', icon: RiDashboardLine, href: route('dashboard') },
-  { key: 'load', label: 'Charge', icon: RiBarChartLine, href: route('load.index') },
+const APPRO_NAV: DashboardNavGroup[] = [
   {
-    key: 'approvisionnement',
-    label: 'Approvisionnement',
-    icon: RiShoppingCartLine,
-    href: route('approvisionnement.index'),
+    items: [
+      {
+        key: 'dashboard',
+        label: 'Tableau de bord',
+        icon: RiDashboardLine,
+        href: route('dashboard'),
+      },
+      { key: 'tracking', label: 'Suivi commandes', icon: RiTruckLine, href: route('suivi.board') },
+    ],
   },
   {
-    key: 'ruptures',
-    label: 'Ruptures',
-    icon: RiAlertLine,
-    href: route('scheduler.shortage_tracker'),
+    label: 'Planification',
+    items: [
+      { key: 'load', label: 'Charge', icon: RiBarChartLine, href: route('load.index') },
+      {
+        key: 'approvisionnement',
+        label: 'Approvisionnement',
+        icon: RiShoppingCartLine,
+        href: route('approvisionnement.index'),
+      },
+    ],
   },
-  { key: 'tracking', label: 'Suivi commandes', icon: RiTruckLine, href: route('suivi.board') },
-  { key: 'receptions', label: 'Réceptions', icon: RiInboxLine, href: route('receptions.index') },
+  {
+    label: 'Ordonnancement',
+    items: [
+      {
+        key: 'programme',
+        label: 'Programme',
+        icon: RiCalendarCheckLine,
+        href: route('scheduler.programme'),
+      },
+      {
+        key: 'sequenceur',
+        label: 'Séquenceur',
+        icon: RiListOrdered,
+        href: route('sequenceur.index'),
+      },
+      {
+        key: 'ruptures',
+        label: 'Ruptures composants',
+        icon: RiAlertLine,
+        href: route('scheduler.shortage_tracker'),
+      },
+      {
+        key: 'controle-prod',
+        label: 'Contrôle prod',
+        icon: RiCheckboxCircleLine,
+        href: route('controle_prod.index'),
+      },
+    ],
+  },
+  {
+    label: 'Logistique',
+    items: [
+      {
+        key: 'receptions',
+        label: 'Réceptions',
+        icon: RiInboxLine,
+        href: route('receptions.index'),
+      },
+      {
+        key: 'conditionnements',
+        label: 'Conditionnements',
+        icon: RiBox3Line,
+        href: route('conditionnements.index'),
+      },
+    ],
+  },
+  {
+    label: 'Outils',
+    items: [
+      { key: 'promesse', label: 'Promesse', icon: RiRoadMapLine, href: route('promesse.show') },
+      { key: 'copilote', label: 'Copilote', icon: RiChatAiLine, href: route('agent.show') },
+      {
+        key: 'config',
+        label: 'Config',
+        icon: RiEqualizer3Line,
+        href: route('calendar_config.index'),
+      },
+    ],
+  },
 ]
 
 type Preset = '2sem' | 'mois' | 'moisprochain' | '3mois' | '6mois' | 'libre'

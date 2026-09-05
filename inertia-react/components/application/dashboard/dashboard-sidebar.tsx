@@ -168,6 +168,17 @@ export interface DashboardNavItem {
   badge?: string | number
 }
 
+/**
+ * Une section de navigation — un libellé sourd (caption) au-dessus de ses
+ * rangées, la même lecture que les menus déroulants du masthead
+ * (Ordonnancement, Planification, Logistique…). Sans label, la section
+ * démarre sans en-tête (première section du rail, liens nus).
+ */
+export interface DashboardNavGroup {
+  label?: string
+  items: DashboardNavItem[]
+}
+
 /** Kept as a name for callers that typed their `selected` prop; any key works. */
 export type DashboardNavKey = string
 
@@ -175,20 +186,29 @@ export type DashboardNavKey = string
 const COLLAPSE_KEY = 'dashboard.sidebar.collapsed'
 
 /** The Pro dashboard's navigation, the default set. */
-export const DASHBOARD_NAV: DashboardNavItem[] = [
-  { key: 'home', label: 'Home', icon: RiHomeLine, href: '/templates/dashboard', badge: 152 },
-  { key: 'marketing', label: 'Marketing', icon: RiMegaphoneLine, href: '/templates/marketing' },
-  { key: 'calendar', label: 'Calendar', icon: RiCalendarLine, href: '/templates/calendar' },
-  { key: 'finance', label: 'Finance', icon: RiBankLine, href: '/templates/finance' },
-  { key: 'medical', label: 'Medical Report', icon: RiAsterisk, href: '/templates/medical-profile' },
-  { key: 'ai-chat', label: 'AI Chat', icon: RiChatAiLine, href: '/templates/ai-chat' },
+export const DASHBOARD_NAV: DashboardNavGroup[] = [
   {
-    key: 'ai-image',
-    label: 'AI Image Generation',
-    icon: RiImageAiLine,
-    href: '/templates/ai-image-generation',
+    items: [
+      { key: 'home', label: 'Home', icon: RiHomeLine, href: '/templates/dashboard', badge: 152 },
+      { key: 'marketing', label: 'Marketing', icon: RiMegaphoneLine, href: '/templates/marketing' },
+      { key: 'calendar', label: 'Calendar', icon: RiCalendarLine, href: '/templates/calendar' },
+      { key: 'finance', label: 'Finance', icon: RiBankLine, href: '/templates/finance' },
+      {
+        key: 'medical',
+        label: 'Medical Report',
+        icon: RiAsterisk,
+        href: '/templates/medical-profile',
+      },
+      { key: 'ai-chat', label: 'AI Chat', icon: RiChatAiLine, href: '/templates/ai-chat' },
+      {
+        key: 'ai-image',
+        label: 'AI Image Generation',
+        icon: RiImageAiLine,
+        href: '/templates/ai-image-generation',
+      },
+      { key: 'profile', label: 'Profile', icon: RiUserSmileLine, href: '/templates/ai-profile' },
+    ],
   },
-  { key: 'profile', label: 'Profile', icon: RiUserSmileLine, href: '/templates/ai-profile' },
 ]
 
 /**
@@ -248,8 +268,8 @@ export function DashboardSidebar({
   showThemeToggle?: boolean
   /** Which nav item shows the selected (filled blue) state. */
   selected?: DashboardNavKey
-  /** Primary navigation rows. The Pro dashboard's set unless a screen brings its own. */
-  items?: DashboardNavItem[]
+  /** Primary navigation rows, grouped — the Pro dashboard's set unless a screen brings its own. */
+  items?: DashboardNavGroup[]
   /** Removes the floating panel treatment for a sidebar revealed beneath mobile content. */
   flat?: boolean
   className?: string
@@ -367,8 +387,17 @@ export function DashboardSidebar({
               collapsed column is exactly as wide as a 36px item, so padding
               here pushes every item 2px right and the rail's own clip shaves
               that much off its selected fill and hover state. */}
-          <nav className={cx('flex w-full flex-col gap-1', !collapsed && 'px-0.5')}>
-            <NavRows items={items} selected={selected} collapsed={collapsed} />
+          <nav className={cx('flex w-full flex-col gap-3', !collapsed && 'px-0.5')}>
+            {items.map((group, gi) => (
+              <div key={group.label ?? `g${gi}`} className="flex flex-col gap-1">
+                {group.label && !collapsed && (
+                  <span className="px-2 pt-1 text-caption-2-medium uppercase tracking-wide text-text-tertiary">
+                    {group.label}
+                  </span>
+                )}
+                <NavRows items={group.items} selected={selected} collapsed={collapsed} />
+              </div>
+            ))}
           </nav>
         </div>
       </div>
