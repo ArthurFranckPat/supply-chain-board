@@ -273,7 +273,8 @@ const toCalendarDate = (iso: string): CalendarDate | null => {
 }
 
 type SupplyFilter = 'TOUS' | 'ACHAT' | 'FABRICATION'
-/** Tri par défaut : valorisation du stock (enjeu financier d'abord). */
+/** Tri par défaut : total du cran décroissant — les lignes avec besoin
+ * remontent, le « qui ne manque pas » ne masque plus le signal actionnable. */
 type SortKey = 'valeur' | 'net' | 'article'
 
 const SUPPLY_LABEL: Record<SupplyFilter, string> = {
@@ -284,7 +285,7 @@ const SUPPLY_LABEL: Record<SupplyFilter, string> = {
 
 const SORT_LABEL: Record<SortKey, string> = {
   valeur: 'Valorisation',
-  net: 'Net décroissant',
+  net: 'Total décroissant',
   article: 'Article A→Z',
 }
 
@@ -321,7 +322,7 @@ export default function Approvisionnement() {
   // de la ligne (quantités exactes), l'écran garde le plan précédent pendant
   // le re-fetch (même doctrine que le reste de la page).
   const [ligne, setLigne] = useState<string | null>(null)
-  const [sort, setSort] = useState<SortKey>('valeur')
+  const [sort, setSort] = useState<SortKey>('net')
   const [selected, setSelected] = useState<string | null>(null)
   // Tri au clic sur un sous-en-tête de période (Ferme/Prév., décroissant) —
   // prioritaire sur le tri du menu tant qu'il désigne une période visible.
@@ -442,7 +443,7 @@ export default function Approvisionnement() {
   const filtersActive =
     supply !== 'ACHAT' ||
     manquesOnly ||
-    sort !== 'valeur' ||
+    sort !== 'net' ||
     ligne !== null ||
     !showEmptyPeriods ||
     sortPeriod !== null
@@ -453,7 +454,7 @@ export default function Approvisionnement() {
     setSupply('ACHAT')
     setManquesOnly(false)
     setLigne(null)
-    setSort('valeur')
+    setSort('net')
     setSortPeriod(null)
     setShowEmptyPeriods(true)
   }
@@ -819,6 +820,8 @@ export default function Approvisionnement() {
                     onSortPeriod={setSortPeriod}
                     selected={selected}
                     onSelect={setSelected}
+                    manquesOnly={manquesOnly}
+                    onToggleManques={() => setManquesOnly((v) => !v)}
                   />
                 </div>
               )
@@ -928,8 +931,21 @@ function ApproTable(props: {
   onSortPeriod: (s: { i: number; ferme: boolean } | null) => void
   selected: string | null
   onSelect: (article: string | null) => void
+  /** État + bascule du filtre « manques seuls » — portés par la chip du header. */
+  manquesOnly: boolean
+  onToggleManques: () => void
 }) {
-  const { buckets, visIdx, rows, cran, sortPeriod, onSortPeriod, selected } = props
+  const {
+    buckets,
+    visIdx,
+    rows,
+    cran,
+    sortPeriod,
+    onSortPeriod,
+    selected,
+    manquesOnly,
+    onToggleManques,
+  } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
 
@@ -1047,9 +1063,26 @@ function ApproTable(props: {
             {rows.length} composants
           </span>
           {manquesInView > 0 && (
-            <Chip variant="caption" color="rose" className="shrink-0">
-              {manquesInView} manques
-            </Chip>
+            // La chip est LE signal actionnable de la page : cliquable, elle
+            // bascule « manques seuls » au lieu de rester un compteur mort.
+            <button
+              type="button"
+              onClick={onToggleManques}
+              aria-pressed={manquesOnly}
+              title={
+                manquesOnly
+                  ? 'Retirer le filtre « manques seuls »'
+                  : 'N’afficher que les composants en manque'
+              }
+              className={cx(
+                'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring',
+                manquesOnly && 'ring-2 ring-status-rose-text/50'
+              )}
+            >
+              <Chip variant="caption" color="rose">
+                {manquesInView} manques
+              </Chip>
+            </button>
           )}
           <Badge color="neutral" className="hidden shrink-0 sm:inline-flex">
             {cran}
