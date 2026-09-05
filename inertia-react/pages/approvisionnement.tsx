@@ -244,8 +244,11 @@ function countPeriods(fromIso: string, toIso: string, gran: ApproGran): number |
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + 1
 }
 
-/** Séparateur décimal français : la virgule, pas le point (convention suivi). */
-const fr = (n: number): string => n.toString().replace('.', ',')
+/** Quantités en fr-FR : séparateurs de milliers, 2 décimales max — les
+ * quantités X3 peuvent être décimales (pot de graisse 23,01) mais un total
+ * ne doit jamais étaler un arteact de flottant (…,200000003) : Intl arrondit. */
+const frQuantite = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
+const fr = (n: number): string => frQuantite.format(n)
 
 /** Valorisation stock en euros — même formatter que la fiche article dashboard. */
 const fmtEuro = new Intl.NumberFormat('fr-FR', {
