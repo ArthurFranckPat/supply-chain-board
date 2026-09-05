@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
+import { useState, type ComponentType, type ReactNode } from 'react'
 import {
   RiAsterisk,
   RiBankLine,
@@ -10,7 +10,6 @@ import {
   RiHomeLine,
   RiImageAiLine,
   RiMegaphoneLine,
-  RiSearchLine,
   RiSettings4Line,
   RiSideBarFill,
   RiUserSmileLine,
@@ -18,8 +17,6 @@ import {
 import { SettingsModal } from '@r/components/application/settings/settings-modal'
 import { ThemeToggle } from '@r/components/application/theme/theme-toggle'
 import { Badge } from '@r/components/base/badges/badge'
-import { CloseButton } from '@r/components/base/buttons/close-button'
-import { Kbd } from '@r/components/base/kbd/kbd'
 import { DataStatus } from '@r/components/data-status'
 import { cx } from '@r/utils/cx'
 import { DashboardUserMenu } from './dashboard-user-menu'
@@ -170,29 +167,19 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
 
 /**
  * The primary rows. A component of its own so the closures over `collapsed`
- * and the search query live here: built inline in the sidebar, the compiler
- * could not tell they leave `mobile` untouched and dropped the sidebar's
- * manual memoization.
+ * live here: built inline in the sidebar, the compiler could not tell they
+ * leave `mobile` untouched and dropped the sidebar's manual memoization.
  */
 function NavRows({
   items,
-  query,
   selected,
   collapsed,
-  secondaryMatch,
 }: {
   items: DashboardNavItem[]
-  query: string
   selected: string
   collapsed: boolean
-  /** Whether Support or Settings matches, so "No results" only shows when nothing does. */
-  secondaryMatch: boolean
 }) {
-  const shown = items.filter((item) => item.label.toLocaleLowerCase().includes(query))
-  if (shown.length === 0 && !secondaryMatch && !collapsed) {
-    return <p className="px-2 py-3 text-body-regular text-text-tertiary">No results</p>
-  }
-  return shown.map((item) => {
+  return items.map((item) => {
     const isSelected = selected === item.key
     return (
       <NavItem
@@ -244,60 +231,7 @@ export function DashboardSidebar({
   const [collapsedState, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [suppressUserHover, setSuppressUserHover] = useState(false)
-  const [searchActive, setSearchActive] = useState(false)
-  const [query, setQuery] = useState('')
-  const searchTriggerRef = useRef<HTMLButtonElement>(null)
-  const searchFieldRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const collapsed = mobile ? false : collapsedState
-  const normalizedQuery = query.trim().toLocaleLowerCase()
-  const matches = (label: string) => label.toLocaleLowerCase().includes(normalizedQuery)
-  const secondaryLabels = ['Paramètres']
-  const secondaryMatch = secondaryLabels.some(matches)
-
-  const activateSearch = useCallback(() => {
-    if (!mobile) setCollapsed(false)
-    setSearchActive(true)
-  }, [mobile])
-
-  const deactivateSearch = useCallback((restoreFocus: boolean) => {
-    setQuery('')
-    setSearchActive(false)
-    if (restoreFocus) {
-      window.requestAnimationFrame(() => searchTriggerRef.current?.focus())
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!searchActive) return
-    const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus())
-    return () => window.cancelAnimationFrame(frame)
-  }, [searchActive])
-
-  useEffect(() => {
-    if (!searchActive) return
-
-    const onOutsideClick = (event: MouseEvent) => {
-      const target = event.target
-      if (target instanceof Node && searchFieldRef.current?.contains(target)) return
-      deactivateSearch(false)
-    }
-
-    document.addEventListener('click', onOutsideClick)
-    return () => document.removeEventListener('click', onOutsideClick)
-  }, [deactivateSearch, searchActive])
-
-  useEffect(() => {
-    const onShortcut = (event: KeyboardEvent) => {
-      if (event.key.toLocaleLowerCase() === 'l' && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault()
-        activateSearch()
-      }
-    }
-
-    window.addEventListener('keydown', onShortcut)
-    return () => window.removeEventListener('keydown', onShortcut)
-  }, [activateSearch])
 
   return (
     <aside
@@ -337,9 +271,7 @@ export function DashboardSidebar({
           <div
             className={cx(
               '-m-2 min-w-0 overflow-hidden p-2 transition-[max-width,opacity,transform] duration-300 ease-in-out',
-              mobile && flat && searchActive
-                ? 'max-w-0 scale-95 opacity-0'
-                : 'max-w-[206px] scale-100 opacity-100'
+              'max-w-[206px] scale-100 opacity-100'
             )}
           >
             <DashboardUserMenu
@@ -353,58 +285,7 @@ export function DashboardSidebar({
               }
             />
           </div>
-          {mobile && flat ? (
-            <div
-              ref={searchFieldRef}
-              className={cx(
-                'flex h-9 items-center overflow-hidden rounded-full bg-background-tertiary-default transition-[width,box-shadow] duration-300 ease-in-out',
-                searchActive
-                  ? 'w-full gap-2 pr-2.5 pl-2 ring-2 ring-inset ring-border-button-active'
-                  : 'w-9 gap-0 px-2'
-              )}
-            >
-              <button
-                ref={searchTriggerRef}
-                type="button"
-                aria-label="Search"
-                onClick={activateSearch}
-                className="flex size-5 shrink-0 cursor-pointer items-center justify-center text-foreground-icon-secondary"
-              >
-                <RiSearchLine className="size-5" aria-hidden />
-              </button>
-              <input
-                ref={searchInputRef}
-                type="search"
-                aria-label="Filter template navigation"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    event.preventDefault()
-                    deactivateSearch(true)
-                  }
-                }}
-                placeholder="Search..."
-                tabIndex={searchActive ? 0 : -1}
-                className={cx(
-                  'min-w-0 bg-transparent text-body-medium tracking-[-0.015em] text-text-primary outline-none placeholder:text-text-tertiary',
-                  'transition-[width,opacity] duration-200 ease-in-out',
-                  searchActive
-                    ? 'w-full flex-1 opacity-100 delay-100'
-                    : 'pointer-events-none w-0 flex-none opacity-0 delay-0'
-                )}
-              />
-              <CloseButton
-                size="2xs"
-                aria-label="Clear navigation search"
-                onClick={() => deactivateSearch(true)}
-                className={cx(
-                  'shrink-0 bg-background-tertiary-hover transition-opacity duration-150',
-                  searchActive ? 'opacity-100 delay-150' : 'pointer-events-none opacity-0 delay-0'
-                )}
-              />
-            </div>
-          ) : mobile ? (
+          {mobile ? (
             <button
               type="button"
               aria-label="Close sidebar"
@@ -420,7 +301,6 @@ export function DashboardSidebar({
               aria-expanded={!collapsed}
               onClick={() => {
                 const isExpanding = collapsedState
-                if (!isExpanding) deactivateSearch(false)
                 setCollapsed(!collapsedState)
                 setSuppressUserHover(isExpanding)
               }}
@@ -441,119 +321,44 @@ export function DashboardSidebar({
         </div>
 
         <div className="flex w-full flex-col gap-3">
-          {/* Quick search */}
-          {!flat &&
-            (searchActive && !collapsed ? (
-              <div
-                ref={searchFieldRef}
-                className="flex w-full items-center gap-2 rounded-full bg-background-tertiary-default py-2 pr-2.5 pl-2 ring-2 ring-inset ring-border-button-active transition-[background-color,box-shadow] duration-[var(--input-transition-ms)] ease"
-              >
-                <RiSearchLine
-                  className="size-5 shrink-0 text-foreground-icon-secondary"
-                  aria-hidden
-                />
-                <input
-                  ref={searchInputRef}
-                  type="search"
-                  aria-label="Filter template navigation"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') {
-                      event.preventDefault()
-                      deactivateSearch(true)
-                    }
-                  }}
-                  placeholder="Search navigation…"
-                  className="min-w-0 flex-1 bg-transparent text-body-medium text-text-primary outline-none placeholder:text-text-tertiary"
-                />
-                <CloseButton
-                  size="2xs"
-                  aria-label="Clear navigation search"
-                  onClick={() => deactivateSearch(true)}
-                  className="bg-background-tertiary-hover"
-                />
-              </div>
-            ) : (
-              <button
-                ref={searchTriggerRef}
-                type="button"
-                aria-label="Recherche rapide"
-                title={collapsed ? 'Recherche rapide' : undefined}
-                onClick={activateSearch}
-                className={cx(
-                  'flex cursor-pointer items-center gap-2 p-2 hover:bg-background-tertiary-hover/55',
-                  'transition-[width,border-radius,background-color] duration-300 ease-in-out',
-                  collapsed
-                    ? 'w-9 rounded-full bg-background-tertiary-default'
-                    : 'w-full rounded-full bg-background-tertiary-default'
-                )}
-              >
-                <span className={cx('flex min-w-0 items-center gap-2', !collapsed && 'flex-1')}>
-                  <RiSearchLine
-                    className="size-5 shrink-0 text-foreground-icon-secondary"
-                    aria-hidden
-                  />
-                  <Collapsible collapsed={collapsed}>
-                    <span className="text-body-medium whitespace-nowrap text-text-secondary">
-                      Recherche rapide
-                    </span>
-                  </Collapsible>
-                </span>
-                <Collapsible collapsed={collapsed}>
-                  <Kbd>⌘L</Kbd>
-                </Collapsible>
-              </button>
-            ))}
-
           {/* Primary nav. The 2px inset is for the expanded rail only: the
               collapsed column is exactly as wide as a 36px item, so padding
               here pushes every item 2px right and the rail's own clip shaves
               that much off its selected fill and hover state. */}
           <nav className={cx('flex w-full flex-col gap-1', !collapsed && 'px-0.5')}>
-            <NavRows
-              items={items}
-              query={normalizedQuery}
-              selected={selected}
-              collapsed={collapsed}
-              secondaryMatch={secondaryMatch}
-            />
+            <NavRows items={items} selected={selected} collapsed={collapsed} />
           </nav>
         </div>
       </div>
 
-      <div className="flex w-full shrink-0 flex-col gap-3">
-        {showThemeToggle &&
-          (collapsed ? (
-            <ThemeToggle collapsed />
-          ) : (
-            <ThemeToggle
-              appearance="sidebar-segmented"
-              className={flat ? '!bg-background-secondary-default' : undefined}
-            />
-          ))}
-        {/* Secondary nav — Support retiré à la demande, Board team supprimé */}
-        <nav className="flex w-full flex-col gap-1">
-          {matches('Paramètres') && (
+      <div className="flex w-full shrink-0 flex-col gap-1">
+        {/* Paramètres + bascule de thème sur une MÊME rangée : le toggle n'est
+            plus une pilule orpheline flottant au milieu du rail. Icône seule
+            (variante `collapsed` du composant) : elle montre le mode d'arrivée
+            (soleil en dark, lune en light) et reste au service du clavier. */}
+        <div
+          className={cx(
+            'w-full items-center',
+            collapsed ? 'flex flex-col gap-1' : 'flex flex-row justify-between gap-1'
+          )}
+        >
+          <div className={collapsed ? 'w-full' : 'min-w-0 flex-1'}>
             <NavItem
               icon={RiSettings4Line}
               label="Paramètres"
               collapsed={collapsed}
               onClick={() => setSettingsOpen(true)}
             />
-          )}
-        </nav>
-
-        {/* DataStatus intégré après retrait du topbar — remplace Board team.
-            Pill ne doit pas déborder du rail 260px : le cluster `màj …` passe
-            en wrap et tronque proprement, pas en overflow hors `rounded-xl`. */}
-        {!collapsed && (
-          <div className="overflow-hidden rounded-xl border border-border-button-default bg-background-primary-default px-2.5 py-2">
-            <div className="min-w-0 w-full overflow-hidden [&>div]:!flex-wrap [&>div]:!gap-y-1 [&_span]:!whitespace-normal">
-              <DataStatus />
-            </div>
           </div>
-        )}
+          {showThemeToggle && <ThemeToggle collapsed className="shrink-0" />}
+        </div>
+
+        {/* DataStatus intégré après retrait du topbar — variante compacte :
+            pastille de fraîcheur, « maj HH:MM · il y a n min » et ⟳. La durée
+            de chargement et le récap de diff restent au masthead (tooltip
+            inchangé au survol). Aucune boîte : dans un rail, une boîte se lit
+            comme un champ de saisie. */}
+        {!collapsed && <DataStatus variant="compact" className="px-2 pb-1" />}
       </div>
 
       <SettingsModal

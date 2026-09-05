@@ -141,7 +141,15 @@ const fmtDiff = (d: { changed: number; entered: number; exited: number }) =>
     .filter(Boolean)
     .join(' · ')
 
-export function DataStatus() {
+export function DataStatus({
+  variant = 'default',
+  className,
+}: {
+  /** `compact` : pied de sidebar — pastille, fraîcheur et ⟳ seulement ;
+   *  durée de chargement et récap de diff restent au masthead. */
+  variant?: 'default' | 'compact'
+  className?: string
+}) {
   const { active, t0, ms, loadedAt, dataAgeMs, dataAgePresumed, error, bump, diffBySource } =
     useDataStatusStore()
   const loading = active > 0
@@ -201,7 +209,10 @@ export function DataStatus() {
 
   return (
     <div
-      className="flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground"
+      className={cn(
+        'flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground',
+        className
+      )}
       title={tooltip}
       data-data-status
     >
@@ -230,8 +241,10 @@ export function DataStatus() {
           </span>
         )}
         {/* Durée du dernier chargement — la contrepartie figée du chrono live
-            affiché pendant le chargement ; la date complète reste au survol. */}
-        {!loading && ms !== null && (
+            affiché pendant le chargement ; la date complète reste au survol.
+            Variante compacte (sidebar) : c'est de la télémétrie de dev, elle
+            reste dans le tooltip. */}
+        {!loading && ms !== null && variant === 'default' && (
           <span className="whitespace-nowrap"> · chargé en {fmtMs(ms)}</span>
         )}
       </span>
@@ -240,7 +253,7 @@ export function DataStatus() {
           flash des cellules ne peut par construction pas montrer. Chip ambrée :
           c'est un événement, pas du régime permanent. Disparaît au
           rechargement suivant (bump) ou au changement de page. */}
-      {!loading && diff && (
+      {!loading && diff && variant === 'default' && (
         <span className="whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--flash-change)_14%,transparent)] px-2 py-[2px] font-semibold text-[var(--flash-change)]">
           {fmtDiff(diff)}
         </span>
