@@ -257,6 +257,14 @@ const fmtEuro = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 0,
 })
 
+/** Date de calcul du plan affiché — tampon du header de grille (`computedAt`). */
+const fmtPlanDate = new Intl.DateTimeFormat('fr-FR', {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
 const fold = (s: string): string =>
   s
     .normalize('NFD')
@@ -810,7 +818,10 @@ export default function Approvisionnement() {
               />
             ) : (
               data && (
-                <div className="min-h-0 flex-1 overflow-hidden p-5">
+                // Plan périmé (hors plafond) : la grille reste lisible et
+                // copiable (doctrine « dernier plan affiché ») mais visuellement
+                // retirée, pour ne pas confondre plan affiché et sélection.
+                <div className={cx('min-h-0 flex-1 overflow-hidden p-5', overCap && 'opacity-70')}>
                   <ApproTable
                     buckets={data.buckets}
                     visIdx={visIdx}
@@ -822,6 +833,8 @@ export default function Approvisionnement() {
                     onSelect={setSelected}
                     manquesOnly={manquesOnly}
                     onToggleManques={() => setManquesOnly((v) => !v)}
+                    computedAt={data.computedAt ?? null}
+                    stale={overCap}
                   />
                 </div>
               )
@@ -934,6 +947,10 @@ function ApproTable(props: {
   /** État + bascule du filtre « manques seuls » — portés par la chip du header. */
   manquesOnly: boolean
   onToggleManques: () => void
+  /** Horodatage du plan affiché (payload `computedAt`) ; null = inconnu. */
+  computedAt: number | null
+  /** Plan affiché ≠ sélection courante (recalcul suspendu, hors plafond). */
+  stale: boolean
 }) {
   const {
     buckets,
@@ -945,6 +962,8 @@ function ApproTable(props: {
     selected,
     manquesOnly,
     onToggleManques,
+    computedAt,
+    stale,
   } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -1087,6 +1106,21 @@ function ApproTable(props: {
           <Badge color="neutral" className="hidden shrink-0 sm:inline-flex">
             {cran}
           </Badge>
+          {computedAt != null && (
+            <span
+              className={cx(
+                'whitespace-nowrap text-caption-2-medium',
+                stale ? 'text-status-yellow-text' : 'text-text-tertiary'
+              )}
+              title={
+                stale
+                  ? 'Plan calculé avant la sélection courante (recalcul suspendu, plafond 14 périodes) — ne pas copier ces quantités pour la nouvelle sélection.'
+                  : 'Date de calcul du plan affiché'
+              }
+            >
+              Plan du {fmtPlanDate.format(new Date(computedAt))}
+            </span>
+          )}
         </div>
         <div className="hidden items-center gap-3 sm:flex">
           <span className="text-caption-2-medium text-text-tertiary">
