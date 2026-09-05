@@ -252,7 +252,7 @@ export function DashboardSidebar({
   const collapsed = mobile ? false : collapsedState
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const matches = (label: string) => label.toLocaleLowerCase().includes(normalizedQuery)
-  const secondaryLabels = ['Settings']
+  const secondaryLabels = ['Paramètres']
   const secondaryMatch = secondaryLabels.some(matches)
 
   const activateSearch = useCallback(() => {
@@ -478,8 +478,8 @@ export function DashboardSidebar({
               <button
                 ref={searchTriggerRef}
                 type="button"
-                aria-label="Quick Search"
-                title={collapsed ? 'Quick Search' : undefined}
+                aria-label="Recherche rapide"
+                title={collapsed ? 'Recherche rapide' : undefined}
                 onClick={activateSearch}
                 className={cx(
                   'flex cursor-pointer items-center gap-2 p-2 hover:bg-background-tertiary-hover/55',
@@ -496,7 +496,7 @@ export function DashboardSidebar({
                   />
                   <Collapsible collapsed={collapsed}>
                     <span className="text-body-medium whitespace-nowrap text-text-secondary">
-                      Quick Search
+                      Recherche rapide
                     </span>
                   </Collapsible>
                 </span>
@@ -534,10 +534,10 @@ export function DashboardSidebar({
           ))}
         {/* Secondary nav — Support retiré à la demande, Board team supprimé */}
         <nav className="flex w-full flex-col gap-1">
-          {matches('Settings') && (
+          {matches('Paramètres') && (
             <NavItem
               icon={RiSettings4Line}
-              label="Settings"
+              label="Paramètres"
               collapsed={collapsed}
               onClick={() => setSettingsOpen(true)}
             />
