@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ComponentType, type ReactNode } from 'react'
+import { Link } from '@inertiajs/react'
 import {
   RiAsterisk,
   RiBankLine,
@@ -89,29 +90,16 @@ function NavItem({
   /** Action rows (e.g. Settings → modal) intercept the navigation. */
   onClick?: () => void
 }) {
-  return (
-    <a
-      href={href}
-      onClick={
-        onClick
-          ? (event) => {
-              event.preventDefault()
-              onClick()
-            }
-          : undefined
-      }
-      aria-current={isSelected ? 'page' : undefined}
-      aria-label={label}
-      title={collapsed ? label : undefined}
-      className={cx(
-        'flex items-center justify-between overflow-hidden rounded-2lg p-2',
-        'transition-[width,background-color] duration-300 ease-in-out',
-        collapsed ? 'w-9' : 'w-full',
-        isSelected
-          ? 'bg-linear-to-b from-accent-500 to-accent-600 shadow-nav-selected'
-          : 'hover:bg-background-secondary-hover'
-      )}
-    >
+  const className = cx(
+    'flex items-center justify-between overflow-hidden rounded-2lg p-2',
+    'transition-[width,background-color] duration-300 ease-in-out',
+    collapsed ? 'w-9' : 'w-full',
+    isSelected
+      ? 'bg-linear-to-b from-accent-500 to-accent-600 shadow-nav-selected'
+      : 'hover:bg-background-secondary-hover'
+  )
+  const content = (
+    <>
       <span className="flex min-w-0 items-center gap-2">
         <Icon
           className={cx(
@@ -132,7 +120,42 @@ function NavItem({
         </Collapsible>
       </span>
       {badge && <Collapsible collapsed={collapsed}>{badge}</Collapsible>}
-    </a>
+    </>
+  )
+  // Liens internes : navigation Inertia (pas de rechargement complet — un
+  // <a> natif remontait toute l'appli à chaque clic et repartait rail déplié).
+  // Les rangées d'action (Paramètres → modale) restent des <a> interceptés.
+  if (onClick || href === '#') {
+    return (
+      <a
+        href={href}
+        onClick={
+          onClick
+            ? (event) => {
+                event.preventDefault()
+                onClick()
+              }
+            : undefined
+        }
+        aria-current={isSelected ? 'page' : undefined}
+        aria-label={label}
+        title={collapsed ? label : undefined}
+        className={className}
+      >
+        {content}
+      </a>
+    )
+  }
+  return (
+    <Link
+      href={href}
+      aria-current={isSelected ? 'page' : undefined}
+      aria-label={label}
+      title={collapsed ? label : undefined}
+      className={className}
+    >
+      {content}
+    </Link>
   )
 }
 
@@ -147,6 +170,9 @@ export interface DashboardNavItem {
 
 /** Kept as a name for callers that typed their `selected` prop; any key works. */
 export type DashboardNavKey = string
+
+/** Clé de persistance du repli du rail (cf. `collapsedState`). */
+const COLLAPSE_KEY = 'dashboard.sidebar.collapsed'
 
 /** The Pro dashboard's navigation, the default set. */
 export const DASHBOARD_NAV: DashboardNavItem[] = [
@@ -228,7 +254,16 @@ export function DashboardSidebar({
   flat?: boolean
   className?: string
 } = {}) {
-  const [collapsedState, setCollapsed] = useState(false)
+  // Préférence de repli PERSISTÉE — le layout étant remonté à chaque
+  // navigation (pages en JSX inline, pas de layout persistant Inertia) comme
+  // au chargement direct, l'état React seul repartait toujours déplié.
+  const [collapsedState, setCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(COLLAPSE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [suppressUserHover, setSuppressUserHover] = useState(false)
   const collapsed = mobile ? false : collapsedState
@@ -301,8 +336,15 @@ export function DashboardSidebar({
               aria-expanded={!collapsed}
               onClick={() => {
                 const isExpanding = collapsedState
-                setCollapsed(!collapsedState)
+                const next = !collapsedState
+                setCollapsed(next)
                 setSuppressUserHover(isExpanding)
+                try {
+                  window.localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
+                } catch {
+                  // Stockage indisponible (navigation privée) : repli silencieux,
+                  // la préférence ne survivra juste pas à la navigation.
+                }
               }}
               className={cx(
                 'cursor-pointer text-foreground-icon-secondary transition-transform duration-300 ease-in-out',
