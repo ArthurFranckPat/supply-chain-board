@@ -5,118 +5,210 @@
  * TOUS les utilitaires Tailwind. Donc tout ce qui touche DIRECTEMENT aux
  * cellules/lignes (disposition, fonds, filets, sticky, états) vit ici, avec
  * des sélecteurs `table.` qui battent `.bui-table` quelle que soit l'ordre
- * des feuilles. Le CONTENU des cellules (spans : taille, couleur, Padding
- * interne, teinte heat) reste en utilitaires — aucune règle `.bui-table` ne
- * vise les spans, ils s'appliquent normalement.
+ * des feuilles. Le CONTENU des cellules (taille, couleur du texte) reste en
+ * utilitaires sur les spans internes — aucune règle `.bui-table` ne les vise.
  *
- * Les 3 tables (bandeau périodes / corps / pied) partagent les mêmes
- * largeurs (`table-fixed`, `w-max`, mêmes `w-[…]`) pour rester alignées.
+ * Les trois tables (bandeau des périodes / corps / pied) partagent la même
+ * géométrie de colonnes, définie une seule fois en TS (`COL_W`, `LEAD_KEYS`,
+ * `ROW_H` dans `pages/approvisionnement.tsx`) : les largeurs arrivent ici en
+ * `style` inline (`<col>` pour le bandeau et le pied, `<th>` pour le corps —
+ * react-aria n'accepte pas de `<colgroup>` dans sa collection). Rien ici ne
+ * doit redéclarer une largeur : ce serait une deuxième source de vérité, et
+ * c'est exactement ce qui désalignait les trois tables.
+ *
+ * ── border-collapse: separate ──────────────────────────────────────────────
+ * Non négociable ici. En `collapse`, les filets appartiennent à la TABLE et
+ * pas aux cellules : ils ne suivent ni les colonnes figées ni l'en-tête
+ * collant, qui se retrouvent bordés de traits fantômes au défilement. En
+ * `separate` (avec `border-spacing: 0`), chaque cellule peint ses propres
+ * filets et les emporte avec elle. Corollaires assumés : les filets se
+ * portent sur les `td`/`th` (jamais sur `tr`, ignoré en `separate`), et l'on
+ * n'utilise QUE `border-left` + `border-bottom` pour ne pas les doubler.
  */
 
-/* ── Corps ─────────────────────────────────────────────────────────── */
-table.appro-grid {
+/* ── Ossature commune aux trois tables ──────────────────────────────────── */
+table.appro-grid,
+table.appro-strip,
+table.appro-foot {
   table-layout: fixed;
-  width: max-content;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  /* La largeur totale est imposée en `style` inline (somme de COL_W) : aucune
+   * des trois ne la déduit de son contenu, sinon elles divergent. */
 }
 
-table.appro-grid > thead {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-
-table.appro-grid > thead > tr > th {
-  padding-block: 6px;
-  text-align: left;
-  border-bottom: 1px solid var(--color-separator-border-strong);
-}
-
-table.appro-grid th.c {
-  text-align: center;
-}
-
-table.appro-grid > tbody > tr > td {
-  padding-block: 4px;
-}
-
-/* Cellules de périodes : Padding porté par le span interne (remplissage heat). */
-table.appro-grid > tbody > tr > td.cell-pad0 {
-  padding: 0;
-}
-
-table.appro-grid > tbody > tr {
-  border-bottom: 1px solid var(--color-separator-border-strong);
-}
-
-table.appro-grid > tbody > tr.alt {
-  background-color: color-mix(in srgb, var(--color-background-tertiary-default) 40%, transparent);
-}
-
-.dark table.appro-grid > tbody > tr.alt {
-  background-color: color-mix(in srgb, var(--color-white) 4%, transparent);
-}
-
-table.appro-grid > tbody > tr:hover {
-  background-color: var(--color-background-secondary-hover);
-}
-
-.dark table.appro-grid > tbody > tr:hover {
-  background-color: var(--color-background-tertiary-hover);
-}
-
-table.appro-grid > tbody > tr.sel {
-  background-color: var(--color-background-secondary-hover);
-  box-shadow: inset 0 0 0 2px var(--color-border-focus-ring);
-}
-
-.dark table.appro-grid > tbody > tr.sel {
-  background-color: var(--color-background-tertiary-hover);
-}
-
-/* Filets verticaux (token strong : calibré light + dark). */
-table.appro-grid th + th,
-table.appro-grid td + td {
+/* Filet de début de groupe de période — porté par la colonne « Ferme » et par
+ * l'en-tête de groupe (classe `grp`), dans les trois tables. */
+table.appro-grid th.grp,
+table.appro-grid td.grp,
+table.appro-strip th.grp,
+table.appro-foot td.grp {
   border-left: 1px solid var(--color-separator-border-strong);
 }
 
-/* Survol en croix (état React `hoverCol`). Translucide OK hors sticky : rien
- * ne défile sous ces cellules. */
+/* Alignements (classes, pas utilitaires : `.bui-table td` gagnerait). */
+table.appro-grid th.c,
+table.appro-strip th.grp {
+  text-align: center;
+}
+
+table.appro-grid th.r,
+table.appro-grid td.r,
+table.appro-foot td.r {
+  text-align: right;
+}
+
+/* ── Bandeau des périodes et pied de totaux ─────────────────────────────── */
+/* Ni l'un ni l'autre n'est un `.bui-table` : leur densité n'est héritée de
+ * rien, elle se pose ici — et elle doit rester celle du corps. */
+table.appro-strip th,
+table.appro-foot td {
+  padding: 6px 12px;
+  background-color: var(--color-background-secondary-default);
+}
+
+/* ── Corps ──────────────────────────────────────────────────────────────── */
+
+/* En-tête collant : sur les `th`, pas sur le `thead` — un row-group collant
+ * n'est pas fiable, et les deux colonnes figées ont besoin de cumuler
+ * `top` et `left` sur la même cellule. */
+table.appro-grid > thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: 6px 12px;
+  text-align: left;
+  background-color: var(--color-background-secondary-default);
+  border-bottom: 1px solid var(--color-separator-border-strong);
+}
+
+table.appro-grid > thead > tr > th.stick {
+  z-index: 6;
+}
+
+/* Pas régulier de la grille (`ROW_H` côté TS). `nowrap` + `overflow: hidden`
+ * garantissent qu'aucune donnée ne fait déborder une ligne sur deux hauteurs :
+ * c'est ce qui rend les colonnes de périodes lisibles en balayage vertical. */
+table.appro-grid > tbody > tr {
+  height: var(--appro-row-h, 28px);
+}
+
+table.appro-grid > tbody > tr > td {
+  padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--color-separator-border-strong);
+}
+
+/* Lignes-cales de la fenêtre virtuelle : hors densité, hors filets, hors
+ * hauteur imposée — leur seule dimension est celle que leur donne le JS. */
+table.appro-grid > tbody > tr.pad {
+  height: auto;
+}
+
+table.appro-grid > tbody > tr.pad > td {
+  padding: 0;
+  border: 0;
+}
+
+/* Cellules de période : le fond de chaleur doit remplir la ligne entière,
+ * donc c'est le span qui porte le padding et toute la hauteur utile. */
+table.appro-grid > tbody > tr > td.heat {
+  padding: 0;
+}
+
+table.appro-grid > tbody > tr > td.heat > span {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: calc(var(--appro-row-h, 28px) - 1px);
+  padding: 0 12px;
+}
+
+/* ── États de ligne ─────────────────────────────────────────────────────── */
+
+/* Zébrage : sur les `td`, comme les filets — un fond posé sur `tr` ne suit pas
+ * les cellules figées, qui doivent le recomposer à l'identique (plus bas). */
+table.appro-grid > tbody > tr.alt > td {
+  background-color: color-mix(in srgb, var(--color-background-tertiary-default) 40%, transparent);
+}
+
+.dark table.appro-grid > tbody > tr.alt > td {
+  background-color: color-mix(in srgb, var(--color-white) 4%, transparent);
+}
+
+table.appro-grid > tbody > tr:hover > td {
+  background-color: var(--color-background-secondary-hover);
+}
+
+.dark table.appro-grid > tbody > tr:hover > td {
+  background-color: var(--color-background-tertiary-hover);
+}
+
+/* Sélection : liseré haut + bas en `box-shadow` inset, pas en `border` — une
+ * bordure ajouterait 2 px à la ligne et casserait la hauteur constante. */
+table.appro-grid > tbody > tr.sel > td {
+  background-color: var(--color-background-secondary-hover);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-focus-ring),
+    inset 0 -1px 0 var(--color-border-focus-ring);
+}
+
+.dark table.appro-grid > tbody > tr.sel > td {
+  background-color: var(--color-background-tertiary-hover);
+}
+
+table.appro-grid > tbody > tr[data-focus-visible] > td {
+  box-shadow:
+    inset 0 1px 0 var(--color-border-focus-ring),
+    inset 0 -1px 0 var(--color-border-focus-ring);
+}
+
+/* Survol en croix. Translucide hors colonnes figées : rien ne défile dessous. */
 table.appro-grid th.wash,
-table.appro-grid td.wash {
+table.appro-grid td.wash,
+table.appro-strip th.wash,
+table.appro-foot td.wash {
   background-color: color-mix(in srgb, var(--color-background-secondary-default) 70%, transparent);
 }
 
-/* ── Colonnes figées (commun corps + bandeau + pied) ────────────────── */
-.stick {
+/* ── Colonnes figées (corps + bandeau + pied) ───────────────────────────── */
+/* Sélecteurs qualifiés par la table : `.stick` / `.sl-*` sont des noms trop
+ * communs pour vivre en global sur toute l'application. */
+table.appro-grid th.stick,
+table.appro-grid td.stick,
+table.appro-strip th.stick,
+table.appro-foot td.stick {
   position: sticky;
   z-index: 2;
 }
 
-th.stick {
-  z-index: 3;
-}
-
-.sl0 {
+table.appro-grid .sl-article,
+table.appro-strip .sl-article,
+table.appro-foot .sl-article {
   left: 0;
 }
 
-.sl110 {
-  left: 110px;
+/* Décalage = COL_W.article, injecté par le composant (`--appro-stick-desc`) :
+ * la largeur d'une colonne ne se recopie pas dans la feuille de style. */
+table.appro-grid .sl-description {
+  left: var(--appro-stick-desc, 132px);
 }
 
-table.appro-grid th.stick {
-  background-color: var(--color-background-secondary-default);
-}
-
+/* Fonds OPAQUES obligatoires : le contenu qui défile dessous transparaîtrait
+ * à travers un fond translucide. Chaque état de ligne est donc recomposé en
+ * couleur solide, équivalente au mélange qu'il produit ailleurs. */
 table.appro-grid td.stick {
   background-color: var(--color-background-primary-default);
 }
 
-/* Fonds OPAQUES obligatoires ici : le contenu défilant peint en dessous
- * transparaîtrait à travers un fond translucide. Composites solides,
- * équivalents aux états du reste de la ligne (vars résolues par thème). */
-table.appro-grid tr.alt td.stick {
+table.appro-strip th.stick,
+table.appro-foot td.stick {
+  background-color: var(--color-background-secondary-default);
+}
+
+table.appro-grid > tbody > tr.alt > td.stick {
   background-color: color-mix(
     in srgb,
     var(--color-background-tertiary-default) 40%,
@@ -124,7 +216,7 @@ table.appro-grid tr.alt td.stick {
   );
 }
 
-.dark table.appro-grid tr.alt td.stick {
+.dark table.appro-grid > tbody > tr.alt > td.stick {
   background-color: color-mix(
     in srgb,
     var(--color-white) 4%,
@@ -132,20 +224,19 @@ table.appro-grid tr.alt td.stick {
   );
 }
 
-table.appro-grid tr:hover td.stick {
+table.appro-grid > tbody > tr:hover > td.stick {
   background-color: var(--color-background-secondary-hover);
 }
 
-.dark table.appro-grid tr:hover td.stick {
+.dark table.appro-grid > tbody > tr:hover > td.stick {
   background-color: var(--color-background-tertiary-hover);
 }
 
-table.appro-grid tr.sel td.stick {
+table.appro-grid > tbody > tr.sel > td.stick {
   background-color: var(--color-background-secondary-hover);
-  box-shadow: inset 0 0 0 2px var(--color-border-focus-ring);
 }
 
-.dark table.appro-grid tr.sel td.stick {
+.dark table.appro-grid > tbody > tr.sel > td.stick {
   background-color: var(--color-background-tertiary-hover);
 }
 
@@ -155,4 +246,13 @@ table.appro-grid td.stick.wash {
     var(--color-background-secondary-default) 70%,
     var(--color-background-primary-default)
   );
+}
+
+/* Séparation visuelle du bloc figé quand le corps a défilé : un filet plein
+ * plutôt qu'une ombre — la grille est déjà dense, une ombre y ferait du bruit. */
+table.appro-grid th.sl-description,
+table.appro-grid td.sl-description,
+table.appro-strip th.sl-article,
+table.appro-foot td.sl-article {
+  border-right: 1px solid var(--color-separator-border-strong);
 }

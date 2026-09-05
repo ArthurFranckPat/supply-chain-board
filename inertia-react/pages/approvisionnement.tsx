@@ -16,14 +16,12 @@
  * l'échelle typographique composite (`text-body-medium`, `text-caption-1-*`)
  * — jamais de classe de palette brute.
  *
- * Deux exceptions assumées, faute d'équivalent BoardUI :
- *  - la GRILLE reste le `DataTable` maison (virtualisation @tanstack, en-tête
- *    collant, colonnes de périodes dynamiques). Le `Table` de BoardUI est un
- *    collection component react-aria à lignes de 48/64 px, non virtualisé :
- *    l'adopter coûterait la tenue en charge de la page. Il est habillé en
- *    tokens BoardUI depuis ici, via ses props de classes ;
- *  - le drawer reste le `Sheet` du projet (BoardUI n'expose pas de tiroir),
- *    son contenu étant lui aussi retokenisé.
+ * La GRILLE elle-même est passée sur le `Table` BoardUI (primitives
+ * react-aria) : voir `ApproTable` plus bas pour la géométrie des colonnes,
+ * partagée par les trois tables, et la virtualisation qui la rend tenable à
+ * 1118 composants. Une seule exception subsiste, faute d'équivalent BoardUI :
+ * le drawer reste le `Sheet` du projet (BoardUI n'expose pas de tiroir), son
+ * contenu étant lui aussi retokenisé.
  */
 import {
   Fragment,
@@ -32,9 +30,11 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type CSSProperties,
   type ReactNode,
 } from 'react'
 import { CalendarDate, parseDate } from '@internationalized/date'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   RiAlertLine,
   RiArrowDownLine,
@@ -80,7 +80,6 @@ import {
   TableHeader,
   TableRow,
 } from '@r/components/base/table/table'
-import { Pagination } from '@r/components/base/pagination/pagination'
 import '@r/components/appro/appro-table.css'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { Badge } from '@r/components/base/badges/badge'
@@ -896,19 +895,6 @@ function EmptyState(props: {
 }
 
 /**
- * Table besoins — `DataTable` maison (virtualisation, en-tête collant,
- * sélection), habillée ici en tokens BoardUI via ses props de classes : la
- * page choisit son système de tokens, le composant ne connaît que des
- * chaînes. Tri au menu (Filtres › Tri) + tri décroissant au clic sur un
- * sous-en-tête Ferme/Prév. (prioritaire, 2ᵉ clic = retour au menu) ;
- * en-têtes de périodes sur deux rangées (`meta.group` : rangée 1 = la période,
- * fusionnée sur Ferme + Prév. ; rangée 2 = les deux sous-colonnes), le filet
- * vertical marquant le début du groupe. Composant + Désignation figés à
- * gauche (`stickyLeft`, table en `w-max` pour des décalages exacts), survol en
- * croix, zébrage léger, périodes vides repliables (`visIdx`), pied de totaux
- * épinglé — tous opt-in côté `DataTable`, sans effet sur ses autres usages.
- */
-/**
  * Teinte d'intensité d'une cellule de période, NORMALISÉE PAR LIGNE.
  *
  * Une grille de besoins matières est une carte de chaleur par nature : ce
@@ -931,28 +917,90 @@ const heatStyle = (value: number, rowMax: number, ferme: boolean) => {
 }
 
 /**
+ * ═══ Géométrie de la grille — SOURCE UNIQUE ═══
+ *
+ * Trois tables se superposent en colonnes : le bandeau des périodes, le corps
+ * BoardUI, le pied de totaux. React-aria ne groupe pas les colonnes et n'a ni
+ * pied ni bandeau : il FAUT trois tables, donc il faut une seule définition de
+ * largeurs — sans quoi elles dérivent les unes des autres (c'était le défaut
+ * de la première passe : `<col width=825>` au bandeau, `w-[110px]…` au pied,
+ * et RIEN au corps, laissé en auto sous un `table-layout: fixed`).
+ *
+ * Règle : toute largeur de colonne de la grille vient d'ici, et de nulle part
+ * ailleurs. Les décalages des colonnes figées (`STICK_LEFT`) en sont des
+ * sommes préfixes, jamais des constantes recopiées.
+ */
+const COL_W = {
+  article: 132,
+  description: 264,
+  type: 116,
+  stock: 96,
+  valeur: 108,
+  total: 132,
+  ferme: 88,
+  prevision: 72,
+} as const
+
+/** Colonnes de tête, dans l'ordre du DOM. */
+const LEAD_KEYS = ['article', 'description', 'type', 'stock', 'valeur', 'total'] as const
+type LeadKey = (typeof LEAD_KEYS)[number]
+
+/** Largeur du bloc de tête — pas une constante : la somme des colonnes. */
+const LEAD_W = LEAD_KEYS.reduce((a, k) => a + COL_W[k], 0)
+
+/** Décalages des deux colonnes figées = sommes préfixes de `LEAD_KEYS`. */
+const STICK_LEFT: Record<'article' | 'description', number> = {
+  article: 0,
+  description: COL_W.article,
+}
+
+/**
+ * Hauteur de ligne, en pixels — plancher CSS (`--appro-row-h`) ET estimation
+ * initiale du virtualiseur, pour que la barre de défilement ait la bonne
+ * longueur dès le premier rendu. Les lignes montées sont ensuite mesurées.
+ *
+ * `appro-table.css` interdit par ailleurs le retour à la ligne dans le corps
+ * (`nowrap` + `overflow: hidden`) : une désignation longue allonge la ligne,
+ * pas la hauteur — sans quoi la grille perdrait son pas régulier et les
+ * périodes ne se liraient plus en colonnes.
+ */
+const ROW_H = 28
+
+/**
  * Table besoins sur primitives BoardUI Table (react-aria).
  *
  * Le `Table` BoardUI est utilisé SANS son wrapper (racine RAC directe +
  * classe `bui-table`) : le wrapper impose son propre scroll et n'accepte que
  * Header/Body en enfants — incompatible avec le bandeau de périodes et le
- * pied de totaux, qui partagent le même conteneur de scroll. Styles
- * identiques, comportement identique.
+ * pied de totaux, qui doivent partager la même géométrie horizontale.
  *
- * Trois tables synchronisées (mêmes largeurs fixes) : bandeau des périodes
- * (vrai `colSpan`, table HTML simple — react-aria ne groupe pas les colonnes),
- * corps BoardUI (navigation clavier, tri custom au clic, survol en croix),
- * pied de totaux épinglé. Lignes paginées (100/page, `Pagination` BoardUI) :
- * le `Table` statique ne virtualise pas ; tri et totaux restent GLOBAUX
- * (périmètre filtré, toutes pages).
+ * Trois tables synchronisées en x sur `COL_W` (cf. ci-dessus) :
+ *  1. le bandeau des périodes (vrai `colSpan`, table HTML simple — react-aria
+ *     ne groupe pas les colonnes), défilé par `syncX` ;
+ *  2. le corps BoardUI (navigation clavier, tri au clic, survol en croix),
+ *     seul conteneur réellement scrollable ;
+ *  3. le pied de totaux, hors du conteneur de scroll (il y était `sticky
+ *     bottom-0` : la barre de défilement horizontale le mangeait), défilé par
+ *     `syncX` lui aussi.
+ *
+ * Bandeau et pied n'ayant pas d'ascenseur vertical, ils sont plus étroits que
+ * le corps de la largeur de sa barre de défilement : `gutter` la mesure et la
+ * leur rend en `padding-right`, sinon l'alignement casse en fin de course.
+ *
+ * VIRTUALISATION — 1118 composants × ~34 colonnes = ~38 000 cellules : la
+ * pagination de la première passe était un contournement, pas une réponse
+ * (elle coupait aussi le tri visuel et obligeait à connaître le numéro de
+ * page d'un article). Le corps ne monte plus que la fenêtre visible
+ * (@tanstack/react-virtual), encadrée de deux lignes-cales `.pad` — le motif
+ * du `DataTable` maison, transposé aux primitives RAC (`Cell` accepte
+ * `colSpan` depuis RAC 1.6, la validation « cell count must match column
+ * count » en tient compte).
  *
  * Styles directs (sticky, fonds d'état, filets, densité) :
  * `components/appro/appro-table.css` — `.bui-table` n'étant pas layerisé, les
  * utilitaires perdraient contre lui. Couleurs/typo du CONTENU en utilitaires
  * sur les spans internes (aucune règle `.bui-table` ne les vise).
  */
-const PAGE_SIZE = 100
-
 function ApproTable(props: {
   buckets: ApproBucket[]
   /** Indices des périodes affichées (les périodes vides peuvent être repliées). */
@@ -986,6 +1034,7 @@ function ApproTable(props: {
   } = props
   const scrollRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
+  const footRef = useRef<HTMLDivElement>(null)
 
   // Périodes affichées avec leur indice d'origine (les accesseurs `cranOf`
   // travaillent sur les tableaux complets, pas sur la position visible).
@@ -1016,24 +1065,49 @@ function ApproTable(props: {
       ]),
     [vis]
   )
-  const colKeys = useMemo(
-    () => ['article', 'description', 'type', 'stock', 'valeur', 'total', ...subs.map((s) => s.key)],
-    [subs]
-  )
+  const colKeys = useMemo(() => [...LEAD_KEYS, ...subs.map((s) => s.key)], [subs])
+  /** Largeur totale — imposée aux trois tables, aucune ne la déduit. */
+  const tableW = LEAD_W + vis.length * (COL_W.ferme + COL_W.prevision)
 
-  // Pagination (cf. docblock) + recadrage quand les filtres resserrent.
-  const [page, setPage] = useState(1)
-  const maxPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  const effPage = Math.min(page, maxPage)
+  // ── Virtualisation ────────────────────────────────────────────────────────
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    // `ROW_H` n'est qu'une estimation de départ : chaque ligne montée est
+    // mesurée (`measureElement`), donc un écart de densité — thème, zoom
+    // navigateur, police système — ne décale pas la fenêtre.
+    estimateSize: () => ROW_H,
+    overscan: 14,
+  })
+  const virtualRows = rowVirtualizer.getVirtualItems()
+  const totalSize = rowVirtualizer.getTotalSize()
+  const padTop = virtualRows.length > 0 ? virtualRows[0].start : 0
+  const padBottom = virtualRows.length > 0 ? totalSize - virtualRows[virtualRows.length - 1].end : 0
+
+  // Un changement de périmètre (filtre, tri, cran) rend la position de défilement
+  // dénuée de sens : la ligne 400 d'avant n'est pas la ligne 400 d'après.
   useEffect(() => {
-    if (page > maxPage) setPage(maxPage)
-  }, [page, maxPage])
-  const start = (effPage - 1) * PAGE_SIZE
-  const pageRows = useMemo(() => rows.slice(start, start + PAGE_SIZE), [rows, start])
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [rows])
+
+  // Largeur de l'ascenseur vertical du corps, rendue en padding au bandeau et
+  // au pied — ils n'en ont pas et finiraient décalés d'autant en fin de course.
+  // Dépend de `rows.length` : l'ascenseur apparaît/disparaît avec le contenu,
+  // ce qu'un ResizeObserver sur l'élément ne voit pas toujours.
+  const [gutter, setGutter] = useState(0)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const measure = () => setGutter(el.offsetWidth - el.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [rows.length, subs.length])
 
   // Survol en croix par délégation (`cellIndex`, aucun besoin d'API hover
-  // react-aria) : `hoverCol` porte une clé de `colKeys`, ou une clé de groupe
-  // pour le bandeau (`data-key`).
+  // react-aria). Bandeau et pied ne peuvent pas passer par `cellIndex` (leurs
+  // cellules fusionnées décaleraient l'indice) : ils portent un `data-key`.
   const [hoverCol, setHoverCol] = useState<string | null>(null)
   const onGridHover = (e: { target: EventTarget | null }) => {
     const t = e.target as HTMLElement | null
@@ -1042,14 +1116,22 @@ function ApproTable(props: {
       setHoverCol(null)
       return
     }
-    if (cell.closest('[data-scope]')?.getAttribute('data-scope') === 'strip') {
+    const scope = cell.closest('[data-scope]')?.getAttribute('data-scope')
+    if (scope === 'strip' || scope === 'foot') {
       setHoverCol(cell.dataset.key ?? null)
       return
     }
     setHoverCol(colKeys[cell.cellIndex] ?? null)
   }
+  /**
+   * Une colonne est lavée si elle est survolée, ou si c'est une sous-colonne
+   * du GROUPE survolé (`hoverCol` = clé de période au bandeau, les colonnes
+   * valent `${période}-ferme|prevision`).
+   */
+  const washed = (key: string): boolean =>
+    hoverCol === key || (hoverCol !== null && key.startsWith(`${hoverCol}-`))
   const groupWash = (key: string): boolean =>
-    hoverCol === `${key}-ferme` || hoverCol === `${key}-prevision`
+    hoverCol === key || hoverCol === `${key}-ferme` || hoverCol === `${key}-prevision`
 
   // Tri au clic sur un sous-en-tête : décroissant, 2ᵉ clic = retour au menu.
   const sortOn = (s: { i: number; ferme: boolean }): boolean =>
@@ -1058,7 +1140,7 @@ function ApproTable(props: {
     onSortPeriod(sortOn(s) ? null : { i: s.i, ferme: s.ferme })
   }
 
-  // Totaux GLOBAUX (périmètre filtré, toutes pages) pour le pied épinglé.
+  // Totaux GLOBAUX du périmètre filtré — indépendants de la fenêtre virtuelle.
   const sums = useMemo(() => {
     const per = new Map<string, number>()
     for (const s of subs) {
@@ -1084,13 +1166,38 @@ function ApproTable(props: {
 
   const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
 
-  const syncStrip = (e: { currentTarget: HTMLDivElement }): void => {
-    if (stripRef.current) stripRef.current.scrollLeft = e.currentTarget.scrollLeft
+  /** Les trois tables partagent ces colonnes — d'où un seul `<colgroup>`. */
+  const colGroup = (
+    <colgroup>
+      {LEAD_KEYS.map((k) => (
+        <col key={k} style={{ width: COL_W[k] }} />
+      ))}
+      {vis.map(({ b }) => (
+        <Fragment key={b.key}>
+          <col style={{ width: COL_W.ferme }} />
+          <col style={{ width: COL_W.prevision }} />
+        </Fragment>
+      ))}
+    </colgroup>
+  )
+
+  // Le bandeau et le pied suivent le corps ; l'inverse n'existe pas (ils sont
+  // en `overflow-hidden`), donc pas de boucle de rétroaction à casser.
+  const syncX = (e: { currentTarget: HTMLDivElement }): void => {
+    const x = e.currentTarget.scrollLeft
+    if (stripRef.current) stripRef.current.scrollLeft = x
+    if (footRef.current) footRef.current.scrollLeft = x
   }
 
   return (
     <div
       className="flex h-full flex-col overflow-hidden rounded-3xl border border-separator-border bg-background-primary-default"
+      style={
+        {
+          '--appro-row-h': `${ROW_H}px`,
+          '--appro-stick-desc': `${STICK_LEFT.description}px`,
+        } as CSSProperties
+      }
       onMouseOver={onGridHover}
       onMouseLeave={() => setHoverCol(null)}
     >
@@ -1156,98 +1263,104 @@ function ApproTable(props: {
         </div>
       </div>
 
-      {/* Bandeau des périodes : vrai `colSpan`, synchronisé en x avec le corps
-          (`syncStrip`). Table HTML simple — les colonnes react-aria ne se
-          groupent pas. `aria-hidden`, le contexte période est porté par les
-          `textValue` des sous-colonnes. */}
+      {/* Bandeau des périodes : vrai `colSpan`, synchronisé en x avec le corps.
+          Table HTML simple — les colonnes react-aria ne se groupent pas.
+          `aria-hidden`, le contexte période est porté par les `textValue` des
+          sous-colonnes du corps. */}
       <div
         ref={stripRef}
         data-scope="strip"
         aria-hidden="true"
         className="no-scrollbar flex-none overflow-hidden bg-background-secondary-default"
       >
-        <table className="w-max table-fixed border-collapse">
-          <colgroup>
-            <col style={{ width: 825 }} />
-            {vis.map(({ b }) => (
-              <Fragment key={b.key}>
-                <col style={{ width: 88 }} />
-                <col style={{ width: 72 }} />
-              </Fragment>
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="w-[825px] bg-background-secondary-default" />
-              {vis.map(({ b }) => (
-                <th
-                  key={b.key}
-                  colSpan={2}
-                  data-key={b.key}
-                  scope="colgroup"
-                  className={cx(
-                    'border-l border-separator-border-strong px-3 py-1.5 text-center',
-                    groupWash(b.key) && 'bg-background-secondary-default/70'
-                  )}
-                >
-                  <span className="whitespace-nowrap text-caption-1-semibold text-text-primary">
-                    {b.label}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-        </table>
+        <div style={{ paddingRight: gutter, width: tableW + gutter }}>
+          <table className="appro-strip" style={{ width: tableW }}>
+            {colGroup}
+            <thead>
+              <tr>
+                {/* Le bloc de tête est fusionné, mais coupé exactement là où
+                    le corps fige : 2 colonnes collantes (le libellé de période
+                    glisserait sous elles au défilement), puis 4 qui défilent
+                    comme leurs colonnes du corps. */}
+                <th colSpan={2} className="stick sl-article" />
+                <th colSpan={LEAD_KEYS.length - 2} />
+                {vis.map(({ b }) => (
+                  <th
+                    key={b.key}
+                    colSpan={2}
+                    data-key={b.key}
+                    scope="colgroup"
+                    className={cx('grp', groupWash(b.key) && 'wash')}
+                  >
+                    <span className="whitespace-nowrap text-caption-1-semibold text-text-primary">
+                      {b.label}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          </table>
+        </div>
       </div>
 
       <div
         ref={scrollRef}
         data-scope="grid"
-        onScroll={syncStrip}
+        onScroll={syncX}
         className="min-h-0 flex-1 overflow-auto bg-background-primary-default"
       >
-        <RacTable aria-label="Besoins matières" className="bui-table appro-grid">
+        <RacTable
+          aria-label="Besoins matières"
+          className="bui-table appro-grid"
+          style={{ width: tableW }}
+        >
           <TableHeader>
             <TableColumn
               id="article"
               isRowHeader
               textValue="Composant"
-              className={cx('stick sl0', hoverCol === 'article' && 'wash')}
+              style={{ width: COL_W.article }}
+              className={cx('stick sl-article', washed('article') && 'wash')}
             >
               <span className="text-caption-1-medium text-text-tertiary">Composant</span>
             </TableColumn>
             <TableColumn
               id="description"
               textValue="Désignation"
-              className={cx('stick sl110', hoverCol === 'description' && 'wash')}
+              style={{ width: COL_W.description }}
+              className={cx('stick sl-description', washed('description') && 'wash')}
             >
               <span className="text-caption-1-medium text-text-tertiary">Désignation</span>
             </TableColumn>
             <TableColumn
               id="type"
               textValue="Type"
-              className={hoverCol === 'type' ? 'wash' : undefined}
+              style={{ width: COL_W.type }}
+              className={washed('type') ? 'wash' : undefined}
             >
               <span className="text-caption-1-medium text-text-tertiary">Type</span>
             </TableColumn>
             <TableColumn
               id="stock"
               textValue="Stock"
-              className={hoverCol === 'stock' ? 'wash' : undefined}
+              style={{ width: COL_W.stock }}
+              className={cx('r', washed('stock') && 'wash')}
             >
               <span className="text-caption-1-medium text-text-tertiary">Stock</span>
             </TableColumn>
             <TableColumn
               id="valeur"
               textValue="Valo"
-              className={hoverCol === 'valeur' ? 'wash' : undefined}
+              style={{ width: COL_W.valeur }}
+              className={cx('r', washed('valeur') && 'wash')}
             >
               <span className="text-caption-1-medium text-text-tertiary">Valo</span>
             </TableColumn>
             <TableColumn
               id="total"
               textValue={`Total ${cran}`}
-              className={hoverCol === 'total' ? 'wash' : undefined}
+              style={{ width: COL_W.total }}
+              className={cx('r', washed('total') && 'wash')}
             >
               <span className="text-caption-1-semibold text-text-primary">Total {cran}</span>
             </TableColumn>
@@ -1258,7 +1371,8 @@ function ApproTable(props: {
                   key={s.key}
                   id={s.key}
                   textValue={`${s.label} ${s.ferme ? 'Ferme' : 'Prévision'}`}
-                  className={cx('c', hoverCol === s.key && 'wash')}
+                  style={{ width: s.ferme ? COL_W.ferme : COL_W.prevision }}
+                  className={cx('c', s.ferme && 'grp', washed(s.key) && 'wash')}
                 >
                   <span
                     role="button"
@@ -1284,16 +1398,28 @@ function ApproTable(props: {
             })}
           </TableHeader>
           <TableBody>
-            {pageRows.map((r, idx) => {
-              const gi = start + idx
+            {/* Cales haute et basse : la fenêtre virtuelle rendue garde sa
+                position réelle dans le flux, sans transformer le `<tbody>`
+                (une transformation casserait le `position: sticky` des
+                colonnes figées). */}
+            {padTop > 0 && (
+              <TableRow id="__pad_top" className="pad">
+                <TableCell colSpan={colKeys.length} style={{ height: padTop }} />
+              </TableRow>
+            )}
+            {virtualRows.map((vr) => {
+              const r = rows[vr.index]
               const manque = resteTotal(r) > 0
               return (
                 <TableRow
-                  key={`${r.article}@@${gi}`}
-                  className={cx(gi % 2 === 1 && 'alt', r.article === selected && 'sel')}
-                  onPress={() => props.onSelect(r.article)}
+                  key={`${r.article}@@${vr.index}`}
+                  id={`${r.article}@@${vr.index}`}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={vr.index}
+                  className={cx(vr.index % 2 === 1 && 'alt', r.article === selected && 'sel')}
+                  onAction={() => props.onSelect(r.article)}
                 >
-                  <TableCell className={cx('stick sl0', hoverCol === 'article' && 'wash')}>
+                  <TableCell className={cx('stick sl-article', washed('article') && 'wash')}>
                     <span
                       className={cx(
                         'inline-flex max-w-full items-center gap-1 font-mono text-caption-1-semibold tracking-tight',
@@ -1329,7 +1455,9 @@ function ApproTable(props: {
                       )}
                     </span>
                   </TableCell>
-                  <TableCell className={cx('stick sl110', hoverCol === 'description' && 'wash')}>
+                  <TableCell
+                    className={cx('stick sl-description', washed('description') && 'wash')}
+                  >
                     <span
                       className="block truncate text-caption-1-regular text-text-secondary"
                       title={r.description}
@@ -1337,18 +1465,18 @@ function ApproTable(props: {
                       {r.description}
                     </span>
                   </TableCell>
-                  <TableCell className={hoverCol === 'type' ? 'wash' : undefined}>
+                  <TableCell className={washed('type') ? 'wash' : undefined}>
                     <span className="inline-flex items-center gap-1.5 text-caption-1-regular text-text-secondary">
                       <StatusDot color={r.supplyType === 'ACHAT' ? 'indigo' : 'green'} />
                       {r.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
                     </span>
                   </TableCell>
-                  <TableCell className={cx('text-right', hoverCol === 'stock' && 'wash')}>
+                  <TableCell className={cx('r', washed('stock') && 'wash')}>
                     <span className="font-mono text-caption-1-regular tabular-nums text-text-primary">
                       {fr(r.stock)}
                     </span>
                   </TableCell>
-                  <TableCell className={cx('text-right', hoverCol === 'valeur' && 'wash')}>
+                  <TableCell className={cx('r', washed('valeur') && 'wash')}>
                     {r.valeur == null ? (
                       <span
                         className="font-mono text-caption-1-regular text-text-tertiary"
@@ -1365,7 +1493,7 @@ function ApproTable(props: {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className={cx('text-right', hoverCol === 'total' && 'wash')}>
+                  <TableCell className={cx('r', washed('total') && 'wash')}>
                     <span
                       className={cx(
                         'font-mono text-caption-1-semibold tabular-nums',
@@ -1380,14 +1508,16 @@ function ApproTable(props: {
                     return (
                       <TableCell
                         key={s.key}
-                        className={cx('cell-pad0 text-right', hoverCol === s.key && 'wash')}
+                        className={cx('heat', s.ferme && 'grp', washed(s.key) && 'wash')}
                       >
-                        <span
-                          className="block px-3 py-1 font-mono text-caption-1-regular tabular-nums text-text-primary"
-                          style={heatStyle(v, rowMax.get(r.article) ?? 0, s.ferme)}
-                        >
+                        <span style={heatStyle(v, rowMax.get(r.article) ?? 0, s.ferme)}>
                           {v === 0 ? null : (
-                            <span className={s.ferme ? undefined : 'text-text-secondary'}>
+                            <span
+                              className={cx(
+                                'font-mono text-caption-1-regular tabular-nums',
+                                s.ferme ? 'text-text-primary' : 'text-text-secondary'
+                              )}
+                            >
                               {fr(v)}
                             </span>
                           )}
@@ -1398,29 +1528,60 @@ function ApproTable(props: {
                 </TableRow>
               )
             })}
+            {padBottom > 0 && (
+              <TableRow id="__pad_bottom" className="pad">
+                <TableCell colSpan={colKeys.length} style={{ height: padBottom }} />
+              </TableRow>
+            )}
           </TableBody>
         </RacTable>
-        {/* Pied de totaux GLOBAUX épinglé (même conteneur de scroll). Table
-            simple, mêmes largeurs que le corps. */}
-        <div className="sticky bottom-0 z-10 border-t border-separator-border-strong bg-background-secondary-default">
-          <table className="w-max table-fixed border-collapse">
+      </div>
+
+      {/* Pied de totaux — HORS du conteneur de scroll (il y était `sticky
+          bottom-0`, la barre de défilement horizontale le recouvrait), défilé
+          en x avec le corps. Totaux GLOBAUX du périmètre filtré. */}
+      <div
+        ref={footRef}
+        data-scope="foot"
+        className="no-scrollbar flex-none overflow-hidden border-t border-separator-border-strong bg-background-secondary-default"
+      >
+        <div style={{ paddingRight: gutter, width: tableW + gutter }}>
+          <table className="appro-foot" style={{ width: tableW }}>
             <caption className="sr-only">Totaux du périmètre affiché</caption>
+            {colGroup}
             <tbody>
               <tr>
-                <td className="sticky left-0 z-[1] w-[110px] bg-background-secondary-default px-3 py-2">
-                  <span className="block text-left text-caption-1-semibold text-text-secondary">
-                    Total
+                <td colSpan={2} data-key="article" className="stick sl-article">
+                  <span className="text-caption-1-semibold text-text-secondary">
+                    Total ({rows.length})
                   </span>
                 </td>
-                <td className="sticky left-[110px] z-[1] w-[260px] bg-background-secondary-default px-3 py-2" />
-                <td className="w-[110px] px-3 py-2" />
-                <td className="w-[95px] px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums text-text-primary">
+                <td data-key="type" className={washed('type') ? 'wash' : undefined} />
+                <td
+                  data-key="stock"
+                  className={cx(
+                    'r font-mono text-caption-1-semibold tabular-nums text-text-primary',
+                    washed('stock') && 'wash'
+                  )}
+                >
                   {fr(sums.stock)}
                 </td>
-                <td className="w-[100px] px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums text-text-secondary">
+                <td
+                  data-key="valeur"
+                  className={cx(
+                    'r font-mono text-caption-1-semibold tabular-nums text-text-secondary',
+                    washed('valeur') && 'wash'
+                  )}
+                >
                   {sums.valeur == null ? '—' : fmtEuro.format(sums.valeur)}
                 </td>
-                <td className="w-[150px] px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums text-text-primary">
+                <td
+                  data-key="total"
+                  className={cx(
+                    'r font-mono text-caption-1-semibold tabular-nums text-text-primary',
+                    washed('total') && 'wash'
+                  )}
+                >
                   {fr(sums.total)}
                 </td>
                 {subs.map((s) => {
@@ -1428,10 +1589,11 @@ function ApproTable(props: {
                   return (
                     <td
                       key={s.key}
+                      data-key={s.key}
                       className={cx(
-                        'border-l border-separator-border-strong px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums',
-                        s.ferme ? 'w-[88px] text-text-primary' : 'w-[72px] text-text-secondary',
-                        hoverCol === s.key && 'bg-background-secondary-default/70'
+                        'r font-mono text-caption-1-semibold tabular-nums',
+                        s.ferme ? 'grp text-text-primary' : 'text-text-secondary',
+                        washed(s.key) && 'wash'
                       )}
                     >
                       {t === 0 ? null : fr(t)}
@@ -1442,10 +1604,6 @@ function ApproTable(props: {
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="flex flex-none items-center justify-end px-4 py-2">
-        <Pagination page={effPage} totalPages={maxPage} onChange={setPage} />
       </div>
     </div>
   )
