@@ -64,23 +64,23 @@ interface DetailCmdRow {
   brutHours: number
   netHours: number
   resteHours: number
-  /** OFs contremarqués (réservés par X3) à la commande de la ligne. */
+  /** OFs alloués à cette ligne par le moteur de matching commande→OF (suivi). */
   ofs: DetailRowOf[]
-  /** OFs de l'article SANS contremarque — pool libre, non attribuable à une ligne. */
-  ofsLibres: number
-  /** OFs de l'article réservés à d'autres commandes. */
-  ofsAutres: number
 }
 
 /**
- * OF contremarqué — la SEULE liaison OF ↔ commande qui existe : X3 a réservé
- * cet ordre à une commande de vente précise.
+ * Allocation OF d'une ligne — sortie de `CommandeOFMatcher` (of_conso.ts) :
+ * contremarque X3 en priorité, puis couverture cumulative statut+date.
  */
 interface DetailRowOf {
   numOf: string
   statutLabel: string | null
+  /** Quantité DU BESOIN de la ligne allouée à cet OF. */
   quantite: number
+  /** Date de fin de l'OF (ENDDAT). */
   dateIso: string | null
+  /** Raison de match reprise telle quelle du moteur ('contremarque hard peg', …). */
+  raison: string
   reservePour: string | null
 }
 
@@ -506,7 +506,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       key={`h-${i}`}
                       title={
                         h === 'OF'
-                          ? 'OF réservés à la commande de la ligne (contremarque X3)'
+                          ? 'OF alloués à cette ligne par le moteur de matching commande→OF (comme /suivi) — quantité allouée sous le numéro'
                           : undefined
                       }
                       className={cn(
@@ -781,7 +781,7 @@ function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }
       <div className={cn(CELL, 'truncate text-muted-foreground')}>
         {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
       </div>
-      <OfLiesCell ofs={r.ofs ?? []} ofsLibres={r.ofsLibres ?? 0} ofsAutres={r.ofsAutres ?? 0} />
+      <OfAllouesCell ofs={r.ofs ?? []} />
       {/* En cran « reste », la part absorbée par l'en-cours est annoncée À CÔTÉ du
           chiffre. Sans elle la ligne affiche une quantité plus petite que la
           commande sans dire pourquoi — un chiffre inexpliqué se lit comme un bug. */}
@@ -804,48 +804,26 @@ function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }
 }
 
 /**
- * OFs LIÉS à la ligne — par contremarque X3 uniquement : un OF restant à
- * produire n'est lisible ligne à ligne QUE si l'ERP l'a réservé à la commande
- * de la ligne. Le reste du pool de l'article (libre, ou réservé à une autre
- * commande) n'est PAS répété sur chaque ligne — il n'appartient à personne en
- * particulier, et l'afficher partout faisait croire que tout était couvert par
- * le même ordre. Ce qui existe sans être attribué reste compté au survol du
- * « — » : le pool se connaît, sans prétendre dire pour qui.
+ * OFs alloués à la ligne — sortie du moteur de matching commande→OF de la page
+ * suivi (`CommandeOFMatcher`) : la contremarque X3 passe en priorité (vert, le
+ * même vert que le segment ferme), le reste est une allocation heuristique
+ * statut+date. Chaque OF porte la quantité DU BESOIN qu'il couvre ; le détail
+ * (statut, date de fin, raison de match) vit au survol. Un tiret = le moteur
+ * n'a rien alloué : ni contremarque, ni OF candidat (le badge STOCK porte déjà
+ * l'autre cas de figure, le couvert par stock).
  */
-function OfLiesCell({
-  ofs,
-  ofsLibres,
-  ofsAutres,
-}: {
-  ofs: DetailRowOf[]
-  ofsLibres: number
-  ofsAutres: number
-}) {
+function OfAllouesCell({ ofs }: { ofs: DetailRowOf[] }) {
   if (ofs.length === 0) {
-    const pool = [
-      ofsLibres > 0 ? `${ofsLibres} libre${ofsLibres > 1 ? 's' : ''}` : '',
-      ofsAutres > 0 ? `${ofsAutres} réservé${ofsAutres > 1 ? 's' : ''} à d'autres commandes` : '',
-    ].filter(Boolean)
-    const title = [
-      'Aucun OF réservé (contremarque) à cette commande',
-      pool.length > 0 ? `pool de l'article : ${pool.join(', ')}` : '',
-    ]
-      .filter(Boolean)
-      .join(' — ')
-    return (
-      <div className={cn(CELL, 'truncate text-muted-foreground')} title={title}>
-        —
-      </div>
-    )
+    return <div className={cn(CELL, 'truncate text-muted-foreground')}>—</div>
   }
   const title = ofs
     .map((o) =>
       [
         o.numOf,
         o.statutLabel ?? '',
-        `${fmtQ(o.quantite)} u`,
-        o.dateIso ? fmtDateFr(o.dateIso) : 'sans date',
-        'réservé à cette commande',
+        `alloué ${fmtQ(o.quantite)} u`,
+        o.dateIso ? `fin ${fmtDateFr(o.dateIso)}` : '',
+        o.raison,
       ]
         .filter(Boolean)
         .join(' · ')
@@ -853,11 +831,20 @@ function OfLiesCell({
     .join('\n')
   return (
     <div className={cn(CELL, 'truncate font-mono text-[10px]')} title={title}>
-      {ofs.map((o) => (
-        <span key={o.numOf} className="mr-1.5 font-bold" style={{ color: 'var(--color-ferme)' }}>
-          {o.numOf}
-        </span>
-      ))}
+      {ofs.map((o) => {
+        const pegue = o.raison.toLowerCase().includes('contremarque')
+        return (
+          <span key={o.numOf} className="mr-1.5">
+            <span
+              className={pegue ? 'font-bold' : 'font-semibold'}
+              style={pegue ? { color: 'var(--color-ferme)' } : undefined}
+            >
+              {o.numOf}
+            </span>
+            <span className="text-muted-foreground"> {fmtQ(o.quantite)}</span>
+          </span>
+        )
+      })}
     </div>
   )
 }
