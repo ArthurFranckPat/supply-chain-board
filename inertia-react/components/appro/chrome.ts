@@ -27,6 +27,17 @@ export const TRIGGER_SECONDARY = cx(
 )
 
 /**
+ * Rangée des panneaux de filtres (Période / Filtres / Ligne de prod).
+ * `MENU_ITEM` de BoardUI ne porte aucune taille : le texte des items
+ * héritait du contexte, pendant que les libellés de Checkbox forcent
+ * `text-body-medium` — les trois panneaux ne rendaient donc pas à la même
+ * échelle. On pose explicitement la taille des menus BoardUI (`body-medium`,
+ * la recette documentée du Dropdown) avec la densité de la page, en un
+ * token partagé par la page et la pill Ligne.
+ */
+export const PANEL_ITEM = 'px-2 py-1.5 text-body-medium'
+
+/**
  * Item de `SegmentedControl` à la densité du board. Passé en fonction : le
  * composant distingue sélectionné/non par le POIDS typographique, distinction
  * qu'une className fixe écraserait (le `cx` de BoardUI sait résoudre les

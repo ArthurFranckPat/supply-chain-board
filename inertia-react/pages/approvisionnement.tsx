@@ -107,7 +107,12 @@ import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
 import { route } from '@r/lib/routes'
 import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
-import { TRIGGER_ACTIVE, TRIGGER_SECONDARY, segmentItemDense } from '@r/components/appro/chrome'
+import {
+  PANEL_ITEM,
+  TRIGGER_ACTIVE,
+  TRIGGER_SECONDARY,
+  segmentItemDense,
+} from '@r/components/appro/chrome'
 import type {
   ApproBucket,
   ApproCran,
@@ -538,14 +543,14 @@ export default function Approvisionnement() {
                       aria-hidden
                     />
                   </DropdownTrigger>
-                  <DropdownPopover aria-label="Période" className="w-[276px]">
+                  <DropdownPopover aria-label="Période">
                     <DropdownGroup label="Fenêtre">
                       {PRESETS.map((pr) => (
                         <DropdownItem
                           key={pr.id}
                           selected={preset === pr.id}
                           onSelect={() => setPreset(pr.id)}
-                          className="px-2 py-1.5"
+                          className={PANEL_ITEM}
                         >
                           {pr.label}
                         </DropdownItem>
@@ -583,7 +588,8 @@ export default function Approvisionnement() {
                             selected={gran === g.id}
                             onSelect={() => ok && setGran(g.id)}
                             className={cx(
-                              'justify-between px-2 py-1.5',
+                              PANEL_ITEM,
+                              'justify-between',
                               !ok && 'cursor-not-allowed text-text-disabled'
                             )}
                           >
@@ -634,14 +640,14 @@ export default function Approvisionnement() {
                       <span className="ml-0.5 size-1.5 rounded-full bg-accent-500" aria-hidden />
                     )}
                   </DropdownTrigger>
-                  <DropdownPopover aria-label="Filtres" className="w-[248px]">
+                  <DropdownPopover aria-label="Filtres">
                     <DropdownGroup label="Type">
                       {(['TOUS', 'ACHAT', 'FABRICATION'] as SupplyFilter[]).map((s) => (
                         <DropdownItem
                           key={s}
                           selected={supply === s}
                           onSelect={() => setSupply(s)}
-                          className="px-2 py-1.5"
+                          className={PANEL_ITEM}
                         >
                           {SUPPLY_LABEL[s]}
                         </DropdownItem>
@@ -651,7 +657,7 @@ export default function Approvisionnement() {
                     <DropdownGroup label="Affichage">
                       <Checkbox
                         size="sm"
-                        className="w-full justify-between px-2 py-1.5"
+                        className={cx('w-full justify-between', PANEL_ITEM)}
                         isSelected={manquesOnly}
                         onChange={setManquesOnly}
                       >
@@ -670,7 +676,7 @@ export default function Approvisionnement() {
                       </Checkbox>
                       <Checkbox
                         size="sm"
-                        className="w-full justify-between px-2 py-1.5"
+                        className={cx('w-full justify-between', PANEL_ITEM)}
                         isSelected={showEmptyPeriods}
                         onChange={setShowEmptyPeriods}
                       >
@@ -698,7 +704,7 @@ export default function Approvisionnement() {
                             setSort(k)
                             setSortPeriod(null)
                           }}
-                          className="px-2 py-1.5"
+                          className={PANEL_ITEM}
                         >
                           {SORT_LABEL[k]}
                         </DropdownItem>

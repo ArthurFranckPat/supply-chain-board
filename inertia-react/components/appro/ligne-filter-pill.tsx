@@ -4,15 +4,18 @@
  * Porté en grammaire BoardUI (MCP `boardui`) : `Dropdown` + `DropdownItem`
  * pour le menu, `Input` pour la recherche, `Badge` pour le compte de lignes
  * de demande. Le déclencheur reprend la recette du bouton secondaire BoardUI
- * (cf. `./chrome`) — pas un sosie dessiné à la main.
+ * (cf. `./chrome`) — pas un sosie dessiné à la main — et la même grammaire
+ * d'état que le menu Filtres : point accent quand un filtre est actif, pas
+ * de contrôle ad hoc dans le déclencheur (l'effacement vit dans le panneau,
+ * première entrée « Toutes les lignes »).
  *
  * Contrairement aux filtres secondaires du menu Filtres, changer de ligne
  * REFETCH le plan : les quantités sont recalculées serveur sur la population
  * de la ligne, pas masquées sur des totaux toutes lignes. Sélection unique,
- * « Toutes les lignes » par défaut, croix d'effacement sur le déclencheur.
+ * « Toutes les lignes » par défaut.
  */
 import { useState } from 'react'
-import { RiArrowDownSLine, RiBuilding2Line, RiCloseLine, RiSearchLine } from '@remixicon/react'
+import { RiArrowDownSLine, RiBuilding2Line, RiSearchLine } from '@remixicon/react'
 
 import { cx } from '@r/utils/cx'
 import { Badge } from '@r/components/base/badges/badge'
@@ -23,7 +26,7 @@ import {
   DropdownTrigger,
 } from '@r/components/base/dropdown/dropdown'
 import { Input } from '@r/components/base/input/input'
-import { TRIGGER_ACTIVE, TRIGGER_SECONDARY } from '@r/components/appro/chrome'
+import { PANEL_ITEM, TRIGGER_ACTIVE, TRIGGER_SECONDARY } from '@r/components/appro/chrome'
 import type { ApproLigne } from '@r/lib/appro/types'
 
 const fold = (s: string): string =>
@@ -65,41 +68,21 @@ export function LigneFilterPill(props: {
           aria-label={`Ligne de production : ${active?.label ?? 'toutes'}`}
           className={cx(TRIGGER_SECONDARY, props.value && TRIGGER_ACTIVE)}
         >
-          <RiBuilding2Line
-            className="size-[18px] shrink-0 text-foreground-icon-secondary"
-            aria-hidden
-          />
-          <span
-            className={cx(
-              'max-w-[150px] truncate whitespace-nowrap',
-              !props.value && 'text-text-secondary'
-            )}
-          >
+          <RiBuilding2Line className="size-4 shrink-0 text-foreground-icon-secondary" aria-hidden />
+          <span className="max-w-[150px] truncate whitespace-nowrap">
             {active ? active.label : 'Ligne de prod'}
           </span>
           {props.value && (
-            // `span` et non `button` : on est déjà à l'intérieur du bouton
-            // déclencheur, un bouton imbriqué est un markup invalide.
-            <span
-              role="button"
-              tabIndex={-1}
-              aria-label="Retirer le filtre ligne de production"
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                pick(null)
-              }}
-              className="text-foreground-icon-secondary hover:text-foreground-icon-hover"
-            >
-              <RiCloseLine className="size-4" aria-hidden />
-            </span>
+            // Même grammaire d'état que « Filtres » : un point accent repère
+            // le filtre actif sans lire les libellés.
+            <span className="ml-0.5 size-1.5 shrink-0 rounded-full bg-accent-500" aria-hidden />
           )}
           <RiArrowDownSLine
-            className="size-[18px] shrink-0 text-foreground-icon-secondary"
+            className="size-4 shrink-0 text-foreground-icon-secondary"
             aria-hidden
           />
         </DropdownTrigger>
-        <DropdownPopover aria-label="Lignes de production" className="w-[288px]">
+        <DropdownPopover aria-label="Lignes de production">
           <Input
             size="small"
             aria-label="Rechercher une ligne de production"
@@ -112,7 +95,7 @@ export function LigneFilterPill(props: {
             <DropdownItem
               selected={!props.value}
               onSelect={() => pick(null)}
-              className="px-2 py-1.5"
+              className={PANEL_ITEM}
             >
               Toutes les lignes
             </DropdownItem>
@@ -121,7 +104,7 @@ export function LigneFilterPill(props: {
                 key={l.code}
                 selected={l.code === props.value}
                 onSelect={() => pick(l.code === props.value ? null : l.code)}
-                className="justify-between px-2 py-1.5"
+                className={cx(PANEL_ITEM, 'justify-between')}
               >
                 <span className="min-w-0 truncate">
                   {l.label}
