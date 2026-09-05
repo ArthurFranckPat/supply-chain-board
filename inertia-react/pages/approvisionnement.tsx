@@ -1,14 +1,18 @@
 /**
  * Page « Approvisionnement » — plan besoins matières (lot 1).
  *
- * Coquille Inertia instantanée ; le calcul (explosion nomenclature complète +
- * netting priorité ferme) est fetché via useTimedFetch — même motif que
- * /suivi. Le calcul, les filtres et la doctrine d'affichage sont inchangés :
- * seule la COUCHE UI a changé.
+ * Coquille Inertia instantanée ; le calcul (projection MRP niveau par niveau —
+ * besoin appelé, réceptions attendues, stock projeté, manque daté) est fetché
+ * via useTimedFetch, même motif que /suivi.
+ *
+ * La grille montre par défaut LE MANQUE : une cellule vide veut dire « ça
+ * passe ». Sur 2 600 composants × N périodes, seul ce qui coince est encré, et
+ * c'est ce que le planificateur vient chercher. La vue « Besoin » reste
+ * accessible pour lire le volume appelé.
  *
  * ─── Habillage : BoardUI (MCP `boardui`) ───────────────────────────────────
  * Les contrôles viennent maintenant du design system BoardUI installé sous
- * `components/base/*` : `SegmentedControl` (fenêtre / maille / cran),
+ * `components/base/*` : `SegmentedControl` (fenêtre / maille / vue),
  * `Dropdown` (menu Filtres), `Input` (recherche), `Button` (actions),
  * `DatePicker` (fenêtre libre), `Checkbox`, `Badge`, `Chip`, `Tooltip`,
  * `Notification` (bandeaux). Le style passe exclusivement par les tokens
@@ -120,7 +124,7 @@ import {
 } from '@r/components/appro/chrome'
 import type {
   ApproBucket,
-  ApproCran,
+  ApproVue,
   ApproDetail,
   ApproDetailLine,
   ApproGran,
@@ -242,13 +246,16 @@ const GRANS: { id: ApproGran; label: string }[] = [
   { id: 'mois', label: 'Mois' },
 ]
 
-const CRANS: { id: ApproCran; label: string; hint: string }[] = [
-  { id: 'brut', label: 'Brut', hint: 'Besoin explosé, avant toute déduction' },
-  { id: 'net', label: 'Net', hint: 'Brut − stock (le stock couvre le ferme en priorité)' },
+const VUES: { id: ApproVue; label: string; hint: string }[] = [
   {
-    id: 'reste',
-    label: 'Reste à couvrir',
-    hint: 'Net − pièces déjà produites sur OF en cours (sous-ensembles)',
+    id: 'manque',
+    label: 'Manque',
+    hint: 'Ce qui manquera : besoin non couvert par le stock projeté ni par les réceptions attendues',
+  },
+  {
+    id: 'besoin',
+    label: 'Besoin',
+    hint: 'Besoin appelé par les parents, déjà net de ce que leur propre stock couvre',
   },
 ]
 
@@ -359,8 +366,8 @@ const toCalendarDate = (iso: string): CalendarDate | null => {
 }
 
 type SupplyFilter = 'TOUS' | 'ACHAT' | 'FABRICATION'
-/** Tri par défaut : total du cran décroissant — les lignes avec besoin
- * remontent, le « qui ne manque pas » ne masque plus le signal actionnable. */
+/** Tri par défaut : rupture la plus proche d'abord (le serveur trie déjà
+ * ainsi) — un plan se lit par l'urgence, pas par le volume. */
 type SortKey = 'valeur' | 'net' | 'article'
 
 const SUPPLY_LABEL: Record<SupplyFilter, string> = {
@@ -375,10 +382,25 @@ const SORT_LABEL: Record<SortKey, string> = {
   article: 'Article A→Z',
 }
 
-const cranOf = (row: ApproRow, cran: ApproCran, i: number, ferme: boolean): number => {
-  if (cran === 'brut') return ferme ? row.brutFerme[i] : row.brutPrevi[i]
-  if (cran === 'net') return ferme ? row.netFerme[i] : row.netPrevi[i]
-  return ferme ? row.resteFerme[i] : row.restePrevi[i]
+/**
+ * Valeur d'une cellule (ligne × période × nature).
+ *
+ * `fermeSeul` : quand le filtre de nature isole le carnet ferme, le manque
+ * affiché est celui du SECOND passage du moteur (calculé sans les prévisions),
+ * pas la part ferme du passage toutes natures. Les deux diffèrent dès qu'une
+ * prévision précoce mange le stock d'un ferme tardif — et c'est bien la
+ * première qui répond à « que dois-je si je ne crois que le carnet ».
+ */
+const vueOf = (
+  row: ApproRow,
+  vue: ApproVue,
+  i: number,
+  ferme: boolean,
+  fermeSeul = false
+): number => {
+  if (vue === 'besoin') return ferme ? row.besoinFerme[i] : row.besoinPrevi[i]
+  if (ferme) return fermeSeul ? row.manqueFermeSeul[i] : row.manqueFerme[i]
+  return row.manquePrevi[i]
 }
 
 /** Nature du besoin — masque d'affichage de la grille (Ferme = engagé,
@@ -394,30 +416,32 @@ const NATURE_LABEL: Record<Nature, string> = {
 /** La nature est-elle affichée sous le filtre de nature courant ? */
 const natureOn = (n: Nature, ferme: boolean): boolean => n === 'TOUS' || (n === 'FERME') === ferme
 
-/** Total du cran pour les seules natures affichées — le Total de ligne, le
+/** Total de la vue pour les seules natures affichées — le Total de ligne, le
  * tri « total décroissant » et le pied suivent ce que la grille montre. */
-const cranTotalOn = (row: ApproRow, cran: ApproCran, n: Nature): number => {
-  const pick = (ferme: boolean): number[] =>
-    cran === 'brut'
-      ? ferme
-        ? row.brutFerme
-        : row.brutPrevi
-      : cran === 'net'
-        ? ferme
-          ? row.netFerme
-          : row.netPrevi
-        : ferme
-          ? row.resteFerme
-          : row.restePrevi
-  return (
-    (natureOn(n, true) ? pick(true).reduce((s, v) => s + v, 0) : 0) +
-    (natureOn(n, false) ? pick(false).reduce((s, v) => s + v, 0) : 0)
-  )
+const vueTotalOn = (row: ApproRow, vue: ApproVue, n: Nature): number => {
+  const sum = (ferme: boolean): number => {
+    let t = 0
+    for (let i = 0; i < row.solde.length; i++) t += vueOf(row, vue, i, ferme, n === 'FERME')
+    return t
+  }
+  return (natureOn(n, true) ? sum(true) : 0) + (natureOn(n, false) ? sum(false) : 0)
 }
 
-/** Manque (reste à couvrir) pour les seules natures affichées — le rose de
- * la grille et la chip « N manques » portent la même lecture. */
-const resteTotalOn = (row: ApproRow, n: Nature): number => cranTotalOn(row, 'reste', n)
+/** Manque pour les seules natures affichées — le rose de la grille et la chip
+ * « N manques » portent la même lecture. */
+const manqueTotalOn = (row: ApproRow, n: Nature): number => vueTotalOn(row, 'manque', n)
+
+/** Total des arrivées attendues sur la fenêtre. */
+const arriveesTotal = (row: ApproRow): number => row.arrivees.reduce((s, v) => s + v, 0)
+
+/**
+ * Première période en manque, sous le filtre de nature courant. Le filtre
+ * « Ferme » lit la rupture du passage ferme-seul : elle peut être PLUS TARDIVE
+ * que la rupture toutes natures, et c'est le point — une rupture causée par une
+ * prévision n'engage pas le carnet.
+ */
+const ruptureIdx = (row: ApproRow, n: Nature): number =>
+  n === 'FERME' ? row.ruptureFermeAt : row.ruptureAt
 
 export default function Approvisionnement() {
   const today = useMemo(() => new Date(), [])
@@ -426,7 +450,7 @@ export default function Approvisionnement() {
   const [preset, setPreset] = useState<Preset>('2sem')
   const [custom, setCustom] = useState(() => presetRange('libre', new Date()))
   const [gran, setGran] = useState<ApproGran>('semaine')
-  const [cran, setCran] = useState<ApproCran>('net')
+  const [vue, setVue] = useState<ApproVue>('manque')
   const [query, setQuery] = useState('')
   const [supply, setSupply] = useState<SupplyFilter>('ACHAT')
   const [manquesOnly, setManquesOnly] = useState(false)
@@ -444,7 +468,7 @@ export default function Approvisionnement() {
   // prioritaire sur le tri du menu tant qu'il désigne une période visible.
   // Choisir un tri du menu l'efface, sinon le menu semblerait sans effet.
   const [sortPeriod, setSortPeriod] = useState<{ i: number; ferme: boolean } | null>(null)
-  // Périodes entièrement à zéro repliées (cran courant, lignes filtrées).
+  // Périodes entièrement à zéro repliées (vue courante, lignes filtrées).
   const [showEmptyPeriods, setShowEmptyPeriods] = useState(true)
 
   const range = preset === 'libre' ? custom : presetRange(preset, today)
@@ -497,13 +521,13 @@ export default function Approvisionnement() {
     const q = fold(query.trim())
     return view.filter((r) => {
       if (supply !== 'TOUS' && r.supplyType !== supply) return false
-      if (manquesOnly && resteTotalOn(r, nature) <= 0) return false
+      if (manquesOnly && manqueTotalOn(r, nature) <= 0) return false
       if (q && !fold(`${r.article} ${r.description}`).includes(q)) return false
       return true
     })
   }, [view, query, supply, manquesOnly, nature])
 
-  // Périodes vides au cran courant, sur les lignes filtrées (l'ordre du tri
+  // Périodes vides pour la vue courante, sur les lignes filtrées (l'ordre du tri
   // ne change pas l'appartenance, donc calculé avant tri, sans cycle).
   const emptyIdx = useMemo(() => {
     const s = new Set<number>()
@@ -512,8 +536,8 @@ export default function Approvisionnement() {
       let empty = true
       for (const r of filtered) {
         if (
-          (natureOn(nature, true) && cranOf(r, cran, i, true) !== 0) ||
-          (natureOn(nature, false) && cranOf(r, cran, i, false) !== 0)
+          (natureOn(nature, true) && vueOf(r, vue, i, true, nature === 'FERME') !== 0) ||
+          (natureOn(nature, false) && vueOf(r, vue, i, false) !== 0)
         ) {
           empty = false
           break
@@ -522,7 +546,7 @@ export default function Approvisionnement() {
       if (empty) s.add(i)
     }
     return s
-  }, [data, filtered, cran, nature])
+  }, [data, filtered, vue, nature])
 
   const visIdx = useMemo(
     () =>
@@ -546,7 +570,8 @@ export default function Approvisionnement() {
     out.sort((a, b) => {
       if (effSort) {
         const d =
-          cranOf(b, cran, effSort.i, effSort.ferme) - cranOf(a, cran, effSort.i, effSort.ferme)
+          vueOf(b, vue, effSort.i, effSort.ferme, nature === 'FERME') -
+          vueOf(a, vue, effSort.i, effSort.ferme, nature === 'FERME')
         return d !== 0 ? d : a.article.localeCompare(b.article)
       }
       if (sort === 'article') return a.article.localeCompare(b.article)
@@ -556,10 +581,10 @@ export default function Approvisionnement() {
         if (b.valeur == null) return -1
         return b.valeur - a.valeur
       }
-      return cranTotalOn(b, cran, nature) - cranTotalOn(a, cran, nature)
+      return vueTotalOn(b, vue, nature) - vueTotalOn(a, vue, nature)
     })
     return out
-  }, [filtered, sort, cran, effSort, nature])
+  }, [filtered, sort, vue, effSort, nature])
 
   // Filtres secondaires uniquement (hors recherche + pill ligne, toujours
   // visibles) — même doctrine que suivi : un filtre est « actif » quand il
@@ -586,7 +611,7 @@ export default function Approvisionnement() {
   }
 
   const manquesCount = useMemo(
-    () => view.filter((r) => resteTotalOn(r, nature) > 0).length,
+    () => view.filter((r) => manqueTotalOn(r, nature) > 0).length,
     [view, nature]
   )
 
@@ -721,15 +746,15 @@ export default function Approvisionnement() {
                 </Dropdown>
 
                 <SegmentedControl
-                  aria-label="Cran de quantité"
+                  aria-label="Vue de quantité"
                   className="shrink-0"
-                  selectedKeys={[cran]}
+                  selectedKeys={[vue]}
                   onSelectionChange={(keys) => {
-                    const next = [...keys][0] as ApproCran | undefined
-                    if (next) setCran(next)
+                    const next = [...keys][0] as ApproVue | undefined
+                    if (next) setVue(next)
                   }}
                 >
-                  {CRANS.map((c) => (
+                  {VUES.map((c) => (
                     <TooltipTrigger key={c.id}>
                       <SegmentedControlItem id={c.id} className={segmentItemDense}>
                         {c.label}
@@ -797,7 +822,7 @@ export default function Approvisionnement() {
                             <Badge
                               color={manquesOnly ? 'primary' : 'neutral'}
                               className="tabular-nums"
-                              title="Composants dont le reste à couvrir est non nul"
+                              title="Composants dont le manque projeté est non nul"
                             >
                               {manquesCount}
                             </Badge>
@@ -816,7 +841,7 @@ export default function Approvisionnement() {
                             <Badge
                               color={showEmptyPeriods ? 'neutral' : 'primary'}
                               className="tabular-nums"
-                              title="Périodes sans besoin au cran courant"
+                              title="Périodes sans valeur pour la vue courante"
                             >
                               {emptyIdx.size}
                             </Badge>
@@ -859,7 +884,7 @@ export default function Approvisionnement() {
                 {/* Squelette de la couche d'action (UI seule, passe 1) : le
                     bouton annonce la sortie Excel attendue par les
                     planificateurs ; le branchement (génération XLSX serveur,
-                    fenêtre/cran/filtres courants) arrive en passe 2.
+                    fenêtre/vue/filtres courants) arrive en passe 2.
                     aria-disabled et pas disabled : l'élément reste focusable,
                     le tooltip reste lisible au clavier et au survol. */}
                 <TooltipTrigger>
@@ -982,7 +1007,7 @@ export default function Approvisionnement() {
                     buckets={data.buckets}
                     visIdx={visIdx}
                     rows={rows}
-                    cran={cran}
+                    vue={vue}
                     sortPeriod={effSort}
                     onSortPeriod={setSortPeriod}
                     selected={selected}
@@ -1116,17 +1141,28 @@ const washCss = (key: string): string => {
  */
 const COL_W = {
   article: 132,
-  description: 264,
-  type: 116,
-  stock: 96,
-  valeur: 108,
-  total: 132,
+  description: 240,
+  type: 108,
+  stock: 92,
+  arrivees: 100,
+  rupture: 104,
+  valeur: 100,
+  total: 124,
   ferme: 88,
   prevision: 72,
 } as const
 
 /** Colonnes de tête, dans l'ordre du DOM. */
-const LEAD_KEYS = ['article', 'description', 'type', 'stock', 'valeur', 'total'] as const
+const LEAD_KEYS = [
+  'article',
+  'description',
+  'type',
+  'stock',
+  'arrivees',
+  'rupture',
+  'valeur',
+  'total',
+] as const
 type LeadKey = (typeof LEAD_KEYS)[number]
 
 /** Largeur du bloc de tête — pas une constante : la somme des colonnes. */
@@ -1190,7 +1226,7 @@ function ApproTable(props: {
   /** Indices des périodes affichées (les périodes vides peuvent être repliées). */
   visIdx: number[]
   rows: ApproRow[]
-  cran: ApproCran
+  vue: ApproVue
   sortPeriod: { i: number; ferme: boolean } | null
   onSortPeriod: (s: { i: number; ferme: boolean } | null) => void
   selected: string | null
@@ -1209,7 +1245,7 @@ function ApproTable(props: {
     buckets,
     visIdx,
     rows,
-    cran,
+    vue,
     sortPeriod,
     onSortPeriod,
     selected,
@@ -1228,7 +1264,7 @@ function ApproTable(props: {
   const onSelectRef = useRef(props.onSelect)
   onSelectRef.current = props.onSelect
 
-  // Périodes affichées avec leur indice d'origine (les accesseurs `cranOf`
+  // Périodes affichées avec leur indice d'origine (les accesseurs `vueOf`
   // travaillent sur les tableaux complets, pas sur la position visible).
   const vis = useMemo(() => visIdx.map((i) => ({ b: buckets[i], i })), [buckets, visIdx])
 
@@ -1240,13 +1276,15 @@ function ApproTable(props: {
     for (const r of rows) {
       let max = 0
       for (const { i } of vis) {
-        if (natureOn(nature, true)) max = Math.max(max, cranOf(r, cran, i, true))
-        if (natureOn(nature, false)) max = Math.max(max, cranOf(r, cran, i, false))
+        if (natureOn(nature, true)) {
+          max = Math.max(max, vueOf(r, vue, i, true, nature === 'FERME'))
+        }
+        if (natureOn(nature, false)) max = Math.max(max, vueOf(r, vue, i, false))
       }
       m.set(r.article, max)
     }
     return m
-  }, [rows, vis, cran, nature])
+  }, [rows, vis, vue, nature])
 
   // Sous-colonnes visibles : clé stable `${bucket}-ferme|prevision`, ordre
   // partagé par l'en-tête RAC, le corps, le pied et le survol (`cellIndex`).
@@ -1286,7 +1324,7 @@ function ApproTable(props: {
   const padTop = virtualRows.length > 0 ? virtualRows[0].start : 0
   const padBottom = virtualRows.length > 0 ? totalSize - virtualRows[virtualRows.length - 1].end : 0
 
-  // Un changement de périmètre (filtre, tri, cran) rend la position de défilement
+  // Un changement de périmètre (filtre, tri, vue) rend la position de défilement
   // dénuée de sens : la ligne 400 d'avant n'est pas la ligne 400 d'après.
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
@@ -1334,7 +1372,7 @@ function ApproTable(props: {
     const per = new Map<string, number>()
     for (const s of subs) {
       let t = 0
-      for (const r of rows) t += cranOf(r, cran, s.i, s.ferme)
+      for (const r of rows) t += vueOf(r, vue, s.i, s.ferme, nature === 'FERME')
       per.set(s.key, t)
     }
     const stock = rows.reduce((a, r) => a + r.stock, 0)
@@ -1348,13 +1386,14 @@ function ApproTable(props: {
     return {
       per,
       stock,
+      arrivees: rows.reduce((a, r) => a + arriveesTotal(r), 0),
       valeur: valeurConnue ? valeur : null,
-      total: rows.reduce((a, r) => a + cranTotalOn(r, cran, nature), 0),
+      total: rows.reduce((a, r) => a + vueTotalOn(r, vue, nature), 0),
     }
-  }, [rows, cran, subs, nature])
+  }, [rows, vue, subs, nature])
 
   const manquesInView = useMemo(
-    () => rows.filter((r) => resteTotalOn(r, nature) > 0).length,
+    () => rows.filter((r) => manqueTotalOn(r, nature) > 0).length,
     [rows, nature]
   )
 
@@ -1369,15 +1408,18 @@ function ApproTable(props: {
    * sous-arbre à la réconciliation : seules les lignes qui entrent coûtent.
    *
    * Invalidé dès que le contenu d'une ligne peut changer (données, colonnes,
-   * cran, chaleur, sélection) — c'est la clé du `useMemo`. Plafonné, sinon un
+   * vue, chaleur, sélection) — c'est la clé du `useMemo`. Plafonné, sinon un
    * parcours complet des 1118 composants retient autant d'arbres d'éléments.
    */
   // Dépendances volontairement « inutiles » au sens d'eslint : le `useMemo` ne
   // les LIT pas, il s'en sert de clé d'invalidation — c'est tout l'objet du
   // cache. Les retirer le rendrait éternel, et une ligne modifiée resterait
   // affichée telle quelle.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const rowCache = useMemo(() => new Map<number, ReactNode>(), [rows, subs, cran, rowMax, selected])
+  const rowCache = useMemo(
+    () => new Map<number, ReactNode>(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, subs, vue, rowMax, selected, nature]
+  )
 
   /** Les trois tables partagent ces colonnes — d'où un seul `<colgroup>`. */
   const colGroup = (
@@ -1396,7 +1438,7 @@ function ApproTable(props: {
   const syncX = (e: { currentTarget: HTMLDivElement }): void => {
     const x = e.currentTarget.scrollLeft
     // Le défilement vertical passe ici aussi : ne rien réécrire quand x n'a pas
-    // bougé, sinon chaque cran de molette repositionne deux conteneurs pour rien.
+    // bougé, sinon chaque vue de molette repositionne deux conteneurs pour rien.
     if (stripRef.current && stripRef.current.scrollLeft !== x) stripRef.current.scrollLeft = x
     if (footRef.current && footRef.current.scrollLeft !== x) footRef.current.scrollLeft = x
   }
@@ -1446,7 +1488,7 @@ function ApproTable(props: {
             </button>
           )}
           <Badge color="neutral" className="hidden shrink-0 sm:inline-flex">
-            {cran}
+            {vue}
           </Badge>
           {computedAt != null && (
             <span
@@ -1568,6 +1610,33 @@ function ApproTable(props: {
               <span className="text-caption-1-medium text-text-tertiary">Stock</span>
             </TableColumn>
             <TableColumn
+              id="arrivees"
+              textValue="Arrivées attendues sur la fenêtre"
+              style={{ width: COL_W.arrivees }}
+              data-col="arrivees"
+              className="r"
+            >
+              <span
+                className="text-caption-1-medium text-text-tertiary"
+                title="Réceptions d'achat ouvertes tombant dans la fenêtre (les retards sont repliés sur la première période)"
+              >
+                Arrivées
+              </span>
+            </TableColumn>
+            <TableColumn
+              id="rupture"
+              textValue="Première période en manque"
+              style={{ width: COL_W.rupture }}
+              data-col="rupture"
+            >
+              <span
+                className="text-caption-1-medium text-text-tertiary"
+                title="Première période où le stock projeté ne couvre plus le besoin"
+              >
+                Rupture
+              </span>
+            </TableColumn>
+            <TableColumn
               id="valeur"
               textValue="Valo"
               style={{ width: COL_W.valeur }}
@@ -1578,12 +1647,12 @@ function ApproTable(props: {
             </TableColumn>
             <TableColumn
               id="total"
-              textValue={`Total ${cran}`}
+              textValue={`Total ${vue}`}
               style={{ width: COL_W.total }}
               data-col="total"
               className="r"
             >
-              <span className="text-caption-1-semibold text-text-primary">Total {cran}</span>
+              <span className="text-caption-1-semibold text-text-primary">Total {vue}</span>
             </TableColumn>
             {subs.map((s) => {
               const on = sortOn(s)
@@ -1633,7 +1702,7 @@ function ApproTable(props: {
               const cached = rowCache.get(vr.index)
               if (cached) return cached
               const r = rows[vr.index]
-              const manque = resteTotalOn(r, nature) > 0
+              const manque = manqueTotalOn(r, nature) > 0
               if (rowCache.size > 600) rowCache.clear()
               const el = (
                 <TableRow
@@ -1659,7 +1728,7 @@ function ApproTable(props: {
                         className="min-w-0 max-w-full truncate rounded-sm text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-focus-ring"
                         title={
                           manque
-                            ? 'Reste à couvrir non nul — voir l’origine du besoin'
+                            ? 'Manque projeté non nul — voir l’origine du besoin'
                             : 'Voir l’origine du besoin (appelé par)'
                         }
                         aria-haspopup="dialog"
@@ -1699,6 +1768,38 @@ function ApproTable(props: {
                       {fr(r.stock)}
                     </span>
                   </TableCell>
+                  <TableCell data-col="arrivees" className="r">
+                    {arriveesTotal(r) === 0 ? (
+                      <span className="font-mono text-caption-1-regular text-text-tertiary">—</span>
+                    ) : (
+                      <span
+                        className={cx(
+                          'font-mono text-caption-1-regular tabular-nums',
+                          r.arriveesRetard > 0 ? 'text-status-yellow-text' : 'text-text-secondary'
+                        )}
+                        title={
+                          r.arriveesRetard > 0
+                            ? `${fr(r.arriveesRetard)} déjà en retard, repliés sur la première période`
+                            : 'Réceptions d’achat attendues sur la fenêtre'
+                        }
+                      >
+                        {fr(arriveesTotal(r))}
+                        {r.arriveesRetard > 0 && ' ⚠'}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell data-col="rupture">
+                    {ruptureIdx(r, nature) < 0 ? (
+                      <span className="text-caption-1-regular text-text-tertiary">—</span>
+                    ) : (
+                      <span
+                        className="whitespace-nowrap text-caption-1-semibold text-status-rose-text"
+                        title="Première période où le stock projeté ne couvre plus le besoin"
+                      >
+                        {buckets[ruptureIdx(r, nature)]?.label ?? '—'}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell data-col="valeur" className="r">
                     {r.valeur == null ? (
                       <span
@@ -1723,11 +1824,11 @@ function ApproTable(props: {
                         manque ? 'text-status-rose-text' : 'text-text-primary'
                       )}
                     >
-                      {fr(cranTotalOn(r, cran, nature))}
+                      {fr(vueTotalOn(r, vue, nature))}
                     </span>
                   </TableCell>
                   {subs.map((s) => {
-                    const v = cranOf(r, cran, s.i, s.ferme)
+                    const v = vueOf(r, vue, s.i, s.ferme, nature === 'FERME')
                     return (
                       <TableCell
                         key={s.key}
@@ -1789,6 +1890,13 @@ function ApproTable(props: {
                 >
                   {fr(sums.stock)}
                 </td>
+                <td
+                  data-col="arrivees"
+                  className="r font-mono text-caption-1-semibold tabular-nums text-text-secondary"
+                >
+                  {sums.arrivees === 0 ? null : fr(sums.arrivees)}
+                </td>
+                <td data-col="rupture" />
                 <td
                   data-col="valeur"
                   className="r font-mono text-caption-1-semibold tabular-nums text-text-secondary"
@@ -2146,9 +2254,7 @@ function ApproDetailSheet(props: {
                     >
                       Créer une demande X3
                     </Button>
-                    <Tooltip>
-                      Pré-remplie article + reste à couvrir — branchement X3 à venir
-                    </Tooltip>
+                    <Tooltip>Pré-remplie article + manque projeté — branchement X3 à venir</Tooltip>
                   </TooltipTrigger>
                   <TooltipTrigger>
                     <Button

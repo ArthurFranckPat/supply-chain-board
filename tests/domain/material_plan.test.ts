@@ -4,16 +4,18 @@ import {
   buildLigneLabelByWst,
   collectLigneOptions,
   explodeMaterialNeeds,
-  netMaterial,
 } from '#app/domain/material_plan'
 import type { ChargeOrderLine } from '#app/domain/charge_explosion'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 /**
- * Contrat plan matières : arrêt sur acheté (feuille émise, pas descendue),
- * descente des fabriqués, netting à priorité ferme (netFerme == calcul
- * ferme-seul), trois crans brut/net/reste.
+ * Contrat de l'explosion matières BRUTE (drill-down « appelé par ») : arrêt sur
+ * acheté (feuille émise, pas descendue), descente des fabriqués, fantômes
+ * aplatis dont le stock couvre avant descente du reliquat.
+ *
+ * Le NETTING ne vit plus ici : le bilan projeté est calculé par
+ * `material_projection` et verrouillé par `material_projection.test.ts`.
  */
 
 const D1 = new Date('2026-09-01T00:00:00')
@@ -115,80 +117,6 @@ test.group('explodeMaterialNeeds', () => {
   })
 })
 
-test.group('netMaterial — priorite ferme', () => {
-  // NB : les racines PF (depth 0) sont dans `needs` mais hors table composant
-  // (le loader les exclut sauf PF acheté) — les `find` filtrent par article.
-  const ach = (n: { article: string }) => n.article === 'ACH'
-  const se = (n: { article: string }) => n.article === 'SE'
-
-  test('le stock couvre le ferme avant la prevision', ({ assert }) => {
-    const raws = explodeMaterialNeeds(
-      [line('PF1', 10, D2, 'ferme'), line('PF1', 10, D1, 'prevision')],
-      [entry('PF1', 'ACH', 1, 'ACHETE')],
-      { isPurchased: (a) => a !== 'PF1' }
-    )
-    // Stock 15 : le ferme (10, plus tardif) est servi en premier → net 0 ;
-    // la prévision (10, plus précoce) ne voit que le reliquat → net 5.
-    // En FIFO global ce serait l'inverse : c'est ce que la priorité corrige.
-    const needs = netMaterial(raws, new Map([['ACH', 15]]))
-    const ferme = needs.find((n) => n.nature === 'ferme' && ach(n))!
-    const previ = needs.find((n) => n.nature !== 'ferme' && ach(n))!
-    assert.equal(ferme.brutQty, 10)
-    assert.equal(ferme.netQty, 0)
-    assert.equal(previ.brutQty, 10)
-    assert.equal(previ.netQty, 5)
-  })
-
-  test('netFerme == calcul ferme-seul (pas de second calcul)', ({ assert }) => {
-    const link = [entry('PF1', 'ACH', 1, 'ACHETE')]
-    const notPf = (a: string) => a !== 'PF1'
-    const full = explodeMaterialNeeds(
-      [line('PF1', 10, D1, 'ferme'), line('PF1', 10, D1, 'prevision')],
-      link,
-      { isPurchased: notPf }
-    )
-    const seul = explodeMaterialNeeds([line('PF1', 10, D1, 'ferme')], link, {
-      isPurchased: notPf,
-    })
-    const netFull = netMaterial(full, new Map([['ACH', 6]])).find(
-      (n) => n.nature === 'ferme' && ach(n)
-    )!
-    const netSeul = netMaterial(seul, new Map([['ACH', 6]])).find((n) => ach(n))!
-    assert.equal(netFull.netQty, netSeul.netQty)
-    assert.equal(netFull.netQty, 4)
-  })
-
-  test('FIFO par date au sein du ferme', ({ assert }) => {
-    const raws = explodeMaterialNeeds(
-      [line('PF1', 10, D2, 'ferme'), line('PF1', 10, D1, 'ferme')],
-      [entry('PF1', 'ACH', 1, 'ACHETE')],
-      { isPurchased: (a) => a !== 'PF1' }
-    )
-    const needs = netMaterial(raws, new Map([['ACH', 12]]))
-      .filter(ach)
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-    assert.equal(needs[0].netQty, 0) // D1 couvert
-    assert.equal(needs[1].netQty, 8) // D2 : 10 - (12-10)
-  })
-
-  test('trois crans : en-cours priorise le ferme lui aussi', ({ assert }) => {
-    const raws = explodeMaterialNeeds(
-      [line('PF1', 10, D1, 'ferme'), line('PF1', 10, D1, 'prevision')],
-      [entry('PF1', 'SE', 1)],
-      { isPurchased: (a) => a !== 'PF1' }
-    )
-    // Pas de stock, en-cours 6 : le ferme (10) absorbe 6 → reste 4 ; prévision intacte.
-    const needs = netMaterial(raws, new Map(), new Map([['SE', 6]]))
-    const ferme = needs.find((n) => n.nature === 'ferme' && se(n))!
-    const previ = needs.find((n) => n.nature !== 'ferme' && se(n))!
-    assert.equal(ferme.netQty, 10)
-    assert.equal(ferme.resteQty, 4)
-    assert.equal(ferme.encoursQty, 6)
-    assert.equal(previ.resteQty, 10)
-    assert.equal(previ.encoursQty, 0)
-  })
-})
-
 test.group('explodeMaterialNeeds — stock fantome (revue lots 0-1, constat 1)', () => {
   // PF1 → FANT (×1) → ACH (acheté ×2). Règle 2 de `rupture_engine` : le stock
   // du fantôme couvre d'abord, seul le reliquat descend — jamais de ligne FANT.
@@ -235,24 +163,6 @@ test.group('explodeMaterialNeeds — stock fantome (revue lots 0-1, constat 1)',
     const previ = raws.find((r) => ach(r) && r.nature !== 'ferme')!
     assert.equal(ferme.qty, 80) // (100 − 60) × 2
     assert.equal(previ.qty, 200) // reliquat nul pour la prévision
-  })
-
-  test('netFerme == calcul ferme-seul avec stock fantome', ({ assert }) => {
-    const stock = new Map([['FANT', 60]])
-    const full = explodeMaterialNeeds(
-      [line('PF1', 100, D1, 'ferme'), line('PF1', 100, D1, 'prevision')],
-      phantomEntries,
-      { ...phantomOpts, phantomStock: stock }
-    )
-    const seul = explodeMaterialNeeds([line('PF1', 100, D1, 'ferme')], phantomEntries, {
-      ...phantomOpts,
-      phantomStock: stock,
-    })
-    const ach = (n: { article: string }) => n.article === 'ACH'
-    const netFull = netMaterial(full, new Map()).find((n) => ach(n) && n.nature === 'ferme')!
-    const netSeul = netMaterial(seul, new Map()).find(ach)!
-    assert.equal(netFull.netQty, netSeul.netQty)
-    assert.equal(netFull.netQty, 80)
   })
 })
 

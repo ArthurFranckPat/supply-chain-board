@@ -1,26 +1,31 @@
 /**
- * Plan d'approvisionnement — loader (lot 1, v1 « voici mon besoin »).
+ * Plan d'approvisionnement — loader.
  *
- * Calcule, sur une fenêtre [from, to] et une maille (jour / semaine / mois), les
- * besoins matières ventilés ferme / prévision par article composant :
- * explosion quantité (arrêt sur acheté, fantômes aplatis avec stock consommé
- * d'abord) + netting à priorité ferme (stock puis en-cours).
+ * Calcule, sur une fenêtre [from, to] et une maille (jour / semaine / mois), le
+ * BILAN PROJETÉ de chaque composant : besoin appelé, arrivées attendues, stock
+ * projeté, manque daté. Le calcul est une projection MRP niveau par niveau
+ * (`projectMaterialPlan`) — pas un netting global contre une photo de stock.
  *
  * Sources (caches SWR `boardDataset`, comme la charge) : lignes de demande
  * ORDERS WIPTYP=1 (`getOrderLinesForLoad`), nomenclature complète SQLite,
  * articles (types appro + catégories), OF fenêtre + pointages (en-cours),
- * stock PHYSIQUE + CQ (allocations ERP réintégrées, cf. `sumAvailableStock`).
+ * stock PHYSIQUE + CQ (allocations ERP réintégrées, cf. `sumAvailableStock`),
+ * RÉCEPTIONS D'ACHAT ouvertes (`getReceptions`, cache global partagé).
  *
  * Divergences assumées avec /charge (écrites ici, pas subies) :
  * - les OVERRIDES de dates posés par les drags de /planification SONT appliqués
  *   (lignes COMMANDE seules) : le plan appro suit l'intention planificateur ;
- * - le netting PRIORISE LE FERME (cf. `netMaterial`), là où /charge nette en
- *   FIFO global — les deux mentions sont rappelées dans l'en-tête de page.
+ * - /charge ignore les arrivées et ne nette pas le stock des sous-ensembles
+ *   pendant la descente. Les heures et les quantités partent de la MÊME
+ *   explosion mais ne répondent pas à la même question — mention en en-tête.
  *
  * Règles de lecture :
  * - lignes depth 0 exclues (la demande elle-même), SAUF racine achetée (négoce :
  *   le besoin d'achat du PF est réel) ;
  * - besoins hors buckets (override sorti de fenêtre) ignorés ;
+ * - réceptions déjà en retard repliées sur le PREMIER bucket et comptées à part
+ *   (`arriveesRetard`) : les ignorer surestimerait le manque, les dater dans le
+ *   passé les perdrait — les afficher à part laisse le planificateur juger ;
  * - plafond 14 périodes → 400 explicite, jamais de tableau dégénéré ;
  * - filtre `ligne` (poste 1ʳᵉ op de gamme du PF de tête) : restreint les lignes
  *   de demande AVANT explosion — quantités exactes de la ligne, pas un masque
@@ -39,18 +44,23 @@ import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import { addDays, atMidnight, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement } from '#app/domain/of_avancement'
 import { buildEncoursByArticle } from '#services/load_payload_loader'
-import { explodeMaterialNeeds, netMaterial } from '#app/domain/material_plan'
+import { explodeMaterialNeeds } from '#app/domain/material_plan'
 import {
   buildLigneByArticle,
   buildLigneLabelByWst,
   collectLigneOptions,
   type MaterialLigneOption,
 } from '#app/domain/material_plan'
-import type { ChargeNeed, ChargeOrderLine } from '#app/domain/charge_explosion'
+import {
+  projectMaterialPlan,
+  type ArticleSupply,
+  type ProjectionDemand,
+} from '#app/domain/material_projection'
+import { collectBom, type ChargeOrderLine, type ChargeRaw } from '#app/domain/charge_explosion'
 
 export type MaterialGran = 'jour' | 'semaine' | 'mois'
 
-/** Plafond de lisibilité : 14 périodes (×2 avec le double bucket ferme/prévision). */
+/** Plafond de lisibilité : 14 périodes. */
 export const MATERIAL_MAX_PERIODS = 14
 
 export interface MaterialBucket {
@@ -68,12 +78,33 @@ export interface MaterialRow {
    * KPI stock dashboard), NULL si PMP inconnu — sert au tri « Valorisation ».
    */
   valeur: number | null
-  brutFerme: number[]
-  brutPrevi: number[]
-  netFerme: number[]
-  netPrevi: number[]
-  resteFerme: number[]
-  restePrevi: number[]
+  /** En-cours de fabrication non déclaré, crédité au premier bucket. */
+  encours: number
+  /** Arrivées attendues par bucket (réceptions d'achat ouvertes). */
+  arrivees: number[]
+  /** Part des arrivées déjà en retard, repliée sur le premier bucket. */
+  arriveesRetard: number
+  /** Besoin appelé par les parents — déjà NET de ce que les parents couvrent. */
+  besoinFerme: number[]
+  besoinPrevi: number[]
+  /** Stock projeté disponible en fin de bucket. Jamais négatif. */
+  solde: number[]
+  /**
+   * Manque du bucket — la quantité à approvisionner —, ventilé par nature du
+   * besoin qui l'encaisse (passage TOUTES NATURES).
+   */
+  manqueFerme: number[]
+  manquePrevi: number[]
+  /**
+   * Manque en ne comptant QUE le carnet ferme — second passage COMPLET du
+   * moteur sans les prévisions, seule façon d'être exact sans casser la
+   * chronologie (cf. en-tête de `material_projection`). Diffère de
+   * `manqueFerme` dès qu'une prévision précoce mange le stock d'un ferme tardif.
+   */
+  manqueFermeSeul: number[]
+  /** Premier bucket porteur d'un manque, `-1` si la fenêtre passe entière. */
+  ruptureAt: number
+  ruptureFermeAt: number
   /** Descendance incomplète (coupe profondeur) — à marquer à l'écran. */
   tronque: boolean
 }
@@ -377,32 +408,90 @@ async function computeMaterialStock(
   return sumAvailableStock(await boardDataset.getStock(explodedArticles, force).catch(() => []))
 }
 
-interface Exploded {
-  needs: ChargeNeed[]
-  truncated: number
-  cutParents: Set<string>
-}
-
-function explodeAndNet(inputs: MaterialInputs, stock: Map<string, number>): Exploded {
+/**
+ * Explosion BRUTE en profondeur d'abord — la seule qui porte `path` et
+ * `ChargeSource`, donc la seule qui sait répondre « appelé par qui ».
+ *
+ * Elle N'EST PAS la source des chiffres du tableau (c'est la projection
+ * niveau par niveau qui les donne) : elle sert au drill-down et à la passe de
+ * découverte du périmètre de stock. Les deux répondent à deux questions —
+ * « tout ce qui est appelé » vs « ce qui manquera vraiment » — et le panneau de
+ * détail le dit.
+ */
+function explodeGross(inputs: MaterialInputs, stock: Map<string, number>): ChargeRaw[] {
   const { catByArticle, supplyByArticle } = inputs
-  const stats: { truncated: number; cutParents?: string[] } = { truncated: 0, cutParents: [] }
-  const raws = explodeMaterialNeeds(inputs.orderLines, inputs.entries, {
+  return explodeMaterialNeeds(inputs.orderLines, inputs.entries, {
     isPhantom: (a) => isPhantomCat(catByArticle[a]),
     isPurchased: (a) => supplyByArticle[a] === 'ACHAT',
     // Le stock inclut les fantômes traversés (lus par l'agrégat, repinnés
     // pour le détail) : couvre d'abord, descente du reliquat.
     phantomStock: stock,
-    stats,
   })
-  const encours = buildEncoursByArticle({
+}
+
+/** En-cours de fabrication non déclaré, par article — crédité au bucket 0. */
+function buildEncours(inputs: MaterialInputs): Map<string, number> {
+  return buildEncoursByArticle({
     mos: inputs.mos,
     avancementByOf: computeAvancement(inputs.operations),
   })
-  return {
-    needs: netMaterial(raws, stock, encours),
-    truncated: stats.truncated,
-    cutParents: new Set(stats.cutParents ?? []),
+}
+
+/**
+ * Arrivées attendues par article et par bucket, depuis les commandes d'achat
+ * ouvertes (cache global `getReceptions`).
+ *
+ * Les réceptions ANTÉRIEURES à la fenêtre sont repliées sur le premier bucket
+ * et comptées à part : une PO en retard est de la matière réellement attendue,
+ * l'ignorer surestime le manque — mais la dater d'aujourd'hui serait mentir sur
+ * sa fiabilité, d'où le compteur séparé que l'écran affiche.
+ */
+function bucketArrivals(
+  receptions: Flow[],
+  idxByKey: Map<string, number>,
+  gran: MaterialGran,
+  windowStart: Date,
+  bucketCount: number
+): { byArticle: Map<string, number[]>; lateByArticle: Map<string, number> } {
+  const byArticle = new Map<string, number[]>()
+  const lateByArticle = new Map<string, number>()
+  for (const f of receptions) {
+    if (f.quantity <= 0 || !f.article) continue
+    let idx: number | undefined
+    let late = false
+    if (f.date === null) {
+      idx = 0
+    } else if (atMidnight(f.date) < windowStart) {
+      idx = 0
+      late = true
+    } else {
+      idx = idxByKey.get(needBucketKey(f.date, gran))
+    }
+    if (idx === undefined) continue // arrivée au-delà de la fenêtre : hors sujet
+    let arr = byArticle.get(f.article)
+    if (!arr) {
+      arr = new Array<number>(bucketCount).fill(0)
+      byArticle.set(f.article, arr)
+    }
+    arr[idx] += f.quantity
+    if (late) lateByArticle.set(f.article, (lateByArticle.get(f.article) ?? 0) + f.quantity)
   }
+  return { byArticle, lateByArticle }
+}
+
+/** Demande de niveau 0 bucketisée — entrée de la projection. */
+function bucketDemands(
+  orderLines: ChargeOrderLine[],
+  idxByKey: Map<string, number>,
+  gran: MaterialGran
+): ProjectionDemand[] {
+  const out: ProjectionDemand[] = []
+  for (const l of orderLines) {
+    const bucket = idxByKey.get(needBucketKey(l.date, gran))
+    if (bucket === undefined) continue // override sorti de fenêtre
+    out.push({ article: l.article, bucket, qty: l.quantite, nature: l.nature })
+  }
+  return out
 }
 
 /**
@@ -415,27 +504,37 @@ function keepRow(article: string, depth: number, supplyByArticle: Record<string,
   return supplyByArticle[article] === 'ACHAT'
 }
 
-function emptyRow(
-  article: string,
-  buckets: number,
-  descByArticle: Record<string, string>,
-  supplyByArticle: Record<string, string>
-): MaterialRow {
-  const zeros = () => new Array<number>(buckets).fill(0)
-  return {
-    article,
-    description: descByArticle[article] ?? '',
-    supplyType: supplyByArticle[article] === 'ACHAT' ? 'ACHAT' : 'FABRICATION',
-    stock: 0,
-    valeur: null,
-    brutFerme: zeros(),
-    brutPrevi: zeros(),
-    netFerme: zeros(),
-    netPrevi: zeros(),
-    resteFerme: zeros(),
-    restePrevi: zeros(),
-    tronque: false,
+/**
+ * Projection complète d'une fenêtre : le passage TOUTES NATURES, puis un second
+ * passage FERME SEUL.
+ *
+ * Le second passage n'est pas un luxe : la projection sert le ferme avant la
+ * prévision au sein d'un bucket, mais jamais entre buckets — une prévision de
+ * S36 mange donc le stock d'un ferme de S38. « Que dois-je si je ne crois que
+ * le carnet » n'a pas d'autre réponse exacte que de rejouer sans les prévisions.
+ * Calcul pur sur ~2 600 articles : le doubler ne coûte rien de mesurable.
+ */
+function projectBothScopes(
+  inputs: MaterialInputs,
+  demands: ProjectionDemand[],
+  supplyOf: (article: string) => ArticleSupply | undefined,
+  bucketCount: number
+) {
+  const { catByArticle, supplyByArticle } = inputs
+  const bom = collectBom(inputs.entries, { includePurchased: true })
+  const opts = {
+    buckets: bucketCount,
+    supply: supplyOf,
+    isPhantom: (a: string) => isPhantomCat(catByArticle[a]),
+    isPurchased: (a: string) => supplyByArticle[a] === 'ACHAT',
   }
+  const all = projectMaterialPlan(demands, bom, opts)
+  const fermeSeul = projectMaterialPlan(
+    demands.filter((d) => d.nature === 'ferme'),
+    bom,
+    opts
+  )
+  return { all, fermeSeul }
 }
 
 /**
@@ -632,63 +731,77 @@ export async function loadMaterialPayloadData(params: MaterialParams) {
       // fantômes traversés. Sert deux fois — périmètre de lecture du stock, et
       // réduction du BOM pinné (`reachableBom`).
       const reached = new Set([...discovery.map((r) => r.article), ...traversedPhantoms])
-      const { stock, pmp } = await computeMaterialStock([...reached], force)
-      // Un seul chemin de calcul agrégat ↔ détail : le snapshot pinné rejoue
-      // exactement cette fonction.
-      const { needs, truncated, cutParents } = explodeAndNet(activeInputs, stock)
+      // Stock et réceptions en parallèle : deux caches SWR indépendants, aucune
+      // raison de les payer en série.
+      const [{ stock, pmp }, receptions] = await Promise.all([
+        computeMaterialStock([...reached], force),
+        boardDataset.getReceptions(force).catch(() => [] as Flow[]),
+      ])
+      const { byArticle: arrivalsByArticle, lateByArticle } = bucketArrivals(
+        receptions.filter((f) => reached.has(f.article)),
+        idxByKey,
+        gran,
+        atMidnight(from),
+        buckets.length
+      )
+      const encours = buildEncours(activeInputs)
+      const supplyOf = (article: string): ArticleSupply | undefined => ({
+        stock: stock.get(article) ?? 0,
+        encours: encours.get(article) ?? 0,
+        arrivees: arrivalsByArticle.get(article),
+      })
+      const { all, fermeSeul } = projectBothScopes(
+        activeInputs,
+        bucketDemands(activeInputs.orderLines, idxByKey, gran),
+        supplyOf,
+        buckets.length
+      )
+      const truncated = all.truncated
 
-      const rows = new Map<string, MaterialRow>()
-      const rowFor = (article: string): MaterialRow => {
-        let row = rows.get(article)
-        if (!row) {
-          row = emptyRow(
-            article,
-            buckets.length,
-            activeInputs.descByArticle,
-            activeInputs.supplyByArticle
-          )
-          const qty = stock.get(article) ?? 0
-          const unit = pmp.get(article)
-          row.stock = round2(qty)
-          row.valeur = unit == null ? null : round2(qty * unit)
-          row.tronque = cutParents.has(article)
-          rows.set(article, row)
-        }
-        return row
+      // Arrondi UNIQUE en sortie : arrondir pendant l'accumulation dérive sur
+      // les gros consommateurs (E7768 : 332 nomenclatures parentes).
+      const r2 = (arr: number[]): number[] => arr.map(round2)
+      const rows: MaterialRow[] = []
+      for (const p of all.byArticle.values()) {
+        if (!keepRow(p.article, p.depth, activeInputs.supplyByArticle)) continue
+        // La projection VISITE tout ce qui est structurellement atteignable ;
+        // elle n'APPELLE que ce que les parents ne couvrent pas déjà. Un
+        // composant sous un sous-ensemble entièrement en stock n'est pas une
+        // ligne du plan — l'afficher à zéro noierait le signal.
+        const appele = p.besoinFerme.some((v) => v > 0) || p.besoinPrevi.some((v) => v > 0)
+        if (!appele) continue
+        const ferme = fermeSeul.byArticle.get(p.article)
+        const unit = pmp.get(p.article)
+        const qty = p.stockInitial
+        rows.push({
+          article: p.article,
+          description: activeInputs.descByArticle[p.article] ?? '',
+          supplyType: activeInputs.supplyByArticle[p.article] === 'ACHAT' ? 'ACHAT' : 'FABRICATION',
+          stock: round2(qty),
+          valeur: unit == null ? null : round2(qty * unit),
+          encours: round2(p.encours),
+          arrivees: r2(p.arrivees),
+          arriveesRetard: round2(lateByArticle.get(p.article) ?? 0),
+          besoinFerme: r2(p.besoinFerme),
+          besoinPrevi: r2(p.besoinPrevi),
+          solde: r2(p.solde),
+          manqueFerme: r2(p.manqueFerme),
+          manquePrevi: r2(p.manquePrevi),
+          manqueFermeSeul: r2(ferme?.manqueFerme ?? new Array<number>(buckets.length).fill(0)),
+          ruptureAt: p.ruptureAt,
+          ruptureFermeAt: ferme?.ruptureAt ?? -1,
+          tronque: p.tronque,
+        })
       }
-      for (const n of needs) {
-        if (!keepRow(n.article, n.depth, activeInputs.supplyByArticle)) continue
-        const idx = idxByKey.get(needBucketKey(n.date, gran))
-        if (idx === undefined) continue // override sorti de fenêtre
-        const row = rowFor(n.article)
-        if (n.nature === 'ferme') {
-          row.brutFerme[idx] += n.brutQty
-          row.netFerme[idx] += n.netQty
-          row.resteFerme[idx] += n.resteQty
-        } else {
-          row.brutPrevi[idx] += n.brutQty
-          row.netPrevi[idx] += n.netQty
-          row.restePrevi[idx] += n.resteQty
-        }
-      }
-      // Arrondi UNIQUE en fin d'accumulation : arrondir à chaque ajout dérive
-      // sur les gros consommateurs (E7768 : 332 nomenclatures parentes).
-      for (const row of rows.values()) {
-        for (const arr of [
-          row.brutFerme,
-          row.brutPrevi,
-          row.netFerme,
-          row.netPrevi,
-          row.resteFerme,
-          row.restePrevi,
-        ]) {
-          for (let i = 0; i < arr.length; i++) arr[i] = round2(arr[i])
-        }
-      }
-      const sorted = [...rows.values()].sort((a, b) => {
-        const netA = a.netFerme.reduce((s, v) => s + v, 0) + a.netPrevi.reduce((s, v) => s + v, 0)
-        const netB = b.netFerme.reduce((s, v) => s + v, 0) + b.netPrevi.reduce((s, v) => s + v, 0)
-        return netB - netA
+      // Tri par défaut : ce qui manque le plus tôt, puis le plus fort. Un plan
+      // se lit par l'urgence, pas par le volume.
+      const sorted = rows.sort((a, b) => {
+        const ra = a.ruptureAt < 0 ? Number.MAX_SAFE_INTEGER : a.ruptureAt
+        const rb = b.ruptureAt < 0 ? Number.MAX_SAFE_INTEGER : b.ruptureAt
+        if (ra !== rb) return ra - rb
+        const sum = (row: MaterialRow) =>
+          row.manqueFerme.reduce((s, v) => s + v, 0) + row.manquePrevi.reduce((s, v) => s + v, 0)
+        return sum(b) - sum(a)
       })
 
       // Pinne les ENTRÉES (pas le résultat) : le détail rejoue le même calcul —
@@ -726,7 +839,7 @@ export async function loadMaterialDetailData(
   if (!ISO_RE.test(from) || !ISO_RE.test(to)) return null
   const pinned = await getPinnedMaterialInputs(version)
   if (!pinned) return null
-  const { needs } = explodeAndNet(pinned.inputs, new Map(pinned.stock))
+  const needs = explodeGross(pinned.inputs, new Map(pinned.stock))
   const fromD = atMidnight(new Date(from))
   const toD = atMidnight(new Date(to))
   toD.setHours(23, 59, 59, 999)
@@ -742,7 +855,7 @@ export async function loadMaterialDetailData(
     const key = `${s?.numCommande ?? ''}#${s?.ligne ?? ''}#${s?.pfArticle ?? ''}#${n.nature}#${n.path.join('>')}:${isoDay(n.date)}`
     const line = grouped.get(key)
     if (line) {
-      line.quantite += n.brutQty
+      line.quantite += n.qty
     } else {
       grouped.set(key, {
         date: isoDay(n.date),
@@ -751,7 +864,7 @@ export async function loadMaterialDetailData(
         client: s?.client ?? null,
         pfArticle: s?.pfArticle ?? n.article,
         nature: n.nature === 'ferme' ? 'ferme' : 'prevision',
-        quantite: n.brutQty,
+        quantite: n.qty,
         path: n.path,
       })
     }

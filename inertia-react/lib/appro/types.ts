@@ -6,7 +6,14 @@
  */
 
 export type ApproGran = 'jour' | 'semaine' | 'mois'
-export type ApproCran = 'brut' | 'net' | 'reste'
+/**
+ * Vue de lecture de la grille :
+ *  - `manque` : ce qui manquera réellement (besoin non couvert par le stock
+ *    projeté ni par les arrivées attendues) — la question du planificateur ;
+ *  - `besoin` : le besoin appelé par les parents, déjà net de ce qu'ils
+ *    couvrent — utile pour voir le volume, pas pour décider.
+ */
+export type ApproVue = 'manque' | 'besoin'
 
 export interface ApproBucket {
   key: string
@@ -28,12 +35,25 @@ export interface ApproRow {
   stock: number
   /** Valorisation du stock (stock × PMP), NULL si PMP inconnu. */
   valeur: number | null
-  brutFerme: number[]
-  brutPrevi: number[]
-  netFerme: number[]
-  netPrevi: number[]
-  resteFerme: number[]
-  restePrevi: number[]
+  /** En-cours de fabrication non déclaré, crédité au premier bucket. */
+  encours: number
+  /** Arrivées attendues par bucket (réceptions d'achat ouvertes). */
+  arrivees: number[]
+  /** Part des arrivées déjà en retard, repliée sur le premier bucket. */
+  arriveesRetard: number
+  /** Besoin appelé par les parents — déjà net de ce qu'ils couvrent. */
+  besoinFerme: number[]
+  besoinPrevi: number[]
+  /** Stock projeté disponible en fin de bucket. Jamais négatif. */
+  solde: number[]
+  /** Manque du bucket, ventilé par nature du besoin qui l'encaisse. */
+  manqueFerme: number[]
+  manquePrevi: number[]
+  /** Manque en ne comptant QUE le carnet ferme (second passage du moteur). */
+  manqueFermeSeul: number[]
+  /** Premier bucket porteur d'un manque, `-1` si la fenêtre passe entière. */
+  ruptureAt: number
+  ruptureFermeAt: number
   /** Descendance incomplète (coupe profondeur) — à marquer. */
   tronque: boolean
 }

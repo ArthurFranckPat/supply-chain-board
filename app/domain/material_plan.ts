@@ -1,35 +1,30 @@
 /**
- * Plan d'approvisionnement — besoins matières (lot 1, v1 « voici mon besoin »).
+ * Plan d'approvisionnement — explosion brute des besoins matières.
  *
  * Pur : aucune I/O — le loader charge les données, ce moteur décide.
  *
- * Chaîne :
- * 1. `explodeMaterialNeeds` — explosion QUANTITÉ (un besoin par article, sans
- *    exigence de gamme) avec ARRÊT SUR ACHETÉ (feuille à acheter) et descente
- *    des sous-ensembles fabriqués jusqu'à `maxDepth` (fantômes aplatis, stock
- *    fantôme consommé d'abord — règle 2 de `rupture_engine`).
- * 2. `netMaterial` — netting à PRIORITÉ FERME : le stock couvre d'abord le
- *    ferme (FIFO par date), le reliquat couvre la prévision. Propriété clé :
- *    `netFerme` vaut EXACTEMENT ce que donnerait un calcul ferme-seul (même
- *    ordre FIFO au sein du ferme) — pas de second calcul, pas de bascule.
- *    L'en-cours priorise le ferme lui aussi, pour la même raison.
+ * `explodeMaterialNeeds` — explosion QUANTITÉ (un besoin par article, sans
+ * exigence de gamme) avec ARRÊT SUR ACHETÉ (feuille à acheter) et descente des
+ * sous-ensembles fabriqués jusqu'à `maxDepth` (fantômes aplatis, stock fantôme
+ * consommé d'abord — règle 2 de `rupture_engine`).
  *
- * Conventions reprises de la charge SANS les dupliquer : besoin daté à la date
- * de demande client (pas de décalage de délai, D1 assumé), stock snapshot
- * « maintenant », en-cours = cran « reste ».
+ * C'est une explosion BRUTE, en profondeur d'abord : elle porte `path` et
+ * `ChargeSource` jusqu'au bas de la nomenclature, donc elle SEULE sait répondre
+ * « ce composant est appelé par quelle commande ». C'est ce qui alimente le
+ * drill-down.
  *
- * DIVERGENCE assumée avec la charge sur le pool de stock : `netMaterial` reçoit
- * le stock PHYSIQUE + CQ, allocations ERP réintégrées, là où la charge nette sur
- * `strict`. Motif dans `sumAvailableStock` — cette page compte la demande sans
- * retirer les allocations composant, retirer celles-ci du stock ferait payer la
- * même réservation deux fois. Le pool reste un paramètre : ce moteur ne décide
- * pas de sa composition.
+ * Elle ne calcule AUCUN manque. Le bilan projeté — besoin net, arrivées, stock
+ * projeté, date de rupture — est le travail de `material_projection`, qui nette
+ * niveau par niveau et par période. Les deux partent des mêmes entrées et
+ * répondent à deux questions différentes : « tout ce qui est appelé » d'un
+ * côté, « ce qui manquera vraiment » de l'autre.
+ *
+ * Convention reprise de la charge SANS la dupliquer : besoin daté à la date de
+ * demande client (pas de décalage de délai, D1 assumé).
  */
 import {
   collectBom,
   explodeQuantity,
-  type ChargeNature,
-  type ChargeNeed,
   type ChargeOrderLine,
   type ChargeRaw,
   type QuantityExplodeOptions,
@@ -140,63 +135,4 @@ export function explodeMaterialNeeds(
     phantomStock: opts.phantomStock,
     stats: opts.stats,
   })
-}
-
-/**
- * Netting à priorité ferme, par article, en DEUX passes comme `netCharge`
- * (stock puis en-cours, FIFO par date) — mais le ferme consomme les pools
- * AVANT la prévision.
- *
- * Pourquoi pas `netCharge` : celui-ci nette en FIFO par date toutes natures
- * confondues — une prévision de septembre y mangerait le stock d'une commande
- * ferme d'octobre, et `netFerme` ne répondrait plus à « que dois-je si je ne
- * crois que le carnet ». Ici le ferme est servi en premier, donc `netFerme`
- * répond à cette question sans second calcul.
- */
-export function netMaterial(
-  raws: ChargeRaw[],
-  stockByArticle: Map<string, number> = new Map(),
-  encoursByArticle: Map<string, number> = new Map()
-): ChargeNeed[] {
-  const byArticle = new Map<string, ChargeRaw[]>()
-  for (const r of raws) {
-    const arr = byArticle.get(r.article)
-    if (arr) arr.push(r)
-    else byArticle.set(r.article, [r])
-  }
-
-  const byDate = (a: ChargeRaw, b: ChargeRaw) => a.date.getTime() - b.date.getTime()
-  const out: ChargeNeed[] = []
-  for (const arr of byArticle.values()) {
-    // Ferme d'abord (FIFO par date), prévision ensuite sur le reliquat.
-    const ordered = [
-      ...arr.filter((r) => r.nature === 'ferme').sort(byDate),
-      ...arr.filter((r) => r.nature !== 'ferme').sort(byDate),
-    ]
-    let stockPool = stockByArticle.get(arr[0].article) ?? 0
-    let encoursPool = encoursByArticle.get(arr[0].article) ?? 0
-    for (const r of ordered) {
-      const netQty = stockPool >= r.qty ? 0 : r.qty - stockPool
-      stockPool = Math.max(0, stockPool - r.qty)
-      const resteQty = encoursPool >= netQty ? 0 : netQty - encoursPool
-      encoursPool = Math.max(0, encoursPool - netQty)
-      out.push({
-        wst: r.wst,
-        date: r.date,
-        article: r.article,
-        nature: r.nature satisfies ChargeNature,
-        depth: r.depth,
-        brutHours: 0,
-        netHours: 0,
-        resteHours: 0,
-        brutQty: r.qty,
-        netQty,
-        resteQty,
-        encoursQty: netQty - resteQty,
-        path: r.path,
-        source: r.source,
-      })
-    }
-  }
-  return out
 }
