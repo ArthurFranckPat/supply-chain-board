@@ -87,6 +87,32 @@ export interface ChargeDetailCmdRow {
   brutHours: number
   netHours: number
   resteHours: number
+  /** OFs contremarqués (réservés par X3) à la commande de la ligne. */
+  ofs: ChargeDetailRowOf[]
+  /** OFs de l'article SANS contremarque — pool libre, non attribuable à une ligne. */
+  ofsLibres: number
+  /** OFs de l'article réservés à d'autres commandes. */
+  ofsAutres: number
+}
+
+/** Plafond d'OFs embarqués par ligne de besoin. */
+const OFS_PER_ROW = 20
+
+/**
+ * OF contremarqué — la SEULE liaison OF ↔ commande qui existe : X3 a réservé
+ * cet ordre à une commande de vente précise (`reservePour`). Les autres OFs de
+ * l'article (libres ou réservés ailleurs) ne doivent PAS être répétés sur
+ * chaque ligne : ils n'appartiennent à personne en particulier, et les afficher
+ * partout fait croire que tout est couvert par le même ordre.
+ */
+export interface ChargeDetailRowOf {
+  numOf: string
+  statutLabel: string | null
+  /** Reste à produire (pointages déduits) — même cran que la vue OF. */
+  quantite: number
+  dateIso: string | null
+  /** Commande de vente à laquelle X3 a réservé l'OF (contremarque) — la commande de la ligne. */
+  reservePour: string | null
 }
 
 export interface ChargeDetail {
@@ -216,6 +242,40 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
       const allNeeds = await computeChargeNeeds(inputs, pinned?.stock)
       const needs = allNeeds.filter((n) => n.wst === poste && inBucket(n.date) && n.brutHours > 0)
 
+      // OFs existants par article — le contexte d'allocation que le netting ne
+      // regarde pas. Même source figée que le reste (`inputs.mos`) : la table
+      // dit ce que X3 avait sous la main au même instant que la barre.
+      const ofsByArticle = new Map<string, ChargeDetailRowOf[]>()
+      for (const mo of inputs.mos) {
+        const qty = ofResteAProduire(mo, inputs.avancementByOf)
+        if (qty <= 0) continue
+        let arr = ofsByArticle.get(mo.article)
+        if (!arr) ofsByArticle.set(mo.article, (arr = []))
+        arr.push({
+          numOf: mo.numOf,
+          statutLabel: mo.statutLabel,
+          quantite: qty,
+          dateIso: mo.startDate ? isoDay(mo.startDate) : null,
+          reservePour: mo.reservePour ?? null,
+        })
+      }
+      for (const arr of ofsByArticle.values()) {
+        arr.sort((a, b) => (a.dateIso ?? '9999').localeCompare(b.dateIso ?? '9999'))
+      }
+      const rowOfs = (
+        article: string,
+        numCommande: string | null
+      ): { ofs: ChargeDetailRowOf[]; libres: number; autres: number } => {
+        const all = ofsByArticle.get(article) ?? []
+        return {
+          ofs: all
+            .filter((o) => numCommande !== null && o.reservePour === numCommande)
+            .slice(0, OFS_PER_ROW),
+          libres: all.filter((o) => o.reservePour === null).length,
+          autres: all.filter((o) => o.reservePour !== null && o.reservePour !== numCommande).length,
+        }
+      }
+
       // Désignations : référentiel articles LOCAL (SQLite), pas X3.
       const articles = await staticSync.readArticles().catch(() => [] as Article[])
       const desByArticle = new Map(articles.map((a) => [a.code, a.description || null]))
@@ -232,6 +292,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
 
       const cmdRows: ChargeDetailCmdRow[] = needs.map((n) => {
         const code = n.source?.client ?? null
+        const numCommande = n.source?.numCommande ?? null
+        const { ofs, libres, autres } = rowOfs(n.article, numCommande)
         return {
           article: n.article,
           designation: desByArticle.get(n.article) ?? null,
@@ -251,6 +313,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           brutHours: n.brutHours,
           netHours: n.netHours,
           resteHours: n.resteHours,
+          ofs,
+          ofsLibres: libres,
+          ofsAutres: autres,
         }
       })
       cmdRows.sort((a, b) => b.brutHours - a.brutHours)

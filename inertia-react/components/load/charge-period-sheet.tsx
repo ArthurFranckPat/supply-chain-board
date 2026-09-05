@@ -64,6 +64,24 @@ interface DetailCmdRow {
   brutHours: number
   netHours: number
   resteHours: number
+  /** OFs contremarqués (réservés par X3) à la commande de la ligne. */
+  ofs: DetailRowOf[]
+  /** OFs de l'article SANS contremarque — pool libre, non attribuable à une ligne. */
+  ofsLibres: number
+  /** OFs de l'article réservés à d'autres commandes. */
+  ofsAutres: number
+}
+
+/**
+ * OF contremarqué — la SEULE liaison OF ↔ commande qui existe : X3 a réservé
+ * cet ordre à une commande de vente précise.
+ */
+interface DetailRowOf {
+  numOf: string
+  statutLabel: string | null
+  quantite: number
+  dateIso: string | null
+  reservePour: string | null
 }
 
 interface DetailPayload {
@@ -309,13 +327,15 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // par l'en-tête de jour. Les lignes n'affichent que ce qui les distingue au
   // sein de ce jour.
   // « Via » porte une chaîne d'articles (PF › SE › …), pas un code isolé :
-  // elle a besoin d'une part élastique, pas d'une largeur fixe.
-  const cols = view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 9rem 7rem'
+  // elle a besoin d'une part élastique, pas d'une largeur fixe. La colonne OF
+  // porte les contremarques X3 de la commande — élastique elle aussi.
+  const cols =
+    view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 9rem 7rem'
 
   const heads =
     view === 'of'
       ? ['Article', 'Désignation', 'Ordre', 'Qté', 'Heures']
-      : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'Qté', 'Heures']
+      : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', 'Qté', 'Heures']
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
@@ -484,6 +504,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                   {heads.map((h, i) => (
                     <div
                       key={`h-${i}`}
+                      title={
+                        h === 'OF'
+                          ? 'OF réservés à la commande de la ligne (contremarque X3)'
+                          : undefined
+                      }
                       className={cn(
                         'sticky top-0 z-10 border-b border-border bg-secondary py-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground',
                         i === 0 && 'pl-5',
@@ -756,6 +781,7 @@ function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }
       <div className={cn(CELL, 'truncate text-muted-foreground')}>
         {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
       </div>
+      <OfLiesCell ofs={r.ofs ?? []} ofsLibres={r.ofsLibres ?? 0} ofsAutres={r.ofsAutres ?? 0} />
       {/* En cran « reste », la part absorbée par l'en-cours est annoncée À CÔTÉ du
           chiffre. Sans elle la ligne affiche une quantité plus petite que la
           commande sans dire pourquoi — un chiffre inexpliqué se lit comme un bug. */}
@@ -774,5 +800,64 @@ function CmdRow({ row: r, qtyMode }: { row: DetailCmdRow; qtyMode: LoadQtyMode }
         {fmtH(qtyMode === 'reste' ? r.resteHours : qtyMode === 'net' ? r.netHours : r.brutHours)}
       </div>
     </>
+  )
+}
+
+/**
+ * OFs LIÉS à la ligne — par contremarque X3 uniquement : un OF restant à
+ * produire n'est lisible ligne à ligne QUE si l'ERP l'a réservé à la commande
+ * de la ligne. Le reste du pool de l'article (libre, ou réservé à une autre
+ * commande) n'est PAS répété sur chaque ligne — il n'appartient à personne en
+ * particulier, et l'afficher partout faisait croire que tout était couvert par
+ * le même ordre. Ce qui existe sans être attribué reste compté au survol du
+ * « — » : le pool se connaît, sans prétendre dire pour qui.
+ */
+function OfLiesCell({
+  ofs,
+  ofsLibres,
+  ofsAutres,
+}: {
+  ofs: DetailRowOf[]
+  ofsLibres: number
+  ofsAutres: number
+}) {
+  if (ofs.length === 0) {
+    const pool = [
+      ofsLibres > 0 ? `${ofsLibres} libre${ofsLibres > 1 ? 's' : ''}` : '',
+      ofsAutres > 0 ? `${ofsAutres} réservé${ofsAutres > 1 ? 's' : ''} à d'autres commandes` : '',
+    ].filter(Boolean)
+    const title = [
+      'Aucun OF réservé (contremarque) à cette commande',
+      pool.length > 0 ? `pool de l'article : ${pool.join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join(' — ')
+    return (
+      <div className={cn(CELL, 'truncate text-muted-foreground')} title={title}>
+        —
+      </div>
+    )
+  }
+  const title = ofs
+    .map((o) =>
+      [
+        o.numOf,
+        o.statutLabel ?? '',
+        `${fmtQ(o.quantite)} u`,
+        o.dateIso ? fmtDateFr(o.dateIso) : 'sans date',
+        'réservé à cette commande',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    )
+    .join('\n')
+  return (
+    <div className={cn(CELL, 'truncate font-mono text-[10px]')} title={title}>
+      {ofs.map((o) => (
+        <span key={o.numOf} className="mr-1.5 font-bold" style={{ color: 'var(--color-ferme)' }}>
+          {o.numOf}
+        </span>
+      ))}
+    </div>
   )
 }
