@@ -25,22 +25,37 @@
  *  - le drawer reste le `Sheet` du projet (BoardUI n'expose pas de tiroir),
  *    son contenu étant lui aussi retokenisé.
  */
-import { Fragment, useMemo, useState, type ComponentType, type ReactNode } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react'
 import { CalendarDate, parseDate } from '@internationalized/date'
 import {
   RiAlertLine,
+  RiArrowDownLine,
   RiArrowDownSLine,
+  RiArrowRightSLine,
   RiBarChartLine,
+  RiBox3Line,
   RiCalendarLine,
   RiCloudOffLine,
   RiDashboardLine,
   RiErrorWarningLine,
+  RiFileList3Line,
   RiFilter3Line,
   RiFilterOffLine,
+  RiHashtag,
   RiInboxLine,
+  RiRouteLine,
   RiSearchLine,
   RiShoppingCartLine,
   RiTruckLine,
+  RiUserLine,
 } from '@remixicon/react'
 
 import AppLayout from '@r/layouts/app'
@@ -56,7 +71,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@r/components/ui/sheet'
-import DataTable, { type ColumnDef } from '@r/components/ui/data-table'
+import { Table as RacTable } from 'react-aria-components'
+import {
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from '@r/components/base/table/table'
+import { Pagination } from '@r/components/base/pagination/pagination'
+import '@r/components/appro/appro-table.css'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { Badge } from '@r/components/base/badges/badge'
 import { Chip } from '@r/components/base/badges/chip'
@@ -296,6 +320,12 @@ export default function Approvisionnement() {
   const [ligne, setLigne] = useState<string | null>(null)
   const [sort, setSort] = useState<SortKey>('valeur')
   const [selected, setSelected] = useState<string | null>(null)
+  // Tri au clic sur un sous-en-tête de période (Ferme/Prév., décroissant) —
+  // prioritaire sur le tri du menu tant qu'il désigne une période visible.
+  // Choisir un tri du menu l'efface, sinon le menu semblerait sans effet.
+  const [sortPeriod, setSortPeriod] = useState<{ i: number; ferme: boolean } | null>(null)
+  // Périodes entièrement à zéro repliées (cran courant, lignes filtrées).
+  const [showEmptyPeriods, setShowEmptyPeriods] = useState(true)
 
   const range = preset === 'libre' ? custom : presetRange(preset, today)
   const granAllowed = (g: ApproGran): boolean => (countPeriods(range.from, range.to, g) ?? 99) <= 14
@@ -343,17 +373,54 @@ export default function Approvisionnement() {
   const { data, loading, error, elapsed } = useTimedFetch<ApproPayload>(url)
   const view = useMemo(() => data?.rows ?? [], [data])
 
-  const rows = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = fold(query.trim())
-    const out = view.filter((r) => {
+    return view.filter((r) => {
       if (supply !== 'TOUS' && r.supplyType !== supply) return false
       if (manquesOnly && resteTotal(r) <= 0) return false
       if (q && !fold(`${r.article} ${r.description}`).includes(q)) return false
       return true
     })
+  }, [view, query, supply, manquesOnly])
+
+  // Périodes vides au cran courant, sur les lignes filtrées (l'ordre du tri
+  // ne change pas l'appartenance, donc calculé avant tri, sans cycle).
+  const emptyIdx = useMemo(() => {
+    const s = new Set<number>()
+    const n = data?.buckets.length ?? 0
+    for (let i = 0; i < n; i++) {
+      let empty = true
+      for (const r of filtered) {
+        if (cranOf(r, cran, i, true) !== 0 || cranOf(r, cran, i, false) !== 0) {
+          empty = false
+          break
+        }
+      }
+      if (empty) s.add(i)
+    }
+    return s
+  }, [data, filtered, cran])
+
+  const visIdx = useMemo(
+    () =>
+      (data?.buckets ?? []).map((_, i) => i).filter((i) => showEmptyPeriods || !emptyIdx.has(i)),
+    [data, showEmptyPeriods, emptyIdx]
+  )
+
+  // Tri période effectif : ignoré si sa colonne est repliée (il reprend en
+  // réaffichant les périodes vides, sans perdre le choix).
+  const effSort = sortPeriod && visIdx.includes(sortPeriod.i) ? sortPeriod : null
+
+  const rows = useMemo(() => {
+    const out = [...filtered]
     // Valorisation : décroissante, PMP inconnu en dernier (pas de valeur = pas
     // de priorité financière, jamais l'inverse).
     out.sort((a, b) => {
+      if (effSort) {
+        const d =
+          cranOf(b, cran, effSort.i, effSort.ferme) - cranOf(a, cran, effSort.i, effSort.ferme)
+        return d !== 0 ? d : a.article.localeCompare(b.article)
+      }
       if (sort === 'article') return a.article.localeCompare(b.article)
       if (sort === 'valeur') {
         if (a.valeur == null && b.valeur == null) return 0
@@ -364,12 +431,18 @@ export default function Approvisionnement() {
       return cranTotal(b, cran) - cranTotal(a, cran)
     })
     return out
-  }, [view, query, supply, manquesOnly, sort, cran])
+  }, [filtered, sort, cran, effSort])
 
   // Filtres secondaires uniquement (hors recherche + pill ligne, toujours
   // visibles) — même doctrine que suivi : un filtre est « actif » quand il
   // s'écarte du défaut.
-  const filtersActive = supply !== 'ACHAT' || manquesOnly || sort !== 'valeur' || ligne !== null
+  const filtersActive =
+    supply !== 'ACHAT' ||
+    manquesOnly ||
+    sort !== 'valeur' ||
+    ligne !== null ||
+    !showEmptyPeriods ||
+    sortPeriod !== null
   const isFiltered = !!query.trim() || filtersActive
 
   const resetFilters = () => {
@@ -378,6 +451,8 @@ export default function Approvisionnement() {
     setManquesOnly(false)
     setLigne(null)
     setSort('valeur')
+    setSortPeriod(null)
+    setShowEmptyPeriods(true)
   }
 
   const manquesCount = useMemo(() => view.filter((r) => resteTotal(r) > 0).length, [view])
@@ -579,14 +654,36 @@ export default function Approvisionnement() {
                           )}
                         </span>
                       </Checkbox>
+                      <Checkbox
+                        size="sm"
+                        className="w-full justify-between px-2 py-1.5"
+                        isSelected={showEmptyPeriods}
+                        onChange={setShowEmptyPeriods}
+                      >
+                        <span className="flex flex-1 items-center justify-between gap-2">
+                          <span className="text-body-medium text-text-primary">Périodes vides</span>
+                          {emptyIdx.size > 0 && (
+                            <Badge
+                              color={showEmptyPeriods ? 'neutral' : 'primary'}
+                              className="tabular-nums"
+                              title="Périodes sans besoin au cran courant"
+                            >
+                              {emptyIdx.size}
+                            </Badge>
+                          )}
+                        </span>
+                      </Checkbox>
                     </DropdownGroup>
                     <DropdownDivider />
                     <DropdownGroup label="Tri">
                       {(['valeur', 'net', 'article'] as SortKey[]).map((k) => (
                         <DropdownItem
                           key={k}
-                          selected={sort === k}
-                          onSelect={() => setSort(k)}
+                          selected={sort === k && sortPeriod === null}
+                          onSelect={() => {
+                            setSort(k)
+                            setSortPeriod(null)
+                          }}
                           className="px-2 py-1.5"
                         >
                           {SORT_LABEL[k]}
@@ -615,7 +712,7 @@ export default function Approvisionnement() {
                   placeholder="Article, désignation…"
                   leadingIcon={RiSearchLine}
                   className="w-[200px]"
-                  fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium !bg-background-primary-default !ring-1 !ring-border-button-default dark:!bg-neutral-800"
+                  fieldClassName="[&_svg]:size-4 [&_input]:text-caption-1-medium !bg-background-primary-default !ring-1 !ring-border-button-default"
                   value={query}
                   onChange={setQuery}
                 />
@@ -712,9 +809,11 @@ export default function Approvisionnement() {
                 <div className="min-h-0 flex-1 overflow-hidden p-5">
                   <ApproTable
                     buckets={data.buckets}
+                    visIdx={visIdx}
                     rows={rows}
                     cran={cran}
-                    gran={gran}
+                    sortPeriod={effSort}
+                    onSortPeriod={setSortPeriod}
                     selected={selected}
                     onSelect={setSelected}
                   />
@@ -762,10 +861,14 @@ function EmptyState(props: {
  * Table besoins — `DataTable` maison (virtualisation, en-tête collant,
  * sélection), habillée ici en tokens BoardUI via ses props de classes : la
  * page choisit son système de tokens, le composant ne connaît que des
- * chaînes. Tri désactivé colonne par colonne (le tri reste piloté par le menu
- * Filtres › Tri) ; en-têtes de périodes empilés (période + Ferme/Prév.) sur
- * une seule rangée — `DataTable` ne gère pas le colSpan, le libellé n'est
- * donc rendu qu'une fois, côté Ferme, et le filet vertical fait le groupe.
+ * chaînes. Tri au menu (Filtres › Tri) + tri décroissant au clic sur un
+ * sous-en-tête Ferme/Prév. (prioritaire, 2ᵉ clic = retour au menu) ;
+ * en-têtes de périodes sur deux rangées (`meta.group` : rangée 1 = la période,
+ * fusionnée sur Ferme + Prév. ; rangée 2 = les deux sous-colonnes), le filet
+ * vertical marquant le début du groupe. Composant + Désignation figés à
+ * gauche (`stickyLeft`, table en `w-max` pour des décalages exacts), survol en
+ * croix, zébrage léger, périodes vides repliables (`visIdx`), pied de totaux
+ * épinglé — tous opt-in côté `DataTable`, sans effet sur ses autres usages.
  */
 /**
  * Teinte d'intensité d'une cellule de période, NORMALISÉE PAR LIGNE.
@@ -789,15 +892,47 @@ const heatStyle = (value: number, rowMax: number, ferme: boolean) => {
   return { backgroundColor: `color-mix(in oklab, ${hue} ${pct}%, transparent)` }
 }
 
+/**
+ * Table besoins sur primitives BoardUI Table (react-aria).
+ *
+ * Le `Table` BoardUI est utilisé SANS son wrapper (racine RAC directe +
+ * classe `bui-table`) : le wrapper impose son propre scroll et n'accepte que
+ * Header/Body en enfants — incompatible avec le bandeau de périodes et le
+ * pied de totaux, qui partagent le même conteneur de scroll. Styles
+ * identiques, comportement identique.
+ *
+ * Trois tables synchronisées (mêmes largeurs fixes) : bandeau des périodes
+ * (vrai `colSpan`, table HTML simple — react-aria ne groupe pas les colonnes),
+ * corps BoardUI (navigation clavier, tri custom au clic, survol en croix),
+ * pied de totaux épinglé. Lignes paginées (100/page, `Pagination` BoardUI) :
+ * le `Table` statique ne virtualise pas ; tri et totaux restent GLOBAUX
+ * (périmètre filtré, toutes pages).
+ *
+ * Styles directs (sticky, fonds d'état, filets, densité) :
+ * `components/appro/appro-table.css` — `.bui-table` n'étant pas layerisé, les
+ * utilitaires perdraient contre lui. Couleurs/typo du CONTENU en utilitaires
+ * sur les spans internes (aucune règle `.bui-table` ne les vise).
+ */
+const PAGE_SIZE = 100
+
 function ApproTable(props: {
   buckets: ApproBucket[]
+  /** Indices des périodes affichées (les périodes vides peuvent être repliées). */
+  visIdx: number[]
   rows: ApproRow[]
   cran: ApproCran
-  gran: ApproGran
+  sortPeriod: { i: number; ferme: boolean } | null
+  onSortPeriod: (s: { i: number; ferme: boolean } | null) => void
   selected: string | null
-  onSelect: (article: string) => void
+  onSelect: (article: string | null) => void
 }) {
-  const { buckets, rows, cran, gran } = props
+  const { buckets, visIdx, rows, cran, sortPeriod, onSortPeriod, selected } = props
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
+
+  // Périodes affichées avec leur indice d'origine (les accesseurs `cranOf`
+  // travaillent sur les tableaux complets, pas sur la position visible).
+  const vis = useMemo(() => visIdx.map((i) => ({ b: buckets[i], i })), [buckets, visIdx])
 
   // Maximum par ligne sur la fenêtre (fermes ET prévisions confondus) —
   // dénominateur de la carte de chaleur. Mémoïsé : le calculer dans la cellule
@@ -806,219 +941,102 @@ function ApproTable(props: {
     const m = new Map<string, number>()
     for (const r of rows) {
       let max = 0
-      for (let i = 0; i < buckets.length; i++) {
+      for (const { i } of vis) {
         max = Math.max(max, cranOf(r, cran, i, true), cranOf(r, cran, i, false))
       }
       m.set(r.article, max)
     }
     return m
-  }, [rows, buckets, cran])
+  }, [rows, vis, cran])
 
-  const columns = useMemo<ColumnDef<ApproRow>[]>(
-    () => [
-      {
-        id: 'article',
-        header: 'Composant',
-        accessorFn: (r) => r.article,
-        enableSorting: false,
-        meta: {
-          thClass: 'w-[110px] text-caption-1-medium text-text-tertiary',
-          tdClass: 'py-1.5 font-mono text-body-2-semibold tracking-tight text-text-primary',
-        },
-        // Rose = ce composant a un reste à couvrir sur la fenêtre. C'est LE
-        // signal actionnable de la page ; il vaut d'être lisible sans passer
-        // par le filtre « Manques seuls ». Ambre = descendance incomplète,
-        // qui est un doute sur la donnée, pas un manque — deux couleurs, deux
-        // natures de problème, jamais mélangées.
-        cell: ({ row }) => {
-          const manque = resteTotal(row.original) > 0
-          return (
-            <span
-              className={cx('inline-flex items-center gap-1', manque && 'text-status-rose-text')}
-            >
-              <span
-                title={
-                  manque
-                    ? 'Reste à couvrir non nul — voir l’origine du besoin'
-                    : 'Voir l’origine du besoin (appelé par)'
-                }
-              >
-                {row.original.article}
-              </span>
-              {row.original.tronque && (
-                <TooltipTrigger delay={0}>
-                  <span className="inline-flex cursor-help items-center text-status-yellow-text">
-                    ⚠
-                  </span>
-                  <Tooltip>Descendance incomplète</Tooltip>
-                </TooltipTrigger>
-              )}
-            </span>
-          )
-        },
-      },
-      {
-        id: 'description',
-        header: 'Désignation',
-        accessorFn: (r) => r.description,
-        enableSorting: false,
-        // Largeur fixe : en layout fixe, sans width la colonne absorbe tout
-        // l'espace restant. Tronquée avec ellipsis (+ title = texte complet).
-        meta: {
-          thClass: 'w-[260px] overflow-hidden text-caption-1-medium text-text-tertiary',
-          tdClass: 'w-[260px] overflow-hidden py-1.5',
-        },
-        cell: ({ row }) => (
-          <span
-            className="block truncate text-body-2-regular text-text-secondary"
-            title={row.original.description}
-          >
-            {row.original.description}
-          </span>
-        ),
-      },
-      {
-        id: 'type',
-        header: 'Type',
-        accessorFn: (r) => r.supplyType,
-        enableSorting: false,
-        meta: {
-          thClass: 'w-[110px] overflow-hidden text-caption-1-medium text-text-tertiary',
-          tdClass:
-            'overflow-hidden whitespace-nowrap py-1.5 text-body-2-regular text-text-secondary',
-        },
-        // `StatusDot` et pas `Chip` : « Acheté » est une catégorie que porte
-        // chaque ligne, pas un statut. En chip, la colonne devenait un mur de
-        // pastilles bleues qui ne distingue rien, et son padding vertical
-        // gonflait la rangée de ~14 px sur une page `dense`. La pastille donne
-        // la couleur pour un coût de hauteur nul. Le chip reste au drawer, sur
-        // Ferme/Prévision, où la distinction est réelle et binaire.
-        cell: ({ row }) => (
-          <span className="inline-flex items-center gap-1.5">
-            <StatusDot color={row.original.supplyType === 'ACHAT' ? 'indigo' : 'green'} />
-            {row.original.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
-          </span>
-        ),
-      },
-      {
-        id: 'stock',
-        header: 'Stock',
-        accessorFn: (r) => r.stock,
-        enableSorting: false,
-        meta: {
-          thClass: 'w-[95px] text-right text-caption-1-medium text-text-tertiary',
-          tdClass: 'py-1.5 text-right font-mono text-body-2-regular tabular-nums text-text-primary',
-        },
-        cell: ({ row }) => fr(row.original.stock),
-      },
-      {
-        id: 'valeur',
-        header: 'Valo',
-        accessorFn: (r) => r.valeur,
-        enableSorting: false,
-        meta: {
-          thClass: 'w-[100px] text-right text-caption-1-medium text-text-tertiary',
-          tdClass:
-            'py-1.5 text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
-        },
-        cell: ({ row }) =>
-          row.original.valeur == null ? (
-            <span className="text-text-tertiary" title="PMP inconnu — Stock × PMP actuel (ITMMVT)">
-              —
-            </span>
-          ) : (
-            <span title={`Stock × PMP actuel = ${fmtEuro.format(row.original.valeur)}`}>
-              {fmtEuro.format(row.original.valeur)}
-            </span>
-          ),
-      },
-      {
-        id: 'total',
-        header: `Total ${cran}`,
-        accessorFn: (r) => cranTotal(r, cran),
-        enableSorting: false,
-        meta: {
-          thClass:
-            'w-[150px] whitespace-nowrap text-right text-caption-1-semibold text-text-primary',
-          tdClass:
-            'py-1.5 text-right font-mono text-body-2-semibold tabular-nums text-text-primary',
-        },
-        cell: ({ row }) => (
-          <span className={cx(resteTotal(row.original) > 0 && 'text-status-rose-text')}>
-            {fr(cranTotal(row.original, cran))}
-          </span>
-        ),
-      },
-      // En-tête groupé sans colSpan (DataTable : une rangée) : le libellé de
-      // période n'est rendu qu'une fois, côté Ferme — le filet vertical marque
-      // le début du groupe, comme un colSpan visuel.
-      ...buckets.flatMap((b, i) => [
-        {
-          id: `${b.key}-ferme`,
-          header: (
-            <span className="flex flex-col items-end whitespace-nowrap leading-tight">
-              <span className="text-caption-1-semibold text-text-primary">{b.label}</span>
-              <span className="text-caption-2-medium text-status-blue-text">Ferme</span>
-            </span>
-          ),
-          accessorFn: (r: ApproRow) => cranOf(r, cran, i, true),
-          enableSorting: false,
-          meta: {
-            thClass: 'w-[88px] border-l border-separator-border text-right',
-            // p-0 : la teinte est portée par un span interne qui remplit la
-            // cellule (le rendu de cellule ne peut pas styler son <td>). Le
-            // padding descend donc sur le span, sinon la teinte laisserait un
-            // liseré blanc sur les quatre bords.
-            tdClass:
-              'border-l border-separator-border p-0 text-right font-mono text-body-2-regular tabular-nums text-text-primary',
-          },
-          cell: ({ row }: { row: { original: ApproRow } }) => {
-            const v = cranOf(row.original, cran, i, true)
-            return (
-              <span
-                className="block px-3 py-1.5"
-                style={heatStyle(v, rowMax.get(row.original.article) ?? 0, true)}
-              >
-                {v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)}
-              </span>
-            )
-          },
-        },
-        {
-          id: `${b.key}-prevision`,
-          header: (
-            <span className="whitespace-nowrap text-caption-2-medium text-status-purple-text">
-              Prév.
-            </span>
-          ),
-          accessorFn: (r: ApproRow) => cranOf(r, cran, i, false),
-          enableSorting: false,
-          meta: {
-            thClass: 'w-[72px] text-right',
-            tdClass:
-              'p-0 text-right font-mono text-body-2-regular tabular-nums text-text-secondary',
-          },
-          cell: ({ row }: { row: { original: ApproRow } }) => {
-            const v = cranOf(row.original, cran, i, false)
-            return (
-              <span
-                className="block px-3 py-1.5"
-                style={heatStyle(v, rowMax.get(row.original.article) ?? 0, false)}
-              >
-                {v === 0 ? <span className="text-text-tertiary">—</span> : fr(v)}
-              </span>
-            )
-          },
-        },
+  // Sous-colonnes visibles : clé stable `${bucket}-ferme|prevision`, ordre
+  // partagé par l'en-tête RAC, le corps, le pied et le survol (`cellIndex`).
+  const subs = useMemo(
+    () =>
+      vis.flatMap(({ b, i }) => [
+        { key: `${b.key}-ferme`, label: b.label, i, ferme: true },
+        { key: `${b.key}-prevision`, label: b.label, i, ferme: false },
       ]),
-    ],
-    [buckets, cran, rowMax]
+    [vis]
   )
+  const colKeys = useMemo(
+    () => ['article', 'description', 'type', 'stock', 'valeur', 'total', ...subs.map((s) => s.key)],
+    [subs]
+  )
+
+  // Pagination (cf. docblock) + recadrage quand les filtres resserrent.
+  const [page, setPage] = useState(1)
+  const maxPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const effPage = Math.min(page, maxPage)
+  useEffect(() => {
+    if (page > maxPage) setPage(maxPage)
+  }, [page, maxPage])
+  const start = (effPage - 1) * PAGE_SIZE
+  const pageRows = useMemo(() => rows.slice(start, start + PAGE_SIZE), [rows, start])
+
+  // Survol en croix par délégation (`cellIndex`, aucun besoin d'API hover
+  // react-aria) : `hoverCol` porte une clé de `colKeys`, ou une clé de groupe
+  // pour le bandeau (`data-key`).
+  const [hoverCol, setHoverCol] = useState<string | null>(null)
+  const onGridHover = (e: { target: EventTarget | null }) => {
+    const t = e.target as HTMLElement | null
+    const cell = t?.closest('td,th') ?? null
+    if (!cell || !(cell instanceof HTMLTableCellElement)) {
+      setHoverCol(null)
+      return
+    }
+    if (cell.closest('[data-scope]')?.getAttribute('data-scope') === 'strip') {
+      setHoverCol(cell.dataset.key ?? null)
+      return
+    }
+    setHoverCol(colKeys[cell.cellIndex] ?? null)
+  }
+  const groupWash = (key: string): boolean =>
+    hoverCol === `${key}-ferme` || hoverCol === `${key}-prevision`
+
+  // Tri au clic sur un sous-en-tête : décroissant, 2ᵉ clic = retour au menu.
+  const sortOn = (s: { i: number; ferme: boolean }): boolean =>
+    sortPeriod !== null && sortPeriod.i === s.i && sortPeriod.ferme === s.ferme
+  const toggleSort = (s: { i: number; ferme: boolean }): void => {
+    onSortPeriod(sortOn(s) ? null : { i: s.i, ferme: s.ferme })
+  }
+
+  // Totaux GLOBAUX (périmètre filtré, toutes pages) pour le pied épinglé.
+  const sums = useMemo(() => {
+    const per = new Map<string, number>()
+    for (const s of subs) {
+      let t = 0
+      for (const r of rows) t += cranOf(r, cran, s.i, s.ferme)
+      per.set(s.key, t)
+    }
+    const stock = rows.reduce((a, r) => a + r.stock, 0)
+    let valeur = 0
+    let valeurConnue = false
+    for (const r of rows)
+      if (r.valeur != null) {
+        valeur += r.valeur
+        valeurConnue = true
+      }
+    return {
+      per,
+      stock,
+      valeur: valeurConnue ? valeur : null,
+      total: rows.reduce((a, r) => a + cranTotal(r, cran), 0),
+    }
+  }, [rows, cran, subs])
 
   const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
 
+  const syncStrip = (e: { currentTarget: HTMLDivElement }): void => {
+    if (stripRef.current) stripRef.current.scrollLeft = e.currentTarget.scrollLeft
+  }
+
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-separator-border bg-background-primary-default">
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-3xl border border-separator-border bg-background-primary-default"
+      onMouseOver={onGridHover}
+      onMouseLeave={() => setHoverCol(null)}
+    >
       {/* Header BoardUI — rounded top sur 1118, tableau en dessous carré */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-3xl border-b border-separator-border bg-background-secondary-default px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1049,25 +1067,449 @@ function ApproTable(props: {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        sorting={[]}
-        onSortingChange={() => {}}
-        tableClass={gran === 'jour' ? 'min-w-[1400px] table-fixed' : 'min-w-[1600px] table-fixed'}
-        scrollContainerClass="h-full overflow-auto !rounded-none !border-0 !shadow-none bg-background-primary-default"
-        theadRowClass="sticky top-0 z-10 border-0 bg-background-secondary-default"
-        // Densité colonne par colonne (`py-1.5` dans tdClass) pour que la teinte
-        // `heatStyle` remplisse la cellule (`p-0` côté période).
-        getRowClass={() =>
-          'border-b border-separator-border last:border-0 hover:bg-background-secondary-hover transition-colors'
-        }
-        rowSelectedClass="bg-background-secondary-hover ring-2 ring-inset ring-border-focus-ring"
-        getRowKey={(r) => r.article}
-        onRowClick={(r) => props.onSelect(r.article)}
-        selectedRowKey={props.selected}
-      />
+      {/* Bandeau des périodes : vrai `colSpan`, synchronisé en x avec le corps
+          (`syncStrip`). Table HTML simple — les colonnes react-aria ne se
+          groupent pas. `aria-hidden`, le contexte période est porté par les
+          `textValue` des sous-colonnes. */}
+      <div
+        ref={stripRef}
+        data-scope="strip"
+        aria-hidden="true"
+        className="no-scrollbar flex-none overflow-hidden bg-background-secondary-default"
+      >
+        <table className="w-max table-fixed border-collapse">
+          <colgroup>
+            <col style={{ width: 825 }} />
+            {vis.map(({ b }) => (
+              <Fragment key={b.key}>
+                <col style={{ width: 88 }} />
+                <col style={{ width: 72 }} />
+              </Fragment>
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="w-[825px] bg-background-secondary-default" />
+              {vis.map(({ b }) => (
+                <th
+                  key={b.key}
+                  colSpan={2}
+                  data-key={b.key}
+                  scope="colgroup"
+                  className={cx(
+                    'border-l border-separator-border-strong px-3 py-1.5 text-center',
+                    groupWash(b.key) && 'bg-background-secondary-default/70'
+                  )}
+                >
+                  <span className="whitespace-nowrap text-caption-1-semibold text-text-primary">
+                    {b.label}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      </div>
+
+      <div
+        ref={scrollRef}
+        data-scope="grid"
+        onScroll={syncStrip}
+        className="min-h-0 flex-1 overflow-auto bg-background-primary-default"
+      >
+        <RacTable aria-label="Besoins matières" className="bui-table appro-grid">
+          <TableHeader>
+            <TableColumn
+              id="article"
+              isRowHeader
+              textValue="Composant"
+              className={cx('stick sl0', hoverCol === 'article' && 'wash')}
+            >
+              <span className="text-caption-1-medium text-text-tertiary">Composant</span>
+            </TableColumn>
+            <TableColumn
+              id="description"
+              textValue="Désignation"
+              className={cx('stick sl110', hoverCol === 'description' && 'wash')}
+            >
+              <span className="text-caption-1-medium text-text-tertiary">Désignation</span>
+            </TableColumn>
+            <TableColumn
+              id="type"
+              textValue="Type"
+              className={hoverCol === 'type' ? 'wash' : undefined}
+            >
+              <span className="text-caption-1-medium text-text-tertiary">Type</span>
+            </TableColumn>
+            <TableColumn
+              id="stock"
+              textValue="Stock"
+              className={hoverCol === 'stock' ? 'wash' : undefined}
+            >
+              <span className="text-caption-1-medium text-text-tertiary">Stock</span>
+            </TableColumn>
+            <TableColumn
+              id="valeur"
+              textValue="Valo"
+              className={hoverCol === 'valeur' ? 'wash' : undefined}
+            >
+              <span className="text-caption-1-medium text-text-tertiary">Valo</span>
+            </TableColumn>
+            <TableColumn
+              id="total"
+              textValue={`Total ${cran}`}
+              className={hoverCol === 'total' ? 'wash' : undefined}
+            >
+              <span className="text-caption-1-semibold text-text-primary">Total {cran}</span>
+            </TableColumn>
+            {subs.map((s) => {
+              const on = sortOn(s)
+              return (
+                <TableColumn
+                  key={s.key}
+                  id={s.key}
+                  textValue={`${s.label} ${s.ferme ? 'Ferme' : 'Prévision'}`}
+                  className={cx('c', hoverCol === s.key && 'wash')}
+                >
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title={on ? 'Trié — cliquer pour annuler' : 'Trier par cette période'}
+                    className={cx(
+                      'inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-caption-2-medium',
+                      s.ferme ? 'text-status-blue-text' : 'text-status-purple-text'
+                    )}
+                    onClick={() => toggleSort(s)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        toggleSort(s)
+                      }
+                    }}
+                  >
+                    {s.ferme ? 'Ferme' : 'Prév.'}
+                    {on && <RiArrowDownLine className="size-3" aria-hidden />}
+                  </span>
+                </TableColumn>
+              )
+            })}
+          </TableHeader>
+          <TableBody>
+            {pageRows.map((r, idx) => {
+              const gi = start + idx
+              const manque = resteTotal(r) > 0
+              return (
+                <TableRow
+                  key={`${r.article}@@${gi}`}
+                  className={cx(gi % 2 === 1 && 'alt', r.article === selected && 'sel')}
+                  onPress={() => props.onSelect(r.article)}
+                >
+                  <TableCell className={cx('stick sl0', hoverCol === 'article' && 'wash')}>
+                    <span
+                      className={cx(
+                        'inline-flex max-w-full items-center gap-1 font-mono text-caption-1-semibold tracking-tight',
+                        manque ? 'text-status-rose-text' : 'text-text-primary'
+                      )}
+                    >
+                      <span
+                        className="min-w-0 truncate"
+                        title={
+                          manque
+                            ? 'Reste à couvrir non nul — voir l’origine du besoin'
+                            : 'Voir l’origine du besoin (appelé par)'
+                        }
+                      >
+                        {r.article}
+                      </span>
+                      {r.tronque && (
+                        <TooltipTrigger delay={0}>
+                          <span className="inline-flex shrink-0 cursor-help items-center text-status-yellow-text">
+                            ⚠
+                          </span>
+                          <Tooltip>Descendance incomplète</Tooltip>
+                        </TooltipTrigger>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className={cx('stick sl110', hoverCol === 'description' && 'wash')}>
+                    <span
+                      className="block truncate text-caption-1-regular text-text-secondary"
+                      title={r.description}
+                    >
+                      {r.description}
+                    </span>
+                  </TableCell>
+                  <TableCell className={hoverCol === 'type' ? 'wash' : undefined}>
+                    <span className="inline-flex items-center gap-1.5 text-caption-1-regular text-text-secondary">
+                      <StatusDot color={r.supplyType === 'ACHAT' ? 'indigo' : 'green'} />
+                      {r.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
+                    </span>
+                  </TableCell>
+                  <TableCell className={cx('text-right', hoverCol === 'stock' && 'wash')}>
+                    <span className="font-mono text-caption-1-regular tabular-nums text-text-primary">
+                      {fr(r.stock)}
+                    </span>
+                  </TableCell>
+                  <TableCell className={cx('text-right', hoverCol === 'valeur' && 'wash')}>
+                    {r.valeur == null ? (
+                      <span
+                        className="font-mono text-caption-1-regular text-text-tertiary"
+                        title="PMP inconnu — Stock × PMP actuel (ITMMVT)"
+                      >
+                        —
+                      </span>
+                    ) : (
+                      <span
+                        className="font-mono text-caption-1-regular tabular-nums text-text-secondary"
+                        title={`Stock × PMP actuel = ${fmtEuro.format(r.valeur)}`}
+                      >
+                        {fmtEuro.format(r.valeur)}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className={cx('text-right', hoverCol === 'total' && 'wash')}>
+                    <span
+                      className={cx(
+                        'font-mono text-caption-1-semibold tabular-nums',
+                        manque ? 'text-status-rose-text' : 'text-text-primary'
+                      )}
+                    >
+                      {fr(cranTotal(r, cran))}
+                    </span>
+                  </TableCell>
+                  {subs.map((s) => {
+                    const v = cranOf(r, cran, s.i, s.ferme)
+                    return (
+                      <TableCell
+                        key={s.key}
+                        className={cx('cell-pad0 text-right', hoverCol === s.key && 'wash')}
+                      >
+                        <span
+                          className="block px-3 py-1 font-mono text-caption-1-regular tabular-nums text-text-primary"
+                          style={heatStyle(v, rowMax.get(r.article) ?? 0, s.ferme)}
+                        >
+                          {v === 0 ? null : (
+                            <span className={s.ferme ? undefined : 'text-text-secondary'}>
+                              {fr(v)}
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </RacTable>
+        {/* Pied de totaux GLOBAUX épinglé (même conteneur de scroll). Table
+            simple, mêmes largeurs que le corps. */}
+        <div className="sticky bottom-0 z-10 border-t border-separator-border-strong bg-background-secondary-default">
+          <table className="w-max table-fixed border-collapse">
+            <caption className="sr-only">Totaux du périmètre affiché</caption>
+            <tbody>
+              <tr>
+                <td className="sticky left-0 z-[1] w-[110px] bg-background-secondary-default px-3 py-2">
+                  <span className="block text-left text-caption-1-semibold text-text-secondary">
+                    Total
+                  </span>
+                </td>
+                <td className="sticky left-[110px] z-[1] w-[260px] bg-background-secondary-default px-3 py-2" />
+                <td className="w-[110px] px-3 py-2" />
+                <td className="w-[95px] px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums text-text-primary">
+                  {fr(sums.stock)}
+                </td>
+                <td className="w-[100px] px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums text-text-secondary">
+                  {sums.valeur == null ? '—' : fmtEuro.format(sums.valeur)}
+                </td>
+                <td className="w-[150px] px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums text-text-primary">
+                  {fr(sums.total)}
+                </td>
+                {subs.map((s) => {
+                  const t = sums.per.get(s.key) ?? 0
+                  return (
+                    <td
+                      key={s.key}
+                      className={cx(
+                        'border-l border-separator-border-strong px-3 py-2 text-right font-mono text-caption-1-semibold tabular-nums',
+                        s.ferme ? 'w-[88px] text-text-primary' : 'w-[72px] text-text-secondary',
+                        hoverCol === s.key && 'bg-background-secondary-default/70'
+                      )}
+                    >
+                      {t === 0 ? null : fr(t)}
+                    </td>
+                  )
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="flex flex-none items-center justify-end px-4 py-2">
+        <Pagination page={effPage} totalPages={maxPage} onChange={setPage} />
+      </div>
     </div>
+  )
+}
+
+// ── Panneau « appelé par » ────────────────────────────────────────────────────
+//
+// Remplace l'ancien tableau 6 colonnes (Jour / Commande / Client / PF /
+// Nature / Qté) par une pile de cartes par origine, groupée par semaine.
+// Lisibilité : chaque carte isole une origine (commande, client, PF,
+// bom-path) ; la quantité est l'ancre visuelle à droite. Le groupement
+// semaine reste (même label S{num} · DD/MM que la grille) mais comme
+// en-tête sectionné, pas comme bande grise dans un tableau.
+// BoardUI : Badge (compteurs), Chip (Ferme/Prévision), Divider, tokens
+// sémantiques only — pas de dark:-override, le dark suit automatiquement.
+
+const WEEKDAY_SHORT = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'] as const
+
+function dayMeta(isoDate: string) {
+  const day = Number(isoDate.slice(8, 10))
+  const mm = Number(isoDate.slice(5, 7)) - 1
+  const d = new Date(Number(isoDate.slice(0, 4)), mm, day)
+  const w = WEEKDAY_SHORT[d.getDay()]
+  const dd = String(day).padStart(2, '0')
+  const mo = String(mm + 1).padStart(2, '0')
+  return { wday: w, day: dd, month: mo }
+}
+
+function OriginCard(props: { ligne: ApproDetailLine }) {
+  const { ligne: l } = props
+  const m = dayMeta(l.date)
+  const isFerme = l.nature === 'ferme'
+
+  return (
+    <div className="group relative flex min-w-0 gap-3 overflow-hidden rounded-2lg border border-border-button-default bg-background-primary-default px-3.5 py-3 transition-colors hover:border-border-button-hover">
+      <div
+        className={cx(
+          'absolute inset-y-3 left-0 w-0.5 rounded-full',
+          isFerme ? 'bg-accent-400' : 'bg-purple-400'
+        )}
+        aria-hidden
+      />
+
+      <div className="flex w-[46px] shrink-0 flex-col items-center justify-start pt-0.5">
+        <span className="text-caption-1-medium uppercase tracking-wide text-text-tertiary">
+          {m.wday}
+        </span>
+        <span className="font-mono text-title-2-semibold leading-none tabular-nums text-text-primary">
+          {m.day}
+        </span>
+        <span className="font-mono text-caption-2-medium tabular-nums text-text-tertiary">
+          {m.month}
+        </span>
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-2 overflow-hidden pl-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-md bg-background-secondary-default px-1.5 py-0.5 font-mono text-caption-1-semibold text-text-primary">
+            <RiHashtag className="size-3 shrink-0 text-foreground-icon-tertiary" aria-hidden />
+            <span className="min-w-0 truncate" title={l.numCommande ?? undefined}>
+              {l.numCommande ?? '— sans commande'}
+            </span>
+            {l.ligne ? (
+              <span className="shrink-0 font-mono text-caption-2-medium text-text-tertiary">
+                L{l.ligne}
+              </span>
+            ) : null}
+          </span>
+          <Chip variant="caption" color={isFerme ? 'blue' : 'soft'} className="shrink-0">
+            {isFerme ? 'Ferme' : 'Prévision'}
+          </Chip>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1.5">
+          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-caption-1-regular text-text-secondary">
+            <RiBox3Line className="size-3.5 shrink-0 text-foreground-icon-tertiary" aria-hidden />
+            <span
+              className="min-w-0 truncate font-mono text-caption-1-medium text-text-primary"
+              title={l.pfArticle}
+            >
+              {l.pfArticle}
+            </span>
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-caption-1-regular text-text-secondary">
+            <RiUserLine className="size-3.5 shrink-0 text-foreground-icon-tertiary" aria-hidden />
+            <span className="min-w-0 truncate" title={l.client ?? undefined}>
+              {l.client || '—'}
+            </span>
+          </span>
+        </div>
+
+        {l.path.length > 0 && (
+          <div className="flex items-start gap-1.5 overflow-hidden rounded-md bg-background-secondary-default px-2 py-1.5">
+            <RiRouteLine
+              className="mt-[2px] size-3 shrink-0 text-foreground-icon-tertiary"
+              aria-hidden
+            />
+            <div
+              className="flex min-w-0 flex-wrap items-center gap-y-0.5 font-mono text-caption-2-regular leading-relaxed"
+              title={l.path.join(' › ')}
+            >
+              {l.path.map((seg, idx) => (
+                <span
+                  key={`${seg}-${idx}`}
+                  className="inline-flex max-w-full items-center gap-1 whitespace-nowrap"
+                >
+                  {idx > 0 && (
+                    <RiArrowRightSLine
+                      className="size-3 shrink-0 text-foreground-icon-quaternary"
+                      aria-hidden
+                    />
+                  )}
+                  <span
+                    className={
+                      idx === l.path.length - 1
+                        ? 'truncate font-medium text-text-secondary'
+                        : 'truncate text-text-tertiary'
+                    }
+                  >
+                    {seg}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end justify-start gap-1 pl-1">
+        <span
+          className="rounded-md bg-background-secondary-default px-2 py-1 font-mono text-body-semibold tabular-nums text-text-primary"
+          title="Quantité appelée"
+        >
+          {fr(l.quantite)}
+        </span>
+        <span className="text-caption-2-regular text-text-tertiary">qté</span>
+      </div>
+    </div>
+  )
+}
+
+function WeekSection(props: { label: string; total: number; count: number; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <div className="sticky top-0 z-10 -mx-1 flex items-center justify-between gap-3 bg-background-primary-default/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background-primary-default/80">
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-flex size-7 items-center justify-center rounded-full bg-background-secondary-default text-foreground-icon-secondary">
+            <RiCalendarLine className="size-3.5" aria-hidden />
+          </span>
+          <span className="text-caption-1-semibold text-text-primary">{props.label}</span>
+          <Badge color="neutral">{props.count}</Badge>
+        </span>
+        <span
+          className="inline-flex items-baseline gap-1 rounded-full bg-accent-50 px-2.5 py-1 font-mono text-caption-1-semibold tabular-nums text-accent-700"
+          title="Total appelé sur la semaine"
+        >
+          <RiHashtag className="size-3" aria-hidden />
+          {fr(props.total)}
+        </span>
+      </div>
+      <div className="space-y-2.5">{props.children}</div>
+    </section>
   )
 }
 
@@ -1091,8 +1533,6 @@ function ApproDetailSheet(props: {
       : null
   const { data, loading, error } = useTimedFetch<ApproDetail>(url)
 
-  // Regroupement par semaine — les lignes arrivent déjà triées par date (puis
-  // quantité au sein d'un jour) côté serveur ; le groupement préserve cet ordre.
   const weeks = useMemo(() => {
     const out: { key: string; label: string; total: number; lignes: ApproDetailLine[] }[] = []
     const byKey = new Map<string, (typeof out)[number]>()
@@ -1113,111 +1553,118 @@ function ApproDetailSheet(props: {
     return out
   }, [data])
 
+  const summary = useMemo(() => {
+    if (!data) return null
+    const n = data.lignes.length
+    const total = data.lignes.reduce((s, l) => s + l.quantite, 0)
+    const fermes = data.lignes.filter((l) => l.nature === 'ferme').length
+    return { n, total, fermes, previs: n - fermes, weeks: weeks.length }
+  }, [data, weeks])
+
   return (
     <Sheet open={props.article !== null} onOpenChange={(open) => !open && props.onClose()}>
       {props.article &&
         (loading || !data ? (
-          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
-            <SheetHeader>
-              <SheetTitle className="font-mono">{props.article}</SheetTitle>
-              <SheetDescription>{error ? error.message : 'Origines du besoin…'}</SheetDescription>
-            </SheetHeader>
-          </SheetContent>
-        ) : (
-          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
-            <SheetHeader>
-              <SheetTitle className="font-mono">{data.article}</SheetTitle>
-              <SheetDescription>
-                Appelé par — {data.lignes.length} origine(s) sur {weeks.length} semaine(s),
-                rejouée(s) depuis le snapshot de la grille.
+          <SheetContent className="no-scrollbar overflow-y-auto border-l border-separator-border bg-background-primary-default sm:max-w-xl">
+            <SheetHeader className="border-b border-separator-border bg-background-primary-default">
+              <SheetTitle className="font-mono text-headline-semibold text-text-primary">
+                {props.article}
+              </SheetTitle>
+              <SheetDescription className="text-caption-1-regular text-text-secondary">
+                {error ? error.message : 'Origines du besoin…'}
               </SheetDescription>
             </SheetHeader>
-            <div className="px-4 pb-6">
+            <div className="space-y-3 p-4">
+              <div className="h-20 animate-pulse rounded-2lg bg-background-secondary-default" />
+              <div className="h-28 animate-pulse rounded-2lg bg-background-secondary-default" />
+              <div className="h-28 animate-pulse rounded-2lg bg-background-secondary-default" />
+            </div>
+          </SheetContent>
+        ) : (
+          <SheetContent className="no-scrollbar overflow-y-auto border-l border-separator-border bg-background-primary-default p-0 sm:max-w-xl">
+            <SheetHeader className="sticky top-0 z-20 border-b border-separator-border bg-background-primary-default px-4 py-4">
+              <div className="flex items-start justify-between gap-3 pr-8">
+                <div className="min-w-0">
+                  <SheetTitle className="truncate font-mono text-title-3-semibold tracking-tight text-text-primary">
+                    {data.article}
+                  </SheetTitle>
+                  <SheetDescription className="mt-1 text-caption-1-regular leading-relaxed text-text-secondary">
+                    Appelé par — {summary?.n} origine(s) sur {summary?.weeks} semaine(s), rejouée(s)
+                    depuis le snapshot de la grille.
+                  </SheetDescription>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-background-secondary-default px-2.5 py-1 font-mono text-caption-1-semibold tabular-nums text-text-primary">
+                  <RiBox3Line className="size-3.5 text-foreground-icon-tertiary" aria-hidden />
+                  {summary ? fr(summary.total) : '—'}
+                </span>
+              </div>
+
+              {summary && summary.n > 0 && (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <span className="rounded-xl border border-border-button-default bg-background-secondary-default px-3 py-2">
+                    <span className="block text-caption-2-medium uppercase tracking-wide text-text-tertiary">
+                      Semaines
+                    </span>
+                    <span className="font-mono text-body-semibold tabular-nums text-text-primary">
+                      {summary.weeks}
+                    </span>
+                  </span>
+                  <span className="rounded-xl bg-status-blue-background px-3 py-2">
+                    <span className="block text-caption-2-medium uppercase tracking-wide text-status-blue-text/80">
+                      Fermes
+                    </span>
+                    <span className="font-mono text-body-semibold tabular-nums text-status-blue-text">
+                      {summary.fermes}
+                    </span>
+                  </span>
+                  <span className="rounded-xl bg-background-tertiary-default px-3 py-2">
+                    <span className="block text-caption-2-medium uppercase tracking-wide text-text-tertiary">
+                      Prévisions
+                    </span>
+                    <span className="font-mono text-body-semibold tabular-nums text-text-secondary">
+                      {summary.previs}
+                    </span>
+                  </span>
+                </div>
+              )}
+            </SheetHeader>
+
+            <div className="space-y-6 px-4 py-5">
               {data.lignes.length === 0 ? (
-                <p className="py-6 text-center text-body-regular text-text-secondary">
-                  Aucune origine sur cette fenêtre.
-                </p>
+                <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border-button-default bg-background-secondary-default px-6 py-10 text-center">
+                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-background-primary-default text-foreground-icon-tertiary">
+                    <RiFileList3Line className="size-5" aria-hidden />
+                  </span>
+                  <p className="text-body-medium text-text-primary">
+                    Aucune origine sur cette fenêtre.
+                  </p>
+                  <p className="max-w-xs text-caption-1-regular text-text-secondary">
+                    Aucune commande ou prévision n&apos;appelle ce composant entre le début et la
+                    fin de la fenêtre sélectionnée.
+                  </p>
+                </div>
               ) : (
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="text-caption-1-medium text-text-tertiary">
-                      <th className="px-2 py-1.5 font-[inherit]">Jour</th>
-                      <th className="px-2 py-1.5 font-[inherit]">Commande</th>
-                      <th className="px-2 py-1.5 font-[inherit]">Client</th>
-                      <th className="px-2 py-1.5 font-[inherit]">Produit fini</th>
-                      <th className="px-2 py-1.5 font-[inherit]">Nature</th>
-                      <th className="px-2 py-1.5 text-right font-[inherit]">Qté appelée</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {weeks.map((w) => (
-                      <Fragment key={w.key}>
-                        <tr className="bg-background-secondary-default">
-                          <td colSpan={6} className="px-2 py-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-caption-1-semibold text-text-primary">
-                                {w.label}
-                              </span>
-                              <span
-                                className="font-mono text-caption-1-semibold tabular-nums text-text-primary"
-                                title="Total appelé sur la semaine"
-                              >
-                                {fr(w.total)}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {w.lignes.map((l, i) => (
-                          <Fragment key={i}>
-                            <tr className="border-t border-separator-border">
-                              <td className="px-2 py-1.5 font-mono text-body-2-regular text-text-secondary">
-                                {l.date.slice(8, 10)}/{l.date.slice(5, 7)}
-                              </td>
-                              <td className="px-2 py-1.5 font-mono text-body-2-semibold tracking-tight text-text-primary">
-                                {l.numCommande ?? '—'}
-                                {l.ligne ? (
-                                  <span className="ml-1.5 text-caption-2-medium text-text-tertiary">
-                                    L{l.ligne}
-                                  </span>
-                                ) : null}
-                              </td>
-                              <td className="px-2 py-1.5 text-body-2-regular text-text-secondary">
-                                {l.client || '—'}
-                              </td>
-                              <td className="px-2 py-1.5 font-mono text-body-2-regular text-text-primary">
-                                {l.pfArticle}
-                              </td>
-                              <td className="px-2 py-1.5">
-                                <Chip
-                                  variant="caption"
-                                  color={l.nature === 'ferme' ? 'blue' : 'soft'}
-                                >
-                                  {l.nature === 'ferme' ? 'Ferme' : 'Prévision'}
-                                </Chip>
-                              </td>
-                              <td className="px-2 py-1.5 text-right font-mono text-body-2-semibold tabular-nums text-text-primary">
-                                {fr(l.quantite)}
-                              </td>
-                            </tr>
-                            {l.path.length > 0 && (
-                              <tr>
-                                <td
-                                  colSpan={6}
-                                  className="px-2 pb-1.5 font-mono text-caption-2-regular text-text-tertiary"
-                                  title={l.path.join(' › ')}
-                                >
-                                  via {l.path.join(' › ')}
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        ))}
-                      </Fragment>
+                weeks.map((w) => (
+                  <WeekSection key={w.key} label={w.label} total={w.total} count={w.lignes.length}>
+                    {w.lignes.map((l, i) => (
+                      <OriginCard
+                        key={`${l.date}-${l.numCommande ?? 'nc'}-${l.pfArticle}-${i}`}
+                        ligne={l}
+                      />
                     ))}
-                  </tbody>
-                </table>
+                  </WeekSection>
+                ))
               )}
             </div>
+
+            {data.lignes.length > 0 && (
+              <div className="border-t border-separator-border bg-background-secondary-default px-4 py-3">
+                <p className="flex items-center gap-1.5 text-caption-2-regular text-text-tertiary">
+                  <RiRouteLine className="size-3 shrink-0" aria-hidden />
+                  Le chemin « via » retrace la nomenclature jusqu&apos;au produit fini appelant.
+                </p>
+              </div>
+            )}
           </SheetContent>
         ))}
     </Sheet>

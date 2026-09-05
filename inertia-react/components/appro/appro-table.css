@@ -1,0 +1,158 @@
+/**
+ * Grille Approvisionnement sur primitives BoardUI Table (react-aria).
+ *
+ * `.bui-table` (styles/boardui/globals.css) N'EST PAS layerisé : il gagne sur
+ * TOUS les utilitaires Tailwind. Donc tout ce qui touche DIRECTEMENT aux
+ * cellules/lignes (disposition, fonds, filets, sticky, états) vit ici, avec
+ * des sélecteurs `table.` qui battent `.bui-table` quelle que soit l'ordre
+ * des feuilles. Le CONTENU des cellules (spans : taille, couleur, Padding
+ * interne, teinte heat) reste en utilitaires — aucune règle `.bui-table` ne
+ * vise les spans, ils s'appliquent normalement.
+ *
+ * Les 3 tables (bandeau périodes / corps / pied) partagent les mêmes
+ * largeurs (`table-fixed`, `w-max`, mêmes `w-[…]`) pour rester alignées.
+ */
+
+/* ── Corps ─────────────────────────────────────────────────────────── */
+table.appro-grid {
+  table-layout: fixed;
+  width: max-content;
+  border-collapse: collapse;
+}
+
+table.appro-grid > thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+table.appro-grid > thead > tr > th {
+  padding-block: 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-separator-border-strong);
+}
+
+table.appro-grid th.c {
+  text-align: center;
+}
+
+table.appro-grid > tbody > tr > td {
+  padding-block: 4px;
+}
+
+/* Cellules de périodes : Padding porté par le span interne (remplissage heat). */
+table.appro-grid > tbody > tr > td.cell-pad0 {
+  padding: 0;
+}
+
+table.appro-grid > tbody > tr {
+  border-bottom: 1px solid var(--color-separator-border-strong);
+}
+
+table.appro-grid > tbody > tr.alt {
+  background-color: color-mix(in srgb, var(--color-background-tertiary-default) 40%, transparent);
+}
+
+.dark table.appro-grid > tbody > tr.alt {
+  background-color: color-mix(in srgb, var(--color-white) 4%, transparent);
+}
+
+table.appro-grid > tbody > tr:hover {
+  background-color: var(--color-background-secondary-hover);
+}
+
+.dark table.appro-grid > tbody > tr:hover {
+  background-color: var(--color-background-tertiary-hover);
+}
+
+table.appro-grid > tbody > tr.sel {
+  background-color: var(--color-background-secondary-hover);
+  box-shadow: inset 0 0 0 2px var(--color-border-focus-ring);
+}
+
+.dark table.appro-grid > tbody > tr.sel {
+  background-color: var(--color-background-tertiary-hover);
+}
+
+/* Filets verticaux (token strong : calibré light + dark). */
+table.appro-grid th + th,
+table.appro-grid td + td {
+  border-left: 1px solid var(--color-separator-border-strong);
+}
+
+/* Survol en croix (état React `hoverCol`). Translucide OK hors sticky : rien
+ * ne défile sous ces cellules. */
+table.appro-grid th.wash,
+table.appro-grid td.wash {
+  background-color: color-mix(in srgb, var(--color-background-secondary-default) 70%, transparent);
+}
+
+/* ── Colonnes figées (commun corps + bandeau + pied) ────────────────── */
+.stick {
+  position: sticky;
+  z-index: 2;
+}
+
+th.stick {
+  z-index: 3;
+}
+
+.sl0 {
+  left: 0;
+}
+
+.sl110 {
+  left: 110px;
+}
+
+table.appro-grid th.stick {
+  background-color: var(--color-background-secondary-default);
+}
+
+table.appro-grid td.stick {
+  background-color: var(--color-background-primary-default);
+}
+
+/* Fonds OPAQUES obligatoires ici : le contenu défilant peint en dessous
+ * transparaîtrait à travers un fond translucide. Composites solides,
+ * équivalents aux états du reste de la ligne (vars résolues par thème). */
+table.appro-grid tr.alt td.stick {
+  background-color: color-mix(
+    in srgb,
+    var(--color-background-tertiary-default) 40%,
+    var(--color-background-primary-default)
+  );
+}
+
+.dark table.appro-grid tr.alt td.stick {
+  background-color: color-mix(
+    in srgb,
+    var(--color-white) 4%,
+    var(--color-background-primary-default)
+  );
+}
+
+table.appro-grid tr:hover td.stick {
+  background-color: var(--color-background-secondary-hover);
+}
+
+.dark table.appro-grid tr:hover td.stick {
+  background-color: var(--color-background-tertiary-hover);
+}
+
+table.appro-grid tr.sel td.stick {
+  background-color: var(--color-background-secondary-hover);
+  box-shadow: inset 0 0 0 2px var(--color-border-focus-ring);
+}
+
+.dark table.appro-grid tr.sel td.stick {
+  background-color: var(--color-background-tertiary-hover);
+}
+
+table.appro-grid td.stick.wash {
+  background-color: color-mix(
+    in srgb,
+    var(--color-background-secondary-default) 70%,
+    var(--color-background-primary-default)
+  );
+}
