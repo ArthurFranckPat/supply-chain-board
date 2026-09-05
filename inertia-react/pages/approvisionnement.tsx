@@ -24,7 +24,6 @@
  * contenu étant lui aussi retokenisé.
  */
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -308,18 +307,43 @@ const cranOf = (row: ApproRow, cran: ApproCran, i: number, ferme: boolean): numb
   return ferme ? row.resteFerme[i] : row.restePrevi[i]
 }
 
-const cranTotal = (row: ApproRow, cran: ApproCran): number => {
-  const pick =
-    cran === 'brut'
-      ? row.brutFerme.concat(row.brutPrevi)
-      : cran === 'net'
-        ? row.netFerme.concat(row.netPrevi)
-        : row.resteFerme.concat(row.restePrevi)
-  return pick.reduce((s, v) => s + v, 0)
+/** Nature du besoin — masque d'affichage de la grille (Ferme = engagé,
+ * Prévision = hypothèse ; cf. en-têtes de sous-colonnes). */
+type Nature = 'TOUS' | 'FERME' | 'PREVISION'
+
+const NATURE_LABEL: Record<Nature, string> = {
+  TOUS: 'Toutes',
+  FERME: 'Ferme',
+  PREVISION: 'Prévision',
 }
 
-const resteTotal = (row: ApproRow): number =>
-  row.resteFerme.reduce((s, v) => s + v, 0) + row.restePrevi.reduce((s, v) => s + v, 0)
+/** La nature est-elle affichée sous le filtre de nature courant ? */
+const natureOn = (n: Nature, ferme: boolean): boolean => n === 'TOUS' || (n === 'FERME') === ferme
+
+/** Total du cran pour les seules natures affichées — le Total de ligne, le
+ * tri « total décroissant » et le pied suivent ce que la grille montre. */
+const cranTotalOn = (row: ApproRow, cran: ApproCran, n: Nature): number => {
+  const pick = (ferme: boolean): number[] =>
+    cran === 'brut'
+      ? ferme
+        ? row.brutFerme
+        : row.brutPrevi
+      : cran === 'net'
+        ? ferme
+          ? row.netFerme
+          : row.netPrevi
+        : ferme
+          ? row.resteFerme
+          : row.restePrevi
+  return (
+    (natureOn(n, true) ? pick(true).reduce((s, v) => s + v, 0) : 0) +
+    (natureOn(n, false) ? pick(false).reduce((s, v) => s + v, 0) : 0)
+  )
+}
+
+/** Manque (reste à couvrir) pour les seules natures affichées — le rose de
+ * la grille et la chip « N manques » portent la même lecture. */
+const resteTotalOn = (row: ApproRow, n: Nature): number => cranTotalOn(row, 'reste', n)
 
 export default function Approvisionnement() {
   const today = useMemo(() => new Date(), [])
@@ -332,6 +356,9 @@ export default function Approvisionnement() {
   const [query, setQuery] = useState('')
   const [supply, setSupply] = useState<SupplyFilter>('ACHAT')
   const [manquesOnly, setManquesOnly] = useState(false)
+  // Nature du besoin affichée — masque client : la grille retire les
+  // sous-colonnes de l'autre nature, totaux et signaux suivent.
+  const [nature, setNature] = useState<Nature>('TOUS')
   // Ligne de production retenue (poste 1ʳᵉ op) — null = toutes. Filtre
   // SERVEUR : il entre dans l'URL, le plan est recalculé sur la population
   // de la ligne (quantités exactes), l'écran garde le plan précédent pendant
@@ -396,11 +423,11 @@ export default function Approvisionnement() {
     const q = fold(query.trim())
     return view.filter((r) => {
       if (supply !== 'TOUS' && r.supplyType !== supply) return false
-      if (manquesOnly && resteTotal(r) <= 0) return false
+      if (manquesOnly && resteTotalOn(r, nature) <= 0) return false
       if (q && !fold(`${r.article} ${r.description}`).includes(q)) return false
       return true
     })
-  }, [view, query, supply, manquesOnly])
+  }, [view, query, supply, manquesOnly, nature])
 
   // Périodes vides au cran courant, sur les lignes filtrées (l'ordre du tri
   // ne change pas l'appartenance, donc calculé avant tri, sans cycle).
@@ -410,7 +437,10 @@ export default function Approvisionnement() {
     for (let i = 0; i < n; i++) {
       let empty = true
       for (const r of filtered) {
-        if (cranOf(r, cran, i, true) !== 0 || cranOf(r, cran, i, false) !== 0) {
+        if (
+          (natureOn(nature, true) && cranOf(r, cran, i, true) !== 0) ||
+          (natureOn(nature, false) && cranOf(r, cran, i, false) !== 0)
+        ) {
           empty = false
           break
         }
@@ -418,7 +448,7 @@ export default function Approvisionnement() {
       if (empty) s.add(i)
     }
     return s
-  }, [data, filtered, cran])
+  }, [data, filtered, cran, nature])
 
   const visIdx = useMemo(
     () =>
@@ -427,8 +457,13 @@ export default function Approvisionnement() {
   )
 
   // Tri période effectif : ignoré si sa colonne est repliée (il reprend en
-  // réaffichant les périodes vides, sans perdre le choix).
-  const effSort = sortPeriod && visIdx.includes(sortPeriod.i) ? sortPeriod : null
+  // réaffichant les périodes vides, sans perdre le choix) ou si sa nature est
+  // masquée par le filtre de nature (même doctrine : le choix reprend au
+  // réaffichage, il n'est jamais corrigé en silence).
+  const effSort =
+    sortPeriod && visIdx.includes(sortPeriod.i) && natureOn(nature, sortPeriod.ferme)
+      ? sortPeriod
+      : null
 
   const rows = useMemo(() => {
     const out = [...filtered]
@@ -447,10 +482,10 @@ export default function Approvisionnement() {
         if (b.valeur == null) return -1
         return b.valeur - a.valeur
       }
-      return cranTotal(b, cran) - cranTotal(a, cran)
+      return cranTotalOn(b, cran, nature) - cranTotalOn(a, cran, nature)
     })
     return out
-  }, [filtered, sort, cran, effSort])
+  }, [filtered, sort, cran, effSort, nature])
 
   // Filtres secondaires uniquement (hors recherche + pill ligne, toujours
   // visibles) — même doctrine que suivi : un filtre est « actif » quand il
@@ -458,6 +493,7 @@ export default function Approvisionnement() {
   const filtersActive =
     supply !== 'ACHAT' ||
     manquesOnly ||
+    nature !== 'TOUS' ||
     sort !== 'net' ||
     ligne !== null ||
     !showEmptyPeriods ||
@@ -468,13 +504,17 @@ export default function Approvisionnement() {
     setQuery('')
     setSupply('ACHAT')
     setManquesOnly(false)
+    setNature('TOUS')
     setLigne(null)
     setSort('net')
     setSortPeriod(null)
     setShowEmptyPeriods(true)
   }
 
-  const manquesCount = useMemo(() => view.filter((r) => resteTotal(r) > 0).length, [view])
+  const manquesCount = useMemo(
+    () => view.filter((r) => resteTotalOn(r, nature) > 0).length,
+    [view, nature]
+  )
 
   return (
     <AppLayout
@@ -650,6 +690,22 @@ export default function Approvisionnement() {
                           className={PANEL_ITEM}
                         >
                           {SUPPLY_LABEL[s]}
+                        </DropdownItem>
+                      ))}
+                    </DropdownGroup>
+                    <DropdownDivider />
+                    {/* Nature du besoin : retire les sous-colonnes de l'autre
+                        nature (masque client — contrairement à Ligne, pas de
+                        refetch, les totaux restent ceux de la population). */}
+                    <DropdownGroup label="Nature">
+                      {(['TOUS', 'FERME', 'PREVISION'] as Nature[]).map((n) => (
+                        <DropdownItem
+                          key={n}
+                          selected={nature === n}
+                          onSelect={() => setNature(n)}
+                          className={PANEL_ITEM}
+                        >
+                          {NATURE_LABEL[n]}
                         </DropdownItem>
                       ))}
                     </DropdownGroup>
@@ -859,6 +915,7 @@ export default function Approvisionnement() {
                     onSelect={setSelected}
                     manquesOnly={manquesOnly}
                     onToggleManques={() => setManquesOnly((v) => !v)}
+                    nature={nature}
                     computedAt={data.computedAt ?? null}
                     stale={overCap}
                   />
@@ -1067,6 +1124,8 @@ function ApproTable(props: {
   /** État + bascule du filtre « manques seuls » — portés par la chip du header. */
   manquesOnly: boolean
   onToggleManques: () => void
+  /** Nature(s) du besoin affichée(s) — sous-colonnes, totaux et signaux suivent. */
+  nature: Nature
   /** Horodatage du plan affiché (payload `computedAt`) ; null = inconnu. */
   computedAt: number | null
   /** Plan affiché ≠ sélection courante (recalcul suspendu, hors plafond). */
@@ -1082,6 +1141,7 @@ function ApproTable(props: {
     selected,
     manquesOnly,
     onToggleManques,
+    nature,
     computedAt,
     stale,
   } = props
@@ -1098,7 +1158,7 @@ function ApproTable(props: {
   // travaillent sur les tableaux complets, pas sur la position visible).
   const vis = useMemo(() => visIdx.map((i) => ({ b: buckets[i], i })), [buckets, visIdx])
 
-  // Maximum par ligne sur la fenêtre (fermes ET prévisions confondus) —
+  // Maximum par ligne sur la fenêtre, natures affichées seulement —
   // dénominateur de la carte de chaleur. Mémoïsé : le calculer dans la cellule
   // le referait une fois par cellule rendue.
   const rowMax = useMemo(() => {
@@ -1106,27 +1166,34 @@ function ApproTable(props: {
     for (const r of rows) {
       let max = 0
       for (const { i } of vis) {
-        max = Math.max(max, cranOf(r, cran, i, true), cranOf(r, cran, i, false))
+        if (natureOn(nature, true)) max = Math.max(max, cranOf(r, cran, i, true))
+        if (natureOn(nature, false)) max = Math.max(max, cranOf(r, cran, i, false))
       }
       m.set(r.article, max)
     }
     return m
-  }, [rows, vis, cran])
+  }, [rows, vis, cran, nature])
 
   // Sous-colonnes visibles : clé stable `${bucket}-ferme|prevision`, ordre
   // partagé par l'en-tête RAC, le corps, le pied et le survol (`cellIndex`).
+  // Le filtre de nature retire la sous-colonne masquée : le bandeau, le
+  // colgroup, le corps et le pied dérivent tous de cette liste.
   const subs = useMemo(
     () =>
       vis.flatMap(({ b, i }) => [
-        { key: `${b.key}-ferme`, label: b.label, i, ferme: true },
-        { key: `${b.key}-prevision`, label: b.label, i, ferme: false },
+        ...(natureOn(nature, true)
+          ? [{ key: `${b.key}-ferme`, label: b.label, i, ferme: true }]
+          : []),
+        ...(natureOn(nature, false)
+          ? [{ key: `${b.key}-prevision`, label: b.label, i, ferme: false }]
+          : []),
       ]),
-    [vis]
+    [vis, nature]
   )
   /** Nombre de colonnes — `colSpan` des lignes-cales de la fenêtre virtuelle. */
   const colCount = LEAD_KEYS.length + subs.length
   /** Largeur totale — imposée aux trois tables, aucune ne la déduit. */
-  const tableW = LEAD_W + vis.length * (COL_W.ferme + COL_W.prevision)
+  const tableW = LEAD_W + subs.reduce((a, s) => a + (s.ferme ? COL_W.ferme : COL_W.prevision), 0)
 
   // ── Virtualisation ────────────────────────────────────────────────────────
   const rowVirtualizer = useVirtualizer({
@@ -1208,11 +1275,14 @@ function ApproTable(props: {
       per,
       stock,
       valeur: valeurConnue ? valeur : null,
-      total: rows.reduce((a, r) => a + cranTotal(r, cran), 0),
+      total: rows.reduce((a, r) => a + cranTotalOn(r, cran, nature), 0),
     }
-  }, [rows, cran, subs])
+  }, [rows, cran, subs, nature])
 
-  const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
+  const manquesInView = useMemo(
+    () => rows.filter((r) => resteTotalOn(r, nature) > 0).length,
+    [rows, nature]
+  )
 
   /**
    * Cache d'ÉLÉMENTS de ligne, indexé sur la position dans `rows`.
@@ -1241,11 +1311,8 @@ function ApproTable(props: {
       {LEAD_KEYS.map((k) => (
         <col key={k} style={{ width: COL_W[k] }} />
       ))}
-      {vis.map(({ b }) => (
-        <Fragment key={b.key}>
-          <col style={{ width: COL_W.ferme }} />
-          <col style={{ width: COL_W.prevision }} />
-        </Fragment>
+      {subs.map((s) => (
+        <col key={s.key} style={{ width: s.ferme ? COL_W.ferme : COL_W.prevision }} />
       ))}
     </colgroup>
   )
@@ -1327,14 +1394,18 @@ function ApproTable(props: {
           <span className="text-caption-2-medium text-text-tertiary">
             Carte de chaleur par ligne
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 shrink-0 rounded-full bg-accent-500" aria-hidden />
-            <span className="text-caption-2-medium text-text-secondary">Ferme</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 shrink-0 rounded-full bg-purple-500" aria-hidden />
-            <span className="text-caption-2-medium text-text-secondary">Prév.</span>
-          </span>
+          {natureOn(nature, true) && (
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 shrink-0 rounded-full bg-accent-500" aria-hidden />
+              <span className="text-caption-2-medium text-text-secondary">Ferme</span>
+            </span>
+          )}
+          {natureOn(nature, false) && (
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 shrink-0 rounded-full bg-purple-500" aria-hidden />
+              <span className="text-caption-2-medium text-text-secondary">Prév.</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -1362,7 +1433,7 @@ function ApproTable(props: {
                 {vis.map(({ b }) => (
                   <th
                     key={b.key}
-                    colSpan={2}
+                    colSpan={natureOn(nature, true) && natureOn(nature, false) ? 2 : 1}
                     data-col={b.key}
                     data-group={b.key}
                     scope="colgroup"
@@ -1488,7 +1559,7 @@ function ApproTable(props: {
               const cached = rowCache.get(vr.index)
               if (cached) return cached
               const r = rows[vr.index]
-              const manque = resteTotal(r) > 0
+              const manque = resteTotalOn(r, nature) > 0
               if (rowCache.size > 600) rowCache.clear()
               const el = (
                 <TableRow
@@ -1578,7 +1649,7 @@ function ApproTable(props: {
                         manque ? 'text-status-rose-text' : 'text-text-primary'
                       )}
                     >
-                      {fr(cranTotal(r, cran))}
+                      {fr(cranTotalOn(r, cran, nature))}
                     </span>
                   </TableCell>
                   {subs.map((s) => {
