@@ -165,12 +165,21 @@ table.appro-grid > tbody > tr[data-focus-visible] > td {
     inset 0 -1px 0 var(--color-border-focus-ring);
 }
 
-/* Survol en croix. Translucide hors colonnes figées : rien ne défile dessous. */
-table.appro-grid th.wash,
-table.appro-grid td.wash,
-table.appro-strip th.wash,
-table.appro-foot td.wash {
-  background-color: color-mix(in srgb, var(--color-background-secondary-default) 70%, transparent);
+/* Le survol en croix ne vit PAS ici : la colonne survolée change en continu
+ * pendant un défilement horizontal, et la porter en classe imposait de
+ * re-rendre toutes les cellules montées à chaque événement. Elle est écrite
+ * dans un `<style>` local par `washCss()` (pages/approvisionnement.tsx), qui
+ * cible les `data-col` / `data-group` posés sur les cellules des trois
+ * tables. Ne pas réintroduire de règle `.wash` : elle serait morte. */
+
+/* Aucune transition dans la grille. `.bui-table` en déclare sur `padding`,
+ * `font-size` et les couleurs — pertinent pour une table de 20 lignes, pas
+ * pour ~1 400 cellules que le moteur de style doit alors suivre pendant tout
+ * le défilement, au bénéfice d'un fondu que cette densité rend invisible. */
+table.appro-grid th,
+table.appro-grid td,
+table.appro-grid tbody tr {
+  transition: none;
 }
 
 /* ── Colonnes figées (corps + bandeau + pied) ───────────────────────────── */
@@ -238,14 +247,6 @@ table.appro-grid > tbody > tr.sel > td.stick {
 
 .dark table.appro-grid > tbody > tr.sel > td.stick {
   background-color: var(--color-background-tertiary-hover);
-}
-
-table.appro-grid td.stick.wash {
-  background-color: color-mix(
-    in srgb,
-    var(--color-background-secondary-default) 70%,
-    var(--color-background-primary-default)
-  );
 }
 
 /* Séparation visuelle du bloc figé quand le corps a défilé : un filet plein

@@ -917,6 +917,51 @@ const heatStyle = (value: number, rowMax: number, ferme: boolean) => {
 }
 
 /**
+ * Survol en croix — feuille de style INJECTÉE, pas un état React.
+ *
+ * La colonne survolée change à chaque cellule que le pointeur traverse, donc
+ * en continu pendant un défilement horizontal. La porter en `useState`
+ * re-rendait les ~50 lignes montées × ~34 cellules à chaque événement, et une
+ * cellule react-aria n'est pas un `<td>` : elle monte `usePress`, `useHover`,
+ * `useFocusRing`, `useTableCell`. Une règle CSS réécrite dans un `<style>`
+ * local fait le même travail en une passe de recalcul de style — et elle
+ * s'applique d'office aux lignes que la virtualisation montera ensuite, ce
+ * qu'un `className` calculé au rendu ne sait pas faire.
+ *
+ * Les clés : une colonne de période vaut `${période}-ferme|prevision`, le
+ * bandeau porte la période nue en `data-group`. D'où les trois sélecteurs —
+ * la colonne elle-même, ses sous-colonnes (survol depuis le bandeau), son
+ * en-tête de groupe (survol depuis le corps).
+ *
+ * `!important` assumé : c'est une surcouche momentanée qui doit battre le
+ * zébrage, le survol de ligne et la sélection sans qu'on ait à réviser sa
+ * spécificité à chaque évolution de `appro-table.css`.
+ */
+const washCss = (key: string): string => {
+  // Ces clés viennent du payload (`bucket.key`) et finissent dans un sélecteur
+  // CSS : on ne concatène que ce dont la forme est certaine.
+  if (!/^[\w-]+$/.test(key)) return ''
+  const group = key.replace(/-(ferme|prevision)$/, '')
+  const attrs = [`[data-col="${key}"]`, `[data-col^="${key}-"]`]
+  if (group !== key) attrs.push(`[data-group="${group}"]`)
+  const sel = (prefix: string): string => attrs.map((a) => prefix + a).join(',')
+  const translucide =
+    'color-mix(in srgb, var(--color-background-secondary-default) 70%, transparent)'
+  // Les cellules figées ont du contenu qui défile dessous : leur lavis doit
+  // être recomposé en couleur solide, comme tous leurs autres états.
+  const opaque =
+    'color-mix(in srgb, var(--color-background-secondary-default) 70%,' +
+    ' var(--color-background-primary-default))'
+  return (
+    `${sel('table.appro-grid th')},${sel('table.appro-grid td')},` +
+    `${sel('table.appro-strip th')},${sel('table.appro-foot td')}` +
+    `{background-color:${translucide}!important}` +
+    `${sel('table.appro-grid td.stick')}` +
+    `{background-color:${opaque}!important}`
+  )
+}
+
+/**
  * ═══ Géométrie de la grille — SOURCE UNIQUE ═══
  *
  * Trois tables se superposent en colonnes : le bandeau des périodes, le corps
@@ -1035,6 +1080,11 @@ function ApproTable(props: {
   const scrollRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
   const footRef = useRef<HTMLDivElement>(null)
+  // Les lignes sont mises en cache (cf. `rowCache`) : leurs gestionnaires
+  // survivent au rendu qui les a créées. Passer par une ref garantit qu'ils
+  // appellent toujours le `onSelect` courant, jamais celui d'alors.
+  const onSelectRef = useRef(props.onSelect)
+  onSelectRef.current = props.onSelect
 
   // Périodes affichées avec leur indice d'origine (les accesseurs `cranOf`
   // travaillent sur les tableaux complets, pas sur la position visible).
@@ -1065,7 +1115,8 @@ function ApproTable(props: {
       ]),
     [vis]
   )
-  const colKeys = useMemo(() => [...LEAD_KEYS, ...subs.map((s) => s.key)], [subs])
+  /** Nombre de colonnes — `colSpan` des lignes-cales de la fenêtre virtuelle. */
+  const colCount = LEAD_KEYS.length + subs.length
   /** Largeur totale — imposée aux trois tables, aucune ne la déduit. */
   const tableW = LEAD_W + vis.length * (COL_W.ferme + COL_W.prevision)
 
@@ -1077,7 +1128,9 @@ function ApproTable(props: {
     // mesurée (`measureElement`), donc un écart de densité — thème, zoom
     // navigateur, police système — ne décale pas la fenêtre.
     estimateSize: () => ROW_H,
-    overscan: 14,
+    // 8 et pas 14 : une ligne coûte ~34 cellules react-aria à monter, le
+    // sur-rendu se paie donc cher. 8 suffit à masquer le montage à la molette.
+    overscan: 8,
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
   const totalSize = rowVirtualizer.getTotalSize()
@@ -1105,33 +1158,20 @@ function ApproTable(props: {
     return () => ro.disconnect()
   }, [rows.length, subs.length])
 
-  // Survol en croix par délégation (`cellIndex`, aucun besoin d'API hover
-  // react-aria). Bandeau et pied ne peuvent pas passer par `cellIndex` (leurs
-  // cellules fusionnées décaleraient l'indice) : ils portent un `data-key`.
-  const [hoverCol, setHoverCol] = useState<string | null>(null)
-  const onGridHover = (e: { target: EventTarget | null }) => {
-    const t = e.target as HTMLElement | null
-    const cell = t?.closest('td,th') ?? null
-    if (!cell || !(cell instanceof HTMLTableCellElement)) {
-      setHoverCol(null)
-      return
-    }
-    const scope = cell.closest('[data-scope]')?.getAttribute('data-scope')
-    if (scope === 'strip' || scope === 'foot') {
-      setHoverCol(cell.dataset.key ?? null)
-      return
-    }
-    setHoverCol(colKeys[cell.cellIndex] ?? null)
+  // Survol en croix par délégation : chaque cellule des trois tables porte sa
+  // clé de colonne en `data-col`, la règle est réécrite dans le `<style>`
+  // local (cf. `washCss`). Aucun rendu React n'est déclenché.
+  const styleRef = useRef<HTMLStyleElement>(null)
+  const hoverRef = useRef<string | null>(null)
+  const setHoverCol = (key: string | null): void => {
+    if (hoverRef.current === key) return
+    hoverRef.current = key
+    if (styleRef.current) styleRef.current.textContent = key ? washCss(key) : ''
   }
-  /**
-   * Une colonne est lavée si elle est survolée, ou si c'est une sous-colonne
-   * du GROUPE survolé (`hoverCol` = clé de période au bandeau, les colonnes
-   * valent `${période}-ferme|prevision`).
-   */
-  const washed = (key: string): boolean =>
-    hoverCol === key || (hoverCol !== null && key.startsWith(`${hoverCol}-`))
-  const groupWash = (key: string): boolean =>
-    hoverCol === key || hoverCol === `${key}-ferme` || hoverCol === `${key}-prevision`
+  const onGridHover = (e: { target: EventTarget | null }) => {
+    const cell = (e.target as HTMLElement | null)?.closest('td,th') ?? null
+    setHoverCol(cell instanceof HTMLTableCellElement ? (cell.dataset.col ?? null) : null)
+  }
 
   // Tri au clic sur un sous-en-tête : décroissant, 2ᵉ clic = retour au menu.
   const sortOn = (s: { i: number; ferme: boolean }): boolean =>
@@ -1166,6 +1206,27 @@ function ApproTable(props: {
 
   const manquesInView = useMemo(() => rows.filter((r) => resteTotal(r) > 0).length, [rows])
 
+  /**
+   * Cache d'ÉLÉMENTS de ligne, indexé sur la position dans `rows`.
+   *
+   * Le virtualiseur re-rend toute la fenêtre à chaque frame de défilement.
+   * Sans cache, les ~40 lignes montées sont reconstruites à l'identique et
+   * react-aria remonte `usePress` / `useHover` / `useFocusRing` sur chacune
+   * de leurs ~34 cellules — soit ~1 400 cellules par frame pour 3 lignes qui
+   * entrent réellement. Un élément React IDENTIQUE fait sauter tout le
+   * sous-arbre à la réconciliation : seules les lignes qui entrent coûtent.
+   *
+   * Invalidé dès que le contenu d'une ligne peut changer (données, colonnes,
+   * cran, chaleur, sélection) — c'est la clé du `useMemo`. Plafonné, sinon un
+   * parcours complet des 1118 composants retient autant d'arbres d'éléments.
+   */
+  // Dépendances volontairement « inutiles » au sens d'eslint : le `useMemo` ne
+  // les LIT pas, il s'en sert de clé d'invalidation — c'est tout l'objet du
+  // cache. Les retirer le rendrait éternel, et une ligne modifiée resterait
+  // affichée telle quelle.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const rowCache = useMemo(() => new Map<number, ReactNode>(), [rows, subs, cran, rowMax, selected])
+
   /** Les trois tables partagent ces colonnes — d'où un seul `<colgroup>`. */
   const colGroup = (
     <colgroup>
@@ -1185,8 +1246,10 @@ function ApproTable(props: {
   // en `overflow-hidden`), donc pas de boucle de rétroaction à casser.
   const syncX = (e: { currentTarget: HTMLDivElement }): void => {
     const x = e.currentTarget.scrollLeft
-    if (stripRef.current) stripRef.current.scrollLeft = x
-    if (footRef.current) footRef.current.scrollLeft = x
+    // Le défilement vertical passe ici aussi : ne rien réécrire quand x n'a pas
+    // bougé, sinon chaque cran de molette repositionne deux conteneurs pour rien.
+    if (stripRef.current && stripRef.current.scrollLeft !== x) stripRef.current.scrollLeft = x
+    if (footRef.current && footRef.current.scrollLeft !== x) footRef.current.scrollLeft = x
   }
 
   return (
@@ -1201,6 +1264,10 @@ function ApproTable(props: {
       onMouseOver={onGridHover}
       onMouseLeave={() => setHoverCol(null)}
     >
+      {/* Support du survol en croix : `setHoverCol` réécrit son contenu, rien
+          d'autre ne le touche (cf. `washCss`). */}
+      <style ref={styleRef} />
+
       {/* Header BoardUI — rounded top sur 1118, tableau en dessous carré */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-3xl border-b border-separator-border bg-background-secondary-default px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1288,9 +1355,10 @@ function ApproTable(props: {
                   <th
                     key={b.key}
                     colSpan={2}
-                    data-key={b.key}
+                    data-col={b.key}
+                    data-group={b.key}
                     scope="colgroup"
-                    className={cx('grp', groupWash(b.key) && 'wash')}
+                    className="grp"
                   >
                     <span className="whitespace-nowrap text-caption-1-semibold text-text-primary">
                       {b.label}
@@ -1320,7 +1388,8 @@ function ApproTable(props: {
               isRowHeader
               textValue="Composant"
               style={{ width: COL_W.article }}
-              className={cx('stick sl-article', washed('article') && 'wash')}
+              data-col="article"
+              className="stick sl-article"
             >
               <span className="text-caption-1-medium text-text-tertiary">Composant</span>
             </TableColumn>
@@ -1328,23 +1397,20 @@ function ApproTable(props: {
               id="description"
               textValue="Désignation"
               style={{ width: COL_W.description }}
-              className={cx('stick sl-description', washed('description') && 'wash')}
+              data-col="description"
+              className="stick sl-description"
             >
               <span className="text-caption-1-medium text-text-tertiary">Désignation</span>
             </TableColumn>
-            <TableColumn
-              id="type"
-              textValue="Type"
-              style={{ width: COL_W.type }}
-              className={washed('type') ? 'wash' : undefined}
-            >
+            <TableColumn id="type" textValue="Type" style={{ width: COL_W.type }} data-col="type">
               <span className="text-caption-1-medium text-text-tertiary">Type</span>
             </TableColumn>
             <TableColumn
               id="stock"
               textValue="Stock"
               style={{ width: COL_W.stock }}
-              className={cx('r', washed('stock') && 'wash')}
+              data-col="stock"
+              className="r"
             >
               <span className="text-caption-1-medium text-text-tertiary">Stock</span>
             </TableColumn>
@@ -1352,7 +1418,8 @@ function ApproTable(props: {
               id="valeur"
               textValue="Valo"
               style={{ width: COL_W.valeur }}
-              className={cx('r', washed('valeur') && 'wash')}
+              data-col="valeur"
+              className="r"
             >
               <span className="text-caption-1-medium text-text-tertiary">Valo</span>
             </TableColumn>
@@ -1360,7 +1427,8 @@ function ApproTable(props: {
               id="total"
               textValue={`Total ${cran}`}
               style={{ width: COL_W.total }}
-              className={cx('r', washed('total') && 'wash')}
+              data-col="total"
+              className="r"
             >
               <span className="text-caption-1-semibold text-text-primary">Total {cran}</span>
             </TableColumn>
@@ -1372,7 +1440,8 @@ function ApproTable(props: {
                   id={s.key}
                   textValue={`${s.label} ${s.ferme ? 'Ferme' : 'Prévision'}`}
                   style={{ width: s.ferme ? COL_W.ferme : COL_W.prevision }}
-                  className={cx('c', s.ferme && 'grp', washed(s.key) && 'wash')}
+                  data-col={s.key}
+                  className={cx('c', s.ferme && 'grp')}
                 >
                   <span
                     role="button"
@@ -1404,22 +1473,25 @@ function ApproTable(props: {
                 colonnes figées). */}
             {padTop > 0 && (
               <TableRow id="__pad_top" className="pad">
-                <TableCell colSpan={colKeys.length} style={{ height: padTop }} />
+                <TableCell colSpan={colCount} style={{ height: padTop }} />
               </TableRow>
             )}
             {virtualRows.map((vr) => {
+              const cached = rowCache.get(vr.index)
+              if (cached) return cached
               const r = rows[vr.index]
               const manque = resteTotal(r) > 0
-              return (
+              if (rowCache.size > 600) rowCache.clear()
+              const el = (
                 <TableRow
                   key={`${r.article}@@${vr.index}`}
                   id={`${r.article}@@${vr.index}`}
                   ref={rowVirtualizer.measureElement}
                   data-index={vr.index}
                   className={cx(vr.index % 2 === 1 && 'alt', r.article === selected && 'sel')}
-                  onAction={() => props.onSelect(r.article)}
+                  onAction={() => onSelectRef.current(r.article)}
                 >
-                  <TableCell className={cx('stick sl-article', washed('article') && 'wash')}>
+                  <TableCell data-col="article" className="stick sl-article">
                     <span
                       className={cx(
                         'inline-flex max-w-full items-center gap-1 font-mono text-caption-1-semibold tracking-tight',
@@ -1430,7 +1502,7 @@ function ApproTable(props: {
                           rester atteignable au clavier dans la ligne pressable. */}
                       <button
                         type="button"
-                        onClick={() => props.onSelect(r.article)}
+                        onClick={() => onSelectRef.current(r.article)}
                         className="min-w-0 max-w-full truncate rounded-sm text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-focus-ring"
                         title={
                           manque
@@ -1455,9 +1527,7 @@ function ApproTable(props: {
                       )}
                     </span>
                   </TableCell>
-                  <TableCell
-                    className={cx('stick sl-description', washed('description') && 'wash')}
-                  >
+                  <TableCell data-col="description" className="stick sl-description">
                     <span
                       className="block truncate text-caption-1-regular text-text-secondary"
                       title={r.description}
@@ -1465,18 +1535,18 @@ function ApproTable(props: {
                       {r.description}
                     </span>
                   </TableCell>
-                  <TableCell className={washed('type') ? 'wash' : undefined}>
+                  <TableCell data-col="type">
                     <span className="inline-flex items-center gap-1.5 text-caption-1-regular text-text-secondary">
                       <StatusDot color={r.supplyType === 'ACHAT' ? 'indigo' : 'green'} />
                       {r.supplyType === 'ACHAT' ? 'Acheté' : 'Fabriqué'}
                     </span>
                   </TableCell>
-                  <TableCell className={cx('r', washed('stock') && 'wash')}>
+                  <TableCell data-col="stock" className="r">
                     <span className="font-mono text-caption-1-regular tabular-nums text-text-primary">
                       {fr(r.stock)}
                     </span>
                   </TableCell>
-                  <TableCell className={cx('r', washed('valeur') && 'wash')}>
+                  <TableCell data-col="valeur" className="r">
                     {r.valeur == null ? (
                       <span
                         className="font-mono text-caption-1-regular text-text-tertiary"
@@ -1493,7 +1563,7 @@ function ApproTable(props: {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className={cx('r', washed('total') && 'wash')}>
+                  <TableCell data-col="total" className="r">
                     <span
                       className={cx(
                         'font-mono text-caption-1-semibold tabular-nums',
@@ -1508,7 +1578,8 @@ function ApproTable(props: {
                     return (
                       <TableCell
                         key={s.key}
-                        className={cx('heat', s.ferme && 'grp', washed(s.key) && 'wash')}
+                        data-col={s.key}
+                        className={cx('heat', s.ferme && 'grp')}
                       >
                         <span style={heatStyle(v, rowMax.get(r.article) ?? 0, s.ferme)}>
                           {v === 0 ? null : (
@@ -1527,10 +1598,12 @@ function ApproTable(props: {
                   })}
                 </TableRow>
               )
+              rowCache.set(vr.index, el)
+              return el
             })}
             {padBottom > 0 && (
               <TableRow id="__pad_bottom" className="pad">
-                <TableCell colSpan={colKeys.length} style={{ height: padBottom }} />
+                <TableCell colSpan={colCount} style={{ height: padBottom }} />
               </TableRow>
             )}
           </TableBody>
@@ -1551,36 +1624,27 @@ function ApproTable(props: {
             {colGroup}
             <tbody>
               <tr>
-                <td colSpan={2} data-key="article" className="stick sl-article">
+                <td colSpan={2} data-col="article" className="stick sl-article">
                   <span className="text-caption-1-semibold text-text-secondary">
                     Total ({rows.length})
                   </span>
                 </td>
-                <td data-key="type" className={washed('type') ? 'wash' : undefined} />
+                <td data-col="type" />
                 <td
-                  data-key="stock"
-                  className={cx(
-                    'r font-mono text-caption-1-semibold tabular-nums text-text-primary',
-                    washed('stock') && 'wash'
-                  )}
+                  data-col="stock"
+                  className="r font-mono text-caption-1-semibold tabular-nums text-text-primary"
                 >
                   {fr(sums.stock)}
                 </td>
                 <td
-                  data-key="valeur"
-                  className={cx(
-                    'r font-mono text-caption-1-semibold tabular-nums text-text-secondary',
-                    washed('valeur') && 'wash'
-                  )}
+                  data-col="valeur"
+                  className="r font-mono text-caption-1-semibold tabular-nums text-text-secondary"
                 >
                   {sums.valeur == null ? '—' : fmtEuro.format(sums.valeur)}
                 </td>
                 <td
-                  data-key="total"
-                  className={cx(
-                    'r font-mono text-caption-1-semibold tabular-nums text-text-primary',
-                    washed('total') && 'wash'
-                  )}
+                  data-col="total"
+                  className="r font-mono text-caption-1-semibold tabular-nums text-text-primary"
                 >
                   {fr(sums.total)}
                 </td>
@@ -1589,11 +1653,10 @@ function ApproTable(props: {
                   return (
                     <td
                       key={s.key}
-                      data-key={s.key}
+                      data-col={s.key}
                       className={cx(
                         'r font-mono text-caption-1-semibold tabular-nums',
-                        s.ferme ? 'grp text-text-primary' : 'text-text-secondary',
-                        washed(s.key) && 'wash'
+                        s.ferme ? 'grp text-text-primary' : 'text-text-secondary'
                       )}
                     >
                       {t === 0 ? null : fr(t)}
