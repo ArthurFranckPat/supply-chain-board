@@ -318,7 +318,9 @@ const resteTotal = (row: ApproRow): number =>
 
 export default function Approvisionnement() {
   const today = useMemo(() => new Date(), [])
-  const [preset, setPreset] = useState<Preset>('moisprochain')
+  // Fenêtre par défaut « 2 semaines » : la question du planificateur porte sur
+  // l'immédiat (aujourd'hui → 13 jours), pas sur le mois suivant.
+  const [preset, setPreset] = useState<Preset>('2sem')
   const [custom, setCustom] = useState(() => presetRange('libre', new Date()))
   const [gran, setGran] = useState<ApproGran>('semaine')
   const [cran, setCran] = useState<ApproCran>('net')
