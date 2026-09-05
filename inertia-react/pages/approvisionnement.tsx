@@ -1281,21 +1281,30 @@ function ApproTable(props: {
                         manque ? 'text-status-rose-text' : 'text-text-primary'
                       )}
                     >
-                      <span
-                        className="min-w-0 truncate"
+                      {/* Bouton, pas span : le drill-down « appelé par » doit
+                          rester atteignable au clavier dans la ligne pressable. */}
+                      <button
+                        type="button"
+                        onClick={() => props.onSelect(r.article)}
+                        className="min-w-0 max-w-full truncate rounded-sm text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-focus-ring"
                         title={
                           manque
                             ? 'Reste à couvrir non nul — voir l’origine du besoin'
                             : 'Voir l’origine du besoin (appelé par)'
                         }
+                        aria-haspopup="dialog"
                       >
                         {r.article}
-                      </span>
+                      </button>
                       {r.tronque && (
                         <TooltipTrigger delay={0}>
-                          <span className="inline-flex shrink-0 cursor-help items-center text-status-yellow-text">
+                          <button
+                            type="button"
+                            aria-label="Descendance incomplète — nomenclature tronquée au plafond de profondeur"
+                            className="inline-flex shrink-0 cursor-help items-center rounded-sm text-status-yellow-text outline-none focus-visible:ring-1 focus-visible:ring-border-focus-ring"
+                          >
                             ⚠
-                          </span>
+                          </button>
                           <Tooltip>Descendance incomplète</Tooltip>
                         </TooltipTrigger>
                       )}
