@@ -443,13 +443,43 @@ const arriveesTotal = (row: ApproRow): number => row.arrivees.reduce((s, v) => s
 const ruptureIdx = (row: ApproRow, n: Nature): number =>
   n === 'FERME' ? row.ruptureFermeAt : row.ruptureAt
 
+/**
+ * État initial repris de la query string — c'est ce qui rend le lien « Plan
+ * complet » de /charge utile : il arrive sur la MÊME fenêtre, la MÊME maille et
+ * la MÊME ligne que le contrôle matières du poste qu'on regardait. Sans ça, le
+ * lien rouvrirait un plan par défaut et il faudrait tout resaisir.
+ *
+ * Lecture unique au montage (pas de synchronisation permanente URL ↔ état) :
+ * la page reste maîtresse de ses filtres une fois ouverte.
+ */
+function initialFromUrl(): {
+  ligne: string | null
+  range: { from: string; to: string } | null
+  gran: ApproGran | null
+} {
+  if (typeof window === 'undefined') return { ligne: null, range: null, gran: null }
+  const q = new URLSearchParams(window.location.search)
+  const from = q.get('from')
+  const to = q.get('to')
+  const gran = q.get('gran')
+  const iso = /^\d{4}-\d{2}-\d{2}$/
+  return {
+    ligne: q.get('ligne')?.trim() || null,
+    range: from && to && iso.test(from) && iso.test(to) ? { from, to } : null,
+    gran: gran === 'jour' || gran === 'semaine' || gran === 'mois' ? gran : null,
+  }
+}
+
 export default function Approvisionnement() {
   const today = useMemo(() => new Date(), [])
+  const boot = useMemo(initialFromUrl, [])
   // Fenêtre par défaut « 2 semaines » : la question du planificateur porte sur
-  // l'immédiat (aujourd'hui → 13 jours), pas sur le mois suivant.
-  const [preset, setPreset] = useState<Preset>('2sem')
-  const [custom, setCustom] = useState(() => presetRange('libre', new Date()))
-  const [gran, setGran] = useState<ApproGran>('semaine')
+  // l'immédiat (aujourd'hui → 13 jours), pas sur le mois suivant. Une fenêtre
+  // portée par l'URL passe en préréglage « Libre » — elle ne correspond à aucun
+  // préréglage nommé, et prétendre le contraire mentirait sur ce qui est calculé.
+  const [preset, setPreset] = useState<Preset>(boot.range ? 'libre' : '2sem')
+  const [custom, setCustom] = useState(() => boot.range ?? presetRange('libre', new Date()))
+  const [gran, setGran] = useState<ApproGran>(boot.gran ?? 'semaine')
   const [vue, setVue] = useState<ApproVue>('manque')
   const [query, setQuery] = useState('')
   const [supply, setSupply] = useState<SupplyFilter>('ACHAT')
@@ -461,7 +491,7 @@ export default function Approvisionnement() {
   // SERVEUR : il entre dans l'URL, le plan est recalculé sur la population
   // de la ligne (quantités exactes), l'écran garde le plan précédent pendant
   // le re-fetch (même doctrine que le reste de la page).
-  const [ligne, setLigne] = useState<string | null>(null)
+  const [ligne, setLigne] = useState<string | null>(boot.ligne)
   const [sort, setSort] = useState<SortKey>('net')
   const [selected, setSelected] = useState<string | null>(null)
   // Tri au clic sur un sous-en-tête de période (Ferme/Prév., décroissant) —

@@ -17,6 +17,7 @@ import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
 import { ChargePeriodSheet } from '@r/components/load/charge-period-sheet'
+import { MaterialCheck } from '@r/components/load/material-check'
 import {
   FilterMenu,
   FilterMenuSectionLabel,
@@ -528,6 +529,16 @@ export default function Load(props: LoadPageProps) {
                   showAvg={showAvg}
                   segs={visibleSegs}
                   onSelectPeriod={openPeriod}
+                />
+                {/* Le graphe dit les heures ; ce panneau dit si elles sont
+                    tenables. Calcul à la demande — cf. `MaterialCheck`. */}
+                <MaterialCheck
+                  poste={selLine.code}
+                  gran={gran}
+                  monthKeys={props.monthKeys}
+                  weekKeys={props.weekKeys}
+                  startIso={props.startIso}
+                  view={view}
                 />
               </div>
             )}
