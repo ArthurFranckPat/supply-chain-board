@@ -46,6 +46,7 @@ import {
   RiCloudOffLine,
   RiDashboardLine,
   RiErrorWarningLine,
+  RiFileDownloadLine,
   RiFileList3Line,
   RiFilter3Line,
   RiFilterOffLine,
@@ -718,6 +719,24 @@ export default function Approvisionnement() {
               `bump()` du data-status-store). Les répéter dans la barre
               n'ajoutait rien qu'un doublon dans un espace disputé. */}
               <div className="flex shrink-0 items-center gap-2">
+                {/* Squelette de la couche d'action (UI seule, passe 1) : le
+                    bouton annonce la sortie Excel attendue par les
+                    planificateurs ; le branchement (génération XLSX serveur,
+                    fenêtre/cran/filtres courants) arrive en passe 2.
+                    aria-disabled et pas disabled : l'élément reste focusable,
+                    le tooltip reste lisible au clavier et au survol. */}
+                <TooltipTrigger>
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    leadingIcon={RiFileDownloadLine}
+                    aria-disabled
+                    className="shrink-0"
+                  >
+                    Exporter
+                  </Button>
+                  <Tooltip>Export XLSX du plan courant — branchement backend à venir</Tooltip>
+                </TooltipTrigger>
                 <Input
                   size="small"
                   aria-label="Rechercher un composant"
@@ -1738,7 +1757,39 @@ function ApproDetailSheet(props: {
 
             {data.lignes.length > 0 && (
               <div className="border-t border-separator-border bg-background-secondary-default px-4 py-3">
-                <p className="flex items-center gap-1.5 text-caption-2-regular text-text-tertiary">
+                {/* Actions de sortie (UI seule, passe 1) : fermer la boucle
+                    « manque → décision ». Branchement X3 / route paramétrée
+                    vers Ruptures en passe 2 ; aria-disabled garde le focus
+                    et le tooltip. */}
+                <div className="flex gap-2">
+                  <TooltipTrigger>
+                    <Button
+                      variant="primary"
+                      size="small"
+                      leadingIcon={RiShoppingCartLine}
+                      aria-disabled
+                      className="flex-1"
+                    >
+                      Créer une demande X3
+                    </Button>
+                    <Tooltip>
+                      Pré-remplie article + reste à couvrir — branchement X3 à venir
+                    </Tooltip>
+                  </TooltipTrigger>
+                  <TooltipTrigger>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      leadingIcon={RiAlertLine}
+                      aria-disabled
+                      className="flex-1"
+                    >
+                      Voir dans Ruptures
+                    </Button>
+                    <Tooltip>Ce composant dans le suivi des ruptures — branchement à venir</Tooltip>
+                  </TooltipTrigger>
+                </div>
+                <p className="mt-2 flex items-center gap-1.5 text-caption-2-regular text-text-tertiary">
                   <RiRouteLine className="size-3 shrink-0" aria-hidden />
                   Le chemin « via » retrace la nomenclature jusqu&apos;au produit fini appelant.
                 </p>
