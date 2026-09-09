@@ -6,14 +6,7 @@
 import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
-import {
-  OF_STATUT,
-  VERDICT_TONE,
-  VERDICT_DOT,
-  VERDICT_TEXT,
-  LATE_TONE,
-  getRelativeDateLabel,
-} from '@r/lib/suivi/tracking-shared'
+import { OF_STATUT, LATE_TONE, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
 import { CalendarX, CornerDownRight, FlaskConical } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
@@ -46,6 +39,79 @@ function CqLine({ qty }: { qty: number }) {
       </span>
     </div>
   )
+}
+
+/**
+ * Axe 1 de la colonne Verdict — ce qui couvre la commande peut-il sortir ?
+ *
+ * Le moteur rend un statut unique par cascade de priorité
+ * (`sans_couverture > bloquée > retard > stock > à temps`). Une ligne bloquée ET
+ * en retard n'affichait que « Bloquée » : le retard disparaissait. La cellule
+ * dit désormais les deux axes côte à côte, chacun avec sa couleur.
+ */
+function feasibilityTone(o: ProactiveDisplayRow): {
+  label: string
+  dot: string
+  tone: string
+  title: string
+} {
+  if (o.verdictKey === 'blocked')
+    return {
+      label: 'Bloquée',
+      dot: 'bg-destructive',
+      tone: 'text-destructive',
+      title:
+        "Au moins un OF couvrant n'est pas réalisable : un composant manque " +
+        '(voir la colonne « Composants en rupture »).',
+    }
+  if (o.verdictKey === 'uncov')
+    return {
+      label: 'Sans couverture',
+      dot: 'bg-destructive',
+      tone: 'text-destructive',
+      title:
+        'Reste à couvrir : ni stock, ni OF, ni commande d’achat ne couvrent la quantité restante.',
+    }
+  if (o.ofs.length === 0)
+    return {
+      label: o.couverture === '—' ? 'Sans couverture' : o.couverture,
+      dot: 'bg-ferme',
+      tone: 'text-muted-foreground',
+      title:
+        o.couverture === 'Achat'
+          ? "Couvert par une commande d'achat fournisseur — aucune production requise."
+          : 'Couvert par le stock disponible — aucune production requise.',
+    }
+  return {
+    label: 'OK',
+    dot: 'bg-ferme',
+    tone: 'text-ferme',
+    title: "L'OF couvrant est réalisable (matières disponibles).",
+  }
+}
+
+/**
+ * Axe 2 de la colonne Verdict — la date client sera-t-elle tenue ?
+ *
+ * `null` quand il n'y a rien à dire (date tenue) : un « à temps » sur les trois
+ * quarts des lignes ne serait que du bruit. Le retard projeté n'est plus avalé
+ * par « Bloquée » (2 lignes bloquées sont aussi en retard).
+ */
+function delayTone(o: ProactiveDisplayRow): { label: string; tone: string; title: string } | null {
+  if (o.verdictKey === 'risk')
+    return {
+      label: 'À risque',
+      tone: 'text-planifie',
+      title:
+        'OF ferme non démarré dont la fin est à ≤ 2 jours de l’expédition : le buffer logistique est entamé.',
+    }
+  if (o.joursRetard > 0)
+    return {
+      label: `+${o.joursRetard} j`,
+      tone: 'text-suggere',
+      title: `Retard projeté de ${o.joursRetard} j (charge réelle des OF décomptée depuis l’expédition bufferisée J-2).`,
+    }
+  return null
 }
 
 export interface ProactiveColumnsDeps {
@@ -313,14 +379,22 @@ export function createProactiveColumns({
       header: 'Verdict',
       cell: ({ row }) => {
         const o = row.original
+        const feas = feasibilityTone(o)
+        const delay = delayTone(o)
         return (
           <div className="flex flex-col items-start gap-0.5">
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
-              <span className={cn('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
-                {o.verdictLabel}
-              </span>
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={feas.title}>
+              <span className={cn('size-1.5 shrink-0 rounded-full', feas.dot)} />
+              <span className={cn('text-[10px] font-semibold', feas.tone)}>{feas.label}</span>
             </span>
+            {delay && (
+              <span
+                className={cn('pl-3 font-mono text-[9.5px] font-bold leading-none', delay.tone)}
+                title={delay.title}
+              >
+                {delay.label}
+              </span>
+            )}
             {/* Pilotage CQ (issue #185) : un blocage derrière une levée de contrôle s'adresse au
                 service réception — matière déjà sur site — pas au fournisseur. Le verdict de
                 livraison reste dit tel quel (un retard ne se laisse pas repeindre en « CQ ») ;
@@ -350,7 +424,7 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[120px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[140px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
