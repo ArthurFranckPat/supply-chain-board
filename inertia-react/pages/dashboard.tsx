@@ -151,6 +151,7 @@ interface StockValuationPoint {
   label: string
   valeur: number
   qte: number
+  categories: StockCategorieRow[]
 }
 
 interface StockCategorieRow {
@@ -314,7 +315,15 @@ const periodDated = (p: StockValuationPoint) =>
 
 /** Mini-graphique 12 mois en colonnes verticales (SVG inline, pas de lib).
  *  Hauteur ∝ valeur ; dernière colonne surlignée (mois courant). */
-function StockSparkline({ series }: { series: StockValuationPoint[] }) {
+function StockSparkline({
+  series,
+  selectedPeriod,
+  onSelect,
+}: {
+  series: StockValuationPoint[]
+  selectedPeriod: string | null
+  onSelect: (period: StockValuationPoint) => void
+}) {
   const W = 240
   const H = 56
   const PAD = 4
@@ -344,6 +353,7 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
           const x = PAD + i * (barW + gap)
           const y = H - PAD - h
           const isLast = i === series.length - 1
+          const isSelected = selectedPeriod === pt.periode
           return (
             <rect
               key={pt.periode}
@@ -352,9 +362,22 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
               width={barW}
               height={h}
               rx={1.5}
-              fill={isLast ? '#222222' : '#dddddd'}
+              fill={isSelected || isLast ? '#222222' : '#dddddd'}
+              stroke={isSelected ? '#00a699' : undefined}
+              strokeWidth={isSelected ? 1.5 : undefined}
+              role="button"
+              tabIndex={0}
+              aria-label={`Afficher la répartition de ${periodDated(pt)}`}
+              onClick={() => onSelect(pt)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onSelect(pt)
+                }
+              }}
+              className="cursor-pointer outline-none"
             >
-              <title>{`${periodDated(pt)} · ${pt.valeur.toFixed(0)} €`}</title>
+              <title>{`${periodDated(pt)} · ${pt.valeur.toFixed(0)} € · cliquer pour le détail`}</title>
             </rect>
           )
         })}
@@ -654,6 +677,7 @@ export default function Dashboard(props: DashboardProps) {
   )
   const [stockSortDir, setStockSortDir] = useState<'asc' | 'desc'>('desc')
   const [stockGrain, setStockGrain] = useState<StockGrain>('mois')
+  const [stockSelectedPeriod, setStockSelectedPeriod] = useState<string | null>(null)
   const [stockRange, setStockRange] = useState<{ start: Date | null; end: Date | null } | null>(
     null
   )
@@ -747,9 +771,19 @@ export default function Dashboard(props: DashboardProps) {
     [stockData.data]
   )
   const stockError = useMemo(() => (stockData.data ?? { x3Error: null }).x3Error, [stockData.data])
-  const stockMaxCat = useMemo(
-    () => Math.max(1, ...stock.categories.map((c) => c.valeur)),
-    [stock.categories]
+  const selectedStockPoint = useMemo(
+    () =>
+      stock.series.find((point) => point.periode === stockSelectedPeriod) ??
+      stock.series[stock.series.length - 1],
+    [stock.series, stockSelectedPeriod]
+  )
+  const displayedStockCategories = selectedStockPoint?.categories ?? stock.categories
+  const displayedStockTotal = selectedStockPoint?.valeur ?? stock.totalActuel
+  const hasSelectedStockPoint =
+    stockSelectedPeriod !== null && selectedStockPoint?.periode === stockSelectedPeriod
+  const displayedStockMaxCat = useMemo(
+    () => Math.max(1, ...displayedStockCategories.map((c) => c.valeur)),
+    [displayedStockCategories]
   )
 
   // Stock categories
@@ -1416,7 +1450,7 @@ export default function Dashboard(props: DashboardProps) {
                       <div className="flex items-end justify-between gap-3">
                         <div>
                           <div className="font-fraunces text-[40px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                            {fmtEuro.format(stock.totalActuel)}
+                            {fmtEuro.format(displayedStockTotal)}
                           </div>
                           <div className="mt-1.5 flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground">
                             {stock.deltaPct !== 0 && (
@@ -1439,15 +1473,21 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
 
                       {/* Mini-graphique */}
-                      <StockSparkline series={stock.series} />
+                      <StockSparkline
+                        series={stock.series}
+                        selectedPeriod={stockSelectedPeriod}
+                        onSelect={(point) => setStockSelectedPeriod(point.periode)}
+                      />
 
                       {/* Top 5 catégories */}
                       <div className="mt-5">
                         <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
-                          Top catégories
+                          {hasSelectedStockPoint && selectedStockPoint
+                            ? `Catégories · ${periodDated(selectedStockPoint)}`
+                            : 'Top catégories'}
                         </div>
                         <div className="flex flex-col gap-3">
-                          {stock.categories.map((cat, i) => (
+                          {displayedStockCategories.map((cat, i) => (
                             <div key={cat.categorie}>
                               <div className="mb-[5px] flex items-baseline justify-between gap-2">
                                 <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
@@ -1473,7 +1513,7 @@ export default function Dashboard(props: DashboardProps) {
                                   className="h-full rounded-full"
                                   style={
                                     {
-                                      width: `${Math.max(3, (cat.valeur / stockMaxCat) * 100)}%`,
+                                      width: `${Math.max(3, (cat.valeur / displayedStockMaxCat) * 100)}%`,
                                       background:
                                         STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
                                       WebkitPrintColorAdjust: 'exact',

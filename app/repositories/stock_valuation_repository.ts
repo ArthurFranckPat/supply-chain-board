@@ -183,6 +183,7 @@ export interface StockValuationPoint {
   label: string // ex. "janv. 26" ou "sem. 26"
   valeur: number // valeur du stock en fin de période, au PMP actuel (€)
   qte: number // quantité totale en fin de période
+  categories: StockCategorieRow[] // top catégories de la période
 }
 
 export interface StockCategorieRow {
@@ -436,7 +437,11 @@ export class StockValuationRepository {
 
     // --- Rembobinage par article + agrégation ---
     // seriesAcc[i] = total valeur/qté de fin de période i, cumul sur tous les articles.
-    const seriesAcc = refPeriods.map(() => ({ valeur: 0, qte: 0 }))
+    const seriesAcc = refPeriods.map(() => ({
+      valeur: 0,
+      qte: 0,
+      categories: new Map<string, number>(),
+    }))
     const catValues = new Map<string, number>()
     const articleRows: StockArticleRow[] = []
 
@@ -472,6 +477,10 @@ export class StockValuationRepository {
         const qtyClose = stkAnchor - runningQtySub
         seriesAcc[i].valeur += qtyClose * pmp
         seriesAcc[i].qte += qtyClose
+        seriesAcc[i].categories.set(
+          cat,
+          (seriesAcc[i].categories.get(cat) ?? 0) + qtyClose * pmp
+        )
         const f = flux?.get(refPeriods[i].key)
         if (f) runningQtySub += f
       }
@@ -487,11 +496,22 @@ export class StockValuationRepository {
       })
     }
 
+    const categoriesFor = (values: Map<string, number>, total: number): StockCategorieRow[] =>
+      [...values.entries()]
+        .map(([categorie, valeur]) => ({
+          categorie,
+          valeur: Math.round(valeur * 100) / 100,
+          part: total > 0 ? Math.round((valeur / total) * 1000) / 10 : 0,
+        }))
+        .sort((a, b) => b.valeur - a.valeur)
+        .slice(0, 5)
+
     const series: StockValuationPoint[] = refPeriods.map((p, i) => ({
       periode: p.key,
       label: p.label,
       valeur: Math.round(seriesAcc[i].valeur * 100) / 100,
       qte: Math.round(seriesAcc[i].qte),
+      categories: categoriesFor(seriesAcc[i].categories, seriesAcc[i].valeur),
     }))
 
     const totalActuel = series[series.length - 1]?.valeur ?? 0
@@ -501,14 +521,7 @@ export class StockValuationRepository {
         ? Math.round(((totalActuel - totalDebut) / Math.abs(totalDebut)) * 1000) / 10
         : 0
 
-    const categories: StockCategorieRow[] = [...catValues.entries()]
-      .map(([categorie, valeur]) => ({
-        categorie,
-        valeur: Math.round(valeur * 100) / 100,
-        part: totalActuel > 0 ? Math.round((valeur / totalActuel) * 1000) / 10 : 0,
-      }))
-      .sort((a, b) => b.valeur - a.valeur)
-      .slice(0, 5)
+    const categories = categoriesFor(catValues, totalActuel)
 
     const articles = articleRows.sort((a, b) => b.valeur - a.valeur)
 
