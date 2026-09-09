@@ -502,7 +502,12 @@ test.group('buildProactiveDisplay — dépendance contrôle qualité', () => {
 })
 
 test.group('buildProactiveDisplay — MAD max (échéance de mise à disposition)', () => {
-  test('OF démarré → date d’expédition moins le buffer logistique J-2', ({ assert }) => {
+  test('toute ligne datée → date d’expédition moins le buffer logistique J-2', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(result({}))
+    assert.equal(rows[0].madMaxIso, '2026-06-21')
+  })
+
+  test('OF démarré → même échéance (l’état de l’OF ne la change pas)', ({ assert }) => {
     const { rows } = buildProactiveDisplay(
       result({
         ofs: [
@@ -523,13 +528,13 @@ test.group('buildProactiveDisplay — MAD max (échéance de mise à disposition
     assert.equal(rows[0].madMaxIso, '2026-06-21')
   })
 
-  test('OF non démarré → pas d’échéance', ({ assert }) => {
-    const { rows } = buildProactiveDisplay(result({}))
-    assert.isNull(rows[0].madMaxIso)
+  test('couverte par stock (aucun OF) → échéance aussi', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(result({ ofs: [], statut: 'stock' }))
+    assert.equal(rows[0].madMaxIso, '2026-06-21')
   })
 
-  test('couverte par stock (aucun OF) → pas d’échéance', ({ assert }) => {
-    const { rows } = buildProactiveDisplay(result({ ofs: [], statut: 'stock' }))
+  test('ligne sans date d’expédition → null', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(result({ dateExpedition: '' }))
     assert.isNull(rows[0].madMaxIso)
   })
 })

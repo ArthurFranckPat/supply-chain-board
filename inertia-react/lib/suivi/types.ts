@@ -182,8 +182,7 @@ export interface ProactiveDisplayRow {
   /**
    * Échéance de mise à disposition au plus tard (ISO) = date d'expédition moins le buffer
    * logistique J-2 (l'OF doit être terminé avant contrôle, conditionnement et quai).
-   * Renseignée UNIQUEMENT quand un OF de la commande est démarré — c'est une date butoir de
-   * terrain, pas une échéance théorique pour tout le carnet. `null` sinon.
+   * Renseignée dès que la ligne a une date d'expédition, sinon `null`.
    */
   madMaxIso: string | null
   verdictKey: ProactiveVerdictKey

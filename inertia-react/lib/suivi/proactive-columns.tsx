@@ -275,9 +275,9 @@ export function createProactiveColumns({
       accessorKey: 'madMaxIso',
       header: 'MAD max',
       cell: ({ row }) => {
-        // Date butoir de mise à disposition, seulement quand un OF est démarré (cf.
-        // madMaxIso, calculé côté serveur). Ambre dès qu'elle est dépassée : l'OF tourne
-        // encore alors qu'il aurait déjà dû sortir.
+        // Date butoir de mise à disposition (expédition − 2 j, calculée côté serveur pour
+        // toute ligne datée). Ambre dès qu'elle est dépassée : la matière aurait déjà dû
+        // être disponible pour tenir la date client.
         const iso = row.original.madMaxIso
         if (!iso) return null
         const passed = iso < referenceDate

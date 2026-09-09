@@ -491,7 +491,7 @@ export interface ProactiveDisplayRow {
   dateExpIso: string | null
   /**
    * Échéance de mise à disposition au plus tard (ISO) = date d'expédition − buffer logistique
-   * J-2. Renseignée seulement quand un OF de la commande est démarré, sinon `null`.
+   * J-2. Renseignée dès que la ligne a une date d'expédition, sinon `null`.
    */
   madMaxIso: string | null
   verdictKey: ProactiveVerdictKey
@@ -1144,13 +1144,13 @@ export function buildProactiveDisplay(
       }))
       // Échéance de mise à disposition au plus tard : l'OF doit être TERMINÉ avant
       // l'expédition (contrôle, conditionnement, quai) — même buffer logistique que le calcul
-      // de retard et que les ordres virtuels de plan_diff. Affichée seulement quand un OF est
-      // réellement EN COURS : c'est une date butoir de terrain, pas une échéance théorique
-      // pour tout le carnet. Source unique du buffer (DEFAULT_LOGISTICS_BUFFER_DAYS).
-      const madMaxIso =
-        o.dateExpedition && ofsFinal.some((f) => f.estDebuté)
-          ? addDaysIso(o.dateExpedition, -DEFAULT_LOGISTICS_BUFFER_DAYS)
-          : null
+      // de retard et que les ordres virtuels de plan_diff. Renseignée pour TOUTE ligne datée
+      // (pas seulement celles dont un OF est lancé) : c'est la date butoir de la ligne, elle
+      // existe indépendamment de l'état de la production. Source unique du buffer
+      // (DEFAULT_LOGISTICS_BUFFER_DAYS).
+      const madMaxIso = o.dateExpedition
+        ? addDaysIso(o.dateExpedition, -DEFAULT_LOGISTICS_BUFFER_DAYS)
+        : null
 
       // Index de recherche des composants. Couvre les TROIS niveaux visibles dans la colonne :
       // le composant direct, les sous-ensembles couverts par production, et les feuilles
