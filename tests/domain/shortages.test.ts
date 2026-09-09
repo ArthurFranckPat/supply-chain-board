@@ -183,7 +183,8 @@ test.group('buildShortageRows', () => {
   })
 
   test('verdict "couvert" si réception disponible et pas de retard sur commande', ({ assert }) => {
-    // Réception couvrante à J+2 ; expédition à J+5 → arrive à temps → couvert.
+    // Réception couvrante dès aujourd'hui ; expédition à J+5 → arrive avant la date de
+    // besoin (expé − buffer logistique J-2 OUVRÉ − 1 j de fabrication) → couvert.
     const exp = new Date()
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 5)
@@ -230,7 +231,7 @@ test.group('buildShortageRows', () => {
     )
     const rows = buildShortageRows(
       result,
-      new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 2)]]]),
+      new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 0)]]]),
       new Map()
     ).rows
     assert.equal(rows[0].verdict, 'couvert')

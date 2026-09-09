@@ -24,6 +24,7 @@ import {
 import type { OfOverride } from './planning_board.js'
 import type { AllocationStrategy } from './of_conso.js'
 import { isPurchaseArticle } from './rules.js'
+import { subWorkingDays } from './holidays.js'
 import {
   DEFAULT_HOURS_PER_DAY,
   DEFAULT_LOGISTICS_BUFFER_DAYS,
@@ -350,8 +351,8 @@ export function synthesizeVirtualSupply(
 
     // L'OF doit être TERMINÉ avant l'expédition : même buffer logistique que le calcul de
     // retard d'`evaluateOrderImpacts`, sinon un OF calé pile sur le besoin sortirait en
-    // retard systématique.
-    const dateFin = addDays(besoin, -DEFAULT_LOGISTICS_BUFFER_DAYS)
+    // retard systématique. En jours OUVRÉS, comme lui.
+    const dateFin = subWorkingDays(besoin, DEFAULT_LOGISTICS_BUFFER_DAYS)
     const dateDebut = addDays(dateFin, -fabDays)
     const numOf = `VOF-${m.id}`
 

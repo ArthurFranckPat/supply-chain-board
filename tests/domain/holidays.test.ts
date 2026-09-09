@@ -1,5 +1,11 @@
 import { test } from '@japa/runner'
-import { easterSunday, frenchHolidays, workingDaysBetween } from '#app/domain/holidays'
+import {
+  easterSunday,
+  frenchHolidays,
+  workingDaysBetween,
+  subWorkingDaysIso,
+  subWorkingDays,
+} from '#app/domain/holidays'
 
 test.group('holidays / easterSunday', () => {
   test('dimanches de Pâques connus', ({ assert }) => {
@@ -74,5 +80,31 @@ test.group('holidays / workingDaysBetween', () => {
     // 26/06 (ven, from inclusif) → 05/07 (dim, to exclusif) 2026, sans férié entre les deux
     // ouvrés : 26, 29, 30, 01, 02, 03 = 6 j → critical (au-delà de la tolérance 1 j)
     assert.equal(workingDaysBetween('2026-06-26', '2026-07-05'), 6)
+  })
+})
+
+test.group('subWorkingDaysIso — recul de N jours ouvrés (buffer logistique J-2)', () => {
+  test('mardi → recule en sautant le week-end (le cas de la MAD max)', ({ assert }) => {
+    // Mardi 23/06/2026 − 2 j ouvrés : lundi 22, puis vendredi 19 (samedi/dimanche sautés).
+    assert.equal(subWorkingDaysIso('2026-06-23', 2), '2026-06-19')
+  })
+
+  test('lundi → recule en sautant le week-end', ({ assert }) => {
+    // Lundi 14/09/2026 − 2 j ouvrés : vendredi 11, jeudi 10.
+    assert.equal(subWorkingDaysIso('2026-09-14', 2), '2026-09-10')
+  })
+
+  test('saute un jour férié (14 juillet)', ({ assert }) => {
+    // Jeudi 16/07/2026 − 2 j ouvrés : mercredi 15, puis lundi 13 (mardi 14 férié).
+    assert.equal(subWorkingDaysIso('2026-07-16', 2), '2026-07-13')
+  })
+
+  test('days = 0 → date inchangée, même non ouvrée', ({ assert }) => {
+    assert.equal(subWorkingDaysIso('2026-06-21', 0), '2026-06-21') // un dimanche
+  })
+
+  test('variante Date : mêmes jours, heure locale conservée', ({ assert }) => {
+    const d = subWorkingDays(new Date(2026, 5, 23), 2)
+    assert.equal([d.getFullYear(), d.getMonth() + 1, d.getDate()].join('-'), '2026-6-19')
   })
 })

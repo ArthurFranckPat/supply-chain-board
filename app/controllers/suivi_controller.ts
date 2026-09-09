@@ -36,13 +36,12 @@ import {
   resolveCoveringReception,
   daysBetweenIso,
   isoLocalDay,
-  addDaysIso,
   DEFAULT_LOGISTICS_BUFFER_DAYS,
 } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
-import { workingDaysBetween } from '#app/domain/holidays'
+import { workingDaysBetween, subWorkingDaysIso } from '#app/domain/holidays'
 import { groupGammeByArticle } from '#app/domain/models/gamme'
 
 /** Seuil de tolérance (jours ouvrés) pour le badge « retard récent ». */
@@ -1144,12 +1143,11 @@ export function buildProactiveDisplay(
       }))
       // Échéance de mise à disposition au plus tard : l'OF doit être TERMINÉ avant
       // l'expédition (contrôle, conditionnement, quai) — même buffer logistique que le calcul
-      // de retard et que les ordres virtuels de plan_diff. Renseignée pour TOUTE ligne datée
-      // (pas seulement celles dont un OF est lancé) : c'est la date butoir de la ligne, elle
-      // existe indépendamment de l'état de la production. Source unique du buffer
-      // (DEFAULT_LOGISTICS_BUFFER_DAYS).
+      // de retard et que les ordres virtuels de plan_diff, décompté en jours OUVRÉS (une
+      // échéance qui tombe un samedi n'en est pas une). Renseignée pour TOUTE ligne datée.
+      // Source unique du buffer (DEFAULT_LOGISTICS_BUFFER_DAYS).
       const madMaxIso = o.dateExpedition
-        ? addDaysIso(o.dateExpedition, -DEFAULT_LOGISTICS_BUFFER_DAYS)
+        ? subWorkingDaysIso(o.dateExpedition, DEFAULT_LOGISTICS_BUFFER_DAYS)
         : null
 
       // Index de recherche des composants. Couvre les TROIS niveaux visibles dans la colonne :

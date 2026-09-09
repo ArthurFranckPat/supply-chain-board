@@ -16,6 +16,7 @@
 import type { OrderImpactResult } from './order_impacts.js'
 import type { ReceptionRecord } from './recursive_checker.js'
 import type { Article } from './models/article.js'
+import { subWorkingDaysIso } from './holidays.js'
 
 export interface ShortageReception {
   /** N° commande d'achat (PORDERQ.POHNUM). */
@@ -388,13 +389,13 @@ export function buildShortageRows(
     )
     consumedByComponent.set(p.component, alreadyConsumed + p.qteManquante)
 
-    // Date de BESOIN = expédition − logistique (2 j) − fabrication (charge gamme de l'OF,
-    // plancher 1 j) : la réception doit laisser le temps de produire PUIS d'expédier.
-    // On ne se réfère PAS aux dates de jalonnement OF (STRDAT/ENDDAT, non fiables —
-    // décision métier), mais à l'engagement client remonté des buffers.
+    // Date de BESOIN = expédition − logistique (jours OUVRÉS) − fabrication (charge gamme de
+    // l'OF, plancher 1 j, calendaire) : la réception doit laisser le temps de produire PUIS
+    // d'expédier. On ne se réfère PAS aux dates de jalonnement OF (STRDAT/ENDDAT, non fiables
+    // — décision métier), mais à l'engagement client remonté des buffers.
     const fabDays = Math.max(1, fabricationDaysByOf.get(p.numOf) ?? 1)
     const dateBesoin = p.dateExpedition
-      ? addDaysIso(p.dateExpedition, -(logisticsBufferDays + fabDays))
+      ? subWorkingDaysIso(addDaysIso(p.dateExpedition, -fabDays), logisticsBufferDays)
       : null
 
     // Retard de la réception vs la date de BESOIN (expé − buffers fab+log). Mesure le

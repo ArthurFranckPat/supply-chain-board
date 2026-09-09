@@ -96,3 +96,45 @@ export function workingDaysBetween(fromIso: string, toIso: string): number {
   }
   return count
 }
+
+/** Jours fériés des années voisines d'une date, en Set pour une recherche O(1). */
+function closedDaysAround(year: number): Set<string> {
+  return new Set(frenchHolidaysRange(year - 1, year + 1).map((h) => h.date))
+}
+
+/**
+ * Recule une date ISO de `days` jours OUVRÉS (week-ends + fériés FR exclus).
+ *
+ * Même convention que `workingDaysBetween` : le buffer logistique J-2 est une durée
+ * d'ATELIER (contrôle, conditionnement, quai) — une échéance de mise à disposition
+ * qui tombe un samedi n'en est pas une. `days <= 0` renvoie la date inchangée.
+ */
+export function subWorkingDaysIso(isoDay: string, days: number): string {
+  if (days <= 0) return isoDay
+  const closed = closedDaysAround(Number(isoDay.slice(0, 4)))
+  const cur = new Date(isoDay + 'T00:00:00Z')
+  let left = days
+  while (left > 0) {
+    cur.setUTCDate(cur.getUTCDate() - 1)
+    const dow = cur.getUTCDay() // 0 = dimanche, 6 = samedi
+    if (dow !== 0 && dow !== 6 && !closed.has(cur.toISOString().slice(0, 10))) left--
+  }
+  return cur.toISOString().slice(0, 10)
+}
+
+/**
+ * Variante `Date` de `subWorkingDaysIso` — conserve l'heure d'origine et raisonne sur
+ * les composants de date LOCAUX (comme `iso` ci-dessus). Même règle d'exclusion.
+ */
+export function subWorkingDays(date: Date, days: number): Date {
+  if (days <= 0) return new Date(date)
+  const closed = closedDaysAround(date.getFullYear())
+  const cur = new Date(date)
+  let left = days
+  while (left > 0) {
+    cur.setDate(cur.getDate() - 1)
+    const dow = cur.getDay() // 0 = dimanche, 6 = samedi
+    if (dow !== 0 && dow !== 6 && !closed.has(iso(cur))) left--
+  }
+  return cur
+}

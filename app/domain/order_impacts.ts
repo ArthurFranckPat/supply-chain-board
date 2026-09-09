@@ -26,6 +26,8 @@ import {
   orderOfsForMode,
   type RuptureOfInput,
 } from './rupture_engine.js'
+import { subWorkingDays } from './holidays.js'
+import { DEFAULT_LOGISTICS_BUFFER_DAYS } from './shortages.js'
 
 /** Part de production nommément attribuée à un OF consommateur : quel OF producteur, combien. */
 export interface CoveringOfPart {
@@ -847,10 +849,12 @@ export function evaluateOrderImpacts(
     // Pire retard (en jours) parmi les OF alloués — cf boucle ci-dessous.
     let ofLatenessDays = 0
 
-    // Buffer logistique J-2 (issue #41) : l'OF doit être terminé 2 jours avant l'expédition
-    // (contrôle, conditionnement, quai).
-    const LOGISTICS_BUFFER_MS = 2 * 86_400_000
-    const expedBornee = demand.date ? new Date(demand.date.getTime() - LOGISTICS_BUFFER_MS) : null
+    // Buffer logistique (issue #41) : l'OF doit être terminé avant l'expédition (contrôle,
+    // conditionnement, quai). Décompté en jours OUVRÉS — une échéance qui tombe un samedi
+    // n'en est pas une — via la constante partagée DEFAULT_LOGISTICS_BUFFER_DAYS.
+    const expedBornee = demand.date
+      ? subWorkingDays(demand.date, DEFAULT_LOGISTICS_BUFFER_DAYS)
+      : null
 
     for (const alloc of result.ofAllocations) {
       const ofId = (alloc.ofFlow.origin as any).id ?? ''
