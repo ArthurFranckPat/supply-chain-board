@@ -6,6 +6,13 @@
 **Sémantique métier retenue** : les opérations d'une gamme sont séquentielles et ce qu'on évalue est le **temps machine** par poste, soit `Σ (qté / cadence)` sur chaque opération. Le netting s'applique donc **une fois à la quantité**, puis cette quantité nette alimente toutes les opérations (les pièces traversent les opérations en séquence).
 **Hors périmètre** : référentiel de gammes et synchronisation statique (chantier distinct, non traité ici).
 
+**Contrôle (10/09/2026)** : chaque point ci-dessous a été rejoué contre le code et contre la
+réplique statique locale. Les preuves X3 de D2 et de l'annexe n'ont **pas** été rejouées — MCP
+`supply-board` injoignable, et la réplique locale ne porte que le statique (articles, gammes,
+nomenclatures, postes), pas ORDERS. À retenir aussi, même si c'est hors périmètre : `static_gammes`
+est synchronisé au **19/07/2026** — tous les chiffres de `/charge` sortent de ce référentiel figé,
+qui ne porte aujourd'hui qu'**une seule opération par article** (2907 articles, 2907 postes distincts).
+
 ---
 
 ## 1. Chaîne de calcul
@@ -64,7 +71,7 @@ for (const arr of byArticle.values()) {
 
 Les deux pools sont corrects dans leur principe :
 
-- **stock strict** = `physique − allouePhys − alloueGlob` (`stock_repository.ts:78-80`), donc hors déjà-alloué, cohérent avec la quantité de demande `RMNEXTQTY − ALLQTY` : la part allouée est exclue des deux côtés, sans double peine.
+- **stock strict** = `physique − allouePhys − alloueGlob` (`stock_repository.ts:77`), donc hors déjà-alloué, cohérent avec la quantité de demande `RMNEXTQTY − ALLQTY` : la part allouée est exclue des deux côtés, sans double peine.
 - **en-cours** = `mo.quantity − resteAProduire(mo, avancement)` (`load_payload_loader.ts:386-396`), soit les pièces produites mais pas encore déclarées en stock. Le garde `EXTQTY === RMNEXTQTY` évite le double compte avec le stock.
 
 Les défauts sont dans les **règles de consommation** et dans le **périmètre des pools**, pas dans leur définition.
@@ -107,6 +114,11 @@ Cas relevés en production (STRDAT avant le 01/09/2026, reste ouvert, pièces po
 
 **Correction attendue** : lire les OF en cours dont `STRDAT < monthStart` et `RMNEXTQTY > 0` (et leurs pointages) pour alimenter le pool d'en-cours — sans nécessairement les afficher dans la vue OF, qui est bornée à l'horizon.
 
+Cette lecture existe déjà : `boardDataset.getOrdersForMatchingDelta` (`board_dataset.ts:238`) sort
+exactement ce périmètre pour l'issue #99 — démarrés avant la fenêtre, encore ouverts, bornés aux
+articles ayant de la demande dans la fenêtre (~14 lignes mesurées en PROD), cache dédié pour qu'ils
+ne s'affichent nulle part. C'est un branchement, pas une requête neuve.
+
 ---
 
 ### D3 — Aucune priorité ferme > prévision à date égale · **Moyenne** · visible aujourd'hui
@@ -129,6 +141,16 @@ Cas relevés en production (STRDAT avant le 01/09/2026, reste ouvert, pièces po
 Exemple : article à 2 postes, besoin 100, stock 40 → poste A net 60, poste B net **100** (attendu 60).
 
 C'est un défaut du netting lui-même : le pool est par article, sa consommation doit l'être aussi (une fois par besoin, puis la même quantité nette appliquée à toutes les opérations). À traiter en même temps que D1, sinon la correction du netting par niveau réintroduit ce biais.
+
+`explodeQuantity` ne l'a pas — un besoin par article, verrouillé par test
+(`charge_explosion.test.ts:284`, « multi-poste : un seul besoin par article »). Seul le mode heures
+consomme par opération.
+
+**Pourquoi c'est latent, et jusqu'à quand** : `static_gammes` porte un `UNIQUE (article, workstation)`
+et `syncGammes` (`static_sync_service.ts:167-184`) insère en brut après un `delete`. Deux opérations
+du même article sur le **même** poste ne se replient donc pas silencieusement : elles font échouer la
+synchronisation entière des gammes. D4 ne peut se réveiller que sur un article à ≥2 postes distincts
+— il n'en existe aucun aujourd'hui (2907/2907 articles à un seul poste).
 
 ---
 
@@ -156,26 +178,161 @@ Le pool est celui d'aujourd'hui, consommé FIFO depuis la date la plus tôt. Tou
 
 ---
 
+### D8 — `EXTQTY = 0` : reste nul ET en-cours plein · **Haute** · conditionné aux données X3
+
+`resteAProduire(q, 0, 0) = max(0, min(q, 0 − 0)) = 0`. Et `toNum` (`of_repository.ts:266`) rend
+`Number.parseFloat(v ?? '0') || 0` — **jamais `null`**. La branche de repli `launched == null`
+(« reste = quantité ») est donc morte sur ce chemin : un OF sans quantité lancée ne retombe pas sur
+sa quantité, il tombe à zéro.
+
+Deux effets, dans le même geste :
+
+- **vue OF** : l'OF est facturé **0 h** et disparaît de la barre ;
+- **vue commande** : `buildEncoursByArticle` (`load_payload_loader.ts:386-396`) ne filtre **aucun
+  statut** — l'OF verse `quantity − 0 = quantity` **entière** dans le pool « pièces déjà produites,
+  pas encore déclarées », qui efface de la demande réelle sur le cran `reste`.
+
+Or `getOrdersForWindow` ramène les WIPSTA 1, 2 **et** 3. Tout OF planifié ou suggéré du pool dont
+`EXTQTY_0` vaut 0 crédite donc un en-cours fictif à hauteur de sa quantité.
+
+Le seul rempart est l'assertion de l'annexe (« aucun `EXTQTY = 0` avec `RMNEXTQTY > 0` »), qui n'est
+couverte par **aucun test** : `of_avancement.test.ts:162` ne teste que `null`/`undefined`, jamais `0`.
+Requête de contrôle à passer avant de conclure :
+
+```sql
+SELECT WIPSTA_0, COUNT(*) FROM ORDERS
+WHERE WIPTYP_0 = 5 AND RMNEXTQTY_0 > 0 AND (EXTQTY_0 = 0 OR EXTQTY_0 IS NULL)
+GROUP BY WIPSTA_0
+```
+
+Si les suggérés (WIPSTA=3) en sortent, D5 n'est plus « pool global non peg » mais « pool inventé ».
+
+**Correction attendue** : borner le pool d'en-cours aux OF réellement démarrés (statut ferme +
+`STRDAT` passé, le même critère que `startedOfs`), et couvrir `launched = 0` par un test.
+
+---
+
+### D9 — La troncature depth-4 est silencieuse · **Moyenne** · visible aujourd'hui
+
+`explodeCharge` (`charge_explosion.ts:246-271`) ne passe **aucun** hook `onDepthCut`, contrairement à
+`explodeQuantity` qui tient un compteur `stats.truncated` + `cutParents`. Ce qui dépasse `maxDepth = 4`
+disparaît sans compteur, sans marque à l'écran.
+
+Chaînes fabriquées réelles atteignant le niveau 5 dans la réplique (8 occurrences) :
+
+```
+EHP1874GM / SE7043 / EH5853 / EH5852 / FS5938 / FS5840
+EHP1875GM / SE7043 / EH5853 / EH5852 / FS5938 / FS5840
+EHT087BA  / EHT097 / MH2365 / MH2918 / FE2363 / FS2292
+EHT815EX  / EHT114 / MH2365 / MH2918 / FE2363 / FS2292
+EHT816EX  / EHT114 / MH2365 / MH2918 / FE2363 / FS2292
+EHT969AB  / EHT114 / MH2365 / MH2918 / FE2363 / FS2292
+EHT969EX  / EHT114 / MH2365 / MH2918 / FE2363 / FS2292
+EHT969GM  / EHT114 / MH2365 / MH2918 / FE2363 / FS2292
+```
+
+Le 5e niveau est coupé : `FS5840` (poste `PP_082`, cadence 667) et `FS2292` (poste `PP_099`,
+cadence 725).
+
+Les deux ont une gamme et une cadence renseignées : c'est de la charge réelle, perdue sans bruit.
+
+**Correction attendue** : passer le hook `onDepthCut` en mode heures et remonter le compteur au
+payload, comme le fait déjà le plan appro.
+
+---
+
+### D10 — Aucun offset de lead time · **Moyenne** · choix documenté, non listé
+
+Tous les niveaux sont datés à l'**échéance du PF** (`walkExplosion` propage `date` sans décalage).
+Un composant de niveau 3 nécessaire à un PF dû fin novembre charge donc son poste fin novembre, alors
+qu'il doit être produit des semaines avant.
+
+Choix annoncé en tête de `charge_explosion.ts:10-14`, mais absent de la synthèse — alors qu'en maille
+hebdo il déplace plus de charge que D7, et qu'il se combine avec D6 (le stock est consommé FIFO sur
+des dates qui sont déjà les mauvaises).
+
+---
+
+### D11 — L'offre planifiée n'est jamais déduite · **Moyenne** · choix implicite
+
+Dans la vue commande, seul l'en-cours **physiquement produit** réduit le besoin. Un OF ferme qui
+couvre exactement la demande mais n'a pas encore démarré ne retire rien : le besoin reste plein
+jusqu'à ce que l'atelier pointe.
+
+C'est défendable (la vue commande lit la demande, la vue OF lit l'offre) mais ce n'est écrit nulle
+part, et ça se cumule avec D1 et D2 : le lecteur voit une charge qu'il croit nette d'un lancement
+déjà décidé.
+
+**À trancher métier** en même temps que D5 — c'est la même question : que déduit-on du besoin, et
+au nom de quel engagement.
+
+---
+
+### D12 — `ITMSTA_0 = 1` filtre la demande · **Moyenne** · visible aujourd'hui
+
+`getOrderLinesForLoad` (`order_line_repository.ts:225`) pose `AND I.ITMSTA_0 = 1` dans le `WHERE`.
+Une commande ferme portant un article non actif sort de la charge **sans trace** : pas d'erreur, pas
+de compteur, une barre simplement plus basse.
+
+Même forme que le défaut ITMSTA_0 corrigé côté ingestion (issue #105, 118 OF fermes perdus) : un
+filtre de consommateur posé sur une source.
+
+---
+
+### D13 — L'explosion tourne deux fois par payload · **Faible** · perf
+
+`explodeInputs` est appelé par `computeChargeStock` (`:333`) **puis** par `computeChargeNeeds`
+(`:357`). Deux descentes BOM depth-4 sur toute la demande 6 mois par miss de cache — trois quand un
+détail de bucket suit sans version figée. Le résultat de la première n'est jamais réutilisé.
+
+**Correction attendue** : passer les raws déjà explosés à `computeChargeNeeds`, comme le stock figé
+l'est déjà.
+
+---
+
 ## 4. Autres calculs
 
 ### 4.1 Capacité — correcte, sauf les jours non ouvrés
 
-- Mapping `DAYCAP_0..6` = Lundi→Dimanche cohérent avec `dayIndex = (getDay()+6)%7` (`capacity.ts:16`) et la synchronisation (`static_sync_service.ts:82-88`).
+- Mapping `DAYCAP_0..6` = Lundi→Dimanche cohérent avec `dayIndex = (getDay()+6)%7` (`capacity.ts:19`) et la synchronisation (`static_sync_service.ts:82-88`).
 - Fériés et fermetures en ISO **local** (`isoDay`, `utils/dates.ts`), cohérent avec `calendar.factor` (`working_calendar.ts:44-56`). Le plus restrictif l'emporte.
 - **Défaut** : la charge n'est pas décalée des jours non ouvrés. Un besoin daté un samedi, un dimanche ou un férié alimente un bucket dont la capacité exclut ce jour → saturation mécaniquement gonflée. Sur un outil de décision, ce n'est pas neutre pour les buckets hebdo.
-- **Détail** : X3 renvoie `0.01` h le samedi (sentinelle « fermé ») et le code ne l'écarte pas (`if (c <= 0) continue`, `load_payload_loader.ts:531`) — négligeable en volume, mais ce n'est pas zéro.
+- **Détail** : la sentinelle « fermé » de X3 vaut `0.01` h et le code ne l'écarte pas (`if (c <= 0) continue`, `load_payload_loader.ts:531`). Ce n'est pas « le samedi » : dans la réplique, `daycap_5 = 0.01` sur **tous** les postes, `daycap_6 = 0.0`, et `PP_001` porte `0.01` **le vendredi aussi**. Négligeable en volume, mais ce n'est pas zéro, et le test doit porter sur la sentinelle, pas sur le jour. (`PP_078` à 24 h/j samedi compris est un poste continu, pas une sentinelle.)
 
 ### 4.2 Arrondis — barre vs table
 
 `round` arrondit chaque segment **par période** (`load_payload_loader.ts:153-159`) alors que le détail d'un bucket renvoie les heures non arrondies (`charge_detail_loader.ts`). La hauteur de barre et le total de la table peuvent donc différer d'une fraction d'heure. Le pinning par version a réglé la divergence de snapshot X3, pas celle-ci.
 
-### 4.3 `resteAProduire` — correct
+### 4.3 `resteAProduire` — formule correcte, garde-fou absent
 
-`resteAProduire = min(RMNEXTQTY, EXTQTY − qtyRealisee)` (`of_avancement.ts`). Vérifié en X3 : aucun OF avec `EXTQTY = 0` et `RMNEXTQTY > 0`, donc le repli `launched == null` (reste = quantité) ne masque pas de cas réel.
+`resteAProduire = min(RMNEXTQTY, EXTQTY − qtyRealisee)` (`of_avancement.ts:137-144`) : la formule est
+juste, et la borne par `RMNEXTQTY` évite la double déduction quand X3 a déjà netté.
+
+La vérification initiale portait sur la mauvaise branche. `launched == null` est **inatteignable**
+depuis `of_repository` (`toNum` rend toujours un nombre) ; la branche qui compte est `launched = 0`,
+qui rend 0 et non la quantité. Voir **D8** — c'est là que se joue le risque, et il n'est pas testé.
 
 ### 4.4 Buckets — corrects
 
 Clés mensuelles `YYYY-M` et hebdo (lundi ISO) cohérentes avec la construction des buckets ; bornes de mois posées au 1er (pas de débordement `setMonth`) ; `addDays` en jours civils (pas `n × DAY_MS`), donc pas de dérive aux changements d'heure.
+
+### 4.5 Vérifiés bénins — ne pas rouvrir
+
+Deux filtres de l'explosion ont l'air de trous ; la donnée dit que non.
+
+- **`hasChargeRoute` élague tout le sous-arbre d'un PF sans gamme** (`charge_explosion.ts:248`) :
+  19 parents de nomenclature n'ont pas de gamme dans la réplique, **tous** en `ACHAT` / `AFANT` —
+  aucun produit fini fabriqué. Aucune charge induite perdue aujourd'hui.
+- **`collectBom` en mode heures ne garde que les liens `FABRIQUE`** (`charge_explosion.ts:393`) :
+  **zéro** composant `ACHETE` possède des enfants `FABRIQUE`. Aucun sous-ensemble fabriqué n'est
+  caché derrière un lien acheté ou un fantôme.
+
+À recontrôler si le référentiel change de forme — ce sont des constats de données, pas des garanties
+de code.
+
+Enfin, un point d'agrégation qui aurait pu déraper et ne dérape pas : la première et la dernière
+semaine de l'horizon sont tronquées **identiquement** côté charge et côté capacité (les deux bornées
+à `[monthStart, horizonEnd]`, cf. `:526-535` et `:569`). Pas de biais de bord sur la saturation.
 
 ---
 
@@ -183,6 +340,7 @@ Clés mensuelles `YYYY-M` et hebdo (lundi ISO) cohérentes avec la construction 
 
 | Réf. | Défaut | Sévérité | Visible aujourd'hui |
 |---|---|---|---|
+| D8 | `EXTQTY = 0` → reste nul et en-cours fictif plein | Haute | à confirmer en X3 |
 | D1 | Net du parent non propagé aux composants | Haute | oui |
 | D2 | En-cours des OF lancés avant l'horizon ignoré | Haute | oui |
 | D3 | Pas de priorité ferme > prévision à date égale (+ déterminisme) | Moyenne | oui |
@@ -190,10 +348,19 @@ Clés mensuelles `YYYY-M` et hebdo (lundi ISO) cohérentes avec la construction 
 | D5 | Pool en-cours global, non peg | Moyenne | oui |
 | D6 | Snapshot stock appliqué à 6 mois | Moyenne (choix) | oui |
 | D7 | Stock QC compté disponible | Faible/Moyenne (choix) | oui |
+| D9 | Troncature depth-4 silencieuse (8 chaînes réelles) | Moyenne | oui |
+| D10 | Aucun offset de lead time | Moyenne (choix) | oui |
+| D11 | Offre planifiée jamais déduite du besoin commande | Moyenne (choix) | oui |
+| D12 | `ITMSTA_0 = 1` filtre la demande sans trace | Moyenne | oui |
+| D13 | Explosion BOM jouée deux fois par payload | Faible (perf) | oui |
 | 4.1 | Charge non décalée des jours non ouvrés | Moyenne | oui |
 | 4.2 | Arrondis barre ≠ table | Faible | oui |
 
-**Ordre de correction proposé** : D1 (structure du calcul) → D2 (périmètre du pool) → D3 + D4 (règles de consommation) → 4.1 → D5/D6/D7 (à trancher métier).
+**Ordre de correction proposé** : D8 (une requête tranche, correction courte, effet le plus large)
+→ D1 (structure du calcul) → D2 (périmètre du pool, branchement d'une lecture existante)
+→ D3 + D4 (règles de consommation) → D9 + D12 (rendre visible ce qui disparaît) → 4.1 → D13 (perf)
+→ D5/D6/D7/D10/D11 (à trancher métier, ensemble : c'est une seule question — que déduit-on du besoin
+et à quelle date).
 
 ---
 
@@ -211,7 +378,11 @@ F126-45347  CE4091  EXTQTY=1200  RMNEXTQTY=1200  —                STRDAT=06-MA
 
 **Pas de cas `EXTQTY = 0` avec `RMNEXTQTY > 0`** (toutes catégories d'OF confondues) : `resteAProduire` ne dégénère pas.
 
-**Strict stock** (`stock_repository.ts:78-80`) :
+⚠️ Ce relevé n'a **pas** été rejoué le 10/09/2026, et c'est le seul garde-fou de **D8** — la requête
+de contrôle est donnée avec ce défaut. Idem pour le tableau des en-cours invisibles de D2 : les cinq
+OF n'ont pas été revérifiés (MCP `supply-board` injoignable, réplique locale statique uniquement).
+
+**Strict stock** (`stock_repository.ts:77`) :
 
 ```
 strict = PHYSTO − PHYALL − GLOALL      // hors déjà-alloué
