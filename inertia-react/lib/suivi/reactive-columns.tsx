@@ -3,7 +3,9 @@
  * inertia/lib/suivi/reactive-columns.tsx (API ColumnDef du DataTable maison,
  * même JSX cellule que Solid).
  */
+import { Link } from '@inertiajs/react'
 import { cn } from '@r/lib/utils'
+import { route } from '@r/lib/routes'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
 import {
@@ -105,12 +107,18 @@ export function createReactiveColumns({
             </span>
           )
         return (
-          <span
-            className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
-            title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
+          <Link
+            href={`${route('sequenceur.index')}?poste=${encodeURIComponent(code)}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-block whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-brand/15 hover:text-brand"
+            title={
+              row.original.posteLabel
+                ? `${code} — ${row.original.posteLabel} · ouvrir le séquenceur du poste`
+                : `Ouvrir le séquenceur du poste ${code}`
+            }
           >
             {code}
-          </span>
+          </Link>
         )
       },
       meta: {

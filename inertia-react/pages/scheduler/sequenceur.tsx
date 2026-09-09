@@ -164,7 +164,7 @@ type StoredFilters = {
   /** Fenêtre de dates de livraison (ISO yyyy-MM-dd) — filtre client. */
   dateFrom: string | null
   dateTo: string | null
-  /** Poste sélectionné (filtre client, purement session — jamais dans l'URL). */
+  /** Poste sélectionné (filtre client, purement session) — peut venir d'un deep-link. */
   poste: string | null
 }
 
@@ -244,6 +244,17 @@ function writeStoredFilters(patch: Partial<StoredFilters>) {
   } catch {
     // sessionStorage indisponible — filtre session React seule.
   }
+}
+
+/**
+ * Poste reçu en deep-link (`/sequenceur?poste=CODE`) — entrée ponctuelle depuis le suivi
+ * ou la fiche d'engagement d'un poste. Le filtre reste piloté côté client ; l'URL ne sert
+ * qu'à l'ouverture.
+ */
+function posteFromUrl(): string | null {
+  if (typeof window === 'undefined') return null
+  const v = new URLSearchParams(window.location.search).get('poste')
+  return v && v.trim() ? v.trim() : null
 }
 
 function natureOk(nature: PosteNature | undefined, filter: Set<PosteNatureFilterKey>): boolean {
@@ -522,7 +533,20 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const posteByCode = useMemo(() => new Map(props.postes.map((p) => [p.code, p])), [props.postes])
   const posteRank = useMemo(() => new Map(props.postes.map((p, i) => [p.code, i])), [props.postes])
 
-  const [posteFilter, setPosteFilter] = useState<string | null>(() => stored.poste)
+  const [posteFilter, setPosteFilter] = useState<string | null>(() => {
+    // Deep-link d'abord (s'il désigne un poste connu), sinon le filtre de session.
+    const fromUrl = posteFromUrl()
+    return fromUrl && props.postes.some((p) => p.code === fromUrl) ? fromUrl : stored.poste
+  })
+
+  // Le poste reçu par l'URL est persisté une fois : un refresh sans paramètre le conserve.
+  useEffect(() => {
+    const fromUrl = posteFromUrl()
+    if (fromUrl && fromUrl !== stored.poste && props.postes.some((p) => p.code === fromUrl)) {
+      writeStoredFilters({ poste: fromUrl })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Reset sélection / faisabilité quand le dataset change.
   useEffect(() => {
