@@ -25,6 +25,8 @@ export interface ProactiveViewProps {
   selectedRowKey?: string | null
   /** Clic sur un n° d'OF (colonne Couverture) → détail OF (faisabilité), comme /programme. */
   onSelectOf?: (numOf: string) => void
+  /** Clic sur un code poste → panneau d'engagement du poste (sans quitter le suivi). */
+  onSelectPoste?: (code: string) => void
   /** Inclure les sous-ensembles (semi-finis) en rupture dans la colonne « Composants en rupture ». */
   showSubAssemblies?: boolean
   /** Diff du dernier rechargement (issue #186) — relayé tel quel au DataTable. */
@@ -41,6 +43,7 @@ export function ProactiveView(props: ProactiveViewProps) {
     referenceDate: props.view.referenceDate,
     onSelectOf: props.onSelectOf,
     showSubAssemblies: props.showSubAssemblies,
+    onSelectPoste: props.onSelectPoste,
   })
   const indexCol = createProactiveIndexCol()
 

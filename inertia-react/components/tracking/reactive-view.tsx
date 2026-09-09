@@ -23,6 +23,8 @@ export interface ReactiveViewProps {
   onResetFilters?: () => void
   onRowClick?: (row: SuiviDisplayRow) => void
   selectedRowKey?: string | null
+  /** Clic sur un code poste → panneau d'engagement du poste (sans quitter le suivi). */
+  onSelectPoste?: (code: string) => void
   /** Diff du dernier rechargement (issue #186) — relayé tel quel au DataTable. */
   flash?: RowFlash | null
 }
@@ -44,6 +46,7 @@ export function ReactiveView(props: ReactiveViewProps) {
     expandedEmps,
     toggleEmp,
     referenceDate: props.view.referenceDate,
+    onSelectPoste: props.onSelectPoste,
   })
   const indexCol = createReactiveIndexCol()
 

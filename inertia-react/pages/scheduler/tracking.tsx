@@ -59,6 +59,7 @@ import { ProactiveView } from '@r/components/tracking/proactive-view'
 import { ClientFilterPill, type ClientOption } from '@r/components/tracking/client-filter-pill'
 import { SuiviDetailSheet } from '@r/components/tracking/suivi-detail-sheet'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
+import PosteEngagementSheet from '@r/components/board/poste-engagement-sheet'
 
 // Fenêtre chargée côté serveur (toujours today-90j/+30j, fixe). Le filtrage
 // par plage est un filtre CLIENT sur ces données déjà chargées, pas un re-fetch.
@@ -200,6 +201,15 @@ export default function Tracking(props: SuiviPageProps) {
   const onSelectOf = (numOf: string) => {
     setSelectedOf(numOf)
     setOfDetailOpen(true)
+  }
+
+  // Panneau d'engagement du poste au clic sur un code poste (colonne Poste, les 2 vues) —
+  // même geste que /programme, sans quitter le suivi.
+  const [engagementPoste, setEngagementPoste] = useState<string | null>(null)
+  const [engagementOpen, setEngagementOpen] = useState(false)
+  const onSelectPoste = (code: string) => {
+    setEngagementPoste(code)
+    setEngagementOpen(true)
   }
 
   const toggleType = (t: string) =>
@@ -611,6 +621,7 @@ export default function Tracking(props: SuiviPageProps) {
             onResetFilters={resetFilters}
             onRowClick={(row) => setSelectedRow({ type: 'reactif', row })}
             selectedRowKey={selectedRowKey}
+            onSelectPoste={onSelectPoste}
             flash={reactiveDiff.flash}
           />
         ) : (
@@ -623,6 +634,7 @@ export default function Tracking(props: SuiviPageProps) {
             onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
             selectedRowKey={selectedRowKey}
             onSelectOf={onSelectOf}
+            onSelectPoste={onSelectPoste}
             showSubAssemblies={showSubAssemblies}
             flash={proactiveDiff.flash}
           />
@@ -648,6 +660,13 @@ export default function Tracking(props: SuiviPageProps) {
 
       {/* Drawer détail OF (faisabilité) — n° d'OF cliqué en colonne Couverture (proactif). */}
       <OfDetailSheet num={selectedOf} open={ofDetailOpen} onOpenChange={setOfDetailOpen} />
+
+      {/* Panneau Engagement du poste — code poste cliqué (colonne Poste, les 2 vues). */}
+      <PosteEngagementSheet
+        posteCode={engagementPoste}
+        open={engagementOpen}
+        onOpenChange={setEngagementOpen}
+      />
     </AppLayout>
   )
 }

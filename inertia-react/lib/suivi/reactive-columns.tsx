@@ -3,9 +3,7 @@
  * inertia/lib/suivi/reactive-columns.tsx (API ColumnDef du DataTable maison,
  * même JSX cellule que Solid).
  */
-import { Link } from '@inertiajs/react'
 import { cn } from '@r/lib/utils'
-import { route } from '@r/lib/routes'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
 import {
@@ -23,12 +21,15 @@ export interface ReactiveColumnsDeps {
   expandedEmps: Set<string>
   toggleEmp: (key: string) => void
   referenceDate: string
+  /** Clic sur un code poste → panneau d'engagement du poste (sans quitter le suivi). */
+  onSelectPoste?: (code: string) => void
 }
 
 export function createReactiveColumns({
   expandedEmps,
   toggleEmp,
   referenceDate,
+  onSelectPoste,
 }: ReactiveColumnsDeps): ColumnDef<SuiviDisplayRow>[] {
   return [
     {
@@ -107,18 +108,24 @@ export function createReactiveColumns({
             </span>
           )
         return (
-          <Link
-            href={`${route('sequenceur.index')}?poste=${encodeURIComponent(code)}`}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-block whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-brand/15 hover:text-brand"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelectPoste?.(code)
+            }}
+            className={cn(
+              'whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground',
+              onSelectPoste && 'cursor-pointer transition-colors hover:bg-brand/15 hover:text-brand'
+            )}
             title={
               row.original.posteLabel
-                ? `${code} — ${row.original.posteLabel} · ouvrir le séquenceur du poste`
-                : `Ouvrir le séquenceur du poste ${code}`
+                ? `${code} — ${row.original.posteLabel} · ouvrir la file du poste`
+                : `Ouvrir la file du poste ${code}`
             }
           >
             {code}
-          </Link>
+          </button>
         )
       },
       meta: {
