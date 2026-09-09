@@ -500,3 +500,36 @@ test.group('buildProactiveDisplay — dépendance contrôle qualité', () => {
     assert.equal(rows[0].composants[0].qc, 0)
   })
 })
+
+test.group('buildProactiveDisplay — MAD max (échéance de mise à disposition)', () => {
+  test('OF démarré → date d’expédition moins le buffer logistique J-2', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(
+      result({
+        ofs: [
+          {
+            numOf: 'F426-33313',
+            article: '11033025',
+            qteAllouee: 28,
+            dateFin: '2026-06-20',
+            feasible: true,
+            missingComponents: {},
+            modified: false,
+            statutNum: 1,
+            estDebuté: true,
+          },
+        ],
+      })
+    )
+    assert.equal(rows[0].madMaxIso, '2026-06-21')
+  })
+
+  test('OF non démarré → pas d’échéance', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(result({}))
+    assert.isNull(rows[0].madMaxIso)
+  })
+
+  test('couverte par stock (aucun OF) → pas d’échéance', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(result({ ofs: [], statut: 'stock' }))
+    assert.isNull(rows[0].madMaxIso)
+  })
+})

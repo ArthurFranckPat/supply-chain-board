@@ -32,7 +32,13 @@ import {
   RECEPTION_LOOKBACK_DAYS,
   RECEPTION_OVERDUE_MIN_QTY,
 } from '#repositories/reception_repository'
-import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/shortages'
+import {
+  resolveCoveringReception,
+  daysBetweenIso,
+  isoLocalDay,
+  addDaysIso,
+  DEFAULT_LOGISTICS_BUFFER_DAYS,
+} from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
@@ -483,6 +489,11 @@ export interface ProactiveDisplayRow {
   reliquat: number
   dateExp: string
   dateExpIso: string | null
+  /**
+   * Échéance de mise à disposition au plus tard (ISO) = date d'expédition − buffer logistique
+   * J-2. Renseignée seulement quand un OF de la commande est démarré, sinon `null`.
+   */
+  madMaxIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
   /** Gravité du retard : 'tolerance' (≤ 1 j ouvré) | 'critical' (au-delà) | null. */
@@ -1131,6 +1142,16 @@ export function buildProactiveDisplay(
             : (of.piecesFaites ?? null),
         piecesTotalOf: of.piecesTotalOf ?? null,
       }))
+      // Échéance de mise à disposition au plus tard : l'OF doit être TERMINÉ avant
+      // l'expédition (contrôle, conditionnement, quai) — même buffer logistique que le calcul
+      // de retard et que les ordres virtuels de plan_diff. Affichée seulement quand un OF est
+      // réellement EN COURS : c'est une date butoir de terrain, pas une échéance théorique
+      // pour tout le carnet. Source unique du buffer (DEFAULT_LOGISTICS_BUFFER_DAYS).
+      const madMaxIso =
+        o.dateExpedition && ofsFinal.some((f) => f.estDebuté)
+          ? addDaysIso(o.dateExpedition, -DEFAULT_LOGISTICS_BUFFER_DAYS)
+          : null
+
       // Index de recherche des composants. Couvre les TROIS niveaux visibles dans la colonne :
       // le composant direct, les sous-ensembles couverts par production, et les feuilles
       // achetées qui bloquent un SE (descente BOM) — chercher « l'article qui bloque » doit
@@ -1194,6 +1215,7 @@ export function buildProactiveDisplay(
         reliquat: Math.round(o.reliquat),
         dateExp: fmtFrDay(o.dateExpedition),
         dateExpIso: o.dateExpedition || null,
+        madMaxIso,
         verdictKey: finalVerdictKey,
         verdictLabel: finalVerdictLabel,
         lateSeverity:

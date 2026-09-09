@@ -179,6 +179,13 @@ export interface ProactiveDisplayRow {
   reliquat: number
   dateExp: string
   dateExpIso: string | null
+  /**
+   * Échéance de mise à disposition au plus tard (ISO) = date d'expédition moins le buffer
+   * logistique J-2 (l'OF doit être terminé avant contrôle, conditionnement et quai).
+   * Renseignée UNIQUEMENT quand un OF de la commande est démarré — c'est une date butoir de
+   * terrain, pas une échéance théorique pour tout le carnet. `null` sinon.
+   */
+  madMaxIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
   /** Gravité du retard : 'tolerance' (≤ 1 j ouvré, rouge clair) | 'critical' (au-delà, rouge foncé) | null. */

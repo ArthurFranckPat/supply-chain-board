@@ -7,6 +7,7 @@ import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import { OF_STATUT, LATE_TONE, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
+import { fmtDay } from '@r/lib/vision/date-utils'
 import { CalendarX, CornerDownRight, FlaskConical } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
@@ -268,6 +269,38 @@ export function createProactiveColumns({
           'w-[76px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass:
           'whitespace-nowrap px-4 py-[7px] align-middle font-mono text-[12.5px] font-semibold text-foreground',
+      },
+    },
+    {
+      accessorKey: 'madMaxIso',
+      header: 'MAD max',
+      cell: ({ row }) => {
+        // Date butoir de mise à disposition, seulement quand un OF est démarré (cf.
+        // madMaxIso, calculé côté serveur). Ambre dès qu'elle est dépassée : l'OF tourne
+        // encore alors qu'il aurait déjà dû sortir.
+        const iso = row.original.madMaxIso
+        if (!iso) return null
+        const passed = iso < referenceDate
+        return (
+          <span
+            className={cn(
+              'font-mono text-[11px] font-semibold tabular-nums',
+              passed ? 'text-suggere' : 'text-foreground'
+            )}
+            title={
+              "Échéance de mise à disposition au plus tard (date d'expédition − 2 j) : " +
+              'l’OF doit être terminé avant contrôle, conditionnement et quai.' +
+              (passed ? ' Échéance déjà dépassée.' : '')
+            }
+          >
+            {fmtDay(iso)}
+          </span>
+        )
+      },
+      meta: {
+        thClass:
+          'w-[80px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'whitespace-nowrap px-4 py-[7px] align-middle',
       },
     },
     {
