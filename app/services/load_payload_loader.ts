@@ -24,7 +24,7 @@ import {
 import { addDays, atMidnight, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'
-import { capDay } from '#app/domain/capacity'
+import { capDay, isOpenDay } from '#app/domain/capacity'
 import {
   atelierLabel,
   atelierCategoryFromPosteNature,
@@ -37,10 +37,12 @@ import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import {
   chargeSegment,
   collectBom,
-  explodeCharge,
-  netCharge,
+  collectChargeArticles,
+  explodeAndNet,
   ofSegment,
   type ChargeNeed,
+  type ChargeOrderLine,
+  type DepthCutStats,
 } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
 
@@ -149,6 +151,34 @@ export function chargeBucketRange(
   return { from, to, label: `S${isoWeek(from)} · semaine du ${dd}/${mm}` }
 }
 
+/**
+ * Jour de rattachement d'un besoin dans les buckets : si le poste est fermé le
+ * jour du besoin (facteur calendrier nul, ou capacité sentinelle X3), la charge
+ * remonte au dernier jour ouvré du poste. Sans ça, un besoin un samedi alimente
+ * un bucket dont la capacité exclut ce jour → saturation gonflée (4.1).
+ *
+ * Borné à l'horizon : un décalage qui en sort laisse la date d'origine, pour ne
+ * pas faire disparaître la charge d'un besoin du 1er du mois tombant un samedi.
+ * Exporté pour que le DÉTAIL d'un bucket décale exactement comme la barre.
+ */
+export function chargeDay(
+  wst: string,
+  date: Date,
+  calendar: { factor(w: Workstation, iso: string): number } | null,
+  wstByCode: Map<string, Workstation>,
+  monthStart: Date,
+  horizonEnd: Date
+): Date {
+  const w = wstByCode.get(wst)
+  if (!calendar || !w) return date
+  let d = date
+  for (let i = 0; i < 14; i++) {
+    if (isOpenDay(w, d, calendar.factor(w, isoDay(d)))) break
+    d = addDays(d, -1)
+  }
+  return d < monthStart || d > horizonEnd ? date : d
+}
+
 const emptyPeriod = (): LoadPeriod => ({ f: 0, p: 0, s: 0, fi: 0, si: 0 })
 const round = (p: LoadPeriod): LoadPeriod => ({
   f: Math.round(p.f),
@@ -158,9 +188,22 @@ const round = (p: LoadPeriod): LoadPeriod => ({
   si: Math.round(p.si),
 })
 
+/** Sous-ensemble d'un OF suffisant pour calculer son reste à produire. */
+export type OfQty = Pick<ManufacturingOrder, 'numOf' | 'quantity' | 'quantityLaunched'>
+/** OF porteur d'en-cours : OfQty + l'article qui reçoit la déduction. */
+export type EncoursOf = OfQty & { article: string }
+
 /** Entrées brutes du calcul de charge, partagées agrégat ↔ détail. */
 export interface ChargeInputs {
   mos: ManufacturingOrder[]
+  /**
+   * OF démarrés AVANT l'horizon, encore ouverts, bornés aux articles ayant de la
+   * demande dans la fenêtre (matching delta #99). Ils ne s'affichent nulle part
+   * (la vue OF est bornée à `mos`) mais leurs pièces pointées non déclarées
+   * doivent réduire la demande — sinon le backlog des mois précédents est
+   * invisible du cran « reste » (D2).
+   */
+  deltaMos: EncoursOf[]
   orderLines: OrderLineForLoad[]
   gammeMap: Map<string, GammeOperation[]>
   workstations: Workstation[]
@@ -191,10 +234,7 @@ export interface ChargeInputs {
  * donc elle vaut pour `brut` comme pour `net` — la vue OF garde brut = net et n'a
  * toujours pas de bascule.
  */
-export function ofResteAProduire(
-  mo: ManufacturingOrder,
-  avancementByOf: Map<string, OfAvancement>
-): number {
+export function ofResteAProduire(mo: OfQty, avancementByOf: Map<string, OfAvancement>): number {
   return resteAProduire(
     mo.quantity,
     mo.quantityLaunched,
@@ -285,6 +325,26 @@ export async function fetchChargeInputs(
   const startedOfs = mos
     .filter((mo) => mo.status === 1 && mo.startDate && atMidnight(mo.startDate) <= today)
     .map((mo) => mo.numOf)
+
+  // D2 : OF démarrés AVANT l'horizon mais encore ouverts. `getOrdersForWindow`
+  // filtre STRDAT ≥ monthStart, donc le backlog des mois précédents échappait au
+  // pool d'en-cours. La lecture existe déjà pour le matching (#99, ~14 lignes) ;
+  // on la branche ici et on lit aussi leurs pointages.
+  const deltaFlows = await boardDataset
+    .getOrdersForMatchingDelta(monthStart, horizonEnd, force)
+    .catch(() => [] as Flow[])
+  const deltaMos: EncoursOf[] = []
+  for (const f of deltaFlows) {
+    if (f.origin.type !== 'of' || f.origin.status !== 1) continue
+    deltaMos.push({
+      numOf: f.origin.id,
+      article: f.article,
+      quantity: f.quantity,
+      quantityLaunched: f.origin.launched ?? 0,
+    })
+  }
+  for (const mo of deltaMos) if (!startedOfs.includes(mo.numOf)) startedOfs.push(mo.numOf)
+
   // Un échec MFGOPE ne doit pas vider la page : sans avancement on retombe sur le
   // comportement d'avant (charge pleine), pas sur une charge nulle.
   const operations = await boardDataset.getOperations(startedOfs).catch(() => [])
@@ -292,6 +352,7 @@ export async function fetchChargeInputs(
 
   return {
     mos,
+    deltaMos,
     orderLines,
     gammeMap: groupGammeByArticle(gammeOps),
     workstations,
@@ -303,24 +364,20 @@ export async function fetchChargeInputs(
   }
 }
 
-/** Explosion BOM des lignes de demande — partagée entre charge et stock. */
-function explodeInputs(inputs: ChargeInputs) {
-  return explodeCharge(
-    inputs.orderLines.map((l) => ({
-      article: l.article,
-      quantite: l.quantite,
-      date: atMidnight(l.dateLivraison),
-      nature: (l.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
-      source: {
-        numCommande: l.numCommande,
-        ligne: l.ligne,
-        client: l.clientCode,
-        pfArticle: l.article,
-      },
-    })),
-    inputs.bomByParent,
-    inputs.gammeMap
-  )
+/** Lignes de demande au format explosion (date normalisée + provenance). */
+function chargeOrderLines(inputs: ChargeInputs): ChargeOrderLine[] {
+  return inputs.orderLines.map((l) => ({
+    article: l.article,
+    quantite: l.quantite,
+    date: atMidnight(l.dateLivraison),
+    nature: (l.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
+    source: {
+      numCommande: l.numCommande,
+      ligne: l.ligne,
+      client: l.clientCode,
+      pfArticle: l.article,
+    },
+  }))
 }
 
 /**
@@ -330,9 +387,13 @@ function explodeInputs(inputs: ChargeInputs) {
  * diverger de la barre d'un rotation de cache de stock.
  */
 export async function computeChargeStock(inputs: ChargeInputs): Promise<Map<string, number>> {
-  const chargeRaws = explodeInputs(inputs)
+  // D13 : parcours d'articles seul — pas de ventilation horaire ni d'émission par poste.
+  const chargeArticles = collectChargeArticles(
+    chargeOrderLines(inputs),
+    inputs.bomByParent,
+    inputs.gammeMap
+  )
   const stockByArticle = new Map<string, number>()
-  const chargeArticles = [...new Set(chargeRaws.map((r) => r.article))]
   if (chargeArticles.length > 0) {
     const flows = await boardDataset.getStock(chargeArticles).catch(() => [] as Flow[])
     for (const f of flows) {
@@ -346,7 +407,12 @@ export async function computeChargeStock(inputs: ChargeInputs): Promise<Map<stri
 }
 
 /**
- * Vue commande : explosion depth-4 + netting stock (suite issue #42).
+ * Vue commande : explosion + netting en UNE passe descendante (`explodeAndNet`).
+ *
+ * Le net d'un parent redescend sur ses enfants (D1), le pool est consommé par
+ * besoin et non par opération (D4), et le stock part au ferme avant la prévision
+ * à date égale (D3). `stats` remonte la troncature depth-4 (D9).
+ *
  * ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
  * Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
  *
@@ -355,11 +421,18 @@ export async function computeChargeStock(inputs: ChargeInputs): Promise<Map<stri
  */
 export async function computeChargeNeeds(
   inputs: ChargeInputs,
-  pinnedStock?: Map<string, number>
+  pinnedStock?: Map<string, number>,
+  stats?: DepthCutStats
 ): Promise<ChargeNeed[]> {
-  const chargeRaws = explodeInputs(inputs)
   const stockByArticle = pinnedStock ?? (await computeChargeStock(inputs))
-  return netCharge(chargeRaws, stockByArticle, buildEncoursByArticle(inputs))
+  return explodeAndNet(
+    chargeOrderLines(inputs),
+    inputs.bomByParent,
+    inputs.gammeMap,
+    stockByArticle,
+    buildEncoursByArticle(inputs),
+    stats
+  )
 }
 
 /**
@@ -377,21 +450,36 @@ export async function computeChargeNeeds(
  * la passe stock les compte, sans double déduction. Vérifié sur les deux
  * branches : F326-02020 → 640−250 = 390 (non déclaré, à déduire ici) ;
  * F326-02036 → 1236−1236 = 0 (480 déclarées, déjà dans le pool stock).
- */
-/**
- * En-cours INVISIBLE du stock par article — exporté pour le plan appro
- * (`material_plan_loader`), qui applique le même cran « reste ». Signature
- * resserrée au strict nécessaire : l'appelant charge n'est pas affecté.
+ *
+ * D8 : le pool est restreint aux OF FERMES DÉMARRÉS (même critère que
+ * `startedOfs`). Un OF planifié/suggéré, ou ferme non lancé, n'a pas de pointage
+ * lu — et si `EXTQTY_0 = 0`, `resteAProduire` rend 0, ce qui créditerait sa
+ * quantité entière comme « déjà produite ». Le plan appro appliquait déjà ce
+ * garde au point d'appel ; il vit désormais ici pour que /charge en hérite.
+ *
+ * D2 : `deltaMos` porte les OF démarrés avant l'horizon (matching delta #99),
+ * déjà filtrés « fermes » par l'appelant — ils comptent sans filtre de date,
+ * leur STRDAT étant par construction antérieur à la fenêtre.
+ *
+ * Exporté pour le plan appro (`material_plan_loader`), qui applique le même cran.
  */
 export function buildEncoursByArticle(inputs: {
-  mos: ChargeInputs['mos']
+  mos: ManufacturingOrder[]
   avancementByOf: ChargeInputs['avancementByOf']
+  deltaMos?: EncoursOf[]
 }): Map<string, number> {
   const out = new Map<string, number>()
-  for (const mo of inputs.mos) {
+  const today = atMidnight(new Date())
+  const add = (mo: EncoursOf): void => {
     const encours = mo.quantity - ofResteAProduire(mo, inputs.avancementByOf)
     if (encours > 0) out.set(mo.article, (out.get(mo.article) ?? 0) + encours)
   }
+  for (const mo of inputs.mos) {
+    if (mo.status !== 1) continue
+    if (!mo.startDate || atMidnight(mo.startDate) > today) continue
+    add(mo)
+  }
+  for (const mo of inputs.deltaMos ?? []) add(mo)
   return out
 }
 
@@ -526,9 +614,9 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         const weekly = weekBuckets.map(() => 0)
         for (let d = new Date(monthStart); d <= horizonEnd; d = addDays(d, 1)) {
           const factor = calendar ? calendar.factor(w, isoDay(d)) : 1
-          if (factor <= 0) continue
+          // Sentinelle X3 (0,01 h) traitée comme fermé — cf. `isOpenDay`.
+          if (!isOpenDay(w, d, factor)) continue
           const c = capDay(w, d) * factor
-          if (c <= 0) continue
           const mi = monthIdxByKey.get(monthKey(d))
           if (mi !== undefined) monthly[mi] += c
           const wi = weekIdxByKey.get(isoDay(mondayOf(d)))
@@ -567,9 +655,12 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         const byLine = new Map<string, Acc>()
         for (const r of records) {
           if (r.brutHours <= 0 || r.date < monthStart || r.date > horizonEnd) continue
-          const mi = monthIdxByKey.get(monthKey(r.date))
+          // 4.1 : un besoin tombant un jour fermé du poste remonte au dernier
+          // jour ouvré — la capacité du bucket n'inclut pas ce jour.
+          const day = chargeDay(r.wst, r.date, calendar, wstByCode, monthStart, horizonEnd)
+          const mi = monthIdxByKey.get(monthKey(day))
           if (mi === undefined) continue
-          const wi = weekIdxByKey.get(isoDay(mondayOf(r.date)))
+          const wi = weekIdxByKey.get(isoDay(mondayOf(day)))
           let acc = byLine.get(r.wst)
           if (!acc) {
             acc = {
@@ -618,8 +709,9 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
           })
       }
 
-      // ── Charge commande : explosion depth-4 + netting stock (suite issue #42).
-      const chargeNeeds = await computeChargeNeeds(inputs, pinnedStock)
+      // ── Charge commande : explosion + netting en une passe (D1/D3/D4) ──
+      const depthCut: DepthCutStats = { truncated: 0, cutParents: [] }
+      const chargeNeeds = await computeChargeNeeds(inputs, pinnedStock, depthCut)
 
       const ofLines = buildLines(
         mos.flatMap((mo) => {
@@ -690,6 +782,12 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         ofLines,
         cmdLines,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
+        // D9 : ce que le plafond depth-4 a coupé, pour que la disparition soit
+        // lisible à l'écran au lieu d'être silencieuse.
+        depthCut: {
+          truncated: depthCut.truncated,
+          parents: [...new Set(depthCut.cutParents)].sort(),
+        },
         x3Error,
       }
     }),

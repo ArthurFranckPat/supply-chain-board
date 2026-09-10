@@ -36,6 +36,19 @@ export function capDay(w: Workstation, date: Date, theoretical = false): number 
 }
 
 /**
+ * Sentinelle X3 « fermé » : `DAYCAP` vaut `0.01` (et non 0) sur les jours non
+ * travaillés — présent sur TOUS les postes le samedi dans la réplique, et même un
+ * vendredi pour `PP_001`. Toute comparaison d'ouverture doit porter sur ce seuil,
+ * pas sur le jour de la semaine : `PP_078` est ouvert 24 h le samedi.
+ */
+export const CLOSED_CAP_H = 0.01
+
+/** Le poste est-il ouvert ce jour (facteur calendrier > 0 et capacité non sentinelle) ? */
+export function isOpenDay(w: Workstation, date: Date, factor: number): boolean {
+  return factor > 0 && capDay(w, date) > CLOSED_CAP_H
+}
+
+/**
  * Capacité (h) cumulée d'un poste sur l'intervalle `[from, to]` (bornes incluses,
  * à la maille jour). Net par défaut.
  */

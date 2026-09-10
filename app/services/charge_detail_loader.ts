@@ -39,6 +39,7 @@ import { hoursForQuantity } from '#app/domain/models/gamme'
 import { isoDay } from '#app/utils/dates'
 import {
   chargeBucketRange,
+  chargeDay,
   chargeHorizon,
   computeChargeNeeds,
   computeChargeStock,
@@ -47,6 +48,7 @@ import {
   ofResteAProduire,
   type ChargeInputs,
 } from '#services/load_payload_loader'
+import capacityCalendar from '#services/capacity_calendar_service'
 
 export type ChargeGran = 'month' | 'week'
 export type ChargeDetailView = 'of' | 'commande'
@@ -190,8 +192,21 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         ? pinned.inputs
         : await fetchChargeInputs(monthStart, horizonEnd, force)
 
-      const inBucket = (d: Date | null): boolean =>
-        !!d && d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime()
+      // 4.1 : le détail décale le jour de rattachement EXACTEMENT comme la barre
+      // (même `chargeDay`, même calendrier), sinon la table ne retombe plus sur
+      // la hauteur du bucket cliqué dès qu'un besoin tombe un jour fermé.
+      const calendar = await capacityCalendar
+        .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
+        .catch(() => null)
+      const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
+      const dayOf = (wst: string, d: Date): Date =>
+        chargeDay(wst, d, calendar, wstByCode, monthStart, horizonEnd)
+
+      const inBucket = (wst: string, d: Date | null): boolean => {
+        if (!d) return false
+        const day = dayOf(wst, d)
+        return day.getTime() >= range.from.getTime() && day.getTime() <= range.to.getTime()
+      }
 
       const bucket = {
         key: params.bucket,
@@ -206,8 +221,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         const ofRows: ChargeDetailOfRow[] = []
         for (const mo of inputs.mos) {
           const ops = inputs.gammeMap.get(mo.article) ?? []
-          if (!inBucket(mo.startDate)) continue
+          if (!inBucket(poste, mo.startDate)) continue
           const qty = ofResteAProduire(mo, inputs.avancementByOf)
+          const day = dayOf(poste, mo.startDate!)
           for (const gamme of ops) {
             if (gamme.workstation !== poste) continue
             const hours = hoursForQuantity(gamme, qty)
@@ -220,7 +236,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
               // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
               // les heures de la ligne sont issues, sinon la table s'explique mal.
               quantite: qty,
-              dateIso: isoDay(mo.startDate!),
+              dateIso: isoDay(day),
               field: ofSegment(mo.status),
               hours,
             })
@@ -247,7 +263,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
       // reste, pour que les deux lectures ne se contredisent pas.
       const stock = pinned?.stock ?? (await computeChargeStock(inputs))
       const allNeeds = await computeChargeNeeds(inputs, stock)
-      const needs = allNeeds.filter((n) => n.wst === poste && inBucket(n.date) && n.brutHours > 0)
+      const needs = allNeeds.filter(
+        (n) => n.wst === poste && inBucket(poste, n.date) && n.brutHours > 0
+      )
 
       // Une demande par (article, commande, ligne, date, nature) : l'explosion
       // émet un besoin PAR POSTE de la gamme, tous porteurs de la même quantité —
@@ -424,7 +442,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           ligne: n.source?.ligne ?? null,
           // Prévision : X3 ne porte pas de client, on laisse null (l'UI le dit).
           client: code ? (clientNames.get(code) ?? code) : null,
-          dateIso: isoDay(n.date),
+          dateIso: isoDay(dayOf(n.wst, n.date)),
           field: chargeSegment(n.depth, n.nature),
           brutQty: n.brutQty,
           netQty: n.netQty,

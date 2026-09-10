@@ -130,16 +130,19 @@ export function estEcartDeclaration(
  * l'augmenter : une déclaration en avance sur le pointage (issue #95) reste
  * bornée par `RMNEXTQTY`.
  *
- * `launched` inconnu (producteurs de flow hors `of_repository`) → repli SANS
- * déduction : mieux vaut une charge légèrement surestimée qu'un 0 h silencieux
- * sur du travail réel.
+ * `launched` inconnu OU nul (producteurs de flow hors `of_repository`, ou
+ * `EXTQTY_0` non renseigné) → repli SANS déduction : mieux vaut une charge
+ * légèrement surestimée qu'un 0 h silencieux sur du travail réel. `toNum`
+ * (`of_repository`) rend `0` et jamais `null` : sans le `<= 0`, `EXTQTY_0` vide
+ * ferait `reste = 0` — charge OF éteinte ET quantité entière créditée en
+ * en-cours fictif côté demande (D8).
  */
 export function resteAProduire(
   quantity: number,
   launched: number | null | undefined,
   qtyRealisee: number
 ): number {
-  if (launched == null) return Math.max(0, quantity)
+  if (launched == null || launched <= 0) return Math.max(0, quantity)
   return Math.max(0, Math.min(quantity, launched - qtyRealisee))
 }
 

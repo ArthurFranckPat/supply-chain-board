@@ -106,5 +106,10 @@ export interface LoadPageProps {
   cmdLines: LoadLine[]
   /** Ateliers présents (postes avec charge), pour le filtre transverse. */
   ateliers: AtelierOption[]
+  /**
+   * Troncature du plafond de profondeur (4) sur la vue commande : nombre de
+   * besoins fabriqués coupés et parents concernés (D9). Absent = rien de coupé.
+   */
+  depthCut?: { truncated: number; parents: string[] }
   x3Error: string | null
 }

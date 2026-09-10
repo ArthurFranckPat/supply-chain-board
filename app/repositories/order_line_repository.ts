@@ -207,6 +207,13 @@ export class X3OrderLineRepository {
    *
    * RESTE_LIVRER passe par `SQL_RESTE_A_FABRIQUER` comme la const `SQL`
    * ci-dessus — cf. l'invariant ORDERS dans `domain/models/orders_qty.ts`.
+   *
+   * D12 : pas de filtre `ITMSTA_0 = 1`. La demande est une SOURCE ; un article
+   * non actif portant une commande ferme est un besoin réel, et le taire ici
+   * faisait disparaître la charge sans trace (mesuré en PROD le 10/09/2026 :
+   * 2 lignes, ITMSTA=6, hors horizon — latent, mais le défaut est de forme).
+   * Si un jour ce filtre est nécessaire, il appartient au consommateur, avec un
+   * compteur remonté à l'écran.
    */
   async getOrderLinesForLoad(fromStr: string, toStr: string): Promise<OrderLineForLoad[]> {
     const sql = `
@@ -222,7 +229,6 @@ SELECT
 FROM ORDERS O
 JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 WHERE O.WIPTYP_0 = 1
-  AND I.ITMSTA_0 = 1
   AND ${SQL_RESTE_A_FABRIQUER} > 0
   AND O.WIPSTA_0 IN (1, 3)
   AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')

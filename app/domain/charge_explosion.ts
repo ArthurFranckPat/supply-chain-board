@@ -137,7 +137,7 @@ export interface ChargeNeed {
   source: ChargeSource | null
 }
 
-const DEFAULT_MAX_DEPTH = 4
+export const DEFAULT_MAX_DEPTH = 4
 
 /** Nœud visité pendant la descente — transmis aux hooks du marcheur. */
 interface WalkNode {
@@ -457,4 +457,173 @@ export function netCharge(
     }
   }
   return out
+}
+
+/** Compteurs de troncature remontés au payload (D9). */
+export interface DepthCutStats {
+  /** Enfants fabriqués coupés par le plafond de profondeur (doublons possibles). */
+  truncated: number
+  /** Parents dont la descendance est incomplète — l'appelant déduplique. */
+  cutParents: string[]
+}
+
+/**
+ * Explosion + netting en UNE passe descendante, niveau par niveau.
+ *
+ * Remplace le couple `explodeCharge` + `netCharge` pour la vue commande de /charge
+ * (`computeChargeNeeds`). Corrige trois défauts que la passe plate ne pouvait pas
+ * traiter :
+ *
+ *  - **D1 — le net du parent redescend** : chaque nœud est nette (stock puis
+ *    en-cours) et ses ENFANTS partent du `resteQty`, pas du brut. Une pièce déjà
+ *    couverte par le stock ou déjà produite n'appelle ni composant ni charge amont.
+ *  - **D3 — ferme avant prévision à date égale** : les lignes sont traitées dans
+ *    l'ordre (date, ferme d'abord), donc le stock part au besoin certain.
+ *  - **D4 — le pool est consommé par besoin, pas par opération** : le nœud est nette
+ *    UNE fois et toutes ses opérations reçoivent le même net/reste (les pièces
+ *    traversent les opérations en séquence, la quantité est la même partout).
+ *
+ * Les pools restent globaux par article et consommés en FIFO depuis la date la plus
+ * tôt, via le parcours ligne-par-ligne trié. `maxDepth` coupe la descente et
+ * alimente `stats` s'il est fourni — le mode heures ne tronquait pas silencieusement
+ * (cf. `explodeQuantity`, qui le faisait déjà).
+ */
+export function explodeAndNet(
+  orderLines: ChargeOrderLine[],
+  bomByParent: Map<string, NomenclatureEntry[]>,
+  gammeMap: Map<string, GammeOperation[]>,
+  stockByArticle: Map<string, number>,
+  encoursByArticle: Map<string, number> = new Map(),
+  stats?: DepthCutStats,
+  maxDepth: number = DEFAULT_MAX_DEPTH
+): ChargeNeed[] {
+  const stockLeft = new Map<string, number>()
+  const encoursLeft = new Map<string, number>()
+  const out: ChargeNeed[] = []
+
+  /** Stock consommé par le besoin (retourne la quantité nette). */
+  const takeStock = (article: string, qty: number): number => {
+    let left = stockLeft.get(article)
+    if (left === undefined) {
+      left = stockByArticle.get(article) ?? 0
+      stockLeft.set(article, left)
+    }
+    const netQty = left >= qty ? 0 : qty - left
+    stockLeft.set(article, Math.max(0, left - qty))
+    return netQty
+  }
+
+  /** En-cours consommé APRÈS le stock, sur le net (retourne le reste à produire). */
+  const takeEncours = (article: string, netQty: number): number => {
+    let left = encoursLeft.get(article)
+    if (left === undefined) {
+      left = encoursByArticle.get(article) ?? 0
+      encoursLeft.set(article, left)
+    }
+    const resteQty = left >= netQty ? 0 : netQty - left
+    encoursLeft.set(article, Math.max(0, left - netQty))
+    return resteQty
+  }
+
+  const visit = (
+    article: string,
+    qty: number,
+    nature: ChargeNature,
+    date: Date,
+    depth: number,
+    ancestors: Set<string>,
+    path: string[],
+    source: ChargeSource | null
+  ): void => {
+    if (ancestors.has(article)) return // garde anti-cycle
+    const netQty = takeStock(article, qty)
+    const resteQty = takeEncours(article, netQty)
+    for (const gamme of gammeMap.get(article) ?? []) {
+      const rate = gamme.rate ?? 0
+      if (!gamme.workstation || rate <= 0) continue
+      out.push({
+        wst: gamme.workstation,
+        date,
+        article,
+        nature,
+        depth,
+        brutHours: hoursForQuantity(gamme, qty),
+        netHours: hoursForQuantity(gamme, netQty),
+        resteHours: hoursForQuantity(gamme, resteQty),
+        brutQty: qty,
+        netQty,
+        resteQty,
+        encoursQty: netQty - resteQty,
+        path,
+        source,
+      })
+    }
+    // Rien à produire → rien à consommer sous ce nœud (vaut aussi pour un FORFAIT :
+    // pas de production du parent, pas de consommation forfaitaire).
+    if (resteQty <= 0) return
+    const bom = bomByParent.get(article)
+    if (!bom?.length) return
+    const nextDepth = depth + 1
+    if (nextDepth > maxDepth) {
+      if (stats) {
+        // Mode heures : la BOM ne contient que des fabriqués, tous auraient été
+        // descendus — chaque enfant coupé est une troncature réelle.
+        stats.truncated += bom.length
+        stats.cutParents.push(article)
+      }
+      return
+    }
+    const next = new Set(ancestors).add(article)
+    for (const entry of bom) {
+      visit(
+        entry.componentArticle,
+        requiredQuantity(entry, resteQty),
+        nature,
+        date,
+        nextDepth,
+        next,
+        [...path, article],
+        source
+      )
+    }
+  }
+
+  // D3 : FIFO par date, ferme avant prévision à date égale.
+  const sorted = [...orderLines].sort((a, b) => {
+    const dt = a.date.getTime() - b.date.getTime()
+    if (dt !== 0) return dt
+    if (a.nature === b.nature) return 0
+    return a.nature === 'ferme' ? -1 : 1
+  })
+  for (const l of sorted) {
+    // PF sans gamme → ligne ignorée (parité avec explodeCharge).
+    if (!hasChargeRoute(gammeMap.get(l.article))) continue
+    visit(l.article, l.quantite, l.nature, l.date, 0, new Set(), [], l.source ?? null)
+  }
+  return out
+}
+
+/**
+ * Articles atteints par l'explosion (PF + composants fabriqués), sans ventilation
+ * horaire — sert à délimiter la lecture du stock sans rejouer l'émission par poste
+ * (D13 : `computeChargeStock` explosait une première fois pour rien).
+ */
+export function collectChargeArticles(
+  orderLines: ChargeOrderLine[],
+  bomByParent: Map<string, NomenclatureEntry[]>,
+  gammeMap: Map<string, GammeOperation[]>,
+  maxDepth: number = DEFAULT_MAX_DEPTH
+): string[] {
+  const out = new Set<string>()
+  walkExplosion(
+    orderLines.filter((l) => hasChargeRoute(gammeMap.get(l.article))),
+    bomByParent,
+    maxDepth,
+    {
+      emit: ({ article }) => {
+        out.add(article)
+      },
+    }
+  )
+  return [...out]
 }

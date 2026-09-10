@@ -1,5 +1,11 @@
 import { test } from '@japa/runner'
-import { collectBom, explodeCharge, explodeQuantity, netCharge } from '#app/domain/charge_explosion'
+import {
+  collectBom,
+  explodeAndNet,
+  explodeCharge,
+  explodeQuantity,
+  netCharge,
+} from '#app/domain/charge_explosion'
 import { groupGammeByArticle, type GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
@@ -373,5 +379,107 @@ test.group('collectBom — filtre unique heures/quantite', () => {
   test('includePurchased : nomenclature complete', ({ assert }) => {
     const map = collectBom(entries, { includePurchased: true })
     assert.equal(map.get('P')!.length, 2)
+  })
+})
+
+/**
+ * Netting en une passe descendante (D1/D3/D4/D9) : le net du parent redescend sur
+ * ses enfants, le pool est consommé par besoin (pas par opération), et le ferme
+ * prend le stock avant la prévision à date égale.
+ */
+test.group('explodeAndNet — netting niveau par niveau', () => {
+  const line = (
+    article: string,
+    quantite: number,
+    date = D1,
+    nature: 'ferme' | 'prevision' = 'ferme'
+  ) => ({ article, quantite, date, nature })
+
+  test('D1 — parent couvert par le stock : ses composants ne sont plus chargés', ({ assert }) => {
+    const needs = explodeAndNet(
+      [line('PF1', 10)],
+      bomByParent,
+      gammeMap,
+      new Map([['PF1', 10]]) // PF1 entièrement en stock
+    )
+    const pf = needs.find((n) => n.article === 'PF1')!
+    assert.equal(pf.brutQty, 10)
+    assert.equal(pf.netQty, 0)
+    assert.equal(pf.resteQty, 0)
+    // Sans production, aucun composant n'est requis.
+    assert.isUndefined(needs.find((n) => n.article === 'C1'))
+    assert.isUndefined(needs.find((n) => n.article === 'S1'))
+  })
+
+  test('D1 — parent partiellement couvert : les enfants partent du reliquat', ({ assert }) => {
+    const needs = explodeAndNet(
+      [line('PF1', 10)],
+      bomByParent,
+      gammeMap,
+      new Map([['PF1', 4]]) // reste 6 à produire
+    )
+    const c1 = needs.find((n) => n.article === 'C1')!
+    assert.equal(c1.brutQty, 12) // 6 × 2, et non 20 (brut du PF)
+    // Et la descente continue sur le reliquat de C1 (12 × 1).
+    assert.equal(needs.find((n) => n.article === 'S1')!.brutQty, 12)
+  })
+
+  test('D1 — en-cours du parent déduit avant explosion des enfants', ({ assert }) => {
+    const needs = explodeAndNet(
+      [line('PF1', 10)],
+      bomByParent,
+      gammeMap,
+      new Map(),
+      new Map([['PF1', 4]]) // 4 déjà produites non déclarées
+    )
+    assert.equal(needs.find((n) => n.article === 'PF1')!.resteQty, 6)
+    assert.equal(needs.find((n) => n.article === 'C1')!.brutQty, 12)
+  })
+
+  test('D4 — le pool est consommé par besoin : toutes les opérations ont le même net', ({
+    assert,
+  }) => {
+    const multi = groupGammeByArticle([op('MULTI', 'WST_A', 10), op('MULTI', 'WST_B', 5)])
+    const needs = explodeAndNet([line('MULTI', 10)], new Map(), multi, new Map([['MULTI', 4]]))
+    assert.equal(needs.length, 2)
+    for (const n of needs) {
+      assert.equal(n.brutQty, 10)
+      assert.equal(n.netQty, 6) // le stock n'est déduit qu'une fois, pas une par poste
+      assert.equal(n.netHours, 6 / (n.wst === 'WST_A' ? 10 : 5))
+    }
+  })
+
+  test('D3 — à date égale, le ferme consomme le stock avant la prévision', ({ assert }) => {
+    const gam = groupGammeByArticle([op('X', 'W', 1)])
+    // La prévision est fournie EN PREMIER : sans tri, elle prendrait le stock.
+    const needs = explodeAndNet(
+      [line('X', 10, D1, 'prevision'), line('X', 10, D1, 'ferme')],
+      new Map(),
+      gam,
+      new Map([['X', 10]])
+    )
+    assert.equal(needs.find((n) => n.nature === 'ferme')!.netQty, 0)
+    assert.equal(needs.find((n) => n.nature === 'prevision')!.netQty, 10)
+  })
+
+  test('D9 — le plafond de profondeur alimente les compteurs', ({ assert }) => {
+    const bom = new Map<string, NomenclatureEntry[]>([
+      ['A', [entry('A', 'B', 1)]],
+      ['B', [entry('B', 'C', 1)]],
+    ])
+    const gam = groupGammeByArticle([op('A', 'W', 1), op('B', 'W', 1), op('C', 'W', 1)])
+    const stats = { truncated: 0, cutParents: [] as string[] }
+    const needs = explodeAndNet([line('A', 1)], bom, gam, new Map(), new Map(), stats, 1)
+    assert.isUndefined(needs.find((n) => n.article === 'C'))
+    assert.equal(stats.truncated, 1)
+    assert.deepEqual(stats.cutParents, ['B'])
+  })
+
+  test('sans stats fourni, la coupe reste silencieuse mais ne descend pas', ({ assert }) => {
+    const bom = new Map<string, NomenclatureEntry[]>([['A', [entry('A', 'B', 1)]]])
+    const gam = groupGammeByArticle([op('A', 'W', 1), op('B', 'W', 1)])
+    const needs = explodeAndNet([line('A', 1)], bom, gam, new Map(), new Map(), undefined, 0)
+    assert.equal(needs.length, 1)
+    assert.equal(needs[0].article, 'A')
   })
 })

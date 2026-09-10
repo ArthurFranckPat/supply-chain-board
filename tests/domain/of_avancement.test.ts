@@ -166,6 +166,16 @@ test.group('resteAProduire', () => {
     assert.equal(resteAProduire(67, undefined, 38), 67)
   })
 
+  test('launched = 0 → même repli (D8 : EXTQTY_0 vide ne doit pas éteindre la charge)', ({
+    assert,
+  }) => {
+    // `toNum` rend 0 et jamais null : sans ce repli, reste = 0 → 0 h sur la vue OF
+    // ET quantité entière créditée en en-cours fictif côté demande. Aucun OF dans
+    // ce cas en PROD au 10/09/2026, mais le comportement ne doit pas en dépendre.
+    assert.equal(resteAProduire(67, 0, 0), 67)
+    assert.equal(resteAProduire(67, 0, 38), 67)
+  })
+
   test('OF non pointé → reste inchangé', ({ assert }) => {
     assert.equal(resteAProduire(67, 67, 0), 67)
   })
