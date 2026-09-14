@@ -126,7 +126,8 @@ function affirmable(status: number | undefined): boolean {
   return status === 2 || status === 3
 }
 
-/** Split charge affichée : ferme (WIPSTA 1) vs lançable (planifié/suggéré). */
+/** Split charge affichée : ferme (WIPSTA 1) vs à lancer (planifié/suggéré, pas encore affermi).
+ *  « À lancer » est un STATUT, pas un verdict matières — un OF à lancer peut être bloqué. */
 function splitChargeHours(rows: { hours: number; status?: number }[]): {
   ferme: number
   lancable: number
@@ -273,10 +274,10 @@ function natureOk(nature: PosteNature | undefined, filter: Set<PosteNatureFilter
 function feasBadge(st: FeasStatus['st'] | 'unknown' | undefined, ofStatus?: number) {
   if (st === 'ok') {
     // OF ferme (WIPSTA 1) : déjà lancé — vert ferme.
-    // Planifié/suggéré : lançable — teal planifié (aligné split charge).
+    // Planifié/suggéré : à lancer — teal planifié (aligné split charge).
     const launched = ofStatus === 1
     return {
-      label: launched ? 'Lancé' : 'Lançable',
+      label: launched ? 'Lancé' : 'À lancer',
       className: launched ? 'bg-ferme/15 text-ferme' : 'bg-planifie/15 text-planifie',
       icon: CircleCheck,
     }
@@ -628,7 +629,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
       const parts = [
         nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,
         nbQc > 0 ? `${nbQc} sous CQ` : null,
-        `${nbOk} lançable(s)`,
+        `${nbOk} faisable(s)`,
       ].filter(Boolean)
       toast(parts.join(' · '))
     } catch (err) {
@@ -779,7 +780,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
    *
    * Volontairement insensible à la recherche texte et au filtre de faisabilité : ce sont
    * des loupes de lecture, pas le périmètre de travail. Les inclure ferait re-calculer la
-   * synthèse à chaque frappe, et la viderait dès qu'on filtre sur « Lançables ».
+   * synthèse à chaque frappe, et la viderait dès qu'on filtre sur « Faisables ».
    *
    * `besoinIso` = date de DÉBUT de l'OF : c'est la date à laquelle la matière doit être là.
    */
@@ -838,15 +839,44 @@ export default function Sequenceur(props: SequenceurPageProps) {
     return groups
   }, [filteredRows, showPosteCol, customSort, sorting])
 
-  const totalHours = Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
+  /**
+   * Bandeau du poste : TOUT y porte sur les OF AFFICHÉS, une seule base.
+   *
+   * Le total venait du serveur (`activePoste.totalHours`, tous les OF du poste) pendant que
+   * le split ferme/à-lancer portait sur les lignes filtrées : 31,10 + 75,70 = 106,80 en face
+   * d'un total annoncé à 118,20, l'écart étant les OF que les filtres écartent de l'écran.
+   * Un bandeau qui décrit l'écran doit se vérifier à l'œil en sommant la colonne HEURES.
+   */
+  const displayedHours = useMemo(
+    () => Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100,
+    [filteredRows]
+  )
   const chargeSplit = useMemo(() => splitChargeHours(filteredRows), [filteredRows])
-  const sat = activePoste
-    ? saturation(activePoste.totalHours, activePoste.weeklyCapacityHours)
-    : null
+  const sat = activePoste ? saturation(displayedHours, activePoste.weeklyCapacityHours) : null
   const weeksEngaged =
     activePoste && activePoste.weeklyCapacityHours
-      ? Math.round((activePoste.totalHours / activePoste.weeklyCapacityHours) * 10) / 10
+      ? Math.round((displayedHours / activePoste.weeklyCapacityHours) * 10) / 10
       : null
+
+  /**
+   * Compteurs de faisabilité DU BANDEAU — sur les lignes affichées, comme les heures juste
+   * à côté. Distinct de `feasCounts`, qui ignore volontairement la recherche et le filtre de
+   * faisabilité : lui sert à étiqueter les options du menu Filtres (« si je clique ici, j'en
+   * aurai N »), un compteur qui se réduirait à zéro dès qu'on active son propre filtre serait
+   * inutilisable.
+   */
+  const displayedFeasCounts = useMemo(() => {
+    let ok = 0
+    let qc = 0
+    let blocked = 0
+    for (const r of filteredRows) {
+      const st = feasibility[r.numOf]?.st
+      if (st === 'ok') ok++
+      else if (st === 'qc') qc++
+      else if (st === 'blocked') blocked++
+    }
+    return { ok, qc, blocked }
+  }, [filteredRows, feasibility])
 
   const rowGrid = showPosteCol ? ROW_GRID_ALL : ROW_GRID_ONE
 
@@ -1103,7 +1133,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 {(
                   [
                     ['all', 'Tous', null as number | null],
-                    ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
+                    ['ok', 'Faisables', feasDone ? feasCounts.ok : null],
                     ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
                     ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
                   ] as const
@@ -1286,20 +1316,20 @@ export default function Sequenceur(props: SequenceurPageProps) {
               <div className="flex items-center gap-3">
                 <div className="flex items-baseline gap-1">
                   <span className="text-[17px] font-bold tabular-nums text-foreground">
-                    {fmtH(activePoste.totalHours)}
+                    {fmtH(displayedHours)}
                   </span>
                   <span className="font-mono text-[10px] font-semibold text-muted-foreground">
                     h
                   </span>
                   {weeksEngaged !== null && (
                     <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                      ≈ {fmtJ(activePoste.totalHours, activePoste.dailyCapacityHours)} j
+                      ≈ {fmtJ(displayedHours, activePoste.dailyCapacityHours)} j
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
                   <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
-                  <span className="text-planifie">{fmtH(chargeSplit.lancable)} h lançable</span>
+                  <span className="text-planifie">{fmtH(chargeSplit.lancable)} h à lancer</span>
                 </div>
                 {sat && sat.pct !== null && (
                   <div className="flex items-center gap-2">
@@ -1329,12 +1359,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
               </div>
               {feasDone && (
                 <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
-                  <span className="text-ferme">{feasCounts.ok} faisables</span>
-                  {feasCounts.qc > 0 && (
-                    <span className="text-suggere">{feasCounts.qc} sous CQ</span>
+                  <span className="text-ferme">{displayedFeasCounts.ok} faisables</span>
+                  {displayedFeasCounts.qc > 0 && (
+                    <span className="text-suggere">{displayedFeasCounts.qc} sous CQ</span>
                   )}
-                  {feasCounts.blocked > 0 && (
-                    <span className="text-destructive">{feasCounts.blocked} bloqués</span>
+                  {displayedFeasCounts.blocked > 0 && (
+                    <span className="text-destructive">{displayedFeasCounts.blocked} bloqués</span>
                   )}
                 </div>
               )}
@@ -1343,7 +1373,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                   type="button"
                   onClick={() => toggleGroupSelect(filteredRows)}
                   disabled={batchRunning}
-                  title="Sélectionner les OF lançables et faisables de ce poste"
+                  title="Sélectionner les OF à lancer dont les matières sont disponibles"
                   className="flex items-center gap-1.5 rounded font-mono text-[11px] font-semibold text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
                 >
                   <Check size={13} strokeWidth={2.25} />
@@ -1358,7 +1388,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
               <Package size={26} strokeWidth={1.75} />
               <span className="text-[13px] font-medium">
                 {feasFilter === 'ok'
-                  ? 'Aucun OF lançable pour ces filtres.'
+                  ? 'Aucun OF faisable pour ces filtres.'
                   : 'Aucun OF pour ces filtres.'}
               </span>
               {feasLoading && (
@@ -1374,7 +1404,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 <span>
                   Faisabilité <strong>séquentielle</strong> : les OF sont servis dans l’ordre des
                   dates d’expédition, chacun consommant le stock du suivant, ligne par ligne. Un OF
-                  peut donc être lançable seul et bloqué dans la file.
+                  peut donc être faisable seul et bloqué dans la file.
                 </span>
               </div>
               {feasLoading && (
@@ -1477,7 +1507,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                               type="button"
                               onClick={() => toggleGroupSelect(group.rows)}
                               disabled={batchRunning}
-                              title="Sélectionner les OF lançables et faisables de ce poste"
+                              title="Sélectionner les OF à lancer dont les matières sont disponibles"
                               className="flex items-center gap-1 rounded text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
                             >
                               <Check size={11} strokeWidth={2.25} />
@@ -1490,7 +1520,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             <span>{fmtH(groupHours)} h</span>
                             <span className="text-ferme">{fmtH(groupCharge.ferme)} h ferme</span>
                             <span className="text-planifie">
-                              {fmtH(groupCharge.lancable)} h lançable
+                              {fmtH(groupCharge.lancable)} h à lancer
                             </span>
                           </span>
                         </div>
