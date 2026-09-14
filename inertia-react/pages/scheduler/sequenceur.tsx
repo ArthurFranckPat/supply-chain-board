@@ -615,6 +615,46 @@ export default function Sequenceur(props: SequenceurPageProps) {
     )
   }, [props.postes, posteQuery, atelierFilter, posteNatureFilter])
 
+  /** Bornes de la fenêtre de dates au format des lignes (yyyy-MM-dd, comparaison lexicographique). */
+  const dateFromIso = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null
+  const dateToIso = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null
+
+  /**
+   * Filtres STRUCTURELS : poste, atelier, nature, statut, plage de livraison. Le périmètre
+   * de travail de l'écran — à distinguer de la recherche texte et du filtre de faisabilité,
+   * qui sont des loupes de lecture.
+   *
+   * UN seul prédicat, parce qu'il était recopié à l'identique dans trois memos et oublié
+   * dans un quatrième endroit : le récapitulatif affiché après le calcul comptait sur TOUS
+   * les OF du poste, plage de dates comprise. Une divergence ici fait mentir un compteur.
+   */
+  const matchesScope = useCallback(
+    (r: SequenceurRow): boolean => {
+      if (posteFilter && r.posteCode !== posteFilter) return false
+      if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) return false
+      if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
+        return false
+      if (!statusFilter.has((r.status ?? 1) as StatusKey)) return false
+      if (dateFromIso || dateToIso) {
+        // Plage posée : un OF sans date de livraison sort du périmètre.
+        if (!r.livraisonIso) return false
+        if (dateFromIso && r.livraisonIso < dateFromIso) return false
+        if (dateToIso && r.livraisonIso > dateToIso) return false
+      }
+      return true
+    },
+    [
+      posteFilter,
+      posteNature,
+      posteNatureFilter,
+      atelierFilter,
+      posteAtelier,
+      statusFilter,
+      dateFromIso,
+      dateToIso,
+    ]
+  )
+
   const runFeasibility = useCallback(async () => {
     if (feasLoading || props.rows.length === 0 || !props.feasibilityWindow) return
     const { from, to } = props.feasibilityWindow
@@ -638,7 +678,10 @@ export default function Sequenceur(props: SequenceurPageProps) {
       for (const r of props.rows) {
         const st = map[r.numOf]
         if (!st) continue
+        // La MAP garde tous les OF du poste (le filtre change sans relancer le calcul) ;
+        // seul le RÉCAPITULATIF se limite au périmètre affiché.
         scoped[r.numOf] = st
+        if (!matchesScope(r)) continue
         if (st.st === 'ok') nbOk++
         else if (st.st === 'qc') nbQc++
         else if (st.st === 'blocked') nbBlocked++
@@ -658,29 +701,14 @@ export default function Sequenceur(props: SequenceurPageProps) {
     } finally {
       setFeasLoading(false)
     }
-  }, [feasLoading, props.rows, props.feasibilityWindow, posteFilter])
-
-  /** Bornes de la fenêtre de dates au format des lignes (yyyy-MM-dd, comparaison lexicographique). */
-  const dateFromIso = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null
-  const dateToIso = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null
+  }, [feasLoading, props.rows, props.feasibilityWindow, posteFilter, matchesScope])
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = props.rows
-      .filter((r) => !posteFilter || r.posteCode === posteFilter)
-      .filter((r) => natureOk(posteNature.get(r.posteCode), posteNatureFilter))
-      .filter(
-        (r) => atelierFilter.size === 0 || atelierFilter.has(posteAtelier.get(r.posteCode) ?? '')
-      )
-      .filter((r) => statusFilter.has((r.status ?? 1) as StatusKey))
-      .filter((r) => {
-        if (!dateFromIso && !dateToIso) return true
-        // Fenêtre posée : les OF sans date de livraison sortent du périmètre.
-        if (!r.livraisonIso) return false
-        if (dateFromIso && r.livraisonIso < dateFromIso) return false
-        if (dateToIso && r.livraisonIso > dateToIso) return false
-        return true
-      })
+      // Périmètre commun (poste, atelier, nature, statut, plage de livraison) — même
+      // prédicat que les compteurs, sinon le bandeau décrit un autre ensemble que la liste.
+      .filter(matchesScope)
       .filter(
         (r) => !detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
       )
@@ -739,13 +767,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
     })
   }, [
     props.rows,
+    matchesScope,
     detail,
-    posteFilter,
-    atelierFilter,
-    posteAtelier,
-    posteNature,
-    posteNatureFilter,
-    statusFilter,
     urgencyFilter,
     query,
     posteRank,
@@ -754,8 +777,6 @@ export default function Sequenceur(props: SequenceurPageProps) {
     feasibility,
     feasDone,
     sorting,
-    dateFromIso,
-    dateToIso,
   ])
 
   const feasCounts = useMemo(() => {
@@ -764,16 +785,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     let blocked = 0
     let unknown = 0
     for (const r of props.rows) {
-      if (posteFilter && r.posteCode !== posteFilter) continue
-      if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) continue
-      if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
-        continue
-      if (!statusFilter.has((r.status ?? 1) as StatusKey)) continue
-      if (dateFromIso || dateToIso) {
-        if (!r.livraisonIso) continue
-        if (dateFromIso && r.livraisonIso < dateFromIso) continue
-        if (dateToIso && r.livraisonIso > dateToIso) continue
-      }
+      if (!matchesScope(r)) continue
       const st = feasibility[r.numOf]?.st
       if (st === 'ok') ok++
       else if (st === 'qc') qc++
@@ -781,18 +793,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
       else unknown++
     }
     return { ok, qc, blocked, unknown }
-  }, [
-    props.rows,
-    posteFilter,
-    atelierFilter,
-    posteAtelier,
-    posteNature,
-    posteNatureFilter,
-    statusFilter,
-    feasibility,
-    dateFromIso,
-    dateToIso,
-  ])
+  }, [props.rows, matchesScope, feasibility])
 
   /**
    * Périmètre du panneau « Matières manquantes » : les OF bloqués du board tel qu'il est
@@ -808,32 +809,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const materialScope = useMemo(() => {
     const scope: { numOf: string; besoinIso: string | null }[] = []
     for (const r of props.rows) {
-      if (posteFilter && r.posteCode !== posteFilter) continue
-      if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) continue
-      if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
-        continue
-      if (!statusFilter.has((r.status ?? 1) as StatusKey)) continue
-      if (dateFromIso || dateToIso) {
-        if (!r.livraisonIso) continue
-        if (dateFromIso && r.livraisonIso < dateFromIso) continue
-        if (dateToIso && r.livraisonIso > dateToIso) continue
-      }
+      if (!matchesScope(r)) continue
       if (feasibility[r.numOf]?.st !== 'blocked') continue
       scope.push({ numOf: r.numOf, besoinIso: r.dateDebutIso })
     }
     return scope
-  }, [
-    props.rows,
-    posteFilter,
-    atelierFilter,
-    posteAtelier,
-    posteNature,
-    posteNatureFilter,
-    statusFilter,
-    feasibility,
-    dateFromIso,
-    dateToIso,
-  ])
+  }, [props.rows, matchesScope, feasibility])
 
   // Sélectionnables (affermissables) parmi les lignes affichées — utilisé par le
   // « Tout sélectionner » de la barre récap d'un poste filtré.
