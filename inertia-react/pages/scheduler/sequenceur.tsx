@@ -629,8 +629,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
    * les OF du poste, plage de dates comprise. Une divergence ici fait mentir un compteur.
    */
   const matchesScope = useCallback(
-    (r: SequenceurRow): boolean => {
-      if (posteFilter && r.posteCode !== posteFilter) return false
+    (r: SequenceurRow, opts?: { ignorePoste?: boolean }): boolean => {
+      // `ignorePoste` : le sélecteur de poste doit annoncer l'effectif de CHAQUE poste sous
+      // les autres filtres — sinon, dès qu'un poste est choisi, tous les autres tombent à
+      // zéro et on ne peut plus juger où aller.
+      if (!opts?.ignorePoste && posteFilter && r.posteCode !== posteFilter) return false
       if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) return false
       if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
         return false
@@ -708,7 +711,9 @@ export default function Sequenceur(props: SequenceurPageProps) {
     const rows = props.rows
       // Périmètre commun (poste, atelier, nature, statut, plage de livraison) — même
       // prédicat que les compteurs, sinon le bandeau décrit un autre ensemble que la liste.
-      .filter(matchesScope)
+      // Lambda explicite : `.filter(matchesScope)` passerait l'INDEX en 2e argument, qui
+      // atterrirait dans les options du prédicat.
+      .filter((r) => matchesScope(r))
       .filter(
         (r) => !detail || urgencyFilter === 'all' || urgencyOf(r.livraisonIso) === urgencyFilter
       )
@@ -862,6 +867,29 @@ export default function Sequenceur(props: SequenceurPageProps) {
     activePoste && activePoste.weeklyCapacityHours
       ? Math.round((displayedHours / activePoste.weeklyCapacityHours) * 10) / 10
       : null
+
+  /**
+   * Charge et effectif PAR POSTE, dérivés des lignes AFFICHÉES — pour les pastilles de la
+   * vue tous postes.
+   *
+   * Elles lisaient `props.postes` (serveur, tout le poste) : une pastille annonçait « 43 OF
+   * · 188 % » quand la plage de dates sélectionnée n'en montrait que douze. Le compte d'OF
+   * et la saturation doivent parler du même écran que la liste juste en dessous.
+   */
+  const posteStats = useMemo(() => {
+    const m = new Map<string, { count: number; hours: number }>()
+    for (const r of props.rows) {
+      // Filtre POSTE ignoré : chaque poste est compté sous les autres filtres, y compris
+      // quand l'un d'eux est sélectionné. La recherche texte et le filtre de faisabilité
+      // n'entrent pas non plus — ce sont des loupes de lecture, pas le périmètre.
+      if (!matchesScope(r, { ignorePoste: true })) continue
+      const e = m.get(r.posteCode) ?? { count: 0, hours: 0 }
+      e.count++
+      e.hours += r.hours
+      m.set(r.posteCode, e)
+    }
+    return m
+  }, [props.rows, matchesScope])
 
   /**
    * Compteurs de faisabilité DU BANDEAU — sur les lignes affichées, comme les heures juste
@@ -1040,9 +1068,12 @@ export default function Sequenceur(props: SequenceurPageProps) {
                         <ComboboxItem key={p.code} value={p.code}>
                           <span className="font-mono text-[12px] font-semibold">{p.code}</span>
                           <span className="truncate text-muted-foreground">{p.label}</span>
-                          {p.count > 0 && (
+                          {/* Effectif AFFICHÉ, comme partout ailleurs. L'entrée reste dans la
+                              liste même à zéro : c'est un sélecteur, pas un indicateur — la
+                              masquer empêcherait de choisir un poste pour élargir ensuite. */}
+                          {(posteStats.get(p.code)?.count ?? 0) > 0 && (
                             <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                              {p.count}
+                              {posteStats.get(p.code)?.count}
                             </span>
                           )}
                         </ComboboxItem>
@@ -1277,7 +1308,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
           {!posteFilter && (
             <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
               {filteredPostes.map((p) => {
-                const s = saturation(p.totalHours, p.weeklyCapacityHours)
+                const stats = posteStats.get(p.code)
+                // Poste dont plus aucune ligne n'est affichée : la pastille disparaît plutôt
+                // que d'annoncer une charge que la liste ne montre pas.
+                if (!stats) return null
+                const s = saturation(stats.hours, p.weeklyCapacityHours)
                 return (
                   <button
                     key={p.code}
@@ -1287,7 +1322,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                     title={p.label}
                   >
                     <span className="font-bold">{p.code}</span>
-                    <span className="text-muted-foreground">{p.count} OF</span>
+                    <span className="text-muted-foreground">{stats.count} OF</span>
                     {s.pct !== null && (
                       <span
                         className={cn(
