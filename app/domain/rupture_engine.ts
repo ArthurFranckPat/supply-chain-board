@@ -18,7 +18,9 @@
  *     futures dans le verdict « maintenant » (invariant #43) — par construction : le moteur
  *     ne reçoit même pas les réceptions.
  *  5. Deux modes, mêmes règles : « photo » (chaque OF évalué seul) et « contention »
- *     (consommation virtuelle séquentielle entre OFs triés par date besoin).
+ *     (consommation virtuelle séquentielle entre OFs triés par date besoin). La contention
+ *     accepte une PARTITION (`scopeByOf`) : chaque groupe repart du stock complet et ne se
+ *     dispute les composants qu'en interne — maille « ligne de fabrication » du board.
  *
  * Choix unifiés là où les anciens moteurs se contredisaient :
  *  - Composant FABRIQUÉ : dispo = stock net + Σ qteRestante des OF producteurs (`ofSupply`),
@@ -214,12 +216,41 @@ export function orderOfsForMode<
   })
 }
 
+/**
+ * @param scopeByOf - Partition de la contention : `numOf` → clé de scope. Chaque partition
+ *   repart du stock COMPLET et ne se dispute les composants qu'en interne. Sert à la maille
+ *   « ligne de fabrication » du board. Sans effet en mode photo (chaque OF y est déjà seul).
+ *   Un OF absent de la map forme sa propre partition — jamais d'agrégat fourre-tout, qui
+ *   ferait se disputer le stock à des OF sans rapport entre eux.
+ */
 export function evaluateRuptures(
   ofs: RuptureOfInput[],
   dataset: RuptureDataset,
-  mode: RuptureMode
+  mode: RuptureMode,
+  scopeByOf?: Map<string, string>
 ): Map<string, RuptureVerdict> {
   const verdicts = new Map<string, RuptureVerdict>()
+
+  if (mode === 'contention' && scopeByOf) {
+    const partitions = new Map<string, RuptureOfInput[]>()
+    for (const of of ofs) {
+      // Clé de repli propre à l'OF : sans scope connu, il ne partage son stock avec personne.
+      const key = scopeByOf.get(of.numOf) ?? `\u0000of:${of.numOf}`
+      const arr = partitions.get(key) ?? []
+      arr.push(of)
+      partitions.set(key, arr)
+    }
+    for (const group of partitions.values()) {
+      // Un VirtualStock NEUF par partition — son constructeur clone `stockNet`, la map
+      // d'origine n'est jamais mutée : chaque ligne voit bien le stock entier au départ.
+      const vstock = new VirtualStock(dataset.stockNet, dataset.ofSupply)
+      for (const of of orderOfsForMode(group, mode)) {
+        verdicts.set(of.numOf, checkOne(of, dataset, vstock, true))
+      }
+    }
+    return verdicts
+  }
+
   const vstock = new VirtualStock(dataset.stockNet, dataset.ofSupply)
 
   const ordered = orderOfsForMode(ofs, mode)

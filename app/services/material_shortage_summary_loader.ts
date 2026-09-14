@@ -1,18 +1,19 @@
 /**
  * Assemblage du payload « Synthèse matières » du séquenceur.
  *
- * Réutilise TEL QUEL le pipeline de `board-feasibility` (`loadOrderImpacts`, pipeline
- * 'board-badges') : appelé avec la même fenêtre et le même poste que le bouton
- * « Faisabilité » qui vient de tourner, il tape le même cache — la synthèse ne relance
- * donc aucun calcul X3. Le seul travail propre à cet endpoint est le pivot composant
+ * Réutilise TEL QUEL le pipeline de `board-feasibility` — MÊME mode, donc même pipeline et
+ * même entrée de cache que le bouton « Faisabilité » qui vient de tourner : la synthèse ne
+ * relance aucun calcul X3. Le seul travail propre à cet endpoint est le pivot composant
  * (`buildMaterialShortageSummary`) et la jointure des réceptions d'achat.
  *
- * LIMITE ASSUMÉE — le verdict par OF vient de l'override MFGMAT (snapshot, pipeline
- * 'board-badges', `preferEngineFeasibility: false`) : deux OF qui se disputent le stock
- * d'un même composant sont jugés chacun de leur côté, sans consommation virtuelle entre
- * eux. Les quantités manquantes sommées ici sont donc une BORNE BASSE : la contention
- * entre OF n'y apparaît pas. C'est le prix de la parité badge == détail (issue #11), et
- * c'est le même compromis que /ruptures. Ne pas « corriger » sans casser cette parité.
+ * Le mode décide de ce que les quantités VEULENT DIRE :
+ *   - 'sequential' ('board-contention') : les OF consomment le stock à la suite dans l'ordre
+ *     des dates d'expédition, par ligne. Les manques sont ceux de la FILE — « voilà ce qu'il
+ *     faut pour lancer tous ces OF l'un après l'autre ». C'est la question du séquenceur.
+ *   - 'immediate' ('board-badges') : verdict MFGMAT, chaque OF jugé seul face au stock. Les
+ *     quantités sont alors une BORNE BASSE — deux OF qui se disputent le même composant sont
+ *     jugés chacun de leur côté, la contention n'apparaît pas. C'est le prix de la parité
+ *     badge == détail (issue #11), le même compromis que /ruptures.
  */
 
 import boardDataset from '#services/board_dataset'
@@ -53,7 +54,9 @@ export async function loadMaterialShortageSummary(params: MaterialSummaryParams)
       workstation: params.workstation,
       mode: params.mode,
       force: !!params.force,
-      pipeline: 'board-badges',
+      // MÊME choix de pipeline que `boardFeasibility` — sinon la synthèse répondrait à une
+      // autre question que les badges affichés juste à côté, et relancerait un calcul complet.
+      pipeline: params.mode === 'sequential' ? 'board-contention' : 'board-badges',
     })
 
     // Réceptions COUVRANTES = PORDERQ complet (cache SWR global partagé avec /ruptures et

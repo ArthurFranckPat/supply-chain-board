@@ -144,7 +144,7 @@ export function MaterialShortageSheet(props: MaterialShortageSheetProps) {
             Matières manquantes
           </SheetTitle>
           <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            composants achetés · {props.scope.length} OF à l’écran
+            composants achetés · quantités pour lancer les {props.scope.length} OF de la file
           </span>
           <span className="flex-1" />
           {stats && (

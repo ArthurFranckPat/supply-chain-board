@@ -44,7 +44,8 @@ import type { Flow } from '#app/domain/models/flow'
  * MFGMAT) mais restent des points de divergence futurs distincts — ne pas les fusionner
  * en un seul nom par souci de brièveté : ce sont deux features, pas un flag.
  */
-export type OrderImpactsPipeline = 'programme' | 'board-badges' | 'ruptures' | 'proactive'
+export type OrderImpactsPipeline =
+  'programme' | 'board-badges' | 'board-contention' | 'ruptures' | 'proactive'
 
 interface PipelineMechanics {
   /**
@@ -60,12 +61,38 @@ interface PipelineMechanics {
    * verdict séquentiel pour tout OF ayant des matières réelles.
    */
   preferEngineFeasibility: boolean
+  /**
+   * Partitionne la contention par POSTE de charge : chaque ligne repart du stock complet.
+   * Maille métier du board — sur AE1 un composant est presque toujours propre à une ligne,
+   * et raisonner par ligne évite qu'un poste voisin fasse basculer une file qu'on n'a pas
+   * sous les yeux. Optimiste sur les rares composants partagés : assumé.
+   */
+  contentionByWorkstation?: boolean
+  /**
+   * `false` : un sous-ensemble fabriqué manquant reste manquant, même si un OF producteur
+   * existe (lignes d'assemblage PF — on ne présume pas qu'un OF de SE tournera à temps).
+   * Porté par le PIPELINE et non par le mode : /suivi s'appuie au contraire sur ce crédit
+   * pour sa lentille « SE couvert par un OF ».
+   */
+  creditProducingOfs?: boolean
+  /** Charge le peg contremarque (SORDERQ) — repli de date d'expédition hors fenêtre. */
+  needsPegs?: boolean
 }
 
 const PIPELINE_MECHANICS: Record<OrderImpactsPipeline, PipelineMechanics> = {
   'programme': { useWindowOfs: true, preferEngineFeasibility: true },
-  'board-badges': { useWindowOfs: true, preferEngineFeasibility: false },
-  'ruptures': { useWindowOfs: true, preferEngineFeasibility: false },
+  'board-badges': { useWindowOfs: true, preferEngineFeasibility: false, needsPegs: true },
+  // Faisabilité SÉQUENTIELLE du board (mode « Projeté ») : le moteur juge, les OF consomment
+  // le stock à la suite dans l'ordre des dates d'expédition. Répond à « quelle file puis-je
+  // lancer sur ma ligne », là où 'board-badges' répond « cet OF, pris seul, est-il lançable ».
+  'board-contention': {
+    useWindowOfs: true,
+    preferEngineFeasibility: true,
+    contentionByWorkstation: true,
+    creditProducingOfs: false,
+    needsPegs: true,
+  },
+  'ruptures': { useWindowOfs: true, preferEngineFeasibility: false, needsPegs: true },
   'proactive': { useWindowOfs: false, preferEngineFeasibility: true },
 }
 
@@ -152,7 +179,13 @@ export async function loadOrderImpacts(
     force = false,
     pipeline,
   } = opts
-  const { useWindowOfs, preferEngineFeasibility } = PIPELINE_MECHANICS[pipeline]
+  const {
+    useWindowOfs,
+    preferEngineFeasibility,
+    contentionByWorkstation,
+    creditProducingOfs,
+    needsPegs,
+  } = PIPELINE_MECHANICS[pipeline]
 
   // ISO sur les composantes LOCALES (pas toISOString, qui repasse en UTC et recule d'un jour
   // en fuseau UTC+1/+2 quand l'heure locale est minuit → scoping getLive décalé).
@@ -304,9 +337,12 @@ export async function loadOrderImpacts(
   const operationNumOfs = [...windowNumOfs, ...matchingOnlySupply.map(numOfDe).filter(Boolean)]
 
   // Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé) → sauté hors
-  // board/ruptures. MFGMAT en revanche est chargé pour TOUTES les vues (issue conso séquentielle
-  // ignorant l'alloc réelle d'un OF ferme) : le moteur en a besoin pour créditer l'ALLQTY déjà
-  // posée sur un OF avant de le confronter à la contention théorique (règle 1, rupture-engine.ts).
+  // board/ruptures. Le besoin suit désormais le PIPELINE (`needsPegs`) et non plus la mécanique
+  // de faisabilité : 'board-contention' fait juger le moteur ET a besoin du peg comme repli de
+  // date d'expédition pour les OF dont la commande sort de la fenêtre.
+  // MFGMAT en revanche est chargé pour TOUTES les vues (issue conso séquentielle ignorant
+  // l'alloc réelle d'un OF ferme) : le moteur en a besoin pour créditer l'ALLQTY déjà posée
+  // sur un OF avant de le confronter à la contention théorique (règle 1, rupture-engine.ts).
   let ofPegs = new Map<string, OfCommandePeg>()
   let mfgByOf: Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>
 
@@ -314,7 +350,7 @@ export async function loadOrderImpacts(
   // les OF fantômes de l'offre AVANT que quoi que ce soit ne s'appuie dessus.
   let operations: import('#repositories/operation_repository').OperationRecord[]
 
-  if (!preferEngineFeasibility) {
+  if (needsPegs) {
     const [pegs, mfg, ops] = await timeStage('loadOrderImpacts.pegs+mfg+ope', () =>
       Promise.all([
         boardDataset.getOfPegs(windowNumOfs),
@@ -475,6 +511,36 @@ export async function loadOrderImpacts(
     fabricationHoursByOf.set(id, Math.round(hours * 10) / 10)
   }
 
+  /**
+   * Partition de la contention par POSTE : même résolution que la charge (override d'abord,
+   * puis gamme de l'article). Un OF sans poste connu formera sa propre partition côté moteur
+   * — il ne se dispute le stock avec personne, plutôt que d'atterrir dans un fourre-tout.
+   *
+   * Sans objet quand un poste est déjà filtré (`workstation`) : les OF sont alors tous de la
+   * même ligne. La map est construite quand même, elle ne coûte rien et rend le résultat
+   * identique que l'utilisateur ait filtré ou non — sinon les badges bougeraient au moindre
+   * clic de filtre.
+   */
+  const contentionScopeByOf = contentionByWorkstation
+    ? new Map(
+        finalOfFlows
+          .map((f) => {
+            const id = numOfDe(f)
+            if (!id) return null
+            const poste = overrideMap.get(id)?.workstation || wstByArticle.get(f.article) || ''
+            return poste ? ([id, poste] as const) : null
+          })
+          .filter((e): e is readonly [string, string] => e !== null)
+      )
+    : undefined
+
+  // Repli de date d'expédition pour les OF que le matching de la fenêtre n'a pas alloués
+  // (commande hors fenêtre) — chaîne canonique : matcher d'abord, peg contremarque ensuite.
+  const pegShipmentByOf = new Map<string, Date>()
+  for (const [numOf, peg] of ofPegs) {
+    if (peg.dateExpedition) pegShipmentByOf.set(numOf, peg.dateExpedition)
+  }
+
   const result = evaluateOrderImpacts(
     filteredDemands,
     allSupply,
@@ -488,7 +554,12 @@ export async function loadOrderImpacts(
     undefined,
     mfgByOf,
     fabricationDaysByOf,
-    matchingOnlySupply
+    matchingOnlySupply,
+    {
+      ...(contentionScopeByOf ? { scopeByOf: contentionScopeByOf } : {}),
+      ...(creditProducingOfs === false ? { creditProducingOfs: false } : {}),
+      ...(pegShipmentByOf.size > 0 ? { pegShipmentByOf } : {}),
+    }
   )
 
   // Charge par OF pour l'axe charge du diff (poste gamme + heures + date de fin effective).

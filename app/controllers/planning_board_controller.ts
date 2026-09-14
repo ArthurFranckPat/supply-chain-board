@@ -89,15 +89,26 @@ export default class PlanningBoardController {
     // Pipeline partagé (issue #11) — voir app/services/order_impacts_loader.ts.
     // useWindowOfs : OFs scopés par STRDAT (comme le board /programme) → badges alignés sur
     // les OF VISIBLES (sinon on badgeait des OF ENDDAT hors board) + demande WIPTYP=1+2 sans
-    // OFs (getDemandAndReception lean). Phase 2 (MFGMAT+pegs) conservée : badges MFGMAT-based
-    // (parité panneau de détail, issue #11).
+    // OFs (getDemandAndReception lean).
+    //
+    // Le MODE choisit le pipeline, et c'est enfin ce que son nom annonce :
+    //   - 'immediate' → 'board-badges' : verdict MFGMAT (photo), chaque OF seul face au stock,
+    //     parité badge == détail garantie (issue #11) ;
+    //   - 'sequential' → 'board-contention' : le moteur juge, les OF consomment le stock à la
+    //     suite dans l'ordre des dates d'expédition, par ligne de fabrication.
+    //
+    // Avant, 'sequential' était accepté puis ANNULÉ : le verdict MFGMAT précalculé écrasait le
+    // moteur pour tout OF ayant des matières réelles, donc le bouton « Projeté » du board et le
+    // calcul de faisabilité du séquenceur rendaient la photo. Un badge « lançable » sur 12 OF
+    // alors que le stock n'en couvre que 4 — le même stock montré 12 fois.
+    const sequential = mode === 'sequential'
     const { result } = await loadOrderImpacts({
       from: windowFrom,
       to: windowTo,
       workstation: workstationFilter,
       mode: mode as 'immediate' | 'sequential' | undefined,
       force: !!ctx.request.input('refresh'),
-      pipeline: 'board-badges',
+      pipeline: sequential ? 'board-contention' : 'board-badges',
     })
 
     return result

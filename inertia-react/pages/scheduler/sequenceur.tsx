@@ -1175,7 +1175,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
             className={cn(PILL, 'gap-1.5')}
             onClick={() => void runFeasibility()}
             disabled={feasLoading || props.rows.length === 0}
-            title="Calculer la faisabilité matières"
+            title="Calculer la file : quels OF sont lançables à la suite sur cette ligne"
           >
             <RefreshCw size={15} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
             {feasLoading ? 'Calcul…' : 'Faisabilité'}
@@ -1340,14 +1340,15 @@ export default function Sequenceur(props: SequenceurPageProps) {
             <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
               <Info size={14} strokeWidth={1.75} />
               <span>
-                Board tabulaire : mêmes OF que /programme. Lancez la faisabilité pour repérer les
-                lançables / bloqués.
+                Faisabilité <strong>séquentielle</strong> : les OF sont servis dans l’ordre des
+                dates d’expédition, chacun consommant le stock du suivant, ligne par ligne. Un OF
+                peut donc être lançable seul et bloqué dans la file.
               </span>
             </div>
             {feasLoading && (
               <div className="flex flex-none items-center gap-2 border-b border-brand/20 bg-brand-soft/40 px-7 py-1.5 font-mono text-[10px] text-foreground">
                 <RefreshCw size={14} strokeWidth={1.75} className="animate-spin text-brand" />
-                <span>Calcul de faisabilité matières (même moteur que /programme)…</span>
+                <span>Calcul de la file : consommation séquentielle du stock sur la ligne…</span>
               </div>
             )}
             <div className="flex-1 overflow-auto pb-20">

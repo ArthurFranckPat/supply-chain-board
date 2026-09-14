@@ -279,3 +279,99 @@ test.group('rupture-engine — contention (règle 5)', () => {
     assert.deepEqual(verdicts.get('OF2')!.consumed, { C: 10 })
   })
 })
+
+/**
+ * Partition de la contention (`scopeByOf`) — maille « ligne de fabrication » du board.
+ *
+ * Le séquenceur répond à « quelle file puis-je lancer sur MA ligne », pas à « cet OF pris
+ * seul est-il lançable ». La file se sert dans l'ordre, chaque OF décrémentant le stock pour
+ * le suivant ; deux lignes distinctes ne se disputent pas leurs composants.
+ */
+test.group('rupture-engine — contention partitionnée', () => {
+  const dataset = (stock: number): RuptureDataset => ({
+    articles: new Map([
+      ['PF', mkArticle('PF', 'PF', 'FABRICATION')],
+      ['C1', mkArticle('C1', 'MP', 'ACHAT')],
+    ]),
+    nomenclatures: new Map([mkBom('PF', [mkEntry('PF', 'C1', 1, 'ACHETE')])]),
+    stockNet: new Map([['C1', stock]]),
+  })
+
+  const jour = (n: number) => new Date(`2026-07-0${n}T00:00:00`)
+
+  test('sans partition : la file se sert dans l’ordre et s’arrête au stock', ({ assert }) => {
+    // 15 pièces pour trois OF de 10 : les deux premiers passent (10 + 5 → le 2e est déjà court).
+    const ofs = [
+      mkOf('OF1', 'PF', 10, 1, jour(1)),
+      mkOf('OF2', 'PF', 10, 1, jour(2)),
+      mkOf('OF3', 'PF', 10, 1, jour(3)),
+    ]
+    const v = evaluateRuptures(ofs, dataset(15), 'contention')
+    assert.isTrue(v.get('OF1')!.feasible)
+    assert.deepEqual(directMissing(v.get('OF2')!), { C1: 5 })
+    assert.deepEqual(directMissing(v.get('OF3')!), { C1: 10 })
+  })
+
+  test('partition : chaque ligne repart du stock COMPLET', ({ assert }) => {
+    // Mêmes OF, mêmes 15 pièces, mais OF2 est sur une autre ligne : il ne subit plus la
+    // consommation d'OF1. C'est le choix métier assumé (composants quasi jamais partagés
+    // entre lignes) — et sa contrepartie : le même stock est promis aux deux lignes.
+    const ofs = [
+      mkOf('OF1', 'PF', 10, 1, jour(1)),
+      mkOf('OF2', 'PF', 10, 1, jour(2)),
+      mkOf('OF3', 'PF', 10, 1, jour(3)),
+    ]
+    const scope = new Map([
+      ['OF1', 'LIGNE_A'],
+      ['OF3', 'LIGNE_A'],
+      ['OF2', 'LIGNE_B'],
+    ])
+    const v = evaluateRuptures(ofs, dataset(15), 'contention', scope)
+    assert.isTrue(v.get('OF1')!.feasible)
+    // Seul sur sa ligne : les 15 pièces sont pour lui.
+    assert.deepEqual(directMissing(v.get('OF2')!), {})
+    // Derrière OF1 sur LIGNE_A : il ne reste que 5.
+    assert.deepEqual(directMissing(v.get('OF3')!), { C1: 5 })
+  })
+
+  test('OF sans scope : partition à lui seul, jamais un fourre-tout commun', ({ assert }) => {
+    // Deux OF hors référentiel poste ne doivent pas se disputer le stock entre eux —
+    // les regrouper sous une clé unique inventerait une contention qui n'existe pas.
+    const ofs = [mkOf('OF1', 'PF', 10, 1, jour(1)), mkOf('OF2', 'PF', 10, 1, jour(2))]
+    const v = evaluateRuptures(ofs, dataset(10), 'contention', new Map())
+    assert.deepEqual(directMissing(v.get('OF1')!), {})
+    assert.deepEqual(directMissing(v.get('OF2')!), {})
+  })
+
+  test('la partition est sans effet en photo (chaque OF y est déjà seul)', ({ assert }) => {
+    const ofs = [mkOf('OF1', 'PF', 10, 1, jour(1)), mkOf('OF2', 'PF', 10, 1, jour(2))]
+    const scope = new Map([
+      ['OF1', 'LIGNE_A'],
+      ['OF2', 'LIGNE_A'],
+    ])
+    const v = evaluateRuptures(ofs, dataset(10), 'photo', scope)
+    assert.deepEqual(directMissing(v.get('OF1')!), {})
+    assert.deepEqual(directMissing(v.get('OF2')!), {})
+  })
+
+  test('ordre de la file : date de besoin, puis statut, puis numéro', ({ assert }) => {
+    // À date égale, le FERME sert avant le suggéré — il est lancé, il va tourner.
+    const ofs = [
+      mkOf('OF-SUGG', 'PF', 10, 3, jour(2)),
+      mkOf('OF-FERME', 'PF', 10, 1, jour(2)),
+      mkOf('OF-TARD', 'PF', 10, 1, jour(5)),
+    ]
+    const v = evaluateRuptures(ofs, dataset(10), 'contention')
+    assert.deepEqual(directMissing(v.get('OF-FERME')!), {})
+    assert.deepEqual(directMissing(v.get('OF-SUGG')!), { C1: 10 })
+    assert.deepEqual(directMissing(v.get('OF-TARD')!), { C1: 10 })
+  })
+
+  test('OF sans date d’engagement client : servi en dernier', ({ assert }) => {
+    // Une suggestion orpheline ne prend pas le stock d'une commande ferme datée.
+    const ofs = [mkOf('OF-ORPHELIN', 'PF', 10, 1, null), mkOf('OF-DATE', 'PF', 10, 1, jour(9))]
+    const v = evaluateRuptures(ofs, dataset(10), 'contention')
+    assert.deepEqual(directMissing(v.get('OF-DATE')!), {})
+    assert.deepEqual(directMissing(v.get('OF-ORPHELIN')!), { C1: 10 })
+  })
+})

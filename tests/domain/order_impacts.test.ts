@@ -585,14 +585,18 @@ test.group('netDemandsByAllocation', () => {
       window,
       'sequential'
     )
-    // Rule 3 (rupture-engine.ts) : OF ferme → `feasible` reste true quoi qu'il arrive (il est
-    // lancé). Le faux signal remonte via `missingComponents` (colonne « Goulots » côté vue
-    // proactive) : sans MFGMAT injecté, le moteur redemande le besoin BOM théorique déjà
-    // consommé par OF-B dans la contention → C1 ressort manquant sur un OF pourtant couvert.
+    // Ordre de la file = date d'EXPÉDITION de la commande servie, puis statut. Les deux OF
+    // servent CMD-1 : à date égale, le FERME passe avant le suggéré. OF-A prend donc le stock
+    // en premier et ne peut plus afficher de manque fantôme — c'était le cas avant, quand la
+    // file était ordonnée sur le jalonnement CBN (OF-B daté plus tôt passait devant).
+    //
+    // Cette assertion verrouille la règle d'ordre : si quelqu'un remet le jalonnement, OF-B
+    // repasse devant et OF-A se remet à afficher un composant fantôme.
     const ofA = withoutMfgmat.orders[0].ofs.find((o) => o.numOf === 'OF-A')
-    assert.isTrue(
-      Object.keys(ofA?.missingComponents ?? {}).length > 0,
-      'sans MFGMAT : OF-A affiche un composant manquant fantôme (contention théorique)'
+    assert.deepEqual(
+      ofA?.missingComponents,
+      {},
+      'OF ferme servi en premier à date d’expédition égale : aucun manque fantôme'
     )
 
     const mfgMaterialsByOf = new Map([['OF-A', [{ article: 'C1', remaining: 60, allocated: 60 }]]])

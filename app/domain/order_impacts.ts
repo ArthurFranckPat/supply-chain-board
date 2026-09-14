@@ -298,6 +298,36 @@ function effectiveDateFin(
  *   matières réelles). S'il existe pour un OF, il SURCHARGE le verdict théorique du moteur
  *   → garantit la cohérence avec le détail OF (issue #11).
  */
+/**
+ * Réglages de la contention séquentielle — portés par le PIPELINE appelant, jamais par le
+ * mode : /suivi (proactive) et le board n'ont pas les mêmes règles de couverture.
+ */
+export interface ContentionOptions {
+  /**
+   * `numOf` → clé de partition. En contention, chaque partition repart du stock COMPLET et
+   * ne se dispute les composants qu'en interne. Sert à la maille « ligne de fabrication » du
+   * board : sur AE1, un composant est presque toujours propre à une ligne, et raisonner par
+   * ligne évite qu'un poste voisin fasse basculer une file qu'on n'a pas sous les yeux.
+   *
+   * Contrepartie ASSUMÉE : sur les rares composants réellement partagés entre lignes, le même
+   * stock est promis à deux partitions. Le board est alors optimiste.
+   *
+   * Absent → une seule partition (contention globale, comportement historique).
+   */
+  scopeByOf?: Map<string, string>
+  /**
+   * `false` : un sous-ensemble fabriqué manquant RESTE manquant, même si un OF producteur
+   * existe. Règle métier des lignes d'assemblage de produits finis — on ne présume pas qu'un
+   * OF de sous-ensemble tournera à temps. Défaut `true` (comportement historique, /suivi).
+   */
+  creditProducingOfs?: boolean
+  /**
+   * `numOf` → date d'expédition client, pour les OF que le matching de la fenêtre n'a pas
+   * alloués (commande hors fenêtre) — repli peg contremarque fourni par l'appelant.
+   */
+  pegShipmentByOf?: Map<string, Date>
+}
+
 export function evaluateOrderImpacts(
   demands: Flow[],
   supplyFlows: Flow[],
@@ -344,7 +374,12 @@ export function evaluateOrderImpacts(
    * n'entrent NI dans les verdicts de faisabilité (`ofInputs`), NI dans `result.ofs`, NI dans
    * le stock net. Sinon : lignes /ruptures hors fenêtre + MFGMAT/MFGOPE dimensionnés dessus.
    */
-  matchingOnlySupply?: Flow[]
+  matchingOnlySupply?: Flow[],
+  /**
+   * Réglages de la contention séquentielle (mode 'sequential'). Absent → comportement
+   * historique : contention globale, production OF créditée.
+   */
+  contention?: ContentionOptions
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -399,23 +434,57 @@ export function evaluateOrderImpacts(
     }
     stockNetStrict.set(f.article, (stockNetStrict.get(f.article) ?? 0) + delta)
   }
+  /**
+   * Date qui POSITIONNE un OF dans la file de contention = date d'EXPÉDITION de la commande
+   * cliente qu'il sert, la plus urgente s'il en sert plusieurs.
+   *
+   * Décision métier : le jalonnement CBN (STRDAT/ENDDAT) est une hypothèse du système, pas un
+   * engagement. Qu'il place le début de fabrication le 1er ou le 3, la commande part le 5 —
+   * seule cette date-là est vraie. (Même refus du jalonnement que `shortages.ts`.)
+   *
+   * L'OF n'est jamais découpé : servir deux commandes ne le scinde pas, on ne s'arrête pas au
+   * milieu d'un OF pour reprendre trois jours plus tard. Il est lancé UNE fois, au rythme de
+   * sa commande la plus pressée, consomme ses composants en entier, et sert ensuite ses
+   * commandes avec ce qu'il a produit.
+   *
+   * Repli, dans l'ordre : matching de la fenêtre → peg contremarque (commande hors fenêtre) →
+   * aucune date. Un OF sans engagement client passe EN DERNIER : une suggestion spéculative ne
+   * prend pas le stock d'une commande ferme.
+   */
+  const shipmentByOf = new Map<string, Date>()
+  for (const match of matchingResults) {
+    const exp = match.demandFlow.date
+    if (!exp) continue
+    for (const alloc of match.ofAllocations) {
+      const id = (alloc.ofFlow.origin as any).id ?? ''
+      if (!id) continue
+      const known = shipmentByOf.get(id)
+      if (!known || exp < known) shipmentByOf.set(id, exp)
+    }
+  }
+
   const engineOfs: RuptureOfInput[] = ofInputs.map((o) => {
-    const iso = o.dateDebut ?? o.dateFin
+    const shipment = shipmentByOf.get(o.numOf) ?? contention?.pegShipmentByOf?.get(o.numOf) ?? null
     return {
       numOf: o.numOf,
       article: o.article,
       qteRestante: o.qteRestante,
       statutNum: o.statutNum,
-      dateBesoin: iso ? new Date(iso) : null,
+      dateBesoin: shipment,
       materials: mfgMaterialsByOf?.get(o.numOf) ?? null,
     }
   })
   const engineMode = mode === 'sequential' ? 'contention' : 'photo'
-  const ofSupply = buildOfSupply(engineOfs)
+  // Production OF créditée par défaut ; coupée quand l'appelant l'exige (lignes d'assemblage
+  // PF : un SE manquant reste manquant). Map vide ⇒ les passes « sans production » se sautent
+  // d'elles-mêmes, et `seComponents` sort vide — il n'y a plus de couverture à révéler.
+  const ofSupply =
+    contention?.creditProducingOfs === false ? new Map<string, number>() : buildOfSupply(engineOfs)
   const verdicts = evaluateRuptures(
     engineOfs,
     { articles, nomenclatures, stockNet, ofSupply },
-    engineMode
+    engineMode,
+    contention?.scopeByOf
   )
   // 2e passe SANS le CQ — uniquement si du stock Q existe dans le périmètre (sinon aucun
   // écart possible et on évite le coût). Pur calcul mémoire : zéro requête X3 en plus.
@@ -428,7 +497,8 @@ export function evaluateOrderImpacts(
           stockNet: stockNetStrict,
           ofSupply,
         },
-        engineMode
+        engineMode,
+        contention?.scopeByOf
       )
     : undefined
   // 3e passe SANS la production OF — révèle les sous-ensembles fabriqués dont la couverture
@@ -439,7 +509,12 @@ export function evaluateOrderImpacts(
   // Même coût qu'une passe CQ (pur mémoire), sautée si aucun OF ne produit quoi que ce soit.
   const verdictsNoOfSupply =
     ofSupply.size > 0
-      ? evaluateRuptures(engineOfs, { articles, nomenclatures, stockNet }, engineMode)
+      ? evaluateRuptures(
+          engineOfs,
+          { articles, nomenclatures, stockNet },
+          engineMode,
+          contention?.scopeByOf
+        )
       : undefined
   /**
    * 4e passe : ni CQ, ni production. C'est le SEUL point de référence honnête pour un SE
@@ -463,7 +538,8 @@ export function evaluateOrderImpacts(
       ? evaluateRuptures(
           engineOfs,
           { articles, nomenclatures, stockNet: stockNetStrict },
-          engineMode
+          engineMode,
+          contention?.scopeByOf
         )
       : undefined
 
