@@ -56,6 +56,7 @@ import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 import { MaterialShortageSheet } from '@r/components/sequenceur/material-shortage-sheet'
 import { FeasibilityTooltip } from '@r/components/sequenceur/feasibility-tooltip'
+import { TooltipProvider } from '@r/components/ui/tooltip'
 
 /**
  * Page « Séquenceur » — board /programme en table (#46/#100 unifiés).
@@ -951,767 +952,788 @@ export default function Sequenceur(props: SequenceurPageProps) {
   )
 
   return (
-    <AppLayout
-      title="Séquenceur"
-      active="sequenceur"
-      subtitle="Board tabulaire · OF ferme / planifié / suggéré par poste"
-      theme="airbnb"
-      dense
-      scrollable={false}
-    >
-      <Head title="Séquenceur" />
-      <div className="flex h-full min-h-0 flex-col">
-        {props.x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
-            <span className="font-bold">Matching partiel :</span>
-            <span className="font-mono">{props.x3Error}</span>
-          </div>
-        )}
+    // UN provider pour toute la page : c'est lui qui porte le délai d'ouverture (Base UI
+    // 1.6 ne l'accepte plus sur chaque tooltip), et le board en compte des centaines.
+    <TooltipProvider delay={250} closeDelay={0}>
+      <AppLayout
+        title="Séquenceur"
+        active="sequenceur"
+        subtitle="Board tabulaire · OF ferme / planifié / suggéré par poste"
+        theme="airbnb"
+        dense
+        scrollable={false}
+      >
+        <Head title="Séquenceur" />
+        <div className="flex h-full min-h-0 flex-col">
+          {props.x3Error && (
+            <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+              <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
+              <span className="font-bold">Matching partiel :</span>
+              <span className="font-mono">{props.x3Error}</span>
+            </div>
+          )}
 
-        <ToolbarRow className="select-none text-xs font-semibold text-secondary-foreground" noWrap>
-          <div ref={anchorRef} className="shrink-0">
-            <Combobox
-              value={posteFilter ?? ''}
-              onValueChange={(v) => selectPoste(v ? String(v) : null)}
-              onInputValueChange={setPosteQuery}
-            >
-              <ComboboxInput placeholder="Tous les postes" className="w-[220px]" showClear />
-              <ComboboxContent anchor={anchorRef}>
-                <ComboboxList>
-                  {filteredPostes.length === 0 ? (
-                    <ComboboxEmpty>Aucun poste ne correspond.</ComboboxEmpty>
-                  ) : (
-                    filteredPostes.map((p) => (
-                      <ComboboxItem key={p.code} value={p.code}>
-                        <span className="font-mono text-[12px] font-semibold">{p.code}</span>
-                        <span className="truncate text-muted-foreground">{p.label}</span>
-                        {p.count > 0 && (
-                          <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                            {p.count}
-                          </span>
-                        )}
-                      </ComboboxItem>
-                    ))
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          </div>
+          <ToolbarRow
+            className="select-none text-xs font-semibold text-secondary-foreground"
+            noWrap
+          >
+            <div ref={anchorRef} className="shrink-0">
+              <Combobox
+                value={posteFilter ?? ''}
+                onValueChange={(v) => selectPoste(v ? String(v) : null)}
+                onInputValueChange={setPosteQuery}
+              >
+                <ComboboxInput placeholder="Tous les postes" className="w-[220px]" showClear />
+                <ComboboxContent anchor={anchorRef}>
+                  <ComboboxList>
+                    {filteredPostes.length === 0 ? (
+                      <ComboboxEmpty>Aucun poste ne correspond.</ComboboxEmpty>
+                    ) : (
+                      filteredPostes.map((p) => (
+                        <ComboboxItem key={p.code} value={p.code}>
+                          <span className="font-mono text-[12px] font-semibold">{p.code}</span>
+                          <span className="truncate text-muted-foreground">{p.label}</span>
+                          {p.count > 0 && (
+                            <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                              {p.count}
+                            </span>
+                          )}
+                        </ComboboxItem>
+                      ))
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+            </div>
 
-          <DateWindowPill
-            open={dateOpen}
-            onOpenChange={setDateOpen}
-            selected={dateRange}
-            onSelect={(range) => setDateRangePersisted(range ?? undefined)}
-            onClear={() => setDateRangePersisted(undefined)}
-            emptyLabel="Dates"
-            align="left"
-            title="Filtrer par date de livraison"
-          />
+            <DateWindowPill
+              open={dateOpen}
+              onOpenChange={setDateOpen}
+              selected={dateRange}
+              onSelect={(range) => setDateRangePersisted(range ?? undefined)}
+              onClear={() => setDateRangePersisted(undefined)}
+              emptyLabel="Dates"
+              align="left"
+              title="Filtrer par date de livraison"
+            />
 
-          {/* Standard /suivi : un seul déclencheur regroupe les filtres non
+            {/* Standard /suivi : un seul déclencheur regroupe les filtres non
               essentiels (nature de poste, statut, faisabilité, urgence,
               atelier) — la rangée ne garde que poste, dates, action et
               recherche. */}
-          <FilterMenu label="Filtres" indicators={filterIndicators}>
-            <div className="flex items-center justify-between">
-              <FilterMenuSectionLabel>Poste</FilterMenuSectionLabel>
-              {natureFiltered && (
-                <button
-                  type="button"
-                  className={RESET_BTN_CLASS}
-                  onClick={resetPosteNature}
-                  title="Tous les types de poste"
-                >
-                  ✕
-                </button>
+            <FilterMenu label="Filtres" indicators={filterIndicators}>
+              <div className="flex items-center justify-between">
+                <FilterMenuSectionLabel>Poste</FilterMenuSectionLabel>
+                {natureFiltered && (
+                  <button
+                    type="button"
+                    className={RESET_BTN_CLASS}
+                    onClick={resetPosteNature}
+                    title="Tous les types de poste"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <Segment className="w-full flex-wrap">
+                {POSTE_NATURE_CHIPS.map(({ k, label }) => (
+                  <SegmentButton
+                    key={k}
+                    active={posteNatureFilter.has(k)}
+                    onClick={() => togglePosteNature(k)}
+                  >
+                    {label}
+                  </SegmentButton>
+                ))}
+              </Segment>
+
+              <div className="my-2.5 border-t border-rule-soft" />
+              <div className="flex items-center justify-between">
+                <FilterMenuSectionLabel>Statut</FilterMenuSectionLabel>
+                {statusFiltered && (
+                  <button
+                    type="button"
+                    className={RESET_BTN_CLASS}
+                    onClick={resetStatus}
+                    title="Tous les statuts"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <Segment className="w-full flex-wrap">
+                {STATUS_FILTER_CHIPS.map(({ k, label }) => (
+                  <SegmentButton
+                    key={k}
+                    active={statusFilter.has(k)}
+                    onClick={() => toggleStatus(k)}
+                  >
+                    {label}
+                  </SegmentButton>
+                ))}
+              </Segment>
+
+              <div className="my-2.5 border-t border-rule-soft" />
+              <div className="flex items-center justify-between">
+                <FilterMenuSectionLabel>Faisabilité</FilterMenuSectionLabel>
+                {feasFilter !== 'all' && (
+                  <button
+                    type="button"
+                    className={RESET_BTN_CLASS}
+                    onClick={() => setFeasFilterPersisted('all')}
+                    title="Toutes les faisabilités"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <Segment className="w-full flex-wrap">
+                {(
+                  [
+                    ['all', 'Tous', null as number | null],
+                    ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
+                    ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
+                    ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
+                  ] as const
+                ).map(([id, label, count]) => (
+                  <SegmentButton
+                    key={id}
+                    role="radio"
+                    active={feasFilter === id}
+                    onClick={() => setFeasFilterPersisted(id)}
+                  >
+                    {label}
+                    {count !== null && count > 0 && (
+                      <span className="ml-1 tabular-nums opacity-70">{count}</span>
+                    )}
+                  </SegmentButton>
+                ))}
+              </Segment>
+
+              {detail && (
+                <>
+                  <div className="my-2.5 border-t border-rule-soft" />
+                  <div className="flex items-center justify-between">
+                    <FilterMenuSectionLabel>Urgence livraison</FilterMenuSectionLabel>
+                    {urgencyFilter !== 'all' && (
+                      <button
+                        type="button"
+                        className={RESET_BTN_CLASS}
+                        onClick={() => setUrgencyPersisted('all')}
+                        title="Toutes les urgences"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <Segment className="w-full flex-wrap">
+                    {(
+                      [
+                        ['all', 'Toutes'],
+                        ['overdue', 'En retard'],
+                        ['week', 'Cette semaine'],
+                        ['later', 'À venir'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <SegmentButton
+                        key={id}
+                        role="radio"
+                        active={urgencyFilter === id}
+                        onClick={() => setUrgencyPersisted(id)}
+                      >
+                        {label}
+                      </SegmentButton>
+                    ))}
+                  </Segment>
+                </>
               )}
-            </div>
-            <Segment className="w-full flex-wrap">
-              {POSTE_NATURE_CHIPS.map(({ k, label }) => (
-                <SegmentButton
-                  key={k}
-                  active={posteNatureFilter.has(k)}
-                  onClick={() => togglePosteNature(k)}
-                >
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
 
-            <div className="my-2.5 border-t border-rule-soft" />
-            <div className="flex items-center justify-between">
-              <FilterMenuSectionLabel>Statut</FilterMenuSectionLabel>
-              {statusFiltered && (
-                <button
-                  type="button"
-                  className={RESET_BTN_CLASS}
-                  onClick={resetStatus}
-                  title="Tous les statuts"
-                >
-                  ✕
-                </button>
+              {props.ateliers.length > 0 && (
+                <>
+                  <div className="my-2.5 border-t border-rule-soft" />
+                  <div className="flex items-center justify-between">
+                    <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
+                    {ateliersFiltered && (
+                      <button
+                        type="button"
+                        className={RESET_BTN_CLASS}
+                        onClick={resetAteliers}
+                        title="Tous les ateliers"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <Segment className="w-full flex-wrap">
+                    {props.ateliers.map((a) => (
+                      <SegmentButton
+                        key={a.code}
+                        active={atelierFilter.has(a.code)}
+                        onClick={() => toggleAtelier(a.code)}
+                        title={a.code}
+                      >
+                        {a.label}
+                      </SegmentButton>
+                    ))}
+                  </Segment>
+                </>
               )}
-            </div>
-            <Segment className="w-full flex-wrap">
-              {STATUS_FILTER_CHIPS.map(({ k, label }) => (
-                <SegmentButton key={k} active={statusFilter.has(k)} onClick={() => toggleStatus(k)}>
-                  {label}
-                </SegmentButton>
-              ))}
-            </Segment>
+            </FilterMenu>
 
-            <div className="my-2.5 border-t border-rule-soft" />
-            <div className="flex items-center justify-between">
-              <FilterMenuSectionLabel>Faisabilité</FilterMenuSectionLabel>
-              {feasFilter !== 'all' && (
-                <button
-                  type="button"
-                  className={RESET_BTN_CLASS}
-                  onClick={() => setFeasFilterPersisted('all')}
-                  title="Toutes les faisabilités"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <Segment className="w-full flex-wrap">
-              {(
-                [
-                  ['all', 'Tous', null as number | null],
-                  ['ok', 'Lançables', feasDone ? feasCounts.ok : null],
-                  ['qc', 'Sous CQ', feasDone ? feasCounts.qc : null],
-                  ['blocked', 'Bloqués', feasDone ? feasCounts.blocked : null],
-                ] as const
-              ).map(([id, label, count]) => (
-                <SegmentButton
-                  key={id}
-                  role="radio"
-                  active={feasFilter === id}
-                  onClick={() => setFeasFilterPersisted(id)}
-                >
-                  {label}
-                  {count !== null && count > 0 && (
-                    <span className="ml-1 tabular-nums opacity-70">{count}</span>
-                  )}
-                </SegmentButton>
-              ))}
-            </Segment>
+            <ToolbarSpacer />
 
-            {detail && (
-              <>
-                <div className="my-2.5 border-t border-rule-soft" />
-                <div className="flex items-center justify-between">
-                  <FilterMenuSectionLabel>Urgence livraison</FilterMenuSectionLabel>
-                  {urgencyFilter !== 'all' && (
-                    <button
-                      type="button"
-                      className={RESET_BTN_CLASS}
-                      onClick={() => setUrgencyPersisted('all')}
-                      title="Toutes les urgences"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                <Segment className="w-full flex-wrap">
-                  {(
-                    [
-                      ['all', 'Toutes'],
-                      ['overdue', 'En retard'],
-                      ['week', 'Cette semaine'],
-                      ['later', 'À venir'],
-                    ] as const
-                  ).map(([id, label]) => (
-                    <SegmentButton
-                      key={id}
-                      role="radio"
-                      active={urgencyFilter === id}
-                      onClick={() => setUrgencyPersisted(id)}
-                    >
-                      {label}
-                    </SegmentButton>
-                  ))}
-                </Segment>
-              </>
-            )}
-
-            {props.ateliers.length > 0 && (
-              <>
-                <div className="my-2.5 border-t border-rule-soft" />
-                <div className="flex items-center justify-between">
-                  <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
-                  {ateliersFiltered && (
-                    <button
-                      type="button"
-                      className={RESET_BTN_CLASS}
-                      onClick={resetAteliers}
-                      title="Tous les ateliers"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                <Segment className="w-full flex-wrap">
-                  {props.ateliers.map((a) => (
-                    <SegmentButton
-                      key={a.code}
-                      active={atelierFilter.has(a.code)}
-                      onClick={() => toggleAtelier(a.code)}
-                      title={a.code}
-                    >
-                      {a.label}
-                    </SegmentButton>
-                  ))}
-                </Segment>
-              </>
-            )}
-          </FilterMenu>
-
-          <ToolbarSpacer />
-
-          <button
-            type="button"
-            className={cn(PILL, 'gap-1.5')}
-            onClick={() => void runFeasibility()}
-            disabled={feasLoading || props.rows.length === 0}
-            title="Calculer la file : quels OF sont lançables à la suite sur cette ligne"
-          >
-            <RefreshCw size={15} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
-            {feasLoading ? 'Calcul…' : 'Faisabilité'}
-          </button>
-
-          {/* Listing des composants qui bloquent — n'a de sens qu'une fois le calcul fait
-              ET s'il y a au moins un OF bloqué dans le périmètre filtré. */}
-          {feasDone && feasCounts.blocked > 0 && (
             <button
               type="button"
               className={cn(PILL, 'gap-1.5')}
-              onClick={() => setMaterialOpen(true)}
-              title="Lister les composants achetés qui bloquent les OF affichés"
+              onClick={() => void runFeasibility()}
+              disabled={feasLoading || props.rows.length === 0}
+              title="Calculer la file : quels OF sont lançables à la suite sur cette ligne"
             >
-              <Package size={15} strokeWidth={1.75} className="text-destructive" />
-              Matières manquantes
-              <span className="font-mono text-[11px] font-bold tabular-nums text-destructive">
-                {feasCounts.blocked}
-              </span>
+              <RefreshCw
+                size={15}
+                strokeWidth={1.75}
+                className={cn(feasLoading && 'animate-spin')}
+              />
+              {feasLoading ? 'Calcul…' : 'Faisabilité'}
             </button>
-          )}
 
-          <div className={PILL}>
-            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <input
-              className="w-[220px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="OF, article, commande, client…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQueryPersisted(e.currentTarget.value)}
-            />
-          </div>
-        </ToolbarRow>
-
-        {!posteFilter && (
-          <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
-            {filteredPostes.map((p) => {
-              const s = saturation(p.totalHours, p.weeklyCapacityHours)
-              return (
-                <button
-                  key={p.code}
-                  type="button"
-                  onClick={() => selectPoste(p.code)}
-                  className="flex flex-none items-center gap-2 rounded-lg border border-rule bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:border-brand/50"
-                  title={p.label}
-                >
-                  <span className="font-bold">{p.code}</span>
-                  <span className="text-muted-foreground">{p.count} OF</span>
-                  {s.pct !== null && (
-                    <span
-                      className={cn(
-                        'font-bold',
-                        s.level === 'ok' && 'text-ferme',
-                        s.level === 'high' && 'text-suggere',
-                        s.level === 'crit' && 'text-danger'
-                      )}
-                    >
-                      {s.pct}%
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {activePoste && (
-          <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-7 py-3">
-            <Package size={18} strokeWidth={1.75} className="text-brand" />
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-[13px] font-bold text-foreground">
-                {activePoste.code}
-              </span>
-              <span className="text-[13px] font-medium text-muted-foreground">
-                {activePoste.label}
-              </span>
-            </div>
-            <span className="flex-1" />
-            <div className="flex items-center gap-3">
-              <div className="flex items-baseline gap-1">
-                <span className="text-[17px] font-bold tabular-nums text-foreground">
-                  {fmtH(activePoste.totalHours)}
-                </span>
-                <span className="font-mono text-[10px] font-semibold text-muted-foreground">h</span>
-                {weeksEngaged !== null && (
-                  <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                    ≈ {fmtJ(activePoste.totalHours, activePoste.dailyCapacityHours)} j
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
-                <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
-                <span className="text-planifie">{fmtH(chargeSplit.lancable)} h lançable</span>
-              </div>
-              {sat && sat.pct !== null && (
-                <div className="flex items-center gap-2">
-                  <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
-                    <div
-                      className={cn(
-                        'absolute inset-y-0 left-0 rounded-full transition-all',
-                        sat.level === 'ok' && 'bg-ferme',
-                        sat.level === 'high' && 'bg-suggere',
-                        sat.level === 'crit' && 'bg-danger'
-                      )}
-                      style={{ width: `${Math.min(100, sat.pct)}%` }}
-                    />
-                  </div>
-                  <span
-                    className={cn(
-                      'font-mono text-[11px] font-bold tabular-nums',
-                      sat.level === 'ok' && 'text-ferme',
-                      sat.level === 'high' && 'text-suggere',
-                      sat.level === 'crit' && 'text-danger'
-                    )}
-                  >
-                    {sat.pct}%
-                  </span>
-                </div>
-              )}
-            </div>
-            {feasDone && (
-              <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
-                <span className="text-ferme">{feasCounts.ok} faisables</span>
-                {feasCounts.qc > 0 && <span className="text-suggere">{feasCounts.qc} sous CQ</span>}
-                {feasCounts.blocked > 0 && (
-                  <span className="text-destructive">{feasCounts.blocked} bloqués</span>
-                )}
-              </div>
-            )}
-            {feasDone && allSelectable > 0 && (
+            {/* Listing des composants qui bloquent — n'a de sens qu'une fois le calcul fait
+              ET s'il y a au moins un OF bloqué dans le périmètre filtré. */}
+            {feasDone && feasCounts.blocked > 0 && (
               <button
                 type="button"
-                onClick={() => toggleGroupSelect(filteredRows)}
-                disabled={batchRunning}
-                title="Sélectionner les OF lançables et faisables de ce poste"
-                className="flex items-center gap-1.5 rounded font-mono text-[11px] font-semibold text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
+                className={cn(PILL, 'gap-1.5')}
+                onClick={() => setMaterialOpen(true)}
+                title="Lister les composants achetés qui bloquent les OF affichés"
               >
-                <Check size={13} strokeWidth={2.25} />
-                {allSelectableToggled ? 'Tout décocher' : 'Tout sélectionner'} ({allSelectable})
+                <Package size={15} strokeWidth={1.75} className="text-destructive" />
+                Matières manquantes
+                <span className="font-mono text-[11px] font-bold tabular-nums text-destructive">
+                  {feasCounts.blocked}
+                </span>
               </button>
             )}
-          </div>
-        )}
 
-        {filteredRows.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-            <Package size={26} strokeWidth={1.75} />
-            <span className="text-[13px] font-medium">
-              {feasFilter === 'ok'
-                ? 'Aucun OF lançable pour ces filtres.'
-                : 'Aucun OF pour ces filtres.'}
-            </span>
-            {feasLoading && (
-              <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                <RefreshCw size={14} className="animate-spin" /> Calcul de faisabilité…
-              </span>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
-              <Info size={14} strokeWidth={1.75} />
-              <span>
-                Faisabilité <strong>séquentielle</strong> : les OF sont servis dans l’ordre des
-                dates d’expédition, chacun consommant le stock du suivant, ligne par ligne. Un OF
-                peut donc être lançable seul et bloqué dans la file.
-              </span>
+            <div className={PILL}>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+              <input
+                className="w-[220px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+                placeholder="OF, article, commande, client…"
+                type="text"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQueryPersisted(e.currentTarget.value)}
+              />
             </div>
-            {feasLoading && (
-              <div className="flex flex-none items-center gap-2 border-b border-brand/20 bg-brand-soft/40 px-7 py-1.5 font-mono text-[10px] text-foreground">
-                <RefreshCw size={14} strokeWidth={1.75} className="animate-spin text-brand" />
-                <span>Calcul de la file : consommation séquentielle du stock sur la ligne…</span>
-              </div>
-            )}
-            <div className="flex-1 overflow-auto pb-20">
-              <div
-                className={cn(
-                  'sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-secondary px-7 py-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground',
-                  rowGrid
-                )}
-              >
-                <span />
-                {showPosteCol && (
-                  <SortHeader
-                    id="poste"
-                    label="POSTE"
-                    sorting={sorting}
-                    onToggle={toggleColumnSort}
-                  />
-                )}
-                <SortHeader id="numOf" label="OF" sorting={sorting} onToggle={toggleColumnSort} />
-                <SortHeader
-                  id="status"
-                  label="STATUT"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="article"
-                  label="ARTICLE"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="designation"
-                  label="DÉSIGNATION"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="avancement"
-                  label="AVANCEMENT"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                  className="justify-end"
-                />
-                <SortHeader
-                  id="faisabilite"
-                  label="FAISABILITÉ"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="commande"
-                  label="COMMANDE(S)"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="livraison"
-                  label="LIVRAISON"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                />
-                <SortHeader
-                  id="heures"
-                  label="HEURES"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                  className="justify-end"
-                />
-                <SortHeader
-                  id="jours"
-                  label="JOURS"
-                  sorting={sorting}
-                  onToggle={toggleColumnSort}
-                  className="justify-end"
-                />
-              </div>
+          </ToolbarRow>
 
-              {rowGroups.map((group) => {
-                const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
-                const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
-                const groupCharge = splitChargeHours(group.rows)
-                const groupSelectable = selectableIds(group.rows)
-                const groupAllToggled =
-                  groupSelectable.length > 0 && groupSelectable.every((id) => selected.has(id))
+          {!posteFilter && (
+            <div className="flex flex-none items-center gap-2 overflow-x-auto border-b border-rule bg-secondary/40 px-7 py-2.5">
+              {filteredPostes.map((p) => {
+                const s = saturation(p.totalHours, p.weeklyCapacityHours)
                 return (
-                  <div key={group.posteCode ?? 'all'}>
-                    {showPosteCol && poste && (
-                      <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
-                        <span className="text-brand">{poste.code}</span>
-                        <span className="truncate text-muted-foreground">{poste.label}</span>
-                        {groupSelectable.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => toggleGroupSelect(group.rows)}
-                            disabled={batchRunning}
-                            title="Sélectionner les OF lançables et faisables de ce poste"
-                            className="flex items-center gap-1 rounded text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
-                          >
-                            <Check size={11} strokeWidth={2.25} />
-                            {groupAllToggled ? 'Tout décocher' : 'Tout sélectionner'} (
-                            {groupSelectable.length})
-                          </button>
+                  <button
+                    key={p.code}
+                    type="button"
+                    onClick={() => selectPoste(p.code)}
+                    className="flex flex-none items-center gap-2 rounded-lg border border-rule bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:border-brand/50"
+                    title={p.label}
+                  >
+                    <span className="font-bold">{p.code}</span>
+                    <span className="text-muted-foreground">{p.count} OF</span>
+                    {s.pct !== null && (
+                      <span
+                        className={cn(
+                          'font-bold',
+                          s.level === 'ok' && 'text-ferme',
+                          s.level === 'high' && 'text-suggere',
+                          s.level === 'crit' && 'text-danger'
                         )}
-                        <span className="ml-auto flex items-center gap-2.5 text-muted-foreground">
-                          <span>{group.rows.length}</span>
-                          <span>{fmtH(groupHours)} h</span>
-                          <span className="text-ferme">{fmtH(groupCharge.ferme)} h ferme</span>
-                          <span className="text-planifie">
-                            {fmtH(groupCharge.lancable)} h lançable
-                          </span>
-                        </span>
-                      </div>
+                      >
+                        {s.pct}%
+                      </span>
                     )}
-                    {group.rows.map((r, i) => {
-                      const u = urgencyOf(r.livraisonIso)
-                      const bucket = detail && r.commandes.length === 0 ? 'none' : u
-                      const prevBucket =
-                        i > 0
-                          ? detail && group.rows[i - 1].commandes.length === 0
-                            ? 'none'
-                            : urgencyOf(group.rows[i - 1].livraisonIso)
-                          : null
-                      const showSep =
-                        detail && !customSort && (prevBucket === null || prevBucket !== bucket)
-                      let bucketCount = 0
-                      if (showSep) {
-                        for (let j = i; j < group.rows.length; j++) {
-                          const rj = group.rows[j]
-                          const bj =
-                            detail && rj.commandes.length === 0
-                              ? 'none'
-                              : urgencyOf(rj.livraisonIso)
-                          if (bj !== bucket) break
-                          bucketCount++
-                        }
-                      }
-                      const sepLabel =
-                        bucket === 'none'
-                          ? 'Sans commande'
-                          : bucket === 'overdue'
-                            ? 'En retard'
-                            : bucket === 'week'
-                              ? 'Cette semaine'
-                              : 'À venir'
-                      const avancement =
-                        r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
-                      const feas = feasibility[r.numOf]
-                      const badge = feasBadge(
-                        feas?.st ?? (feasDone ? 'unknown' : undefined),
-                        r.status
-                      )
-                      const BadgeIcon = badge.icon
-                      const canSelect = affirmable(r.status)
-                      const isSelected = selected.has(r.numOf)
-                      const batchItem = batch[r.numOf]
-                      return (
-                        <div key={`${r.posteCode}-${r.numOf}`}>
-                          {showSep && (
-                            <div
-                              className={cn(
-                                'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider',
-                                bucket === 'none' && 'text-muted-foreground',
-                                bucket === 'overdue' && 'text-danger',
-                                bucket === 'week' && 'text-brand',
-                                bucket === 'later' && 'text-muted-foreground'
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  'inline-block h-0.5 flex-none w-4 rounded-full',
-                                  bucket === 'none' && 'bg-rule',
-                                  bucket === 'overdue' && 'bg-danger',
-                                  bucket === 'week' && 'bg-brand',
-                                  bucket === 'later' && 'bg-rule'
-                                )}
-                              />
-                              {sepLabel}
-                              <span className="ml-auto font-semibold normal-case tracking-normal text-muted-foreground tabular-nums">
-                                {bucketCount}
-                              </span>
-                            </div>
-                          )}
-                          <div
-                            className={cn(
-                              'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors',
-                              rowGrid,
-                              detail && r.commandes.length === 0 && 'opacity-60',
-                              isSelected && 'bg-brand-soft/40',
-                              batchItem?.st === 'ok' && 'bg-ferme/10',
-                              batchItem?.st === 'error' && 'bg-destructive/5',
-                              'hover:bg-secondary/50'
-                            )}
-                          >
-                            {canSelect ? (
-                              <label className="flex cursor-pointer items-center justify-center">
-                                <input
-                                  type="checkbox"
-                                  className="size-3.5 accent-[var(--brand)]"
-                                  checked={isSelected}
-                                  disabled={batchRunning}
-                                  onChange={() => toggleSelect(r.numOf)}
-                                  aria-label={`Sélectionner ${r.numOf}`}
-                                />
-                              </label>
-                            ) : (
-                              <span />
-                            )}
-                            {showPosteCol && (
-                              <span className="truncate font-mono text-[11px] font-bold text-foreground">
-                                {r.posteCode}
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              className="truncate text-left font-mono text-[12px] font-bold text-foreground hover:text-brand hover:underline"
-                              onClick={() => {
-                                setDetailOf(r.numOf)
-                                setDetailOpen(true)
-                              }}
-                            >
-                              {r.numOf}
-                            </button>
-                            <span
-                              className={cn(
-                                'truncate font-mono text-[10px] font-semibold',
-                                statusTextClass(r.status)
-                              )}
-                            >
-                              {r.statusLabel ?? '—'}
-                            </span>
-                            <span className="truncate font-mono text-[11px] font-bold text-foreground">
-                              {r.article}
-                            </span>
-                            <span
-                              className="truncate text-[12px] text-foreground/80"
-                              title={r.designation ?? undefined}
-                            >
-                              {r.designation ?? '—'}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="relative h-2.5 w-full">
-                                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
-                                  <div
-                                    className={cn(
-                                      'absolute inset-y-0 left-0 rounded-full',
-                                      avancement >= 100 && 'bg-ferme',
-                                      avancement > 0 && avancement < 100 && 'bg-planifie'
-                                    )}
-                                    style={{ width: `${avancement}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
-                                {r.done}/{r.launched}
-                              </span>
-                            </div>
-                            <FeasibilityTooltip feas={feas}>
-                              <span
-                                className={cn(
-                                  'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
-                                  // `cursor-help` seulement quand le tooltip a quelque chose à
-                                  // dire ; le focus clavier est posé par `Focusable` côté
-                                  // FeasibilityTooltip, qui n'enveloppe que ces cas-là.
-                                  feas && feas.st !== 'ok' && 'cursor-help outline-none',
-                                  badge.className
-                                )}
-                              >
-                                <BadgeIcon
-                                  size={12}
-                                  strokeWidth={2}
-                                  className={cn(!feas && feasLoading && 'animate-spin')}
-                                />
-                                {badge.label}
-                              </span>
-                            </FeasibilityTooltip>
-                            <div className="min-w-0">
-                              {r.commandes.length === 0 ? (
-                                <span className="font-mono text-[11px] text-muted-foreground">
-                                  —
-                                </span>
-                              ) : (
-                                r.commandes.map((c) => (
-                                  <div key={c.numCommande + (c.ligne ?? '')} className="min-w-0">
-                                    <div
-                                      className="flex items-center gap-1.5 overflow-hidden"
-                                      title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
-                                    >
-                                      <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground">
-                                        {c.numCommande}
-                                      </span>
-                                      {c.ligne && (
-                                        <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
-                                          ·L{c.ligne}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {c.client && (
-                                      <div className="truncate text-[10px] font-medium leading-tight text-muted-foreground">
-                                        {c.client}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                            <span
-                              className={cn(
-                                'font-mono text-[11px] font-bold tabular-nums',
-                                urgencyColor(u)
-                              )}
-                            >
-                              {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
-                            </span>
-                            <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
-                              {fmtH(r.hours)}
-                            </span>
-                            <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                              {fmtJ(r.hours, posteByCode.get(r.posteCode)?.dailyCapacityHours)}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  </button>
                 )
               })}
             </div>
-          </>
-        )}
-      </div>
+          )}
 
-      <SequenceurFirmBar
-        selected={[...selected]}
-        feasibility={feasibility}
-        batch={batch}
-        batchRunning={batchRunning}
-        onFirm={(ids) => void batchFirm(ids)}
-        onClear={() => {
-          setSelected(new Set())
-          setBatch({})
-        }}
-      />
+          {activePoste && (
+            <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-7 py-3">
+              <Package size={18} strokeWidth={1.75} className="text-brand" />
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-[13px] font-bold text-foreground">
+                  {activePoste.code}
+                </span>
+                <span className="text-[13px] font-medium text-muted-foreground">
+                  {activePoste.label}
+                </span>
+              </div>
+              <span className="flex-1" />
+              <div className="flex items-center gap-3">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-[17px] font-bold tabular-nums text-foreground">
+                    {fmtH(activePoste.totalHours)}
+                  </span>
+                  <span className="font-mono text-[10px] font-semibold text-muted-foreground">
+                    h
+                  </span>
+                  {weeksEngaged !== null && (
+                    <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
+                      ≈ {fmtJ(activePoste.totalHours, activePoste.dailyCapacityHours)} j
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
+                  <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
+                  <span className="text-planifie">{fmtH(chargeSplit.lancable)} h lançable</span>
+                </div>
+                {sat && sat.pct !== null && (
+                  <div className="flex items-center gap-2">
+                    <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
+                      <div
+                        className={cn(
+                          'absolute inset-y-0 left-0 rounded-full transition-all',
+                          sat.level === 'ok' && 'bg-ferme',
+                          sat.level === 'high' && 'bg-suggere',
+                          sat.level === 'crit' && 'bg-danger'
+                        )}
+                        style={{ width: `${Math.min(100, sat.pct)}%` }}
+                      />
+                    </div>
+                    <span
+                      className={cn(
+                        'font-mono text-[11px] font-bold tabular-nums',
+                        sat.level === 'ok' && 'text-ferme',
+                        sat.level === 'high' && 'text-suggere',
+                        sat.level === 'crit' && 'text-danger'
+                      )}
+                    >
+                      {sat.pct}%
+                    </span>
+                  </div>
+                )}
+              </div>
+              {feasDone && (
+                <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
+                  <span className="text-ferme">{feasCounts.ok} faisables</span>
+                  {feasCounts.qc > 0 && (
+                    <span className="text-suggere">{feasCounts.qc} sous CQ</span>
+                  )}
+                  {feasCounts.blocked > 0 && (
+                    <span className="text-destructive">{feasCounts.blocked} bloqués</span>
+                  )}
+                </div>
+              )}
+              {feasDone && allSelectable > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleGroupSelect(filteredRows)}
+                  disabled={batchRunning}
+                  title="Sélectionner les OF lançables et faisables de ce poste"
+                  className="flex items-center gap-1.5 rounded font-mono text-[11px] font-semibold text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
+                >
+                  <Check size={13} strokeWidth={2.25} />
+                  {allSelectableToggled ? 'Tout décocher' : 'Tout sélectionner'} ({allSelectable})
+                </button>
+              )}
+            </div>
+          )}
 
-      <MaterialShortageSheet
-        open={materialOpen}
-        onOpenChange={setMaterialOpen}
-        window={props.feasibilityWindow}
-        mode="sequential"
-        workstation={posteFilter}
-        scope={materialScope}
-      />
+          {filteredRows.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
+              <Package size={26} strokeWidth={1.75} />
+              <span className="text-[13px] font-medium">
+                {feasFilter === 'ok'
+                  ? 'Aucun OF lançable pour ces filtres.'
+                  : 'Aucun OF pour ces filtres.'}
+              </span>
+              {feasLoading && (
+                <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                  <RefreshCw size={14} className="animate-spin" /> Calcul de faisabilité…
+                </span>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-none items-center gap-2 border-b border-border bg-secondary/50 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
+                <Info size={14} strokeWidth={1.75} />
+                <span>
+                  Faisabilité <strong>séquentielle</strong> : les OF sont servis dans l’ordre des
+                  dates d’expédition, chacun consommant le stock du suivant, ligne par ligne. Un OF
+                  peut donc être lançable seul et bloqué dans la file.
+                </span>
+              </div>
+              {feasLoading && (
+                <div className="flex flex-none items-center gap-2 border-b border-brand/20 bg-brand-soft/40 px-7 py-1.5 font-mono text-[10px] text-foreground">
+                  <RefreshCw size={14} strokeWidth={1.75} className="animate-spin text-brand" />
+                  <span>Calcul de la file : consommation séquentielle du stock sur la ligne…</span>
+                </div>
+              )}
+              <div className="flex-1 overflow-auto pb-20">
+                <div
+                  className={cn(
+                    'sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-secondary px-7 py-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground',
+                    rowGrid
+                  )}
+                >
+                  <span />
+                  {showPosteCol && (
+                    <SortHeader
+                      id="poste"
+                      label="POSTE"
+                      sorting={sorting}
+                      onToggle={toggleColumnSort}
+                    />
+                  )}
+                  <SortHeader id="numOf" label="OF" sorting={sorting} onToggle={toggleColumnSort} />
+                  <SortHeader
+                    id="status"
+                    label="STATUT"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                  <SortHeader
+                    id="article"
+                    label="ARTICLE"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                  <SortHeader
+                    id="designation"
+                    label="DÉSIGNATION"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                  <SortHeader
+                    id="avancement"
+                    label="AVANCEMENT"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                    className="justify-end"
+                  />
+                  <SortHeader
+                    id="faisabilite"
+                    label="FAISABILITÉ"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                  <SortHeader
+                    id="commande"
+                    label="COMMANDE(S)"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                  <SortHeader
+                    id="livraison"
+                    label="LIVRAISON"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                  />
+                  <SortHeader
+                    id="heures"
+                    label="HEURES"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                    className="justify-end"
+                  />
+                  <SortHeader
+                    id="jours"
+                    label="JOURS"
+                    sorting={sorting}
+                    onToggle={toggleColumnSort}
+                    className="justify-end"
+                  />
+                </div>
 
-      <OfDetailSheet
-        num={detailOf}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        onFirmed={() => {
-          setDetailOpen(false)
-          setTimeout(() => router.reload(), 800)
-        }}
-      />
-    </AppLayout>
+                {rowGroups.map((group) => {
+                  const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
+                  const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
+                  const groupCharge = splitChargeHours(group.rows)
+                  const groupSelectable = selectableIds(group.rows)
+                  const groupAllToggled =
+                    groupSelectable.length > 0 && groupSelectable.every((id) => selected.has(id))
+                  return (
+                    <div key={group.posteCode ?? 'all'}>
+                      {showPosteCol && poste && (
+                        <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-7 py-1.5 font-mono text-[10px] font-bold text-foreground">
+                          <span className="text-brand">{poste.code}</span>
+                          <span className="truncate text-muted-foreground">{poste.label}</span>
+                          {groupSelectable.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleGroupSelect(group.rows)}
+                              disabled={batchRunning}
+                              title="Sélectionner les OF lançables et faisables de ce poste"
+                              className="flex items-center gap-1 rounded text-muted-foreground transition-colors hover:text-brand disabled:opacity-50"
+                            >
+                              <Check size={11} strokeWidth={2.25} />
+                              {groupAllToggled ? 'Tout décocher' : 'Tout sélectionner'} (
+                              {groupSelectable.length})
+                            </button>
+                          )}
+                          <span className="ml-auto flex items-center gap-2.5 text-muted-foreground">
+                            <span>{group.rows.length}</span>
+                            <span>{fmtH(groupHours)} h</span>
+                            <span className="text-ferme">{fmtH(groupCharge.ferme)} h ferme</span>
+                            <span className="text-planifie">
+                              {fmtH(groupCharge.lancable)} h lançable
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                      {group.rows.map((r, i) => {
+                        const u = urgencyOf(r.livraisonIso)
+                        const bucket = detail && r.commandes.length === 0 ? 'none' : u
+                        const prevBucket =
+                          i > 0
+                            ? detail && group.rows[i - 1].commandes.length === 0
+                              ? 'none'
+                              : urgencyOf(group.rows[i - 1].livraisonIso)
+                            : null
+                        const showSep =
+                          detail && !customSort && (prevBucket === null || prevBucket !== bucket)
+                        let bucketCount = 0
+                        if (showSep) {
+                          for (let j = i; j < group.rows.length; j++) {
+                            const rj = group.rows[j]
+                            const bj =
+                              detail && rj.commandes.length === 0
+                                ? 'none'
+                                : urgencyOf(rj.livraisonIso)
+                            if (bj !== bucket) break
+                            bucketCount++
+                          }
+                        }
+                        const sepLabel =
+                          bucket === 'none'
+                            ? 'Sans commande'
+                            : bucket === 'overdue'
+                              ? 'En retard'
+                              : bucket === 'week'
+                                ? 'Cette semaine'
+                                : 'À venir'
+                        const avancement =
+                          r.launched > 0
+                            ? Math.min(100, Math.round((r.done / r.launched) * 100))
+                            : 0
+                        const feas = feasibility[r.numOf]
+                        const badge = feasBadge(
+                          feas?.st ?? (feasDone ? 'unknown' : undefined),
+                          r.status
+                        )
+                        const BadgeIcon = badge.icon
+                        const canSelect = affirmable(r.status)
+                        const isSelected = selected.has(r.numOf)
+                        const batchItem = batch[r.numOf]
+                        return (
+                          <div key={`${r.posteCode}-${r.numOf}`}>
+                            {showSep && (
+                              <div
+                                className={cn(
+                                  'flex items-center gap-2 px-7 pt-3 pb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider',
+                                  bucket === 'none' && 'text-muted-foreground',
+                                  bucket === 'overdue' && 'text-danger',
+                                  bucket === 'week' && 'text-brand',
+                                  bucket === 'later' && 'text-muted-foreground'
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    'inline-block h-0.5 flex-none w-4 rounded-full',
+                                    bucket === 'none' && 'bg-rule',
+                                    bucket === 'overdue' && 'bg-danger',
+                                    bucket === 'week' && 'bg-brand',
+                                    bucket === 'later' && 'bg-rule'
+                                  )}
+                                />
+                                {sepLabel}
+                                <span className="ml-auto font-semibold normal-case tracking-normal text-muted-foreground tabular-nums">
+                                  {bucketCount}
+                                </span>
+                              </div>
+                            )}
+                            <div
+                              className={cn(
+                                'grid items-center gap-3 border-b border-rule-soft px-7 py-2 transition-colors',
+                                rowGrid,
+                                detail && r.commandes.length === 0 && 'opacity-60',
+                                isSelected && 'bg-brand-soft/40',
+                                batchItem?.st === 'ok' && 'bg-ferme/10',
+                                batchItem?.st === 'error' && 'bg-destructive/5',
+                                'hover:bg-secondary/50'
+                              )}
+                            >
+                              {canSelect ? (
+                                <label className="flex cursor-pointer items-center justify-center">
+                                  <input
+                                    type="checkbox"
+                                    className="size-3.5 accent-[var(--brand)]"
+                                    checked={isSelected}
+                                    disabled={batchRunning}
+                                    onChange={() => toggleSelect(r.numOf)}
+                                    aria-label={`Sélectionner ${r.numOf}`}
+                                  />
+                                </label>
+                              ) : (
+                                <span />
+                              )}
+                              {showPosteCol && (
+                                <span className="truncate font-mono text-[11px] font-bold text-foreground">
+                                  {r.posteCode}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="truncate text-left font-mono text-[12px] font-bold text-foreground hover:text-brand hover:underline"
+                                onClick={() => {
+                                  setDetailOf(r.numOf)
+                                  setDetailOpen(true)
+                                }}
+                              >
+                                {r.numOf}
+                              </button>
+                              <span
+                                className={cn(
+                                  'truncate font-mono text-[10px] font-semibold',
+                                  statusTextClass(r.status)
+                                )}
+                              >
+                                {r.statusLabel ?? '—'}
+                              </span>
+                              <span className="truncate font-mono text-[11px] font-bold text-foreground">
+                                {r.article}
+                              </span>
+                              <span
+                                className="truncate text-[12px] text-foreground/80"
+                                title={r.designation ?? undefined}
+                              >
+                                {r.designation ?? '—'}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <div className="relative h-2.5 w-full">
+                                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
+                                    <div
+                                      className={cn(
+                                        'absolute inset-y-0 left-0 rounded-full',
+                                        avancement >= 100 && 'bg-ferme',
+                                        avancement > 0 && avancement < 100 && 'bg-planifie'
+                                      )}
+                                      style={{ width: `${avancement}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <span className="flex-none font-mono text-[10px] leading-none tabular-nums text-muted-foreground">
+                                  {r.done}/{r.launched}
+                                </span>
+                              </div>
+                              <FeasibilityTooltip feas={feas}>
+                                <span
+                                  className={cn(
+                                    'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
+                                    // `cursor-help` seulement quand le tooltip a quelque chose à
+                                    // dire ; le focus clavier est posé par `Focusable` côté
+                                    // FeasibilityTooltip, qui n'enveloppe que ces cas-là.
+                                    feas && feas.st !== 'ok' && 'cursor-help outline-none',
+                                    badge.className
+                                  )}
+                                >
+                                  <BadgeIcon
+                                    size={12}
+                                    strokeWidth={2}
+                                    className={cn(!feas && feasLoading && 'animate-spin')}
+                                  />
+                                  {badge.label}
+                                </span>
+                              </FeasibilityTooltip>
+                              <div className="min-w-0">
+                                {r.commandes.length === 0 ? (
+                                  <span className="font-mono text-[11px] text-muted-foreground">
+                                    —
+                                  </span>
+                                ) : (
+                                  r.commandes.map((c) => (
+                                    <div key={c.numCommande + (c.ligne ?? '')} className="min-w-0">
+                                      <div
+                                        className="flex items-center gap-1.5 overflow-hidden"
+                                        title={`${c.numCommande}${c.ligne ? `·L${c.ligne}` : ''}${c.client ? ` — ${c.client}` : ''}`}
+                                      >
+                                        <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-bold leading-tight text-foreground">
+                                          {c.numCommande}
+                                        </span>
+                                        {c.ligne && (
+                                          <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium leading-tight text-muted-foreground">
+                                            ·L{c.ligne}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {c.client && (
+                                        <div className="truncate text-[10px] font-medium leading-tight text-muted-foreground">
+                                          {c.client}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                              <span
+                                className={cn(
+                                  'font-mono text-[11px] font-bold tabular-nums',
+                                  urgencyColor(u)
+                                )}
+                              >
+                                {r.livraisonIso ? fmtDateFr(r.livraisonIso) : '—'}
+                              </span>
+                              <span className="text-right font-mono text-[11px] font-bold tabular-nums text-foreground">
+                                {fmtH(r.hours)}
+                              </span>
+                              <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                                {fmtJ(r.hours, posteByCode.get(r.posteCode)?.dailyCapacityHours)}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        <SequenceurFirmBar
+          selected={[...selected]}
+          feasibility={feasibility}
+          batch={batch}
+          batchRunning={batchRunning}
+          onFirm={(ids) => void batchFirm(ids)}
+          onClear={() => {
+            setSelected(new Set())
+            setBatch({})
+          }}
+        />
+
+        <MaterialShortageSheet
+          open={materialOpen}
+          onOpenChange={setMaterialOpen}
+          window={props.feasibilityWindow}
+          mode="sequential"
+          workstation={posteFilter}
+          scope={materialScope}
+        />
+
+        <OfDetailSheet
+          num={detailOf}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          onFirmed={() => {
+            setDetailOpen(false)
+            setTimeout(() => router.reload(), 800)
+          }}
+        />
+      </AppLayout>
+    </TooltipProvider>
   )
 }
