@@ -46,8 +46,10 @@ import {
   computeChargeStock,
   fetchChargeInputs,
   getPinnedChargeInputs,
+  ofDateForMode,
   ofResteAProduire,
   type ChargeInputs,
+  type OfDateMode,
 } from '#services/load_payload_loader'
 import capacityCalendar from '#services/capacity_calendar_service'
 
@@ -127,6 +129,7 @@ export interface ChargeDetail {
 
 export interface ChargeDetailParams {
   start?: string
+  ofDate?: OfDateMode
   poste: string
   view: ChargeDetailView
   gran: ChargeGran
@@ -222,9 +225,10 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         const ofRows: ChargeDetailOfRow[] = []
         for (const mo of inputs.mos) {
           const ops = inputs.gammeMap.get(mo.article) ?? []
-          if (!inBucket(poste, mo.startDate)) continue
+          const moDate = ofDateForMode(mo, params.ofDate)
+          if (!inBucket(poste, moDate)) continue
           const qty = ofResteAProduire(mo, inputs.avancementByOf)
-          const day = dayOf(poste, mo.startDate!)
+          const day = dayOf(poste, moDate!)
           for (const gamme of ops) {
             if (gamme.workstation !== poste) continue
               const hours = chargeHoursWithEfficiency(

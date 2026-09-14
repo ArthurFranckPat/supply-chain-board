@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { router } from '@inertiajs/react'
 import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
@@ -315,6 +316,34 @@ export default function Load(props: LoadPageProps) {
               ))}
             </Segment>
           )}
+          {view === 'of' && (
+            <Segment role="radiogroup" ariaLabel="Date de rattachement des OF">
+              <SegmentButton
+                role="radio"
+                active={props.ofDate === 'start'}
+                onClick={() => {
+                  if (props.ofDate === 'start') return
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('ofDate', 'start')
+                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, { preserveScroll: true })
+                }}
+              >
+                Début OF
+              </SegmentButton>
+              <SegmentButton
+                role="radio"
+                active={props.ofDate === 'end'}
+                onClick={() => {
+                  if (props.ofDate === 'end') return
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('ofDate', 'end')
+                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, { preserveScroll: true })
+                }}
+              >
+                Fin OF
+              </SegmentButton>
+            </Segment>
+          )}
           {/* Filtres — déclencheur unique (Statut ou Nature selon la vue +
               Atelier). Même grammaire que Suivi/Ruptures : pas de chips
               empilées dans la rangée, pas de rangée dédiée sous la toolbar. */}
@@ -576,6 +605,7 @@ export default function Load(props: LoadPageProps) {
         version={props.version}
         activeSegs={activeSegs}
         qtyMode={qtyMode}
+        ofDate={props.ofDate}
       />
     </AppLayout>
   )

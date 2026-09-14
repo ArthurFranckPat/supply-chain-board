@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay, capacityPeriod, chargeHoursWithEfficiency } from '#app/domain/capacity'
+import { ofDateForMode } from '#services/load_payload_loader'
 
 // PP_830 réel : CFA (7,5 h Lun-Ven, ~0 week-end), 2 exemplaires, EFF 90 %, USE 100 %, SHR 0.
 function pp830(overrides: Partial<Workstation> = {}): Workstation {
@@ -57,6 +58,20 @@ test.group('capacity / chargeHoursWithEfficiency', () => {
   test('efficience absente ou nulle : conversion neutre', ({ assert }) => {
     assert.equal(chargeHoursWithEfficiency(10, undefined), 10)
     assert.equal(chargeHoursWithEfficiency(10, pp830({ efficiency: 0 })), 10)
+  })
+})
+
+test.group('charge / date de rattachement OF', () => {
+  const debut = new Date('2026-06-22T00:00:00')
+  const fin = new Date('2026-06-26T00:00:00')
+
+  test('utilise le début par défaut et la fin sur option', ({ assert }) => {
+    assert.deepEqual(ofDateForMode({ startDate: debut, endDate: fin }), debut)
+    assert.deepEqual(ofDateForMode({ startDate: debut, endDate: fin }, 'end'), fin)
+  })
+
+  test('fin absente : repli sur le début', ({ assert }) => {
+    assert.deepEqual(ofDateForMode({ startDate: debut, endDate: null }, 'end'), debut)
   })
 })
 

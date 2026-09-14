@@ -70,6 +70,9 @@ export interface AtelierOption {
 /** Vue de charge : OF (ordres) ou Commande (demande). */
 export type LoadView = 'of' | 'commande'
 
+/** Date utilisée pour positionner la charge d'un OF. */
+export type OfDateMode = 'start' | 'end'
+
 /**
  * Cran de la bascule de quantité (vue commande) :
  *  - `brut`  : besoin explosé depuis les commandes ;
@@ -86,6 +89,8 @@ export interface LoadPageProps {
   /** Ancre d'horizon résolue (ISO, 1er du mois de départ) — renvoyée telle
    *  quelle à l'endpoint de détail pour viser la même fenêtre. */
   startIso: string
+  /** Positionnement des OF : date de début (défaut) ou date de fin. */
+  ofDate: OfDateMode
   /** Version du snapshot charge : renvoyée à l'endpoint de détail (`?v=`) pour
    *  que la table soit calculée des mêmes entrées X3 que la barre cliquée —
    *  sinon un cache périmé faisait afficher 14 h à la barre et 9,9 h à la

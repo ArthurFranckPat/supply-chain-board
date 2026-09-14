@@ -24,7 +24,8 @@ export default class LoadController {
     const gran = request.input('gran') === 'week' ? 'week' : 'month'
     try {
       const detail = await loadChargeDetail({
-        start: (request.input('start') as string | undefined) || undefined,
+         start: (request.input('start') as string | undefined) || undefined,
+         ofDate: request.input('ofDate') === 'end' ? 'end' : 'start',
         poste: String(request.input('poste') ?? ''),
         view: view as ChargeDetailView,
         gran: gran as ChargeGran,

@@ -552,13 +552,28 @@ export async function getPinnedChargeInputs(version: string): Promise<PinnedChar
  * Cœur du payload charge — sans HttpContext (consommé par l'endpoint HTTP ET le
  * tool agent `getCharge`).
  */
-export async function loadChargePayloadData(params: { start?: string; force?: boolean }) {
+export type OfDateMode = 'start' | 'end'
+
+/** Date de rattachement d'un OF, avec repli au début si X3 ne fournit pas la fin. */
+export function ofDateForMode(
+  mo: Pick<ManufacturingOrder, 'startDate' | 'endDate'>,
+  mode: OfDateMode = 'start'
+): Date | null {
+  return mode === 'end' ? (mo.endDate ?? mo.startDate) : mo.startDate
+}
+
+export async function loadChargePayloadData(params: {
+  start?: string
+  force?: boolean
+  ofDate?: OfDateMode
+}) {
   const startParam = params.start
   const force = !!params.force
+  const ofDate: OfDateMode = params.ofDate === 'end' ? 'end' : 'start'
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  const cacheKey = `payload:charge:${isoDay(monthStart)}:${NB_MONTHS}`
+  const cacheKey = `payload:charge:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -716,7 +731,8 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       const ofLines = buildLines(
         mos.flatMap((mo) => {
           const ops = gammeMap.get(mo.article) ?? []
-          if (!mo.startDate) return []
+          const moDate = ofDateForMode(mo, ofDate)
+          if (!moDate) return []
           const qty = ofResteAProduire(mo, inputs.avancementByOf)
           return ops
             .filter((gamme) => gamme.workstation && gamme.rate > 0)
@@ -727,7 +743,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
               )
               return {
                 wst: gamme.workstation,
-                date: atMidnight(mo.startDate!),
+                date: atMidnight(moDate),
                 brutHours: hours,
                 netHours: hours,
                 // Vue OF : qty déjà déduite des pointages — les trois séries coïncident.
@@ -772,6 +788,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         // Ancre d'horizon résolue (1er du mois de départ) : le détail d'un
         // bucket la renvoie pour viser exactement la même fenêtre.
         startIso: isoDay(monthStart),
+        ofDate,
         // Version du snapshot : le client la renvoie au détail (`?v=`) pour un
         // total de table aligné sur la hauteur de la barre, snapshot compris.
         version,
@@ -801,6 +818,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
 export async function loadChargePayload(ctx: HttpContext) {
   return loadChargePayloadData({
     start: ctx.request.input('start') as string | undefined,
+    ofDate: ctx.request.input('ofDate') === 'end' ? 'end' : 'start',
     force: !!ctx.request.input('refresh'),
   })
 }
