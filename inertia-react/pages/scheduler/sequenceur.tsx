@@ -448,6 +448,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [feasDone, setFeasDone] = useState(false)
   /** Panneau « Matières manquantes » — listing des composants qui bloquent les OF affichés. */
   const [materialOpen, setMaterialOpen] = useState(false)
+  /** Réf composant → désignation, pour nommer les manquants dans le tooltip du badge. */
+  const [componentLabels, setComponentLabels] = useState<Record<string, string>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batch, setBatch] = useState<Record<string, BatchItem>>({})
   const [batchRunning, setBatchRunning] = useState(false)
@@ -562,6 +564,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     setFeasibility({})
     setFeasDone(false)
     setMaterialOpen(false)
+    setComponentLabels({})
   }, [props.rows])
 
   function selectPoste(poste: string | null) {
@@ -592,7 +595,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     const { from, to } = props.feasibilityWindow
     setFeasLoading(true)
     try {
-      const { map } = await fetchBoardFeasibility({
+      const { map, componentLabels: labels } = await fetchBoardFeasibility({
         from,
         to,
         mode: 'sequential',
@@ -612,6 +615,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
         else if (st.st === 'blocked') nbBlocked++
       }
       setFeasibility(scoped)
+      setComponentLabels(labels)
       setFeasDone(true)
       const parts = [
         nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,
@@ -1628,7 +1632,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                   {r.done}/{r.launched}
                                 </span>
                               </div>
-                              <FeasibilityTooltip feas={feas}>
+                              <FeasibilityTooltip feas={feas} labels={componentLabels}>
                                 <span
                                   className={cn(
                                     'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',

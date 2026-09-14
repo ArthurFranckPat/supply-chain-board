@@ -25,26 +25,41 @@ const fmtQty = (n: number): string =>
 /** Au-delà, la liste déborde du tooltip : on tronque et on annonce le reste. */
 const MAX_LINES = 8
 
-function ComponentLines(props: { entries: [string, number][]; tone: 'manque' | 'cq' }) {
+function ComponentLines(props: {
+  entries: [string, number][]
+  labels: Record<string, string>
+  tone: 'manque' | 'cq'
+}) {
   const shown = props.entries.slice(0, MAX_LINES)
   const rest = props.entries.length - shown.length
   return (
     <>
-      {shown.map(([ref, qty]) => (
-        <div key={ref} className="flex items-baseline justify-between gap-3 font-mono text-[11px]">
-          <span className="text-foreground">{ref}</span>
-          <span
-            className={
-              props.tone === 'manque'
-                ? 'font-bold tabular-nums text-destructive'
-                : 'font-bold tabular-nums text-suggere'
-            }
-          >
-            {props.tone === 'manque' ? '−' : ''}
-            {fmtQty(qty)}
-          </span>
-        </div>
-      ))}
+      {shown.map(([ref, qty]) => {
+        const label = props.labels[ref]
+        return (
+          <div key={ref} className="flex items-baseline justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-mono text-[11px] text-foreground">{ref}</div>
+              {/* Désignation absente du référentiel : on n'affiche pas de ligne vide. */}
+              {label && (
+                <div className="truncate text-[10px] leading-tight text-muted-foreground">
+                  {label}
+                </div>
+              )}
+            </div>
+            <span
+              className={
+                props.tone === 'manque'
+                  ? 'flex-none font-mono text-[11px] font-bold tabular-nums text-destructive'
+                  : 'flex-none font-mono text-[11px] font-bold tabular-nums text-suggere'
+              }
+            >
+              {props.tone === 'manque' ? '−' : ''}
+              {fmtQty(qty)}
+            </span>
+          </div>
+        )
+      })}
       {rest > 0 && (
         <div className="font-mono text-[10px] text-muted-foreground">+ {rest} autre(s)</div>
       )}
@@ -54,6 +69,11 @@ function ComponentLines(props: { entries: [string, number][]; tone: 'manque' | '
 
 interface FeasibilityTooltipProps {
   feas: FeasStatus | undefined
+  /**
+   * Réf composant → désignation (payload `board-feasibility`). Une référence nue oblige à
+   * aller chercher la fiche article ailleurs pour savoir de quoi on parle.
+   */
+  labels?: Record<string, string>
   /**
    * Le badge lui-même. Passé en `render` au déclencheur : Base UI fusionne ses handlers
    * dans cet élément au lieu d'injecter un bouton, donc le badge reste le badge.
@@ -67,6 +87,7 @@ export function FeasibilityTooltip(props: FeasibilityTooltipProps) {
   // focus supplémentaire dans la tabulation du board.
   if (!feas || feas.st === 'ok') return props.children
 
+  const labels = props.labels ?? {}
   const missing = Object.entries(feas.missingQty ?? {}).sort((a, b) => b[1] - a[1])
   const qc = Object.entries(feas.qcComponents ?? {}).sort((a, b) => b[1] - a[1])
 
@@ -81,7 +102,7 @@ export function FeasibilityTooltip(props: FeasibilityTooltipProps) {
                 Manque pour lancer cet OF
               </div>
               {missing.length > 0 ? (
-                <ComponentLines entries={missing} tone="manque" />
+                <ComponentLines entries={missing} labels={labels} tone="manque" />
               ) : (
                 // `missing` vide sur un OF bloqué = le manque est plus bas dans la BOM.
                 <div className="text-[11px] text-muted-foreground">
@@ -101,7 +122,7 @@ export function FeasibilityTooltip(props: FeasibilityTooltipProps) {
               <div className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                 Dépend du stock sous contrôle qualité
               </div>
-              {qc.length > 0 && <ComponentLines entries={qc} tone="cq" />}
+              {qc.length > 0 && <ComponentLines entries={qc} labels={labels} tone="cq" />}
               <div className="border-t border-border pt-1.5 text-[10px] leading-snug text-muted-foreground">
                 Ces quantités sont comptées disponibles, mais restent en statut Q : relancer le
                 contrôle réception pour sécuriser le lancement.

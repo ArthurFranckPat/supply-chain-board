@@ -102,7 +102,7 @@ export default class PlanningBoardController {
     // calcul de faisabilité du séquenceur rendaient la photo. Un badge « lançable » sur 12 OF
     // alors que le stock n'en couvre que 4 — le même stock montré 12 fois.
     const sequential = mode === 'sequential'
-    const { result } = await loadOrderImpacts({
+    const { result, articles } = await loadOrderImpacts({
       from: windowFrom,
       to: windowTo,
       workstation: workstationFilter,
@@ -111,7 +111,27 @@ export default class PlanningBoardController {
       pipeline: sequential ? 'board-contention' : 'board-badges',
     })
 
-    return result
+    /**
+     * Désignations des seuls composants CITÉS (manquants ou sous CQ) — le badge n'affichait
+     * que des références nues, illisibles sans aller chercher la fiche article ailleurs.
+     *
+     * Restreint aux composants cités, PAS au catalogue : la réponse sert à badger un board,
+     * elle n'a pas à transporter plusieurs milliers d'articles pour en nommer quelques
+     * dizaines. Une désignation absente du référentiel est simplement omise.
+     */
+    const componentLabels: Record<string, string> = {}
+    for (const of of result.ofs) {
+      for (const ref of [
+        ...Object.keys(of.missingComponents ?? {}),
+        ...Object.keys(of.qcComponents ?? {}),
+      ]) {
+        if (componentLabels[ref] !== undefined) continue
+        const desc = articles.get(ref)?.description?.trim()
+        if (desc) componentLabels[ref] = desc
+      }
+    }
+
+    return { ...result, componentLabels }
   }
 
   /**

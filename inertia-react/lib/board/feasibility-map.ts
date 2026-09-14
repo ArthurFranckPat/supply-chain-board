@@ -17,7 +17,12 @@ export async function fetchBoardFeasibility(opts: {
   to: string
   mode: FeasibilityMode
   workstation?: string
-}): Promise<ReturnType<typeof buildFeasibilityMap>> {
+}): Promise<
+  ReturnType<typeof buildFeasibilityMap> & {
+    /** Réf composant → désignation, pour les seuls composants cités par un verdict. */
+    componentLabels: Record<string, string>
+  }
+> {
   const body: Record<string, string> = {
     from: opts.from,
     to: opts.to,
@@ -31,8 +36,14 @@ export async function fetchBoardFeasibility(opts: {
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const data = (await res.json()) as { ofs?: FeasibilityOfPayload[] }
-  return buildFeasibilityMap(data.ofs ?? [])
+  const data = (await res.json()) as {
+    ofs?: FeasibilityOfPayload[]
+    componentLabels?: Record<string, string>
+  }
+  return {
+    ...buildFeasibilityMap(data.ofs ?? []),
+    componentLabels: data.componentLabels ?? {},
+  }
 }
 
 /** Fenêtre ISO pour couvrir les dates début des candidats.
