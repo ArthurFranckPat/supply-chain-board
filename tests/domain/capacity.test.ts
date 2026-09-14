@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import type { Workstation } from '#app/domain/models/workstation'
-import { capDay, capacityPeriod } from '#app/domain/capacity'
+import { capDay, capacityPeriod, chargeHoursWithEfficiency } from '#app/domain/capacity'
 
 // PP_830 réel : CFA (7,5 h Lun-Ven, ~0 week-end), 2 exemplaires, EFF 90 %, USE 100 %, SHR 0.
 function pp830(overrides: Partial<Workstation> = {}): Workstation {
@@ -46,6 +46,17 @@ test.group('capacity / capDay', () => {
     const w = pp830({ efficiency: 0, utilization: 0, parallelUnits: 0 })
     // units→1, eff→100, use→100 : 7,5 × 1 = 7,5
     assert.closeTo(capDay(w, lundi), 7.5, 1e-9)
+  })
+})
+
+test.group('capacity / chargeHoursWithEfficiency', () => {
+  test('augmente les heures standard selon l’efficience de la ligne', ({ assert }) => {
+    assert.closeTo(chargeHoursWithEfficiency(10, pp830()), 10 / 0.9, 1e-9)
+  })
+
+  test('efficience absente ou nulle : conversion neutre', ({ assert }) => {
+    assert.equal(chargeHoursWithEfficiency(10, undefined), 10)
+    assert.equal(chargeHoursWithEfficiency(10, pp830({ efficiency: 0 })), 10)
   })
 })
 

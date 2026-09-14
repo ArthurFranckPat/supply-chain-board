@@ -26,6 +26,16 @@ const yieldFactor = (w: Workstation): number => {
   return (eff / 100) * (use / 100) * (1 - shr / 100)
 }
 
+/**
+ * Convertit une charge standard en heures réellement consommées par la ligne.
+ * Une efficience de 90 % transforme ainsi 10 h standard en 11,11 h de charge.
+ * Une valeur absente ou nulle reste neutre, comme pour la capacité.
+ */
+export function chargeHoursWithEfficiency(hours: number, w: Workstation | undefined): number {
+  if (!w || w.efficiency <= 0) return hours
+  return hours / (w.efficiency / 100)
+}
+
 const units = (w: Workstation): number => (w.parallelUnits > 0 ? w.parallelUnits : 1)
 
 /** Capacité (h) d'un poste pour une date donnée. */

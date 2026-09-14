@@ -24,7 +24,7 @@ import {
 import { addDays, atMidnight, isoDay, isoWeek, mondayOf } from '#app/utils/dates'
 import { computeAvancement, resteAProduire, type OfAvancement } from '#app/domain/of_avancement'
 import type { Workstation } from '#app/domain/models/workstation'
-import { capDay, isOpenDay } from '#app/domain/capacity'
+import { capDay, chargeHoursWithEfficiency, isOpenDay } from '#app/domain/capacity'
 import {
   atelierLabel,
   atelierCategoryFromPosteNature,
@@ -721,7 +721,10 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
           return ops
             .filter((gamme) => gamme.workstation && gamme.rate > 0)
             .map((gamme) => {
-              const hours = hoursForQuantity(gamme, qty)
+              const hours = chargeHoursWithEfficiency(
+                hoursForQuantity(gamme, qty),
+                wstByCode.get(gamme.workstation)
+              )
               return {
                 wst: gamme.workstation,
                 date: atMidnight(mo.startDate!),
@@ -741,9 +744,9 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         chargeNeeds.map((n): AggRecord => ({
           wst: n.wst,
           date: n.date,
-          brutHours: n.brutHours,
-          netHours: n.netHours,
-          resteHours: n.resteHours,
+          brutHours: chargeHoursWithEfficiency(n.brutHours, wstByCode.get(n.wst)),
+          netHours: chargeHoursWithEfficiency(n.netHours, wstByCode.get(n.wst)),
+          resteHours: chargeHoursWithEfficiency(n.resteHours, wstByCode.get(n.wst)),
           field: chargeSegment(n.depth, n.nature) as keyof LoadPeriod,
           article: n.article,
         }))

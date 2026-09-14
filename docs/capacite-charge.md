@@ -47,6 +47,11 @@ Données live conformes (CFA = 7,5 h Lun-Ven, ~0 week-end).
 `LoadController` joint, par poste et par bucket (mensuel + hebdo), la capacité nette
 à la charge (`LoadLine.capacity`). Front (`scheduler/load.tsx`) :
 
+Les heures de charge affichées tiennent compte de l’efficience de la ligne : une
+charge standard de `10 h` sur une ligne à `90 %` devient `10 / 0,90 = 11,11 h`.
+Cette conversion est appliquée dans l’agrégat et dans le détail pour conserver la
+même valeur des deux côtés. Les valeurs X3 nulles ou à zéro restent neutres.
+
 - ligne de capacité (pointillés) sur le détail + mini-cartes ;
 - totaux et lignes de capacité **rouges** quand charge > capacité ;
 - badge **taux de saturation** (charge / capacité) sur le poste sélectionné.

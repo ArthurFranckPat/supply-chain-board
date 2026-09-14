@@ -36,6 +36,7 @@ import {
 import { CommandeOFMatcher, type MatchingResult } from '#app/domain/of_conso'
 import type { Flow } from '#app/domain/models/flow'
 import { hoursForQuantity } from '#app/domain/models/gamme'
+import { chargeHoursWithEfficiency } from '#app/domain/capacity'
 import { isoDay } from '#app/utils/dates'
 import {
   chargeBucketRange,
@@ -226,7 +227,10 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           const day = dayOf(poste, mo.startDate!)
           for (const gamme of ops) {
             if (gamme.workstation !== poste) continue
-            const hours = hoursForQuantity(gamme, qty)
+              const hours = chargeHoursWithEfficiency(
+                hoursForQuantity(gamme, qty),
+                wstByCode.get(gamme.workstation)
+            )
             if (hours <= 0) continue
             ofRows.push({
               numOf: mo.numOf,
@@ -448,9 +452,18 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           netQty: n.netQty,
           resteQty: n.resteQty,
           encoursQty: n.encoursQty,
-          brutHours: n.brutHours,
-          netHours: n.netHours,
-          resteHours: n.resteHours,
+          brutHours: chargeHoursWithEfficiency(
+            n.brutHours,
+            wstByCode.get(n.wst)
+          ),
+          netHours: chargeHoursWithEfficiency(
+            n.netHours,
+            wstByCode.get(n.wst)
+          ),
+          resteHours: chargeHoursWithEfficiency(
+            n.resteHours,
+            wstByCode.get(n.wst)
+          ),
           ofs: rowOfs(n),
         }
       })
