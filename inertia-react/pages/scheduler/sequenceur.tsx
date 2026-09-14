@@ -55,6 +55,7 @@ import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 import { MaterialShortageSheet } from '@r/components/sequenceur/material-shortage-sheet'
+import { FeasibilityTooltip } from '@r/components/sequenceur/feasibility-tooltip'
 
 /**
  * Page « Séquenceur » — board /programme en table (#46/#100 unifiés).
@@ -1606,26 +1607,25 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                 {r.done}/{r.launched}
                               </span>
                             </div>
-                            <span
-                              className={cn(
-                                'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
-                                badge.className
-                              )}
-                              title={
-                                feas?.st === 'blocked'
-                                  ? `Rupture : ${feas.missing.join(', ') || 'composant(s)'}`
-                                  : feas?.st === 'qc'
-                                    ? 'Couverture dépendante du stock sous CQ'
-                                    : undefined
-                              }
-                            >
-                              <BadgeIcon
-                                size={12}
-                                strokeWidth={2}
-                                className={cn(!feas && feasLoading && 'animate-spin')}
-                              />
-                              {badge.label}
-                            </span>
+                            <FeasibilityTooltip feas={feas}>
+                              <span
+                                className={cn(
+                                  'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',
+                                  // `cursor-help` seulement quand le tooltip a quelque chose à
+                                  // dire ; le focus clavier est posé par `Focusable` côté
+                                  // FeasibilityTooltip, qui n'enveloppe que ces cas-là.
+                                  feas && feas.st !== 'ok' && 'cursor-help outline-none',
+                                  badge.className
+                                )}
+                              >
+                                <BadgeIcon
+                                  size={12}
+                                  strokeWidth={2}
+                                  className={cn(!feas && feasLoading && 'animate-spin')}
+                                />
+                                {badge.label}
+                              </span>
+                            </FeasibilityTooltip>
                             <div className="min-w-0">
                               {r.commandes.length === 0 ? (
                                 <span className="font-mono text-[11px] text-muted-foreground">

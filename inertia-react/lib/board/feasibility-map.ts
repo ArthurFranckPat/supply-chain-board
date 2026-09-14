@@ -1,48 +1,15 @@
 /**
- * Parse + fetch `POST /board-feasibility` — chemin unique programme + séquenceur.
- * Règles ok / qc / blocked identiques au store board (`runFeasibility`).
+ * Fetch `POST /board-feasibility` — chemin unique programme + séquenceur.
+ * Le PARSEUR (règles ok / qc / blocked) vit dans `feasibility-parse.ts`, sans import
+ * runtime, pour être testable hors Vite ; il est réexporté ici.
  */
-import type { FeasibilityMode, FeasStatus } from '@r/lib/board/types'
+import type { FeasibilityMode } from '@r/lib/board/types'
+import { buildFeasibilityMap, type FeasibilityOfPayload } from '@r/lib/board/feasibility-parse'
 import { route } from '@r/lib/routes'
 
-export interface FeasibilityOfPayload {
-  numOf: string
-  feasible?: boolean
-  missingComponents?: Record<string, unknown>
-  qcComponents?: Record<string, number>
-}
-
-export function buildFeasibilityMap(ofs: FeasibilityOfPayload[]): {
-  map: Record<string, FeasStatus>
-  nbOk: number
-  nbBlocked: number
-  nbQc: number
-} {
-  const map: Record<string, FeasStatus> = {}
-  let nbOk = 0
-  let nbBlocked = 0
-  let nbQc = 0
-  for (const of of ofs) {
-    const qcComponents = of.qcComponents ?? {}
-    const dependsOnQc = Object.keys(qcComponents).length > 0
-    if (of.feasible === false) {
-      map[of.numOf] = {
-        st: 'blocked',
-        missing: Object.keys(of.missingComponents ?? {}),
-        ...(dependsOnQc ? { qcComponents } : {}),
-      }
-      nbBlocked++
-    } else if (of.feasible === true) {
-      // Faisable mais tributaire du CQ → pas lançable tant que CQ non libéré.
-      map[of.numOf] = dependsOnQc
-        ? { st: 'qc', missing: [], qcComponents }
-        : { st: 'ok', missing: [] }
-      if (dependsOnQc) nbQc++
-      else nbOk++
-    }
-  }
-  return { map, nbOk, nbBlocked, nbQc }
-}
+// Réexport : les consommateurs historiques importent toujours depuis ce module.
+export { buildFeasibilityMap }
+export type { FeasibilityOfPayload }
 
 /** Même contrat API que `useBoardStore.runFeasibility` — mode explicite (programme : store.mode, séquenceur : sequential). */
 export async function fetchBoardFeasibility(opts: {

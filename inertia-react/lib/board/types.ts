@@ -134,6 +134,12 @@ export type FeasibilityMode = 'immediate' | 'sequential'
 export interface FeasStatus {
   st: 'ok' | 'qc' | 'blocked'
   missing: string[]
+  /**
+   * Réf → quantité manquante. `missing` n'en garde que les clés : la liste suffit au tri et
+   * aux compteurs, pas à expliquer un blocage. En mode projeté surtout, l'écart entre « il
+   * manque 3 » et « il manque 1 400 » décide de ce qu'on fait de l'OF.
+   */
+  missingQty?: Record<string, number>
   /** Composants couverts uniquement grâce au stock sous CQ : réf → quantité concernée. */
   qcComponents?: Record<string, number>
 }
