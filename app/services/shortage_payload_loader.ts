@@ -186,7 +186,7 @@ export async function loadShortageRowsData(params: {
         const receptionsByArticle = groupReceptionsByArticle(coverageReceptions, receptionFrom)
 
         // Jours de fabrication par OF depuis la charge gamme : Σ (qté restante / cadence)
-        // sur toutes les opérations de l'article, convertie en jours (7,5 h/j, plancher
+        // sur toutes les opérations de l'article, convertie en jours (7 h/j = une équipe, plancher
         // 1 j — décision métier : « charge < 1 journée → 1 journée »). Gamme absente ou
         // référentiel indisponible → plancher 1 j (map vide/entrée manquante).
         const hoursPerDay = Number(process.env.RUPTURES_HOURS_PER_DAY) || DEFAULT_HOURS_PER_DAY

@@ -611,11 +611,12 @@ test.group('buildShortageRows', () => {
   test('fabricationDaysFromHours : plancher 1 j, arrondi supérieur, charge inconnue → 1', ({
     assert,
   }) => {
+    // Base journée = UNE équipe de 7 h (DEFAULT_HOURS_PER_DAY), alignée sur SHIFT_HOURS.
     assert.equal(fabricationDaysFromHours(0), 1) // charge inconnue / gamme absente
-    assert.equal(fabricationDaysFromHours(3), 1) // < 1 journée (7,5 h) → 1 j
-    assert.equal(fabricationDaysFromHours(7.5), 1) // exactement 1 journée
+    assert.equal(fabricationDaysFromHours(3), 1) // < 1 journée (7 h) → 1 j
+    assert.equal(fabricationDaysFromHours(7), 1) // exactement 1 journée
     assert.equal(fabricationDaysFromHours(8), 2) // entamée → arrondi sup
-    assert.equal(fabricationDaysFromHours(30), 4) // 30 h / 7,5 = 4 j
+    assert.equal(fabricationDaysFromHours(28), 4) // 28 h / 7 = 4 j
     assert.equal(fabricationDaysFromHours(6, 3), 2) // heures/jour paramétrable
   })
 

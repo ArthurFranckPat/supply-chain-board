@@ -138,9 +138,15 @@ export const DEFAULT_LOGISTICS_BUFFER_DAYS = 2
 
 /**
  * Heures d'atelier par jour, pour convertir la charge gamme d'un OF en jours de
- * fabrication (aligné sur la base DAYCAP X3, ex. PP_830 = 7,5 h/j).
+ * fabrication. UNE équipe, base 7 h : c'est la même base que la capacité poste
+ * (`SHIFT_HOURS`, app/domain/capacity.ts) et que l'affichage en jours du board
+ * (`fmtJ`). Valait 7,5 (le DAYCAP X3 brut) — trois bases journée cohabitaient.
+ *
+ * Volontairement mono-équipe, même pour un poste en 2×8 : on mesure ici un DÉLAI de
+ * fabrication à rebours d'une date d'expédition, pas un débit. Un OF qui occupe deux
+ * équipes ne finit pas deux fois plus tôt — il sature juste la ligne.
  */
-export const DEFAULT_HOURS_PER_DAY = 7.5
+export const DEFAULT_HOURS_PER_DAY = 7
 
 /**
  * Jours de fabrication d'un OF depuis sa charge gamme (heures). Décision métier :

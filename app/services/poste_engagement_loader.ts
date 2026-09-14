@@ -17,6 +17,8 @@ import {
 import { cacheNs } from '#services/cache_ns'
 import { stamped } from '#services/computed_age'
 import { isoDay } from '#app/utils/dates'
+import type { Workstation } from '#app/domain/models/workstation'
+import { weeklyCapacity } from '#app/domain/capacity'
 
 /**
  * Séquenceur (#46 / #100 unifiés) — vue tabulaire du board /programme.
@@ -64,9 +66,9 @@ export interface PosteEngagement {
   poste: { code: string; label: string }
   count: number
   totalHours: number
-  /** Capacité hebdomadaire théorique du poste (h), dérivée du schéma horaire
-   *  TABWEEDIA (Σ daycap × parallelUnits × eff×util / 100²). Null si poste
-   *  inconnu du référentiel → la vue affiche la charge sans comparatif. */
+  /** Capacité hebdomadaire NETTE du poste (h) — `weeklyCapacity` du domaine, donc
+   *  base équipe 7 h × équipes × exemplaires × rendement. Null si poste inconnu du
+   *  référentiel ou fermé toute la semaine → la vue affiche la charge sans comparatif. */
   weeklyCapacityHours: number | null
   rows: EngagementRow[]
   x3Error: string | null
@@ -159,27 +161,17 @@ const resolvePoste = (
   return ov?.workstation ?? opsByArticle.get(mo.article)?.[0]?.workstation ?? null
 }
 
-const weeklyCapacityOf = (
-  poste: string,
-  workstations: {
-    code: string
-    dailyCapacity: number[]
-    parallelUnits: number
-    efficiency: number
-    utilization: number
-  }[]
-): number | null => {
+/**
+ * Capacité hebdomadaire du poste — délègue au domaine (`weeklyCapacity`).
+ *
+ * C'était un calcul recopié ici (Σ daycap × parallelUnits × eff × util), qui ignorait
+ * la perte SHR et la sentinelle « jour fermé », et qui est resté sur la base DAYCAP
+ * quand le domaine est passé à la base équipe 7 h : la jauge du séquenceur annonçait
+ * alors une capacité que /charge ne reconnaissait plus. Une seule maison pour la règle.
+ */
+const weeklyCapacityOf = (poste: string, workstations: Workstation[]): number | null => {
   const wst = workstations.find((w) => w.code === poste)
-  if (!wst || !wst.dailyCapacity.some((c) => c > 0)) return null
-  return (
-    Math.round(
-      wst.dailyCapacity.reduce((s, c) => s + c, 0) *
-        wst.parallelUnits *
-        (wst.efficiency / 100) *
-        (wst.utilization / 100) *
-        100
-    ) / 100
-  )
+  return wst ? weeklyCapacity(wst) : null
 }
 
 /** Demande window engagement ISO [today − lookback, today + horizon]. */

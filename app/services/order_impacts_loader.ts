@@ -427,7 +427,7 @@ export async function loadOrderImpacts(
   // Charge réelle par OF (cadence gamme × reste à produire) pour le calcul de retard —
   // volontairement indépendant du jalonnement CBN (STRDAT/ENDDAT). Même formule que
   // /ruptures (shortage_payload_loader.ts) : Σ qteRestante/cadence par opération, converti
-  // en jours (7,5h/j par défaut), plancher 1j.
+  // en jours (7 h/j = une équipe, cf. DEFAULT_HOURS_PER_DAY), plancher 1 j.
   const hoursPerDay = Number(process.env.RUPTURES_HOURS_PER_DAY) || DEFAULT_HOURS_PER_DAY
   const opsByArticle = new Map<string, { rate: number }[]>()
   for (const g of gamme) {
