@@ -131,6 +131,28 @@ export function weeklyCapacity(w: Workstation, theoretical = false): number | nu
   return Math.round(total * 100) / 100
 }
 
+/** Nombre de jours ouverts d'une semaine type (schéma seul, sans calendrier). */
+export function openDaysPerWeek(w: Workstation): number {
+  let n = 0
+  for (let i = 0; i < 7; i++) if (capDayIndex(w, i, true) > 0) n++
+  return n
+}
+
+/**
+ * Capacité (h) d'un jour ouvert MOYEN du poste — `weeklyCapacity` ramenée à ses jours
+ * ouverts. C'est le diviseur à utiliser pour convertir des heures de charge en JOURS
+ * de production sur ce poste : une ligne en 2×8 écoule 12,6 h par jour, pas 7.
+ *
+ * Moyenne et non valeur d'un jour donné : les schémas à horaires variables (EQA) n'ont
+ * pas de « journée type ». Null si le poste est fermé toute la semaine.
+ */
+export function averageOpenDayCapacity(w: Workstation, theoretical = false): number | null {
+  const week = weeklyCapacity(w, theoretical)
+  const days = openDaysPerWeek(w)
+  if (week === null || days === 0) return null
+  return Math.round((week / days) * 100) / 100
+}
+
 /**
  * Capacité (h) cumulée d'un poste sur l'intervalle `[from, to]` (bornes incluses,
  * à la maille jour). Net par défaut.

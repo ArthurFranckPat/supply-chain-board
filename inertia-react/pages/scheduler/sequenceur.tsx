@@ -67,6 +67,8 @@ interface PosteSummary {
   count: number
   totalHours: number
   weeklyCapacityHours: number | null
+  /** Capacité d'un jour ouvert moyen (h) — diviseur de `fmtJ` sur CE poste. */
+  dailyCapacityHours: number | null
   atelier: string
   atelierLabel: string
   nature: PosteNature
@@ -1261,7 +1263,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 <span className="font-mono text-[10px] font-semibold text-muted-foreground">h</span>
                 {weeksEngaged !== null && (
                   <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                    ≈ {fmtJ(activePoste.totalHours)} j
+                    ≈ {fmtJ(activePoste.totalHours, activePoste.dailyCapacityHours)} j
                   </span>
                 )}
               </div>
@@ -1665,7 +1667,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                               {fmtH(r.hours)}
                             </span>
                             <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                              {fmtJ(r.hours)}
+                              {fmtJ(r.hours, posteByCode.get(r.posteCode)?.dailyCapacityHours)}
                             </span>
                           </div>
                         </div>

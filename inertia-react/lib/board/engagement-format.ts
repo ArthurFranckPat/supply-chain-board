@@ -33,6 +33,8 @@ export interface EngagementPayload {
   count: number
   totalHours: number
   weeklyCapacityHours: number | null
+  /** Capacité d'un jour ouvert moyen (h) sur CE poste — diviseur de `fmtJ`. */
+  dailyCapacityHours: number | null
   rows: EngagementRow[]
   x3Error: string | null
 }
@@ -45,8 +47,25 @@ export const fmtDateFr = (iso: string | null): string => {
 }
 
 export const fmtH = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
-/** Convention métier : 1 jour = 7 heures. */
-export const fmtJ = (h: number) => (Math.round((h / 7) * 10) / 10).toFixed(1).replace('.', ',')
+
+/** Repli quand la capacité du poste est inconnue : une équipe de 7 h (`SHIFT_HOURS`). */
+export const SHIFT_HOURS = 7
+
+/**
+ * Heures de charge → JOURS de production sur un poste donné.
+ *
+ * `dailyCapacityHours` = capacité d'un jour ouvert moyen de CE poste (équipes ×
+ * exemplaires × rendement). L'ignorer et diviser par 7 en dur faisait mentir toute
+ * ligne en 2×8 : PP_830 écoule 12,6 h/jour, donc 118,2 h de charge valent 9,4 jours
+ * et non 16,9 — un chiffre qui contredisait la saturation affichée juste à côté
+ * (188 % d'une semaine de 5 jours ouvrés = 9,4 jours).
+ *
+ * Capacité inconnue (poste hors référentiel, fermé toute la semaine) → repli 7 h.
+ */
+export const fmtJ = (h: number, dailyCapacityHours?: number | null) => {
+  const base = dailyCapacityHours && dailyCapacityHours > 0 ? dailyCapacityHours : SHIFT_HOURS
+  return (Math.round((h / base) * 10) / 10).toFixed(1).replace('.', ',')
+}
 
 /** Seuil d'urgence d'une livraison, pour la couleur + le regroupement visuel.
  *  - 'overdue' : livraison avant aujourd'hui (matériel non livré = alerte).

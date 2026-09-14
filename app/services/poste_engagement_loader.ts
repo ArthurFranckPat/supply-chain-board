@@ -18,7 +18,7 @@ import { cacheNs } from '#services/cache_ns'
 import { stamped } from '#services/computed_age'
 import { isoDay } from '#app/utils/dates'
 import type { Workstation } from '#app/domain/models/workstation'
-import { weeklyCapacity } from '#app/domain/capacity'
+import { averageOpenDayCapacity, weeklyCapacity } from '#app/domain/capacity'
 
 /**
  * Séquenceur (#46 / #100 unifiés) — vue tabulaire du board /programme.
@@ -70,6 +70,9 @@ export interface PosteEngagement {
    *  base équipe 7 h × équipes × exemplaires × rendement. Null si poste inconnu du
    *  référentiel ou fermé toute la semaine → la vue affiche la charge sans comparatif. */
   weeklyCapacityHours: number | null
+  /** Capacité d'un jour ouvert moyen (h) — SEUL diviseur juste pour convertir des heures
+   *  de charge en jours sur CE poste (une ligne en 2×8 écoule 12,6 h/j, pas 7). */
+  dailyCapacityHours: number | null
   rows: EngagementRow[]
   x3Error: string | null
 }
@@ -95,6 +98,8 @@ export interface PosteSummary {
   count: number
   totalHours: number
   weeklyCapacityHours: number | null
+  /** Capacité d'un jour ouvert moyen (h) — cf. `PosteEngagement.dailyCapacityHours`. */
+  dailyCapacityHours: number | null
   rows: SummaryRow[]
   /** Atelier de rattachement (STOLOC du poste) — filtre atelier (#36), même
    *  rattachement que /charge. Vide si poste hors référentiel. */
@@ -172,6 +177,12 @@ const resolvePoste = (
 const weeklyCapacityOf = (poste: string, workstations: Workstation[]): number | null => {
   const wst = workstations.find((w) => w.code === poste)
   return wst ? weeklyCapacity(wst) : null
+}
+
+/** Capacité d'un jour ouvert moyen du poste — délègue au domaine, comme la capacité hebdo. */
+const dailyCapacityOf = (poste: string, workstations: Workstation[]): number | null => {
+  const wst = workstations.find((w) => w.code === poste)
+  return wst ? averageOpenDayCapacity(wst) : null
 }
 
 /** Demande window engagement ISO [today − lookback, today + horizon]. */
@@ -494,6 +505,7 @@ export async function loadPosteSummaries(
           count: rows.length,
           totalHours: Math.round(rows.reduce((s, r) => s + r.hours, 0) * 100) / 100,
           weeklyCapacityHours: weeklyCapacityOf(code, ref.workstations),
+          dailyCapacityHours: dailyCapacityOf(code, ref.workstations),
           rows,
           atelier: stoloc,
           atelierLabel: resolveAtelierLabel(stoloc),
@@ -614,6 +626,7 @@ export async function loadPosteEngagement(
         count: rows.length,
         totalHours: Math.round(rows.reduce((s, r) => s + r.hours, 0) * 100) / 100,
         weeklyCapacityHours: weeklyCapacityOf(poste, ref.workstations),
+        dailyCapacityHours: dailyCapacityOf(poste, ref.workstations),
         rows,
         x3Error: errors.length ? errors.join(' | ') : null,
       }

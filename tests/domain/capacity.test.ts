@@ -7,6 +7,8 @@ import {
   isOpenDay,
   shiftsOf,
   weeklyCapacity,
+  averageOpenDayCapacity,
+  openDaysPerWeek,
   SHIFT_HOURS,
 } from '#app/domain/capacity'
 import { ofDateForMode } from '#services/load_payload_loader'
@@ -111,6 +113,33 @@ test.group('capacity / weeklyCapacity', () => {
 
   test('poste fermé toute la semaine ⇒ null (pas de comparatif de saturation)', ({ assert }) => {
     assert.isNull(weeklyCapacity(pp830({ dailyCapacity: [0, 0, 0, 0, 0, 0, 0] })))
+  })
+})
+
+test.group('capacity / averageOpenDayCapacity', () => {
+  test('jour ouvert moyen = capacité hebdo / jours ouverts', ({ assert }) => {
+    // 63 h sur 5 jours ouverts → 12,6 h/j. C'est le diviseur des « jours » affichés :
+    // 118,2 h de charge sur PP_830 = 9,4 j, et non 16,9 j (base 7 h en dur).
+    assert.equal(openDaysPerWeek(pp830()), 5)
+    assert.equal(averageOpenDayCapacity(pp830()), 12.6)
+    assert.closeTo(118.2 / (averageOpenDayCapacity(pp830()) as number), 9.4, 0.05)
+  })
+
+  test('schéma à horaires variables : moyenne des jours ouverts', ({ assert }) => {
+    // EQA : 4,4 / 8,26 / 8,26 / 8,26 / 5,81 → hors référentiel d'équipes, DAYCAP conservé.
+    const eqa = pp830({
+      parallelUnits: 1,
+      efficiency: 100,
+      scheduleCode: 'EQA',
+      dailyCapacity: [4.4, 8.26, 8.26, 8.26, 5.81, 0.01, 0],
+    })
+    assert.equal(openDaysPerWeek(eqa), 5)
+    // 34,99 h / 5 jours = 6,998 → arrondi au centième, comme toute capacité rendue.
+    assert.equal(averageOpenDayCapacity(eqa), 7)
+  })
+
+  test('poste fermé toute la semaine ⇒ null', ({ assert }) => {
+    assert.isNull(averageOpenDayCapacity(pp830({ dailyCapacity: [0, 0, 0, 0, 0, 0, 0] })))
   })
 })
 

@@ -786,6 +786,7 @@ export async function getEngagementPoste(poste: string) {
     count: data.count,
     totalHours: data.totalHours,
     weeklyCapacityHours: data.weeklyCapacityHours,
+    dailyCapacityHours: data.dailyCapacityHours,
     truncated: data.rows.length > 30,
     rows: list,
     x3Error: data.x3Error,

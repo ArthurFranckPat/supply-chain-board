@@ -74,9 +74,10 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
   }, [props.open, props.posteCode])
 
   const sat = data ? saturation(data.totalHours, data.weeklyCapacityHours) : null
-  const weeksEngaged = data && data.weeklyCapacityHours
-    ? Math.round((data.totalHours / data.weeklyCapacityHours) * 10) / 10
-    : null
+  const weeksEngaged =
+    data && data.weeklyCapacityHours
+      ? Math.round((data.totalHours / data.weeklyCapacityHours) * 10) / 10
+      : null
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
@@ -136,7 +137,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                   </span>
                   {weeksEngaged !== null && (
                     <span className="ml-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                      ≈ {fmtJ(data.totalHours)} j
+                      ≈ {fmtJ(data.totalHours, data.dailyCapacityHours)} j
                     </span>
                   )}
                 </div>
@@ -207,15 +208,9 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                   const prevU = i > 0 ? urgencyOf(data.rows[i - 1].livraisonIso) : null
                   const showSep = prevU === null || prevU !== u
                   const sepLabel =
-                    u === 'overdue'
-                      ? '⚠ En retard'
-                      : u === 'week'
-                        ? '◐ Cette semaine'
-                        : '○ À venir'
+                    u === 'overdue' ? '⚠ En retard' : u === 'week' ? '◐ Cette semaine' : '○ À venir'
                   const avancement =
-                    r.launched > 0
-                      ? Math.min(100, Math.round((r.done / r.launched) * 100))
-                      : 0
+                    r.launched > 0 ? Math.min(100, Math.round((r.done / r.launched) * 100)) : 0
                   return (
                     <div key={r.numOf}>
                       {showSep && (
@@ -318,7 +313,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                           {fmtH(r.hours)}
                         </span>
                         <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                          {fmtJ(r.hours)}
+                          {fmtJ(r.hours, data.dailyCapacityHours)}
                         </span>
                       </div>
                     </div>

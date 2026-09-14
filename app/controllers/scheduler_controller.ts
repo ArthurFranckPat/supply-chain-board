@@ -380,6 +380,7 @@ export default class SchedulerController {
       count: p.count,
       totalHours: p.totalHours,
       weeklyCapacityHours: p.weeklyCapacityHours,
+      dailyCapacityHours: p.dailyCapacityHours,
       atelier: p.atelier,
       atelierLabel: p.atelierLabel,
       nature: p.nature,
