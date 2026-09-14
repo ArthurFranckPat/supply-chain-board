@@ -178,7 +178,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
 
   const { monthStart, horizonEnd } = chargeHorizon(params.start)
 
-  const cacheKey = `detail:charge:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}`
+  const ofDate = params.ofDate === 'end' ? 'end' : 'start'
+  const cacheKey = `detail:charge:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({
@@ -225,7 +226,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         const ofRows: ChargeDetailOfRow[] = []
         for (const mo of inputs.mos) {
           const ops = inputs.gammeMap.get(mo.article) ?? []
-          const moDate = ofDateForMode(mo, params.ofDate)
+          const moDate = ofDateForMode(mo, ofDate)
           if (!inBucket(poste, moDate)) continue
           const qty = ofResteAProduire(mo, inputs.avancementByOf)
           const day = dayOf(poste, moDate!)
