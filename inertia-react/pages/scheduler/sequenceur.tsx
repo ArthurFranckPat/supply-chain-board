@@ -126,21 +126,42 @@ function affirmable(status: number | undefined): boolean {
   return status === 2 || status === 3
 }
 
-/** Split charge affichée : ferme (WIPSTA 1) vs à lancer (planifié/suggéré, pas encore affermi).
- *  « À lancer » est un STATUT, pas un verdict matières — un OF à lancer peut être bloqué. */
-function splitChargeHours(rows: { hours: number; status?: number }[]): {
-  ferme: number
-  lancable: number
-} {
+/**
+ * Split charge affichée, en TROIS états — il doit décrire ce qu'on peut faire, pas juste
+ * le statut X3 :
+ *   - `ferme`    : WIPSTA 1, déjà lancé. Sa faisabilité ne le change plus : il tourne.
+ *   - `aLancer`  : pas encore affermi ET matières disponibles → réellement lançable.
+ *   - `bloque`   : pas encore affermi MAIS composants manquants → on ne peut PAS le lancer.
+ *
+ * Le split tenait sur le seul statut : les heures bloquées étaient donc annoncées « à
+ * lancer », ce qui promettait une charge qu'aucun magasinier ne pouvait servir.
+ *
+ * Tant que la faisabilité n'a pas tourné (`feasDone` faux), rien n'est bloqué à notre
+ * connaissance : tout le non-ferme reste en `aLancer` plutôt que d'inventer un verdict.
+ * Un OF sous CQ est compté en `aLancer` — le moteur le déclare faisable ; c'est le
+ * compteur « N sous CQ » du bandeau qui porte la nuance.
+ */
+function splitChargeHours(
+  rows: { numOf: string; hours: number; status?: number }[],
+  feasibility: Record<string, FeasStatus>,
+  feasDone: boolean
+): { ferme: number; aLancer: number; bloque: number } {
   let ferme = 0
-  let lancable = 0
+  let aLancer = 0
+  let bloque = 0
   for (const r of rows) {
-    if (r.status === 1) ferme += r.hours
-    else if (affirmable(r.status)) lancable += r.hours
+    if (r.status === 1) {
+      ferme += r.hours
+      continue
+    }
+    if (!affirmable(r.status)) continue
+    if (feasDone && feasibility[r.numOf]?.st === 'blocked') bloque += r.hours
+    else aLancer += r.hours
   }
   return {
     ferme: Math.round(ferme * 100) / 100,
-    lancable: Math.round(lancable * 100) / 100,
+    aLancer: Math.round(aLancer * 100) / 100,
+    bloque: Math.round(bloque * 100) / 100,
   }
 }
 
@@ -851,7 +872,10 @@ export default function Sequenceur(props: SequenceurPageProps) {
     () => Math.round(filteredRows.reduce((s, r) => s + r.hours, 0) * 100) / 100,
     [filteredRows]
   )
-  const chargeSplit = useMemo(() => splitChargeHours(filteredRows), [filteredRows])
+  const chargeSplit = useMemo(
+    () => splitChargeHours(filteredRows, feasibility, feasDone),
+    [filteredRows, feasibility, feasDone]
+  )
   const sat = activePoste ? saturation(displayedHours, activePoste.weeklyCapacityHours) : null
   const weeksEngaged =
     activePoste && activePoste.weeklyCapacityHours
@@ -1329,7 +1353,10 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 </div>
                 <div className="flex items-center gap-3 font-mono text-[11px] font-semibold">
                   <span className="text-ferme">{fmtH(chargeSplit.ferme)} h ferme</span>
-                  <span className="text-planifie">{fmtH(chargeSplit.lancable)} h à lancer</span>
+                  <span className="text-planifie">{fmtH(chargeSplit.aLancer)} h à lancer</span>
+                  {chargeSplit.bloque > 0 && (
+                    <span className="text-destructive">{fmtH(chargeSplit.bloque)} h bloqué</span>
+                  )}
                 </div>
                 {sat && sat.pct !== null && (
                   <div className="flex items-center gap-2">
@@ -1492,7 +1519,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
                 {rowGroups.map((group) => {
                   const poste = group.posteCode ? posteByCode.get(group.posteCode) : null
                   const groupHours = group.rows.reduce((s, r) => s + r.hours, 0)
-                  const groupCharge = splitChargeHours(group.rows)
+                  const groupCharge = splitChargeHours(group.rows, feasibility, feasDone)
                   const groupSelectable = selectableIds(group.rows)
                   const groupAllToggled =
                     groupSelectable.length > 0 && groupSelectable.every((id) => selected.has(id))
@@ -1520,8 +1547,13 @@ export default function Sequenceur(props: SequenceurPageProps) {
                             <span>{fmtH(groupHours)} h</span>
                             <span className="text-ferme">{fmtH(groupCharge.ferme)} h ferme</span>
                             <span className="text-planifie">
-                              {fmtH(groupCharge.lancable)} h à lancer
+                              {fmtH(groupCharge.aLancer)} h à lancer
                             </span>
+                            {groupCharge.bloque > 0 && (
+                              <span className="text-destructive">
+                                {fmtH(groupCharge.bloque)} h bloqué
+                              </span>
+                            )}
                           </span>
                         </div>
                       )}
