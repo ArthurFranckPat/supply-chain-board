@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 108 routes nommées.
+ * 109 routes nommées.
  */
 
 export const MANIFEST = {
@@ -69,6 +69,10 @@ export const MANIFEST = {
   'planning_board.board_feasibility': {
     method: 'POST',
     pattern: '/api/v1/planning/board-feasibility',
+  },
+  'planning_board.material_summary': {
+    method: 'POST',
+    pattern: '/api/v1/planning/material-summary',
   },
   'planning_board.of_materials_diagnostic': {
     method: 'GET',
@@ -199,6 +203,7 @@ export type RouteParams = {
   'planning': void
   'planning_board.articles_by_component': { component: string | number }
   'planning_board.board_feasibility': void
+  'planning_board.material_summary': void
   'planning_board.of_materials_diagnostic': { of: string | number }
   'planning_board.search_of': void
   'planning_board.search_pf': void

@@ -3,6 +3,7 @@ import { OverrideStore } from '#services/override_store'
 import boardDataset from '#services/board_dataset'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadOfMaterialsDiagnostic } from '#services/of_diagnostic_loader'
+import { loadMaterialShortageSummary } from '#services/material_shortage_summary_loader'
 import { planningBoardUpdateValidator } from '#validators/planning_board'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -14,10 +15,17 @@ import type { GammeOperation } from '#app/domain/models/gamme'
  */
 const OF_RE = /^[A-Za-z0-9_-]{1,40}$/
 
+/** Date ISO au jour (yyyy-MM-dd) — format des dates envoyées par le front. */
+const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Plafond du périmètre client de `materialSummary` (nb d'OF acceptés dans le body). */
+const MAX_SCOPE_OFS = 5000
+
 /**
  * PlanningBoardController — endpoints OF LIVE consommés par le board unifié (/programme) :
  *   - PATCH /ofs/:of           : override d'OF (date/statut/poste/note)
  *   - POST /board-feasibility  : badges de faisabilité (loadOrderImpacts)
+ *   - POST /material-summary   : synthèse composants manquants des OF visibles (séquenceur)
  *   - GET  /articles-by-component : recherche composant → PF parents
  *   - GET  /search/{poste,of,pf}  : recherche board
  *   - GET  /of-materials/:of/diagnostic : diagnostic récursif (issue #25)
@@ -93,6 +101,71 @@ export default class PlanningBoardController {
     })
 
     return result
+  }
+
+  /**
+   * POST /api/v1/planning/material-summary — synthèse « qu'est-ce qui bloque, et qu'est-ce
+   * qui rentre quand ? » pour les OF que le séquenceur a SOUS LES YEUX.
+   *
+   * Le périmètre n'est pas dérivable côté serveur : les filtres poste / atelier / statut /
+   * dates de livraison du séquenceur sont appliqués côté client. Le front envoie donc la
+   * liste exacte des OF affichés (`ofs[]`), avec leur date de début = date à laquelle la
+   * matière doit être là. Le serveur ne garde que ceux jugés non faisables.
+   *
+   * Même fenêtre + même poste que le `board-feasibility` qui précède → même entrée de cache
+   * `loadOrderImpacts`, donc aucun recalcul X3.
+   */
+  async materialSummary(ctx: HttpContext) {
+    const fromParam = ctx.request.input('from') as string | undefined
+    const toParam = ctx.request.input('to') as string | undefined
+    const workstationFilter = ctx.request.input('workstation') as string | undefined
+    const mode = ctx.request.input('mode') as string | undefined
+    const includeManufactured = ctx.request.input('includeManufactured') === true
+
+    const windowFrom = new Date(fromParam ?? '')
+    const windowTo = new Date(toParam ?? '')
+    windowFrom.setHours(0, 0, 0, 0)
+    windowTo.setHours(23, 59, 59, 999)
+
+    if (
+      Number.isNaN(windowFrom.getTime()) ||
+      Number.isNaN(windowTo.getTime()) ||
+      windowTo <= windowFrom
+    ) {
+      return ctx.response.badRequest({ error: 'Dates invalides' })
+    }
+
+    const rawScope = ctx.request.input('ofs')
+    if (!Array.isArray(rawScope) || rawScope.length === 0) {
+      return ctx.response.badRequest({ error: 'Liste d’OF requise' })
+    }
+    // Plafond : le périmètre vient du client, il ne doit pas pouvoir faire exploser la
+    // mémoire du pivot. MAX_SCOPE_OFS couvre très largement un board séquenceur complet.
+    if (rawScope.length > MAX_SCOPE_OFS) {
+      return ctx.response.badRequest({ error: `Trop d’OF (max ${MAX_SCOPE_OFS})` })
+    }
+
+    const scope: { numOf: string; besoinIso: string | null }[] = []
+    for (const entry of rawScope) {
+      const numOf = String((entry as { numOf?: unknown })?.numOf ?? '')
+      if (!OF_RE.test(numOf)) continue
+      const besoin = (entry as { besoinIso?: unknown })?.besoinIso
+      const besoinIso = typeof besoin === 'string' && ISO_DAY_RE.test(besoin) ? besoin : null
+      scope.push({ numOf, besoinIso })
+    }
+    if (scope.length === 0) {
+      return ctx.response.badRequest({ error: 'Aucun numéro d’OF valide' })
+    }
+
+    return loadMaterialShortageSummary({
+      from: windowFrom,
+      to: windowTo,
+      workstation: workstationFilter,
+      mode: mode as 'immediate' | 'sequential' | undefined,
+      scope,
+      purchasedOnly: !includeManufactured,
+      force: !!ctx.request.input('refresh'),
+    })
   }
 
   /**

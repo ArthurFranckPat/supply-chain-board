@@ -54,6 +54,7 @@ import type { FeasStatus, PosteNature, PosteNatureFilterKey } from '@r/lib/board
 import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
+import { MaterialShortageSheet } from '@r/components/sequenceur/material-shortage-sheet'
 
 /**
  * Page « Séquenceur » — board /programme en table (#46/#100 unifiés).
@@ -441,6 +442,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [feasibility, setFeasibility] = useState<Record<string, FeasStatus>>({})
   const [feasLoading, setFeasLoading] = useState(false)
   const [feasDone, setFeasDone] = useState(false)
+  /** Panneau « Matières manquantes » — listing des composants qui bloquent les OF affichés. */
+  const [materialOpen, setMaterialOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batch, setBatch] = useState<Record<string, BatchItem>>({})
   const [batchRunning, setBatchRunning] = useState(false)
@@ -554,6 +557,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     setBatch({})
     setFeasibility({})
     setFeasDone(false)
+    setMaterialOpen(false)
   }, [props.rows])
 
   function selectPoste(poste: string | null) {
@@ -739,6 +743,47 @@ export default function Sequenceur(props: SequenceurPageProps) {
       else unknown++
     }
     return { ok, qc, blocked, unknown }
+  }, [
+    props.rows,
+    posteFilter,
+    atelierFilter,
+    posteAtelier,
+    posteNature,
+    posteNatureFilter,
+    statusFilter,
+    feasibility,
+    dateFromIso,
+    dateToIso,
+  ])
+
+  /**
+   * Périmètre du panneau « Matières manquantes » : les OF bloqués du board tel qu'il est
+   * filtré — MÊMES filtres que `feasCounts` (poste, atelier, nature, statut, dates), donc
+   * exactement les « N bloqués » annoncés par le bandeau.
+   *
+   * Volontairement insensible à la recherche texte et au filtre de faisabilité : ce sont
+   * des loupes de lecture, pas le périmètre de travail. Les inclure ferait re-calculer la
+   * synthèse à chaque frappe, et la viderait dès qu'on filtre sur « Lançables ».
+   *
+   * `besoinIso` = date de DÉBUT de l'OF : c'est la date à laquelle la matière doit être là.
+   */
+  const materialScope = useMemo(() => {
+    const scope: { numOf: string; besoinIso: string | null }[] = []
+    for (const r of props.rows) {
+      if (posteFilter && r.posteCode !== posteFilter) continue
+      if (!natureOk(posteNature.get(r.posteCode), posteNatureFilter)) continue
+      if (atelierFilter.size > 0 && !atelierFilter.has(posteAtelier.get(r.posteCode) ?? ''))
+        continue
+      if (!statusFilter.has((r.status ?? 1) as StatusKey)) continue
+      if (dateFromIso || dateToIso) {
+        if (!r.livraisonIso) continue
+        if (dateFromIso && r.livraisonIso < dateFromIso) continue
+        if (dateToIso && r.livraisonIso > dateToIso) continue
+      }
+      if (feasibility[r.numOf]?.st !== 'blocked') continue
+      scope.push({ numOf: r.numOf, besoinIso: r.dateDebutIso })
+    }
+    return scope
   }, [
     props.rows,
     posteFilter,
@@ -1133,6 +1178,23 @@ export default function Sequenceur(props: SequenceurPageProps) {
             <RefreshCw size={15} strokeWidth={1.75} className={cn(feasLoading && 'animate-spin')} />
             {feasLoading ? 'Calcul…' : 'Faisabilité'}
           </button>
+
+          {/* Listing des composants qui bloquent — n'a de sens qu'une fois le calcul fait
+              ET s'il y a au moins un OF bloqué dans le périmètre filtré. */}
+          {feasDone && feasCounts.blocked > 0 && (
+            <button
+              type="button"
+              className={cn(PILL, 'gap-1.5')}
+              onClick={() => setMaterialOpen(true)}
+              title="Lister les composants achetés qui bloquent les OF affichés"
+            >
+              <Package size={15} strokeWidth={1.75} className="text-destructive" />
+              Matières manquantes
+              <span className="font-mono text-[11px] font-bold tabular-nums text-destructive">
+                {feasCounts.blocked}
+              </span>
+            </button>
+          )}
 
           <div className={PILL}>
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
@@ -1627,6 +1689,15 @@ export default function Sequenceur(props: SequenceurPageProps) {
           setSelected(new Set())
           setBatch({})
         }}
+      />
+
+      <MaterialShortageSheet
+        open={materialOpen}
+        onOpenChange={setMaterialOpen}
+        window={props.feasibilityWindow}
+        mode="sequential"
+        workstation={posteFilter}
+        scope={materialScope}
       />
 
       <OfDetailSheet

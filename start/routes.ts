@@ -185,6 +185,9 @@ router
       .group(() => {
         router.patch('/ofs/:of', '#controllers/planning_board_controller.update')
         router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
+        // Synthèse composants manquants des OF VISIBLES sur /sequenceur (périmètre envoyé
+        // par le client : les filtres poste/atelier/statut/dates sont appliqués côté front).
+        router.post('/material-summary', '#controllers/planning_board_controller.materialSummary')
         router.get(
           '/articles-by-component/:component',
           '#controllers/planning_board_controller.articlesByComponent'
