@@ -245,3 +245,104 @@ export function buildMaterialShortageSummary(
     },
   }
 }
+
+/** Couverture d'un composant manquant d'un OF : quand la matière rentre, et de qui. */
+export interface ComponentCoverage {
+  /** Date d'arrivée de la réception qui solde le manque. Null = rien en commande. */
+  dateIso: string | null
+  supplier: string
+  /** N° de commande d'achat déterminante. */
+  poId: string
+}
+
+export interface OfCoverage {
+  /**
+   * Date à partir de laquelle TOUS les composants manquants de l'OF sont rentrés — donc la
+   * date à laquelle il devient lançable. Null si au moins un composant n'a aucune couverture.
+   */
+  readyIso: string | null
+  byComponent: Record<string, ComponentCoverage>
+}
+
+/** Un OF bloqué, dans l'ordre où la file le sert. */
+export interface CoverageOfInput {
+  numOf: string
+  /** Date d'expédition de la commande servie — ordonne la file (null = servi en dernier). */
+  shipmentIso: string | null
+  statutNum: number
+  missingComponents: Record<string, number>
+}
+
+/**
+ * Attribue les réceptions d'achat aux OF bloqués, dans l'ORDRE DE LA FILE.
+ *
+ * Même allocation séquentielle que le pivot `/ruptures` (`resolveCoveringReception` avec
+ * `alreadyConsumed`) : une réception ne peut pas couvrir deux OF à la fois. L'OF servi en
+ * premier prend la marchandise ; le suivant attend la livraison d'après.
+ *
+ * L'ordre DOIT être celui du moteur de contention (expédition, statut, numéro), sinon le
+ * tooltip d'un badge annoncerait une date que le panneau Matières contredit.
+ *
+ * Volontairement pas de date de besoin ici : on répond « quand ça rentre », pas « est-ce
+ * à temps » — ce verdict-là appartient au panneau, qui connaît les buffers.
+ */
+export function buildCoverageByOf(
+  ofs: CoverageOfInput[],
+  receptionsByArticle: Map<string, ReceptionRecord[]>,
+  opts: {
+    overdueMinQty?: number
+    todayIso?: string
+    resolve: (
+      receptions: ReceptionRecord[],
+      qteManquante: number,
+      o: { alreadyConsumed: number; overdueMinQty?: number; todayIso?: string }
+    ) => { id: string; supplier: string; dateArrivee: string } | null
+  }
+): Record<string, OfCoverage> {
+  const ordered = [...ofs].sort((a, b) => {
+    const ta = a.shipmentIso ?? '9999-12-31'
+    const tb = b.shipmentIso ?? '9999-12-31'
+    if (ta !== tb) return ta < tb ? -1 : 1
+    if (a.statutNum !== b.statutNum) return a.statutNum - b.statutNum
+    return a.numOf.localeCompare(b.numOf)
+  })
+
+  const consumed = new Map<string, number>()
+  const out: Record<string, OfCoverage> = {}
+
+  for (const of of ordered) {
+    const byComponent: Record<string, ComponentCoverage> = {}
+    let readyIso: string | null = null
+    let uncovered = false
+
+    for (const [component, qte] of Object.entries(of.missingComponents)) {
+      if (qte <= 0) continue
+      const alreadyConsumed = consumed.get(component) ?? 0
+      const rec = opts.resolve(receptionsByArticle.get(component) ?? [], qte, {
+        alreadyConsumed,
+        ...(opts.overdueMinQty !== undefined ? { overdueMinQty: opts.overdueMinQty } : {}),
+        ...(opts.todayIso !== undefined ? { todayIso: opts.todayIso } : {}),
+      })
+      // La part réservée est décomptée même sans réception couvrante : l'OF suivant ne doit
+      // pas se voir attribuer une marchandise que celui-ci attend déjà.
+      consumed.set(component, alreadyConsumed + qte)
+
+      if (!rec) {
+        byComponent[component] = { dateIso: null, supplier: '', poId: '' }
+        uncovered = true
+        continue
+      }
+      byComponent[component] = {
+        dateIso: rec.dateArrivee,
+        supplier: rec.supplier,
+        poId: rec.id,
+      }
+      // L'OF n'est lançable qu'au dernier composant rentré.
+      if (readyIso === null || rec.dateArrivee > readyIso) readyIso = rec.dateArrivee
+    }
+
+    out[of.numOf] = { readyIso: uncovered ? null : readyIso, byComponent }
+  }
+
+  return out
+}

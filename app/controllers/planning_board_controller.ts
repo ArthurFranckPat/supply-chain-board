@@ -4,6 +4,7 @@ import boardDataset from '#services/board_dataset'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadOfMaterialsDiagnostic } from '#services/of_diagnostic_loader'
 import { loadMaterialShortageSummary } from '#services/material_shortage_summary_loader'
+import { loadBoardCoverage } from '#services/board_coverage_loader'
 import { planningBoardUpdateValidator } from '#validators/planning_board'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -131,7 +132,14 @@ export default class PlanningBoardController {
       }
     }
 
-    return { ...result, componentLabels }
+    /**
+     * Quand la matière rentre, par OF bloqué — allouée dans l'ORDRE DE LA FILE, donc avec la
+     * même règle que le panneau Matières : une réception ne couvre pas deux OF à la fois.
+     * Sautée s'il n'y a aucun OF bloqué : rien à couvrir, pas de réceptions à charger.
+     */
+    const coverage = await loadBoardCoverage(result)
+
+    return { ...result, componentLabels, coverage }
   }
 
   /**

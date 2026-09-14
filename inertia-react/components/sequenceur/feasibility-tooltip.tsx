@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
+import { cn } from '@r/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@r/components/ui/tooltip'
+import type { OfCoverage } from '@r/lib/board/feasibility-map'
 import type { FeasStatus } from '@r/lib/board/types'
 
 /**
@@ -25,17 +27,32 @@ const fmtQty = (n: number): string =>
 /** Au-delà, la liste déborde du tooltip : on tronque et on annonce le reste. */
 const MAX_LINES = 8
 
+/** ISO yyyy-MM-dd → JJ/MM/AA (jamais d'ISO brut à l'écran). */
+const fmtDay = (iso: string | null | undefined): string => {
+  if (!iso) return '—'
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1].slice(2)}` : iso
+}
+
+const todayIso = (): string => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function ComponentLines(props: {
   entries: [string, number][]
   labels: Record<string, string>
+  coverage?: OfCoverage
   tone: 'manque' | 'cq'
 }) {
   const shown = props.entries.slice(0, MAX_LINES)
   const rest = props.entries.length - shown.length
+  const today = todayIso()
   return (
     <>
       {shown.map(([ref, qty]) => {
         const label = props.labels[ref]
+        const cov = props.coverage?.byComponent[ref]
         return (
           <div key={ref} className="flex items-baseline justify-between gap-3">
             <div className="min-w-0">
@@ -47,16 +64,37 @@ function ComponentLines(props: {
                 </div>
               )}
             </div>
-            <span
-              className={
-                props.tone === 'manque'
-                  ? 'flex-none font-mono text-[11px] font-bold tabular-nums text-destructive'
-                  : 'flex-none font-mono text-[11px] font-bold tabular-nums text-suggere'
-              }
-            >
-              {props.tone === 'manque' ? '−' : ''}
-              {fmtQty(qty)}
-            </span>
+            <div className="flex-none text-right">
+              <div
+                className={
+                  props.tone === 'manque'
+                    ? 'font-mono text-[11px] font-bold tabular-nums text-destructive'
+                    : 'font-mono text-[11px] font-bold tabular-nums text-suggere'
+                }
+              >
+                {props.tone === 'manque' ? '−' : ''}
+                {fmtQty(qty)}
+              </div>
+              {cov &&
+                (cov.dateIso ? (
+                  <div
+                    className={cn(
+                      'font-mono text-[10px] leading-tight tabular-nums',
+                      // Réception attendue dans le passé et toujours pas là : la date
+                      // annoncée n'est plus crédible, elle ne doit pas rassurer.
+                      cov.dateIso < today ? 'font-bold text-destructive' : 'text-muted-foreground'
+                    )}
+                    title={cov.supplier ? `${cov.poId} · ${cov.supplier}` : cov.poId}
+                  >
+                    {cov.dateIso < today ? 'en retard ' : ''}
+                    {fmtDay(cov.dateIso)}
+                  </div>
+                ) : (
+                  <div className="font-mono text-[10px] leading-tight text-destructive">
+                    rien en cmd
+                  </div>
+                ))}
+            </div>
           </div>
         )
       })}
@@ -74,6 +112,11 @@ interface FeasibilityTooltipProps {
    * aller chercher la fiche article ailleurs pour savoir de quoi on parle.
    */
   labels?: Record<string, string>
+  /**
+   * Quand les composants manquants de CET OF rentrent — alloué dans l'ordre de la file,
+   * donc la même réponse que le panneau Matières.
+   */
+  coverage?: OfCoverage
   /**
    * Le badge lui-même. Passé en `render` au déclencheur : Base UI fusionne ses handlers
    * dans cet élément au lieu d'injecter un bouton, donc le badge reste le badge.
@@ -102,11 +145,33 @@ export function FeasibilityTooltip(props: FeasibilityTooltipProps) {
                 Manque pour lancer cet OF
               </div>
               {missing.length > 0 ? (
-                <ComponentLines entries={missing} labels={labels} tone="manque" />
+                <ComponentLines
+                  entries={missing}
+                  labels={labels}
+                  coverage={props.coverage}
+                  tone="manque"
+                />
               ) : (
                 // `missing` vide sur un OF bloqué = le manque est plus bas dans la BOM.
                 <div className="text-[11px] text-muted-foreground">
                   Composant bloquant non direct — ouvrir le diagnostic de l’OF.
+                </div>
+              )}
+              {/* Synthèse : la date du DERNIER composant rentré — celle qui débloque l'OF. */}
+              {missing.length > 0 && props.coverage && (
+                <div className="border-t border-border pt-1.5 font-mono text-[10px]">
+                  {props.coverage.readyIso ? (
+                    <>
+                      <span className="text-muted-foreground">Complet à partir du </span>
+                      <span className="font-bold tabular-nums text-foreground">
+                        {fmtDay(props.coverage.readyIso)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-bold text-destructive">
+                      Au moins un composant sans commande d’achat
+                    </span>
+                  )}
                 </div>
               )}
               <div className="border-t border-border pt-1.5 text-[10px] leading-snug text-muted-foreground">

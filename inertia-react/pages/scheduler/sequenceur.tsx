@@ -51,7 +51,7 @@ import {
   urgencyOf,
 } from '@r/lib/board/engagement-format'
 import type { FeasStatus, PosteNature, PosteNatureFilterKey } from '@r/lib/board/types'
-import { fetchBoardFeasibility } from '@r/lib/board/feasibility-map'
+import { fetchBoardFeasibility, type OfCoverage } from '@r/lib/board/feasibility-map'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
 import SequenceurFirmBar, { type BatchItem } from '@r/components/sequenceur/sequenceur-firm-bar'
 import { MaterialShortageSheet } from '@r/components/sequenceur/material-shortage-sheet'
@@ -450,6 +450,8 @@ export default function Sequenceur(props: SequenceurPageProps) {
   const [materialOpen, setMaterialOpen] = useState(false)
   /** Réf composant → désignation, pour nommer les manquants dans le tooltip du badge. */
   const [componentLabels, setComponentLabels] = useState<Record<string, string>>({})
+  /** N° d'OF → dates d'entrée de ses composants manquants (allouées dans l'ordre de la file). */
+  const [coverage, setCoverage] = useState<Record<string, OfCoverage>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batch, setBatch] = useState<Record<string, BatchItem>>({})
   const [batchRunning, setBatchRunning] = useState(false)
@@ -565,6 +567,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     setFeasDone(false)
     setMaterialOpen(false)
     setComponentLabels({})
+    setCoverage({})
   }, [props.rows])
 
   function selectPoste(poste: string | null) {
@@ -595,7 +598,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
     const { from, to } = props.feasibilityWindow
     setFeasLoading(true)
     try {
-      const { map, componentLabels: labels } = await fetchBoardFeasibility({
+      const {
+        map,
+        componentLabels: labels,
+        coverage: cov,
+      } = await fetchBoardFeasibility({
         from,
         to,
         mode: 'sequential',
@@ -616,6 +623,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
       }
       setFeasibility(scoped)
       setComponentLabels(labels)
+      setCoverage(cov)
       setFeasDone(true)
       const parts = [
         nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,
@@ -1632,7 +1640,11 @@ export default function Sequenceur(props: SequenceurPageProps) {
                                   {r.done}/{r.launched}
                                 </span>
                               </div>
-                              <FeasibilityTooltip feas={feas} labels={componentLabels}>
+                              <FeasibilityTooltip
+                                feas={feas}
+                                labels={componentLabels}
+                                coverage={coverage[r.numOf]}
+                              >
                                 <span
                                   className={cn(
                                     'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold',

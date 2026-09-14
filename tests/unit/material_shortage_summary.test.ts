@@ -1,5 +1,9 @@
 import { test } from '@japa/runner'
-import { buildMaterialShortageSummary } from '#app/domain/material_shortage_summary'
+import {
+  buildMaterialShortageSummary,
+  buildCoverageByOf,
+} from '#app/domain/material_shortage_summary'
+import { resolveCoveringReception } from '#app/domain/shortages'
 import type { OrderImpactResult } from '#app/domain/order_impacts'
 import type { ReceptionRecord } from '#app/domain/recursive_checker'
 import type { Article } from '#app/domain/models/article'
@@ -277,5 +281,139 @@ test.group('buildMaterialShortageSummary', () => {
     assert.equal(rows[0].dateCouvertureIso, null)
     assert.equal(rows[1].verdict, 'couvert')
     assert.equal(stats.nbSansCouverture, 1)
+  })
+})
+
+/**
+ * Allocation des réceptions aux OF bloqués, dans l'ordre de la file.
+ *
+ * Ce que ça verrouille : une réception ne couvre pas deux OF à la fois, et l'ordre de
+ * service est celui du moteur de contention (expédition, statut, numéro). Un tooltip qui
+ * annoncerait une date déjà promise à un OF plus urgent serait pire que pas de date.
+ */
+test.group('buildCoverageByOf', () => {
+  const rec = (id: string, article_: string, qty: number, iso: string): ReceptionRecord => ({
+    id,
+    article: article_,
+    supplier: `FOU-${id}`,
+    quantity: qty,
+    date: new Date(`${iso}T00:00:00`),
+  })
+
+  test('la réception va au plus urgent ; le suivant attend la livraison d’après', ({ assert }) => {
+    const receptions = new Map<string, ReceptionRecord[]>([
+      ['ACH1', [rec('PO1', 'ACH1', 10, '2026-09-20'), rec('PO2', 'ACH1', 10, '2026-10-05')]],
+    ])
+    const cov = buildCoverageByOf(
+      [
+        {
+          numOf: 'OF-TARD',
+          shipmentIso: '2026-10-10',
+          statutNum: 1,
+          missingComponents: { ACH1: 10 },
+        },
+        {
+          numOf: 'OF-TOT',
+          shipmentIso: '2026-09-25',
+          statutNum: 1,
+          missingComponents: { ACH1: 10 },
+        },
+      ],
+      receptions,
+      { resolve: resolveCoveringReception, todayIso: '2026-09-15' }
+    )
+    assert.equal(cov['OF-TOT'].byComponent.ACH1.dateIso, '2026-09-20')
+    assert.equal(cov['OF-TOT'].byComponent.ACH1.poId, 'PO1')
+    // PO1 est déjà partie : OF-TARD attend PO2.
+    assert.equal(cov['OF-TARD'].byComponent.ACH1.dateIso, '2026-10-05')
+    assert.equal(cov['OF-TARD'].readyIso, '2026-10-05')
+  })
+
+  test('readyIso = le DERNIER composant rentré, pas le premier', ({ assert }) => {
+    const receptions = new Map<string, ReceptionRecord[]>([
+      ['ACH1', [rec('PO1', 'ACH1', 10, '2026-09-20')]],
+      ['ACH2', [rec('PO2', 'ACH2', 5, '2026-10-02')]],
+    ])
+    const cov = buildCoverageByOf(
+      [
+        {
+          numOf: 'OF1',
+          shipmentIso: '2026-10-10',
+          statutNum: 1,
+          missingComponents: { ACH1: 10, ACH2: 5 },
+        },
+      ],
+      receptions,
+      { resolve: resolveCoveringReception, todayIso: '2026-09-15' }
+    )
+    assert.equal(cov.OF1.readyIso, '2026-10-02')
+  })
+
+  test('un composant sans commande d’achat annule le readyIso', ({ assert }) => {
+    const receptions = new Map<string, ReceptionRecord[]>([
+      ['ACH1', [rec('PO1', 'ACH1', 10, '2026-09-20')]],
+    ])
+    const cov = buildCoverageByOf(
+      [
+        {
+          numOf: 'OF1',
+          shipmentIso: '2026-10-10',
+          statutNum: 1,
+          missingComponents: { ACH1: 10, ACH2: 5 },
+        },
+      ],
+      receptions,
+      { resolve: resolveCoveringReception, todayIso: '2026-09-15' }
+    )
+    assert.equal(cov.OF1.byComponent.ACH1.dateIso, '2026-09-20')
+    assert.isNull(cov.OF1.byComponent.ACH2.dateIso)
+    assert.isNull(cov.OF1.readyIso)
+  })
+
+  test('à date d’expédition égale, le ferme est servi avant le suggéré', ({ assert }) => {
+    const receptions = new Map<string, ReceptionRecord[]>([
+      ['ACH1', [rec('PO1', 'ACH1', 10, '2026-09-20'), rec('PO2', 'ACH1', 10, '2026-10-05')]],
+    ])
+    const cov = buildCoverageByOf(
+      [
+        {
+          numOf: 'OF-SUGG',
+          shipmentIso: '2026-09-25',
+          statutNum: 3,
+          missingComponents: { ACH1: 10 },
+        },
+        {
+          numOf: 'OF-FERME',
+          shipmentIso: '2026-09-25',
+          statutNum: 1,
+          missingComponents: { ACH1: 10 },
+        },
+      ],
+      receptions,
+      { resolve: resolveCoveringReception, todayIso: '2026-09-15' }
+    )
+    assert.equal(cov['OF-FERME'].byComponent.ACH1.dateIso, '2026-09-20')
+    assert.equal(cov['OF-SUGG'].byComponent.ACH1.dateIso, '2026-10-05')
+  })
+
+  test('OF sans date d’expédition : servi en dernier', ({ assert }) => {
+    const receptions = new Map<string, ReceptionRecord[]>([
+      ['ACH1', [rec('PO1', 'ACH1', 10, '2026-09-20'), rec('PO2', 'ACH1', 10, '2026-10-05')]],
+    ])
+    const cov = buildCoverageByOf(
+      [
+        { numOf: 'OF-ORPHELIN', shipmentIso: null, statutNum: 1, missingComponents: { ACH1: 10 } },
+        {
+          numOf: 'OF-DATE',
+          shipmentIso: '2026-11-30',
+          statutNum: 1,
+          missingComponents: { ACH1: 10 },
+        },
+      ],
+      receptions,
+      { resolve: resolveCoveringReception, todayIso: '2026-09-15' }
+    )
+    assert.equal(cov['OF-DATE'].byComponent.ACH1.dateIso, '2026-09-20')
+    assert.equal(cov['OF-ORPHELIN'].byComponent.ACH1.dateIso, '2026-10-05')
   })
 })

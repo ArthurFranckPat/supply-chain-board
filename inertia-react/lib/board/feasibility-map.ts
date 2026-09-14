@@ -7,6 +7,21 @@ import type { FeasibilityMode } from '@r/lib/board/types'
 import { buildFeasibilityMap, type FeasibilityOfPayload } from '@r/lib/board/feasibility-parse'
 import { route } from '@r/lib/routes'
 
+/** Couverture d'un composant manquant : quand la matière rentre, et de qui. */
+export interface ComponentCoverage {
+  /** Date d'arrivée de la réception qui solde le manque. Null = rien en commande. */
+  dateIso: string | null
+  supplier: string
+  /** N° de commande d'achat déterminante. */
+  poId: string
+}
+
+export interface OfCoverage {
+  /** Date à laquelle TOUS les manquants sont rentrés — donc où l'OF devient lançable. */
+  readyIso: string | null
+  byComponent: Record<string, ComponentCoverage>
+}
+
 // Réexport : les consommateurs historiques importent toujours depuis ce module.
 export { buildFeasibilityMap }
 export type { FeasibilityOfPayload }
@@ -21,6 +36,8 @@ export async function fetchBoardFeasibility(opts: {
   ReturnType<typeof buildFeasibilityMap> & {
     /** Réf composant → désignation, pour les seuls composants cités par un verdict. */
     componentLabels: Record<string, string>
+    /** N° d'OF → quand ses composants manquants rentrent (alloué dans l'ordre de la file). */
+    coverage: Record<string, OfCoverage>
   }
 > {
   const body: Record<string, string> = {
@@ -39,10 +56,12 @@ export async function fetchBoardFeasibility(opts: {
   const data = (await res.json()) as {
     ofs?: FeasibilityOfPayload[]
     componentLabels?: Record<string, string>
+    coverage?: Record<string, OfCoverage>
   }
   return {
     ...buildFeasibilityMap(data.ofs ?? []),
     componentLabels: data.componentLabels ?? {},
+    coverage: data.coverage ?? {},
   }
 }
 
