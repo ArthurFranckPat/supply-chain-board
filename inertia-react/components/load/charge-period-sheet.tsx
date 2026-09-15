@@ -118,6 +118,13 @@ export interface ChargePeriodSheetProps {
   unit: LoadUnit
   /** Date utilisée pour positionner un OF. */
   ofDate: 'start' | 'end'
+  /**
+   * Parent des overlays du panneau (défaut : `<body>`). La page le renseigne en
+   * plein écran : le navigateur ne rend alors que le sous-arbre de l'élément
+   * plein écran, donc ce panneau — et la liste déroulante de poste qu'il
+   * contient — doivent y être portés pour rester visibles.
+   */
+  overlayContainer?: HTMLElement | null
 }
 
 /** ISO YYYY-MM-DD → JJ/MM/AAAA (jamais d'ISO brut à l'écran). */
@@ -402,6 +409,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
+        portalContainer={props.overlayContainer}
         // Les dimensions DOIVENT être redéclarées en variantes `data-[side=bottom]:`
         // et pas en classes nues : le primitive porte `data-[side=bottom]:h-auto`
         // et `data-[side=bottom]:max-w-[640px]`, dont le sélecteur d'attribut bat
@@ -508,7 +516,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                         dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le
                         sheet : le défaut z-50 des popovers les place
                         délibérément sous les sheets. */}
-                    <ComboboxContent anchor={anchorRef} layerClassName="z-[62]">
+                    <ComboboxContent
+                      anchor={anchorRef}
+                      layerClassName="z-[62]"
+                      container={props.overlayContainer}
+                    >
                       <ComboboxList>
                         <ComboboxItem value={null}>
                           <span className="text-[12px] font-semibold">Tous les articles</span>

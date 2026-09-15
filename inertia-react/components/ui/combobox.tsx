@@ -92,6 +92,12 @@ function ComboboxContent({
   alignOffset = 0,
   anchor,
   layerClassName,
+  /**
+   * Parent du portail (défaut : `<body>`). À renseigner quand le popup doit
+   * rester visible alors que la page hôte est en plein écran : le navigateur ne
+   * rend que le sous-arbre de l'élément plein écran.
+   */
+  container,
   ...props
 }: ComboboxPrimitive.Popup.Props &
   Pick<
@@ -111,9 +117,10 @@ function ComboboxContent({
      * au-dessus du panneau (60), sous les dialogs (65).
      */
     layerClassName?: string
+    container?: ComboboxPrimitive.Portal.Props["container"]
   }) {
   return (
-    <ComboboxPrimitive.Portal>
+    <ComboboxPrimitive.Portal container={container}>
       <ComboboxPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}

@@ -43,13 +43,21 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  /**
+   * Parent du portail (défaut : `<body>`). À renseigner quand la page hôte passe
+   * en plein écran : le navigateur ne rend QUE le sous-arbre de l'élément plein
+   * écran, donc un panneau resté dans `<body>` n'est plus rendu du tout —
+   * cliquer une barre du graphe n'ouvrirait alors rien de visible.
+   */
+  portalContainer,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  portalContainer?: HTMLElement | null
 }) {
   return (
-    <SheetPortal>
+    <SheetPortal container={portalContainer}>
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"

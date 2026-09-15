@@ -524,22 +524,35 @@ export default function Load(props: LoadPageProps) {
    * poste chargé, barres, totaux et courbe de capacité se serrent. Le panneau
    * entier part donc en plein écran — entête, graphe ET matières : agrandir le
    * seul SVG ferait perdre le poste, la maille et l'unité qu'on est venu lire.
+   *
+   * La barre de contrôles (vue, unité, cran, filtres, recherche) reste alors
+   * derrière le plein écran : `F` la fait apparaître DANS le panneau (cf.
+   * `fullscreenBar` et `controlsBar`). Sans elle, changer d'unité ou de filtre
+   * imposerait de sortir du plein écran — donc de ne rien pouvoir faire « en
+   * grand ».
    */
   const panelRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  /** Barre de contrôles révélée dans le plein écran (touche F). */
+  const [fullscreenBar, setFullscreenBar] = useState(false)
 
   /**
    * On écoute `fullscreenchange` plutôt que de suivre nos propres clics : Échap
    * (ou la sortie par le système, F11, un changement de fenêtre) sort du plein
-   * écran sans passer par le bouton, et l'icône doit suivre.
+   * écran sans passer par le bouton, et l'icône doit suivre. La barre de
+   * contrôles, elle, ne survit pas à la sortie : elle n'a de sens que là.
    */
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === panelRef.current)
+    const onChange = () => {
+      const on = document.fullscreenElement === panelRef.current
+      setFullscreen(on)
+      if (!on) setFullscreenBar(false)
+    }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     const el = panelRef.current
     // API absente (vieux navigateur) : le bouton existe mais ne fait rien.
     if (!el?.requestFullscreen) return
@@ -548,7 +561,7 @@ export default function Load(props: LoadPageProps) {
     // restera simplement celui du navigateur — que `fullscreenchange` reflétera.
     if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => {})
     else void el.requestFullscreen().catch(() => {})
-  }
+  }, [])
 
   const detailItems = useMemo(() => {
     const line = selLine
@@ -601,7 +614,10 @@ export default function Load(props: LoadPageProps) {
   /**
    * Raccourcis clavier de la page :
    *   ← / →  poste précédent / suivant (mêmes pas que le carrousel) ;
-   *   F      ouvre et ferme les filtres.
+   *   F      ouvre/ferme les filtres — et, en plein écran, fait apparaître la
+   *          barre de contrôles qui les porte (elle est hors du panneau plein
+   *          écran, donc invisible sans ça) ;
+   *   P      entre et sort du plein écran (Échap en sort aussi).
    *
    * Trois gardes, sans quoi ils volent des frappes légitimes : aucune touche de
    * commande (Ctrl/⌘/Alt), pas d'écriture en cours (recherche, champ de saisie,
@@ -619,10 +635,19 @@ export default function Load(props: LoadPageProps) {
         stepPoste(e.key === 'ArrowRight' ? 1 : -1)
         return
       }
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault()
+        toggleFullscreen()
+        return
+      }
       if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        if (fullscreen) {
+          setFullscreenBar((v) => !v)
+          return
+        }
         const details = filterRef.current
         if (!details) return
-        e.preventDefault()
         // L'événement `toggle` natif repart vers React : l'état du panneau (et
         // donc la fermeture au clic extérieur et à Échap) reste juste.
         details.open = !details.open
@@ -630,7 +655,229 @@ export default function Load(props: LoadPageProps) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [periodTarget, stepPoste])
+  }, [periodTarget, stepPoste, toggleFullscreen, fullscreen])
+
+  /**
+   * Barre révélée en plein écran : on y déplie les filtres du même geste (la
+   * barre vient de se monter, son `<details>` est là). « Voir les filtres » ne
+   * doit pas coûter deux frappes — sinon le raccourci n'a rien gagné.
+   */
+  useEffect(() => {
+    if (!fullscreen || !fullscreenBar) return
+    const details = filterRef.current
+    if (details && !details.open) details.open = true
+  }, [fullscreen, fullscreenBar])
+
+  /**
+   * Barre de contrôles (vue, unité, cran, filtres, recherche) — ÉCRITE UNE FOIS,
+   * posée à l'un ou l'autre endroit : en tête de page, ou DANS le plein écran
+   * quand l'utilisateur la demande au clavier. Deux copies divergeraient.
+   */
+  const controlsBar = (
+    // Sélecteur de vue + filtres + recherche (la légende vit dans le graphe).
+    <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
+      {/* Bascule OF ↔ Commande */}
+      <Segment role="radiogroup" ariaLabel="Vue">
+        {(['of', 'commande'] as const).map((v) => (
+          <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
+            {v === 'of' ? 'OF' : 'Commande'}
+          </SegmentButton>
+        ))}
+      </Segment>
+      {/* Bascule Heures ↔ Pièces — transverse aux deux vues et aux trois
+              crans. Le libellé porte l'unité en clair (pas une icône) : c'est un
+              changement de ce que le chiffre VEUT DIRE, pas un réglage cosmétique. */}
+      <Segment role="radiogroup" ariaLabel="Unité affichée">
+        <SegmentButton
+          role="radio"
+          active={unit === 'h'}
+          title="Heures de poste — Σ (qté / cadence), l'unité de la capacité"
+          onClick={() => setUnit('h')}
+        >
+          Heures
+        </SegmentButton>
+        <SegmentButton
+          role="radio"
+          active={unit === 'u'}
+          title="Pièces opérées sur le poste — la quantité qui traverse la gamme. La capacité reste en heures : elle n'a pas d'équivalent pièces."
+          onClick={() => setUnit('u')}
+        >
+          Pièces
+        </SegmentButton>
+      </Segment>
+      {/* Bascule Brut / Net / Reste à produire (vue commande) */}
+      {view === 'commande' && (
+        <Segment role="radiogroup" ariaLabel="Quantité affichée">
+          {QTY_MODES.map((m) => (
+            <SegmentButton
+              key={m.id}
+              role="radio"
+              active={qtyMode === m.id}
+              title={m.hint}
+              onClick={() => setQtyMode(m.id)}
+            >
+              {m.label}
+            </SegmentButton>
+          ))}
+        </Segment>
+      )}
+      {view === 'of' && (
+        <Segment role="radiogroup" ariaLabel="Date de rattachement des OF">
+          <SegmentButton
+            role="radio"
+            active={props.ofDate === 'start'}
+            onClick={() => {
+              if (props.ofDate === 'start') return
+              const url = new URL(window.location.href)
+              url.searchParams.set('ofDate', 'start')
+              router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
+                preserveScroll: true,
+                // Même page, même composant : sans cela Inertia le remonte
+                // (`preserveState` vaut false par défaut) et la bascule
+                // Heures/Pièces repart de son défaut sous les yeux de
+                // l'utilisateur.
+                preserveState: true,
+              })
+            }}
+          >
+            Début OF
+          </SegmentButton>
+          <SegmentButton
+            role="radio"
+            active={props.ofDate === 'end'}
+            onClick={() => {
+              if (props.ofDate === 'end') return
+              const url = new URL(window.location.href)
+              url.searchParams.set('ofDate', 'end')
+              router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
+                preserveScroll: true,
+                preserveState: true,
+              })
+            }}
+          >
+            Fin OF
+          </SegmentButton>
+        </Segment>
+      )}
+      {/* Filtres — déclencheur unique (Statut ou Nature selon la vue +
+              Atelier). Même grammaire que Suivi/Ruptures : pas de chips
+              empilées dans la rangée, pas de rangée dédiée sous la toolbar. */}
+      <FilterMenu
+        detailsRef={filterRef}
+        hotkey="F"
+        label="Filtres"
+        indicators={
+          filtersActive ? (
+            <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+          ) : null
+        }
+      >
+        <div className="flex items-center justify-between">
+          {/* La vue OF ventile par STATUT d'ordre, la vue Commande par
+                  NATURE de demande : même filtre, deux vocabulaires métier. */}
+          <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
+          {segFiltered && (
+            <button
+              type="button"
+              className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
+              title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <Segment className="w-full flex-wrap">
+          {segOptions(view).map((o) => (
+            <SegmentButton
+              key={o.id}
+              active={activeSegs.has(o.id)}
+              onClick={() => toggleSeg(o.id)}
+              title={o.label}
+            >
+              {o.label}
+            </SegmentButton>
+          ))}
+        </Segment>
+        {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
+                Vivait dans sa propre rangée sous la toolbar : consolidé ici. */}
+        {props.ateliers.length > 0 && (
+          <>
+            <div className="my-2.5 border-t border-rule-soft" />
+            <div className="flex items-center justify-between">
+              <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
+              {atelierFilter.size > 0 && (
+                <button
+                  type="button"
+                  className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setAtelierFilter(new Set())}
+                  title="Réinitialiser le filtre atelier"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <Segment className="w-full flex-wrap">
+              {props.ateliers.map((a) => (
+                <SegmentButton
+                  key={a.code}
+                  active={atelierFilter.has(a.code)}
+                  onClick={() => toggleAtelier(a.code)}
+                  title={a.code}
+                >
+                  {a.label.replace(/^ATELIER\s+/i, '')}
+                </SegmentButton>
+              ))}
+            </Segment>
+          </>
+        )}
+        {/* Couches d'affichage — pas des filtres (elles ne retirent aucune
+                donnée), mais même déclencheur : la rangée n'a pas à porter des
+                coches ad hoc. Elles ne pilotent donc PAS la pastille du
+                déclencheur, sinon « Capacité » (activée par défaut) la
+                laisserait allumée en permanence. */}
+        <div className="my-2.5 border-t border-rule-soft" />
+        <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
+        <Segment className="w-full flex-wrap">
+          <SegmentButton
+            active={capacityOn}
+            disabled={unitActive}
+            onClick={() => setShowCapacity((v) => !v)}
+            title={
+              unitActive
+                ? 'Indisponible en pièces : la capacité d’un poste est un temps (heures), elle ne se convertit pas en quantité'
+                : 'Plafond de capacité nette + zones de surcharge'
+            }
+          >
+            Capacité
+          </SegmentButton>
+          <SegmentButton
+            active={showAvg}
+            onClick={() => setShowAvg((v) => !v)}
+            title="Moyenne mobile de la charge totale"
+          >
+            Moyenne mobile
+          </SegmentButton>
+        </Segment>
+      </FilterMenu>
+      {/* Pas de légende ici : elle est dessinée DANS le graphe de détail
+              (DetailChart), attachée à ce qu'elle décrit. */}
+      <ToolbarSpacer />
+      {/* Recherche — systématiquement à droite, jamais consolidée derrière
+              un clic (convention toolbar). */}
+      <div className={PILL}>
+        <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+        <input
+          className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+          placeholder="Poste, article…"
+          type="text"
+          autoComplete="off"
+          value={query}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
+        />
+      </div>
+    </ToolbarRow>
+  )
 
   return (
     <AppLayout
@@ -673,209 +920,9 @@ export default function Load(props: LoadPageProps) {
           </div>
         )}
 
-        {/* Sélecteur de vue + filtres + recherche (la légende vit dans le graphe) */}
-        <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-          {/* Bascule OF ↔ Commande */}
-          <Segment role="radiogroup" ariaLabel="Vue">
-            {(['of', 'commande'] as const).map((v) => (
-              <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-                {v === 'of' ? 'OF' : 'Commande'}
-              </SegmentButton>
-            ))}
-          </Segment>
-          {/* Bascule Heures ↔ Pièces — transverse aux deux vues et aux trois
-              crans. Le libellé porte l'unité en clair (pas une icône) : c'est un
-              changement de ce que le chiffre VEUT DIRE, pas un réglage cosmétique. */}
-          <Segment role="radiogroup" ariaLabel="Unité affichée">
-            <SegmentButton
-              role="radio"
-              active={unit === 'h'}
-              title="Heures de poste — Σ (qté / cadence), l'unité de la capacité"
-              onClick={() => setUnit('h')}
-            >
-              Heures
-            </SegmentButton>
-            <SegmentButton
-              role="radio"
-              active={unit === 'u'}
-              title="Pièces opérées sur le poste — la quantité qui traverse la gamme. La capacité reste en heures : elle n'a pas d'équivalent pièces."
-              onClick={() => setUnit('u')}
-            >
-              Pièces
-            </SegmentButton>
-          </Segment>
-          {/* Bascule Brut / Net / Reste à produire (vue commande) */}
-          {view === 'commande' && (
-            <Segment role="radiogroup" ariaLabel="Quantité affichée">
-              {QTY_MODES.map((m) => (
-                <SegmentButton
-                  key={m.id}
-                  role="radio"
-                  active={qtyMode === m.id}
-                  title={m.hint}
-                  onClick={() => setQtyMode(m.id)}
-                >
-                  {m.label}
-                </SegmentButton>
-              ))}
-            </Segment>
-          )}
-          {view === 'of' && (
-            <Segment role="radiogroup" ariaLabel="Date de rattachement des OF">
-              <SegmentButton
-                role="radio"
-                active={props.ofDate === 'start'}
-                onClick={() => {
-                  if (props.ofDate === 'start') return
-                  const url = new URL(window.location.href)
-                  url.searchParams.set('ofDate', 'start')
-                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
-                    preserveScroll: true,
-                    // Même page, même composant : sans cela Inertia le remonte
-                    // (`preserveState` vaut false par défaut) et la bascule
-                    // Heures/Pièces repart de son défaut sous les yeux de
-                    // l'utilisateur.
-                    preserveState: true,
-                  })
-                }}
-              >
-                Début OF
-              </SegmentButton>
-              <SegmentButton
-                role="radio"
-                active={props.ofDate === 'end'}
-                onClick={() => {
-                  if (props.ofDate === 'end') return
-                  const url = new URL(window.location.href)
-                  url.searchParams.set('ofDate', 'end')
-                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
-                    preserveScroll: true,
-                    preserveState: true,
-                  })
-                }}
-              >
-                Fin OF
-              </SegmentButton>
-            </Segment>
-          )}
-          {/* Filtres — déclencheur unique (Statut ou Nature selon la vue +
-              Atelier). Même grammaire que Suivi/Ruptures : pas de chips
-              empilées dans la rangée, pas de rangée dédiée sous la toolbar. */}
-          <FilterMenu
-            detailsRef={filterRef}
-            hotkey="F"
-            label="Filtres"
-            indicators={
-              filtersActive ? (
-                <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
-              ) : null
-            }
-          >
-            <div className="flex items-center justify-between">
-              {/* La vue OF ventile par STATUT d'ordre, la vue Commande par
-                  NATURE de demande : même filtre, deux vocabulaires métier. */}
-              <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
-              {segFiltered && (
-                <button
-                  type="button"
-                  className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
-                  title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <Segment className="w-full flex-wrap">
-              {segOptions(view).map((o) => (
-                <SegmentButton
-                  key={o.id}
-                  active={activeSegs.has(o.id)}
-                  onClick={() => toggleSeg(o.id)}
-                  title={o.label}
-                >
-                  {o.label}
-                </SegmentButton>
-              ))}
-            </Segment>
-            {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
-                Vivait dans sa propre rangée sous la toolbar : consolidé ici. */}
-            {props.ateliers.length > 0 && (
-              <>
-                <div className="my-2.5 border-t border-rule-soft" />
-                <div className="flex items-center justify-between">
-                  <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
-                  {atelierFilter.size > 0 && (
-                    <button
-                      type="button"
-                      className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                      onClick={() => setAtelierFilter(new Set())}
-                      title="Réinitialiser le filtre atelier"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                <Segment className="w-full flex-wrap">
-                  {props.ateliers.map((a) => (
-                    <SegmentButton
-                      key={a.code}
-                      active={atelierFilter.has(a.code)}
-                      onClick={() => toggleAtelier(a.code)}
-                      title={a.code}
-                    >
-                      {a.label.replace(/^ATELIER\s+/i, '')}
-                    </SegmentButton>
-                  ))}
-                </Segment>
-              </>
-            )}
-            {/* Couches d'affichage — pas des filtres (elles ne retirent aucune
-                donnée), mais même déclencheur : la rangée n'a pas à porter des
-                coches ad hoc. Elles ne pilotent donc PAS la pastille du
-                déclencheur, sinon « Capacité » (activée par défaut) la
-                laisserait allumée en permanence. */}
-            <div className="my-2.5 border-t border-rule-soft" />
-            <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
-            <Segment className="w-full flex-wrap">
-              <SegmentButton
-                active={capacityOn}
-                disabled={unitActive}
-                onClick={() => setShowCapacity((v) => !v)}
-                title={
-                  unitActive
-                    ? 'Indisponible en pièces : la capacité d’un poste est un temps (heures), elle ne se convertit pas en quantité'
-                    : 'Plafond de capacité nette + zones de surcharge'
-                }
-              >
-                Capacité
-              </SegmentButton>
-              <SegmentButton
-                active={showAvg}
-                onClick={() => setShowAvg((v) => !v)}
-                title="Moyenne mobile de la charge totale"
-              >
-                Moyenne mobile
-              </SegmentButton>
-            </Segment>
-          </FilterMenu>
-          {/* Pas de légende ici : elle est dessinée DANS le graphe de détail
-              (DetailChart), attachée à ce qu'elle décrit. */}
-          <ToolbarSpacer />
-          {/* Recherche — systématiquement à droite, jamais consolidée derrière
-              un clic (convention toolbar). */}
-          <div className={PILL}>
-            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <input
-              className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="Poste, article…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
-            />
-          </div>
-        </ToolbarRow>
+        {/* Barre de contrôles — dans la page, ou dans le plein écran quand on
+            la demande au clavier (cf. `fullscreenBar`). */}
+        {!fullscreen && controlsBar}
 
         {lines.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
@@ -1023,8 +1070,8 @@ export default function Load(props: LoadPageProps) {
                       Semaine
                     </button>
                   </div>
-                  {/* Plein écran du panneau — même rangée que la maille, à
-                      l'extrémité : c'est un réglage de LECTURE de ce graphe. */}
+                  {/* Plein écran du panneau — même rangée que la maille :
+                      c'est un réglage de LECTURE de ce graphe. */}
                   <button
                     type="button"
                     onClick={toggleFullscreen}
@@ -1034,8 +1081,8 @@ export default function Load(props: LoadPageProps) {
                     }
                     title={
                       fullscreen
-                        ? 'Quitter le plein écran (Échap)'
-                        : 'Plein écran — le poste, son graphe et ses matières'
+                        ? 'Quitter le plein écran (Échap) — F : barre de contrôles'
+                        : 'Plein écran — le poste, son graphe et ses matières (P)'
                     }
                     className="inline-flex size-[30px] flex-none items-center justify-center rounded-full border border-rule bg-secondary text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
                   >
@@ -1046,6 +1093,10 @@ export default function Load(props: LoadPageProps) {
                     )}
                   </button>
                 </div>
+                {/* Barre de contrôles du plein écran (touche F) — dans le flux,
+                    pas en surimpression : le graphe se remesure tout seul, rien
+                    n'est masqué, et la sortie du plein écran reste visible. */}
+                {fullscreen && fullscreenBar && controlsBar}
                 <DetailChart
                   items={detailItems}
                   gran={gran}
@@ -1087,6 +1138,10 @@ export default function Load(props: LoadPageProps) {
         qtyMode={qtyMode}
         unit={unit}
         ofDate={props.ofDate}
+        // En plein écran, le panneau est porté DANS l'élément plein écran :
+        // resté dans `<body>`, il ne serait pas rendu par le navigateur (cf.
+        // `panelRef`).
+        overlayContainer={fullscreen ? panelRef.current : null}
       />
     </AppLayout>
   )
