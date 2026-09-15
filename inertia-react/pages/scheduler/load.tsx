@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
-import { TriangleAlert, Search } from 'lucide-react'
+import { TriangleAlert, Search, Maximize2, Minimize2 } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -381,6 +381,38 @@ export default function Load(props: LoadPageProps) {
     requestAnimationFrame(updateEdges)
   }, [filteredLines])
 
+  // ── Plein écran du panneau de détail ──
+  /**
+   * Le graphe d'un poste se lit mal dans la moitié basse de l'écran : sur un
+   * poste chargé, barres, totaux et courbe de capacité se serrent. Le panneau
+   * entier part donc en plein écran — entête, graphe ET matières : agrandir le
+   * seul SVG ferait perdre le poste, la maille et l'unité qu'on est venu lire.
+   */
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+
+  /**
+   * On écoute `fullscreenchange` plutôt que de suivre nos propres clics : Échap
+   * (ou la sortie par le système, F11, un changement de fenêtre) sort du plein
+   * écran sans passer par le bouton, et l'icône doit suivre.
+   */
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === panelRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    const el = panelRef.current
+    // API absente (vieux navigateur) : le bouton existe mais ne fait rien.
+    if (!el?.requestFullscreen) return
+    // Les deux promesses rejettent dans des cas légitimes (sortie demandée sans
+    // plein écran actif, iframe sans `allowfullscreen`) : on les absorbe, l'état
+    // restera simplement celui du navigateur — que `fullscreenchange` reflétera.
+    if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => {})
+    else void el.requestFullscreen().catch(() => {})
+  }
+
   const detailItems = useMemo(() => {
     const line = selLine
     if (!line) return []
@@ -726,7 +758,17 @@ export default function Load(props: LoadPageProps) {
 
             {/* Détail du poste sélectionné */}
             {selLine && (
-              <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-rule bg-card p-4">
+              <div
+                ref={panelRef}
+                className={cn(
+                  'flex min-h-0 flex-1 flex-col rounded-lg border border-rule bg-card p-4',
+                  // En plein écran, l'agent utilisateur pose l'élément en
+                  // `position: fixed; inset: 0` (top layer) : on ne redéfinit que
+                  // ce qui se voit — le fond opaque qui masque le backdrop, les
+                  // angles, et l'air laissé au graphe.
+                  fullscreen && 'fixed inset-0 rounded-none p-6'
+                )}
+              >
                 <div className="mb-2.5 flex flex-none flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2 font-fraunces text-[20px] font-extrabold tracking-tight">
                     <span className="size-3 rounded-[3px]" style={{ background: selLine.color }} />
@@ -781,6 +823,28 @@ export default function Load(props: LoadPageProps) {
                       Semaine
                     </button>
                   </div>
+                  {/* Plein écran du panneau — même rangée que la maille, à
+                      l'extrémité : c'est un réglage de LECTURE de ce graphe. */}
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    aria-pressed={fullscreen}
+                    aria-label={
+                      fullscreen ? 'Quitter le plein écran' : 'Afficher le poste en plein écran'
+                    }
+                    title={
+                      fullscreen
+                        ? 'Quitter le plein écran (Échap)'
+                        : 'Plein écran — le poste, son graphe et ses matières'
+                    }
+                    className="inline-flex size-[30px] flex-none items-center justify-center rounded-full border border-rule bg-secondary text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
+                  >
+                    {fullscreen ? (
+                      <Minimize2 size={15} strokeWidth={1.75} />
+                    ) : (
+                      <Maximize2 size={15} strokeWidth={1.75} />
+                    )}
+                  </button>
                 </div>
                 <DetailChart
                   items={detailItems}
