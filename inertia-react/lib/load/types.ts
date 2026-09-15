@@ -48,6 +48,22 @@ export interface LoadLine {
   /** RESTE À PRODUIRE (net − en-cours de fabrication non déclaré) — cran par défaut. */
   monthlyReste: LoadPeriod[]
   weeklyReste: LoadPeriod[]
+  /**
+   * Charge en PIÈCES (quantités opérées), mêmes crans et mailles que les séries
+   * d'heures. Émises par le serveur, jamais dérivées des heures : l'efficience
+   * poste pondère le temps et non la quantité, donc une multiplication par la
+   * cadence ne retomberait pas juste.
+   *
+   * Pas d'équivalent pièces pour la capacité : un temps de poste n'est pas une
+   * quantité. La bascule Heures/Pièces masque donc le plafond et la courbe de
+   * capacité au lieu de les convertir.
+   */
+  monthlyQty: LoadPeriod[]
+  weeklyQty: LoadPeriod[]
+  monthlyNetQty: LoadPeriod[]
+  weeklyNetQty: LoadPeriod[]
+  monthlyResteQty: LoadPeriod[]
+  weeklyResteQty: LoadPeriod[]
   /** Capacité nette (heures), mêmes mailles que `monthly` / `weekly`. */
   capacity: LoadCapacity
   /** Atelier (STOLOC) du poste. */
@@ -82,6 +98,18 @@ export type OfDateMode = 'start' | 'end'
  *              reste à faire ? ».
  */
 export type LoadQtyMode = 'brut' | 'net' | 'reste'
+
+/**
+ * Unité d'affichage de la charge :
+ *  - `h` : heures de poste (historique) — `Σ qté / cadence`, l'unité de la capacité ;
+ *  - `u` : pièces opérées — ce qui traverse la gamme, la lecture « combien de
+ *          pièces sur ce poste » du responsable d'atelier.
+ *
+ * La capacité et la saturation restent en heures dans les deux cas : un temps de
+ * poste ne se convertit pas en pièces sans cadence, et la comparer à un nombre de
+ * pièces serait une fausse équation.
+ */
+export type LoadUnit = 'h' | 'u'
 
 export interface LoadPageProps {
   /** Libellé d'en-tête : « Juillet → Décembre 2026 · 6 mois ». */

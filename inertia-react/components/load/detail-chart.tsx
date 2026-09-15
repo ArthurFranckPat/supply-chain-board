@@ -8,8 +8,11 @@ import {
   MUTED,
   RULE_SOFT,
   BRAND,
+  fmtLoadValue,
+  loadUnitSuffix,
   type Gran,
   type LoadSegOption,
+  type LoadUnit,
   mobileAvg,
   rtop,
   satColor,
@@ -29,6 +32,8 @@ interface DetailChartProps {
   view: LoadView
   showCapacity: boolean
   showAvg: boolean
+  /** Unité tracée (heures ou pièces), pilotée par la page. */
+  unit: LoadUnit
   /** Segments effectivement tracés (filtre statut/nature appliqué) — légende. */
   segs: LoadSegOption[]
   /** Clic sur une période : ouvre le détail de la barre (index dans `items`). */
@@ -50,6 +55,7 @@ export function DetailChart({
   view,
   showCapacity,
   showAvg,
+  unit,
   segs,
   onSelectPeriod,
 }: DetailChartProps) {
@@ -91,7 +97,7 @@ export function DetailChart({
 
     const grid = [0, 1, 2, 3, 4].map((g) => {
       const val = (maxV * g) / 4
-      return { y: y(val), label: Math.round(val) }
+      return { y: y(val), label: fmtLoadValue(val, unit) }
     })
 
     type Seg = {
@@ -105,10 +111,10 @@ export function DetailChart({
       /** Index de la période — porté par le segment pour le clic « détail ». */
       idx: number
     }
-    type Lbl = { x: number; y: number; text: number; fill: string }
+    type Lbl = { x: number; y: number; text: string; fill: string }
     const segments: Seg[] = []
     const inLabels: Lbl[] = []
-    const totals: { x: number; y: number; text: number; fill: string }[] = []
+    const totals: { x: number; y: number; text: string; fill: string }[] = []
     const xLabels: { x: number; y: number; text: string; idx: number }[] = []
     const capPts: { x: number; y: number; v: number; over: boolean }[] = []
     const overRects: { x: number; y: number; w: number; h: number }[] = []
@@ -137,13 +143,18 @@ export function DetailChart({
           inLabels.push({
             x: cx,
             y: (yTop + y(acc)) / 2 + 3,
-            text: v,
+            text: fmtLoadValue(v, unit),
             fill: k === 's' || k === 'si' ? 'var(--color-foreground)' : CARD,
           })
         acc += v
       })
       const over = C[i] > 0 && T[i] > C[i]
-      totals.push({ x: cx, y: y(T[i]) - 6, text: T[i], fill: over ? DANGER : FG })
+      totals.push({
+        x: cx,
+        y: y(T[i]) - 6,
+        text: fmtLoadValue(T[i], unit),
+        fill: over ? DANGER : FG,
+      })
       if (C[i] > 0) {
         capPts.push({ x: cx, y: y(C[i]), v: C[i], over })
         if (over) overRects.push({ x: xx, y: y(T[i]), w: bw, h: y(C[i]) - y(T[i]) })
@@ -178,7 +189,7 @@ export function DetailChart({
       peak,
       week: gran === 'week',
     }
-  }, [items, dim, gran, view])
+  }, [items, dim, gran, view, unit])
 
   /**
    * Légende intégrée, calée en haut à droite de la zone de tracé.
@@ -349,7 +360,15 @@ export function DetailChart({
           <>
             {/* Surcharge : part de charge au-dessus du plafond, rouge translucide. */}
             {geom.overRects.map((r, i) => (
-              <rect key={`over-${i}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.2" />
+              <rect
+                key={`over-${i}`}
+                x={r.x}
+                y={r.y}
+                width={r.w}
+                height={r.h}
+                fill={DANGER}
+                opacity="0.2"
+              />
             ))}
             {/* Liseré clair sous la courbe pour la détacher des barres. */}
             <path
@@ -434,7 +453,10 @@ export function DetailChart({
             fontSize={geom.week ? '8' : '12'}
             fontWeight={geom.week ? '500' : '700'}
             fill={MUTED}
-            className={cn(geom.week ? 'font-mono' : 'font-fraunces', onSelectPeriod && 'cursor-pointer')}
+            className={cn(
+              geom.week ? 'font-mono' : 'font-fraunces',
+              onSelectPeriod && 'cursor-pointer'
+            )}
             onClick={onSelectPeriod ? () => onSelectPeriod(l.idx) : undefined}
           >
             {l.text.split('\n').map((ln, j) => (
@@ -480,17 +502,21 @@ export function DetailChart({
             </div>
           )}
           <div className="mt-1 flex items-center gap-2">
-            <span className="size-2.5 flex-none rounded-[2px]" style={{ background: hover.color }} />
+            <span
+              className="size-2.5 flex-none rounded-[2px]"
+              style={{ background: hover.color }}
+            />
             <span className="font-sans text-[12px] font-semibold">{hover.label}</span>
             <span className="ml-3 font-fraunces text-[15px] font-extrabold tabular-nums">
-              {hover.value} h
+              {fmtLoadValue(hover.value, unit)} {loadUnitSuffix(unit)}
             </span>
           </div>
           {/* Survol d'un segment de charge : part du total + plafond + saturation. */}
           {hover.total > 0 && (
             <>
               <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                {Math.round((hover.value / hover.total) * 100)}% du total · {hover.total} h
+                {Math.round((hover.value / hover.total) * 100)}% du total ·{' '}
+                {fmtLoadValue(hover.total, unit)} {loadUnitSuffix(unit)}
               </div>
               {hover.cap > 0 && (
                 <div

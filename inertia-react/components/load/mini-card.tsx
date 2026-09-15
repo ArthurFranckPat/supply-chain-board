@@ -1,22 +1,47 @@
 import { useMemo } from 'react'
 import { cn } from '@r/lib/utils'
-import type { LoadLine } from '@r/lib/load/types'
-import { DANGER, FG, BRAND, rtop, satColor, satRate, segsOf, total } from '@r/lib/load/chart-math'
+import type { LoadLine, LoadPeriod } from '@r/lib/load/types'
+import {
+  DANGER,
+  FG,
+  BRAND,
+  fmtLoadValue,
+  loadUnitSuffix,
+  rtop,
+  satColor,
+  satRate,
+  segsOf,
+  total,
+  type LoadUnit,
+} from '@r/lib/load/chart-math'
 
 /**
  * Mini-graphe (carte poste) de la vue « Projection de charge » (issue #52 —
  * extrait de scheduler/load.tsx).
  */
 interface MiniCardProps {
+  /** Ligne du poste, séries en HEURES : porte la capacité ET la saturation. */
   line: LoadLine
+  /** Série mensuelle réellement tracée (heures, ou pièces si l'unité est « u »). */
+  series: LoadPeriod[]
   months: string[]
   selected: boolean
   showCapacity: boolean
+  /** Unité tracée (heures ou pièces), pilotée par la page. */
+  unit: LoadUnit
   onSelect: () => void
 }
 
-export function MiniCard({ line, months, selected, showCapacity, onSelect }: MiniCardProps) {
-  const totals = useMemo(() => line.monthly.map(total), [line.monthly])
+export function MiniCard({
+  line,
+  series,
+  months,
+  selected,
+  showCapacity,
+  unit,
+  onSelect,
+}: MiniCardProps) {
+  const totals = useMemo(() => series.map(total), [series])
   const sum = useMemo(() => totals.reduce((a, b) => a + b, 0), [totals])
 
   const peakIdx = useMemo(() => {
@@ -25,16 +50,24 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
 
   const caps = useMemo(() => line.capacity.monthly, [line.capacity.monthly])
 
+  // Saturation lue sur les HEURES, jamais sur la série tracée : un rapport
+  // pièces ÷ heures ne veut rien dire, et la capacité est un temps. En pièces,
+  // le pourcentage reste donc celui du temps de poste.
+  const hours = useMemo(() => line.monthly.map(total), [line.monthly])
+
   const peakSat = useMemo(() => {
-    return satRate(totals[peakIdx] ?? 0, caps[peakIdx] ?? 0)
-  }, [totals, caps, peakIdx])
+    return satRate(hours[peakIdx] ?? 0, caps[peakIdx] ?? 0)
+  }, [hours, caps, peakIdx])
 
   const bars = useMemo(() => {
     const W = 160
     const H = 44
     const pad = 2
     const t = totals
-    const c = caps
+    // Capacité masquée : elle ne doit plus peser sur l'échelle. Sinon les barres
+    // restaient tassées sous un plafond invisible — et en PIÈCES elle mélangeait
+    // deux grandeurs (heures vs pièces) dans le même `max`, ce qui écrasait tout.
+    const c = showCapacity ? caps : []
     const n = t.length || 1
     const slot = (W - 2 * pad) / n
     const bw = slot * 0.55
@@ -52,7 +85,7 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
     const overRects: { x: number; y: number; w: number; h: number }[] = []
     const capPts: { x: number; y: number }[] = []
 
-    line.monthly.forEach((d, i) => {
+    series.forEach((d, i) => {
       const cx = pad + slot * i + slot / 2
       const x = cx - bw / 2
       const segs = segsOf(d).filter(([, v]) => v > 0)
@@ -70,7 +103,7 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
     })
     const capPath = capPts.map((pt, i) => `${i ? 'L' : 'M'}${pt.x} ${pt.y}`).join(' ')
     return { out, peakDots, overRects, capPath }
-  }, [line.monthly, totals, caps, peakIdx])
+  }, [series, totals, caps, peakIdx, showCapacity])
 
   return (
     <button
@@ -129,7 +162,10 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
         ))}
       </svg>
       <div className="mt-1.5 flex items-baseline justify-between">
-        <span className="font-fraunces text-[16px] font-extrabold tracking-tight">{sum}h</span>
+        <span className="font-fraunces text-[16px] font-extrabold tracking-tight">
+          {fmtLoadValue(sum, unit)}
+          {loadUnitSuffix(unit)}
+        </span>
         <span
           className={cn(
             'font-mono text-[9px] font-bold',
@@ -140,7 +176,8 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
             color: peakSat >= 85 ? satColor(totals[peakIdx] ?? 0, caps[peakIdx] ?? 0) : undefined,
           }}
         >
-          pic {months[peakIdx]} {totals[peakIdx] ?? 0}h
+          pic {months[peakIdx]} {fmtLoadValue(totals[peakIdx] ?? 0, unit)}
+          {loadUnitSuffix(unit)}
           {caps[peakIdx] > 0 && ` · ${Math.round(peakSat)}%`}
         </span>
       </div>

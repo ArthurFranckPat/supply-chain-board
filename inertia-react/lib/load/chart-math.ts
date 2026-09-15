@@ -2,7 +2,9 @@
  * Dérivations pures + constantes de rendu des graphes de charge (issue #52 —
  * extrait de scheduler/load.tsx). Partagées entre MiniCard et DetailChart.
  */
-import type { LoadPeriod, LoadView } from '@r/lib/load/types'
+import type { LoadPeriod, LoadView, LoadUnit } from '@r/lib/load/types'
+
+export type { LoadUnit }
 
 export type Gran = 'month' | 'week'
 
@@ -21,6 +23,17 @@ export const HATCH_FERME = 'url(#load-hatch-ferme)'
 export const HATCH_SUGGERE = 'url(#load-hatch-suggere)'
 
 export const total = (p: LoadPeriod) => p.f + p.p + p.s + p.fi + p.si
+
+/**
+ * Valeur de charge telle qu'elle s'écrit à l'écran : heures entières brutes
+ * (comportement historique, `128`), pièces avec séparateurs de milliers
+ * (`12 000` — sans eux, un poste à 5 chiffres ne se lit plus).
+ */
+export const fmtLoadValue = (v: number, unit: LoadUnit): string =>
+  unit === 'u' ? Math.round(v).toLocaleString('fr-FR') : String(v)
+
+/** Suffixe d'unité, collé à la valeur (« 128h », « 12 000u »). */
+export const loadUnitSuffix = (unit: LoadUnit): string => (unit === 'u' ? 'u' : 'h')
 
 /**
  * Filtre de segments (issue « filtre statut/nature » sur /charge).

@@ -73,6 +73,23 @@ interface LoadLine {
   /** RESTE À PRODUIRE (net − en-cours non déclaré) — 3e cran de la bascule, défaut. */
   monthlyReste: LoadPeriod[]
   weeklyReste: LoadPeriod[]
+  /**
+   * Charge en PIÈCES (quantités opérées), mêmes crans et mêmes mailles que les
+   * heures ci-dessus. La quantité n'est PAS `heures × cadence` : l'efficience
+   * poste (`chargeHoursWithEfficiency`) pondère le temps, jamais le nombre de
+   * pièces, et un arrondi d'heures ne se remultiplie pas. Le serveur émet donc
+   * la série telle qu'elle a été sommée, à côté de celle en heures.
+   *
+   * Pas d'équivalent pièces pour `capacity` : un temps de poste n'est pas une
+   * quantité. La bascule Heures/Pièces masque donc le plafond de capacité et la
+   * saturation visuelle (cf. page `scheduler/load`), elle ne les convertit pas.
+   */
+  monthlyQty: LoadPeriod[]
+  weeklyQty: LoadPeriod[]
+  monthlyNetQty: LoadPeriod[]
+  weeklyNetQty: LoadPeriod[]
+  monthlyResteQty: LoadPeriod[]
+  weeklyResteQty: LoadPeriod[]
   /** Capacité nette (heures) par bucket, alignée sur monthly/weekly (issue #35). */
   capacity: { monthly: number[]; weekly: number[] }
   /** Atelier (STOLOC) du poste + métadonnées de filtre (issue #36). */
@@ -573,7 +590,12 @@ export async function loadChargePayloadData(params: {
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  const cacheKey = `payload:charge:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
+  // `s3` = schéma du payload. Il porte désormais les séries en PIÈCES
+  // (`monthlyQty`…) : sans ce jeton, une entrée écrite par la version précédente
+  // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
+  // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
+  // inatteignable au lieu de compter sur l'expiration.
+  const cacheKey = `payload:charge:s3:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -653,6 +675,10 @@ export async function loadChargePayloadData(params: {
         brutHours: number
         netHours: number
         resteHours: number
+        /** Quantités opérées, parallèles aux trois crans d'heures. */
+        brutQty: number
+        netQty: number
+        resteQty: number
         field: keyof LoadPeriod
         article: string
       }
@@ -663,6 +689,13 @@ export async function loadChargePayloadData(params: {
         weekly: LoadPeriod[]
         weeklyNet: LoadPeriod[]
         weeklyReste: LoadPeriod[]
+        /** Mêmes six séries en pièces — cf. `LoadLine.monthlyQty`. */
+        monthlyQty: LoadPeriod[]
+        weeklyQty: LoadPeriod[]
+        monthlyNetQty: LoadPeriod[]
+        weeklyNetQty: LoadPeriod[]
+        monthlyResteQty: LoadPeriod[]
+        weeklyResteQty: LoadPeriod[]
         articles: Set<string>
       }
 
@@ -685,6 +718,12 @@ export async function loadChargePayloadData(params: {
               weekly: weekBuckets.map(emptyPeriod),
               weeklyNet: weekBuckets.map(emptyPeriod),
               weeklyReste: weekBuckets.map(emptyPeriod),
+              monthlyQty: monthBuckets.map(emptyPeriod),
+              weeklyQty: weekBuckets.map(emptyPeriod),
+              monthlyNetQty: monthBuckets.map(emptyPeriod),
+              weeklyNetQty: weekBuckets.map(emptyPeriod),
+              monthlyResteQty: monthBuckets.map(emptyPeriod),
+              weeklyResteQty: weekBuckets.map(emptyPeriod),
               articles: new Set(),
             }
             byLine.set(r.wst, acc)
@@ -692,10 +731,16 @@ export async function loadChargePayloadData(params: {
           acc.monthly[mi][r.field] += r.brutHours
           acc.monthlyNet[mi][r.field] += r.netHours
           acc.monthlyReste[mi][r.field] += r.resteHours
+          acc.monthlyQty[mi][r.field] += r.brutQty
+          acc.monthlyNetQty[mi][r.field] += r.netQty
+          acc.monthlyResteQty[mi][r.field] += r.resteQty
           if (wi !== undefined) {
             acc.weekly[wi][r.field] += r.brutHours
             acc.weeklyNet[wi][r.field] += r.netHours
             acc.weeklyReste[wi][r.field] += r.resteHours
+            acc.weeklyQty[wi][r.field] += r.brutQty
+            acc.weeklyNetQty[wi][r.field] += r.netQty
+            acc.weeklyResteQty[wi][r.field] += r.resteQty
           }
           if (r.article) acc.articles.add(r.article)
         }
@@ -715,6 +760,12 @@ export async function loadChargePayloadData(params: {
               weeklyNet: acc.weeklyNet.map(round),
               monthlyReste: acc.monthlyReste.map(round),
               weeklyReste: acc.weeklyReste.map(round),
+              monthlyQty: acc.monthlyQty.map(round),
+              weeklyQty: acc.weeklyQty.map(round),
+              monthlyNetQty: acc.monthlyNetQty.map(round),
+              weeklyNetQty: acc.weeklyNetQty.map(round),
+              monthlyResteQty: acc.monthlyResteQty.map(round),
+              weeklyResteQty: acc.weeklyResteQty.map(round),
               capacity: capacityByWst.get(code) ?? emptyCap(),
               atelier: stoloc,
               atelierLabel: atelierLabel(stoloc),
@@ -748,6 +799,10 @@ export async function loadChargePayloadData(params: {
                 netHours: hours,
                 // Vue OF : qty déjà déduite des pointages — les trois séries coïncident.
                 resteHours: hours,
+                // En pièces aussi : la quantité de l'OF est la même aux trois crans.
+                brutQty: qty,
+                netQty: qty,
+                resteQty: qty,
                 field: ofSegment(mo.status) as keyof LoadPeriod,
                 article: `${mo.article} ${mo.designation ?? ''}`.trim(),
               }
@@ -763,6 +818,9 @@ export async function loadChargePayloadData(params: {
           brutHours: chargeHoursWithEfficiency(n.brutHours, wstByCode.get(n.wst)),
           netHours: chargeHoursWithEfficiency(n.netHours, wstByCode.get(n.wst)),
           resteHours: chargeHoursWithEfficiency(n.resteHours, wstByCode.get(n.wst)),
+          brutQty: n.brutQty,
+          netQty: n.netQty,
+          resteQty: n.resteQty,
           field: chargeSegment(n.depth, n.nature) as keyof LoadPeriod,
           article: n.article,
         }))

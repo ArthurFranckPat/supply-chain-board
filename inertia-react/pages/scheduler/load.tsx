@@ -4,7 +4,14 @@ import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
-import type { LoadPageProps, LoadLine, LoadQtyMode, LoadView } from '@r/lib/load/types'
+import type {
+  LoadPageProps,
+  LoadLine,
+  LoadPeriod,
+  LoadQtyMode,
+  LoadUnit,
+  LoadView,
+} from '@r/lib/load/types'
 import {
   type Gran,
   maskPeriod,
@@ -98,6 +105,48 @@ export default function Load(props: LoadPageProps) {
     [qtyMode]
   )
 
+  /**
+   * Unité d'affichage de la charge : heures de poste (défaut, historique) ou
+   * pièces opérées. Transverse aux deux vues et aux trois crans — les séries en
+   * pièces viennent du serveur (`monthlyQty`…), on ne les recalcule JAMAIS depuis
+   * les heures : l'efficience poste pondère le temps et pas la quantité.
+   */
+  const [unit, setUnit] = useState<LoadUnit>('h')
+  const unitActive = unit === 'u'
+  /**
+   * La capacité est un temps : en pièces elle n'a ni axe ni sens. On la masque
+   * (plafond, zones de surcharge, pourcentage) au lieu de la comparer à des
+   * pièces — cf. `MiniCard` / `DetailChart`, qui reçoivent `capacityOn`.
+   */
+  const capacityOn = showCapacity && !unitActive
+
+  /**
+   * Série TRACÉE d'un poste : les heures déjà mises au cran choisi (`lines`),
+   * ou la série en pièces correspondante quand l'unité active est « u ».
+   *
+   * On ne substitue pas `monthly`/`weekly` sur la ligne : la capacité et la
+   * saturation restent lues sur ces séries-là (temps ÷ temps), et un poste ne
+   * doit pas se retrouver avec deux unités sous le même nom de champ.
+   */
+  const seriesOf = useCallback(
+    (l: LoadLine, g: Gran): LoadPeriod[] => {
+      if (!unitActive) return g === 'month' ? l.monthly : l.weekly
+      if (g === 'month') {
+        return qtyMode === 'net'
+          ? l.monthlyNetQty
+          : qtyMode === 'reste'
+            ? l.monthlyResteQty
+            : l.monthlyQty
+      }
+      return qtyMode === 'net'
+        ? l.weeklyNetQty
+        : qtyMode === 'reste'
+          ? l.weeklyResteQty
+          : l.weeklyQty
+    },
+    [unitActive, qtyMode]
+  )
+
   // Filtre de segments — un jeu par vue : la vue OF filtre des STATUTS
   // (Ferme/Planifié/Suggéré), la vue Commande des NATURES (Commande/Prévision).
   // Deux états séparés pour qu'une bascule de vue ne perde pas la sélection.
@@ -128,6 +177,11 @@ export default function Load(props: LoadPageProps) {
   // rangée) — pilote la pastille du déclencheur FilterMenu.
   const filtersActive = segFiltered || atelierFilter.size > 0
 
+  /**
+   * Charge par poste, en HEURES, masque de segments appliqué. La capacité et la
+   * saturation (charge ÷ capacité) se lisent sur cette série quelle que soit
+   * l'unité affichée : elles comparent un temps à un temps.
+   */
   const lines = useMemo(() => {
     const keep = segKeys(view, activeSegs)
     const base = (view === 'of' ? props.ofLines : props.cmdLines).map(viewNet)
@@ -138,6 +192,15 @@ export default function Load(props: LoadPageProps) {
           ...l,
           monthly: l.monthly.map((p) => maskPeriod(p, keep)),
           weekly: l.weekly.map((p) => maskPeriod(p, keep)),
+          // Les séries en pièces portent les mêmes segments : sans ce masque,
+          // une bascule « Ferme » seule laisserait le planifié dans les pièces
+          // et le graphe se contredirait entre les deux unités.
+          monthlyQty: l.monthlyQty.map((p) => maskPeriod(p, keep)),
+          weeklyQty: l.weeklyQty.map((p) => maskPeriod(p, keep)),
+          monthlyNetQty: l.monthlyNetQty.map((p) => maskPeriod(p, keep)),
+          weeklyNetQty: l.weeklyNetQty.map((p) => maskPeriod(p, keep)),
+          monthlyResteQty: l.monthlyResteQty.map((p) => maskPeriod(p, keep)),
+          weeklyResteQty: l.weeklyResteQty.map((p) => maskPeriod(p, keep)),
         }))
         // Un poste sans charge restante n'a plus rien à montrer : on le sort du
         // slider plutôt que d'afficher une carte plate à 0 h.
@@ -204,18 +267,15 @@ export default function Load(props: LoadPageProps) {
   const detailItems = useMemo(() => {
     const line = selLine
     if (!line) return []
-    return gran === 'month'
-      ? line.monthly.map((d, i) => ({
-          label: props.months[i] ?? '',
-          d,
-          cap: line.capacity.monthly[i] ?? 0,
-        }))
-      : line.weekly.map((d, i) => ({
-          label: props.weeks[i] ?? '',
-          d,
-          cap: line.capacity.weekly[i] ?? 0,
-        }))
-  }, [selLine, gran, props.months, props.weeks])
+    // Capacité en pièces : aucune (cf. `capacityOn`) — on n'alimente pas l'axe
+    // d'un plafond en heures, qui écraserait l'échelle.
+    const caps = gran === 'month' ? line.capacity.monthly : line.capacity.weekly
+    return seriesOf(line, gran).map((d, i) => ({
+      label: (gran === 'month' ? props.months[i] : props.weeks[i]) ?? '',
+      d,
+      cap: capacityOn ? (caps[i] ?? 0) : 0,
+    }))
+  }, [selLine, gran, props.months, props.weeks, capacityOn, seriesOf])
 
   // Détail d'une période : le clic passe la CLÉ du bucket (pas son index), pour
   // que la demande reste valide même si l'horizon a glissé entre-temps.
@@ -300,6 +360,27 @@ export default function Load(props: LoadPageProps) {
               </SegmentButton>
             ))}
           </Segment>
+          {/* Bascule Heures ↔ Pièces — transverse aux deux vues et aux trois
+              crans. Le libellé porte l'unité en clair (pas une icône) : c'est un
+              changement de ce que le chiffre VEUT DIRE, pas un réglage cosmétique. */}
+          <Segment role="radiogroup" ariaLabel="Unité affichée">
+            <SegmentButton
+              role="radio"
+              active={unit === 'h'}
+              title="Heures de poste — Σ (qté / cadence), l'unité de la capacité"
+              onClick={() => setUnit('h')}
+            >
+              Heures
+            </SegmentButton>
+            <SegmentButton
+              role="radio"
+              active={unit === 'u'}
+              title="Pièces opérées sur le poste — la quantité qui traverse la gamme. La capacité reste en heures : elle n'a pas d'équivalent pièces."
+              onClick={() => setUnit('u')}
+            >
+              Pièces
+            </SegmentButton>
+          </Segment>
           {/* Bascule Brut / Net / Reste à produire (vue commande) */}
           {view === 'commande' && (
             <Segment role="radiogroup" ariaLabel="Quantité affichée">
@@ -325,7 +406,9 @@ export default function Load(props: LoadPageProps) {
                   if (props.ofDate === 'start') return
                   const url = new URL(window.location.href)
                   url.searchParams.set('ofDate', 'start')
-                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, { preserveScroll: true })
+                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
+                    preserveScroll: true,
+                  })
                 }}
               >
                 Début OF
@@ -337,7 +420,9 @@ export default function Load(props: LoadPageProps) {
                   if (props.ofDate === 'end') return
                   const url = new URL(window.location.href)
                   url.searchParams.set('ofDate', 'end')
-                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, { preserveScroll: true })
+                  router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
+                    preserveScroll: true,
+                  })
                 }}
               >
                 Fin OF
@@ -423,9 +508,14 @@ export default function Load(props: LoadPageProps) {
             <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
             <Segment className="w-full flex-wrap">
               <SegmentButton
-                active={showCapacity}
+                active={capacityOn}
+                disabled={unitActive}
                 onClick={() => setShowCapacity((v) => !v)}
-                title="Plafond de capacité nette + zones de surcharge"
+                title={
+                  unitActive
+                    ? 'Indisponible en pièces : la capacité d’un poste est un temps (heures), elle ne se convertit pas en quantité'
+                    : 'Plafond de capacité nette + zones de surcharge'
+                }
               >
                 Capacité
               </SegmentButton>
@@ -486,9 +576,11 @@ export default function Load(props: LoadPageProps) {
                     <MiniCard
                       key={line.code}
                       line={line}
+                      series={seriesOf(line, 'month')}
                       months={props.months}
                       selected={selected === line.code}
-                      showCapacity={showCapacity}
+                      showCapacity={capacityOn}
+                      unit={unit}
                       onSelect={() => setSelected(line.code)}
                     />
                   ))}
@@ -571,8 +663,9 @@ export default function Load(props: LoadPageProps) {
                   items={detailItems}
                   gran={gran}
                   view={view}
-                  showCapacity={showCapacity}
+                  showCapacity={capacityOn}
                   showAvg={showAvg}
+                  unit={unit}
                   segs={visibleSegs}
                   onSelectPeriod={openPeriod}
                 />
@@ -605,6 +698,7 @@ export default function Load(props: LoadPageProps) {
         version={props.version}
         activeSegs={activeSegs}
         qtyMode={qtyMode}
+        unit={unit}
         ofDate={props.ofDate}
       />
     </AppLayout>

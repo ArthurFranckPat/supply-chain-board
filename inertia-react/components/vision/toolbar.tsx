@@ -24,8 +24,7 @@ export const SEG_BTN_ON =
   'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold bg-brand-soft text-brand transition-all duration-150 ease-out active:scale-95'
 export const SEG_BTN_OFF =
   'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 ease-out active:scale-95'
-export const SEG_LBL =
-  'px-1.5 font-mono text-3xs font-semibold text-muted-foreground'
+export const SEG_LBL = 'px-1.5 font-mono text-3xs font-semibold text-muted-foreground'
 export const PILL =
   'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-all duration-150 ease-out hover:border-brand active:scale-[0.97]'
 
@@ -69,6 +68,8 @@ export function SegmentButton(props: {
   onClick: () => void
   title?: string
   role?: 'radio'
+  /** Option hors d'état de servir (ex. capacité en pièces) : visible mais inerte. */
+  disabled?: boolean
   children: ReactNode
 }) {
   return (
@@ -77,8 +78,12 @@ export function SegmentButton(props: {
       role={props.role}
       aria-checked={props.role === 'radio' ? props.active : undefined}
       aria-pressed={props.role !== 'radio' ? props.active : undefined}
+      disabled={props.disabled}
       title={props.title}
-      className={props.active ? SEG_BTN_ON : SEG_BTN_OFF}
+      className={cn(
+        props.active ? SEG_BTN_ON : SEG_BTN_OFF,
+        props.disabled && 'cursor-not-allowed opacity-40'
+      )}
       onClick={props.onClick}
     >
       {props.children}
@@ -87,8 +92,18 @@ export function SegmentButton(props: {
 }
 
 const MONTHS_SHORT_FR = [
-  'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-  'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+  'janv.',
+  'févr.',
+  'mars',
+  'avr.',
+  'mai',
+  'juin',
+  'juil.',
+  'août',
+  'sept.',
+  'oct.',
+  'nov.',
+  'déc.',
 ]
 
 /** Pill fenêtre de dates — même position, même popover partout. Chaque page
@@ -135,9 +150,7 @@ export function DateWindowPill(props: {
     : (props.emptyLabel ?? '—')
   const { selected, onSelect } = useRangeCalendar({
     open: props.open,
-    value: props.selected.from
-      ? { from: props.selected.from, to: props.selected.to }
-      : undefined,
+    value: props.selected.from ? { from: props.selected.from, to: props.selected.to } : undefined,
     onCommit: props.onSelect,
   })
   return (
@@ -206,7 +219,9 @@ export function RefreshPill(props: {
   href?: string
   title?: string
 }) {
-  const title = props.title ?? (props.loading ? 'Actualisation en cours…' : 'Recharger les données X3 (cache → re-fetch live)')
+  const title =
+    props.title ??
+    (props.loading ? 'Actualisation en cours…' : 'Recharger les données X3 (cache → re-fetch live)')
   const icon = (
     <RefreshCw
       size={14}
