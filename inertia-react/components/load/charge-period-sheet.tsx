@@ -406,7 +406,17 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', 'Qté', unitHead]
 
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+    <Sheet
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      // En plein écran, le panneau est porté DANS l'entête du panneau de détail
+      // (`overlayContainer`) : un dialogue modal marque `inert` tout ce qui
+      // l'entoure — donc cette entête elle-même, Mois/Semaine et bouton de
+      // sortie compris. On renonce au marquage pour que l'entête reste vivante
+      // pendant la lecture du détail ; le fond, lui, ferme toujours au clic
+      // extérieur (cf. `SheetOverlay`).
+      modal={props.overlayContainer ? false : undefined}
+    >
       <SheetContent
         side="bottom"
         portalContainer={props.overlayContainer}

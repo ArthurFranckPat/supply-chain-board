@@ -88,20 +88,17 @@ export function DetailChart({
   }, [])
 
   /**
-   * Signature des données TRACÉES — ni la taille de la boîte, ni l'état des
-   * couches d'affichage. Une bascule d'unité (Heures → Pièces), de vue, de
-   * maille, de cran ou de filtre remplace la silhouette d'un coup : sans
-   * transition, l'œil ne voit pas CE QUI a bougé, juste que tout a changé.
-   * Un redimensionnement, lui, ne doit rien rejouer — la géométrie suit déjà.
+   * Signature de CE QUI CHANGE LA FORME, jamais de la donnée : unité, vue,
+   * maille, filtre de segments. Les valeurs du poste en sont volontairement
+   * exclues — sinon chaque pas de carrousel rejouait l'entrée, et qui maintient
+   * `→` voyait un graphe perpétuellement à mi-fondu. Un redimensionnement ne
+   * rejoue rien non plus : la géométrie suit déjà.
    */
-  const dataSignature = useMemo(
-    () =>
-      `${unit}|${view}|${gran}|${segs.map((s) => s.id).join(',')}|${items
-        .map((it) => `${it.label}:${total(it.d)}:${it.cap}`)
-        .join(';')}`,
-    [unit, view, gran, segs, items]
+  const shapeSignature = useMemo(
+    () => [unit, view, gran, segs.map((s) => s.id).join(',')].join('|'),
+    [unit, view, gran, segs]
   )
-  useReplayEnter(wrapRef, dataSignature)
+  useReplayEnter(wrapRef, shapeSignature)
 
   const geom = useMemo(() => {
     const W = dim.w

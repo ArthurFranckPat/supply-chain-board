@@ -522,31 +522,27 @@ export default function Load(props: LoadPageProps) {
   /**
    * Le graphe d'un poste se lit mal dans la moitié basse de l'écran : sur un
    * poste chargé, barres, totaux et courbe de capacité se serrent. Le panneau
-   * entier part donc en plein écran — entête, graphe ET matières : agrandir le
-   * seul SVG ferait perdre le poste, la maille et l'unité qu'on est venu lire.
+   * entier part donc en plein écran — entête, bandeau, graphe ET matières :
+   * agrandir le seul SVG ferait perdre le poste, la maille et l'unité qu'on est
+   * venu lire.
    *
-   * La barre de contrôles (vue, unité, cran, filtres, recherche) reste alors
-   * derrière le plein écran : `F` la fait apparaître DANS le panneau (cf.
-   * `fullscreenBar` et `controlsBar`). Sans elle, changer d'unité ou de filtre
-   * imposerait de sortir du plein écran — donc de ne rien pouvoir faire « en
-   * grand ».
+   * Ce qu'un plein écran doit encore laisser faire : lire autrement. Le bandeau
+   * du graphe porte donc l'unité, le cran et la maille (dans les deux modes), et
+   * en plein écran le périmètre (vue, filtres) vient s'y poser — cf.
+   * `graphControls` / `perimeterControls`. Rien à révéler au clavier, rien à
+   * sortir du plein écran pour changer d'avis.
    */
   const panelRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
-  /** Barre de contrôles révélée dans le plein écran (touche F). */
-  const [fullscreenBar, setFullscreenBar] = useState(false)
 
   /**
    * On écoute `fullscreenchange` plutôt que de suivre nos propres clics : Échap
    * (ou la sortie par le système, F11, un changement de fenêtre) sort du plein
-   * écran sans passer par le bouton, et l'icône doit suivre. La barre de
-   * contrôles, elle, ne survit pas à la sortie : elle n'a de sens que là.
+   * écran sans passer par le bouton, et l'icône doit suivre.
    */
   useEffect(() => {
     const onChange = () => {
-      const on = document.fullscreenElement === panelRef.current
-      setFullscreen(on)
-      if (!on) setFullscreenBar(false)
+      setFullscreen(document.fullscreenElement === panelRef.current)
     }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
@@ -641,52 +637,35 @@ export default function Load(props: LoadPageProps) {
         return
       }
       if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault()
-        if (fullscreen) {
-          setFullscreenBar((v) => !v)
-          return
-        }
         const details = filterRef.current
         if (!details) return
         // L'événement `toggle` natif repart vers React : l'état du panneau (et
         // donc la fermeture au clic extérieur et à Échap) reste juste.
+        e.preventDefault()
         details.open = !details.open
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [periodTarget, stepPoste, toggleFullscreen, fullscreen])
-
-  /**
-   * Barre révélée en plein écran : on y déplie les filtres du même geste (la
-   * barre vient de se monter, son `<details>` est là). « Voir les filtres » ne
-   * doit pas coûter deux frappes — sinon le raccourci n'a rien gagné.
-   */
-  useEffect(() => {
-    if (!fullscreen || !fullscreenBar) return
-    const details = filterRef.current
-    if (details && !details.open) details.open = true
-  }, [fullscreen, fullscreenBar])
+  }, [periodTarget, stepPoste, toggleFullscreen])
 
   /**
    * Barre de contrôles (vue, unité, cran, filtres, recherche) — ÉCRITE UNE FOIS,
    * posée à l'un ou l'autre endroit : en tête de page, ou DANS le plein écran
    * quand l'utilisateur la demande au clavier. Deux copies divergeraient.
    */
-  const controlsBar = (
-    // Sélecteur de vue + filtres + recherche (la légende vit dans le graphe).
-    <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-      {/* Bascule OF ↔ Commande */}
-      <Segment role="radiogroup" ariaLabel="Vue">
-        {(['of', 'commande'] as const).map((v) => (
-          <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-            {v === 'of' ? 'OF' : 'Commande'}
-          </SegmentButton>
-        ))}
-      </Segment>
-      {/* Bascule Heures ↔ Pièces — transverse aux deux vues et aux trois
-              crans. Le libellé porte l'unité en clair (pas une icône) : c'est un
-              changement de ce que le chiffre VEUT DIRE, pas un réglage cosmétique. */}
+  /**
+   * Ce que le graphe RACONTE — unité, cran de quantité, maille. Ces trois
+   * réglages vivaient dans la toolbar de page, à l'autre bout de l'écran du
+   * graphe qu'ils décrivent ; et en plein écran, il fallait les y réimporter.
+   * Ils tiennent maintenant dans le bandeau de l'entête du panneau, dans les
+   * deux modes, une fois pour toutes.
+   */
+  const graphControls = (
+    <>
+      {/* Bascule Heures ↔ Pièces — transverse aux deux vues et aux trois crans.
+          Le libellé porte l'unité en clair (pas une icône) : c'est un changement
+          de ce que le chiffre VEUT DIRE, pas un réglage cosmétique. */}
       <Segment role="radiogroup" ariaLabel="Unité affichée">
         <SegmentButton
           role="radio"
@@ -721,47 +700,39 @@ export default function Load(props: LoadPageProps) {
           ))}
         </Segment>
       )}
-      {view === 'of' && (
-        <Segment role="radiogroup" ariaLabel="Date de rattachement des OF">
-          <SegmentButton
-            role="radio"
-            active={props.ofDate === 'start'}
-            onClick={() => {
-              if (props.ofDate === 'start') return
-              const url = new URL(window.location.href)
-              url.searchParams.set('ofDate', 'start')
-              router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
-                preserveScroll: true,
-                // Même page, même composant : sans cela Inertia le remonte
-                // (`preserveState` vaut false par défaut) et la bascule
-                // Heures/Pièces repart de son défaut sous les yeux de
-                // l'utilisateur.
-                preserveState: true,
-              })
-            }}
-          >
-            Début OF
+      {/* Bascule Mois ↔ Semaine — même grammaire que les autres segments.
+          C'était un pill rond ad hoc (`rounded-full`, `font-sans`) : seul de son
+          espèce dans cette entête, et un deuxième vocabulaire de contrôle sur le
+          même écran. */}
+      <Segment role="radiogroup" ariaLabel="Maille affichée">
+        <SegmentButton role="radio" active={gran === 'month'} onClick={() => setGran('month')}>
+          Mois
+        </SegmentButton>
+        <SegmentButton role="radio" active={gran === 'week'} onClick={() => setGran('week')}>
+          Semaine
+        </SegmentButton>
+      </Segment>
+    </>
+  )
+
+  /**
+   * Le PÉRIMÈTRE — la vue (OF ↔ Commande) et les filtres. Monté UNE fois,
+   * posé soit dans la toolbar de page, soit dans le bandeau du graphe quand le
+   * plein écran est actif : le navigateur ne rend que le sous-arbre de
+   * l'élément plein écran, donc une toolbar restée dehors serait hors
+   * d'atteinte. Une seule instance, donc une seule `filterRef` — c'est elle que
+   * la touche `F` ouvre, dans les deux modes.
+   */
+  const perimeterControls = (
+    <>
+      {/* Bascule OF ↔ Commande */}
+      <Segment role="radiogroup" ariaLabel="Vue">
+        {(['of', 'commande'] as const).map((v) => (
+          <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
+            {v === 'of' ? 'OF' : 'Commande'}
           </SegmentButton>
-          <SegmentButton
-            role="radio"
-            active={props.ofDate === 'end'}
-            onClick={() => {
-              if (props.ofDate === 'end') return
-              const url = new URL(window.location.href)
-              url.searchParams.set('ofDate', 'end')
-              router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
-                preserveScroll: true,
-                preserveState: true,
-              })
-            }}
-          >
-            Fin OF
-          </SegmentButton>
-        </Segment>
-      )}
-      {/* Filtres — déclencheur unique (Statut ou Nature selon la vue +
-              Atelier). Même grammaire que Suivi/Ruptures : pas de chips
-              empilées dans la rangée, pas de rangée dédiée sous la toolbar. */}
+        ))}
+      </Segment>
       <FilterMenu
         detailsRef={filterRef}
         hotkey="F"
@@ -773,8 +744,8 @@ export default function Load(props: LoadPageProps) {
         }
       >
         <div className="flex items-center justify-between">
-          {/* La vue OF ventile par STATUT d'ordre, la vue Commande par
-                  NATURE de demande : même filtre, deux vocabulaires métier. */}
+          {/* La vue OF ventile par STATUT d'ordre, la vue Commande par NATURE
+              de demande : même filtre, deux vocabulaires métier. */}
           <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
           {segFiltered && (
             <button
@@ -860,23 +831,7 @@ export default function Load(props: LoadPageProps) {
           </SegmentButton>
         </Segment>
       </FilterMenu>
-      {/* Pas de légende ici : elle est dessinée DANS le graphe de détail
-              (DetailChart), attachée à ce qu'elle décrit. */}
-      <ToolbarSpacer />
-      {/* Recherche — systématiquement à droite, jamais consolidée derrière
-              un clic (convention toolbar). */}
-      <div className={PILL}>
-        <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-        <input
-          className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-          placeholder="Poste, article…"
-          type="text"
-          autoComplete="off"
-          value={query}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
-        />
-      </div>
-    </ToolbarRow>
+    </>
   )
 
   return (
@@ -920,9 +875,69 @@ export default function Load(props: LoadPageProps) {
           </div>
         )}
 
-        {/* Barre de contrôles — dans la page, ou dans le plein écran quand on
-            la demande au clavier (cf. `fullscreenBar`). */}
-        {!fullscreen && controlsBar}
+        {/* Barre de contrôles de la page : le périmètre (vue, filtres) et ce qui
+            choisit la POPULATION — fenêtre des OF, recherche. Ce que le graphe
+            raconte (unité, cran, maille) vit dans son entête, pas ici. */}
+        {!fullscreen && (
+          <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
+            {perimeterControls}
+            {view === 'of' && (
+              <Segment role="radiogroup" ariaLabel="Date de rattachement des OF">
+                <SegmentButton
+                  role="radio"
+                  active={props.ofDate === 'start'}
+                  onClick={() => {
+                    if (props.ofDate === 'start') return
+                    const url = new URL(window.location.href)
+                    url.searchParams.set('ofDate', 'start')
+                    router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
+                      preserveScroll: true,
+                      // Même page, même composant : sans cela Inertia le remonte
+                      // (`preserveState` vaut false par défaut) et la bascule
+                      // Heures/Pièces repart de son défaut sous les yeux de
+                      // l'utilisateur.
+                      preserveState: true,
+                    })
+                  }}
+                >
+                  Début OF
+                </SegmentButton>
+                <SegmentButton
+                  role="radio"
+                  active={props.ofDate === 'end'}
+                  onClick={() => {
+                    if (props.ofDate === 'end') return
+                    const url = new URL(window.location.href)
+                    url.searchParams.set('ofDate', 'end')
+                    router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
+                      preserveScroll: true,
+                      preserveState: true,
+                    })
+                  }}
+                >
+                  Fin OF
+                </SegmentButton>
+              </Segment>
+            )}
+            <ToolbarSpacer />
+            <ToolbarSpacer />
+            {/* Recherche — systématiquement à droite, jamais consolidée derrière
+              un clic (convention toolbar). */}
+            <div className={PILL}>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+              <input
+                className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+                placeholder="Poste, article…"
+                type="text"
+                autoComplete="off"
+                value={query}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setQuery(e.currentTarget.value)
+                }
+              />
+            </div>
+          </ToolbarRow>
+        )}
 
         {lines.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
@@ -1048,30 +1063,9 @@ export default function Load(props: LoadPageProps) {
                       </span>
                     </span>
                   )}
-                  <div className="ml-auto inline-flex rounded-full border border-rule bg-secondary p-[3px]">
-                    <button
-                      type="button"
-                      onClick={() => setGran('month')}
-                      className={cn(
-                        'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
-                        gran === 'month' ? 'bg-card text-brand' : 'text-muted-foreground'
-                      )}
-                    >
-                      Mois
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGran('week')}
-                      className={cn(
-                        'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
-                        gran === 'week' ? 'bg-card text-brand' : 'text-muted-foreground'
-                      )}
-                    >
-                      Semaine
-                    </button>
-                  </div>
-                  {/* Plein écran du panneau — même rangée que la maille :
-                      c'est un réglage de LECTURE de ce graphe. */}
+                  {/* Plein écran du panneau — à l'extrémité de l'entête, à
+                      l'opposé de la navigation : entrer, c'est quitter la page
+                      pour la lecture. */}
                   <button
                     type="button"
                     onClick={toggleFullscreen}
@@ -1081,10 +1075,10 @@ export default function Load(props: LoadPageProps) {
                     }
                     title={
                       fullscreen
-                        ? 'Quitter le plein écran (Échap) — F : barre de contrôles'
+                        ? 'Quitter le plein écran (Échap)'
                         : 'Plein écran — le poste, son graphe et ses matières (P)'
                     }
-                    className="inline-flex size-[30px] flex-none items-center justify-center rounded-full border border-rule bg-secondary text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
+                    className="ml-auto inline-flex size-[30px] flex-none items-center justify-center rounded-full border border-rule bg-secondary text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
                   >
                     {fullscreen ? (
                       <Minimize2 size={15} strokeWidth={1.75} />
@@ -1093,10 +1087,20 @@ export default function Load(props: LoadPageProps) {
                     )}
                   </button>
                 </div>
-                {/* Barre de contrôles du plein écran (touche F) — dans le flux,
-                    pas en surimpression : le graphe se remesure tout seul, rien
-                    n'est masqué, et la sortie du plein écran reste visible. */}
-                {fullscreen && fullscreenBar && controlsBar}
+                {/* Bandeau de lecture. À gauche ce que le graphe raconte (unité,
+                    cran, maille) ; en plein écran, à droite le périmètre (vue,
+                    filtres) — sans quoi ces décisions seraient hors d'atteinte.
+                    Dans le flux, jamais en surimpression : le graphe se remesure
+                    par son ResizeObserver, rien n'est masqué. */}
+                <div className="mb-2.5 flex flex-none flex-wrap items-center gap-2.5">
+                  {graphControls}
+                  {fullscreen && (
+                    <>
+                      <ToolbarSpacer />
+                      {perimeterControls}
+                    </>
+                  )}
+                </div>
                 <DetailChart
                   items={detailItems}
                   gran={gran}
