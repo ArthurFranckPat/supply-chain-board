@@ -13,8 +13,10 @@ import type {
   LoadView,
 } from '@r/lib/load/types'
 import {
+  CMD_SEG_OPTIONS,
   type Gran,
   maskPeriod,
+  OF_SEG_OPTIONS,
   satColor,
   satRate,
   segKeys,
@@ -69,14 +71,109 @@ const QTY_MODES: { id: LoadQtyMode; label: string; hint: string }[] = [
   },
 ]
 
+/**
+ * Modes d'affichage de la page — relais de session (sessionStorage).
+ *
+ * Vue, unité, cran de quantité, maille, filtres : rien de tout cela n'est une
+ * donnée, c'est la façon dont on regarde la page. Or Inertia remonte le
+ * composant à chaque visite (`preserveState` vaut `false` par défaut), et un
+ * simple rafraîchissement fait de même : sans relais, le planificateur qui
+ * vient de basculer en Pièces retrouve des Heures dès qu'il touche à la fenêtre
+ * des OF ou revient sur la page.
+ *
+ * Même patron que les filtres du séquenceur (`sequenceur:filters`). Périmètre
+ * restreint aux MODES : la recherche texte et le poste sélectionné restent
+ * locaux — une recherche retrouvée à l'ouverture filtrerait la page sans qu'on
+ * l'ait demandé, et `selected` se recale de lui-même sur le premier poste
+ * visible.
+ */
+const MODES_STORAGE_KEY = 'charge:modes'
+
+type StoredModes = {
+  view: LoadView
+  unit: LoadUnit
+  qtyMode: LoadQtyMode
+  gran: Gran
+  /** Ids des options de segment actives, par vue (`OF_SEG_OPTIONS` / `CMD_SEG_OPTIONS`). */
+  ofStatus: string[]
+  cmdNature: string[]
+  /** Ateliers (STOLOC) cochés dans le filtre transverse. */
+  ateliers: string[]
+  showCapacity: boolean
+  showAvg: boolean
+}
+
+const STORED_MODES_DEFAULTS: StoredModes = {
+  view: 'of',
+  unit: 'h',
+  qtyMode: 'reste',
+  gran: 'month',
+  ofStatus: OF_SEG_OPTIONS.map((o) => o.id),
+  cmdNature: CMD_SEG_OPTIONS.map((o) => o.id),
+  ateliers: [],
+  showCapacity: true,
+  showAvg: false,
+}
+
+/**
+ * Relit les modes stockés. Chaque champ est validé contre ses valeurs
+ * admissibles : une entrée écrite par une version antérieure (ou tronquée) ne
+ * doit jamais pouvoir produire un filtre impossible — tout décocher donnerait
+ * une page vide sans bouton pour en sortir.
+ */
+function readStoredModes(): StoredModes {
+  const ofIds = OF_SEG_OPTIONS.map((o) => o.id)
+  const cmdIds = CMD_SEG_OPTIONS.map((o) => o.id)
+  try {
+    const raw = sessionStorage.getItem(MODES_STORAGE_KEY)
+    if (!raw) return STORED_MODES_DEFAULTS
+    const p = JSON.parse(raw) as Partial<StoredModes>
+    // Aucun segment coché n'a de sens (graphes vides) : on retombe sur le tout-actif.
+    const segs = (v: unknown, allowed: string[]): string[] => {
+      const kept = Array.isArray(v) ? v.filter((x) => allowed.includes(x as string)) : []
+      return kept.length ? (kept as string[]) : allowed
+    }
+    return {
+      view: p.view === 'commande' ? 'commande' : 'of',
+      unit: p.unit === 'u' ? 'u' : 'h',
+      qtyMode: p.qtyMode === 'brut' || p.qtyMode === 'net' ? p.qtyMode : 'reste',
+      gran: p.gran === 'week' ? 'week' : 'month',
+      ofStatus: segs(p.ofStatus, ofIds),
+      cmdNature: segs(p.cmdNature, cmdIds),
+      ateliers: Array.isArray(p.ateliers)
+        ? (p.ateliers.filter((c) => typeof c === 'string') as string[])
+        : [],
+      showCapacity: p.showCapacity !== false,
+      showAvg: p.showAvg === true,
+    }
+  } catch {
+    return STORED_MODES_DEFAULTS
+  }
+}
+
+function writeStoredModes(modes: StoredModes) {
+  try {
+    sessionStorage.setItem(MODES_STORAGE_KEY, JSON.stringify(modes))
+  } catch {
+    // sessionStorage indisponible (quota, navigation restreinte) — état React seul.
+  }
+}
+
 export default function Load(props: LoadPageProps) {
-  const [view, setView] = useState<LoadView>('of')
+  /** Modes relus une seule fois : ils n'amorcent que les `useState` ci-dessous. */
+  const stored = useMemo(() => readStoredModes(), [])
+
+  const [view, setView] = useState<LoadView>(stored.view)
   const [selected, setSelected] = useState(props.ofLines[0]?.code ?? '')
-  const [gran, setGran] = useState<Gran>('month')
+  const [gran, setGran] = useState<Gran>(stored.gran)
   const [query, setQuery] = useState('')
-  const [showCapacity, setShowCapacity] = useState(true)
-  const [showAvg, setShowAvg] = useState(false)
-  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
+  const [showCapacity, setShowCapacity] = useState(stored.showCapacity)
+  const [showAvg, setShowAvg] = useState(stored.showAvg)
+  // Un atelier stocké qui n'est plus dans le payload (changement de site, de
+  // périmètre) filtrerait tout sans que sa chip existe à l'écran : on l'écarte.
+  const [atelierFilter, setAtelierFilter] = useState<Set<string>>(
+    () => new Set(stored.ateliers.filter((c) => props.ateliers.some((a) => a.code === c)))
+  )
 
   const toggleAtelier = (code: string) => {
     setAtelierFilter((prev) => {
@@ -94,7 +191,7 @@ export default function Load(props: LoadPageProps) {
   // faire, pas ce que les commandes demandaient avant déduction. Les deux autres
   // crans restent accessibles — le brut sert à voir la demande nue, le net à
   // isoler ce que le stock absorbe.
-  const [qtyMode, setQtyMode] = useState<LoadQtyMode>('reste')
+  const [qtyMode, setQtyMode] = useState<LoadQtyMode>(stored.qtyMode)
   const viewNet = useCallback(
     (l: LoadLine): LoadLine =>
       qtyMode === 'net'
@@ -111,7 +208,7 @@ export default function Load(props: LoadPageProps) {
    * pièces viennent du serveur (`monthlyQty`…), on ne les recalcule JAMAIS depuis
    * les heures : l'efficience poste pondère le temps et pas la quantité.
    */
-  const [unit, setUnit] = useState<LoadUnit>('h')
+  const [unit, setUnit] = useState<LoadUnit>(stored.unit)
   const unitActive = unit === 'u'
   /**
    * La capacité est un temps : en pièces elle n'a ni axe ni sens. On la masque
@@ -150,10 +247,30 @@ export default function Load(props: LoadPageProps) {
   // Filtre de segments — un jeu par vue : la vue OF filtre des STATUTS
   // (Ferme/Planifié/Suggéré), la vue Commande des NATURES (Commande/Prévision).
   // Deux états séparés pour qu'une bascule de vue ne perde pas la sélection.
-  const [ofStatus, setOfStatus] = useState<Set<string>>(new Set(['f', 'p', 's']))
-  const [cmdNature, setCmdNature] = useState<Set<string>>(new Set(['commande', 'prevision']))
+  const [ofStatus, setOfStatus] = useState<Set<string>>(new Set(stored.ofStatus))
+  const [cmdNature, setCmdNature] = useState<Set<string>>(new Set(stored.cmdNature))
   const activeSegs = view === 'of' ? ofStatus : cmdNature
   const setActiveSegs = view === 'of' ? setOfStatus : setCmdNature
+
+  /**
+   * Relais de session : les modes rendus sont recopiés dans sessionStorage à
+   * chaque changement. Un effet plutôt que des écritures dans chaque setter —
+   * les filtres se modifient en place (`new Set(prev)`), et un point d'écriture
+   * unique suffit à garantir qu'aucune bascule n'échappe au relais.
+   */
+  useEffect(() => {
+    writeStoredModes({
+      view,
+      unit,
+      qtyMode,
+      gran,
+      ofStatus: [...ofStatus],
+      cmdNature: [...cmdNature],
+      ateliers: [...atelierFilter],
+      showCapacity,
+      showAvg,
+    })
+  }, [view, unit, qtyMode, gran, ofStatus, cmdNature, atelierFilter, showCapacity, showAvg])
 
   const toggleSeg = (id: string) => {
     setActiveSegs((prev) => {
@@ -408,6 +525,11 @@ export default function Load(props: LoadPageProps) {
                   url.searchParams.set('ofDate', 'start')
                   router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
                     preserveScroll: true,
+                    // Même page, même composant : sans cela Inertia le remonte
+                    // (`preserveState` vaut false par défaut) et la bascule
+                    // Heures/Pièces repart de son défaut sous les yeux de
+                    // l'utilisateur.
+                    preserveState: true,
                   })
                 }}
               >
@@ -422,6 +544,7 @@ export default function Load(props: LoadPageProps) {
                   url.searchParams.set('ofDate', 'end')
                   router.visit(`${url.pathname}?${url.searchParams.toString()}`, {
                     preserveScroll: true,
+                    preserveState: true,
                   })
                 }}
               >
