@@ -163,7 +163,7 @@ export function MiniCard({
       </svg>
       <div className="mt-1.5 flex items-baseline justify-between">
         <span className="font-fraunces text-[16px] font-extrabold tracking-tight">
-          {fmtLoadValue(sum, unit)}
+          {fmtLoadValue(sum)}
           {loadUnitSuffix(unit)}
         </span>
         <span
@@ -176,7 +176,7 @@ export function MiniCard({
             color: peakSat >= 85 ? satColor(totals[peakIdx] ?? 0, caps[peakIdx] ?? 0) : undefined,
           }}
         >
-          pic {months[peakIdx]} {fmtLoadValue(totals[peakIdx] ?? 0, unit)}
+          pic {months[peakIdx]} {fmtLoadValue(totals[peakIdx] ?? 0)}
           {loadUnitSuffix(unit)}
           {caps[peakIdx] > 0 && ` · ${Math.round(peakSat)}%`}
         </span>

@@ -25,12 +25,21 @@ export const HATCH_SUGGERE = 'url(#load-hatch-suggere)'
 export const total = (p: LoadPeriod) => p.f + p.p + p.s + p.fi + p.si
 
 /**
- * Valeur de charge telle qu'elle s'écrit à l'écran : heures entières brutes
- * (comportement historique, `128`), pièces avec séparateurs de milliers
- * (`12 000` — sans eux, un poste à 5 chiffres ne se lit plus).
+ * Valeur de charge telle qu'elle s'écrit à l'écran : ENTIER, en français, avec
+ * séparateurs de milliers (`12 000` — sans eux un poste à 5 chiffres ne se lit
+ * plus).
+ *
+ * L'arrondi n'est pas cosmétique. Les séries tracées sont entières, mais une
+ * ÉCHELLE ne l'est pas : la capacité nette vaut `12,6 h/jour × jours ouvrés`,
+ * donc `maxV` vaut 151,98 et ses quarts 37,995… Servi brut (`String`), un quart
+ * d'axe s'écrivait « 37.995000000000005 » — et comme l'axe est aligné à droite
+ * au bord du viewBox, il n'en restait à l'écran que la queue décimale :
+ * « 999997 ». Un axe affiche une échelle, pas une mesure : il s'arrondit.
+ *
+ * L'unité n'entre pas dans le format — elle est portée par `loadUnitSuffix`,
+ * collé à la valeur. Deux unités, une seule façon d'écrire un nombre.
  */
-export const fmtLoadValue = (v: number, unit: LoadUnit): string =>
-  unit === 'u' ? Math.round(v).toLocaleString('fr-FR') : String(v)
+export const fmtLoadValue = (v: number): string => Math.round(v).toLocaleString('fr-FR')
 
 /** Suffixe d'unité, collé à la valeur (« 128h », « 12 000u »). */
 export const loadUnitSuffix = (unit: LoadUnit): string => (unit === 'u' ? 'u' : 'h')

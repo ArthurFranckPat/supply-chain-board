@@ -60,7 +60,12 @@ export function DetailChart({
   segs,
   onSelectPeriod,
 }: DetailChartProps) {
-  const padL = 46
+  // Gouttière gauche : de quoi écrire l'axe en entier. Les libellés sont alignés
+  // à droite au bord du viewBox — un nombre plus long que la marge est ROGNÉ,
+  // et un axe tronqué (« 999997 » pour 37,995…) ne se lit pas comme un bug de
+  // marge, il se lit comme un chiffre faux. 58 px = 7 caractères groupés
+  // (« 12 000 ») plus l'air de la graduation.
+  const padL = 58
   const padR = 16
   // Bande haute réservée à la légende intégrée (voir `legend` plus bas) : elle
   // vit DANS le graphe, pas dans la toolbar, pour rester attachée à ce qu'elle
@@ -114,7 +119,7 @@ export function DetailChart({
 
     const grid = [0, 1, 2, 3, 4].map((g) => {
       const val = (maxV * g) / 4
-      return { y: y(val), label: fmtLoadValue(val, unit) }
+      return { y: y(val), label: fmtLoadValue(val) }
     })
 
     type Seg = {
@@ -160,7 +165,7 @@ export function DetailChart({
           inLabels.push({
             x: cx,
             y: (yTop + y(acc)) / 2 + 3,
-            text: fmtLoadValue(v, unit),
+            text: fmtLoadValue(v),
             fill: k === 's' || k === 'si' ? 'var(--color-foreground)' : CARD,
           })
         acc += v
@@ -169,7 +174,7 @@ export function DetailChart({
       totals.push({
         x: cx,
         y: y(T[i]) - 6,
-        text: fmtLoadValue(T[i], unit),
+        text: fmtLoadValue(T[i]),
         fill: over ? DANGER : FG,
       })
       if (C[i] > 0) {
@@ -206,7 +211,7 @@ export function DetailChart({
       peak,
       week: gran === 'week',
     }
-  }, [items, dim, gran, view, unit])
+  }, [items, dim, gran, view])
 
   /**
    * Légende intégrée, calée en haut à droite de la zone de tracé.
@@ -525,7 +530,7 @@ export function DetailChart({
             />
             <span className="font-sans text-[12px] font-semibold">{hover.label}</span>
             <span className="ml-3 font-fraunces text-[15px] font-extrabold tabular-nums">
-              {fmtLoadValue(hover.value, unit)} {loadUnitSuffix(unit)}
+              {fmtLoadValue(hover.value)} {loadUnitSuffix(unit)}
             </span>
           </div>
           {/* Survol d'un segment de charge : part du total + plafond + saturation. */}
@@ -533,7 +538,7 @@ export function DetailChart({
             <>
               <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                 {Math.round((hover.value / hover.total) * 100)}% du total ·{' '}
-                {fmtLoadValue(hover.total, unit)} {loadUnitSuffix(unit)}
+                {fmtLoadValue(hover.total)} {loadUnitSuffix(unit)}
               </div>
               {hover.cap > 0 && (
                 <div
