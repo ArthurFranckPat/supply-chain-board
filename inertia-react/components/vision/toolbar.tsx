@@ -264,9 +264,18 @@ export function FilterMenu(props: {
   indicators?: ReactNode
   panelClassName?: string
   align?: 'left' | 'right'
+  /**
+   * Ref sur le `<details>` — pour ouvrir le panneau depuis un raccourci clavier.
+   * L'ouverture programmatique passe par l'événement `toggle` natif, donc l'état
+   * React suit (fermeture au clic extérieur et à Échap comprises).
+   */
+  detailsRef?: React.RefObject<HTMLDetailsElement | null>
+  /** Raccourci clavier, affiché dans l'infobulle du déclencheur (« F »). */
+  hotkey?: string
   children: ReactNode
 }) {
-  const detailsRef = useRef<HTMLDetailsElement>(null)
+  const ownRef = useRef<HTMLDetailsElement>(null)
+  const detailsRef = props.detailsRef ?? ownRef
   const [open, setOpen] = useState(false)
   const align = props.align ?? 'right'
 
@@ -284,7 +293,7 @@ export function FilterMenu(props: {
       document.removeEventListener('mousedown', onDocClick)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, detailsRef])
 
   return (
     <details
@@ -299,7 +308,7 @@ export function FilterMenu(props: {
           'cursor-pointer list-none [&::-webkit-details-marker]:hidden',
           open && 'border-brand'
         )}
-        title="Filtres"
+        title={props.hotkey ? `${props.label ?? 'Filtres'} (${props.hotkey})` : 'Filtres'}
       >
         <SlidersHorizontal size={14} strokeWidth={1.75} className="text-muted-foreground" />
         {props.label ?? 'Filtres'}

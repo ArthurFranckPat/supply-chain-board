@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
-import { TriangleAlert, Search, Maximize2, Minimize2 } from 'lucide-react'
+import {
+  TriangleAlert,
+  Search,
+  Maximize2,
+  Minimize2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
+import { useReplayEnter } from '@r/lib/use-replay-enter'
 import type {
   LoadPageProps,
   LoadLine,
@@ -70,6 +78,12 @@ const QTY_MODES: { id: LoadQtyMode; label: string; hint: string }[] = [
     hint: 'Net − pièces déjà produites sur les OF en cours et pas encore déclarées',
   },
 ]
+
+/** Flèche du carrousel de postes (panneau de détail) — même facture que les
+ *  pastilles d'icône de la toolbar, en plus petit : elle vit dans l'entête du
+ *  panneau, pas dans une rangée de filtres. */
+const CAROUSEL_BTN =
+  'inline-flex size-[26px] flex-none items-center justify-center rounded-full border border-rule bg-card text-muted-foreground transition-colors hover:border-brand hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-rule disabled:hover:text-muted-foreground'
 
 /**
  * Modes d'affichage de la page — relais de session (sessionStorage).
@@ -350,36 +364,159 @@ export default function Load(props: LoadPageProps) {
   )
 
   // ── Slider sans barre : molette → défilé horizontal LISSÉ (inertie rAF) ──
-  const sliderRef = useRef<HTMLDivElement>(null)
+  /**
+   * Rangée de cartes. Un ÉTAT (ref de rappel) plutôt qu'un `useRef` : la rangée
+   * n'existe pas toujours — aucun poste ne correspond au filtre, ou l'atelier
+   * restauré de la session ne couvre rien — et la molette comme le centrage
+   * doivent s'y raccrocher au moment où elle apparaît, pas au montage de la page.
+   */
+  const [sliderEl, setSliderEl] = useState<HTMLDivElement | null>(null)
+  /** Rangée complète (cartes + dégradés de bord) — cible de l'animation d'entrée. */
+  const sliderRowRef = useRef<HTMLDivElement>(null)
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(false)
 
-  const updateEdges = () => {
-    const el = sliderRef.current
-    if (!el) return
-    setAtStart(el.scrollLeft <= 1)
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1)
-  }
+  const updateEdges = useCallback(() => {
+    if (!sliderEl) return
+    setAtStart(sliderEl.scrollLeft <= 1)
+    setAtEnd(sliderEl.scrollLeft + sliderEl.clientWidth >= sliderEl.scrollWidth - 1)
+  }, [sliderEl])
 
-  const onSliderWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    const el = sliderRef.current
-    if (!el || el.scrollWidth <= el.clientWidth) return
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
-    e.preventDefault()
-    el.scrollLeft += e.deltaY
-  }
+  /**
+   * Amorce une glissade vers une position — renseignée par l'effet qui pose la
+   * molette (une seule boucle rAF, donc un seul écrivain de `scrollLeft` : un
+   * défilement natif « smooth » lancé en parallèle se battrait avec elle).
+   */
+  const glideToRef = useRef<(left: number) => void>(() => {})
+
+  /**
+   * Défilé à inertie. La molette ne pousse plus `scrollLeft` en direct — un cran
+   * de souris vaut ~100 px, donc un saut — mais une CIBLE que chaque frame
+   * rapproche d'un facteur constant. Le trackpad, qui émet déjà des deltas fins,
+   * ne s'en trouve presque pas changé.
+   *
+   * Écouteur NATIF `passive: false` : le `onWheel` de React est posé passif sur
+   * la racine, son `preventDefault()` ne faisait donc rien (et la console le
+   * signalait) — le geste vertical restait consommé par le navigateur.
+   */
+  useEffect(() => {
+    if (!sliderEl) return
+
+    let target = sliderEl.scrollLeft
+    let raf: number | null = null
+
+    const step = () => {
+      const delta = target - sliderEl.scrollLeft
+      if (Math.abs(delta) < 0.5) {
+        sliderEl.scrollLeft = target
+        raf = null
+        return
+      }
+      sliderEl.scrollLeft += delta * 0.2
+      raf = requestAnimationFrame(step)
+    }
+
+    const glideTo = (left: number) => {
+      const max = sliderEl.scrollWidth - sliderEl.clientWidth
+      target = Math.min(max, Math.max(0, left))
+      if (raf === null) raf = requestAnimationFrame(step)
+    }
+    glideToRef.current = glideTo
+
+    const onWheel = (e: WheelEvent) => {
+      if (sliderEl.scrollWidth <= sliderEl.clientWidth) return
+      // Ctrl+molette = zoom du navigateur : on ne le détourne pas.
+      if (e.ctrlKey) return
+      // Geste horizontal natif (trackpad) : on le laisse au navigateur.
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+      e.preventDefault()
+      // Recalage quand aucune glissade n'est en cours : un scroll venu d'ailleurs
+      // (drag, centrage du carrousel) laisserait sinon une cible périmée.
+      if (raf === null) target = sliderEl.scrollLeft
+      glideTo(target + e.deltaY)
+    }
+
+    sliderEl.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      sliderEl.removeEventListener('wheel', onWheel)
+      if (raf !== null) cancelAnimationFrame(raf)
+      glideToRef.current = () => {}
+    }
+  }, [sliderEl])
 
   useEffect(() => {
-    requestAnimationFrame(updateEdges)
+    if (!sliderEl) return
+    const raf = requestAnimationFrame(updateEdges)
     const onResize = () => updateEdges()
     window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [sliderEl, updateEdges])
 
   useEffect(() => {
-    filteredLines
-    requestAnimationFrame(updateEdges)
-  }, [filteredLines])
+    if (!sliderEl) return
+    // `filteredLines` ne sert qu'à rejouer la mesure : la rangée vient de changer
+    // de contenu, donc de largeur.
+    const raf = requestAnimationFrame(updateEdges)
+    return () => cancelAnimationFrame(raf)
+  }, [sliderEl, filteredLines, updateEdges])
+
+  /**
+   * Centre la carte d'un poste dans le slider. Base rects plutôt qu'`offsetLeft` :
+   * la rangée a un ancêtre positionné, `offsetLeft` s'y rapporterait.
+   */
+  const centerCard = useCallback(
+    (index: number) => {
+      const card = sliderEl?.children[index] as HTMLElement | undefined
+      if (!sliderEl || !card) return
+      const left =
+        sliderEl.scrollLeft +
+        (card.getBoundingClientRect().left - sliderEl.getBoundingClientRect().left) -
+        (sliderEl.clientWidth - card.clientWidth) / 2
+      glideToRef.current(left)
+    },
+    [sliderEl]
+  )
+
+  // Carrousel : la sélection commande, le défilement suit. Recentrage sur
+  // changement de SÉLECTION uniquement — pas à chaque frappe dans la recherche,
+  // où `filteredLines` change aussi mais où le slider n'a pas à bouger tout seul.
+  const centeredFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (centeredFor.current === selected) return
+    centeredFor.current = selected
+    centerCard(filteredLines.findIndex((l) => l.code === selected))
+  }, [selected, filteredLines, centerCard])
+
+  /** Position du poste sélectionné dans le périmètre affiché (−1 : hors filtre). */
+  const selIndex = useMemo(
+    () => filteredLines.findIndex((l) => l.code === selected),
+    [filteredLines, selected]
+  )
+  const hasPrev = selIndex > 0
+  const hasNext = selIndex >= 0 && selIndex < filteredLines.length - 1
+
+  const stepPoste = useCallback(
+    (delta: number) => {
+      const i = filteredLines.findIndex((l) => l.code === selected)
+      const next = filteredLines[i + delta]
+      if (next) setSelected(next.code)
+    },
+    [filteredLines, selected]
+  )
+
+  /** Ce qui change la SILHOUETTE des cartes (rien de la recherche, rien du scroll). */
+  const sliderSignature = [
+    unit,
+    view,
+    qtyMode,
+    [...atelierFilter].sort().join(','),
+    [...activeSegs].sort().join(','),
+    props.version,
+  ].join('|')
+  useReplayEnter(sliderRowRef, sliderSignature)
 
   // ── Plein écran du panneau de détail ──
   /**
@@ -457,6 +594,43 @@ export default function Load(props: LoadPageProps) {
     const cap = caps.reduce((a, c) => a + c, 0)
     return { charge, cap, rate: satRate(charge, cap) }
   }, [selLine, gran])
+
+  /** Déclencheur de filtres — ouvert/fermé par le raccourci `F`. */
+  const filterRef = useRef<HTMLDetailsElement>(null)
+
+  /**
+   * Raccourcis clavier de la page :
+   *   ← / →  poste précédent / suivant (mêmes pas que le carrousel) ;
+   *   F      ouvre et ferme les filtres.
+   *
+   * Trois gardes, sans quoi ils volent des frappes légitimes : aucune touche de
+   * commande (Ctrl/⌘/Alt), pas d'écriture en cours (recherche, champ de saisie,
+   * contenu éditable), et rien tant qu'un panneau modal est ouvert — le détail de
+   * période a ses propres touches.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || periodTarget) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        stepPoste(e.key === 'ArrowRight' ? 1 : -1)
+        return
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        const details = filterRef.current
+        if (!details) return
+        e.preventDefault()
+        // L'événement `toggle` natif repart vers React : l'état du panneau (et
+        // donc la fermeture au clic extérieur et à Échap) reste juste.
+        details.open = !details.open
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [periodTarget, stepPoste])
 
   return (
     <AppLayout
@@ -588,6 +762,8 @@ export default function Load(props: LoadPageProps) {
               Atelier). Même grammaire que Suivi/Ruptures : pas de chips
               empilées dans la rangée, pas de rangée dédiée sous la toolbar. */}
           <FilterMenu
+            detailsRef={filterRef}
+            hotkey="F"
             label="Filtres"
             indicators={
               filtersActive ? (
@@ -720,10 +896,9 @@ export default function Load(props: LoadPageProps) {
                 Aucun poste ne correspond à « {query} ».
               </div>
             ) : (
-              <div className="relative flex-none">
+              <div ref={sliderRowRef} className="relative flex-none">
                 <div
-                  ref={sliderRef}
-                  onWheel={onSliderWheel}
+                  ref={setSliderEl}
                   onScroll={updateEdges}
                   className="no-scrollbar flex gap-3 overflow-x-auto pb-2"
                 >
@@ -770,6 +945,31 @@ export default function Load(props: LoadPageProps) {
                 )}
               >
                 <div className="mb-2.5 flex flex-none flex-wrap items-center gap-3">
+                  {/* Carrousel de postes — même pas que les flèches ← / →. Les
+                      deux sont désactivées aux extrémités du périmètre affiché :
+                      le défilement des cartes suit la sélection (cf. centerCard). */}
+                  <div className="flex flex-none items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => stepPoste(-1)}
+                      disabled={!hasPrev}
+                      aria-label="Poste précédent"
+                      title="Poste précédent (←)"
+                      className={CAROUSEL_BTN}
+                    >
+                      <ChevronLeft size={16} strokeWidth={1.75} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => stepPoste(1)}
+                      disabled={!hasNext}
+                      aria-label="Poste suivant"
+                      title="Poste suivant (→)"
+                      className={CAROUSEL_BTN}
+                    >
+                      <ChevronRight size={16} strokeWidth={1.75} />
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2 font-fraunces text-[20px] font-extrabold tracking-tight">
                     <span className="size-3 rounded-[3px]" style={{ background: selLine.color }} />
                     {selLine.code}

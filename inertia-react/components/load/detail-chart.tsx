@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@r/lib/utils'
+import { useReplayEnter } from '@r/lib/use-replay-enter'
 import type { LoadPeriod, LoadView } from '@r/lib/load/types'
 import {
   CARD,
@@ -80,6 +81,22 @@ export function DetailChart({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  /**
+   * Signature des données TRACÉES — ni la taille de la boîte, ni l'état des
+   * couches d'affichage. Une bascule d'unité (Heures → Pièces), de vue, de
+   * maille, de cran ou de filtre remplace la silhouette d'un coup : sans
+   * transition, l'œil ne voit pas CE QUI a bougé, juste que tout a changé.
+   * Un redimensionnement, lui, ne doit rien rejouer — la géométrie suit déjà.
+   */
+  const dataSignature = useMemo(
+    () =>
+      `${unit}|${view}|${gran}|${segs.map((s) => s.id).join(',')}|${items
+        .map((it) => `${it.label}:${total(it.d)}:${it.cap}`)
+        .join(';')}`,
+    [unit, view, gran, segs, items]
+  )
+  useReplayEnter(wrapRef, dataSignature)
 
   const geom = useMemo(() => {
     const W = dim.w
