@@ -858,23 +858,6 @@ export default function Load(props: LoadPageProps) {
           </div>
         )}
 
-        {/* D9 — la troncature depth-4 était silencieuse : on la chiffre, sinon
-            une barre plus basse qu'attendu n'a aucune explication à l'écran. */}
-        {view === 'commande' && (props.depthCut?.truncated ?? 0) > 0 && (
-          <div className="flex flex-none items-center gap-2 border-b border-border bg-muted/40 px-7 py-2 text-[12px] text-foreground">
-            <TriangleAlert size={16} strokeWidth={1.75} className="text-secondary-foreground" />
-            <span className="font-bold">Charge tronquée :</span>
-            <span>
-              {props.depthCut!.truncated} besoin(s) fabriqué(s) au-delà du niveau 4 ne sont pas
-              chargés
-              {props.depthCut!.parents.length > 0 &&
-                ` — ${props.depthCut!.parents.slice(0, 3).join(', ')}${
-                  props.depthCut!.parents.length > 3 ? '…' : ''
-                }`}
-            </span>
-          </div>
-        )}
-
         {/* Barre de contrôles de la page : le périmètre (vue, filtres) et ce qui
             choisit la POPULATION — fenêtre des OF, recherche. Ce que le graphe
             raconte (unité, cran, maille) vit dans son entête, pas ici. */}
