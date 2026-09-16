@@ -525,22 +525,23 @@ export default function Load(props: LoadPageProps) {
    * agrandir le seul SVG ferait perdre le poste, la maille et l'unité qu'on est
    * venu lire.
    *
-   * Ce qu'un plein écran doit encore laisser faire : lire autrement. Le bandeau
-   * du graphe porte donc l'unité, le cran et la maille (dans les deux modes), et
-   * en plein écran le périmètre (vue, filtres) vient s'y poser — cf.
-   * `graphControls` / `perimeterControls`. Changer d'avis ne coûte donc pas une
-   * sortie du plein écran ; et quand la lecture ne veut plus que le graphe, `F`
-   * efface le bandeau entier.
+   * Ce qu'un plein écran doit encore laisser faire : lire autrement. La
+   * toolbar de page est hors du sous-arbre rendu par le navigateur, le bandeau
+   * du panneau reprend donc ce qu'elle porte — unité, cran, maille à gauche,
+   * périmètre (vue, filtres) à droite — cf. `graphControls` /
+   * `perimeterControls`. Changer d'avis ne coûte donc pas une sortie du plein
+   * écran ; et quand la lecture ne veut plus que le graphe, `F` efface le
+   * bandeau entier.
    */
   const panelRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
 
   /**
-   * Le bandeau de lecture — unité, cran, maille, et en plein écran le périmètre
-   * (vue, filtres) — peut s'effacer : en lecture pure il ne sert à rien et coûte
-   * au graphe la hauteur qu'il occupe. `F` le masque et le rappelle. Hors plein
-   * écran il reste en place : il porte les réglages du graphe qu'on lit, et rien
-   * ne le rappellerait.
+   * Le bandeau du plein écran — unité, cran, maille, périmètre (vue, filtres) —
+   * peut s'effacer : en lecture pure il ne sert à rien et coûte au graphe la
+   * hauteur qu'il occupe. `F` le masque et le rappelle. Il n'existe qu'en plein
+   * écran — hors plein écran, la toolbar de page porte ces réglages — et ne
+   * survit donc pas à la sortie.
    */
   const [barHidden, setBarHidden] = useState(false)
   /** Rappel « F » après un masquage — effacé au premier mouvement de souris. */
@@ -691,11 +692,10 @@ export default function Load(props: LoadPageProps) {
   }, [periodTarget, stepPoste, toggleFullscreen, fullscreen, barHidden])
 
   /**
-   * Ce que le graphe RACONTE — unité, cran de quantité, maille. Ces trois
-   * réglages vivaient dans la toolbar de page, à l'autre bout de l'écran du
-   * graphe qu'ils décrivent ; et en plein écran, il fallait les y réimporter.
-   * Ils tiennent maintenant dans le bandeau de l'entête du panneau, dans les
-   * deux modes, une fois pour toutes.
+   * Ce que le graphe RACONTE — unité, cran de quantité, maille. Portés par la
+   * toolbar de page ; en plein écran, la toolbar est hors du sous-arbre que le
+   * navigateur rend, le bandeau du panneau les reprend donc tels quels
+   * (décrits une fois, montés là où ils restent accessibles).
    */
   const graphControls = (
     <>
@@ -752,122 +752,133 @@ export default function Load(props: LoadPageProps) {
   )
 
   /**
-   * Le PÉRIMÈTRE — la vue (OF ↔ Commande) et les filtres. Monté UNE fois,
-   * posé soit dans la toolbar de page, soit dans le bandeau du graphe quand le
-   * plein écran est actif : le navigateur ne rend que le sous-arbre de
-   * l'élément plein écran, donc une toolbar restée dehors serait hors
-   * d'atteinte. Une seule instance, donc une seule `filterRef` — c'est elle que
-   * la touche `F` ouvre hors plein écran ; en plein écran, `F` gouverne le
-   * bandeau qui la porte, donc l'indication de touche disparaît.
+   * Le PÉRIMÈTRE — la vue (OF ↔ Commande) et les filtres. Décrits UNE fois,
+   * montés dans la toolbar de page ; en plein écran, le bandeau du panneau les
+   * reprend (le navigateur ne rend que le sous-arbre de l'élément plein écran,
+   * donc une toolbar restée dehors serait hors d'atteinte). Une seule
+   * instance, donc une seule `filterRef` — c'est elle que la touche `F` ouvre
+   * hors plein écran ; en plein écran, `F` gouverne le bandeau qui la porte,
+   * donc l'indication de touche disparaît.
    */
-  const perimeterControls = (
-    <>
-      {/* Bascule OF ↔ Commande */}
-      <Segment role="radiogroup" ariaLabel="Vue">
-        {(['of', 'commande'] as const).map((v) => (
-          <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-            {v === 'of' ? 'OF' : 'Commande'}
+
+  /** Bascule OF ↔ Commande — posée seule dans la toolbar, regroupée dans
+   *  `perimeterControls` pour le plein écran. */
+  const viewSegment = (
+    <Segment role="radiogroup" ariaLabel="Vue">
+      {(['of', 'commande'] as const).map((v) => (
+        <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
+          {v === 'of' ? 'OF' : 'Commande'}
+        </SegmentButton>
+      ))}
+    </Segment>
+  )
+
+  const filtersMenu = (
+    <FilterMenu
+      detailsRef={filterRef}
+      hotkey={fullscreen ? undefined : 'F'}
+      label="Filtres"
+      indicators={
+        filtersActive ? (
+          <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+        ) : null
+      }
+    >
+      <div className="flex items-center justify-between">
+        {/* La vue OF ventile par STATUT d'ordre, la vue Commande par NATURE
+              de demande : même filtre, deux vocabulaires métier. */}
+        <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
+        {segFiltered && (
+          <button
+            type="button"
+            className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
+            title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      <Segment className="w-full flex-wrap">
+        {segOptions(view).map((o) => (
+          <SegmentButton
+            key={o.id}
+            active={activeSegs.has(o.id)}
+            onClick={() => toggleSeg(o.id)}
+            title={o.label}
+          >
+            {o.label}
           </SegmentButton>
         ))}
       </Segment>
-      <FilterMenu
-        detailsRef={filterRef}
-        hotkey={fullscreen ? undefined : 'F'}
-        label="Filtres"
-        indicators={
-          filtersActive ? (
-            <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
-          ) : null
-        }
-      >
-        <div className="flex items-center justify-between">
-          {/* La vue OF ventile par STATUT d'ordre, la vue Commande par NATURE
-              de demande : même filtre, deux vocabulaires métier. */}
-          <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
-          {segFiltered && (
-            <button
-              type="button"
-              className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
-              title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-        <Segment className="w-full flex-wrap">
-          {segOptions(view).map((o) => (
-            <SegmentButton
-              key={o.id}
-              active={activeSegs.has(o.id)}
-              onClick={() => toggleSeg(o.id)}
-              title={o.label}
-            >
-              {o.label}
-            </SegmentButton>
-          ))}
-        </Segment>
-        {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
+      {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
                 Vivait dans sa propre rangée sous la toolbar : consolidé ici. */}
-        {props.ateliers.length > 0 && (
-          <>
-            <div className="my-2.5 border-t border-rule-soft" />
-            <div className="flex items-center justify-between">
-              <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
-              {atelierFilter.size > 0 && (
-                <button
-                  type="button"
-                  className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setAtelierFilter(new Set())}
-                  title="Réinitialiser le filtre atelier"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <Segment className="w-full flex-wrap">
-              {props.ateliers.map((a) => (
-                <SegmentButton
-                  key={a.code}
-                  active={atelierFilter.has(a.code)}
-                  onClick={() => toggleAtelier(a.code)}
-                  title={a.code}
-                >
-                  {a.label.replace(/^ATELIER\s+/i, '')}
-                </SegmentButton>
-              ))}
-            </Segment>
-          </>
-        )}
-        {/* Couches d'affichage — pas des filtres (elles ne retirent aucune
+      {props.ateliers.length > 0 && (
+        <>
+          <div className="my-2.5 border-t border-rule-soft" />
+          <div className="flex items-center justify-between">
+            <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
+            {atelierFilter.size > 0 && (
+              <button
+                type="button"
+                className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setAtelierFilter(new Set())}
+                title="Réinitialiser le filtre atelier"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <Segment className="w-full flex-wrap">
+            {props.ateliers.map((a) => (
+              <SegmentButton
+                key={a.code}
+                active={atelierFilter.has(a.code)}
+                onClick={() => toggleAtelier(a.code)}
+                title={a.code}
+              >
+                {a.label.replace(/^ATELIER\s+/i, '')}
+              </SegmentButton>
+            ))}
+          </Segment>
+        </>
+      )}
+      {/* Couches d'affichage — pas des filtres (elles ne retirent aucune
                 donnée), mais même déclencheur : la rangée n'a pas à porter des
                 coches ad hoc. Elles ne pilotent donc PAS la pastille du
                 déclencheur, sinon « Capacité » (activée par défaut) la
                 laisserait allumée en permanence. */}
-        <div className="my-2.5 border-t border-rule-soft" />
-        <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
-        <Segment className="w-full flex-wrap">
-          <SegmentButton
-            active={capacityOn}
-            disabled={unitActive}
-            onClick={() => setShowCapacity((v) => !v)}
-            title={
-              unitActive
-                ? 'Indisponible en pièces : la capacité d’un poste est un temps (heures), elle ne se convertit pas en quantité'
-                : 'Plafond de capacité nette + zones de surcharge'
-            }
-          >
-            Capacité
-          </SegmentButton>
-          <SegmentButton
-            active={showAvg}
-            onClick={() => setShowAvg((v) => !v)}
-            title="Moyenne mobile de la charge totale"
-          >
-            Moyenne mobile
-          </SegmentButton>
-        </Segment>
-      </FilterMenu>
+      <div className="my-2.5 border-t border-rule-soft" />
+      <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
+      <Segment className="w-full flex-wrap">
+        <SegmentButton
+          active={capacityOn}
+          disabled={unitActive}
+          onClick={() => setShowCapacity((v) => !v)}
+          title={
+            unitActive
+              ? 'Indisponible en pièces : la capacité d’un poste est un temps (heures), elle ne se convertit pas en quantité'
+              : 'Plafond de capacité nette + zones de surcharge'
+          }
+        >
+          Capacité
+        </SegmentButton>
+        <SegmentButton
+          active={showAvg}
+          onClick={() => setShowAvg((v) => !v)}
+          title="Moyenne mobile de la charge totale"
+        >
+          Moyenne mobile
+        </SegmentButton>
+      </Segment>
+    </FilterMenu>
+  )
+
+  /** Les deux ensemble — c'est ce bloc que le plein écran reprend. */
+  const perimeterControls = (
+    <>
+      {viewSegment}
+      {filtersMenu}
     </>
   )
 
@@ -895,12 +906,13 @@ export default function Load(props: LoadPageProps) {
           </div>
         )}
 
-        {/* Barre de contrôles de la page : le périmètre (vue, filtres) et ce qui
-            choisit la POPULATION — fenêtre des OF, recherche. Ce que le graphe
-            raconte (unité, cran, maille) vit dans son entête, pas ici. */}
+        {/* Barre de contrôles de la page : le périmètre (vue, filtres), ce qui
+            choisit la POPULATION (fenêtre des OF), ce que le graphe raconte
+            (unité, cran, maille) et la recherche. */}
         {!fullscreen && (
           <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
-            {perimeterControls}
+            {viewSegment}
+            {graphControls}
             {view === 'of' && (
               <Segment role="radiogroup" ariaLabel="Date de rattachement des OF">
                 <SegmentButton
@@ -939,6 +951,7 @@ export default function Load(props: LoadPageProps) {
                 </SegmentButton>
               </Segment>
             )}
+            {filtersMenu}
             <ToolbarSpacer />
             <ToolbarSpacer />
             {/* Recherche — systématiquement à droite, jamais consolidée derrière
@@ -1107,22 +1120,18 @@ export default function Load(props: LoadPageProps) {
                     )}
                   </button>
                 </div>
-                {/* Bandeau de lecture. À gauche ce que le graphe raconte (unité,
-                    cran, maille) ; en plein écran, à droite le périmètre (vue,
-                    filtres) — sans quoi ces décisions seraient hors d'atteinte.
-                    Dans le flux, jamais en surimpression : le graphe se remesure
-                    par son ResizeObserver, rien n'est masqué. Hors plein écran
-                    il ne s'efface pas : c'est lui qui porte les réglages du
-                    graphe qu'on lit (cf. `barHidden`). */}
-                {!(fullscreen && barHidden) && (
+                {/* Bandeau du plein écran. La toolbar de page est hors du
+                    sous-arbre rendu par le navigateur : il reprend ce qu'elle
+                    porte — à gauche ce que le graphe raconte (unité, cran,
+                    maille), à droite le périmètre (vue, filtres). Dans le flux,
+                    jamais en surimpression : le graphe se remesure par son
+                    ResizeObserver, rien n'est masqué ; `F` l'efface en lecture
+                    pure (cf. `barHidden`). */}
+                {fullscreen && !barHidden && (
                   <div className="mb-2.5 flex flex-none flex-wrap items-center gap-2.5">
                     {graphControls}
-                    {fullscreen && (
-                      <>
-                        <ToolbarSpacer />
-                        {perimeterControls}
-                      </>
-                    )}
+                    <ToolbarSpacer />
+                    {perimeterControls}
                   </div>
                 )}
                 {/* Le bandeau masqué est un état sans bouton : sans ce rappel, la
