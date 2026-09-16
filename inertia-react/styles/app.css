@@ -840,6 +840,21 @@ tr[data-flash='out'] {
 }
 
 /* ════════════════════════════════════════════════════════════
+   Plein écran du panneau de charge — backdrop du zoom
+   ────────────────────────────────────────────────────────────
+   Pendant la bascule (et tant que dure le plein écran), l'UA
+   peint derrière l'élément un ::backdrop OPAQUE, noir par
+   défaut : le vol FLIP du panneau (pages/scheduler/load.tsx)
+   passerait alors sur un trou noir. Aligné sur le fond de la
+   page, le panneau semble au contraire glisser sur la toile de
+   l'app. ::backdrop hérite de son élément origine : la valeur
+   scopée du thème actif s'y lit telle quelle.
+   ════════════════════════════════════════════════════════════ */
+[data-fullscreen-panel]:fullscreen::backdrop {
+  background: var(--background);
+}
+
+/* ════════════════════════════════════════════════════════════
    Échelle de motion — d'après transitions.dev
    ────────────────────────────────────────────────────────────
    Les durées, courbes, distances, échelles et flous des 32

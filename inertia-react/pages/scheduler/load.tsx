@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
 import {
   TriangleAlert,
@@ -521,9 +521,8 @@ export default function Load(props: LoadPageProps) {
   /**
    * Le graphe d'un poste se lit mal dans la moitié basse de l'écran : sur un
    * poste chargé, barres, totaux et courbe de capacité se serrent. Le panneau
-   * entier part donc en plein écran — entête, bandeau, graphe ET matières :
-   * agrandir le seul SVG ferait perdre le poste, la maille et l'unité qu'on est
-   * venu lire.
+   * entier part donc en plein écran — entête, bandeau et graphe : agrandir le
+   * seul SVG ferait perdre le poste, la maille et l'unité qu'on est venu lire.
    *
    * Ce qu'un plein écran doit encore laisser faire : lire autrement. La
    * toolbar de page est hors du sous-arbre rendu par le navigateur, le bandeau
@@ -535,6 +534,22 @@ export default function Load(props: LoadPageProps) {
    */
   const panelRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
+
+  /**
+   * Géométrie d'OÙ part le zoom d'entrée — le rect du panneau capturé au clic,
+   * alors qu'il est encore dans le flux. La sortie, elle, part toujours du
+   * viewport que le panneau remplissait — y compris quand c'est Échap qui l'a
+   * quitté : rien à capturer pour elle.
+   */
+  const zoomFromRef = useRef<DOMRect | null>(null)
+
+  /**
+   * Drapeau « un zoom est attendu », posé par `fullscreenchange`. Sans lui, le
+   * vol jourait aussi AU MONTAGE (état initial `false`, effet parcouru une
+   * fois) : le panneau aurait rétréci du viewport vers sa place à l'ouverture
+   * de la page.
+   */
+  const zoomPendingRef = useRef(false)
 
   /**
    * Le bandeau du plein écran — unité, cran, maille, périmètre (vue, filtres) —
@@ -556,6 +571,7 @@ export default function Load(props: LoadPageProps) {
   useEffect(() => {
     const onChange = () => {
       const on = document.fullscreenElement === panelRef.current
+      zoomPendingRef.current = true
       setFullscreen(on)
       if (!on) {
         setBarHidden(false)
@@ -565,6 +581,65 @@ export default function Load(props: LoadPageProps) {
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
+
+  /**
+   * Le zoom du plein écran — un vol FLIP par-dessus la bascule native. Le plein
+   * écran ne s'interpole pas : l'UA pose l'élément en `fixed inset-0` entre deux
+   * frames, et le saut est sec. Ici, dès que la géométrie finale existe et
+   * AVANT la première peinture (`useLayoutEffect`), une animation WAAPI fait
+   * passer le panneau de SA géométrie d'origine à celle qu'il occupe déjà : le
+   * layout est final dès la première frame — le graphe ne se remesure qu'une
+   * fois, à sa taille d'arrivée — seul le regard glisse. La sortie rejoue le
+   * même chemin en sens inverse, depuis le viewport.
+   *
+   * Durées par USAGE (échelle de motion, styles/app.css) : ouvrir est une
+   * révélation (`--duration-slow`), fermer dégage le passage
+   * (`--duration-medium`) ; `--ease-smooth-out` porte les deux. Rejouer la
+   * bascule pendant le vol annule l'animation en cours — le FLIP suivant part
+   * de la géométrie réelle, pas d'un reste. `prefers-reduced-motion` coupe
+   * tout : le panneau change de place sans spectacle.
+   */
+  useLayoutEffect(() => {
+    // Seulement les bascules réelles : le parcours au montage consomme un
+    // drapeau à `false` et ne vole pas.
+    if (!zoomPendingRef.current) return
+    zoomPendingRef.current = false
+
+    const el = panelRef.current
+    if (!el || typeof el.animate !== 'function') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const from = fullscreen
+      ? (zoomFromRef.current ?? el.getBoundingClientRect())
+      : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+    zoomFromRef.current = null
+
+    // Last : la boîte d'arrivée, mesurée après commit (plein écran = viewport,
+    // retour au flux = rect en page). Le style ne doit PAS être en vol au
+    // moment de la mesure : une animation WAAPI ne touche pas au layout.
+    const to = el.getBoundingClientRect()
+
+    const rootStyle = getComputedStyle(document.documentElement)
+    const duration = parseFloat(
+      rootStyle.getPropertyValue(fullscreen ? '--duration-slow' : '--duration-medium')
+    )
+    const easing =
+      rootStyle.getPropertyValue('--ease-smooth-out').trim() || 'cubic-bezier(0.22, 1, 0.36, 1)'
+
+    const anim = el.animate(
+      [
+        {
+          transformOrigin: '0 0',
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${
+            from.width / to.width
+          }, ${from.height / to.height})`,
+        },
+        { transformOrigin: '0 0', transform: 'none' },
+      ],
+      { duration: Number.isFinite(duration) ? duration : 350, easing }
+    )
+    return () => anim.cancel()
+  }, [fullscreen])
 
   /**
    * Le rappel s'efface au premier mouvement de souris : il a dit ce qu'il avait à
@@ -585,7 +660,12 @@ export default function Load(props: LoadPageProps) {
     // plein écran actif, iframe sans `allowfullscreen`) : on les absorbe, l'état
     // restera simplement celui du navigateur — que `fullscreenchange` reflétera.
     if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => {})
-    else void el.requestFullscreen().catch(() => {})
+    else {
+      // Géométrie de départ du zoom FLIP : à capturer MAINTENANT, avant que
+      // l'UA ne déplace l'élément dans le top layer.
+      zoomFromRef.current = el.getBoundingClientRect()
+      void el.requestFullscreen().catch(() => {})
+    }
   }, [])
 
   const detailItems = useMemo(() => {
@@ -1030,6 +1110,9 @@ export default function Load(props: LoadPageProps) {
             {selLine && (
               <div
                 ref={panelRef}
+                // Cible de la règle `::backdrop` (styles/app.css) : le fond
+                // opaque que l'UA peint derrière l'élément plein écran.
+                data-fullscreen-panel
                 className={cn(
                   'flex min-h-0 flex-1 flex-col rounded-lg border border-rule bg-card p-4',
                   // En plein écran, l'agent utilisateur pose l'élément en
