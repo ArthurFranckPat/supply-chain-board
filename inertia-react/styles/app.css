@@ -838,3 +838,171 @@ tr[data-flash='out'] {
     background-color: color-mix(in srgb, var(--flash-out) 20%, transparent);
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   Échelle de motion — d'après transitions.dev
+   ────────────────────────────────────────────────────────────
+   Une seule échelle de durées, courbes, distances, échelles et
+   flous : celle des 32 transitions de transitions.dev
+   (skills/transitions-dev/_root.css, valeurs reprises telles
+   quelles). Les primitives de motion ci-dessous la lisent en
+   var(--…) — une valeur se règle ICI, pas dans un composant.
+
+   Deux règles de doctrine (skills/transitions-polish) :
+
+   • On choisit un token par son USAGE, jamais par le nombre le
+     plus proche. Un cubic-bezier maison n'est pas « faux » parce
+     qu'il vaut 240 ms : il l'est quand il ne dit pas ce que fait
+     le mouvement.
+   • Ouvrir est une invitation, fermer doit dégager le passage :
+     la fermeture d'une surface est plus courte que son ouverture.
+     Les mouvements réversibles (onglets glissants) ne se coupent
+     PAS en deux : même durée dans les deux sens.
+
+   `prefers-reduced-motion` est porté par chaque primitive, pas
+   par l'échelle : les tokens restent lisibles même coupés. ── */
+
+:root {
+  /* Durées — l'usage est dans le nom, pas dans le chiffre. */
+  --duration-stagger: 40ms; /* décalage par item d'une liste */
+  --duration-micro: 80ms; /* intention (infobulle), segment de secousse */
+  --duration-quick: 150ms; /* fermeture modal/menu, échange de texte */
+  --duration-fast: 250ms; /* ouverture menu/modal, onglets glissants, icônes */
+  --duration-medium: 350ms; /* fermeture de panneau */
+  --duration-slow: 400ms; /* ouverture de panneau, révélation de contenu */
+  --duration-very-slow: 500ms; /* moments d'emphase, apparition de badge */
+
+  /* Courbes */
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1); /* surface : ouverture, fermeture */
+  --ease-in-out: ease-in-out; /* échange d'icône, de texte */
+  --ease-out: ease-out; /* infobulle */
+  --ease-linear: linear; /* shimmer, pulsation, spinner */
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1); /* apparition de badge */
+  --ease-bounce-strong: cubic-bezier(0.34, 3.85, 0.64, 1); /* retour de survol */
+
+  /* Distances — la course décroît avec la fréquence, croît avec la cérémonie. */
+  --distance-micro: 4px;
+  --distance-small: 6px;
+  --distance-base: 8px;
+  --distance-medium: 12px;
+  --distance-large: 30px;
+
+  /* Échelles — « pré » échelle avant l'arrivée à 1. */
+  --scale-large: 0.96; /* modal */
+  --scale-medium: 0.97; /* menu déroulant */
+  --scale-small: 0.98; /* infobulle */
+  --scale-tiny: 0.99; /* fermeture de menu */
+
+  /* Flous — flou « pré », qui retombe à 0. */
+  --blur-small: 2px;
+  --blur-medium: 3px;
+  --blur-large: 8px;
+}
+
+/* ── Onglets glissants (transitions.dev #16) ──
+   `Segment` en rôle radiogroup : le fond de l'option active est UN
+   pill qui voyage d'un onglet à l'autre, au lieu de s'éteindre sur
+   l'un et de s'allumer sur l'autre. JS écrit translate/width/height
+   sur le pill (mesures du bouton actif) ; le CSS ne fait que tween.
+
+   Sans transition au PREMIER placement et au redimensionnement :
+   sinon le pill traverserait l'écran depuis translate(0) / width: 0,
+   et il glisserait à chaque coup de souris sur la bordure de
+   fenêtre. C'est le JS qui suspend la transition pour ces deux cas
+   (cf. `Segment`). */
+
+.motion-tabs {
+  position: relative;
+}
+
+.motion-tabs-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0; /* tant que la position n'est pas écrite par le JS */
+  border-radius: 6px; /* = rounded-md des SegmentButton */
+  background: var(--brand-soft);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform var(--duration-fast) var(--ease-smooth-out),
+    width var(--duration-fast) var(--ease-smooth-out);
+  will-change: transform, width;
+}
+
+/* Le libellé passe AU-DESSUS du pill. */
+.motion-tabs > .motion-tabs-btn {
+  position: relative;
+  z-index: 1;
+}
+
+/* Le bouton glissant : sa couleur suit le pill, son fond n'est plus
+   à lui. Même durée des deux côtés — un onglet n'a pas d'ouverture
+   ni de fermeture, seulement un déplacement. */
+.motion-tabs-btn {
+  transition: color var(--duration-fast) var(--ease-smooth-out);
+}
+
+/* ── Menu déroulant (transitions.dev #05) ──
+   `FilterMenu` : le panneau grandit DEPUIS son déclencheur — l'origine
+   est portée par `data-origin`, donc un menu aligné à droite pousse
+   depuis son coin droit, pas depuis un centre abstrait.
+
+   Trois états, et pas deux : `.motion-dropdown` nu = état de repos
+   « pré-ouverture » (échelle 0.97, invisible), `.is-open` = arrivé,
+   `.is-closing` = sortie (échelle 0.99, plus courte). Le retour à
+   l'état de repos APRÈS la sortie est ce qui permet à la prochaine
+   ouverture de repartir de 0.97 : sans lui, elle repartirait de 0.99
+   en sautant. C'est le JS de `FilterMenu` qui pose ces classes. */
+
+.motion-dropdown {
+  transform-origin: top right;
+  transform: scale(var(--scale-medium));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--duration-fast) var(--ease-smooth-out),
+    opacity var(--duration-fast) var(--ease-smooth-out);
+  will-change: transform, opacity;
+}
+
+.motion-dropdown[data-origin='top-left'] {
+  transform-origin: top left;
+}
+.motion-dropdown[data-origin='top-center'] {
+  transform-origin: top center;
+}
+.motion-dropdown[data-origin='bottom-left'] {
+  transform-origin: bottom left;
+}
+.motion-dropdown[data-origin='bottom-center'] {
+  transform-origin: bottom center;
+}
+.motion-dropdown[data-origin='bottom-right'] {
+  transform-origin: bottom right;
+}
+
+.motion-dropdown.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.motion-dropdown.is-closing {
+  transform: scale(var(--scale-tiny));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--duration-quick) var(--ease-smooth-out),
+    opacity var(--duration-quick) var(--ease-smooth-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-tabs-pill,
+  .motion-tabs-btn,
+  .motion-dropdown {
+    transition: none !important;
+  }
+}

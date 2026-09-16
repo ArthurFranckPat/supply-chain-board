@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Link } from '@inertiajs/react'
@@ -20,10 +30,11 @@ import { useRangeCalendar } from '@r/lib/use-range-calendar'
  *  actions optionnelles. */
 
 export const SEG = 'inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5'
-export const SEG_BTN_ON =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold bg-brand-soft text-brand transition-all duration-150 ease-out active:scale-95'
-export const SEG_BTN_OFF =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 ease-out active:scale-95'
+/** Géométrie et typographie d'un bouton de segment — communes aux trois états
+ *  (actif, inactif, et actif-sous-pill). Ce qui les distingue vient après. */
+export const SEG_BTN_BASE = 'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-semibold'
+export const SEG_BTN_ON = `${SEG_BTN_BASE} bg-brand-soft text-brand transition-all duration-150 ease-out active:scale-95`
+export const SEG_BTN_OFF = `${SEG_BTN_BASE} text-muted-foreground hover:text-foreground transition-all duration-150 ease-out active:scale-95`
 export const SEG_LBL = 'px-1.5 font-mono text-3xs font-semibold text-muted-foreground'
 export const PILL =
   'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-all duration-150 ease-out hover:border-brand active:scale-[0.97]'
@@ -47,6 +58,14 @@ export function ToolbarSpacer() {
   return <div className="flex-1" />
 }
 
+/**
+ * Le pill glissant n'a de sens que sur un choix EXCLUSIF : sur une sélection
+ * multiple (chips de filtre), plusieurs options s'allument ensemble — il n'y a
+ * pas UN fond à faire voyager. Le rôle `radiogroup` est donc le discriminant :
+ * c'est déjà lui qui dit que les options s'excluent.
+ */
+const SlidingTabs = createContext(false)
+
 /** Groupe de choix exclusifs (mode, statut, vue…). */
 export function Segment(props: {
   label?: string
@@ -55,10 +74,110 @@ export function Segment(props: {
   className?: string
   children: ReactNode
 }) {
+  const sliding = props.role === 'radiogroup'
+  const barRef = useRef<HTMLDivElement>(null)
+  const pillRef = useRef<HTMLSpanElement>(null)
+  /** Dernière mesure écrite sur le pill (null = rien de placé encore). */
+  const placed = useRef<{ sig: string; x: number; y: number; w: number; h: number } | null>(null)
+  /** Redimensionnement (fenêtre, chargement de police) sans changement d'état. */
+  const [measureTick, setMeasureTick] = useState(0)
+
+  useEffect(() => {
+    if (!sliding) return
+    const bar = barRef.current
+    if (!bar || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setMeasureTick((t) => t + 1))
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [sliding])
+
+  /**
+   * Placement du pill. AUCUNE dépendance : c'est le rendu lui-même qui est le
+   * signal — `Segment` ne se re-rend que si son appelant a re-rendu, donc
+   * qu'une option a changé d'état (ou que `measureTick` a bougé).
+   *
+   * Le motif actif (quels boutons sont allumés) se lit sur les attributs, ce
+   * qui ne coûte rien ; la MESURE (`offsetLeft`/`offsetWidth`), qui force un
+   * calcul de mise en page, n'est faite que si ce motif a bougé.
+   *
+   * Trois cas, et trois comportements distincts :
+   *   • premier placement → sans transition, sinon le pill traverserait tout
+   *     le segment depuis translate(0) / width: 0 ;
+   *   • motif changé → transition : c'est le geste qu'on est venu voir ;
+   *   • même motif, mesure différente → sans transition : un redimensionnement
+   *     n'est pas un changement d'avis, il ne doit pas faire glisser le pill.
+   */
+  useEffect(() => {
+    if (!sliding) return
+    const bar = barRef.current
+    const pill = pillRef.current
+    if (!bar || !pill) return
+
+    const btns = Array.from(bar.querySelectorAll<HTMLElement>('[data-seg-active]'))
+    const sig = btns.map((b) => (b.dataset.segActive === 'true' ? '1' : '0')).join('')
+    const active = btns.find((b) => b.dataset.segActive === 'true')
+    if (!active) {
+      // Sélection vide (tous les filtres décochés) : plus rien à désigner.
+      pill.style.opacity = '0'
+      placed.current = null
+      return
+    }
+
+    // `offsetLeft`/`offsetTop` partent de la boîte de BORDURE de la barre ;
+    // les pixels absolus du pill partent de sa boîte de PADDING. L'écart est
+    // la largeur de bordure de la barre.
+    const x = active.offsetLeft - bar.clientLeft
+    const y = active.offsetTop - bar.clientTop
+    const w = active.offsetWidth
+    const h = active.offsetHeight
+    const prev = placed.current
+    pill.style.opacity = '1'
+
+    /**
+     * `animate` distingue les deux natures de changement : un CHANGEMENT
+     * D'OPTION (le pill voyage) d'un simple repositionnement — premier
+     * placement, redimensionnement — où la transition doit être suspendue le
+     * temps d'écrire, sinon le pill traverserait tout le segment depuis
+     * `translate(0) / width: 0`.
+     */
+    const write = (animate: boolean) => {
+      const at = `translate(${x}px, ${y}px)`
+      if (animate) {
+        pill.style.transform = at
+        pill.style.width = `${w}px`
+        pill.style.height = `${h}px`
+        return
+      }
+      const t = pill.style.transition
+      pill.style.transition = 'none'
+      pill.style.transform = at
+      pill.style.width = `${w}px`
+      pill.style.height = `${h}px`
+      // Calcul de style forcé : le saut est acquis AVANT que la transition
+      // soit rendue, sans quoi le navigateur ne verrait qu'une écriture.
+      void pill.offsetWidth
+      pill.style.transition = t
+    }
+
+    if (!prev) write(false)
+    else if (prev.sig !== sig) write(true)
+    else if (prev.x !== x || prev.y !== y || prev.w !== w || prev.h !== h) write(false)
+
+    placed.current = { sig, x, y, w, h }
+  })
+
   return (
-    <div className={cn(SEG, props.className)} role={props.role} aria-label={props.ariaLabel}>
-      {props.label && <span className={SEG_LBL}>{props.label}</span>}
-      {props.children}
+    <div
+      ref={barRef}
+      className={cn(SEG, sliding && 'motion-tabs', props.className)}
+      role={props.role}
+      aria-label={props.ariaLabel}
+    >
+      {sliding && <span ref={pillRef} className="motion-tabs-pill" aria-hidden="true" />}
+      <SlidingTabs.Provider value={sliding}>
+        {props.label && <span className={SEG_LBL}>{props.label}</span>}
+        {props.children}
+      </SlidingTabs.Provider>
     </div>
   )
 }
@@ -72,6 +191,7 @@ export function SegmentButton(props: {
   disabled?: boolean
   children: ReactNode
 }) {
+  const sliding = useContext(SlidingTabs)
   return (
     <button
       type="button"
@@ -80,8 +200,21 @@ export function SegmentButton(props: {
       aria-pressed={props.role !== 'radio' ? props.active : undefined}
       disabled={props.disabled}
       title={props.title}
+      // Le pill lit ces deux attributs pour se placer : ils sont le contrat
+      // entre le bouton et lui, pas seulement de la sémantique.
+      data-seg-active={sliding ? String(props.active) : undefined}
       className={cn(
-        props.active ? SEG_BTN_ON : SEG_BTN_OFF,
+        sliding
+          ? cn(
+              SEG_BTN_BASE,
+              'motion-tabs-btn',
+              // Le fond n'est plus porté par le bouton : c'est le pill qui
+              // voyage. Le bouton ne dit que la couleur de son libellé.
+              props.active ? 'text-brand' : 'text-muted-foreground hover:text-foreground'
+            )
+          : props.active
+            ? SEG_BTN_ON
+            : SEG_BTN_OFF,
         props.disabled && 'cursor-not-allowed opacity-40'
       )}
       onClick={props.onClick}
@@ -258,7 +391,13 @@ export function RefreshPill(props: {
  *
  *  Implémentation : `<details>` natif (accessible, zero deps, clic extérieur
  *  + Échap ferment). `indicators` porte le signal d'état actif sur le
- *  déclencheur (pastilles colorées, badge…) pour rester lisible fermé. */
+ *  déclencheur (pastilles colorées, badge…) pour rester lisible fermé.
+ *
+ *  Animation : le panneau grandit depuis son déclencheur (transitions.dev #05,
+ *  cf. `.motion-dropdown` dans styles/app.css). Le `<details>` natif retire ses
+ *  enfants du rendu dès qu'il se ferme : impossible d'animer une sortie qu'on
+ *  n'a pas vue. La fermeture est donc RETARDÉE — on annule la fermeture native,
+ *  on joue la sortie, et on ferme vraiment au bout du tween. */
 export function FilterMenu(props: {
   label?: string
   indicators?: ReactNode
@@ -277,15 +416,74 @@ export function FilterMenu(props: {
   const ownRef = useRef<HTMLDetailsElement>(null)
   const detailsRef = props.detailsRef ?? ownRef
   const [open, setOpen] = useState(false)
+  /** Arrivée jouée, sortie en cours, ou repos (pré-ouverture). */
+  const [phase, setPhase] = useState<'idle' | 'open' | 'closing'>('idle')
+  /** Miroir de `phase` pour les décisions : `onToggle` est un écouteur natif,
+   *  il ne doit pas dépendre d'une fermeture React périmée. */
+  const phaseRef = useRef<'idle' | 'open' | 'closing'>('idle')
+  /** Vrai le temps que NOTRE fermeture programmée traverse `toggle`. */
+  const selfClosing = useRef(false)
+  const closeTimer = useRef<number | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const align = props.align ?? 'right'
+
+  const goTo = useCallback((p: 'idle' | 'open' | 'closing') => {
+    phaseRef.current = p
+    setPhase(p)
+  }, [])
+
+  /**
+   * Durée de sortie LUE dans le token, comme le fait transitions.dev : le JS
+   * n'a pas à recopier 150 ms, sinon la constante et la feuille de style
+   * divergent au premier réglage.
+   */
+  const closeMs = useCallback(() => {
+    const raw = getComputedStyle(document.documentElement)
+      .getPropertyValue('--duration-quick')
+      .trim()
+    const n = Number.parseFloat(raw)
+    if (!Number.isFinite(n) || n <= 0) return 150
+    return raw.endsWith('ms') ? n : n * 1000
+  }, [])
+
+  const startClose = useCallback(() => {
+    goTo('closing')
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null
+      selfClosing.current = true
+      goTo('idle')
+      setOpen(false)
+    }, closeMs())
+  }, [closeMs, goTo])
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    },
+    []
+  )
+
+  /**
+   * L'arrivée ne peut pas être une simple bascule de classe : le panneau vient
+   * d'entrer dans le rendu (le `<details>` s'ouvre), il n'a donc AUCUN état
+   * antérieur à quitter. On force un calcul de style sur l'état de repos —
+   * « pré-échelle » 0.97, invisible — puis on bascule dans le même passage,
+   * avant peinture.
+   */
+  useLayoutEffect(() => {
+    if (phase !== 'idle' || !open) return
+    void panelRef.current?.offsetWidth
+    goTo('open')
+  }, [open, phase, goTo])
 
   useEffect(() => {
     if (!open) return
     const onDocClick = (e: MouseEvent) => {
-      if (!detailsRef.current?.contains(e.target as Node)) setOpen(false)
+      if (!detailsRef.current?.contains(e.target as Node)) startClose()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') startClose()
     }
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
@@ -293,13 +491,32 @@ export function FilterMenu(props: {
       document.removeEventListener('mousedown', onDocClick)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, detailsRef])
+  }, [open, detailsRef, startClose])
 
   return (
     <details
       ref={detailsRef}
       open={open}
-      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      onToggle={(e) => {
+        const el = e.currentTarget
+        if (el.open) {
+          setOpen(true)
+          return
+        }
+        // C'est bien NOUS qui fermons : la fermeture programmée a traversé le
+        // `<details>`, plus rien à retarder.
+        if (selfClosing.current) {
+          selfClosing.current = false
+          return
+        }
+        // Fermeture demandée (résumé, Échap, clic extérieur). Le `<details>`
+        // retire ses enfants du rendu dès qu'il se ferme : une sortie jouée
+        // après coup ne se verrait pas. On annule donc la fermeture native le
+        // temps du tween, et on referme vraiment à son terme.
+        el.open = true
+        if (phaseRef.current === 'closing') return
+        startClose()
+      }}
       className="relative"
     >
       <summary
@@ -317,9 +534,13 @@ export function FilterMenu(props: {
       </summary>
 
       <div
+        ref={panelRef}
+        data-origin={align === 'right' ? 'top-right' : 'top-left'}
         className={cn(
-          'absolute top-full z-50 mt-1.5 w-[280px] rounded-lg border border-rule bg-popover p-2.5 shadow-lg',
+          'motion-dropdown absolute top-full z-50 mt-1.5 w-[280px] rounded-lg border border-rule bg-popover p-2.5 shadow-lg',
           align === 'right' ? 'right-0' : 'left-0',
+          phase === 'closing' && 'is-closing',
+          phase === 'open' && 'is-open',
           props.panelClassName
         )}
       >
