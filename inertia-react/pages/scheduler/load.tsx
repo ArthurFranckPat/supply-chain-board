@@ -529,24 +529,53 @@ export default function Load(props: LoadPageProps) {
    * Ce qu'un plein écran doit encore laisser faire : lire autrement. Le bandeau
    * du graphe porte donc l'unité, le cran et la maille (dans les deux modes), et
    * en plein écran le périmètre (vue, filtres) vient s'y poser — cf.
-   * `graphControls` / `perimeterControls`. Rien à révéler au clavier, rien à
-   * sortir du plein écran pour changer d'avis.
+   * `graphControls` / `perimeterControls`. Changer d'avis ne coûte donc pas une
+   * sortie du plein écran ; et quand la lecture ne veut plus que le graphe, `F`
+   * efface le bandeau entier.
    */
   const panelRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
 
   /**
+   * Le bandeau de lecture — unité, cran, maille, et en plein écran le périmètre
+   * (vue, filtres) — peut s'effacer : en lecture pure il ne sert à rien et coûte
+   * au graphe la hauteur qu'il occupe. `F` le masque et le rappelle. Hors plein
+   * écran il reste en place : il porte les réglages du graphe qu'on lit, et rien
+   * ne le rappellerait.
+   */
+  const [barHidden, setBarHidden] = useState(false)
+  /** Rappel « F » après un masquage — effacé au premier mouvement de souris. */
+  const [barHint, setBarHint] = useState(false)
+
+  /**
    * On écoute `fullscreenchange` plutôt que de suivre nos propres clics : Échap
    * (ou la sortie par le système, F11, un changement de fenêtre) sort du plein
-   * écran sans passer par le bouton, et l'icône doit suivre.
+   * écran sans passer par le bouton, et l'icône doit suivre. Le bandeau masqué ne
+   * survit pas à la sortie : au-delà du plein écran, plus rien ne le rappelle.
    */
   useEffect(() => {
     const onChange = () => {
-      setFullscreen(document.fullscreenElement === panelRef.current)
+      const on = document.fullscreenElement === panelRef.current
+      setFullscreen(on)
+      if (!on) {
+        setBarHidden(false)
+        setBarHint(false)
+      }
     }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
+
+  /**
+   * Le rappel s'efface au premier mouvement de souris : il a dit ce qu'il avait à
+   * dire dès l'instant où la main reprend le geste.
+   */
+  useEffect(() => {
+    if (!fullscreen || !barHidden || !barHint) return
+    const dismiss = () => setBarHint(false)
+    document.addEventListener('mousemove', dismiss, { once: true })
+    return () => document.removeEventListener('mousemove', dismiss)
+  }, [fullscreen, barHidden, barHint])
 
   const toggleFullscreen = useCallback(() => {
     const el = panelRef.current
@@ -610,9 +639,8 @@ export default function Load(props: LoadPageProps) {
   /**
    * Raccourcis clavier de la page :
    *   ← / →  poste précédent / suivant (mêmes pas que le carrousel) ;
-   *   F      ouvre/ferme les filtres — et, en plein écran, fait apparaître la
-   *          barre de contrôles qui les porte (elle est hors du panneau plein
-   *          écran, donc invisible sans ça) ;
+   *   F      en plein écran, masque/rappelle le bandeau de lecture (unité, cran,
+   *          maille, vue, filtres) ; ailleurs, ouvre/ferme les filtres ;
    *   P      entre et sort du plein écran (Échap en sort aussi).
    *
    * Trois gardes, sans quoi ils volent des frappes légitimes : aucune touche de
@@ -637,6 +665,20 @@ export default function Load(props: LoadPageProps) {
         return
       }
       if (e.key === 'f' || e.key === 'F') {
+        // En plein écran, `F` gouverne le bandeau qui PORTE les filtres : le
+        // masquer, c'est éteindre ce qui les ouvre à la souris. La touche suit
+        // donc le bandeau, pas la liste — rouverte d'un clic à l'écran.
+        if (fullscreen) {
+          e.preventDefault()
+          if (barHidden) {
+            setBarHidden(false)
+            setBarHint(false)
+          } else {
+            setBarHidden(true)
+            setBarHint(true)
+          }
+          return
+        }
         const details = filterRef.current
         if (!details) return
         // L'événement `toggle` natif repart vers React : l'état du panneau (et
@@ -647,13 +689,8 @@ export default function Load(props: LoadPageProps) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [periodTarget, stepPoste, toggleFullscreen])
+  }, [periodTarget, stepPoste, toggleFullscreen, fullscreen, barHidden])
 
-  /**
-   * Barre de contrôles (vue, unité, cran, filtres, recherche) — ÉCRITE UNE FOIS,
-   * posée à l'un ou l'autre endroit : en tête de page, ou DANS le plein écran
-   * quand l'utilisateur la demande au clavier. Deux copies divergeraient.
-   */
   /**
    * Ce que le graphe RACONTE — unité, cran de quantité, maille. Ces trois
    * réglages vivaient dans la toolbar de page, à l'autre bout de l'écran du
@@ -721,7 +758,8 @@ export default function Load(props: LoadPageProps) {
    * plein écran est actif : le navigateur ne rend que le sous-arbre de
    * l'élément plein écran, donc une toolbar restée dehors serait hors
    * d'atteinte. Une seule instance, donc une seule `filterRef` — c'est elle que
-   * la touche `F` ouvre, dans les deux modes.
+   * la touche `F` ouvre hors plein écran ; en plein écran, `F` gouverne le
+   * bandeau qui la porte, donc l'indication de touche disparaît.
    */
   const perimeterControls = (
     <>
@@ -735,7 +773,7 @@ export default function Load(props: LoadPageProps) {
       </Segment>
       <FilterMenu
         detailsRef={filterRef}
-        hotkey="F"
+        hotkey={fullscreen ? undefined : 'F'}
         label="Filtres"
         indicators={
           filtersActive ? (
@@ -1074,16 +1112,34 @@ export default function Load(props: LoadPageProps) {
                     cran, maille) ; en plein écran, à droite le périmètre (vue,
                     filtres) — sans quoi ces décisions seraient hors d'atteinte.
                     Dans le flux, jamais en surimpression : le graphe se remesure
-                    par son ResizeObserver, rien n'est masqué. */}
-                <div className="mb-2.5 flex flex-none flex-wrap items-center gap-2.5">
-                  {graphControls}
-                  {fullscreen && (
-                    <>
-                      <ToolbarSpacer />
-                      {perimeterControls}
-                    </>
-                  )}
-                </div>
+                    par son ResizeObserver, rien n'est masqué. Hors plein écran
+                    il ne s'efface pas : c'est lui qui porte les réglages du
+                    graphe qu'on lit (cf. `barHidden`). */}
+                {!(fullscreen && barHidden) && (
+                  <div className="mb-2.5 flex flex-none flex-wrap items-center gap-2.5">
+                    {graphControls}
+                    {fullscreen && (
+                      <>
+                        <ToolbarSpacer />
+                        {perimeterControls}
+                      </>
+                    )}
+                  </div>
+                )}
+                {/* Le bandeau masqué est un état sans bouton : sans ce rappel, la
+                    seule sortie serait de rouvrir la documentation de la page.
+                    Il ne survit pas au premier geste de souris — la main qui
+                    reprend n'a plus besoin qu'on lui dise où est la touche.
+                    `absolute` s'ancre sur le panneau, que le plein écran pose en
+                    `fixed` : il est donc le bloc conteneur de cet absolu. */}
+                {fullscreen && barHidden && barHint && (
+                  <div className="pointer-events-none absolute bottom-6 right-6 z-10 inline-flex items-center gap-2 rounded-full border border-rule bg-secondary px-3 py-1.5 font-mono text-[10px] font-semibold tracking-wider text-secondary-foreground">
+                    Bandeau
+                    <kbd className="rounded border border-rule bg-card px-1.5 py-0.5 text-[10px] text-foreground">
+                      F
+                    </kbd>
+                  </div>
+                )}
                 <DetailChart
                   items={detailItems}
                   gran={gran}
