@@ -764,6 +764,25 @@ export function evaluateOrderImpacts(
     ])
     if (articlesLentille.size === 0) continue
 
+    /**
+     * Lentille retenue pour un article — le discriminant est la PRÉSENCE d'une part de
+     * production, jamais le manque résiduel.
+     *
+     * Un SE fabriqué couvert par un OF producteur se décompose en `se` (production) + `seQc`
+     * (part CQ de cette couverture). Partout ailleurs, l'article se lit en `missing` (manque)
+     * + `qc` (dette envers le contrôle réception).
+     *
+     * Tester `missing > 0` seul ratait le composant ACHETÉ dont le manque vs stock strict est
+     * ENTIÈREMENT tenu par le statut Q (`missing` nul, `qc` non nul) : routé vers la branche SE,
+     * il y puisait un `seQc` vide (rien à produire) et sa dette CQ tombait à zéro — l'écran
+     * n'en disait plus un mot, alors que le détail OF affichait « 1 composant sous contrôle
+     * qualité » (relevé /suivi : F126-50435 / EH7118).
+     */
+    const porteLaLentilleSe = (art: string): boolean =>
+      (lens.se[art] ?? 0) > QTY_EPSILON || (lens.seQc[art] ?? 0) > QTY_EPSILON
+    const surManque = (art: string): boolean =>
+      !porteLaLentilleSe(art) || (lens.missing[art] ?? 0) > QTY_EPSILON
+
     const tranches = [...(tranchesByOf.get(of.numOf) ?? [])]
     const couvert = tranches.reduce((somme, t) => somme + t.ratio, 0)
     if (couvert < 1 - RATIO_EPSILON) {
@@ -782,13 +801,12 @@ export function evaluateOrderImpacts(
     const partManque = new Map<string, number[]>()
     const partStricte = new Map<string, number[]>()
     for (const art of articlesLentille) {
-      const surManque = (lens.missing[art] ?? 0) > QTY_EPSILON
       partManque.set(art, repartir(lens.missing[art] ?? 0, ratios))
       // Manque vs stock STRICT : ce que la tranche a à couvrir avant le Q et la production.
       partStricte.set(
         art,
         repartir(
-          surManque
+          surManque(art)
             ? (lens.missing[art] ?? 0) + (lens.qc[art] ?? 0)
             : (lens.se[art] ?? 0) + (lens.seQc[art] ?? 0),
           ratios
@@ -806,12 +824,12 @@ export function evaluateOrderImpacts(
         // Une seule lentille par article, la même règle que l'écran : un composant réellement
         // manquant porte sa dette CQ sur `qc` ; ailleurs, un SE couvert par production porte
         // la sienne sur `seQc`. Sans ce choix, l'article puiserait DEUX fois dans la poche.
-        const surManque = (lens.missing[art] ?? 0) > QTY_EPSILON
+        const surLeManque = surManque(art)
 
         const manque = partManque.get(art)![indexTranche]
         if (manque > QTY_EPSILON) manquants[art] = Math.round(manque * 100) / 100
 
-        const resteOf = surManque ? qcResteOf : seQcResteOf
+        const resteOf = surLeManque ? qcResteOf : seQcResteOf
         // La poche Q sert les tranches DANS L'ORDRE, jamais au prorata : une pièce sous
         // contrôle réception ne se coupe pas en deux. `× tranche.ratio` sur la dette CQ
         // affichait « 13,5 en statut Q » sur une ligne et « 1,5 » sur l'autre pour les 15
@@ -828,11 +846,11 @@ export function evaluateOrderImpacts(
         if (qc > QTY_EPSILON) {
           resteOf[art] = (resteOf[art] ?? 0) - qc
           if (consommeLesPoches) qcPool.set(art, (qcPool.get(art) ?? 0) - qc)
-          if (surManque) qcPris[art] = Math.round(qc * 100) / 100
+          if (surLeManque) qcPris[art] = Math.round(qc * 100) / 100
           else seQcPris[art] = Math.round(qc * 100) / 100
         }
 
-        if (!surManque) {
+        if (!surLeManque) {
           // Le besoin du SE vs stock strict = part production + part CQ. Ce que la poche CQ
           // n'a pas donné bascule sur la production : le manque total de la tranche ne bouge
           // pas, seule sa décomposition change.

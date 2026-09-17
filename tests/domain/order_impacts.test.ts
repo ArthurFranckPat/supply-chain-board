@@ -926,6 +926,153 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
   })
 
   /**
+   * Composant ACHETÉ dont le manque vs stock strict est ENTIÈREMENT tenu par le statut Q.
+   *
+   * C'est le cas que la lentille CQ existe pour montrer — et celui qui disparaissait : la
+   * tranche choisissait sa lentille sur `missing > 0`, or ici `missing` est NUL (le moteur
+   * compte le Q disponible, l'OF est faisable) et toute la dette vit dans `qc`. Routé vers la
+   * branche « SE couvert par production », l'article y puisait un `seQc` vide (rien à produire)
+   * et la dette tombait à zéro : la ligne /suivi n'affichait plus rien, ni manquant ni CQ, alors
+   * que le détail OF affichait « 1 composant sous contrôle qualité » (relevé F126-50435 /
+   * EH7118).
+   *
+   * Ici : besoin 80 de C1, stock strict 60, statut Q 25 → l'OF sort (85 ≥ 80) mais 20 des 80
+   * pièces ne tiennent que sur la levée du contrôle réception.
+   */
+  test('manquant ACHETÉ entièrement tenu par le Q : la dette CQ reste visible', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['C1', makeArticle('C1', 'ACHAT')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 80, daysFromNow(8)),
+      makeStockFlow('C1', 60),
+      {
+        article: 'C1',
+        quantity: 25,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 80, daysFromNow(10))]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    const of = result.orders[0].ofs[0]
+    assert.deepEqual(of.missingComponents, {}, 'rien ne manque : le Q couvre l’OF entier')
+    assert.deepEqual(of.qcComponents, { C1: 20 }, 'la part qui ne tient que sur le statut Q')
+    assert.deepEqual(of.seComponents, {}, 'aucun SE en jeu : pas de lentille production')
+    assert.deepEqual(of.seQcComponents, {}, 'ni sa part CQ')
+  })
+
+  /**
+   * Même cas en CONTENTION (le mode de la vue proactive) : la poche Q ne se promet qu'une fois.
+   *
+   * Deux OFs de 40 pièces, strict 30 + statut Q 25 au total. La 1re ligne servie entre DANS la
+   * poche (strict 30 < 40, `missing` reste nul) : sa dette CQ de 10 doit se voir ET sortir de la
+   * poche. La 2e ne trouve plus que 15 pièces sous contrôle — ce qu'elle affiche, le reste étant
+   * un vrai manque. Total promis = 25, les 25 pièces physiques.
+   */
+  test('manquant ACHETÉ tenu par le Q en contention : la poche ne se promet qu’une fois', ({
+    assert,
+  }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['C1', makeArticle('C1', 'ACHAT')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-1', 'PF1', 1, 40, daysFromNow(8)),
+      makeOfFlow('OF-2', 'PF1', 1, 40, daysFromNow(9)),
+      makeStockFlow('C1', 30),
+      {
+        article: 'C1',
+        quantity: 25,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 40, daysFromNow(10)),
+      makeDemand('CMD-2', 'PF1', 40, daysFromNow(11)),
+    ]
+
+    const result = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) },
+      'sequential'
+    )
+
+    const [premier, second] = result.orders
+    // 1re ligne servie : strict 30 + Q 25 couvrent ses 40 pièces sans manque — dette CQ 10,
+    // c'est le cas de figure qui disparaissait (manque nul).
+    assert.deepEqual(premier.ofs[0].missingComponents, {}, 'la 1re ligne sort : le Q complète')
+    assert.deepEqual(premier.ofs[0].qcComponents, { C1: 10 }, 'ce qu’elle prend dans la poche Q')
+    // 2e ligne : il ne reste que 15 des 25 pièces en statut Q — le reste est un vrai manque.
+    assert.deepEqual(second.ofs[0].qcComponents, { C1: 15 }, 'le reliquat de la poche Q')
+    assert.deepEqual(second.ofs[0].missingComponents, { C1: 25 }, 'manque résiduel (40 − 15)')
+    assert.equal(
+      (premier.ofs[0].qcComponents!.C1 ?? 0) + (second.ofs[0].qcComponents!.C1 ?? 0),
+      25,
+      'les 25 pièces en statut Q ne sont promises qu’une fois'
+    )
+  })
+
+  /**
    * Répartition ENTIÈRE des quantités d'un OF entre ses tranches (plus forts restes).
    *
    * Relevé PROD 03/09/2026, EMM707PO / F126-49951 / EH1706 : la ligne prend 2591 pièces d'un
