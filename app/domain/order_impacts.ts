@@ -606,16 +606,51 @@ export function evaluateOrderImpacts(
     return out
   }
 
-  /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
-  const qcDelta = (ofId: string): Record<string, number> => {
-    const strict = verdictsStrict?.get(ofId)
-    if (!strict) return {}
+  /**
+   * Dette envers le contrôle qualité d'un OF — mesurée DEUX fois, parce qu'une seule mesure en
+   * laissait passer la moitié.
+   *
+   * 1. Sur le verdict RENDU (production OF créditée) : la dette qui subsiste MALGRÉ la
+   *    production promise. C'est la mesure historique.
+   *
+   * 2. Sans la production OF : la dette MASQUÉE par cette production promise. Un composant
+   *    dont un OF producteur couvre le besoin n'a aucun manque dans la passe rendue, et la
+   *    comparaison (1) rend donc 0 — alors que le besoin ne tient, physiquement, que sur du
+   *    stock en statut Q. Relevé /suivi F126-50435 : EH7118, besoin net 124 (450 − 326 déjà
+   *    alloués), stock 475 INTÉGRALEMENT en statut Q, un OF producteur quelque part dans la
+   *    fenêtre. Les quatre lentilles rendaient {} — la ligne ne disait rien quand le détail OF
+   *    affichait la bannière « 1 composant sous contrôle qualité ». Les deux passes SANS
+   *    production sont le seul point de mesure où le Q est encore visible.
+   *
+   * Une seule lentille par article, comme partout : ce qui est déjà mesuré en (1) n'est pas
+   * repris, un article VRAIMENT manquant garde sa dette en (1) (« le manque prime »), et un
+   * article dont la part de production se voit porte la sienne sur `seQc` (cf. `seQcDelta`).
+   */
+  const qcDelta = (ofId: string, seArticles: Record<string, number>): Record<string, number> => {
+    const out: Record<string, number> = {}
     const withQc = verdicts.get(ofId)
     const missWithQc = withQc ? directMissing(withQc) : {}
-    const out: Record<string, number> = {}
-    for (const [article, shortage] of Object.entries(directMissing(strict))) {
-      const covered = shortage - (missWithQc[article] ?? 0)
-      if (covered > 0) out[article] = covered
+
+    const strict = verdictsStrict?.get(ofId)
+    if (strict) {
+      for (const [article, shortage] of Object.entries(directMissing(strict))) {
+        const covered = shortage - (missWithQc[article] ?? 0)
+        if (covered > 0) out[article] = covered
+      }
+    }
+
+    const noSupplyStrict = verdictsNoOfSupplyStrict?.get(ofId)
+    const noSupply = verdictsNoOfSupply?.get(ofId)
+    if (noSupplyStrict && noSupply) {
+      const missSansQ = directMissing(noSupply)
+      for (const m of noSupplyStrict.missingDetail) {
+        if (m.depth !== 0) continue
+        if (out[m.article] != null) continue
+        if ((missWithQc[m.article] ?? 0) > 0) continue
+        if (m.article in seArticles) continue
+        const qcPart = m.shortage - (missSansQ[m.article] ?? 0)
+        if (qcPart > QTY_EPSILON) out[m.article] = qcPart
+      }
     }
     return out
   }
@@ -643,7 +678,7 @@ export function evaluateOrderImpacts(
     const se = pre ? {} : seDelta(ofId)
     const computed = {
       missing: pre ? pre.missingComponents : verdict ? directMissing(verdict) : {},
-      qc: pre ? (pre.qcComponents ?? {}) : qcDelta(ofId),
+      qc: pre ? (pre.qcComponents ?? {}) : qcDelta(ofId, se),
       se,
       seQc: pre ? {} : seQcDelta(ofId, se),
     }
@@ -923,7 +958,7 @@ export function evaluateOrderImpacts(
     return {
       feasible: verdict?.feasible ?? null,
       missingComponents: verdict ? directMissing(verdict) : {},
-      qcComponents: qcDelta(ofId),
+      qcComponents: qcDelta(ofId, seComponents),
       seComponents,
       seQcComponents: seQcDelta(ofId, seComponents),
       seCoveringOfs: seCoveringByOf.get(ofId) ?? {},

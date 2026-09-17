@@ -1281,6 +1281,73 @@ test.group('evaluateOrderImpacts — SE : part Q vs part production (#94)', () =
     )
   })
 
+  /**
+   * Le Q couvre le besoin ENTIER, et une production abondante le couvre aussi : les QUATRE
+   * lentilles se vidaient, la ligne ne disait plus rien.
+   *
+   * C'est le cas relevé sur /suivi — F126-50435 / EH7118 : besoin net 124 (450 dont 326 déjà
+   * alloués en stock), 475 pièces de EH7118 en stock dont TOUT est en statut Q, et un OF
+   * producteur quelque part dans la fenêtre. Le moteur crédite le Q (verdict « faisable ») et
+   * la production (même passe sans Q, aucun manque) : `missing`, `qc`, `se` et `seQc` sortaient
+   * tous vides. Le détail OF, lui, annonçait « 1 composant sous contrôle qualité ».
+   *
+   * Attendu : la dette CQ est mesurée SANS la production, seul point où le Q est encore
+   * visible, et portée par `qc` (aucune part de production à décomposer).
+   */
+  test('Q et production couvrent tout : la dette CQ reste visible', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'SE1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'FABRIQUE' as const,
+              consumptionNature: 'PROPORTIONNEL' as const,
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['SE1', makeArticle('SE1')],
+    ])
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-PF', 'PF1', 1, 100, daysFromNow(8)),
+      makeOfFlow('WOS-BIG', 'SE1', 3, 10_000, daysFromNow(1)),
+      {
+        article: 'SE1',
+        quantity: 100,
+        direction: 'supply',
+        date: null,
+        origin: { type: 'stock', subType: 'qc', pmp: null } as any,
+      },
+    ]
+
+    const result = evaluateOrderImpacts(
+      [makeDemand('CMD-1', 'PF1', 100, daysFromNow(10))],
+      supplyFlows,
+      nomenclatures,
+      articles,
+      new Map<string, OfOverride>(),
+      { from: daysFromNow(-7), to: daysFromNow(42) }
+    )
+
+    const of = result.orders[0].ofs.find((o) => o.numOf === 'OF-PF')!
+    assert.deepEqual(of.missingComponents, {}, 'rien ne manque : Q et production couvrent')
+    assert.deepEqual(of.qcComponents, { SE1: 100 }, 'le besoin ne tient que sur le statut Q')
+    assert.deepEqual(of.seComponents, {}, 'aucune part de production à décomposer')
+    assert.deepEqual(of.seQcComponents, {}, 'ni de part CQ « de SE » : la dette est sur `qc`')
+  })
+
   test('un OF servant DEUX lignes : chacune consomme sa tranche, la 2e prend le reliquat', ({
     assert,
   }) => {
