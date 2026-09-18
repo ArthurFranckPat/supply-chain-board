@@ -7,7 +7,7 @@
  * toolbar + switch) — le rendu de chaque mode vit dans
  * components/tracking/*-view.tsx (issue #52).
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search } from 'lucide-react'
 
@@ -56,6 +56,8 @@ import {
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { ReactiveView } from '@r/components/tracking/reactive-view'
 import { ProactiveView } from '@r/components/tracking/proactive-view'
+import { ProactiveNav } from '@r/components/tracking/proactive-nav'
+import { ProactiveDetailSheet } from '@r/components/tracking/proactive-detail-sheet'
 import { ClientFilterPill, type ClientOption } from '@r/components/tracking/client-filter-pill'
 import { SuiviDetailSheet } from '@r/components/tracking/suivi-detail-sheet'
 import OfDetailSheet from '@r/components/of/of-detail-sheet'
@@ -171,7 +173,8 @@ export default function Tracking(props: SuiviPageProps) {
   // statut/verdict spécifiques à leur mode.
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<SuiviStatusKey | 'all'>('all')
-  const [verdictFilter, setVerdictFilter] = useState<ProactiveVerdictKey | 'all'>('all')
+  // Verdicts retenus (vide = tous) : le bandeau de synthèse en bascule des groupes, le menu Filtres un seul.
+  const [verdictFilter, setVerdictFilter] = useState<ReadonlySet<ProactiveVerdictKey>>(new Set())
   // Vue proactif : inclure les sous-ensembles (semi-finis) dans la colonne « Composants en
   // rupture ». Défaut ON — un SE suspendu à un OF bloque la commande autant qu'un acheté.
   const [showSubAssemblies, setShowSubAssemblies] = useState(true)
@@ -276,7 +279,7 @@ export default function Tracking(props: SuiviPageProps) {
     const q = query.trim().toLowerCase()
     let r = proRows.filter(
       (row) =>
-        (verdictFilter === 'all' || row.verdictKey === verdictFilter) &&
+        (verdictFilter.size === 0 || verdictFilter.has(row.verdictKey)) &&
         (!ruptureOnly || hasRupture(row)) &&
         (!cqOnly || row.cq !== null) &&
         typeFilter.has(row.type) &&
@@ -337,6 +340,16 @@ export default function Tracking(props: SuiviPageProps) {
 
   const selectedRowKey = selectedRow ? suiviRowKey(selectedRow.row) : null
 
+  // Ouverture du détail d'une ligne proactive : on retient le bouton d'origine (quand la
+  // ligne a été ouverte par lui) pour lui rendre le focus à la fermeture de la feuille.
+  const detailReturnFocus = useRef<HTMLElement | null>(null)
+  const openProactiveRow = (row: ProactiveDisplayRow) => {
+    const active = document.activeElement
+    detailReturnFocus.current =
+      active instanceof HTMLElement && active.closest('tr, li') ? active : null
+    setSelectedRow({ type: 'proactif', row })
+  }
+
   const loading = mode === 'reactif' ? rowsLoading : proLoading
   const lastMs = mode === 'reactif' ? rowsMs : proMs
   const liveElapsed = mode === 'reactif' ? elapsed : proElapsed
@@ -363,10 +376,21 @@ export default function Tracking(props: SuiviPageProps) {
     )
   }
 
+  const toggleVerdictKeys = (keys: readonly ProactiveVerdictKey[]) =>
+    setVerdictFilter((prev) => {
+      const next = new Set(prev)
+      const all = keys.every((k) => next.has(k))
+      keys.forEach((k) => (all ? next.delete(k) : next.add(k)))
+      return next
+    })
+
   const verdictChip = (k: ProactiveVerdictKey | 'all', label: string, count?: number) => {
-    const on = verdictFilter === k
+    const on = k === 'all' ? verdictFilter.size === 0 : verdictFilter.has(k)
     return (
-      <SegmentButton active={on} onClick={() => setVerdictFilter(on ? 'all' : k)}>
+      <SegmentButton
+        active={on}
+        onClick={() => (k === 'all' ? setVerdictFilter(new Set()) : toggleVerdictKeys([k]))}
+      >
         {label}
         {chipCount(on, count)}
       </SegmentButton>
@@ -379,7 +403,7 @@ export default function Tracking(props: SuiviPageProps) {
   // Sous-ensembles et NOR étant activés au chargement, c'est leur décochage qui compte.
   const filtersActive =
     (mode === 'reactif' && statusFilter !== 'all') ||
-    (mode === 'proactif' && verdictFilter !== 'all') ||
+    (mode === 'proactif' && verdictFilter.size > 0) ||
     (mode === 'proactif' && ruptureOnly) ||
     (mode === 'proactif' && cqOnly) ||
     (mode === 'proactif' && !showSubAssemblies) ||
@@ -394,7 +418,7 @@ export default function Tracking(props: SuiviPageProps) {
   const resetFilters = () => {
     setQuery('')
     setStatusFilter('all')
-    setVerdictFilter('all')
+    setVerdictFilter(new Set())
     setRuptureOnly(false)
     setCqOnly(false)
     setShowSubAssemblies(true)
@@ -418,27 +442,32 @@ export default function Tracking(props: SuiviPageProps) {
           la toolbar et de la vue en dessous ne se dimensionnent contre rien
           et la table déborde hors de l'écran sans scroll possible. */}
       <div className="flex h-full min-h-0 flex-col">
+        {/* Vue proactive : la bascule de mode vit dans la barre de navigation de la vue. */}
+        {mode === 'proactif' && <ProactiveNav mode={mode} onModeChange={setMode} />}
+
         {/* ═══ Toolbar ═══ */}
         <ToolbarRow className="select-none" noWrap>
-          {/* Bascule Réactif / Proactif */}
-          <Segment role="radiogroup" ariaLabel="Vue" className="shrink-0">
-            <SegmentButton
-              role="radio"
-              active={mode === 'reactif'}
-              onClick={() => setMode('reactif')}
-              title="Suivi as-is : statuts allocation/expédition + causes de retard"
-            >
-              Réactif
-            </SegmentButton>
-            <SegmentButton
-              role="radio"
-              active={mode === 'proactif'}
-              onClick={() => setMode('proactif')}
-              title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
-            >
-              Proactif
-            </SegmentButton>
-          </Segment>
+          {/* Bascule Réactif / Proactif (vue réactive ; en proactif, voir ProactiveNav) */}
+          {mode === 'reactif' && (
+            <Segment role="radiogroup" ariaLabel="Vue" className="shrink-0">
+              <SegmentButton
+                role="radio"
+                active={mode === 'reactif'}
+                onClick={() => setMode('reactif')}
+                title="Suivi as-is : statuts allocation/expédition + causes de retard"
+              >
+                Réactif
+              </SegmentButton>
+              <SegmentButton
+                role="radio"
+                active={false}
+                onClick={() => setMode('proactif')}
+                title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
+              >
+                Proactif
+              </SegmentButton>
+            </Segment>
+          )}
 
           {/* Fenêtre — sélecteur de plage (filtre client, pas de re-fetch). */}
           <DateWindowPill
@@ -494,21 +523,6 @@ export default function Tracking(props: SuiviPageProps) {
                   >
                     En rupture uniquement
                     {chipCount(ruptureOnly, ruptureCount)}
-                  </SegmentButton>
-                  <SegmentButton
-                    active={showSubAssemblies}
-                    onClick={() => setShowSubAssemblies((v) => !v)}
-                    title="Inclure les sous-ensembles (semi-finis) fabriqués en rupture, en plus des composants achetés"
-                  >
-                    Sous-ensembles
-                  </SegmentButton>
-                  <SegmentButton
-                    active={cqOnly}
-                    onClick={() => setCqOnly((v) => !v)}
-                    title="N'afficher que les commandes dont une part de la couverture repose sur du stock en statut Q — la liste à donner au contrôle réception"
-                  >
-                    Dépend du CQ
-                    {chipCount(cqOnly, cqCount)}
                   </SegmentButton>
                   <SegmentButton
                     active={searchBom}
@@ -570,21 +584,25 @@ export default function Tracking(props: SuiviPageProps) {
 
           <ToolbarSpacer />
 
-          {/* Recherche — déplacée depuis le Masthead pour cohérence avec
+          {mode === 'reactif' && (
+            <>
+              {/* Recherche — déplacée depuis le Masthead pour cohérence avec
               les autres pages (la recherche vit dans la toolbar, pas dans
               la barre de navigation globale). Reste toujours visible : pas
               un filtre secondaire, pas de consolidation derrière un clic. */}
-          <div className={cn(PILL, 'shrink-0')}>
-            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-            <input
-              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-              placeholder="Commande, article, client, composant…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-          </div>
+              <div className={cn(PILL, 'shrink-0')}>
+                <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+                <input
+                  className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+                  placeholder="Commande, article, client, composant…"
+                  type="text"
+                  autoComplete="off"
+                  value={query}
+                  onChange={(e) => setQuery(e.currentTarget.value)}
+                />
+              </div>
+            </>
+          )}
           {/* Compteur filtré */}
           {isFiltered && (
             <span className="font-mono text-xs font-bold tabular-nums text-brand">
@@ -609,7 +627,9 @@ export default function Tracking(props: SuiviPageProps) {
           {/* Même geste, même chemin que le ⟳ de la barre data-status : le bump
               incrémente le nonce, qui relance les fetch AVEC ?refresh et arme le
               diff (issue #186). */}
-          <RefreshPill loading={loading} onClick={() => useDataStatusStore.getState().bump()} />
+          {mode === 'reactif' && (
+            <RefreshPill loading={loading} onClick={() => useDataStatusStore.getState().bump()} />
+          )}
         </ToolbarRow>
 
         {mode === 'reactif' ? (
@@ -630,8 +650,18 @@ export default function Tracking(props: SuiviPageProps) {
             filteredRows={proFilteredRows}
             loading={proLoading}
             error={!!proError}
+            onReload={() => useDataStatusStore.getState().bump()}
+            query={query}
+            onQueryChange={setQuery}
+            verdictFilter={verdictFilter}
+            onToggleVerdictGroup={toggleVerdictKeys}
+            onToggleSubAssemblies={() => setShowSubAssemblies((v) => !v)}
+            cqOnly={cqOnly}
+            onToggleCq={() => setCqOnly((v) => !v)}
+            cqCount={cqCount}
+            isFiltered={isFiltered}
             onResetFilters={resetFilters}
-            onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
+            onRowClick={openProactiveRow}
             selectedRowKey={selectedRowKey}
             onSelectOf={onSelectOf}
             onSelectPoste={onSelectPoste}
@@ -642,8 +672,11 @@ export default function Tracking(props: SuiviPageProps) {
       </div>
 
       {/* Drawer diagnostic de ligne */}
-      <Sheet open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
-        {selectedRow && (
+      <Sheet
+        open={selectedRow !== null && selectedRow.type === 'reactif'}
+        onOpenChange={(open) => !open && setSelectedRow(null)}
+      >
+        {selectedRow && selectedRow.type === 'reactif' && (
           <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
             <SheetHeader>
               <SheetTitle>Diagnostic de la ligne</SheetTitle>
@@ -657,6 +690,15 @@ export default function Tracking(props: SuiviPageProps) {
           </SheetContent>
         )}
       </Sheet>
+
+      {/* Feuille de détail de la vue proactive (trois cartes + diagnostic complet). */}
+      <ProactiveDetailSheet
+        row={selectedRow?.type === 'proactif' ? (selectedRow.row as ProactiveDisplayRow) : null}
+        onOpenChange={(open) => !open && setSelectedRow(null)}
+        onSelectOf={onSelectOf}
+        onSelectPoste={onSelectPoste}
+        returnFocusRef={detailReturnFocus}
+      />
 
       {/* Drawer détail OF (faisabilité) — n° d'OF cliqué en colonne Couverture (proactif). */}
       <OfDetailSheet num={selectedOf} open={ofDetailOpen} onOpenChange={setOfDetailOpen} />

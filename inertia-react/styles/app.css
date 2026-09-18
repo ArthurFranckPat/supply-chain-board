@@ -897,3 +897,43 @@ tr[data-flash='out'] {
   --blur-medium: 3px;
   --blur-large: 8px;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Suivi proactif — tokens de contraste et mouvement d'entrée
+
+   Rausch #ff385c ne tient que 3,52:1 avec un texte blanc : l'étiquette d'un
+   bouton primaire prend donc --on-accent (4,5:1 minimum, jamais blanc pur).
+   La bordure de contrôle #c1c1c1 (1,8:1) est trop pâle pour délimiter un
+   champ : --control-border tient 3:1 sur #fff, #f7f7f7 et #f2f2f2. Le
+   hairline --border reste réservé aux filets de séparation.
+   ════════════════════════════════════════════════════════════════════════ */
+:root {
+  --on-accent: #000000;
+  --brand-hover: #e61049;
+  --control-border: #696969;
+}
+
+/* Entrée de page : opacité + translateY 8px, décalée de 70ms par rang (--i,
+   plafonné à 3 = 210ms). `backwards` : l'état visible reste le défaut CSS, le
+   masquage ne dure que le temps du délai. */
+@keyframes suivi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.suivi-enter {
+  animation: suivi-rise 560ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms + var(--enter-base, 0ms));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suivi-enter {
+    animation: none;
+  }
+}
