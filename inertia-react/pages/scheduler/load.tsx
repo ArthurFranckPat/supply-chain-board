@@ -638,6 +638,13 @@ export default function Load(props: LoadPageProps) {
       ],
       { duration: Number.isFinite(duration) ? duration : 350, easing }
     )
+    // Vol terminé : on RETIRE l'animation au lieu de la laisser finie sur
+    // l'élément. Tant qu'une animation reste attachée, certains moteurs
+    // maintiennent le panneau sur son propre calque composite — et le texte y
+    // perd le lissage natif (rendu gris, adouci) : la police semble dégradée
+    // une fois le zoom posé. cancel() sur une animation finie ne change rien
+    // au rendu (fill « none »), il libère le calque.
+    anim.finished.then(() => anim.cancel()).catch(() => {})
     return () => anim.cancel()
   }, [fullscreen])
 
