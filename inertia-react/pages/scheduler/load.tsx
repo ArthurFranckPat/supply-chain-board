@@ -524,13 +524,20 @@ export default function Load(props: LoadPageProps) {
    * entier part donc en plein écran — entête, bandeau et graphe : agrandir le
    * seul SVG ferait perdre le poste, la maille et l'unité qu'on est venu lire.
    *
+   * Plein écran DANS LA PAGE (`fixed inset-0` + z) plutôt que l'API native :
+   * l'API native place l'élément dans le top-layer, sur son propre calque
+   * composite, où le texte perd le lissage macOS (rendu gris, adouci) — la
+   * police semblait dégradée une fois le zoom posé. Posé dans la page, le
+   * panneau revient au chemin de rendu normal dès la fin du vol, les overlays
+   * (détail de période) restent portés par `<body>` sans portage spécial, et
+   * Échap est de la page (cf. raccourcis clavier).
+   *
    * Ce qu'un plein écran doit encore laisser faire : lire autrement. La
-   * toolbar de page est hors du sous-arbre rendu par le navigateur, le bandeau
-   * du panneau reprend donc ce qu'elle porte — unité, cran, maille à gauche,
-   * périmètre (vue, filtres) à droite — cf. `graphControls` /
-   * `perimeterControls`. Changer d'avis ne coûte donc pas une sortie du plein
-   * écran ; et quand la lecture ne veut plus que le graphe, `F` efface le
-   * bandeau entier.
+   * toolbar de page est démontée pendant le plein écran, le bandeau du panneau
+   * reprend donc ce qu'elle porte — unité, cran, maille à gauche, périmètre
+   * (vue, filtres) à droite — cf. `graphControls` / `perimeterControls`.
+   * Changer d'avis ne coûte donc pas une sortie du plein écran ; et quand la
+   * lecture ne veut plus que le graphe, `F` efface le bandeau entier.
    */
   const panelRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
@@ -544,10 +551,10 @@ export default function Load(props: LoadPageProps) {
   const zoomFromRef = useRef<DOMRect | null>(null)
 
   /**
-   * Drapeau « un zoom est attendu », posé par `fullscreenchange`. Sans lui, le
-   * vol jourait aussi AU MONTAGE (état initial `false`, effet parcouru une
-   * fois) : le panneau aurait rétréci du viewport vers sa place à l'ouverture
-   * de la page.
+   * Drapeau « un zoom est attendu », posé à chaque bascule. Sans lui, le vol
+   * jourait aussi AU MONTAGE (état initial `false`, effet parcouru une fois) :
+   * le panneau aurait rétréci du viewport vers sa place à l'ouverture de la
+   * page.
    */
   const zoomPendingRef = useRef(false)
 
@@ -563,34 +570,14 @@ export default function Load(props: LoadPageProps) {
   const [barHint, setBarHint] = useState(false)
 
   /**
-   * On écoute `fullscreenchange` plutôt que de suivre nos propres clics : Échap
-   * (ou la sortie par le système, F11, un changement de fenêtre) sort du plein
-   * écran sans passer par le bouton, et l'icône doit suivre. Le bandeau masqué ne
-   * survit pas à la sortie : au-delà du plein écran, plus rien ne le rappelle.
-   */
-  useEffect(() => {
-    const onChange = () => {
-      const on = document.fullscreenElement === panelRef.current
-      zoomPendingRef.current = true
-      setFullscreen(on)
-      if (!on) {
-        setBarHidden(false)
-        setBarHint(false)
-      }
-    }
-    document.addEventListener('fullscreenchange', onChange)
-    return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [])
-
-  /**
-   * Le zoom du plein écran — un vol FLIP par-dessus la bascule native. Le plein
-   * écran ne s'interpole pas : l'UA pose l'élément en `fixed inset-0` entre deux
-   * frames, et le saut est sec. Ici, dès que la géométrie finale existe et
-   * AVANT la première peinture (`useLayoutEffect`), une animation WAAPI fait
-   * passer le panneau de SA géométrie d'origine à celle qu'il occupe déjà : le
-   * layout est final dès la première frame — le graphe ne se remesure qu'une
-   * fois, à sa taille d'arrivée — seul le regard glisse. La sortie rejoue le
-   * même chemin en sens inverse, depuis le viewport.
+   * Le zoom du plein écran — un vol FLIP par-dessus la bascule. Sans lui, le
+   * panneau sauterait de sa place au viewport entre deux frames. Ici, dès que
+   * la géométrie finale existe et AVANT la première peinture
+   * (`useLayoutEffect`), une animation WAAPI fait passer le panneau de SA
+   * géométrie d'origine à celle qu'il occupe déjà : le layout est final dès la
+   * première frame — le graphe ne se remesure qu'une fois, à sa taille
+   * d'arrivée — seul le regard glisse. La sortie rejoue le même chemin en
+   * sens inverse, depuis le viewport.
    *
    * Durées par USAGE (échelle de motion, styles/app.css) : ouvrir est une
    * révélation (`--duration-slow`), fermer dégage le passage
@@ -659,21 +646,28 @@ export default function Load(props: LoadPageProps) {
     return () => document.removeEventListener('mousemove', dismiss)
   }, [fullscreen, barHidden, barHint])
 
-  const toggleFullscreen = useCallback(() => {
-    const el = panelRef.current
-    // API absente (vieux navigateur) : le bouton existe mais ne fait rien.
-    if (!el?.requestFullscreen) return
-    // Les deux promesses rejettent dans des cas légitimes (sortie demandée sans
-    // plein écran actif, iframe sans `allowfullscreen`) : on les absorbe, l'état
-    // restera simplement celui du navigateur — que `fullscreenchange` reflétera.
-    if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => {})
-    else {
-      // Géométrie de départ du zoom FLIP : à capturer MAINTENANT, avant que
-      // l'UA ne déplace l'élément dans le top layer.
-      zoomFromRef.current = el.getBoundingClientRect()
-      void el.requestFullscreen().catch(() => {})
-    }
+  /** Sortie de plein écran — le bandeau masqué ne survit pas à la sortie :
+   *  au-delà du plein écran, plus rien ne le rappelle. */
+  const exitFullscreen = useCallback(() => {
+    zoomPendingRef.current = true
+    setFullscreen(false)
+    setBarHidden(false)
+    setBarHint(false)
   }, [])
+
+  const toggleFullscreen = useCallback(() => {
+    if (fullscreen) {
+      exitFullscreen()
+      return
+    }
+    const el = panelRef.current
+    if (!el) return
+    // Géométrie de départ du zoom FLIP : à capturer MAINTENANT, avant que le
+    // panneau ne quitte le flux.
+    zoomFromRef.current = el.getBoundingClientRect()
+    zoomPendingRef.current = true
+    setFullscreen(true)
+  }, [fullscreen, exitFullscreen])
 
   const detailItems = useMemo(() => {
     const line = selLine
@@ -746,6 +740,14 @@ export default function Load(props: LoadPageProps) {
         stepPoste(e.key === 'ArrowRight' ? 1 : -1)
         return
       }
+      if (e.key === 'Escape' && fullscreen) {
+        // Sans l'API native, Échap est de la page : c'est le raccourci qui sort
+        // du plein écran. Feuille de période ouverte, la garde ci-dessus rend
+        // la main à son propre Échap (fermer la table) d'abord.
+        e.preventDefault()
+        exitFullscreen()
+        return
+      }
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault()
         toggleFullscreen()
@@ -776,13 +778,13 @@ export default function Load(props: LoadPageProps) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [periodTarget, stepPoste, toggleFullscreen, fullscreen, barHidden])
+  }, [periodTarget, stepPoste, toggleFullscreen, exitFullscreen, fullscreen, barHidden])
 
   /**
    * Ce que le graphe RACONTE — unité, cran de quantité, maille. Portés par la
-   * toolbar de page ; en plein écran, la toolbar est hors du sous-arbre que le
-   * navigateur rend, le bandeau du panneau les reprend donc tels quels
-   * (décrits une fois, montés là où ils restent accessibles).
+   * toolbar de page ; en plein écran, la toolbar est démontée, le bandeau du
+   * panneau les reprend donc tels quels (décrits une fois, montés là où ils
+   * restent accessibles).
    */
   const graphControls = (
     <>
@@ -841,8 +843,7 @@ export default function Load(props: LoadPageProps) {
   /**
    * Le PÉRIMÈTRE — la vue (OF ↔ Commande) et les filtres. Décrits UNE fois,
    * montés dans la toolbar de page ; en plein écran, le bandeau du panneau les
-   * reprend (le navigateur ne rend que le sous-arbre de l'élément plein écran,
-   * donc une toolbar restée dehors serait hors d'atteinte). Une seule
+   * reprend (la toolbar est démontée pendant le plein écran). Une seule
    * instance, donc une seule `filterRef` — c'est elle que la touche `F` ouvre
    * hors plein écran ; en plein écran, `F` gouverne le bandeau qui la porte,
    * donc l'indication de touche disparaît.
@@ -1117,16 +1118,13 @@ export default function Load(props: LoadPageProps) {
             {selLine && (
               <div
                 ref={panelRef}
-                // Cible de la règle `::backdrop` (styles/app.css) : le fond
-                // opaque que l'UA peint derrière l'élément plein écran.
-                data-fullscreen-panel
                 className={cn(
                   'flex min-h-0 flex-1 flex-col rounded-lg border border-rule bg-card p-4',
-                  // En plein écran, l'agent utilisateur pose l'élément en
-                  // `position: fixed; inset: 0` (top layer) : on ne redéfinit que
-                  // ce qui se voit — le fond opaque qui masque le backdrop, les
-                  // angles, et l'air laissé au graphe.
-                  fullscreen && 'fixed inset-0 rounded-none p-6'
+                  // Plein écran « dans la page » : fixed au-dessus du reste,
+                  // sous les overlays (backdrop z-55, sheet z-60) — et surtout
+                  // SUR LE CALQUE DE RENDU PRINCIPAL, où le texte garde son
+                  // lissage natif, contrairement au top-layer de l'API native.
+                  fullscreen && 'fixed inset-0 z-40 rounded-none p-6'
                 )}
               >
                 <div className="mb-2.5 flex flex-none flex-wrap items-center gap-3">
@@ -1210,11 +1208,11 @@ export default function Load(props: LoadPageProps) {
                     )}
                   </button>
                 </div>
-                {/* Bandeau du plein écran. La toolbar de page est hors du
-                    sous-arbre rendu par le navigateur : il reprend ce qu'elle
-                    porte — à gauche ce que le graphe raconte (unité, cran,
-                    maille), à droite le périmètre (vue, filtres). Dans le flux,
-                    jamais en surimpression : le graphe se remesure par son
+                {/* Bandeau du plein écran. La toolbar de page est démontée
+                    pendant le plein écran : il reprend ce qu'elle porte — à
+                    gauche ce que le graphe raconte (unité, cran, maille), à
+                    droite le périmètre (vue, filtres). Dans le flux, jamais en
+                    surimpression : le graphe se remesure par son
                     ResizeObserver, rien n'est masqué ; `F` l'efface en lecture
                     pure (cf. `barHidden`). */}
                 {fullscreen && !barHidden && (
@@ -1257,7 +1255,8 @@ export default function Load(props: LoadPageProps) {
       {/* Détail de la période cliquée. `activeSegs`/`qtyMode` sont passés tels
           quels : la table applique le MÊME masque et le MÊME cran que le graphe,
           donc son total suit la hauteur de la barre sans re-fetch au changement
-          de filtre. */}
+          de filtre. Portée par `<body>` (z-60), elle passe au-dessus du panneau
+          plein écran (z-40) sans portage spécial. */}
       <ChargePeriodSheet
         open={!!periodTarget}
         onOpenChange={(v) => !v && setPeriodTarget(null)}
@@ -1269,10 +1268,6 @@ export default function Load(props: LoadPageProps) {
         qtyMode={qtyMode}
         unit={unit}
         ofDate={props.ofDate}
-        // En plein écran, le panneau est porté DANS l'élément plein écran :
-        // resté dans `<body>`, il ne serait pas rendu par le navigateur (cf.
-        // `panelRef`).
-        overlayContainer={fullscreen ? panelRef.current : null}
       />
     </AppLayout>
   )
