@@ -35,6 +35,7 @@ import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
 import { ChargePeriodSheet } from '@r/components/load/charge-period-sheet'
+import { ShiftPlanStrip } from '@r/components/load/shift-plan-strip'
 import {
   FilterMenu,
   FilterMenuSectionLabel,
@@ -393,6 +394,19 @@ export default function Load(props: LoadPageProps) {
     () => lines.find((l) => l.code === selected) ?? filteredLines[0],
     [lines, selected, filteredLines]
   )
+
+  /**
+   * Postes du même atelier que celui affiché — périmètre du cumul d'effectif de
+   * la frise d'organisation. Pris sur `props.ofLines`, donc sur TOUS les postes
+   * de l'atelier et non sur ceux que les filtres laissent passer : un effectif
+   * ne se calcule pas sur une sélection, sinon la somme change quand on tape
+   * dans la recherche.
+   */
+  const atelierPosteCodes = useMemo(() => {
+    const at = selLine?.atelier
+    if (!at) return selLine ? [selLine.code] : []
+    return props.ofLines.filter((l) => l.atelier === at).map((l) => l.code)
+  }, [selLine, props.ofLines])
 
   // ── Slider sans barre : molette → défilé horizontal LISSÉ (inertie rAF) ──
   /**
@@ -1292,6 +1306,18 @@ export default function Load(props: LoadPageProps) {
                   unit={unit}
                   segs={visibleSegs}
                   onSelectPeriod={openPeriod}
+                />
+                {/* Organisation du poste. Suit la VUE (OF ou commande) parce que
+                    ce sont deux lectures différentes de la demande, mais pas le
+                    cran brut/net/reste ni la bascule heures/pièces, qui sont des
+                    réglages de lecture : une décision d'atelier ne change pas
+                    parce qu'on regarde autrement le même graphe. */}
+                <ShiftPlanStrip
+                  payload={props.shiftPlan}
+                  lines={view === 'of' ? props.shiftPlan.of : props.shiftPlan.commande}
+                  code={selLine.code}
+                  atelierCodes={atelierPosteCodes}
+                  atelierLabel={selLine.atelierLabel || 'Atelier'}
                 />
               </div>
             )}

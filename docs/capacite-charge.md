@@ -66,3 +66,82 @@ même valeur des deux côtés. Les valeurs X3 nulles ou à zéro restent neutres
 commandes clients — vs fabrication de sous-ensembles / AM). Tant que
 `MONTAGE_LOCATIONS` n'est pas validé, tout poste hors liste est classé « fabrication ».
 Le rattachement atelier (STOLOC), lui, est exact.
+
+## Plan de schéma horaire (lot 1)
+
+Objectif : dire, par **poste de charge** et par semaine, quel schéma horaire tenir —
+pour que le responsable d'atelier puisse gérer ses effectifs. La décision est au
+poste ; l'atelier n'est qu'un regroupement de lecture (cumul d'équipes-jour).
+
+| fichier                                              | rôle                                                      |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `app/domain/shift_schedules.ts`                      | catalogue des schémas planifiables + lecture du schéma X3 |
+| `app/domain/shift_plan.ts`                           | moteur (pur, sans I/O) : proposition lissée               |
+| `app/services/shift_plan_builder.ts`                 | capacité par schéma candidat × semaine (calendrier)       |
+| `inertia-react/components/load/shift-plan-strip.tsx` | frise, sous le graphe du poste                            |
+| `commands/shift_plan_show.ts`                        | `node ace charge:plan --postes=…` pour le calage métier   |
+
+### Catalogue
+
+Un schéma planifiable porte un **vecteur Lun→Dim** d'équipes (aligné `DAYCAP_0..6`),
+pas un scalaire : « trois jours de production » n'est pas un nombre d'équipes.
+Cibles = `1x8-5j` et `2x8-5j` ; les semaines courtes (`1x8-2j`…`2x8-4j`) ne servent
+que la sous-charge franche. `3x8` est volontairement absent (non autorisé).
+
+⚠️ **`WSTNBR` ne se remultiplie pas sous un schéma planifié.** X3 exprime les
+équipes soit par le schéma (`PP_153` en `2/8`), soit par les exemplaires (`PP_830`
+en `CFA` avec `WSTNBR_0 = 2` — un 2×8 sur UNE ligne). Un schéma planifié substitue
+le nombre d'équipes **total** : sans cette règle, poser `2x8-5j` sur `PP_830` donne
+28 h/j au lieu de 14. C'est aussi pourquoi l'état initial de `PP_830` est `2x8-5j`.
+
+Un paramétrage hors catalogue (semaine trouée, feu continu) rend le poste **non
+planifiable** : il garde sa capacité `DAYCAP` telle quelle, et la frise le dit.
+
+### Les deux règles du moteur
+
+1. **Palier minimum 3 semaines** (choix métier), y compris le dernier palier de
+   l'horizon — sinon le moteur tricherait en fin de fenêtre.
+2. **Lissage en cumulé** : le critère n'est pas « capacité ≥ charge chaque
+   semaine » mais « capacité cumulée ≥ charge cumulée sur le palier ». Un 2×8
+   tenu trois semaines absorbe un pic de S3 en produisant dès S1.
+
+La dette d'un palier sous-capacitaire est **facturée et affichée, jamais reportée**
+sur le palier suivant : la charge d'entrée vient du jalonnement CBN / des dates
+demandées, et le CBN du lendemain repoussera le reste de lui-même. Ce moteur ne
+réécrit pas le MRP. Conséquence technique : le report entrant d'un palier valant
+toujours zéro, son coût est local — la programmation dynamique sur les paliers est
+donc **exacte**, pas heuristique.
+
+**Préavis** : les `frozenWeeks` premières semaines (2 par défaut) portent
+obligatoirement le schéma courant. On ne passe pas un atelier en 2×8 pour lundi
+prochain ; si ce palier gelé ne tient pas la charge, il le signale au lieu de la masquer.
+
+### Ce qui est planifié
+
+Sur le **reste à produire**, pour les deux vues (OF et commande), sur **12 semaines**
+— plus court que les 6 mois du graphe : au-delà d'un trimestre la charge est surtout
+prévisionnelle, et proposer une organisation dessus serait de la fausse précision.
+
+La frise suit la **vue** (deux lectures différentes de la demande) mais pas les crans
+brut/net/reste ni heures/pièces, qui sont des réglages de lecture : une décision
+d'organisation ne change pas parce qu'on regarde autrement le même graphe.
+
+### Poids du moteur — à caler
+
+`DEFAULT_SHIFT_PLAN_OPTIONS.weights` est un point de départ, pas une constante
+physique. Les poids sont réglés pour que trois situations tombent juste (pic isolé
+absorbé en avance, sous-charge légère qui garde ses cinq jours, sous-charge franche
+qui ferme des jours). `tests/domain/shift_plan.test.ts` verrouille ce que chaque
+réglage doit préserver ; `node ace charge:plan` sert à les revoir sur postes réels.
+
+### Limites connues du lot 1
+
+- **Lecture seule** : rien n'est persisté, et la capacité du graphe reste celle de
+  X3. Validation, gel et boucle retour sur `capDay` = lot 2.
+- **`SHIFT_HOURS = 7` en dur** : un 2×8 vaut ici 2 × 7 h. À confirmer avec l'atelier
+  (recouvrement, pauses décalées) — la constante est isolée dans `capacity.ts`.
+- **Aucune contrainte d'effectif** : rien n'empêche le moteur de proposer le 2×8 à
+  tous les postes d'un atelier la même semaine. Le cumul d'équipes-jour affiché sous
+  la frise rend l'absurdité visible, il ne l'interdit pas. Lot 3.
+- **Avance non plafonnée par la matière** : produire en avance suppose les composants
+  disponibles. Croisement avec `material_projection.ts` prévu au lot 3.

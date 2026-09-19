@@ -46,6 +46,7 @@ import {
 } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
 import { isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
+import { buildShiftPlans } from '#services/shift_plan_builder'
 
 /**
  * Shapes émis vers la page Inertia. Miroir côté client : inertia-react/lib/load/types.ts
@@ -608,12 +609,13 @@ export async function loadChargePayloadData(params: {
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  // `s3` = schéma du payload. Il porte désormais les séries en PIÈCES
+  // `s4` = schéma du payload. Il porte le plan de schéma horaire (`shiftPlan`) ;
+  // `s3` portait les séries en PIÈCES
   // (`monthlyQty`…) : sans ce jeton, une entrée écrite par la version précédente
   // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
   // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
   // inatteignable au lieu de compter sur l'expiration.
-  const cacheKey = `payload:charge:s3:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
+  const cacheKey = `payload:charge:s4:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -861,6 +863,32 @@ export async function loadChargePayloadData(params: {
       lastMonth.setMonth(monthStart.getMonth() + NB_MONTHS - 1)
       const rangeLabel = `${fmtLong(monthStart)} → ${fmtLong(lastMonth)} ${lastMonth.getFullYear()} · ${NB_MONTHS} mois`
 
+      // ── Plan de schéma horaire (lot 1) ────────────────────────────────
+      // Planifié sur le RESTE À PRODUIRE : c'est le cran par défaut de la page,
+      // et le seul des trois qui réponde à « qu'est-ce qu'il reste à faire ? ».
+      // Une décision d'organisation ne suit pas la bascule brut/net, qui est un
+      // cran de lecture ; elle suit la vue (OF ou commande), parce que ce sont
+      // deux lectures différentes de la demande, pas deux affichages de la même.
+      const weeklyLoadOf = (lines: typeof ofLines, induced: boolean) => {
+        const m = new Map<string, number[]>()
+        for (const l of lines) {
+          m.set(
+            l.code,
+            l.weeklyReste.map((p) => p.f + p.p + p.s + (induced ? p.fi + p.si : 0))
+          )
+        }
+        return m
+      }
+      const shiftPlan = buildShiftPlans({
+        workstations,
+        calendar,
+        weekKeys: weekBuckets.map((w) => w.key),
+        loadByView: {
+          of: weeklyLoadOf(ofLines, false),
+          commande: weeklyLoadOf(cmdLines, true),
+        },
+      })
+
       const ateliers = new Map<string, { code: string; label: string; category: AtelierCategory }>()
       for (const l of [...ofLines, ...cmdLines, ...cmdLinesWithoutDemandHorizon]) {
         if (l.atelier && !ateliers.has(l.atelier)) {
@@ -888,6 +916,8 @@ export async function loadChargePayloadData(params: {
         cmdLines,
         cmdLinesWithoutDemandHorizon,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
+        /** Proposition de schéma horaire par poste sur l'horizon court (lot 1). */
+        shiftPlan,
         // D9 : ce que le plafond depth-4 a coupé, pour que la disparition soit
         // lisible à l'écran au lieu d'être silencieuse.
         depthCut: {
