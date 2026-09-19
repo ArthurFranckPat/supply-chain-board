@@ -106,6 +106,7 @@ export interface ChargeDetailParams {
    * l'ancienne table, sans aucun moyen de forcer.
    */
   refresh?: boolean
+  applyDemandHorizon?: boolean
 }
 
 /** Erreur de paramètre — le contrôleur la traduit en 400. */
@@ -120,7 +121,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
 
   const { monthStart, horizonEnd } = chargeHorizon(params.start)
 
-  const cacheKey = `detail:charge:${isoDay(monthStart)}:${params.view}:${poste}:${params.gran}:${params.bucket}`
+  const applyDemandHorizon = params.applyDemandHorizon ?? true
+  const cacheKey = `detail:charge:${isoDay(monthStart)}:${params.view}:${poste}:${params.gran}:${params.bucket}:h${applyDemandHorizon ? 1 : 0}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({
@@ -180,7 +182,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         }
       }
 
-      const allNeeds = await computeChargeNeeds(inputs)
+      const allNeeds = await computeChargeNeeds(inputs, applyDemandHorizon)
       const needs = allNeeds.filter((n) => n.wst === poste && inBucket(n.date) && n.brutHours > 0)
 
       // Désignations : référentiel articles LOCAL (SQLite), pas X3.

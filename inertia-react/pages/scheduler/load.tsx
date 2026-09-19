@@ -101,6 +101,7 @@ export default function Load(props: LoadPageProps) {
   const [showCapacity, setShowCapacity] = useState(true)
   const [showAvg, setShowAvg] = useState(false)
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(new Set())
+  const [applyDemandHorizon, setApplyDemandHorizon] = useState(true)
 
   const toggleAtelier = (code: string) => {
     setAtelierFilter((prev) => {
@@ -156,7 +157,12 @@ export default function Load(props: LoadPageProps) {
   )
 
   /** Postes de la vue courante, avant tout filtre — dénominateur des volumes. */
-  const baseLines = view === 'of' ? props.ofLines : props.cmdLines
+  const baseLines =
+    view === 'of'
+      ? props.ofLines
+      : applyDemandHorizon
+        ? props.cmdLines
+        : props.cmdLinesWithoutDemandHorizon
 
   const lines = useMemo(() => {
     const keep = segKeys(view, activeSegs)
@@ -209,7 +215,10 @@ export default function Load(props: LoadPageProps) {
    * comptent pas — elles ne retirent aucune donnée, et « Capacité » est allumée
    * par défaut : elle laisserait la pastille allumée en permanence.
    */
-  const activeFilterCount = (segFiltered ? 1 : 0) + (atelierFilter.size > 0 ? 1 : 0)
+  const activeFilterCount =
+    (segFiltered ? 1 : 0) +
+    (atelierFilter.size > 0 ? 1 : 0) +
+    (view === 'commande' && !applyDemandHorizon ? 1 : 0)
 
   // Si la sélection sort du filtre, bascule sur le premier poste visible.
   useEffect(() => {
@@ -387,6 +396,21 @@ export default function Load(props: LoadPageProps) {
               />
             ))}
           </ToolbarSegmented>
+
+          {view === 'commande' && (
+            <>
+              <Separator className="my-2" />
+              <ToolbarFilterSection>Demande</ToolbarFilterSection>
+              <ToolbarSegmented semantics="toggles" flat className="w-full flex-wrap">
+                <ToolbarFilterChip
+                  label="Appliquer horizon demande"
+                  active={applyDemandHorizon}
+                  onClick={() => setApplyDemandHorizon((v) => !v)}
+                  title="Ignorer les prévisions situées dans l'horizon demande X3 de leur article"
+                />
+              </ToolbarSegmented>
+            </>
+          )}
 
           {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues. */}
           {props.ateliers.length > 0 && (
@@ -619,6 +643,7 @@ export default function Load(props: LoadPageProps) {
         start={props.startIso}
         activeSegs={activeSegs}
         qtyMode={qtyMode}
+        applyDemandHorizon={applyDemandHorizon}
       />
     </AppLayout>
   )

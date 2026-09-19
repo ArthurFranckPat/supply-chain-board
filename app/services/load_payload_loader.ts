@@ -41,6 +41,7 @@ import {
   type ChargeNeed,
 } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
+import { isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
 
 /**
  * Shapes émis vers la page Inertia. Miroir côté client : inertia-react/lib/load/types.ts
@@ -172,6 +173,7 @@ export interface ChargeInputs {
   avancementByOf: Map<string, OfAvancement>
   /** Catégorie article (préfixe PF / SF) — nature poste montage/fabrication. */
   categoryByArticle: Map<string, string>
+  demandHorizonByArticle: Map<string, { value: number; unit: number }>
   x3Error: string | null
 }
 
@@ -238,6 +240,7 @@ export async function fetchChargeInputs(
   let x3Error: string | null = null
 
   const categoryByArticle = new Map<string, string>()
+  const demandHorizonByArticle = new Map<string, { value: number; unit: number }>()
   const [refR, ordR, olR, nomR, artR] = await Promise.allSettled([
     boardDataset.getReferential(force),
     boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
@@ -246,7 +249,10 @@ export async function fetchChargeInputs(
     boardDataset.getArticles(),
   ])
   if (artR.status === 'fulfilled') {
-    for (const a of artR.value) categoryByArticle.set(a.code, a.category ?? '')
+    for (const a of artR.value) {
+      categoryByArticle.set(a.code, a.category ?? '')
+      if (a.demandHorizon) demandHorizonByArticle.set(a.code, a.demandHorizon)
+    }
   }
   if (refR.status === 'fulfilled') {
     gammeOps = refR.value.gamme
@@ -301,6 +307,7 @@ export async function fetchChargeInputs(
     bomByParent,
     avancementByOf,
     categoryByArticle,
+    demandHorizonByArticle,
     x3Error,
   }
 }
@@ -310,9 +317,24 @@ export async function fetchChargeInputs(
  * ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
  * Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
  */
-export async function computeChargeNeeds(inputs: ChargeInputs): Promise<ChargeNeed[]> {
+export async function computeChargeNeeds(
+  inputs: ChargeInputs,
+  applyDemandHorizon = true,
+  today = new Date()
+): Promise<ChargeNeed[]> {
+  const orderLines = applyDemandHorizon
+    ? inputs.orderLines.filter(
+        (line) =>
+          line.nature !== 'PREVISION' ||
+          !isForecastInsideDemandHorizon(
+            { demandHorizon: inputs.demandHorizonByArticle.get(line.article) },
+            line.dateLivraison,
+            today
+          )
+      )
+    : inputs.orderLines
   const chargeRaws = explodeCharge(
-    inputs.orderLines.map((l) => ({
+    orderLines.map((l) => ({
       article: l.article,
       quantite: l.quantite,
       date: atMidnight(l.dateLivraison),
@@ -523,7 +545,8 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       }
 
       // ── Charge commande : explosion depth-4 + netting stock (suite issue #42).
-      const chargeNeeds = await computeChargeNeeds(inputs)
+      const chargeNeeds = await computeChargeNeeds(inputs, true)
+      const chargeNeedsWithoutDemandHorizon = await computeChargeNeeds(inputs, false)
 
       const ofLines = buildLines(
         mos.flatMap((mo) => {
@@ -548,18 +571,21 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         })
       )
 
-      const cmdLines = buildLines(
-        // Besoin PF (depth 0) → f/s ; composants induits (depth >0) → fi/si.
-        chargeNeeds.map((n): AggRecord => ({
-          wst: n.wst,
-          date: n.date,
-          brutHours: n.brutHours,
-          netHours: n.netHours,
-          resteHours: n.resteHours,
-          field: chargeSegment(n.depth, n.nature) as keyof LoadPeriod,
-          article: n.article,
-        }))
-      )
+      const buildCommandLines = (needs: ChargeNeed[]) =>
+        buildLines(
+          // Besoin PF (depth 0) → f/s ; composants induits (depth >0) → fi/si.
+          needs.map((n): AggRecord => ({
+            wst: n.wst,
+            date: n.date,
+            brutHours: n.brutHours,
+            netHours: n.netHours,
+            resteHours: n.resteHours,
+            field: chargeSegment(n.depth, n.nature) as keyof LoadPeriod,
+            article: n.article,
+          }))
+        )
+      const cmdLines = buildCommandLines(chargeNeeds)
+      const cmdLinesWithoutDemandHorizon = buildCommandLines(chargeNeedsWithoutDemandHorizon)
 
       const fmtLong = (d: Date) => {
         const s = d.toLocaleDateString('fr-FR', { month: 'long' })
@@ -590,6 +616,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         weekKeys: weekBuckets.map((w) => w.key),
         ofLines,
         cmdLines,
+        cmdLinesWithoutDemandHorizon,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
         x3Error,
       }

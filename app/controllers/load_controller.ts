@@ -30,6 +30,7 @@ export default class LoadController {
         gran: gran as ChargeGran,
         bucket: String(request.input('bucket') ?? ''),
         refresh: !!request.input('refresh'),
+        applyDemandHorizon: request.input('applyDemandHorizon') !== '0',
       })
       return response.json(detail)
     } catch (error) {

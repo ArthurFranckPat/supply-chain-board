@@ -98,6 +98,7 @@ export interface ChargePeriodSheetProps {
   activeSegs: ReadonlySet<string>
   /** Cran de quantité de la vue commande (brut / net / reste à produire). */
   qtyMode: LoadQtyMode
+  applyDemandHorizon: boolean
 }
 
 /** ISO YYYY-MM-DD → JJ/MM/AAAA (jamais d'ISO brut à l'écran). */
@@ -210,7 +211,7 @@ function groupByDay<R>(
 }
 
 export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
-  const { target, view, start, activeSegs, qtyMode } = props
+  const { target, view, start, activeSegs, qtyMode, applyDemandHorizon } = props
   const [data, setData] = useState<DetailPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -226,6 +227,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     setError(null)
     const qs = new URLSearchParams({ poste, bucket: bucketKey, gran, view })
     if (start) qs.set('start', start)
+    qs.set('applyDemandHorizon', applyDemandHorizon ? '1' : '0')
     // Relaie le `?refresh=1` de la page : sans lui le graphe se rafraîchissait
     // mais pas cette table, qui a son propre cache. Tant que l'URL porte le
     // paramètre, chaque ouverture repart de X3 — c'est coûteux, mais c'est
@@ -246,7 +248,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       })
       .finally(() => setLoading(false))
     return () => ctrl.abort()
-  }, [props.open, poste, bucketKey, gran, view, start])
+  }, [props.open, poste, bucketKey, gran, view, start, applyDemandHorizon])
 
   // Masque identique à celui du graphe — même source (`segKeys`).
   const keep = useMemo(() => segKeys(view, activeSegs), [view, activeSegs])

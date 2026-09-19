@@ -99,6 +99,8 @@ export interface LoadPageProps {
   ofLines: LoadLine[]
   /** Charge demande, segments Commande(f) / Prévision(s) — `p` toujours 0. */
   cmdLines: LoadLine[]
+  /** Même demande sans appliquer FOH/FOHUOT, pour le filtre utilisateur. */
+  cmdLinesWithoutDemandHorizon: LoadLine[]
   /** Ateliers présents (postes avec charge), pour le filtre transverse. */
   ateliers: AtelierOption[]
   x3Error: string | null

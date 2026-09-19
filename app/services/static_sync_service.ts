@@ -120,9 +120,9 @@ export class StaticSyncService {
         // PCUSTUCOE_1 = US par palette (#119) — même colonne qu'aux repositories
         // expéditions/réceptions ; nullable, un article sans coefficient reste null.
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, ITMSTA_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, OFS_0, PCUSTUCOE_1
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, ITMSTA_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, OFS_0, PCUSTUCOE_1, FOH_0, FOHUOT_0
 FROM (
-  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.ITMSTA_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, F.OFS_0, ITM.PCUSTUCOE_1
+  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.ITMSTA_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, F.OFS_0, ITM.PCUSTUCOE_1, F.FOH_0, F.FOHUOT_0
   FROM ITMMASTER ITM
   LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = ITM.ITMREF_0 AND F.STOFCY_0 = 'AE1'
   WHERE 1 = 1 ${keysetClause}
@@ -176,6 +176,14 @@ FROM (
           typologie: String(r.TSICOD_4 ?? '').trim(),
           reorder_delay: delay,
           us_par_palette: Number.isFinite(usPal) && usPal > 0 ? usPal : null,
+          demand_horizon:
+            r.FOH_0 !== null && r.FOH_0 !== '' && Number.isFinite(Number(r.FOH_0))
+              ? Number(r.FOH_0)
+              : null,
+          demand_horizon_unit:
+            r.FOHUOT_0 !== null && r.FOHUOT_0 !== '' && Number.isFinite(Number(r.FOHUOT_0))
+              ? Number(r.FOHUOT_0)
+              : null,
           status: Number.isInteger(statut) && statut > 0 ? statut : ARTICLE_ACTIF,
           synced_at: now,
         }
@@ -415,6 +423,10 @@ FROM (
       famille: r.famille ?? '',
       typologie: r.typologie ?? '',
       reorderDelay: r.reorderDelay ?? 0,
+      demandHorizon:
+        r.demandHorizon !== null && r.demandHorizon !== undefined
+          ? { value: r.demandHorizon, unit: r.demandHorizonUnit ?? 1 }
+          : undefined,
       usParPalette: r.usParPalette ?? null,
       productFamily: null,
       pmp: null,

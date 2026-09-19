@@ -26,6 +26,12 @@ export default class StaticArticle extends BaseModel {
   @column({ columnName: 'reorder_delay' })
   declare reorderDelay: number
 
+  @column({ columnName: 'demand_horizon' })
+  declare demandHorizon: number | null
+
+  @column({ columnName: 'demand_horizon_unit' })
+  declare demandHorizonUnit: number | null
+
   /** ITMMASTER.PCUSTUCOE_1 — US par palette (#119). null = pas de coefficient. */
   @column({ columnName: 'us_par_palette' })
   declare usParPalette: number | null
