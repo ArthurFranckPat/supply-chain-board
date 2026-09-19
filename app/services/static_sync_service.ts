@@ -186,11 +186,19 @@ FROM (
       }))
       .filter((r) => r.article && r.workstation)
 
+    // La requête X3 peut renvoyer plusieurs fois une opération pour le même
+    // article/poste (notamment sur les gammes avec lignes parallèles). SQLite
+    // porte une unicité `(article, workstation)` : dédoublonner ici évite que
+    // l'échec du batch laisse la table vide après le delete ci-dessous.
+    const uniqueData = [
+      ...new Map(data.map((row) => [`${row.article}\u0000${row.workstation}`, row])).values(),
+    ]
+
     await db.from('static_gammes').delete()
-    for (let i = 0; i < data.length; i += 500) {
-      await db.table('static_gammes').insert(data.slice(i, i + 500))
+    for (let i = 0; i < uniqueData.length; i += 500) {
+      await db.table('static_gammes').insert(uniqueData.slice(i, i + 500))
     }
-    return data.length
+    return uniqueData.length
   }
 
   private async syncNomenclatures(): Promise<number> {
