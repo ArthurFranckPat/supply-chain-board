@@ -8,7 +8,7 @@ import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-tabl
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import { OF_STATUT, LATE_TONE, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
 import { fmtDay } from '@r/lib/vision/date-utils'
-import { ArrowUpRight, CalendarX, CornerDownRight, FlaskConical } from 'lucide-react'
+import { CalendarX, CornerDownRight, FlaskConical } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 /** Séparateur décimal français : la virgule, pas le point (entier = inchangé). */
@@ -767,27 +767,6 @@ export function createProactiveColumns({
         tdClass: 'px-4 py-[7px] align-middle',
       },
     },
-    {
-      // Bouton rond d'ouverture du détail (feuille latérale). Le clic remonte à la ligne
-      // (onRowClick) : le bouton donne au clavier et au lecteur d'écran une cible nommée,
-      // de 44 px, sans dupliquer la logique d'ouverture.
-      id: 'detail',
-      enableSorting: false,
-      header: () => <span className="sr-only">Détail</span>,
-      cell: ({ row }) => (
-        <button
-          type="button"
-          aria-label={`Ouvrir le détail de la ligne ${row.original.numCommande}`}
-          className="inline-flex size-11 items-center justify-center rounded-full border-[1.5px] border-foreground text-foreground transition-[background-color,transform] duration-150 ease-out hover:bg-foreground/[0.06] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-        >
-          <ArrowUpRight size={18} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-      ),
-      meta: {
-        thClass: 'w-[76px] px-4 py-[7px] border-b border-rule',
-        tdClass: 'px-4 py-[7px] text-right align-middle',
-      },
-    },
   ]
 }
 
@@ -796,7 +775,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
   return {
     headerLabel: 'N°',
     thClass:
-      'w-[38px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule max-xl:sticky max-xl:left-0 max-xl:z-20 max-xl:bg-secondary',
+      'w-[38px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -805,7 +784,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
           ? ('critical' as const)
           : row.lateSeverity
       return cn(
-        'px-4 py-[7px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums max-xl:sticky max-xl:left-0 max-xl:z-[1] max-xl:bg-card',
+        'px-4 py-[7px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(s)
       )
     },
