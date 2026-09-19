@@ -24,8 +24,8 @@ export default class LoadController {
     const gran = request.input('gran') === 'week' ? 'week' : 'month'
     try {
       const detail = await loadChargeDetail({
-         start: (request.input('start') as string | undefined) || undefined,
-         ofDate: request.input('ofDate') === 'end' ? 'end' : 'start',
+        start: (request.input('start') as string | undefined) || undefined,
+        ofDate: request.input('ofDate') === 'end' ? 'end' : 'start',
         poste: String(request.input('poste') ?? ''),
         view: view as ChargeDetailView,
         gran: gran as ChargeGran,
@@ -34,6 +34,7 @@ export default class LoadController {
         // la barre cliquée, snapshot X3 compris.
         version: (request.input('v') as string | undefined) || undefined,
         refresh: !!request.input('refresh'),
+        applyDemandHorizon: request.input('applyDemandHorizon') !== '0',
       })
       return response.json(detail)
     } catch (error) {

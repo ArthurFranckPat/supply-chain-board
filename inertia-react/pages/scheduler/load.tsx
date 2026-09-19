@@ -114,6 +114,7 @@ type StoredModes = {
   ateliers: string[]
   showCapacity: boolean
   showAvg: boolean
+  applyDemandHorizon: boolean
 }
 
 const STORED_MODES_DEFAULTS: StoredModes = {
@@ -126,6 +127,7 @@ const STORED_MODES_DEFAULTS: StoredModes = {
   ateliers: [],
   showCapacity: true,
   showAvg: false,
+  applyDemandHorizon: true,
 }
 
 /**
@@ -158,6 +160,7 @@ function readStoredModes(): StoredModes {
         : [],
       showCapacity: p.showCapacity !== false,
       showAvg: p.showAvg === true,
+      applyDemandHorizon: p.applyDemandHorizon !== false,
     }
   } catch {
     return STORED_MODES_DEFAULTS
@@ -182,6 +185,7 @@ export default function Load(props: LoadPageProps) {
   const [query, setQuery] = useState('')
   const [showCapacity, setShowCapacity] = useState(stored.showCapacity)
   const [showAvg, setShowAvg] = useState(stored.showAvg)
+  const [applyDemandHorizon, setApplyDemandHorizon] = useState(stored.applyDemandHorizon)
   // Un atelier stocké qui n'est plus dans le payload (changement de site, de
   // périmètre) filtrerait tout sans que sa chip existe à l'écran : on l'écarte.
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(
@@ -282,8 +286,20 @@ export default function Load(props: LoadPageProps) {
       ateliers: [...atelierFilter],
       showCapacity,
       showAvg,
+      applyDemandHorizon,
     })
-  }, [view, unit, qtyMode, gran, ofStatus, cmdNature, atelierFilter, showCapacity, showAvg])
+  }, [
+    view,
+    unit,
+    qtyMode,
+    gran,
+    ofStatus,
+    cmdNature,
+    atelierFilter,
+    showCapacity,
+    showAvg,
+    applyDemandHorizon,
+  ])
 
   const toggleSeg = (id: string) => {
     setActiveSegs((prev) => {
@@ -305,7 +321,8 @@ export default function Load(props: LoadPageProps) {
 
   // Filtres secondaires uniquement (hors recherche, toujours visible dans la
   // rangée) — pilote la pastille du déclencheur FilterMenu.
-  const filtersActive = segFiltered || atelierFilter.size > 0
+  const filtersActive =
+    segFiltered || atelierFilter.size > 0 || (view === 'commande' && !applyDemandHorizon)
 
   /**
    * Charge par poste, en HEURES, masque de segments appliqué. La capacité et la
@@ -314,7 +331,13 @@ export default function Load(props: LoadPageProps) {
    */
   const lines = useMemo(() => {
     const keep = segKeys(view, activeSegs)
-    const base = (view === 'of' ? props.ofLines : props.cmdLines).map(viewNet)
+    const source =
+      view === 'of'
+        ? props.ofLines
+        : applyDemandHorizon
+          ? props.cmdLines
+          : props.cmdLinesWithoutDemandHorizon
+    const base = source.map(viewNet)
     if (!segFiltered) return base
     return (
       base
@@ -336,7 +359,16 @@ export default function Load(props: LoadPageProps) {
         // slider plutôt que d'afficher une carte plate à 0 h.
         .filter((l) => l.monthly.some((p) => total(p) > 0))
     )
-  }, [view, props.ofLines, props.cmdLines, activeSegs, segFiltered, viewNet])
+  }, [
+    view,
+    props.ofLines,
+    props.cmdLines,
+    props.cmdLinesWithoutDemandHorizon,
+    applyDemandHorizon,
+    activeSegs,
+    segFiltered,
+    viewNet,
+  ])
 
   const filteredLines = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -899,6 +931,21 @@ export default function Load(props: LoadPageProps) {
           </SegmentButton>
         ))}
       </Segment>
+      {view === 'commande' && (
+        <>
+          <div className="my-2.5 border-t border-rule-soft" />
+          <FilterMenuSectionLabel>Demande</FilterMenuSectionLabel>
+          <Segment className="w-full flex-wrap">
+            <SegmentButton
+              active={applyDemandHorizon}
+              onClick={() => setApplyDemandHorizon((v) => !v)}
+              title="Ignorer les prévisions situées dans l'horizon demande X3 de leur article"
+            >
+              Appliquer horizon demande
+            </SegmentButton>
+          </Segment>
+        </>
+      )}
       {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
                 Vivait dans sa propre rangée sous la toolbar : consolidé ici. */}
       {props.ateliers.length > 0 && (
@@ -1268,6 +1315,7 @@ export default function Load(props: LoadPageProps) {
         qtyMode={qtyMode}
         unit={unit}
         ofDate={props.ofDate}
+        applyDemandHorizon={applyDemandHorizon}
       />
     </AppLayout>
   )

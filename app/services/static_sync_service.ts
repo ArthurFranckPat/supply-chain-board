@@ -110,9 +110,9 @@ export class StaticSyncService {
       while (true) {
         const keysetClause = lastCode ? `AND ITM.ITMREF_0 > '${lastCode.replace(/'/g, "''")}'` : ''
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0, FOH_0, FOHUOT_0
 FROM (
-  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0
+  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0, F.FOH_0, F.FOHUOT_0
   FROM ITMMASTER ITM
   LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = ITM.ITMREF_0 AND F.STOFCY_0 = 'AE1'
   WHERE ITM.ITMSTA_0 = 1 ${keysetClause}
@@ -153,6 +153,14 @@ FROM (
           famille: String(r.YFAMSTAT7_0 ?? '').trim(),
           typologie: String(r.TSICOD_4 ?? '').trim(),
           reorder_delay: delay,
+          demand_horizon:
+            r.FOH_0 !== null && r.FOH_0 !== '' && Number.isFinite(Number(r.FOH_0))
+              ? Number(r.FOH_0)
+              : null,
+          demand_horizon_unit:
+            r.FOHUOT_0 !== null && r.FOHUOT_0 !== '' && Number.isFinite(Number(r.FOHUOT_0))
+              ? Number(r.FOHUOT_0)
+              : null,
           synced_at: now,
         }
       })
@@ -374,6 +382,10 @@ FROM (
       famille: r.famille ?? '',
       typologie: r.typologie ?? '',
       reorderDelay: r.reorderDelay ?? null,
+      demandHorizon:
+        r.demandHorizon !== null && r.demandHorizon !== undefined
+          ? { value: r.demandHorizon, unit: r.demandHorizonUnit ?? 1 }
+          : undefined,
       productFamily: null,
       pmp: null,
       economicLot: null,

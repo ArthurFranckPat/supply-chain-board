@@ -161,6 +161,7 @@ export interface ChargeDetailParams {
    * table qu'il est censé garantir.
    */
   refresh?: boolean
+  applyDemandHorizon?: boolean
 }
 
 /** Erreur de paramètre — le contrôleur la traduit en 400. */
@@ -179,7 +180,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   const { monthStart, horizonEnd } = chargeHorizon(params.start)
 
   const ofDate = params.ofDate === 'end' ? 'end' : 'start'
-  const cacheKey = `detail:charge:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}`
+  const applyDemandHorizon = params.applyDemandHorizon ?? true
+  const cacheKey = `detail:charge:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({
@@ -232,9 +234,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           const day = dayOf(poste, moDate!)
           for (const gamme of ops) {
             if (gamme.workstation !== poste) continue
-              const hours = chargeHoursWithEfficiency(
-                hoursForQuantity(gamme, qty),
-                wstByCode.get(gamme.workstation)
+            const hours = chargeHoursWithEfficiency(
+              hoursForQuantity(gamme, qty),
+              wstByCode.get(gamme.workstation)
             )
             if (hours <= 0) continue
             ofRows.push({
@@ -271,7 +273,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
       // stock strict+CQ FIGÉ du snapshot — le même stock que le netting brut/net/
       // reste, pour que les deux lectures ne se contredisent pas.
       const stock = pinned?.stock ?? (await computeChargeStock(inputs))
-      const allNeeds = await computeChargeNeeds(inputs, stock)
+      const allNeeds = await computeChargeNeeds(inputs, stock, undefined, applyDemandHorizon)
       const needs = allNeeds.filter(
         (n) => n.wst === poste && inBucket(poste, n.date) && n.brutHours > 0
       )
@@ -457,18 +459,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           netQty: n.netQty,
           resteQty: n.resteQty,
           encoursQty: n.encoursQty,
-          brutHours: chargeHoursWithEfficiency(
-            n.brutHours,
-            wstByCode.get(n.wst)
-          ),
-          netHours: chargeHoursWithEfficiency(
-            n.netHours,
-            wstByCode.get(n.wst)
-          ),
-          resteHours: chargeHoursWithEfficiency(
-            n.resteHours,
-            wstByCode.get(n.wst)
-          ),
+          brutHours: chargeHoursWithEfficiency(n.brutHours, wstByCode.get(n.wst)),
+          netHours: chargeHoursWithEfficiency(n.netHours, wstByCode.get(n.wst)),
+          resteHours: chargeHoursWithEfficiency(n.resteHours, wstByCode.get(n.wst)),
           ofs: rowOfs(n),
         }
       })

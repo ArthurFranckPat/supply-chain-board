@@ -118,6 +118,7 @@ export interface ChargePeriodSheetProps {
   unit: LoadUnit
   /** Date utilisée pour positionner un OF. */
   ofDate: 'start' | 'end'
+  applyDemandHorizon: boolean
   /**
    * Parent des overlays du panneau (défaut : `<body>`). La page le renseigne en
    * plein écran : le navigateur ne rend alors que le sous-arbre de l'élément
@@ -227,7 +228,8 @@ function groupByDay<R>(
 }
 
 export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
-  const { target, view, start, activeSegs, qtyMode, unit, version, ofDate } = props
+  const { target, view, start, activeSegs, qtyMode, unit, version, ofDate, applyDemandHorizon } =
+    props
   const unitPieces = unit === 'u'
   const [data, setData] = useState<DetailPayload | null>(null)
   const [loading, setLoading] = useState(false)
@@ -246,6 +248,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     if (start) qs.set('start', start)
     if (version) qs.set('v', version)
     qs.set('ofDate', ofDate)
+    qs.set('applyDemandHorizon', applyDemandHorizon ? '1' : '0')
     // Relaie le `?refresh=1` de la page : sans lui le graphe se rafraîchissait
     // mais pas cette table, qui a son propre cache. Tant que l'URL porte le
     // paramètre, chaque ouverture repart de X3 — c'est coûteux, mais c'est
@@ -266,7 +269,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       })
       .finally(() => setLoading(false))
     return () => ctrl.abort()
-  }, [props.open, poste, bucketKey, gran, view, start, version, ofDate])
+  }, [props.open, poste, bucketKey, gran, view, start, version, ofDate, applyDemandHorizon])
 
   // Masque identique à celui du graphe — même source (`segKeys`).
   const keep = useMemo(() => segKeys(view, activeSegs), [view, activeSegs])

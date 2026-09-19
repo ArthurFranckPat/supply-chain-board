@@ -15,6 +15,8 @@ export interface Article {
   typologie?: string
   /** Délai X3, NULL si non renseigné — chaque consommateur applique son repli. */
   reorderDelay: number | null
+  /** ITMFACILIT.FOH_0 / FOHUOT_0 — horizon demande MRP par article-site. */
+  demandHorizon?: { value: number; unit: number }
   productFamily: string | null
   pmp: number | null
   economicLot: number | null

@@ -31,6 +31,12 @@ export default class StaticArticle extends BaseModel {
   @column({ columnName: 'reorder_delay' })
   declare reorderDelay: number | null
 
+  @column({ columnName: 'demand_horizon' })
+  declare demandHorizon: number | null
+
+  @column({ columnName: 'demand_horizon_unit' })
+  declare demandHorizonUnit: number | null
+
   @column({ columnName: 'synced_at' })
   declare syncedAt: number
 }
