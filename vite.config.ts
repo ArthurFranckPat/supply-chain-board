@@ -3,9 +3,15 @@ import adonisjs from '@adonisjs/vite/client'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
+// @ts-expect-error — script de dev en .mjs, pas de déclaration de types.
+import { singleDevServer } from './scripts/vite-single-dev-server.mjs'
 
 export default defineConfig({
   plugins: [
+    // Avant tout le reste : un seul serveur de dev par worktree. Voir le
+    // commentaire du plugin — deux serveurs Vite qui partagent
+    // node_modules/.vite se volent le cache de deps en boucle.
+    singleDevServer(),
     react({
       // On restreint aux fichiers JS/TS : si on laisse 'inertia-react/**', le plugin
       // fait aussi passer les .css par Babel, qui s'étouffe sur ':root {' (vu comme
