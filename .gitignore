@@ -53,3 +53,4 @@ AGENTS.md
 .claude/ralph-loop.local.md
 # Worktrees d'agents
 .worktrees/
+.cube

@@ -83,7 +83,6 @@ export class X3ProducedHoursRepository {
       WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
         AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
         AND CPLWST_0 IS NOT NULL
-        AND TRIM(CPLWST_0) != ''
       GROUP BY CPLWST_0
       ORDER BY CPLWST_0 ASC
     `
