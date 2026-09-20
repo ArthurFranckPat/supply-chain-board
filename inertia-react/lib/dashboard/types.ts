@@ -134,7 +134,7 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
 export const KPI_TITLES: Record<KpiId, string> = {
   charge: 'Charge en retard',
   profondeur: 'Profondeur de retard',
-  otd: 'OTD',
+  otd: 'Taux OTIF',
   stock: 'Valorisation stock',
   lignes: 'Lignes en retard',
   stockTable: 'Stock par article',

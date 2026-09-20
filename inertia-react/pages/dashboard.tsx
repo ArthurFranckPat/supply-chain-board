@@ -255,10 +255,14 @@ const fmtPmp = new Intl.NumberFormat('fr-FR', {
 /** Quantité : 2 décimales max, virgule décimale (l'affichage JS brut point). */
 const fmtQtyDec = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 
+/** Format YYYY-MM-DD en composantes locales (évite le recul d'un jour lié à toISOString/UTC). */
+const isoLocalDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
 function otdColor(taux: number, nbTotal: number): string {
   if (nbTotal === 0) return 'var(--color-muted-foreground)'
   if (taux >= 95) return 'var(--color-ferme, #008049)'
-  if (taux >= 85) return 'var(--color-planifie, #d97706)'
+  if (taux >= 85) return 'var(--color-warning, #fc642d)'
   return 'var(--color-destructive, #ff385c)'
 }
 
@@ -720,8 +724,7 @@ export default function Dashboard(props: DashboardProps) {
     if (c) url += `&client=${encodeURIComponent(c)}`
     const r = otdRange
     if (r?.start) {
-      const fmt = (d: Date) => d.toISOString().slice(0, 10)
-      url += `&otdFrom=${fmt(r.start)}&otdTo=${fmt(r.end ?? r.start)}`
+      url += `&otdFrom=${isoLocalDay(r.start)}&otdTo=${isoLocalDay(r.end ?? r.start)}`
     }
     return url
   }, [props.otdHref, otdMode, debouncedClient, otdRange])
@@ -737,8 +740,7 @@ export default function Dashboard(props: DashboardProps) {
     let url = `${props.stockHref}?referenceDate=${encodeURIComponent(props.referenceDate)}&stockGrain=${stockGrain}`
     const r = stockRange
     if (r?.start) {
-      const fmt = (d: Date) => d.toISOString().slice(0, 10)
-      url += `&stockFrom=${fmt(r.start)}&stockTo=${fmt(r.end ?? r.start)}`
+      url += `&stockFrom=${isoLocalDay(r.start)}&stockTo=${isoLocalDay(r.end ?? r.start)}`
     }
     return url
   }, [props.stockHref, props.referenceDate, stockGrain, stockRange])
@@ -1122,46 +1124,38 @@ export default function Dashboard(props: DashboardProps) {
                 onPrintMove={(dir) => movePrint('otd', dir)}
               >
                 <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                  <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                    <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
-                    <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
-                      OTD
-                    </h2>
-                    {/* Sélecteur de plage */}
-                    <div className="ml-auto flex items-center gap-1">
-                      <DateWindowPill
-                        open={calendarOpen}
-                        onOpenChange={setCalendarOpen}
-                        selected={{
-                          from: otdRange?.start ?? undefined,
-                          to: otdRange?.end ?? undefined,
-                        }}
-                        onSelect={(range) => {
-                          if (range?.from && range?.to) {
-                            setOtdRange({ start: range.from, end: range.to })
-                            setCalendarOpen(false)
-                          } else if (range?.from) {
-                            setOtdRange({ start: range.from, end: range.from })
-                          }
-                        }}
-                        disabled={(day) => day > new Date()}
-                        align="right"
-                      />
-                      {otdRange?.start && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => {
-                            setOtdRange(null)
-                            setCalendarOpen(false)
-                          }}
-                          title="Réinitialiser la période OTD"
-                        >
-                          <X size={14} />
-                        </Button>
-                      )}
-                    </div>
+                  <CardHeader
+                    title="Taux OTIF"
+                    suffix="OTD"
+                    tone="var(--color-ferme)"
+                    onHide={() => setVisible('otd', false)}
+                  />
+
+                  {/* Contrôles : Sélecteur de plage de dates + Mode (Demandée / Acceptée) */}
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <DateWindowPill
+                      open={calendarOpen}
+                      onOpenChange={setCalendarOpen}
+                      selected={{
+                        from: otdRange?.start ?? undefined,
+                        to: otdRange?.end ?? undefined,
+                      }}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          setOtdRange({ start: range.from, end: range.to })
+                          setCalendarOpen(false)
+                        } else if (range?.from) {
+                          setOtdRange({ start: range.from, end: range.from })
+                        }
+                      }}
+                      onClear={() => {
+                        setOtdRange(null)
+                        setCalendarOpen(false)
+                      }}
+                      disabled={(day) => day > new Date()}
+                      align="left"
+                    />
+
                     {/* Toggle mode */}
                     <Segment role="radiogroup" ariaLabel="Mode d'OTD">
                       <SegmentButton
@@ -1179,15 +1173,6 @@ export default function Dashboard(props: DashboardProps) {
                         Acceptée
                       </SegmentButton>
                     </Segment>
-                    <button
-                      type="button"
-                      onClick={() => setVisible('otd', false)}
-                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                      title="Masquer ce KPI"
-                      aria-label="Masquer le KPI OTD"
-                    >
-                      <Eye size={15} />
-                    </button>
                   </div>
 
                   {otdData.loading ? (
@@ -1248,7 +1233,7 @@ export default function Dashboard(props: DashboardProps) {
                       {otd.map((p, i) => (
                         <div
                           key={p.label}
-                          className={cn('mt-5 border-t border-rule-soft pt-5', i > 0)}
+                          className={cn(i > 0 && 'mt-5 border-t border-rule-soft pt-5')}
                         >
                           <div className="mb-2 font-mono text-[10px] font-semibold text-muted-foreground">
                             {p.label}
@@ -1309,9 +1294,12 @@ export default function Dashboard(props: DashboardProps) {
                                             </div>
                                             <div className="font-sans text-[10px] text-muted-foreground">
                                               {l.client}
+                                              {l.dateExpHisto && l.dateExpHisto !== '—' && (
+                                                <span> · exp. {l.dateExpHisto}</span>
+                                              )}
                                             </div>
                                           </td>
-                                          <td className="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">
+                                          <td className="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-foreground">
                                             {l.article}
                                           </td>
                                           <td className="px-2 py-1.5 align-top">
@@ -1326,7 +1314,16 @@ export default function Dashboard(props: DashboardProps) {
                                             )}
                                           </td>
                                           <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                            {l.qteLivree}/{l.qteCmde}
+                                            <span
+                                              className={cn(
+                                                l.qteLivree === 0
+                                                  ? 'font-bold text-destructive'
+                                                  : 'text-foreground'
+                                              )}
+                                            >
+                                              {l.qteLivree}
+                                            </span>
+                                            /{l.qteCmde}
                                           </td>
                                         </tr>
                                       ))}
@@ -1388,23 +1385,13 @@ export default function Dashboard(props: DashboardProps) {
                             setStockRange({ start: range.from, end: range.from })
                           }
                         }}
+                        onClear={() => {
+                          setStockRange(null)
+                          setStockCalendarOpen(false)
+                        }}
                         disabled={(day) => day > new Date()}
                         align="right"
                       />
-                      {stockRange?.start && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => {
-                            setStockRange(null)
-                            setStockCalendarOpen(false)
-                          }}
-                          title="Réinitialiser la période stock"
-                        >
-                          <X size={14} />
-                        </Button>
-                      )}
                     </div>
                     {/* Toggle maille */}
                     <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
