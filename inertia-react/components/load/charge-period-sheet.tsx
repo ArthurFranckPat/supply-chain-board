@@ -55,6 +55,11 @@ interface DetailCmdRow {
   numCommande: string | null
   ligne: string | null
   client: string | null
+  /** Code tiers X3 brut — c'est lui qui porte la règle de mobilité. */
+  clientCode: string | null
+  /** Date négociable ou contractuelle, tranché serveur (`load_smoothing`). */
+  mobilite: 'deplacable' | 'ferme'
+  motifMobilite: string
   dateIso: string
   field: SegField
   brutQty: number
@@ -88,6 +93,8 @@ interface DetailPayload {
   view: LoadView
   poste: { code: string; label: string }
   bucket: { key: string; gran: Gran; label: string; fromIso: string; toIso: string }
+  /** Capacité nette (h) du poste par jour du bucket, calendrier appliqué. */
+  capaciteParJour: { dateIso: string; capaciteH: number }[]
   ofRows: DetailOfRow[]
   cmdRows: DetailCmdRow[]
   x3Error: string | null
@@ -366,6 +373,38 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // premier, puisque les groupes sont désormais triés par date et non par poids).
   const maxGroupValue = useMemo(() => groups.reduce((m, g) => Math.max(m, g.value), 0), [groups])
 
+  /**
+   * Capacité du poste par jour — le dénominateur de la SATURATION.
+   *
+   * Avant, le pourcentage d'un jour valait sa part de la période : un lundi à
+   * 273 % de sa journée s'affichait « 50 % », barre à moitié pleine. L'écran
+   * censé montrer le déséquilibre le cachait. Le CBN jalonnant à capacité
+   * infinie, c'est exactement ce déséquilibre-là qu'on vient lire ici.
+   */
+  const capByDay = useMemo(
+    () => new Map((data?.capaciteParJour ?? []).map((c) => [c.dateIso, c.capaciteH])),
+    [data]
+  )
+
+  /**
+   * Échelle commune des barres de jour, en multiples de la capacité journalière.
+   * Au moins 1 (la journée pleine), étendue au jour le plus saturé pour qu'un
+   * dépassement SE VOIE au lieu d'être écrêté à une barre pleine — deux jours à
+   * 130 % et 273 % ne doivent pas se lire pareil.
+   *
+   * En PIÈCES, la capacité n'a pas d'équivalent (un temps de poste n'est pas une
+   * quantité) : la barre retombe sur la part de la période, comme avant.
+   */
+  const echelleSaturation = useMemo(() => {
+    if (unitPieces) return 1
+    let max = 1
+    for (const g of groups) {
+      const cap = capByDay.get(g.dateIso) ?? 0
+      if (cap > 0) max = Math.max(max, g.value / cap)
+    }
+    return max
+  }, [groups, capByDay, unitPieces])
+
   // Part de la période tirée par des prévisions plutôt que par des commandes
   // fermes : c'est la charge la moins sûre, elle mérite d'être chiffrée avant
   // qu'on décide quoi que ce soit sur ce poste.
@@ -619,6 +658,8 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       unit={unit}
                       maxValue={maxGroupValue}
                       totalValue={totalValue}
+                      capaciteH={capByDay.get(g.dateIso) ?? null}
+                      echelle={echelleSaturation}
                     />
                   ))}
 
@@ -673,14 +714,32 @@ function DayBlock(props: {
   unit: LoadUnit
   maxValue: number
   totalValue: number
+  /** Capacité nette (h) du jour ; `null` ou 0 = poste fermé / inconnue. */
+  capaciteH: number | null
+  /** Échelle commune des barres, en multiples de la capacité journalière. */
+  echelle: number
 }) {
-  const { group: g, view, qtyMode, unit, maxValue, totalValue } = props
+  const { group: g, view, qtyMode, unit, maxValue, totalValue, capaciteH, echelle } = props
   const rowValue = (r: DetailOfRow | DetailCmdRow): number =>
     view === 'of'
       ? ofRowValue(r as DetailOfRow, unit)
       : cmdRowValue(r as DetailCmdRow, unit, qtyMode)
-  const share = totalValue > 0 ? (g.value / totalValue) * 100 : 0
-  const barPct = maxValue > 0 ? (g.value / maxValue) * 100 : 0
+
+  // SATURATION du jour = heures / capacité de CE jour. C'est la seule lecture
+  // qui répond à « est-ce produisible ? ». La part de la période ne sert que de
+  // repli en pièces, où la capacité n'a pas d'équivalent.
+  const sature = unit === 'h' && capaciteH !== null && capaciteH > 0
+  const saturation = sature ? g.value / capaciteH : 0
+  const pct = sature ? saturation * 100 : totalValue > 0 ? (g.value / totalValue) * 100 : 0
+  const barPct = sature
+    ? (saturation / echelle) * 100
+    : maxValue > 0
+      ? (g.value / maxValue) * 100
+      : 0
+  // Repère de la journée pleine sur la barre : sans lui, une barre à mi-course
+  // sur une échelle à 2,7 ne dit pas si le jour tient.
+  const repere100 = sature && echelle > 1 ? 100 / echelle : null
+  const depasse = sature && saturation > 1.0001
   const dayForecastValue =
     view === 'commande'
       ? g.rows.reduce((a, r) => (isForecastPulled(r.field) ? a + rowValue(r) : a), 0)
@@ -722,16 +781,47 @@ function DayBlock(props: {
           {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
           {g.rows.length > 1 ? 's' : ''}
         </span>
-        {/* Poids du jour dans la barre cliquée — la question qu'on se pose. */}
-        <span className="flex flex-none items-center gap-2">
-          <span className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
-            <span
-              className="absolute inset-y-0 left-0 rounded-full bg-brand"
-              style={{ width: `${Math.max(2, barPct)}%` }}
-            />
+        {/* Capacité du jour : le dénominateur doit être lisible à côté du
+            pourcentage, sinon « 273 % » ne se rattache à rien. */}
+        {sature && (
+          <span className="flex-none font-mono text-[10px] text-muted-foreground">
+            cap. {fmtH(capaciteH!)} h
           </span>
-          <span className="w-9 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-            {Math.round(share)}%
+        )}
+        {/* Saturation du jour contre sa propre capacité — la question qu'on se
+            pose devant un plan jalonné à capacité infinie. */}
+        <span className="flex flex-none items-center gap-2">
+          <span
+            className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft"
+            title={
+              sature
+                ? `${fmtH(g.value)} h pour ${fmtH(capaciteH!)} h de capacité — ${Math.round(pct)} % de la journée`
+                : 'Part de la période (la capacité n’a pas d’équivalent en pièces)'
+            }
+          >
+            <span
+              className="absolute inset-y-0 left-0 rounded-full"
+              style={{
+                width: `${Math.max(2, Math.min(100, barPct))}%`,
+                background: depasse ? 'var(--color-danger)' : 'var(--color-brand)',
+              }}
+            />
+            {/* Trait de la journée pleine (100 %). */}
+            {repere100 !== null && (
+              <span
+                className="absolute inset-y-0 w-px bg-foreground/45"
+                style={{ left: `${repere100}%` }}
+              />
+            )}
+          </span>
+          <span
+            className={cn(
+              'w-9 text-right font-mono text-[10px] tabular-nums',
+              depasse ? 'font-bold' : 'text-muted-foreground'
+            )}
+            style={depasse ? { color: 'var(--color-danger)' } : undefined}
+          >
+            {Math.round(pct)}%
           </span>
           <span className="w-14 text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
             {fmtVal(g.value, unit)}
@@ -886,9 +976,15 @@ function CmdRow({
         {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
       </div>
       {/* Le badge « prév. » porte déjà la nature : ici on ne dit plus que
-          l'absence de client, qui sur une prévision est structurelle. */}
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>
-        {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
+          l'absence de client, qui sur une prévision est structurelle.
+          S'y ajoute la MOBILITÉ de la date : c'est le client qui la décide
+          (ALDES = France, camions quotidiens ; tout le reste = export à départ
+          hebdomadaire contractuel), donc elle se lit dans sa colonne. */}
+      <div className={cn(CELL, 'flex items-center gap-1.5 truncate text-muted-foreground')}>
+        {!forecast && <MobiliteBadge mobilite={r.mobilite} motif={r.motifMobilite} />}
+        <span className="truncate">
+          {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
+        </span>
       </div>
       <OfAllouesCell ofs={r.ofs ?? []} />
       {/* En cran « reste », la part absorbée par l'en-cours est annoncée À CÔTÉ du
@@ -920,6 +1016,36 @@ function CmdRow({
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * Mobilité de la date d'une ligne : « déplaçable » ou « date ferme ».
+ *
+ * La règle est tranchée SERVEUR (`app/domain/load_smoothing.ts`) et voyage dans
+ * le payload — la dupliquer ici ferait vivre deux versions du périmètre ALDES,
+ * et c'est exactement le genre de règle qu'on ne veut pas voir diverger entre
+ * l'écran qui la montre et le moteur qui l'applique.
+ */
+function MobiliteBadge({ mobilite, motif }: { mobilite: 'deplacable' | 'ferme'; motif: string }) {
+  const deplacable = mobilite === 'deplacable'
+  return (
+    <span
+      className="flex-none rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
+      style={{
+        color: deplacable ? 'var(--color-ferme)' : 'var(--color-danger)',
+        background: deplacable
+          ? 'color-mix(in srgb, var(--color-ferme) 14%, transparent)'
+          : 'color-mix(in srgb, var(--color-danger) 12%, transparent)',
+      }}
+      title={
+        deplacable
+          ? `${motif} — date repositionnable (10 j ouvrés avant, 5 après)`
+          : `${motif} — date non repositionnable vers l’aval`
+      }
+    >
+      {deplacable ? 'déplaçable' : 'date ferme'}
+    </span>
   )
 }
 

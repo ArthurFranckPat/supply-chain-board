@@ -36,8 +36,9 @@ import {
 import { CommandeOFMatcher, type MatchingResult } from '#app/domain/of_conso'
 import type { Flow } from '#app/domain/models/flow'
 import { hoursForQuantity } from '#app/domain/models/gamme'
-import { chargeHoursWithEfficiency } from '#app/domain/capacity'
-import { isoDay } from '#app/utils/dates'
+import { capDay, chargeHoursWithEfficiency, isOpenDay } from '#app/domain/capacity'
+import { mobiliteDeLigne, type Mobilite } from '#app/domain/load_smoothing'
+import { addDays, isoDay } from '#app/utils/dates'
 import {
   chargeBucketRange,
   chargeDay,
@@ -86,6 +87,16 @@ export interface ChargeDetailCmdRow {
   ligne: string | null
   /** Raison sociale si résolue, sinon le code brut ; null sur une prévision. */
   client: string | null
+  /** Code tiers X3 brut — c'est LUI qui porte la règle, pas la raison sociale. */
+  clientCode: string | null
+  /**
+   * La date de cette ligne est-elle négociable ? ALDES S.A. (80001) part tous
+   * les jours vers la plateforme France ; tout autre client est un export à
+   * départ hebdomadaire contractuel. Calculé serveur, par `load_smoothing` :
+   * la règle n'a qu'une seule maison, l'écran ne fait que l'afficher.
+   */
+  mobilite: Mobilite
+  motifMobilite: string
   dateIso: string
   field: ChargeSegField
   brutQty: number
@@ -119,10 +130,25 @@ export interface ChargeDetailRowOf {
   reservePour: string | null
 }
 
+/** Capacité nette (h) d'un jour du bucket — 0 quand le poste est fermé. */
+export interface ChargeDetailDayCapacity {
+  dateIso: string
+  capaciteH: number
+}
+
 export interface ChargeDetail {
   view: ChargeDetailView
   poste: { code: string; label: string }
   bucket: { key: string; gran: ChargeGran; label: string; fromIso: string; toIso: string }
+  /**
+   * Capacité du poste jour par jour sur le bucket, calendrier appliqué (fériés,
+   * fermetures, sentinelle X3 des jours chômés).
+   *
+   * Sans elle, le panneau ne pouvait afficher qu'une PART DE LA PÉRIODE : un
+   * lundi à 273 % de sa journée s'y lisait « 50 % », barre à moitié pleine. Le
+   * seul écran censé montrer le déséquilibre le cachait.
+   */
+  capaciteParJour: ChargeDetailDayCapacity[]
   ofRows: ChargeDetailOfRow[]
   cmdRows: ChargeDetailCmdRow[]
   x3Error: string | null
@@ -231,6 +257,26 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
       }
       const posteLabel = inputs.wstLabels.get(poste) ?? poste
 
+      // Capacité jour par jour — MÊME calcul que les barres du graphe
+      // (`capDay` × facteur calendrier, sentinelle X3 écartée par `isOpenDay`).
+      // Recopier une autre formule ici ferait qu'un jour affiché à 100 % dans le
+      // panneau ne le serait pas dans le graphe.
+      const posteWst = wstByCode.get(poste)
+      const capaciteParJour: ChargeDetailDayCapacity[] = []
+      for (let d = new Date(range.from); d <= range.to; d = addDays(d, 1)) {
+        const iso = isoDay(d)
+        if (!posteWst) {
+          capaciteParJour.push({ dateIso: iso, capaciteH: 0 })
+          continue
+        }
+        const factor = calendar ? calendar.factor(posteWst, iso) : 1
+        const open = isOpenDay(posteWst, d, factor)
+        capaciteParJour.push({
+          dateIso: iso,
+          capaciteH: open ? Math.round(capDay(posteWst, d) * factor * 10) / 10 : 0,
+        })
+      }
+
       if (params.view === 'of') {
         const ofRows: ChargeDetailOfRow[] = []
         for (const mo of inputs.mos) {
@@ -265,6 +311,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           view: 'of',
           poste: { code: poste, label: posteLabel },
           bucket,
+          capaciteParJour,
           ofRows,
           cmdRows: [],
           x3Error: inputs.x3Error,
@@ -450,6 +497,11 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
 
       const cmdRows: ChargeDetailCmdRow[] = needs.map((n) => {
         const code = n.source?.client ?? null
+        // Une ligne INDUITE (composant, depth > 0) n'a pas de date propre à
+        // négocier : elle suit son produit fini. Elle hérite donc de la
+        // mobilité du client de tête, ce qui est exactement ce qu'on veut dire
+        // à l'écran — « bougera si on bouge le PF », pas « intouchable ».
+        const mob = mobiliteDeLigne(code)
         return {
           article: n.article,
           designation: desByArticle.get(n.article) ?? null,
@@ -460,6 +512,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           ligne: n.source?.ligne ?? null,
           // Prévision : X3 ne porte pas de client, on laisse null (l'UI le dit).
           client: code ? (clientNames.get(code) ?? code) : null,
+          clientCode: code,
+          mobilite: mob.mobilite,
+          motifMobilite: mob.motif,
           dateIso: isoDay(dayOf(n.wst, n.date)),
           field: chargeSegment(n.depth, n.nature),
           brutQty: n.brutQty,
@@ -478,6 +533,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         view: 'commande',
         poste: { code: poste, label: posteLabel },
         bucket,
+        capaciteParJour,
         ofRows: [],
         cmdRows,
         x3Error: inputs.x3Error,
