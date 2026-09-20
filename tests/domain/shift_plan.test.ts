@@ -204,10 +204,37 @@ test.group('shift_plan — chiffres de la décision', () => {
     assert.isAbove(peak!.capacityHours, peak!.loadHours)
   })
 
-  test('le premier palier n’a rien à comparer : keepHours est nul', ({ assert }) => {
-    const plan = planShifts(inputFor(pp830(), new Array(9).fill(40)), { frozenWeeks: 0 })
+  test('le premier palier se compare au schéma X3 du poste', ({ assert }) => {
+    // Sur un horizon de trois semaines il n'y a qu'UN palier : si son keepHours
+    // était nul, la seule décision de l'écran serait la seule non justifiée.
+    const w = pp830({ parallelUnits: 1 }) // 1×8 · 5 j = 31,5 h/semaine
+    const plan = planShifts(inputFor(w, [60, 60, 60]))
+    assert.lengthOf(plan.plateaus, 1)
+    const p = plan.plateaus[0]
+    assert.equal(p.schedule.crews, 2, 'un 1×8 ne tient pas 180 h en trois semaines')
+    assert.closeTo(p.loadHours, 180, 0.1)
+    assert.closeTo(p.keepHours!, 31.5 * 3, 0.1)
+  })
+
+  test('sans schéma courant lisible, il n’y a rien à quoi comparer', ({ assert }) => {
+    const plan = planShifts(inputFor(pp830({ scheduleCode: 'TUN' }), [40, 40, 40]))
     assert.isNull(plan.plateaus[0].keepHours)
-    assert.closeTo(plan.plateaus[0].loadHours, 40 * (plan.plateaus[0].to + 1), 0.1)
+  })
+
+  test('l’horizon de décision tient en un seul palier', ({ assert }) => {
+    // Trois semaines, palier minimum de trois : une décision, pas une frise.
+    const plan = planShifts(inputFor(pp830(), [20, 90, 30]))
+    assert.lengthOf(plan.plateaus, 1)
+    assert.deepEqual([plan.plateaus[0].from, plan.plateaus[0].to], [0, 2])
+    assert.equal(plan.switches, 0)
+  })
+
+  test('le préavis par défaut ne gèle plus l’unique palier', ({ assert }) => {
+    // Un préavis de 2 semaines sur un horizon de 3 imposait le schéma courant :
+    // l'outil répondait « ne rien changer » quoi qu'il arrive.
+    const plan = planShifts(inputFor(pp830({ parallelUnits: 1 }), [60, 60, 60]))
+    assert.isFalse(plan.plateaus[0].frozen)
+    assert.notEqual(plan.plateaus[0].schedule.code, '1x8-5j')
   })
 
   test('charge et capacité du palier recollent aux semaines affichées', ({ assert }) => {

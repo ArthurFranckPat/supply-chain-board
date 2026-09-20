@@ -1,38 +1,35 @@
 import { useMemo } from 'react'
 import { cn } from '@r/lib/utils'
-import type { ShiftPlanLine, ShiftPlanPayload, ShiftPlateau } from '@r/lib/load/types'
+import type { ShiftPlanLine, ShiftPlanPayload } from '@r/lib/load/types'
 
 /**
- * « Organisation du poste » — ce que le responsable d'atelier doit FAIRE, et quand.
+ * « Organisation du poste » — le schéma horaire à tenir sur l'horizon de décision.
  *
- * ⚠️ Ce bloc n'est pas une visualisation. La première version en était une (frise
- * de paliers + taux de saturation semaine par semaine) et elle a été rejetée pour
- * la bonne raison : le graphe juste au-dessus montre déjà charge et capacité, donc
- * elle redisait en petit ce qui est lisible en grand, prenait la moitié de l'écran,
- * et ne répondait pas à la seule question posée — « qu'est-ce que je change, quand,
- * et pourquoi ». Un taux de saturation ne dit rien à quelqu'un qui staffe des
- * équipes : il faut une date, un verbe, et le nombre d'heures qui justifie le geste.
+ * ⚠️ Deux versions ont été rejetées avant celle-ci, pour des raisons qui doivent
+ * rester écrites :
  *
- * Donc : une liste de décisions. Pas de pourcentage, pas de barre, pas de frise.
- * Si on est tenté d'y remettre un dessin, c'est que le graphe au-dessus manque de
- * quelque chose — c'est lui qu'il faut corriger.
+ * 1. Une FRISE (paliers + taux de saturation semaine par semaine). Le graphe
+ *    juste au-dessus montre déjà charge et capacité : elle redisait en petit ce
+ *    qui est lisible en grand, prenait la moitié du panneau, et un taux de
+ *    saturation ne dit rien à quelqu'un qui staffe des équipes.
+ * 2. Une LISTE de décisions sur douze semaines. L'horizon de décision est de
+ *    TROIS semaines : proposer une organisation pour dans six semaines n'intéresse
+ *    personne, elle aura été recalculée cinq fois d'ici là.
+ *
+ * Donc : une décision, une phrase. Verbe, période, effectif, puis le chiffre qui
+ * justifie le geste. Si l'envie revient d'y mettre un dessin ou un horizon plus
+ * long, c'est le graphe au-dessus qu'il faut corriger, pas ce bloc.
  */
 
 const DAY_MS = 86_400_000
 
 /** « 19/10 » à partir d'un lundi ISO, décalé de `plusDays` jours. */
 const fmt = (iso: string, plusDays = 0): string => {
-  const d = new Date(`${iso}T12:00:00`)
-  const x = new Date(d.getTime() + plusDays * DAY_MS)
+  const x = new Date(new Date(`${iso}T12:00:00`).getTime() + plusDays * DAY_MS)
   return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}`
 }
 
 const hours = (h: number): string => `${Math.round(h)} h`
-
-const weeksLabel = (p: ShiftPlateau): string => {
-  const n = p.to - p.from + 1
-  return `${n} semaine${n > 1 ? 's' : ''}`
-}
 
 export interface ShiftPlanStripProps {
   payload: ShiftPlanPayload
@@ -54,9 +51,9 @@ export function ShiftPlanStrip({
 }: ShiftPlanStripProps) {
   const line = useMemo(() => lines.find((l) => l.code === code), [lines, code])
 
-  // Équipes-jour de tout l'atelier, semaine par semaine. Affichées seulement AU
-  // MOMENT d'un changement : c'est là qu'elles servent — savoir si la bascule
-  // d'un poste tombe en même temps que celle des voisins.
+  // Équipes-jour de tout l'atelier, semaine par semaine : ce qu'il faut staffer
+  // si tous les postes suivent leur proposition. Deux postes qui basculent en
+  // sens inverse laissent ce total plat — ça ne se voit que sur la somme.
   const atelierCrewDays = useMemo(() => {
     const total = payload.weekKeys.map(() => 0)
     for (const l of lines) {
@@ -73,17 +70,14 @@ export function ShiftPlanStrip({
         {skip?.reason === 'hors_catalogue'
           ? 'Schéma horaire X3 hors catalogue (semaine trouée ou feu continu) : ce poste garde ' +
             'sa capacité X3 telle quelle — l’arrondir en équipes en fausserait la lecture.'
-          : 'Aucune charge sur les douze prochaines semaines : rien à organiser.'}
+          : 'Aucune charge sur l’horizon : rien à organiser.'}
       </div>
     )
   }
 
-  const { plateaus } = line.plan
   const currentLabel =
     payload.catalog.find((s) => s.code === line.current)?.label ?? line.current ?? '—'
-  const first = plateaus[0]
-  const changes = plateaus.slice(1)
-  const lastKey = payload.weekKeys.at(-1) ?? ''
+  const currentCrews = payload.catalog.find((s) => s.code === line.current)?.crews ?? null
 
   return (
     <div className="mt-3 flex-none rounded-lg border border-rule bg-card px-4 py-3">
@@ -96,90 +90,87 @@ export function ShiftPlanStrip({
         </span>
       </div>
 
-      <ol className="space-y-1.5 text-[12.5px] leading-snug">
-        {/* Premier palier : on ne change rien, et on dit jusqu'à quand. */}
-        {first && (
-          <li className="flex gap-2.5">
-            <span className="mt-[3px] h-1.5 w-1.5 flex-none rounded-full bg-muted-foreground/40" />
-            <span>
-              <span className="font-semibold">Ne rien changer</span> jusqu’au{' '}
-              {fmt(payload.weekKeys[first.to] ?? '', 6)}
-              {changes.length === 0 && ' (fin de l’horizon)'} — {first.schedule.label},{' '}
-              {hours(first.loadHours)} à produire pour {hours(first.capacityHours)} ouvertes.
-              {first.debtHours > 0 && (
-                <span className="font-semibold text-red-600">
-                  {' '}
-                  Il manque {hours(first.debtHours)} : le retard glissera, le schéma actuel ne les
-                  rattrape pas.
-                </span>
-              )}
-            </span>
-          </li>
-        )}
-
-        {/* Les décisions. Verbe, date, effectif, puis le chiffre qui les justifie. */}
-        {changes.map((p) => {
-          const prev = plateaus[plateaus.indexOf(p) - 1]
-          const delta = p.schedule.crews - prev.schedule.crews
+      <div className="space-y-2.5">
+        {line.plan.plateaus.map((p, idx) => {
+          // Le premier palier se compare au schéma X3 du poste, les suivants au
+          // palier d'avant : même règle, une seule lecture.
+          const prevLabel = idx === 0 ? currentLabel : line.plan.plateaus[idx - 1].schedule.label
+          const prevCrews = idx === 0 ? currentCrews : line.plan.plateaus[idx - 1].schedule.crews
+          const same = idx === 0 && line.current === p.schedule.code
+          const delta = prevCrews === null ? 0 : p.schedule.crews - prevCrews
           const up = delta > 0
-          const before = atelierCrewDays[p.from - 1] ?? 0
-          const after = atelierCrewDays[p.from] ?? 0
-          const isLast = p.to === payload.weekKeys.length - 1
+          const span = p.to - p.from + 1
+          const crew = atelierCrewDays.slice(p.from, p.to + 1)
+          const crewLo = Math.min(...crew)
+          const crewHi = Math.max(...crew)
+
           return (
-            <li key={p.from} className="flex gap-2.5">
-              <span
-                className={cn(
-                  'mt-[3px] h-1.5 w-1.5 flex-none rounded-full',
-                  delta === 0 ? 'bg-muted-foreground/40' : up ? 'bg-amber-500' : 'bg-emerald-500'
-                )}
-              />
-              <span>
-                <span className="font-semibold">
-                  {delta === 0
-                    ? `Réorganiser la semaine en ${p.schedule.label}`
-                    : up
-                      ? `Passer en ${p.schedule.label}`
-                      : `Revenir en ${p.schedule.label}`}
-                </span>{' '}
-                le lundi {fmt(payload.weekKeys[p.from] ?? '')}, pendant {weeksLabel(p)}
-                {isLast
-                  ? ` (jusqu’à la fin de l’horizon, ${fmt(lastKey, 6)})`
-                  : ` (jusqu’au ${fmt(payload.weekKeys[p.to] ?? '', 6)})`}
+            <div key={p.from}>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span
+                  className={cn(
+                    'font-fraunces text-[16px] font-extrabold tracking-tight',
+                    p.debtHours > 0 && 'text-red-700'
+                  )}
+                >
+                  {same
+                    ? `Garder le ${p.schedule.label}`
+                    : delta === 0
+                      ? `Réorganiser la semaine en ${p.schedule.label}`
+                      : up
+                        ? `Passer en ${p.schedule.label}`
+                        : `Revenir en ${p.schedule.label}`}
+                </span>
                 {delta !== 0 && (
-                  <span className={cn('font-semibold', up ? 'text-amber-700' : 'text-emerald-700')}>
-                    {' · '}
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-px font-mono text-[11px] font-semibold',
+                      up ? 'bg-amber-500/15 text-amber-700' : 'bg-emerald-500/15 text-emerald-700'
+                    )}
+                  >
                     {delta > 0 ? `+${delta}` : delta} équipe{Math.abs(delta) > 1 ? 's' : ''}
                   </span>
                 )}
-                {'. '}
-                <span className="text-muted-foreground">
-                  {hours(p.loadHours)} à produire
-                  {p.keepHours !== null &&
-                    (up
-                      ? ` ; en restant en ${prev.schedule.label} vous n’en ouvrez que ${hours(p.keepHours)}.`
-                      : ` ; le ${prev.schedule.label} en ouvrirait ${hours(p.keepHours)}.`)}
-                  {before > 0 && after !== before && (
-                    <>
-                      {' '}
-                      Atelier {atelierLabel} : {before} → {after} équipes-jour cette semaine-là.
-                    </>
-                  )}
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  du lundi {fmt(payload.weekKeys[p.from] ?? '')} au dimanche{' '}
+                  {fmt(payload.weekKeys[p.to] ?? '', 6)} · {span} semaine{span > 1 ? 's' : ''}
                 </span>
-                {p.debtHours > 0 && (
-                  <span className="font-semibold text-red-600">
+              </div>
+
+              <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {hours(p.loadHours)} à produire
+                </span>{' '}
+                pour {hours(p.capacityHours)} ouvertes.
+                {!same && p.keepHours !== null && (
+                  <>
                     {' '}
-                    Même ainsi il manque {hours(p.debtHours)}.
+                    En restant en {prevLabel}, vous n’en ouvrez que {hours(p.keepHours)}.
+                  </>
+                )}
+                {p.debtHours > 0 && (
+                  <span className="font-semibold text-red-700">
+                    {' '}
+                    Il manque {hours(p.debtHours)} : aucun schéma autorisé ne tient cette charge, le
+                    retard glissera.
                   </span>
                 )}
-              </span>
-            </li>
+                {crew.length > 0 && crewHi > 0 && (
+                  <>
+                    {' '}
+                    Atelier {atelierLabel} : {crewLo === crewHi ? crewLo : `${crewLo} à ${crewHi}`}{' '}
+                    équipes-jour par semaine, tous postes planifiés.
+                  </>
+                )}
+              </p>
+            </div>
           )
         })}
-      </ol>
+      </div>
 
       <p className="mt-2 border-t border-rule pt-1.5 font-mono text-[10px] text-muted-foreground">
-        Calculé sur le reste à produire, {payload.weekKeys.length} semaines, paliers de 3 minimum —
-        un schéma se tient, il ne se change pas d’une semaine sur l’autre.
+        Reste à produire · lissé sur l’horizon, pas semaine par semaine — une semaine creuse suivie
+        d’un pic se tient avec un seul schéma.
       </p>
     </div>
   )

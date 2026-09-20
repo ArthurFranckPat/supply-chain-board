@@ -74,7 +74,14 @@ export interface ShiftPlanOptions {
   minPlateauWeeks: number
   /**
    * Semaines de préavis en tête d'horizon : elles portent obligatoirement le
-   * schéma courant. On ne passe pas un atelier en 2×8 pour lundi prochain.
+   * schéma courant.
+   *
+   * ⚠️ À 0 par défaut depuis que l'horizon vaut trois semaines. Un préavis de
+   * deux semaines sur un horizon de trois, avec un palier minimum de trois,
+   * gelait l'unique palier du plan : l'outil répondait « ne rien changer » quoi
+   * qu'il arrive. Le préavis n'a de sens que sur un horizon long ; ici, la
+   * décision PORTE sur les trois semaines qui viennent, elle ne s'y applique pas
+   * par surprise.
    */
   frozenWeeks: number
   weights: ShiftPlanWeights
@@ -92,7 +99,7 @@ export interface ShiftPlanOptions {
  */
 export const DEFAULT_SHIFT_PLAN_OPTIONS: ShiftPlanOptions = {
   minPlateauWeeks: 3,
-  frozenWeeks: 2,
+  frozenWeeks: 0,
   weights: { idle: 1, early: 0.3, late: 6, debt: 12, switch: 40, offTarget: 0.65 },
   catalog: SHIFT_CATALOG,
 }
@@ -134,9 +141,9 @@ export interface ShiftPlateau {
   /** Capacité (h) ouverte par le schéma retenu sur le palier. */
   capacityHours: number
   /**
-   * Capacité (h) qu'on aurait en NE CHANGEANT RIEN, c'est-à-dire sous le schéma
-   * du palier précédent. `null` sur le premier palier, qui ne change rien par
-   * définition.
+   * Capacité (h) qu'on aurait en NE CHANGEANT RIEN : sous le schéma du palier
+   * précédent, ou — sur le premier palier — sous le schéma X3 courant du poste.
+   * `null` seulement quand le poste n'a pas de schéma courant lisible.
    *
    * C'est le seul chiffre qui justifie une bascule à un responsable d'atelier :
    * « 111 h à produire, 105 h si tu restes en 1×8 ». Un taux de saturation ne le
@@ -310,11 +317,16 @@ export function planShifts(
     const pc = plateauCost(input, cursor, choice.to, choice.schedule, w)
     let loadHours = 0
     let capacityHours = 0
-    let keepHours = prev ? 0 : null
+    // « Ne rien changer » = rester sur le palier précédent, et sur le PREMIER
+    // palier = rester sur le schéma X3 du poste. Sans ce repli, la seule
+    // décision d'un horizon à trois semaines serait la seule à ne pas être
+    // justifiée à l'écran.
+    const keep = prev ?? input.current
+    let keepHours = keep ? 0 : null
     for (let i = cursor; i <= choice.to; i++) {
       loadHours += input.load[i] ?? 0
       capacityHours += input.capacity[i]?.get(choice.schedule.code) ?? 0
-      if (prev && keepHours !== null) keepHours += input.capacity[i]?.get(prev.code) ?? 0
+      if (keep && keepHours !== null) keepHours += input.capacity[i]?.get(keep.code) ?? 0
     }
     plateaus.push({
       from: cursor,

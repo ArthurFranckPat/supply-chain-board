@@ -136,15 +136,21 @@ réécrit pas le MRP. Conséquence technique : le report entrant d'un palier val
 toujours zéro, son coût est local — la programmation dynamique sur les paliers est
 donc **exacte**, pas heuristique.
 
-**Préavis** : les `frozenWeeks` premières semaines (2 par défaut) portent
-obligatoirement le schéma courant. On ne passe pas un atelier en 2×8 pour lundi
-prochain ; si ce palier gelé ne tient pas la charge, il le signale au lieu de la masquer.
+**Préavis** (`frozenWeeks`) : **0 par défaut**, et ce n'est pas un oubli. Deux
+semaines de préavis sur un horizon de trois, avec un palier minimum de trois,
+gelaient l'unique palier du plan : l'outil répondait « ne rien changer » quoi qu'il
+arrive. Le préavis n'a de sens que sur un horizon long ; ici la décision PORTE sur
+les trois semaines qui viennent, elle ne s'y applique pas par surprise. Le réglage
+reste dans les options pour un éventuel horizon long.
 
 ### Ce qui est planifié
 
-Sur le **reste à produire**, pour les deux vues (OF et commande), sur **12 semaines**
-— plus court que les 6 mois du graphe : au-delà d'un trimestre la charge est surtout
-prévisionnelle, et proposer une organisation dessus serait de la fausse précision.
+Sur le **reste à produire**, pour les deux vues (OF et commande), sur **3 semaines**
+— l'horizon de décision donné par le métier. Avec un palier minimum de 3 semaines,
+cela donne exactement **un palier, donc une décision** : quel schéma ce poste
+tient-il sur les trois semaines qui viennent. Pas douze semaines, pas six mois :
+une organisation proposée pour dans six semaines n'intéresse personne, elle aura
+été recalculée cinq fois d'ici là. Le graphe garde son horizon long.
 
 La fenêtre est celle du graphe, déjà recadrée par `firstVisibleWeek` (voir
 ci-dessus) : le plan ne redécide pas de ses semaines, sinon il commenterait un
@@ -154,35 +160,37 @@ La frise suit la **vue** (deux lectures différentes de la demande) mais pas les
 brut/net/reste ni heures/pièces, qui sont des réglages de lecture : une décision
 d'organisation ne change pas parce qu'on regarde autrement le même graphe.
 
-### Ce que l'écran affiche — une liste de décisions, pas un dessin
+### Ce que l'écran affiche — une décision, une phrase
 
-⚠️ La première version était une frise (paliers + taux de saturation semaine par
-semaine). Elle a été **rejetée par le métier**, et pour une raison qui doit rester
-écrite ici : le graphe juste au-dessus montre déjà la charge et la capacité. La
-frise redisait donc en petit ce qui est lisible en grand, prenait la moitié du
-panneau, et ne répondait pas à la seule question posée — _qu'est-ce que je change,
-quand, et pourquoi ?_ Un **taux de saturation ne dit rien à quelqu'un qui staffe
-des équipes** : il lui faut une date, un verbe et le nombre d'heures qui justifie
-le geste.
+⚠️ Deux versions ont été **rejetées par le métier** avant celle-ci. Les raisons
+doivent rester écrites, elles sont le cahier des charges du bloc :
 
-Le bloc rend donc des phrases, une par décision :
+1. Une **frise** (paliers + taux de saturation semaine par semaine). Le graphe
+   juste au-dessus montre déjà charge et capacité : elle redisait en petit ce qui
+   est lisible en grand, prenait la moitié du panneau, et **un taux de saturation
+   ne dit rien à quelqu'un qui staffe des équipes**. Pire, le pourcentage d'une
+   semaine se lit sous le schéma de son palier — deux paliers ne se comparent donc
+   pas sur ce chiffre, ce qui est indéchiffrable.
+2. Une **liste de décisions sur douze semaines**. L'horizon de décision est de
+   trois semaines. Le reste est du bruit.
 
-> **Ne rien changer** jusqu'au 18/10 — 1×8 · 5 jours, 105 h à produire pour 105 h ouvertes.
-> **Passer en 2×8 · 5 jours** le lundi 19/10, pendant 3 semaines (jusqu'au 08/11) · +1 équipe.
-> 183 h à produire ; en restant en 1×8 vous n'en ouvrez que 105 h. Atelier S3P : 75 → 85 équipes-jour cette semaine-là.
+Ce qui est rendu : un titre-verbe, la période, l'écart d'effectif, puis le chiffre
+qui justifie le geste.
 
-Trois chiffres portent la phrase, et sont produits par le moteur (`loadHours`,
-`capacityHours`, `keepHours`) : la charge du palier, la capacité du schéma proposé,
-et **la capacité qu'on aurait en ne changeant rien**. Ce dernier est le seul qui
-justifie une bascule ; il se calcule dans `planShifts`, là où la capacité de TOUS
-les schémas candidats est encore disponible — pas dans le composant.
+> **Passer en 2×8 · 5 jours** `+1 équipe` du lundi 14/09 au dimanche 04/10 · 3 semaines
+> **180 h à produire** pour 189 h ouvertes. En restant en 1×8 · 5 jours, vous n'en
+> ouvrez que 95 h. Atelier S3P : 85 équipes-jour par semaine, tous postes planifiés.
 
-Le cumul d'équipes-jour de l'atelier n'apparaît qu'**au moment d'un changement**
-(`75 → 85`) : c'est là qu'il sert, pour voir si la bascule d'un poste tombe en même
-temps que celle de ses voisins.
+Trois champs du moteur portent la phrase : `loadHours`, `capacityHours`, et
+`keepHours` — **la capacité qu'on aurait en ne changeant rien**. Ce dernier est le
+seul qui justifie une bascule. Il se replie sur le schéma X3 courant pour le
+premier palier : sans ce repli, sur un horizon à trois semaines, la seule décision
+de l'écran serait la seule non justifiée. Il se calcule dans `planShifts`, où la
+capacité de TOUS les schémas candidats est encore disponible — pas dans le
+composant, qui ne reçoit que le schéma retenu.
 
-**Directive** : si l'envie revient d'y remettre un dessin, c'est que le graphe
-au-dessus manque de quelque chose — c'est lui qu'il faut corriger.
+**Directive** : pas de dessin ici, pas d'horizon plus long. Si la lecture manque de
+quelque chose, c'est le graphe au-dessus qu'il faut corriger.
 
 ### Poids du moteur — à caler
 

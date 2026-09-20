@@ -18,12 +18,16 @@ import {
 import { planShifts, type ShiftPlan, type ShiftPlanInput } from '#app/domain/shift_plan'
 
 /**
- * Semaines sur lesquelles le plan est proposé. Volontairement plus court que les
- * six mois du graphe : au-delà d'un trimestre, la charge vient surtout de
- * prévisions, et proposer une organisation d'atelier dessus serait de la fausse
- * précision. Le graphe garde son horizon long, le plan dit le court terme.
+ * Semaines sur lesquelles le plan est proposé : **trois**, l'horizon de décision
+ * donné par le métier. Pas douze, pas six mois.
+ *
+ * Avec `minPlateauWeeks` à 3, cela donne exactement UN palier, donc UNE décision :
+ * « quel schéma horaire ce poste tient-il sur les trois semaines qui viennent ».
+ * C'est la question posée, et elle n'en appelle pas d'autre — une organisation
+ * proposée pour dans six semaines n'intéresse personne, elle aura été recalculée
+ * cinq fois d'ici là. Le graphe garde son horizon long ; le plan dit le court terme.
  */
-export const SHIFT_PLAN_WEEKS = 12
+export const SHIFT_PLAN_WEEKS = 3
 
 /** Raison pour laquelle un poste n'entre pas dans le plan — jamais un silence. */
 export type ShiftPlanSkip = 'hors_catalogue' | 'sans_charge'
