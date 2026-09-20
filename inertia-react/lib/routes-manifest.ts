@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 110 routes nommées.
+ * 108 routes nommées.
  */
 
 export const MANIFEST = {
@@ -33,8 +33,6 @@ export const MANIFEST = {
   },
   'conditionnements.index': { method: 'GET', pattern: '/conditionnements' },
   'conditionnements.rows': { method: 'GET', pattern: '/api/v1/conditionnements/rows' },
-  'controle_prod.index': { method: 'GET', pattern: '/controle-prod' },
-  'controle_prod.rows': { method: 'GET', pattern: '/api/v1/planning/controle-prod' },
   'dashboard': { method: 'GET', pattern: '/' },
   'dashboard.kpis': { method: 'GET', pattern: '/api/v1/dashboard/kpis' },
   'dashboard.otd': { method: 'GET', pattern: '/api/v1/dashboard/otd' },
@@ -182,8 +180,6 @@ export type RouteParams = {
   'conditionnements.estimations': void
   'conditionnements.index': void
   'conditionnements.rows': void
-  'controle_prod.index': void
-  'controle_prod.rows': void
   'dashboard': void
   'dashboard.kpis': void
   'dashboard.otd': void
