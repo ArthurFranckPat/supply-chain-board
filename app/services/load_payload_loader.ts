@@ -33,6 +33,7 @@ import {
 } from '#app/domain/atelier'
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
+import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import {
   chargeSegment,
@@ -238,6 +239,18 @@ export interface ChargeInputs {
   /** Catégorie article (préfixe PF / SF) — nature poste montage/fabrication. */
   categoryByArticle: Map<string, string>
   demandHorizonByArticle: Map<string, { value: number; unit: number }>
+  /**
+   * Overrides de date de ligne de commande (`order_line_overrides`), clé
+   * `numCommande#ligne` → ISO.
+   *
+   * /charge était le dernier consommateur de la demande à ne PAS les lire :
+   * une ligne re-datée bougeait sur /approvisionnement, /programme et le suivi,
+   * mais pas sur le graphe de charge ni son détail journalier — donc pas sur
+   * l'écran qui motive le déplacement. Ils vivent dans les `ChargeInputs` pour
+   * que l'agrégat et le détail partagent EXACTEMENT le même jeu, snapshot figé
+   * compris : la table ne peut pas se retrouver datée autrement que la barre.
+   */
+  lineDateOverrides: Map<string, string>
   x3Error: string | null
 }
 
@@ -302,13 +315,17 @@ export async function fetchChargeInputs(
 
   const categoryByArticle = new Map<string, string>()
   const demandHorizonByArticle = new Map<string, { value: number; unit: number }>()
-  const [refR, ordR, olR, nomR, artR] = await Promise.allSettled([
+  const [refR, ordR, olR, nomR, artR, ovR] = await Promise.allSettled([
     boardDataset.getReferential(force),
     boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
     boardDataset.getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd), force),
     staticSync.readNomenclatures(),
     boardDataset.getArticles(),
+    new OrderLineOverrideStore().getMap(),
   ])
+  // Table locale : un échec de lecture ne doit pas vider la page, il ramène
+  // simplement les dates X3 — état d'avant le branchement, jamais une erreur.
+  const lineDateOverrides = ovR.status === 'fulfilled' ? ovR.value : new Map<string, string>()
   if (artR.status === 'fulfilled') {
     for (const a of artR.value) {
       categoryByArticle.set(a.code, a.category ?? '')
@@ -386,8 +403,32 @@ export async function fetchChargeInputs(
     avancementByOf,
     categoryByArticle,
     demandHorizonByArticle,
+    lineDateOverrides,
     x3Error,
   }
+}
+
+/** Format d'une date d'override : tout le reste est ignoré (saisie bricolée). */
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Date retenue pour une ligne de demande : l'override local s'il existe, sinon
+ * la date X3.
+ *
+ * Mêmes clé et garde que `material_plan_loader` et `poste_engagement_loader` —
+ * un second mécanisme de surcharge ferait diverger deux écrans qui décrivent la
+ * même ligne. Les PRÉVISIONS sont exclues : elles n'ont pas de ligne de commande
+ * à re-dater, leur `numCommande` n'est qu'un identifiant de prévision.
+ */
+export function orderLineDate(
+  l: Pick<OrderLineForLoad, 'nature' | 'numCommande' | 'ligne' | 'dateLivraison'>,
+  overrides: Map<string, string>
+): Date {
+  if (l.nature === 'COMMANDE' && l.numCommande) {
+    const ov = overrides.get(`${l.numCommande}#${l.ligne ?? ''}`)
+    if (ov && ISO_RE.test(ov)) return atMidnight(new Date(ov))
+  }
+  return atMidnight(l.dateLivraison)
 }
 
 /** Lignes de demande au format explosion (date normalisée + provenance). */
@@ -395,7 +436,7 @@ function chargeOrderLines(inputs: ChargeInputs): ChargeOrderLine[] {
   return inputs.orderLines.map((l) => ({
     article: l.article,
     quantite: l.quantite,
-    date: atMidnight(l.dateLivraison),
+    date: orderLineDate(l, inputs.lineDateOverrides),
     nature: (l.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
     source: {
       numCommande: l.numCommande,
@@ -616,7 +657,13 @@ export async function loadChargePayloadData(params: {
   // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
   // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
   // inatteignable au lieu de compter sur l'expiration.
-  const cacheKey = `payload:charge:s7:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
+  //
+  // `ov…` : empreinte des overrides de date de ligne, qui datent désormais la
+  // demande de ce payload. Une clé qui ne les reflète pas servirait le graphe
+  // d'AVANT le déplacement pendant tout le TTL + la grâce — la proposition de
+  // lissage serait invisible sur l'écran qui la motive.
+  const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
+  const cacheKey = `payload:charge:s8:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import OrderLineOverride from '#models/order_line_override'
 
 export interface OrderLineOverrideRow {
@@ -67,6 +68,29 @@ export class OrderLineOverrideStore {
       map.set(`${r.numCommande}#${r.ligne}`, r.dateLivraison)
     }
     return map
+  }
+
+  /**
+   * Empreinte de l'ÉTAT COMPLET des overrides, à coller dans une clé de cache.
+   *
+   * Un consommateur qui décale ses dates avec ces overrides doit voir sa clé
+   * changer dès qu'une ligne est re-datée, sinon il sert une valeur calculée
+   * sous l'ancien jeu (SWR + grâce de 12 h côté /charge : le décalage pouvait
+   * rester invisible une demi-journée). Le projet a déjà payé quatre fois le
+   * bug de clé de cache qui ne reflète pas son entrée — ici l'entrée est une
+   * table locale, l'empreinte se calcule donc à chaque appel sans rien coûter.
+   *
+   * `updatedAt` fait partie de l'empreinte : re-dater une ligne vers sa valeur
+   * précédente, puis revenir, doit produire deux clés distinctes.
+   */
+  async signature(): Promise<string> {
+    const rows = await this.getAll()
+    if (rows.length === 0) return 'none'
+    const payload = rows
+      .map((r) => `${r.numCommande}#${r.ligne}=${r.dateLivraison}@${r.updatedAt}`)
+      .sort()
+      .join('|')
+    return createHash('md5').update(payload).digest('hex').slice(0, 10)
   }
 
   async delete(numCommande: string, ligne: string): Promise<boolean> {

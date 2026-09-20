@@ -52,6 +52,7 @@ import {
   type OfDateMode,
 } from '#services/load_payload_loader'
 import capacityCalendar from '#services/capacity_calendar_service'
+import { OrderLineOverrideStore } from '#services/order_line_override_store'
 
 export type ChargeGran = 'month' | 'week'
 export type ChargeDetailView = 'of' | 'commande'
@@ -181,7 +182,13 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
 
   const ofDate = params.ofDate === 'end' ? 'end' : 'start'
   const applyDemandHorizon = params.applyDemandHorizon ?? true
-  const cacheKey = `detail:charge:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}`
+  // Empreinte des overrides de date : sur la branche « live » (sans version),
+  // le détail redate la demande comme la barre — une clé qui ignorerait l'état
+  // des overrides servirait la table d'avant le déplacement. Sur la branche
+  // versionnée, la version fige déjà le jeu d'overrides dans le snapshot ; la
+  // porter aussi ne coûte rien et évite d'avoir à se souvenir de la nuance.
+  const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
+  const cacheKey = `detail:charge:s2:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({
