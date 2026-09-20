@@ -154,24 +154,35 @@ La frise suit la **vue** (deux lectures différentes de la demande) mais pas les
 brut/net/reste ni heures/pièces, qui sont des réglages de lecture : une décision
 d'organisation ne change pas parce qu'on regarde autrement le même graphe.
 
-### Comment se lit la frise
+### Ce que l'écran affiche — une liste de décisions, pas un dessin
 
-Trois rangées, **une seule grille** : chaque bloc de palier couvre exactement les
-colonnes-semaines situées sous lui. C'est une contrainte de code, pas un réglage
-visuel — deux conteneurs flex « alignés à peu près » répartissent leurs gouttières
-différemment sur 3 blocs et sur 12 colonnes, et la frise finit par dessiner un
-palier au-dessus de semaines qu'il ne couvre pas.
+⚠️ La première version était une frise (paliers + taux de saturation semaine par
+semaine). Elle a été **rejetée par le métier**, et pour une raison qui doit rester
+écrite ici : le graphe juste au-dessus montre déjà la charge et la capacité. La
+frise redisait donc en petit ce qui est lisible en grand, prenait la moitié du
+panneau, et ne répondait pas à la seule question posée — _qu'est-ce que je change,
+quand, et pourquoi ?_ Un **taux de saturation ne dit rien à quelqu'un qui staffe
+des équipes** : il lui faut une date, un verbe et le nombre d'heures qui justifie
+le geste.
 
-1. **Paliers** — la décision : le schéma à annoncer aux équipes, sa durée, les
-   heures à produire sur la période, et la marge (ou la dette, en rouge).
-2. **Semaines** — comment la charge se répartit DANS le palier. Le pourcentage est
-   charge / capacité **sous le schéma de ce palier-là** : deux paliers différents
-   ne se comparent donc pas sur ce chiffre. Le remplissage de la barre est le taux
-   de la semaine ; sa couleur, le verdict **cumulé du palier**. Une semaine à 117 %
-   dans un palier vert n'est pas un retard — c'est l'avance des semaines voisines
-   qui l'absorbe, et c'est précisément le lissage demandé.
-3. **Équipes-jour de l'atelier** — la somme sur tous les postes planifiés, seule
-   ligne qui parle vraiment d'effectif à recruter.
+Le bloc rend donc des phrases, une par décision :
+
+> **Ne rien changer** jusqu'au 18/10 — 1×8 · 5 jours, 105 h à produire pour 105 h ouvertes.
+> **Passer en 2×8 · 5 jours** le lundi 19/10, pendant 3 semaines (jusqu'au 08/11) · +1 équipe.
+> 183 h à produire ; en restant en 1×8 vous n'en ouvrez que 105 h. Atelier S3P : 75 → 85 équipes-jour cette semaine-là.
+
+Trois chiffres portent la phrase, et sont produits par le moteur (`loadHours`,
+`capacityHours`, `keepHours`) : la charge du palier, la capacité du schéma proposé,
+et **la capacité qu'on aurait en ne changeant rien**. Ce dernier est le seul qui
+justifie une bascule ; il se calcule dans `planShifts`, là où la capacité de TOUS
+les schémas candidats est encore disponible — pas dans le composant.
+
+Le cumul d'équipes-jour de l'atelier n'apparaît qu'**au moment d'un changement**
+(`75 → 85`) : c'est là qu'il sert, pour voir si la bascule d'un poste tombe en même
+temps que celle de ses voisins.
+
+**Directive** : si l'envie revient d'y remettre un dessin, c'est que le graphe
+au-dessus manque de quelque chose — c'est lui qu'il faut corriger.
 
 ### Poids du moteur — à caler
 

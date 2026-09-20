@@ -196,6 +196,12 @@ export interface ShiftPlateau {
   debtHours: number
   /** Heures de capacité ouvertes pour rien. */
   idleHours: number
+  /** Charge (h) à produire sur le palier. */
+  loadHours: number
+  /** Capacité (h) ouverte par le schéma retenu. */
+  capacityHours: number
+  /** Capacité (h) qu'on aurait en ne changeant rien — `null` sur le 1er palier. */
+  keepHours: number | null
 }
 
 export interface ShiftPlanLine {

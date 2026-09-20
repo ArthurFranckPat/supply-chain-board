@@ -182,3 +182,43 @@ test.group('shift_plan', () => {
     assert.deepEqual([plan.plateaus[0].from, plan.plateaus[0].to], [0, 1])
   })
 })
+
+test.group('shift_plan — chiffres de la décision', () => {
+  /**
+   * Ce que l'écran affiche n'est pas un taux de saturation mais une phrase :
+   * « X h à produire ; en restant au schéma actuel vous n'en ouvrez que Y ».
+   * Ces trois champs sont ce qui rend cette phrase vraie.
+   */
+  test('un palier expose sa charge, sa capacité et ce que coûte l’immobilisme', ({ assert }) => {
+    // 1×8 puis pic : le moteur doit monter d'un cran, et dire de combien le
+    // schéma précédent serait court.
+    const load = [20, 20, 20, 60, 60, 60, 20, 20, 20]
+    const plan = planShifts(inputFor(pp830({ parallelUnits: 1 }), load), { frozenWeeks: 0 })
+    const peak = plan.plateaus.find((p) => p.schedule.crews === 2)
+
+    assert.isDefined(peak, 'le pic doit faire monter d’une équipe')
+    assert.closeTo(peak!.loadHours, 180, 0.1)
+    // keepHours = capacité du schéma du palier PRÉCÉDENT sur ces semaines.
+    assert.isNotNull(peak!.keepHours)
+    assert.isBelow(peak!.keepHours!, peak!.loadHours, 'sinon la bascule ne se justifie pas')
+    assert.isAbove(peak!.capacityHours, peak!.loadHours)
+  })
+
+  test('le premier palier n’a rien à comparer : keepHours est nul', ({ assert }) => {
+    const plan = planShifts(inputFor(pp830(), new Array(9).fill(40)), { frozenWeeks: 0 })
+    assert.isNull(plan.plateaus[0].keepHours)
+    assert.closeTo(plan.plateaus[0].loadHours, 40 * (plan.plateaus[0].to + 1), 0.1)
+  })
+
+  test('charge et capacité du palier recollent aux semaines affichées', ({ assert }) => {
+    const load = [30, 45, 12, 80, 22, 61, 15, 40, 33, 70, 18, 25]
+    const plan = planShifts(inputFor(pp830(), load))
+    for (const p of plan.plateaus) {
+      const weeks = plan.weeks.filter((w) => w.index >= p.from && w.index <= p.to)
+      const l = weeks.reduce((sum, w) => sum + w.load, 0)
+      const c = weeks.reduce((sum, w) => sum + w.capacity, 0)
+      assert.closeTo(p.loadHours, l, 0.2)
+      assert.closeTo(p.capacityHours, c, 0.2)
+    }
+  })
+})

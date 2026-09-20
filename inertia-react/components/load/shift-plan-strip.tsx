@@ -1,40 +1,37 @@
 import { useMemo } from 'react'
 import { cn } from '@r/lib/utils'
-import type { ShiftPlanLine, ShiftPlanPayload, ShiftWeekState } from '@r/lib/load/types'
+import type { ShiftPlanLine, ShiftPlanPayload, ShiftPlateau } from '@r/lib/load/types'
 
 /**
- * Frise « Organisation du poste » — le schéma horaire proposé semaine par semaine
- * sur l'horizon court (lot 1, lecture seule).
+ * « Organisation du poste » — ce que le responsable d'atelier doit FAIRE, et quand.
  *
- * Le livrable visuel n'est pas la colonne, c'est le PALIER : un 2×8 tenu trois
- * semaines doit se lire comme un bloc continu, pas comme trois cases identiques
- * qu'on recompose à l'œil. C'est le bloc qui dit au responsable d'atelier ce
- * qu'il annonce à ses équipes ; la rangée de semaines en dessous ne fait que
- * montrer comment la charge se répartit à l'intérieur.
+ * ⚠️ Ce bloc n'est pas une visualisation. La première version en était une (frise
+ * de paliers + taux de saturation semaine par semaine) et elle a été rejetée pour
+ * la bonne raison : le graphe juste au-dessus montre déjà charge et capacité, donc
+ * elle redisait en petit ce qui est lisible en grand, prenait la moitié de l'écran,
+ * et ne répondait pas à la seule question posée — « qu'est-ce que je change, quand,
+ * et pourquoi ». Un taux de saturation ne dit rien à quelqu'un qui staffe des
+ * équipes : il faut une date, un verbe, et le nombre d'heures qui justifie le geste.
  *
- * ⚠️ Paliers et semaines partagent UNE SEULE grille (`gridColumn: span`), jamais
- * deux conteneurs alignés « à peu près » : en flex proportionnel, les gouttières
- * ne se répartissent pas pareil sur 3 blocs et sur 12 colonnes, et un palier se
- * retrouve dessiné au-dessus de semaines qu'il ne couvre pas. La frise disait
- * alors précisément le contraire de ce qu'elle calcule.
+ * Donc : une liste de décisions. Pas de pourcentage, pas de barre, pas de frise.
+ * Si on est tenté d'y remettre un dessin, c'est que le graphe au-dessus manque de
+ * quelque chose — c'est lui qu'il faut corriger.
  */
 
-/**
- * Couleur d'état d'une semaine. L'état est celui du PALIER (verdict cumulé) ;
- * le remplissage de la barre, lui, est le taux de la semaine seule. Les deux
- * doivent rester distincts : une semaine à 117 % dans un palier qui tient n'est
- * pas un retard, c'est du lissage.
- */
-const STATE_STYLE: Record<ShiftWeekState, { fill: string; label: string }> = {
-  tenu: { fill: 'bg-emerald-500', label: 'palier tenu' },
-  sous_charge: { fill: 'bg-muted-foreground/40', label: 'capacité en excès sur le palier' },
-  retard: { fill: 'bg-red-500', label: 'palier en retard' },
+const DAY_MS = 86_400_000
+
+/** « 19/10 » à partir d'un lundi ISO, décalé de `plusDays` jours. */
+const fmt = (iso: string, plusDays = 0): string => {
+  const d = new Date(`${iso}T12:00:00`)
+  const x = new Date(d.getTime() + plusDays * DAY_MS)
+  return `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}`
 }
 
-/** Libellé court d'une semaine ISO : « 22/09 ». */
-const weekLabel = (iso: string): string => {
-  const [, m, d] = iso.split('-')
-  return d && m ? `${d}/${m}` : iso
+const hours = (h: number): string => `${Math.round(h)} h`
+
+const weeksLabel = (p: ShiftPlateau): string => {
+  const n = p.to - p.from + 1
+  return `${n} semaine${n > 1 ? 's' : ''}`
 }
 
 export interface ShiftPlanStripProps {
@@ -57,10 +54,9 @@ export function ShiftPlanStrip({
 }: ShiftPlanStripProps) {
   const line = useMemo(() => lines.find((l) => l.code === code), [lines, code])
 
-  // Équipes-jour de tout l'atelier, semaine par semaine : ce que le responsable
-  // staffe réellement. Deux postes qui basculent en sens inverse la même semaine
-  // laissent ce total plat — c'est une bonne nouvelle, et elle ne se voit que
-  // sur la somme.
+  // Équipes-jour de tout l'atelier, semaine par semaine. Affichées seulement AU
+  // MOMENT d'un changement : c'est là qu'elles servent — savoir si la bascule
+  // d'un poste tombe en même temps que celle des voisins.
   const atelierCrewDays = useMemo(() => {
     const total = payload.weekKeys.map(() => 0)
     for (const l of lines) {
@@ -73,7 +69,7 @@ export function ShiftPlanStrip({
   if (!line) {
     const skip = payload.skipped.find((s) => s.code === code)
     return (
-      <div className="mt-3 flex-none rounded-lg border border-dashed border-rule px-4 py-3 text-[12px] text-muted-foreground">
+      <div className="mt-3 flex-none rounded-lg border border-dashed border-rule px-4 py-2.5 text-[12px] text-muted-foreground">
         {skip?.reason === 'hors_catalogue'
           ? 'Schéma horaire X3 hors catalogue (semaine trouée ou feu continu) : ce poste garde ' +
             'sa capacité X3 telle quelle — l’arrondir en équipes en fausserait la lecture.'
@@ -82,144 +78,109 @@ export function ShiftPlanStrip({
     )
   }
 
-  const { plateaus, weeks, switches } = line.plan
-  const n = payload.weekKeys.length
-  const cols = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }
+  const { plateaus } = line.plan
   const currentLabel =
     payload.catalog.find((s) => s.code === line.current)?.label ?? line.current ?? '—'
+  const first = plateaus[0]
+  const changes = plateaus.slice(1)
+  const lastKey = payload.weekKeys.at(-1) ?? ''
 
   return (
-    <div className="mt-3 flex-none rounded-lg border border-rule bg-card p-4">
-      <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <div className="mt-3 flex-none rounded-lg border border-rule bg-card px-4 py-3">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="font-fraunces text-[15px] font-extrabold tracking-tight">
           Organisation du poste
         </h3>
-        <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-          schéma actuel <span className="font-semibold text-foreground">{currentLabel}</span>
-          {' · '}
-          {switches === 0 ? 'aucun changement' : `${switches} changement${switches > 1 ? 's' : ''}`}
+        <span className="font-mono text-[11px] text-muted-foreground">
+          aujourd’hui <span className="font-semibold text-foreground">{currentLabel}</span>
         </span>
       </div>
-      <p className="mb-3 text-[12px] leading-snug text-muted-foreground">
-        Schéma horaire à tenir sur {n} semaines, par paliers de 3 minimum, calculé sur le reste à
-        produire. Chaque palier couvre exactement les semaines situées sous lui, et le taux d’une
-        semaine se lit <span className="text-foreground">sous le schéma de son propre palier</span>{' '}
-        — deux paliers différents ne se comparent donc pas sur le pourcentage.
-      </p>
 
-      {/* Paliers ET semaines dans la MÊME grille : le bloc couvre ses colonnes. */}
-      <div className="grid gap-1" style={cols}>
-        {plateaus.map((p) => {
-          const span = p.to - p.from + 1
-          const inDebt = p.debtHours > 0
-          const load = weeks.slice(p.from, p.to + 1).reduce((sum, w) => sum + w.load, 0)
-          return (
-            <div
-              key={p.from}
-              style={{ gridColumn: `span ${span} / span ${span}` }}
-              className={cn(
-                'min-w-0 rounded-md border px-3 py-2',
-                inDebt ? 'border-red-500/40 bg-red-500/5' : 'border-rule bg-secondary'
-              )}
-              title={`Semaines du ${payload.weekKeys[p.from]} au ${payload.weekKeys[p.to]}`}
-            >
-              <div className="flex items-baseline gap-2">
-                <span className="truncate font-fraunces text-[14px] font-extrabold tracking-tight">
-                  {p.schedule.label}
+      <ol className="space-y-1.5 text-[12.5px] leading-snug">
+        {/* Premier palier : on ne change rien, et on dit jusqu'à quand. */}
+        {first && (
+          <li className="flex gap-2.5">
+            <span className="mt-[3px] h-1.5 w-1.5 flex-none rounded-full bg-muted-foreground/40" />
+            <span>
+              <span className="font-semibold">Ne rien changer</span> jusqu’au{' '}
+              {fmt(payload.weekKeys[first.to] ?? '', 6)}
+              {changes.length === 0 && ' (fin de l’horizon)'} — {first.schedule.label},{' '}
+              {hours(first.loadHours)} à produire pour {hours(first.capacityHours)} ouvertes.
+              {first.debtHours > 0 && (
+                <span className="font-semibold text-red-600">
+                  {' '}
+                  Il manque {hours(first.debtHours)} : le retard glissera, le schéma actuel ne les
+                  rattrape pas.
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground">{span} sem.</span>
-                {p.frozen && (
-                  <span
-                    className="rounded-full border border-rule px-1.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground"
-                    title="Préavis : les premières semaines gardent le schéma actuel — on ne change pas l’organisation d’un atelier pour lundi prochain."
-                  >
-                    préavis
-                  </span>
-                )}
-              </div>
-              <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                {p.schedule.crews} équipe{p.schedule.crews > 1 ? 's' : ''} · {p.schedule.openDays} j
-                {' · '}
-                {load <= 0 ? (
-                  <span>aucune charge sur ces semaines</span>
-                ) : inDebt ? (
-                  <span className="font-semibold text-red-600">ne tient pas {p.debtHours} h</span>
-                ) : (
-                  <span>
-                    {Math.round(load)} h à produire
-                    {p.idleHours > 0 && ` · ${p.idleHours} h de marge`}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
+              )}
+            </span>
+          </li>
+        )}
 
-        {/* Semaines — la répartition de la charge à l'intérieur des paliers. */}
-        {weeks.map((w) => {
-          const rate = w.capacity > 0 ? Math.round((w.load / w.capacity) * 100) : 0
-          const st = STATE_STYLE[w.state]
-          const over = rate > 100
+        {/* Les décisions. Verbe, date, effectif, puis le chiffre qui les justifie. */}
+        {changes.map((p) => {
+          const prev = plateaus[plateaus.indexOf(p) - 1]
+          const delta = p.schedule.crews - prev.schedule.crews
+          const up = delta > 0
+          const before = atelierCrewDays[p.from - 1] ?? 0
+          const after = atelierCrewDays[p.from] ?? 0
+          const isLast = p.to === payload.weekKeys.length - 1
           return (
-            <div
-              key={w.index}
-              className="min-w-0 rounded border border-rule/60 px-1 py-1 text-center"
-              title={`Semaine du ${payload.weekKeys[w.index]} — ${Math.round(w.load)} h à produire pour ${Math.round(w.capacity)} h ouvertes en ${w.crewDays} équipes-jour · ${st.label}`}
-            >
-              <div className="font-mono text-[9px] text-muted-foreground">
-                {weekLabel(payload.weekKeys[w.index] ?? '')}
-              </div>
-              <div
+            <li key={p.from} className="flex gap-2.5">
+              <span
                 className={cn(
-                  'font-mono text-[11px] font-semibold tabular-nums',
-                  over && 'text-amber-600'
+                  'mt-[3px] h-1.5 w-1.5 flex-none rounded-full',
+                  delta === 0 ? 'bg-muted-foreground/40' : up ? 'bg-amber-500' : 'bg-emerald-500'
                 )}
-              >
-                {w.capacity > 0 ? `${rate}%` : '—'}
-              </div>
-              {/* Jauge : le REMPLISSAGE est le taux de la semaine, la COULEUR le verdict du palier. */}
-              <div className="mx-auto mt-0.5 h-1 w-full overflow-hidden rounded-full bg-muted-foreground/15">
-                <div
-                  className={cn('h-full rounded-full', st.fill)}
-                  style={{ width: `${Math.min(100, Math.max(0, rate))}%` }}
-                />
-              </div>
-            </div>
+              />
+              <span>
+                <span className="font-semibold">
+                  {delta === 0
+                    ? `Réorganiser la semaine en ${p.schedule.label}`
+                    : up
+                      ? `Passer en ${p.schedule.label}`
+                      : `Revenir en ${p.schedule.label}`}
+                </span>{' '}
+                le lundi {fmt(payload.weekKeys[p.from] ?? '')}, pendant {weeksLabel(p)}
+                {isLast
+                  ? ` (jusqu’à la fin de l’horizon, ${fmt(lastKey, 6)})`
+                  : ` (jusqu’au ${fmt(payload.weekKeys[p.to] ?? '', 6)})`}
+                {delta !== 0 && (
+                  <span className={cn('font-semibold', up ? 'text-amber-700' : 'text-emerald-700')}>
+                    {' · '}
+                    {delta > 0 ? `+${delta}` : delta} équipe{Math.abs(delta) > 1 ? 's' : ''}
+                  </span>
+                )}
+                {'. '}
+                <span className="text-muted-foreground">
+                  {hours(p.loadHours)} à produire
+                  {p.keepHours !== null &&
+                    (up
+                      ? ` ; en restant en ${prev.schedule.label} vous n’en ouvrez que ${hours(p.keepHours)}.`
+                      : ` ; le ${prev.schedule.label} en ouvrirait ${hours(p.keepHours)}.`)}
+                  {before > 0 && after !== before && (
+                    <>
+                      {' '}
+                      Atelier {atelierLabel} : {before} → {after} équipes-jour cette semaine-là.
+                    </>
+                  )}
+                </span>
+                {p.debtHours > 0 && (
+                  <span className="font-semibold text-red-600">
+                    {' '}
+                    Même ainsi il manque {hours(p.debtHours)}.
+                  </span>
+                )}
+              </span>
+            </li>
           )
         })}
-      </div>
+      </ol>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-muted-foreground">
-        <span>barre = charge de la semaine / capacité ouverte</span>
-        <span className="flex items-center gap-1">
-          <span className="h-1 w-4 rounded-full bg-emerald-500" /> palier tenu
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-1 w-4 rounded-full bg-muted-foreground/40" /> capacité en excès
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-1 w-4 rounded-full bg-red-500" /> palier en retard
-        </span>
-        <span className="text-amber-600">au-delà de 100 % : absorbé ailleurs dans le palier</span>
-      </div>
-
-      {/* Effectif de l'atelier : la somme, parce que c'est elle qu'on recrute. */}
-      <div className="mt-3 border-t border-rule pt-2">
-        <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {atelierLabel} · équipes-jour par semaine (tous postes planifiés)
-        </div>
-        <div className="grid gap-1" style={cols}>
-          {atelierCrewDays.map((c, i) => (
-            <div
-              key={payload.weekKeys[i]}
-              className="rounded bg-secondary py-0.5 text-center font-mono text-[11px] font-semibold tabular-nums"
-              title={`Semaine du ${payload.weekKeys[i]} — ${c} équipes-jour à staffer sur l’atelier`}
-            >
-              {c}
-            </div>
-          ))}
-        </div>
-      </div>
+      <p className="mt-2 border-t border-rule pt-1.5 font-mono text-[10px] text-muted-foreground">
+        Calculé sur le reste à produire, {payload.weekKeys.length} semaines, paliers de 3 minimum —
+        un schéma se tient, il ne se change pas d’une semaine sur l’autre.
+      </p>
     </div>
   )
 }

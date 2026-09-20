@@ -129,6 +129,21 @@ export interface ShiftPlateau {
   debtHours: number
   /** Heures de capacité ouvertes pour rien sur le palier. */
   idleHours: number
+  /** Charge (h) à produire sur le palier — le « combien » de la décision. */
+  loadHours: number
+  /** Capacité (h) ouverte par le schéma retenu sur le palier. */
+  capacityHours: number
+  /**
+   * Capacité (h) qu'on aurait en NE CHANGEANT RIEN, c'est-à-dire sous le schéma
+   * du palier précédent. `null` sur le premier palier, qui ne change rien par
+   * définition.
+   *
+   * C'est le seul chiffre qui justifie une bascule à un responsable d'atelier :
+   * « 111 h à produire, 105 h si tu restes en 1×8 ». Un taux de saturation ne le
+   * dit pas — il faut le calculer ici, pendant qu'on a encore la capacité de
+   * TOUS les schémas candidats sous la main.
+   */
+  keepHours: number | null
 }
 
 export interface ShiftPlan {
@@ -293,6 +308,14 @@ export function planShifts(
     const choice = solve(cursor, prev)
     if (!choice) break
     const pc = plateauCost(input, cursor, choice.to, choice.schedule, w)
+    let loadHours = 0
+    let capacityHours = 0
+    let keepHours = prev ? 0 : null
+    for (let i = cursor; i <= choice.to; i++) {
+      loadHours += input.load[i] ?? 0
+      capacityHours += input.capacity[i]?.get(choice.schedule.code) ?? 0
+      if (prev && keepHours !== null) keepHours += input.capacity[i]?.get(prev.code) ?? 0
+    }
     plateaus.push({
       from: cursor,
       to: choice.to,
@@ -300,6 +323,9 @@ export function planShifts(
       frozen: cursor === 0 && opt.frozenWeeks > 0 && input.current !== null,
       debtHours: Math.round(pc.debtHours * 10) / 10,
       idleHours: Math.round(pc.idleHours * 10) / 10,
+      loadHours: Math.round(loadHours * 10) / 10,
+      capacityHours: Math.round(capacityHours * 10) / 10,
+      keepHours: keepHours === null ? null : Math.round(keepHours * 10) / 10,
     })
     total += pc.cost + (prev ? w.switch : 0)
     prev = choice.schedule
