@@ -615,7 +615,7 @@ export async function loadChargePayloadData(params: {
   // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
   // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
   // inatteignable au lieu de compter sur l'expiration.
-  const cacheKey = `payload:charge:s4:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
+  const cacheKey = `payload:charge:s5:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 

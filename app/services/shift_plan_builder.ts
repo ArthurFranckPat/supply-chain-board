@@ -7,7 +7,7 @@
  * — un 2×8 le 15 août reste fermé.
  */
 
-import { addDays, isoDay } from '#app/utils/dates'
+import { addDays, isoDay, mondayOf } from '#app/utils/dates'
 import type { Workstation } from '#app/domain/models/workstation'
 import {
   SHIFT_CATALOG,
@@ -64,28 +64,42 @@ function weekFactors(
 /**
  * Construit les plans de tous les postes planifiables.
  *
+ * ⚠️ La fenêtre du plan démarre à la semaine COURANTE, pas à la première semaine
+ * du graphe : celui-ci commence au lundi du 1er du mois, donc jusqu'à quatre
+ * semaines déjà écoulées. Les inclure faisait deux dégâts — des semaines vides à
+ * 0 % en tête de frise, et surtout un préavis intégralement consommé par le
+ * passé, qui proposait donc de basculer en 2×8 dès lundi prochain : exactement ce
+ * que le préavis existe pour empêcher.
+ *
  * @param loadByView Charge hebdo (h) par vue puis par poste, alignée sur `weekKeys`
- *                   COMPLET du graphe — elle est tronquée ici à l'horizon du plan.
+ *                   COMPLET du graphe — elle est recadrée ici sur l'horizon du plan.
  */
 export function buildShiftPlans(params: {
   workstations: Workstation[]
   calendar: { factor(w: Workstation, iso: string): number } | null
   weekKeys: string[]
   loadByView: { of: Map<string, number[]>; commande: Map<string, number[]> }
+  /** Jour de référence — injecté pour que le recadrage soit testable. */
+  today?: Date
 }): ShiftPlanPayload {
   const { workstations, calendar, loadByView } = params
-  const weekKeys = params.weekKeys.slice(0, SHIFT_PLAN_WEEKS)
+  const firstMonday = isoDay(mondayOf(params.today ?? new Date()))
+  const found = params.weekKeys.findIndex((k) => k >= firstMonday)
+  const offset = found < 0 ? 0 : found
+  const weekKeys = params.weekKeys.slice(offset, offset + SHIFT_PLAN_WEEKS)
   const skipped: { code: string; reason: ShiftPlanSkip }[] = []
   const of: ShiftPlanLine[] = []
   const commande: ShiftPlanLine[] = []
 
   for (const w of workstations) {
     const current = currentScheduleOf(w)
-    const loads = [loadByView.of.get(w.code), loadByView.commande.get(w.code)]
-    const hasLoad = loads.some((l) => (l ?? []).slice(0, SHIFT_PLAN_WEEKS).some((h) => h > 0))
+    const crop = (l: number[] | undefined): number[] => weekKeys.map((_, i) => l?.[offset + i] ?? 0)
+    const loads = [crop(loadByView.of.get(w.code)), crop(loadByView.commande.get(w.code))]
+    const known = loadByView.of.has(w.code) || loadByView.commande.has(w.code)
+    const hasLoad = loads.some((l) => l.some((h) => h > 0))
     if (!hasLoad) {
       // Pas de charge sur l'horizon : rien à organiser. Signalé sans être planifié.
-      if (loads.some((l) => l !== undefined)) skipped.push({ code: w.code, reason: 'sans_charge' })
+      if (known) skipped.push({ code: w.code, reason: 'sans_charge' })
       continue
     }
     if (!current) {
@@ -104,8 +118,8 @@ export function buildShiftPlans(params: {
       crewDays.push(new Map(SHIFT_CATALOG.map((s) => [s.code, weeklyCrewDaysUnder(s, factors)])))
     }
 
-    const run = (load: number[] | undefined): ShiftPlanInput => ({
-      load: weekKeys.map((_, i) => load?.[i] ?? 0),
+    const run = (load: number[]): ShiftPlanInput => ({
+      load,
       capacity,
       crewDays,
       current,

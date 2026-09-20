@@ -122,9 +122,34 @@ Sur le **reste à produire**, pour les deux vues (OF et commande), sur **12 sema
 — plus court que les 6 mois du graphe : au-delà d'un trimestre la charge est surtout
 prévisionnelle, et proposer une organisation dessus serait de la fausse précision.
 
+La fenêtre démarre à la **semaine courante**, pas à la première semaine du graphe
+(qui commence au lundi du 1er du mois, donc jusqu'à quatre semaines écoulées).
+Inclure ces semaines mettait des colonnes à 0 % en tête de frise et, surtout,
+consommait le préavis dans le passé : le plan proposait alors de basculer en 2×8
+dès lundi prochain — exactement ce que le préavis existe pour empêcher.
+
 La frise suit la **vue** (deux lectures différentes de la demande) mais pas les crans
 brut/net/reste ni heures/pièces, qui sont des réglages de lecture : une décision
 d'organisation ne change pas parce qu'on regarde autrement le même graphe.
+
+### Comment se lit la frise
+
+Trois rangées, **une seule grille** : chaque bloc de palier couvre exactement les
+colonnes-semaines situées sous lui. C'est une contrainte de code, pas un réglage
+visuel — deux conteneurs flex « alignés à peu près » répartissent leurs gouttières
+différemment sur 3 blocs et sur 12 colonnes, et la frise finit par dessiner un
+palier au-dessus de semaines qu'il ne couvre pas.
+
+1. **Paliers** — la décision : le schéma à annoncer aux équipes, sa durée, les
+   heures à produire sur la période, et la marge (ou la dette, en rouge).
+2. **Semaines** — comment la charge se répartit DANS le palier. Le pourcentage est
+   charge / capacité **sous le schéma de ce palier-là** : deux paliers différents
+   ne se comparent donc pas sur ce chiffre. Le remplissage de la barre est le taux
+   de la semaine ; sa couleur, le verdict **cumulé du palier**. Une semaine à 117 %
+   dans un palier vert n'est pas un retard — c'est l'avance des semaines voisines
+   qui l'absorbe, et c'est précisément le lissage demandé.
+3. **Équipes-jour de l'atelier** — la somme sur tous les postes planifiés, seule
+   ligne qui parle vraiment d'effectif à recruter.
 
 ### Poids du moteur — à caler
 
