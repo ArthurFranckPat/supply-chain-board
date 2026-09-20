@@ -47,6 +47,7 @@ import {
 import type { Flow } from '#app/domain/models/flow'
 import { isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
 import { buildShiftPlans } from '#services/shift_plan_builder'
+import { firstVisibleWeek } from '#app/domain/charge_window'
 
 /**
  * Shapes émis vers la page Inertia. Miroir côté client : inertia-react/lib/load/types.ts
@@ -615,7 +616,7 @@ export async function loadChargePayloadData(params: {
   // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
   // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
   // inatteignable au lieu de compter sur l'expiration.
-  const cacheKey = `payload:charge:s5:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
+  const cacheKey = `payload:charge:s6:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -863,6 +864,50 @@ export async function loadChargePayloadData(params: {
       lastMonth.setMonth(monthStart.getMonth() + NB_MONTHS - 1)
       const rangeLabel = `${fmtLong(monthStart)} → ${fmtLong(lastMonth)} ${lastMonth.getFullYear()} · ${NB_MONTHS} mois`
 
+      // ── Fenêtre hebdo : couper les semaines écoulées et vides ─────────
+      // L'horizon part du lundi du 1er du mois : jusqu'à quatre semaines déjà
+      // passées ouvraient le graphe à zéro. On les coupe — SAUF celles qui
+      // portent encore de la charge (OF en retard, besoin non soldé), qui sont
+      // du travail à faire et non de l'histoire. Le mensuel n'est pas touché :
+      // un mois reste un mois.
+      const allLines = [ofLines, cmdLines, cmdLinesWithoutDemandHorizon]
+      const weekHasLoad = (i: number) =>
+        allLines.some((set) =>
+          set.some((l) => {
+            const p = l.weekly[i]
+            return !!p && p.f + p.p + p.s + p.fi + p.si > 0
+          })
+        )
+      const firstWeek = firstVisibleWeek(
+        weekBuckets.map((w) => w.key),
+        weekHasLoad,
+        new Date()
+      )
+      // La capacité est PARTAGÉE entre les lignes des trois jeux (même objet
+      // `capacityByWst`) : la tronquer ligne par ligne la tronquerait plusieurs
+      // fois. Une seule copie par objet source.
+      const trimmedCaps = new Map<LoadLine['capacity'], LoadLine['capacity']>()
+      const trimLine = (l: LoadLine): LoadLine => {
+        let cap = trimmedCaps.get(l.capacity)
+        if (!cap) {
+          cap = { monthly: l.capacity.monthly, weekly: l.capacity.weekly.slice(firstWeek) }
+          trimmedCaps.set(l.capacity, cap)
+        }
+        return {
+          ...l,
+          weekly: l.weekly.slice(firstWeek),
+          weeklyNet: l.weeklyNet.slice(firstWeek),
+          weeklyReste: l.weeklyReste.slice(firstWeek),
+          weeklyQty: l.weeklyQty.slice(firstWeek),
+          weeklyNetQty: l.weeklyNetQty.slice(firstWeek),
+          weeklyResteQty: l.weeklyResteQty.slice(firstWeek),
+          capacity: cap,
+        }
+      }
+      const [ofRows, cmdRows, cmdRowsWithoutDemandHorizon] =
+        firstWeek === 0 ? allLines : allLines.map((set) => set.map(trimLine))
+      const weekRows = weekBuckets.slice(firstWeek)
+
       // ── Plan de schéma horaire (lot 1) ────────────────────────────────
       // Planifié sur le RESTE À PRODUIRE : c'est le cran par défaut de la page,
       // et le seul des trois qui réponde à « qu'est-ce qu'il reste à faire ? ».
@@ -882,15 +927,15 @@ export async function loadChargePayloadData(params: {
       const shiftPlan = buildShiftPlans({
         workstations,
         calendar,
-        weekKeys: weekBuckets.map((w) => w.key),
+        weekKeys: weekRows.map((w) => w.key),
         loadByView: {
-          of: weeklyLoadOf(ofLines, false),
-          commande: weeklyLoadOf(cmdLines, true),
+          of: weeklyLoadOf(ofRows, false),
+          commande: weeklyLoadOf(cmdRows, true),
         },
       })
 
       const ateliers = new Map<string, { code: string; label: string; category: AtelierCategory }>()
-      for (const l of [...ofLines, ...cmdLines, ...cmdLinesWithoutDemandHorizon]) {
+      for (const l of [...ofRows, ...cmdRows, ...cmdRowsWithoutDemandHorizon]) {
         if (l.atelier && !ateliers.has(l.atelier)) {
           ateliers.set(l.atelier, { code: l.atelier, label: l.atelierLabel, category: l.category })
         }
@@ -906,15 +951,15 @@ export async function loadChargePayloadData(params: {
         // total de table aligné sur la hauteur de la barre, snapshot compris.
         version,
         months: monthBuckets.map((m) => m.label),
-        weeks: weekBuckets.map((w) => w.label),
+        weeks: weekRows.map((w) => w.label),
         // Clés de bucket (non affichées) : le client les renvoie telles quelles
         // pour demander le détail d'une période — pas d'index positionnel, qui
         // se décalerait dès que l'horizon glisse.
         monthKeys: monthBuckets.map((m) => m.key),
-        weekKeys: weekBuckets.map((w) => w.key),
-        ofLines,
-        cmdLines,
-        cmdLinesWithoutDemandHorizon,
+        weekKeys: weekRows.map((w) => w.key),
+        ofLines: ofRows,
+        cmdLines: cmdRows,
+        cmdLinesWithoutDemandHorizon: cmdRowsWithoutDemandHorizon,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
         /** Proposition de schéma horaire par poste sur l'horizon court (lot 1). */
         shiftPlan,

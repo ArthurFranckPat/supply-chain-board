@@ -7,7 +7,7 @@
  * — un 2×8 le 15 août reste fermé.
  */
 
-import { addDays, isoDay, mondayOf } from '#app/utils/dates'
+import { addDays, isoDay } from '#app/utils/dates'
 import type { Workstation } from '#app/domain/models/workstation'
 import {
   SHIFT_CATALOG,
@@ -64,36 +64,30 @@ function weekFactors(
 /**
  * Construit les plans de tous les postes planifiables.
  *
- * ⚠️ La fenêtre du plan démarre à la semaine COURANTE, pas à la première semaine
- * du graphe : celui-ci commence au lundi du 1er du mois, donc jusqu'à quatre
- * semaines déjà écoulées. Les inclure faisait deux dégâts — des semaines vides à
- * 0 % en tête de frise, et surtout un préavis intégralement consommé par le
- * passé, qui proposait donc de basculer en 2×8 dès lundi prochain : exactement ce
- * que le préavis existe pour empêcher.
+ * ⚠️ Les `weekKeys` reçus doivent DÉJÀ commencer là où la page commence : le
+ * choix des semaines écoulées à couper appartient à `firstVisibleWeek`
+ * (`app/domain/charge_window.ts`), pas ici. Deux endroits qui décident chacun de
+ * leur fenêtre, et le plan finit décalé d'une semaine par rapport au graphe
+ * qu'il commente — ou ampute la charge résiduelle que le graphe, lui, conserve.
  *
  * @param loadByView Charge hebdo (h) par vue puis par poste, alignée sur `weekKeys`
- *                   COMPLET du graphe — elle est recadrée ici sur l'horizon du plan.
+ *                   — tronquée ici à l'horizon du plan.
  */
 export function buildShiftPlans(params: {
   workstations: Workstation[]
   calendar: { factor(w: Workstation, iso: string): number } | null
   weekKeys: string[]
   loadByView: { of: Map<string, number[]>; commande: Map<string, number[]> }
-  /** Jour de référence — injecté pour que le recadrage soit testable. */
-  today?: Date
 }): ShiftPlanPayload {
   const { workstations, calendar, loadByView } = params
-  const firstMonday = isoDay(mondayOf(params.today ?? new Date()))
-  const found = params.weekKeys.findIndex((k) => k >= firstMonday)
-  const offset = found < 0 ? 0 : found
-  const weekKeys = params.weekKeys.slice(offset, offset + SHIFT_PLAN_WEEKS)
+  const weekKeys = params.weekKeys.slice(0, SHIFT_PLAN_WEEKS)
   const skipped: { code: string; reason: ShiftPlanSkip }[] = []
   const of: ShiftPlanLine[] = []
   const commande: ShiftPlanLine[] = []
 
   for (const w of workstations) {
     const current = currentScheduleOf(w)
-    const crop = (l: number[] | undefined): number[] => weekKeys.map((_, i) => l?.[offset + i] ?? 0)
+    const crop = (l: number[] | undefined): number[] => weekKeys.map((_, i) => l?.[i] ?? 0)
     const loads = [crop(loadByView.of.get(w.code)), crop(loadByView.commande.get(w.code))]
     const known = loadByView.of.has(w.code) || loadByView.commande.has(w.code)
     const hasLoad = loads.some((l) => l.some((h) => h > 0))

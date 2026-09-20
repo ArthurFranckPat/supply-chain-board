@@ -56,6 +56,30 @@ même valeur des deux côtés. Les valeurs X3 nulles ou à zéro restent neutres
 - totaux et lignes de capacité **rouges** quand charge > capacité ;
 - badge **taux de saturation** (charge / capacité) sur le poste sélectionné.
 
+## Semaines affichées (`app/domain/charge_window.ts`)
+
+L'horizon part du 1er du mois courant, donc du **lundi qui le contient** : jusqu'à
+quatre semaines déjà écoulées ouvraient le graphe. Vides, elles n'apportaient rien
+et poussaient la charge réelle vers la droite ; dans le plan de schéma horaire,
+elles consommaient en plus tout le préavis, qui proposait donc de changer
+d'organisation dès lundi prochain.
+
+`firstVisibleWeek(weekKeys, hasLoad, today)` coupe le **préfixe** de semaines
+écoulées **et vides**, rien de plus :
+
+- une semaine passée qui porte encore de la charge (OF en retard, besoin non
+  soldé) **reste** — c'est du travail à faire, pas de l'histoire — et tout ce qui
+  la suit reste avec elle ;
+- la semaine courante n'est jamais coupée, même vide ;
+- horizon entièrement révolu (l'utilisateur a visé un vieux mois) : rien n'est
+  coupé, on lui montre ce qu'il a demandé plutôt qu'une page blanche.
+
+Le recadrage s'applique **en fin de calcul**, dans `load_payload_loader`, sur les
+trois jeux de lignes (`ofLines`, `cmdLines`, `cmdLinesWithoutDemandHorizon`) et sur
+la capacité. ⚠️ La capacité est un objet **partagé** entre les jeux : la tronquer
+ligne par ligne la tronquerait plusieurs fois — d'où la copie unique par objet
+source. Les buckets **mensuels** ne sont pas touchés : un mois reste un mois.
+
 ## Atelier & classification montage / fabrication (#36)
 
 `STOLOC_0` rattache chaque poste à un atelier ; exposé comme filtre transverse
@@ -122,11 +146,9 @@ Sur le **reste à produire**, pour les deux vues (OF et commande), sur **12 sema
 — plus court que les 6 mois du graphe : au-delà d'un trimestre la charge est surtout
 prévisionnelle, et proposer une organisation dessus serait de la fausse précision.
 
-La fenêtre démarre à la **semaine courante**, pas à la première semaine du graphe
-(qui commence au lundi du 1er du mois, donc jusqu'à quatre semaines écoulées).
-Inclure ces semaines mettait des colonnes à 0 % en tête de frise et, surtout,
-consommait le préavis dans le passé : le plan proposait alors de basculer en 2×8
-dès lundi prochain — exactement ce que le préavis existe pour empêcher.
+La fenêtre est celle du graphe, déjà recadrée par `firstVisibleWeek` (voir
+ci-dessus) : le plan ne redécide pas de ses semaines, sinon il commenterait un
+graphe décalé d'une case — ou amputerait la charge résiduelle que le graphe garde.
 
 La frise suit la **vue** (deux lectures différentes de la demande) mais pas les crans
 brut/net/reste ni heures/pièces, qui sont des réglages de lecture : une décision
