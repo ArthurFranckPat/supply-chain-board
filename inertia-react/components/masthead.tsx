@@ -29,7 +29,6 @@ export type MastheadTab =
   | 'sequenceur'
   | 'load'
   | 'approvisionnement'
-  | 'ruptures'
   | 'tracking'
   | 'receptions'
   | 'conditionnements'
@@ -83,7 +82,6 @@ const ORDONNANCEMENT_GROUPS: TabGroup[] = [
     tabs: [
       { key: 'programme', label: 'Programme', href: route('scheduler.programme') },
       { key: 'sequenceur', label: 'Séquenceur', href: route('sequenceur.index') },
-      { key: 'ruptures', label: 'Ruptures composants', href: route('scheduler.shortage_tracker') },
     ],
   },
 ]

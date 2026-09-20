@@ -182,12 +182,6 @@ const APPRO_NAV: DashboardNavGroup[] = [
         icon: RiListOrdered,
         href: route('sequenceur.index'),
       },
-      {
-        key: 'ruptures',
-        label: 'Ruptures composants',
-        icon: RiAlertLine,
-        href: route('scheduler.shortage_tracker'),
-      },
     ],
   },
   {

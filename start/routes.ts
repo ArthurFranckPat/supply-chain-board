@@ -108,7 +108,6 @@ router
     router
       .get('/planification', ({ response }) => response.redirect('/programme?mode=planification'))
       .as('planning')
-    router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router

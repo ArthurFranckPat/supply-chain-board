@@ -125,12 +125,6 @@ declare module '@adonisjs/inertia/types' {
     'promesse': Record<string, never>
     // Copilote agentique v1 — chat SSE (jetable #77).
     'copilote': Record<string, never>
-    'scheduler/shortages': {
-      horizon: number
-      windowStart: string
-      dateRange: string
-      rowsHref: string
-    }
     'scheduler/tracking': {
       rowsHref: string
       proactiveRowsHref: string

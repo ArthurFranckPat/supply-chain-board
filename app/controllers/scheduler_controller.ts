@@ -82,15 +82,6 @@ interface DetailPayload {
 // ---------------------------------------------------------------------------
 // Presentation presets (status → CSS classes)
 // ---------------------------------------------------------------------------
-
-/** Formatte une date ISO (YYYY-MM-DD) en JJ/MM/AA — '' si absente. */
-function fmtFrShort(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  return `${m[3]}/${m[2]}/${m[1].slice(2)}`
-}
-
 // ---------------------------------------------------------------------------
 // Issue #21 — Vision unifiée OF ↔ commandes. Le board est IDENTIQUE à
 // /ordonnancement (réutilise loadBoardData + <BoardGrid>) ; vision n'ajoute que
@@ -405,37 +396,6 @@ export default class SchedulerController {
       ),
       feasibilityWindow: summaries.window,
       x3Error: null,
-    })
-  }
-
-  /**
-   * GET /ruptures — coquille (shell) Inertia du suivi des ruptures (issue #15/#16).
-   * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en différé
-   * côté client (fetch JSON) depuis `/api/v1/planning/shortages/rows` → page réactive Solid.
-   */
-  async shortageTracker(ctx: HttpContext) {
-    const startParam = ctx.request.input('start') as string | undefined
-    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-    const force = !!ctx.request.input('refresh')
-
-    const windowFrom = startParam ? new Date(startParam) : new Date()
-    windowFrom.setHours(0, 0, 0, 0)
-
-    const navIso = (deltaDays: number) => {
-      const d = new Date(windowFrom)
-      d.setDate(d.getDate() + deltaDays)
-      return isoDay(d)
-    }
-    const startIso = isoDay(windowFrom)
-    // refresh=1 volontairement ABSENT du choix de fenêtre : sinon un clic « Actualiser »
-    // se propagerait à chaque changement de plage → purge du cache global à chaque navigation.
-    return ctx.inertia.render('scheduler/shortages', {
-      horizon,
-      windowStart: startIso,
-      // URL du fragment différé (calcul lourd côté serveur). Seul endroit où refresh survit.
-      rowsHref: `/api/v1/planning/shortages/rows?start=${startIso}&days=${horizon}${force ? '&refresh=1' : ''}`,
-      dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
     })
   }
 
