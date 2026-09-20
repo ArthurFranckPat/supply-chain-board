@@ -12,8 +12,9 @@ description: >
 
 # État hebdomadaire des commandes export
 
-> **BROUILLON** — la doctrine ci-dessous est arrêtée, les briques techniques
-> qu'elle appelle ne sont pas encore construites. Voir « Reste à construire ».
+> **État** : extraction et verdict livrés et vérifiés sur données réelles
+> (semaine 37/2026 : 89 lignes dues, 95,5 % de ponctualité, 4 retards).
+> Causes, persistance et envoi restent à construire — voir la fin du fichier.
 
 ## Mission
 
@@ -30,17 +31,30 @@ porte une cause exploitable six mois plus tard.
 |---|---|
 | Quelles lignes ? | Celles **dues** en S-1, livrées ou non. Une ligne due et jamais partie est le pire des retards : elle reste dans l'état. |
 | Semaine S-1 | Lundi → dimanche ISO précédant le jour d'exécution. |
-| Export | `SORDER.BPCCRY_0 <> 'FR'` — **pays du client**, pas du lieu de livraison. |
+| Export | `SORDER.BPCCRY_0 <> 'FR'` — **pays du client** donneur d'ordre, pas le lieu de livraison. À ne pas confondre avec le filtre `__export__` du dashboard OTD, qui écarte les clients dont le **nom** contient « aldes » : deux questions différentes, deux populations différentes. |
 | Référence du retard | Date **acceptée** (`SHIDAT_0`) = l'engagement pris. |
 | Date demandée | `X4HSHIDAT_0` affichée en second : quand elle est antérieure à l'acceptée, le retard est commercial, pas industriel. Ne jamais confondre les deux. |
-| Grain | La **ligne** de commande (`SOHNUM_0` + `SOPLIN_0` + `SOQSEQ_0`). Jamais d'agrégat par commande : une commande partiellement à l'heure n'existe pas. |
+| Grain | Commande × article × date d'engagement. Les lignes d'un même article à la même date sont sommées (comme le KPI du dashboard), mais **jamais** d'agrégat par commande : une commande partiellement à l'heure n'existe pas. |
 | Tolérance | Celle du dashboard OTD : vendredi → +3 j, samedi → +2 j, sinon +1 j. Identique à la carte OTD pour que les deux chiffres ne divergent jamais. |
 
 ## Étape 1 — Extraire
 
 ```bash
-node ace otd:hebdo --semaine=S-1 --export --json
+node ace otd:hebdo            # semaine dernière, tableau lisible
+node ace otd:hebdo --json     # sortie JSON, à consommer par ce skill
+node ace otd:hebdo --recul=3  # rejouer S-3
 ```
+
+**Attention** : sur ce worktree, `node ace` est cassé sous Node 26 (`Invalid
+command exported from "cache_verify.js" — Invalid URL`, y compris sur `node ace
+list`). Passif d'environnement, antérieur à cette commande. Tant qu'il n'est pas
+réglé, exécuter la même chose hors ace :
+
+```bash
+dotenvx run -q -- node --import @poppinss/ts-exec bin/<script>.ts
+```
+en important `OtdRepository.getEtatExport(from, to)` après un boot Ignitor
+(modèle : `bin/diag_proactive.ts`).
 
 La commande s'appuie sur `app/repositories/otd_repository.ts`, **seule maison de
 la définition de ponctualité**. Ne jamais écrire de SQL OTD dans ce skill : deux
@@ -51,9 +65,22 @@ Champs X3 mobilisés (pour lecture, pas pour réécriture) :
 
 - `SORDERQ` : `SOHNUM_0`, `SOPLIN_0`, `SOQSEQ_0`, `ITMREF_0`, `QTY_0`, `DLVQTY_0`,
   `SHIDAT_0` (acceptée), `X4HSHIDAT_0` (demandée)
-- `SORDER` : `BPCNUM_0`, `BPCNAM_0`, `BPCCRY_0`, `SOHTYP_0`
+- `SORDER` : `BPCORD_0` (code client donneur d'ordre — **`BPCNUM_0` n'existe
+  pas** sur SORDER, la requête échoue en « resultXml is nil »), `BPCNAM_0`,
+  `BPCCRY_0`, `ORDDAT_0`
 - `SDELIVERY` / `SDELIVERYD` : `SHIDAT_0` = date d'expédition **réelle**
 - `ITMMASTER` : `ITMSTA_0 = 1`, `ITMDES1_0`
+
+Deux pièges vérifiés sur le terrain :
+
+- **Toujours borner sur `Q.SHIDAT_0`.** Une requête non bornée (même un simple
+  `COUNT(*)` sur SORDERQ) expire côté ZSOAPSQL et remonte « resultXml is nil ».
+  L'erreur ne dit pas qu'elle est un timeout — ne pas la lire comme une faute de
+  syntaxe.
+- **Dates sentinelles.** `X4HSHIDAT_0` vaut parfois 31/12/1999 sur les vieilles
+  commandes. Sans garde-fou, toute ligne sentinelle passe pour « délai
+  négocié ». `dateExploitable()` borne à [2000, 2100]. Sur la semaine 37/2026,
+  les 89 lignes étaient renseignées — le champ est fiable, pas vide.
 
 Si l'extraction échoue ou revient vide : **le dire**. Ne jamais compléter de
 mémoire, ne jamais réutiliser l'état de la semaine précédente comme substitut.
@@ -70,6 +97,11 @@ Trois états, et trois seulement :
 
 Signaler à part, sans les compter comme retard industriel, les lignes dont la
 date demandée était antérieure à l'acceptée : le délai a été négocié, pas subi.
+
+Ce bloc n'est pas cosmétique. Semaine 37/2026 : 7 lignes à délai négocié, **toutes
+ponctuelles** au sens de l'engagement — dont une attendue le 22/07 et expédiée le
+11/09. Un état qui ne regarderait que la date acceptée afficherait 95,5 % et
+tairait sept semaines d'attente client.
 
 ## Étape 3 — Causer chaque retard
 
@@ -156,11 +188,27 @@ lundi suivant.
    « cause non documentée ». On ne masque pas ce qu'on n'a pas su expliquer.
 6. Lecture seule côté X3. Ce skill n'écrit rien dans l'ERP.
 
-## Reste à construire
+## État du chantier
 
-- [ ] `commands/otd_hebdo.ts` — la commande ace ci-dessus
-- [ ] `otd_repository` : ajouter `BPCNUM_0` / `BPCCRY_0` au SELECT + filtre export
+Livré et vérifié sur données réelles :
+
+- [x] `otd_repository` : `buildExportSql` + `getEtatExport()` + `resolveSemainePrecedente()`
+- [x] tolérance de ponctualité extraite en `toleranceSql()`, désormais partagée
+      avec le KPI du dashboard — une seule définition, comme promis
+- [x] `commands/otd_hebdo.ts` (écrite, typée, lintée ; exécution bloquée par le
+      kernel ace du worktree, pas par la commande)
+- [x] garde-fou dates sentinelles
+
+Reste à construire :
+
 - [ ] migration `export_delay_reasons` + son store
-- [ ] reconstitution automatique des causes (étape 3a)
+- [ ] reconstitution automatique des causes (étape 3a) — le plus gros morceau
+- [ ] rendu HTML du mail
 - [ ] MCP `office365` à déclarer dans le `.mcp.json` du dépôt
 - [ ] destinataires du mail — **non renseignés à ce jour**
+
+Angles morts assumés, à trancher sur données :
+
+- lignes soldées ou annulées (`SORDERQ.SOQSTA_0`) non filtrées, comme le KPI du
+  dashboard : écarter une ligne soldée effacerait des retards réels
+- `node ace` cassé sous Node 26 sur ce worktree (passif)
