@@ -98,8 +98,6 @@ export interface WorkstationDetailResponse {
   trackings: EnrichedPosteTracking[]
 }
 
-export type ProducedHoursViewMode = 'cards' | 'table'
-
 /** Formate une date ISO AAAA-MM-JJ en JJ/MM/AAAA */
 export function formatDateFr(dateStr?: string | null): string {
   if (!dateStr) return ''

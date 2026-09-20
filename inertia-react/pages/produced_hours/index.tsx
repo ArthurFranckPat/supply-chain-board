@@ -1,24 +1,17 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Head, router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { LayoutGrid, Table as TableIcon, Search, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import {
   DateWindowPill,
   RefreshPill,
-  Segment,
-  SegmentButton,
   ToolbarRow,
   ToolbarSpacer,
   FilterMenu,
 } from '@r/components/vision/toolbar'
-import {
-  formatDateFr,
-  type ProducedHoursPayload,
-  type ProducedHoursViewMode,
-} from '@r/lib/produced-hours/types'
-import { ProducedHoursCards } from '@r/components/produced-hours/produced-hours-cards'
+import { formatDateFr, type ProducedHoursPayload } from '@r/lib/produced-hours/types'
 import { ProducedHoursTable } from '@r/components/produced-hours/produced-hours-table'
 import { WorkstationDetailSheet } from '@r/components/produced-hours/workstation-detail-sheet'
 
@@ -37,7 +30,6 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
   const [loading, setLoading] = useState(false)
   const [from, setFrom] = useState(initialProps.from)
   const [to, setTo] = useState(initialProps.to)
-  const [viewMode, setViewMode] = useState<ProducedHoursViewMode>('cards')
   const [search, setSearch] = useState('')
   const [selectedAtelier, setSelectedAtelier] = useState<string>('ALL')
   const [selectedPoste, setSelectedPoste] = useState<string | null>(null)
@@ -142,30 +134,6 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       <div className="flex h-full flex-col overflow-hidden">
         {/* Toolbar étirée sur toute la largeur (parité avec Réceptions / Charge / Ordonnancement) */}
         <ToolbarRow noWrap className="flex-none">
-          {/* View switcher: Cards vs Table */}
-          <Segment ariaLabel="Mode d'affichage">
-            <SegmentButton
-              active={viewMode === 'cards'}
-              onClick={() => setViewMode('cards')}
-              title="Vue grille de cartes"
-            >
-              <span className="flex items-center gap-1.5">
-                <LayoutGrid size={13} strokeWidth={2} />
-                <span>Cartes</span>
-              </span>
-            </SegmentButton>
-            <SegmentButton
-              active={viewMode === 'table'}
-              onClick={() => setViewMode('table')}
-              title="Vue tableau détaillé"
-            >
-              <span className="flex items-center gap-1.5">
-                <TableIcon size={13} strokeWidth={2} />
-                <span>Tableau</span>
-              </span>
-            </SegmentButton>
-          </Segment>
-
           {/* Quick presets */}
           <div className="hidden items-center gap-1 sm:flex">
             <button
@@ -305,17 +273,10 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                 </div>
               </div>
 
-              {viewMode === 'cards' ? (
-                <ProducedHoursCards
-                  workstations={filteredWorkstations}
-                  onSelectPoste={setSelectedPoste}
-                />
-              ) : (
-                <ProducedHoursTable
-                  workstations={filteredWorkstations}
-                  onSelectPoste={setSelectedPoste}
-                />
-              )}
+              <ProducedHoursTable
+                workstations={filteredWorkstations}
+                onSelectPoste={setSelectedPoste}
+              />
             </div>
           </div>
         </div>
