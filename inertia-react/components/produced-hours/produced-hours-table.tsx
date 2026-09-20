@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronUp, ChevronDown, ArrowUpDown, ExternalLink, Layers } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import type { WorkstationProducedCard } from '@r/lib/produced-hours/types'
+import { formatDateFr, type WorkstationProducedCard } from '@r/lib/produced-hours/types'
 
 type SortField =
   | 'poste'
@@ -293,7 +293,7 @@ export function ProducedHoursTable({ workstations, onSelectPoste }: ProducedHour
                               key={pt.date}
                               style={{ height: `${Math.max(15, hPct)}%` }}
                               className="flex-1 rounded-t-xs bg-brand/70"
-                              title={`${pt.date}: ${pt.hours}h`}
+                              title={`${formatDateFr(pt.date)}: ${pt.hours}h`}
                             />
                           )
                         })}

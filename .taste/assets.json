@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "font_plus_jakarta_sans_latin",
+      "kind": "font",
+      "status": "ready",
+      "purpose": "Police d'interface unique de la marque (Plus Jakarta Sans, variable en graisse 200 à 800), jeu de caractères latin qui couvre le français : titres, grands chiffres du bandeau, libellés en capitales espacées, dates et n° d'OF en tabular-nums.",
+      "requirements": [
+        "Fichier variable woff2 normal, axe de graisse 200 à 800, utilisé aux graisses 400, 500, 600 et 700",
+        "Charger avec @font-face ou l'import fontsource existant, puis vérifier document.fonts.ready et document.fonts.check('600 16px \"Plus Jakarta Sans Variable\"')",
+        "Activer font-variant-numeric: tabular-nums sur les chiffres, dates et n° d'OF",
+        "Licence SIL OFL 1.1 copiée dans public/fonts/plus-jakarta-sans/OFL.txt",
+        "Aucune variante italique : l'interface n'en utilise pas"
+      ],
+      "role": "font",
+      "sectionIds": [
+        "page_header",
+        "verdict_band",
+        "filtres",
+        "commandes",
+        "detail_commande"
+      ],
+      "aspectRatio": "1:1",
+      "composition": "Fichier de police sans composition visuelle ; sert de police unique aux cinq sections.",
+      "source": {
+        "kind": "project",
+        "reference": "node_modules/@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2",
+        "license": "SIL Open Font License 1.1, The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans), paquet @fontsource-variable/plus-jakarta-sans 5.3.0, déjà installé et importé dans inertia-react/styles/app.css"
+      },
+      "destination": "public/fonts/plus-jakarta-sans/plus-jakarta-sans-latin-wght-normal.woff2"
+    },
+    {
+      "id": "font_plus_jakarta_sans_latin_ext",
+      "kind": "font",
+      "status": "ready",
+      "purpose": "Complément latin étendu de la même police variable, pour les noms de clients et d'articles contenant des caractères hors du jeu latin de base.",
+      "requirements": [
+        "Fichier variable woff2 normal, axe de graisse 200 à 800, à charger avec unicode-range latin-ext pour ne se télécharger qu'au besoin",
+        "Même famille que le fichier latin : ne jamais substituer Arial, Inter ou une police système comme face dessinée",
+        "Licence SIL OFL 1.1 copiée dans public/fonts/plus-jakarta-sans/OFL.txt"
+      ],
+      "role": "font",
+      "sectionIds": [
+        "page_header",
+        "verdict_band",
+        "filtres",
+        "commandes",
+        "detail_commande"
+      ],
+      "aspectRatio": "1:1",
+      "composition": "Fichier de police sans composition visuelle ; sert de police unique aux cinq sections.",
+      "source": {
+        "kind": "project",
+        "reference": "node_modules/@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-ext-wght-normal.woff2",
+        "license": "SIL Open Font License 1.1, The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans), paquet @fontsource-variable/plus-jakarta-sans 5.3.0, déjà installé et importé dans inertia-react/styles/app.css"
+      },
+      "destination": "public/fonts/plus-jakarta-sans/plus-jakarta-sans-latin-ext-wght-normal.woff2"
+    }
+  ]
+}

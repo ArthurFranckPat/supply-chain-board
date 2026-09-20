@@ -18,7 +18,7 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import type { WorkstationDetailResponse } from '@r/lib/produced-hours/types'
+import { formatDateFr, type WorkstationDetailResponse } from '@r/lib/produced-hours/types'
 
 interface WorkstationDetailSheetProps {
   poste: string | null
@@ -106,17 +106,19 @@ export function WorkstationDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col p-0 sm:max-w-3xl sm:border-l sm:border-rule"
+        className="flex w-full flex-col p-0 sm:max-w-4xl sm:border-l sm:border-rule"
       >
         {/* Header */}
         <SheetHeader className="border-b border-rule bg-surface-base px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl border border-rule bg-card font-mono text-sm font-bold text-foreground">
-              {poste?.slice(0, 4)}
+            <div className="flex size-10 flex-none items-center justify-center rounded-xl border border-rule bg-card text-brand shadow-xs">
+              <Layers className="size-5" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <SheetTitle className="text-lg font-bold text-foreground">{poste}</SheetTitle>
+                <SheetTitle className="font-mono text-lg font-bold text-foreground">
+                  {poste}
+                </SheetTitle>
                 {data?.atelier && (
                   <span className="rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                     {data.atelier}
@@ -132,8 +134,9 @@ export function WorkstationDetailSheet({
                   </span>
                 ) : null}
               </div>
-              <SheetDescription className="text-xs text-muted-foreground">
-                {data?.name || 'Chargement du poste...'} · Période du {from} au {to}
+              <SheetDescription className="truncate text-xs text-muted-foreground">
+                {data?.name || 'Chargement du poste...'} · Période du {formatDateFr(from)} au{' '}
+                {formatDateFr(to)}
               </SheetDescription>
             </div>
           </div>
@@ -157,70 +160,68 @@ export function WorkstationDetailSheet({
 
           {!loading && !error && data && (
             <div className="space-y-6">
-              {/* KPIs Grid */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-rule bg-card p-3.5 shadow-xs">
-                  <div className="text-[11px] font-medium text-muted-foreground">
-                    Heures réelles
-                  </div>
-                  <div className="mt-1 font-mono text-xl font-bold tracking-tight text-foreground">
+              {/* Synthèse du poste (format bandeau condensé sans cartes volumineuses) */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-card p-3.5 shadow-xs">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Heures réelles :</span>
+                  <span className="font-mono font-bold text-foreground">
                     {data.kpis.totalHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">
-                    Opé {data.kpis.operationHours}h · Régl {data.kpis.setupHours}h
-                  </div>
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    (Opé {data.kpis.operationHours}h · Régl {data.kpis.setupHours}h)
+                  </span>
                 </div>
 
-                <div className="rounded-xl border border-rule bg-card p-3.5 shadow-xs">
-                  <div
-                    className="text-[11px] font-medium text-muted-foreground"
-                    title="Temps standard de gamme prévu pour la quantité produite"
-                  >
-                    Standard gamme
-                  </div>
-                  <div className="mt-1 font-mono text-xl font-bold tracking-tight text-foreground">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Standard gamme :</span>
+                  <span className="font-mono font-bold text-foreground">
                     {data.kpis.totalAllocatedHours.toLocaleString('fr-FR', {
                       minimumFractionDigits: 1,
                     })}{' '}
                     h
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">
-                    Écart{' '}
+                  </span>
+                  <span
+                    className={cn(
+                      'font-mono text-xs font-semibold',
+                      data.kpis.deltaHours > 0
+                        ? 'text-amber-600'
+                        : data.kpis.deltaHours < 0
+                          ? 'text-emerald-600'
+                          : 'text-muted-foreground'
+                    )}
+                  >
+                    (
                     {data.kpis.deltaHours > 0
-                      ? `+${data.kpis.deltaHours}h`
+                      ? `+${data.kpis.deltaHours}h dép.`
                       : `${data.kpis.deltaHours}h`}
-                  </div>
+                    )
+                  </span>
                 </div>
 
-                <div className="rounded-xl border border-rule bg-card p-3.5 shadow-xs">
-                  <div className="text-[11px] font-medium text-muted-foreground">Efficience</div>
-                  <div
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Efficience :</span>
+                  <span
                     className={cn(
-                      'mt-1 font-mono text-xl font-bold tracking-tight',
+                      'rounded-full px-2 py-0.5 font-mono text-xs font-bold',
                       data.kpis.efficiency >= 100
-                        ? 'text-emerald-600'
+                        ? 'bg-emerald-50 text-emerald-700'
                         : data.kpis.efficiency >= 85
-                          ? 'text-amber-600'
-                          : 'text-red-600'
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-red-50 text-red-700'
                     )}
                   >
                     {data.kpis.efficiency}%
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">
-                    {data.kpis.efficiency >= 100 ? '>= Objectif' : '< Objectif standard'}
-                  </div>
+                  </span>
                 </div>
 
-                <div className="rounded-xl border border-rule bg-card p-3.5 shadow-xs">
-                  <div className="text-[11px] font-medium text-muted-foreground">
-                    Volume produit
-                  </div>
-                  <div className="mt-1 font-mono text-xl font-bold tracking-tight text-foreground">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Volume :</span>
+                  <span className="font-mono font-bold text-foreground">
                     {data.kpis.quantity.toLocaleString('fr-FR')} pcs
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">
-                    {data.kpis.nbOfs} OFs · {data.kpis.nbTrackings} pointages
-                  </div>
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    ({data.kpis.nbOfs} OFs · {data.kpis.nbTrackings} ptgs)
+                  </span>
                 </div>
               </div>
 
@@ -247,33 +248,33 @@ export function WorkstationDetailSheet({
                     {data.timeline.map((pt) => {
                       const hReal = Math.min(100, (pt.hours / maxDailyHours) * 100)
                       const hAlloc = Math.min(100, (pt.allocated / maxDailyHours) * 100)
-                      const dayLabel = pt.date.slice(8, 10)
+                      const dayLabel = formatDateFr(pt.date).slice(0, 5)
 
                       return (
                         <div
                           key={pt.date}
-                          className="group relative flex flex-1 flex-col items-center justify-end h-full"
+                          className="group relative flex h-full flex-1 flex-col items-center justify-end"
                         >
                           {/* Tooltip */}
                           <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 rounded-md bg-[#222] px-2 py-1 text-[10px] text-white shadow-md group-hover:block whitespace-nowrap">
-                            <span className="font-semibold">{pt.date}</span> : {pt.hours}h (alloc:{' '}
-                            {pt.allocated}h) · {pt.qty} pcs
+                            <span className="font-semibold">{formatDateFr(pt.date)}</span> :{' '}
+                            {pt.hours}h (std: {pt.allocated}h) · {pt.qty} pcs
                           </div>
 
-                          <div className="flex items-end gap-0.5 w-full justify-center">
+                          <div className="flex h-20 w-full items-end justify-center gap-1">
                             {/* Real bar */}
                             <div
-                              style={{ height: `${Math.max(4, hReal)}%` }}
-                              className="w-2.5 rounded-t-sm bg-brand transition-all group-hover:opacity-80"
+                              style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
+                              className="w-3 rounded-t-sm bg-brand transition-all group-hover:opacity-80"
                             />
                             {/* Alloc bar */}
                             <div
-                              style={{ height: `${Math.max(4, hAlloc)}%` }}
-                              className="w-1.5 rounded-t-xs bg-slate-300 transition-all"
+                              style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
+                              className="w-2 rounded-t-xs bg-slate-300 transition-all"
                             />
                           </div>
 
-                          <span className="mt-1 text-[9px] font-mono text-muted-foreground">
+                          <span className="mt-1 font-mono text-[9px] text-muted-foreground">
                             {dayLabel}
                           </span>
                         </div>
@@ -308,23 +309,25 @@ export function WorkstationDetailSheet({
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="min-w-[760px] w-full text-left text-xs">
                     <thead className="border-b border-rule bg-surface-muted text-[11px] font-semibold text-muted-foreground">
                       <tr>
-                        <th className="px-3 py-2.5">Date</th>
-                        <th className="px-3 py-2.5">OF</th>
-                        <th className="px-2 py-2.5 text-center">Opé</th>
-                        <th className="px-3 py-2.5">Article</th>
-                        <th className="px-2 py-2.5 text-center">Opérateur</th>
-                        <th className="px-3 py-2.5 text-right">Qté</th>
-                        <th className="px-3 py-2.5 text-right">Réel (h)</th>
+                        <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date</th>
+                        <th className="w-28 px-3 py-2.5 whitespace-nowrap">OF</th>
+                        <th className="w-14 px-2 py-2.5 text-center whitespace-nowrap">Opé</th>
+                        <th className="min-w-[180px] px-3 py-2.5">Article</th>
+                        <th className="w-20 px-2 py-2.5 text-center whitespace-nowrap">
+                          Opérateur
+                        </th>
+                        <th className="w-24 px-3 py-2.5 text-right whitespace-nowrap">Qté</th>
+                        <th className="w-24 px-3 py-2.5 text-right whitespace-nowrap">Réel (h)</th>
                         <th
-                          className="px-3 py-2.5 text-right"
+                          className="w-24 px-3 py-2.5 text-right whitespace-nowrap"
                           title="Temps standard de gamme prévu pour la quantité produite"
                         >
                           Standard (h)
                         </th>
-                        <th className="px-3 py-2.5 text-right">Écart</th>
+                        <th className="w-20 px-3 py-2.5 text-right whitespace-nowrap">Écart</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-rule font-mono text-[11px]">
@@ -343,13 +346,17 @@ export function WorkstationDetailSheet({
                             key={`${trk.trackingNum}-${trk.lineNum}-${i}`}
                             className="transition-colors hover:bg-surface-hover"
                           >
-                            <td className="px-3 py-2 text-muted-foreground">{trk.date}</td>
-                            <td className="px-3 py-2 font-semibold text-foreground">{trk.ofNum}</td>
-                            <td className="px-2 py-2 text-center text-muted-foreground">
+                            <td className="px-3 py-2 text-muted-foreground whitespace-nowrap font-sans">
+                              {formatDateFr(trk.date)}
+                            </td>
+                            <td className="px-3 py-2 font-semibold text-foreground whitespace-nowrap">
+                              {trk.ofNum}
+                            </td>
+                            <td className="px-2 py-2 text-center text-muted-foreground whitespace-nowrap">
                               {trk.opeNum}
                             </td>
                             <td
-                              className="max-w-[180px] truncate px-3 py-2 font-sans font-medium text-foreground"
+                              className="max-w-[220px] truncate px-3 py-2 font-sans font-medium text-foreground"
                               title={trk.designation || trk.article}
                             >
                               <div className="font-mono text-xs">{trk.article}</div>
@@ -359,10 +366,10 @@ export function WorkstationDetailSheet({
                                 </div>
                               )}
                             </td>
-                            <td className="px-2 py-2 text-center text-muted-foreground">
+                            <td className="px-2 py-2 text-center text-muted-foreground whitespace-nowrap font-mono">
                               {trk.employee || '—'}
                             </td>
-                            <td className="px-3 py-2 text-right font-semibold text-foreground">
+                            <td className="px-3 py-2 text-right font-semibold text-foreground whitespace-nowrap">
                               {trk.quantity.toLocaleString('fr-FR')}
                               {trk.rejectQuantity > 0 && (
                                 <span className="ml-1 text-[10px] text-red-500">
@@ -370,17 +377,17 @@ export function WorkstationDetailSheet({
                                 </span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right font-semibold text-foreground">
+                            <td className="px-3 py-2 text-right font-semibold text-foreground whitespace-nowrap">
                               {trk.totalHours.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
                             </td>
-                            <td className="px-3 py-2 text-right text-muted-foreground">
+                            <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
                               {trk.totalAllocatedHours.toLocaleString('fr-FR', {
                                 minimumFractionDigits: 2,
                               })}
                             </td>
                             <td
                               className={cn(
-                                'px-3 py-2 text-right font-semibold',
+                                'px-3 py-2 text-right font-semibold whitespace-nowrap',
                                 trk.deltaHours > 0
                                   ? 'text-amber-600'
                                   : trk.deltaHours < 0

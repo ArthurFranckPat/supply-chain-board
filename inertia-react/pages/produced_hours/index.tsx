@@ -1,18 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Head, router } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import {
-  LayoutGrid,
-  Table as TableIcon,
-  Search,
-  Clock,
-  Gauge,
-  Package,
-  Layers,
-  Sparkles,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react'
+import { LayoutGrid, Table as TableIcon, Search, X } from 'lucide-react'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import {
@@ -23,9 +12,12 @@ import {
   ToolbarRow,
   ToolbarSpacer,
   FilterMenu,
-  PILL,
 } from '@r/components/vision/toolbar'
-import type { ProducedHoursPayload, ProducedHoursViewMode } from '@r/lib/produced-hours/types'
+import {
+  formatDateFr,
+  type ProducedHoursPayload,
+  type ProducedHoursViewMode,
+} from '@r/lib/produced-hours/types'
 import { ProducedHoursCards } from '@r/components/produced-hours/produced-hours-cards'
 import { ProducedHoursTable } from '@r/components/produced-hours/produced-hours-table'
 import { WorkstationDetailSheet } from '@r/components/produced-hours/workstation-detail-sheet'
@@ -135,8 +127,6 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       to: to ? parse(to) : undefined,
     }
   }, [from, to])
-
-  const kpis = data.kpis
 
   return (
     <AppLayout
@@ -268,8 +258,11 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
             </div>
           </FilterMenu>
 
-          {/* Search Input */}
-          <div className="relative min-w-[180px] max-w-[260px] flex-1">
+          {/* Espaceur : repousse la recherche et le rafraîchissement tout à droite */}
+          <ToolbarSpacer />
+
+          {/* Barre de recherche à droite */}
+          <div className="relative min-w-[200px] max-w-[280px]">
             <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
             <input
               type="text"
@@ -289,144 +282,13 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
             )}
           </div>
 
-          <ToolbarSpacer />
-
           {/* Refresh Pill */}
           <RefreshPill loading={loading} onClick={() => fetchData(from, to)} />
         </ToolbarRow>
 
         {/* Zone de contenu scrollable pleine largeur */}
         <div className="flex-1 min-h-0 overflow-y-auto px-7 py-5">
-          <div className="space-y-6 pb-12">
-            {/* KPI Banner */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {/* Card 1: Heures Réelles Produites */}
-              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold">Heures réelles</span>
-                  <Clock className="size-4 text-brand" />
-                </div>
-                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {kpis.totalHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
-                </div>
-                <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span>
-                    Opé:{' '}
-                    <strong className="font-mono text-foreground">
-                      {kpis.totalOperationHours}h
-                    </strong>
-                  </span>
-                  <span>·</span>
-                  <span>
-                    Régl:{' '}
-                    <strong className="font-mono text-foreground">{kpis.totalSetupHours}h</strong>
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 2: Heures Standard Gamme */}
-              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span
-                    className="text-xs font-semibold cursor-help"
-                    title="Heures standard prévues par la gamme opératoire X3 pour les quantités réellement déclarées"
-                  >
-                    Standard gamme
-                  </span>
-                  <Sparkles className="size-4 text-slate-400" />
-                </div>
-                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {kpis.totalAllocatedHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  Écart :{' '}
-                  <span
-                    className={cn(
-                      'font-mono font-semibold',
-                      kpis.globalDeltaHours > 0
-                        ? 'text-amber-600'
-                        : kpis.globalDeltaHours < 0
-                          ? 'text-emerald-600'
-                          : 'text-muted-foreground'
-                    )}
-                  >
-                    {kpis.globalDeltaHours > 0
-                      ? `+${kpis.globalDeltaHours}h dép.`
-                      : `${kpis.globalDeltaHours}h`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Card 3: Efficience Globale */}
-              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold">Efficience globale</span>
-                  <Gauge className="size-4 text-emerald-500" />
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span
-                    className={cn(
-                      'font-mono text-2xl font-bold tracking-tight',
-                      kpis.globalEfficiency >= 100
-                        ? 'text-emerald-600'
-                        : kpis.globalEfficiency >= 85
-                          ? 'text-amber-600'
-                          : 'text-red-600'
-                    )}
-                  >
-                    {kpis.globalEfficiency}%
-                  </span>
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    (Alloué / Réel)
-                  </span>
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  {kpis.globalEfficiency >= 100 ? (
-                    <span className="font-medium text-emerald-600">Productivité conforme</span>
-                  ) : (
-                    <span className="font-medium text-amber-600">Sous le temps standard</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 4: Volume Pièces */}
-              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold">Pièces produites</span>
-                  <Package className="size-4 text-blue-500" />
-                </div>
-                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {kpis.totalQuantity.toLocaleString('fr-FR')}
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  {kpis.totalRejects > 0 ? (
-                    <span className="text-red-600 font-medium">
-                      {kpis.totalRejects.toLocaleString('fr-FR')} rebuts ({kpis.rejectRate}%)
-                    </span>
-                  ) : (
-                    <span className="text-emerald-600 font-medium">0 rebut déclaré</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 5: Postes Actifs */}
-              <div className="col-span-2 rounded-2xl border border-rule bg-card p-4 shadow-xs sm:col-span-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold">Postes actifs</span>
-                  <Layers className="size-4 text-purple-500" />
-                </div>
-                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {kpis.activeWorkstationsCount}
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">
-                    / {kpis.totalWorkstationsCount}
-                  </span>
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  Ayant pointé sur la période
-                </div>
-              </div>
-            </div>
-
+          <div className="space-y-4 pb-12">
             {/* Workstations List / Grid */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -434,8 +296,12 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                   Postes de charge ({filteredWorkstations.length})
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Du <span className="font-mono font-medium text-foreground">{from}</span> au{' '}
-                  <span className="font-mono font-medium text-foreground">{to}</span>
+                  Du{' '}
+                  <span className="font-mono font-medium text-foreground">
+                    {formatDateFr(from)}
+                  </span>{' '}
+                  au{' '}
+                  <span className="font-mono font-medium text-foreground">{formatDateFr(to)}</span>
                 </div>
               </div>
 

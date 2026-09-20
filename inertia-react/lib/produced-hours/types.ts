@@ -95,3 +95,13 @@ export interface WorkstationDetailResponse {
 }
 
 export type ProducedHoursViewMode = 'cards' | 'table'
+
+/** Formate une date ISO AAAA-MM-JJ en JJ/MM/AAAA */
+export function formatDateFr(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  const parts = dateStr.trim().split('-')
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`
+  }
+  return dateStr
+}

@@ -1,0 +1,355 @@
+{
+  "version": 1,
+  "page": {
+    "title": "Suivi des commandes : vue proactive",
+    "route": "/suivi",
+    "description": "Vue proactive du suivi des commandes d'Aldes (site AE1) : verdict de réalisabilité projetée pour chaque ligne de commande, avec cause, couverture par OF, composants en rupture et poste."
+  },
+  "architecture": {
+    "contract": "This page helps supply chain planners and production managers at Aldes (site AE1) spot in a few seconds which customer order lines will not be feasible by their shipping date, so they can open the line, read the cause (missing components, covering OF, work center, quality-control debt) and act. Primary conversion: opening the detail of a line, an OF or a work center from the table.",
+    "mode": "operate_monitor",
+    "novelty": "low",
+    "grid": "12 colonnes fluides, marge de page 28px (16px en compact), gouttière 24px (16px en compact), unité 4px, largeur pleine sans plafond pour le tableau. Le bandeau de verdict répartit ses quatre colonnes aux repères 2,9 %, 27,4 %, 52,5 % et 76,9 % de la largeur (géométrie d'obvia-07-about). La feuille de détail est ancrée à droite, largeur 960px maximum.",
+    "signatureRule": "Chaque bloc de lecture s'ouvre sur un grand nombre ou un index tabulaire suivi d'un libellé en capitales espacées 11-12px en #6a6a6a, posé sur les quatre mêmes repères de colonne que la rangée de chiffres d'obvia-07-about ; seules les lignes de données sont séparées par des filets hairline, aucun autre motif décoratif.",
+    "rhythm": "Cadre d'en-tête aéré (≈320px) puis bandeau de chiffres dense et large, barre de filtres centrée et respirante, tableau dense en lignes de 44px, feuille de détail sur demande. Alternance aéré, dense, aéré, dense. Marges verticales entre sections : 32px, 24px puis 16px avant le tableau."
+  },
+  "navigation": [
+    {
+      "label": "Réactif",
+      "target": "mode:reactif"
+    },
+    {
+      "label": "Proactif",
+      "target": "mode:proactif"
+    },
+    {
+      "label": "Synthèse",
+      "target": "#verdict_band"
+    },
+    {
+      "label": "Commandes",
+      "target": "#commandes"
+    }
+  ],
+  "navigationDesign": {
+    "layoutCase": "reference-navigation",
+    "layout": "Référence stodio-01-hero (nav intégrée au cadre, ≈1552px de large, hauteur ≈8 % du cadre) : nom de page à gauche (x 3,2 %–14,3 %, texte seul car aucun logo n'existe), liens centrés (x 29 %–67 %, quatre libellés 15px, espacement ≈40px, lien actif matérialisé par un fond brand-soft en pilule et un texte ink au lieu du texte teal de la référence), pilule blanche à droite (x 83 %–97 %, hauteur 54px référence ramenée à 40px) portant « Réglages d'affichage » avec icône lucide et flèche montante. La barre reste celle de l'application : elle se place au-dessus du cadre d'en-tête, pas dedans.",
+    "behavior": [
+      "Le lien Proactif est actif par défaut ; Réactif et Proactif basculent le mode sans recharger la page.",
+      "Synthèse et Commandes font défiler la page vers la section correspondante, focus placé sur le titre de la section.",
+      "Le lien actif porte aria-current, le survol change le fond en 120-160ms, le focus montre l'anneau ink 2px décalé de 2px.",
+      "Aucune information n'est révélée au seul survol."
+    ],
+    "transformation": {
+      "compact": "Comme la référence mobile (hamburger à droite du nom de page) : le menu s'ouvre en volet plein largeur avec les quatre liens à 48px de haut ; la pilule « Réglages d'affichage » passe en dernière ligne du volet. Rien n'est retiré.",
+      "medium": "Nom de page à gauche, liens centrés en 15px, pilule réduite à l'icône plus le libellé court « Affichage ».",
+      "expanded": "Géométrie complète de la référence : nom de page, liens centrés, pilule à droite avec libellé « Réglages d'affichage »."
+    }
+  },
+  "sections": [
+    {
+      "id": "page_header",
+      "layoutFamily": "hero",
+      "layoutCases": [
+        "stodio-01-hero"
+      ],
+      "referenceDirectionId": "stodio-01-hero",
+      "purpose": "Poser la question du planificateur, afficher la date de référence et l'état de chargement, et donner les deux actions de page.",
+      "userQuestion": "De quelle date part cette projection, et les données sont-elles à jour ?",
+      "stage": "orient",
+      "dependencies": [],
+      "evidence": [
+        "ProactiveView reçoit view.referenceDate et view.x3Error (inertia-react/components/tracking/proactive-view.tsx)",
+        "La vue se charge depuis /suivi/proactive-rows (start/routes.ts)",
+        "La bascule reactif/proactif existe dans inertia-react/pages/scheduler/tracking.tsx (mode 'proactif' par défaut)",
+        "Réglage ON/OFF de l'animation du diff : issue #186, /configuration/affichage"
+      ],
+      "copy": {
+        "eyebrow": "Suivi des commandes · Vue proactive",
+        "heading": "Quelles commandes ne partiront pas à temps ?",
+        "body": [
+          "Réalisabilité projetée de chaque ligne de commande à sa date d'expédition."
+        ],
+        "callsToAction": [
+          {
+            "label": "Recharger les données",
+            "target": "action:recharger"
+          },
+          {
+            "label": "Animer les changements",
+            "target": "action:basculer-diff-flash"
+          }
+        ]
+      },
+      "layout": "Référence stodio-01-hero. Image desktop 1552×1020 (1,52:1), mobile ≈980×1600 (0,61:1). Cadre arrondi inset, rayon 14px (référence ≈40px), fond surface #f7f7f7 avec filet #dddddd. Déviation enregistrée : la photographie floutée pleine surface (1 média) est supprimée car l'imageDirection de marque exclut la photo ; le cadre reste, plus clair. Hauteur ≈320px (≈32 % de la hauteur d'écran, contre 100 % dans la référence) pour laisser le bandeau de verdict dans le premier écran. Desktop : pastille eyebrow en haut à gauche (x 3,2 %, hauteur 3,8 % du cadre de référence, pilule blanche et carré ink 12px). Titre en 3 lignes alignées à gauche, boîte x 3,5 %–46,5 % (≈43 % de la largeur), y 29 %–61 % de la référence, interligne ≈11,3 % de la hauteur de référence ; ici corps 44px, interligne 1,05, graisse 700, tracking -0,02em (échelle de la référence ramenée à ≈46 %). Ligne d'appui en dessous, 1 ligne 16px en #6a6a6a (y 66 % de la référence). Rangée méta de 3 éléments en bas à gauche sur x 3,5 %, 21 % et 41,5 % (y 89 %), libellés en capitales espacées 12px précédés de +, valeurs liées aux données : « + Date de référence : jj/mm/aaaa », « + Lignes chargées : n », « + Chargement : état ». Bloc bas droite x 66,5 %–94,5 % : deux boutons pilule de 40px (Recharger en Rausch avec étiquette onAccent dérivée 4,5:1, Animer les changements en contour avec interrupteur ON/OFF), y 85 %–91 %. Bandeau d'erreur X3 (destructive/10, bordure destructive/30) inséré entre la barre de nav et le cadre quand view.x3Error est défini. Mobile : pastille y 31 % du cadre, titre 3 lignes pleine largeur (≈78 %) y 39 %–60 %, appui 2 lignes y 63 %–69 %, méta sur 2 lignes y 76 %–81 %, deux boutons côte à côte à ≈42 % de largeur chacun y 87 %–93 %.",
+      "motion": {
+        "purpose": "spatial_continuity",
+        "trigger": "load",
+        "behavior": "Au chargement, la pastille, les 3 lignes du titre, la ligne d'appui puis la rangée méta et les boutons apparaissent en opacité et translateY 8px, décalés de 70ms (240ms au total, plafond respecté). L'état de chargement de la rangée méta se met à jour sans animation.",
+        "durationMs": 560,
+        "easing": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "reducedMotion": "États finaux immédiats, aucun décalage ni déplacement."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Titre sur 3 lignes à 32px, méta sur 2 lignes, boutons côte à côte à 42 % chacun (ordre : Recharger puis Animer) ; le contenu et les deux actions sont conservés.",
+        "medium": "Titre 38px, méta sur une ligne, boutons à droite sous l'appui.",
+        "expanded": "Composition complète de la référence : titre 44px dans les 43 % de gauche, bloc de deux boutons en bas à droite."
+      }
+    },
+    {
+      "id": "verdict_band",
+      "layoutFamily": "about",
+      "layoutCases": [
+        "obvia-07-about"
+      ],
+      "referenceDirectionId": "obvia-07-about",
+      "purpose": "Donner en quatre grands chiffres la répartition des lignes par verdict et servir de filtre principal du tableau.",
+      "userQuestion": "Combien de lignes sont en retard, limites, à l'heure ou non évaluées ?",
+      "stage": "qualify",
+      "dependencies": [
+        "page_header"
+      ],
+      "evidence": [
+        "Alphabet des verdicts ok / limite / retard / non évalué dans inertia-react/lib/vision/verdict-tones.ts",
+        "Tons de verdict : vert #008049, ambre #fc642d, rouge #c13515, gris neutre (brand system, issue #62)",
+        "ProactiveVerdictKey filtre déjà les lignes dans tracking.tsx (verdictFilter)"
+      ],
+      "copy": {
+        "eyebrow": "Synthèse par verdict",
+        "heading": "Combien de commandes tiennent leur date d'expédition ?",
+        "body": [
+          "Chaque compteur filtre le tableau. Un second clic retire le filtre."
+        ],
+        "callsToAction": [
+          {
+            "label": "Afficher les retards",
+            "target": "#commandes"
+          },
+          {
+            "label": "Afficher les limites",
+            "target": "#commandes"
+          },
+          {
+            "label": "Afficher les commandes à l'heure",
+            "target": "#commandes"
+          },
+          {
+            "label": "Afficher les non évalués",
+            "target": "#commandes"
+          }
+        ]
+      },
+      "layout": "Référence obvia-07-about. Image desktop 1824×862 (2,12:1), mobile 973×1610 (0,60:1). Fond canvas #ffffff, aucun média (0 dans la référence). Desktop : libellé eyebrow en haut à gauche (x 2,9 %, y 5,5 %) en capitales espacées 12px #6a6a6a. Titre aligné à gauche, boîte x 2,9 %–44,8 % (≈42 % de la largeur), y 18 %–54 % de la référence sur 6 lignes en capitales 900 (pas de 6,3 % de la hauteur). Déviation enregistrée : ici 2 lignes, casse normale, corps 30px graisse 700, boîte de 42 % de largeur, et hauteur totale de section ≈260px (la référence laisse ≈45 % de vide) car outil de travail. Rangée de 4 chiffres sur les repères x 2,9 %, 27,4 %, 52,5 % et 76,9 % (y numéral 75 %–82 %, y libellé 86 % dans la référence) : numéral tabulaire 56px graisse 700 (hauteur ≈7,5 % de la hauteur de référence, équivalent à ≈65px), libellé en capitales espacées 12px #6a6a6a (Retard, Limite, À l'heure, Non évalué). Chaque tuile est un bouton avec liseré supérieur 3px de la couleur du verdict (aucun aplat), rayon 14px, fond #f7f7f7 ; état sélectionné : contour ink 2px et fond brand-soft. Ordre fixe par gravité. Mobile : eyebrow y 6,7 %, titre sur 3 lignes 24px, tuiles en grille 2×2 au lieu de la colonne unique de la référence (déviation : les quatre verdicts doivent tenir dans le premier écran), pas vertical ≈12,7 % de la hauteur de la référence remplacé par des tuiles de 96px.",
+      "motion": {
+        "purpose": "explanation",
+        "trigger": "load",
+        "behavior": "Au chargement, les quatre tuiles arrivent en opacité et translateY 8px, décalées de 70ms (210ms au total), juste après l'en-tête. Au clic, le contour ink et le fond brand-soft passent en 140ms et le tableau se recale sans décalage de mise en page. Les squelettes gardent le gabarit exact des tuiles.",
+        "durationMs": 520,
+        "easing": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "reducedMotion": "États finaux immédiats ; la sélection change sans transition."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Tuiles en 2 colonnes, numéral 44px, titre sur 3 lignes ; l'ordre par gravité et le rôle de filtre sont conservés.",
+        "medium": "Tuiles en 4 colonnes serrées, numéral 48px, titre sur 2 lignes.",
+        "expanded": "Géométrie de la référence : titre à gauche sur 42 %, quatre colonnes aux repères 2,9 %, 27,4 %, 52,5 % et 76,9 %."
+      }
+    },
+    {
+      "id": "filtres",
+      "layoutFamily": "about",
+      "layoutCases": [
+        "saleunion-02-about"
+      ],
+      "referenceDirectionId": "saleunion-02-about",
+      "purpose": "Restreindre la liste par recherche, sous-ensembles, dépendance au CQ, ou revenir à toutes les lignes.",
+      "userQuestion": "Comment restreindre la liste à ce que je cherche ?",
+      "stage": "qualify",
+      "dependencies": [
+        "verdict_band"
+      ],
+      "evidence": [
+        "showSubAssemblies contrôle la colonne « Composants en rupture » (proactive-view.tsx)",
+        "Issue #185 : filtre « Dépend du CQ », cqSeul et row.cq",
+        "onResetFilters existe dans ProactiveViewProps"
+      ],
+      "copy": {
+        "eyebrow": "Filtres",
+        "heading": "Rechercher une commande, un client ou un article",
+        "body": [
+          "Sous-ensembles : inclure les semi-finis en rupture",
+          "Dépend du CQ : garder les lignes suspendues au contrôle qualité",
+          "Réinitialiser : revenir à toutes les lignes"
+        ],
+        "callsToAction": [
+          {
+            "label": "Réinitialiser les filtres",
+            "target": "action:reinitialiser-filtres"
+          }
+        ]
+      },
+      "layout": "Référence saleunion-02-about. Image desktop 1867×842 (2,22:1), mobile 949×1657 (0,57:1). Fond surface #f7f7f7 (référence : crème unie). Desktop : eyebrow centré (x 45 %–55 %, y 25,5 % de la référence) en capitales espacées 12px. Le bloc de titre centré sur 3 lignes (x 19 %–81 %, y 32 %–50 %) devient un champ de recherche d'une ligne, largeur 62 % centrée (x 19 %–81 %), hauteur 48px, texte 18px, bordure de contrôle dérivée ≥3:1 : déviation enregistrée pour ramener la section à ≈150px. Rangée de 3 éléments à x 11 %, 38,4 % et 66 % (pas 27 %, y 61 %–70 % de la référence) : disque d'icône 44px (référence 76px, ≈9 % de la largeur) à gauche, titre 14px graisse 600 et sous-titre 12px #6a6a6a à droite du disque. Trois disques : contour ink pour l'inactif, fond brand-soft plus contour ink pour l'actif (équivalent du disque pêche plein de la référence). Icônes lucide : layers, shield-alert, filter-x. Mobile : eyebrow y 17 %, champ de recherche pleine largeur, 3 éléments empilés en colonne (pas vertical 11,9 % de la hauteur de la référence remplacé par 72px), disque 44px à gauche, texte à droite.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "scroll_enter",
+        "behavior": "Quand la barre entre dans le viewport (IntersectionObserver, seuil 0, marge basse positive, observation retirée après le premier déclenchement), les trois éléments arrivent en opacité et translateY 8px, décalés de 70ms. Un élément déjà visible à l'initialisation reste visible sans animation. Au clic, le disque bascule de contour à fond brand-soft en 140ms.",
+        "durationMs": 480,
+        "easing": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "reducedMotion": "Éléments visibles d'emblée, bascule d'état sans transition."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Recherche pleine largeur puis trois éléments empilés ; « Réinitialiser » reste atteignable sans défilement horizontal.",
+        "medium": "Recherche à 80 % de la largeur, trois éléments sur une ligne à 30 % chacun.",
+        "expanded": "Composition de la référence : recherche à 62 %, trois éléments aux repères 11 %, 38,4 % et 66 %."
+      }
+    },
+    {
+      "id": "commandes",
+      "layoutFamily": "feature",
+      "layoutCases": [
+        "ritovex-04-services"
+      ],
+      "referenceDirectionId": "ritovex-04-services",
+      "purpose": "Lister les lignes de commande triées par date d'expédition, avec verdict, couverture, composants en rupture, poste et cause, et ouvrir leur détail.",
+      "userQuestion": "Quelles lignes ne partiront pas à leur date, et pourquoi ?",
+      "stage": "evaluate",
+      "dependencies": [
+        "verdict_band",
+        "filtres"
+      ],
+      "evidence": [
+        "Tri par défaut dateExp croissant via sortRows (proactive-view.tsx)",
+        "Colonnes définies dans inertia-react/lib/suivi/proactive-columns.tsx (createProactiveColumns)",
+        "onRowClick, onSelectOf et onSelectPoste ouvrent la ligne, l'OF et le poste",
+        "LATE_TONE : liseré gauche 3px destructive ou suggere (tracking-shared.ts)",
+        "Squelettes SkeletonRow, bandeau x3Error et action « Réinitialiser » gèrent les états chargement, erreur et filtre vide"
+      ],
+      "copy": {
+        "eyebrow": "Commandes",
+        "heading": "Commandes classées par date d'expédition",
+        "body": [
+          "Ouvrir une ligne pour lire la cause, la couverture par OF et le poste.",
+          "Chargement de la réalisabilité en cours.",
+          "Aucune ligne ne correspond aux filtres. Réinitialiser les filtres pour tout afficher.",
+          "Erreur de chargement de la réalisabilité : X3 est injoignable. Recharger les données."
+        ],
+        "callsToAction": [
+          {
+            "label": "Ouvrir le détail de la ligne",
+            "target": "#detail_commande"
+          }
+        ]
+      },
+      "layout": "Référence ritovex-04-services. Image desktop 1469×1071 (1,37:1), mobile 944×1666 (0,57:1). Fond canvas #ffffff (référence sombre, adapté à la marque claire). Desktop : en-tête centré (eyebrow y 10 % avec icône lucide table-2, titre 1 ligne y 16 %, sous-titre 1 ligne y 22 %), ramené à ≈96px de haut. Lignes séparées par des filets hairline pleine largeur de x 4 % à 96 %, comme la référence. Chaque ligne : index tabulaire à x 5,3 % (référence : 01 à 04, gris), premier bloc x 9 % avec verdict (icône lucide, couleur de verdict) et article-client en 16px graisse 600, colonnes de données (date d'expédition, couverture par OF cliquable, composants en rupture, poste, cause) entre 32 % et 88 %, bouton rond de 40px avec flèche à x 90 %–95 % (référence : 56px), contour ink. Déviations enregistrées : hauteur de ligne 44px au lieu de ≈13 % de la hauteur de référence (≈143px), car la densité de tableau est verrouillée ; le média incliné (1 tuile carrée ≈22 % de la largeur, superposée aux lignes 1 à 3) est supprimé faute de photographie ; la ligne active de la référence (titre teinté, description dépliée, bouton plein) devient la ligne sélectionnée : fond brand-soft, liseré ink, cause dépliée sous le titre. Le DataTable existant garde en-tête collant, tri et colonnes ; la dette CQ garde son marqueur « Dépend du CQ » en puce. Retard : liseré gauche 3px destructive ; limite : suggere. Mobile : chaque ligne devient un bloc comme la référence mobile (index à x 5,8 %, titre à x 14 %, bouton contour à x 84 %–94 %), description toujours visible sous le titre (client, date d'expédition, verdict, cause), filet entre blocs, pas vertical ≈17 % de la hauteur de la référence remplacé par des blocs de ≈132px. États : squelettes de la hauteur exacte des lignes, bandeau d'erreur destructive, état vide avec action « Réinitialiser les filtres ».",
+      "motion": {
+        "purpose": "spatial_continuity",
+        "trigger": "scroll_enter",
+        "behavior": "Les lignes hors écran à l'initialisation sont révélées par groupes de 6 (IntersectionObserver, seuil 0, marge basse positive, observation retirée après révélation) : opacité et translateY 6px, décalage de 60ms plafonné à 240ms. Les lignes déjà visibles ne bougent pas. Au rechargement, les lignes modifiées clignotent en brand-soft 750ms puis retrouvent leur fond, les lignes supprimées restent en fantôme barré ; l'option est réglable ON/OFF.",
+        "durationMs": 520,
+        "easing": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "reducedMotion": "Lignes visibles d'emblée, clignotement du diff désactivé, la sélection change sans transition."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Blocs empilés comme la référence mobile, tous les champs conservés (verdict, date, cause, couverture, composants, poste, dette CQ) ; le détail s'ouvre en pleine hauteur.",
+        "medium": "Tableau à défilement horizontal avec la première colonne figée ; colonnes poste et cause repliées dans la ligne sélectionnée.",
+        "expanded": "Géométrie de la référence : index, bloc article, colonnes de données, bouton rond à droite, filets pleine largeur."
+      }
+    },
+    {
+      "id": "detail_commande",
+      "layoutFamily": "feature",
+      "layoutCases": [
+        "fabrica-14-blog"
+      ],
+      "referenceDirectionId": "fabrica-14-blog",
+      "purpose": "Expliquer une ligne : cause du verdict, OF de couverture, composants en rupture, poste retenu et dette CQ, sans quitter la liste.",
+      "userQuestion": "Pourquoi cette ligne a-t-elle ce verdict, et quelle est la prochaine action ?",
+      "stage": "explain",
+      "dependencies": [
+        "commandes"
+      ],
+      "evidence": [
+        "inertia-react/components/tracking/suivi-detail-sheet.tsx existe (feuille de détail)",
+        "onSelectOf ouvre le détail OF (faisabilité), onSelectPoste ouvre l'engagement du poste (PosteEngagementSheet, issue #46)",
+        "Issue #185 : marqueur de dette CQ (cqSeul) non masqué par la production promise"
+      ],
+      "copy": {
+        "heading": "Ligne de commande",
+        "body": [
+          "Cause du verdict, couverture par OF, composants en rupture et poste retenu."
+        ],
+        "callsToAction": [
+          {
+            "label": "Fermer le détail",
+            "target": "action:fermer-detail"
+          },
+          {
+            "label": "Ouvrir l'OF",
+            "target": "action:ouvrir-of"
+          },
+          {
+            "label": "Ouvrir le poste",
+            "target": "action:ouvrir-poste"
+          }
+        ]
+      },
+      "layout": "Référence fabrica-14-blog (aucune image mobile : réponse dérivée du desktop). Image desktop 1568×1003 (1,56:1). Fond canvas #f7f7f7 dans une feuille latérale à droite (960px max, rayon 14px côté gauche, ombre overlay). Desktop : titre sur 2 lignes à gauche (x 3,3 %–42 %, y 11 %–26 % de la référence) : ligne 1 « Ligne de commande » en ink, ligne 2 en #6a6a6a avec « {client} · {article} », corps 34px graisse 700 (référence ≈70px). Description à x 52 %–75 %, 2 lignes 14px. Bouton pilule ink « Fermer le détail » à x 88 %–97 %, hauteur 40px, avec point blanc. Trois cartes blanches rayon 22px dans la bande y 31,5 %–92 % : carte 1 x 3,3 %–26 % « Couverture par OF », carte 2 x 26,5 %–49,4 % « Composants en rupture », carte 3 x 50 %–97 % (≈47 % de la largeur) « Cause, poste et contrôle qualité ». Déviations enregistrées : la vignette photo en haut à gauche des deux cartes devient une tuile d'icône lucide de 56px (157px dans la référence), la grande carte photographique (média) devient une carte blanche sans photographie. Chaque carte : bouton rond ink de 30px en haut à droite (action ouvrir l'OF ou le poste), étiquette grise 12px en bas (« OF de couverture », « Composants »), titre 20px graisse 500 sur 2 lignes, description grise 14px sur 3 lignes. Carte 3 : cause en clair, poste retenu avec les seules données de CE poste, marqueur « Dépend du CQ » quand la dette existe. Dates en jj/mm/aaaa. Mobile dérivé : feuille plein écran, titre 2 lignes 26px, description sous le titre, bouton fermer en haut à droite, trois cartes empilées pleine largeur (largeur 100 %, marge 16px, espace 12px).",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "state_change",
+        "behavior": "À l'ouverture, la feuille glisse de 24px depuis la droite avec fondu et le tableau s'atténue de 8 % ; les trois cartes arrivent décalées de 70ms. À la fermeture, glissement inverse en 200ms. Le focus est rendu à la ligne d'origine.",
+        "durationMs": 480,
+        "easing": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "reducedMotion": "La feuille apparaît et disparaît sans glissement ni fondu ; le focus est géré de la même façon."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Feuille plein écran, cartes empilées dans l'ordre : couverture par OF, composants en rupture, cause et poste ; le bouton Fermer reste en haut.",
+        "medium": "Feuille de 640px, deux cartes côte à côte puis la carte de cause pleine largeur sous elles.",
+        "expanded": "Feuille de 960px avec la composition de la référence : deux cartes étroites et une carte large de 47 % de largeur."
+      }
+    }
+  ],
+  "responsive": [
+    "Trois seuils : compact sous 640px, medium de 640px à 1279px, expanded à partir de 1280px. Le contenu et les actions de chaque section sont identiques aux trois seuils.",
+    "Compact : le bandeau passe en 2×2, les lignes du tableau deviennent des blocs empilés avec tous les champs, la feuille de détail passe en plein écran.",
+    "Medium : tableau à défilement horizontal avec la première colonne figée, feuille de détail de 640px.",
+    "Expanded : géométrie complète des références, feuille de détail de 960px.",
+    "Aucune information critique (cause, dette CQ, verdict) n'est réservée au survol ni masquée en compact.",
+    "Les dates sont partout au format jj/mm/aaaa, y compris dans les méta et dans la feuille."
+  ],
+  "interactions": [
+    "Clic sur une tuile de verdict : filtre le tableau, un second clic retire le filtre, aria-pressed reflète l'état.",
+    "Recherche : filtre en direct sur numéro de ligne, client et article.",
+    "Interrupteurs Sous-ensembles et Dépend du CQ : modifient les colonnes et les lignes affichées, avec état lisible en texte.",
+    "Clic sur un n° d'OF : ouvre le détail OF (faisabilité), sans quitter la page.",
+    "Clic sur un code poste : ouvre l'engagement de CE poste, jamais une somme de postes jumeaux.",
+    "Clic sur une ligne ou sur son bouton rond : ouvre la feuille de détail, Échap la ferme, le focus revient à la ligne.",
+    "Bouton Recharger les données : relance /suivi/proactive-rows ; le diff clignote sur les lignes modifiées si l'option est active.",
+    "Interrupteur Animer les changements : active ou coupe le diff au rechargement, réglage persistant dans /configuration/affichage."
+  ],
+  "acceptanceCriteria": [
+    "Les cinq sections suivent l'ordre page_header, verdict_band, filtres, commandes, detail_commande et chacune reprend la géométrie de sa référence, avec les déviations enregistrées dans son layout.",
+    "Aucune photographie, aucun SVG dessiné à la main ; les icônes viennent de lucide-react.",
+    "Les chiffres du bandeau, les dates et les valeurs du tableau viennent du moteur ; aucune valeur n'est saisie en dur dans la page.",
+    "Verdict : vert #008049, ambre #fc642d, rouge #c13515, gris neutre ; Rausch n'est jamais utilisé pour coder un verdict.",
+    "L'étiquette du bouton primaire atteint 4,5:1 sur Rausch avec la couleur onAccent dérivée, et les bordures de champs atteignent 3:1.",
+    "Le tableau est trié par date d'expédition croissante par défaut, lignes sans date en dernier.",
+    "La dette CQ reste visible sur la ligne et dans la feuille, y compris quand la production est promise.",
+    "Les quatre états sont présents : chargement (squelettes), vide, erreur X3 (bandeau), filtres sans résultat avec « Réinitialiser les filtres ».",
+    "Animation d'entrée de l'en-tête visible au chargement, révélation des filtres et des lignes au défilement (une seule fois, sans rejeu), ouverture de la feuille et diff de rechargement vérifiés dans le navigateur de l'utilisateur, sans Playwright.",
+    "Avec prefers-reduced-motion, tout est lisible d'emblée, le diff est coupé et les commandes restent équivalentes.",
+    "Défilement rapide vers le bas puis vers le haut, rechargement à mi-page, redimensionnement : aucune section visitée ne disparaît ni ne rejoue.",
+    "Aucun transition: all, aucun scale depuis zéro, aucune information au seul survol.",
+    "Aucun tiret cadratin dans les textes ; français strict avec accents.",
+    "Le design system reste shadcn/Base UI ; BoardUI n'est pas introduit et l'impression A3 n'est pas dégradée."
+  ]
+}

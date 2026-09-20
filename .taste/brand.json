@@ -1,0 +1,234 @@
+{
+  "version": 1,
+  "foundation": {
+    "strategy": "preserve",
+    "existingAssets": [
+      "inertia-react/styles/app.css (tokens :root, grammaire Airbnb : Rausch #ff385c, ink #222222, hairline #dddddd, rayon 0.875rem)",
+      "package.json : @fontsource-variable/plus-jakarta-sans (police d'interface installée), lucide-react (icônes)",
+      "inertia-react/lib/vision/verdict-tones.ts (tons ok / limite / retard / inconnu)",
+      "inertia-react/lib/suivi/tracking-shared.ts (LATE_TONE : liseré gauche 3px destructive / suggere)",
+      "inertia-react/lib/suivi/proactive-columns.tsx, inertia-react/components/tracking/proactive-view.tsx, @r/components/ui/data-table, @r/components/ui/skeleton",
+      "Logo : aucun logo dédié à la page /suivi trouvé, traitement texte seul, logo laissé comme actif manquant"
+    ],
+    "assetActions": [
+      {
+        "asset": "Tokens de thème app.css (Rausch, ink, hairline, rayon 14px)",
+        "action": "protect",
+        "reason": "Identité vérifiée du dépôt depuis le cutover master du 21/07/2026. Les valeurs de marque ne sont pas modifiées ; seuls les rôles de contraste (étiquette de bouton, bordure de contrôle) sont adaptés pour tenir 4,5:1 et 3:1."
+      },
+      {
+        "asset": "Plus Jakarta Sans Variable",
+        "action": "preserve",
+        "reason": "Police d'interface déjà chargée via fontsource sur toutes les pages React. Le tirage typographique est écarté au profit de l'identité existante."
+      },
+      {
+        "asset": "Tons de verdict (ferme #008049, Arches #fc642d, destructive #c13515, neutre)",
+        "action": "protect",
+        "reason": "Sémantique arbitrée dans l'issue #62 : la marque n'est jamais utilisée pour coder « ok »."
+      },
+      {
+        "asset": "DataTable, SkeletonRow, icônes lucide-react",
+        "action": "preserve",
+        "reason": "Composants shadcn/Base UI du design system de /suivi. Le redesign porte sur leur composition, pas sur leur remplacement."
+      },
+      {
+        "asset": "Bleu #0069B4 (redesign Aldes UI)",
+        "action": "retire",
+        "reason": "Déjà remplacé par la grammaire Airbnb sur ces pages, ne doit pas revenir."
+      },
+      {
+        "asset": "Logo de marque",
+        "action": "create",
+        "reason": "Aucun logo n'existe pour cette page. Aucun n'est inventé : la vue s'appuie sur l'en-tête de l'application."
+      }
+    ],
+    "lockedDecisions": [
+      "Palette light du dépôt : fond #ffffff, surfaces #f7f7f7 et #f2f2f2, ink #222222, texte discret #6a6a6a, hairline #dddddd, Rausch #ff385c en accent, focus = ink #222222",
+      "Police unique Plus Jakarta Sans Variable, chiffres en tabular-nums",
+      "Icônes lucide-react uniquement, aucun SVG dessiné à la main",
+      "Verdict : vert #008049 (ok), ambre #fc642d (limite), rouge #c13515 (retard), gris neutre (non évalué)",
+      "shadcn/Base UI sur /suivi, BoardUI jamais mélangé",
+      "Français avec accents, dates jj/mm/aaaa, aucun chiffre ou exemple inventé",
+      "Densité de tableau et impression A3 préservées",
+      "Pas de thème sombre : /suivi est livré en clair seulement (:root), le mode .dark du dépôt reste inactif"
+    ],
+    "assumptions": [
+      "Les références sélectionnées sont des sections marketing sans lien avec la marque. Seules leurs compositions sont retenues : rangée de grands chiffres avec petit libellé en capitales (obvia-07), lignes numérotées séparées par des filets (creatiie-04), cartes à pastille d'action (fabrica-14). Leur identité (teal, mono, violet, vert néon) n'est pas reprise.",
+      "Les libellés mono des références sont rendus en Plus Jakarta Sans capitales espacées à 11-12px : le système n'a pas de police mono et n'en ajoute pas.",
+      "Contraste : le blanc sur Rausch #ff385c ne fait que 3,52:1, sous les 4,5:1 requis pour l'étiquette d'un bouton. La couleur d'étiquette (onAccent) n'est donc pas verrouillée : elle est dérivée à l'exécution pour atteindre 4,5:1 (ink #222222 ou équivalent), et le Build ne doit pas reprendre --primary-foreground: #ffffff tel quel pour le bouton primaire.",
+      "Contraste : la bordure de contrôle #c1c1c1 du dépôt ne fait que 1,80:1 sur blanc, sous les 3:1 requis. Elle n'est pas verrouillée : les bordures de champs, puces de filtre et cases utilisent un gris dérivé à l'exécution (environ #8a8a8a, 3:1 minimum sur #ffffff, #f7f7f7 et #f2f2f2). Le hairline #dddddd reste réservé aux séparateurs décoratifs (lignes de tableau, filets), qui ne sont pas des contrôles.",
+      "Rausch #ff385c sert aux aplats, contours et sélections, jamais au petit texte courant ; tout texte accentué prend la teinte accentText dérivée.",
+      "Pas de section héro ni de photographie : la page est une interface de données, la « hero » est le bandeau de synthèse par verdict."
+    ]
+  },
+  "creativeDirection": {
+    "summary": "Un poste de pilotage clair : le verdict se lit en un coup d'œil dans de grands chiffres, la cause se lit dans la ligne, le détail s'ouvre sur le côté. Blanc, ink, filets fins, Rausch réservé à l'action et à la sélection.",
+    "traits": [
+      {
+        "quality": "Lisible d'un coup d'œil : le verdict et la date dominent chaque ligne",
+        "boundary": "not décoratif ni saturé de couleurs, une seule couleur de verdict par ligne"
+      },
+      {
+        "quality": "Dense mais respirable : lignes de 40 à 44px, marges généreuses autour du tableau",
+        "boundary": "not un tableau compressé sans air ni hiérarchie"
+      },
+      {
+        "quality": "Calme et factuel : hairlines, aplats gris très clairs, pas d'ombre sur les lignes",
+        "boundary": "not un tableau de bord gadget avec dégradés, verre ou cartes empilées"
+      },
+      {
+        "quality": "Explicable : chaque verdict nomme sa cause (composant, OF, poste, contrôle qualité)",
+        "boundary": "not un badge opaque sans raison affichée"
+      }
+    ],
+    "productiveTension": "Repérer en quelques secondes ce qui casse (grands chiffres, un verdict par ligne) tout en gardant la profondeur pour comprendre pourquoi (couverture, composants, poste, dette CQ) sans quitter la liste.",
+    "signatureDevice": {
+      "description": "Bandeau de synthèse par verdict, tiré de la rangée de grands chiffres avec libellé en capitales espacées d'obvia-07 : chaque verdict est un grand numéral tabulaire surmonté d'un liseré de sa couleur et suivi de son libellé. C'est aussi le filtre principal du tableau.",
+      "status": "candidate",
+      "invariants": [
+        "Grands chiffres en 600, tabular-nums, libellé en capitales espacées 11-12px en #6a6a6a",
+        "Un liseré de 3px à gauche ou en haut porte la couleur du verdict, jamais un aplat entier",
+        "Chaque tuile est un vrai bouton filtre : sélection = contour ink 2px plus fond brand-soft, retour au tout par un second clic",
+        "Les chiffres viennent du moteur, jamais saisis en dur ; en chargement, squelette de même gabarit",
+        "L'ordre des tuiles suit la gravité (retard, limite, ok, non évalué) et ne change pas d'une session à l'autre"
+      ]
+    },
+    "restraint": "Rausch n'apparaît que sur : bouton primaire, tuile de verdict sélectionnée (fond brand-soft) et flash de diff des lignes modifiées. Jamais sur le texte courant, jamais pour coder un verdict, jamais en aplat de ligne. Une seule variante de carte.",
+    "avoid": [
+      "Coder « ok » avec la marque : le vert #008049 est réservé au verdict",
+      "Sommer des mesures par OF ou de postes jumeaux : la ligne de commande est l'unité",
+      "Empiler des cartes autour du tableau : un seul conteneur, filets fins",
+      "Effets décoratifs : dégradés, verre, ombres sur les lignes, animations perpétuelles",
+      "Afficher des dates en ISO brut ou des chiffres inventés",
+      "Infobulle comme seul vecteur d'une information critique (cause, dette CQ)",
+      "Mélanger BoardUI et shadcn/Base UI",
+      "Étiquette blanche sur Rausch ou bordure de contrôle #c1c1c1 : contrastes insuffisants, utiliser les valeurs dérivées",
+      "Playwright : validation dans le navigateur de l'utilisateur"
+    ]
+  },
+  "colorPalette": [
+    {
+      "name": "Light Canvas",
+      "value": "#FFFFFF",
+      "usage": "Dominant. canvas token in the light theme."
+    },
+    {
+      "name": "Light Surface",
+      "value": "#F7F7F7",
+      "usage": "Dominant. surface token in the light theme."
+    },
+    {
+      "name": "Light Surface alt",
+      "value": "#F2F2F2",
+      "usage": "Supporting. surface alt token in the light theme."
+    },
+    {
+      "name": "Light Text",
+      "value": "#222222",
+      "usage": "Semantic. text token in the light theme."
+    },
+    {
+      "name": "Light Text muted",
+      "value": "#6A6A6A",
+      "usage": "Semantic. text muted token in the light theme."
+    },
+    {
+      "name": "Light Divider",
+      "value": "#DDDDDD",
+      "usage": "Semantic. divider token in the light theme."
+    },
+    {
+      "name": "Light Control border",
+      "value": "#696969",
+      "usage": "Semantic. control border token in the light theme."
+    },
+    {
+      "name": "Light Accent",
+      "value": "#FF385C",
+      "usage": "Sparse accent. accent token in the light theme."
+    },
+    {
+      "name": "Light Accent hover",
+      "value": "#E61049",
+      "usage": "Semantic. accent hover token in the light theme."
+    },
+    {
+      "name": "Light On accent",
+      "value": "#000000",
+      "usage": "Semantic. on accent token in the light theme."
+    },
+    {
+      "name": "Light Accent text",
+      "value": "#800023",
+      "usage": "Sparse accent. accent text token in the light theme."
+    },
+    {
+      "name": "Light Focus ring",
+      "value": "#222222",
+      "usage": "Semantic. focus ring token in the light theme."
+    }
+  ],
+  "typefaces": [
+    {
+      "family": "Plus Jakarta Sans Variable",
+      "source": "@fontsource-variable/plus-jakarta-sans, déjà installé et importé dans inertia-react/styles/app.css ; licence OFL",
+      "roles": [
+        "Interface et corps de texte",
+        "Titres de page et grands chiffres du bandeau (600 à 700)",
+        "Libellés en capitales espacées",
+        "Chiffres, n° d'OF et dates en tabular-nums (font-mono du dépôt pointe déjà vers cette police)"
+      ],
+      "weights": [
+        400,
+        500,
+        600,
+        700
+      ]
+    }
+  ],
+  "interfaceDirection": "Fond #ffffff, tuiles et barre de filtres en #f7f7f7, puces en #f2f2f2, filets #dddddd et #ebebeb. Marge de page 28px, rythme de 4px (8, 12, 16, 24, 32). Bandeau de synthèse pleine largeur en quatre tuiles égales, sans boîte autour de l'ensemble ; barre de filtres sur une seule ligne, puis tableau pleine largeur avec en-tête collant. Lignes de 40 à 44px, filet horizontal #ebebeb, pas de zébrage. Ordre de lecture : n° de ligne, client, article, quantité, date d'expédition (jj/mm/aaaa), verdict en puce avec icône lucide, couverture (n° d'OF cliquables), composants en rupture, poste, cause ; la dette CQ garde son marqueur propre, jamais masqué. Rayon : 14px pour tuiles et feuille latérale, boutons en rayon sm, puces en pilule. Ombres réservées à la feuille de détail (shadow-overlay) et aux menus flottants. États : survol de ligne fond foreground/7 %, ligne sélectionnée fond brand-soft avec liseré ink, focus anneau ink 2px décalé de 2px. Bouton primaire : fond Rausch, étiquette 14px minimum en 600 avec la couleur onAccent dérivée (4,5:1 minimum, pas de blanc pur). Champs, puces de filtre et cases : bordure de contrôle dérivée d'environ #8a8a8a (3:1 minimum), jamais le hairline #dddddd. Désactivé à 40 % d'opacité sans changer la forme. Liseré gauche 3px destructive ou suggere pour les retards, via LATE_TONE. Erreur X3 en bandeau destructive/10 avec bordure destructive/30. État vide et filtres sans résultat : phrase factuelle plus action « Réinitialiser les filtres ». Mobile : bandeau en 2 colonnes, tableau à défilement horizontal avec première colonne figée.",
+  "imageDirection": {
+    "summary": "Aucune photographie : la valeur vient des données réelles. Icônes lucide-react en trait 1,75 pour verdicts et actions.",
+    "subjects": [
+      "Icônes de verdict et d'action (lucide-react)",
+      "Squelettes de chargement au gabarit exact des lignes et des tuiles"
+    ],
+    "treatment": "Monochrome ink ou couleur de verdict, trait 1,75, tailles 14 à 16px. Pas d'illustration, pas de dégradé, pas de pictogramme dessiné à la main.",
+    "avoid": [
+      "Photos de stock ou illustrations décoratives",
+      "SVG inventés comme remplissage",
+      "Icônes en couleur de marque pour coder un statut",
+      "Graphiques qui ne reflètent pas des données réelles du moteur"
+    ]
+  },
+  "motionDirection": {
+    "summary": "Mouvement court qui explique le changement d'état : le bandeau et le tableau se posent à l'ouverture, les lignes modifiées se signalent au rechargement, la feuille de détail glisse depuis son point d'origine. Aucun mouvement décoratif.",
+    "principles": [
+      "Entrée de page : au premier chargement, le bandeau de verdicts puis l'en-tête du tableau apparaissent en fondu avec 8px de montée pour poser la hiérarchie ; tuiles décalées de 60-80ms (240ms au total), 450-600ms, ease-out prononcée ; repli reduced-motion : état final immédiat.",
+      "Révélation des lignes : au premier affichage des données, les 12 premières lignes visibles arrivent en opacité et translateY 6px, décalées de 60ms plafonnées à 240ms, 450-550ms, ease-out ; elles sont observées par groupe avec IntersectionObserver (seuil 0, marge basse positive), démasquées une fois et jamais rejouées ; le contenu reste visible si le script échoue.",
+      "Diff au rechargement (issue #186) : un rechargement fait clignoter en brand-soft les lignes modifiées, puis le fond revient en 700-800ms ease-out ; les lignes supprimées restent en fantôme barré avant de disparaître ; réglable ON/OFF, désactivé sous reduced-motion.",
+      "Filtre par verdict : au clic sur une tuile, le contour ink et le fond brand-soft passent en 120-160ms ease-out, et le tableau se recale sans décalage de mise en page ; le retour visuel précède le recalcul.",
+      "Feuille de détail : à l'ouverture d'une ligne, la feuille glisse de 24px depuis la droite avec fondu en 450-500ms ease-out et le fond du tableau s'atténue de 8 % ; à la fermeture 200ms ease-in ; le focus est rendu à la ligne d'origine.",
+      "Retour direct des contrôles : boutons, puces et n° d'OF cliquables changent de fond ou de soulignement en 120-180ms ease-out, pression à 98 % d'échelle en 100ms ; jamais de transition all, seules les propriétés listées sont animées."
+    ],
+    "avoid": [
+      "transition: all",
+      "Entrées en scale depuis zéro",
+      "Information visible seulement au survol",
+      "Animations perpétuelles ou en boucle, y compris sur les squelettes au-delà d'un pulse discret",
+      "Rejouer une révélation à la sortie, au redimensionnement ou au rerendu",
+      "Animer des transforms sur un ancêtre d'éléments collants (en-tête du tableau, barre de filtres)",
+      "Blocage du défilement natif"
+    ]
+  },
+  "voice": {
+    "summary": "Français direct, factuel, à l'infinitif ou au présent : le verdict, la cause, l'action. Libellés courts (« Composants en rupture », « Dépend du CQ », « Réinitialiser les filtres »). Dates en jj/mm/aaaa, nombres en format français, unités explicites. Un état vide dit ce qui manque et propose l'action suivante.",
+    "avoid": [
+      "Mélange de langues ou portugais",
+      "Ton promotionnel, exclamations, emojis",
+      "Jargon de moteur non expliqué (clé interne, identifiant technique)",
+      "Promesse sans donnée (« tout est sous contrôle »)",
+      "Formulations vagues comme « une erreur est survenue » sans cause ni action"
+    ]
+  }
+}

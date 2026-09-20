@@ -1,0 +1,50 @@
+{
+  "originalRequest": "Page suivi /proactif",
+  "subject": "Vue proactive du Suivi des commandes (route /suivi, mode « proactif ») du supply-chain-board d'Aldes, site AE1 : réalisabilité projetée des commandes clients par le moteur de consommation séquentielle.",
+  "pageType": "Interface produit : page de suivi de type tableau de bord de données (React 19 + Inertia, DataTable). Ce n'est pas une landing page.",
+  "scope": "Redesign de la vue proactive existante, dans inertia-react/pages/scheduler/tracking.tsx, inertia-react/components/tracking/proactive-view.tsx et inertia-react/lib/suivi/proactive-columns.tsx. La barre de mode réactif/proactif, les filtres et le panneau de détail sont traités dans la mesure où ils encadrent la vue. Aucune nouvelle route : /proactif est lu comme le mode proactif de /suivi, alimenté par /suivi/proactive-rows. Le mode réactif, le moteur et les contrôleurs ne sont pas touchés.",
+  "primaryGoal": "Permettre au planificateur de repérer en quelques secondes les commandes qui ne seront pas réalisables à leur date d'expédition, de comprendre pourquoi (composants ou sous-ensembles en rupture, OF de couverture, poste, dette envers le contrôle qualité) et d'agir.",
+  "audience": "Planificateurs et responsables supply chain et production d'Aldes (usage interne, écran de bureau, quotidien, lecture dense).",
+  "offer": "Vision projetée, et non réactive : chaque ligne de commande porte un verdict de réalisabilité, la couverture par OF, les composants manquants et la cause. Le tout reste cohérent avec le moteur unique de faisabilité et les mesures par ligne de commande.",
+  "primaryAction": "Ouvrir le détail d'une ligne de commande, ou d'un OF ou d'un poste, depuis le tableau. Actions secondaires : filtrer par verdict, inclure ou non les sous-ensembles, réinitialiser les filtres, recharger.",
+  "creativeControl": "Totale sur la hiérarchie visuelle, la mise en page et la densité, dans la grammaire du design system existant. Les données, les colonnes fonctionnelles et le moteur sont figés.",
+  "requiredContent": [
+    "En-tête de page avec bascule réactif/proactif (proactif par défaut), date de référence et état de chargement",
+    "Bandeau de synthèse par verdict de réalisabilité, servant aussi de filtres (ProactiveVerdictKey)",
+    "Barre de filtres : verdict, recherche, option « inclure les sous-ensembles », « Dépend du CQ », réinitialisation",
+    "Tableau principal trié par date d'expédition croissante : n° de ligne, client, article, quantité, date d'expédition, verdict, couverture (n° d'OF cliquables), composants en rupture, poste, cause",
+    "Marqueur de dette envers le contrôle qualité (statut Q), non masqué par la production promise",
+    "Animation du diff au rechargement (data-flash, issue #186), réglable ON/OFF",
+    "Panneau de détail (feuille latérale) de la ligne, ouverture de l'OF (faisabilité) et du poste (engagement)",
+    "États : chargement (squelettes), vide, erreur X3 (bandeau), filtres sans résultat avec action de réinitialisation"
+  ],
+  "constraints": [
+    "Français strict, avec accents",
+    "Dates toujours au format jj/mm/aaaa à l'écran",
+    "Aucun fait, chiffre ou exemple client inventé : données réelles du moteur ou états vides explicites",
+    "Ne pas mélanger les design systems : /suivi utilise shadcn/Base UI, pas BoardUI",
+    "Pas de Playwright ; validation visuelle dans le navigateur de l'utilisateur",
+    "Tokens de thème existants, densité de tableau préservée, impression A3 non cassée",
+    "Poste retenu = données de CE poste, jamais de somme entre postes jumeaux",
+    "Mesures par OF non sommables : décrémenter la ressource partagée par ligne de commande",
+    "Mouvement : transitions discrètes et visibles (diff-flash, ouverture du panneau), sans effet décoratif qui gêne la lecture"
+  ],
+  "brandInputs": [
+    "Source : design system du dépôt (docs/design, section design system), grammaire Airbnb sur master depuis le 21/07/2026, remplaçant l'ancien bleu #0069B4 sur ces pages",
+    "Composants existants : DataTable, SkeletonRow, icônes lucide-react, classes utilitaires Tailwind du thème",
+    "Tons de retard et de verdict : LATE_TONE et lib/vision/verdict-tones.ts"
+  ],
+  "assumptions": [
+    "« /proactif » désigne le mode proactif de /suivi (aucune route /proactif n'existe ; l'endpoint est /suivi/proactive-rows)",
+    "Demande minimale : redesign de la vue existante, sans nouvelle fonctionnalité",
+    "Le nombre de sections de landing page ne s'applique pas : c'est une interface de données, le contenu se compose des blocs listés ci-dessus",
+    "Langue de l'interface : français, dates jj/mm/aaaa",
+    "Le contenu vient des données réelles de l'application, aucun contenu conceptuel n'est inventé",
+    "Rendu desktop en priorité, comportement mobile dégradé mais lisible"
+  ],
+  "unresolved": [
+    "Point de douleur précis à corriger sur la vue actuelle (lisibilité, hiérarchie, densité), non précisé",
+    "Pas de vérification navigateur réalisée à ce stade"
+  ],
+  "explicitAnswers": []
+}

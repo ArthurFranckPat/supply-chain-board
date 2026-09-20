@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Clock, ArrowUpRight, TrendingUp, Layers } from 'lucide-react'
 import { cn } from '@r/lib/utils'
-import type { WorkstationProducedCard } from '@r/lib/produced-hours/types'
+import { formatDateFr, type WorkstationProducedCard } from '@r/lib/produced-hours/types'
 
 interface ProducedHoursCardsProps {
   workstations: WorkstationProducedCard[]
@@ -132,7 +132,7 @@ export function ProducedHoursCards({ workstations, onSelectPoste }: ProducedHour
                       <div
                         key={pt.date}
                         className="group/bar relative flex-1 h-full flex items-end justify-center"
-                        title={`${pt.date} : ${pt.hours}h (${pt.qty} pcs)`}
+                        title={`${formatDateFr(pt.date)} : ${pt.hours}h (${pt.qty} pcs)`}
                       >
                         <div
                           style={{ height: `${Math.max(12, hPct)}%` }}
