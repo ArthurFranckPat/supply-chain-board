@@ -25,7 +25,14 @@ export interface WorkstationProducedCard {
   nbOfs: number
   nbTrackings: number
   weeklyCapacity: number
-  timeline: { date: string; hours: number; allocated: number; qty: number }[]
+  timeline: {
+    date: string
+    hours: number
+    allocated: number
+    qty: number
+    morningHours?: number
+    afternoonHours?: number
+  }[]
 }
 
 export interface ProducedHoursKPIs {
@@ -74,7 +81,14 @@ export interface WorkstationDetailResponse {
     nbOfs: number
     nbTrackings: number
   }
-  timeline: { date: string; hours: number; allocated: number; qty: number }[]
+  timeline: {
+    date: string
+    hours: number
+    allocated: number
+    qty: number
+    morningHours: number
+    afternoonHours: number
+  }[]
   trackings: EnrichedPosteTracking[]
 }
 
@@ -120,7 +134,14 @@ export class ProducedHoursLoader {
     // Grouper les points journaliers par poste
     const dailyByPoste = new Map<
       string,
-      { date: string; hours: number; allocated: number; qty: number }[]
+      {
+        date: string
+        hours: number
+        allocated: number
+        qty: number
+        morningHours?: number
+        afternoonHours?: number
+      }[]
     >()
     for (const dp of dailyPoints) {
       const pKey = dp.poste.trim().toUpperCase()
@@ -133,6 +154,8 @@ export class ProducedHoursLoader {
         hours: dp.totalHours,
         allocated: dp.allocatedHours,
         qty: dp.quantity,
+        morningHours: dp.morningHours,
+        afternoonHours: dp.afternoonHours,
       })
     }
 
@@ -301,6 +324,8 @@ export class ProducedHoursLoader {
       hours: dp.totalHours,
       allocated: dp.allocatedHours,
       qty: dp.quantity,
+      morningHours: dp.morningHours,
+      afternoonHours: dp.afternoonHours,
     }))
 
     return {

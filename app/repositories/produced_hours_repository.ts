@@ -22,6 +22,8 @@ export interface DailyProducedPoint {
   operationHours: number
   setupHours: number
   totalHours: number
+  morningHours: number
+  afternoonHours: number
   allocatedHours: number
   quantity: number
 }
@@ -33,6 +35,8 @@ export interface PosteTrackingDetail {
   opeNum: number
   article: string
   date: string
+  time?: string
+  shift?: 'matin' | 'aprem'
   setupHours: number
   operationHours: number
   totalHours: number
@@ -146,6 +150,16 @@ export class X3ProducedHoursRepository {
         TO_CHAR(IPTDAT_0, 'YYYY-MM-DD')                     AS JOUR,
         TO_CHAR(SUM(CPLOPETIM_0))                           AS OPETIM,
         TO_CHAR(SUM(CPLSETTIM_0))                           AS SETTIM,
+        TO_CHAR(SUM(CASE 
+          WHEN NVL(TO_NUMBER(REGEXP_SUBSTR(COALESCE(NULLIF(TRIM(CPLSTRHOU_0), ''), TO_CHAR(CREDATTIM_0, 'HH24MI')), '^[0-9]{1,4}')), 800) < 1300 
+          THEN CPLOPETIM_0 + CPLSETTIM_0 
+          ELSE 0 
+        END))                                               AS MATIN_H,
+        TO_CHAR(SUM(CASE 
+          WHEN NVL(TO_NUMBER(REGEXP_SUBSTR(COALESCE(NULLIF(TRIM(CPLSTRHOU_0), ''), TO_CHAR(CREDATTIM_0, 'HH24MI')), '^[0-9]{1,4}')), 800) >= 1300 
+          THEN CPLOPETIM_0 + CPLSETTIM_0 
+          ELSE 0 
+        END))                                               AS APREM_H,
         TO_CHAR(SUM(CPLALOPTIM_0 + CPLALSETIM_0))           AS ALLOUEES,
         TO_CHAR(SUM(CPLQTY_0))                              AS QTY
       FROM MFGOPETRK
@@ -166,6 +180,8 @@ export class X3ProducedHoursRepository {
         const opeH = num(r.OPETIM)
         const setH = num(r.SETTIM)
         const totH = Math.round((opeH + setH) * 100) / 100
+        const matinH = Math.round(num(r.MATIN_H) * 100) / 100
+        const apremH = Math.round(num(r.APREM_H) * 100) / 100
         const alH = Math.round(num(r.ALLOUEES) * 100) / 100
 
         return {
@@ -174,6 +190,8 @@ export class X3ProducedHoursRepository {
           operationHours: Math.round(opeH * 100) / 100,
           setupHours: Math.round(setH * 100) / 100,
           totalHours: totH,
+          morningHours: matinH,
+          afternoonHours: apremH,
           allocatedHours: alH,
           quantity: num(r.QTY),
         }
@@ -207,6 +225,7 @@ export class X3ProducedHoursRepository {
         OPENUM_0                            AS OPENUM,
         ITMREF_0                            AS ITMREF,
         TO_CHAR(IPTDAT_0, 'YYYY-MM-DD')     AS IPTDAT,
+        COALESCE(NULLIF(TRIM(CPLSTRHOU_0), ''), TO_CHAR(CREDATTIM_0, 'HH24MI')) AS STRHOU,
         TO_CHAR(CPLSETTIM_0)                AS SETTIM,
         TO_CHAR(CPLOPETIM_0)                AS OPETIM,
         TO_CHAR(CPLALSETIM_0)               AS ALSETIM,
@@ -235,6 +254,16 @@ export class X3ProducedHoursRepository {
         const alOpeH = num(r.ALOPTIM)
         const totAlH = Math.round((alSetH + alOpeH) * 100) / 100
 
+        const rawHou = str(r.STRHOU).replace(/\D/g, '')
+        let time = ''
+        let shift: 'matin' | 'aprem' = 'matin'
+        if (rawHou && rawHou.length >= 3) {
+          const padded = rawHou.padStart(4, '0')
+          time = `${padded.slice(0, 2)}:${padded.slice(2, 4)}`
+          const hNum = Number.parseInt(padded, 10)
+          shift = hNum < 1300 ? 'matin' : 'aprem'
+        }
+
         return {
           trackingNum: str(r.TRKNUM),
           lineNum: num(r.LINNUM),
@@ -242,6 +271,8 @@ export class X3ProducedHoursRepository {
           opeNum: num(r.OPENUM),
           article: str(r.ITMREF),
           date: str(r.IPTDAT),
+          time: time || undefined,
+          shift,
           setupHours: Math.round(setH * 100) / 100,
           operationHours: Math.round(opeH * 100) / 100,
           totalHours: totH,

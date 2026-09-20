@@ -3,6 +3,8 @@ export interface DailyPoint {
   hours: number
   allocated: number
   qty: number
+  morningHours?: number
+  afternoonHours?: number
 }
 
 export interface WorkstationProducedCard {
@@ -58,6 +60,8 @@ export interface EnrichedPosteTracking {
   article: string
   designation: string
   date: string
+  time?: string
+  shift?: 'matin' | 'aprem'
   setupHours: number
   operationHours: number
   totalHours: number

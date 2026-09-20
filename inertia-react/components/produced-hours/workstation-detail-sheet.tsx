@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Segment, SegmentButton } from '@r/components/vision/toolbar'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@r/components/ui/tooltip'
 import { formatDateFr, type WorkstationDetailResponse } from '@r/lib/produced-hours/types'
 
 type TimelineGranularity = 'day' | 'week' | 'month'
@@ -28,6 +29,8 @@ interface AggregatedPoint {
   label: string
   tooltipLabel: string
   hours: number
+  morningHours: number
+  afternoonHours: number
   allocated: number
   qty: number
 }
@@ -160,6 +163,8 @@ export function WorkstationDetailSheet({
         label: formatDateFr(pt.date).slice(0, 5),
         tooltipLabel: formatDateFr(pt.date),
         hours: pt.hours,
+        morningHours: pt.morningHours || 0,
+        afternoonHours: pt.afternoonHours || 0,
         allocated: pt.allocated,
         qty: pt.qty,
       }))
@@ -173,6 +178,8 @@ export function WorkstationDetailSheet({
         const existing = map.get(key)
         if (existing) {
           existing.hours += pt.hours
+          existing.morningHours += pt.morningHours || 0
+          existing.afternoonHours += pt.afternoonHours || 0
           existing.allocated += pt.allocated
           existing.qty += pt.qty
         } else {
@@ -181,6 +188,8 @@ export function WorkstationDetailSheet({
             label: `S${String(weekNum).padStart(2, '0')}`,
             tooltipLabel: `Semaine ${weekNum} (${year})`,
             hours: pt.hours,
+            morningHours: pt.morningHours || 0,
+            afternoonHours: pt.afternoonHours || 0,
             allocated: pt.allocated,
             qty: pt.qty,
           })
@@ -189,6 +198,8 @@ export function WorkstationDetailSheet({
       return Array.from(map.values()).map((p) => ({
         ...p,
         hours: Math.round(p.hours * 10) / 10,
+        morningHours: Math.round(p.morningHours * 10) / 10,
+        afternoonHours: Math.round(p.afternoonHours * 10) / 10,
         allocated: Math.round(p.allocated * 10) / 10,
       }))
     }
@@ -203,6 +214,8 @@ export function WorkstationDetailSheet({
       const existing = map.get(key)
       if (existing) {
         existing.hours += pt.hours
+        existing.morningHours += pt.morningHours || 0
+        existing.afternoonHours += pt.afternoonHours || 0
         existing.allocated += pt.allocated
         existing.qty += pt.qty
       } else {
@@ -213,6 +226,8 @@ export function WorkstationDetailSheet({
           label: `${mShort} ${String(year).slice(2)}`,
           tooltipLabel: `${mFull} ${year}`,
           hours: pt.hours,
+          morningHours: pt.morningHours || 0,
+          afternoonHours: pt.afternoonHours || 0,
           allocated: pt.allocated,
           qty: pt.qty,
         })
@@ -221,6 +236,8 @@ export function WorkstationDetailSheet({
     return Array.from(map.values()).map((p) => ({
       ...p,
       hours: Math.round(p.hours * 10) / 10,
+      morningHours: Math.round(p.morningHours * 10) / 10,
+      afternoonHours: Math.round(p.afternoonHours * 10) / 10,
       allocated: Math.round(p.allocated * 10) / 10,
     }))
   }, [data?.timeline, granularity])
@@ -373,10 +390,29 @@ export function WorkstationDetailSheet({
                     <div className="flex flex-wrap items-center gap-3">
                       {/* Legend */}
                       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="size-2 rounded-full bg-brand" />
-                          <span>Heures réelles</span>
-                        </span>
+                        {granularity === 'day' ? (
+                          <>
+                            <span
+                              className="inline-flex items-center gap-1.5"
+                              title="Pointages du matin (6h00 – 12h59)"
+                            >
+                              <span className="size-2 rounded-full bg-amber-400" />
+                              <span>Matin (6h–13h)</span>
+                            </span>
+                            <span
+                              className="inline-flex items-center gap-1.5"
+                              title="Pointages de l'après-midi (13h00 – 21h00)"
+                            >
+                              <span className="size-2 rounded-full bg-brand" />
+                              <span>Aprem (13h–21h)</span>
+                            </span>
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-brand" />
+                            <span>Heures réelles</span>
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1.5">
                           <span className="size-2 rounded-full bg-slate-300" />
                           <span>Alloué standard</span>
@@ -411,58 +447,165 @@ export function WorkstationDetailSheet({
                   </div>
 
                   {/* Zone de barres protégée contre tout débordement */}
-                  <div className="w-full overflow-x-auto pb-1">
-                    <div className="relative flex h-28 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-1">
-                      {aggregatedTimeline.map((pt) => {
-                        const hReal = Math.min(100, (pt.hours / maxAggregatedHours) * 100)
-                        const hAlloc = Math.min(100, (pt.allocated / maxAggregatedHours) * 100)
+                  <TooltipProvider delay={0} closeDelay={80}>
+                    <div className="w-full overflow-x-auto pb-1">
+                      <div className="relative flex h-28 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-1">
+                        {aggregatedTimeline.map((pt) => {
+                          const hReal = Math.min(100, (pt.hours / maxAggregatedHours) * 100)
+                          const hAlloc = Math.min(100, (pt.allocated / maxAggregatedHours) * 100)
 
-                        const isFew = aggregatedTimeline.length <= 6
-                        const isMid = aggregatedTimeline.length <= 14
-                        const realBarWidth = isFew ? 'w-8' : isMid ? 'w-5' : 'w-3.5'
-                        const allocBarWidth = isFew ? 'w-5' : isMid ? 'w-3.5' : 'w-2.5'
+                          const isFew = aggregatedTimeline.length <= 6
+                          const isMid = aggregatedTimeline.length <= 14
+                          const realBarWidth = isFew ? 'w-8' : isMid ? 'w-5' : 'w-3.5'
+                          const allocBarWidth = isFew ? 'w-5' : isMid ? 'w-3.5' : 'w-2.5'
 
-                        return (
-                          <div
-                            key={pt.key}
-                            className="group relative flex h-full flex-1 min-w-[32px] flex-col items-center justify-end"
-                          >
-                            {/* Tooltip */}
-                            <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 rounded-md bg-[#222] px-2.5 py-1 text-[10px] text-white shadow-md group-hover:block whitespace-nowrap">
-                              <span className="font-semibold">{pt.tooltipLabel}</span> :{' '}
-                              {pt.hours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })}h
-                              (std:{' '}
-                              {pt.allocated.toLocaleString('fr-FR', { minimumFractionDigits: 1 })}h)
-                              · {pt.qty.toLocaleString('fr-FR')} pcs
-                            </div>
+                          const morningRatio = pt.hours > 0 ? pt.morningHours / pt.hours : 0
+                          const afternoonRatio = pt.hours > 0 ? pt.afternoonHours / pt.hours : 0
 
-                            <div className="flex h-20 w-full items-end justify-center gap-1">
-                              {/* Real bar */}
-                              <div
-                                style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
-                                className={cn(
-                                  realBarWidth,
-                                  'rounded-t-sm bg-brand transition-all group-hover:opacity-80'
-                                )}
-                              />
-                              {/* Alloc bar */}
-                              <div
-                                style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
-                                className={cn(
-                                  allocBarWidth,
-                                  'rounded-t-xs bg-slate-300 transition-all'
-                                )}
-                              />
-                            </div>
+                          return (
+                            <Tooltip key={pt.key}>
+                              <TooltipTrigger
+                                render={
+                                  <div className="group relative flex h-full flex-1 min-w-[32px] cursor-pointer flex-col items-center justify-end" />
+                                }
+                              >
+                                <div className="flex h-20 w-full items-end justify-center gap-1">
+                                  {/* Real bar (stacked in day view for Matin / Aprem) */}
+                                  {granularity === 'day' ? (
+                                    <div
+                                      style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
+                                      className={cn(
+                                        realBarWidth,
+                                        'flex flex-col justify-end overflow-hidden rounded-t-sm transition-all group-hover:brightness-105 group-hover:opacity-90'
+                                      )}
+                                    >
+                                      {/* Après-midi segment (top) */}
+                                      {pt.afternoonHours > 0 && (
+                                        <div
+                                          style={{
+                                            height:
+                                              pt.morningHours > 0
+                                                ? `${Math.max(12, Math.round(afternoonRatio * 100))}%`
+                                                : '100%',
+                                          }}
+                                          className="w-full bg-brand"
+                                        />
+                                      )}
+                                      {/* Hairline division if both shifts are present */}
+                                      {pt.afternoonHours > 0 && pt.morningHours > 0 && (
+                                        <div className="h-[1px] w-full bg-white/40" />
+                                      )}
+                                      {/* Matin segment (bottom) */}
+                                      {pt.morningHours > 0 && (
+                                        <div
+                                          style={{
+                                            height:
+                                              pt.afternoonHours > 0
+                                                ? `${Math.max(12, Math.round(morningRatio * 100))}%`
+                                                : '100%',
+                                          }}
+                                          className="w-full bg-amber-400"
+                                        />
+                                      )}
+                                      {pt.morningHours === 0 && pt.afternoonHours === 0 && (
+                                        <div className="size-full bg-brand" />
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div
+                                      style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
+                                      className={cn(
+                                        realBarWidth,
+                                        'rounded-t-sm bg-brand transition-all group-hover:opacity-85'
+                                      )}
+                                    />
+                                  )}
 
-                            <span className="mt-1 font-mono text-[9px] text-muted-foreground whitespace-nowrap">
-                              {pt.label}
-                            </span>
-                          </div>
-                        )
-                      })}
+                                  {/* Alloc bar */}
+                                  <div
+                                    style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
+                                    className={cn(
+                                      allocBarWidth,
+                                      'rounded-t-xs bg-slate-300 transition-all group-hover:opacity-85'
+                                    )}
+                                  />
+                                </div>
+
+                                <span className="mt-1 font-mono text-[9px] text-muted-foreground whitespace-nowrap">
+                                  {pt.label}
+                                </span>
+                              </TooltipTrigger>
+
+                              <TooltipContent
+                                side="top"
+                                sideOffset={8}
+                                className="w-60 p-2.5 shadow-xl border-border bg-popover text-popover-foreground pointer-events-none"
+                              >
+                                <div className="pb-1 mb-1.5 border-b border-border/60">
+                                  <div className="font-semibold text-foreground">
+                                    {pt.tooltipLabel}
+                                  </div>
+                                </div>
+                                <div className="space-y-1 text-[11px]">
+                                  <div className="flex justify-between font-mono">
+                                    <span className="text-muted-foreground">Réel total :</span>
+                                    <span className="font-bold text-foreground">
+                                      {pt.hours.toLocaleString('fr-FR', {
+                                        minimumFractionDigits: 1,
+                                      })}{' '}
+                                      h
+                                    </span>
+                                  </div>
+                                  {granularity === 'day' &&
+                                    (pt.morningHours > 0 || pt.afternoonHours > 0) && (
+                                      <div className="my-1 pl-2 border-l-2 border-amber-400/70 space-y-0.5 text-[10px]">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <span className="size-1.5 rounded-full bg-amber-400" />
+                                            <span>Matin (6h–13h) :</span>
+                                          </span>
+                                          <span className="font-mono font-medium">
+                                            {pt.morningHours.toLocaleString('fr-FR', {
+                                              minimumFractionDigits: 1,
+                                            })}{' '}
+                                            h
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <span className="size-1.5 rounded-full bg-brand" />
+                                            <span>Aprem (13h–21h) :</span>
+                                          </span>
+                                          <span className="font-mono font-medium">
+                                            {pt.afternoonHours.toLocaleString('fr-FR', {
+                                              minimumFractionDigits: 1,
+                                            })}{' '}
+                                            h
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  <div className="flex justify-between font-mono text-muted-foreground">
+                                    <span>Standard gamme :</span>
+                                    <span>
+                                      {pt.allocated.toLocaleString('fr-FR', {
+                                        minimumFractionDigits: 1,
+                                      })}{' '}
+                                      h
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between font-mono text-muted-foreground">
+                                    <span>Quantité déclarée :</span>
+                                    <span>{pt.qty.toLocaleString('fr-FR')} pcs</span>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  </TooltipProvider>
                 </div>
               )}
 
@@ -494,7 +637,7 @@ export function WorkstationDetailSheet({
                   <table className="min-w-[760px] w-full text-left text-xs">
                     <thead className="border-b border-rule bg-surface-muted text-[11px] font-semibold text-muted-foreground">
                       <tr>
-                        <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date</th>
+                        <th className="w-36 px-3 py-2.5 whitespace-nowrap">Date / Heure</th>
                         <th className="w-28 px-3 py-2.5 whitespace-nowrap">OF</th>
                         <th className="w-14 px-2 py-2.5 text-center whitespace-nowrap">Opé</th>
                         <th className="min-w-[180px] px-3 py-2.5">Article</th>
@@ -529,7 +672,31 @@ export function WorkstationDetailSheet({
                             className="transition-colors hover:bg-surface-hover"
                           >
                             <td className="px-3 py-2 text-muted-foreground whitespace-nowrap font-sans">
-                              {formatDateFr(trk.date)}
+                              <div className="flex items-center gap-1.5">
+                                <span>{formatDateFr(trk.date)}</span>
+                                {trk.time && (
+                                  <span className="font-mono text-[10px] text-foreground/80">
+                                    {trk.time}
+                                  </span>
+                                )}
+                                {trk.shift && (
+                                  <span
+                                    className={cn(
+                                      'rounded px-1 py-0.2 text-[9px] font-semibold',
+                                      trk.shift === 'matin'
+                                        ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                                        : 'bg-orange-50 text-brand border border-orange-200/60'
+                                    )}
+                                    title={
+                                      trk.shift === 'matin'
+                                        ? 'Poste du matin (6h00 – 12h59)'
+                                        : 'Poste de l’après-midi (13h00 – 21h00)'
+                                    }
+                                  >
+                                    {trk.shift === 'matin' ? 'Matin' : 'Aprem'}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2 font-semibold text-foreground whitespace-nowrap">
                               {trk.ofNum}
