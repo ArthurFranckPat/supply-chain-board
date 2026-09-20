@@ -14,6 +14,17 @@ import {
 import { route } from '@r/lib/routes'
 import type { LoadPeriod, LoadQtyMode, LoadUnit, LoadView } from '@r/lib/load/types'
 import { type Gran, segKeys, segLabel } from '@r/lib/load/chart-math'
+import { ChargeLissagePanel, PropositionCell } from '@r/components/load/charge-lissage-panel'
+import {
+  cleLigne,
+  repartirParSemaine,
+  situationSemaine,
+  type AvanceLimiteeMatiere,
+  type DeplacementLisible,
+  type DeplacementsSemaine,
+  type PlanLissagePoste,
+  type ProfilJourLissage,
+} from '@r/lib/load/lissage'
 
 /**
  * Détail d'une période de charge — ce qui compose UNE barre du graphe /charge.
@@ -61,6 +72,10 @@ interface DetailCmdRow {
   mobilite: 'deplacable' | 'ferme'
   motifMobilite: string
   dateIso: string
+  /** Date portée par X3 avant toute substitution locale ; null sur une prévision. */
+  dateX3Iso: string | null
+  /** Date locale substituée à celle de X3, sinon null — marqueur « re-datée ». */
+  dateOverrideIso: string | null
   field: SegField
   brutQty: number
   netQty: number
@@ -133,6 +148,19 @@ export interface ChargePeriodSheetProps {
    * contient — doivent y être portés pour rester visibles.
    */
   overlayContainer?: HTMLElement | null
+  /**
+   * Appelé après chaque écriture de date locale (application ou retour à la
+   * date X3).
+   *
+   * La page DOIT recharger ses props : les clés de cache de /charge portent une
+   * empreinte des overrides, donc un nouveau jeu de dates produit une nouvelle
+   * `version` de snapshot — et c'est ce changement de version qui fait relire la
+   * table de ce panneau sur les bonnes dates. Sans ce rappel, le graphe et la
+   * table resteraient sur le snapshot d'avant le déplacement, sans la moindre
+   * erreur visible : exactement le genre de panne silencieuse que ce projet a
+   * déjà payée quatre fois.
+   */
+  onOverridesChanged?: () => void
 }
 
 /** ISO YYYY-MM-DD → JJ/MM/AAAA (jamais d'ISO brut à l'écran). */
@@ -234,9 +262,47 @@ function groupByDay<R>(
   return out.sort((a, b) => a.dateIso.localeCompare(b.dateIso))
 }
 
+/**
+ * Tout ce que la table doit savoir du lissage, pour une semaine donnée.
+ *
+ * Toujours fourni, même sans plan calculé : le retour à la date X3 d'une ligne
+ * déjà repositionnée ne dépend d'aucun plan — une date locale posée hier doit
+ * pouvoir être défaite aujourd'hui, sans relancer un calcul.
+ */
+interface LissageContexte {
+  /** Lundi de la semaine ouverte — sert à situer une destination hors semaine. */
+  lundiIso: string
+  /** Déplacement proposé par ligne de commande (`numCommande#ligne`). */
+  propositions: Map<string, DeplacementLisible>
+  /** Lignes dont l'avance a été rognée par la matière, par ligne de commande. */
+  limites: Map<string, AvanceLimiteeMatiere>
+  /** Lignes venues d'une AUTRE semaine, rangées à leur jour d'arrivée. */
+  entrantesParJour: Map<string, DeplacementLisible[]>
+  /** Profil du poste avant/après plan, par jour. */
+  profilParJour: Map<string, ProfilJourLissage>
+  /** Lignes appliquées depuis ce panneau. */
+  appliquees: ReadonlySet<string>
+  /** Ligne en cours d'écriture, `'lot'` pendant un « tout appliquer ». */
+  busy: string | null
+  /** Une colonne « Proposé » est-elle rendue ? (vrai dès qu'un plan est chargé) */
+  colonne: boolean
+  onAppliquer: (d: DeplacementLisible) => void
+  onRetablir: (numCommande: string, ligne: string) => void
+}
+
 export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
-  const { target, view, start, activeSegs, qtyMode, unit, version, ofDate, applyDemandHorizon } =
-    props
+  const {
+    target,
+    view,
+    start,
+    activeSegs,
+    qtyMode,
+    unit,
+    version,
+    ofDate,
+    applyDemandHorizon,
+    onOverridesChanged,
+  } = props
   const unitPieces = unit === 'u'
   const [data, setData] = useState<DetailPayload | null>(null)
   const [loading, setLoading] = useState(false)
@@ -277,6 +343,143 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       .finally(() => setLoading(false))
     return () => ctrl.abort()
   }, [props.open, poste, bucketKey, gran, view, start, version, ofDate, applyDemandHorizon])
+
+  // ── Lissage de la semaine ouverte ────────────────────────────────────────
+  // Réservé à la maille SEMAINE en vue COMMANDE : l'unité déplaçable est la
+  // ligne de commande, elle n'existe pas en vue OF ; et l'horizon de décision
+  // du moteur est de trois semaines, un mois n'y entre pas.
+  const semaineOuverte = gran === 'week' && view === 'commande' ? bucketKey : null
+  const [plan, setPlan] = useState<PlanLissagePoste | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [appliquees, setAppliquees] = useState<ReadonlySet<string>>(() => new Set<string>())
+  const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  // Un plan appartient à UNE semaine d'UN poste : le traîner d'une barre à
+  // l'autre proposerait des dates calculées sur une autre charge.
+  useEffect(() => {
+    setPlan(null)
+    setPlanError(null)
+    setAppliquees(new Set<string>())
+    setBusy(null)
+    setActionError(null)
+  }, [poste, bucketKey, gran, view])
+
+  const chargerPlan = useCallback(
+    (force = false) => {
+      if (!poste || !semaineOuverte) return
+      setPlanLoading(true)
+      setPlanError(null)
+      const qs = new URLSearchParams({ poste, start: semaineOuverte })
+      if (force) qs.set('refresh', '1')
+      fetch(`${route('charge.lissage')}?${qs.toString()}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = (await res.json().catch(() => null)) as { error?: string } | null
+            throw new Error(body?.error ?? `HTTP ${res.status}`)
+          }
+          return res.json() as Promise<PlanLissagePoste>
+        })
+        .then((p) => {
+          setPlan(p)
+          setAppliquees(new Set<string>())
+          setActionError(null)
+        })
+        .catch((err: unknown) =>
+          setPlanError(err instanceof Error ? err.message : 'Échec du calcul du plan')
+        )
+        .finally(() => setPlanLoading(false))
+    },
+    [poste, semaineOuverte]
+  )
+
+  /**
+   * Pose la date proposée comme date locale de la ligne de commande.
+   *
+   * La date écrite est le JOUR DE CHARGE proposé par le moteur, qui ne retient
+   * que des jours ouverts du poste. La chaîne /charge rattache ensuite la ligne
+   * à ce même jour (`chargeDay` ne recule que sur un jour fermé) : ce qu'on
+   * promet à l'écran est donc exactement ce que le graphe affichera.
+   *
+   * Rien n'est écrit dans X3 : l'override est local, c'est le principe — le
+   * CBN rejalonnera de lui-même quand la date sera négociée pour de bon.
+   */
+  const appliquerUn = useCallback(async (d: DeplacementLisible): Promise<boolean> => {
+    if (!d.numCommande || !d.ligne) return false
+    const res = await fetch(
+      route('order_planning.update', { order: d.numCommande, line: d.ligne }),
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateLivraison: d.dateProposeeIso }),
+      }
+    )
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null
+      throw new Error(body?.error ?? `HTTP ${res.status}`)
+    }
+    return true
+  }, [])
+
+  const appliquer = useCallback(
+    async (d: DeplacementLisible) => {
+      const cle = cleLigne(d.numCommande, d.ligne)
+      setBusy(cle)
+      setActionError(null)
+      try {
+        await appliquerUn(d)
+        setAppliquees((prev) => new Set(prev).add(cle))
+        onOverridesChanged?.()
+      } catch (err: unknown) {
+        setActionError(
+          `${d.numCommande}/${d.ligne} — ${err instanceof Error ? err.message : 'échec'}`
+        )
+      } finally {
+        setBusy(null)
+      }
+    },
+    [appliquerUn, onOverridesChanged]
+  )
+
+  /**
+   * Rend à la ligne sa date X3 en supprimant la date locale.
+   *
+   * C'est un retour à l'ORIGINE, pas une annulation du dernier geste : si la
+   * ligne portait déjà une date négociée avant ce plan, elle la perd aussi. Dit
+   * tel quel dans l'infobulle du bouton — une « annulation » qui ferait plus
+   * que ce qu'elle annonce serait pire qu'un bouton absent.
+   */
+  const retablir = useCallback(
+    async (numCommande: string, ligne: string) => {
+      const cle = cleLigne(numCommande, ligne)
+      setBusy(cle)
+      setActionError(null)
+      try {
+        const res = await fetch(
+          route('order_planning.reset_override', { order: numCommande, line: ligne }),
+          { method: 'DELETE' }
+        )
+        // 404 = aucune date locale sur cette ligne : elle est DÉJÀ sur sa date
+        // X3, c'est le résultat demandé et non une erreur.
+        if (!res.ok && res.status !== 404) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null
+          throw new Error(body?.error ?? `HTTP ${res.status}`)
+        }
+        setAppliquees((prev) => {
+          const next = new Set(prev)
+          next.delete(cle)
+          return next
+        })
+        onOverridesChanged?.()
+      } catch (err: unknown) {
+        setActionError(`${numCommande}/${ligne} — ${err instanceof Error ? err.message : 'échec'}`)
+      } finally {
+        setBusy(null)
+      }
+    },
+    [onOverridesChanged]
+  )
 
   // Masque identique à celui du graphe — même source (`segKeys`).
   const keep = useMemo(() => segKeys(view, activeSegs), [view, activeSegs])
@@ -416,6 +619,130 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     )
   }, [data, cmdGroups, cmdValue])
 
+  /**
+   * Le moteur travaille sur TROIS semaines, ce panneau en montre UNE : on trie
+   * donc les déplacements selon ce qu'ils font de la semaine ouverte. Une ligne
+   * qui s'évaporerait de l'écran serait le pire résultat possible de cet outil.
+   */
+  const repartition: DeplacementsSemaine | null = useMemo(() => {
+    if (!plan || !data) return null
+    return repartirParSemaine(plan.deplacements, data.bucket.fromIso, data.bucket.toIso)
+  }, [plan, data])
+
+  /** Propositions rattachables à une ligne DÉJÀ présente dans la table. */
+  const propositions = useMemo(() => {
+    const m = new Map<string, DeplacementLisible>()
+    if (!repartition) return m
+    for (const d of [...repartition.internes, ...repartition.sortantes]) {
+      m.set(cleLigne(d.numCommande, d.ligne), d)
+    }
+    return m
+  }, [repartition])
+
+  const limitesMatiere = useMemo(() => {
+    const m = new Map<string, AvanceLimiteeMatiere>()
+    for (const l of plan?.borneMatiere.lignes ?? []) m.set(cleLigne(l.numCommande, l.ligne), l)
+    return m
+  }, [plan])
+
+  /** Lignes venues d'une autre semaine, rangées à leur JOUR D'ARRIVÉE. */
+  const entrantesParJour = useMemo(() => {
+    const m = new Map<string, DeplacementLisible[]>()
+    for (const d of repartition?.entrantes ?? []) {
+      const arr = m.get(d.dateProposeeIso)
+      if (arr) arr.push(d)
+      else m.set(d.dateProposeeIso, [d])
+    }
+    return m
+  }, [repartition])
+
+  const profilParJour = useMemo(
+    () => new Map((plan?.plan.profil ?? []).map((p) => [p.dateIso, p])),
+    [plan]
+  )
+
+  /**
+   * Jours rendus : ceux de la table, PLUS ceux où une ligne d'une autre semaine
+   * vient atterrir. Sans cette union, une ligne entrante tombant un jour vide
+   * de la semaine n'aurait aucun bloc où s'afficher — elle apparaîtrait de
+   * nulle part au rafraîchissement suivant.
+   */
+  const joursAffiches = useMemo(() => {
+    if (entrantesParJour.size === 0) return groups
+    const parJour = new Map(groups.map((g) => [g.dateIso, g]))
+    for (const iso of entrantesParJour.keys()) {
+      if (!parJour.has(iso)) parJour.set(iso, { dateIso: iso, value: 0, rows: [], fields: [] })
+    }
+    return [...parJour.values()].sort((a, b) => a.dateIso.localeCompare(b.dateIso))
+  }, [groups, entrantesParJour])
+
+  /**
+   * « Tout appliquer » ne porte QUE sur les déplacements visibles ici :
+   * internes, sortants et entrants. Ceux qui se jouent entre deux autres
+   * semaines de l'horizon ne changent rien au profil affiché et resteraient
+   * invisibles — les appliquer en douce reviendrait à re-dater des commandes
+   * que l'utilisateur n'a jamais vues.
+   */
+  const toutAppliquer = useCallback(async () => {
+    if (!repartition) return
+    setBusy('lot')
+    setActionError(null)
+    const echecs: string[] = []
+    const faits: string[] = []
+    for (const d of [...repartition.internes, ...repartition.sortantes, ...repartition.entrantes]) {
+      const cle = cleLigne(d.numCommande, d.ligne)
+      if (appliquees.has(cle)) continue
+      try {
+        await appliquerUn(d)
+        faits.push(cle)
+      } catch (err: unknown) {
+        echecs.push(`${d.numCommande}/${d.ligne} (${err instanceof Error ? err.message : 'échec'})`)
+      }
+    }
+    if (faits.length) {
+      setAppliquees((prev) => {
+        const next = new Set(prev)
+        for (const c of faits) next.add(c)
+        return next
+      })
+    }
+    setActionError(echecs.length ? `Non appliqué : ${echecs.join(' · ')}` : null)
+    setBusy(null)
+    // Un seul rechargement pour tout le lot : la chaîne /charge recalcule
+    // entièrement dès que l'empreinte des overrides change, la déclencher par
+    // ligne coûterait N recalculs pour un seul résultat.
+    if (faits.length) onOverridesChanged?.()
+  }, [repartition, appliquees, appliquerUn, onOverridesChanged])
+
+  const lissage: LissageContexte = useMemo(
+    () => ({
+      lundiIso: semaineOuverte ?? data?.bucket.fromIso ?? '',
+      propositions,
+      limites: limitesMatiere,
+      entrantesParJour,
+      profilParJour,
+      appliquees,
+      busy,
+      colonne: view === 'commande' && plan !== null,
+      onAppliquer: appliquer,
+      onRetablir: retablir,
+    }),
+    [
+      semaineOuverte,
+      data,
+      propositions,
+      limitesMatiere,
+      entrantesParJour,
+      profilParJour,
+      appliquees,
+      busy,
+      view,
+      plan,
+      appliquer,
+      retablir,
+    ]
+  )
+
   // Grille UNIQUE (en-tête + lignes + total dans le même conteneur) : l'alignement
   // est structurel. Deux grilles distinctes se dimensionnaient indépendamment et
   // décalaient les en-têtes des cellules.
@@ -430,22 +757,37 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // quantité de la ligne (même cran), deux colonnes jumelles se liraient comme
   // un doublon, voire un bug. Le dernier en-tête nomme donc l'unité affichée,
   // pour que le total du jour tombe sur la colonne qui le porte.
-  const cols = unitPieces
-    ? view === 'of'
-      ? '9rem 1.6fr 10rem 7rem'
-      : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 7rem'
-    : view === 'of'
-      ? '9rem 1.6fr 10rem 7rem 7rem'
-      : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 9rem 7rem'
+  // Une dernière colonne « Proposé » n'apparaît QUE lorsqu'un plan est chargé :
+  // une colonne vide en permanence coûterait de la largeur à toutes les lectures
+  // qui ne viennent pas lisser.
+  const cols = [
+    unitPieces
+      ? view === 'of'
+        ? '9rem 1.6fr 10rem 7rem'
+        : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 7rem'
+      : view === 'of'
+        ? '9rem 1.6fr 10rem 7rem 7rem'
+        : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 9rem 7rem',
+    lissage.colonne ? '14rem' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const unitHead = unitPieces ? 'Pièces' : 'Heures'
-  const heads = unitPieces
-    ? view === 'of'
-      ? ['Article', 'Désignation', 'Ordre', unitHead]
-      : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', unitHead]
-    : view === 'of'
-      ? ['Article', 'Désignation', 'Ordre', 'Qté', unitHead]
-      : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', 'Qté', unitHead]
+  const heads = [
+    ...(unitPieces
+      ? view === 'of'
+        ? ['Article', 'Désignation', 'Ordre', unitHead]
+        : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', unitHead]
+      : view === 'of'
+        ? ['Article', 'Désignation', 'Ordre', 'Qté', unitHead]
+        : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', 'Qté', unitHead]),
+    ...(lissage.colonne ? ['Proposé'] : []),
+  ]
+
+  // Index de la colonne d'unité : c'est au bout d'ELLE que le total de période
+  // se lit, pas au bout de la grille — sinon il atterrit sous « Proposé ».
+  const unitIdx = heads.length - 1 - (lissage.colonne ? 1 : 0)
 
   return (
     <Sheet
@@ -619,7 +961,27 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               </div>
             )}
 
-            {rowCount === 0 ? (
+            {/* Lissage — la proposition se lit ensuite DANS la table, sur la
+                ligne concernée. Réservé à la semaine en vue commande : l'unité
+                déplaçable est la ligne de commande. */}
+            {semaineOuverte && (
+              <ChargeLissagePanel
+                semaineLabel={data.bucket.label}
+                plan={plan}
+                loading={planLoading}
+                error={planError}
+                repartition={repartition}
+                appliquees={appliquees}
+                busy={busy}
+                actionError={actionError}
+                onCharger={() => chargerPlan(false)}
+                onRecalculer={() => chargerPlan(true)}
+                onMasquer={() => setPlan(null)}
+                onToutAppliquer={() => void toutAppliquer()}
+              />
+            )}
+
+            {rowCount === 0 && entrantesParJour.size === 0 ? (
               <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[13px] italic text-muted-foreground">
                 {articleActive
                   ? `Aucune charge pour ${articleFilter} sur cette période.`
@@ -649,7 +1011,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     </div>
                   ))}
 
-                  {groups.map((g) => (
+                  {joursAffiches.map((g) => (
                     <DayBlock
                       key={g.dateIso}
                       group={g}
@@ -660,6 +1022,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       totalValue={totalValue}
                       capaciteH={capByDay.get(g.dateIso) ?? null}
                       echelle={echelleSaturation}
+                      lissage={lissage}
                     />
                   ))}
 
@@ -669,20 +1032,35 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     className="sticky bottom-0 col-span-full grid items-center border-t border-border bg-secondary py-1.5"
                     style={{ gridTemplateColumns: cols }}
                   >
-                    <div className="pl-5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Total période
-                    </div>
-                    {/* Colonnes intermédiaires vides : le total se lit au bout
-                        de la colonne d'unité, pas ailleurs. */}
-                    {Array.from({ length: heads.length - 3 }, (_, i) => (
-                      <div key={`sp-${i}`} />
-                    ))}
-                    <div className="text-right font-mono text-[10px] text-muted-foreground">
-                      {rowCount} lig.
-                    </div>
-                    <div className="pr-5 text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
-                      {fmt(totalValue)}
-                    </div>
+                    {heads.map((_, i) =>
+                      i === 0 ? (
+                        <div
+                          key={`ft-${i}`}
+                          className="pl-5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                        >
+                          Total période
+                        </div>
+                      ) : i === unitIdx - 1 ? (
+                        <div
+                          key={`ft-${i}`}
+                          className="text-right font-mono text-[10px] text-muted-foreground"
+                        >
+                          {rowCount} lig.
+                        </div>
+                      ) : i === unitIdx ? (
+                        <div
+                          key={`ft-${i}`}
+                          className={cn(
+                            'text-right font-mono text-[13px] font-bold tabular-nums text-foreground',
+                            !lissage.colonne && 'pr-5'
+                          )}
+                        >
+                          {fmt(totalValue)}
+                        </div>
+                      ) : (
+                        <div key={`ft-${i}`} />
+                      )
+                    )}
                   </div>
                 </div>
               </div>
@@ -718,8 +1096,9 @@ function DayBlock(props: {
   capaciteH: number | null
   /** Échelle commune des barres, en multiples de la capacité journalière. */
   echelle: number
+  lissage: LissageContexte
 }) {
-  const { group: g, view, qtyMode, unit, maxValue, totalValue, capaciteH, echelle } = props
+  const { group: g, view, qtyMode, unit, maxValue, totalValue, capaciteH, echelle, lissage } = props
   const rowValue = (r: DetailOfRow | DetailCmdRow): number =>
     view === 'of'
       ? ofRowValue(r as DetailOfRow, unit)
@@ -744,6 +1123,14 @@ function DayBlock(props: {
     view === 'commande'
       ? g.rows.reduce((a, r) => (isForecastPulled(r.field) ? a + rowValue(r) : a), 0)
       : 0
+
+  // Profil du jour APRÈS le plan proposé. Il ne se compare pas au pourcentage
+  // ci-dessus : celui-là suit le filtre et le cran choisis à l'écran, celui-ci
+  // est la lecture du moteur — reste à produire, toutes natures, heures de
+  // poste. L'infobulle le dit, parce que deux pourcentages côte à côte sans
+  // référence explicite sont illisibles.
+  const profil = lissage.profilParJour.get(g.dateIso) ?? null
+  const entrantes = lissage.entrantesParJour.get(g.dateIso) ?? []
 
   return (
     <>
@@ -827,6 +1214,24 @@ function DayBlock(props: {
             {fmtVal(g.value, unit)}
           </span>
         </span>
+        {/* Ce que le plan ferait de CE jour — le seul chiffre qui justifie de
+            décrocher son téléphone. */}
+        {profil && profil.saturationAvant !== null && profil.saturationApres !== null && (
+          <span
+            className="flex-none rounded-sm px-1.5 py-px font-mono text-[10px] font-bold tabular-nums"
+            style={{
+              color: profil.saturationApres > 1.0001 ? 'var(--color-danger)' : 'var(--color-ferme)',
+              background:
+                profil.saturationApres > 1.0001
+                  ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)'
+                  : 'color-mix(in srgb, var(--color-ferme) 12%, transparent)',
+            }}
+            title={`Plan de lissage : ${fmtH(profil.heuresAvant)} h → ${fmtH(profil.heuresApres)} h pour ${fmtH(profil.capaciteH)} h de capacité. Base du moteur : reste à produire, toutes natures, heures de poste — indépendante du filtre et du cran choisis ci-dessus.`}
+          >
+            plan {Math.round(profil.saturationAvant * 100)} %{' → '}
+            {Math.round(profil.saturationApres * 100)} %
+          </span>
+        )}
       </div>
 
       {g.rows.map((r, i) =>
@@ -838,9 +1243,22 @@ function DayBlock(props: {
             row={r as DetailCmdRow}
             qtyMode={qtyMode}
             unit={unit}
+            lissage={lissage}
           />
         )
       )}
+
+      {/* Lignes venues d'une AUTRE semaine de l'horizon. Elles n'existent pas
+          dans la table de cette semaine — sans elles, le plan promettrait une
+          charge que rien ne justifierait à l'écran après application. */}
+      {entrantes.map((d) => (
+        <EntranteRow
+          key={`entrante-${d.numCommande}-${d.ligne}`}
+          deplacement={d}
+          unit={unit}
+          lissage={lissage}
+        />
+      ))}
     </>
   )
 }
@@ -882,12 +1300,22 @@ function CmdRow({
   row: r,
   qtyMode,
   unit,
+  lissage,
 }: {
   row: DetailCmdRow
   qtyMode: LoadQtyMode
   unit: LoadUnit
+  lissage: LissageContexte
 }) {
   const forecast = isForecastPulled(r.field)
+  const cle = cleLigne(r.numCommande, r.ligne)
+  const proposition = lissage.propositions.get(cle) ?? null
+  const limite = lissage.limites.get(cle) ?? null
+  const busy = lissage.busy === cle || lissage.busy === 'lot'
+  // Une ligne peut apparaître plusieurs fois (le produit fini et ses composants
+  // induits passent par le même poste) : toutes portent la proposition, qui les
+  // concerne toutes, mais elles désignent une seule et même date à re-dater.
+  const redatee = !!r.dateOverrideIso && r.dateOverrideIso !== r.dateX3Iso
   // Ligne affichée à zéro parce qu'entièrement couverte : en cran net, le stock
   // suffit ; en cran reste, l'en-cours peut compléter le stock. Sans mention,
   // un « 0 / 0,0 » se lit comme une donnée cassée. En cran brut rien n'est
@@ -971,9 +1399,27 @@ function CmdRow({
       >
         {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
       </div>
-      <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
+      <div className={cn(CELL, 'truncate font-mono text-[10px] text-secondary-foreground')}>
         {r.numCommande ?? '—'}
         {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
+        {/* Date locale substituée à celle de X3. Le retour en arrière vit ICI,
+            et non dans la colonne « Proposé » : une ligne re-datée hier doit
+            pouvoir reprendre sa date X3 sans qu'on relance un calcul de plan. */}
+        {redatee && r.numCommande && r.ligne && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => lissage.onRetablir(r.numCommande!, r.ligne!)}
+            className="ml-1 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider disabled:opacity-45"
+            style={{
+              color: 'var(--color-planifie)',
+              background: 'color-mix(in srgb, var(--color-planifie) 14%, transparent)',
+            }}
+            title={`Date locale ${fmtDateFr(r.dateOverrideIso!)} au lieu de la date X3 ${r.dateX3Iso ? fmtDateFr(r.dateX3Iso) : '—'}. Cliquer pour rendre à la ligne sa date X3.`}
+          >
+            {busy ? '…' : 're-datée'}
+          </button>
+        )}
       </div>
       {/* Le badge « prév. » porte déjà la nature : ici on ne dit plus que
           l'absence de client, qui sur une prévision est structurelle.
@@ -996,8 +1442,11 @@ function CmdRow({
         className={cn(
           CELL,
           unit === 'u'
-            ? 'pr-5 text-right font-mono tabular-nums text-foreground'
-            : 'text-right font-mono tabular-nums text-secondary-foreground'
+            ? 'text-right font-mono tabular-nums text-foreground'
+            : 'text-right font-mono tabular-nums text-secondary-foreground',
+          // Gouttière de droite : seulement si cette colonne ferme la grille —
+          // la colonne « Proposé » la ferme dès qu'un plan est chargé.
+          unit === 'u' && !lissage.colonne && 'pr-5'
         )}
       >
         {qtyMode === 'reste' && r.encoursQty > 0 && (
@@ -1011,10 +1460,134 @@ function CmdRow({
         {fmtQ(cmdRowValue(r, 'u', qtyMode))}
       </div>
       {unit === 'h' && (
-        <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
+        <div
+          className={cn(
+            CELL,
+            'text-right font-mono tabular-nums text-foreground',
+            !lissage.colonne && 'pr-5'
+          )}
+        >
           {fmtH(cmdRowValue(r, 'h', qtyMode))}
         </div>
       )}
+      {lissage.colonne && (
+        <div className={cn(CELL, 'truncate pr-5')}>
+          {proposition && r.numCommande && r.ligne ? (
+            <PropositionCell
+              deplacement={proposition}
+              situation={situationSemaine(proposition.dateProposeeIso, lissage.lundiIso)}
+              applique={lissage.appliquees.has(cle)}
+              busy={busy}
+              onAppliquer={() => lissage.onAppliquer(proposition)}
+              onRetablir={() => lissage.onRetablir(r.numCommande!, r.ligne!)}
+            />
+          ) : limite && limite.resteeSurPlace ? (
+            // L'absence de proposition a une CAUSE, et c'est une information
+            // métier : le pic ne se résorbera pas par la seule négociation
+            // commerciale, le levier est chez l'approvisionneur.
+            <span
+              className="font-mono text-[10px] font-semibold"
+              style={{ color: 'var(--color-planifie)' }}
+              title={`Avançable au ${limite.auPlusTotSansMatiere} sans contrainte matière, au ${limite.auPlusTot} avec. Composants : ${limite.composants
+                .map((c) =>
+                  c.inconnu
+                    ? `${c.article} (absent de la projection)`
+                    : `${c.article} dispo le ${c.disponibleLe}`
+                )
+                .join(' · ')}`}
+            >
+              matière — {limite.joursOuvresPerdus} j perdu
+              {limite.joursOuvresPerdus > 1 ? 's' : ''}
+            </span>
+          ) : r.mobilite === 'ferme' ? (
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {forecast ? 'prévision' : 'date ferme'}
+            </span>
+          ) : (
+            <span
+              className="font-mono text-[10px] text-muted-foreground"
+              title="Le moteur n’a trouvé aucune date qui améliore le profil du poste sans en dégrader un autre jour"
+            >
+              —
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
+ * Ligne qui ARRIVE d'une autre semaine de l'horizon.
+ *
+ * Symétrique de la destination datée et située d'une sortante : le panneau
+ * montre une semaine, le moteur en travaille trois, et une charge qui
+ * apparaîtrait dans le graphe sans jamais avoir été annoncée ici serait aussi
+ * inexplicable qu'une ligne évaporée.
+ */
+function EntranteRow({
+  deplacement: d,
+  unit,
+  lissage,
+}: {
+  deplacement: DeplacementLisible
+  unit: LoadUnit
+  lissage: LissageContexte
+}) {
+  const cle = cleLigne(d.numCommande, d.ligne)
+  const busy = lissage.busy === cle || lissage.busy === 'lot'
+  const origine = situationSemaine(d.dateActuelleIso, lissage.lundiIso)
+  const bord = { borderLeft: '2px solid var(--color-planifie)', paddingLeft: 'calc(1.25rem - 2px)' }
+  return (
+    <>
+      <div
+        className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}
+        style={bord}
+      >
+        {d.article}
+      </div>
+      <div className={cn(CELL, 'truncate text-muted-foreground')}>
+        <span
+          className="mr-1.5 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
+          style={{
+            color: 'var(--color-planifie)',
+            background: 'color-mix(in srgb, var(--color-planifie) 14%, transparent)',
+          }}
+          title="Cette ligne n’est pas dans la semaine affichée : le plan l’y ferait entrer"
+        >
+          entre
+        </span>
+        {d.designation || '—'}
+      </div>
+      <div className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}>
+        depuis {d.dateActuelle}
+        {origine ? ` · ${origine}` : ''}
+      </div>
+      <div className={cn(CELL, 'truncate font-mono text-[10px] text-secondary-foreground')}>
+        {d.numCommande}
+        <span className="text-muted-foreground">/{d.ligne}</span>
+      </div>
+      <div className={cn(CELL, 'truncate text-muted-foreground')}>{d.client ?? '—'}</div>
+      <div className={cn(CELL, 'text-muted-foreground')}>—</div>
+      {/* La quantité d'une entrante n'est pas lue par ce panneau (elle vient
+          d'une autre semaine) : un tiret, jamais un zéro qui se lirait comme
+          une ligne vide. */}
+      <div className={cn(CELL, 'text-right font-mono tabular-nums text-muted-foreground')}>—</div>
+      {unit === 'h' && (
+        <div className={cn(CELL, 'text-right font-mono tabular-nums text-foreground')}>
+          {fmtH(d.heures)}
+        </div>
+      )}
+      <div className={cn(CELL, 'truncate pr-5')}>
+        <PropositionCell
+          deplacement={d}
+          situation={null}
+          applique={lissage.appliquees.has(cle)}
+          busy={busy}
+          onAppliquer={() => lissage.onAppliquer(d)}
+          onRetablir={() => lissage.onRetablir(d.numCommande, d.ligne)}
+        />
+      </div>
     </>
   )
 }

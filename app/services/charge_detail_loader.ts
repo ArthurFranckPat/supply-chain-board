@@ -98,6 +98,21 @@ export interface ChargeDetailCmdRow {
   mobilite: Mobilite
   motifMobilite: string
   dateIso: string
+  /**
+   * Date de livraison portée par X3, avant toute substitution locale.
+   *
+   * Sans elle, une ligne re-datée ne peut PAS revenir en arrière : l'écran
+   * saurait qu'un override existe mais pas ce qu'il remplace, et « rétablir la
+   * date X3 » se ferait à l'aveugle. `null` sur une prévision, qui n'a pas de
+   * ligne de commande derrière elle.
+   */
+  dateX3Iso: string | null
+  /**
+   * Date locale substituée à celle de X3 (`order_line_overrides`), sinon `null`.
+   * C'est le marqueur « cette ligne a été repositionnée », et le seul moyen de
+   * distinguer une date négociée d'une date d'origine une fois le plan appliqué.
+   */
+  dateOverrideIso: string | null
   field: ChargeSegField
   brutQty: number
   netQty: number
@@ -495,8 +510,21 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
             .catch(() => new Map<string, string>())
         : new Map<string, string>()
 
+      // Date X3 d'origine de chaque ligne de commande, AVANT substitution
+      // locale. `inputs.orderLines` porte la date telle que X3 la donne ;
+      // `inputs.lineDateOverrides` porte celle qu'on lui a substituée. Les deux
+      // sont nécessaires pour que l'écran puisse proposer le retour en arrière.
+      const dateX3ParLigne = new Map<string, string>()
+      for (const l of inputs.orderLines) {
+        if (l.nature !== 'COMMANDE' || !l.numCommande) continue
+        dateX3ParLigne.set(`${l.numCommande}#${l.ligne ?? ''}`, isoDay(l.dateLivraison))
+      }
+
       const cmdRows: ChargeDetailCmdRow[] = needs.map((n) => {
         const code = n.source?.client ?? null
+        const cleLigne = n.source?.numCommande
+          ? `${n.source.numCommande}#${n.source.ligne ?? ''}`
+          : null
         // Une ligne INDUITE (composant, depth > 0) n'a pas de date propre à
         // négocier : elle suit son produit fini. Elle hérite donc de la
         // mobilité du client de tête, ce qui est exactement ce qu'on veut dire
@@ -516,6 +544,8 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           mobilite: mob.mobilite,
           motifMobilite: mob.motif,
           dateIso: isoDay(dayOf(n.wst, n.date)),
+          dateX3Iso: cleLigne ? (dateX3ParLigne.get(cleLigne) ?? null) : null,
+          dateOverrideIso: cleLigne ? (inputs.lineDateOverrides.get(cleLigne) ?? null) : null,
           field: chargeSegment(n.depth, n.nature),
           brutQty: n.brutQty,
           netQty: n.netQty,

@@ -1342,6 +1342,13 @@ export default function Load(props: LoadPageProps) {
         unit={unit}
         ofDate={props.ofDate}
         applyDemandHorizon={applyDemandHorizon}
+        // Une date de ligne repositionnée change l'empreinte des overrides,
+        // donc TOUTES les clés de cache de la chaîne /charge — et avec elles la
+        // `version` du snapshot. Recharger les props est ce qui fait retomber
+        // le graphe, le plan de schéma horaire ET la table du panneau sur le
+        // même nouvel état ; sans ça, l'écran resterait sur le snapshot d'avant
+        // le déplacement, sans erreur visible.
+        onOverridesChanged={() => router.reload()}
       />
     </AppLayout>
   )
