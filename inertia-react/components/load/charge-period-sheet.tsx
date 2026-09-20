@@ -629,11 +629,16 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     return repartirParSemaine(plan.deplacements, data.bucket.fromIso, data.bucket.toIso)
   }, [plan, data])
 
-  /** Propositions rattachables à une ligne DÉJÀ présente dans la table. */
+  /**
+   * Propositions par ligne de commande. Inclut aussi les entrantes : une fois
+   * appliquée, une entrante passe dans `cmdRows` et est rendue par `CmdRow` ;
+   * elle a besoin de sa proposition pour afficher le statut appliqué et le
+   * bouton rétablir dans sa colonne « Proposé ».
+   */
   const propositions = useMemo(() => {
     const m = new Map<string, DeplacementLisible>()
     if (!repartition) return m
-    for (const d of [...repartition.internes, ...repartition.sortantes]) {
+    for (const d of [...repartition.internes, ...repartition.sortantes, ...repartition.entrantes]) {
       m.set(cleLigne(d.numCommande, d.ligne), d)
     }
     return m
@@ -649,12 +654,13 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   const entrantesParJour = useMemo(() => {
     const m = new Map<string, DeplacementLisible[]>()
     for (const d of repartition?.entrantes ?? []) {
+      if (!matchesArticle(d.article)) continue
       const arr = m.get(d.dateProposeeIso)
       if (arr) arr.push(d)
       else m.set(d.dateProposeeIso, [d])
     }
     return m
-  }, [repartition])
+  }, [repartition, matchesArticle])
 
   const profilParJour = useMemo(
     () => new Map((plan?.plan.profil ?? []).map((p) => [p.dateIso, p])),
@@ -663,18 +669,21 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
 
   /**
    * Jours rendus : ceux de la table, PLUS ceux où une ligne d'une autre semaine
-   * vient atterrir. Sans cette union, une ligne entrante tombant un jour vide
-   * de la semaine n'aurait aucun bloc où s'afficher — elle apparaîtrait de
-   * nulle part au rafraîchissement suivant.
+   * vient atterrir (tant qu'elle n'a pas encore été appliquée). Sans cette union,
+   * une ligne entrante tombant un jour vide de la semaine n'aurait aucun bloc
+   * où s'afficher — elle apparaîtrait de nulle part au rafraîchissement suivant.
    */
   const joursAffiches = useMemo(() => {
     if (entrantesParJour.size === 0) return groups
     const parJour = new Map(groups.map((g) => [g.dateIso, g]))
-    for (const iso of entrantesParJour.keys()) {
-      if (!parJour.has(iso)) parJour.set(iso, { dateIso: iso, value: 0, rows: [], fields: [] })
+    for (const [iso, depls] of entrantesParJour) {
+      const nonAppliquees = depls.filter((d) => !appliquees.has(cleLigne(d.numCommande, d.ligne)))
+      if (nonAppliquees.length > 0 && !parJour.has(iso)) {
+        parJour.set(iso, { dateIso: iso, value: 0, rows: [], fields: [] })
+      }
     }
     return [...parJour.values()].sort((a, b) => a.dateIso.localeCompare(b.dateIso))
-  }, [groups, entrantesParJour])
+  }, [groups, entrantesParJour, appliquees])
 
   /**
    * « Tout appliquer » ne porte QUE sur les déplacements visibles ici :
@@ -1250,15 +1259,25 @@ function DayBlock(props: {
 
       {/* Lignes venues d'une AUTRE semaine de l'horizon. Elles n'existent pas
           dans la table de cette semaine — sans elles, le plan promettrait une
-          charge que rien ne justifierait à l'écran après application. */}
-      {entrantes.map((d) => (
-        <EntranteRow
-          key={`entrante-${d.numCommande}-${d.ligne}`}
-          deplacement={d}
-          unit={unit}
-          lissage={lissage}
-        />
-      ))}
+          charge que rien ne justifierait à l'écran après application.
+          Une fois appliquées, elles sont intégrées à data.cmdRows et rendues
+          comme CmdRow dans g.rows ci-dessus — les filtrer ici évite le doublon. */}
+      {entrantes
+        .filter((d) => {
+          const cle = cleLigne(d.numCommande, d.ligne)
+          return (
+            !lissage.appliquees.has(cle) &&
+            !g.rows.some((r) => 'numCommande' in r && cleLigne(r.numCommande, r.ligne) === cle)
+          )
+        })
+        .map((d) => (
+          <EntranteRow
+            key={`entrante-${d.numCommande}-${d.ligne}`}
+            deplacement={d}
+            unit={unit}
+            lissage={lissage}
+          />
+        ))}
     </>
   )
 }
@@ -1311,7 +1330,8 @@ function CmdRow({
   const cle = cleLigne(r.numCommande, r.ligne)
   const proposition = lissage.propositions.get(cle) ?? null
   const limite = lissage.limites.get(cle) ?? null
-  const busy = lissage.busy === cle || lissage.busy === 'lot'
+  const anyBusy = lissage.busy !== null
+  const thisBusy = lissage.busy === cle || lissage.busy === 'lot'
   // Une ligne peut apparaître plusieurs fois (le produit fini et ses composants
   // induits passent par le même poste) : toutes portent la proposition, qui les
   // concerne toutes, mais elles désignent une seule et même date à re-dater.
@@ -1408,16 +1428,16 @@ function CmdRow({
         {redatee && r.numCommande && r.ligne && (
           <button
             type="button"
-            disabled={busy}
+            disabled={anyBusy}
             onClick={() => lissage.onRetablir(r.numCommande!, r.ligne!)}
             className="ml-1 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider disabled:opacity-45"
             style={{
               color: 'var(--color-planifie)',
               background: 'color-mix(in srgb, var(--color-planifie) 14%, transparent)',
             }}
-            title={`Date locale ${fmtDateFr(r.dateOverrideIso!)} au lieu de la date X3 ${r.dateX3Iso ? fmtDateFr(r.dateX3Iso) : '—'}. Cliquer pour rendre à la ligne sa date X3.`}
+            title={`Date locale ${fmtDateFr(r.dateOverrideIso!)} au lieu de la date X3 d’origine ${r.dateX3Iso ? fmtDateFr(r.dateX3Iso) : '—'}. Cliquer pour rétablir la date X3 d’origine.`}
           >
-            {busy ? '…' : 're-datée'}
+            {thisBusy ? '…' : 're-datée'}
           </button>
         )}
       </div>
@@ -1476,8 +1496,10 @@ function CmdRow({
             <PropositionCell
               deplacement={proposition}
               situation={situationSemaine(proposition.dateProposeeIso, lissage.lundiIso)}
+              dateX3={r.dateX3Iso ? fmtDateFr(r.dateX3Iso) : null}
               applique={lissage.appliquees.has(cle)}
-              busy={busy}
+              disabled={anyBusy}
+              busy={thisBusy}
               onAppliquer={() => lissage.onAppliquer(proposition)}
               onRetablir={() => lissage.onRetablir(r.numCommande!, r.ligne!)}
             />
@@ -1535,7 +1557,8 @@ function EntranteRow({
   lissage: LissageContexte
 }) {
   const cle = cleLigne(d.numCommande, d.ligne)
-  const busy = lissage.busy === cle || lissage.busy === 'lot'
+  const anyBusy = lissage.busy !== null
+  const thisBusy = lissage.busy === cle || lissage.busy === 'lot'
   const origine = situationSemaine(d.dateActuelleIso, lissage.lundiIso)
   const bord = { borderLeft: '2px solid var(--color-planifie)', paddingLeft: 'calc(1.25rem - 2px)' }
   return (
@@ -1582,8 +1605,10 @@ function EntranteRow({
         <PropositionCell
           deplacement={d}
           situation={null}
+          dateX3={d.dateActuelle}
           applique={lissage.appliquees.has(cle)}
-          busy={busy}
+          disabled={anyBusy}
+          busy={thisBusy}
           onAppliquer={() => lissage.onAppliquer(d)}
           onRetablir={() => lissage.onRetablir(d.numCommande, d.ligne)}
         />

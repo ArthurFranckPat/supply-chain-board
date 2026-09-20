@@ -381,13 +381,19 @@ export function PropositionCell(props: {
   }
   /** Situation de la destination hors de la semaine ouverte, sinon `null`. */
   situation: string | null
+  /** Date X3 d’origine (affichée au survol du bouton rétablir). */
+  dateX3?: string | null
   applique: boolean
+  /** Vrai si n’importe quelle action est en cours (désactive le bouton pour éviter les clics concurrents). */
+  disabled?: boolean
+  /** Vrai si CETTE ligne est en cours de traitement (affiche '…'). */
   busy: boolean
   onAppliquer: () => void
   onRetablir: () => void
 }) {
   const { deplacement: d } = props
   const sens = d.sens === 'avance' ? 'avancée' : 'retardée'
+  const isDisabled = props.disabled ?? props.busy
   return (
     <div className="flex items-center gap-1.5 truncate">
       <span
@@ -414,17 +420,21 @@ export function PropositionCell(props: {
       {props.applique ? (
         <button
           type="button"
-          disabled={props.busy}
+          disabled={isDisabled}
           onClick={props.onRetablir}
           className="flex-none font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground hover:underline disabled:opacity-45"
-          title="Supprime la date locale et rend à la ligne sa date X3"
+          title={
+            props.dateX3
+              ? `Supprime la date locale et rend à la ligne sa date X3 d’origine (${props.dateX3})`
+              : 'Supprime la date locale et rend à la ligne sa date X3 d’origine'
+          }
         >
           {props.busy ? '…' : 'rétablir'}
         </button>
       ) : (
         <button
           type="button"
-          disabled={props.busy}
+          disabled={isDisabled}
           onClick={props.onAppliquer}
           className="flex-none rounded-sm border border-brand/50 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-wider text-brand hover:bg-brand-soft disabled:opacity-45"
         >
