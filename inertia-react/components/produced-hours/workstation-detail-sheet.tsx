@@ -7,7 +7,6 @@ import {
   SheetTitle,
 } from '@r/components/ui/sheet'
 import {
-  Clock,
   CheckCircle2,
   AlertTriangle,
   Layers,
@@ -258,12 +257,6 @@ export function WorkstationDetailSheet({
     }))
   }, [data?.timeline, granularity])
 
-  // Point actuellement survolé sur le graphe (ou null)
-  const activePoint = useMemo(() => {
-    if (!hoveredKey) return null
-    return aggregatedTimeline.find((p) => p.key === hoveredKey) ?? null
-  }, [hoveredKey, aggregatedTimeline])
-
   // Max hours pour l'échelle du graphe selon la maille active
   const maxAggregatedHours = useMemo(() => {
     if (!aggregatedTimeline.length) return 1
@@ -471,75 +464,10 @@ export function WorkstationDetailSheet({
                     </div>
                   </div>
 
-                  {/* Live hover inspector / Helper text */}
-                  <div className="mb-3 flex min-h-[36px] items-center justify-between rounded-lg bg-surface-muted/60 px-3 py-1.5 text-xs transition-colors border border-rule/50">
-                    {activePoint ? (
-                      <div className="flex flex-wrap items-center justify-between w-full gap-2 font-sans">
-                        <div className="flex items-center gap-2 font-semibold text-foreground">
-                          <span className="rounded bg-surface-base px-2 py-0.5 font-mono text-[11px] border border-rule shadow-2xs">
-                            {activePoint.tooltipLabel}
-                          </span>
-                          <span className="font-mono text-brand font-bold">
-                            {activePoint.hours.toLocaleString('fr-FR', {
-                              minimumFractionDigits: 1,
-                            })}{' '}
-                            h réelles
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono">
-                          <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
-                            <span className="size-2 rounded-full bg-amber-400" />
-                            <span>
-                              Matin :{' '}
-                              {activePoint.morningHours.toLocaleString('fr-FR', {
-                                minimumFractionDigits: 1,
-                              })}{' '}
-                              h
-                            </span>
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 text-orange-700 dark:text-orange-400">
-                            <span className="size-2 rounded-full bg-brand" />
-                            <span>
-                              Aprem :{' '}
-                              {activePoint.afternoonHours.toLocaleString('fr-FR', {
-                                minimumFractionDigits: 1,
-                              })}{' '}
-                              h
-                            </span>
-                          </span>
-                          <span className="text-muted-foreground">
-                            Std :{' '}
-                            {activePoint.allocated.toLocaleString('fr-FR', {
-                              minimumFractionDigits: 1,
-                            })}{' '}
-                            h
-                          </span>
-                          <span className="text-muted-foreground">
-                            {activePoint.qty.toLocaleString('fr-FR')} pcs
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <Clock className="size-3.5 text-brand" />
-                        <span>
-                          Survolez une barre pour voir le détail des heures (
-                          {granularity === 'day'
-                            ? 'journée'
-                            : granularity === 'week'
-                              ? 'semaine'
-                              : 'mois'}
-                          , matin vs après-midi).
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Zone de barres protégée contre tout débordement */}
+                  {/* Zone de barres */}
                   <div className="w-full overflow-x-auto pb-1">
-                    <div className="relative flex h-36 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-1">
-                      {aggregatedTimeline.map((pt) => {
+                    <div className="relative flex h-60 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-1">
+                      {aggregatedTimeline.map((pt, index) => {
                         const hReal = Math.min(100, (pt.hours / maxAggregatedHours) * 100)
                         const hAlloc = Math.min(100, (pt.allocated / maxAggregatedHours) * 100)
 
@@ -550,8 +478,16 @@ export function WorkstationDetailSheet({
 
                         const morningRatio = pt.hours > 0 ? pt.morningHours / pt.hours : 0
                         const afternoonRatio = pt.hours > 0 ? pt.afternoonHours / pt.hours : 0
-                        const isHovered = activePoint?.key === pt.key
-                        const hasAnyHover = activePoint !== null
+                        const isHovered = hoveredKey === pt.key
+                        const hasAnyHover = hoveredKey !== null
+
+                        const isNearLeft =
+                          index === 0 || (index === 1 && aggregatedTimeline.length > 3)
+                        const isNearRight =
+                          !isNearLeft &&
+                          (index === aggregatedTimeline.length - 1 ||
+                            (index === aggregatedTimeline.length - 2 &&
+                              aggregatedTimeline.length > 3))
 
                         return (
                           <div
@@ -566,12 +502,26 @@ export function WorkstationDetailSheet({
                           >
                             {/* Floating Popover Bubble above the hovered bar */}
                             {isHovered && (
-                              <div className="pointer-events-none absolute bottom-[92px] z-30 flex flex-col items-center whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-100">
-                                <div className="rounded-lg border border-border bg-[#18181b] px-2.5 py-1.5 text-[11px] text-white shadow-xl">
-                                  <div className="font-semibold pb-0.5 border-b border-white/20 mb-1 text-[10px]">
-                                    {pt.tooltipLabel}
+                              <div
+                                className={cn(
+                                  'pointer-events-none absolute bottom-[124px] z-30 flex flex-col whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-100',
+                                  isNearLeft
+                                    ? 'left-0 items-start'
+                                    : isNearRight
+                                      ? 'right-0 items-end'
+                                      : 'left-1/2 -translate-x-1/2 items-center'
+                                )}
+                              >
+                                <div className="rounded-lg border border-border bg-[#18181b] px-3 py-2 text-[11px] text-white shadow-xl">
+                                  <div className="flex items-center justify-between gap-3 border-b border-white/20 pb-1 mb-1.5">
+                                    <span className="font-semibold text-white text-[11px]">
+                                      {pt.tooltipLabel}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-white/70">
+                                      {pt.qty.toLocaleString('fr-FR')} pcs
+                                    </span>
                                   </div>
-                                  <div className="font-mono text-[10px] space-y-0.5">
+                                  <div className="space-y-1 font-mono text-[10px]">
                                     <div className="flex items-center justify-between gap-3">
                                       <span className="text-white/70">Réel total :</span>
                                       <span className="font-bold text-white">
@@ -581,8 +531,11 @@ export function WorkstationDetailSheet({
                                         h
                                       </span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-3 text-amber-300">
-                                      <span>Matin (6h–13h) :</span>
+                                    <div className="flex items-center justify-between gap-4 text-amber-300">
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <span className="size-1.5 rounded-full bg-amber-400" />
+                                        <span>Matin (6h–13h) :</span>
+                                      </span>
                                       <span className="font-bold">
                                         {pt.morningHours.toLocaleString('fr-FR', {
                                           minimumFractionDigits: 1,
@@ -590,8 +543,11 @@ export function WorkstationDetailSheet({
                                         h
                                       </span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-3 text-orange-400">
-                                      <span>Aprem (13h–21h) :</span>
+                                    <div className="flex items-center justify-between gap-4 text-orange-400">
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <span className="size-1.5 rounded-full bg-brand" />
+                                        <span>Aprem (13h–21h) :</span>
+                                      </span>
                                       <span className="font-bold">
                                         {pt.afternoonHours.toLocaleString('fr-FR', {
                                           minimumFractionDigits: 1,
@@ -600,7 +556,7 @@ export function WorkstationDetailSheet({
                                       </span>
                                     </div>
                                     <div className="flex items-center justify-between gap-3 text-white/70">
-                                      <span>Standard :</span>
+                                      <span>Standard prévu :</span>
                                       <span>
                                         {pt.allocated.toLocaleString('fr-FR', {
                                           minimumFractionDigits: 1,
@@ -608,17 +564,18 @@ export function WorkstationDetailSheet({
                                         h
                                       </span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-3 text-white/70">
-                                      <span>Quantité :</span>
-                                      <span>{pt.qty.toLocaleString('fr-FR')} pcs</span>
-                                    </div>
                                   </div>
                                 </div>
-                                <div className="-mt-1 size-2 rotate-45 border-b border-r border-border bg-[#18181b]" />
+                                <div
+                                  className={cn(
+                                    '-mt-1 size-2 rotate-45 border-b border-r border-border bg-[#18181b]',
+                                    isNearLeft ? 'ml-3.5' : isNearRight ? 'mr-3.5' : 'self-center'
+                                  )}
+                                />
                               </div>
                             )}
 
-                            <div className="flex h-20 w-full items-end justify-center gap-1">
+                            <div className="flex h-24 w-full items-end justify-center gap-1">
                               {/* Real bar (stacked for ALL mailles: Matin / Aprem) */}
                               <div
                                 style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
@@ -675,7 +632,7 @@ export function WorkstationDetailSheet({
 
                             <span
                               className={cn(
-                                'mt-1 font-mono text-[9px] whitespace-nowrap transition-colors',
+                                'mt-1.5 font-mono text-[9px] whitespace-nowrap transition-colors',
                                 isHovered ? 'font-bold text-foreground' : 'text-muted-foreground'
                               )}
                             >
