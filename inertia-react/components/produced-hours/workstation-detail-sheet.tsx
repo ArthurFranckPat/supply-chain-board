@@ -18,7 +18,60 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import { Segment, SegmentButton } from '@r/components/vision/toolbar'
 import { formatDateFr, type WorkstationDetailResponse } from '@r/lib/produced-hours/types'
+
+type TimelineGranularity = 'day' | 'week' | 'month'
+
+interface AggregatedPoint {
+  key: string
+  label: string
+  tooltipLabel: string
+  hours: number
+  allocated: number
+  qty: number
+}
+
+const MONTHS_SHORT_FR = [
+  'Janv.',
+  'Févr.',
+  'Mars',
+  'Avr.',
+  'Mai',
+  'Juin',
+  'Juil.',
+  'Août',
+  'Sept.',
+  'Oct.',
+  'Nov.',
+  'Déc.',
+]
+
+const MONTHS_FULL_FR = [
+  'Janvier',
+  'Février',
+  'Mars',
+  'Avril',
+  'Mai',
+  'Juin',
+  'Juillet',
+  'Août',
+  'Septembre',
+  'Octobre',
+  'Novembre',
+  'Décembre',
+]
+
+function getIsoWeekDetails(dateStr: string): { weekNum: number; year: number } {
+  const parts = dateStr.split('-').map(Number)
+  const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
+  const day = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - day)
+  const year = d.getUTCFullYear()
+  const yearStart = new Date(Date.UTC(year, 0, 1))
+  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return { weekNum, year }
+}
 
 interface WorkstationDetailSheetProps {
   poste: string | null
@@ -39,12 +92,14 @@ export function WorkstationDetailSheet({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [granularity, setGranularity] = useState<TimelineGranularity>('day')
 
   useEffect(() => {
     if (!open || !poste) {
       setData(null)
       setError(null)
       setSearch('')
+      setGranularity('day')
       return
     }
 
@@ -95,18 +150,93 @@ export function WorkstationDetailSheet({
     )
   }, [data?.trackings, search])
 
-  // Max hours for daily chart scale
-  const maxDailyHours = useMemo(() => {
-    if (!data?.timeline?.length) return 1
-    const m = Math.max(...data.timeline.map((d) => Math.max(d.hours, d.allocated)))
+  // Agrégation de la timeline selon la granularité sélectionnée (jour / semaine / mois)
+  const aggregatedTimeline = useMemo<AggregatedPoint[]>(() => {
+    if (!data?.timeline?.length) return []
+
+    if (granularity === 'day') {
+      return data.timeline.map((pt) => ({
+        key: pt.date,
+        label: formatDateFr(pt.date).slice(0, 5),
+        tooltipLabel: formatDateFr(pt.date),
+        hours: pt.hours,
+        allocated: pt.allocated,
+        qty: pt.qty,
+      }))
+    }
+
+    if (granularity === 'week') {
+      const map = new Map<string, AggregatedPoint>()
+      for (const pt of data.timeline) {
+        const { weekNum, year } = getIsoWeekDetails(pt.date)
+        const key = `${year}-W${String(weekNum).padStart(2, '0')}`
+        const existing = map.get(key)
+        if (existing) {
+          existing.hours += pt.hours
+          existing.allocated += pt.allocated
+          existing.qty += pt.qty
+        } else {
+          map.set(key, {
+            key,
+            label: `S${String(weekNum).padStart(2, '0')}`,
+            tooltipLabel: `Semaine ${weekNum} (${year})`,
+            hours: pt.hours,
+            allocated: pt.allocated,
+            qty: pt.qty,
+          })
+        }
+      }
+      return Array.from(map.values()).map((p) => ({
+        ...p,
+        hours: Math.round(p.hours * 10) / 10,
+        allocated: Math.round(p.allocated * 10) / 10,
+      }))
+    }
+
+    // granularity === 'month'
+    const map = new Map<string, AggregatedPoint>()
+    for (const pt of data.timeline) {
+      const parts = pt.date.split('-').map(Number)
+      const year = parts[0]
+      const month = parts[1]
+      const key = `${year}-${String(month).padStart(2, '0')}`
+      const existing = map.get(key)
+      if (existing) {
+        existing.hours += pt.hours
+        existing.allocated += pt.allocated
+        existing.qty += pt.qty
+      } else {
+        const mShort = MONTHS_SHORT_FR[month - 1] || `${month}`
+        const mFull = MONTHS_FULL_FR[month - 1] || `${month}`
+        map.set(key, {
+          key,
+          label: `${mShort} ${String(year).slice(2)}`,
+          tooltipLabel: `${mFull} ${year}`,
+          hours: pt.hours,
+          allocated: pt.allocated,
+          qty: pt.qty,
+        })
+      }
+    }
+    return Array.from(map.values()).map((p) => ({
+      ...p,
+      hours: Math.round(p.hours * 10) / 10,
+      allocated: Math.round(p.allocated * 10) / 10,
+    }))
+  }, [data?.timeline, granularity])
+
+  // Max hours pour l'échelle du graphe selon la maille active
+  const maxAggregatedHours = useMemo(() => {
+    if (!aggregatedTimeline.length) return 1
+    const m = Math.max(...aggregatedTimeline.map((d) => Math.max(d.hours, d.allocated)))
     return m > 0 ? m * 1.15 : 1
-  }, [data?.timeline])
+  }, [aggregatedTimeline])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col p-0 sm:max-w-4xl sm:border-l sm:border-rule"
+        className="flex w-full flex-col p-0 data-[side=right]:w-full data-[side=right]:sm:w-[760px] data-[side=right]:sm:max-w-[95vw] data-[side=right]:md:w-[900px] data-[side=right]:lg:w-[1080px] data-[side=right]:xl:w-[1200px] sm:border-l sm:border-rule"
       >
         {/* Header */}
         <SheetHeader className="border-b border-rule bg-surface-base px-6 py-4">
@@ -225,61 +355,113 @@ export function WorkstationDetailSheet({
                 </div>
               </div>
 
-              {/* Timeline chart */}
+              {/* Timeline chart with Maille Selector */}
               {data.timeline.length > 0 && (
                 <div className="rounded-xl border border-rule bg-card p-4 shadow-xs">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Activité journalière
+                  <div className="mb-3 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Activité{' '}
+                        {granularity === 'day'
+                          ? 'journalière'
+                          : granularity === 'week'
+                            ? 'hebdomadaire'
+                            : 'mensuelle'}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 text-[11px]">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="size-2 rounded-full bg-brand" />
-                        <span>Heures réelles</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="size-2 rounded-full bg-slate-300" />
-                        <span>Alloué standard</span>
-                      </span>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Legend */}
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="size-2 rounded-full bg-brand" />
+                          <span>Heures réelles</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="size-2 rounded-full bg-slate-300" />
+                          <span>Alloué standard</span>
+                        </span>
+                      </div>
+
+                      {/* Maille switcher */}
+                      <Segment ariaLabel="Maille d'affichage">
+                        <SegmentButton
+                          active={granularity === 'day'}
+                          onClick={() => setGranularity('day')}
+                          title="Affichage par jour"
+                        >
+                          Jour
+                        </SegmentButton>
+                        <SegmentButton
+                          active={granularity === 'week'}
+                          onClick={() => setGranularity('week')}
+                          title="Affichage par semaine"
+                        >
+                          Semaine
+                        </SegmentButton>
+                        <SegmentButton
+                          active={granularity === 'month'}
+                          onClick={() => setGranularity('month')}
+                          title="Affichage par mois"
+                        >
+                          Mois
+                        </SegmentButton>
+                      </Segment>
                     </div>
                   </div>
 
-                  <div className="relative flex h-28 items-end gap-1.5 border-b border-rule pt-4 pb-1">
-                    {data.timeline.map((pt) => {
-                      const hReal = Math.min(100, (pt.hours / maxDailyHours) * 100)
-                      const hAlloc = Math.min(100, (pt.allocated / maxDailyHours) * 100)
-                      const dayLabel = formatDateFr(pt.date).slice(0, 5)
+                  {/* Zone de barres protégée contre tout débordement */}
+                  <div className="w-full overflow-x-auto pb-1">
+                    <div className="relative flex h-28 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-1">
+                      {aggregatedTimeline.map((pt) => {
+                        const hReal = Math.min(100, (pt.hours / maxAggregatedHours) * 100)
+                        const hAlloc = Math.min(100, (pt.allocated / maxAggregatedHours) * 100)
 
-                      return (
-                        <div
-                          key={pt.date}
-                          className="group relative flex h-full flex-1 flex-col items-center justify-end"
-                        >
-                          {/* Tooltip */}
-                          <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 rounded-md bg-[#222] px-2 py-1 text-[10px] text-white shadow-md group-hover:block whitespace-nowrap">
-                            <span className="font-semibold">{formatDateFr(pt.date)}</span> :{' '}
-                            {pt.hours}h (std: {pt.allocated}h) · {pt.qty} pcs
+                        const isFew = aggregatedTimeline.length <= 6
+                        const isMid = aggregatedTimeline.length <= 14
+                        const realBarWidth = isFew ? 'w-8' : isMid ? 'w-5' : 'w-3.5'
+                        const allocBarWidth = isFew ? 'w-5' : isMid ? 'w-3.5' : 'w-2.5'
+
+                        return (
+                          <div
+                            key={pt.key}
+                            className="group relative flex h-full flex-1 min-w-[32px] flex-col items-center justify-end"
+                          >
+                            {/* Tooltip */}
+                            <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 rounded-md bg-[#222] px-2.5 py-1 text-[10px] text-white shadow-md group-hover:block whitespace-nowrap">
+                              <span className="font-semibold">{pt.tooltipLabel}</span> :{' '}
+                              {pt.hours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })}h
+                              (std:{' '}
+                              {pt.allocated.toLocaleString('fr-FR', { minimumFractionDigits: 1 })}h)
+                              · {pt.qty.toLocaleString('fr-FR')} pcs
+                            </div>
+
+                            <div className="flex h-20 w-full items-end justify-center gap-1">
+                              {/* Real bar */}
+                              <div
+                                style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
+                                className={cn(
+                                  realBarWidth,
+                                  'rounded-t-sm bg-brand transition-all group-hover:opacity-80'
+                                )}
+                              />
+                              {/* Alloc bar */}
+                              <div
+                                style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
+                                className={cn(
+                                  allocBarWidth,
+                                  'rounded-t-xs bg-slate-300 transition-all'
+                                )}
+                              />
+                            </div>
+
+                            <span className="mt-1 font-mono text-[9px] text-muted-foreground whitespace-nowrap">
+                              {pt.label}
+                            </span>
                           </div>
-
-                          <div className="flex h-20 w-full items-end justify-center gap-1">
-                            {/* Real bar */}
-                            <div
-                              style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
-                              className="w-3 rounded-t-sm bg-brand transition-all group-hover:opacity-80"
-                            />
-                            {/* Alloc bar */}
-                            <div
-                              style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
-                              className="w-2 rounded-t-xs bg-slate-300 transition-all"
-                            />
-                          </div>
-
-                          <span className="mt-1 font-mono text-[9px] text-muted-foreground">
-                            {dayLabel}
-                          </span>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
