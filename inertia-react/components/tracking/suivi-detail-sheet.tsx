@@ -1,349 +1,77 @@
 /**
- * Diagnostic de ligne (drawer) — port React de
- * inertia/components/tracking/suivi-detail-sheet.tsx.
+ * Diagnostic de ligne (drawer latéral) — Fiche opérationnelle épurée
+ * centrée sur la traçabilité commande, les ruptures composants / approvisionnements,
+ * le statut qualité et les OFs de couverture.
  */
 import { cn } from '@r/lib/utils'
 import {
-  Receipt,
-  Factory,
-  Package,
-  BookmarkCheck,
-  Truck,
-  Clock,
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
   CalendarX,
+  CheckCircle2,
+  Clock,
   CornerDownRight,
-  CircleCheck,
+  Factory,
   FlaskConical,
+  Package,
+  Truck,
+  MapPin,
 } from 'lucide-react'
-import { DynamicIcon } from '../ui/dynamic-icon'
 import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
 import type { SuiviDisplayRow, ProactiveDisplayRow } from '@r/lib/suivi/types'
 
-interface SuiviDetailSheetProps {
+export interface SuiviDetailSheetProps {
   type: 'reactif' | 'proactif'
   row: SuiviDisplayRow | ProactiveDisplayRow
+  onSelectOf?: (numOf: string) => void
+  onSelectPoste?: (posteCode: string) => void
 }
 
-type StepState = 'green' | 'amber' | 'gray' | 'purple'
-
-// Pastilles d'étape — hex grammaire (airbnb-grammar.html) : ferme #008049,
-// suggere #fc642d, planifie #00a699 (ex-« purple » CQ : pas de violet dans
-// la grammaire, replié sur l'accent secondaire teal).
-const STEP_CIRCLE: Record<StepState, string> = {
-  green: 'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
-  amber:
-    'bg-suggere text-white animate-pulse shadow-[0_0_12px_rgba(252,100,45,0.3)] border border-suggere',
-  purple:
-    'bg-planifie text-white animate-pulse shadow-[0_0_12px_rgba(0,166,153,0.3)] border border-planifie',
-  gray: 'bg-secondary text-muted-foreground border border-rule',
-}
-
-export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
+export function SuiviDetailSheet({ type, row, onSelectOf, onSelectPoste }: SuiviDetailSheetProps) {
   const isReactif = type === 'reactif'
   const reactiveRow = row as SuiviDisplayRow
   const proactiveRow = row as ProactiveDisplayRow
-  // Champs absents du payload proactif (late/lateDays/enZoneExpe côté réactif
-  // uniquement) — le Solid lisait undefined (falsy), on garde la même lecture.
-  const late = (row as SuiviDisplayRow).late ?? false
-  const lateDays = (row as SuiviDisplayRow).lateDays ?? 0
-  const enZoneExpe = (row as SuiviDisplayRow).enZoneExpe ?? false
 
-  // Stepper (Physical Supply Chain Lifecycle)
-  const stepAppro: StepState = (() => {
-    if (isReactif) {
-      const causeType = reactiveRow.cause?.type
-      if (causeType === 'AUCUN_OF_PLANIFIE') return 'gray'
-      if (causeType === 'ATTENTE_RECEPTION_FOURNISSEUR') return 'amber'
-      return 'green'
-    }
-    const v = proactiveRow.verdictKey
-    if (v === 'uncov') return 'gray'
-    if (v === 'blocked') return 'amber'
-    return 'green'
-  })()
+  const late = isReactif ? reactiveRow.late : proactiveRow.joursRetard > 0
+  const lateDays = isReactif ? reactiveRow.lateDays : proactiveRow.joursRetard
 
-  const stepDispo: StepState = (() => {
-    if (stepAppro !== 'green') return 'gray'
-    if (isReactif) {
-      const status = reactiveRow.statusKey
-      const causeType = reactiveRow.cause?.type
-      if (
-        status === 'ret' &&
-        (causeType === 'RUPTURE_COMPOSANTS' || causeType === 'RETARD_ORDONNANCEMENT')
-      ) {
-        return 'gray'
-      }
-      return 'green'
-    }
-    const v = proactiveRow.verdictKey
-    if (v === 'late' || v === 'blocked' || v === 'uncov') return 'gray'
-    if (v === 'risk') return 'amber'
-    return 'green'
-  })()
-
+  // Quantités
   const total = row.qteRestante || 1
-
-  const stepAlloc: StepState = (() => {
-    if (stepDispo !== 'green') return 'gray'
-    if (isReactif) {
-      const status = reactiveRow.statusKey
-      if (status === 'exp') return 'green'
-      if (status === 'alc') return 'amber'
-      return 'gray'
-    }
-    const v = proactiveRow.verdictKey
-    const fullyAllocated = proactiveRow.qteAllouee >= total
-    if (v === 'stock' || fullyAllocated) return 'green'
-    if (proactiveRow.qteAllouee > 0) return 'amber'
-    return 'gray'
-  })()
-
-  const stepExp: StepState = (() => {
-    if (stepAlloc !== 'green') return 'gray'
-    if (isReactif && reactiveRow.cq) return 'purple'
-    if (isReactif && reactiveRow.statusKey === 'ras') return 'green'
-    if (enZoneExpe) return 'amber'
-    return 'gray'
-  })()
-
-  // Quantity bar
   const strictVal = isReactif ? reactiveRow.allocStrict : proactiveRow.qteAllouee
   const cqVal = isReactif ? reactiveRow.allocCq : 0
   const reliquatVal = isReactif ? Math.max(0, total - strictVal - cqVal) : proactiveRow.reliquat
 
-  const pctStrict = Math.round((strictVal / total) * 100)
-  const pctCq = Math.round((cqVal / total) * 100)
-  const pctReliquat = Math.round((reliquatVal / total) * 100)
-
-  // `action` n'existe que sur les lignes réactives (payload serveur) — le
-  // Solid plantait au clic d'une ligne proactive (r().action.severity sur
-  // undefined). Repli neutre plutôt que crash.
-  const action = (row as SuiviDisplayRow).action ?? { severity: 'info' as const, label: '—' }
-  const severity = action.severity
+  const pctStrict = Math.min(100, Math.round((strictVal / total) * 100))
+  const pctCq = Math.min(100 - pctStrict, Math.round((cqVal / total) * 100))
+  const pctReliquat = Math.max(0, 100 - pctStrict - pctCq)
 
   return (
-    <div className="text-sans flex flex-col gap-6 pb-8">
-      {/* 1. Stepper de Cycle de Commande */}
-      <div className="relative flex items-center justify-between overflow-hidden rounded-lg border border-rule-soft/60 bg-secondary/15 px-3 py-4">
-        <div className="absolute left-10 right-10 top-[2.25rem] z-0 h-0.5 border-t border-rule-soft bg-secondary" />
-
-        {/* Etape 1: Commande */}
-        <div className="z-10 flex w-16 flex-col items-center gap-1.5">
-          <div
-            className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
-              STEP_CIRCLE.green
-            )}
-            title="Commande enregistrée et validée dans l'ERP."
-          >
-            <Receipt size={16} strokeWidth={1.75} />
-          </div>
-          <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
-            Saisie
-          </span>
-        </div>
-
-        {/* Etape 2: Planifié / Couvert */}
-        <div className="z-10 flex w-16 flex-col items-center gap-1.5">
-          <div
-            className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
-              STEP_CIRCLE[stepAppro]
-            )}
-            title={
-              stepAppro === 'green'
-                ? "Ligne d'approvisionnement planifiée (OF, Stock ou PO)"
-                : stepAppro === 'amber'
-                  ? 'Approvisionnement fournisseur tardif'
-                  : "Aucune couverture d'approvisionnement planifiée"
-            }
-          >
-            <Factory size={16} strokeWidth={1.75} />
-          </div>
-          <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
-            Couverture
-          </span>
-        </div>
-
-        {/* Etape 3: Produit / Disponible */}
-        <div className="z-10 flex w-16 flex-col items-center gap-1.5">
-          <div
-            className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
-              STEP_CIRCLE[stepDispo]
-            )}
-            title={
-              stepDispo === 'green'
-                ? 'Produit fini disponible en stock'
-                : stepDispo === 'amber'
-                  ? 'Fabrication en cours à risque'
-                  : 'Rupture composant ou retard de fabrication'
-            }
-          >
-            <Package size={16} strokeWidth={1.75} />
-          </div>
-          <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
-            Disponible
-          </span>
-        </div>
-
-        {/* Etape 4: Réservé / Alloué */}
-        <div className="z-10 flex w-16 flex-col items-center gap-1.5">
-          <div
-            className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
-              STEP_CIRCLE[stepAlloc]
-            )}
-            title={
-              stepAlloc === 'green'
-                ? 'Stock alloué et réservé dans X3'
-                : stepAlloc === 'amber'
-                  ? 'Stock disponible mais allocation informatique à faire'
-                  : "En attente d'entrée en stock"
-            }
-          >
-            <BookmarkCheck size={16} strokeWidth={1.75} />
-          </div>
-          <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
-            Alloué
-          </span>
-        </div>
-
-        {/* Etape 5: Zone Expé */}
-        <div className="z-10 flex w-16 flex-col items-center gap-1.5">
-          <div
-            className={cn(
-              'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
-              STEP_CIRCLE[stepExp]
-            )}
-            title={
-              stepExp === 'green'
-                ? 'Commande traitée (RAS)'
-                : stepExp === 'amber'
-                  ? "Stock en zone d'expédition, en attente d'enlèvement"
-                  : stepExp === 'purple'
-                    ? 'Bloqué en attente du contrôle qualité (CQ)'
-                    : "En attente de transfert vers la zone d'expédition"
-            }
-          >
-            <Truck size={16} strokeWidth={1.75} />
-          </div>
-          <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
-            Zone Expé
-          </span>
-        </div>
-      </div>
-
-      {/* 2. Header Card (Fiche Commande) — carte plate grammaire :
-          rayon 14, hairline, pas de gradient ni de blur. */}
-      <div className="relative overflow-hidden rounded-lg border border-rule bg-card p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-lg border border-rule bg-foreground/[0.05] px-2.5 py-0.5 font-mono text-[13px] font-extrabold tracking-tight text-foreground">
-                {row.numCommande}
-              </span>
-              <span className="font-sans text-[11px] font-bold text-muted-foreground/75">
-                • Commande client
-              </span>
-            </div>
-            {row.refCommandeClient && (
-              <div className="mt-2 font-mono text-[10.5px] font-medium text-muted-foreground">
-                Réf ext: <span className="text-foreground/80">{row.refCommandeClient}</span>
-              </div>
-            )}
-          </div>
-          <div className="shrink-0">
-            <span className="rounded-full border border-brand/20 bg-brand-soft/80 px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase tracking-wide text-brand">
+    <div className="flex flex-col gap-5 pb-8 pt-2 text-sans">
+      {/* ═══ 1. Fiche Commande & Contexte Synthétique ═══ */}
+      <div className="rounded-lg border border-rule bg-card p-4 space-y-3.5">
+        {/* Ligne 1 : Badges d'identité */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded-md border border-rule bg-secondary/50 px-2.5 py-1 font-mono text-xs font-bold text-foreground">
+              {row.numCommande}
+            </span>
+            <span className="rounded-full border border-brand/20 bg-brand-soft px-2 py-0.5 font-mono text-3xs font-extrabold uppercase text-brand">
               {row.type}
             </span>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-rule-soft/60 pt-4">
-          <div>
-            <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
-              Client
-            </span>
-            <div className="mt-0.5 text-[13px] font-bold text-foreground">{row.client}</div>
-          </div>
-          <div>
-            <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
-              Atelier / Ligne
-            </span>
-            <div className="mt-0.5 text-[13px] font-bold text-foreground">
-              {row.atelierLabel || '—'}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 border-t border-rule-soft/60 pt-4">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
-            Article &amp; Désignation
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-mono text-[12.5px] font-bold text-brand">{row.article}</span>
-            {row.refArticleClient && row.refArticleClient !== row.article && (
-              <span className="rounded bg-secondary/40 px-1.5 py-px font-mono text-[10px] text-muted-foreground">
-                (Client: {row.refArticleClient})
+            {row.refCommandeClient && (
+              <span className="font-mono text-2xs text-muted-foreground">
+                Réf ext :{' '}
+                <span className="font-semibold text-foreground">{row.refCommandeClient}</span>
               </span>
             )}
           </div>
-          <div className="mt-1 text-[12.5px] font-medium leading-relaxed text-secondary-foreground">
-            {row.designation || '—'}
-          </div>
-        </div>
-      </div>
 
-      {/* 3. Alert Notification (Recommandation) */}
-      <div
-        className={cn(
-          'relative flex flex-col gap-2.5 overflow-hidden rounded-lg border border-rule p-5 transition-all',
-          severity === 'info' && 'border-brand/20 bg-brand/5 text-brand',
-          severity === 'warning' && 'border-suggere/25 bg-suggere/5 text-suggere',
-          severity === 'critical' && 'border-destructive/20 bg-destructive/[0.03] text-destructive'
-        )}
-      >
-        <div className="absolute right-0 top-0 -translate-y-3 translate-x-3 opacity-[0.04]">
-          <DynamicIcon
-            name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
-            size={72}
-            strokeWidth={1.75}
-            className="leading-none"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <DynamicIcon
-            name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
-            size={18}
-            strokeWidth={1.75}
-          />
-          <span className="text-[10px] font-extrabold uppercase tracking-wider">
-            Recommandation Supply-Chain
-          </span>
-        </div>
-        <p className="text-[13px] font-bold leading-relaxed text-foreground">{action.label}</p>
-      </div>
-
-      {/* 4. Expé & Délais */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex h-20 flex-col justify-between rounded-lg border border-rule bg-card p-4">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
-            Date d'Expédition
-          </span>
-          <div className="font-mono text-[16px] font-black text-foreground">
-            {row.dateExp || '—'}
-          </div>
-        </div>
-        <div className="flex h-20 flex-col justify-between rounded-lg border border-rule bg-card p-4">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
-            État de Livraison
-          </span>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
             {isReactif ? (
               <span
                 className={cn(
-                  'inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
+                  'rounded px-2 py-0.5 font-mono text-2xs font-extrabold uppercase',
                   BADGE_TONE[reactiveRow.statusKey]
                 )}
               >
@@ -352,7 +80,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             ) : (
               <span
                 className={cn(
-                  'inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
+                  'rounded px-2 py-0.5 font-mono text-2xs font-extrabold uppercase',
                   VERDICT_TONE[proactiveRow.verdictKey]
                 )}
               >
@@ -360,486 +88,443 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               </span>
             )}
             {late && (
-              <span className="mt-0.5 flex items-center gap-0.5 text-[10.5px] font-bold text-destructive">
-                <Clock size={12} strokeWidth={1.75} className="leading-none" />
-                Retard: +{lateDays} jour{lateDays > 1 ? 's' : ''}
+              <span className="flex items-center gap-0.5 rounded bg-destructive/10 px-1.5 py-0.5 font-mono text-3xs font-bold text-destructive">
+                <Clock size={11} />+{lateDays}j
               </span>
             )}
           </div>
         </div>
+
+        {/* Ligne 2 : Client & Atelier / Poste */}
+        <div className="grid grid-cols-2 gap-3 border-t border-rule-soft pt-3 text-xs">
+          <div>
+            <span className="block text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+              Client
+            </span>
+            <span className="font-semibold text-foreground">{row.client}</span>
+          </div>
+          <div>
+            <span className="block text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+              Atelier & Poste
+            </span>
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <span>{row.atelierLabel || row.atelier || '—'}</span>
+              {row.poste && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  {onSelectPoste ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectPoste(row.poste)}
+                      className="font-mono text-2xs font-bold text-brand hover:underline"
+                      title="Voir la charge du poste"
+                    >
+                      {row.poste}
+                    </button>
+                  ) : (
+                    <span className="font-mono text-2xs font-bold text-muted-foreground">
+                      {row.poste}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Ligne 3 : Article & Désignation */}
+        <div className="border-t border-rule-soft pt-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+              Article
+            </span>
+            {row.dateExp && (
+              <span className="text-2xs text-muted-foreground">
+                Expédition promise :{' '}
+                <span className="font-mono font-bold text-foreground">{row.dateExp}</span>
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="font-mono text-xs font-bold text-brand">{row.article}</span>
+            {row.refArticleClient && row.refArticleClient !== row.article && (
+              <span className="rounded bg-secondary/60 px-1.5 py-px font-mono text-3xs text-muted-foreground">
+                Réf client : {row.refArticleClient}
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 text-xs text-secondary-foreground leading-relaxed">
+            {row.designation || '—'}
+          </div>
+        </div>
+
+        {/* Ligne 4 : Barre d'allocation compacte */}
+        <div className="border-t border-rule-soft pt-3 space-y-1.5">
+          <div className="flex items-center justify-between text-2xs">
+            <span className="font-semibold text-foreground">
+              Quantités : <span className="font-mono">{strictVal}</span> /{' '}
+              <span className="font-mono">{total}</span> u alloués ({pctStrict}%)
+            </span>
+            <span className="font-mono text-muted-foreground">Reliquat : {reliquatVal} u</span>
+          </div>
+          <div className="relative flex h-2 w-full overflow-hidden rounded-full border border-rule-soft bg-secondary">
+            <div
+              className="h-full bg-ferme transition-all duration-300"
+              style={{ width: `${pctStrict}%` }}
+              title={`Alloué : ${strictVal} u`}
+            />
+            {pctCq > 0 && (
+              <div
+                className="h-full bg-planifie transition-all duration-300"
+                style={{ width: `${pctCq}%` }}
+                title={`Sous CQ : ${cqVal} u`}
+              />
+            )}
+            <div
+              className="h-full bg-secondary transition-all duration-300"
+              style={{ width: `${pctReliquat}%` }}
+              title={`Reliquat : ${reliquatVal} u`}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* 5. Gauge Visuelle & Répartition des Quantités */}
-      <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-5">
-        <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
-          Répartition des Quantités
-        </h4>
-
-        {/* Stacked Progress Bar */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-foreground/85">
-            <span>Rapport d'allocation</span>
+      {/* ═══ 2. Alerte Contrôle Qualité (si applicable) ═══ */}
+      {!isReactif && proactiveRow.cq && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3.5 space-y-1.5">
+          <div className="flex items-center gap-2 font-mono text-xs font-bold text-warning">
+            <FlaskConical size={16} strokeWidth={1.75} />
             <span>
-              {strictVal + cqVal} / {total} u ({pctStrict + pctCq}%)
+              {proactiveRow.cq.articles} composant{proactiveRow.cq.articles > 1 ? 's' : ''} sous
+              contrôle qualité ({proactiveRow.cq.qty} u)
             </span>
           </div>
-          <div className="relative flex h-3 w-full overflow-hidden rounded-full border border-rule-soft bg-secondary/50">
-            <div
-              className="h-full bg-ferme transition-all duration-500"
-              style={{ width: `${pctStrict}%` }}
-            />
-            <div
-              className="h-full bg-planifie transition-all duration-500"
-              style={{ width: `${pctCq}%` }}
-            />
-            <div
-              className="h-full bg-secondary transition-all duration-500"
-              style={{ width: `${pctReliquat}%` }}
-            />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {proactiveRow.cq.seul
+              ? 'La matière est physiquement sur site. Lever le contrôle réception suffit à débloquer entièrement la commande (aucun retard fournisseur).'
+              : 'Ces quantités sont présentes sur site mais immobilisées en statut Q. Un manque résiduel subsiste par ailleurs.'}
+          </p>
+          <div className="text-2xs font-bold text-warning">
+            Action : contacter le contrôle réception pour libérer le lot.
           </div>
         </div>
+      )}
 
-        <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-            <div className="text-[9.5px] font-semibold text-muted-foreground">Reste à livrer</div>
-            <div className="mt-0.5 font-mono text-[16px] font-black text-foreground">{total}</div>
+      {/* ═══ 3. Ruptures de Composants & Approvisionnements (Vue proactive) ═══ */}
+      {!isReactif && (
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-foreground">
+              <Truck size={14} className="text-muted-foreground" />
+              Composants goulots ({proactiveRow.composants.length})
+            </h4>
+            <span className="text-3xs text-muted-foreground">Impact sur la faisabilité</span>
           </div>
-          {isReactif ? (
-            <>
-              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-ferme">Strict</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-ferme">
-                  {reactiveRow.allocStrict}
-                </div>
-              </div>
-              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-planifie">Sous CQ</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-planifie">
-                  {reactiveRow.allocCq}
-                </div>
-              </div>
-            </>
+
+          {proactiveRow.composants.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-lg border border-rule bg-secondary/15 px-3.5 py-3 text-xs text-muted-foreground">
+              <CheckCircle2 size={15} className="text-ferme shrink-0" />
+              <span>Aucun composant en rupture identifié pour cette commande.</span>
+            </div>
           ) : (
-            <>
-              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-ferme">Alloué</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-ferme">
-                  {proactiveRow.qteAllouee}
+            <div className="space-y-2.5">
+              {proactiveRow.composants.map((c) => (
+                <div
+                  key={c.art}
+                  className="rounded-lg border border-rule bg-card p-3 space-y-2.5 shadow-sm"
+                >
+                  {/* Entête du composant */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'font-mono text-xs font-bold',
+                            c.cqSeul ? 'text-warning' : 'text-destructive'
+                          )}
+                        >
+                          {c.art}
+                        </span>
+                        <span
+                          className={cn(
+                            'rounded px-1.5 py-0.5 font-mono text-3xs font-bold',
+                            c.cqSeul
+                              ? 'bg-warning/15 text-warning'
+                              : 'bg-destructive/10 text-destructive'
+                          )}
+                        >
+                          {c.cqSeul ? `${c.qty} u sous CQ` : `−${c.qty} u manquant`}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-2xs text-muted-foreground">{c.desc}</div>
+                    </div>
+                  </div>
+
+                  {/* Statut Q partiel */}
+                  {c.qc > 0 && !c.cqSeul && (
+                    <div className="flex items-center gap-1.5 rounded border border-warning/30 bg-warning/5 px-2.5 py-1 text-2xs font-medium text-warning">
+                      <FlaskConical size={12} />
+                      <span>{c.qc} u présentes sur site mais immobilisées en statut Q</span>
+                    </div>
+                  )}
+
+                  {/* Acheminement / Commande d'achat fournisseur */}
+                  {c.reception ? (
+                    <div className="rounded border border-rule bg-secondary/30 p-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <Package size={13} className="text-muted-foreground" />
+                          Commande fournisseur :{' '}
+                          <span className="font-mono font-bold text-brand">{c.reception.po}</span>
+                        </span>
+                        {c.reception.overdue ? (
+                          <span className="flex items-center gap-1 font-mono text-3xs font-bold text-destructive">
+                            <AlertTriangle size={12} />
+                            Retard (+{c.reception.retardJ}j)
+                          </span>
+                        ) : (
+                          <span className="text-3xs text-muted-foreground">En acheminement</span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 border-t border-rule-soft pt-1.5 text-2xs text-muted-foreground">
+                        <div>
+                          Fournisseur :{' '}
+                          <span className="font-medium text-foreground">
+                            {c.reception.supplier}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          Arrivée prévue :{' '}
+                          <span className="font-mono font-bold text-foreground">
+                            {c.reception.eta}
+                          </span>
+                        </div>
+                      </div>
+
+                      {c.reception.apresExpedition && (
+                        <div className="flex items-center gap-1 rounded bg-destructive/5 px-2 py-0.5 text-3xs font-semibold text-destructive">
+                          <AlertCircle size={11} />
+                          L'ETA arrive après l'expédition promise de la commande.
+                        </div>
+                      )}
+                    </div>
+                  ) : !c.descente && !c.cqSeul ? (
+                    <div className="flex items-center gap-1.5 rounded border border-destructive/20 bg-destructive/5 px-2.5 py-1.5 text-2xs text-destructive">
+                      <CalendarX size={13} />
+                      <span>Aucune commande d'achat de couverture identifiée dans l'ERP.</span>
+                    </div>
+                  ) : null}
+
+                  {/* Décomposition de sous-ensemble */}
+                  {c.descente && (
+                    <div className="rounded border border-rule bg-secondary/20 p-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="flex items-center gap-1.5 text-foreground">
+                          <CornerDownRight size={13} />
+                          Sous-ensemble
+                        </span>
+                        {c.descente.statut === 'se_a_lancer' ? (
+                          <span className="flex items-center gap-1 text-3xs font-bold text-ferme">
+                            <CheckCircle2 size={12} />
+                            Composants prêts · Prêt à lancer
+                          </span>
+                        ) : (
+                          <span className="text-3xs font-bold text-destructive">
+                            Bloqué en cascade
+                          </span>
+                        )}
+                      </div>
+
+                      {c.descente.statut === 'bloque' && (
+                        <div className="space-y-2 border-l border-rule pl-2.5">
+                          {c.descente.par.map((p) => (
+                            <div key={p.art} className="space-y-0.5 text-2xs text-muted-foreground">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono font-bold text-destructive">
+                                  {p.art}
+                                </span>
+                                <span className="font-mono font-bold text-destructive">
+                                  −{p.manque} u
+                                </span>
+                              </div>
+                              <div className="text-3xs">{p.desc}</div>
+                              {p.reception ? (
+                                <div className="font-mono text-3xs text-foreground/80">
+                                  PO : {p.reception.po} · ETA : {p.reception.eta}{' '}
+                                  {p.reception.overdue && `(+${p.reception.retardJ}j)`}
+                                </div>
+                              ) : (
+                                <div className="text-3xs text-destructive">Pas d'achat prévu</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-muted-foreground">Reliquat</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-foreground">
-                  {proactiveRow.reliquat}
-                </div>
-              </div>
-            </>
+              ))}
+            </div>
           )}
         </div>
-      </div>
-
-      {/* 6bis. Dépendance au contrôle qualité (issue #185) — même bannière et même
-          vocabulaire que le détail OF : la matière est sur site, l'action est la levée du
-          contrôle réception, pas une relance fournisseur. En TÊTE des composants : quand le
-          statut Q tient tout le manque (`cq.seul`), c'est le seul levier de déblocage. */}
-      {!isReactif && proactiveRow.cq && (
-        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3">
-          <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-warning">
-            <FlaskConical size={14} strokeWidth={1.75} />
-            {proactiveRow.cq.articles} COMPOSANT{proactiveRow.cq.articles > 1 ? 'S' : ''} SOUS
-            CONTRÔLE QUALITÉ — {proactiveRow.cq.qty} U
-          </div>
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            {proactiveRow.cq.seul
-              ? "Aucun autre manque sur cette ligne : faire lever le contrôle réception suffit à la débloquer — aucune réception fournisseur n'est en cause."
-              : 'Ces quantités sont comptées disponibles mais restent bloquées en statut Q ; un manque subsiste par ailleurs.'}{' '}
-            Action : contacter le contrôle réception pour faire lever le contrôle.
-          </p>
-        </div>
       )}
 
-      {/* 6. Composants en rupture & Approvisionnements (BOM) */}
-      {!isReactif && proactiveRow.composants.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
-          <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
-            Composants en rupture
-          </h4>
-          <div className="flex flex-col gap-4">
-            {proactiveRow.composants.map((c) => (
-              <div
-                key={c.art}
-                className="flex flex-col gap-2 border-b border-rule-soft pb-4 last:border-0 last:pb-0"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={cn(
-                      'font-mono text-[12.5px] font-bold',
-                      c.cqSeul ? 'text-warning' : 'text-destructive'
-                    )}
-                  >
-                    {c.art}
-                  </span>
-                  {/* `cqSeul` : rien ne manque, la pièce est là mais immobilisée — l'annoncer
-                      « −N manquants » en rouge désignerait le fournisseur à tort (issue #185). */}
-                  <span
-                    className={cn(
-                      'rounded px-2 py-0.5 font-mono text-[10px] font-extrabold',
-                      c.cqSeul ? 'bg-warning/15 text-warning' : 'bg-destructive/10 text-destructive'
-                    )}
-                  >
-                    {c.cqSeul ? `${c.qty} sous contrôle qualité` : `−${c.qty} manquants`}
-                  </span>
-                </div>
-                <div className="text-[12px] font-medium leading-normal text-secondary-foreground">
-                  {c.desc}
-                </div>
+      {/* ═══ 4. Couverture & Ordres de Fabrication ═══ */}
+      {!isReactif && (
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-foreground">
+              <Factory size={14} className="text-muted-foreground" />
+              Couverture de fabrication ({proactiveRow.ofs.length})
+            </h4>
+            <span className="text-3xs text-muted-foreground">Mode : {proactiveRow.couverture}</span>
+          </div>
 
-                {/* Part tenue par le statut Q, AVANT la lentille réception : c'est l'action qui
-                    débloque, et elle ne passe pas par les achats. */}
-                {c.qc > 0 && (
-                  <div className="flex w-fit items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-1 font-mono text-[10.5px] font-bold text-warning">
-                    <FlaskConical size={13} strokeWidth={1.75} className="leading-none" />
-                    {c.qc} en statut Q — lever le contrôle réception
-                    {!c.cqSeul && c.reception && ` · reste ${c.qty} par ${c.reception.po}`}
-                  </div>
-                )}
-
-                {/* Reception Directe (Acheminement) */}
-                {c.reception ? (
-                  <div className="flex flex-col gap-3 rounded-lg border border-rule-soft bg-gradient-to-r from-secondary/15 to-transparent p-4">
+          {proactiveRow.ofs.length === 0 ? (
+            <div className="rounded-lg border border-rule bg-secondary/15 p-3 text-xs text-muted-foreground">
+              Couverture assurée par :{' '}
+              <span className="font-semibold text-foreground">{proactiveRow.couverture}</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {proactiveRow.ofs.map((of) => {
+                const st = OF_STATUT[of.statutNum]
+                return (
+                  <div
+                    key={of.numOf}
+                    className="rounded-lg border border-rule bg-card p-3 space-y-2 transition-colors hover:border-brand/40 shadow-sm"
+                  >
                     <div className="flex items-center justify-between">
-                      <div
-                        className={cn(
-                          'flex items-center gap-1.5 text-[11px] font-bold',
-                          c.reception.overdue ? 'text-destructive' : 'text-brand'
-                        )}
-                      >
-                        <DynamicIcon
-                          name={c.reception.overdue ? 'warning' : 'local_shipping'}
-                          size={16}
-                          strokeWidth={1.75}
-                        />
-                        <span>
-                          {c.reception.overdue
-                            ? `Retard d'approvisionnement (+${c.reception.retardJ}j)`
-                            : 'Acheminement en cours'}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground">
+                          {of.numOf}
                         </span>
-                      </div>
-                      <span className="rounded border border-rule-soft bg-secondary px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        PO: {c.reception.po}
-                      </span>
-                    </div>
-
-                    {/* Delivery Timeline Track */}
-                    <div className="mt-1 flex items-center gap-2 px-1">
-                      <div className="flex flex-1 flex-col gap-1">
-                        <div className="h-1.5 rounded-full bg-ferme" />
-                        <span className="text-[8px] font-extrabold uppercase text-ferme">
-                          Commandé
-                        </span>
-                      </div>
-                      <div className="flex flex-1 flex-col gap-1">
-                        <div
-                          className={cn(
-                            'h-1.5 rounded-full',
-                            c.reception.overdue ? 'bg-destructive/40' : 'bg-ferme'
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            'text-[8px] font-extrabold uppercase',
-                            c.reception.overdue ? 'font-bold text-destructive' : 'text-ferme'
-                          )}
-                        >
-                          Transit
-                        </span>
-                      </div>
-                      <div className="flex flex-1 flex-col gap-1">
-                        <div
-                          className={cn(
-                            'h-1.5 rounded-full',
-                            c.reception.overdue ? 'bg-destructive' : 'bg-secondary'
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            'text-[8px] font-extrabold uppercase',
-                            c.reception.overdue
-                              ? 'font-bold text-destructive'
-                              : 'text-muted-foreground'
-                          )}
-                        >
-                          Arrivée ({c.reception.eta})
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-1 flex flex-col gap-0.5 border-t border-rule-soft/60 pt-2 text-[11px] text-muted-foreground">
-                      <div>
-                        <span className="font-semibold text-foreground/80">Fournisseur :</span>{' '}
-                        {c.reception.supplier}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  !c.descente &&
-                  !c.cqSeul && (
-                    <div className="flex w-fit items-center gap-1 rounded-lg border border-destructive/10 bg-destructive/5 px-2.5 py-1 font-mono text-[10px] font-bold text-destructive/80">
-                      <CalendarX size={13} strokeWidth={1.75} className="leading-none" />
-                      Aucune réception d'achat de couverture prévue.
-                    </div>
-                  )
-                )}
-
-                {/* Descente de Nomenclature (Niveau Cascade) */}
-                {c.descente && (
-                  <div className="flex flex-col gap-2 rounded-lg border border-rule-soft bg-secondary/15 p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
-                      <CornerDownRight size={14} strokeWidth={1.75} />
-                      <span>Nomenclature sous-ensemble</span>
-                    </div>
-                    {c.descente.statut === 'se_a_lancer' ? (
-                      <div className="flex items-center gap-1 pl-3.5 text-[11px] font-bold text-ferme">
-                        <CircleCheck size={14} strokeWidth={1.75} />
-                        Composants disponibles — OF du sous-ensemble prêt à lancer
-                      </div>
-                    ) : (
-                      <div className="mt-1 ml-2 flex flex-col gap-2.5 border-l-2 border-dotted border-destructive/20 pl-3">
-                        <div className="text-[9.5px] font-extrabold uppercase tracking-wide text-destructive">
-                          Composants parents bloquants :
-                        </div>
-                        {c.descente.par.map((p) => (
-                          <div
-                            key={p.art}
-                            className="relative flex flex-col gap-1 pl-2 text-[11px] text-muted-foreground"
-                          >
-                            <div className="absolute left-0 top-1.5 size-1.5 -translate-x-[15px] rounded-full bg-destructive/40" />
-                            <div className="flex items-baseline justify-between gap-2">
-                              <span className="text-foreground/80">
-                                <b className="font-mono text-[11.5px] font-bold text-destructive">
-                                  {p.art}
-                                </b>{' '}
-                                <span className="text-[10px] opacity-80">({p.desc})</span>
-                              </span>
-                              <span className="shrink-0 font-mono font-bold text-destructive">
-                                −{p.manque}
-                              </span>
-                            </div>
-                            {p.reception ? (
-                              <div className="mt-0.5 flex flex-col gap-0.5 rounded border border-rule-soft bg-secondary/40 p-2.5 text-[10px]">
-                                <div
-                                  className={cn(
-                                    'flex items-center gap-1 font-semibold',
-                                    p.reception.overdue ? 'text-destructive' : 'text-foreground/75'
-                                  )}
-                                >
-                                  <DynamicIcon
-                                    name={p.reception.overdue ? 'warning' : 'local_shipping'}
-                                    size={12}
-                                    strokeWidth={1.75}
-                                  />
-                                  <span>
-                                    {p.reception.overdue
-                                      ? `Retard +${p.reception.retardJ}j`
-                                      : 'Livraison prévue'}
-                                  </span>
-                                </div>
-                                <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-muted-foreground">
-                                  <span>
-                                    PO: <span className="text-foreground/80">{p.reception.po}</span>
-                                  </span>
-                                  <span>
-                                    Arrivée:{' '}
-                                    <span className="text-foreground/80">{p.reception.eta}</span>
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex w-fit items-center gap-0.5 rounded bg-destructive/5 px-2 py-0.5 text-[9.5px] font-bold text-destructive/80">
-                                <CalendarX size={11} strokeWidth={1.75} className="leading-none" />
-                                Aucune couverture
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 7. Ordres de Fabrication Associés */}
-      {!isReactif && proactiveRow.ofs.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
-          <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
-            Ordres de Fabrication ({proactiveRow.ofs.length})
-          </h4>
-          <div className="flex flex-col gap-4">
-            {proactiveRow.ofs.map((of) => {
-              const st = OF_STATUT[of.statutNum]
-              return (
-                <div
-                  key={of.numOf}
-                  className="relative flex flex-col gap-3 overflow-hidden rounded-lg border border-rule-soft bg-secondary/15 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded border border-rule bg-card px-2.5 py-0.5 font-mono text-[13px] font-bold text-foreground shadow-sm">
-                        {of.numOf}
-                      </span>
-                      {of.estDebuté && (
-                        <span
-                          className="relative flex h-2 size-2 rounded-full bg-brand-soft/80"
-                          title="OF Débuté"
-                        >
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75"></span>
-                          <span className="relative inline-flex h-2 size-2 rounded-full bg-brand"></span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {of.estDebuté && (
-                        <span className="rounded border border-brand/10 bg-brand-soft px-2 py-0.5 font-sans text-[8.5px] font-extrabold uppercase text-brand">
-                          En cours
-                        </span>
-                      )}
-                      {st && (
-                        <span
-                          className={cn(
-                            'rounded border border-transparent px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider',
-                            st.tone
-                          )}
-                        >
-                          {st.tag}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 border-t border-rule-soft/60 pt-3 text-[11px] text-muted-foreground">
-                    <div>
-                      <span className="font-semibold text-foreground/60">Composant de tête :</span>
-                      <div className="mt-0.5 font-mono font-semibold text-foreground">
-                        {of.article}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-foreground/60">Quantité allouée :</span>
-                      <div className="mt-0.5 font-mono font-semibold text-foreground">
-                        {of.qteAllouee} u
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-foreground/60">Fin planifiée :</span>
-                      <div className="mt-0.5 font-mono font-semibold text-foreground">
-                        {of.dateFin}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-foreground/60">
-                        État de faisabilité :
-                      </span>
-                      <div className="mt-0.5">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 text-[11px] font-bold',
-                            of.feasible ? 'text-ferme' : 'text-destructive'
-                          )}
-                        >
-                          <DynamicIcon
-                            name={of.feasible ? 'check_circle' : 'cancel'}
-                            size={13}
-                            strokeWidth={1.75}
-                            className="leading-none"
-                          />
-                          {of.feasible === null ? '—' : of.feasible ? 'Prêt à produire' : 'Bloqué'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {of.missingComponents.length > 0 && (
-                    <div className="mt-1 flex flex-col gap-1.5 border-t border-rule-soft/60 pt-3">
-                      <div className="text-[9.5px] font-bold uppercase tracking-wide text-destructive">
-                        Composants manquants :
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {of.missingComponents.map((mc) => (
-                          <span
-                            key={mc.art}
-                            className="rounded border border-destructive/10 bg-destructive/5 px-2 py-0.5 font-mono text-[9px] font-semibold text-destructive"
-                          >
-                            {mc.art} (−{mc.qty})
+                        {of.estDebuté && (
+                          <span className="rounded bg-brand-soft px-1.5 py-0.5 text-3xs font-extrabold uppercase text-brand">
+                            En cours
                           </span>
-                        ))}
+                        )}
+                        {st && (
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 font-mono text-3xs font-bold uppercase',
+                              st.tone
+                            )}
+                          >
+                            {st.tag}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {of.feasible !== null && (
+                          <span
+                            className={cn(
+                              'text-2xs font-bold',
+                              of.feasible ? 'text-ferme' : 'text-destructive'
+                            )}
+                          >
+                            {of.feasible ? 'Faisable' : 'Rupture'}
+                          </span>
+                        )}
+                        {onSelectOf && (
+                          <button
+                            type="button"
+                            onClick={() => onSelectOf(of.numOf)}
+                            className="flex items-center gap-1 rounded bg-secondary px-2 py-1 text-2xs font-semibold text-foreground transition-colors hover:bg-brand-soft hover:text-brand cursor-pointer"
+                            title="Ouvrir le diagnostic complet et l'affermissement de l'OF"
+                          >
+                            <span>Détail OF</span>
+                            <ArrowRight size={11} />
+                          </button>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+
+                    <div className="grid grid-cols-3 gap-2 border-t border-rule-soft pt-2 text-2xs text-muted-foreground">
+                      <div>
+                        <span className="block text-3xs uppercase">Article</span>
+                        <span className="font-mono font-medium text-foreground">{of.article}</span>
+                      </div>
+                      <div>
+                        <span className="block text-3xs uppercase">Fin prévue</span>
+                        <span className="font-mono font-medium text-foreground">
+                          {of.dateFin || '—'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-3xs uppercase">Quantité allouée</span>
+                        <span className="font-mono font-medium text-foreground">
+                          {of.qteAllouee} u
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Avancement si pointages existants */}
+                    {of.piecesFaites !== null &&
+                      of.piecesTotalOf !== null &&
+                      of.piecesTotalOf > 0 && (
+                        <div className="flex items-center justify-between border-t border-rule-soft pt-1.5 text-3xs text-muted-foreground">
+                          <span>Avancement fabrication</span>
+                          <span className="font-mono font-semibold text-foreground">
+                            {of.piecesFaites} / {of.piecesTotalOf} u (
+                            {Math.round((of.piecesFaites / of.piecesTotalOf) * 100)}%)
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* 8. Emplacements de Stock */}
-      {isReactif && reactiveRow.emplacements.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
-          <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
-            Emplacements &amp; Palettes de Stock
-          </h4>
-          <div className="flex flex-col gap-2.5">
-            {reactiveRow.emplacements.map((e, i) => (
-              <div
-                key={`${e.nom}-${e.hum}-${i}`}
-                className="flex items-center justify-between rounded-lg border border-rule-soft/60 bg-secondary/5 p-3 transition-all hover:bg-secondary/15"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground/75">
-                    <DynamicIcon
-                      name={e.source === 'STOALL' ? 'inventory' : 'shelves'}
-                      size={18}
-                      strokeWidth={1.75}
-                    />
-                  </div>
-                  <div>
-                    <div className="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>
-                    <div
-                      className={cn(
-                        'mt-0.5 text-[9px] font-extrabold uppercase tracking-wider',
-                        e.source === 'STOALL' ? 'text-ferme' : 'text-suggere'
-                      )}
-                    >
-                      {e.source === 'STOALL' ? 'Stock Alloué' : 'Stock Libre'}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {e.dateMiseEnStock && (
-                    <span
-                      className="rounded-lg border border-rule-soft bg-secondary/55 px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
-                      title="Date d'entrée en stock"
-                    >
-                      Entrée: {e.dateMiseEnStock}
-                    </span>
-                  )}
-                  {e.hum && (
-                    <span className="rounded-lg border border-rule-soft bg-secondary/55 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-                      HU: {e.hum}
-                    </span>
-                  )}
-                  <span className="rounded border border-rule-soft bg-secondary/30 px-2 py-1 font-mono text-[12.5px] font-extrabold text-foreground">
-                    {Math.round(e.qte)} u
-                  </span>
-                </div>
+      {/* ═══ 5. Mode Réactif — Cause & Emplacements ═══ */}
+      {isReactif && (
+        <>
+          {reactiveRow.cause && (
+            <div className="rounded-lg border border-rule bg-card p-3.5 space-y-1">
+              <div className="text-3xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                Cause identifiée
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="text-xs font-bold text-foreground">{reactiveRow.cause.label}</div>
+            </div>
+          )}
+
+          {reactiveRow.emplacements.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-foreground">
+                <MapPin size={14} className="text-muted-foreground" />
+                Emplacements physiques ({reactiveRow.emplacements.length})
+              </h4>
+              <div className="space-y-1.5">
+                {reactiveRow.emplacements.map((emp, idx) => (
+                  <div
+                    key={`${emp.nom}-${idx}`}
+                    className="flex items-center justify-between rounded-lg border border-rule bg-card p-2.5 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-foreground">{emp.nom}</span>
+                      {emp.enZoneExpe && (
+                        <span className="rounded bg-suggere/15 px-1.5 py-0.5 text-3xs font-bold text-suggere">
+                          Zone Expé
+                        </span>
+                      )}
+                      {emp.hum && (
+                        <span className="font-mono text-3xs text-muted-foreground">
+                          Pal : {emp.hum}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono font-semibold text-foreground">{emp.qte} u</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

@@ -659,16 +659,25 @@ export default function Tracking(props: SuiviPageProps) {
       {/* Drawer diagnostic de ligne */}
       <Sheet open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
         {selectedRow && (
-          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl">
-            <SheetHeader>
+          <SheetContent className="no-scrollbar overflow-y-auto sm:max-w-xl p-6">
+            <SheetHeader className="p-0">
               <SheetTitle>Diagnostic de la ligne</SheetTitle>
               <SheetDescription>
-                Détails opérationnels et goulets d'étranglement de la commande client.
+                Détails opérationnels, approvisionnements et couverture de la commande.
               </SheetDescription>
             </SheetHeader>
-            <div className="px-4">
-              <SuiviDetailSheet type={selectedRow.type} row={selectedRow.row} />
-            </div>
+            <SuiviDetailSheet
+              type={selectedRow.type}
+              row={selectedRow.row}
+              onSelectOf={(num) => {
+                setSelectedRow(null)
+                onSelectOf(num)
+              }}
+              onSelectPoste={(poste) => {
+                setSelectedRow(null)
+                onSelectPoste(poste)
+              }}
+            />
           </SheetContent>
         )}
       </Sheet>
