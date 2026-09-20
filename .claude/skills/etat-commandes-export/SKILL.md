@@ -12,9 +12,9 @@ description: >
 
 # État hebdomadaire des commandes export
 
-> **État** : extraction et verdict livrés et vérifiés sur données réelles
-> (semaine 37/2026 : 89 lignes dues, 95,5 % de ponctualité, 4 retards).
-> Causes, persistance et envoi restent à construire — voir la fin du fichier.
+> **État** : extraction, verdict et causes reconstituées livrés et vérifiés sur
+> données réelles. Persistance des causes saisies et envoi restent à construire
+> — voir la fin du fichier.
 
 ## Mission
 
@@ -45,16 +45,21 @@ node ace otd:hebdo --json     # sortie JSON, à consommer par ce skill
 node ace otd:hebdo --recul=3  # rejouer S-3
 ```
 
-**Attention** : sur ce worktree, `node ace` est cassé sous Node 26 (`Invalid
-command exported from "cache_verify.js" — Invalid URL`, y compris sur `node ace
-list`). Passif d'environnement, antérieur à cette commande. Tant qu'il n'est pas
-réglé, exécuter la même chose hors ace :
+**Le point d'entrée réel est `bin/etat_export.ts`**, pas la commande ace :
 
 ```bash
-dotenvx run -q -- node --import @poppinss/ts-exec bin/<script>.ts
+dotenvx run -q -- node --import @poppinss/ts-exec bin/etat_export.ts        # S-1
+dotenvx run -q -- node --import @poppinss/ts-exec bin/etat_export.ts 3      # S-3
+dotenvx run -q -- node --import @poppinss/ts-exec bin/etat_export.ts --json
 ```
-en important `OtdRepository.getEtatExport(from, to)` après un boot Ignitor
-(modèle : `bin/diag_proactive.ts`).
+
+Pourquoi : sous Node 26, le chargeur de commandes d'ace échoue sur **toutes**
+les commandes locales du projet — vérifié avec une commande sonde de huit
+lignes, qui produit la même erreur `Invalid command exported … Invalid URL`.
+Ce n'est donc pas `cache_verify.ts`, et ça touche aussi `stock:audit`,
+`print_of`, `cache:verify`. La commande `otd:hebdo` existe et est correcte ;
+elle redeviendra utilisable quand ace le sera. Les deux entrées appellent le
+même service, aucune logique n'est dupliquée.
 
 La commande s'appuie sur `app/repositories/otd_repository.ts`, **seule maison de
 la définition de ponctualité**. Ne jamais écrire de SQL OTD dans ce skill : deux
@@ -81,6 +86,17 @@ Deux pièges vérifiés sur le terrain :
   commandes. Sans garde-fou, toute ligne sentinelle passe pour « délai
   négocié ». `dateExploitable()` borne à [2000, 2100]. Sur la semaine 37/2026,
   les 89 lignes étaient renseignées — le champ est fiable, pas vide.
+- **`ORDER BY 1, 2` casse ZSOAPSQL.** Les ordinaux font échouer la requête sur
+  le même « resultXml is nil », alors que `GROUP BY` et `HAVING` passent très
+  bien. Trier en TypeScript, où ça ne coûte rien.
+- **Ne jamais mettre un `TO_CHAR` de date dans le SELECT.** `parseX3Date`
+  n'accepte que le format d'Oracle via X3 (`dd-MMM-yy`) ; un `YYYYMMDD` renvoie
+  `null` et toutes les lignes sont jetées **en silence** — la cause devient
+  « non documentée » alors que la trace existe. `ExportCausesRepository` lève
+  désormais une erreur plutôt que de rendre une liste vide.
+- **Semaine ancrée sur Europe/Paris.** `TZ=UTC` est imposé dans le `.env` :
+  un état lancé le lundi à 00h30 en France verrait encore dimanche en UTC et
+  porterait sur la semaine d'avant.
 
 Si l'extraction échoue ou revient vide : **le dire**. Ne jamais compléter de
 mémoire, ne jamais réutiliser l'état de la semaine précédente comme substitut.
@@ -107,22 +123,40 @@ tairait sept semaines d'attente client.
 
 Trois couches, dans cet ordre. Ne jamais sauter directement à la question.
 
-### 3a. Reconstituée (automatique)
+### 3a. Reconstituée (automatique) — `app/domain/export_delay_causes.ts`
 
 Le moteur de rupture regarde le **présent** : une ligne livrée en retard la
 semaine dernière n'a plus de manque aujourd'hui, il ne dira rien. C'est un
-post-mortem, pas un diagnostic. Chercher donc les traces qui survivent :
+post-mortem, pas un diagnostic.
 
-| Indice | Cause proposée |
-|---|---|
-| Fin réelle de l'OF postérieure à la date besoin | `PRODUCTION` |
-| Réception fournisseur du composant en retard (lookback 90 j, cf. issue #43) | `APPRO` |
-| `X4HSHIDAT_0` < `SHIDAT_0` | `DELAI_COMMERCIAL` |
-| Création `SORDER` trop proche de la date demandée | `COMMANDE_TARDIVE` |
-| `DLVQTY_0` > 0 mais < `QTY_0` | `RELIQUAT` (cause seconde : chercher pourquoi) |
+**La piste des OF est morte pour ces clients.** Vérifié sur les quatre retards
+de la semaine 37 : `SORDERQ.FMINUM_0` est vide, aucune contremarque, donc aucun
+lien commande→OF. Ces filiales sont servies sur stock. Et `MFGITM.STRDAT_0`
+porte la même date pour des OF créés en 2023 comme en 2026 : ces dates sont
+recalculées, inexploitables en post-mortem.
 
-Une cause reconstituée est une **proposition**, présentée comme telle. L'humain
-confirme ou corrige.
+**La trace qui survit, c'est le journal de stock de l'article** (STOJOU), lu
+entre la date due et l'expédition, **netté par document** (issue #88).
+`ExportCausesRepository` le fait en une seule requête pour tous les articles en
+retard. Les règles, de la plus probante à la plus circonstancielle :
+
+| Trace | Cause | Confiance |
+|---|---|---|
+| Entrée OF (TRSTYP 5) après la date due | `PRODUCTION` | haute |
+| Réception fournisseur (TRSTYP 3) après la date due | `APPRO` | haute |
+| Entrée le jour même de la date due | `PRODUCTION` — trop tard pour le départ | moyenne |
+| Changement de statut qualité (TRSTYP 8) entre date due et expédition | `QUALITE_CQ` | moyenne |
+| Livré partiellement | `AUTRE` — reliquat à expliquer | moyenne |
+| `X4HSHIDAT_0` < `SHIDAT_0` | `DELAI_COMMERCIAL` | moyenne |
+| Jamais expédiée, aucune entrée depuis la date due | `PRODUCTION` — jamais mise à disposition | moyenne |
+| Stock disponible avant la date due, expédiée plus tard | `TRANSPORT` — départ groupé | moyenne |
+
+Seule une entrée en stock **datée** prouve quelque chose : elle sort en confiance
+`haute`. Tout le reste est une proposition, affichée « à confirmer ». Quand rien
+ne colle, la fonction rend `null` et la ligne part en « cause non documentée » —
+**elle ne devine pas**.
+
+Huit tests verrouillent ces règles (`tests/unit/export_delay_causes.test.ts`).
 
 ### 3b. Mémorisée
 
@@ -195,17 +229,27 @@ Livré et vérifié sur données réelles :
 - [x] `otd_repository` : `buildExportSql` + `getEtatExport()` + `resolveSemainePrecedente()`
 - [x] tolérance de ponctualité extraite en `toleranceSql()`, désormais partagée
       avec le KPI du dashboard — une seule définition, comme promis
-- [x] `commands/otd_hebdo.ts` (écrite, typée, lintée ; exécution bloquée par le
-      kernel ace du worktree, pas par la commande)
-- [x] garde-fou dates sentinelles
+- [x] reconstitution des causes (`export_delay_causes.ts`, 8 tests)
+- [x] `export_causes_repository.ts` : STOJOU netté par document
+- [x] `export_causes_service.ts` : orchestration + rendu texte, partagé par les
+      deux points d'entrée
+- [x] `bin/etat_export.ts` (utilisable) et `commands/otd_hebdo.ts` (en attente d'ace)
+- [x] garde-fous : dates sentinelles, dates illisibles, fuseau de l'usine
 
 Reste à construire :
 
-- [ ] migration `export_delay_reasons` + son store
-- [ ] reconstitution automatique des causes (étape 3a) — le plus gros morceau
+- [ ] migration `export_delay_reasons` + son store (couches 3b et 3c)
 - [ ] rendu HTML du mail
 - [ ] MCP `office365` à déclarer dans le `.mcp.json` du dépôt
 - [ ] destinataires du mail — **non renseignés à ce jour**
+
+Relevés de référence, pour comparer :
+
+| Semaine | Lignes dues | Ponctualité | Retards |
+|---|---|---|---|
+| 36/2026 (31/08 → 06/09) | 93 | 98,9 % | 1 (CH, jamais expédiée) |
+| 37/2026 (07/09 → 13/09) | 89 | 95,5 % | 4 (PL, production tardive) |
+| 38/2026 (14/09 → 20/09) | 52 | 100 % | 0 |
 
 Angles morts assumés, à trancher sur données :
 

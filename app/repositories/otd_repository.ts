@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 
@@ -229,6 +230,8 @@ export interface EtatExportLigne {
   dateCommande: Date | null
   dateAcceptee: Date | null
   dateDemandee: Date | null
+  /** Fin de tolérance : au-delà, la ligne est en retard. */
+  dateLimite: Date | null
   dateReelle: Date | null
   qteCommandee: number
   qteLivree: number
@@ -264,7 +267,12 @@ export function resolveSemainePrecedente(ref: Date): {
   isoAnnee: number
   isoSemaine: number
 } {
-  const jour = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()))
+  // Ancrage explicite sur l'heure de l'usine, pas sur le fuseau du process :
+  // `TZ=UTC` est imposé dans le .env, donc « local » vaut UTC, et un lundi à
+  // 00h30 en France est encore dimanche en UTC — l'état du lundi porterait
+  // alors sur la semaine d'avant.
+  const aParis = DateTime.fromJSDate(ref, { zone: 'Europe/Paris' })
+  const jour = new Date(Date.UTC(aParis.year, aParis.month - 1, aParis.day))
   // getUTCDay : 0 = dimanche. Recul jusqu'au lundi de la semaine en cours, puis -7.
   const decalageLundi = (jour.getUTCDay() + 6) % 7
   const to = new Date(jour.getTime() - (decalageLundi + 1) * 86_400_000)
@@ -388,6 +396,7 @@ export class OtdRepository {
         dateCommande: parseX3Date(row.DATE_COMMANDE),
         dateAcceptee,
         dateDemandee,
+        dateLimite,
         dateReelle,
         qteCommandee,
         qteLivree,
