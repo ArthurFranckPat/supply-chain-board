@@ -36,15 +36,26 @@ export function SuiviDetailSheet({ type, row, onSelectOf, onSelectPoste }: Suivi
   const late = isReactif ? reactiveRow.late : proactiveRow.joursRetard > 0
   const lateDays = isReactif ? reactiveRow.lateDays : proactiveRow.joursRetard
 
-  // Quantités
-  const total = row.qteRestante || 1
-  const strictVal = isReactif ? reactiveRow.allocStrict : proactiveRow.qteAllouee
-  const cqVal = isReactif ? reactiveRow.allocCq : 0
-  const reliquatVal = isReactif ? Math.max(0, total - strictVal - cqVal) : proactiveRow.reliquat
+  // Quantités :
+  // En vue proactive, qteRestante correspond au reste à fabriquer / couvrir (après
+  // déduction de l'allocation stock ERP qteAllouee). Le total de la commande est donc
+  // qteAllouee + qteRestante.
+  const alloueStock = isReactif ? reactiveRow.allocStrict : (proactiveRow.qteAllouee ?? 0)
+  const allocCq = isReactif ? reactiveRow.allocCq : 0
+  const resteAFabriquer = isReactif
+    ? Math.max(0, reactiveRow.qteRestante - alloueStock - allocCq)
+    : proactiveRow.qteRestante
+  const reliquatNonCouvert = isReactif ? resteAFabriquer : proactiveRow.reliquat
+  const couvertOf = isReactif ? 0 : Math.max(0, proactiveRow.qteRestante - proactiveRow.reliquat)
 
-  const pctStrict = Math.min(100, Math.round((strictVal / total) * 100))
-  const pctCq = Math.min(100 - pctStrict, Math.round((cqVal / total) * 100))
-  const pctReliquat = Math.max(0, 100 - pctStrict - pctCq)
+  const totalLigne = isReactif
+    ? reactiveRow.qteRestante || 1
+    : Math.max(1, alloueStock + proactiveRow.qteRestante)
+
+  const pctAlloue = Math.min(100, Math.round((alloueStock / totalLigne) * 100))
+  const pctCq = Math.min(100 - pctAlloue, Math.round((allocCq / totalLigne) * 100))
+  const pctCouvertOf = Math.min(100 - pctAlloue - pctCq, Math.round((couvertOf / totalLigne) * 100))
+  const pctReliquat = Math.max(0, 100 - pctAlloue - pctCq - pctCouvertOf)
 
   return (
     <div className="flex flex-col gap-5 pb-8 pt-2 text-sans">
@@ -162,29 +173,56 @@ export function SuiviDetailSheet({ type, row, onSelectOf, onSelectPoste }: Suivi
         <div className="border-t border-rule-soft pt-3 space-y-1.5">
           <div className="flex items-center justify-between text-2xs">
             <span className="font-semibold text-foreground">
-              Quantités : <span className="font-mono">{strictVal}</span> /{' '}
-              <span className="font-mono">{total}</span> u alloués ({pctStrict}%)
+              Quantités : <span className="font-mono">{alloueStock}</span> /{' '}
+              <span className="font-mono">{totalLigne}</span> u allouées ({pctAlloue}%)
             </span>
-            <span className="font-mono text-muted-foreground">Reliquat : {reliquatVal} u</span>
+            <span className="font-mono text-muted-foreground">
+              {!isReactif ? (
+                resteAFabriquer > 0 ? (
+                  reliquatNonCouvert > 0 ? (
+                    <span className="text-destructive font-semibold">
+                      Reliquat : {reliquatNonCouvert} u
+                    </span>
+                  ) : (
+                    <span>Reste à fabriquer : {resteAFabriquer} u</span>
+                  )
+                ) : (
+                  <span className="text-ferme font-semibold">Entièrement allouée</span>
+                )
+              ) : (
+                <span>Reste à livrer : {reliquatNonCouvert} u</span>
+              )}
+            </span>
           </div>
           <div className="relative flex h-2 w-full overflow-hidden rounded-full border border-rule-soft bg-secondary">
-            <div
-              className="h-full bg-ferme transition-all duration-300"
-              style={{ width: `${pctStrict}%` }}
-              title={`Alloué : ${strictVal} u`}
-            />
-            {pctCq > 0 && (
+            {pctAlloue > 0 && (
               <div
-                className="h-full bg-planifie transition-all duration-300"
-                style={{ width: `${pctCq}%` }}
-                title={`Sous CQ : ${cqVal} u`}
+                className="h-full bg-ferme transition-all duration-300"
+                style={{ width: `${pctAlloue}%` }}
+                title={`Alloué en stock : ${alloueStock} u`}
               />
             )}
-            <div
-              className="h-full bg-secondary transition-all duration-300"
-              style={{ width: `${pctReliquat}%` }}
-              title={`Reliquat : ${reliquatVal} u`}
-            />
+            {pctCq > 0 && (
+              <div
+                className="h-full bg-warning transition-all duration-300"
+                style={{ width: `${pctCq}%` }}
+                title={`Sous contrôle qualité : ${allocCq} u`}
+              />
+            )}
+            {pctCouvertOf > 0 && (
+              <div
+                className="h-full bg-planifie transition-all duration-300"
+                style={{ width: `${pctCouvertOf}%` }}
+                title={`Couvert par OF : ${couvertOf} u`}
+              />
+            )}
+            {pctReliquat > 0 && (
+              <div
+                className="h-full bg-secondary transition-all duration-300"
+                style={{ width: `${pctReliquat}%` }}
+                title={`Reliquat non couvert : ${reliquatNonCouvert} u`}
+              />
+            )}
           </div>
         </div>
       </div>
