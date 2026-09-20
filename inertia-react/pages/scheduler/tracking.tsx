@@ -87,6 +87,21 @@ interface DateRange {
   end: Date | null
 }
 
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+function matchesClient(client: string | null | undefined, filter: string | null): boolean {
+  if (filter === null) return true
+  if (!client) return false
+  const c = fold(client)
+  if (filter === '__export__') {
+    return !c.includes('aldes')
+  }
+  if (filter === 'ALDES') {
+    return c.includes('aldes')
+  }
+  return client === filter || c === fold(filter)
+}
+
 export default function Tracking(props: SuiviPageProps) {
   // Calcul lourd différé : fetch client-side, relancé à chaque rechargement
   // explicite (?refresh=N invalide le cache de contexte ET force le re-fetch X3).
@@ -261,7 +276,7 @@ export default function Tracking(props: SuiviPageProps) {
         (statusFilter === 'all' || row.statusKey === statusFilter) &&
         typeFilter.has(row.type) &&
         (atelierFilter.size === 0 || atelierFilter.has(row.atelier)) &&
-        (clientFilter === null || row.client === clientFilter) &&
+        matchesClient(row.client, clientFilter) &&
         inRangeOrLate(row.dateExpIso)
     )
     if (q) {
@@ -281,7 +296,7 @@ export default function Tracking(props: SuiviPageProps) {
         (!cqOnly || row.cq !== null) &&
         typeFilter.has(row.type) &&
         (atelierFilter.size === 0 || atelierFilter.has(row.atelier)) &&
-        (clientFilter === null || row.client === clientFilter) &&
+        matchesClient(row.client, clientFilter) &&
         inRangeOrLate(row.dateExpIso)
     )
     if (q) {
