@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 107 routes nommées.
+ * 110 routes nommées.
  */
 
 export const MANIFEST = {
@@ -43,6 +43,9 @@ export const MANIFEST = {
   'diagnostic_test': { method: 'GET', pattern: '/diagnostic-test' },
   'display_config.index': { method: 'GET', pattern: '/configuration/affichage' },
   'health.index': { method: 'GET', pattern: '/health' },
+  'heures_produites.detail': { method: 'GET', pattern: '/api/v1/heures-produites/detail' },
+  'heures_produites.index': { method: 'GET', pattern: '/heures-produites' },
+  'heures_produites.summary': { method: 'GET', pattern: '/api/v1/heures-produites/summary' },
   'load.index': { method: 'GET', pattern: '/charge' },
   'material.detail': { method: 'GET', pattern: '/api/v1/planning/material-plan/detail' },
   'material.plan': { method: 'GET', pattern: '/api/v1/planning/material-plan' },
@@ -189,6 +192,9 @@ export type RouteParams = {
   'diagnostic_test': void
   'display_config.index': void
   'health.index': void
+  'heures_produites.detail': void
+  'heures_produites.index': void
+  'heures_produites.summary': void
   'load.index': void
   'material.detail': void
   'material.plan': void

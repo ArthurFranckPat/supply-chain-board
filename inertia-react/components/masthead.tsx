@@ -28,6 +28,7 @@ export type MastheadTab =
   | 'programme'
   | 'sequenceur'
   | 'load'
+  | 'heures_produites'
   | 'approvisionnement'
   | 'tracking'
   | 'receptions'
@@ -52,14 +53,20 @@ const SUIVI_COMMANDES: Tab = {
   href: route('suivi.board'),
 }
 /**
- * Menu « Planification » — deux lectures de la même explosion sous le même
- * chapeau : à gauche ce que ça coûte en heures (/charge), à droite ce que ça
- * appelle en matière (/approvisionnement).
+ * Menu « Planification » — trois lectures de la production :
+ * à gauche ce que ça coûte en charge prévisionnelle (/charge),
+ * au centre ce qui a été réellement produit en heures (/heures-produites),
+ * à droite ce que ça appelle en matière (/approvisionnement).
  */
 const PLANIFICATION_GROUPS: TabGroup[] = [
   {
     tabs: [
       { key: 'load', label: 'Charge', href: route('load.index') },
+      {
+        key: 'heures_produites',
+        label: 'Heures produites',
+        href: route('heures_produites.index'),
+      },
       {
         key: 'approvisionnement',
         label: 'Approvisionnement',

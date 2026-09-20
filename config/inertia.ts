@@ -47,6 +47,47 @@ declare module '@adonisjs/inertia/types' {
     weekCaps: Record<string, number>
   }
 
+  type ProducedHoursPayloadProp = {
+    from: string
+    to: string
+    kpis: {
+      totalHours: number
+      totalOperationHours: number
+      totalSetupHours: number
+      totalAllocatedHours: number
+      globalDeltaHours: number
+      globalEfficiency: number
+      totalQuantity: number
+      totalRejects: number
+      rejectRate: number
+      activeWorkstationsCount: number
+      totalWorkstationsCount: number
+    }
+    workstations: {
+      poste: string
+      name: string
+      atelier: string
+      workCenter: string
+      wstType: number
+      operationHours: number
+      setupHours: number
+      totalHours: number
+      allocatedOperationHours: number
+      allocatedSetupHours: number
+      totalAllocatedHours: number
+      deltaHours: number
+      efficiency: number
+      quantity: number
+      rejectQuantity: number
+      rejectRate: number
+      nbOfs: number
+      nbTrackings: number
+      weeklyCapacity: number
+      timeline: { date: string; hours: number; allocated: number; qty: number }[]
+    }[]
+    ateliers: string[]
+  }
+
   interface InertiaPages {
     // Tableau de bord (issue #26 shell + #38 KPI). Coquille + fetch différé du KPI.
     // `layout` = disposition personnalisée (ordre / visibilité / largeur + ordre
@@ -318,5 +359,6 @@ declare module '@adonisjs/inertia/types' {
       x3Error: string | null
       cached: string | null
     }
+    'produced_hours/index': ProducedHoursPayloadProp
   }
 }
