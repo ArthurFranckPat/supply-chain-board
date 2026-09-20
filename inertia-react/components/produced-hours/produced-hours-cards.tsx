@@ -22,7 +22,7 @@ export function ProducedHoursCards({ workstations, onSelectPoste }: ProducedHour
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {workstations.map((wst) => {
         // Max daily for mini sparkline
         const maxDaily = wst.timeline.length ? Math.max(...wst.timeline.map((d) => d.hours), 1) : 1

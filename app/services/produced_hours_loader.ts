@@ -89,11 +89,23 @@ export class ProducedHoursLoader {
    * Périmètre strict : ateliers S3P, S4P, S9P, CLP et postes PP_XXX.
    */
   async loadPayload(from: string, to: string): Promise<ProducedHoursPayload> {
-    const [wstRefList, summaryRows, dailyPoints] = await Promise.all([
+    const [wstRefList, gammes, summaryRows, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
+      staticSync.readGammes().catch(() => []),
       this.repo.getSummary(from, to),
       this.repo.getDailyTimeline(from, to),
     ])
+
+    // Dictionnaire des libellés de postes issus des gammes (ATEXTRA / WSTDESAXX en français)
+    const wstLabels = new Map<string, string>()
+    for (const g of gammes) {
+      if (g.workstation && g.workstationLabel) {
+        const k = g.workstation.trim().toUpperCase()
+        if (!wstLabels.has(k)) {
+          wstLabels.set(k, g.workstationLabel.trim())
+        }
+      }
+    }
 
     // Postes de charge éligibles dans le référentiel statique
     const eligibleWstList = wstRefList.filter((w) => {
@@ -144,10 +156,11 @@ export class ProducedHoursLoader {
 
       const totQty = row.quantity + row.rejectQuantity
       const rejRate = totQty > 0 ? Math.round((row.rejectQuantity / totQty) * 1000) / 10 : 0
+      const label = wstLabels.get(pKey) || meta?.description || row.poste
 
       return {
         poste: row.poste,
-        name: meta?.description || row.poste,
+        name: label,
         atelier,
         workCenter: meta?.workCenter || '',
         wstType: meta?.type ?? 1,
@@ -231,13 +244,19 @@ export class ProducedHoursLoader {
   ): Promise<WorkstationDetailResponse> {
     const cleanPoste = poste.trim()
 
-    const [wstRefList, rawTrackings, dailyPoints] = await Promise.all([
+    const [wstRefList, gammes, rawTrackings, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
+      staticSync.readGammes().catch(() => []),
       this.repo.getPosteTrackings(cleanPoste, from, to),
       this.repo.getDailyTimeline(from, to, cleanPoste),
     ])
 
-    const meta = wstRefList.find((w) => w.code.trim().toUpperCase() === cleanPoste.toUpperCase())
+    const pKey = cleanPoste.toUpperCase()
+    const labelFromGammes = gammes
+      .find((g) => g.workstation?.trim().toUpperCase() === pKey && g.workstationLabel)
+      ?.workstationLabel?.trim()
+    const meta = wstRefList.find((w) => w.code.trim().toUpperCase() === pKey)
+    const name = labelFromGammes || meta?.description || cleanPoste
 
     // Résolution des libellés articles en batch
     const itmRefs = [...new Set(rawTrackings.map((t) => t.article).filter(Boolean))]
@@ -286,7 +305,7 @@ export class ProducedHoursLoader {
 
     return {
       poste: cleanPoste,
-      name: meta?.description || cleanPoste,
+      name,
       atelier: meta?.stockLocation?.trim() || meta?.workCenter?.trim() || 'AUTRE',
       workCenter: meta?.workCenter || '',
       wstType: meta?.type ?? 1,

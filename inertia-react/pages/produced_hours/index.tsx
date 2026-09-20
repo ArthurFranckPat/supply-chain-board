@@ -144,8 +144,14 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       subtitle="Heures produites par poste"
       title="Heures produites · Supply Chain"
       theme="airbnb"
-      toolbar={
-        <ToolbarRow>
+      dense
+      scrollable={false}
+    >
+      <Head title="Heures produites · Supply Chain" />
+
+      <div className="flex h-full flex-col overflow-hidden">
+        {/* Toolbar étirée sur toute la largeur (parité avec Réceptions / Charge / Ordonnancement) */}
+        <ToolbarRow noWrap className="flex-none">
           {/* View switcher: Cards vs Table */}
           <Segment ariaLabel="Mode d'affichage">
             <SegmentButton
@@ -288,158 +294,164 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
           {/* Refresh Pill */}
           <RefreshPill loading={loading} onClick={() => fetchData(from, to)} />
         </ToolbarRow>
-      }
-    >
-      <Head title="Heures produites · Supply Chain" />
 
-      <div className="space-y-6 pb-12 pt-5">
-        {/* KPI Banner */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {/* Card 1: Heures Réelles Produites */}
-          <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-semibold">Heures réelles</span>
-              <Clock className="size-4 text-brand" />
-            </div>
-            <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-              {kpis.totalHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span>
-                Opé:{' '}
-                <strong className="font-mono text-foreground">{kpis.totalOperationHours}h</strong>
-              </span>
-              <span>·</span>
-              <span>
-                Régl: <strong className="font-mono text-foreground">{kpis.totalSetupHours}h</strong>
-              </span>
-            </div>
-          </div>
+        {/* Zone de contenu scrollable pleine largeur */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-7 py-5">
+          <div className="space-y-6 pb-12">
+            {/* KPI Banner */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {/* Card 1: Heures Réelles Produites */}
+              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold">Heures réelles</span>
+                  <Clock className="size-4 text-brand" />
+                </div>
+                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
+                  {kpis.totalHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span>
+                    Opé:{' '}
+                    <strong className="font-mono text-foreground">
+                      {kpis.totalOperationHours}h
+                    </strong>
+                  </span>
+                  <span>·</span>
+                  <span>
+                    Régl:{' '}
+                    <strong className="font-mono text-foreground">{kpis.totalSetupHours}h</strong>
+                  </span>
+                </div>
+              </div>
 
-          {/* Card 2: Heures Standard Gamme */}
-          <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span
-                className="text-xs font-semibold cursor-help"
-                title="Heures standard prévues par la gamme opératoire X3 pour les quantités réellement déclarées"
-              >
-                Standard gamme
-              </span>
-              <Sparkles className="size-4 text-slate-400" />
-            </div>
-            <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-              {kpis.totalAllocatedHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Écart :{' '}
-              <span
-                className={cn(
-                  'font-mono font-semibold',
-                  kpis.globalDeltaHours > 0
-                    ? 'text-amber-600'
-                    : kpis.globalDeltaHours < 0
-                      ? 'text-emerald-600'
-                      : 'text-muted-foreground'
-                )}
-              >
-                {kpis.globalDeltaHours > 0
-                  ? `+${kpis.globalDeltaHours}h dép.`
-                  : `${kpis.globalDeltaHours}h`}
-              </span>
-            </div>
-          </div>
+              {/* Card 2: Heures Standard Gamme */}
+              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span
+                    className="text-xs font-semibold cursor-help"
+                    title="Heures standard prévues par la gamme opératoire X3 pour les quantités réellement déclarées"
+                  >
+                    Standard gamme
+                  </span>
+                  <Sparkles className="size-4 text-slate-400" />
+                </div>
+                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
+                  {kpis.totalAllocatedHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Écart :{' '}
+                  <span
+                    className={cn(
+                      'font-mono font-semibold',
+                      kpis.globalDeltaHours > 0
+                        ? 'text-amber-600'
+                        : kpis.globalDeltaHours < 0
+                          ? 'text-emerald-600'
+                          : 'text-muted-foreground'
+                    )}
+                  >
+                    {kpis.globalDeltaHours > 0
+                      ? `+${kpis.globalDeltaHours}h dép.`
+                      : `${kpis.globalDeltaHours}h`}
+                  </span>
+                </div>
+              </div>
 
-          {/* Card 3: Efficience Globale */}
-          <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-semibold">Efficience globale</span>
-              <Gauge className="size-4 text-emerald-500" />
+              {/* Card 3: Efficience Globale */}
+              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold">Efficience globale</span>
+                  <Gauge className="size-4 text-emerald-500" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span
+                    className={cn(
+                      'font-mono text-2xl font-bold tracking-tight',
+                      kpis.globalEfficiency >= 100
+                        ? 'text-emerald-600'
+                        : kpis.globalEfficiency >= 85
+                          ? 'text-amber-600'
+                          : 'text-red-600'
+                    )}
+                  >
+                    {kpis.globalEfficiency}%
+                  </span>
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    (Alloué / Réel)
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {kpis.globalEfficiency >= 100 ? (
+                    <span className="font-medium text-emerald-600">Productivité conforme</span>
+                  ) : (
+                    <span className="font-medium text-amber-600">Sous le temps standard</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 4: Volume Pièces */}
+              <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold">Pièces produites</span>
+                  <Package className="size-4 text-blue-500" />
+                </div>
+                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
+                  {kpis.totalQuantity.toLocaleString('fr-FR')}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {kpis.totalRejects > 0 ? (
+                    <span className="text-red-600 font-medium">
+                      {kpis.totalRejects.toLocaleString('fr-FR')} rebuts ({kpis.rejectRate}%)
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 font-medium">0 rebut déclaré</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 5: Postes Actifs */}
+              <div className="col-span-2 rounded-2xl border border-rule bg-card p-4 shadow-xs sm:col-span-1">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold">Postes actifs</span>
+                  <Layers className="size-4 text-purple-500" />
+                </div>
+                <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
+                  {kpis.activeWorkstationsCount}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    / {kpis.totalWorkstationsCount}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Ayant pointé sur la période
+                </div>
+              </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span
-                className={cn(
-                  'font-mono text-2xl font-bold tracking-tight',
-                  kpis.globalEfficiency >= 100
-                    ? 'text-emerald-600'
-                    : kpis.globalEfficiency >= 85
-                      ? 'text-amber-600'
-                      : 'text-red-600'
-                )}
-              >
-                {kpis.globalEfficiency}%
-              </span>
-              <span className="text-[10px] font-medium text-muted-foreground">(Alloué / Réel)</span>
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              {kpis.globalEfficiency >= 100 ? (
-                <span className="font-medium text-emerald-600">Productivité conforme</span>
+
+            {/* Workstations List / Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Postes de charge ({filteredWorkstations.length})
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Du <span className="font-mono font-medium text-foreground">{from}</span> au{' '}
+                  <span className="font-mono font-medium text-foreground">{to}</span>
+                </div>
+              </div>
+
+              {viewMode === 'cards' ? (
+                <ProducedHoursCards
+                  workstations={filteredWorkstations}
+                  onSelectPoste={setSelectedPoste}
+                />
               ) : (
-                <span className="font-medium text-amber-600">Sous le temps standard</span>
+                <ProducedHoursTable
+                  workstations={filteredWorkstations}
+                  onSelectPoste={setSelectedPoste}
+                />
               )}
             </div>
           </div>
-
-          {/* Card 4: Volume Pièces */}
-          <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-semibold">Pièces produites</span>
-              <Package className="size-4 text-blue-500" />
-            </div>
-            <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-              {kpis.totalQuantity.toLocaleString('fr-FR')}
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              {kpis.totalRejects > 0 ? (
-                <span className="text-red-600 font-medium">
-                  {kpis.totalRejects.toLocaleString('fr-FR')} rebuts ({kpis.rejectRate}%)
-                </span>
-              ) : (
-                <span className="text-emerald-600 font-medium">0 rebut déclaré</span>
-              )}
-            </div>
-          </div>
-
-          {/* Card 5: Postes Actifs */}
-          <div className="col-span-2 rounded-2xl border border-rule bg-card p-4 shadow-xs sm:col-span-1">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-semibold">Postes actifs</span>
-              <Layers className="size-4 text-purple-500" />
-            </div>
-            <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">
-              {kpis.activeWorkstationsCount}
-              <span className="ml-1 text-sm font-normal text-muted-foreground">
-                / {kpis.totalWorkstationsCount}
-              </span>
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Ayant pointé sur la période
-            </div>
-          </div>
-        </div>
-
-        {/* Workstations List / Grid */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Postes de charge ({filteredWorkstations.length})
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Du <span className="font-mono font-medium text-foreground">{from}</span> au{' '}
-              <span className="font-mono font-medium text-foreground">{to}</span>
-            </div>
-          </div>
-
-          {viewMode === 'cards' ? (
-            <ProducedHoursCards
-              workstations={filteredWorkstations}
-              onSelectPoste={setSelectedPoste}
-            />
-          ) : (
-            <ProducedHoursTable
-              workstations={filteredWorkstations}
-              onSelectPoste={setSelectedPoste}
-            />
-          )}
         </div>
       </div>
 
