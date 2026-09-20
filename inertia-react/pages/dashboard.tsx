@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
+import { OtdClientDropdown } from '@r/components/dashboard/otd-client-dropdown'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
 import { Card, CardContent } from '@r/components/ui/card'
 import { Badge } from '@r/components/ui/badge'
@@ -126,6 +127,11 @@ interface OtdLigneDtl {
 
 type OtdMode = 'demandee' | 'acceptee'
 
+export interface OtdClientSummary {
+  name: string
+  count: number
+}
+
 interface OtdKpi {
   label: string
   mode: OtdMode
@@ -133,6 +139,7 @@ interface OtdKpi {
   nbOtif: number
   tauxOtif: number
   lignesNon: OtdLigneDtl[]
+  clients?: OtdClientSummary[]
 }
 
 interface DashboardKpisResponse {
@@ -143,6 +150,7 @@ interface DashboardKpisResponse {
 
 interface DashboardOtdResponse {
   otd: OtdKpi[]
+  clients?: OtdClientSummary[]
   x3Error: string | null
 }
 
@@ -208,7 +216,7 @@ const EMPTY_KPIS: DashboardKpisResponse = {
   referenceDate: '',
 }
 
-const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
+const EMPTY_OTD: DashboardOtdResponse = { otd: [], clients: [], x3Error: null }
 
 const EMPTY_STOCK: StockValuationKpi = {
   grain: 'mois',
@@ -759,6 +767,20 @@ export default function Dashboard(props: DashboardProps) {
 
   const kpi = useMemo(() => (kpisData.data ?? EMPTY_KPIS).retardCharge, [kpisData.data])
   const otd = useMemo(() => (otdData.data ?? EMPTY_OTD).otd, [otdData.data])
+  const otdClients = useMemo(() => {
+    if (otdData.data?.clients && otdData.data.clients.length > 0) {
+      return otdData.data.clients
+    }
+    const map = new Map<string, number>()
+    for (const p of otd) {
+      for (const c of p.clients ?? []) {
+        map.set(c.name, (map.get(c.name) ?? 0) + c.count)
+      }
+    }
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  }, [otdData.data?.clients, otd])
   const x3Error = useMemo(() => (kpisData.data ?? EMPTY_KPIS).x3Error, [kpisData.data])
   const otdError = useMemo(() => (otdData.data ?? EMPTY_OTD).x3Error, [otdData.data])
   const maxHeures = useMemo(() => Math.max(1, ...kpi.postes.map((p) => p.heures)), [kpi.postes])
@@ -1187,33 +1209,16 @@ export default function Dashboard(props: DashboardProps) {
                     </p>
                   ) : (
                     <>
-                      {/* Filtre client + toggle détails */}
-                      <div className="mb-3 flex items-center gap-1.5">
-                        <InputGroup className="h-8 flex-1">
-                          <InputGroupAddon align="inline-start">
-                            <Search size={13} className="text-muted-foreground" />
-                          </InputGroupAddon>
-                          <InputGroupInput
-                            type="text"
-                            value={clientFilter}
-                            onChange={(e) => setClientFilter(e.target.value)}
-                            placeholder="Filtrer par client"
-                            aria-label="Filtrer les lignes par client"
-                            className="h-8 text-xs"
-                          />
-                          {clientFilter && (
-                            <InputGroupAddon align="inline-end">
-                              <InputGroupButton
-                                size="icon-xs"
-                                onClick={() => setClientFilter('')}
-                                title="Effacer le filtre"
-                                aria-label="Effacer le filtre"
-                              >
-                                <X size={13} />
-                              </InputGroupButton>
-                            </InputGroupAddon>
-                          )}
-                        </InputGroup>
+                      {/* Filtre client (dropdown avec filtre export) + toggle détails */}
+                      <div className="mb-3 flex items-center justify-between gap-1.5">
+                        <OtdClientDropdown
+                          clients={otdClients}
+                          value={clientFilter || null}
+                          onChange={(val) => {
+                            setClientFilter(val ?? '')
+                            setDebouncedClient(val ?? '')
+                          }}
+                        />
                         <Button
                           type="button"
                           variant="outline"

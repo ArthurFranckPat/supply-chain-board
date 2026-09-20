@@ -3,7 +3,7 @@ import logger from '@adonisjs/core/services/logger'
 import type { RetardChargeKpi } from '#repositories/retard_repository'
 import { emptyProfondeur } from '#app/domain/retard_profondeur'
 import { OtdRepository, resolveOtdPeriods } from '#repositories/otd_repository'
-import type { OtdKpi, OtdMode } from '#repositories/otd_repository'
+import type { OtdKpi, OtdMode, OtdClientSummary } from '#repositories/otd_repository'
 import { defaultStockRange } from '#repositories/stock_valuation_repository'
 import type { StockValuationKpi, StockGrain } from '#repositories/stock_valuation_repository'
 import boardDataset from '#services/board_dataset'
@@ -101,16 +101,24 @@ export default class DashboardController {
       periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode, client || undefined))
     )
 
+    const allClientsMap = new Map<string, number>()
     for (const r of results) {
       if (r.status === 'fulfilled') {
         otd.push(r.value)
+        for (const c of r.value.clients ?? []) {
+          allClientsMap.set(c.name, (allClientsMap.get(c.name) ?? 0) + c.count)
+        }
       } else {
         logger.error({ err: r.reason }, '[dashboard] otd — échec chargement X3')
         if (!x3Error) x3Error = 'Données X3 indisponibles — OTD momentanément incalculable.'
       }
     }
 
-    return { otd, x3Error }
+    const clients: OtdClientSummary[] = Array.from(allClientsMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+
+    return { otd, clients, x3Error }
   }
 
   /** GET /api/v1/dashboard/stock — valorisation du stock sur une plage (AE1).

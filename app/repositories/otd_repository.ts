@@ -78,6 +78,11 @@ export interface OtdLigneDtl {
   estPonctuel: boolean
 }
 
+export interface OtdClientSummary {
+  name: string
+  count: number
+}
+
 export interface OtdKpi {
   label: string
   mode: OtdMode
@@ -85,6 +90,7 @@ export interface OtdKpi {
   nbOtif: number
   tauxOtif: number
   lignesNon: OtdLigneDtl[]
+  clients: OtdClientSummary[]
 }
 
 function toYYYYMMDD(d: Date): string {
@@ -170,12 +176,29 @@ export class OtdRepository {
       await db.destroy()
     }
 
+    // Dénombrement de tous les clients sur la période AVANT filtrage
+    const clientCounts = new Map<string, number>()
+    for (const row of rows) {
+      const name = row.BPCNAM_0?.trim() || 'Inconnu'
+      clientCounts.set(name, (clientCounts.get(name) ?? 0) + 1)
+    }
+    const clients: OtdClientSummary[] = Array.from(clientCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+
     // Filtre client optionnel : on restreint les lignes AVANT le calcul du KPI
     // (taux, nbOtif, nbTotal) pour que le chiffre OTD reflète le client filtré.
-    const needle = client ? fold(client.trim()) : ''
-    const scoped = needle
-      ? rows.filter((r) => fold(String(r.BPCNAM_0 ?? '')).includes(needle))
-      : rows
+    // "__export__" sélectionne tous les clients autres qu'ALDES.
+    let scoped = rows
+    if (client) {
+      const trimmed = client.trim()
+      if (trimmed === '__export__' || trimmed.toLowerCase() === 'export') {
+        scoped = rows.filter((r) => !fold(String(r.BPCNAM_0 ?? '')).includes('aldes'))
+      } else {
+        const needle = fold(trimmed)
+        scoped = rows.filter((r) => fold(String(r.BPCNAM_0 ?? '')).includes(needle))
+      }
+    }
 
     let nbOtif = 0
     const lignesNon: OtdLigneDtl[] = []
@@ -201,6 +224,6 @@ export class OtdRepository {
     const nbTotal = scoped.length
     const tauxOtif = nbTotal > 0 ? Math.round((nbOtif / nbTotal) * 1000) / 10 : 0
 
-    return { label, mode, nbTotal, nbOtif, tauxOtif, lignesNon }
+    return { label, mode, nbTotal, nbOtif, tauxOtif, lignesNon, clients }
   }
 }
