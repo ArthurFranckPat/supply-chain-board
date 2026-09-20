@@ -78,11 +78,15 @@ export interface WorkstationDetailResponse {
   trackings: EnrichedPosteTracking[]
 }
 
+export const ALLOWED_ATELIERS = new Set(['S3P', 'S4P', 'S9P', 'CLP'])
+export const PP_XXX_REGEX = /^PP_\d{3}$/
+
 export class ProducedHoursLoader {
   private repo = new X3ProducedHoursRepository()
 
   /**
    * Charge le jeu de données complet des heures produites par poste pour la période [from, to].
+   * Périmètre strict : ateliers S3P, S4P, S9P, CLP et postes PP_XXX.
    */
   async loadPayload(from: string, to: string): Promise<ProducedHoursPayload> {
     const [wstRefList, summaryRows, dailyPoints] = await Promise.all([
@@ -90,6 +94,13 @@ export class ProducedHoursLoader {
       this.repo.getSummary(from, to),
       this.repo.getDailyTimeline(from, to),
     ])
+
+    // Postes de charge éligibles dans le référentiel statique
+    const eligibleWstList = wstRefList.filter((w) => {
+      const code = w.code?.trim().toUpperCase() || ''
+      const stoloc = w.stockLocation?.trim().toUpperCase() || ''
+      return PP_XXX_REGEX.test(code) && ALLOWED_ATELIERS.has(stoloc)
+    })
 
     // Dictionnaire des postes de charge statiques
     const wstMap = new Map(wstRefList.map((w) => [w.code.trim().toUpperCase(), w]))
@@ -101,6 +112,7 @@ export class ProducedHoursLoader {
     >()
     for (const dp of dailyPoints) {
       const pKey = dp.poste.trim().toUpperCase()
+      if (!PP_XXX_REGEX.test(pKey)) continue
       if (!dailyByPoste.has(pKey)) {
         dailyByPoste.set(pKey, [])
       }
@@ -112,13 +124,19 @@ export class ProducedHoursLoader {
       })
     }
 
-    const ateliersSet = new Set<string>()
+    // Filtrer les lignes réelles pour ne garder que PP_XXX et ateliers S3P, S4P, S9P, CLP
+    const matchingSummaryRows = summaryRows.filter((row) => {
+      const pKey = row.poste?.trim().toUpperCase() || ''
+      if (!PP_XXX_REGEX.test(pKey)) return false
+      const meta = wstMap.get(pKey)
+      const stoloc = meta?.stockLocation?.trim().toUpperCase() || ''
+      return ALLOWED_ATELIERS.has(stoloc)
+    })
 
-    const workstations: WorkstationProducedCard[] = summaryRows.map((row) => {
+    const workstations: WorkstationProducedCard[] = matchingSummaryRows.map((row) => {
       const pKey = row.poste.trim().toUpperCase()
       const meta = wstMap.get(pKey)
-      const atelier = meta?.stockLocation?.trim() || meta?.workCenter?.trim() || 'AUTRE'
-      ateliersSet.add(atelier)
+      const atelier = meta?.stockLocation?.trim().toUpperCase() || 'AUTRE'
 
       const weeklyCap = meta?.dailyCapacity
         ? meta.dailyCapacity.reduce((acc, c) => acc + (c || 0), 0)
@@ -191,7 +209,7 @@ export class ProducedHoursLoader {
       totalRejects: totRej,
       rejectRate: globalRejRate,
       activeWorkstationsCount: workstations.length,
-      totalWorkstationsCount: wstRefList.length,
+      totalWorkstationsCount: eligibleWstList.length,
     }
 
     return {
@@ -199,7 +217,7 @@ export class ProducedHoursLoader {
       to,
       kpis,
       workstations,
-      ateliers: Array.from(ateliersSet).sort(),
+      ateliers: Array.from(ALLOWED_ATELIERS).sort(),
     }
   }
 

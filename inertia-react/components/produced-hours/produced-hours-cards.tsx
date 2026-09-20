@@ -85,7 +85,12 @@ export function ProducedHoursCards({ workstations, onSelectPoste }: ProducedHour
               </div>
 
               <div>
-                <div className="text-[10px] font-medium text-muted-foreground">Alloué standard</div>
+                <div
+                  className="text-[10px] font-medium text-muted-foreground"
+                  title="Temps standard de gamme prévu pour la quantité produite"
+                >
+                  Standard gamme
+                </div>
                 <div className="font-mono text-base font-bold text-muted-foreground">
                   {wst.totalAllocatedHours.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} h
                 </div>

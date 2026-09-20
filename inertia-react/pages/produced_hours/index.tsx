@@ -316,10 +316,15 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
             </div>
           </div>
 
-          {/* Card 2: Heures Allouées Standard */}
+          {/* Card 2: Heures Standard Gamme */}
           <div className="rounded-2xl border border-rule bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-semibold">Alloué standard</span>
+              <span
+                className="text-xs font-semibold cursor-help"
+                title="Heures standard prévues par la gamme opératoire X3 pour les quantités réellement déclarées"
+              >
+                Standard gamme
+              </span>
               <Sparkles className="size-4 text-slate-400" />
             </div>
             <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-foreground">

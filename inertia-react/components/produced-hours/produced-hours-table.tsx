@@ -129,9 +129,10 @@ export function ProducedHoursTable({ workstations, onSelectPoste }: ProducedHour
               <th
                 onClick={() => handleSort('totalAllocatedHours')}
                 className="group cursor-pointer px-3 py-3 text-right hover:text-foreground"
+                title="Temps standard de gamme prévu pour la quantité produite"
               >
                 <div className="flex items-center justify-end">
-                  <span>Alloué std</span>
+                  <span>Standard gamme</span>
                   <SortIcon field="totalAllocatedHours" />
                 </div>
               </th>

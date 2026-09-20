@@ -172,8 +172,11 @@ export function WorkstationDetailSheet({
                 </div>
 
                 <div className="rounded-xl border border-rule bg-card p-3.5 shadow-xs">
-                  <div className="text-[11px] font-medium text-muted-foreground">
-                    Heures allouées
+                  <div
+                    className="text-[11px] font-medium text-muted-foreground"
+                    title="Temps standard de gamme prévu pour la quantité produite"
+                  >
+                    Standard gamme
                   </div>
                   <div className="mt-1 font-mono text-xl font-bold tracking-tight text-foreground">
                     {data.kpis.totalAllocatedHours.toLocaleString('fr-FR', {
@@ -315,7 +318,12 @@ export function WorkstationDetailSheet({
                         <th className="px-2 py-2.5 text-center">Opérateur</th>
                         <th className="px-3 py-2.5 text-right">Qté</th>
                         <th className="px-3 py-2.5 text-right">Réel (h)</th>
-                        <th className="px-3 py-2.5 text-right">Alloué (h)</th>
+                        <th
+                          className="px-3 py-2.5 text-right"
+                          title="Temps standard de gamme prévu pour la quantité produite"
+                        >
+                          Standard (h)
+                        </th>
                         <th className="px-3 py-2.5 text-right">Écart</th>
                       </tr>
                     </thead>
