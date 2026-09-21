@@ -22,6 +22,7 @@ import {
 import { ProducedHoursTable } from '@r/components/produced-hours/produced-hours-table'
 import { ProducedOrdersTable } from '@r/components/produced-hours/produced-orders-table'
 import { WorkstationDetailSheet } from '@r/components/produced-hours/workstation-detail-sheet'
+import { OrderWorkstationDetailSheet } from '@r/components/produced-hours/order-workstation-detail-sheet'
 
 interface ProducedHoursPageProps extends Partial<ProducedHoursPayload> {
   initialView?: 'heures' | 'commandes'
@@ -67,6 +68,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
   const [search, setSearch] = useState('')
   const [selectedAtelier, setSelectedAtelier] = useState<string>('ALL')
   const [selectedPoste, setSelectedPoste] = useState<string | null>(null)
+  const [selectedOrderPoste, setSelectedOrderPoste] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
   // Fetch updated data from API depending on active view
@@ -449,7 +451,10 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                   </div>
                 </div>
 
-                <ProducedOrdersTable workstations={filteredOrdersWorkstations} />
+                <ProducedOrdersTable
+                  workstations={filteredOrdersWorkstations}
+                  onSelectPoste={setSelectedOrderPoste}
+                />
               </div>
             ) : (
               <div className="space-y-3">
@@ -479,7 +484,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         </div>
       </div>
 
-      {/* Drilldown Drawer / Sheet (seulement pour les heures produites) */}
+      {/* Drilldown Drawer / Sheet pour les heures produites */}
       <WorkstationDetailSheet
         poste={selectedPoste}
         from={from}
@@ -487,6 +492,18 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         open={Boolean(selectedPoste)}
         onOpenChange={(open) => {
           if (!open) setSelectedPoste(null)
+        }}
+      />
+
+      {/* Drilldown Drawer / Sheet pour la vision commandes */}
+      <OrderWorkstationDetailSheet
+        poste={selectedOrderPoste}
+        from={from}
+        to={to}
+        dateMode={dateMode}
+        open={Boolean(selectedOrderPoste)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedOrderPoste(null)
         }}
       />
     </AppLayout>

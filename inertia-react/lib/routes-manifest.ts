@@ -45,6 +45,10 @@ export const MANIFEST = {
   'health.index': { method: 'GET', pattern: '/health' },
   'heures_produites.detail': { method: 'GET', pattern: '/api/v1/heures-produites/detail' },
   'heures_produites.index': { method: 'GET', pattern: '/heures-produites' },
+  'heures_produites.orders_detail': {
+    method: 'GET',
+    pattern: '/api/v1/heures-produites/orders-detail',
+  },
   'heures_produites.orders_summary': {
     method: 'GET',
     pattern: '/api/v1/heures-produites/orders-summary',
@@ -198,6 +202,7 @@ export type RouteParams = {
   'health.index': void
   'heures_produites.detail': void
   'heures_produites.index': void
+  'heures_produites.orders_detail': void
   'heures_produites.orders_summary': void
   'heures_produites.summary': void
   'load.index': void

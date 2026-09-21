@@ -7,6 +7,7 @@ import {
   Layers,
   Package,
   ChevronsUpDown,
+  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import {
@@ -19,9 +20,10 @@ type SortField = 'poste' | 'atelier' | 'totalQuantity' | 'nbProducts' | 'nbOrder
 
 interface ProducedOrdersTableProps {
   workstations: WorkstationOrderedCard[]
+  onSelectPoste?: (poste: string) => void
 }
 
-export function ProducedOrdersTable({ workstations }: ProducedOrdersTableProps) {
+export function ProducedOrdersTable({ workstations, onSelectPoste }: ProducedOrdersTableProps) {
   const [sortField, setSortField] = useState<SortField>('totalQuantity')
   const [sortAsc, setSortAsc] = useState(false)
   const [expandedPostes, setExpandedPostes] = useState<Set<string>>(new Set())
@@ -171,6 +173,7 @@ export function ProducedOrdersTable({ workstations }: ProducedOrdersTableProps) 
                   </div>
                 </th>
                 <th className="px-4 py-3 text-center">Tendance</th>
+                <th className="px-3 py-3 text-center">Action</th>
               </tr>
             </thead>
 
@@ -287,12 +290,27 @@ export function ProducedOrdersTable({ workstations }: ProducedOrdersTableProps) 
                           <span className="text-[10px] text-muted-foreground/40">—</span>
                         )}
                       </td>
+
+                      {/* Action */}
+                      <td className="px-3 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectPoste?.(wst.poste)
+                          }}
+                          className="inline-flex size-7 items-center justify-center rounded-lg border border-rule bg-card text-muted-foreground transition-colors hover:border-brand hover:text-brand"
+                          title="Ouvrir la fiche détaillée de la ligne et des commandes"
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </button>
+                      </td>
                     </tr>
 
                     {/* Sous-table des Produits finis niveau 0 */}
                     {isExpanded && (
                       <tr className="bg-surface-muted/20">
-                        <td colSpan={8} className="p-0 border-b border-rule">
+                        <td colSpan={9} className="p-0 border-b border-rule">
                           <div className="py-2 pl-12 pr-6">
                             <div className="rounded-xl border border-rule/60 bg-card overflow-hidden">
                               <div className="border-b border-rule/60 bg-surface-muted/40 px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
@@ -300,7 +318,19 @@ export function ProducedOrdersTable({ workstations }: ProducedOrdersTableProps) 
                                   Produits finis niveau 0 assemblés sur {wst.poste} (
                                   {wst.products.length})
                                 </span>
-                                <span>Quantités commandées</span>
+                                <div className="flex items-center gap-3 lowercase first-letter:uppercase">
+                                  <span>Quantités commandées</span>
+                                  {onSelectPoste && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectPoste(wst.poste)}
+                                      className="inline-flex items-center gap-1 font-sans text-[11px] font-semibold text-brand hover:underline"
+                                    >
+                                      <span>Fiche détaillée</span>
+                                      <ExternalLink className="size-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               <table className="w-full text-xs">
@@ -308,7 +338,6 @@ export function ProducedOrdersTable({ workstations }: ProducedOrdersTableProps) 
                                   <tr className="border-b border-rule/40 text-[10px] text-muted-foreground font-sans">
                                     <th className="px-3 py-2 text-left">Code article</th>
                                     <th className="px-3 py-2 text-left">Désignation</th>
-                                    <th className="px-2 py-2 text-center w-16">Catégorie</th>
                                     <th className="px-3 py-2 text-right">Quantité</th>
                                     <th className="px-3 py-2 text-right w-24 hidden sm:table-cell">
                                       Part ligne
@@ -335,11 +364,6 @@ export function ProducedOrdersTable({ workstations }: ProducedOrdersTableProps) 
                                         </td>
                                         <td className="px-3 py-2 font-sans text-muted-foreground truncate max-w-[320px]">
                                           {prod.name}
-                                        </td>
-                                        <td className="px-2 py-2 text-center">
-                                          <span className="inline-block rounded bg-surface-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-                                            {prod.category}
-                                          </span>
                                         </td>
                                         <td className="px-3 py-2 text-right font-bold text-foreground">
                                           {prod.quantity.toLocaleString('fr-FR')}

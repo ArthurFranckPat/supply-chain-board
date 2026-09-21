@@ -84,4 +84,66 @@ test.group('Produced Orders - Final Assembly Filtering & Aggregation', () => {
     assert.isFalse(ALLOWED_ATELIERS.has('MEC'))
     assert.isFalse(ALLOWED_ATELIERS.has('EXP'))
   })
+
+  test('calcule correctement les écarts de délai et la synthèse des commandes détaillées', ({
+    assert,
+  }) => {
+    const rawLines = [
+      {
+        orderNum: 'CMD-001',
+        orderLine: 1000,
+        orderSeq: 1,
+        clientCode: 'CLI1',
+        clientName: 'Client Un',
+        article: 'ART_PF1',
+        quantity: 50,
+        dateDemandee: '2026-08-01',
+        dateAcceptee: '2026-08-01', // Conforme (0j)
+      },
+      {
+        orderNum: 'CMD-002',
+        orderLine: 1000,
+        orderSeq: 1,
+        clientCode: 'CLI2',
+        clientName: 'Client Deux',
+        article: 'ART_PF1',
+        quantity: 25,
+        dateDemandee: '2026-08-01',
+        dateAcceptee: '2026-08-05', // +4j retard
+      },
+      {
+        orderNum: 'CMD-003',
+        orderLine: 1000,
+        orderSeq: 1,
+        clientCode: 'CLI3',
+        clientName: 'Client Trois',
+        article: 'ART_PF2',
+        quantity: 10,
+        dateDemandee: '2026-08-04',
+        dateAcceptee: '2026-08-02', // -2j avance
+      },
+    ]
+
+    const processedLines = rawLines.map((r) => {
+      let deltaDays = 0
+      if (r.dateDemandee && r.dateAcceptee) {
+        const tDem = new Date(r.dateDemandee).getTime()
+        const tAcc = new Date(r.dateAcceptee).getTime()
+        deltaDays = Math.round((tAcc - tDem) / 86_400_000)
+      }
+      return { ...r, deltaDays }
+    })
+
+    assert.equal(processedLines[0].deltaDays, 0)
+    assert.equal(processedLines[1].deltaDays, 4)
+    assert.equal(processedLines[2].deltaDays, -2)
+
+    // Top produit
+    const prodQtyMap = new Map<string, number>()
+    for (const l of processedLines) {
+      prodQtyMap.set(l.article, (prodQtyMap.get(l.article) || 0) + l.quantity)
+    }
+    assert.equal(prodQtyMap.get('ART_PF1'), 75)
+    assert.equal(prodQtyMap.get('ART_PF2'), 10)
+  })
 })

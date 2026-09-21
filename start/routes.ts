@@ -271,6 +271,12 @@ router
     router
       .get('/api/v1/heures-produites/detail', '#controllers/produced_hours_controller.detail')
       .as('heures_produites.detail')
+    router
+      .get(
+        '/api/v1/heures-produites/orders-detail',
+        '#controllers/produced_hours_controller.ordersDetail'
+      )
+      .as('heures_produites.orders_detail')
 
     // Suivi Commandes
     router

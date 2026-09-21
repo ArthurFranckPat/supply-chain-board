@@ -584,6 +584,235 @@ export class ProducedHoursLoader {
       ateliers: Array.from(ALLOWED_ATELIERS).sort(),
     }
   }
+
+  /**
+   * Charge le détail des commandes associées à un poste d'assemblage final (drill-down sheet).
+   */
+  async loadWorkstationOrdersDetail(
+    poste: string,
+    from: string,
+    to: string,
+    dateMode: OrderDateMode = 'demandee'
+  ): Promise<OrderWorkstationDetailResponse> {
+    const cleanPoste = poste.trim().toUpperCase()
+    const ordersRepo = new X3OrderedQuantitiesRepository()
+
+    const [wstRefList, gammes, staticArticles] = await Promise.all([
+      staticSync.readWorkstations().catch(() => []),
+      staticSync.readGammes().catch(() => []),
+      staticSync.readArticles().catch(() => []),
+    ])
+
+    const meta = wstRefList.find((w) => w.code.trim().toUpperCase() === cleanPoste)
+    const atelier = meta?.stockLocation?.trim() || meta?.workCenter?.trim() || 'AUTRE'
+
+    // Dictionnaire articles
+    const descMap = new Map<string, string>()
+    const catMap = new Map<string, string>()
+    for (const a of staticArticles) {
+      const code = a.code.trim().toUpperCase()
+      descMap.set(code, (a.description ?? '').trim())
+      catMap.set(code, (a.category ?? '').trim().toUpperCase())
+    }
+
+    // Nom du poste
+    let name = meta?.description?.trim() || cleanPoste
+    for (const g of gammes) {
+      if (g.workstation?.trim().toUpperCase() === cleanPoste && g.workstationLabel?.trim()) {
+        name = g.workstationLabel.trim()
+        break
+      }
+    }
+
+    // Association de chaque article à sa ligne de production (1ère opération)
+    const ligneByArticle = new Map<string, string>()
+    for (const g of gammes) {
+      const art = g.article.trim().toUpperCase()
+      if (!ligneByArticle.has(art)) {
+        ligneByArticle.set(art, g.workstation.trim().toUpperCase())
+      }
+    }
+
+    // Identifier tous les articles PF de niveau 0 assemblés sur ce poste
+    const eligibleArticles: string[] = []
+    for (const [art, wst] of ligneByArticle) {
+      if (wst === cleanPoste) {
+        const cat = catMap.get(art) || ''
+        if (cat.startsWith('PF')) {
+          eligibleArticles.push(art)
+        }
+      }
+    }
+
+    // Récupérer le détail brut des commandes X3
+    const rawLines = await ordersRepo.getWorkstationOrdersDetail(
+      eligibleArticles,
+      from,
+      to,
+      dateMode
+    )
+
+    // Calculer les lignes enrichies
+    const lines: OrderDetailLine[] = []
+    const dailyMap = new Map<string, { qty: number; orderNums: Set<string> }>()
+    const productMap = new Map<string, { qty: number; orderNums: Set<string> }>()
+    const allOrderNums = new Set<string>()
+    let totalQty = 0
+
+    for (const r of rawLines) {
+      totalQty += r.quantity
+      if (r.orderNum) allOrderNums.add(r.orderNum)
+
+      // Timeline jour
+      const dateKey = (dateMode === 'demandee' ? r.dateDemandee : r.dateAcceptee) || r.dateDemandee
+      if (dateKey) {
+        if (!dailyMap.has(dateKey)) {
+          dailyMap.set(dateKey, { qty: 0, orderNums: new Set() })
+        }
+        const dEntry = dailyMap.get(dateKey)!
+        dEntry.qty += r.quantity
+        if (r.orderNum) dEntry.orderNums.add(r.orderNum)
+      }
+
+      // Par produit
+      if (!productMap.has(r.article)) {
+        productMap.set(r.article, { qty: 0, orderNums: new Set() })
+      }
+      const pEntry = productMap.get(r.article)!
+      pEntry.qty += r.quantity
+      if (r.orderNum) pEntry.orderNums.add(r.orderNum)
+
+      // Écart en jours entre date acceptée et date demandée (positif si date acceptée > date demandée)
+      let deltaDays = 0
+      if (r.dateDemandee && r.dateAcceptee) {
+        const tDem = new Date(r.dateDemandee).getTime()
+        const tAcc = new Date(r.dateAcceptee).getTime()
+        if (!Number.isNaN(tDem) && !Number.isNaN(tAcc)) {
+          deltaDays = Math.round((tAcc - tDem) / 86_400_000)
+        }
+      }
+
+      lines.push({
+        orderNum: r.orderNum,
+        orderLine: r.orderLine,
+        orderSeq: r.orderSeq,
+        clientCode: r.clientCode,
+        clientName: r.clientName,
+        article: r.article,
+        designation: descMap.get(r.article) || r.article,
+        quantity: r.quantity,
+        dateDemandee: r.dateDemandee,
+        dateAcceptee: r.dateAcceptee,
+        deltaDays,
+      })
+    }
+
+    totalQty = Math.round(totalQty * 100) / 100
+
+    // Synthèse produits
+    const products: OrderWorkstationProductSummary[] = []
+    for (const [code, pData] of productMap) {
+      const q = Math.round(pData.qty * 100) / 100
+      const sharePct = totalQty > 0 ? Math.round((q / totalQty) * 1000) / 10 : 0
+      products.push({
+        code,
+        name: descMap.get(code) || code,
+        quantity: q,
+        nbOrders: pData.orderNums.size,
+        sharePct,
+      })
+    }
+    products.sort((a, b) => b.quantity - a.quantity)
+
+    // Timeline triée
+    const timeline = Array.from(dailyMap.entries())
+      .map(([date, dData]) => ({
+        date,
+        qty: Math.round(dData.qty * 100) / 100,
+        nbOrders: dData.orderNums.size,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    const topProduct = products[0] || null
+
+    return {
+      poste: cleanPoste,
+      name,
+      atelier,
+      workCenter: meta?.workCenter || '',
+      wstType: meta?.type ?? 1,
+      from,
+      to,
+      dateMode,
+      kpis: {
+        totalQuantity: totalQty,
+        nbProducts: products.length,
+        nbOrders: allOrderNums.size,
+        topProduct: topProduct
+          ? {
+              code: topProduct.code,
+              name: topProduct.name,
+              quantity: topProduct.quantity,
+              sharePct: topProduct.sharePct,
+            }
+          : null,
+      },
+      timeline,
+      products,
+      lines,
+    }
+  }
+}
+
+export interface OrderDetailLine {
+  orderNum: string
+  orderLine: number
+  orderSeq: number
+  clientCode: string
+  clientName: string
+  article: string
+  designation: string
+  quantity: number
+  dateDemandee: string
+  dateAcceptee: string
+  deltaDays: number
+}
+
+export interface OrderWorkstationProductSummary {
+  code: string
+  name: string
+  quantity: number
+  nbOrders: number
+  sharePct: number
+}
+
+export interface OrderWorkstationDetailResponse {
+  poste: string
+  name: string
+  atelier: string
+  workCenter: string
+  wstType: number
+  from: string
+  to: string
+  dateMode: OrderDateMode
+  kpis: {
+    totalQuantity: number
+    nbProducts: number
+    nbOrders: number
+    topProduct: {
+      code: string
+      name: string
+      quantity: number
+      sharePct: number
+    } | null
+  }
+  timeline: {
+    date: string
+    qty: number
+    nbOrders: number
+  }[]
+  products: OrderWorkstationProductSummary[]
+  lines: OrderDetailLine[]
 }
 
 export const producedHoursLoader = new ProducedHoursLoader()

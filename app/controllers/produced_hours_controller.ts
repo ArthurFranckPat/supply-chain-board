@@ -109,4 +109,36 @@ export default class ProducedHoursController {
       })
     }
   }
+
+  /**
+   * GET /api/v1/heures-produites/orders-detail — Détail des commandes d'une ligne d'assemblage final (drill-down).
+   */
+  async ordersDetail({ request, response }: HttpContext) {
+    const poste = (request.input('poste') as string)?.trim()
+    if (!poste) {
+      return response.badRequest({ error: 'Paramètre poste requis' })
+    }
+
+    const defaultRange = getDefaultDateRange()
+    const from = (request.input('from') as string) || defaultRange.from
+    const to = (request.input('to') as string) || defaultRange.to
+    const dateMode = (request.input('dateMode') as OrderDateMode) || 'demandee'
+
+    try {
+      const detail = await producedHoursLoader.loadWorkstationOrdersDetail(
+        poste,
+        from,
+        to,
+        dateMode
+      )
+      return response.json(detail)
+    } catch (error) {
+      return response.internalServerError({
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Erreur lors du chargement du détail des commandes du poste',
+      })
+    }
+  }
 }

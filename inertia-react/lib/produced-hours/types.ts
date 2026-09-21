@@ -148,3 +148,54 @@ export interface ProducedOrdersPayload {
   workstations: WorkstationOrderedCard[]
   ateliers: string[]
 }
+
+export interface OrderDetailLine {
+  orderNum: string
+  orderLine: number
+  orderSeq: number
+  clientCode: string
+  clientName: string
+  article: string
+  designation: string
+  quantity: number
+  dateDemandee: string
+  dateAcceptee: string
+  deltaDays: number
+}
+
+export interface OrderWorkstationProductSummary {
+  code: string
+  name: string
+  quantity: number
+  nbOrders: number
+  sharePct: number
+}
+
+export interface OrderWorkstationDetailResponse {
+  poste: string
+  name: string
+  atelier: string
+  workCenter: string
+  wstType: number
+  from: string
+  to: string
+  dateMode: OrderDateMode
+  kpis: {
+    totalQuantity: number
+    nbProducts: number
+    nbOrders: number
+    topProduct: {
+      code: string
+      name: string
+      quantity: number
+      sharePct: number
+    } | null
+  }
+  timeline: {
+    date: string
+    qty: number
+    nbOrders: number
+  }[]
+  products: OrderWorkstationProductSummary[]
+  lines: OrderDetailLine[]
+}
