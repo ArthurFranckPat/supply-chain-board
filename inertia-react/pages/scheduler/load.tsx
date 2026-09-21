@@ -1079,7 +1079,10 @@ export default function Load(props: LoadPageProps) {
       <SegmentButton
         role="radio"
         active={posteSelector === 'cards'}
-        onClick={() => setPosteSelector('cards')}
+        onClick={() => {
+          setPosteDropdownOpen(false)
+          setPosteSelector('cards')
+        }}
         title="Comparer les postes avec leurs mini-graphiques"
       >
         Cartes
@@ -1093,6 +1096,56 @@ export default function Load(props: LoadPageProps) {
         Liste
       </SegmentButton>
     </Segment>
+  )
+
+  const postePicker = (
+    <Dropdown isOpen={posteDropdownOpen} onOpenChange={setPosteDropdownOpen}>
+      <DropdownTrigger
+        aria-label={`Poste de charge : ${selectedVisibleLine?.code ?? 'aucun'}`}
+        className={cn(PILL, 'w-[280px] max-w-full justify-between text-left')}
+      >
+        <span className="min-w-0 truncate">
+          {selectedVisibleLine
+            ? `${selectedVisibleLine.code} · ${selectedVisibleLine.name}`
+            : 'Choisir un poste de charge'}
+        </span>
+        <ChevronDown
+          size={16}
+          strokeWidth={1.75}
+          className="shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </DropdownTrigger>
+      <DropdownPopover
+        aria-label="Postes de charge"
+        placement="bottom end"
+        className="w-[min(520px,calc(100vw-32px))]"
+      >
+        <div className="max-h-[280px] overflow-y-auto">
+          {filteredLines.map((line) => (
+            <DropdownItem
+              key={line.code}
+              selected={line.code === selectedVisibleCode}
+              onSelect={() => {
+                setSelected(line.code)
+                setPosteDropdownOpen(false)
+              }}
+              className="justify-between gap-3"
+            >
+              <span className="min-w-0 truncate">
+                <span className="font-mono font-semibold">{line.code}</span>
+                <span className="ml-1.5 text-muted-foreground">{line.name}</span>
+              </span>
+              {line.atelierLabel && (
+                <span className="shrink-0 font-mono text-2xs text-muted-foreground">
+                  {line.atelierLabel}
+                </span>
+              )}
+            </DropdownItem>
+          ))}
+        </div>
+      </DropdownPopover>
+    </Dropdown>
   )
 
   return (
@@ -1224,19 +1277,22 @@ export default function Load(props: LoadPageProps) {
               </div>
             ) : (
               <div ref={sliderRowRef} className="relative flex-none">
-                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="font-fraunces text-[14px] font-extrabold tracking-tight">
+                    <span className="font-mono text-3xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                       Postes de charge
                     </span>
-                    <span className="font-mono text-2xs text-muted-foreground">
+                    <span className="font-mono text-2xs tabular-nums text-muted-foreground">
                       {filteredLines.length} visible{filteredLines.length > 1 ? 's' : ''}
                     </span>
                   </div>
-                  {posteSelectorControls}
+                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                    {posteSelector === 'compact' && postePicker}
+                    {posteSelectorControls}
+                  </div>
                 </div>
 
-                {posteSelector === 'cards' ? (
+                {posteSelector === 'cards' && (
                   <div className="relative">
                     <div
                       ref={setSliderEl}
@@ -1270,54 +1326,6 @@ export default function Load(props: LoadPageProps) {
                       )}
                     />
                   </div>
-                ) : (
-                  <Dropdown isOpen={posteDropdownOpen} onOpenChange={setPosteDropdownOpen}>
-                    <DropdownTrigger
-                      aria-label={`Poste de charge : ${selectedVisibleLine?.code ?? 'aucun'}`}
-                      className={cn(PILL, 'w-full max-w-2xl justify-between')}
-                    >
-                      <span className="min-w-0 truncate text-left">
-                        {selectedVisibleLine
-                          ? `${selectedVisibleLine.code} · ${selectedVisibleLine.name}`
-                          : 'Choisir un poste de charge'}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        strokeWidth={1.75}
-                        className="shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    </DropdownTrigger>
-                    <DropdownPopover
-                      aria-label="Postes de charge"
-                      placement="bottom start"
-                      className="w-[min(520px,calc(100vw-32px))]"
-                    >
-                      <div className="max-h-[280px] overflow-y-auto">
-                        {filteredLines.map((line) => (
-                          <DropdownItem
-                            key={line.code}
-                            selected={line.code === selectedVisibleCode}
-                            onSelect={() => {
-                              setSelected(line.code)
-                              setPosteDropdownOpen(false)
-                            }}
-                            className="justify-between gap-3"
-                          >
-                            <span className="min-w-0 truncate">
-                              <span className="font-mono font-semibold">{line.code}</span>
-                              <span className="ml-1.5 text-muted-foreground">{line.name}</span>
-                            </span>
-                            {line.atelierLabel && (
-                              <span className="shrink-0 font-mono text-2xs text-muted-foreground">
-                                {line.atelierLabel}
-                              </span>
-                            )}
-                          </DropdownItem>
-                        ))}
-                      </div>
-                    </DropdownPopover>
-                  </Dropdown>
                 )}
               </div>
             )}
