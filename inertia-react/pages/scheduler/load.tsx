@@ -39,6 +39,12 @@ import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
 import { ChargePeriodSheet } from '@r/components/load/charge-period-sheet'
 import {
+  Dropdown,
+  DropdownItem,
+  DropdownPopover,
+  DropdownTrigger,
+} from '@r/components/base/dropdown/dropdown'
+import {
   FilterMenu,
   FilterMenuSectionLabel,
   PILL,
@@ -195,6 +201,7 @@ export default function Load(props: LoadPageProps) {
   const [showAvg, setShowAvg] = useState(stored.showAvg)
   const [applyDemandHorizon, setApplyDemandHorizon] = useState(stored.applyDemandHorizon)
   const [posteSelector, setPosteSelector] = useState<PosteSelectorMode>(stored.posteSelector)
+  const [posteDropdownOpen, setPosteDropdownOpen] = useState(false)
   // Un atelier stocké qui n'est plus dans le payload (changement de site, de
   // périmètre) filtrerait tout sans que sa chip existe à l'écran : on l'écarte.
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(
@@ -398,6 +405,7 @@ export default function Load(props: LoadPageProps) {
     () => filteredLines.find((l) => l.code === selected)?.code ?? filteredLines[0]?.code ?? '',
     [filteredLines, selected]
   )
+  const selectedVisibleLine = filteredLines.find((l) => l.code === selectedVisibleCode)
 
   /**
    * URL d'export CSV — reconstruite à chaque changement de filtre pour rester le
@@ -1263,28 +1271,53 @@ export default function Load(props: LoadPageProps) {
                     />
                   </div>
                 ) : (
-                  <label className="relative block max-w-2xl">
-                    <span className="sr-only">Choisir un poste de charge</span>
-                    <select
-                      aria-label="Poste de charge"
-                      value={selectedVisibleCode}
-                      onChange={(e) => setSelected(e.currentTarget.value)}
-                      className="h-10 w-full appearance-none rounded-lg border border-rule bg-card px-3 pr-10 font-mono text-xs font-semibold text-foreground outline-none transition-colors hover:border-brand focus:border-brand"
+                  <Dropdown isOpen={posteDropdownOpen} onOpenChange={setPosteDropdownOpen}>
+                    <DropdownTrigger
+                      aria-label={`Poste de charge : ${selectedVisibleLine?.code ?? 'aucun'}`}
+                      className={cn(PILL, 'w-full max-w-2xl justify-between')}
                     >
-                      {filteredLines.map((line) => (
-                        <option key={line.code} value={line.code}>
-                          {line.code} · {line.name}
-                          {line.atelierLabel ? ` · ${line.atelierLabel}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      strokeWidth={1.75}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </label>
+                      <span className="min-w-0 truncate text-left">
+                        {selectedVisibleLine
+                          ? `${selectedVisibleLine.code} · ${selectedVisibleLine.name}`
+                          : 'Choisir un poste de charge'}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        strokeWidth={1.75}
+                        className="shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </DropdownTrigger>
+                    <DropdownPopover
+                      aria-label="Postes de charge"
+                      placement="bottom start"
+                      className="w-[min(520px,calc(100vw-32px))]"
+                    >
+                      <div className="max-h-[280px] overflow-y-auto">
+                        {filteredLines.map((line) => (
+                          <DropdownItem
+                            key={line.code}
+                            selected={line.code === selectedVisibleCode}
+                            onSelect={() => {
+                              setSelected(line.code)
+                              setPosteDropdownOpen(false)
+                            }}
+                            className="justify-between gap-3"
+                          >
+                            <span className="min-w-0 truncate">
+                              <span className="font-mono font-semibold">{line.code}</span>
+                              <span className="ml-1.5 text-muted-foreground">{line.name}</span>
+                            </span>
+                            {line.atelierLabel && (
+                              <span className="shrink-0 font-mono text-2xs text-muted-foreground">
+                                {line.atelierLabel}
+                              </span>
+                            )}
+                          </DropdownItem>
+                        ))}
+                      </div>
+                    </DropdownPopover>
+                  </Dropdown>
                 )}
               </div>
             )}
