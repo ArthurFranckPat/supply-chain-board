@@ -1269,7 +1269,7 @@ export default function Load(props: LoadPageProps) {
           normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
           la toolbar et du contenu en dessous ne se dimensionnent contre rien
           et débordent hors de l'écran sans scroll possible. */}
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden">
         {props.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
@@ -1364,7 +1364,7 @@ export default function Load(props: LoadPageProps) {
         )}
 
         {view === 'sous_ensembles' ? (
-          <div className="flex min-h-0 flex-1 flex-col px-7 py-5">
+          <div className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-hidden px-7 py-5">
             <SubAssemblyClpView
               groups={
                 (applyDemandHorizon ? props.seClpGroups : props.seClpGroupsWithoutDemandHorizon) ??

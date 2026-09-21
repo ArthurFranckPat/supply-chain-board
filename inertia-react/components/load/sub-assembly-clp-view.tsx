@@ -154,25 +154,25 @@ export function SubAssemblyClpView({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-rule bg-card">
+    <div className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-rule bg-card">
       {/* Barre d'outils secondaire de la vue sous-ensembles */}
-      <div className="flex flex-none items-center justify-between border-b border-rule bg-muted/40 px-5 py-2.5">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-none min-w-0 w-full items-center justify-between border-b border-rule bg-muted/40 px-5 py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2">
             <span className="inline-flex size-6 items-center justify-center rounded bg-brand/10 text-brand">
               <Layers size={14} />
             </span>
-            <span className="font-semibold text-xs text-foreground">
+            <span className="font-semibold text-xs text-foreground whitespace-nowrap">
               Besoins Sous-ensembles CLP (PF → SE niveau 1)
             </span>
           </div>
-          <span className="font-mono text-2xs text-muted-foreground">
+          <span className="truncate font-mono text-2xs text-muted-foreground">
             {totalWstCount} poste{totalWstCount > 1 ? 's' : ''} · {totalItemCount} sous-ensemble
             {totalItemCount > 1 ? 's' : ''}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={handleExpandAll}
@@ -195,7 +195,7 @@ export function SubAssemblyClpView({
       </div>
 
       {/* Table matrice */}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 min-w-0 w-full flex-1 overflow-auto">
         {filteredGroups.length === 0 ? (
           <div className="p-8 text-center font-fraunces text-sm italic text-muted-foreground">
             {q
@@ -207,10 +207,10 @@ export function SubAssemblyClpView({
             {/* En-tête des colonnes */}
             <thead className="sticky top-0 z-20 bg-background/95 backdrop-blur">
               <tr className="border-b border-rule">
-                <th className="sticky left-0 z-30 min-w-[280px] max-w-[340px] border-b border-r border-rule bg-background/95 px-4 py-2.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+                <th className="sticky left-0 z-30 w-[380px] min-w-[380px] max-w-[380px] border-b border-r border-rule bg-background px-4 py-2.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
                   Poste / Sous-ensemble / PF
                 </th>
-                <th className="w-[110px] min-w-[110px] border-b border-r border-rule bg-background/95 px-3 py-2.5 text-right font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+                <th className="w-[110px] min-w-[110px] max-w-[110px] border-b border-r border-rule bg-background px-3 py-2.5 text-right font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
                   Stock / En-cours
                 </th>
                 {periods.map((p, idx) => {
@@ -219,7 +219,7 @@ export function SubAssemblyClpView({
                     <th
                       key={`${p}-${idx}`}
                       className={cn(
-                        'min-w-[70px] border-b border-r border-rule/60 bg-background/95 px-2.5 py-2.5 text-right font-mono text-3xs font-bold uppercase tracking-wider',
+                        'w-[75px] min-w-[75px] border-b border-r border-rule/60 bg-background px-2.5 py-2.5 text-right font-mono text-3xs font-bold uppercase tracking-wider',
                         isRetard ? 'text-destructive' : 'text-muted-foreground'
                       )}
                     >
@@ -227,7 +227,7 @@ export function SubAssemblyClpView({
                     </th>
                   )
                 })}
-                <th className="min-w-[80px] border-b border-rule bg-background/95 px-3 py-2.5 text-right font-mono text-3xs font-bold uppercase tracking-wider text-foreground">
+                <th className="w-[90px] min-w-[90px] border-b border-rule bg-background px-3 py-2.5 text-right font-mono text-3xs font-bold uppercase tracking-wider text-foreground">
                   Total {unit === 'u' ? 'pièces' : 'heures'}
                 </th>
               </tr>
@@ -299,24 +299,26 @@ function WorkstationSection({
       {/* Ligne d'en-tête du poste de charge */}
       <tr className="bg-muted/70 font-semibold text-xs text-foreground transition-colors hover:bg-muted">
         <td
-          className="sticky left-0 z-10 cursor-pointer border-b border-r border-rule bg-muted/95 px-4 py-2"
+          className="sticky left-0 z-10 w-[380px] min-w-[380px] max-w-[380px] cursor-pointer border-b border-r border-rule bg-muted px-4 py-2"
           onClick={onToggleWst}
         >
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground transition-transform">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-muted-foreground transition-transform">
               {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             </span>
-            <span className="font-mono text-xs font-bold text-foreground">{group.wst}</span>
-            <span className="truncate font-medium text-2xs text-muted-foreground">
+            <span className="shrink-0 font-mono text-xs font-bold text-foreground">
+              {group.wst}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-medium text-2xs text-muted-foreground">
               {group.wstLabel}
             </span>
-            <span className="ml-auto rounded bg-background/80 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
+            <span className="ml-auto shrink-0 whitespace-nowrap rounded bg-background/80 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
               {group.items.length} SE
             </span>
           </div>
         </td>
 
-        <td className="border-b border-r border-rule px-3 py-2 text-right font-mono text-2xs text-muted-foreground">
+        <td className="w-[110px] min-w-[110px] max-w-[110px] border-b border-r border-rule px-3 py-2 text-right font-mono text-2xs text-muted-foreground">
           —
         </td>
 
@@ -325,14 +327,14 @@ function WorkstationSection({
           return (
             <td
               key={`${group.wst}-${p}-${idx}`}
-              className="border-b border-r border-rule/50 px-2.5 py-2 text-right font-mono text-2xs font-semibold tabular-nums text-foreground"
+              className="w-[75px] min-w-[75px] border-b border-r border-rule/50 px-2.5 py-2 text-right font-mono text-2xs font-semibold tabular-nums text-foreground"
             >
               {formatCell(val, unit)}
             </td>
           )
         })}
 
-        <td className="border-b border-rule px-3 py-2 text-right font-mono text-2xs font-bold tabular-nums text-foreground">
+        <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-2 text-right font-mono text-2xs font-bold tabular-nums text-foreground">
           {formatCell(groupTotal, unit)}
         </td>
       </tr>
@@ -393,38 +395,40 @@ function SubAssemblyRow({
       <tr className="border-b border-rule/60 transition-colors hover:bg-muted/30">
         <td
           className={cn(
-            'sticky left-0 z-10 border-b border-r border-rule bg-card px-4 py-2 text-xs',
+            'sticky left-0 z-10 w-[380px] min-w-[380px] max-w-[380px] border-b border-r border-rule bg-card px-4 py-2 text-xs',
             hasParents ? 'cursor-pointer' : ''
           )}
           onClick={hasParents ? onToggle : undefined}
         >
-          <div className="flex items-center gap-2 pl-4">
+          <div className="flex min-w-0 items-center gap-2 pl-3">
             {hasParents ? (
-              <span className="text-muted-foreground transition-transform hover:text-foreground">
+              <span className="shrink-0 text-muted-foreground transition-transform hover:text-foreground">
                 {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
               </span>
             ) : (
-              <span className="size-[13px]" />
+              <span className="size-[13px] shrink-0" />
             )}
 
-            <span className="font-mono text-xs font-semibold text-foreground">{item.article}</span>
+            <span className="shrink-0 font-mono text-xs font-semibold text-foreground">
+              {item.article}
+            </span>
             <span
-              className="truncate font-normal text-2xs text-muted-foreground"
+              className="min-w-0 flex-1 truncate font-normal text-2xs text-muted-foreground"
               title={item.description}
             >
               {item.description}
             </span>
 
             {hasParents && (
-              <span className="ml-auto rounded-full bg-brand/10 px-1.5 py-0.2 font-mono text-3xs font-medium text-brand">
+              <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-brand/10 px-1.5 py-0.5 font-mono text-3xs font-medium text-brand">
                 {item.parents.length} PF
               </span>
             )}
           </div>
         </td>
 
-        <td className="border-b border-r border-rule px-3 py-2 text-right font-mono text-3xs tabular-nums text-muted-foreground">
-          <div className="flex flex-col items-end gap-0.5">
+        <td className="w-[110px] min-w-[110px] max-w-[110px] border-b border-r border-rule px-3 py-2 text-right font-mono text-3xs tabular-nums text-muted-foreground">
+          <div className="flex flex-col items-end gap-0.5 whitespace-nowrap">
             <span title="Stock disponible (physique + CQ)">
               Stk: <span className="font-semibold text-foreground">{item.stock}</span>
             </span>
@@ -443,7 +447,7 @@ function SubAssemblyRow({
             <td
               key={`${item.article}-${p}-${idx}`}
               className={cn(
-                'border-b border-r border-rule/40 px-2.5 py-2 text-right font-mono text-2xs tabular-nums',
+                'w-[75px] min-w-[75px] border-b border-r border-rule/40 px-2.5 py-2 text-right font-mono text-2xs tabular-nums',
                 isZero ? 'text-muted-foreground/30' : 'font-medium text-foreground'
               )}
             >
@@ -452,7 +456,7 @@ function SubAssemblyRow({
           )
         })}
 
-        <td className="border-b border-rule px-3 py-2 text-right font-mono text-2xs font-semibold tabular-nums text-foreground">
+        <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-2 text-right font-mono text-2xs font-semibold tabular-nums text-foreground">
           {formatCell(itemTotal, unit)}
         </td>
       </tr>
@@ -468,25 +472,28 @@ function SubAssemblyRow({
               key={`${item.article}-pf-${p.pfArticle}`}
               className="border-b border-rule/30 bg-muted/15 transition-colors hover:bg-muted/25"
             >
-              <td className="sticky left-0 z-10 border-b border-r border-rule bg-muted/15 px-4 py-1.5 text-2xs">
-                <div className="flex items-center gap-2 pl-9">
-                  <ArrowRight size={11} className="text-muted-foreground/60" />
-                  <span className="rounded bg-muted px-1 py-0.2 font-mono text-3xs font-semibold uppercase text-muted-foreground">
+              <td className="sticky left-0 z-10 w-[380px] min-w-[380px] max-w-[380px] border-b border-r border-rule bg-background px-4 py-1.5 text-2xs">
+                <div className="flex min-w-0 items-center gap-2 pl-7">
+                  <ArrowRight size={11} className="shrink-0 text-muted-foreground/60" />
+                  <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-3xs font-semibold uppercase text-muted-foreground">
                     PF
                   </span>
-                  <span className="font-mono text-2xs font-medium text-foreground">
+                  <span className="shrink-0 font-mono text-2xs font-medium text-foreground">
                     {p.pfArticle}
                   </span>
-                  <span className="truncate text-3xs text-muted-foreground" title={p.pfDescription}>
+                  <span
+                    className="min-w-0 flex-1 truncate text-3xs text-muted-foreground"
+                    title={p.pfDescription}
+                  >
                     {p.pfDescription}
                   </span>
-                  <span className="ml-auto rounded bg-background/80 px-1 py-0.2 font-mono text-3xs text-muted-foreground">
+                  <span className="ml-auto shrink-0 whitespace-nowrap rounded bg-card px-1 py-0.5 font-mono text-3xs text-muted-foreground shadow-2xs">
                     ×{p.linkQuantity}
                   </span>
                 </div>
               </td>
 
-              <td className="border-b border-r border-rule px-3 py-1.5 text-right font-mono text-3xs text-muted-foreground/40">
+              <td className="w-[110px] min-w-[110px] max-w-[110px] border-b border-r border-rule px-3 py-1.5 text-right font-mono text-3xs text-muted-foreground/40">
                 —
               </td>
 
@@ -497,7 +504,7 @@ function SubAssemblyRow({
                   <td
                     key={`${item.article}-${p.pfArticle}-${per}-${idx}`}
                     className={cn(
-                      'border-b border-r border-rule/30 px-2.5 py-1.5 text-right font-mono text-3xs tabular-nums',
+                      'w-[75px] min-w-[75px] border-b border-r border-rule/30 px-2.5 py-1.5 text-right font-mono text-3xs tabular-nums',
                       isZero ? 'text-muted-foreground/25' : 'text-foreground/80'
                     )}
                   >
@@ -506,7 +513,7 @@ function SubAssemblyRow({
                 )
               })}
 
-              <td className="border-b border-rule px-3 py-1.5 text-right font-mono text-3xs tabular-nums text-foreground/80">
+              <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-1.5 text-right font-mono text-3xs tabular-nums text-foreground/80">
                 {formatCell(pTotal, unit)}
               </td>
             </tr>
