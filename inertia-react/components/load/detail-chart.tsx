@@ -79,9 +79,16 @@ export function DetailChart({
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0) setDim({ w: Math.round(r.width), h: Math.round(r.height) })
+    // Taille de LAYOUT (`contentRect`), jamais `getBoundingClientRect()` : ce
+    // dernier inclut les transforms des ancêtres. Le zoom FLIP du plein écran
+    // (scheduler/load.tsx) pose son `scale(sx, sy)` de départ avant la première
+    // peinture, soit AVANT ce callback — la mesure valait alors la taille de
+    // départ, pas celle d'arrivée. Le layout ne rebougeant plus, l'observer ne
+    // rappelait jamais : viewBox faux, étiré par `preserveAspectRatio="none"`,
+    // texte déformé jusqu'au redimensionnement suivant.
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      if (width > 0 && height > 0) setDim({ w: Math.round(width), h: Math.round(height) })
     })
     ro.observe(el)
     return () => ro.disconnect()
