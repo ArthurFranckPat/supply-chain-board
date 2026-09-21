@@ -791,18 +791,34 @@ export default function Load(props: LoadPageProps) {
     setFullscreen(true)
   }, [fullscreen, exitFullscreen])
 
+  /**
+   * Barre « Retard » (1er bucket hebdo, clé `début~fin`) : le serveur l'émet
+   * dès qu'UN poste a du retard. Pour le poste affiché, elle n'apparaît que
+   * s'il en a lui-même — dans la série tracée (unité, cran, filtres). Sinon
+   * elle est retirée et les index du graphe sont décalés d'autant.
+   */
+  const retardOffset = useMemo(() => {
+    if (!selLine || gran !== 'week' || !props.weekKeys[0]?.includes('~')) return 0
+    const first = seriesOf(selLine, gran)[0]
+    return first && total(first) > 0 ? 0 : 1
+  }, [selLine, gran, props.weekKeys, seriesOf])
+  const hasRetardBar = gran === 'week' && !!props.weekKeys[0]?.includes('~') && retardOffset === 0
+
   const detailItems = useMemo(() => {
     const line = selLine
     if (!line) return []
     // Capacité en pièces : aucune (cf. `capacityOn`) — on n'alimente pas l'axe
     // d'un plafond en heures, qui écraserait l'échelle.
     const caps = gran === 'month' ? line.capacity.monthly : line.capacity.weekly
-    return seriesOf(line, gran).map((d, i) => ({
-      label: (gran === 'month' ? props.months[i] : props.weeks[i]) ?? '',
-      d,
-      cap: capacityOn ? (caps[i] ?? 0) : 0,
-    }))
-  }, [selLine, gran, props.months, props.weeks, capacityOn, seriesOf])
+    return seriesOf(line, gran)
+      .map((d, i) => ({
+        label: (gran === 'month' ? props.months[i] : props.weeks[i]) ?? '',
+        d,
+        cap: capacityOn ? (caps[i] ?? 0) : 0,
+        retard: i === 0 && hasRetardBar,
+      }))
+      .slice(retardOffset)
+  }, [selLine, gran, props.months, props.weeks, capacityOn, seriesOf, retardOffset, hasRetardBar])
 
   /**
    * Horizon demande X3 du poste, projeté sur l'axe du graphe. Vue commande
@@ -815,7 +831,7 @@ export default function Load(props: LoadPageProps) {
     if (view !== 'commande' || !selLine) return null
     const h = props.demandHorizonByPoste?.[selLine.code]
     if (!h) return null
-    const keys = gran === 'month' ? props.monthKeys : props.weekKeys
+    const keys = gran === 'month' ? props.monthKeys : props.weekKeys.slice(retardOffset)
     const from = bucketPosOf(h.from, keys, gran)
     const to = bucketPosOf(h.to, keys, gran)
     if (from === null || to === null) return null
@@ -827,7 +843,15 @@ export default function Load(props: LoadPageProps) {
     const eveIso = `${eve.getFullYear()}-${String(eve.getMonth() + 1).padStart(2, '0')}-${String(eve.getDate()).padStart(2, '0')}`
     const start = Math.min(bucketPosOf(eveIso, keys, gran) ?? 0, from)
     return { start, from, to, fromIso: h.from, toIso: h.to }
-  }, [view, selLine, gran, props.demandHorizonByPoste, props.monthKeys, props.weekKeys])
+  }, [
+    view,
+    selLine,
+    gran,
+    props.demandHorizonByPoste,
+    props.monthKeys,
+    props.weekKeys,
+    retardOffset,
+  ])
 
   // Détail d'une période : le clic passe la CLÉ du bucket (pas son index), pour
   // que la demande reste valide même si l'horizon a glissé entre-temps.
@@ -838,8 +862,10 @@ export default function Load(props: LoadPageProps) {
     periodLabel: string
   } | null>(null)
 
-  const openPeriod = (index: number) => {
+  const openPeriod = (shown: number) => {
     if (!selLine) return
+    // Index du graphe → index du payload (barre Retard éventuellement retirée).
+    const index = shown + (gran === 'week' ? retardOffset : 0)
     const key = gran === 'month' ? props.monthKeys[index] : props.weekKeys[index]
     if (!key) return
     const label = (gran === 'month' ? props.months[index] : props.weeks[index]) ?? ''

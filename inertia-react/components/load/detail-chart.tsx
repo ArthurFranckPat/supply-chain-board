@@ -28,7 +28,8 @@ import {
  * (issue #52 — extrait de scheduler/load.tsx).
  */
 interface DetailChartProps {
-  items: { label: string; d: LoadPeriod; cap: number }[]
+  /** `retard` : barre des semaines écoulées fondues — tracée en rouge. */
+  items: { label: string; d: LoadPeriod; cap: number; retard?: boolean }[]
   gran: Gran
   view: LoadView
   showCapacity: boolean
@@ -153,6 +154,7 @@ export function DetailChart({
       w: number
       h: number
       fill: string
+      opacity: number
       info: SegInfo
       /** Index de la période — porté par le segment pour le clic « détail ». */
       idx: number
@@ -161,7 +163,7 @@ export function DetailChart({
     const segments: Seg[] = []
     const inLabels: Lbl[] = []
     const totals: { x: number; y: number; text: string; fill: string }[] = []
-    const xLabels: { x: number; y: number; text: string; idx: number }[] = []
+    const xLabels: { x: number; y: number; text: string; idx: number; retard: boolean }[] = []
     const capPts: { x: number; y: number; v: number; over: boolean }[] = []
     const overRects: { x: number; y: number; w: number; h: number }[] = []
 
@@ -181,8 +183,18 @@ export function DetailChart({
           y: yTop,
           w: bw,
           h,
-          fill: col,
-          info: { period: it.label, label, value: v, total: T[i], cap: C[i], color: col },
+          // Barre Retard : rouge, la nature du segment portée par l'opacité
+          // (du plus sûr en bas au plus incertain en haut), le détail au survol.
+          fill: it.retard ? DANGER : col,
+          opacity: it.retard ? 1 - idx * 0.2 : 1,
+          info: {
+            period: it.label,
+            label,
+            value: v,
+            total: T[i],
+            cap: C[i],
+            color: it.retard ? DANGER : col,
+          },
           idx: i,
         })
         if (h > 16)
@@ -190,7 +202,7 @@ export function DetailChart({
             x: cx,
             y: (yTop + y(acc)) / 2 + 3,
             text: fmtLoadValue(v),
-            fill: k === 's' || k === 'si' ? 'var(--color-foreground)' : CARD,
+            fill: it.retard || !(k === 's' || k === 'si') ? CARD : 'var(--color-foreground)',
           })
         acc += v
       })
@@ -199,13 +211,13 @@ export function DetailChart({
         x: cx,
         y: y(T[i]) - 6,
         text: fmtLoadValue(T[i]),
-        fill: over ? DANGER : FG,
+        fill: over || it.retard ? DANGER : FG,
       })
       if (C[i] > 0) {
         capPts.push({ x: cx, y: y(C[i]), v: C[i], over })
         if (over) overRects.push({ x: xx, y: y(T[i]), w: bw, h: y(C[i]) - y(T[i]) })
       }
-      xLabels.push({ x: cx, y: H - padB + 18, text: it.label, idx: i })
+      xLabels.push({ x: cx, y: H - padB + 18, text: it.label, idx: i, retard: !!it.retard })
     })
 
     const capPath = capPts.map((p2, i) => `${i ? 'L' : 'M'}${p2.x} ${p2.y}`).join(' ')
@@ -449,7 +461,7 @@ export function DetailChart({
             fill: s.fill,
             style: {
               cursor: 'pointer',
-              opacity: hover && !isOn ? 0.55 : 1,
+              opacity: (hover && !isOn ? 0.55 : 1) * s.opacity,
               transition: 'opacity .12s',
             } as React.CSSProperties,
             onMouseEnter: () => setHover(s.info),
@@ -574,7 +586,7 @@ export function DetailChart({
             textAnchor="middle"
             fontSize={geom.week ? '8' : '12'}
             fontWeight={geom.week ? '500' : '700'}
-            fill={MUTED}
+            fill={l.retard ? DANGER : MUTED}
             className={cn(
               geom.week ? 'font-mono' : 'font-fraunces',
               onSelectPeriod && 'cursor-pointer'
