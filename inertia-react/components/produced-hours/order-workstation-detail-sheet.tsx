@@ -102,6 +102,7 @@ export function OrderWorkstationDetailSheet({
   const [selectedProduct, setSelectedProduct] = useState<string>('ALL')
   const [granularity, setGranularity] = useState<TimelineGranularity>('day')
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'commandes' | 'produits'>('commandes')
 
   useEffect(() => {
     if (!open || !poste) {
@@ -111,6 +112,7 @@ export function OrderWorkstationDetailSheet({
       setSelectedProduct('ALL')
       setGranularity('day')
       setHoveredKey(null)
+      setActiveTab('commandes')
       return
     }
 
@@ -487,175 +489,276 @@ export function OrderWorkstationDetailSheet({
                 </div>
               )}
 
-              {/* Sélecteur rapide d'article PF */}
-              {data.products.length > 1 && (
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Filtrer par référence produit fini
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProduct('ALL')}
-                      className={cn(
-                        'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
-                        selectedProduct === 'ALL'
-                          ? 'border-brand bg-brand/10 font-bold text-brand'
-                          : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
-                      )}
-                    >
-                      Toutes ({data.products.length})
-                    </button>
-                    {data.products.map((p) => (
-                      <button
-                        key={p.code}
-                        type="button"
-                        onClick={() =>
-                          setSelectedProduct(selectedProduct === p.code ? 'ALL' : p.code)
-                        }
-                        className={cn(
-                          'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors font-mono',
-                          selectedProduct === p.code
-                            ? 'border-brand bg-brand/10 font-bold text-brand'
-                            : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
-                        )}
-                        title={`${p.name} · ${p.quantity.toLocaleString('fr-FR')} pcs (${p.sharePct}%)`}
-                      >
-                        <span>{p.code}</span>
-                        <span className="ml-1.5 text-[10px] opacity-70">
-                          {p.quantity.toLocaleString('fr-FR')} pcs
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Onglets Commandes clientes / Produits finis */}
+              <div className="flex items-center justify-between">
+                <Segment ariaLabel="Type d'affichage">
+                  <SegmentButton
+                    active={activeTab === 'commandes'}
+                    onClick={() => setActiveTab('commandes')}
+                  >
+                    Commandes clientes ({data.lines.length})
+                  </SegmentButton>
+                  <SegmentButton
+                    active={activeTab === 'produits'}
+                    onClick={() => setActiveTab('produits')}
+                  >
+                    Produits finis niveau 0 ({data.products.length})
+                  </SegmentButton>
+                </Segment>
 
-              {/* Lignes de commandes X3 */}
-              <div className="rounded-xl border border-rule bg-card shadow-xs">
-                <div className="flex flex-col gap-2 border-b border-rule p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Lignes de commandes clients ({filteredLines.length})
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Détail issu des tables SORDERQ et SORDER pour les produits finis assemblés sur{' '}
-                      {data.poste}
-                    </p>
+                {activeTab === 'commandes' && data.products.length > 1 && (
+                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                    {selectedProduct === 'ALL'
+                      ? 'Toutes les références PF'
+                      : `Filtre actif : ${selectedProduct}`}
+                  </span>
+                )}
+              </div>
+
+              {activeTab === 'produits' ? (
+                /* Tableau des produits finis de la ligne */
+                <div className="rounded-xl border border-rule bg-card shadow-xs">
+                  <div className="flex flex-col gap-1 border-b border-rule p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Produits finis niveau 0 assemblés sur {data.poste} ({data.products.length})
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Volumes cumulés sur la période sélectionnée
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Filtrer commande, client, article..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="h-8 w-full rounded-md border border-rule bg-surface-base pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-[760px] w-full text-left text-xs">
-                    <thead className="border-b border-rule bg-surface-muted text-[11px] font-semibold text-muted-foreground">
-                      <tr>
-                        <th className="w-28 px-3 py-2.5 whitespace-nowrap">N° Commande</th>
-                        <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date demandée</th>
-                        <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date acceptée</th>
-                        <th className="min-w-[160px] px-3 py-2.5">Client</th>
-                        <th className="w-32 px-3 py-2.5 whitespace-nowrap">Article PF</th>
-                        <th className="min-w-[180px] px-3 py-2.5">Désignation</th>
-                        <th className="w-20 px-3 py-2.5 text-right whitespace-nowrap">Quantité</th>
-                        <th className="w-24 px-3 py-2.5 text-center whitespace-nowrap">
-                          Écart OTD
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-rule font-mono text-[11px]">
-                      {filteredLines.length === 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="border-b border-rule bg-surface-muted text-[11px] font-semibold text-muted-foreground">
                         <tr>
-                          <td
-                            colSpan={8}
-                            className="px-4 py-8 text-center text-xs text-muted-foreground"
-                          >
-                            Aucune ligne de commande trouvée pour cette sélection.
-                          </td>
+                          <th className="px-4 py-2.5">Code article</th>
+                          <th className="px-4 py-2.5">Désignation</th>
+                          <th className="px-4 py-2.5 text-right">Quantité</th>
+                          <th className="px-4 py-2.5 text-right w-28">Part ligne</th>
+                          <th className="px-4 py-2.5 text-right w-28">Commandes</th>
+                          <th className="px-4 py-2.5 text-center w-32">Action</th>
                         </tr>
-                      ) : (
-                        filteredLines.map((line, idx) => {
-                          const isDelay = line.deltaDays > 0
-                          const isAdvance = line.deltaDays < 0
-                          const isOnTime = line.deltaDays === 0
-
-                          return (
-                            <tr
-                              key={`${line.orderNum}-${line.orderLine}-${line.orderSeq}-${idx}`}
-                              className="transition-colors hover:bg-surface-hover"
-                            >
-                              <td className="px-3 py-2 font-semibold text-foreground whitespace-nowrap">
-                                {line.orderNum}
-                                {line.orderLine > 0 && (
-                                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                                    /{line.orderLine}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 text-muted-foreground whitespace-nowrap font-sans">
-                                {formatDateFr(line.dateDemandee) || '—'}
-                              </td>
-                              <td className="px-3 py-2 text-muted-foreground whitespace-nowrap font-sans">
-                                {formatDateFr(line.dateAcceptee) || '—'}
-                              </td>
-                              <td className="px-3 py-2 font-sans text-foreground">
-                                <div className="font-semibold text-xs truncate max-w-[200px]">
-                                  {line.clientName || line.clientCode}
-                                </div>
-                                {line.clientName && line.clientCode && (
-                                  <div className="font-mono text-[10px] text-muted-foreground">
-                                    {line.clientCode}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 font-bold text-foreground whitespace-nowrap">
-                                {line.article}
-                              </td>
-                              <td
-                                className="max-w-[220px] truncate px-3 py-2 font-sans text-muted-foreground text-xs"
-                                title={line.designation}
+                      </thead>
+                      <tbody className="divide-y divide-rule font-mono text-[11px]">
+                        {data.products.map((prod) => (
+                          <tr
+                            key={prod.code}
+                            className="transition-colors hover:bg-surface-hover cursor-pointer"
+                            onClick={() => {
+                              setSelectedProduct(prod.code)
+                              setActiveTab('commandes')
+                            }}
+                          >
+                            <td className="px-4 py-2.5 font-bold text-foreground">{prod.code}</td>
+                            <td className="px-4 py-2.5 font-sans text-muted-foreground truncate max-w-[320px]">
+                              {prod.name}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-bold text-foreground">
+                              {prod.quantity.toLocaleString('fr-FR')}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-muted-foreground">
+                              {prod.sharePct}%
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-muted-foreground">
+                              {prod.nbOrders}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedProduct(prod.code)
+                                  setActiveTab('commandes')
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-brand hover:underline"
                               >
-                                {line.designation || '—'}
-                              </td>
-                              <td className="px-3 py-2 text-right font-bold text-foreground whitespace-nowrap">
-                                {line.quantity.toLocaleString('fr-FR')}
-                              </td>
-                              <td className="px-3 py-2 text-center whitespace-nowrap">
-                                {line.dateDemandee && line.dateAcceptee ? (
-                                  isOnTime ? (
-                                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                      Conforme
-                                    </span>
-                                  ) : isDelay ? (
-                                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                                      +{line.deltaDays}j
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-                                      {line.deltaDays}j
-                                    </span>
-                                  )
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
+                                <span>Voir commandes</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                /* Vue Commandes clientes */
+                <>
+                  {/* Sélecteur rapide d'article PF */}
+                  {data.products.length > 1 && (
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        Filtrer par référence produit fini
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProduct('ALL')}
+                          className={cn(
+                            'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+                            selectedProduct === 'ALL'
+                              ? 'border-brand bg-brand/10 font-bold text-brand'
+                              : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
+                          )}
+                        >
+                          Toutes ({data.products.length})
+                        </button>
+                        {data.products.map((p) => (
+                          <button
+                            key={p.code}
+                            type="button"
+                            onClick={() =>
+                              setSelectedProduct(selectedProduct === p.code ? 'ALL' : p.code)
+                            }
+                            className={cn(
+                              'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors font-mono',
+                              selectedProduct === p.code
+                                ? 'border-brand bg-brand/10 font-bold text-brand'
+                                : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
+                            )}
+                            title={`${p.name} · ${p.quantity.toLocaleString('fr-FR')} pcs (${p.sharePct}%)`}
+                          >
+                            <span>{p.code}</span>
+                            <span className="ml-1.5 text-[10px] opacity-70">
+                              {p.quantity.toLocaleString('fr-FR')} pcs
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lignes de commandes X3 */}
+                  <div className="rounded-xl border border-rule bg-card shadow-xs">
+                    <div className="flex flex-col gap-2 border-b border-rule p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Lignes de commandes clients ({filteredLines.length})
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Détail issu des tables SORDERQ et SORDER pour les produits finis assemblés
+                          sur {data.poste}
+                        </p>
+                      </div>
+
+                      <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Filtrer commande, client, article..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="h-8 w-full rounded-md border border-rule bg-surface-base pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[760px] w-full text-left text-xs">
+                        <thead className="border-b border-rule bg-surface-muted text-[11px] font-semibold text-muted-foreground">
+                          <tr>
+                            <th className="w-28 px-3 py-2.5 whitespace-nowrap">N° Commande</th>
+                            <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date demandée</th>
+                            <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date acceptée</th>
+                            <th className="min-w-[160px] px-3 py-2.5">Client</th>
+                            <th className="w-32 px-3 py-2.5 whitespace-nowrap">Article PF</th>
+                            <th className="min-w-[180px] px-3 py-2.5">Désignation</th>
+                            <th className="w-20 px-3 py-2.5 text-right whitespace-nowrap">
+                              Quantité
+                            </th>
+                            <th className="w-24 px-3 py-2.5 text-center whitespace-nowrap">
+                              Écart OTD
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-rule font-mono text-[11px]">
+                          {filteredLines.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={8}
+                                className="px-4 py-8 text-center text-xs text-muted-foreground"
+                              >
+                                Aucune ligne de commande trouvée pour cette sélection.
                               </td>
                             </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                          ) : (
+                            filteredLines.map((line, idx) => {
+                              const isDelay = line.deltaDays > 0
+                              const isAdvance = line.deltaDays < 0
+                              const isOnTime = line.deltaDays === 0
+
+                              return (
+                                <tr
+                                  key={`${line.orderNum}-${line.orderLine}-${line.orderSeq}-${idx}`}
+                                  className="transition-colors hover:bg-surface-hover"
+                                >
+                                  <td className="px-3 py-2 font-semibold text-foreground whitespace-nowrap">
+                                    {line.orderNum}
+                                    {line.orderLine > 0 && (
+                                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                                        /{line.orderLine}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap font-sans">
+                                    {formatDateFr(line.dateDemandee) || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap font-sans">
+                                    {formatDateFr(line.dateAcceptee) || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 font-sans text-foreground">
+                                    <div className="font-semibold text-xs truncate max-w-[200px]">
+                                      {line.clientName || line.clientCode}
+                                    </div>
+                                    {line.clientName && line.clientCode && (
+                                      <div className="font-mono text-[10px] text-muted-foreground">
+                                        {line.clientCode}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 font-bold text-foreground whitespace-nowrap">
+                                    {line.article}
+                                  </td>
+                                  <td
+                                    className="max-w-[220px] truncate px-3 py-2 font-sans text-muted-foreground text-xs"
+                                    title={line.designation}
+                                  >
+                                    {line.designation || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-bold text-foreground whitespace-nowrap">
+                                    {line.quantity.toLocaleString('fr-FR')}
+                                  </td>
+                                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                                    {line.dateDemandee && line.dateAcceptee ? (
+                                      isOnTime ? (
+                                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                          Conforme
+                                        </span>
+                                      ) : isDelay ? (
+                                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                          +{line.deltaDays}j
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                                          {line.deltaDays}j
+                                        </span>
+                                      )
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
