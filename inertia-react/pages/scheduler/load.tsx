@@ -385,16 +385,37 @@ export default function Load(props: LoadPageProps) {
     viewNet,
   ])
 
+  /**
+   * Pertinence d'un poste pour la recherche — plus petit = plus pertinent,
+   * `null` = hors résultat. Les articles produits sont cherchables (recherche
+   * client), mais un « 830 » trouvé dans une référence article d'un autre poste
+   * ne doit pas passer devant le poste PP_830 : le code prime, puis le libellé,
+   * puis les articles. Dans le code, un segment entier (`830` dans `PP_830`)
+   * bat une simple sous-chaîne.
+   */
+  const searchRank = useCallback((l: LoadLine, q: string): number | null => {
+    const code = l.code.toLowerCase()
+    if (code === q) return 0
+    if (code.split(/[^a-z0-9]+/).includes(q)) return 1
+    if (code.startsWith(q)) return 2
+    if (code.includes(q)) return 3
+    if (l.name.toLowerCase().includes(q)) return 4
+    if (l.articles.some((a) => a.toLowerCase().includes(q))) return 5
+    return null
+  }, [])
+
   const filteredLines = useMemo(() => {
     const q = query.trim().toLowerCase()
     const ats = atelierFilter
-    return lines.filter((l) => {
-      if (ats.size && !ats.has(l.atelier)) return false
-      if (q && !`${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q))
-        return false
-      return true
-    })
-  }, [lines, query, atelierFilter])
+    const scoped = ats.size ? lines.filter((l) => ats.has(l.atelier)) : lines
+    if (!q) return scoped
+    // Tri stable : à pertinence égale, l'ordre de la page est conservé.
+    return scoped
+      .map((l) => ({ l, r: searchRank(l, q) }))
+      .filter((x): x is { l: LoadLine; r: number } => x.r !== null)
+      .sort((a, b) => a.r - b.r)
+      .map((x) => x.l)
+  }, [lines, query, atelierFilter, searchRank])
 
   // Valeur toujours présente dans le <select>, y compris pendant le rendu
   // intermédiaire où un filtre vient de retirer le poste sélectionné.
@@ -446,6 +467,18 @@ export default function Load(props: LoadPageProps) {
     exportBuckets,
   ])
   const canExport = filteredLines.length > 0 && exportBuckets.length > 0
+
+  // Chaque frappe dans la recherche sélectionne le MEILLEUR résultat : sans
+  // ça, un poste déjà sélectionné qui matche encore (par un de ses articles)
+  // restait affiché alors que le poste cherché venait de passer en tête.
+  // Seulement au changement de la saisie — un rechargement des données ne
+  // doit pas voler la sélection faite ensuite à la main.
+  const lastQueryRef = useRef(query)
+  useEffect(() => {
+    if (lastQueryRef.current === query) return
+    lastQueryRef.current = query
+    if (query.trim() && filteredLines[0]) setSelected(filteredLines[0].code)
+  }, [query, filteredLines])
 
   // Si la sélection sort du filtre, bascule sur le premier poste visible.
   useEffect(() => {
