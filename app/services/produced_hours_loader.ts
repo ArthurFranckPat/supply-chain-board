@@ -4,6 +4,52 @@ import {
   X3ProducedHoursRepository,
   type PosteTrackingDetail,
 } from '#repositories/produced_hours_repository'
+import {
+  X3OrderedQuantitiesRepository,
+  type OrderDateMode,
+} from '#repositories/ordered_quantities_repository'
+import { buildPosteNatureByWorkstation } from '#app/domain/atelier'
+
+export type { OrderDateMode }
+
+export interface OrderedProductItem {
+  code: string
+  name: string
+  category: string
+  quantity: number
+  nbOrders: number
+  timeline: { date: string; qty: number }[]
+}
+
+export interface WorkstationOrderedCard {
+  poste: string
+  name: string
+  atelier: string
+  workCenter: string
+  wstType: number
+  totalQuantity: number
+  nbProducts: number
+  nbOrders: number
+  products: OrderedProductItem[]
+  timeline: { date: string; qty: number }[]
+}
+
+export interface ProducedOrdersKPIs {
+  totalQuantity: number
+  totalProducts: number
+  totalOrders: number
+  activeWorkstationsCount: number
+  totalWorkstationsCount: number
+}
+
+export interface ProducedOrdersPayload {
+  from: string
+  to: string
+  dateMode: OrderDateMode
+  kpis: ProducedOrdersKPIs
+  workstations: WorkstationOrderedCard[]
+  ateliers: string[]
+}
 
 export interface WorkstationProducedCard {
   poste: string
@@ -350,6 +396,192 @@ export class ProducedHoursLoader {
       },
       timeline,
       trackings,
+    }
+  }
+
+  /**
+   * Charge le jeu de données de la vision commandes (quantités commandées par produit fini et ligne de production).
+   * Périmètre strict :
+   * - Niveau 0 de nomenclature (produits finis `PF*` uniquement, sans explosion de nomenclature).
+   * - Postes d'assemblages finaux uniquement (`assemblage_pf`, PP_XXX, ateliers S3P, S4P, S9P, CLP).
+   * - Filtrage sur date demandée ou date acceptée (conforme au KPI OTD).
+   */
+  async loadOrdersPayload(
+    from: string,
+    to: string,
+    dateMode: OrderDateMode = 'demandee'
+  ): Promise<ProducedOrdersPayload> {
+    const ordersRepo = new X3OrderedQuantitiesRepository()
+    const [wstRefList, gammes, staticArticles, rawOrders] = await Promise.all([
+      staticSync.readWorkstations().catch(() => []),
+      staticSync.readGammes().catch(() => []),
+      staticSync.readArticles().catch(() => []),
+      ordersRepo.getOrderedQuantities(from, to, dateMode),
+    ])
+
+    // Dictionnaire des catégories et désignations d'articles
+    const catMap = new Map<string, string>()
+    const descMap = new Map<string, string>()
+    for (const a of staticArticles) {
+      const code = a.code.trim().toUpperCase()
+      catMap.set(code, (a.category ?? '').trim().toUpperCase())
+      descMap.set(code, (a.description ?? '').trim())
+    }
+
+    // Dictionnaire des libellés de postes issus des gammes (ATEXTRA / WSTDESAXX en français)
+    const wstLabels = new Map<string, string>()
+    for (const g of gammes) {
+      if (g.workstation && g.workstationLabel) {
+        const k = g.workstation.trim().toUpperCase()
+        if (!wstLabels.has(k)) {
+          wstLabels.set(k, g.workstationLabel.trim())
+        }
+      }
+    }
+
+    // Classification de la nature des postes (assemblage_pf vs assemble_sous_ensemble vs autre)
+    const natureMap = buildPosteNatureByWorkstation(gammes, catMap)
+
+    // Dictionnaire des postes statiques
+    const wstMap = new Map(wstRefList.map((w) => [w.code.trim().toUpperCase(), w]))
+
+    // Association de chaque article à sa ligne de production (1ère opération de gamme)
+    const ligneByArticle = new Map<string, string>()
+    for (const g of gammes) {
+      const art = g.article.trim().toUpperCase()
+      if (!ligneByArticle.has(art)) {
+        ligneByArticle.set(art, g.workstation.trim().toUpperCase())
+      }
+    }
+
+    // Postes d'assemblage final éligibles dans le référentiel statique
+    const eligibleFinalAssemblyWst = wstRefList.filter((w) => {
+      const code = w.code?.trim().toUpperCase() || ''
+      const stoloc = w.stockLocation?.trim().toUpperCase() || ''
+      const nature = natureMap.get(code)
+      return PP_XXX_REGEX.test(code) && ALLOWED_ATELIERS.has(stoloc) && nature === 'assemblage_pf'
+    })
+
+    // Regroupement des lignes de commandes par article et par poste
+    // Structure: poste -> article -> { qty, nbOrders, timeline: Map<date, qty> }
+    const ordersByWstAndArticle = new Map<
+      string,
+      Map<string, { qty: number; nbOrders: number; timeline: Map<string, number> }>
+    >()
+
+    for (const row of rawOrders) {
+      const artCode = row.article.trim().toUpperCase()
+      const cat = catMap.get(artCode) || ''
+      // Niveau 0 de nomenclature : uniquement les produits finis (PF)
+      if (!cat.startsWith('PF')) continue
+
+      const wstCode = ligneByArticle.get(artCode)
+      if (!wstCode) continue
+
+      // Doit être un poste d'assemblage final (assemblage_pf)
+      const nature = natureMap.get(wstCode)
+      if (nature !== 'assemblage_pf') continue
+
+      // Filtre atelier et regex poste
+      if (!PP_XXX_REGEX.test(wstCode)) continue
+      const meta = wstMap.get(wstCode)
+      const stoloc = meta?.stockLocation?.trim().toUpperCase() || ''
+      if (!ALLOWED_ATELIERS.has(stoloc)) continue
+
+      if (!ordersByWstAndArticle.has(wstCode)) {
+        ordersByWstAndArticle.set(wstCode, new Map())
+      }
+      const artMap = ordersByWstAndArticle.get(wstCode)!
+      if (!artMap.has(artCode)) {
+        artMap.set(artCode, { qty: 0, nbOrders: 0, timeline: new Map() })
+      }
+      const item = artMap.get(artCode)!
+      item.qty += row.quantity
+      item.nbOrders += row.nbOrders
+      item.timeline.set(row.date, (item.timeline.get(row.date) || 0) + row.quantity)
+    }
+
+    // Construction des cartes postes
+    const workstations: WorkstationOrderedCard[] = []
+    let totalAllQty = 0
+    let totalAllOrders = 0
+    const allProductsSet = new Set<string>()
+
+    for (const [wstCode, artMap] of ordersByWstAndArticle) {
+      const meta = wstMap.get(wstCode)
+      const atelier = meta?.stockLocation?.trim().toUpperCase() || 'AUTRE'
+      const label = wstLabels.get(wstCode) || meta?.description || wstCode
+
+      const products: OrderedProductItem[] = []
+      let wstTotQty = 0
+      let wstTotOrders = 0
+      const wstDailyMap = new Map<string, number>()
+
+      for (const [artCode, data] of artMap) {
+        wstTotQty += data.qty
+        wstTotOrders += data.nbOrders
+        allProductsSet.add(artCode)
+
+        for (const [d, q] of data.timeline) {
+          wstDailyMap.set(d, (wstDailyMap.get(d) || 0) + q)
+        }
+
+        const productTimeline = Array.from(data.timeline.entries())
+          .map(([date, qty]) => ({ date, qty: Math.round(qty * 100) / 100 }))
+          .sort((a, b) => a.date.localeCompare(b.date))
+
+        products.push({
+          code: artCode,
+          name: descMap.get(artCode) || artCode,
+          category: catMap.get(artCode) || 'PF',
+          quantity: Math.round(data.qty * 100) / 100,
+          nbOrders: data.nbOrders,
+          timeline: productTimeline,
+        })
+      }
+
+      // Trier les produits par quantité décroissante
+      products.sort((a, b) => b.quantity - a.quantity)
+
+      const wstTimeline = Array.from(wstDailyMap.entries())
+        .map(([date, qty]) => ({ date, qty: Math.round(qty * 100) / 100 }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+
+      totalAllQty += wstTotQty
+      totalAllOrders += wstTotOrders
+
+      workstations.push({
+        poste: wstCode,
+        name: label,
+        atelier,
+        workCenter: meta?.workCenter || '',
+        wstType: meta?.type ?? 1,
+        totalQuantity: Math.round(wstTotQty * 100) / 100,
+        nbProducts: products.length,
+        nbOrders: wstTotOrders,
+        products,
+        timeline: wstTimeline,
+      })
+    }
+
+    // Trier les postes par quantité totale commandée décroissante
+    workstations.sort((a, b) => b.totalQuantity - a.totalQuantity)
+
+    const kpis: ProducedOrdersKPIs = {
+      totalQuantity: Math.round(totalAllQty * 100) / 100,
+      totalProducts: allProductsSet.size,
+      totalOrders: totalAllOrders,
+      activeWorkstationsCount: workstations.length,
+      totalWorkstationsCount: eligibleFinalAssemblyWst.length,
+    }
+
+    return {
+      from,
+      to,
+      dateMode,
+      kpis,
+      workstations,
+      ateliers: Array.from(ALLOWED_ATELIERS).sort(),
     }
   }
 }

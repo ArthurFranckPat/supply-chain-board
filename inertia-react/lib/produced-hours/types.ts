@@ -107,3 +107,44 @@ export function formatDateFr(dateStr?: string | null): string {
   }
   return dateStr
 }
+
+export type OrderDateMode = 'demandee' | 'acceptee'
+
+export interface OrderedProductItem {
+  code: string
+  name: string
+  category: string
+  quantity: number
+  nbOrders: number
+  timeline: { date: string; qty: number }[]
+}
+
+export interface WorkstationOrderedCard {
+  poste: string
+  name: string
+  atelier: string
+  workCenter: string
+  wstType: number
+  totalQuantity: number
+  nbProducts: number
+  nbOrders: number
+  products: OrderedProductItem[]
+  timeline: { date: string; qty: number }[]
+}
+
+export interface ProducedOrdersKPIs {
+  totalQuantity: number
+  totalProducts: number
+  totalOrders: number
+  activeWorkstationsCount: number
+  totalWorkstationsCount: number
+}
+
+export interface ProducedOrdersPayload {
+  from: string
+  to: string
+  dateMode: OrderDateMode
+  kpis: ProducedOrdersKPIs
+  workstations: WorkstationOrderedCard[]
+  ateliers: string[]
+}

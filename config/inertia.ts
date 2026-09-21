@@ -47,46 +47,87 @@ declare module '@adonisjs/inertia/types' {
     weekCaps: Record<string, number>
   }
 
-  type ProducedHoursPayloadProp = {
-    from: string
-    to: string
-    kpis: {
-      totalHours: number
-      totalOperationHours: number
-      totalSetupHours: number
-      totalAllocatedHours: number
-      globalDeltaHours: number
-      globalEfficiency: number
-      totalQuantity: number
-      totalRejects: number
-      rejectRate: number
-      activeWorkstationsCount: number
-      totalWorkstationsCount: number
-    }
-    workstations: {
-      poste: string
-      name: string
-      atelier: string
-      workCenter: string
-      wstType: number
-      operationHours: number
-      setupHours: number
-      totalHours: number
-      allocatedOperationHours: number
-      allocatedSetupHours: number
-      totalAllocatedHours: number
-      deltaHours: number
-      efficiency: number
-      quantity: number
-      rejectQuantity: number
-      rejectRate: number
-      nbOfs: number
-      nbTrackings: number
-      weeklyCapacity: number
-      timeline: { date: string; hours: number; allocated: number; qty: number }[]
-    }[]
-    ateliers: string[]
-  }
+  type ProducedHoursPayloadProp =
+    | {
+        initialView?: 'heures'
+        initialDateMode?: 'demandee' | 'acceptee'
+        from: string
+        to: string
+        kpis: {
+          totalHours: number
+          totalOperationHours: number
+          totalSetupHours: number
+          totalAllocatedHours: number
+          globalDeltaHours: number
+          globalEfficiency: number
+          totalQuantity: number
+          totalRejects: number
+          rejectRate: number
+          activeWorkstationsCount: number
+          totalWorkstationsCount: number
+        }
+        workstations: {
+          poste: string
+          name: string
+          atelier: string
+          workCenter: string
+          wstType: number
+          operationHours: number
+          setupHours: number
+          totalHours: number
+          allocatedOperationHours: number
+          allocatedSetupHours: number
+          totalAllocatedHours: number
+          deltaHours: number
+          efficiency: number
+          quantity: number
+          rejectQuantity: number
+          rejectRate: number
+          nbOfs: number
+          nbTrackings: number
+          weeklyCapacity: number
+          timeline: { date: string; hours: number; allocated: number; qty: number }[]
+        }[]
+        ateliers: string[]
+        hoursPayload?: any
+        ordersPayload?: any
+      }
+    | {
+        initialView: 'commandes'
+        initialDateMode: 'demandee' | 'acceptee'
+        from: string
+        to: string
+        dateMode: 'demandee' | 'acceptee'
+        kpis: {
+          totalQuantity: number
+          totalProducts: number
+          totalOrders: number
+          activeWorkstationsCount: number
+          totalWorkstationsCount: number
+        }
+        workstations: {
+          poste: string
+          name: string
+          atelier: string
+          workCenter: string
+          wstType: number
+          totalQuantity: number
+          nbProducts: number
+          nbOrders: number
+          products: {
+            code: string
+            name: string
+            category: string
+            quantity: number
+            nbOrders: number
+            timeline: { date: string; qty: number }[]
+          }[]
+          timeline: { date: string; qty: number }[]
+        }[]
+        ateliers: string[]
+        hoursPayload?: any
+        ordersPayload?: any
+      }
 
   interface InertiaPages {
     // Tableau de bord (issue #26 shell + #38 KPI). Coquille + fetch différé du KPI.

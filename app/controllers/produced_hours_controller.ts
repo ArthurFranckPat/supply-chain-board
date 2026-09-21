@@ -1,5 +1,5 @@
 import { type HttpContext } from '@adonisjs/core/http'
-import { producedHoursLoader } from '#services/produced_hours_loader'
+import { producedHoursLoader, type OrderDateMode } from '#services/produced_hours_loader'
 import { isoDay } from '#app/utils/dates'
 
 function getDefaultDateRange(): { from: string; to: string } {
@@ -13,15 +13,34 @@ function getDefaultDateRange(): { from: string; to: string } {
 
 export default class ProducedHoursController {
   /**
-   * GET /heures-produites — Page Inertia de visualisation des heures produites par poste.
+   * GET /heures-produites — Page Inertia de visualisation des heures produites ou commandes par poste.
    */
   async index(ctx: HttpContext) {
     const defaultRange = getDefaultDateRange()
     const from = (ctx.request.input('from') as string) || defaultRange.from
     const to = (ctx.request.input('to') as string) || defaultRange.to
+    const view = ((ctx.request.input('view') as string) || 'heures') as 'heures' | 'commandes'
+    const dateMode = ((ctx.request.input('dateMode') as string) || 'demandee') as OrderDateMode
 
-    const payload = await producedHoursLoader.loadPayload(from, to)
-    return ctx.inertia.render('produced_hours/index', payload)
+    if (view === 'commandes') {
+      const ordersPayload = await producedHoursLoader.loadOrdersPayload(from, to, dateMode)
+      return ctx.inertia.render('produced_hours/index', {
+        ...ordersPayload,
+        initialView: 'commandes',
+        initialDateMode: dateMode,
+        ordersPayload,
+        hoursPayload: null,
+      })
+    }
+
+    const hoursPayload = await producedHoursLoader.loadPayload(from, to)
+    return ctx.inertia.render('produced_hours/index', {
+      ...hoursPayload,
+      initialView: 'heures',
+      initialDateMode: dateMode,
+      hoursPayload,
+      ordersPayload: null,
+    })
   }
 
   /**
@@ -31,14 +50,38 @@ export default class ProducedHoursController {
     const defaultRange = getDefaultDateRange()
     const from = (request.input('from') as string) || defaultRange.from
     const to = (request.input('to') as string) || defaultRange.to
+    const view = (request.input('view') as string) || 'heures'
+    const dateMode = (request.input('dateMode') as OrderDateMode) || 'demandee'
 
     try {
+      if (view === 'commandes') {
+        const payload = await producedHoursLoader.loadOrdersPayload(from, to, dateMode)
+        return response.json(payload)
+      }
       const payload = await producedHoursLoader.loadPayload(from, to)
       return response.json(payload)
     } catch (error) {
       return response.internalServerError({
-        error:
-          error instanceof Error ? error.message : 'Erreur lors du chargement des heures produites',
+        error: error instanceof Error ? error.message : 'Erreur lors du chargement des données',
+      })
+    }
+  }
+
+  /**
+   * GET /api/v1/heures-produites/orders-summary — Données agrégées JSON des commandes.
+   */
+  async ordersSummary({ request, response }: HttpContext) {
+    const defaultRange = getDefaultDateRange()
+    const from = (request.input('from') as string) || defaultRange.from
+    const to = (request.input('to') as string) || defaultRange.to
+    const dateMode = (request.input('dateMode') as OrderDateMode) || 'demandee'
+
+    try {
+      const payload = await producedHoursLoader.loadOrdersPayload(from, to, dateMode)
+      return response.json(payload)
+    } catch (error) {
+      return response.internalServerError({
+        error: error instanceof Error ? error.message : 'Erreur lors du chargement des commandes',
       })
     }
   }

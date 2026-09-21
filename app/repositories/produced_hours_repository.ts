@@ -72,15 +72,13 @@ export class X3ProducedHoursRepository {
     const safeFrom = sanitizeDate(from, '1970-01-01')
     const safeTo = sanitizeDate(to, '2099-12-31')
 
-    const sql = `
+    const hoursSql = `
       SELECT
         CPLWST_0                                 AS POSTE,
         TO_CHAR(SUM(CPLOPETIM_0))                AS OPETIM,
         TO_CHAR(SUM(CPLSETTIM_0))                AS SETTIM,
         TO_CHAR(SUM(CPLALOPTIM_0))               AS ALOPTIM,
         TO_CHAR(SUM(CPLALSETIM_0))               AS ALSETIM,
-        TO_CHAR(SUM(CPLQTY_0))                   AS QTY,
-        TO_CHAR(SUM(REJCPLQTY_0))                AS REJQTY,
         COUNT(DISTINCT MFGNUM_0)                 AS NBOF,
         COUNT(MFGTRKNUM_0)                       AS NBTRK
       FROM MFGOPETRK
@@ -91,13 +89,40 @@ export class X3ProducedHoursRepository {
       ORDER BY CPLWST_0 ASC
     `
 
+    const qtySql = `
+      SELECT
+        w.CPLWST_0                               AS POSTE,
+        TO_CHAR(SUM(i.CPLQTY_0))                 AS QTY,
+        TO_CHAR(SUM(i.REJCPLQTY_0))              AS REJQTY
+      FROM (
+        SELECT DISTINCT CPLWST_0, MFGNUM_0
+        FROM MFGOPETRK
+        WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
+          AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
+          AND CPLWST_0 IS NOT NULL
+      ) w
+      JOIN MFGITM i ON i.MFGNUM_0 = w.MFGNUM_0
+      GROUP BY w.CPLWST_0
+    `
+
     const db = new X3Database()
     try {
-      const result = await db.raw(sql)
-      const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
+      const [hoursResult, qtyResult] = await Promise.all([db.raw(hoursSql), db.raw(qtySql)])
+      const hoursRows: RawRow[] = Array.isArray(hoursResult)
+        ? hoursResult
+        : ((hoursResult as any)?.rows ?? [])
+      const qtyRows: RawRow[] = Array.isArray(qtyResult)
+        ? qtyResult
+        : ((qtyResult as any)?.rows ?? [])
 
-      return rows
+      const qtyMap = new Map<string, { qty: number; rejQty: number }>()
+      for (const q of qtyRows) {
+        qtyMap.set(str(q.POSTE), { qty: num(q.QTY), rejQty: num(q.REJQTY) })
+      }
+
+      return hoursRows
         .map((r) => {
+          const posteKey = str(r.POSTE)
           const opeH = num(r.OPETIM)
           const setH = num(r.SETTIM)
           const totH = Math.round((opeH + setH) * 100) / 100
@@ -107,8 +132,10 @@ export class X3ProducedHoursRepository {
           const delta = Math.round((totH - totAlH) * 100) / 100
           const eff = totH > 0 ? Math.round((totAlH / totH) * 1000) / 10 : totAlH > 0 ? 100 : 100
 
+          const pieces = qtyMap.get(posteKey)
+
           return {
-            poste: str(r.POSTE),
+            poste: posteKey,
             operationHours: Math.round(opeH * 100) / 100,
             setupHours: Math.round(setH * 100) / 100,
             totalHours: totH,
@@ -117,8 +144,8 @@ export class X3ProducedHoursRepository {
             totalAllocatedHours: totAlH,
             deltaHours: delta,
             efficiency: eff,
-            quantity: num(r.QTY),
-            rejectQuantity: num(r.REJQTY),
+            quantity: pieces?.qty ?? 0,
+            rejectQuantity: pieces?.rejQty ?? 0,
             nbOfs: num(r.NBOF),
             nbTrackings: num(r.NBTRK),
           }
@@ -144,7 +171,7 @@ export class X3ProducedHoursRepository {
         ? `AND CPLWST_0 = '${posteFilter.trim()}'`
         : ''
 
-    const sql = `
+    const hoursSql = `
       SELECT
         CPLWST_0                                            AS POSTE,
         TO_CHAR(IPTDAT_0, 'YYYY-MM-DD')                     AS JOUR,
@@ -160,8 +187,7 @@ export class X3ProducedHoursRepository {
           THEN CPLOPETIM_0 + CPLSETTIM_0 
           ELSE 0 
         END))                                               AS APREM_H,
-        TO_CHAR(SUM(CPLALOPTIM_0 + CPLALSETIM_0))           AS ALLOUEES,
-        TO_CHAR(SUM(CPLQTY_0))                              AS QTY
+        TO_CHAR(SUM(CPLALOPTIM_0 + CPLALSETIM_0))           AS ALLOUEES
       FROM MFGOPETRK
       WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
         AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
@@ -171,12 +197,40 @@ export class X3ProducedHoursRepository {
       ORDER BY CPLWST_0 ASC, IPTDAT_0 ASC
     `
 
+    const qtySql = `
+      SELECT 
+        w.CPLWST_0                                          AS POSTE,
+        TO_CHAR(w.LAST_DAY, 'YYYY-MM-DD')                   AS JOUR,
+        TO_CHAR(SUM(i.CPLQTY_0))                            AS QTY
+      FROM (
+        SELECT CPLWST_0, MFGNUM_0, MAX(IPTDAT_0) AS LAST_DAY
+        FROM MFGOPETRK
+        WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
+          AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
+          AND CPLWST_0 IS NOT NULL
+          ${posteClause}
+        GROUP BY CPLWST_0, MFGNUM_0
+      ) w
+      JOIN MFGITM i ON i.MFGNUM_0 = w.MFGNUM_0
+      GROUP BY w.CPLWST_0, w.LAST_DAY
+    `
+
     const db = new X3Database()
     try {
-      const result = await db.raw(sql)
-      const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
+      const [hoursResult, qtyResult] = await Promise.all([db.raw(hoursSql), db.raw(qtySql)])
+      const hoursRows: RawRow[] = Array.isArray(hoursResult)
+        ? hoursResult
+        : ((hoursResult as any)?.rows ?? [])
+      const qtyRows: RawRow[] = Array.isArray(qtyResult)
+        ? qtyResult
+        : ((qtyResult as any)?.rows ?? [])
 
-      return rows.map((r) => {
+      const qtyMap = new Map<string, number>()
+      for (const q of qtyRows) {
+        qtyMap.set(`${str(q.POSTE)}_${str(q.JOUR)}`, num(q.QTY))
+      }
+
+      return hoursRows.map((r) => {
         const opeH = num(r.OPETIM)
         const setH = num(r.SETTIM)
         const totH = Math.round((opeH + setH) * 100) / 100
@@ -184,16 +238,20 @@ export class X3ProducedHoursRepository {
         const apremH = Math.round(num(r.APREM_H) * 100) / 100
         const alH = Math.round(num(r.ALLOUEES) * 100) / 100
 
+        const pKey = str(r.POSTE)
+        const jKey = str(r.JOUR)
+        const q = qtyMap.get(`${pKey}_${jKey}`) ?? 0
+
         return {
-          poste: str(r.POSTE),
-          date: str(r.JOUR),
+          poste: pKey,
+          date: jKey,
           operationHours: Math.round(opeH * 100) / 100,
           setupHours: Math.round(setH * 100) / 100,
           totalHours: totH,
           morningHours: matinH,
           afternoonHours: apremH,
           allocatedHours: alH,
-          quantity: num(r.QTY),
+          quantity: q,
         }
       })
     } finally {
