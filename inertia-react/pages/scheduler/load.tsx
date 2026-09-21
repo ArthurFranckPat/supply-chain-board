@@ -38,6 +38,7 @@ import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
 import { ChargePeriodSheet } from '@r/components/load/charge-period-sheet'
+import { SubAssemblyClpView } from '@r/components/load/sub-assembly-clp-view'
 import {
   Dropdown,
   DropdownItem,
@@ -162,7 +163,8 @@ function readStoredModes(): StoredModes {
       return kept.length ? (kept as string[]) : allowed
     }
     return {
-      view: p.view === 'commande' ? 'commande' : 'of',
+      view:
+        p.view === 'commande' ? 'commande' : p.view === 'sous_ensembles' ? 'sous_ensembles' : 'of',
       unit: p.unit === 'u' ? 'u' : 'h',
       qtyMode: p.qtyMode === 'brut' || p.qtyMode === 'net' ? p.qtyMode : 'reste',
       gran: p.gran === 'week' ? 'week' : 'month',
@@ -468,7 +470,8 @@ export default function Load(props: LoadPageProps) {
     filteredLines,
     exportBuckets,
   ])
-  const canExport = filteredLines.length > 0 && exportBuckets.length > 0
+  const canExport =
+    view !== 'sous_ensembles' && filteredLines.length > 0 && exportBuckets.length > 0
 
   // Chaque frappe dans la recherche sélectionne le MEILLEUR résultat : sans
   // ça, un poste déjà sélectionné qui matche encore (par un de ses articles)
@@ -1037,13 +1040,13 @@ export default function Load(props: LoadPageProps) {
    * donc l'indication de touche disparaît.
    */
 
-  /** Bascule OF ↔ Commande — posée seule dans la toolbar, regroupée dans
+  /** Bascule OF ↔ Commande ↔ Sous-ensembles CLP — posée seule dans la toolbar, regroupée dans
    *  `perimeterControls` pour le plein écran. */
   const viewSegment = (
     <Segment role="radiogroup" ariaLabel="Vue">
-      {(['of', 'commande'] as const).map((v) => (
+      {(['of', 'commande', 'sous_ensembles'] as const).map((v) => (
         <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-          {v === 'of' ? 'OF' : 'Commande'}
+          {v === 'of' ? 'OF' : v === 'commande' ? 'Commande' : 'Sous-ensembles CLP'}
         </SegmentButton>
       ))}
     </Segment>
@@ -1060,34 +1063,38 @@ export default function Load(props: LoadPageProps) {
         ) : null
       }
     >
-      <div className="flex items-center justify-between">
-        {/* La vue OF ventile par STATUT d'ordre, la vue Commande par NATURE
-              de demande : même filtre, deux vocabulaires métier. */}
-        <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
-        {segFiltered && (
-          <button
-            type="button"
-            className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
-            title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
-          >
-            ✕
-          </button>
-        )}
-      </div>
-      <Segment className="w-full flex-wrap">
-        {segOptions(view).map((o) => (
-          <SegmentButton
-            key={o.id}
-            active={activeSegs.has(o.id)}
-            onClick={() => toggleSeg(o.id)}
-            title={o.label}
-          >
-            {o.label}
-          </SegmentButton>
-        ))}
-      </Segment>
-      {view === 'commande' && (
+      {view !== 'sous_ensembles' && (
+        <>
+          <div className="flex items-center justify-between">
+            {/* La vue OF ventile par STATUT d'ordre, la vue Commande par NATURE
+                  de demande : même filtre, deux vocabulaires métier. */}
+            <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
+            {segFiltered && (
+              <button
+                type="button"
+                className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
+                title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <Segment className="w-full flex-wrap">
+            {segOptions(view).map((o) => (
+              <SegmentButton
+                key={o.id}
+                active={activeSegs.has(o.id)}
+                onClick={() => toggleSeg(o.id)}
+                title={o.label}
+              >
+                {o.label}
+              </SegmentButton>
+            ))}
+          </Segment>
+        </>
+      )}
+      {(view === 'commande' || view === 'sous_ensembles') && (
         <>
           <div className="my-2.5 border-t border-rule-soft" />
           <FilterMenuSectionLabel>Demande</FilterMenuSectionLabel>
@@ -1104,7 +1111,7 @@ export default function Load(props: LoadPageProps) {
       )}
       {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
                 Vivait dans sa propre rangée sous la toolbar : consolidé ici. */}
-      {props.ateliers.length > 0 && (
+      {view !== 'sous_ensembles' && props.ateliers.length > 0 && (
         <>
           <div className="my-2.5 border-t border-rule-soft" />
           <div className="flex items-center justify-between">
@@ -1356,7 +1363,22 @@ export default function Load(props: LoadPageProps) {
           </ToolbarRow>
         )}
 
-        {lines.length === 0 ? (
+        {view === 'sous_ensembles' ? (
+          <div className="flex min-h-0 flex-1 flex-col px-7 py-5">
+            <SubAssemblyClpView
+              groups={
+                (applyDemandHorizon ? props.seClpGroups : props.seClpGroupsWithoutDemandHorizon) ??
+                []
+              }
+              months={props.months}
+              weeks={props.weeks}
+              gran={gran}
+              unit={unit}
+              qtyMode={qtyMode}
+              query={query}
+            />
+          </div>
+        ) : lines.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
             {segFiltered
               ? `Aucune charge ${segOptions(view)

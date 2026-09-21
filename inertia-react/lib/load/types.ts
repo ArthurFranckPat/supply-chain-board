@@ -83,8 +83,8 @@ export interface AtelierOption {
   category: AtelierCategory
 }
 
-/** Vue de charge : OF (ordres) ou Commande (demande). */
-export type LoadView = 'of' | 'commande'
+/** Vue de charge : OF (ordres), Commande (demande) ou Sous-ensembles CLP. */
+export type LoadView = 'of' | 'commande' | 'sous_ensembles'
 
 /** Date utilisée pour positionner la charge d'un OF. */
 export type OfDateMode = 'start' | 'end'
@@ -110,6 +110,48 @@ export type LoadQtyMode = 'brut' | 'net' | 'reste'
  * pièces serait une fausse équation.
  */
 export type LoadUnit = 'h' | 'u'
+
+/** Séries temporelles aux 3 crans de netting (brut, net, reste à produire). */
+export interface LoadQtyBuckets {
+  brut: number[]
+  net: number[]
+  reste: number[]
+}
+
+/** Contribution d'un Produit Fini parent à un sous-ensemble (niveau 1). */
+export interface SubAssemblyPfContribution {
+  pfArticle: string
+  pfDescription: string
+  linkQuantity: number
+  monthlyQty: number[]
+  weeklyQty: number[]
+  monthlyHours: number[]
+  weeklyHours: number[]
+}
+
+/** Sous-ensemble fabriqué par un poste de l'atelier CLP. */
+export interface SubAssemblyItem {
+  article: string
+  description: string
+  stock: number
+  encours: number
+  monthlyQty: LoadQtyBuckets
+  weeklyQty: LoadQtyBuckets
+  monthlyHours: LoadQtyBuckets
+  weeklyHours: LoadQtyBuckets
+  parents: SubAssemblyPfContribution[]
+}
+
+/** Groupe de sous-ensembles par poste de charge CLP. */
+export interface SubAssemblyWorkstationGroup {
+  wst: string
+  wstLabel: string
+  monthlyHours: LoadQtyBuckets
+  weeklyHours: LoadQtyBuckets
+  monthlyQty: LoadQtyBuckets
+  weeklyQty: LoadQtyBuckets
+  items: SubAssemblyItem[]
+}
 
 export interface LoadPageProps {
   /** Libellé d'en-tête : « Juillet → Décembre 2026 · 6 mois ». */
@@ -139,6 +181,10 @@ export interface LoadPageProps {
   cmdLines: LoadLine[]
   /** Même demande sans appliquer FOH/FOHUOT, pour le filtre utilisateur. */
   cmdLinesWithoutDemandHorizon: LoadLine[]
+  /** Groupes de sous-ensembles CLP (niveau 1) par poste de charge. */
+  seClpGroups?: SubAssemblyWorkstationGroup[]
+  /** Groupes de sous-ensembles CLP sans appliquer FOH/FOHUOT. */
+  seClpGroupsWithoutDemandHorizon?: SubAssemblyWorkstationGroup[]
   /**
    * Fin de l'horizon demande X3 (FOH/FOHUOT, jour inclus, ISO) par poste :
    * étendue [from, to] sur les produits finis dont une prévision charge le

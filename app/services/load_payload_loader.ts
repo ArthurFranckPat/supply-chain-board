@@ -249,6 +249,8 @@ export interface ChargeInputs {
   avancementByOf: Map<string, OfAvancement>
   /** Catégorie article (préfixe PF / SF) — nature poste montage/fabrication. */
   categoryByArticle: Map<string, string>
+  /** Désignation de l'article, par code article. */
+  descriptions?: Map<string, string>
   demandHorizonByArticle: Map<string, { value: number; unit: number }>
   /**
    * Overrides de date de ligne de commande (`order_line_overrides`), clé
@@ -325,6 +327,7 @@ export async function fetchChargeInputs(
   let x3Error: string | null = null
 
   const categoryByArticle = new Map<string, string>()
+  const descriptions = new Map<string, string>()
   const demandHorizonByArticle = new Map<string, { value: number; unit: number }>()
   const [refR, ordR, olR, nomR, artR, ovR] = await Promise.allSettled([
     boardDataset.getReferential(force),
@@ -340,6 +343,7 @@ export async function fetchChargeInputs(
   if (artR.status === 'fulfilled') {
     for (const a of artR.value) {
       categoryByArticle.set(a.code, a.category ?? '')
+      if (a.description) descriptions.set(a.code, a.description)
       if (a.demandHorizon) demandHorizonByArticle.set(a.code, a.demandHorizon)
     }
   }
@@ -413,6 +417,7 @@ export async function fetchChargeInputs(
     bomByParent,
     avancementByOf,
     categoryByArticle,
+    descriptions,
     demandHorizonByArticle,
     lineDateOverrides,
     x3Error,
@@ -650,6 +655,284 @@ export async function getPinnedChargeInputs(version: string): Promise<PinnedChar
  */
 export type OfDateMode = 'start' | 'end'
 
+/** Séries temporelles aux 3 crans de netting (brut, net, reste à produire). */
+export interface LoadQtyBuckets {
+  brut: number[]
+  net: number[]
+  reste: number[]
+}
+
+/** Contribution d'un Produit Fini parent à un sous-ensemble (niveau 1). */
+export interface SubAssemblyPfContribution {
+  pfArticle: string
+  pfDescription: string
+  linkQuantity: number
+  monthlyQty: number[]
+  weeklyQty: number[]
+  monthlyHours: number[]
+  weeklyHours: number[]
+}
+
+/** Sous-ensemble fabriqué par un poste de l'atelier CLP. */
+export interface SubAssemblyItem {
+  article: string
+  description: string
+  stock: number
+  encours: number
+  monthlyQty: LoadQtyBuckets
+  weeklyQty: LoadQtyBuckets
+  monthlyHours: LoadQtyBuckets
+  weeklyHours: LoadQtyBuckets
+  parents: SubAssemblyPfContribution[]
+}
+
+/** Groupe de sous-ensembles par poste de charge CLP. */
+export interface SubAssemblyWorkstationGroup {
+  wst: string
+  wstLabel: string
+  monthlyHours: LoadQtyBuckets
+  weeklyHours: LoadQtyBuckets
+  monthlyQty: LoadQtyBuckets
+  weeklyQty: LoadQtyBuckets
+  items: SubAssemblyItem[]
+}
+
+/**
+ * Agrège les besoins de niveau 1 (PF => SE) fabriqués par l'atelier CLP,
+ * classés par poste de charge, avec séries mensuelles et hebdomadaires.
+ */
+export function buildSubAssemblyClpGroups(params: {
+  needs: ChargeNeed[]
+  inputs: ChargeInputs
+  wstByCode: Map<string, Workstation>
+  pinnedStock: Map<string, number>
+  encoursByArticle: Map<string, number>
+  monthStart: Date
+  horizonEnd: Date
+  calendar: { factor(w: Workstation, iso: string): number } | null
+  monthIdxByKey: Map<string, number>
+  weekIdxByKey: Map<string, number>
+  nbMonths: number
+  nbWeeks: number
+  cutWeekNumbers: (nums: number[]) => number[]
+}): SubAssemblyWorkstationGroup[] {
+  const {
+    needs,
+    inputs,
+    wstByCode,
+    pinnedStock,
+    encoursByArticle,
+    monthStart,
+    horizonEnd,
+    calendar,
+    monthIdxByKey,
+    weekIdxByKey,
+    nbMonths,
+    nbWeeks,
+    cutWeekNumbers,
+  } = params
+
+  const zeros = (len: number) => Array.from({ length: len }, () => 0)
+  const round1Dec = (x: number) => Math.round(x * 10) / 10
+
+  interface AccParent {
+    pfArticle: string
+    pfDescription: string
+    linkQuantity: number
+    monthlyQty: number[]
+    weeklyQty: number[]
+    monthlyHours: number[]
+    weeklyHours: number[]
+  }
+
+  interface AccItem {
+    article: string
+    description: string
+    stock: number
+    encours: number
+    monthlyQty: { brut: number[]; net: number[]; reste: number[] }
+    weeklyQty: { brut: number[]; net: number[]; reste: number[] }
+    monthlyHours: { brut: number[]; net: number[]; reste: number[] }
+    weeklyHours: { brut: number[]; net: number[]; reste: number[] }
+    parents: Map<string, AccParent>
+  }
+
+  const byWst = new Map<string, Map<string, AccItem>>()
+
+  for (const n of needs) {
+    if (n.depth !== 1) continue
+    const wst = wstByCode.get(n.wst)
+    if (wst?.stockLocation !== 'CLP') continue
+    if (n.date < monthStart || n.date > horizonEnd) continue
+
+    const day = chargeDay(n.wst, n.date, calendar, wstByCode, monthStart, horizonEnd)
+    const mi = monthIdxByKey.get(monthKey(day))
+    if (mi === undefined) continue
+    const wi = weekIdxByKey.get(isoDay(mondayOf(day)))
+
+    let items = byWst.get(n.wst)
+    if (!items) {
+      items = new Map()
+      byWst.set(n.wst, items)
+    }
+
+    let item = items.get(n.article)
+    if (!item) {
+      item = {
+        article: n.article,
+        description: inputs.descriptions?.get(n.article) ?? '',
+        stock: pinnedStock.get(n.article) ?? 0,
+        encours: encoursByArticle.get(n.article) ?? 0,
+        monthlyQty: { brut: zeros(nbMonths), net: zeros(nbMonths), reste: zeros(nbMonths) },
+        weeklyQty: { brut: zeros(nbWeeks), net: zeros(nbWeeks), reste: zeros(nbWeeks) },
+        monthlyHours: { brut: zeros(nbMonths), net: zeros(nbMonths), reste: zeros(nbMonths) },
+        weeklyHours: { brut: zeros(nbWeeks), net: zeros(nbWeeks), reste: zeros(nbWeeks) },
+        parents: new Map(),
+      }
+      items.set(n.article, item)
+    }
+
+    const brutH = chargeHoursWithEfficiency(n.brutHours, wst)
+    const netH = chargeHoursWithEfficiency(n.netHours, wst)
+    const resteH = chargeHoursWithEfficiency(n.resteHours, wst)
+
+    item.monthlyQty.brut[mi] += n.brutQty
+    item.monthlyQty.net[mi] += n.netQty
+    item.monthlyQty.reste[mi] += n.resteQty
+    item.monthlyHours.brut[mi] += brutH
+    item.monthlyHours.net[mi] += netH
+    item.monthlyHours.reste[mi] += resteH
+
+    if (wi !== undefined) {
+      item.weeklyQty.brut[wi] += n.brutQty
+      item.weeklyQty.net[wi] += n.netQty
+      item.weeklyQty.reste[wi] += n.resteQty
+      item.weeklyHours.brut[wi] += brutH
+      item.weeklyHours.net[wi] += netH
+      item.weeklyHours.reste[wi] += resteH
+    }
+
+    const pfArticle = n.source?.pfArticle || n.path[0] || 'Inconnu'
+    let parent = item.parents.get(pfArticle)
+    if (!parent) {
+      const bomEntries = inputs.bomByParent.get(pfArticle)
+      const bomEntry = bomEntries?.find((e) => e.componentArticle === n.article)
+      parent = {
+        pfArticle,
+        pfDescription: inputs.descriptions?.get(pfArticle) ?? bomEntry?.parentDescription ?? '',
+        linkQuantity: bomEntry?.linkQuantity ?? 1,
+        monthlyQty: zeros(nbMonths),
+        weeklyQty: zeros(nbWeeks),
+        monthlyHours: zeros(nbMonths),
+        weeklyHours: zeros(nbWeeks),
+      }
+      item.parents.set(pfArticle, parent)
+    }
+
+    parent.monthlyQty[mi] += n.brutQty
+    parent.monthlyHours[mi] += brutH
+    if (wi !== undefined) {
+      parent.weeklyQty[wi] += n.brutQty
+      parent.weeklyHours[wi] += brutH
+    }
+  }
+
+  const result: SubAssemblyWorkstationGroup[] = []
+
+  for (const [wstCode, itemsMap] of byWst.entries()) {
+    const wst = wstByCode.get(wstCode)
+    const wstLabel = inputs.wstLabels.get(wstCode) ?? wst?.description ?? wstCode
+
+    const items: SubAssemblyItem[] = []
+
+    for (const item of itemsMap.values()) {
+      const parents: SubAssemblyPfContribution[] = [...item.parents.values()]
+        .map((p) => ({
+          pfArticle: p.pfArticle,
+          pfDescription: p.pfDescription,
+          linkQuantity: p.linkQuantity,
+          monthlyQty: p.monthlyQty.map(Math.round),
+          weeklyQty: cutWeekNumbers(p.weeklyQty).map(Math.round),
+          monthlyHours: p.monthlyHours.map(round1Dec),
+          weeklyHours: cutWeekNumbers(p.weeklyHours).map(round1Dec),
+        }))
+        .sort((a, b) => {
+          const sumA = a.monthlyQty.reduce((s, x) => s + x, 0)
+          const sumB = b.monthlyQty.reduce((s, x) => s + x, 0)
+          return sumB - sumA
+        })
+
+      items.push({
+        article: item.article,
+        description: item.description,
+        stock: item.stock,
+        encours: item.encours,
+        monthlyQty: {
+          brut: item.monthlyQty.brut.map(Math.round),
+          net: item.monthlyQty.net.map(Math.round),
+          reste: item.monthlyQty.reste.map(Math.round),
+        },
+        weeklyQty: {
+          brut: cutWeekNumbers(item.weeklyQty.brut).map(Math.round),
+          net: cutWeekNumbers(item.weeklyQty.net).map(Math.round),
+          reste: cutWeekNumbers(item.weeklyQty.reste).map(Math.round),
+        },
+        monthlyHours: {
+          brut: item.monthlyHours.brut.map(round1Dec),
+          net: item.monthlyHours.net.map(round1Dec),
+          reste: item.monthlyHours.reste.map(round1Dec),
+        },
+        weeklyHours: {
+          brut: cutWeekNumbers(item.weeklyHours.brut).map(round1Dec),
+          net: cutWeekNumbers(item.weeklyHours.net).map(round1Dec),
+          reste: cutWeekNumbers(item.weeklyHours.reste).map(round1Dec),
+        },
+        parents,
+      })
+    }
+
+    items.sort((a, b) => a.article.localeCompare(b.article))
+
+    const sumBuckets = (
+      getBuckets: (it: SubAssemblyItem) => LoadQtyBuckets,
+      len: number,
+      isHours: boolean
+    ): LoadQtyBuckets => {
+      const brut = zeros(len)
+      const net = zeros(len)
+      const reste = zeros(len)
+      for (const it of items) {
+        const b = getBuckets(it)
+        for (let i = 0; i < len; i++) {
+          brut[i] += b.brut[i] ?? 0
+          net[i] += b.net[i] ?? 0
+          reste[i] += b.reste[i] ?? 0
+        }
+      }
+      const roundFn = isHours ? round1Dec : Math.round
+      return {
+        brut: brut.map(roundFn),
+        net: net.map(roundFn),
+        reste: reste.map(roundFn),
+      }
+    }
+
+    const cutWeeksLen = items[0]?.weeklyQty.brut.length ?? 0
+
+    result.push({
+      wst: wstCode,
+      wstLabel,
+      monthlyHours: sumBuckets((it) => it.monthlyHours, nbMonths, true),
+      weeklyHours: sumBuckets((it) => it.weeklyHours, cutWeeksLen, true),
+      monthlyQty: sumBuckets((it) => it.monthlyQty, nbMonths, false),
+      weeklyQty: sumBuckets((it) => it.weeklyQty, cutWeeksLen, false),
+      items,
+    })
+  }
+
+  return result.sort((a, b) => a.wst.localeCompare(b.wst))
+}
+
 /** Date de rattachement d'un OF, avec repli au début si X3 ne fournit pas la fin. */
 export function ofDateForMode(
   mo: Pick<ManufacturingOrder, 'startDate' | 'endDate'>,
@@ -669,20 +952,9 @@ export async function loadChargePayloadData(params: {
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  // `s11` = schéma courant du payload (s10 : `demandHorizonByPoste`, s11 : barre Retard) ; le suffixe rend une entrée Redis issue
-  // par l'ancienne version inatteignable après déploiement.
-  // Les versions précédentes portaient les séries en PIÈCES
-  // (`monthlyQty`…) : sans ce jeton, une entrée écrite par la version précédente
-  // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
-  // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
-  // inatteignable au lieu de compter sur l'expiration.
-  //
-  // `ov…` : empreinte des overrides de date de ligne, qui datent désormais la
-  // demande de ce payload. Une clé qui ne les reflète pas servirait le graphe
-  // d'AVANT le déplacement pendant tout le TTL + la grâce — la proposition de
-  // lissage serait invisible sur l'écran qui la motive.
+  // `s12` = schéma courant du payload (s11 : barre Retard, s12 : vision sous-ensembles CLP).
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `payload:charge:s11:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
+  const cacheKey = `payload:charge:s12:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -1017,6 +1289,46 @@ export async function loadChargePayloadData(params: {
       }
       const [ofRows, cmdRows, cmdRowsWithoutDemandHorizon] =
         pastCount === 0 ? allLines : allLines.map((set) => set.map(trimLine))
+
+      const cutWeekNumbers = (nums: number[]): number[] => {
+        if (pastCount === 0) return nums
+        return retard
+          ? [nums.slice(0, pastCount).reduce((a, b) => a + b, 0), ...nums.slice(pastCount)]
+          : nums.slice(pastCount)
+      }
+
+      const seClpGroups = buildSubAssemblyClpGroups({
+        needs: chargeNeeds,
+        inputs,
+        wstByCode,
+        pinnedStock,
+        encoursByArticle: buildEncoursByArticle(inputs),
+        monthStart,
+        horizonEnd,
+        calendar,
+        monthIdxByKey,
+        weekIdxByKey,
+        nbMonths: monthBuckets.length,
+        nbWeeks: weekBuckets.length,
+        cutWeekNumbers,
+      })
+
+      const seClpGroupsWithoutDemandHorizon = buildSubAssemblyClpGroups({
+        needs: chargeNeedsWithoutDemandHorizon,
+        inputs,
+        wstByCode,
+        pinnedStock,
+        encoursByArticle: buildEncoursByArticle(inputs),
+        monthStart,
+        horizonEnd,
+        calendar,
+        monthIdxByKey,
+        weekIdxByKey,
+        nbMonths: monthBuckets.length,
+        nbWeeks: weekBuckets.length,
+        cutWeekNumbers,
+      })
+
       const weekRows = [
         ...(retard
           ? [
@@ -1055,6 +1367,8 @@ export async function loadChargePayloadData(params: {
         ofLines: ofRows,
         cmdLines: cmdRows,
         cmdLinesWithoutDemandHorizon: cmdRowsWithoutDemandHorizon,
+        seClpGroups,
+        seClpGroupsWithoutDemandHorizon,
         demandHorizonByPoste,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
         // D9 : ce que le plafond depth-4 a coupé, pour que la disparition soit
