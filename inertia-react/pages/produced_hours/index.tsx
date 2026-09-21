@@ -65,7 +65,13 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
     initialProps.from || formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   )
   const [to, setTo] = useState(initialProps.to || formatDate(new Date()))
-  const [search, setSearch] = useState('')
+  // `?poste=` : arrivée depuis /charge (lien « réalisé ») — la page s'ouvre
+  // filtrée sur ce poste.
+  const [search, setSearch] = useState(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (new URLSearchParams(window.location.search).get('poste') ?? '')
+  )
   const [selectedAtelier, setSelectedAtelier] = useState<string>('ALL')
   const [selectedPoste, setSelectedPoste] = useState<string | null>(null)
   const [selectedOrderPoste, setSelectedOrderPoste] = useState<string | null>(null)

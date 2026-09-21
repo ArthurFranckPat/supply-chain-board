@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { router } from '@inertiajs/react'
+import { Link, router } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
 import {
   TriangleAlert,
@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ArrowUpRight,
   Download,
 } from 'lucide-react'
 import AppLayout from '@r/layouts/app'
@@ -857,10 +858,12 @@ export default function Load(props: LoadPageProps) {
    * divergent.
    */
   const detailHorizon = useMemo(() => {
-    if (view !== 'commande' || !selLine) return null
+    // Maille semaine seulement : l'horizon (2-3 semaines) tiendrait dans la
+    // première barre mensuelle, où il ne se lit pas.
+    if (view !== 'commande' || gran !== 'week' || !selLine) return null
     const h = props.demandHorizonByPoste?.[selLine.code]
     if (!h) return null
-    const keys = gran === 'month' ? props.monthKeys : props.weekKeys.slice(retardOffset)
+    const keys = props.weekKeys.slice(retardOffset)
     const from = bucketPosOf(h.from, keys, gran)
     const to = bucketPosOf(h.to, keys, gran)
     if (from === null || to === null) return null
@@ -872,15 +875,7 @@ export default function Load(props: LoadPageProps) {
     const eveIso = `${eve.getFullYear()}-${String(eve.getMonth() + 1).padStart(2, '0')}-${String(eve.getDate()).padStart(2, '0')}`
     const start = Math.min(bucketPosOf(eveIso, keys, gran) ?? 0, from)
     return { start, from, to, fromIso: h.from, toIso: h.to }
-  }, [
-    view,
-    selLine,
-    gran,
-    props.demandHorizonByPoste,
-    props.monthKeys,
-    props.weekKeys,
-    retardOffset,
-  ])
+  }, [view, selLine, gran, props.demandHorizonByPoste, props.weekKeys, retardOffset])
 
   // Détail d'une période : le clic passe la CLÉ du bucket (pas son index), pour
   // que la demande reste valide même si l'horizon a glissé entre-temps.
@@ -1478,6 +1473,17 @@ export default function Load(props: LoadPageProps) {
                     <span className="font-sans text-[14px] font-medium text-muted-foreground">
                       · {selLine.name}
                     </span>
+                    {/* Pont discret vers le réalisé : la charge dit ce qui
+                        reste à faire, /heures-produites ce qui a été fait sur
+                        le même poste. Arrive filtré sur lui. */}
+                    <Link
+                      href={`${route('heures_produites.index')}?poste=${encodeURIComponent(selLine.code)}`}
+                      title="Heures réellement produites sur ce poste"
+                      className="inline-flex items-center gap-0.5 self-center font-mono text-[10px] font-semibold tracking-wider text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                    >
+                      réalisé
+                      <ArrowUpRight size={11} strokeWidth={2} />
+                    </Link>
                   </div>
                   {selLine.atelier && (
                     <span className="rounded-full border border-rule bg-secondary px-2.5 py-1 font-mono text-[10px] font-semibold text-secondary-foreground">
