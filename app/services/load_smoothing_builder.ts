@@ -19,9 +19,8 @@
  * donc rien de plus côté demande, OF, gammes et pointages.
  *
  * ── Le cran de charge : le RESTE À PRODUIRE ─────────────────────────────────
- * Comme le plan de schéma horaire (`shift_plan_builder`), et pour la même
- * raison : on organise le travail qui reste, pas celui qui est déjà sorti de la
- * ligne sans avoir été déclaré.
+ * On organise le travail qui reste, pas celui qui est déjà sorti de la ligne
+ * sans avoir été déclaré.
  *
  * ── L'unité déplaçable : la LIGNE DE COMMANDE, entière ──────────────────────
  * Un même couple (commande, ligne) peut charger le poste plusieurs fois — le
@@ -82,8 +81,8 @@ import {
 } from '#app/domain/load_smoothing_material'
 
 /**
- * Horizon du lissage, en semaines. **Trois**, comme le plan de schéma horaire :
- * c'est l'horizon de décision donné par le métier. Une date de commande
+ * Horizon du lissage, en semaines. **Trois** : c'est l'horizon de décision donné
+ * par le métier. Une date de commande
  * renégociée pour dans six semaines aura été rejalonnée cinq fois d'ici là.
  */
 export const LISSAGE_SEMAINES = 3

@@ -5,9 +5,7 @@ import { isoDay, mondayOf } from '#app/utils/dates'
  *
  * L'horizon de la page part du 1er du mois courant, donc du lundi qui le
  * contient : jusqu'à quatre semaines DÉJÀ ÉCOULÉES ouvrent le graphe. Vides,
- * elles n'apportent rien et poussent la charge réelle vers la droite ; dans le
- * plan de schéma horaire, elles consommaient en plus tout le préavis, qui
- * proposait donc de changer d'organisation dès lundi prochain.
+ * elles n'apportent rien et poussent la charge réelle vers la droite.
  *
  * Une semaine passée qui porte ENCORE de la charge est un cas différent : OF en
  * retard, besoin non soldé, reste à produire d'une opération entamée. C'est du

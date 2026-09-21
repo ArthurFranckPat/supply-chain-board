@@ -58,13 +58,8 @@ export const SHIFTS_BY_SCHEDULE: Record<string, number> = {
 /** Index jour de la semaine, 0 = Lundi … 6 = Dimanche (aligné sur DAYCAP_0..6). */
 const dayIndex = (d: Date): number => (d.getDay() + 6) % 7
 
-/**
- * Multiplicateur de rendement (EFF × USE × (1 − SHR)), pourcentages non renseignés → neutres.
- * Exporté pour le plan de schéma horaire, qui recalcule une capacité sous un schéma
- * CANDIDAT : le rendement du poste doit y peser exactement comme ici, sinon la
- * proposition se compare à une capacité qui n'est pas celle du graphe.
- */
-export const yieldFactor = (w: Workstation): number => {
+/** Multiplicateur de rendement (EFF × USE × (1 − SHR)), pourcentages non renseignés → neutres. */
+const yieldFactor = (w: Workstation): number => {
   const eff = w.efficiency > 0 ? w.efficiency : 100
   const use = w.utilization > 0 ? w.utilization : 100
   const shr = w.scrap > 0 ? w.scrap : 0

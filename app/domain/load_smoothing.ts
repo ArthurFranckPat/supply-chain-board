@@ -3,7 +3,7 @@
  * pour rattraper le jalonnement à capacité infinie du CBN.
  *
  * Domaine pur : aucune dépendance Adonis, aucune I/O. Même maison que
- * `shift_plan.ts`, `plan_diff.ts` et `rupture_engine.ts`.
+ * `plan_diff.ts` et `rupture_engine.ts`.
  *
  * ── Le problème ─────────────────────────────────────────────────────────────
  * Le CBN de X3 jalonne à capacité infinie : il pose chaque OF sur le seul temps

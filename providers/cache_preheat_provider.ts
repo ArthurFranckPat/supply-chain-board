@@ -223,7 +223,7 @@ export default class CachePreheatProvider {
         },
       },
       {
-        // /charge — clé `charge:payload:charge:s3:<1er du mois>:<NB_MONTHS>`.
+        // /charge — clé `payload:charge:s9:<1er du mois>:<NB_MONTHS>:<ofDate>:<overrides>`.
         label: 'payload /charge',
         warm: false,
         run: async () => {

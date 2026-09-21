@@ -47,7 +47,6 @@ import {
 } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
 import { isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
-import { buildShiftPlans } from '#services/shift_plan_builder'
 import { firstVisibleWeek } from '#app/domain/charge_window'
 
 /**
@@ -658,8 +657,9 @@ export async function loadChargePayloadData(params: {
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  // `s4` = schéma du payload. Il porte le plan de schéma horaire (`shiftPlan`) ;
-  // `s3` portait les séries en PIÈCES
+  // `s9` = schéma courant du payload ; le suffixe rend une entrée Redis issue
+  // par l'ancienne version inatteignable après déploiement.
+  // Les versions précédentes portaient les séries en PIÈCES
   // (`monthlyQty`…) : sans ce jeton, une entrée écrite par la version précédente
   // serait servie après un déploiement (L2 Redis + grâce de 12 h) et la bascule
   // « Pièces » lirait des tableaux absents. Le jeton rend l'ancien schéma
@@ -670,7 +670,7 @@ export async function loadChargePayloadData(params: {
   // d'AVANT le déplacement pendant tout le TTL + la grâce — la proposition de
   // lissage serait invisible sur l'écran qui la motive.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `payload:charge:s8:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
+  const cacheKey = `payload:charge:s9:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -962,32 +962,6 @@ export async function loadChargePayloadData(params: {
         firstWeek === 0 ? allLines : allLines.map((set) => set.map(trimLine))
       const weekRows = weekBuckets.slice(firstWeek)
 
-      // ── Plan de schéma horaire (lot 1) ────────────────────────────────
-      // Planifié sur le RESTE À PRODUIRE : c'est le cran par défaut de la page,
-      // et le seul des trois qui réponde à « qu'est-ce qu'il reste à faire ? ».
-      // Une décision d'organisation ne suit pas la bascule brut/net, qui est un
-      // cran de lecture ; elle suit la vue (OF ou commande), parce que ce sont
-      // deux lectures différentes de la demande, pas deux affichages de la même.
-      const weeklyLoadOf = (lines: typeof ofLines, induced: boolean) => {
-        const m = new Map<string, number[]>()
-        for (const l of lines) {
-          m.set(
-            l.code,
-            l.weeklyReste.map((p) => p.f + p.p + p.s + (induced ? p.fi + p.si : 0))
-          )
-        }
-        return m
-      }
-      const shiftPlan = buildShiftPlans({
-        workstations,
-        calendar,
-        weekKeys: weekRows.map((w) => w.key),
-        loadByView: {
-          of: weeklyLoadOf(ofRows, false),
-          commande: weeklyLoadOf(cmdRows, true),
-        },
-      })
-
       const ateliers = new Map<string, { code: string; label: string; category: AtelierCategory }>()
       for (const l of [...ofRows, ...cmdRows, ...cmdRowsWithoutDemandHorizon]) {
         if (l.atelier && !ateliers.has(l.atelier)) {
@@ -1015,8 +989,6 @@ export async function loadChargePayloadData(params: {
         cmdLines: cmdRows,
         cmdLinesWithoutDemandHorizon: cmdRowsWithoutDemandHorizon,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
-        /** Proposition de schéma horaire par poste sur l'horizon court (lot 1). */
-        shiftPlan,
         // D9 : ce que le plafond depth-4 a coupé, pour que la disparition soit
         // lisible à l'écran au lieu d'être silencieuse.
         depthCut: {
