@@ -348,7 +348,12 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // Réservé à la maille SEMAINE en vue COMMANDE : l'unité déplaçable est la
   // ligne de commande, elle n'existe pas en vue OF ; et l'horizon de décision
   // du moteur est de trois semaines, un mois n'y entre pas.
-  const semaineOuverte = gran === 'week' && view === 'commande' ? bucketKey : null
+  // La barre « Retard » (clé `début~fin`) n'est pas une semaine : rien à y
+  // lisser, ses dates sont déjà dépassées.
+  const semaineOuverte =
+    gran === 'week' && view === 'commande' && bucketKey && !bucketKey.includes('~')
+      ? bucketKey
+      : null
   const [plan, setPlan] = useState<PlanLissagePoste | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)

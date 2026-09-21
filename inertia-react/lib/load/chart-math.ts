@@ -166,7 +166,8 @@ export const segsOf = (d: LoadPeriod): [keyof LoadPeriod, number, string][] => [
  * de slot (2,4 = 40 % dans le 3e bucket). `iso` est un jour INCLUS : la borne
  * tracée est le lendemain à minuit, fin réelle du jour.
  *
- * Clés de bucket : lundi ISO (`2026-09-21`) en hebdo, `AAAA-M` (`2026-9`) en
+ * Clés de bucket : lundi ISO (`2026-09-21`) ou intervalle Retard
+ * (`2026-08-31~2026-09-20`) en hebdo, `AAAA-M` (`2026-9`) en
  * mensuel — celles du payload. `null` si la date tombe hors de la fenêtre.
  * Calcul en jours civils (arrondi) : un passage à l'heure d'hiver ne décale
  * pas la borne d'une heure.
@@ -180,10 +181,13 @@ export function bucketPosOf(iso: string, keys: string[], gran: Gran): number | n
     let start: Date
     let end: Date
     if (gran === 'week') {
-      const k = /^(\d{4})-(\d{2})-(\d{2})/.exec(key)
+      // Barre « Retard » : clé `début~fin` (fin incluse) — sinon un lundi.
+      const k = /^(\d{4})-(\d{2})-(\d{2})(?:~(\d{4})-(\d{2})-(\d{2}))?$/.exec(key)
       if (!k) return null
       start = new Date(Number(k[1]), Number(k[2]) - 1, Number(k[3]))
-      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
+      end = k[4]
+        ? new Date(Number(k[4]), Number(k[5]) - 1, Number(k[6]) + 1)
+        : new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
     } else {
       const [y, mo] = key.split('-').map(Number)
       start = new Date(y, mo - 1, 1)

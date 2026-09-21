@@ -47,7 +47,7 @@ import {
 } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
 import { demandHorizonEnd, isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
-import { firstVisibleWeek } from '#app/domain/charge_window'
+import { retardBucketKey, weekWindow } from '#app/domain/charge_window'
 
 /**
  * Shapes émis vers la page Inertia. Miroir côté client : inertia-react/lib/load/types.ts
@@ -159,6 +159,18 @@ export function chargeBucketRange(
     const from = new Date(year, month, 1, 0, 0, 0, 0)
     const to = new Date(year, month + 1, 0, 23, 59, 59, 999)
     return { from, to, label: `${monthLabel(from)} ${year}` }
+  }
+  // Bucket « Retard » (`début~fin`, cf. `retardBucketKey`) : les semaines
+  // écoulées fondues en une barre.
+  const r = /^(\d{4})-(\d{2})-(\d{2})~(\d{4})-(\d{2})-(\d{2})$/.exec(key)
+  if (r) {
+    const from = new Date(Number(r[1]), Number(r[2]) - 1, Number(r[3]), 0, 0, 0, 0)
+    const to = new Date(Number(r[4]), Number(r[5]) - 1, Number(r[6]), 23, 59, 59, 999)
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return null
+    const next = addDays(to, 1)
+    const nd = String(next.getDate()).padStart(2, '0')
+    const nm = String(next.getMonth() + 1).padStart(2, '0')
+    return { from, to, label: `Retard · avant le ${nd}/${nm}/${next.getFullYear()}` }
   }
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key)
   if (!m) return null
@@ -657,7 +669,7 @@ export async function loadChargePayloadData(params: {
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  // `s10` = schéma courant du payload (s10 : `demandHorizonByPoste`) ; le suffixe rend une entrée Redis issue
+  // `s11` = schéma courant du payload (s10 : `demandHorizonByPoste`, s11 : barre Retard) ; le suffixe rend une entrée Redis issue
   // par l'ancienne version inatteignable après déploiement.
   // Les versions précédentes portaient les séries en PIÈCES
   // (`monthlyQty`…) : sans ce jeton, une entrée écrite par la version précédente
@@ -670,7 +682,7 @@ export async function loadChargePayloadData(params: {
   // d'AVANT le déplacement pendant tout le TTL + la grâce — la proposition de
   // lissage serait invisible sur l'écran qui la motive.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `payload:charge:s10:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
+  const cacheKey = `payload:charge:s11:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -949,12 +961,13 @@ export async function loadChargePayloadData(params: {
       lastMonth.setMonth(monthStart.getMonth() + NB_MONTHS - 1)
       const rangeLabel = `${fmtLong(monthStart)} → ${fmtLong(lastMonth)} ${lastMonth.getFullYear()} · ${NB_MONTHS} mois`
 
-      // ── Fenêtre hebdo : couper les semaines écoulées et vides ─────────
+      // ── Fenêtre hebdo : partir de la semaine courante ─────────────────
       // L'horizon part du lundi du 1er du mois : jusqu'à quatre semaines déjà
-      // passées ouvraient le graphe à zéro. On les coupe — SAUF celles qui
-      // portent encore de la charge (OF en retard, besoin non soldé), qui sont
-      // du travail à faire et non de l'histoire. Le mensuel n'est pas touché :
-      // un mois reste un mois.
+      // passées ouvraient le graphe. Elles sont coupées — et, si elles portent
+      // encore de la charge (OF en retard, besoin non soldé), fondues en UNE
+      // barre « Retard » avant la semaine courante : du travail à faire ne
+      // disparaît pas. Cf. `weekWindow`. Le mensuel n'est pas touché : un mois
+      // reste un mois.
       const allLines = [ofLines, cmdLines, cmdLinesWithoutDemandHorizon]
       const weekHasLoad = (i: number) =>
         allLines.some((set) =>
@@ -963,35 +976,58 @@ export async function loadChargePayloadData(params: {
             return !!p && p.f + p.p + p.s + p.fi + p.si > 0
           })
         )
-      const firstWeek = firstVisibleWeek(
-        weekBuckets.map((w) => w.key),
-        weekHasLoad,
-        new Date()
-      )
+      const weekKeysAll = weekBuckets.map((w) => w.key)
+      const { pastCount, retard } = weekWindow(weekKeysAll, weekHasLoad, new Date())
+      const sumPeriods = (ps: LoadPeriod[]): LoadPeriod =>
+        ps.reduce(
+          (a, p) => ({
+            f: a.f + p.f,
+            p: a.p + p.p,
+            s: a.s + p.s,
+            fi: a.fi + p.fi,
+            si: a.si + p.si,
+          }),
+          emptyPeriod()
+        )
+      // Série hebdo recoupée : [Retard ?] + semaines à partir de la courante.
+      const cutWeeks = (ps: LoadPeriod[]): LoadPeriod[] =>
+        retard ? [sumPeriods(ps.slice(0, pastCount)), ...ps.slice(pastCount)] : ps.slice(pastCount)
       // La capacité est PARTAGÉE entre les lignes des trois jeux (même objet
-      // `capacityByWst`) : la tronquer ligne par ligne la tronquerait plusieurs
-      // fois. Une seule copie par objet source.
+      // `capacityByWst`) : la recouper ligne par ligne la recouperait plusieurs
+      // fois. Une seule copie par objet source. Capacité du Retard : 0 — une
+      // capacité écoulée ne se consomme plus, aucun plafond à y comparer.
       const trimmedCaps = new Map<LoadLine['capacity'], LoadLine['capacity']>()
       const trimLine = (l: LoadLine): LoadLine => {
         let cap = trimmedCaps.get(l.capacity)
         if (!cap) {
-          cap = { monthly: l.capacity.monthly, weekly: l.capacity.weekly.slice(firstWeek) }
+          const future = l.capacity.weekly.slice(pastCount)
+          cap = { monthly: l.capacity.monthly, weekly: retard ? [0, ...future] : future }
           trimmedCaps.set(l.capacity, cap)
         }
         return {
           ...l,
-          weekly: l.weekly.slice(firstWeek),
-          weeklyNet: l.weeklyNet.slice(firstWeek),
-          weeklyReste: l.weeklyReste.slice(firstWeek),
-          weeklyQty: l.weeklyQty.slice(firstWeek),
-          weeklyNetQty: l.weeklyNetQty.slice(firstWeek),
-          weeklyResteQty: l.weeklyResteQty.slice(firstWeek),
+          weekly: cutWeeks(l.weekly),
+          weeklyNet: cutWeeks(l.weeklyNet),
+          weeklyReste: cutWeeks(l.weeklyReste),
+          weeklyQty: cutWeeks(l.weeklyQty),
+          weeklyNetQty: cutWeeks(l.weeklyNetQty),
+          weeklyResteQty: cutWeeks(l.weeklyResteQty),
           capacity: cap,
         }
       }
       const [ofRows, cmdRows, cmdRowsWithoutDemandHorizon] =
-        firstWeek === 0 ? allLines : allLines.map((set) => set.map(trimLine))
-      const weekRows = weekBuckets.slice(firstWeek)
+        pastCount === 0 ? allLines : allLines.map((set) => set.map(trimLine))
+      const weekRows = [
+        ...(retard
+          ? [
+              {
+                key: retardBucketKey(weekKeysAll[0], weekKeysAll[pastCount]),
+                label: 'Retard',
+              },
+            ]
+          : []),
+        ...weekBuckets.slice(pastCount),
+      ]
 
       const ateliers = new Map<string, { code: string; label: string; category: AtelierCategory }>()
       for (const l of [...ofRows, ...cmdRows, ...cmdRowsWithoutDemandHorizon]) {
