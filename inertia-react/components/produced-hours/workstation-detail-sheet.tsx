@@ -25,6 +25,7 @@ type TimelineGranularity = 'day' | 'week' | 'month'
 interface AggregatedPoint {
   key: string
   label: string
+  subLabel?: string
   tooltipLabel: string
   hours: number
   morningHours: number
@@ -63,15 +64,29 @@ const MONTHS_FULL_FR = [
   'Décembre',
 ]
 
-function getIsoWeekDetails(dateStr: string): { weekNum: number; year: number } {
+function getIsoWeekDetails(dateStr: string): {
+  weekNum: number
+  year: number
+  mondayFormatted: string
+} {
   const parts = dateStr.split('-').map(Number)
   const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
-  const day = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - day)
-  const year = d.getUTCFullYear()
+  const day = d.getUTCDay() || 7 // 1 = lundi, 7 = dimanche
+
+  // Lundi de la semaine
+  const monday = new Date(d)
+  monday.setUTCDate(d.getUTCDate() - (day - 1))
+  const mMonth = String(monday.getUTCMonth() + 1).padStart(2, '0')
+  const mDay = String(monday.getUTCDate()).padStart(2, '0')
+  const mondayFormatted = `${mDay}/${mMonth}`
+
+  // Jeudi pour calcul ISO 8601
+  const thursday = new Date(d)
+  thursday.setUTCDate(d.getUTCDate() + 4 - day)
+  const year = thursday.getUTCFullYear()
   const yearStart = new Date(Date.UTC(year, 0, 1))
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-  return { weekNum, year }
+  const weekNum = Math.ceil(((thursday.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return { weekNum, year, mondayFormatted }
 }
 
 interface WorkstationDetailSheetProps {
@@ -188,7 +203,7 @@ export function WorkstationDetailSheet({
     if (granularity === 'week') {
       const map = new Map<string, AggregatedPoint>()
       for (const pt of data.timeline) {
-        const { weekNum, year } = getIsoWeekDetails(pt.date)
+        const { weekNum, year, mondayFormatted } = getIsoWeekDetails(pt.date)
         const key = `${year}-W${String(weekNum).padStart(2, '0')}`
         const existing = map.get(key)
         if (existing) {
@@ -201,7 +216,8 @@ export function WorkstationDetailSheet({
           map.set(key, {
             key,
             label: `S${String(weekNum).padStart(2, '0')}`,
-            tooltipLabel: `Semaine ${weekNum} (${year})`,
+            subLabel: mondayFormatted,
+            tooltipLabel: `Semaine ${weekNum} (${year}) · sem. du ${mondayFormatted}`,
             hours: pt.hours,
             morningHours: pt.morningHours || 0,
             afternoonHours: pt.afternoonHours || 0,
@@ -261,7 +277,7 @@ export function WorkstationDetailSheet({
   const maxAggregatedHours = useMemo(() => {
     if (!aggregatedTimeline.length) return 1
     const m = Math.max(...aggregatedTimeline.map((d) => Math.max(d.hours, d.allocated)))
-    return m > 0 ? m * 1.15 : 1
+    return m > 0 ? m * 1.2 : 1
   }, [aggregatedTimeline])
 
   return (
@@ -496,7 +512,7 @@ export function WorkstationDetailSheet({
                             onMouseLeave={() => setHoveredKey(null)}
                             title={`${pt.tooltipLabel} : ${pt.hours}h réelles (Matin: ${pt.morningHours}h, Aprem: ${pt.afternoonHours}h) - Standard: ${pt.allocated}h · ${pt.qty} pcs`}
                             className={cn(
-                              'group relative flex h-full flex-1 min-w-[32px] cursor-pointer flex-col items-center justify-end transition-opacity duration-150',
+                              'group relative flex h-full flex-1 min-w-[36px] cursor-pointer flex-col items-center justify-end transition-opacity duration-150',
                               hasAnyHover && !isHovered && 'opacity-40'
                             )}
                           >
@@ -504,7 +520,7 @@ export function WorkstationDetailSheet({
                             {isHovered && (
                               <div
                                 className={cn(
-                                  'pointer-events-none absolute bottom-[124px] z-30 flex flex-col whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-100',
+                                  'pointer-events-none absolute bottom-[136px] z-30 flex flex-col whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-100',
                                   isNearLeft
                                     ? 'left-0 items-start'
                                     : isNearRight
@@ -575,69 +591,98 @@ export function WorkstationDetailSheet({
                               </div>
                             )}
 
-                            <div className="flex h-24 w-full items-end justify-center gap-1">
-                              {/* Real bar (stacked for ALL mailles: Matin / Aprem) */}
-                              <div
-                                style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
+                            {/* Bar + Heures affichées directement sur l'histogramme */}
+                            <div className="flex h-36 w-full flex-col items-center justify-end">
+                              <span
                                 className={cn(
-                                  realBarWidth,
-                                  'flex flex-col justify-end overflow-hidden rounded-t-sm transition-all',
-                                  isHovered &&
-                                    'ring-2 ring-brand ring-offset-1 ring-offset-card brightness-110'
+                                  'mb-1 font-mono text-[10px] tabular-nums whitespace-nowrap transition-all',
+                                  pt.hours > 0
+                                    ? 'font-bold text-foreground'
+                                    : 'text-muted-foreground/30 font-normal',
+                                  isHovered && 'text-brand scale-110 font-black'
                                 )}
+                                title={`${pt.hours}h réelles / ${pt.allocated}h allouées`}
                               >
-                                {/* Après-midi segment (top) */}
-                                {pt.afternoonHours > 0 && (
-                                  <div
-                                    style={{
-                                      height:
-                                        pt.morningHours > 0
-                                          ? `${Math.max(10, Math.round(afternoonRatio * 100))}%`
-                                          : '100%',
-                                    }}
-                                    className="w-full bg-brand transition-all"
-                                  />
-                                )}
-                                {/* Hairline division if both shifts are present */}
-                                {pt.afternoonHours > 0 && pt.morningHours > 0 && (
-                                  <div className="h-[1px] w-full bg-white/40" />
-                                )}
-                                {/* Matin segment (bottom) */}
-                                {pt.morningHours > 0 && (
-                                  <div
-                                    style={{
-                                      height:
-                                        pt.afternoonHours > 0
-                                          ? `${Math.max(10, Math.round(morningRatio * 100))}%`
-                                          : '100%',
-                                    }}
-                                    className="w-full bg-amber-400 transition-all"
-                                  />
-                                )}
-                                {pt.morningHours === 0 && pt.afternoonHours === 0 && (
-                                  <div className="size-full bg-brand" />
-                                )}
-                              </div>
+                                {pt.hours > 0
+                                  ? `${pt.hours.toLocaleString('fr-FR', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 1,
+                                    })}h`
+                                  : '0h'}
+                              </span>
 
-                              {/* Alloc bar */}
-                              <div
-                                style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
-                                className={cn(
-                                  allocBarWidth,
-                                  'rounded-t-xs bg-slate-300 transition-all',
-                                  isHovered && 'brightness-95'
-                                )}
-                              />
+                              <div className="flex h-full w-full items-end justify-center gap-1">
+                                {/* Real bar (stacked for ALL mailles: Matin / Aprem) */}
+                                <div
+                                  style={{ height: `${Math.max(4, Math.round(hReal))}%` }}
+                                  className={cn(
+                                    realBarWidth,
+                                    'flex flex-col justify-end overflow-hidden rounded-t-sm transition-all',
+                                    isHovered &&
+                                      'ring-2 ring-brand ring-offset-1 ring-offset-card brightness-110'
+                                  )}
+                                >
+                                  {/* Après-midi segment (top) */}
+                                  {pt.afternoonHours > 0 && (
+                                    <div
+                                      style={{
+                                        height:
+                                          pt.morningHours > 0
+                                            ? `${Math.max(10, Math.round(afternoonRatio * 100))}%`
+                                            : '100%',
+                                      }}
+                                      className="w-full bg-brand transition-all"
+                                    />
+                                  )}
+                                  {/* Hairline division if both shifts are present */}
+                                  {pt.afternoonHours > 0 && pt.morningHours > 0 && (
+                                    <div className="h-[1px] w-full bg-white/40" />
+                                  )}
+                                  {/* Matin segment (bottom) */}
+                                  {pt.morningHours > 0 && (
+                                    <div
+                                      style={{
+                                        height:
+                                          pt.afternoonHours > 0
+                                            ? `${Math.max(10, Math.round(morningRatio * 100))}%`
+                                            : '100%',
+                                      }}
+                                      className="w-full bg-amber-400 transition-all"
+                                    />
+                                  )}
+                                  {pt.morningHours === 0 && pt.afternoonHours === 0 && (
+                                    <div className="size-full bg-brand" />
+                                  )}
+                                </div>
+
+                                {/* Alloc bar */}
+                                <div
+                                  style={{ height: `${Math.max(4, Math.round(hAlloc))}%` }}
+                                  className={cn(
+                                    allocBarWidth,
+                                    'rounded-t-xs bg-slate-300 transition-all',
+                                    isHovered && 'brightness-95'
+                                  )}
+                                />
+                              </div>
                             </div>
 
-                            <span
-                              className={cn(
-                                'mt-1.5 font-mono text-[9px] whitespace-nowrap transition-colors',
-                                isHovered ? 'font-bold text-foreground' : 'text-muted-foreground'
+                            {/* Étiquette d'axe avec numéro de semaine + date de début */}
+                            <div className="mt-1.5 flex flex-col items-center leading-tight">
+                              <span
+                                className={cn(
+                                  'font-mono text-[9px] whitespace-nowrap transition-colors',
+                                  isHovered ? 'font-bold text-foreground' : 'text-muted-foreground'
+                                )}
+                              >
+                                {pt.label}
+                              </span>
+                              {pt.subLabel && (
+                                <span className="font-mono text-[8px] text-muted-foreground/75 whitespace-nowrap">
+                                  {pt.subLabel}
+                                </span>
                               )}
-                            >
-                              {pt.label}
-                            </span>
+                            </div>
                           </div>
                         )
                       })}

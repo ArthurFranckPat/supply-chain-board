@@ -10,8 +10,14 @@ import { join } from 'node:path'
  */
 const SIGNATURES = [/\bbin\/server\.(ts|js)\b/, /\bace\b[^\n]*\bserve\b/, /\bvite\b(?!st)(\s|$)/]
 
-/** Un build ne tient pas de serveur : il n'entre jamais en conflit de cache. */
-const NOT_A_DEV_SERVER = [/\bace\b[^\n]*\bbuild\b/, /\bvite\b[^\n]*\bbuild\b/, /\bvitest\b/]
+/** Un build ou un test ne tient pas de serveur de dev concurrent : il n'entre jamais en conflit. */
+const NOT_A_DEV_SERVER = [
+  /\bace\b[^\n]*\bbuild\b/,
+  /\bace\b[^\n]*\btest\b/,
+  /\bvite\b[^\n]*\bbuild\b/,
+  /\bvitest\b/,
+  /\bjapa\b/,
+]
 
 function sh(file, args) {
   try {
@@ -147,6 +153,13 @@ export function singleDevServer() {
     name: 'single-dev-server',
     apply: 'serve',
     async configureServer(server) {
+      if (
+        process.env.NODE_ENV === 'test' ||
+        process.env.NODE_ENV === 'testing' ||
+        process.argv.some((arg) => arg.includes('test'))
+      ) {
+        return
+      }
       await killRivalDevServers(server.config.root, server.config.cacheDir, (msg) =>
         server.config.logger.warn(msg)
       )

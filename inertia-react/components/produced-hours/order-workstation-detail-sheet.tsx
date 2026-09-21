@@ -17,6 +17,7 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
+  X,
 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Segment, SegmentButton } from '@r/components/vision/toolbar'
@@ -32,6 +33,7 @@ type TimelineGranularity = 'day' | 'week' | 'month'
 interface AggregatedOrderPoint {
   key: string
   label: string
+  subLabel?: string
   tooltipLabel: string
   qty: number
   nbOrders: number
@@ -67,15 +69,29 @@ const MONTHS_FULL_FR = [
   'Décembre',
 ]
 
-function getIsoWeekDetails(dateStr: string): { weekNum: number; year: number } {
+function getIsoWeekDetails(dateStr: string): {
+  weekNum: number
+  year: number
+  mondayFormatted: string
+} {
   const parts = dateStr.split('-').map(Number)
   const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
-  const day = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - day)
-  const year = d.getUTCFullYear()
+  const day = d.getUTCDay() || 7 // 1 = lundi, 7 = dimanche
+
+  // Lundi de la semaine
+  const monday = new Date(d)
+  monday.setUTCDate(d.getUTCDate() - (day - 1))
+  const mMonth = String(monday.getUTCMonth() + 1).padStart(2, '0')
+  const mDay = String(monday.getUTCDate()).padStart(2, '0')
+  const mondayFormatted = `${mDay}/${mMonth}`
+
+  // Jeudi pour calcul ISO 8601
+  const thursday = new Date(d)
+  thursday.setUTCDate(d.getUTCDate() + 4 - day)
+  const year = thursday.getUTCFullYear()
   const yearStart = new Date(Date.UTC(year, 0, 1))
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-  return { weekNum, year }
+  const weekNum = Math.ceil(((thursday.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return { weekNum, year, mondayFormatted }
 }
 
 interface OrderWorkstationDetailSheetProps {
@@ -171,12 +187,35 @@ export function OrderWorkstationDetailSheet({
     )
   }, [data?.lines, search, selectedProduct])
 
+  // Timeline source : si un article est filtré, on agrège ses lignes, sinon le poste complet
+  const baseTimeline = useMemo(() => {
+    if (!data) return []
+    if (selectedProduct === 'ALL') {
+      return data.timeline
+    }
+    const map = new Map<string, { date: string; qty: number; nbOrders: number }>()
+    for (const l of data.lines) {
+      if (l.article !== selectedProduct) continue
+      const rawDate = dateMode === 'acceptee' && l.dateAcceptee ? l.dateAcceptee : l.dateDemandee
+      const dateKey = rawDate ? rawDate.slice(0, 10) : ''
+      if (!dateKey) continue
+      const cur = map.get(dateKey)
+      if (cur) {
+        cur.qty += l.quantity
+        cur.nbOrders += 1
+      } else {
+        map.set(dateKey, { date: dateKey, qty: l.quantity, nbOrders: 1 })
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+  }, [data, selectedProduct, dateMode])
+
   // Agrégation de la timeline selon la granularité sélectionnée (jour / semaine / mois)
   const aggregatedTimeline = useMemo<AggregatedOrderPoint[]>(() => {
-    if (!data?.timeline?.length) return []
+    if (!baseTimeline.length) return []
 
     if (granularity === 'day') {
-      return data.timeline.map((pt) => ({
+      return baseTimeline.map((pt) => ({
         key: pt.date,
         label: formatDateFr(pt.date).slice(0, 5),
         tooltipLabel: formatDateFr(pt.date),
@@ -187,8 +226,8 @@ export function OrderWorkstationDetailSheet({
 
     if (granularity === 'week') {
       const map = new Map<string, AggregatedOrderPoint>()
-      for (const pt of data.timeline) {
-        const { weekNum, year } = getIsoWeekDetails(pt.date)
+      for (const pt of baseTimeline) {
+        const { weekNum, year, mondayFormatted } = getIsoWeekDetails(pt.date)
         const key = `${year}-W${String(weekNum).padStart(2, '0')}`
         const existing = map.get(key)
         if (existing) {
@@ -198,7 +237,8 @@ export function OrderWorkstationDetailSheet({
           map.set(key, {
             key,
             label: `S${String(weekNum).padStart(2, '0')}`,
-            tooltipLabel: `Semaine ${weekNum} (${year})`,
+            subLabel: mondayFormatted,
+            tooltipLabel: `Semaine ${weekNum} (${year}) · sem. du ${mondayFormatted}`,
             qty: pt.qty,
             nbOrders: pt.nbOrders,
           })
@@ -212,7 +252,7 @@ export function OrderWorkstationDetailSheet({
 
     // granularity === 'month'
     const map = new Map<string, AggregatedOrderPoint>()
-    for (const pt of data.timeline) {
+    for (const pt of baseTimeline) {
       const parts = pt.date.split('-').map(Number)
       const year = parts[0]
       const month = parts[1]
@@ -237,12 +277,12 @@ export function OrderWorkstationDetailSheet({
       ...p,
       qty: Math.round(p.qty * 100) / 100,
     }))
-  }, [data?.timeline, granularity])
+  }, [baseTimeline, granularity])
 
   const maxAggregatedQty = useMemo(() => {
     if (!aggregatedTimeline.length) return 1
     const m = Math.max(...aggregatedTimeline.map((d) => d.qty))
-    return m > 0 ? m * 1.15 : 1
+    return m > 0 ? m * 1.2 : 1
   }, [aggregatedTimeline])
 
   return (
@@ -353,6 +393,11 @@ export function OrderWorkstationDetailSheet({
                           : granularity === 'week'
                             ? 'hebdomadaire'
                             : 'mensuel'}
+                        {selectedProduct !== 'ALL' && (
+                          <span className="ml-1.5 font-mono text-brand normal-case font-bold">
+                            · {selectedProduct}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -394,12 +439,12 @@ export function OrderWorkstationDetailSheet({
 
                   {/* Zone de barres */}
                   <div className="w-full overflow-x-auto pb-1">
-                    <div className="relative flex h-48 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-1">
+                    <div className="relative flex h-52 min-w-full items-end justify-between gap-1.5 border-b border-rule pt-4 pb-2">
                       {aggregatedTimeline.map((pt, index) => {
                         const hBar = Math.min(100, (pt.qty / maxAggregatedQty) * 100)
                         const isFew = aggregatedTimeline.length <= 6
                         const isMid = aggregatedTimeline.length <= 14
-                        const barWidth = isFew ? 'w-8' : isMid ? 'w-5' : 'w-3.5'
+                        const barWidth = isFew ? 'w-8' : isMid ? 'w-5' : 'w-4'
 
                         const isHovered = hoveredKey === pt.key
                         const hasAnyHover = hoveredKey !== null
@@ -419,7 +464,7 @@ export function OrderWorkstationDetailSheet({
                             onMouseLeave={() => setHoveredKey(null)}
                             title={`${pt.tooltipLabel} : ${pt.qty.toLocaleString('fr-FR')} pièces (${pt.nbOrders} commandes)`}
                             className={cn(
-                              'group relative flex h-full flex-1 min-w-[32px] cursor-pointer flex-col items-center justify-end transition-opacity duration-150',
+                              'group relative flex h-full flex-1 min-w-[36px] cursor-pointer flex-col items-center justify-end transition-opacity duration-150',
                               hasAnyHover && !isHovered && 'opacity-40'
                             )}
                           >
@@ -427,7 +472,7 @@ export function OrderWorkstationDetailSheet({
                             {isHovered && (
                               <div
                                 className={cn(
-                                  'pointer-events-none absolute bottom-[110px] z-30 flex flex-col whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-100',
+                                  'pointer-events-none absolute bottom-[130px] z-30 flex flex-col whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-100',
                                   isNearLeft
                                     ? 'left-0 items-start'
                                     : isNearRight
@@ -461,10 +506,28 @@ export function OrderWorkstationDetailSheet({
                               </div>
                             )}
 
-                            {/* Bar */}
-                            <div className="flex h-24 w-full items-end justify-center">
+                            {/* Bar + Quantité affichée directement au-dessus (Histogramme lisible sans survol) */}
+                            <div className="flex h-36 w-full flex-col items-center justify-end">
+                              <span
+                                className={cn(
+                                  'mb-1 font-mono text-[10px] tabular-nums whitespace-nowrap transition-all',
+                                  pt.qty > 0
+                                    ? 'font-bold text-foreground'
+                                    : 'text-muted-foreground/30 font-normal',
+                                  isHovered && 'text-brand scale-110 font-black'
+                                )}
+                                title={`${pt.qty.toLocaleString('fr-FR')} pcs`}
+                              >
+                                {pt.qty > 0
+                                  ? pt.qty >= 100000
+                                    ? `${Math.round(pt.qty / 1000)}k`
+                                    : pt.qty >= 10000
+                                      ? `${(pt.qty / 1000).toFixed(1)}k`
+                                      : pt.qty.toLocaleString('fr-FR')
+                                  : '0'}
+                              </span>
                               <div
-                                style={{ height: `${Math.max(6, Math.round(hBar))}%` }}
+                                style={{ height: `${Math.max(4, Math.round(hBar))}%` }}
                                 className={cn(
                                   barWidth,
                                   'rounded-t-sm bg-brand transition-all',
@@ -473,14 +536,22 @@ export function OrderWorkstationDetailSheet({
                               />
                             </div>
 
-                            <span
-                              className={cn(
-                                'mt-1.5 font-mono text-[9px] whitespace-nowrap transition-colors',
-                                isHovered ? 'font-bold text-foreground' : 'text-muted-foreground'
+                            {/* Étiquette d'axe avec numéro de semaine + date de début */}
+                            <div className="mt-1.5 flex flex-col items-center leading-tight">
+                              <span
+                                className={cn(
+                                  'font-mono text-[9px] whitespace-nowrap transition-colors',
+                                  isHovered ? 'font-bold text-foreground' : 'text-muted-foreground'
+                                )}
+                              >
+                                {pt.label}
+                              </span>
+                              {pt.subLabel && (
+                                <span className="font-mono text-[8px] text-muted-foreground/75 whitespace-nowrap">
+                                  {pt.subLabel}
+                                </span>
                               )}
-                            >
-                              {pt.label}
-                            </span>
+                            </div>
                           </div>
                         )
                       })}
@@ -586,47 +657,46 @@ export function OrderWorkstationDetailSheet({
               ) : (
                 /* Vue Commandes clientes */
                 <>
-                  {/* Sélecteur rapide d'article */}
+                  {/* Sélecteur d'article (Menu déroulant compact) */}
                   {data.products.length > 1 && (
-                    <div className="space-y-1.5">
-                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Filtrer par article
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-card px-3.5 py-2.5 shadow-xs">
+                      <div className="flex items-center gap-2.5">
+                        <Package className="size-4 text-brand shrink-0" />
+                        <label
+                          htmlFor="sheet-article-select"
+                          className="text-xs font-semibold text-foreground whitespace-nowrap"
+                        >
+                          Filtrer par article :
+                        </label>
+                        <div className="relative min-w-[220px] sm:min-w-[320px]">
+                          <select
+                            id="sheet-article-select"
+                            value={selectedProduct}
+                            onChange={(e) => setSelectedProduct(e.target.value)}
+                            className="h-8 w-full rounded-lg border border-rule bg-background px-2.5 py-1 text-xs font-mono font-medium text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 cursor-pointer"
+                          >
+                            <option value="ALL">Tous les articles ({data.products.length})</option>
+                            {data.products.map((p) => (
+                              <option key={p.code} value={p.code}>
+                                {p.code} — {p.quantity.toLocaleString('fr-FR')} pcs ({p.sharePct}%)
+                                {p.name ? ` · ${p.name}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
+
+                      {selectedProduct !== 'ALL' && (
                         <button
                           type="button"
                           onClick={() => setSelectedProduct('ALL')}
-                          className={cn(
-                            'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
-                            selectedProduct === 'ALL'
-                              ? 'border-brand bg-brand/10 font-bold text-brand'
-                              : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
-                          )}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                          title="Réinitialiser le filtre article"
                         >
-                          Tous ({data.products.length})
+                          <X className="size-3 text-muted-foreground" />
+                          <span>Tous les articles</span>
                         </button>
-                        {data.products.map((p) => (
-                          <button
-                            key={p.code}
-                            type="button"
-                            onClick={() =>
-                              setSelectedProduct(selectedProduct === p.code ? 'ALL' : p.code)
-                            }
-                            className={cn(
-                              'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors font-mono',
-                              selectedProduct === p.code
-                                ? 'border-brand bg-brand/10 font-bold text-brand'
-                                : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
-                            )}
-                            title={`${p.name} · ${p.quantity.toLocaleString('fr-FR')} pcs (${p.sharePct}%)`}
-                          >
-                            <span>{p.code}</span>
-                            <span className="ml-1.5 text-[10px] opacity-70">
-                              {p.quantity.toLocaleString('fr-FR')} pcs
-                            </span>
-                          </button>
-                        ))}
-                      </div>
+                      )}
                     </div>
                   )}
 
