@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { fr } from 'react-day-picker/locale'
 import { toast } from 'sonner'
 
@@ -34,6 +34,8 @@ import {
   ChevronLeft,
   RotateCcw,
   SlidersHorizontal,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
@@ -281,11 +283,17 @@ function CardHeader({
   suffix,
   tone,
   onHide,
+  onExpand,
+  isExpanded,
+  actions,
 }: {
   title: string
   suffix?: string
   tone?: string
   onHide?: () => void
+  onExpand?: () => void
+  isExpanded?: boolean
+  actions?: React.ReactNode
 }) {
   return (
     <div className="mb-4 flex items-center gap-2.5 border-b border-border/60 pb-3">
@@ -297,12 +305,39 @@ function CardHeader({
         {title}
       </h2>
       <div className="ml-auto flex items-center gap-2">
+        {actions}
         {suffix && (
           <Badge variant="secondary" className="font-mono text-[10px] uppercase font-bold">
             {suffix}
           </Badge>
         )}
-        {onHide && (
+        {onExpand && (
+          <Button
+            type="button"
+            variant={isExpanded ? 'outline' : 'ghost'}
+            size="icon-xs"
+            onClick={onExpand}
+            className={cn(
+              'size-6 text-muted-foreground hover:text-foreground print:hidden',
+              isExpanded &&
+                'size-7 rounded-full border-border bg-secondary/70 text-foreground hover:bg-secondary'
+            )}
+            title={isExpanded ? 'Quitter le plein écran (Échap)' : 'Afficher en plein écran'}
+            aria-label={
+              isExpanded
+                ? `Quitter le plein écran pour ${title}`
+                : `Afficher en plein écran ${title}`
+            }
+            aria-pressed={isExpanded}
+          >
+            {isExpanded ? (
+              <Minimize2 size={14} strokeWidth={1.75} />
+            ) : (
+              <Maximize2 size={14} strokeWidth={1.75} />
+            )}
+          </Button>
+        )}
+        {onHide && !isExpanded && (
           <Button
             type="button"
             variant="ghost"
@@ -697,6 +732,100 @@ export default function Dashboard(props: DashboardProps) {
   // Article ouvert dans la sheet de détail (null = fermé).
   const [stockArticle, setStockArticle] = useState<string | null>(null)
 
+  // ----- Plein écran (expand) des cartes KPI -----
+  const [expandedKpi, setExpandedKpi] = useState<KpiId | null>(null)
+  const cardRefs = useRef<Map<KpiId, HTMLDivElement>>(new Map())
+  const registerCardRef = useCallback((id: KpiId, el: HTMLDivElement | null) => {
+    if (el) cardRefs.current.set(id, el)
+    else cardRefs.current.delete(id)
+  }, [])
+  const lastToggledKpiRef = useRef<KpiId | null>(null)
+  const zoomFromRef = useRef<DOMRect | null>(null)
+  const zoomPendingRef = useRef(false)
+
+  const exitFullscreen = useCallback(() => {
+    if (!expandedKpi) return
+    const el = cardRefs.current.get(expandedKpi)
+    if (el) {
+      zoomFromRef.current = el.getBoundingClientRect()
+    }
+    lastToggledKpiRef.current = expandedKpi
+    zoomPendingRef.current = true
+    setExpandedKpi(null)
+  }, [expandedKpi])
+
+  const toggleFullscreen = useCallback((id: KpiId) => {
+    const el = cardRefs.current.get(id)
+    if (el) {
+      zoomFromRef.current = el.getBoundingClientRect()
+    }
+    lastToggledKpiRef.current = id
+    zoomPendingRef.current = true
+    setExpandedKpi((prev) => (prev === id ? null : id))
+  }, [])
+
+  // Sortie automatique si l'utilisateur entre en mode personnalisation
+  useEffect(() => {
+    if (editMode && expandedKpi) {
+      exitFullscreen()
+    }
+  }, [editMode, expandedKpi, exitFullscreen])
+
+  // Raccourci Échap pour quitter le plein écran
+  useEffect(() => {
+    if (!expandedKpi) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        exitFullscreen()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [expandedKpi, exitFullscreen])
+
+  // Animation FLIP
+  useLayoutEffect(() => {
+    if (!zoomPendingRef.current) return
+    zoomPendingRef.current = false
+
+    const targetId = lastToggledKpiRef.current
+    if (!targetId) return
+
+    const el = cardRefs.current.get(targetId)
+    if (!el || typeof el.animate !== 'function') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const from = expandedKpi
+      ? (zoomFromRef.current ?? el.getBoundingClientRect())
+      : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+    zoomFromRef.current = null
+
+    const to = el.getBoundingClientRect()
+
+    const rootStyle = getComputedStyle(document.documentElement)
+    const duration = parseFloat(
+      rootStyle.getPropertyValue(expandedKpi ? '--duration-slow' : '--duration-medium')
+    )
+    const easing =
+      rootStyle.getPropertyValue('--ease-smooth-out').trim() || 'cubic-bezier(0.22, 1, 0.36, 1)'
+
+    const anim = el.animate(
+      [
+        {
+          transformOrigin: '0 0',
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${
+            from.width / to.width
+          }, ${from.height / to.height})`,
+        },
+        { transformOrigin: '0 0', transform: 'none' },
+      ],
+      { duration: Number.isFinite(duration) ? duration : 350, easing }
+    )
+    anim.finished.then(() => anim.cancel()).catch(() => {})
+    return () => anim.cancel()
+  }, [expandedKpi])
+
   // Ref pour le contenu imprimable
   const contentElRef = useRef<HTMLDivElement>(null)
   usePrintFitPage(() => contentElRef.current)
@@ -944,6 +1073,7 @@ export default function Dashboard(props: DashboardProps) {
           gap={16}
           minW={6}
           minH={6}
+          expandedId={expandedKpi}
         >
           {/* ═════ KPI #1 — Charge en retard par poste ═════ */}
           {isVisible('charge') && (
@@ -957,11 +1087,22 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('charge', false)}
                 onPrintMove={(dir) => movePrint('charge', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  ref={(el) => registerCardRef('charge', el)}
+                  elevation="raised"
+                  padding="lg"
+                  className={cn(
+                    'h-full overflow-auto',
+                    expandedKpi === 'charge' &&
+                      'fixed inset-0 z-40 rounded-none p-6 bg-card transition-none shadow-2xl'
+                  )}
+                >
                   <CardHeader
                     title="Charge en retard"
                     suffix="par poste"
                     onHide={() => setVisible('charge', false)}
+                    onExpand={editMode ? undefined : () => toggleFullscreen('charge')}
+                    isExpanded={expandedKpi === 'charge'}
                   />
                   {kpisData.loading ? (
                     <Spinner />
@@ -1050,11 +1191,22 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('profondeur', false)}
                 onPrintMove={(dir) => movePrint('profondeur', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  ref={(el) => registerCardRef('profondeur', el)}
+                  elevation="raised"
+                  padding="lg"
+                  className={cn(
+                    'h-full overflow-auto',
+                    expandedKpi === 'profondeur' &&
+                      'fixed inset-0 z-40 rounded-none p-6 bg-card transition-none shadow-2xl'
+                  )}
+                >
                   <CardHeader
                     title="Profondeur de retard"
                     suffix="jours"
                     onHide={() => setVisible('profondeur', false)}
+                    onExpand={editMode ? undefined : () => toggleFullscreen('profondeur')}
+                    isExpanded={expandedKpi === 'profondeur'}
                   />
                   {kpisData.loading ? (
                     <Spinner />
@@ -1145,12 +1297,23 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('otd', false)}
                 onPrintMove={(dir) => movePrint('otd', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  ref={(el) => registerCardRef('otd', el)}
+                  elevation="raised"
+                  padding="lg"
+                  className={cn(
+                    'h-full overflow-auto',
+                    expandedKpi === 'otd' &&
+                      'fixed inset-0 z-40 rounded-none p-6 bg-card transition-none shadow-2xl'
+                  )}
+                >
                   <CardHeader
                     title="Taux OTIF"
                     suffix="OTD"
                     tone="var(--color-ferme)"
                     onHide={() => setVisible('otd', false)}
+                    onExpand={editMode ? undefined : () => toggleFullscreen('otd')}
+                    isExpanded={expandedKpi === 'otd'}
                   />
 
                   {/* Contrôles : Sélecteur de plage de dates + Mode (Demandée / Acceptée) */}
@@ -1269,7 +1432,12 @@ export default function Dashboard(props: DashboardProps) {
                               </div>
 
                               {detailsOpen && p.lignesNon.length > 0 && (
-                                <div className="-mx-2 mt-4 max-h-[160px] overflow-auto">
+                                <div
+                                  className={cn(
+                                    '-mx-2 mt-4 overflow-auto',
+                                    expandedKpi === 'otd' ? 'max-h-[60vh]' : 'max-h-[160px]'
+                                  )}
+                                >
                                   <table className="w-full border-collapse text-left">
                                     <thead>
                                       <tr className="sticky top-0 bg-card">
@@ -1365,66 +1533,68 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('stock', false)}
                 onPrintMove={(dir) => movePrint('stock', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
-                  <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: '#00a699' }}
-                    />
-                    <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
-                      Valorisation stock
-                    </h2>
-                    <div className="ml-auto flex items-center gap-1">
-                      <DateWindowPill
-                        open={stockCalendarOpen}
-                        onOpenChange={setStockCalendarOpen}
-                        selected={{
-                          from: stockRange?.start ?? undefined,
-                          to: stockRange?.end ?? undefined,
-                        }}
-                        onSelect={(range) => {
-                          if (range?.from && range?.to) {
-                            setStockRange({ start: range.from, end: range.to })
-                            setStockCalendarOpen(false)
-                          } else if (range?.from) {
-                            setStockRange({ start: range.from, end: range.from })
-                          }
-                        }}
-                        onClear={() => {
-                          setStockRange(null)
-                          setStockCalendarOpen(false)
-                        }}
-                        disabled={(day) => day > new Date()}
-                        align="right"
-                      />
-                    </div>
-                    {/* Toggle maille */}
-                    <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
-                      <SegmentButton
-                        role="radio"
-                        active={stockGrain === 'mois'}
-                        onClick={() => setStockGrain('mois')}
-                      >
-                        Mois
-                      </SegmentButton>
-                      <SegmentButton
-                        role="radio"
-                        active={stockGrain === 'semaine'}
-                        onClick={() => setStockGrain('semaine')}
-                      >
-                        Sem.
-                      </SegmentButton>
-                    </Segment>
-                    <button
-                      type="button"
-                      onClick={() => setVisible('stock', false)}
-                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                      title="Masquer ce KPI"
-                      aria-label="Masquer le KPI Valorisation stock"
-                    >
-                      <Eye size={15} />
-                    </button>
-                  </div>
+                <Card
+                  ref={(el) => registerCardRef('stock', el)}
+                  elevation="raised"
+                  padding="lg"
+                  className={cn(
+                    'h-full overflow-auto',
+                    expandedKpi === 'stock' &&
+                      'fixed inset-0 z-40 rounded-none p-6 bg-card transition-none shadow-2xl'
+                  )}
+                >
+                  <CardHeader
+                    title="Valorisation stock"
+                    tone="#00a699"
+                    onHide={() => setVisible('stock', false)}
+                    onExpand={editMode ? undefined : () => toggleFullscreen('stock')}
+                    isExpanded={expandedKpi === 'stock'}
+                    actions={
+                      <>
+                        <div className="flex items-center gap-1">
+                          <DateWindowPill
+                            open={stockCalendarOpen}
+                            onOpenChange={setStockCalendarOpen}
+                            selected={{
+                              from: stockRange?.start ?? undefined,
+                              to: stockRange?.end ?? undefined,
+                            }}
+                            onSelect={(range) => {
+                              if (range?.from && range?.to) {
+                                setStockRange({ start: range.from, end: range.to })
+                                setStockCalendarOpen(false)
+                              } else if (range?.from) {
+                                setStockRange({ start: range.from, end: range.from })
+                              }
+                            }}
+                            onClear={() => {
+                              setStockRange(null)
+                              setStockCalendarOpen(false)
+                            }}
+                            disabled={(day) => day > new Date()}
+                            align="right"
+                          />
+                        </div>
+                        {/* Toggle maille */}
+                        <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
+                          <SegmentButton
+                            role="radio"
+                            active={stockGrain === 'mois'}
+                            onClick={() => setStockGrain('mois')}
+                          >
+                            Mois
+                          </SegmentButton>
+                          <SegmentButton
+                            role="radio"
+                            active={stockGrain === 'semaine'}
+                            onClick={() => setStockGrain('semaine')}
+                          >
+                            Sem.
+                          </SegmentButton>
+                        </Segment>
+                      </>
+                    }
+                  />
 
                   {stockData.loading ? (
                     <Spinner />
@@ -1537,11 +1707,22 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('lignes', false)}
                 onPrintMove={(dir) => movePrint('lignes', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  ref={(el) => registerCardRef('lignes', el)}
+                  elevation="raised"
+                  padding="lg"
+                  className={cn(
+                    'h-full overflow-auto',
+                    expandedKpi === 'lignes' &&
+                      'fixed inset-0 z-40 rounded-none p-6 bg-card transition-none shadow-2xl'
+                  )}
+                >
                   <CardHeader
                     title="Lignes en retard"
                     suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
                     onHide={() => setVisible('lignes', false)}
+                    onExpand={editMode ? undefined : () => toggleFullscreen('lignes')}
+                    isExpanded={expandedKpi === 'lignes'}
                   />
                   {kpisData.loading ? (
                     <Spinner />
@@ -1671,12 +1852,23 @@ export default function Dashboard(props: DashboardProps) {
                 onHide={() => setVisible('stockTable', false)}
                 onPrintMove={(dir) => movePrint('stockTable', dir)}
               >
-                <Card elevation="raised" padding="lg" className="h-full overflow-auto">
+                <Card
+                  ref={(el) => registerCardRef('stockTable', el)}
+                  elevation="raised"
+                  padding="lg"
+                  className={cn(
+                    'h-full overflow-auto',
+                    expandedKpi === 'stockTable' &&
+                      'fixed inset-0 z-40 rounded-none p-6 bg-card transition-none shadow-2xl'
+                  )}
+                >
                   <CardHeader
                     title="Stock par article"
                     suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}
                     tone="#00a699"
                     onHide={() => setVisible('stockTable', false)}
+                    onExpand={editMode ? undefined : () => toggleFullscreen('stockTable')}
+                    isExpanded={expandedKpi === 'stockTable'}
                   />
                   {stockData.loading ? (
                     <Spinner />

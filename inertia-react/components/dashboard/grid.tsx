@@ -120,6 +120,8 @@ export interface DashboardGridProps {
   minW?: number
   minH?: number
   className?: string
+  /** Identifiant du KPI actuellement affiché en plein écran (si applicable). */
+  expandedId?: string | null
 }
 
 export function DashboardGrid({
@@ -135,6 +137,7 @@ export function DashboardGrid({
   minW = 6,
   minH = 6,
   className,
+  expandedId,
 }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -297,8 +300,7 @@ export function DashboardGrid({
           // jamais de la grille ni ne passe sous les tailles minimales.
           const minWPx = minW * colWidth + (minW - 1) * gap
           const minHPx = minH * rowHeight + (minH - 1) * gap
-          const maxWPx =
-            (cols - g.origin.x) * colWidth + (cols - g.origin.x - 1) * gap
+          const maxWPx = (cols - g.origin.x) * colWidth + (cols - g.origin.x - 1) * gap
 
           const next = { ...g.origin }
           const ghostBox = { ...box }
@@ -391,7 +393,21 @@ export function DashboardGrid({
       window.addEventListener('pointercancel', onUp)
       detachRef.current = detach
     },
-    [editMode, items, toBox, colWidth, colStep, rowStep, rowHeight, gap, cols, minW, minH, endGesture, paintGhost]
+    [
+      editMode,
+      items,
+      toBox,
+      colWidth,
+      colStep,
+      rowStep,
+      rowHeight,
+      gap,
+      cols,
+      minW,
+      minH,
+      endGesture,
+      paintGhost,
+    ]
   )
 
   // Démontage en plein geste : on ne laisse pas d'écouteur sur window.
@@ -444,6 +460,7 @@ export function DashboardGrid({
     const item = byId.get(id)
     if (!item) continue
     const isActive = id === activeId
+    const isExpanded = id === expandedId
     const box = (isActive && ghostRef.current) || toBox(item)
     tiles.push(
       <div
@@ -453,7 +470,7 @@ export function DashboardGrid({
           else nodeRefs.current.delete(id)
         }}
         data-grid-id={id}
-        className={cn('dashboard-grid-item', isActive && 'is-active')}
+        className={cn('dashboard-grid-item', isActive && 'is-active', isExpanded && 'is-expanded')}
         style={{
           position: 'absolute',
           left: box.left,
@@ -463,7 +480,7 @@ export function DashboardGrid({
         }}
       >
         {child}
-        {handles}
+        {!isExpanded && handles}
       </div>
     )
   }
@@ -477,7 +494,10 @@ export function DashboardGrid({
       onPointerDown={onPointerDown}
     >
       {activeItem && (
-        <div className="dashboard-grid-placeholder" style={{ position: 'absolute', ...toBox(activeItem) }} />
+        <div
+          className="dashboard-grid-placeholder"
+          style={{ position: 'absolute', ...toBox(activeItem) }}
+        />
       )}
       {tiles}
     </div>

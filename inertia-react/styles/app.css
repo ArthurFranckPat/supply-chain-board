@@ -612,6 +612,11 @@
   cursor: grabbing;
 }
 
+.dashboard-grid-item.is-expanded {
+  contain: none;
+  z-index: 40;
+}
+
 .dashboard-grid.is-gesturing {
   user-select: none;
 }
