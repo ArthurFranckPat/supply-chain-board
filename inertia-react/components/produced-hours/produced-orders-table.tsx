@@ -49,8 +49,8 @@ export function ProducedOrdersTable({ workstations, onSelectPoste }: ProducedOrd
         <Layers className="size-8 text-muted-foreground/50" />
         <h3 className="mt-3 text-sm font-semibold text-foreground">Aucune commande trouvée</h3>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          Aucune commande de produit fini niveau 0 n'a été enregistrée pour les filtres et la
-          période sélectionnés sur les postes d'assemblage final.
+          Aucune commande n'a été enregistrée pour les filtres et la période sélectionnés sur ces
+          lignes.
         </p>
       </div>
     )
@@ -80,7 +80,7 @@ export function ProducedOrdersTable({ workstations, onSelectPoste }: ProducedOrd
                 className="group cursor-pointer px-4 py-3 hover:text-foreground"
               >
                 <div className="flex items-center">
-                  <span>Ligne de production (Assemblage PF)</span>
+                  <span>Ligne de production</span>
                   <SortIcon field="poste" />
                 </div>
               </th>
@@ -110,7 +110,7 @@ export function ProducedOrdersTable({ workstations, onSelectPoste }: ProducedOrd
                 className="group cursor-pointer px-3 py-3 text-right hover:text-foreground hidden md:table-cell"
               >
                 <div className="flex items-center justify-end">
-                  <span>Références PF</span>
+                  <span>Articles</span>
                   <SortIcon field="nbProducts" />
                 </div>
               </th>

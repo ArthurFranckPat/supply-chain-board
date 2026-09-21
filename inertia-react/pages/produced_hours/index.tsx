@@ -231,19 +231,17 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       active="heures_produites"
       subtitle={
         view === 'commandes'
-          ? "Vision commandes · Produits finis par ligne d'assemblage final"
+          ? 'Vision commandes · Historique des commandes par ligne de production'
           : 'Heures produites par poste'
       }
-      title={
-        view === 'commandes' ? 'Commandes PF · Supply Chain' : 'Heures produites · Supply Chain'
-      }
+      title={view === 'commandes' ? 'Commandes · Supply Chain' : 'Heures produites · Supply Chain'}
       theme="airbnb"
       dense
       scrollable={false}
     >
       <Head
         title={
-          view === 'commandes' ? 'Commandes PF · Supply Chain' : 'Heures produites · Supply Chain'
+          view === 'commandes' ? 'Commandes · Supply Chain' : 'Heures produites · Supply Chain'
         }
       />
 
@@ -395,9 +393,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
             <input
               type="text"
               placeholder={
-                view === 'commandes'
-                  ? 'Rechercher ligne, produit PF...'
-                  : 'Rechercher poste, nom...'
+                view === 'commandes' ? 'Rechercher ligne, article...' : 'Rechercher poste, nom...'
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -432,7 +428,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Lignes d'assemblage final ({filteredOrdersWorkstations.length})
+                    Lignes de production ({filteredOrdersWorkstations.length})
                     {ordersTotalPieces > 0 && (
                       <span className="ml-2 font-mono font-normal text-foreground">
                         · {ordersTotalPieces.toLocaleString('fr-FR')} pièces

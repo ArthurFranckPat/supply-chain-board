@@ -316,7 +316,7 @@ export function OrderWorkstationDetailSheet({
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">Références PF (niveau 0) :</span>
+                  <span className="text-muted-foreground">Articles :</span>
                   <span className="font-mono font-bold text-foreground">
                     {data.kpis.nbProducts}
                   </span>
@@ -502,26 +502,26 @@ export function OrderWorkstationDetailSheet({
                     active={activeTab === 'produits'}
                     onClick={() => setActiveTab('produits')}
                   >
-                    Produits finis niveau 0 ({data.products.length})
+                    Articles ({data.products.length})
                   </SegmentButton>
                 </Segment>
 
                 {activeTab === 'commandes' && data.products.length > 1 && (
                   <span className="text-[11px] text-muted-foreground hidden sm:inline">
                     {selectedProduct === 'ALL'
-                      ? 'Toutes les références PF'
+                      ? 'Tous les articles'
                       : `Filtre actif : ${selectedProduct}`}
                   </span>
                 )}
               </div>
 
               {activeTab === 'produits' ? (
-                /* Tableau des produits finis de la ligne */
+                /* Tableau des articles de la ligne */
                 <div className="rounded-xl border border-rule bg-card shadow-xs">
                   <div className="flex flex-col gap-1 border-b border-rule p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">
-                        Produits finis niveau 0 assemblés sur {data.poste} ({data.products.length})
+                        Articles assemblés sur {data.poste} ({data.products.length})
                       </h3>
                       <p className="text-xs text-muted-foreground">
                         Volumes cumulés sur la période sélectionnée
@@ -586,11 +586,11 @@ export function OrderWorkstationDetailSheet({
               ) : (
                 /* Vue Commandes clientes */
                 <>
-                  {/* Sélecteur rapide d'article PF */}
+                  {/* Sélecteur rapide d'article */}
                   {data.products.length > 1 && (
                     <div className="space-y-1.5">
                       <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Filtrer par référence produit fini
+                        Filtrer par article
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button
@@ -603,7 +603,7 @@ export function OrderWorkstationDetailSheet({
                               : 'border-rule bg-card text-muted-foreground hover:border-brand/50 hover:text-foreground'
                           )}
                         >
-                          Toutes ({data.products.length})
+                          Tous ({data.products.length})
                         </button>
                         {data.products.map((p) => (
                           <button
@@ -638,8 +638,7 @@ export function OrderWorkstationDetailSheet({
                           Lignes de commandes clients ({filteredLines.length})
                         </h3>
                         <p className="text-xs text-muted-foreground">
-                          Détail issu des tables SORDERQ et SORDER pour les produits finis assemblés
-                          sur {data.poste}
+                          Détail des commandes clients pour les articles assemblés sur {data.poste}
                         </p>
                       </div>
 
@@ -663,7 +662,7 @@ export function OrderWorkstationDetailSheet({
                             <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date demandée</th>
                             <th className="w-24 px-3 py-2.5 whitespace-nowrap">Date acceptée</th>
                             <th className="min-w-[160px] px-3 py-2.5">Client</th>
-                            <th className="w-32 px-3 py-2.5 whitespace-nowrap">Article PF</th>
+                            <th className="w-32 px-3 py-2.5 whitespace-nowrap">Article</th>
                             <th className="min-w-[180px] px-3 py-2.5">Désignation</th>
                             <th className="w-20 px-3 py-2.5 text-right whitespace-nowrap">
                               Quantité
@@ -673,6 +672,7 @@ export function OrderWorkstationDetailSheet({
                             </th>
                           </tr>
                         </thead>
+
                         <tbody className="divide-y divide-rule font-mono text-[11px]">
                           {filteredLines.length === 0 ? (
                             <tr>
