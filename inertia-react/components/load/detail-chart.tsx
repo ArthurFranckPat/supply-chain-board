@@ -40,9 +40,16 @@ interface DetailChartProps {
   /**
    * Horizon demande X3 du poste, en index fractionnaire de slot (cf.
    * `bucketPosOf`). `from === to` : un seul horizon, une ligne ; sinon une
-   * bande entre le plus court et le plus long des horizons du poste.
+   * bande entre le plus court et le plus long des horizons du poste. `start` :
+   * aujourd'hui, origine de l'horizon — la zone intérieure court de là à `from`.
    */
-  demandHorizon?: { from: number; to: number; fromIso: string; toIso: string } | null
+  demandHorizon?: {
+    start: number
+    from: number
+    to: number
+    fromIso: string
+    toIso: string
+  } | null
   /** Clic sur une période : ouvre le détail de la barre (index dans `items`). */
   onSelectPeriod?: (index: number) => void
 }
@@ -218,6 +225,7 @@ export function DetailChart({
     // barre est à `pos = i + 0.5`).
     const horizon = demandHorizon
       ? {
+          x0: padL + slot * demandHorizon.start,
           x1: padL + slot * demandHorizon.from,
           x2: padL + slot * demandHorizon.to,
           top: padT,
@@ -381,14 +389,28 @@ export function DetailChart({
                 ? `Horizon demande X3 : jusqu'au ${fmtDayFr(demandHorizon.fromIso)} inclus, les prévisions sont écartées`
                 : `Horizon demande X3 : entre le ${fmtDayFr(demandHorizon.fromIso)} et le ${fmtDayFr(demandHorizon.toIso)} selon l'article, les prévisions en deçà sont écartées`}
             </title>
+            {/* Zone intérieure : d'aujourd'hui à l'horizon le plus court, les
+                prévisions de TOUS les PF du poste sont écartées — teinte
+                pleine. Au-delà et jusqu'au plus long, seulement celles d'une
+                partie des PF — teinte moitié. */}
+            {geom.horizon.x1 > geom.horizon.x0 && (
+              <rect
+                x={geom.horizon.x0}
+                y={geom.horizon.top}
+                width={geom.horizon.x1 - geom.horizon.x0}
+                height={geom.horizon.bottom - geom.horizon.top}
+                fill={BRAND}
+                fillOpacity="0.1"
+              />
+            )}
             {geom.horizon.x2 > geom.horizon.x1 && (
               <rect
                 x={geom.horizon.x1}
                 y={geom.horizon.top}
                 width={geom.horizon.x2 - geom.horizon.x1}
                 height={geom.horizon.bottom - geom.horizon.top}
-                fill={FG}
-                fillOpacity="0.06"
+                fill={BRAND}
+                fillOpacity="0.05"
               />
             )}
             {[geom.horizon.x1, geom.horizon.x2]

@@ -819,7 +819,14 @@ export default function Load(props: LoadPageProps) {
     const from = bucketPosOf(h.from, keys, gran)
     const to = bucketPosOf(h.to, keys, gran)
     if (from === null || to === null) return null
-    return { from, to, fromIso: h.from, toIso: h.to }
+    // Début de la zone : aujourd'hui à minuit, l'origine de l'horizon X3.
+    // `bucketPosOf` borne à la fin d'un jour INCLUS — on lui passe donc la
+    // veille. Hors fenêtre (mois de départ futur) : bord gauche du graphe.
+    const eve = new Date()
+    eve.setDate(eve.getDate() - 1)
+    const eveIso = `${eve.getFullYear()}-${String(eve.getMonth() + 1).padStart(2, '0')}-${String(eve.getDate()).padStart(2, '0')}`
+    const start = Math.min(bucketPosOf(eveIso, keys, gran) ?? 0, from)
+    return { start, from, to, fromIso: h.from, toIso: h.to }
   }, [view, selLine, gran, props.demandHorizonByPoste, props.monthKeys, props.weekKeys])
 
   // Détail d'une période : le clic passe la CLÉ du bucket (pas son index), pour
