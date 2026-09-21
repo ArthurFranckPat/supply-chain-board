@@ -8,6 +8,7 @@ import {
   Minimize2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Download,
 } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
@@ -86,6 +87,8 @@ const QTY_MODES: { id: LoadQtyMode; label: string; hint: string }[] = [
 const CAROUSEL_BTN =
   'inline-flex size-[26px] flex-none items-center justify-center rounded-full border border-rule bg-card text-muted-foreground transition-colors hover:border-brand hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-rule disabled:hover:text-muted-foreground'
 
+type PosteSelectorMode = 'cards' | 'compact'
+
 /**
  * Modes d'affichage de la page — relais de session (sessionStorage).
  *
@@ -117,6 +120,7 @@ type StoredModes = {
   showCapacity: boolean
   showAvg: boolean
   applyDemandHorizon: boolean
+  posteSelector: PosteSelectorMode
 }
 
 const STORED_MODES_DEFAULTS: StoredModes = {
@@ -130,6 +134,7 @@ const STORED_MODES_DEFAULTS: StoredModes = {
   showCapacity: true,
   showAvg: false,
   applyDemandHorizon: true,
+  posteSelector: 'cards',
 }
 
 /**
@@ -163,6 +168,7 @@ function readStoredModes(): StoredModes {
       showCapacity: p.showCapacity !== false,
       showAvg: p.showAvg === true,
       applyDemandHorizon: p.applyDemandHorizon !== false,
+      posteSelector: p.posteSelector === 'compact' ? 'compact' : 'cards',
     }
   } catch {
     return STORED_MODES_DEFAULTS
@@ -188,6 +194,7 @@ export default function Load(props: LoadPageProps) {
   const [showCapacity, setShowCapacity] = useState(stored.showCapacity)
   const [showAvg, setShowAvg] = useState(stored.showAvg)
   const [applyDemandHorizon, setApplyDemandHorizon] = useState(stored.applyDemandHorizon)
+  const [posteSelector, setPosteSelector] = useState<PosteSelectorMode>(stored.posteSelector)
   // Un atelier stocké qui n'est plus dans le payload (changement de site, de
   // périmètre) filtrerait tout sans que sa chip existe à l'écran : on l'écarte.
   const [atelierFilter, setAtelierFilter] = useState<Set<string>>(
@@ -289,6 +296,7 @@ export default function Load(props: LoadPageProps) {
       showCapacity,
       showAvg,
       applyDemandHorizon,
+      posteSelector,
     })
   }, [
     view,
@@ -301,6 +309,7 @@ export default function Load(props: LoadPageProps) {
     showCapacity,
     showAvg,
     applyDemandHorizon,
+    posteSelector,
   ])
 
   const toggleSeg = (id: string) => {
@@ -383,6 +392,13 @@ export default function Load(props: LoadPageProps) {
     })
   }, [lines, query, atelierFilter])
 
+  // Valeur toujours présente dans le <select>, y compris pendant le rendu
+  // intermédiaire où un filtre vient de retirer le poste sélectionné.
+  const selectedVisibleCode = useMemo(
+    () => filteredLines.find((l) => l.code === selected)?.code ?? filteredLines[0]?.code ?? '',
+    [filteredLines, selected]
+  )
+
   /**
    * URL d'export CSV — reconstruite à chaque changement de filtre pour rester le
    * miroir exact de l'écran : vue, maille, cran, segments actifs, et surtout la
@@ -439,7 +455,7 @@ export default function Load(props: LoadPageProps) {
     [lines, selected, filteredLines]
   )
 
-  // ── Slider sans barre : molette → défilé horizontal LISSÉ (inertie rAF) ──
+  // ── Sélecteur de postes : cartes ou liste compacte ────────────────────────
   /**
    * Rangée de cartes. Un ÉTAT (ref de rappel) plutôt qu'un `useRef` : la rangée
    * n'existe pas toujours — aucun poste ne correspond au filtre, ou l'atelier
@@ -447,7 +463,7 @@ export default function Load(props: LoadPageProps) {
    * doivent s'y raccrocher au moment où elle apparaît, pas au montage de la page.
    */
   const [sliderEl, setSliderEl] = useState<HTMLDivElement | null>(null)
-  /** Rangée complète (cartes + dégradés de bord) — cible de l'animation d'entrée. */
+  /** Rangée complète — cible de l'animation d'entrée. */
   const sliderRowRef = useRef<HTMLDivElement>(null)
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(false)
@@ -459,45 +475,17 @@ export default function Load(props: LoadPageProps) {
   }, [sliderEl])
 
   /**
-   * Amorce une glissade vers une position — renseignée par l'effet qui pose la
-   * molette (une seule boucle rAF, donc un seul écrivain de `scrollLeft` : un
-   * défilement natif « smooth » lancé en parallèle se battrait avec elle).
-   */
-  const glideToRef = useRef<(left: number) => void>(() => {})
-
-  /**
-   * Défilé à inertie. La molette ne pousse plus `scrollLeft` en direct — un cran
-   * de souris vaut ~100 px, donc un saut — mais une CIBLE que chaque frame
-   * rapproche d'un facteur constant. Le trackpad, qui émet déjà des deltas fins,
-   * ne s'en trouve presque pas changé.
+   * Une molette verticale doit faire avancer la rangée horizontalement, mais sans
+   * maintenir une cible animée en parallèle du scroll natif. Cette cible pouvait
+   * rester périmée après un scroll trackpad, un centrage ou un rerender et donner
+   * l'impression que le carrousel refusait parfois de bouger.
    *
-   * Écouteur NATIF `passive: false` : le `onWheel` de React est posé passif sur
-   * la racine, son `preventDefault()` ne faisait donc rien (et la console le
-   * signalait) — le geste vertical restait consommé par le navigateur.
+   * L'écouteur natif `passive: false` est conservé pour détourner uniquement les
+   * gestes verticaux. Chaque événement écrit directement la position courante :
+   * un seul état de scroll, aucune boucle rAF à désynchroniser.
    */
   useEffect(() => {
     if (!sliderEl) return
-
-    let target = sliderEl.scrollLeft
-    let raf: number | null = null
-
-    const step = () => {
-      const delta = target - sliderEl.scrollLeft
-      if (Math.abs(delta) < 0.5) {
-        sliderEl.scrollLeft = target
-        raf = null
-        return
-      }
-      sliderEl.scrollLeft += delta * 0.2
-      raf = requestAnimationFrame(step)
-    }
-
-    const glideTo = (left: number) => {
-      const max = sliderEl.scrollWidth - sliderEl.clientWidth
-      target = Math.min(max, Math.max(0, left))
-      if (raf === null) raf = requestAnimationFrame(step)
-    }
-    glideToRef.current = glideTo
 
     const onWheel = (e: WheelEvent) => {
       if (sliderEl.scrollWidth <= sliderEl.clientWidth) return
@@ -505,18 +493,29 @@ export default function Load(props: LoadPageProps) {
       if (e.ctrlKey) return
       // Geste horizontal natif (trackpad) : on le laisse au navigateur.
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+      if (e.deltaY === 0) return
+
+      // Les événements en lignes/pages sont rares, mais les normaliser évite un
+      // scroll quasi nul selon le périphérique ou le navigateur.
+      const delta =
+        e.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? e.deltaY * 16
+          : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? e.deltaY * sliderEl.clientWidth
+            : e.deltaY
+      const max = Math.max(0, sliderEl.scrollWidth - sliderEl.clientWidth)
+      const next = Math.min(max, Math.max(0, sliderEl.scrollLeft + delta))
+
+      // À une extrémité, ne pas voler l'événement : le navigateur peut encore
+      // laisser remonter le geste vers un conteneur parent scrollable.
+      if (next === sliderEl.scrollLeft) return
       e.preventDefault()
-      // Recalage quand aucune glissade n'est en cours : un scroll venu d'ailleurs
-      // (drag, centrage du carrousel) laisserait sinon une cible périmée.
-      if (raf === null) target = sliderEl.scrollLeft
-      glideTo(target + e.deltaY)
+      sliderEl.scrollLeft = next
     }
 
     sliderEl.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       sliderEl.removeEventListener('wheel', onWheel)
-      if (raf !== null) cancelAnimationFrame(raf)
-      glideToRef.current = () => {}
     }
   }, [sliderEl])
 
@@ -551,7 +550,8 @@ export default function Load(props: LoadPageProps) {
         sliderEl.scrollLeft +
         (card.getBoundingClientRect().left - sliderEl.getBoundingClientRect().left) -
         (sliderEl.clientWidth - card.clientWidth) / 2
-      glideToRef.current(left)
+      const max = Math.max(0, sliderEl.scrollWidth - sliderEl.clientWidth)
+      sliderEl.scrollTo({ left: Math.min(max, Math.max(0, left)), behavior: 'smooth' })
     },
     [sliderEl]
   )
@@ -561,10 +561,13 @@ export default function Load(props: LoadPageProps) {
   // où `filteredLines` change aussi mais où le slider n'a pas à bouger tout seul.
   const centeredFor = useRef<string | null>(null)
   useEffect(() => {
+    // Le slider peut être remonté après le premier rendu (ou après le retour du
+    // mode compact). Ne mémorise la sélection qu'une fois la cible disponible.
+    if (!sliderEl) return
     if (centeredFor.current === selected) return
     centeredFor.current = selected
     centerCard(filteredLines.findIndex((l) => l.code === selected))
-  }, [selected, filteredLines, centerCard])
+  }, [selected, filteredLines, centerCard, sliderEl])
 
   /** Position du poste sélectionné dans le périmètre affiché (−1 : hors filtre). */
   const selIndex = useMemo(
@@ -590,6 +593,7 @@ export default function Load(props: LoadPageProps) {
     qtyMode,
     [...atelierFilter].sort().join(','),
     [...activeSegs].sort().join(','),
+    posteSelector,
     props.version,
   ].join('|')
   useReplayEnter(sliderRowRef, sliderSignature)
@@ -1062,6 +1066,27 @@ export default function Load(props: LoadPageProps) {
     </>
   )
 
+  const posteSelectorControls = (
+    <Segment role="radiogroup" ariaLabel="Présentation des postes de charge">
+      <SegmentButton
+        role="radio"
+        active={posteSelector === 'cards'}
+        onClick={() => setPosteSelector('cards')}
+        title="Comparer les postes avec leurs mini-graphiques"
+      >
+        Cartes
+      </SegmentButton>
+      <SegmentButton
+        role="radio"
+        active={posteSelector === 'compact'}
+        onClick={() => setPosteSelector('compact')}
+        title="Choisir un poste dans une liste compacte"
+      >
+        Liste
+      </SegmentButton>
+    </Segment>
+  )
+
   return (
     <AppLayout
       title="Charge · Projection"
@@ -1184,44 +1209,83 @@ export default function Load(props: LoadPageProps) {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-[18px] px-7 py-5">
-            {/* Vue d'ensemble : slider horizontal de mini-cartes */}
+            {/* Sélecteur de poste : comparaison visuelle ou choix compact. */}
             {filteredLines.length === 0 ? (
               <div className="rounded-lg border border-dashed border-rule px-4 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
                 Aucun poste ne correspond à « {query} ».
               </div>
             ) : (
               <div ref={sliderRowRef} className="relative flex-none">
-                <div
-                  ref={setSliderEl}
-                  onScroll={updateEdges}
-                  className="no-scrollbar flex gap-3 overflow-x-auto pb-2"
-                >
-                  {filteredLines.map((line) => (
-                    <MiniCard
-                      key={line.code}
-                      line={line}
-                      series={seriesOf(line, 'month')}
-                      months={props.months}
-                      selected={selected === line.code}
-                      showCapacity={capacityOn}
-                      unit={unit}
-                      onSelect={() => setSelected(line.code)}
-                    />
-                  ))}
+                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-fraunces text-[14px] font-extrabold tracking-tight">
+                      Postes de charge
+                    </span>
+                    <span className="font-mono text-2xs text-muted-foreground">
+                      {filteredLines.length} visible{filteredLines.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {posteSelectorControls}
                 </div>
-                {/* Dégradés de bord */}
-                <div
-                  className={cn(
-                    'pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background to-transparent transition-opacity duration-200',
-                    atStart && 'opacity-0'
-                  )}
-                />
-                <div
-                  className={cn(
-                    'pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent transition-opacity duration-200',
-                    atEnd && 'opacity-0'
-                  )}
-                />
+
+                {posteSelector === 'cards' ? (
+                  <div className="relative">
+                    <div
+                      ref={setSliderEl}
+                      onScroll={updateEdges}
+                      className="no-scrollbar flex gap-3 overscroll-x-contain overflow-x-auto pb-2"
+                    >
+                      {filteredLines.map((line) => (
+                        <MiniCard
+                          key={line.code}
+                          line={line}
+                          series={seriesOf(line, 'month')}
+                          months={props.months}
+                          selected={selected === line.code}
+                          showCapacity={capacityOn}
+                          unit={unit}
+                          onSelect={() => setSelected(line.code)}
+                        />
+                      ))}
+                    </div>
+                    {/* Dégradés de bord */}
+                    <div
+                      className={cn(
+                        'pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background to-transparent transition-opacity duration-200',
+                        atStart && 'opacity-0'
+                      )}
+                    />
+                    <div
+                      className={cn(
+                        'pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent transition-opacity duration-200',
+                        atEnd && 'opacity-0'
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <label className="relative block max-w-2xl">
+                    <span className="sr-only">Choisir un poste de charge</span>
+                    <select
+                      aria-label="Poste de charge"
+                      value={selectedVisibleCode}
+                      onChange={(e) => setSelected(e.currentTarget.value)}
+                      className="h-10 w-full appearance-none rounded-lg border border-rule bg-card px-3 pr-10 font-mono text-xs font-semibold text-foreground outline-none transition-colors hover:border-brand focus:border-brand"
+                    >
+                      {filteredLines.map((line) => (
+                        <option key={line.code} value={line.code}>
+                          {line.code} · {line.name}
+                          {line.atelierLabel ? ` · ${line.atelierLabel}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      strokeWidth={1.75}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </label>
+                )}
               </div>
             )}
 
