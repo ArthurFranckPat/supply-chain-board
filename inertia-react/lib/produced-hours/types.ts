@@ -202,3 +202,10 @@ export interface OrderWorkstationDetailResponse {
   products: OrderWorkstationProductSummary[]
   lines: OrderDetailLine[]
 }
+
+/**
+ * Relais de session à usage unique : poste sur lequel /heures-produites
+ * s'ouvre filtrée (lien « réalisé » de /charge). Lu puis effacé à l'arrivée —
+ * un retour ultérieur sur la page ne doit pas rester filtré.
+ */
+export const PRODUCED_HOURS_POSTE_KEY = 'heures-produites:poste'

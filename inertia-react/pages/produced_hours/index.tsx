@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Head } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search, X, Loader2 } from 'lucide-react'
@@ -15,6 +15,7 @@ import {
 } from '@r/components/vision/toolbar'
 import {
   formatDateFr,
+  PRODUCED_HOURS_POSTE_KEY,
   type ProducedHoursPayload,
   type ProducedOrdersPayload,
   type OrderDateMode,
@@ -65,13 +66,24 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
     initialProps.from || formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   )
   const [to, setTo] = useState(initialProps.to || formatDate(new Date()))
-  // `?poste=` : arrivée depuis /charge (lien « réalisé ») — la page s'ouvre
-  // filtrée sur ce poste.
-  const [search, setSearch] = useState(() =>
-    typeof window === 'undefined'
-      ? ''
-      : (new URLSearchParams(window.location.search).get('poste') ?? '')
-  )
+  // Arrivée depuis /charge (lien « réalisé ») : poste relayé en session, à
+  // usage unique — lu puis effacé, la page s'ouvre filtrée sur lui.
+  // Lecture dans l'initialiseur, effacement dans un effet : StrictMode rejoue
+  // l'initialiseur, un effacement à cet endroit rendrait la 2e lecture vide.
+  const [search, setSearch] = useState(() => {
+    try {
+      return sessionStorage.getItem(PRODUCED_HOURS_POSTE_KEY) ?? ''
+    } catch {
+      return ''
+    }
+  })
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(PRODUCED_HOURS_POSTE_KEY)
+    } catch {
+      // Stockage indisponible : rien à effacer.
+    }
+  }, [])
   const [selectedAtelier, setSelectedAtelier] = useState<string>('ALL')
   const [selectedPoste, setSelectedPoste] = useState<string | null>(null)
   const [selectedOrderPoste, setSelectedOrderPoste] = useState<string | null>(null)

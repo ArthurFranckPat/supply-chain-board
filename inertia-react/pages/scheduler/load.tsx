@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, router } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
+import { PRODUCED_HOURS_POSTE_KEY } from '@r/lib/produced-hours/types'
 import {
   TriangleAlert,
   Search,
@@ -1475,9 +1476,18 @@ export default function Load(props: LoadPageProps) {
                     </span>
                     {/* Pont discret vers le réalisé : la charge dit ce qui
                         reste à faire, /heures-produites ce qui a été fait sur
-                        le même poste. Arrive filtré sur lui. */}
+                        le même poste. Le poste passe par un relais de session
+                        à usage unique (`PRODUCED_HOURS_POSTE_KEY`), pas par
+                        l'URL : elle reste celle de la page. */}
                     <Link
-                      href={`${route('heures_produites.index')}?poste=${encodeURIComponent(selLine.code)}`}
+                      href={route('heures_produites.index')}
+                      onClick={() => {
+                        try {
+                          sessionStorage.setItem(PRODUCED_HOURS_POSTE_KEY, selLine.code)
+                        } catch {
+                          // Stockage indisponible : la page s'ouvre non filtrée.
+                        }
+                      }}
                       title="Heures réellement produites sur ce poste"
                       className="inline-flex items-center gap-0.5 self-center font-mono text-[10px] font-semibold tracking-wider text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
                     >
