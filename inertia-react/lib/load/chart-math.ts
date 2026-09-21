@@ -160,3 +160,36 @@ export const segsOf = (d: LoadPeriod): [keyof LoadPeriod, number, string][] => [
   ['f', d.f, FERME],
   ['fi', d.fi, HATCH_FERME],
 ]
+
+/**
+ * Position d'une date dans la suite de buckets du graphe, en index FRACTIONNAIRE
+ * de slot (2,4 = 40 % dans le 3e bucket). `iso` est un jour INCLUS : la borne
+ * tracée est le lendemain à minuit, fin réelle du jour.
+ *
+ * Clés de bucket : lundi ISO (`2026-09-21`) en hebdo, `AAAA-M` (`2026-9`) en
+ * mensuel — celles du payload. `null` si la date tombe hors de la fenêtre.
+ * Calcul en jours civils (arrondi) : un passage à l'heure d'hiver ne décale
+ * pas la borne d'une heure.
+ */
+export function bucketPosOf(iso: string, keys: string[], gran: Gran): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return null
+  const at = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1)
+  const days = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000)
+  for (const [i, key] of keys.entries()) {
+    let start: Date
+    let end: Date
+    if (gran === 'week') {
+      const k = /^(\d{4})-(\d{2})-(\d{2})/.exec(key)
+      if (!k) return null
+      start = new Date(Number(k[1]), Number(k[2]) - 1, Number(k[3]))
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
+    } else {
+      const [y, mo] = key.split('-').map(Number)
+      start = new Date(y, mo - 1, 1)
+      end = new Date(y, mo, 1)
+    }
+    if (at >= start && at < end) return i + days(start, at) / days(start, end)
+  }
+  return null
+}

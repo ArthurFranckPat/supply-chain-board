@@ -37,8 +37,20 @@ interface DetailChartProps {
   unit: LoadUnit
   /** Segments effectivement tracés (filtre statut/nature appliqué) — légende. */
   segs: LoadSegOption[]
+  /**
+   * Horizon demande X3 du poste, en index fractionnaire de slot (cf.
+   * `bucketPosOf`). `from === to` : un seul horizon, une ligne ; sinon une
+   * bande entre le plus court et le plus long des horizons du poste.
+   */
+  demandHorizon?: { from: number; to: number; fromIso: string; toIso: string } | null
   /** Clic sur une période : ouvre le détail de la barre (index dans `items`). */
   onSelectPeriod?: (index: number) => void
+}
+
+/** `AAAA-MM-JJ` → `JJ/MM/AAAA`. */
+const fmtDayFr = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
 }
 
 type SegInfo = {
@@ -58,6 +70,7 @@ export function DetailChart({
   showAvg,
   unit,
   segs,
+  demandHorizon,
   onSelectPeriod,
 }: DetailChartProps) {
   // Gouttière gauche : de quoi écrire l'axe en entier. Les libellés sont alignés
@@ -201,8 +214,20 @@ export function DetailChart({
       ? { x: capPts[capPts.length - 1].x, y: capPts[capPts.length - 1].y }
       : null
 
+    // Horizon demande : bord d'un slot = `padL + slot * pos` (le centre d'une
+    // barre est à `pos = i + 0.5`).
+    const horizon = demandHorizon
+      ? {
+          x1: padL + slot * demandHorizon.from,
+          x2: padL + slot * demandHorizon.to,
+          top: padT,
+          bottom: padT + ch,
+        }
+      : null
+
     return {
       grid,
+      horizon,
       segments,
       inLabels,
       totals,
@@ -215,7 +240,7 @@ export function DetailChart({
       peak,
       week: gran === 'week',
     }
-  }, [items, dim, gran, view])
+  }, [items, dim, gran, view, demandHorizon])
 
   /**
    * Légende intégrée, calée en haut à droite de la zone de tracé.
@@ -346,6 +371,55 @@ export function DetailChart({
             </text>
           </g>
         ))}
+        {/* Horizon demande X3 — derrière les barres : la bande (horizons
+            différents selon les PF du poste) ne doit pas voiler la charge ;
+            les bords tiretés, eux, restent lisibles entre les barres. */}
+        {geom.horizon && demandHorizon && (
+          <g>
+            <title>
+              {demandHorizon.fromIso === demandHorizon.toIso
+                ? `Horizon demande X3 : jusqu'au ${fmtDayFr(demandHorizon.fromIso)} inclus, les prévisions sont écartées`
+                : `Horizon demande X3 : entre le ${fmtDayFr(demandHorizon.fromIso)} et le ${fmtDayFr(demandHorizon.toIso)} selon l'article, les prévisions en deçà sont écartées`}
+            </title>
+            {geom.horizon.x2 > geom.horizon.x1 && (
+              <rect
+                x={geom.horizon.x1}
+                y={geom.horizon.top}
+                width={geom.horizon.x2 - geom.horizon.x1}
+                height={geom.horizon.bottom - geom.horizon.top}
+                fill={FG}
+                fillOpacity="0.06"
+              />
+            )}
+            {[geom.horizon.x1, geom.horizon.x2]
+              .filter((hx, i) => i === 0 || hx !== geom.horizon!.x1)
+              .map((hx, i) => (
+                <line
+                  key={`hz-${i}`}
+                  x1={hx}
+                  x2={hx}
+                  y1={geom.horizon!.top - 8}
+                  y2={geom.horizon!.bottom}
+                  stroke={FG}
+                  strokeOpacity="0.55"
+                  strokeWidth="1.25"
+                  strokeDasharray="3 3"
+                />
+              ))}
+            <text
+              x={geom.horizon.x2 + 5}
+              y={geom.horizon.top - 1}
+              fontSize="10"
+              fontWeight="700"
+              fill={MUTED}
+              className="font-mono"
+            >
+              {demandHorizon.fromIso === demandHorizon.toIso
+                ? `Horizon demande · ${fmtDayFr(demandHorizon.fromIso)}`
+                : `Horizon demande · ${fmtDayFr(demandHorizon.fromIso)} → ${fmtDayFr(demandHorizon.toIso)}`}
+            </text>
+          </g>
+        )}
         {/* Barres empilées (survol → tooltip, clic → détail de la période) */}
         {geom.segments.map((s, i) => {
           const isOn = hover && hover.period === s.info.period && hover.label === s.info.label

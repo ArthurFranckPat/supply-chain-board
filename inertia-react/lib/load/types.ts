@@ -139,6 +139,13 @@ export interface LoadPageProps {
   cmdLines: LoadLine[]
   /** Même demande sans appliquer FOH/FOHUOT, pour le filtre utilisateur. */
   cmdLinesWithoutDemandHorizon: LoadLine[]
+  /**
+   * Fin de l'horizon demande X3 (FOH/FOHUOT, jour inclus, ISO) par poste :
+   * étendue [from, to] sur les produits finis dont une prévision charge le
+   * poste. `from === to` quand tous partagent le même horizon. Absent = aucune
+   * prévision sous horizon sur le poste.
+   */
+  demandHorizonByPoste: Record<string, { from: string; to: string }>
   /** Ateliers présents (postes avec charge), pour le filtre transverse. */
   ateliers: AtelierOption[]
   /**

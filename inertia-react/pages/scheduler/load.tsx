@@ -24,6 +24,7 @@ import type {
   LoadView,
 } from '@r/lib/load/types'
 import {
+  bucketPosOf,
   CMD_SEG_OPTIONS,
   type Gran,
   maskPeriod,
@@ -803,6 +804,24 @@ export default function Load(props: LoadPageProps) {
     }))
   }, [selLine, gran, props.months, props.weeks, capacityOn, seriesOf])
 
+  /**
+   * Horizon demande X3 du poste, projeté sur l'axe du graphe. Vue commande
+   * seulement : c'est la demande que l'horizon filtre (les prévisions en deçà
+   * sont écartées, cf. « Appliquer horizon demande ») — la vue OF n'en dépend
+   * pas. Tracé que le filtre soit actif ou non : il dit OÙ les deux lectures
+   * divergent.
+   */
+  const detailHorizon = useMemo(() => {
+    if (view !== 'commande' || !selLine) return null
+    const h = props.demandHorizonByPoste?.[selLine.code]
+    if (!h) return null
+    const keys = gran === 'month' ? props.monthKeys : props.weekKeys
+    const from = bucketPosOf(h.from, keys, gran)
+    const to = bucketPosOf(h.to, keys, gran)
+    if (from === null || to === null) return null
+    return { from, to, fromIso: h.from, toIso: h.to }
+  }, [view, selLine, gran, props.demandHorizonByPoste, props.monthKeys, props.weekKeys])
+
   // Détail d'une période : le clic passe la CLÉ du bucket (pas son index), pour
   // que la demande reste valide même si l'horizon a glissé entre-temps.
   const [periodTarget, setPeriodTarget] = useState<{
@@ -1492,6 +1511,7 @@ export default function Load(props: LoadPageProps) {
                   showAvg={showAvg}
                   unit={unit}
                   segs={visibleSegs}
+                  demandHorizon={detailHorizon}
                   onSelectPeriod={openPeriod}
                 />
               </div>

@@ -46,7 +46,7 @@ import {
   type DepthCutStats,
 } from '#app/domain/charge_explosion'
 import type { Flow } from '#app/domain/models/flow'
-import { isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
+import { demandHorizonEnd, isForecastInsideDemandHorizon } from '#app/domain/demand_horizon'
 import { firstVisibleWeek } from '#app/domain/charge_window'
 
 /**
@@ -657,7 +657,7 @@ export async function loadChargePayloadData(params: {
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
-  // `s9` = schéma courant du payload ; le suffixe rend une entrée Redis issue
+  // `s10` = schéma courant du payload (s10 : `demandHorizonByPoste`) ; le suffixe rend une entrée Redis issue
   // par l'ancienne version inatteignable après déploiement.
   // Les versions précédentes portaient les séries en PIÈCES
   // (`monthlyQty`…) : sans ce jeton, une entrée écrite par la version précédente
@@ -670,7 +670,7 @@ export async function loadChargePayloadData(params: {
   // d'AVANT le déplacement pendant tout le TTL + la grâce — la proposition de
   // lissage serait invisible sur l'écran qui la motive.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `payload:charge:s9:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
+  const cacheKey = `payload:charge:s10:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 
@@ -910,6 +910,37 @@ export async function loadChargePayloadData(params: {
       const cmdLines = buildCommandLines(chargeNeeds)
       const cmdLinesWithoutDemandHorizon = buildCommandLines(chargeNeedsWithoutDemandHorizon)
 
+      // Horizon demande X3 par poste : fin de l'horizon (FOH/FOHUOT) des
+      // produits finis dont une PRÉVISION charge le poste. L'horizon est porté
+      // par l'article de la ligne de demande — la racine du chemin BOM, pas le
+      // composant qui charge le poste. Un poste mêle des PF à horizons
+      // différents (2 et 3 semaines sur AE1) : on rend l'étendue [min, max]
+      // plutôt qu'une date unique qui mentirait pour une partie des articles.
+      // Calculé sur la demande SANS filtre d'horizon : c'est elle qui contient
+      // les prévisions que l'horizon écarte.
+      const horizonByPoste = new Map<string, { from: Date; to: Date }>()
+      const horizonEndByRoot = new Map<string, Date | null>()
+      for (const n of chargeNeedsWithoutDemandHorizon) {
+        if (n.nature !== 'prevision') continue
+        const root = n.path[0] ?? n.article
+        let end = horizonEndByRoot.get(root)
+        if (end === undefined) {
+          end = demandHorizonEnd(inputs.demandHorizonByArticle.get(root))
+          horizonEndByRoot.set(root, end)
+        }
+        if (!end) continue
+        const cur = horizonByPoste.get(n.wst)
+        if (!cur) horizonByPoste.set(n.wst, { from: end, to: end })
+        else {
+          if (end < cur.from) cur.from = end
+          if (end > cur.to) cur.to = end
+        }
+      }
+      const demandHorizonByPoste: Record<string, { from: string; to: string }> = {}
+      for (const [wst, h] of horizonByPoste) {
+        demandHorizonByPoste[wst] = { from: isoDay(h.from), to: isoDay(h.to) }
+      }
+
       const fmtLong = (d: Date) => {
         const s = d.toLocaleDateString('fr-FR', { month: 'long' })
         return s.charAt(0).toUpperCase() + s.slice(1)
@@ -988,6 +1019,7 @@ export async function loadChargePayloadData(params: {
         ofLines: ofRows,
         cmdLines: cmdRows,
         cmdLinesWithoutDemandHorizon: cmdRowsWithoutDemandHorizon,
+        demandHorizonByPoste,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
         // D9 : ce que le plafond depth-4 a coupé, pour que la disparition soit
         // lisible à l'écran au lieu d'être silencieuse.
