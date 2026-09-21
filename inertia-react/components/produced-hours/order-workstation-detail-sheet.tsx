@@ -183,7 +183,8 @@ export function OrderWorkstationDetailSheet({
         l.clientCode.toLowerCase().includes(q) ||
         l.clientName.toLowerCase().includes(q) ||
         l.article.toLowerCase().includes(q) ||
-        l.designation.toLowerCase().includes(q)
+        l.designation.toLowerCase().includes(q) ||
+        (l.parentArticle && l.parentArticle.toLowerCase().includes(q))
     )
   }, [data?.lines, search, selectedProduct])
 
@@ -789,7 +790,17 @@ export function OrderWorkstationDetailSheet({
                                     )}
                                   </td>
                                   <td className="px-3 py-2 font-bold text-foreground whitespace-nowrap">
-                                    {line.article}
+                                    <div className="flex items-center gap-1.5">
+                                      <span>{line.article}</span>
+                                      {line.isDerived && line.parentArticle && (
+                                        <span
+                                          className="inline-flex items-center rounded bg-surface-muted border border-rule px-1.5 py-0.5 text-[10px] font-mono font-medium text-muted-foreground"
+                                          title={`Issu du parent ${line.parentArticle}${line.parentDesignation ? ` (${line.parentDesignation})` : ''}`}
+                                        >
+                                          Kit: {line.parentArticle}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td
                                     className="max-w-[220px] truncate px-3 py-2 font-sans text-muted-foreground text-xs"

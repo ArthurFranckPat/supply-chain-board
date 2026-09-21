@@ -161,6 +161,9 @@ export interface OrderDetailLine {
   dateDemandee: string
   dateAcceptee: string
   deltaDays: number
+  parentArticle?: string
+  parentDesignation?: string
+  isDerived?: boolean
 }
 
 export interface OrderWorkstationProductSummary {

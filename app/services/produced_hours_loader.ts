@@ -401,10 +401,11 @@ export class ProducedHoursLoader {
 
   /**
    * Charge le jeu de données de la vision commandes (quantités commandées par produit fini et ligne de production).
-   * Périmètre strict :
-   * - Niveau 0 de nomenclature (produits finis `PF*` uniquement, sans explosion de nomenclature).
-   * - Postes d'assemblages finaux uniquement (`assemblage_pf`, PP_XXX, ateliers S3P, S4P, S9P, CLP).
-   * - Filtrage sur date demandée ou date acceptée (conforme au KPI OTD).
+   * Périmètre :
+   * - Produits finis (`PF*`) commandés directement (Niveau 0).
+   * - Descente au Niveau 1 de nomenclature : composants qui sont eux-mêmes des produits finis (`PF*`)
+   *   fabriqués sur une ligne d'assemblage final (`assemblage_pf`, PP_XXX, ateliers S3P, S4P, S9P, CLP).
+   * - Filtrage temporel sur date demandée ou date acceptée (conforme au KPI OTD).
    */
   async loadOrdersPayload(
     from: string,
@@ -412,20 +413,23 @@ export class ProducedHoursLoader {
     dateMode: OrderDateMode = 'demandee'
   ): Promise<ProducedOrdersPayload> {
     const ordersRepo = new X3OrderedQuantitiesRepository()
-    const [wstRefList, gammes, staticArticles, rawOrders] = await Promise.all([
+    const [wstRefList, gammes, staticArticles, rawOrders, nomenclatures] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
       staticSync.readGammes().catch(() => []),
       staticSync.readArticles().catch(() => []),
       ordersRepo.getOrderedQuantities(from, to, dateMode),
+      staticSync.readNomenclatures().catch(() => []),
     ])
 
-    // Dictionnaire des catégories et désignations d'articles
+    // Dictionnaire des catégories, désignations et types d'approvisionnement des articles
     const catMap = new Map<string, string>()
     const descMap = new Map<string, string>()
+    const supplyTypeMap = new Map<string, string>()
     for (const a of staticArticles) {
       const code = a.code.trim().toUpperCase()
       catMap.set(code, (a.category ?? '').trim().toUpperCase())
       descMap.set(code, (a.description ?? '').trim())
+      supplyTypeMap.set(code, (a.supplyType ?? '').trim().toUpperCase())
     }
 
     // Dictionnaire des libellés de postes issus des gammes (ATEXTRA / WSTDESAXX en français)
@@ -454,6 +458,30 @@ export class ProducedHoursLoader {
       }
     }
 
+    // Indexation des nomenclatures (Niveau 1 direct) par article parent
+    const bomByParent = new Map<
+      string,
+      Array<{
+        componentArticle: string
+        componentDescription: string
+        linkQuantity: number
+        componentType: string
+      }>
+    >()
+    for (const row of nomenclatures) {
+      const parent = row.parentArticle.trim().toUpperCase()
+      const comp = row.componentArticle.trim().toUpperCase()
+      if (!bomByParent.has(parent)) {
+        bomByParent.set(parent, [])
+      }
+      bomByParent.get(parent)!.push({
+        componentArticle: comp,
+        componentDescription: row.componentDescription,
+        linkQuantity: row.linkQuantity,
+        componentType: row.componentType,
+      })
+    }
+
     // Postes d'assemblage final éligibles dans le référentiel statique
     const eligibleFinalAssemblyWst = wstRefList.filter((w) => {
       const code = w.code?.trim().toUpperCase() || ''
@@ -472,33 +500,80 @@ export class ProducedHoursLoader {
     for (const row of rawOrders) {
       const artCode = row.article.trim().toUpperCase()
       const cat = catMap.get(artCode) || ''
-      // Niveau 0 de nomenclature : uniquement les produits finis (PF)
+      // L'article commandé doit être un produit fini (PF)
       if (!cat.startsWith('PF')) continue
 
-      const wstCode = ligneByArticle.get(artCode)
-      if (!wstCode) continue
+      const parentWstCode = ligneByArticle.get(artCode)
 
-      // Doit être un poste d'assemblage final (assemblage_pf)
-      const nature = natureMap.get(wstCode)
-      if (nature !== 'assemblage_pf') continue
+      // 1) Niveau 0 : Imputation directe du produit fini commandé sur son poste d'assemblage
+      if (parentWstCode) {
+        const nature = natureMap.get(parentWstCode)
+        const meta = wstMap.get(parentWstCode)
+        const stoloc = meta?.stockLocation?.trim().toUpperCase() || ''
 
-      // Filtre atelier et regex poste
-      if (!PP_XXX_REGEX.test(wstCode)) continue
-      const meta = wstMap.get(wstCode)
-      const stoloc = meta?.stockLocation?.trim().toUpperCase() || ''
-      if (!ALLOWED_ATELIERS.has(stoloc)) continue
-
-      if (!ordersByWstAndArticle.has(wstCode)) {
-        ordersByWstAndArticle.set(wstCode, new Map())
+        if (
+          nature === 'assemblage_pf' &&
+          PP_XXX_REGEX.test(parentWstCode) &&
+          ALLOWED_ATELIERS.has(stoloc)
+        ) {
+          if (!ordersByWstAndArticle.has(parentWstCode)) {
+            ordersByWstAndArticle.set(parentWstCode, new Map())
+          }
+          const artMap = ordersByWstAndArticle.get(parentWstCode)!
+          if (!artMap.has(artCode)) {
+            artMap.set(artCode, { qty: 0, nbOrders: 0, timeline: new Map() })
+          }
+          const item = artMap.get(artCode)!
+          item.qty += row.quantity
+          item.nbOrders += row.nbOrders
+          item.timeline.set(row.date, (item.timeline.get(row.date) || 0) + row.quantity)
+        }
       }
-      const artMap = ordersByWstAndArticle.get(wstCode)!
-      if (!artMap.has(artCode)) {
-        artMap.set(artCode, { qty: 0, nbOrders: 0, timeline: new Map() })
+
+      // 2) Niveau 1 : Descente aux composants qui sont eux-mêmes des produits finis fabriqués
+      const components = bomByParent.get(artCode)
+      if (components && components.length > 0) {
+        for (const comp of components) {
+          const compCode = comp.componentArticle
+          const compCat = catMap.get(compCode) || ''
+          // Le composant doit être un produit fini (PF*)
+          if (!compCat.startsWith('PF')) continue
+
+          // Doit être fabriqué (FABRIQUE ou FABRICATION)
+          const isFab =
+            comp.componentType === 'FABRIQUE' || supplyTypeMap.get(compCode) === 'FABRICATION'
+          if (!isFab) continue
+
+          const compWst = ligneByArticle.get(compCode)
+          if (!compWst) continue
+
+          // Éviter le double comptage si le composant est assemblé sur le même poste que le parent
+          if (compWst === parentWstCode) continue
+
+          // Doit être un poste d'assemblage final éligible (assemblage_pf, PP_XXX, ateliers autorisés)
+          const compNature = natureMap.get(compWst)
+          if (compNature !== 'assemblage_pf') continue
+          if (!PP_XXX_REGEX.test(compWst)) continue
+          const compMeta = wstMap.get(compWst)
+          const compStoloc = compMeta?.stockLocation?.trim().toUpperCase() || ''
+          if (!ALLOWED_ATELIERS.has(compStoloc)) continue
+
+          const derivedQty = row.quantity * comp.linkQuantity
+          if (derivedQty <= 0) continue
+
+          if (!ordersByWstAndArticle.has(compWst)) {
+            ordersByWstAndArticle.set(compWst, new Map())
+          }
+          const compArtMap = ordersByWstAndArticle.get(compWst)!
+          if (!compArtMap.has(compCode)) {
+            compArtMap.set(compCode, { qty: 0, nbOrders: 0, timeline: new Map() })
+          }
+          const compItem = compArtMap.get(compCode)!
+          compItem.qty += derivedQty
+          compItem.nbOrders += row.nbOrders
+          compItem.timeline.set(row.date, (compItem.timeline.get(row.date) || 0) + derivedQty)
+        }
       }
-      const item = artMap.get(artCode)!
-      item.qty += row.quantity
-      item.nbOrders += row.nbOrders
-      item.timeline.set(row.date, (item.timeline.get(row.date) || 0) + row.quantity)
     }
 
     // Construction des cartes postes
@@ -587,6 +662,7 @@ export class ProducedHoursLoader {
 
   /**
    * Charge le détail des commandes associées à un poste d'assemblage final (drill-down sheet).
+   * Intègre les commandes directes (Niveau 0) et les besoins dérivés des kits parents (Niveau 1 de nomenclature).
    */
   async loadWorkstationOrdersDetail(
     poste: string,
@@ -597,10 +673,11 @@ export class ProducedHoursLoader {
     const cleanPoste = poste.trim().toUpperCase()
     const ordersRepo = new X3OrderedQuantitiesRepository()
 
-    const [wstRefList, gammes, staticArticles] = await Promise.all([
+    const [wstRefList, gammes, staticArticles, nomenclatures] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
       staticSync.readGammes().catch(() => []),
       staticSync.readArticles().catch(() => []),
+      staticSync.readNomenclatures().catch(() => []),
     ])
 
     const meta = wstRefList.find((w) => w.code.trim().toUpperCase() === cleanPoste)
@@ -609,10 +686,12 @@ export class ProducedHoursLoader {
     // Dictionnaire articles
     const descMap = new Map<string, string>()
     const catMap = new Map<string, string>()
+    const supplyTypeMap = new Map<string, string>()
     for (const a of staticArticles) {
       const code = a.code.trim().toUpperCase()
       descMap.set(code, (a.description ?? '').trim())
       catMap.set(code, (a.category ?? '').trim().toUpperCase())
+      supplyTypeMap.set(code, (a.supplyType ?? '').trim().toUpperCase())
     }
 
     // Nom du poste
@@ -633,20 +712,61 @@ export class ProducedHoursLoader {
       }
     }
 
-    // Identifier tous les articles PF de niveau 0 assemblés sur ce poste
-    const eligibleArticles: string[] = []
+    // 1) Articles PF assemblés directement sur ce poste (Niveau 0)
+    const directArticlesSet = new Set<string>()
     for (const [art, wst] of ligneByArticle) {
       if (wst === cleanPoste) {
         const cat = catMap.get(art) || ''
         if (cat.startsWith('PF')) {
-          eligibleArticles.push(art)
+          directArticlesSet.add(art)
         }
       }
     }
 
+    // 2) Articles parents (Kits / PF) consommant un article direct de ce poste au Niveau 1
+    // Structure: parentArticle -> Array<{ compArticle: string, linkQuantity: number, compDescription: string }>
+    const componentsByParentForPoste = new Map<
+      string,
+      Array<{ compArticle: string; linkQuantity: number; compDescription: string }>
+    >()
+
+    for (const row of nomenclatures) {
+      const parent = row.parentArticle.trim().toUpperCase()
+      const comp = row.componentArticle.trim().toUpperCase()
+
+      // Le composant doit être un article assemblé sur CE poste
+      if (!directArticlesSet.has(comp)) continue
+
+      // Le parent doit être un produit fini (PF*)
+      const parentCat = catMap.get(parent) || ''
+      if (!parentCat.startsWith('PF')) continue
+
+      // Le composant doit être fabriqué
+      const isFab = row.componentType === 'FABRIQUE' || supplyTypeMap.get(comp) === 'FABRICATION'
+      if (!isFab) continue
+
+      // Éviter le double comptage si le parent est assemblé sur le même poste
+      const parentWst = ligneByArticle.get(parent)
+      if (parentWst === cleanPoste) continue
+
+      if (!componentsByParentForPoste.has(parent)) {
+        componentsByParentForPoste.set(parent, [])
+      }
+      componentsByParentForPoste.get(parent)!.push({
+        compArticle: comp,
+        linkQuantity: row.linkQuantity,
+        compDescription: row.componentDescription,
+      })
+    }
+
+    // Liste complète des articles à requêter (articles directs + parents dont on dérive le besoin)
+    const allArticlesToQuery = Array.from(
+      new Set([...directArticlesSet, ...componentsByParentForPoste.keys()])
+    )
+
     // Récupérer le détail brut des commandes X3
     const rawLines = await ordersRepo.getWorkstationOrdersDetail(
-      eligibleArticles,
+      allArticlesToQuery,
       from,
       to,
       dateMode
@@ -660,29 +780,7 @@ export class ProducedHoursLoader {
     let totalQty = 0
 
     for (const r of rawLines) {
-      totalQty += r.quantity
-      if (r.orderNum) allOrderNums.add(r.orderNum)
-
-      // Timeline jour
-      const dateKey = (dateMode === 'demandee' ? r.dateDemandee : r.dateAcceptee) || r.dateDemandee
-      if (dateKey) {
-        if (!dailyMap.has(dateKey)) {
-          dailyMap.set(dateKey, { qty: 0, orderNums: new Set() })
-        }
-        const dEntry = dailyMap.get(dateKey)!
-        dEntry.qty += r.quantity
-        if (r.orderNum) dEntry.orderNums.add(r.orderNum)
-      }
-
-      // Par produit
-      if (!productMap.has(r.article)) {
-        productMap.set(r.article, { qty: 0, orderNums: new Set() })
-      }
-      const pEntry = productMap.get(r.article)!
-      pEntry.qty += r.quantity
-      if (r.orderNum) pEntry.orderNums.add(r.orderNum)
-
-      // Écart en jours entre date acceptée et date demandée (positif si date acceptée > date demandée)
+      // Calcul écart OTD
       let deltaDays = 0
       if (r.dateDemandee && r.dateAcceptee) {
         const tDem = new Date(r.dateDemandee).getTime()
@@ -692,19 +790,89 @@ export class ProducedHoursLoader {
         }
       }
 
-      lines.push({
-        orderNum: r.orderNum,
-        orderLine: r.orderLine,
-        orderSeq: r.orderSeq,
-        clientCode: r.clientCode,
-        clientName: r.clientName,
-        article: r.article,
-        designation: descMap.get(r.article) || r.article,
-        quantity: r.quantity,
-        dateDemandee: r.dateDemandee,
-        dateAcceptee: r.dateAcceptee,
-        deltaDays,
-      })
+      const dateKey = (dateMode === 'demandee' ? r.dateDemandee : r.dateAcceptee) || r.dateDemandee
+
+      // Cas A : Ligne directe pour un article assemblé sur ce poste
+      if (directArticlesSet.has(r.article)) {
+        totalQty += r.quantity
+        if (r.orderNum) allOrderNums.add(r.orderNum)
+
+        if (dateKey) {
+          if (!dailyMap.has(dateKey)) {
+            dailyMap.set(dateKey, { qty: 0, orderNums: new Set() })
+          }
+          const dEntry = dailyMap.get(dateKey)!
+          dEntry.qty += r.quantity
+          if (r.orderNum) dEntry.orderNums.add(r.orderNum)
+        }
+
+        if (!productMap.has(r.article)) {
+          productMap.set(r.article, { qty: 0, orderNums: new Set() })
+        }
+        const pEntry = productMap.get(r.article)!
+        pEntry.qty += r.quantity
+        if (r.orderNum) pEntry.orderNums.add(r.orderNum)
+
+        lines.push({
+          orderNum: r.orderNum,
+          orderLine: r.orderLine,
+          orderSeq: r.orderSeq,
+          clientCode: r.clientCode,
+          clientName: r.clientName,
+          article: r.article,
+          designation: descMap.get(r.article) || r.article,
+          quantity: r.quantity,
+          dateDemandee: r.dateDemandee,
+          dateAcceptee: r.dateAcceptee,
+          deltaDays,
+          isDerived: false,
+        })
+      }
+
+      // Cas B : Commande d'un article parent (kit) dont le besoin dérive sur ce poste
+      const parentComps = componentsByParentForPoste.get(r.article)
+      if (parentComps && parentComps.length > 0) {
+        for (const comp of parentComps) {
+          const derivedQty = Math.round(r.quantity * comp.linkQuantity * 100) / 100
+          if (derivedQty <= 0) continue
+
+          totalQty += derivedQty
+          if (r.orderNum) allOrderNums.add(r.orderNum)
+
+          if (dateKey) {
+            if (!dailyMap.has(dateKey)) {
+              dailyMap.set(dateKey, { qty: 0, orderNums: new Set() })
+            }
+            const dEntry = dailyMap.get(dateKey)!
+            dEntry.qty += derivedQty
+            if (r.orderNum) dEntry.orderNums.add(r.orderNum)
+          }
+
+          if (!productMap.has(comp.compArticle)) {
+            productMap.set(comp.compArticle, { qty: 0, orderNums: new Set() })
+          }
+          const pEntry = productMap.get(comp.compArticle)!
+          pEntry.qty += derivedQty
+          if (r.orderNum) pEntry.orderNums.add(r.orderNum)
+
+          lines.push({
+            orderNum: r.orderNum,
+            orderLine: r.orderLine,
+            orderSeq: r.orderSeq,
+            clientCode: r.clientCode,
+            clientName: r.clientName,
+            article: comp.compArticle,
+            designation: descMap.get(comp.compArticle) || comp.compDescription || comp.compArticle,
+            quantity: derivedQty,
+            dateDemandee: r.dateDemandee,
+            dateAcceptee: r.dateAcceptee,
+            deltaDays,
+            isDerived: true,
+            parentArticle: r.article,
+            parentDesignation: descMap.get(r.article) || r.article,
+          })
+        }
+      }
     }
 
     totalQty = Math.round(totalQty * 100) / 100
@@ -776,6 +944,9 @@ export interface OrderDetailLine {
   dateDemandee: string
   dateAcceptee: string
   deltaDays: number
+  parentArticle?: string
+  parentDesignation?: string
+  isDerived?: boolean
 }
 
 export interface OrderWorkstationProductSummary {
