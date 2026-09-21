@@ -638,6 +638,9 @@ export default function Load(props: LoadPageProps) {
    * quitté : rien à capturer pour elle.
    */
   const zoomFromRef = useRef<DOMRect | null>(null)
+  /** Rayon du panneau dans le flux, capturé avec `zoomFromRef` — le plein
+   *  écran le remet à 0, il ne se relit plus après la bascule. */
+  const zoomFromRadiusRef = useRef(0)
 
   /**
    * Drapeau « un zoom est attendu », posé à chaque bascule. Sans lui, le vol
@@ -702,15 +705,43 @@ export default function Load(props: LoadPageProps) {
     const easing =
       rootStyle.getPropertyValue('--ease-smooth-out').trim() || 'cubic-bezier(0.22, 1, 0.36, 1)'
 
+    // Rayon du panneau DANS le flux (`rounded-lg`) : c'est lui qu'on lit au
+    // départ de l'entrée et à l'arrivée de la sortie. Le panneau plein écran
+    // n'en a pas — l'élément mesuré ici, à l'arrivée d'une sortie, si.
+    const flowRadius = fullscreen
+      ? zoomFromRadiusRef.current
+      : parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
+
+    // Échelle UNIFORME : un `scale(sx, sy)` distinct par axe écrase le texte
+    // et les barres pendant tout le vol (le panneau n'a jamais le ratio du
+    // viewport). On prend la plus grande des deux — le panneau couvre alors
+    // la boîte de départ — et un `clip-path` rogne le surplus pour n'en
+    // montrer que la silhouette. Rognage centré en X, calé en haut en Y :
+    // l'entête (poste, bouton de plein écran) reste lisible pendant le vol.
+    // Le clip-path s'exprime dans le repère local de l'élément (avant
+    // transform), d'où les divisions par `s`.
+    const s = Math.max(from.width / to.width, from.height / to.height)
+    const visW = from.width / s
+    const visH = from.height / s
+    const insetX = (to.width - visW) / 2
+    const insetB = to.height - visH
+    const tx = from.left - to.left - s * insetX
+    const ty = from.top - to.top
+    const startRadius = fullscreen ? flowRadius / s : 0
+    const endRadius = fullscreen ? 0 : flowRadius
+
     const anim = el.animate(
       [
         {
           transformOrigin: '0 0',
-          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${
-            from.width / to.width
-          }, ${from.height / to.height})`,
+          transform: `translate(${tx}px, ${ty}px) scale(${s})`,
+          clipPath: `inset(0px ${insetX}px ${insetB}px ${insetX}px round ${startRadius}px)`,
         },
-        { transformOrigin: '0 0', transform: 'none' },
+        {
+          transformOrigin: '0 0',
+          transform: 'none',
+          clipPath: `inset(0px 0px 0px 0px round ${endRadius}px)`,
+        },
       ],
       { duration: Number.isFinite(duration) ? duration : 350, easing }
     )
@@ -754,6 +785,7 @@ export default function Load(props: LoadPageProps) {
     // Géométrie de départ du zoom FLIP : à capturer MAINTENANT, avant que le
     // panneau ne quitte le flux.
     zoomFromRef.current = el.getBoundingClientRect()
+    zoomFromRadiusRef.current = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
     zoomPendingRef.current = true
     setFullscreen(true)
   }, [fullscreen, exitFullscreen])
