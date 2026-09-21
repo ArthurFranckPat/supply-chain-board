@@ -8,8 +8,6 @@ import {
   fmtLoadValue,
   loadUnitSuffix,
   rtop,
-  satColor,
-  satRate,
   segsOf,
   total,
   type LoadUnit,
@@ -20,7 +18,7 @@ import {
  * extrait de scheduler/load.tsx).
  */
 interface MiniCardProps {
-  /** Ligne du poste, séries en HEURES : porte la capacité ET la saturation. */
+  /** Ligne du poste, séries en HEURES : porte la capacité. */
   line: LoadLine
   /** Série mensuelle réellement tracée (heures, ou pièces si l'unité est « u »). */
   series: LoadPeriod[]
@@ -49,15 +47,6 @@ export function MiniCard({
   }, [totals])
 
   const caps = useMemo(() => line.capacity.monthly, [line.capacity.monthly])
-
-  // Saturation lue sur les HEURES, jamais sur la série tracée : un rapport
-  // pièces ÷ heures ne veut rien dire, et la capacité est un temps. En pièces,
-  // le pourcentage reste donc celui du temps de poste.
-  const hours = useMemo(() => line.monthly.map(total), [line.monthly])
-
-  const peakSat = useMemo(() => {
-    return satRate(hours[peakIdx] ?? 0, caps[peakIdx] ?? 0)
-  }, [hours, caps, peakIdx])
 
   const bars = useMemo(() => {
     const W = 160
@@ -167,18 +156,10 @@ export function MiniCard({
           {loadUnitSuffix(unit)}
         </span>
         <span
-          className={cn(
-            'font-mono text-[9px] font-bold',
-            selected && peakSat < 85 && 'text-brand',
-            !selected && peakSat < 85 && 'text-suggere'
-          )}
-          style={{
-            color: peakSat >= 85 ? satColor(totals[peakIdx] ?? 0, caps[peakIdx] ?? 0) : undefined,
-          }}
+          className={cn('font-mono text-[9px] font-bold', selected ? 'text-brand' : 'text-suggere')}
         >
           pic {months[peakIdx]} {fmtLoadValue(totals[peakIdx] ?? 0)}
           {loadUnitSuffix(unit)}
-          {caps[peakIdx] > 0 && ` · ${Math.round(peakSat)}%`}
         </span>
       </div>
     </button>

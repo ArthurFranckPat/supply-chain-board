@@ -581,37 +581,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // premier, puisque les groupes sont désormais triés par date et non par poids).
   const maxGroupValue = useMemo(() => groups.reduce((m, g) => Math.max(m, g.value), 0), [groups])
 
-  /**
-   * Capacité du poste par jour — le dénominateur de la SATURATION.
-   *
-   * Avant, le pourcentage d'un jour valait sa part de la période : un lundi à
-   * 273 % de sa journée s'affichait « 50 % », barre à moitié pleine. L'écran
-   * censé montrer le déséquilibre le cachait. Le CBN jalonnant à capacité
-   * infinie, c'est exactement ce déséquilibre-là qu'on vient lire ici.
-   */
+  /** Capacité du poste par jour — affichée en repère à côté de la charge du jour. */
   const capByDay = useMemo(
     () => new Map((data?.capaciteParJour ?? []).map((c) => [c.dateIso, c.capaciteH])),
     [data]
   )
-
-  /**
-   * Échelle commune des barres de jour, en multiples de la capacité journalière.
-   * Au moins 1 (la journée pleine), étendue au jour le plus saturé pour qu'un
-   * dépassement SE VOIE au lieu d'être écrêté à une barre pleine — deux jours à
-   * 130 % et 273 % ne doivent pas se lire pareil.
-   *
-   * En PIÈCES, la capacité n'a pas d'équivalent (un temps de poste n'est pas une
-   * quantité) : la barre retombe sur la part de la période, comme avant.
-   */
-  const echelleSaturation = useMemo(() => {
-    if (unitPieces) return 1
-    let max = 1
-    for (const g of groups) {
-      const cap = capByDay.get(g.dateIso) ?? 0
-      if (cap > 0) max = Math.max(max, g.value / cap)
-    }
-    return max
-  }, [groups, capByDay, unitPieces])
 
   // Part de la période tirée par des prévisions plutôt que par des commandes
   // fermes : c'est la charge la moins sûre, elle mérite d'être chiffrée avant
@@ -1035,7 +1009,6 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       maxValue={maxGroupValue}
                       totalValue={totalValue}
                       capaciteH={capByDay.get(g.dateIso) ?? null}
-                      echelle={echelleSaturation}
                       lissage={lissage}
                     />
                   ))}
@@ -1108,31 +1081,19 @@ function DayBlock(props: {
   totalValue: number
   /** Capacité nette (h) du jour ; `null` ou 0 = poste fermé / inconnue. */
   capaciteH: number | null
-  /** Échelle commune des barres, en multiples de la capacité journalière. */
-  echelle: number
   lissage: LissageContexte
 }) {
-  const { group: g, view, qtyMode, unit, maxValue, totalValue, capaciteH, echelle, lissage } = props
+  const { group: g, view, qtyMode, unit, maxValue, totalValue, capaciteH, lissage } = props
   const rowValue = (r: DetailOfRow | DetailCmdRow): number =>
     view === 'of'
       ? ofRowValue(r as DetailOfRow, unit)
       : cmdRowValue(r as DetailCmdRow, unit, qtyMode)
 
-  // SATURATION du jour = heures / capacité de CE jour. C'est la seule lecture
-  // qui répond à « est-ce produisible ? ». La part de la période ne sert que de
-  // repli en pièces, où la capacité n'a pas d'équivalent.
-  const sature = unit === 'h' && capaciteH !== null && capaciteH > 0
-  const saturation = sature ? g.value / capaciteH : 0
-  const pct = sature ? saturation * 100 : totalValue > 0 ? (g.value / totalValue) * 100 : 0
-  const barPct = sature
-    ? (saturation / echelle) * 100
-    : maxValue > 0
-      ? (g.value / maxValue) * 100
-      : 0
-  // Repère de la journée pleine sur la barre : sans lui, une barre à mi-course
-  // sur une échelle à 2,7 ne dit pas si le jour tient.
-  const repere100 = sature && echelle > 1 ? 100 / echelle : null
-  const depasse = sature && saturation > 1.0001
+  // Poids du jour dans la période, barre relative au jour le plus chargé. Pas de
+  // saturation (charge ÷ capacité) : retirée de /charge à la demande métier.
+  const pct = totalValue > 0 ? (g.value / totalValue) * 100 : 0
+  const barPct = maxValue > 0 ? (g.value / maxValue) * 100 : 0
+  const avecCapacite = unit === 'h' && capaciteH !== null && capaciteH > 0
   const dayForecastValue =
     view === 'commande'
       ? g.rows.reduce((a, r) => (isForecastPulled(r.field) ? a + rowValue(r) : a), 0)
@@ -1182,68 +1143,42 @@ function DayBlock(props: {
           {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
           {g.rows.length > 1 ? 's' : ''}
         </span>
-        {/* Capacité du jour : le dénominateur doit être lisible à côté du
-            pourcentage, sinon « 273 % » ne se rattache à rien. */}
-        {sature && (
+        {/* Capacité du jour, en repère. */}
+        {avecCapacite && (
           <span className="flex-none font-mono text-[10px] text-muted-foreground">
             cap. {fmtH(capaciteH!)} h
           </span>
         )}
-        {/* Saturation du jour contre sa propre capacité — la question qu'on se
-            pose devant un plan jalonné à capacité infinie. */}
+        {/* Poids du jour dans la période. */}
         <span className="flex flex-none items-center gap-2">
           <span
             className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft"
-            title={
-              sature
-                ? `${fmtH(g.value)} h pour ${fmtH(capaciteH!)} h de capacité — ${Math.round(pct)} % de la journée`
-                : 'Part de la période (la capacité n’a pas d’équivalent en pièces)'
-            }
+            title="Part de la période"
           >
             <span
               className="absolute inset-y-0 left-0 rounded-full"
               style={{
                 width: `${Math.max(2, Math.min(100, barPct))}%`,
-                background: depasse ? 'var(--color-danger)' : 'var(--color-brand)',
+                background: 'var(--color-brand)',
               }}
             />
-            {/* Trait de la journée pleine (100 %). */}
-            {repere100 !== null && (
-              <span
-                className="absolute inset-y-0 w-px bg-foreground/45"
-                style={{ left: `${repere100}%` }}
-              />
-            )}
           </span>
-          <span
-            className={cn(
-              'w-9 text-right font-mono text-[10px] tabular-nums',
-              depasse ? 'font-bold' : 'text-muted-foreground'
-            )}
-            style={depasse ? { color: 'var(--color-danger)' } : undefined}
-          >
+          <span className="w-9 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
             {Math.round(pct)}%
           </span>
           <span className="w-14 text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
             {fmtVal(g.value, unit)}
           </span>
         </span>
-        {/* Ce que le plan ferait de CE jour — le seul chiffre qui justifie de
-            décrocher son téléphone. */}
-        {profil && profil.saturationAvant !== null && profil.saturationApres !== null && (
+        {/* Ce que le plan ferait de CE jour, en heures de poste (lecture du
+            moteur : reste à produire, toutes natures). */}
+        {profil && (
           <span
-            className="flex-none rounded-sm px-1.5 py-px font-mono text-[10px] font-bold tabular-nums"
-            style={{
-              color: profil.saturationApres > 1.0001 ? 'var(--color-danger)' : 'var(--color-ferme)',
-              background:
-                profil.saturationApres > 1.0001
-                  ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)'
-                  : 'color-mix(in srgb, var(--color-ferme) 12%, transparent)',
-            }}
-            title={`Plan de lissage : ${fmtH(profil.heuresAvant)} h → ${fmtH(profil.heuresApres)} h pour ${fmtH(profil.capaciteH)} h de capacité. Base du moteur : reste à produire, toutes natures, heures de poste — indépendante du filtre et du cran choisis ci-dessus.`}
+            className="flex-none rounded-sm bg-secondary px-1.5 py-px font-mono text-[10px] font-bold tabular-nums text-secondary-foreground"
+            title="Plan de lissage. Base du moteur : reste à produire, toutes natures, heures de poste — indépendante du filtre et du cran choisis ci-dessus."
           >
-            plan {Math.round(profil.saturationAvant * 100)} %{' → '}
-            {Math.round(profil.saturationApres * 100)} %
+            plan {fmtH(profil.heuresAvant)} h{' → '}
+            {fmtH(profil.heuresApres)} h
           </span>
         )}
       </div>
@@ -1636,10 +1571,10 @@ function MobiliteBadge({ mobilite, motif }: { mobilite: 'deplacable' | 'ferme'; 
     <span
       className="flex-none rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
       style={{
-        color: deplacable ? 'var(--color-ferme)' : 'var(--color-danger)',
+        color: deplacable ? 'var(--color-ferme)' : 'var(--color-destructive)',
         background: deplacable
           ? 'color-mix(in srgb, var(--color-ferme) 14%, transparent)'
-          : 'color-mix(in srgb, var(--color-danger) 12%, transparent)',
+          : 'color-mix(in srgb, var(--color-destructive) 12%, transparent)',
       }}
       title={
         deplacable

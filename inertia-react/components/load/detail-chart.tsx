@@ -16,8 +16,6 @@ import {
   type LoadUnit,
   mobileAvg,
   rtop,
-  satColor,
-  satRate,
   segLabel,
   segsOf,
   total,
@@ -645,7 +643,7 @@ export function DetailChart({
               {fmtLoadValue(hover.value)} {loadUnitSuffix(unit)}
             </span>
           </div>
-          {/* Survol d'un segment de charge : part du total + plafond + saturation. */}
+          {/* Survol d'un segment de charge : part du total + plafond. */}
           {hover.total > 0 && (
             <>
               <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
@@ -653,11 +651,8 @@ export function DetailChart({
                 {fmtLoadValue(hover.total)} {loadUnitSuffix(unit)}
               </div>
               {hover.cap > 0 && (
-                <div
-                  className="mt-0.5 font-mono text-[10px]"
-                  style={{ color: satColor(hover.total, hover.cap) }}
-                >
-                  capacité {hover.cap} h · saturation {Math.round(satRate(hover.total, hover.cap))}%
+                <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                  capacité {fmtLoadValue(hover.cap)} h
                 </div>
               )}
               {onSelectPeriod && (

@@ -16,8 +16,7 @@ export const MUTED = 'var(--color-muted-foreground)'
 export const FG = 'var(--color-foreground)'
 export const RULE_SOFT = 'var(--color-rule-soft)'
 export const CARD = 'var(--color-card)'
-export const DANGER = 'var(--color-danger)'
-export const WARN = 'var(--color-warn)'
+export const DANGER = 'var(--color-destructive)'
 /** Hachures SVG (motifs définis dans <HatchDefs>) : induit dans la couleur du parent. */
 export const HATCH_FERME = 'url(#load-hatch-ferme)'
 export const HATCH_SUGGERE = 'url(#load-hatch-suggere)'
@@ -95,17 +94,6 @@ export const maskPeriod = (p: LoadPeriod, on: ReadonlySet<keyof LoadPeriod>): Lo
   fi: on.has('fi') ? p.fi : 0,
   si: on.has('si') ? p.si : 0,
 })
-
-/** Taux de saturation charge/capacité, en % (0 si capacité nulle). */
-export const satRate = (charge: number, cap: number): number => (cap > 0 ? (charge / cap) * 100 : 0)
-
-/** Couleur de saturation : ≥100 % rouge, ≥85 % orange, sinon neutre. */
-export const satColor = (charge: number, cap: number): string => {
-  if (cap <= 0) return MUTED
-  if (charge > cap) return DANGER
-  if (charge >= cap * 0.85) return WARN
-  return MUTED
-}
 
 /** Libellé d'un segment selon la vue
  * (OF : Ferme/Planifié/Suggéré ; Commande : Commande/Prévision + induits). */

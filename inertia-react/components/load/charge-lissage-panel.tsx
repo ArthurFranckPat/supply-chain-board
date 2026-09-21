@@ -12,7 +12,7 @@ import {
  * Bandeau de lissage de la semaine ouverte, dans le panneau de détail de charge.
  *
  * Ce bandeau ne redessine PAS le profil de la semaine : la table qu'il coiffe
- * porte déjà une en-tête par jour, avec sa capacité, sa barre et sa saturation —
+ * porte déjà une en-tête par jour, avec sa capacité et sa barre —
  * un second graphique des mêmes cinq jours prendrait de la place sans apporter
  * de décision. Le bandeau porte ce que la table ne peut pas porter : le total
  * de ce que le plan gagne, ce qui sort de la semaine et ce qui y entre, et les
@@ -132,7 +132,9 @@ export function ChargeLissagePanel(props: ChargeLissagePanelProps) {
             className="font-bold"
             style={{
               color:
-                plan.plan.depassementApresH > 0.05 ? 'var(--color-danger)' : 'var(--color-ferme)',
+                plan.plan.depassementApresH > 0.05
+                  ? 'var(--color-destructive)'
+                  : 'var(--color-ferme)',
             }}
           >
             {fmtH(plan.plan.depassementApresH)} h
@@ -283,7 +285,7 @@ export function ChargeLissagePanel(props: ChargeLissagePanelProps) {
                         {c.article}
                         {c.designation ? ` — ${c.designation}` : ''} · {fmtQ(c.quantite)} u ·{' '}
                         {c.inconnu ? (
-                          <span style={{ color: 'var(--color-danger)' }}>
+                          <span style={{ color: 'var(--color-destructive)' }}>
                             absent de la projection (on ne sait rien, donc on ne bouge pas)
                           </span>
                         ) : (

@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Download,
 } from 'lucide-react'
-import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import { useReplayEnter } from '@r/lib/use-replay-enter'
@@ -29,8 +28,6 @@ import {
   type Gran,
   maskPeriod,
   OF_SEG_OPTIONS,
-  satColor,
-  satRate,
   segKeys,
   segOptions,
   total,
@@ -255,8 +252,8 @@ export default function Load(props: LoadPageProps) {
    * Série TRACÉE d'un poste : les heures déjà mises au cran choisi (`lines`),
    * ou la série en pièces correspondante quand l'unité active est « u ».
    *
-   * On ne substitue pas `monthly`/`weekly` sur la ligne : la capacité et la
-   * saturation restent lues sur ces séries-là (temps ÷ temps), et un poste ne
+   * On ne substitue pas `monthly`/`weekly` sur la ligne : la capacité reste
+   * lue sur ces séries-là (temps ÷ temps), et un poste ne
    * doit pas se retrouver avec deux unités sous le même nom de champ.
    */
   const seriesOf = useCallback(
@@ -344,9 +341,8 @@ export default function Load(props: LoadPageProps) {
     segFiltered || atelierFilter.size > 0 || (view === 'commande' && !applyDemandHorizon)
 
   /**
-   * Charge par poste, en HEURES, masque de segments appliqué. La capacité et la
-   * saturation (charge ÷ capacité) se lisent sur cette série quelle que soit
-   * l'unité affichée : elles comparent un temps à un temps.
+   * Charge par poste, en HEURES, masque de segments appliqué. La capacité se lit
+   * sur cette série quelle que soit l'unité affichée : un temps face à un temps.
    */
   const lines = useMemo(() => {
     const keep = segKeys(view, activeSegs)
@@ -876,16 +872,6 @@ export default function Load(props: LoadPageProps) {
       periodLabel: label.replace('\n', ' '),
     })
   }
-
-  const selSaturation = useMemo(() => {
-    const line = selLine
-    if (!line) return { charge: 0, cap: 0, rate: 0 }
-    const periods = gran === 'month' ? line.monthly : line.weekly
-    const caps = gran === 'month' ? line.capacity.monthly : line.capacity.weekly
-    const charge = periods.reduce((a, p) => a + total(p), 0)
-    const cap = caps.reduce((a, c) => a + c, 0)
-    return { charge, cap, rate: satRate(charge, cap) }
-  }, [selLine, gran])
 
   /** Déclencheur de filtres — ouvert/fermé par le raccourci `F`. */
   const filterRef = useRef<HTMLDetailsElement>(null)
@@ -1463,25 +1449,6 @@ export default function Load(props: LoadPageProps) {
                   {selLine.atelier && (
                     <span className="rounded-full border border-rule bg-secondary px-2.5 py-1 font-mono text-[10px] font-semibold text-secondary-foreground">
                       {selLine.atelierLabel}
-                    </span>
-                  )}
-                  {/* Badge saturation (#35) */}
-                  {selSaturation.cap > 0 && (
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] font-bold"
-                      style={{
-                        color: satColor(selSaturation.charge, selSaturation.cap),
-                        backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
-                      }}
-                    >
-                      <DynamicIcon
-                        name={selSaturation.rate > 100 ? 'warning' : 'speed'}
-                        size={14}
-                      />
-                      Saturation {Math.round(selSaturation.rate)}%
-                      <span className="font-sans font-medium opacity-70">
-                        ({selSaturation.charge} / {selSaturation.cap} h)
-                      </span>
                     </span>
                   )}
                   {/* Plein écran du panneau — à l'extrémité de l'entête, à

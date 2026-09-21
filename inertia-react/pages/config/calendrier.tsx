@@ -595,7 +595,8 @@ export default function Calendrier(props: CalendrierPageProps) {
                         <td
                           className="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px] font-bold"
                           style={{
-                            color: c.factor <= 0 ? 'var(--color-danger)' : 'var(--color-suggere)',
+                            color:
+                              c.factor <= 0 ? 'var(--color-destructive)' : 'var(--color-suggere)',
                           }}
                         >
                           {factorLabel(c.factor)}
