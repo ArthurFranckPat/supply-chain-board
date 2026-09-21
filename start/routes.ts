@@ -241,6 +241,11 @@ router
     router
       .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')
       .as('charge.detail')
+    // Export CSV du détail de la charge (postes visibles × périodes affichées) :
+    // renvoyé en pièce jointe `text/csv`. Cf. charge_export_builder.
+    router
+      .get('/api/v1/planning/charge/export.csv', '#controllers/load_controller.exportCsv')
+      .as('charge.export')
     // Plan de lissage d'un poste : propositions de repositionnement de dates de
     // ligne de commande. Lecture seule — c'est l'écran qui applique, ligne par
     // ligne, via les overrides (`/order-lines/:order/:line`).

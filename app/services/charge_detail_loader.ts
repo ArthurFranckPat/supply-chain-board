@@ -6,7 +6,7 @@
  * au lieu de sommer : la table ne peut donc pas diverger de la barre qu'elle
  * explique. Aucune requête X3 supplémentaire — tout passe par les caches SWR
  * de boardDataset ; seules la résolution des noms clients et les désignations
- * d'articles sont lues ici, sur le seul périmètre du bucket cliqué.
+ * d'articles sont lues ici.
  *
  * Le filtre statut/nature et la bascule brut/net ne sont PAS appliqués côté
  * serveur : chaque ligne porte son segment (`field`) et ses deux valeurs, et le
@@ -19,6 +19,11 @@
  * produit la barre — la table ne peut pas diverger de la barre par un effet de
  * cache périmé (deux snapshots X3 différents), seulement par un filtre choisi
  * à l'écran.
+ *
+ * `buildChargeDetailRows` produit les lignes de TOUT l'horizon, taguées par
+ * poste : le détail d'une barre en filtre un (poste, bucket), l'export CSV les
+ * ventile toutes. Une maison unique pour le calcul, donc aucune divergence
+ * possible entre la table, le graphe et le fichier exporté.
  */
 
 import { cacheNs } from '#services/cache_ns'
@@ -35,6 +40,7 @@ import {
 } from '#app/domain/charge_explosion'
 import { CommandeOFMatcher, type MatchingResult } from '#app/domain/of_conso'
 import type { Flow } from '#app/domain/models/flow'
+import type { Workstation } from '#app/domain/models/workstation'
 import { hoursForQuantity } from '#app/domain/models/gamme'
 import { capDay, chargeHoursWithEfficiency, isOpenDay } from '#app/domain/capacity'
 import { mobiliteDeLigne, type Mobilite } from '#app/domain/load_smoothing'
@@ -209,6 +215,308 @@ export interface ChargeDetailParams {
 /** Erreur de paramètre — le contrôleur la traduit en 400. */
 export class ChargeDetailBadRequest extends Error {}
 
+// ── Builder partagé : lignes de détail pour TOUT l'horizon ───────────────────
+//
+// `loadChargeDetail` ne sert qu'UNE barre ; l'export CSV les sert TOUTES. Les
+// deux doivent sommer exactement les mêmes lignes, sinon la table et le fichier
+// divergeraient — la règle du projet. D'où une maison unique : ce builder
+// produit les lignes de l'horizon ENTIER, taguées par poste ; le détail filtre
+// ensuite sur (poste, bucket), l'export ventile par bucket.
+
+/** Ligne de détail OF, taguée du poste qui la porte. */
+export type ChargeDetailOfRowT = ChargeDetailOfRow & { poste: string }
+/** Ligne de détail commande, taguée du poste qui la porte. */
+export type ChargeDetailCmdRowT = ChargeDetailCmdRow & { poste: string }
+
+export interface BuildChargeDetailRowsParams {
+  inputs: ChargeInputs
+  view: ChargeDetailView
+  ofDate: OfDateMode
+  applyDemandHorizon: boolean
+  calendar: { factor(w: Workstation, iso: string): number } | null
+  wstByCode: Map<string, Workstation>
+  monthStart: Date
+  horizonEnd: Date
+  /** Stock strict+CQ figé du snapshot — requis en vue commande (repli : recalcul). */
+  stock?: Map<string, number>
+}
+
+export interface BuildChargeDetailRowsResult {
+  /** Taguées par poste ; `[]` en vue commande. */
+  ofRows: ChargeDetailOfRowT[]
+  /** Taguées par poste ; `[]` en vue OF. */
+  cmdRows: ChargeDetailCmdRowT[]
+}
+
+export async function buildChargeDetailRows(
+  p: BuildChargeDetailRowsParams
+): Promise<BuildChargeDetailRowsResult> {
+  const { inputs, wstByCode } = p
+  // Le détail décale le jour de rattachement EXACTEMENT comme la barre (même
+  // `chargeDay`, même calendrier), sinon la table ne retombe plus sur la hauteur
+  // du bucket dès qu'un besoin tombe un jour fermé.
+  const dayOf = (wst: string, d: Date): Date =>
+    chargeDay(wst, d, p.calendar, wstByCode, p.monthStart, p.horizonEnd)
+
+  if (p.view === 'of') {
+    const ofRows: ChargeDetailOfRowT[] = []
+    for (const mo of inputs.mos) {
+      const ops = inputs.gammeMap.get(mo.article) ?? []
+      const moDate = ofDateForMode(mo, p.ofDate)
+      if (!moDate) continue
+      const qty = ofResteAProduire(mo, inputs.avancementByOf)
+      for (const gamme of ops) {
+        const wst = gamme.workstation
+        if (!wst) continue
+        const hours = chargeHoursWithEfficiency(hoursForQuantity(gamme, qty), wstByCode.get(wst))
+        if (hours <= 0) continue
+        ofRows.push({
+          poste: wst,
+          numOf: mo.numOf,
+          article: mo.article,
+          designation: mo.designation,
+          statutLabel: mo.statutLabel,
+          // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
+          // les heures de la ligne sont issues, sinon la table s'explique mal.
+          quantite: qty,
+          dateIso: isoDay(dayOf(wst, moDate)),
+          field: ofSegment(mo.status),
+          hours,
+        })
+      }
+    }
+    ofRows.sort((a, b) => b.hours - a.hours)
+    return { ofRows, cmdRows: [] }
+  }
+
+  // ── Matching commande→OF — le MÊME moteur que le suivi (`CommandeOFMatcher`,
+  // of_conso.ts) : contremarque X3 d'abord, puis couverture cumulative
+  // statut+date, stock déduit avant allocation. L'allocation est COMPÉTITIVE
+  // sur tout l'horizon (une commande plus tôt doit prendre l'OF avant), donc
+  // on matche TOUS les besoins de l'article. Offre = OF (`inputs.mos`, flux
+  // identiques à boardDataset) + stock strict+CQ FIGÉ du snapshot — le même
+  // stock que le netting brut/net/reste, pour que les deux lectures ne se
+  // contredisent pas.
+  const stock = p.stock ?? (await computeChargeStock(inputs))
+  const allNeeds = await computeChargeNeeds(inputs, stock, undefined, p.applyDemandHorizon)
+  const needs = allNeeds.filter((n) => n.brutHours > 0)
+
+  // Une demande par (article, commande, ligne, date, nature) : l'explosion
+  // émet un besoin PAR POSTE de la gamme, tous porteurs de la même quantité —
+  // les dédupliquer, sinon le matcher croirait à autant de demandes séparées.
+  const needKey = (
+    article: string,
+    numCommande: string | null,
+    ligne: string | null,
+    date: Date,
+    prevision: boolean
+  ): string =>
+    `${article}|${numCommande ?? ''}|${ligne ?? ''}|${isoDay(date)}|${prevision ? 'p' : 'f'}`
+
+  const demandByKey = new Map<string, Flow>()
+  for (const n of allNeeds) {
+    const numCommande = n.source?.numCommande ?? null
+    const key = needKey(
+      n.article,
+      numCommande,
+      n.source?.ligne ?? null,
+      n.date,
+      n.nature === 'prevision'
+    )
+    if (demandByKey.has(key)) continue
+    demandByKey.set(key, {
+      article: n.article,
+      quantity: n.brutQty,
+      direction: 'demand',
+      date: n.date,
+      origin:
+        n.nature === 'prevision'
+          ? {
+              type: 'forecast',
+              id: numCommande ?? n.article,
+              customer: null,
+              pays: null,
+              orderType: null,
+              contremarque: null,
+              qteCommandee: n.brutQty,
+              qteAllouee: 0,
+            }
+          : {
+              type: 'order',
+              id: numCommande ?? n.article,
+              customer: n.source?.client ?? '',
+              pays: null,
+              orderType: null,
+              nature: 'COMMANDE',
+              contremarque: null,
+              qteCommandee: n.brutQty,
+              qteAllouee: 0,
+              ligne: n.source?.ligne ?? null,
+            },
+    })
+  }
+
+  const demandsByArticle = new Map<string, Flow[]>()
+  for (const f of demandByKey.values()) {
+    let arr = demandsByArticle.get(f.article)
+    if (!arr) demandsByArticle.set(f.article, (arr = []))
+    arr.push(f)
+  }
+
+  // Flux OF identiques à ceux de boardDataset.getOrdersForWindow : reste
+  // RMNEXTQTY en quantité, ENDDAT en date, contremarque portée par l'origine.
+  const ofFlowsByArticle = new Map<string, Flow[]>()
+  for (const mo of inputs.mos) {
+    if (mo.quantity <= 0) continue
+    let arr = ofFlowsByArticle.get(mo.article)
+    if (!arr) ofFlowsByArticle.set(mo.article, (arr = []))
+    arr.push({
+      article: mo.article,
+      quantity: mo.quantity,
+      direction: 'supply',
+      date: mo.endDate,
+      origin: {
+        type: 'of',
+        id: mo.numOf,
+        status: mo.status,
+        statutLabel: mo.statutLabel,
+        typeOf: null,
+        typeOfLabel: null,
+        designation: mo.designation,
+        launched: mo.quantityLaunched,
+        reservePour: mo.reservePour ?? undefined,
+      },
+    })
+  }
+
+  // Désignations : référentiel articles LOCAL (SQLite), pas X3.
+  const articles = await staticSync.readArticles().catch(() => [] as Article[])
+  const desByArticle = new Map(articles.map((a) => [a.code, a.description || null]))
+  const articlesMap = new Map(articles.map((a) => [a.code, a]))
+  const resultByKey = new Map<string, MatchingResult>()
+  for (const [article, demands] of demandsByArticle) {
+    const stockQty = stock.get(article) ?? 0
+    const ofFlows = ofFlowsByArticle.get(article) ?? []
+    const supply =
+      stockQty > 0
+        ? [
+            ...ofFlows,
+            {
+              article,
+              quantity: stockQty,
+              direction: 'supply' as const,
+              date: null,
+              origin: { type: 'stock' as const, subType: 'strict' as const, pmp: null },
+            },
+          ]
+        : ofFlows
+    const matcher = new CommandeOFMatcher(supply, articlesMap, new Map(), 30)
+    for (const r of matcher.matchCommandes(demands)) {
+      const o = r.demandFlow.origin
+      if (o.type !== 'order' && o.type !== 'forecast') continue
+      resultByKey.set(
+        needKey(
+          r.demandFlow.article,
+          o.id,
+          o.type === 'order' ? (o.ligne ?? null) : null,
+          r.demandFlow.date ?? new Date(),
+          o.type === 'forecast'
+        ),
+        r
+      )
+    }
+  }
+
+  const rowOfs = (n: ChargeNeed): ChargeDetailRowOf[] => {
+    const r = resultByKey.get(
+      needKey(
+        n.article,
+        n.source?.numCommande ?? null,
+        n.source?.ligne ?? null,
+        n.date,
+        n.nature === 'prevision'
+      )
+    )
+    if (!r) return []
+    return r.ofAllocations
+      .map((a) => {
+        const o = a.ofFlow.origin
+        if (o.type !== 'of') return null
+        return {
+          numOf: o.id,
+          statutLabel: o.statutLabel,
+          quantite: a.qteAllouee,
+          dateIso: a.ofFlow.date ? isoDay(a.ofFlow.date) : null,
+          raison: a.matchReason,
+          reservePour: o.reservePour ?? null,
+        }
+      })
+      .filter((x): x is ChargeDetailRowOf => x !== null)
+  }
+
+  // Noms clients : une seule requête BPARTNER, sur tous les codes de l'horizon.
+  const clientCodes = [
+    ...new Set(needs.map((n) => n.source?.client).filter((c): c is string => !!c)),
+  ]
+  const clientNames = clientCodes.length
+    ? await new X3OrderLineRepository()
+        .resolveClientNames(clientCodes)
+        .catch(() => new Map<string, string>())
+    : new Map<string, string>()
+
+  // Date X3 d'origine de chaque ligne de commande, AVANT substitution
+  // locale. `inputs.orderLines` porte la date telle que X3 la donne ;
+  // `inputs.lineDateOverrides` porte celle qu'on lui a substituée. Les deux
+  // sont nécessaires pour que l'écran puisse proposer le retour en arrière.
+  const dateX3ParLigne = new Map<string, string>()
+  for (const l of inputs.orderLines) {
+    if (l.nature !== 'COMMANDE' || !l.numCommande) continue
+    dateX3ParLigne.set(`${l.numCommande}#${l.ligne ?? ''}`, isoDay(l.dateLivraison))
+  }
+
+  const cmdRows: ChargeDetailCmdRowT[] = needs.map((n) => {
+    const code = n.source?.client ?? null
+    const cleLigne = n.source?.numCommande
+      ? `${n.source.numCommande}#${n.source.ligne ?? ''}`
+      : null
+    // Une ligne INDUITE (composant, depth > 0) n'a pas de date propre à
+    // négocier : elle suit son produit fini. Elle hérite donc de la mobilité
+    // du client de tête, ce qui est exactement ce qu'on veut dire à l'écran —
+    // « bougera si on bouge le PF », pas « intouchable ».
+    const mob = mobiliteDeLigne(code)
+    return {
+      poste: n.wst,
+      article: n.article,
+      designation: desByArticle.get(n.article) ?? null,
+      depth: n.depth,
+      path: n.path,
+      pfArticle: n.source?.pfArticle ?? n.article,
+      numCommande: n.source?.numCommande ?? null,
+      ligne: n.source?.ligne ?? null,
+      // Prévision : X3 ne porte pas de client, on laisse null (l'UI le dit).
+      client: code ? (clientNames.get(code) ?? code) : null,
+      clientCode: code,
+      mobilite: mob.mobilite,
+      motifMobilite: mob.motif,
+      dateIso: isoDay(dayOf(n.wst, n.date)),
+      dateX3Iso: cleLigne ? (dateX3ParLigne.get(cleLigne) ?? null) : null,
+      dateOverrideIso: cleLigne ? (inputs.lineDateOverrides.get(cleLigne) ?? null) : null,
+      field: chargeSegment(n.depth, n.nature),
+      brutQty: n.brutQty,
+      netQty: n.netQty,
+      resteQty: n.resteQty,
+      encoursQty: n.encoursQty,
+      brutHours: chargeHoursWithEfficiency(n.brutHours, wstByCode.get(n.wst)),
+      netHours: chargeHoursWithEfficiency(n.netHours, wstByCode.get(n.wst)),
+      resteHours: chargeHoursWithEfficiency(n.resteHours, wstByCode.get(n.wst)),
+      ofs: rowOfs(n),
+    }
+  })
+  cmdRows.sort((a, b) => b.brutHours - a.brutHours)
+
+  return { ofRows: [], cmdRows }
+}
+
 export async function loadChargeDetail(params: ChargeDetailParams): Promise<ChargeDetail> {
   const poste = params.poste.trim()
   if (!poste) throw new ChargeDetailBadRequest('Poste manquant')
@@ -247,21 +555,10 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         ? pinned.inputs
         : await fetchChargeInputs(monthStart, horizonEnd, force)
 
-      // 4.1 : le détail décale le jour de rattachement EXACTEMENT comme la barre
-      // (même `chargeDay`, même calendrier), sinon la table ne retombe plus sur
-      // la hauteur du bucket cliqué dès qu'un besoin tombe un jour fermé.
       const calendar = await capacityCalendar
         .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
         .catch(() => null)
       const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
-      const dayOf = (wst: string, d: Date): Date =>
-        chargeDay(wst, d, calendar, wstByCode, monthStart, horizonEnd)
-
-      const inBucket = (wst: string, d: Date | null): boolean => {
-        if (!d) return false
-        const day = dayOf(wst, d)
-        return day.getTime() >= range.from.getTime() && day.getTime() <= range.to.getTime()
-      }
 
       const bucket = {
         key: params.bucket,
@@ -292,280 +589,31 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         })
       }
 
-      if (params.view === 'of') {
-        const ofRows: ChargeDetailOfRow[] = []
-        for (const mo of inputs.mos) {
-          const ops = inputs.gammeMap.get(mo.article) ?? []
-          const moDate = ofDateForMode(mo, ofDate)
-          if (!inBucket(poste, moDate)) continue
-          const qty = ofResteAProduire(mo, inputs.avancementByOf)
-          const day = dayOf(poste, moDate!)
-          for (const gamme of ops) {
-            if (gamme.workstation !== poste) continue
-            const hours = chargeHoursWithEfficiency(
-              hoursForQuantity(gamme, qty),
-              wstByCode.get(gamme.workstation)
-            )
-            if (hours <= 0) continue
-            ofRows.push({
-              numOf: mo.numOf,
-              article: mo.article,
-              designation: mo.designation,
-              statutLabel: mo.statutLabel,
-              // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
-              // les heures de la ligne sont issues, sinon la table s'explique mal.
-              quantite: qty,
-              dateIso: isoDay(day),
-              field: ofSegment(mo.status),
-              hours,
-            })
-          }
-        }
-        ofRows.sort((a, b) => b.hours - a.hours)
-        return {
-          view: 'of',
-          poste: { code: poste, label: posteLabel },
-          bucket,
-          capaciteParJour,
-          ofRows,
-          cmdRows: [],
-          x3Error: inputs.x3Error,
-        }
-      }
-
-      // ── Matching commande→OF — le MÊME moteur que le suivi (`CommandeOFMatcher`,
-      // of_conso.ts) : contremarque X3 d'abord, puis couverture cumulative
-      // statut+date, stock déduit avant allocation. L'allocation est COMPÉTITIVE
-      // sur tout l'horizon (une commande plus tôt doit prendre l'OF avant), donc
-      // on matche TOUS les besoins de l'article puis on ne relit que les lignes
-      // du bucket. Offre = OF (`inputs.mos`, flux identiques à boardDataset) +
-      // stock strict+CQ FIGÉ du snapshot — le même stock que le netting brut/net/
-      // reste, pour que les deux lectures ne se contredisent pas.
-      const stock = pinned?.stock ?? (await computeChargeStock(inputs))
-      const allNeeds = await computeChargeNeeds(inputs, stock, undefined, applyDemandHorizon)
-      const needs = allNeeds.filter(
-        (n) => n.wst === poste && inBucket(poste, n.date) && n.brutHours > 0
-      )
-
-      // Une demande par (article, commande, ligne, date, nature) : l'explosion
-      // émet un besoin PAR POSTE de la gamme, tous porteurs de la même quantité —
-      // les dédupliquer, sinon le matcher croirait à autant de demandes séparées.
-      const needKey = (
-        article: string,
-        numCommande: string | null,
-        ligne: string | null,
-        date: Date,
-        prevision: boolean
-      ): string =>
-        `${article}|${numCommande ?? ''}|${ligne ?? ''}|${isoDay(date)}|${prevision ? 'p' : 'f'}`
-
-      const demandByKey = new Map<string, Flow>()
-      for (const n of allNeeds) {
-        const numCommande = n.source?.numCommande ?? null
-        const key = needKey(
-          n.article,
-          numCommande,
-          n.source?.ligne ?? null,
-          n.date,
-          n.nature === 'prevision'
-        )
-        if (demandByKey.has(key)) continue
-        demandByKey.set(key, {
-          article: n.article,
-          quantity: n.brutQty,
-          direction: 'demand',
-          date: n.date,
-          origin:
-            n.nature === 'prevision'
-              ? {
-                  type: 'forecast',
-                  id: numCommande ?? n.article,
-                  customer: null,
-                  pays: null,
-                  orderType: null,
-                  contremarque: null,
-                  qteCommandee: n.brutQty,
-                  qteAllouee: 0,
-                }
-              : {
-                  type: 'order',
-                  id: numCommande ?? n.article,
-                  customer: n.source?.client ?? '',
-                  pays: null,
-                  orderType: null,
-                  nature: 'COMMANDE',
-                  contremarque: null,
-                  qteCommandee: n.brutQty,
-                  qteAllouee: 0,
-                  ligne: n.source?.ligne ?? null,
-                },
-        })
-      }
-
-      const demandsByArticle = new Map<string, Flow[]>()
-      for (const f of demandByKey.values()) {
-        let arr = demandsByArticle.get(f.article)
-        if (!arr) demandsByArticle.set(f.article, (arr = []))
-        arr.push(f)
-      }
-
-      // Flux OF identiques à ceux de boardDataset.getOrdersForWindow : reste
-      // RMNEXTQTY en quantité, ENDDAT en date, contremarque portée par l'origine.
-      const ofFlowsByArticle = new Map<string, Flow[]>()
-      for (const mo of inputs.mos) {
-        if (mo.quantity <= 0) continue
-        let arr = ofFlowsByArticle.get(mo.article)
-        if (!arr) ofFlowsByArticle.set(mo.article, (arr = []))
-        arr.push({
-          article: mo.article,
-          quantity: mo.quantity,
-          direction: 'supply',
-          date: mo.endDate,
-          origin: {
-            type: 'of',
-            id: mo.numOf,
-            status: mo.status,
-            statutLabel: mo.statutLabel,
-            typeOf: null,
-            typeOfLabel: null,
-            designation: mo.designation,
-            launched: mo.quantityLaunched,
-            reservePour: mo.reservePour ?? undefined,
-          },
-        })
-      }
-
-      // Désignations : référentiel articles LOCAL (SQLite), pas X3.
-      const articles = await staticSync.readArticles().catch(() => [] as Article[])
-      const desByArticle = new Map(articles.map((a) => [a.code, a.description || null]))
-      const articlesMap = new Map(articles.map((a) => [a.code, a]))
-      const resultByKey = new Map<string, MatchingResult>()
-      for (const [article, demands] of demandsByArticle) {
-        const stockQty = stock.get(article) ?? 0
-        const ofFlows = ofFlowsByArticle.get(article) ?? []
-        const supply =
-          stockQty > 0
-            ? [
-                ...ofFlows,
-                {
-                  article,
-                  quantity: stockQty,
-                  direction: 'supply' as const,
-                  date: null,
-                  origin: { type: 'stock' as const, subType: 'strict' as const, pmp: null },
-                },
-              ]
-            : ofFlows
-        const matcher = new CommandeOFMatcher(supply, articlesMap, new Map(), 30)
-        for (const r of matcher.matchCommandes(demands)) {
-          const o = r.demandFlow.origin
-          if (o.type !== 'order' && o.type !== 'forecast') continue
-          resultByKey.set(
-            needKey(
-              r.demandFlow.article,
-              o.id,
-              o.type === 'order' ? (o.ligne ?? null) : null,
-              r.demandFlow.date ?? new Date(),
-              o.type === 'forecast'
-            ),
-            r
-          )
-        }
-      }
-
-      const rowOfs = (n: ChargeNeed): ChargeDetailRowOf[] => {
-        const r = resultByKey.get(
-          needKey(
-            n.article,
-            n.source?.numCommande ?? null,
-            n.source?.ligne ?? null,
-            n.date,
-            n.nature === 'prevision'
-          )
-        )
-        if (!r) return []
-        return r.ofAllocations
-          .map((a) => {
-            const o = a.ofFlow.origin
-            if (o.type !== 'of') return null
-            return {
-              numOf: o.id,
-              statutLabel: o.statutLabel,
-              quantite: a.qteAllouee,
-              dateIso: a.ofFlow.date ? isoDay(a.ofFlow.date) : null,
-              raison: a.matchReason,
-              reservePour: o.reservePour ?? null,
-            }
-          })
-          .filter((x): x is ChargeDetailRowOf => x !== null)
-      }
-
-      // Noms clients : une seule requête BPARTNER, sur les seuls codes du bucket.
-      const clientCodes = [
-        ...new Set(needs.map((n) => n.source?.client).filter((c): c is string => !!c)),
-      ]
-      const clientNames = clientCodes.length
-        ? await new X3OrderLineRepository()
-            .resolveClientNames(clientCodes)
-            .catch(() => new Map<string, string>())
-        : new Map<string, string>()
-
-      // Date X3 d'origine de chaque ligne de commande, AVANT substitution
-      // locale. `inputs.orderLines` porte la date telle que X3 la donne ;
-      // `inputs.lineDateOverrides` porte celle qu'on lui a substituée. Les deux
-      // sont nécessaires pour que l'écran puisse proposer le retour en arrière.
-      const dateX3ParLigne = new Map<string, string>()
-      for (const l of inputs.orderLines) {
-        if (l.nature !== 'COMMANDE' || !l.numCommande) continue
-        dateX3ParLigne.set(`${l.numCommande}#${l.ligne ?? ''}`, isoDay(l.dateLivraison))
-      }
-
-      const cmdRows: ChargeDetailCmdRow[] = needs.map((n) => {
-        const code = n.source?.client ?? null
-        const cleLigne = n.source?.numCommande
-          ? `${n.source.numCommande}#${n.source.ligne ?? ''}`
-          : null
-        // Une ligne INDUITE (composant, depth > 0) n'a pas de date propre à
-        // négocier : elle suit son produit fini. Elle hérite donc de la
-        // mobilité du client de tête, ce qui est exactement ce qu'on veut dire
-        // à l'écran — « bougera si on bouge le PF », pas « intouchable ».
-        const mob = mobiliteDeLigne(code)
-        return {
-          article: n.article,
-          designation: desByArticle.get(n.article) ?? null,
-          depth: n.depth,
-          path: n.path,
-          pfArticle: n.source?.pfArticle ?? n.article,
-          numCommande: n.source?.numCommande ?? null,
-          ligne: n.source?.ligne ?? null,
-          // Prévision : X3 ne porte pas de client, on laisse null (l'UI le dit).
-          client: code ? (clientNames.get(code) ?? code) : null,
-          clientCode: code,
-          mobilite: mob.mobilite,
-          motifMobilite: mob.motif,
-          dateIso: isoDay(dayOf(n.wst, n.date)),
-          dateX3Iso: cleLigne ? (dateX3ParLigne.get(cleLigne) ?? null) : null,
-          dateOverrideIso: cleLigne ? (inputs.lineDateOverrides.get(cleLigne) ?? null) : null,
-          field: chargeSegment(n.depth, n.nature),
-          brutQty: n.brutQty,
-          netQty: n.netQty,
-          resteQty: n.resteQty,
-          encoursQty: n.encoursQty,
-          brutHours: chargeHoursWithEfficiency(n.brutHours, wstByCode.get(n.wst)),
-          netHours: chargeHoursWithEfficiency(n.netHours, wstByCode.get(n.wst)),
-          resteHours: chargeHoursWithEfficiency(n.resteHours, wstByCode.get(n.wst)),
-          ofs: rowOfs(n),
-        }
+      const { ofRows, cmdRows } = await buildChargeDetailRows({
+        inputs,
+        view: params.view,
+        ofDate,
+        applyDemandHorizon,
+        calendar,
+        wstByCode,
+        monthStart,
+        horizonEnd,
+        stock: pinned?.stock,
       })
-      cmdRows.sort((a, b) => b.brutHours - a.brutHours)
+
+      // Bornes du bucket en ISO : le `dateIso` d'une ligne est déjà le jour de
+      // rattachement décalé par `chargeDay`, la comparaison lexicographique sur
+      // `YYYY-MM-DD` équivaut donc au test d'intervalle sur les Dates.
+      const inBucketIso = (dateIso: string): boolean =>
+        dateIso >= bucket.fromIso && dateIso <= bucket.toIso
 
       return {
-        view: 'commande',
+        view: params.view,
         poste: { code: poste, label: posteLabel },
         bucket,
         capaciteParJour,
-        ofRows: [],
-        cmdRows,
+        ofRows: ofRows.filter((r) => r.poste === poste && inBucketIso(r.dateIso)),
+        cmdRows: cmdRows.filter((r) => r.poste === poste && inBucketIso(r.dateIso)),
         x3Error: inputs.x3Error,
       }
     }),

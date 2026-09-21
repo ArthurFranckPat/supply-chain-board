@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
+import { route } from '@r/lib/routes'
 import {
   TriangleAlert,
   Search,
@@ -7,6 +8,7 @@ import {
   Minimize2,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
@@ -381,6 +383,49 @@ export default function Load(props: LoadPageProps) {
       return true
     })
   }, [lines, query, atelierFilter])
+
+  /**
+   * URL d'export CSV — reconstruite à chaque changement de filtre pour rester le
+   * miroir exact de l'écran : vue, maille, cran, segments actifs, et surtout la
+   * liste des postes VISIBLES (ateliers + recherche déjà appliqués) et les
+   * périodes affichées (`monthKeys`/`weekKeys`, semaines déjà tronquées par le
+   * payload). Le serveur ne reçoit QUE cet état : il n'a pas à redécouvrir ce
+   * que l'écran montre, et ne peut donc pas exporter autre chose.
+   */
+  const exportBuckets = gran === 'month' ? props.monthKeys : props.weekKeys
+  const exportHref = useMemo(() => {
+    const qs = new URLSearchParams({
+      view,
+      gran,
+      qtyMode,
+      ofDate: props.ofDate,
+      applyDemandHorizon: applyDemandHorizon ? '1' : '0',
+    })
+    if (props.startIso) qs.set('start', props.startIso)
+    if (props.version) qs.set('v', props.version)
+    qs.set(
+      'segments',
+      segOptions(view)
+        .filter((o) => activeSegs.has(o.id))
+        .map((o) => o.id)
+        .join(',')
+    )
+    qs.set('postes', filteredLines.map((l) => l.code).join(','))
+    qs.set('buckets', exportBuckets.join(','))
+    return `${route('charge.export')}?${qs.toString()}`
+  }, [
+    view,
+    gran,
+    qtyMode,
+    props.ofDate,
+    props.startIso,
+    props.version,
+    applyDemandHorizon,
+    activeSegs,
+    filteredLines,
+    exportBuckets,
+  ])
+  const canExport = filteredLines.length > 0 && exportBuckets.length > 0
 
   // Si la sélection sort du filtre, bascule sur le premier poste visible.
   useEffect(() => {
@@ -1118,6 +1163,25 @@ export default function Load(props: LoadPageProps) {
                 }
               />
             </div>
+            {/* Export CSV — action de sortie placée en bout de rangée (ordre
+                canonique toolbar : recherche → refresh → actions). Le fichier
+                suit les filtres affichés ; sans poste visible (ou sans période)
+                il n'y aurait rien à exporter, d'où l'état désactivé plutôt qu'un
+                fichier vide qu'on croirait complet. */}
+            <button
+              type="button"
+              className={cn(PILL, 'shrink-0 disabled:cursor-not-allowed disabled:opacity-50')}
+              disabled={!canExport}
+              title={
+                canExport
+                  ? `Exporter en CSV le détail de ${filteredLines.length} poste${filteredLines.length > 1 ? 's' : ''} sur les périodes affichées`
+                  : 'Aucun poste à exporter avec les filtres actuels'
+              }
+              onClick={() => window.location.assign(exportHref)}
+            >
+              <Download size={15} strokeWidth={1.75} className="text-muted-foreground" />
+              Exporter
+            </button>
           </ToolbarRow>
         )}
 

@@ -6,7 +6,22 @@ import {
   type ChargeDetailView,
   type ChargeGran,
 } from '#services/charge_detail_loader'
+import {
+  ChargeExportBadRequest,
+  chargeExportCsv,
+  chargeExportFilename,
+  loadChargeExport,
+  type ChargeExportQtyMode,
+} from '#services/charge_export_builder'
 import { LissageBadRequest, loadPlanLissage } from '#services/load_smoothing_builder'
+
+/** Paramètre de liste CSV (`a,b,c`) → tableau nettoyé, sans entrée vide. */
+function csvList(value: unknown): string[] {
+  return String(value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
 
 export default class LoadController {
   /** GET /charge — page Inertia de projection de charge long terme. Cf. loadChargePayload. */
@@ -42,6 +57,51 @@ export default class LoadController {
       // Paramètre invalide → 400 explicite. Servir un intervalle par défaut
       // afficherait une table plausible mais fausse.
       if (error instanceof ChargeDetailBadRequest) {
+        return response.badRequest({ error: error.message })
+      }
+      throw error
+    }
+  }
+
+  /**
+   * GET /api/v1/planning/charge/export.csv — export CSV du DÉTAIL de la charge
+   * pour tous les postes visibles et toutes les périodes affichées.
+   *
+   * Côté serveur parce que la vue commande explose la nomenclature : la faire
+   * une seule fois pour tout l'horizon est le seul montage tenable, et ça garde
+   * un moteur unique (cf. charge_export_builder). Le fichier est strictement ce
+   * que la table de détail afficherait, barre par barre, snapshot compris.
+   */
+  async exportCsv({ request, response }: HttpContext) {
+    const qtyMode = request.input('qtyMode')
+    try {
+      const data = await loadChargeExport({
+        start: (request.input('start') as string | undefined) || undefined,
+        ofDate: request.input('ofDate') === 'end' ? 'end' : 'start',
+        view: request.input('view') === 'of' ? 'of' : 'commande',
+        gran: request.input('gran') === 'week' ? 'week' : 'month',
+        qtyMode: (qtyMode === 'brut' || qtyMode === 'net'
+          ? qtyMode
+          : 'reste') as ChargeExportQtyMode,
+        applyDemandHorizon: request.input('applyDemandHorizon') !== '0',
+        segments: csvList(request.input('segments')),
+        postes: csvList(request.input('postes')),
+        buckets: csvList(request.input('buckets')),
+        // Version du snapshot charge : le fichier doit refléter le graphe
+        // affiché, pas un état X3 relu entre-temps.
+        version: (request.input('v') as string | undefined) || undefined,
+        refresh: !!request.input('refresh'),
+      })
+      response.header('content-type', 'text/csv; charset=utf-8')
+      response.header('content-disposition', `attachment; filename="${chargeExportFilename(data)}"`)
+      // Un export dépend de l'état au moment du clic (overrides, snapshot) :
+      // aucun intermédiaire ne doit le mettre en cache.
+      response.header('cache-control', 'no-store')
+      return response.send(chargeExportCsv(data))
+    } catch (error) {
+      // Paramètre invalide → 400 explicite. Un fichier vide ou tronqué serait
+      // pire qu'un refus : il se propagerait sans que personne ne s'en aperçoive.
+      if (error instanceof ChargeExportBadRequest) {
         return response.badRequest({ error: error.message })
       }
       throw error
