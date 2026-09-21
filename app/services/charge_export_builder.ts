@@ -2,10 +2,11 @@
  * Export CSV du détail de la charge — ce qui compose les barres du graphe
  * /charge, toutes postes × toutes périodes visibles confondues.
  *
- * Il s'appuie sur `buildChargeDetailRows` : les lignes exportées sont donc
- * STRICTEMENT celles que la table de détail affiche pour chaque barre (mêmes
- * entrées X3, même `chargeDay`, même moteur de matching). Un fichier exporté ne
- * peut pas mentir sur ce que montre l'écran.
+ * Il s'appuie sur `loadChargeDetailRows` (charge_detail_loader) : les lignes
+ * exportées sont donc STRICTEMENT celles que la table de détail affiche pour
+ * chaque barre (mêmes entrées X3, même `chargeDay`, même moteur de matching,
+ * et le même cache). Un fichier exporté ne peut pas mentir sur ce que montre
+ * l'écran.
  *
  * Côté serveur (et non dans le navigateur) parce que la vue commande coûte une
  * explosion de nomenclature : la faire ici, une seule fois pour tout l'horizon,
@@ -23,23 +24,15 @@ import { stamped } from '#services/computed_age'
 import { atelierLabel } from '#app/domain/atelier'
 import { isoDay } from '#app/utils/dates'
 import { csvDateFr, csvNumber, csvQty, toCsv } from '#app/utils/csv'
+import { chargeBucketRange, chargeHorizon, type OfDateMode } from '#services/load_payload_loader'
 import {
-  chargeBucketRange,
-  chargeHorizon,
-  fetchChargeInputs,
-  getPinnedChargeInputs,
-  type ChargeInputs,
-  type OfDateMode,
-} from '#services/load_payload_loader'
-import {
-  buildChargeDetailRows,
+  loadChargeDetailRows,
   type ChargeDetailCmdRowT,
   type ChargeDetailOfRowT,
   type ChargeDetailView,
   type ChargeGran,
   type ChargeSegField,
 } from '#services/charge_detail_loader'
-import capacityCalendar from '#services/capacity_calendar_service'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 
 /** Cran de quantité exporté — miroir de `LoadQtyMode` côté client. */
@@ -157,7 +150,7 @@ export async function loadChargeExport(params: ChargeExportParams): Promise<Char
   const posteFilter = new Set(postes)
   const fields = segFieldsFor(params.view, params.segments)
 
-  const { monthStart, horizonEnd } = chargeHorizon(params.start)
+  const { monthStart } = chargeHorizon(params.start)
   const ofDate = params.ofDate === 'end' ? 'end' : 'start'
   const applyDemandHorizon = params.applyDemandHorizon ?? true
   const force = !!params.refresh
@@ -187,27 +180,18 @@ export async function loadChargeExport(params: ChargeExportParams): Promise<Char
     ttl: 2 * 60 * 1000,
     timeout: 0,
     factory: stamped(async (): Promise<ChargeExportData> => {
-      const pinned = version ? await getPinnedChargeInputs(version) : null
-      const inputs: ChargeInputs = pinned
-        ? pinned.inputs
-        : await fetchChargeInputs(monthStart, horizonEnd, force)
-
-      const calendar = await capacityCalendar
-        .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
-        .catch(() => null)
-      const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
-
-      const built = await buildChargeDetailRows({
-        inputs,
+      // Base partagée avec le détail : mêmes entrées X3 que la barre cliquée
+      // (version du snapshot), même explosion — et le MÊME cache, donc exporter
+      // juste après avoir ouvert un panneau ne recalcule rien.
+      const detail = await loadChargeDetailRows({
+        start: params.start,
+        version,
         view: params.view,
         ofDate,
         applyDemandHorizon,
-        calendar,
-        wstByCode,
-        monthStart,
-        horizonEnd,
-        stock: pinned?.stock,
+        refresh: force,
       })
+      const wstByCode = detail.wstByCode
 
       // Bucket d'une ligne : son `dateIso` est déjà le jour de rattachement
       // décalé, il suffit de le loger dans l'intervalle du bucket (comparaison
@@ -220,7 +204,7 @@ export async function loadChargeExport(params: ChargeExportParams): Promise<Char
         const w = wstByCode.get(poste)
         const stoloc = w?.stockLocation ?? ''
         return {
-          posteLabel: inputs.wstLabels.get(poste) ?? w?.description ?? poste,
+          posteLabel: detail.wstLabels.get(poste) ?? w?.description ?? poste,
           atelier: stoloc,
           atelierLabel: stoloc ? atelierLabel(stoloc) : '',
         }
@@ -266,7 +250,7 @@ export async function loadChargeExport(params: ChargeExportParams): Promise<Char
           qty: r.quantite,
           hours: r.hours,
         })
-        for (const r of built.ofRows) {
+        for (const r of detail.ofRows) {
           if (!posteFilter.has(r.poste) || !fields.has(r.field)) continue
           const bucket = bucketOf(r.dateIso)
           if (!bucket) continue
@@ -295,7 +279,7 @@ export async function loadChargeExport(params: ChargeExportParams): Promise<Char
                 ? r.netHours
                 : r.resteHours,
         })
-        for (const r of built.cmdRows) {
+        for (const r of detail.cmdRows) {
           if (!posteFilter.has(r.poste) || !fields.has(r.field)) continue
           const bucket = bucketOf(r.dateIso)
           if (!bucket) continue
@@ -319,7 +303,7 @@ export async function loadChargeExport(params: ChargeExportParams): Promise<Char
         gran: params.gran,
         qtyMode: params.qtyMode,
         rows,
-        x3Error: inputs.x3Error,
+        x3Error: detail.x3Error,
       }
     }),
   })

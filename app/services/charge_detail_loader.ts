@@ -517,6 +517,92 @@ export async function buildChargeDetailRows(
   return { ofRows: [], cmdRows }
 }
 
+/** Ce qui détermine les lignes brutes — rien du poste ni du bucket. */
+export interface LoadChargeDetailRowsParams {
+  start?: string
+  /** Version du snapshot (`?v=`), déjà nettoyée par l'appelant ; null = live. */
+  version: string | null
+  view: ChargeDetailView
+  ofDate: OfDateMode
+  applyDemandHorizon: boolean
+  refresh?: boolean
+}
+
+export interface LoadChargeDetailRowsResult {
+  ofRows: ChargeDetailOfRowT[]
+  cmdRows: ChargeDetailCmdRowT[]
+  wstByCode: Map<string, Workstation>
+  wstLabels: Map<string, string>
+  x3Error: string | null
+}
+
+/**
+ * Base commune au détail et à l'export : les lignes de l'horizon ENTIER,
+ * derrière un cache PARTAGÉ.
+ *
+ * La clé ne porte ni poste ni bucket, que `buildChargeDetailRows` ignore : sa
+ * sortie est la même pour tous. Sans ce partage, ouvrir les barres d'un même
+ * écran — et exporter derrière — relancerait autant de fois l'explosion de
+ * nomenclature, le poste le plus cher de la page. C'est ce que faisait
+ * auparavant le détail, mais par bucket : à mesure qu'on l'ouvre plus large,
+ * le calcul unique et partagé devient le seul montage qui tienne.
+ */
+export async function loadChargeDetailRows(
+  p: LoadChargeDetailRowsParams
+): Promise<LoadChargeDetailRowsResult> {
+  const { monthStart, horizonEnd } = chargeHorizon(p.start)
+  const ofDate: OfDateMode = p.ofDate === 'end' ? 'end' : 'start'
+  const force = !!p.refresh
+  // Empreinte des overrides de date : sur la branche « live », les lignes
+  // redatent la demande comme la barre — une clé qui ignorerait l'état des
+  // overrides servirait le détail d'avant le déplacement.
+  const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
+  const cacheKey = `rows:charge:s1:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  if (force) await cacheNs('charge').delete({ key: cacheKey })
+
+  return cacheNs('charge').getOrSet({
+    key: cacheKey,
+    ttl: 2 * 60 * 1000,
+    timeout: 0,
+    factory: stamped(async (): Promise<LoadChargeDetailRowsResult> => {
+      // Version connue : on relit les entrées et le stock figés par LE factory
+      // qui a produit la barre, pas les caches SWR de boardDataset qui ont pu
+      // tourner depuis — c'est toute la différence entre une table alignée et
+      // le bug 14 h ≠ 9,9 h. Le `force` n'y change rien : la version est le
+      // refresh.
+      const pinned = p.version ? await getPinnedChargeInputs(p.version) : null
+      const inputs: ChargeInputs = pinned
+        ? pinned.inputs
+        : await fetchChargeInputs(monthStart, horizonEnd, force)
+
+      const calendar = await capacityCalendar
+        .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
+        .catch(() => null)
+      const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
+
+      const built = await buildChargeDetailRows({
+        inputs,
+        view: p.view,
+        ofDate,
+        applyDemandHorizon: p.applyDemandHorizon,
+        calendar,
+        wstByCode,
+        monthStart,
+        horizonEnd,
+        stock: pinned?.stock,
+      })
+
+      return {
+        ofRows: built.ofRows,
+        cmdRows: built.cmdRows,
+        wstByCode,
+        wstLabels: inputs.wstLabels,
+        x3Error: inputs.x3Error,
+      }
+    }),
+  })
+}
+
 export async function loadChargeDetail(params: ChargeDetailParams): Promise<ChargeDetail> {
   const poste = params.poste.trim()
   if (!poste) throw new ChargeDetailBadRequest('Poste manquant')
@@ -545,20 +631,17 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
     ttl: 2 * 60 * 1000,
     timeout: 0,
     factory: stamped(async (): Promise<ChargeDetail> => {
-      // Version connue : on relit les entrées et le stock figés par LE factory
-      // qui a produit la barre, pas les caches SWR de boardDataset qui ont pu
-      // tourner depuis — c'est toute la différence entre une table alignée et
-      // le bug 14 h ≠ 9,9 h. Le `force` n'y change rien : la version est le
-      // refresh.
-      const pinned = version ? await getPinnedChargeInputs(version) : null
-      const inputs: ChargeInputs = pinned
-        ? pinned.inputs
-        : await fetchChargeInputs(monthStart, horizonEnd, force)
-
-      const calendar = await capacityCalendar
-        .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
-        .catch(() => null)
-      const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
+      // Base partagée avec l'export : mêmes entrées X3 (celles du snapshot si
+      // `version` est connue), même explosion, MÊME cache. Rien de ce que le
+      // poste ou le bucket ajoutent ne se calcule ici.
+      const base = await loadChargeDetailRows({
+        start: params.start,
+        version,
+        view: params.view,
+        ofDate,
+        applyDemandHorizon,
+        refresh: force,
+      })
 
       const bucket = {
         key: params.bucket,
@@ -567,13 +650,16 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         fromIso: isoDay(range.from),
         toIso: isoDay(range.to),
       }
-      const posteLabel = inputs.wstLabels.get(poste) ?? poste
+      const posteLabel = base.wstLabels.get(poste) ?? poste
 
       // Capacité jour par jour — MÊME calcul que les barres du graphe
       // (`capDay` × facteur calendrier, sentinelle X3 écartée par `isOpenDay`).
       // Recopier une autre formule ici ferait qu'un jour affiché à 100 % dans le
       // panneau ne le serait pas dans le graphe.
-      const posteWst = wstByCode.get(poste)
+      const calendar = await capacityCalendar
+        .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
+        .catch(() => null)
+      const posteWst = base.wstByCode.get(poste)
       const capaciteParJour: ChargeDetailDayCapacity[] = []
       for (let d = new Date(range.from); d <= range.to; d = addDays(d, 1)) {
         const iso = isoDay(d)
@@ -589,18 +675,6 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         })
       }
 
-      const { ofRows, cmdRows } = await buildChargeDetailRows({
-        inputs,
-        view: params.view,
-        ofDate,
-        applyDemandHorizon,
-        calendar,
-        wstByCode,
-        monthStart,
-        horizonEnd,
-        stock: pinned?.stock,
-      })
-
       // Bornes du bucket en ISO : le `dateIso` d'une ligne est déjà le jour de
       // rattachement décalé par `chargeDay`, la comparaison lexicographique sur
       // `YYYY-MM-DD` équivaut donc au test d'intervalle sur les Dates.
@@ -612,9 +686,9 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
         poste: { code: poste, label: posteLabel },
         bucket,
         capaciteParJour,
-        ofRows: ofRows.filter((r) => r.poste === poste && inBucketIso(r.dateIso)),
-        cmdRows: cmdRows.filter((r) => r.poste === poste && inBucketIso(r.dateIso)),
-        x3Error: inputs.x3Error,
+        ofRows: base.ofRows.filter((r) => r.poste === poste && inBucketIso(r.dateIso)),
+        cmdRows: base.cmdRows.filter((r) => r.poste === poste && inBucketIso(r.dateIso)),
+        x3Error: base.x3Error,
       }
     }),
   })
