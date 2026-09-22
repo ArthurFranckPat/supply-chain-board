@@ -472,6 +472,25 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   const groups = view === 'of' ? ofGroups : cmdGroups
   const totalValue = useMemo(() => groups.reduce((a, g) => a + g.value, 0), [groups])
   const rowCount = useMemo(() => groups.reduce((a, g) => a + g.rows.length, 0), [groups])
+  // Total en PIÈCES, sur les mêmes lignes que le total d'heures : segments et
+  // filtre article appliqués, cran brut/net/reste respecté en vue commande.
+  const totalQty = useMemo(
+    () =>
+      groups.reduce(
+        (a, g) =>
+          a +
+          g.rows.reduce(
+            (b, r) =>
+              b +
+              (view === 'of'
+                ? (r as DetailOfRow).quantite
+                : cmdRowValue(r as DetailCmdRow, 'u', qtyMode)),
+            0
+          ),
+        0
+      ),
+    [groups, view, qtyMode]
+  )
   // Référence de la barre de contribution : le jour le plus chargé (pas le
   // premier, puisque les groupes sont désormais triés par date et non par poids).
   const maxGroupValue = useMemo(() => groups.reduce((m, g) => Math.max(m, g.value), 0), [groups])
@@ -771,16 +790,22 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                         i === 0 ? (
                           <div
                             key={`ft-${i}`}
-                            className="pl-5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                            className="whitespace-nowrap pl-5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
                           >
                             Total période
+                            <span className="ml-2 font-normal normal-case tracking-normal">
+                              {rowCount} lig.
+                            </span>
                           </div>
-                        ) : i === unitIdx - 1 ? (
+                        ) : i === unitIdx - 1 && !unitPieces ? (
+                          // Colonne « Qté » (vue en heures) : total des pièces. En
+                          // pièces, la colonne d'unité le porte déjà.
                           <div
                             key={`ft-${i}`}
-                            className="text-right font-mono text-[10px] text-muted-foreground"
+                            className="text-right font-mono text-[12px] font-bold tabular-nums text-secondary-foreground"
+                            title="Total des pièces des lignes affichées (filtres compris)"
                           >
-                            {rowCount} lig.
+                            {fmtQ(totalQty)}
                           </div>
                         ) : i === unitIdx ? (
                           <div
