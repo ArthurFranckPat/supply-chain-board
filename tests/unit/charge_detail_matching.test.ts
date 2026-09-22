@@ -119,18 +119,21 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
   const build = (
     inputs: ChargeInputs,
     matching: ChargeMatchingSources,
-    orderLineRepo: typeof noIoRepo = noIoRepo
+    orderLineRepo: typeof noIoRepo = noIoRepo,
+    opts: { view?: 'of' | 'commande'; ofSuivi?: Map<string, number> } = {}
   ) =>
     buildChargeDetailRows({
       inputs,
       matching,
-      view: 'of',
+      ofSuivi: opts.ofSuivi ?? new Map(),
+      view: opts.view ?? 'of',
       ofDate: 'start',
       applyDemandHorizon: true,
       calendar: null,
       wstByCode,
       monthStart,
       horizonEnd,
+      stock: new Map(),
       orderLineRepo,
     })
 
@@ -302,5 +305,53 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       sources([demand(l)], { deltaOfs: [delta] })
     )
     assert.deepEqual(byOf(res.ofRows).get('OF_TARD')!.commandes, [])
+  })
+
+  // Statut de l'OF + lancement (MFGHEAD.MFGTRKFLG) : mêmes champs dans les deux vues.
+  const etatInputs = () => {
+    const l = orderLine({})
+    return {
+      l,
+      inputs: inputsFor(
+        [
+          baseMo({ numOf: 'OF_ED', quantity: 10 }),
+          baseMo({
+            numOf: 'OF_PL',
+            status: 2,
+            statutLabel: 'Planifié',
+            quantity: 10,
+            endDate: new Date('2026-07-12T00:00:00'),
+          }),
+        ],
+        [l]
+      ),
+    }
+  }
+  const ofSuivi = new Map([['OF_ED', 3]])
+
+  test('vue OF : statut, état de suivi et lancement de chaque OF', async ({ assert }) => {
+    const { l, inputs } = etatInputs()
+    const res = await build(inputs, sources([demand(l)]), noIoRepo, { ofSuivi })
+    const rows = byOf(res.ofRows)
+    assert.include(rows.get('OF_ED')!, { statut: 1, suiviLabel: 'Édité', lance: true })
+    assert.include(rows.get('OF_PL')!, { statut: 2, suiviLabel: null, lance: false })
+  })
+
+  test('vue commande : les OF alloués portent les mêmes statut et lancement', async ({
+    assert,
+  }) => {
+    const { l, inputs } = etatInputs()
+    const res = await build(inputs, sources([demand(l)]), noIoRepo, {
+      view: 'commande',
+      ofSuivi,
+    })
+    const ofs = res.cmdRows[0].ofs
+    assert.deepEqual(
+      ofs.map((o) => [o.numOf, o.statut, o.suiviLabel, o.lance]),
+      [
+        ['OF_ED', 1, 'Édité', true],
+        ['OF_PL', 2, null, false],
+      ]
+    )
   })
 })

@@ -31,6 +31,7 @@ import { stamped } from '#services/computed_age'
 import { X3OrderLineRepository, type OrderDates } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
+import { OF_SUIVI_LABELS } from '#repositories/of_suivi_repository'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 import logger from '@adonisjs/core/services/logger'
 import type { Article } from '#app/domain/models/article'
@@ -50,7 +51,6 @@ import type { Flow } from '#app/domain/models/flow'
 import type { Workstation } from '#app/domain/models/workstation'
 import { hoursForQuantity } from '#app/domain/models/gamme'
 import { capDay, chargeHoursWithEfficiency, isOpenDay } from '#app/domain/capacity'
-import { mobiliteDeLigne, type Mobilite } from '#app/domain/load_smoothing'
 import { addDays, isoDay } from '#app/utils/dates'
 import {
   chargeBucketRange,
@@ -89,12 +89,25 @@ export interface ChargeDetailOfCommande {
   dateAccepteeIso?: string | null
 }
 
+/**
+ * Où en est un OF : statut de l'ordre (ORDERS) et, s'il est ferme, son état de
+ * suivi MFGHEAD. Porté à l'identique par les deux vues du détail.
+ */
+export interface ChargeOfEtat {
+  /** Statut de l'ordre : 1 ferme, 2 planifié, 3 suggéré. */
+  statut: number
+  statutLabel: string | null
+  /** État de suivi MFGHEAD (menu local 339) — null hors OF ferme ou si illisible. */
+  suiviLabel: string | null
+  /** Ferme ET dossier édité ou en cours atelier (MFGTRKFLG 3 ou 4). */
+  lance: boolean
+}
+
 /** Ligne de détail en vue OF : un ordre de fabrication. */
-export interface ChargeDetailOfRow {
+export interface ChargeDetailOfRow extends ChargeOfEtat {
   numOf: string
   article: string
   designation: string | null
-  statutLabel: string | null
   quantite: number
   dateIso: string
   field: ChargeOfSeg
@@ -116,16 +129,8 @@ export interface ChargeDetailCmdRow {
   ligne: string | null
   /** Raison sociale si résolue, sinon le code brut ; null sur une prévision. */
   client: string | null
-  /** Code tiers X3 brut — c'est LUI qui porte la règle, pas la raison sociale. */
+  /** Code tiers X3 brut. */
   clientCode: string | null
-  /**
-   * La date de cette ligne est-elle négociable ? ALDES S.A. (80001) part tous
-   * les jours vers la plateforme France ; tout autre client est un export à
-   * départ hebdomadaire contractuel. Calculé serveur, par `load_smoothing` :
-   * la règle n'a qu'une seule maison, l'écran ne fait que l'afficher.
-   */
-  mobilite: Mobilite
-  motifMobilite: string
   dateIso: string
   /**
    * Date de livraison portée par X3, avant toute substitution locale.
@@ -164,9 +169,8 @@ export interface ChargeDetailCmdRow {
  * — le MÊME moteur que la page suivi : contremarque X3 en priorité, puis
  * couverture cumulative statut+date, stock déduit avant allocation.
  */
-export interface ChargeDetailRowOf {
+export interface ChargeDetailRowOf extends ChargeOfEtat {
   numOf: string
-  statutLabel: string | null
   /** Quantité DU BESOIN de la ligne que le moteur a allouée à cet OF. */
   quantite: number
   /** Date de fin de l'OF (ENDDAT). */
@@ -267,6 +271,8 @@ export interface BuildChargeDetailRowsParams {
   stock?: Map<string, number>
   /** Sources du matching commande→OF, alignées sur /suivi (`loadChargeMatchingSources`). */
   matching: ChargeMatchingSources
+  /** État de suivi MFGHEAD (MFGTRKFLG_0) par OF ferme — cf. `loadOfSuivi`. */
+  ofSuivi: Map<string, number>
   orderLineRepo?: Pick<X3OrderLineRepository, 'resolveClientNames' | 'resolveOrderDates'>
 }
 
@@ -319,6 +325,21 @@ export async function loadChargeMatchingSources(
   }
 }
 
+/** État de suivi des OF fermes de l'horizon (et du delta #99). Échec = pas d'état, pas d'erreur. */
+export async function loadOfSuivi(
+  inputs: ChargeInputs,
+  matching: ChargeMatchingSources
+): Promise<Map<string, number>> {
+  const fermes = [
+    ...inputs.mos.filter((mo) => mo.status === 1).map((mo) => mo.numOf),
+    ...matching.deltaOfs
+      .filter((f) => f.origin.type === 'of' && f.origin.status === 1)
+      .map((f) => (f.origin.type === 'of' ? f.origin.id : '')),
+  ].filter(Boolean)
+  const records = await boardDataset.getOfSuivi(fermes).catch(() => [])
+  return new Map(records.map((r) => [r.numOf, r.code]))
+}
+
 export interface BuildChargeDetailRowsResult {
   /** Taguées par poste ; `[]` en vue commande. */
   ofRows: ChargeDetailOfRowT[]
@@ -335,6 +356,16 @@ export async function buildChargeDetailRows(
   // du bucket dès qu'un besoin tombe un jour fermé.
   const dayOf = (wst: string, d: Date): Date =>
     chargeDay(wst, d, p.calendar, wstByCode, p.monthStart, p.horizonEnd)
+
+  const etatOf = (numOf: string, statut: number, statutLabel: string | null): ChargeOfEtat => {
+    const code = statut === 1 ? p.ofSuivi.get(numOf) : undefined
+    return {
+      statut,
+      statutLabel,
+      suiviLabel: code === undefined ? null : (OF_SUIVI_LABELS[code] ?? `état ${code}`),
+      lance: code === 3 || code === 4,
+    }
+  }
 
   // ── Matching commande→OF — le MÊME moteur (`CommandeOFMatcher`) sur les
   // MÊMES entrées que /suivi (`loadOrderImpacts`) : demande ORDERS avec type de
@@ -620,7 +651,7 @@ export async function buildChargeDetailRows(
           numOf: mo.numOf,
           article: mo.article,
           designation: mo.designation,
-          statutLabel: mo.statutLabel,
+          ...etatOf(mo.numOf, mo.status, mo.statutLabel),
           // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
           // les heures de la ligne sont issues, sinon la table s'explique mal.
           quantite: qty,
@@ -662,7 +693,7 @@ export async function buildChargeDetailRows(
         if (o.type !== 'of') return null
         return {
           numOf: o.id,
-          statutLabel: o.statutLabel,
+          ...etatOf(o.id, o.status, o.statutLabel),
           quantite: a.qteAllouee,
           dateIso: a.ofFlow.date ? isoDay(a.ofFlow.date) : null,
           raison: a.matchReason,
@@ -677,11 +708,6 @@ export async function buildChargeDetailRows(
     const cleLigne = n.source?.numCommande
       ? `${n.source.numCommande}#${n.source.ligne ?? ''}`
       : null
-    // Une ligne INDUITE (composant, depth > 0) n'a pas de date propre à
-    // négocier : elle suit son produit fini. Elle hérite donc de la mobilité
-    // du client de tête, ce qui est exactement ce qu'on veut dire à l'écran —
-    // « bougera si on bouge le PF », pas « intouchable ».
-    const mob = mobiliteDeLigne(code)
     const d = n.source?.numCommande
       ? ((n.source.ligne ? orderDates.get(`${n.source.numCommande}#${n.source.ligne}`) : null) ??
         orderDates.get(n.source.numCommande))
@@ -698,8 +724,6 @@ export async function buildChargeDetailRows(
       // Prévision : X3 ne porte pas de client, on laisse null (l'UI le dit).
       client: code ? (clientNames.get(code) ?? code) : null,
       clientCode: code,
-      mobilite: mob.mobilite,
-      motifMobilite: mob.motif,
       dateIso: isoDay(dayOf(n.wst, n.date)),
       dateX3Iso: cleLigne ? (dateX3ParLigne.get(cleLigne) ?? null) : null,
       dateOverrideIso: cleLigne ? (inputs.lineDateOverrides.get(cleLigne) ?? null) : null,
@@ -762,7 +786,7 @@ export async function loadChargeDetailRows(
   // redatent la demande comme la barre — une clé qui ignorerait l'état des
   // overrides servirait le détail d'avant le déplacement.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `rows:charge:s4:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `rows:charge:s5:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   if (force) await cacheNs('charge').delete({ key: cacheKey })
 
   return cacheNs('charge').getOrSet({
@@ -786,9 +810,11 @@ export async function loadChargeDetailRows(
       const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
 
       const matching = await loadChargeMatchingSources(monthStart, horizonEnd, force)
+      const ofSuivi = await loadOfSuivi(inputs, matching)
       const built = await buildChargeDetailRows({
         inputs,
         matching,
+        ofSuivi,
         view: p.view,
         ofDate,
         applyDemandHorizon: p.applyDemandHorizon,
@@ -830,7 +856,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   // versionnée, la version fige déjà le jeu d'overrides dans le snapshot ; la
   // porter aussi ne coûte rien et évite d'avoir à se souvenir de la nuance.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `detail:charge:s5:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `detail:charge:s6:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({

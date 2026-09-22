@@ -447,15 +447,8 @@ export function orderLineDate(
   return atMidnight(l.dateLivraison)
 }
 
-/**
- * Lignes de demande au format explosion (date normalisée + provenance).
- *
- * Exporté pour le lissage de charge (`load_smoothing_builder`), qui doit
- * exploser EXACTEMENT la même demande, aux mêmes dates d'override, pour borner
- * l'avance par la matière. Deux normalisations de la demande, et la borne
- * matière parlerait d'un plan que /charge n'affiche pas.
- */
-export function chargeOrderLines(inputs: ChargeInputs): ChargeOrderLine[] {
+/** Lignes de demande au format explosion (date normalisée + provenance). */
+function chargeOrderLines(inputs: ChargeInputs): ChargeOrderLine[] {
   return inputs.orderLines.map((l) => ({
     article: l.article,
     quantite: l.quantite,

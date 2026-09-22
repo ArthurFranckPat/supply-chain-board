@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 113 routes nommées.
+ * 112 routes nommées.
  */
 
 export const MANIFEST = {
@@ -27,7 +27,6 @@ export const MANIFEST = {
   'calendar_config.update_closure': { method: 'PATCH', pattern: '/api/v1/config/closures/:id' },
   'charge.detail': { method: 'GET', pattern: '/api/v1/planning/charge/detail' },
   'charge.export': { method: 'GET', pattern: '/api/v1/planning/charge/export.csv' },
-  'charge.lissage': { method: 'GET', pattern: '/api/v1/planning/charge/lissage' },
   'conditionnements.estimations': {
     method: 'GET',
     pattern: '/api/v1/conditionnements/estimations',
@@ -188,7 +187,6 @@ export type RouteParams = {
   'calendar_config.update_closure': { id: string | number }
   'charge.detail': void
   'charge.export': void
-  'charge.lissage': void
   'conditionnements.estimations': void
   'conditionnements.index': void
   'conditionnements.rows': void

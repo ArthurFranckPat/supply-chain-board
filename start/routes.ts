@@ -246,12 +246,6 @@ router
     router
       .get('/api/v1/planning/charge/export.csv', '#controllers/load_controller.exportCsv')
       .as('charge.export')
-    // Plan de lissage d'un poste : propositions de repositionnement de dates de
-    // ligne de commande. Lecture seule — c'est l'écran qui applique, ligne par
-    // ligne, via les overrides (`/order-lines/:order/:line`).
-    router
-      .get('/api/v1/planning/charge/lissage', '#controllers/load_controller.smoothing')
-      .as('charge.lissage')
     // Plan d'approvisionnement : grille besoins + drill-down « appelé par ».
     router
       .get('/api/v1/planning/material-plan', '#controllers/approvisionnement_controller.payload')

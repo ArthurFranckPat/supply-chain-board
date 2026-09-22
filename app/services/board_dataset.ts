@@ -8,6 +8,7 @@ import { X3MfgmatRepository, type OfMaterial } from '#repositories/mfgmat_reposi
 import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3OperationRepository, type OperationRecord } from '#repositories/operation_repository'
+import { X3OfSuiviRepository, type OfSuiviRecord } from '#repositories/of_suivi_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import {
   estimerDepuisStock,
@@ -438,6 +439,24 @@ class BoardDataset {
       factory: async () => {
         return new X3OperationRepository().getOperations(numOfs)
       },
+    })
+  }
+
+  /**
+   * État de suivi MFGHEAD des OF (édité, en cours…). SWR 5 min, clé = hash de la
+   * liste comme `getOperations`. Aux appelants de n'envoyer que les OF FERMES :
+   * un planifié ou un suggéré n'est jamais lancé.
+   */
+  async getOfSuivi(numOfs: string[]): Promise<OfSuiviRecord[]> {
+    if (!numOfs.length) return []
+    const key = `of-suivi:${createHash('md5')
+      .update([...numOfs].sort().join(','))
+      .digest('hex')}`
+    return board().getOrSet({
+      key,
+      ttl: ORDERS_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new X3OfSuiviRepository().getSuivi(numOfs),
     })
   }
 
