@@ -42,7 +42,13 @@ export default class LoadController {
         if (k !== 'ofDate' && v !== undefined && v !== null) qs.set(k, String(v))
       }
       const q = qs.toString()
-      return ctx.response.redirect(`${ctx.request.url()}${q ? `?${q}` : ''}`)
+      // `withQs(false)` : `config/app.ts` active `forwardQueryString`, qui recolle
+      // la query string d'origine — `?ofDate=` compris — à toute redirection.
+      // Sans lui, la redirection bouclait jusqu'à l'abandon du navigateur.
+      return ctx.response
+        .redirect()
+        .withQs(false)
+        .toPath(`${ctx.request.parsedUrl.pathname}${q ? `?${q}` : ''}`)
     }
     const ofDate = ctx.session.get(OF_DATE_SESSION_KEY) === 'end' ? 'end' : 'start'
     const props = await loadChargePayload(ctx, ofDate)
