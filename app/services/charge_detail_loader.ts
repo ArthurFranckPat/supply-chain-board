@@ -67,6 +67,18 @@ export type ChargeDetailView = 'of' | 'commande'
 /** Segment de la barre auquel la ligne contribue — miroir de `LoadPeriod`. */
 export type ChargeSegField = ChargeSeg
 
+/** Commande cliente ou prévision allouée à un OF par le moteur de matching. */
+export interface ChargeDetailOfCommande {
+  numCommande: string
+  ligne: string | null
+  client: string | null
+  clientCode: string | null
+  quantite: number
+  dateLivraisonIso: string | null
+  raison: string
+  type: 'order' | 'forecast'
+}
+
 /** Ligne de détail en vue OF : un ordre de fabrication. */
 export interface ChargeDetailOfRow {
   numOf: string
@@ -77,6 +89,7 @@ export interface ChargeDetailOfRow {
   dateIso: string
   field: ChargeOfSeg
   hours: number
+  commandes: ChargeDetailOfCommande[]
 }
 
 /** Ligne de détail en vue commande : un besoin (PF ou composant induit). */
@@ -258,37 +271,6 @@ export async function buildChargeDetailRows(
   const dayOf = (wst: string, d: Date): Date =>
     chargeDay(wst, d, p.calendar, wstByCode, p.monthStart, p.horizonEnd)
 
-  if (p.view === 'of') {
-    const ofRows: ChargeDetailOfRowT[] = []
-    for (const mo of inputs.mos) {
-      const ops = inputs.gammeMap.get(mo.article) ?? []
-      const moDate = ofDateForMode(mo, p.ofDate)
-      if (!moDate) continue
-      const qty = ofResteAProduire(mo, inputs.avancementByOf)
-      for (const gamme of ops) {
-        const wst = gamme.workstation
-        if (!wst) continue
-        const hours = chargeHoursWithEfficiency(hoursForQuantity(gamme, qty), wstByCode.get(wst))
-        if (hours <= 0) continue
-        ofRows.push({
-          poste: wst,
-          numOf: mo.numOf,
-          article: mo.article,
-          designation: mo.designation,
-          statutLabel: mo.statutLabel,
-          // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
-          // les heures de la ligne sont issues, sinon la table s'explique mal.
-          quantite: qty,
-          dateIso: isoDay(dayOf(wst, moDate)),
-          field: ofSegment(mo.status),
-          hours,
-        })
-      }
-    }
-    ofRows.sort((a, b) => b.hours - a.hours)
-    return { ofRows, cmdRows: [] }
-  }
-
   // ── Matching commande→OF — le MÊME moteur que le suivi (`CommandeOFMatcher`,
   // of_conso.ts) : contremarque X3 d'abord, puis couverture cumulative
   // statut+date, stock déduit avant allocation. L'allocation est COMPÉTITIVE
@@ -394,6 +376,8 @@ export async function buildChargeDetailRows(
   const desByArticle = new Map(articles.map((a) => [a.code, a.description || null]))
   const articlesMap = new Map(articles.map((a) => [a.code, a]))
   const resultByKey = new Map<string, MatchingResult>()
+  const commandesByOf = new Map<string, ChargeDetailOfCommande[]>()
+
   for (const [article, demands] of demandsByArticle) {
     const stockQty = stock.get(article) ?? 0
     const ofFlows = ofFlowsByArticle.get(article) ?? []
@@ -414,17 +398,145 @@ export async function buildChargeDetailRows(
     for (const r of matcher.matchCommandes(demands)) {
       const o = r.demandFlow.origin
       if (o.type !== 'order' && o.type !== 'forecast') continue
+      const isOrder = o.type === 'order'
       resultByKey.set(
         needKey(
           r.demandFlow.article,
           o.id,
-          o.type === 'order' ? (o.ligne ?? null) : null,
+          isOrder ? (o.ligne ?? null) : null,
           r.demandFlow.date ?? new Date(),
           o.type === 'forecast'
         ),
         r
       )
+
+      for (const alloc of r.ofAllocations) {
+        const ofOrigin = alloc.ofFlow.origin
+        if (ofOrigin.type !== 'of' || !ofOrigin.id) continue
+        const ofId = ofOrigin.id
+        const numCommande = o.id ?? ''
+        const ligne = isOrder ? (o.ligne ?? null) : null
+        const clientCode = isOrder ? (o.customer || null) : null
+        const dateLivraisonIso = r.demandFlow.date ? isoDay(r.demandFlow.date) : null
+
+        let list = commandesByOf.get(ofId)
+        if (!list) {
+          list = []
+          commandesByOf.set(ofId, list)
+        }
+        const existing = list.find((c) => c.numCommande === numCommande && c.ligne === ligne)
+        if (existing) {
+          existing.quantite += alloc.qteAllouee
+        } else {
+          list.push({
+            numCommande,
+            ligne,
+            client: clientCode,
+            clientCode,
+            quantite: alloc.qteAllouee,
+            dateLivraisonIso,
+            raison: alloc.matchReason,
+            type: isOrder ? 'order' : 'forecast',
+          })
+        }
+      }
     }
+  }
+
+  // Repli contremarque X3 directe (ORDERS.VCRNUMORI_0 / reservePour) si non matchée
+  for (const mo of inputs.mos) {
+    if (!mo.reservePour) continue
+    const list = commandesByOf.get(mo.numOf) ?? []
+    if (!list.some((c) => c.numCommande === mo.reservePour)) {
+      const ol = inputs.orderLines.find((l) => l.numCommande === mo.reservePour)
+      list.unshift({
+        numCommande: mo.reservePour,
+        ligne: ol?.ligne ?? null,
+        client: ol?.clientCode ?? null,
+        clientCode: ol?.clientCode ?? null,
+        quantite: mo.quantity,
+        dateLivraisonIso: ol?.dateLivraison ? isoDay(ol.dateLivraison) : null,
+        raison: 'contremarque X3',
+        type: 'order',
+      })
+      commandesByOf.set(mo.numOf, list)
+    }
+  }
+
+  // Tri des commandes par OF : contremarques d'abord, puis par date de livraison au plus tôt
+  for (const list of commandesByOf.values()) {
+    list.sort((a, b) => {
+      const aPeg = a.raison.toLowerCase().includes('contremarque')
+      const bPeg = b.raison.toLowerCase().includes('contremarque')
+      if (aPeg && !bPeg) return -1
+      if (!aPeg && bPeg) return 1
+      return (a.dateLivraisonIso ?? '9999').localeCompare(b.dateLivraisonIso ?? '9999')
+    })
+  }
+
+  // Noms clients : une seule requête BPARTNER, sur tous les codes de l'horizon.
+  const clientCodes = [
+    ...new Set([
+      ...needs.map((n) => n.source?.client).filter((c): c is string => !!c),
+      ...inputs.orderLines.map((l) => l.clientCode).filter((c): c is string => !!c),
+      ...[...commandesByOf.values()].flatMap((cmds) => cmds.map((c) => c.clientCode)).filter((c): c is string => !!c),
+    ]),
+  ]
+  const clientNames = clientCodes.length
+    ? await new X3OrderLineRepository()
+        .resolveClientNames(clientCodes)
+        .catch(() => new Map<string, string>())
+    : new Map<string, string>()
+
+  // Résolution des raisons sociales sur les commandes des OF
+  for (const list of commandesByOf.values()) {
+    for (const c of list) {
+      if (c.clientCode) {
+        c.client = clientNames.get(c.clientCode) ?? c.clientCode
+      }
+    }
+  }
+
+  if (p.view === 'of') {
+    const ofRows: ChargeDetailOfRowT[] = []
+    for (const mo of inputs.mos) {
+      const ops = inputs.gammeMap.get(mo.article) ?? []
+      const moDate = ofDateForMode(mo, p.ofDate)
+      if (!moDate) continue
+      const qty = ofResteAProduire(mo, inputs.avancementByOf)
+      for (const gamme of ops) {
+        const wst = gamme.workstation
+        if (!wst) continue
+        const hours = chargeHoursWithEfficiency(hoursForQuantity(gamme, qty), wstByCode.get(wst))
+        if (hours <= 0) continue
+        ofRows.push({
+          poste: wst,
+          numOf: mo.numOf,
+          article: mo.article,
+          designation: mo.designation,
+          statutLabel: mo.statutLabel,
+          // Reste à produire, pas RMNEXTQTY : la qté affichée doit être celle dont
+          // les heures de la ligne sont issues, sinon la table s'explique mal.
+          quantite: qty,
+          dateIso: isoDay(dayOf(wst, moDate)),
+          field: ofSegment(mo.status),
+          hours,
+          commandes: commandesByOf.get(mo.numOf) ?? [],
+        })
+      }
+    }
+    ofRows.sort((a, b) => b.hours - a.hours)
+    return { ofRows, cmdRows: [] }
+  }
+
+  // Date X3 d'origine de chaque ligne de commande, AVANT substitution
+  // locale. `inputs.orderLines` porte la date telle que X3 la donne ;
+  // `inputs.lineDateOverrides` porte celle qu'on lui a substituée. Les deux
+  // sont nécessaires pour que l'écran puisse proposer le retour en arrière.
+  const dateX3ParLigne = new Map<string, string>()
+  for (const l of inputs.orderLines) {
+    if (l.nature !== 'COMMANDE' || !l.numCommande) continue
+    dateX3ParLigne.set(`${l.numCommande}#${l.ligne ?? ''}`, isoDay(l.dateLivraison))
   }
 
   const rowOfs = (n: ChargeNeed): ChargeDetailRowOf[] => {
@@ -452,26 +564,6 @@ export async function buildChargeDetailRows(
         }
       })
       .filter((x): x is ChargeDetailRowOf => x !== null)
-  }
-
-  // Noms clients : une seule requête BPARTNER, sur tous les codes de l'horizon.
-  const clientCodes = [
-    ...new Set(needs.map((n) => n.source?.client).filter((c): c is string => !!c)),
-  ]
-  const clientNames = clientCodes.length
-    ? await new X3OrderLineRepository()
-        .resolveClientNames(clientCodes)
-        .catch(() => new Map<string, string>())
-    : new Map<string, string>()
-
-  // Date X3 d'origine de chaque ligne de commande, AVANT substitution
-  // locale. `inputs.orderLines` porte la date telle que X3 la donne ;
-  // `inputs.lineDateOverrides` porte celle qu'on lui a substituée. Les deux
-  // sont nécessaires pour que l'écran puisse proposer le retour en arrière.
-  const dateX3ParLigne = new Map<string, string>()
-  for (const l of inputs.orderLines) {
-    if (l.nature !== 'COMMANDE' || !l.numCommande) continue
-    dateX3ParLigne.set(`${l.numCommande}#${l.ligne ?? ''}`, isoDay(l.dateLivraison))
   }
 
   const cmdRows: ChargeDetailCmdRowT[] = needs.map((n) => {
@@ -557,7 +649,7 @@ export async function loadChargeDetailRows(
   // redatent la demande comme la barre — une clé qui ignorerait l'état des
   // overrides servirait le détail d'avant le déplacement.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `rows:charge:s1:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `rows:charge:s2:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   if (force) await cacheNs('charge').delete({ key: cacheKey })
 
   return cacheNs('charge').getOrSet({
@@ -623,7 +715,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   // versionnée, la version fige déjà le jeu d'overrides dans le snapshot ; la
   // porter aussi ne coûte rien et évite d'avoir à se souvenir de la nuance.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `detail:charge:s2:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `detail:charge:s3:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({

@@ -45,6 +45,17 @@ import {
 
 type SegField = keyof LoadPeriod
 
+interface DetailOfCommande {
+  numCommande: string
+  ligne: string | null
+  client: string | null
+  clientCode: string | null
+  quantite: number
+  dateLivraisonIso: string | null
+  raison: string
+  type: 'order' | 'forecast'
+}
+
 interface DetailOfRow {
   numOf: string
   article: string
@@ -54,6 +65,7 @@ interface DetailOfRow {
   dateIso: string
   field: 'f' | 'p' | 's'
   hours: number
+  commandes?: DetailOfCommande[]
 }
 
 interface DetailCmdRow {
@@ -751,10 +763,10 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   const cols = [
     unitPieces
       ? view === 'of'
-        ? '9rem 1.6fr 10rem 7rem'
+        ? '9rem 1.4fr 8.5rem 8.5rem 1.1fr 7rem'
         : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 7rem'
       : view === 'of'
-        ? '9rem 1.6fr 10rem 7rem 7rem'
+        ? '9rem 1.4fr 8.5rem 8.5rem 1.1fr 7rem 7rem'
         : '9rem 1.3fr 1.4fr 9rem 1fr 1.2fr 9rem 7rem',
     lissage.colonne ? '14rem' : '',
   ]
@@ -765,10 +777,10 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   const heads = [
     ...(unitPieces
       ? view === 'of'
-        ? ['Article', 'Désignation', 'Ordre', unitHead]
+        ? ['Article', 'Désignation', 'Ordre', 'Commande', 'Client', unitHead]
         : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', unitHead]
       : view === 'of'
-        ? ['Article', 'Désignation', 'Ordre', 'Qté', unitHead]
+        ? ['Article', 'Désignation', 'Ordre', 'Commande', 'Client', 'Qté', unitHead]
         : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'OF', 'Qté', unitHead]),
     ...(lissage.colonne ? ['Proposé'] : []),
   ]
@@ -985,7 +997,9 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       title={
                         h === 'OF'
                           ? 'OF alloués à cette ligne par le moteur de matching commande→OF (comme /suivi) — quantité allouée sous le numéro'
-                          : undefined
+                          : h === 'Commande' && view === 'of'
+                            ? 'Commandes clientes allouées à cet OF par le moteur de matching'
+                            : undefined
                       }
                       className={cn(
                         'sticky top-0 z-10 border-b border-border bg-secondary py-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground',
@@ -1235,6 +1249,8 @@ function OfRow({ row: r, unit }: { row: DetailOfRow; unit: LoadUnit }) {
           aucune valeur de lecture — il ne doit pas capter le regard avant
           l'article et les heures. */}
       <div className={cn(CELL, 'font-mono text-[10px] text-muted-foreground')}>{r.numOf}</div>
+      <OfCommandesCell commandes={r.commandes ?? []} />
+      <OfClientsCell commandes={r.commandes ?? []} />
       {/* En pièces, la charge EST la quantité de l'OF : une seule colonne, portée
           par l'en-tête « Pièces » (cf. `heads`). */}
       {unit === 'u' ? (
@@ -1629,6 +1645,80 @@ function OfAllouesCell({ ofs }: { ofs: DetailRowOf[] }) {
           </span>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Commandes clientes allouées à un OF — sortie du moteur de matching
+ * (CommandeOFMatcher + repli contremarque X3).
+ */
+function OfCommandesCell({ commandes }: { commandes: DetailOfCommande[] }) {
+  if (!commandes || commandes.length === 0) {
+    return <div className={cn(CELL, 'truncate text-muted-foreground')}>—</div>
+  }
+  const title = commandes
+    .map((c) =>
+      [
+        `${c.numCommande}${c.ligne ? `/${c.ligne}` : ''}`,
+        c.client ?? '',
+        `alloué ${fmtQ(c.quantite)} u`,
+        c.dateLivraisonIso ? `livr. ${fmtDateFr(c.dateLivraisonIso)}` : '',
+        c.raison,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    )
+    .join('\n')
+  return (
+    <div className={cn(CELL, 'truncate font-mono text-[10px]')} title={title}>
+      {commandes.map((c, i) => {
+        const pegue = c.raison.toLowerCase().includes('contremarque')
+        const isForecast = c.type === 'forecast'
+        return (
+          <span key={`${c.numCommande}-${c.ligne ?? ''}-${i}`} className="mr-1.5 inline-flex items-baseline gap-1">
+            {isForecast && (
+              <span
+                className="rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
+                style={{
+                  color: 'var(--color-suggere)',
+                  background: 'color-mix(in srgb, var(--color-suggere) 14%, transparent)',
+                }}
+              >
+                prév.
+              </span>
+            )}
+            <span
+              className={pegue ? 'font-bold' : 'font-semibold text-secondary-foreground'}
+              style={pegue ? { color: 'var(--color-ferme)' } : undefined}
+            >
+              {c.numCommande}
+              {c.ligne && <span className="text-muted-foreground">/{c.ligne}</span>}
+            </span>
+            {commandes.length > 1 && (
+              <span className="text-muted-foreground"> {fmtQ(c.quantite)}</span>
+            )}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function OfClientsCell({ commandes }: { commandes: DetailOfCommande[] }) {
+  if (!commandes || commandes.length === 0) {
+    return <div className={cn(CELL, 'truncate text-muted-foreground')}>—</div>
+  }
+  const clients = [...new Set(commandes.map((c) => c.client || (c.type === 'forecast' ? 'sans client' : '—')))]
+  const title = clients.join(', ')
+  return (
+    <div className={cn(CELL, 'truncate text-muted-foreground')} title={title}>
+      {clients.map((client, i) => (
+        <span key={i} className={cn(client === 'sans client' && 'italic')}>
+          {i > 0 ? ', ' : ''}
+          {client}
+        </span>
+      ))}
     </div>
   )
 }
