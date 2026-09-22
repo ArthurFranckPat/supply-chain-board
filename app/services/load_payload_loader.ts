@@ -662,15 +662,52 @@ export interface LoadQtyBuckets {
   reste: number[]
 }
 
+/** Information d'horizon de demande X3 d'un article. */
+export interface DemandHorizonInfo {
+  value: number
+  unit: number
+  label: string
+  endIso: string | null
+}
+
+/** Formate l'horizon de demande X3 en libellé lisible (ex: "4 sem", "15 j", "2 mois"). */
+export function formatDemandHorizon(dh?: { value: number; unit: number }): string {
+  if (!dh || !Number.isFinite(dh.value) || dh.value <= 0) return ''
+  const val = dh.value
+  switch (dh.unit) {
+    case 1:
+      return `${val} j`
+    case 2:
+      return `${val} jo`
+    case 3:
+      return `${val} sem`
+    case 4:
+      return `${val} qz`
+    case 5:
+      return `${val} mois`
+    default:
+      return `${val} j`
+  }
+}
+
 /** Contribution d'un Produit Fini parent à un sous-ensemble (niveau 1). */
 export interface SubAssemblyPfContribution {
   pfArticle: string
   pfDescription: string
   linkQuantity: number
+  demandHorizon?: DemandHorizonInfo
   monthlyQty: number[]
   weeklyQty: number[]
   monthlyHours: number[]
   weeklyHours: number[]
+  monthlyQtyFerme: number[]
+  monthlyQtyPrevision: number[]
+  weeklyQtyFerme: number[]
+  weeklyQtyPrevision: number[]
+  monthlyHoursFerme: number[]
+  monthlyHoursPrevision: number[]
+  weeklyHoursFerme: number[]
+  weeklyHoursPrevision: number[]
 }
 
 /** Sous-ensemble fabriqué par un poste de l'atelier CLP. */
@@ -683,6 +720,14 @@ export interface SubAssemblyItem {
   weeklyQty: LoadQtyBuckets
   monthlyHours: LoadQtyBuckets
   weeklyHours: LoadQtyBuckets
+  monthlyQtyFerme: LoadQtyBuckets
+  monthlyQtyPrevision: LoadQtyBuckets
+  weeklyQtyFerme: LoadQtyBuckets
+  weeklyQtyPrevision: LoadQtyBuckets
+  monthlyHoursFerme: LoadQtyBuckets
+  monthlyHoursPrevision: LoadQtyBuckets
+  weeklyHoursFerme: LoadQtyBuckets
+  weeklyHoursPrevision: LoadQtyBuckets
   parents: SubAssemblyPfContribution[]
 }
 
@@ -694,6 +739,14 @@ export interface SubAssemblyWorkstationGroup {
   weeklyHours: LoadQtyBuckets
   monthlyQty: LoadQtyBuckets
   weeklyQty: LoadQtyBuckets
+  monthlyQtyFerme: LoadQtyBuckets
+  monthlyQtyPrevision: LoadQtyBuckets
+  weeklyQtyFerme: LoadQtyBuckets
+  weeklyQtyPrevision: LoadQtyBuckets
+  monthlyHoursFerme: LoadQtyBuckets
+  monthlyHoursPrevision: LoadQtyBuckets
+  weeklyHoursFerme: LoadQtyBuckets
+  weeklyHoursPrevision: LoadQtyBuckets
   items: SubAssemblyItem[]
 }
 
@@ -733,16 +786,26 @@ export function buildSubAssemblyClpGroups(params: {
   } = params
 
   const zeros = (len: number) => Array.from({ length: len }, () => 0)
+  const initBuckets = (len: number) => ({ brut: zeros(len), net: zeros(len), reste: zeros(len) })
   const round1Dec = (x: number) => Math.round(x * 10) / 10
 
   interface AccParent {
     pfArticle: string
     pfDescription: string
     linkQuantity: number
+    demandHorizon?: DemandHorizonInfo
     monthlyQty: number[]
     weeklyQty: number[]
     monthlyHours: number[]
     weeklyHours: number[]
+    monthlyQtyFerme: number[]
+    monthlyQtyPrevision: number[]
+    weeklyQtyFerme: number[]
+    weeklyQtyPrevision: number[]
+    monthlyHoursFerme: number[]
+    monthlyHoursPrevision: number[]
+    weeklyHoursFerme: number[]
+    weeklyHoursPrevision: number[]
   }
 
   interface AccItem {
@@ -754,6 +817,14 @@ export function buildSubAssemblyClpGroups(params: {
     weeklyQty: { brut: number[]; net: number[]; reste: number[] }
     monthlyHours: { brut: number[]; net: number[]; reste: number[] }
     weeklyHours: { brut: number[]; net: number[]; reste: number[] }
+    monthlyQtyFerme: { brut: number[]; net: number[]; reste: number[] }
+    monthlyQtyPrevision: { brut: number[]; net: number[]; reste: number[] }
+    weeklyQtyFerme: { brut: number[]; net: number[]; reste: number[] }
+    weeklyQtyPrevision: { brut: number[]; net: number[]; reste: number[] }
+    monthlyHoursFerme: { brut: number[]; net: number[]; reste: number[] }
+    monthlyHoursPrevision: { brut: number[]; net: number[]; reste: number[] }
+    weeklyHoursFerme: { brut: number[]; net: number[]; reste: number[] }
+    weeklyHoursPrevision: { brut: number[]; net: number[]; reste: number[] }
     parents: Map<string, AccParent>
   }
 
@@ -783,10 +854,18 @@ export function buildSubAssemblyClpGroups(params: {
         description: inputs.descriptions?.get(n.article) ?? '',
         stock: pinnedStock.get(n.article) ?? 0,
         encours: encoursByArticle.get(n.article) ?? 0,
-        monthlyQty: { brut: zeros(nbMonths), net: zeros(nbMonths), reste: zeros(nbMonths) },
-        weeklyQty: { brut: zeros(nbWeeks), net: zeros(nbWeeks), reste: zeros(nbWeeks) },
-        monthlyHours: { brut: zeros(nbMonths), net: zeros(nbMonths), reste: zeros(nbMonths) },
-        weeklyHours: { brut: zeros(nbWeeks), net: zeros(nbWeeks), reste: zeros(nbWeeks) },
+        monthlyQty: initBuckets(nbMonths),
+        weeklyQty: initBuckets(nbWeeks),
+        monthlyHours: initBuckets(nbMonths),
+        weeklyHours: initBuckets(nbWeeks),
+        monthlyQtyFerme: initBuckets(nbMonths),
+        monthlyQtyPrevision: initBuckets(nbMonths),
+        weeklyQtyFerme: initBuckets(nbWeeks),
+        weeklyQtyPrevision: initBuckets(nbWeeks),
+        monthlyHoursFerme: initBuckets(nbMonths),
+        monthlyHoursPrevision: initBuckets(nbMonths),
+        weeklyHoursFerme: initBuckets(nbWeeks),
+        weeklyHoursPrevision: initBuckets(nbWeeks),
         parents: new Map(),
       }
       items.set(n.article, item)
@@ -795,6 +874,7 @@ export function buildSubAssemblyClpGroups(params: {
     const brutH = chargeHoursWithEfficiency(n.brutHours, wst)
     const netH = chargeHoursWithEfficiency(n.netHours, wst)
     const resteH = chargeHoursWithEfficiency(n.resteHours, wst)
+    const isFerme = n.nature === 'ferme'
 
     item.monthlyQty.brut[mi] += n.brutQty
     item.monthlyQty.net[mi] += n.netQty
@@ -803,6 +883,22 @@ export function buildSubAssemblyClpGroups(params: {
     item.monthlyHours.net[mi] += netH
     item.monthlyHours.reste[mi] += resteH
 
+    if (isFerme) {
+      item.monthlyQtyFerme.brut[mi] += n.brutQty
+      item.monthlyQtyFerme.net[mi] += n.netQty
+      item.monthlyQtyFerme.reste[mi] += n.resteQty
+      item.monthlyHoursFerme.brut[mi] += brutH
+      item.monthlyHoursFerme.net[mi] += netH
+      item.monthlyHoursFerme.reste[mi] += resteH
+    } else {
+      item.monthlyQtyPrevision.brut[mi] += n.brutQty
+      item.monthlyQtyPrevision.net[mi] += n.netQty
+      item.monthlyQtyPrevision.reste[mi] += n.resteQty
+      item.monthlyHoursPrevision.brut[mi] += brutH
+      item.monthlyHoursPrevision.net[mi] += netH
+      item.monthlyHoursPrevision.reste[mi] += resteH
+    }
+
     if (wi !== undefined) {
       item.weeklyQty.brut[wi] += n.brutQty
       item.weeklyQty.net[wi] += n.netQty
@@ -810,6 +906,22 @@ export function buildSubAssemblyClpGroups(params: {
       item.weeklyHours.brut[wi] += brutH
       item.weeklyHours.net[wi] += netH
       item.weeklyHours.reste[wi] += resteH
+
+      if (isFerme) {
+        item.weeklyQtyFerme.brut[wi] += n.brutQty
+        item.weeklyQtyFerme.net[wi] += n.netQty
+        item.weeklyQtyFerme.reste[wi] += n.resteQty
+        item.weeklyHoursFerme.brut[wi] += brutH
+        item.weeklyHoursFerme.net[wi] += netH
+        item.weeklyHoursFerme.reste[wi] += resteH
+      } else {
+        item.weeklyQtyPrevision.brut[wi] += n.brutQty
+        item.weeklyQtyPrevision.net[wi] += n.netQty
+        item.weeklyQtyPrevision.reste[wi] += n.resteQty
+        item.weeklyHoursPrevision.brut[wi] += brutH
+        item.weeklyHoursPrevision.net[wi] += netH
+        item.weeklyHoursPrevision.reste[wi] += resteH
+      }
     }
 
     const pfArticle = n.source?.pfArticle || n.path[0] || 'Inconnu'
@@ -817,23 +929,59 @@ export function buildSubAssemblyClpGroups(params: {
     if (!parent) {
       const bomEntries = inputs.bomByParent.get(pfArticle)
       const bomEntry = bomEntries?.find((e) => e.componentArticle === n.article)
+      const dh = inputs.demandHorizonByArticle.get(pfArticle)
+      let demandHorizon: DemandHorizonInfo | undefined
+      if (dh && Number.isFinite(dh.value) && dh.value > 0) {
+        const end = demandHorizonEnd(dh)
+        demandHorizon = {
+          value: dh.value,
+          unit: dh.unit,
+          label: formatDemandHorizon(dh),
+          endIso: end ? isoDay(end) : null,
+        }
+      }
+
       parent = {
         pfArticle,
         pfDescription: inputs.descriptions?.get(pfArticle) ?? bomEntry?.parentDescription ?? '',
         linkQuantity: bomEntry?.linkQuantity ?? 1,
+        demandHorizon,
         monthlyQty: zeros(nbMonths),
         weeklyQty: zeros(nbWeeks),
         monthlyHours: zeros(nbMonths),
         weeklyHours: zeros(nbWeeks),
+        monthlyQtyFerme: zeros(nbMonths),
+        monthlyQtyPrevision: zeros(nbMonths),
+        weeklyQtyFerme: zeros(nbWeeks),
+        weeklyQtyPrevision: zeros(nbWeeks),
+        monthlyHoursFerme: zeros(nbMonths),
+        monthlyHoursPrevision: zeros(nbMonths),
+        weeklyHoursFerme: zeros(nbWeeks),
+        weeklyHoursPrevision: zeros(nbWeeks),
       }
       item.parents.set(pfArticle, parent)
     }
 
     parent.monthlyQty[mi] += n.brutQty
     parent.monthlyHours[mi] += brutH
+    if (isFerme) {
+      parent.monthlyQtyFerme[mi] += n.brutQty
+      parent.monthlyHoursFerme[mi] += brutH
+    } else {
+      parent.monthlyQtyPrevision[mi] += n.brutQty
+      parent.monthlyHoursPrevision[mi] += brutH
+    }
+
     if (wi !== undefined) {
       parent.weeklyQty[wi] += n.brutQty
       parent.weeklyHours[wi] += brutH
+      if (isFerme) {
+        parent.weeklyQtyFerme[wi] += n.brutQty
+        parent.weeklyHoursFerme[wi] += brutH
+      } else {
+        parent.weeklyQtyPrevision[wi] += n.brutQty
+        parent.weeklyHoursPrevision[wi] += brutH
+      }
     }
   }
 
@@ -851,10 +999,19 @@ export function buildSubAssemblyClpGroups(params: {
           pfArticle: p.pfArticle,
           pfDescription: p.pfDescription,
           linkQuantity: p.linkQuantity,
+          demandHorizon: p.demandHorizon,
           monthlyQty: p.monthlyQty.map(Math.round),
           weeklyQty: cutWeekNumbers(p.weeklyQty).map(Math.round),
           monthlyHours: p.monthlyHours.map(round1Dec),
           weeklyHours: cutWeekNumbers(p.weeklyHours).map(round1Dec),
+          monthlyQtyFerme: p.monthlyQtyFerme.map(Math.round),
+          monthlyQtyPrevision: p.monthlyQtyPrevision.map(Math.round),
+          weeklyQtyFerme: cutWeekNumbers(p.weeklyQtyFerme).map(Math.round),
+          weeklyQtyPrevision: cutWeekNumbers(p.weeklyQtyPrevision).map(Math.round),
+          monthlyHoursFerme: p.monthlyHoursFerme.map(round1Dec),
+          monthlyHoursPrevision: p.monthlyHoursPrevision.map(round1Dec),
+          weeklyHoursFerme: cutWeekNumbers(p.weeklyHoursFerme).map(round1Dec),
+          weeklyHoursPrevision: cutWeekNumbers(p.weeklyHoursPrevision).map(round1Dec),
         }))
         .sort((a, b) => {
           const sumA = a.monthlyQty.reduce((s, x) => s + x, 0)
@@ -862,31 +1019,39 @@ export function buildSubAssemblyClpGroups(params: {
           return sumB - sumA
         })
 
+      const formatBucket = (
+        b: { brut: number[]; net: number[]; reste: number[] },
+        isHours: boolean,
+        isWeekly: boolean
+      ) => {
+        const roundFn = isHours ? round1Dec : Math.round
+        const transform = isWeekly
+          ? (arr: number[]) => cutWeekNumbers(arr).map(roundFn)
+          : (arr: number[]) => arr.map(roundFn)
+        return {
+          brut: transform(b.brut),
+          net: transform(b.net),
+          reste: transform(b.reste),
+        }
+      }
+
       items.push({
         article: item.article,
         description: item.description,
         stock: item.stock,
         encours: item.encours,
-        monthlyQty: {
-          brut: item.monthlyQty.brut.map(Math.round),
-          net: item.monthlyQty.net.map(Math.round),
-          reste: item.monthlyQty.reste.map(Math.round),
-        },
-        weeklyQty: {
-          brut: cutWeekNumbers(item.weeklyQty.brut).map(Math.round),
-          net: cutWeekNumbers(item.weeklyQty.net).map(Math.round),
-          reste: cutWeekNumbers(item.weeklyQty.reste).map(Math.round),
-        },
-        monthlyHours: {
-          brut: item.monthlyHours.brut.map(round1Dec),
-          net: item.monthlyHours.net.map(round1Dec),
-          reste: item.monthlyHours.reste.map(round1Dec),
-        },
-        weeklyHours: {
-          brut: cutWeekNumbers(item.weeklyHours.brut).map(round1Dec),
-          net: cutWeekNumbers(item.weeklyHours.net).map(round1Dec),
-          reste: cutWeekNumbers(item.weeklyHours.reste).map(round1Dec),
-        },
+        monthlyQty: formatBucket(item.monthlyQty, false, false),
+        weeklyQty: formatBucket(item.weeklyQty, false, true),
+        monthlyHours: formatBucket(item.monthlyHours, true, false),
+        weeklyHours: formatBucket(item.weeklyHours, true, true),
+        monthlyQtyFerme: formatBucket(item.monthlyQtyFerme, false, false),
+        monthlyQtyPrevision: formatBucket(item.monthlyQtyPrevision, false, false),
+        weeklyQtyFerme: formatBucket(item.weeklyQtyFerme, false, true),
+        weeklyQtyPrevision: formatBucket(item.weeklyQtyPrevision, false, true),
+        monthlyHoursFerme: formatBucket(item.monthlyHoursFerme, true, false),
+        monthlyHoursPrevision: formatBucket(item.monthlyHoursPrevision, true, false),
+        weeklyHoursFerme: formatBucket(item.weeklyHoursFerme, true, true),
+        weeklyHoursPrevision: formatBucket(item.weeklyHoursPrevision, true, true),
         parents,
       })
     }
@@ -926,6 +1091,14 @@ export function buildSubAssemblyClpGroups(params: {
       weeklyHours: sumBuckets((it) => it.weeklyHours, cutWeeksLen, true),
       monthlyQty: sumBuckets((it) => it.monthlyQty, nbMonths, false),
       weeklyQty: sumBuckets((it) => it.weeklyQty, cutWeeksLen, false),
+      monthlyHoursFerme: sumBuckets((it) => it.monthlyHoursFerme, nbMonths, true),
+      monthlyHoursPrevision: sumBuckets((it) => it.monthlyHoursPrevision, nbMonths, true),
+      weeklyHoursFerme: sumBuckets((it) => it.weeklyHoursFerme, cutWeeksLen, true),
+      weeklyHoursPrevision: sumBuckets((it) => it.weeklyHoursPrevision, cutWeeksLen, true),
+      monthlyQtyFerme: sumBuckets((it) => it.monthlyQtyFerme, nbMonths, false),
+      monthlyQtyPrevision: sumBuckets((it) => it.monthlyQtyPrevision, nbMonths, false),
+      weeklyQtyFerme: sumBuckets((it) => it.weeklyQtyFerme, cutWeeksLen, false),
+      weeklyQtyPrevision: sumBuckets((it) => it.weeklyQtyPrevision, cutWeeksLen, false),
       items,
     })
   }
@@ -954,7 +1127,7 @@ export async function loadChargePayloadData(params: {
   const { monthStart, horizonEnd } = chargeHorizon(startParam)
   // `s12` = schéma courant du payload (s11 : barre Retard, s12 : vision sous-ensembles CLP).
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `payload:charge:s12:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
+  const cacheKey = `payload:charge:s13:${isoDay(monthStart)}:${NB_MONTHS}:${ofDate}:ov${ovSig}`
   const chargeCache = () => cacheNs('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
 

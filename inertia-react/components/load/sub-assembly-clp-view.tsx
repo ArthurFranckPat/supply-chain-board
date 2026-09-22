@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ChevronsDownUp,
-  Package,
   Layers,
   ArrowRight,
 } from 'lucide-react'
@@ -18,6 +17,8 @@ import type {
 } from '@r/lib/load/types'
 import type { Gran } from '@r/lib/load/chart-math'
 
+export type NatureFilter = 'all' | 'ferme' | 'prevision'
+
 interface SubAssemblyClpViewProps {
   groups: SubAssemblyWorkstationGroup[]
   months: string[]
@@ -26,6 +27,12 @@ interface SubAssemblyClpViewProps {
   unit: LoadUnit
   qtyMode: LoadQtyMode
   query: string
+}
+
+interface SeriesSplit {
+  total: number[]
+  ferme: number[]
+  prevision: number[]
 }
 
 const formatCell = (val: number | undefined, unit: LoadUnit): string => {
@@ -53,6 +60,8 @@ export function SubAssemblyClpView({
   const [collapsedWst, setCollapsedWst] = useState<Set<string>>(new Set())
   // Dépliage des articles SE (pour voir les PF parents)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  // Filtre nature : tout, commandes fermes uniquement, prévisions uniquement
+  const [natureFilter, setNatureFilter] = useState<NatureFilter>('all')
 
   const toggleWst = (wst: string) => {
     setCollapsedWst((prev) => {
@@ -126,37 +135,114 @@ export function SubAssemblyClpView({
   }
 
   // Helper pour extraire les séries de nombres de l'item selon unit, gran, qtyMode
-  const getItemSeries = (it: SubAssemblyItem): number[] => {
-    if (unit === 'u') {
-      const b = gran === 'month' ? it.monthlyQty : it.weeklyQty
-      return b[qtyMode] ?? []
+  const getItemSeries = (it: SubAssemblyItem): SeriesSplit => {
+    const isHours = unit === 'h'
+    const bTotal =
+      gran === 'month'
+        ? isHours
+          ? it.monthlyHours[qtyMode]
+          : it.monthlyQty[qtyMode]
+        : isHours
+          ? it.weeklyHours[qtyMode]
+          : it.weeklyQty[qtyMode]
+    const bFerme =
+      gran === 'month'
+        ? isHours
+          ? it.monthlyHoursFerme?.[qtyMode]
+          : it.monthlyQtyFerme?.[qtyMode]
+        : isHours
+          ? it.weeklyHoursFerme?.[qtyMode]
+          : it.weeklyQtyFerme?.[qtyMode]
+    const bPrev =
+      gran === 'month'
+        ? isHours
+          ? it.monthlyHoursPrevision?.[qtyMode]
+          : it.monthlyQtyPrevision?.[qtyMode]
+        : isHours
+          ? it.weeklyHoursPrevision?.[qtyMode]
+          : it.weeklyQtyPrevision?.[qtyMode]
+
+    return {
+      total: bTotal ?? [],
+      ferme: bFerme ?? [],
+      prevision: bPrev ?? [],
     }
-    const b = gran === 'month' ? it.monthlyHours : it.weeklyHours
-    return b[qtyMode] ?? []
   }
 
   // Helper pour extraire les séries d'un parent PF
-  const getParentSeries = (p: SubAssemblyPfContribution): number[] => {
-    if (unit === 'u') {
-      return gran === 'month' ? p.monthlyQty : p.weeklyQty
+  const getParentSeries = (p: SubAssemblyPfContribution): SeriesSplit => {
+    const isHours = unit === 'h'
+    const total =
+      gran === 'month'
+        ? isHours
+          ? p.monthlyHours
+          : p.monthlyQty
+        : isHours
+          ? p.weeklyHours
+          : p.weeklyQty
+    const ferme =
+      gran === 'month'
+        ? isHours
+          ? p.monthlyHoursFerme
+          : p.monthlyQtyFerme
+        : isHours
+          ? p.weeklyHoursFerme
+          : p.weeklyQtyFerme
+    const prevision =
+      gran === 'month'
+        ? isHours
+          ? p.monthlyHoursPrevision
+          : p.monthlyQtyPrevision
+        : isHours
+          ? p.weeklyHoursPrevision
+          : p.weeklyQtyPrevision
+
+    return {
+      total: total ?? [],
+      ferme: ferme ?? [],
+      prevision: prevision ?? [],
     }
-    return gran === 'month' ? p.monthlyHours : p.weeklyHours
   }
 
   // Helper pour extraire les séries totales d'un groupe poste
-  const getGroupSeries = (g: SubAssemblyWorkstationGroup): number[] => {
-    if (unit === 'u') {
-      const b = gran === 'month' ? g.monthlyQty : g.weeklyQty
-      return b[qtyMode] ?? []
+  const getGroupSeries = (g: SubAssemblyWorkstationGroup): SeriesSplit => {
+    const isHours = unit === 'h'
+    const bTotal =
+      gran === 'month'
+        ? isHours
+          ? g.monthlyHours[qtyMode]
+          : g.monthlyQty[qtyMode]
+        : isHours
+          ? g.weeklyHours[qtyMode]
+          : g.weeklyQty[qtyMode]
+    const bFerme =
+      gran === 'month'
+        ? isHours
+          ? g.monthlyHoursFerme?.[qtyMode]
+          : g.monthlyQtyFerme?.[qtyMode]
+        : isHours
+          ? g.weeklyHoursFerme?.[qtyMode]
+          : g.weeklyQtyFerme?.[qtyMode]
+    const bPrev =
+      gran === 'month'
+        ? isHours
+          ? g.monthlyHoursPrevision?.[qtyMode]
+          : g.monthlyQtyPrevision?.[qtyMode]
+        : isHours
+          ? g.weeklyHoursPrevision?.[qtyMode]
+          : g.weeklyQtyPrevision?.[qtyMode]
+
+    return {
+      total: bTotal ?? [],
+      ferme: bFerme ?? [],
+      prevision: bPrev ?? [],
     }
-    const b = gran === 'month' ? g.monthlyHours : g.weeklyHours
-    return b[qtyMode] ?? []
   }
 
   return (
     <div className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-rule bg-card">
       {/* Barre d'outils secondaire de la vue sous-ensembles */}
-      <div className="flex flex-none min-w-0 w-full items-center justify-between border-b border-rule bg-muted/40 px-5 py-2.5">
+      <div className="flex flex-none min-w-0 w-full flex-wrap items-center justify-between gap-3 border-b border-rule bg-muted/40 px-5 py-2.5">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex shrink-0 items-center gap-2">
             <span className="inline-flex size-6 items-center justify-center rounded bg-brand/10 text-brand">
@@ -172,25 +258,84 @@ export function SubAssemblyClpView({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExpandAll}
-            className="inline-flex items-center gap-1 rounded border border-rule bg-background px-2.5 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
-            title="Déplier tous les sous-ensembles pour voir les PF"
-          >
-            <ChevronsUpDown size={13} />
-            <span>Tout déplier</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleCollapseAll}
-            className="inline-flex items-center gap-1 rounded border border-rule bg-background px-2.5 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
-            title="Replier tous les sous-ensembles"
-          >
-            <ChevronsDownUp size={13} />
-            <span>Tout replier</span>
-          </button>
+        <div className="flex shrink-0 items-center gap-3">
+          {/* Légende Ferme / Prévision */}
+          <div className="hidden items-center gap-3 font-mono text-3xs text-muted-foreground lg:flex">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-600" />
+              <span>Ferme (commandes)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-sky-500" />
+              <span>Prévision (au-delà horizon)</span>
+            </span>
+          </div>
+
+          {/* Filtre de nature */}
+          <div className="inline-flex rounded border border-rule bg-background p-0.5 text-2xs">
+            <button
+              type="button"
+              onClick={() => setNatureFilter('all')}
+              className={cn(
+                'rounded px-2.5 py-0.5 font-medium transition-colors',
+                natureFilter === 'all'
+                  ? 'bg-muted font-semibold text-foreground shadow-2xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Tout
+            </button>
+            <button
+              type="button"
+              onClick={() => setNatureFilter('ferme')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 font-medium transition-colors',
+                natureFilter === 'ferme'
+                  ? 'bg-emerald-50 text-emerald-700 font-semibold shadow-2xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              title="Afficher uniquement les besoins issus de commandes clients fermes"
+            >
+              <span className="size-1.5 rounded-full bg-emerald-600" />
+              Ferme
+            </button>
+            <button
+              type="button"
+              onClick={() => setNatureFilter('prevision')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 font-medium transition-colors',
+                natureFilter === 'prevision'
+                  ? 'bg-sky-50 text-sky-700 font-semibold shadow-2xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              title="Afficher uniquement les besoins issus de prévisions (au-delà de l'horizon de demande du PF)"
+            >
+              <span className="size-1.5 rounded-full bg-sky-500" />
+              Prévisions
+            </button>
+          </div>
+
+          {/* Actions Tout déplier / replier */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleExpandAll}
+              className="inline-flex items-center gap-1 rounded border border-rule bg-background px-2.5 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
+              title="Déplier tous les sous-ensembles pour voir les PF"
+            >
+              <ChevronsUpDown size={13} />
+              <span>Tout déplier</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleCollapseAll}
+              className="inline-flex items-center gap-1 rounded border border-rule bg-background px-2.5 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-brand hover:text-foreground"
+              title="Replier tous les sous-ensembles"
+            >
+              <ChevronsDownUp size={13} />
+              <span>Tout replier</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -237,7 +382,6 @@ export function SubAssemblyClpView({
               {filteredGroups.map((group) => {
                 const isWstCollapsed = collapsedWst.has(group.wst)
                 const groupSeries = getGroupSeries(group)
-                const groupTotal = groupSeries.reduce((s, x) => s + x, 0)
 
                 return (
                   <WorkstationSection
@@ -245,10 +389,10 @@ export function SubAssemblyClpView({
                     group={group}
                     periods={periods}
                     unit={unit}
+                    natureFilter={natureFilter}
                     isCollapsed={isWstCollapsed}
                     onToggleWst={() => toggleWst(group.wst)}
                     groupSeries={groupSeries}
-                    groupTotal={groupTotal}
                     expandedItems={expandedItems}
                     onToggleItem={toggleItem}
                     itemKey={itemKey}
@@ -269,31 +413,35 @@ interface WorkstationSectionProps {
   group: SubAssemblyWorkstationGroup
   periods: string[]
   unit: LoadUnit
+  natureFilter: NatureFilter
   isCollapsed: boolean
   onToggleWst: () => void
-  groupSeries: number[]
-  groupTotal: number
+  groupSeries: SeriesSplit
   expandedItems: Set<string>
   onToggleItem: (key: string) => void
   itemKey: (wst: string, article: string) => string
-  getItemSeries: (it: SubAssemblyItem) => number[]
-  getParentSeries: (p: SubAssemblyPfContribution) => number[]
+  getItemSeries: (it: SubAssemblyItem) => SeriesSplit
+  getParentSeries: (p: SubAssemblyPfContribution) => SeriesSplit
 }
 
 function WorkstationSection({
   group,
   periods,
   unit,
+  natureFilter,
   isCollapsed,
   onToggleWst,
   groupSeries,
-  groupTotal,
   expandedItems,
   onToggleItem,
   itemKey,
   getItemSeries,
   getParentSeries,
 }: WorkstationSectionProps) {
+  const groupTotal = groupSeries.total.reduce((s, x) => s + x, 0)
+  const groupFermeTotal = groupSeries.ferme.reduce((s, x) => s + x, 0)
+  const groupPrevTotal = groupSeries.prevision.reduce((s, x) => s + x, 0)
+
   return (
     <>
       {/* Ligne d'en-tête du poste de charge */}
@@ -322,20 +470,31 @@ function WorkstationSection({
           —
         </td>
 
-        {periods.map((p, idx) => {
-          const val = groupSeries[idx]
-          return (
-            <td
-              key={`${group.wst}-${p}-${idx}`}
-              className="w-[75px] min-w-[75px] border-b border-r border-rule/50 px-2.5 py-2 text-right font-mono text-2xs font-semibold tabular-nums text-foreground"
-            >
-              {formatCell(val, unit)}
-            </td>
-          )
-        })}
+        {periods.map((p, idx) => (
+          <td
+            key={`${group.wst}-${p}-${idx}`}
+            className="w-[75px] min-w-[75px] border-b border-r border-rule/50 px-2.5 py-2 text-right font-mono text-2xs"
+          >
+            <CellWithNature
+              total={groupSeries.total[idx] ?? 0}
+              ferme={groupSeries.ferme[idx] ?? 0}
+              prevision={groupSeries.prevision[idx] ?? 0}
+              unit={unit}
+              natureFilter={natureFilter}
+              isBold
+            />
+          </td>
+        ))}
 
-        <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-2 text-right font-mono text-2xs font-bold tabular-nums text-foreground">
-          {formatCell(groupTotal, unit)}
+        <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-2 text-right font-mono text-2xs">
+          <CellWithNature
+            total={groupTotal}
+            ferme={groupFermeTotal}
+            prevision={groupPrevTotal}
+            unit={unit}
+            natureFilter={natureFilter}
+            isBold
+          />
         </td>
       </tr>
 
@@ -345,17 +504,15 @@ function WorkstationSection({
           const itKey = itemKey(group.wst, it.article)
           const isItemExpanded = expandedItems.has(itKey)
           const series = getItemSeries(it)
-          const itemTotal = series.reduce((s, x) => s + x, 0)
 
           return (
             <SubAssemblyRow
               key={itKey}
-              wst={group.wst}
               item={it}
               periods={periods}
               unit={unit}
+              natureFilter={natureFilter}
               series={series}
-              itemTotal={itemTotal}
               isExpanded={isItemExpanded}
               onToggle={() => onToggleItem(itKey)}
               getParentSeries={getParentSeries}
@@ -367,28 +524,30 @@ function WorkstationSection({
 }
 
 interface SubAssemblyRowProps {
-  wst: string
   item: SubAssemblyItem
   periods: string[]
   unit: LoadUnit
-  series: number[]
-  itemTotal: number
+  natureFilter: NatureFilter
+  series: SeriesSplit
   isExpanded: boolean
   onToggle: () => void
-  getParentSeries: (p: SubAssemblyPfContribution) => number[]
+  getParentSeries: (p: SubAssemblyPfContribution) => SeriesSplit
 }
 
 function SubAssemblyRow({
   item,
   periods,
   unit,
+  natureFilter,
   series,
-  itemTotal,
   isExpanded,
   onToggle,
   getParentSeries,
 }: SubAssemblyRowProps) {
   const hasParents = item.parents.length > 0
+  const itemTotal = series.total.reduce((s, x) => s + x, 0)
+  const itemFermeTotal = series.ferme.reduce((s, x) => s + x, 0)
+  const itemPrevTotal = series.prevision.reduce((s, x) => s + x, 0)
 
   return (
     <>
@@ -440,24 +599,30 @@ function SubAssemblyRow({
           </div>
         </td>
 
-        {periods.map((p, idx) => {
-          const val = series[idx]
-          const isZero = !val || val <= 0
-          return (
-            <td
-              key={`${item.article}-${p}-${idx}`}
-              className={cn(
-                'w-[75px] min-w-[75px] border-b border-r border-rule/40 px-2.5 py-2 text-right font-mono text-2xs tabular-nums',
-                isZero ? 'text-muted-foreground/30' : 'font-medium text-foreground'
-              )}
-            >
-              {formatCell(val, unit)}
-            </td>
-          )
-        })}
+        {periods.map((p, idx) => (
+          <td
+            key={`${item.article}-${p}-${idx}`}
+            className="w-[75px] min-w-[75px] border-b border-r border-rule/40 px-2.5 py-2 text-right font-mono text-2xs"
+          >
+            <CellWithNature
+              total={series.total[idx] ?? 0}
+              ferme={series.ferme[idx] ?? 0}
+              prevision={series.prevision[idx] ?? 0}
+              unit={unit}
+              natureFilter={natureFilter}
+            />
+          </td>
+        ))}
 
-        <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-2 text-right font-mono text-2xs font-semibold tabular-nums text-foreground">
-          {formatCell(itemTotal, unit)}
+        <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-2 text-right font-mono text-2xs">
+          <CellWithNature
+            total={itemTotal}
+            ferme={itemFermeTotal}
+            prevision={itemPrevTotal}
+            unit={unit}
+            natureFilter={natureFilter}
+            isBold
+          />
         </td>
       </tr>
 
@@ -465,7 +630,9 @@ function SubAssemblyRow({
       {isExpanded &&
         item.parents.map((p) => {
           const pSeries = getParentSeries(p)
-          const pTotal = pSeries.reduce((s, x) => s + x, 0)
+          const pTotal = pSeries.total.reduce((s, x) => s + x, 0)
+          const pFermeTotal = pSeries.ferme.reduce((s, x) => s + x, 0)
+          const pPrevTotal = pSeries.prevision.reduce((s, x) => s + x, 0)
 
           return (
             <tr
@@ -481,6 +648,14 @@ function SubAssemblyRow({
                   <span className="shrink-0 font-mono text-2xs font-medium text-foreground">
                     {p.pfArticle}
                   </span>
+                  {p.demandHorizon && (
+                    <span
+                      className="shrink-0 rounded border border-sky-200/80 bg-sky-50 px-1 py-0.5 font-mono text-3xs font-medium text-sky-700"
+                      title={`Horizon de demande X3 : ${p.demandHorizon.label}${p.demandHorizon.endIso ? ` (fin : ${p.demandHorizon.endIso})` : ''}. Les prévisions en deçà sont neutralisées.`}
+                    >
+                      HD: {p.demandHorizon.label}
+                    </span>
+                  )}
                   <span
                     className="min-w-0 flex-1 truncate text-3xs text-muted-foreground"
                     title={p.pfDescription}
@@ -497,28 +672,113 @@ function SubAssemblyRow({
                 —
               </td>
 
-              {periods.map((per, idx) => {
-                const val = pSeries[idx]
-                const isZero = !val || val <= 0
-                return (
-                  <td
-                    key={`${item.article}-${p.pfArticle}-${per}-${idx}`}
-                    className={cn(
-                      'w-[75px] min-w-[75px] border-b border-r border-rule/30 px-2.5 py-1.5 text-right font-mono text-3xs tabular-nums',
-                      isZero ? 'text-muted-foreground/25' : 'text-foreground/80'
-                    )}
-                  >
-                    {formatCell(val, unit)}
-                  </td>
-                )
-              })}
+              {periods.map((per, idx) => (
+                <td
+                  key={`${item.article}-${p.pfArticle}-${per}-${idx}`}
+                  className="w-[75px] min-w-[75px] border-b border-r border-rule/30 px-2.5 py-1.5 text-right font-mono text-3xs"
+                >
+                  <CellWithNature
+                    total={pSeries.total[idx] ?? 0}
+                    ferme={pSeries.ferme[idx] ?? 0}
+                    prevision={pSeries.prevision[idx] ?? 0}
+                    unit={unit}
+                    natureFilter={natureFilter}
+                  />
+                </td>
+              ))}
 
-              <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-1.5 text-right font-mono text-3xs tabular-nums text-foreground/80">
-                {formatCell(pTotal, unit)}
+              <td className="w-[90px] min-w-[90px] border-b border-rule px-3 py-1.5 text-right font-mono text-3xs">
+                <CellWithNature
+                  total={pTotal}
+                  ferme={pFermeTotal}
+                  prevision={pPrevTotal}
+                  unit={unit}
+                  natureFilter={natureFilter}
+                />
               </td>
             </tr>
           )
         })}
     </>
+  )
+}
+
+interface CellWithNatureProps {
+  total: number
+  ferme: number
+  prevision: number
+  unit: LoadUnit
+  natureFilter: NatureFilter
+  isBold?: boolean
+}
+
+function CellWithNature({
+  total,
+  ferme,
+  prevision,
+  unit,
+  natureFilter,
+  isBold,
+}: CellWithNatureProps) {
+  const displayVal =
+    natureFilter === 'ferme' ? ferme : natureFilter === 'prevision' ? prevision : total
+
+  if (displayVal === undefined || displayVal <= 0) {
+    return <span className="text-muted-foreground/30">—</span>
+  }
+
+  const unitLabel = unit === 'u' ? 'pièces' : 'heures'
+  const isAll = natureFilter === 'all'
+  const hasMixed = isAll && ferme > 0 && prevision > 0
+  const isOnlyPrevision = isAll && ferme <= 0 && prevision > 0
+
+  let tooltip = ''
+  if (isAll) {
+    if (hasMixed) {
+      const pctFerme = Math.round((ferme / total) * 100)
+      const pctPrev = 100 - pctFerme
+      tooltip = `Total : ${formatCell(total, unit)} ${unitLabel}\n• Ferme : ${formatCell(ferme, unit)} (${pctFerme} %)\n• Prévision : ${formatCell(prevision, unit)} (${pctPrev} %, au-delà horizon)`
+    } else if (isOnlyPrevision) {
+      tooltip = `Prévision (au-delà horizon) : ${formatCell(prevision, unit)} ${unitLabel}`
+    } else {
+      tooltip = `Ferme (commandes) : ${formatCell(ferme, unit)} ${unitLabel}`
+    }
+  } else if (natureFilter === 'ferme') {
+    tooltip = `Ferme (commandes) : ${formatCell(ferme, unit)} ${unitLabel}`
+  } else {
+    tooltip = `Prévision (au-delà horizon) : ${formatCell(prevision, unit)} ${unitLabel}`
+  }
+
+  const pctFerme = total > 0 ? (ferme / total) * 100 : 0
+  const pctPrev = total > 0 ? (prevision / total) * 100 : 0
+
+  return (
+    <div className="flex flex-col items-end gap-0.5" title={tooltip}>
+      <span
+        className={cn(
+          'font-mono tabular-nums',
+          isBold ? 'font-bold' : 'font-medium',
+          natureFilter === 'prevision' || isOnlyPrevision
+            ? 'text-sky-600 font-semibold'
+            : 'text-foreground'
+        )}
+      >
+        {formatCell(displayVal, unit)}
+      </span>
+
+      {/* Mini-jauge bicolore proportionnelle sous le chiffre en vue Tout */}
+      {isAll && (hasMixed || isOnlyPrevision) && (
+        <div className="flex h-[2.5px] w-full max-w-[46px] overflow-hidden rounded-full bg-muted/60">
+          {hasMixed ? (
+            <>
+              <div style={{ width: `${pctFerme}%` }} className="bg-emerald-600" />
+              <div style={{ width: `${pctPrev}%` }} className="bg-sky-500" />
+            </>
+          ) : (
+            <div className="w-full bg-sky-500" />
+          )}
+        </div>
+      )}
+    </div>
   )
 }

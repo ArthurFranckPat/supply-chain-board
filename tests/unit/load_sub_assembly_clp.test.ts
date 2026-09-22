@@ -319,4 +319,85 @@ test.group('buildSubAssemblyClpGroups', () => {
     // La quantité de pièces n'est pas modifiée par l'efficience
     assert.deepEqual(item.monthlyQty.brut, [10, 0])
   })
+
+  test('ventile correctement les commandes fermes vs prévisions et associe l horizon demande du PF', ({
+    assert,
+  }) => {
+    const inputsWithHorizon: ChargeInputs = {
+      ...mockInputs,
+      demandHorizonByArticle: new Map([['PF1', { value: 4, unit: 3 }]]), // 4 semaines
+    }
+
+    const needs: ChargeNeed[] = [
+      // Ferme
+      {
+        wst: 'PP_CLP1',
+        date: D1,
+        article: 'SE1',
+        nature: 'ferme',
+        depth: 1,
+        brutHours: 6,
+        netHours: 6,
+        resteHours: 6,
+        brutQty: 12,
+        netQty: 12,
+        resteQty: 12,
+        encoursQty: 0,
+        path: ['PF1'],
+        source: { numCommande: 'C1', ligne: '1', client: 'CLI1', pfArticle: 'PF1' },
+      },
+      // Prévision (au-delà de l'horizon)
+      {
+        wst: 'PP_CLP1',
+        date: D1,
+        article: 'SE1',
+        nature: 'prevision',
+        depth: 1,
+        brutHours: 4,
+        netHours: 4,
+        resteHours: 4,
+        brutQty: 8,
+        netQty: 8,
+        resteQty: 8,
+        encoursQty: 0,
+        path: ['PF1'],
+        source: { numCommande: 'PREV1', ligne: '1', client: null, pfArticle: 'PF1' },
+      },
+    ]
+
+    const groups = buildSubAssemblyClpGroups({
+      needs,
+      inputs: inputsWithHorizon,
+      wstByCode,
+      pinnedStock: new Map(),
+      encoursByArticle: new Map(),
+      monthStart,
+      horizonEnd,
+      calendar: null,
+      monthIdxByKey,
+      weekIdxByKey,
+      nbMonths: 2,
+      nbWeeks: 2,
+      cutWeekNumbers: (nums) => nums,
+    })
+
+    const item = groups[0].items[0]
+    // Total brut: 12 + 8 = 20
+    assert.deepEqual(item.monthlyQty.brut, [20, 0])
+    // Ferme: 12
+    assert.deepEqual(item.monthlyQtyFerme.brut, [12, 0])
+    // Prévision: 8
+    assert.deepEqual(item.monthlyQtyPrevision.brut, [8, 0])
+
+    const parent = item.parents[0]
+    assert.isDefined(parent.demandHorizon)
+    assert.strictEqual(parent.demandHorizon?.value, 4)
+    assert.strictEqual(parent.demandHorizon?.unit, 3)
+    assert.strictEqual(parent.demandHorizon?.label, '4 sem')
+    assert.isNotNull(parent.demandHorizon?.endIso)
+
+    // Ventilation parent
+    assert.deepEqual(parent.monthlyQtyFerme, [12, 0])
+    assert.deepEqual(parent.monthlyQtyPrevision, [8, 0])
+  })
 })

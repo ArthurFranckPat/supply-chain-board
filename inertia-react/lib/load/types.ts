@@ -118,15 +118,32 @@ export interface LoadQtyBuckets {
   reste: number[]
 }
 
+/** Information d'horizon de demande X3 d'un article. */
+export interface DemandHorizonInfo {
+  value: number
+  unit: number
+  label: string
+  endIso: string | null
+}
+
 /** Contribution d'un Produit Fini parent à un sous-ensemble (niveau 1). */
 export interface SubAssemblyPfContribution {
   pfArticle: string
   pfDescription: string
   linkQuantity: number
+  demandHorizon?: DemandHorizonInfo
   monthlyQty: number[]
   weeklyQty: number[]
   monthlyHours: number[]
   weeklyHours: number[]
+  monthlyQtyFerme: number[]
+  monthlyQtyPrevision: number[]
+  weeklyQtyFerme: number[]
+  weeklyQtyPrevision: number[]
+  monthlyHoursFerme: number[]
+  monthlyHoursPrevision: number[]
+  weeklyHoursFerme: number[]
+  weeklyHoursPrevision: number[]
 }
 
 /** Sous-ensemble fabriqué par un poste de l'atelier CLP. */
@@ -139,6 +156,14 @@ export interface SubAssemblyItem {
   weeklyQty: LoadQtyBuckets
   monthlyHours: LoadQtyBuckets
   weeklyHours: LoadQtyBuckets
+  monthlyQtyFerme: LoadQtyBuckets
+  monthlyQtyPrevision: LoadQtyBuckets
+  weeklyQtyFerme: LoadQtyBuckets
+  weeklyQtyPrevision: LoadQtyBuckets
+  monthlyHoursFerme: LoadQtyBuckets
+  monthlyHoursPrevision: LoadQtyBuckets
+  weeklyHoursFerme: LoadQtyBuckets
+  weeklyHoursPrevision: LoadQtyBuckets
   parents: SubAssemblyPfContribution[]
 }
 
@@ -150,6 +175,14 @@ export interface SubAssemblyWorkstationGroup {
   weeklyHours: LoadQtyBuckets
   monthlyQty: LoadQtyBuckets
   weeklyQty: LoadQtyBuckets
+  monthlyQtyFerme: LoadQtyBuckets
+  monthlyQtyPrevision: LoadQtyBuckets
+  weeklyQtyFerme: LoadQtyBuckets
+  weeklyQtyPrevision: LoadQtyBuckets
+  monthlyHoursFerme: LoadQtyBuckets
+  monthlyHoursPrevision: LoadQtyBuckets
+  weeklyHoursFerme: LoadQtyBuckets
+  weeklyHoursPrevision: LoadQtyBuckets
   items: SubAssemblyItem[]
 }
 
