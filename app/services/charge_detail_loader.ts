@@ -28,13 +28,16 @@
 
 import { cacheNs } from '#services/cache_ns'
 import { stamped } from '#services/computed_age'
-import {
-  X3OrderLineRepository,
-  type OrderDates,
-  type OrderLinePeg,
-} from '#repositories/order_line_repository'
+import { X3OrderLineRepository, type OrderDates } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
+import boardDataset from '#services/board_dataset'
+import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
+import logger from '@adonisjs/core/services/logger'
 import type { Article } from '#app/domain/models/article'
+import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
+import { buildArticleCatalog, remapDemandDates } from '#app/domain/order_impacts_assembly'
+import { netDemandsByAllocation } from '#app/domain/order_impacts'
+import { estOfFantome } from '#app/domain/of_avancement'
 import {
   chargeSegment,
   ofSegment,
@@ -262,10 +265,58 @@ export interface BuildChargeDetailRowsParams {
   horizonEnd: Date
   /** Stock strict+CQ figé du snapshot — requis en vue commande (repli : recalcul). */
   stock?: Map<string, number>
-  orderLineRepo?: Pick<
-    X3OrderLineRepository,
-    'resolveClientNames' | 'resolveOrderDates' | 'resolveOrderPegs'
-  >
+  /** Sources du matching commande→OF, alignées sur /suivi (`loadChargeMatchingSources`). */
+  matching: ChargeMatchingSources
+  orderLineRepo?: Pick<X3OrderLineRepository, 'resolveClientNames' | 'resolveOrderDates'>
+}
+
+/**
+ * Entrées du matching commande→OF que `ChargeInputs` ne porte pas, lues aux
+ * MÊMES sources que /suivi (`loadOrderImpacts`).
+ *
+ * `inputs.orderLines` sert la charge : elle n'a ni type de commande, ni
+ * contremarque, ni allocation ERP (JOIN retirés pour la perf, #39). Matcher
+ * dessus faisait diverger le détail du suivi : une commande MTS contremarquée
+ * raflait les OF des autres commandes (AR2604426/1000).
+ *
+ * Pas figées dans le snapshot de version : le matching ne change aucune hauteur
+ * de barre, seulement les OF nommés dans la table.
+ */
+export interface ChargeMatchingSources {
+  /** Demande ORDERS WIPTYP=1 (flux du suivi), depuis le lookback retard. */
+  demand: Flow[]
+  /** Réceptions d'achat — comptées comme stock par le matcher, comme au suivi. */
+  reception: Flow[]
+  /** OF démarrés avant l'horizon qui servent encore sa demande (#99). */
+  deltaOfs: Flow[]
+  /** Catalogue article complété par la BOM (`buildArticleCatalog`). */
+  articles: Map<string, Article>
+}
+
+export async function loadChargeMatchingSources(
+  monthStart: Date,
+  horizonEnd: Date,
+  force = false
+): Promise<ChargeMatchingSources> {
+  // Même borne basse que /suivi : une commande en retard d'avant le mois courant
+  // consomme toujours l'OF — l'ignorer le rendrait à une commande plus tardive.
+  const lookback = addDays(new Date(), -RETARD_LOOKBACK_DAYS)
+  const from = lookback < monthStart ? lookback : monthStart
+  const [dr, deltaOfs, articlesList, nomenclature] = await Promise.all([
+    boardDataset.getDemandAndReception(isoDay(from), isoDay(horizonEnd), force).catch((e) => {
+      logger.warn({ err: e }, '[charge] détail — demande du matching illisible')
+      return { demand: [] as Flow[], reception: [] as Flow[] }
+    }),
+    boardDataset.getOrdersForMatchingDelta(monthStart, horizonEnd, force).catch(() => [] as Flow[]),
+    staticSync.readArticles().catch(() => [] as Article[]),
+    boardDataset.getNomenclature(force).catch(() => [] as NomenclatureEntry[]),
+  ])
+  return {
+    demand: dr.demand,
+    reception: dr.reception,
+    deltaOfs,
+    articles: buildArticleCatalog(articlesList, nomenclature),
+  }
 }
 
 export interface BuildChargeDetailRowsResult {
@@ -285,21 +336,15 @@ export async function buildChargeDetailRows(
   const dayOf = (wst: string, d: Date): Date =>
     chargeDay(wst, d, p.calendar, wstByCode, p.monthStart, p.horizonEnd)
 
-  // ── Matching commande→OF — le MÊME moteur que le suivi (`CommandeOFMatcher`,
-  // of_conso.ts) : contremarque X3 d'abord, puis couverture cumulative
-  // statut+date, stock déduit avant allocation. L'allocation est COMPÉTITIVE
-  // sur tout l'horizon (une commande plus tôt doit prendre l'OF avant), donc
-  // on matche TOUS les besoins de l'article. Offre = OF (`inputs.mos`, flux
-  // identiques à boardDataset) + stock strict+CQ FIGÉ du snapshot — le même
-  // stock que le netting brut/net/reste, pour que les deux lectures ne se
-  // contredisent pas.
+  // ── Matching commande→OF — le MÊME moteur (`CommandeOFMatcher`) sur les
+  // MÊMES entrées que /suivi (`loadOrderImpacts`) : demande ORDERS avec type de
+  // commande, contremarque et allocation ERP ; offre = OF de l'horizon + OF
+  // démarrés avant (#99), fantômes écartés, stock strict+CQ et réceptions.
+  // L'allocation est COMPÉTITIVE : une seule passe sur tout l'horizon.
   const stock = p.stock ?? (await computeChargeStock(inputs))
   const allNeeds = await computeChargeNeeds(inputs, stock, undefined, p.applyDemandHorizon)
   const needs = allNeeds.filter((n) => n.brutHours > 0)
 
-  // Une demande par (article, commande, ligne, date, nature) : l'explosion
-  // émet un besoin PAR POSTE de la gamme, tous porteurs de la même quantité —
-  // les dédupliquer, sinon le matcher croirait à autant de demandes séparées.
   const needKey = (
     article: string,
     numCommande: string | null,
@@ -309,25 +354,24 @@ export async function buildChargeDetailRows(
   ): string =>
     `${article}|${numCommande ?? ''}|${ligne ?? ''}|${isoDay(date)}|${prevision ? 'p' : 'f'}`
 
-  // Type de commande + contremarque X3 : sans eux, `matchCommande` route tout
-  // en NOR/MTO et une commande MTS contremarquée rafle les OF des autres
-  // commandes du même article (couverture cumulative) au lieu de n'être servie
-  // que par SON OF. Échec de lecture = matching dégradé, pas de page vide.
-  const repo = p.orderLineRepo ?? new X3OrderLineRepository()
-  const pegOrderNums = [
-    ...new Set(
-      allNeeds
-        .filter((n) => n.depth === 0 && n.nature !== 'prevision')
-        .map((n) => n.source?.numCommande)
-        .filter((c): c is string => !!c)
-    ),
-  ]
-  const pegs = pegOrderNums.length
-    ? await repo.resolveOrderPegs(pegOrderNums).catch(() => new Map<string, OrderLinePeg>())
-    : new Map<string, OrderLinePeg>()
+  // Périmètre : les articles que la charge explose. Le matcher est par article,
+  // le reste de l'usine ne change rien aux allocations affichées.
+  const chargeArticles = new Set(allNeeds.map((n) => n.article))
+  const inScope = (f: Flow) => chargeArticles.has(f.article)
 
-  const demandByKey = new Map<string, Flow>()
+  // Demande de niveau 0 = celle du suivi, redatée par les overrides de ligne
+  // puis nettée de l'allocation ERP (même ordre que `loadOrderImpacts`).
+  const suiviDemands = netDemandsByAllocation(
+    remapDemandDates(p.matching.demand.filter(inScope), inputs.lineDateOverrides)
+  )
+
+  // Besoins induits (composants) : sans équivalent au suivi, qui ne matche que
+  // les lignes PF. Une demande par (article, commande, ligne, date, nature) —
+  // l'explosion émet un besoin PAR POSTE, tous de même quantité. Ni type de
+  // commande ni contremarque : la contremarque désigne l'OF du PF.
+  const inducedByKey = new Map<string, Flow>()
   for (const n of allNeeds) {
+    if (n.depth === 0) continue
     const numCommande = n.source?.numCommande ?? null
     const key = needKey(
       n.article,
@@ -336,14 +380,8 @@ export async function buildChargeDetailRows(
       n.date,
       n.nature === 'prevision'
     )
-    if (demandByKey.has(key)) continue
-    // Niveau 0 seulement : un besoin induit (composant) hérite de la commande
-    // du PF, mais la contremarque désigne l'OF du PF, pas celui du composant.
-    const peg =
-      n.depth === 0 && n.nature !== 'prevision' && numCommande
-        ? pegs.get(`${numCommande}#${n.source?.ligne ?? ''}`)
-        : undefined
-    demandByKey.set(key, {
+    if (inducedByKey.has(key)) continue
+    inducedByKey.set(key, {
       article: n.article,
       quantity: n.brutQty,
       direction: 'demand',
@@ -365,9 +403,9 @@ export async function buildChargeDetailRows(
               id: numCommande ?? n.article,
               customer: n.source?.client ?? '',
               pays: null,
-              orderType: peg?.orderType ?? null,
+              orderType: null,
               nature: 'COMMANDE',
-              contremarque: peg?.contremarque ?? null,
+              contremarque: null,
               qteCommandee: n.brutQty,
               qteAllouee: 0,
               ligne: n.source?.ligne ?? null,
@@ -375,21 +413,14 @@ export async function buildChargeDetailRows(
     })
   }
 
-  const demandsByArticle = new Map<string, Flow[]>()
-  for (const f of demandByKey.values()) {
-    let arr = demandsByArticle.get(f.article)
-    if (!arr) demandsByArticle.set(f.article, (arr = []))
-    arr.push(f)
-  }
-
-  // Flux OF identiques à ceux de boardDataset.getOrdersForWindow : reste
-  // RMNEXTQTY en quantité, ENDDAT en date, contremarque portée par l'origine.
-  const ofFlowsByArticle = new Map<string, Flow[]>()
+  // OF fantômes (gamme soldée, reste ORDERS non nul) hors de l'offre, comme au
+  // suivi : leur reste n'existe pas et couvrirait faussement des commandes.
+  const fantome = (numOf: string, qty: number) =>
+    estOfFantome(inputs.avancementByOf.get(numOf), qty)
+  const ofFlows: Flow[] = []
   for (const mo of inputs.mos) {
-    if (mo.quantity <= 0) continue
-    let arr = ofFlowsByArticle.get(mo.article)
-    if (!arr) ofFlowsByArticle.set(mo.article, (arr = []))
-    arr.push({
+    if (mo.quantity <= 0 || fantome(mo.numOf, mo.quantity)) continue
+    ofFlows.push({
       article: mo.article,
       quantity: mo.quantity,
       direction: 'supply',
@@ -407,75 +438,87 @@ export async function buildChargeDetailRows(
       },
     })
   }
+  const windowOfs = new Set(inputs.mos.map((mo) => mo.numOf))
+  const deltaFlows = p.matching.deltaOfs.filter(
+    (f) =>
+      inScope(f) &&
+      f.origin.type === 'of' &&
+      !windowOfs.has(f.origin.id) &&
+      !fantome(f.origin.id, f.quantity)
+  )
+  const stockFlows: Flow[] = [...stock]
+    .filter(([article, qty]) => qty > 0 && chargeArticles.has(article))
+    .map(([article, qty]) => ({
+      article,
+      quantity: qty,
+      direction: 'supply' as const,
+      date: null,
+      origin: { type: 'stock' as const, subType: 'strict' as const, pmp: null },
+    }))
 
-  // Désignations : référentiel articles LOCAL (SQLite), pas X3.
-  const articles = await staticSync.readArticles().catch(() => [] as Article[])
-  const desByArticle = new Map(articles.map((a) => [a.code, a.description || null]))
-  const articlesMap = new Map(articles.map((a) => [a.code, a]))
+  const articlesMap = p.matching.articles
+  const desByArticle = new Map(
+    [...articlesMap].map(([code, a]) => [code, a.description || null] as const)
+  )
+  // Code tiers par ligne : la demande du suivi porte la raison sociale, le
+  // détail garde le code (résolution BPARTNER groupée plus bas).
+  const clientCodeByLine = new Map(
+    inputs.orderLines.map((l) => [`${l.numCommande}#${l.ligne ?? ''}`, l.clientCode] as const)
+  )
   const resultByKey = new Map<string, MatchingResult>()
   const commandesByOf = new Map<string, ChargeDetailOfCommande[]>()
 
-  for (const [article, demands] of demandsByArticle) {
-    const stockQty = stock.get(article) ?? 0
-    const ofFlows = ofFlowsByArticle.get(article) ?? []
-    const supply =
-      stockQty > 0
-        ? [
-            ...ofFlows,
-            {
-              article,
-              quantity: stockQty,
-              direction: 'supply' as const,
-              date: null,
-              origin: { type: 'stock' as const, subType: 'strict' as const, pmp: null },
-            },
-          ]
-        : ofFlows
-    const matcher = new CommandeOFMatcher(supply, articlesMap, new Map(), 30)
-    for (const r of matcher.matchCommandes(demands)) {
-      const o = r.demandFlow.origin
-      if (o.type !== 'order' && o.type !== 'forecast') continue
-      const isOrder = o.type === 'order'
-      resultByKey.set(
-        needKey(
-          r.demandFlow.article,
-          o.id,
-          isOrder ? (o.ligne ?? null) : null,
-          r.demandFlow.date ?? new Date(),
-          o.type === 'forecast'
-        ),
-        r
-      )
+  const matcher = new CommandeOFMatcher(
+    [...ofFlows, ...deltaFlows, ...stockFlows, ...p.matching.reception.filter(inScope)],
+    articlesMap,
+    new Map(),
+    30
+  )
+  for (const r of matcher.matchCommandes([...suiviDemands, ...inducedByKey.values()])) {
+    const o = r.demandFlow.origin
+    if (o.type !== 'order' && o.type !== 'forecast') continue
+    const isOrder = o.type === 'order'
+    resultByKey.set(
+      needKey(
+        r.demandFlow.article,
+        o.id,
+        isOrder ? (o.ligne ?? null) : null,
+        r.demandFlow.date ?? new Date(),
+        o.type === 'forecast'
+      ),
+      r
+    )
 
-      for (const alloc of r.ofAllocations) {
-        const ofOrigin = alloc.ofFlow.origin
-        if (ofOrigin.type !== 'of' || !ofOrigin.id) continue
-        const ofId = ofOrigin.id
-        const numCommande = o.id ?? ''
-        const ligne = isOrder ? (o.ligne ?? null) : null
-        const clientCode = isOrder ? o.customer || null : null
-        const dateLivraisonIso = r.demandFlow.date ? isoDay(r.demandFlow.date) : null
+    for (const alloc of r.ofAllocations) {
+      const ofOrigin = alloc.ofFlow.origin
+      if (ofOrigin.type !== 'of' || !ofOrigin.id) continue
+      const ofId = ofOrigin.id
+      const numCommande = o.id ?? ''
+      const ligne = isOrder ? (o.ligne ?? null) : null
+      const clientCode = isOrder
+        ? (clientCodeByLine.get(`${numCommande}#${ligne ?? ''}`) ?? (o.customer || null))
+        : null
+      const dateLivraisonIso = r.demandFlow.date ? isoDay(r.demandFlow.date) : null
 
-        let list = commandesByOf.get(ofId)
-        if (!list) {
-          list = []
-          commandesByOf.set(ofId, list)
-        }
-        const existing = list.find((c) => c.numCommande === numCommande && c.ligne === ligne)
-        if (existing) {
-          existing.quantite += alloc.qteAllouee
-        } else {
-          list.push({
-            numCommande,
-            ligne,
-            client: clientCode,
-            clientCode,
-            quantite: alloc.qteAllouee,
-            dateLivraisonIso,
-            raison: alloc.matchReason,
-            type: isOrder ? 'order' : 'forecast',
-          })
-        }
+      let list = commandesByOf.get(ofId)
+      if (!list) {
+        list = []
+        commandesByOf.set(ofId, list)
+      }
+      const existing = list.find((c) => c.numCommande === numCommande && c.ligne === ligne)
+      if (existing) {
+        existing.quantite += alloc.qteAllouee
+      } else {
+        list.push({
+          numCommande,
+          ligne,
+          client: isOrder ? o.customer || clientCode : null,
+          clientCode,
+          quantite: alloc.qteAllouee,
+          dateLivraisonIso,
+          raison: alloc.matchReason,
+          type: isOrder ? 'order' : 'forecast',
+        })
       }
     }
   }
@@ -521,6 +564,7 @@ export async function buildChargeDetailRows(
         .filter((c): c is string => !!c),
     ]),
   ]
+  const repo = p.orderLineRepo ?? new X3OrderLineRepository()
   const clientNames = clientCodes.length
     ? await repo.resolveClientNames(clientCodes).catch(() => new Map<string, string>())
     : new Map<string, string>()
@@ -718,7 +762,7 @@ export async function loadChargeDetailRows(
   // redatent la demande comme la barre — une clé qui ignorerait l'état des
   // overrides servirait le détail d'avant le déplacement.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `rows:charge:s3:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `rows:charge:s4:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   if (force) await cacheNs('charge').delete({ key: cacheKey })
 
   return cacheNs('charge').getOrSet({
@@ -741,8 +785,10 @@ export async function loadChargeDetailRows(
         .catch(() => null)
       const wstByCode = new Map(inputs.workstations.map((w) => [w.code, w]))
 
+      const matching = await loadChargeMatchingSources(monthStart, horizonEnd, force)
       const built = await buildChargeDetailRows({
         inputs,
+        matching,
         view: p.view,
         ofDate,
         applyDemandHorizon: p.applyDemandHorizon,
@@ -784,7 +830,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   // versionnée, la version fige déjà le jeu d'overrides dans le snapshot ; la
   // porter aussi ne coûte rien et évite d'avoir à se souvenir de la nuance.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `detail:charge:s4:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `detail:charge:s5:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({
