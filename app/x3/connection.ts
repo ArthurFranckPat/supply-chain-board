@@ -22,6 +22,8 @@ const TRANSIENT_ERRORS = [
 export interface QueryOptions {
   retries?: number
   timeout?: number
+  /** Annule la requête SOAP sous-jacente, notamment à l'expiration du healthcheck. */
+  signal?: AbortSignal
 }
 
 export class X3Connection {
@@ -68,9 +70,22 @@ export class X3Connection {
 
     const retries = options.retries ?? 1
     let lastError = ''
+    const aborted: X3QueryResult = {
+      success: false,
+      error: 'X3 query aborted',
+      status: null,
+      sql: boundSql,
+      count: 0,
+      data: [],
+    }
 
     for (let attempt = 0; attempt <= retries; attempt++) {
-      const resp = await callSoap(boundSql, config, 0)
+      if (options.signal?.aborted) return aborted
+
+      const resp = await callSoap(boundSql, config, 0, options.signal)
+
+      // Ne pas retenter une requête annulée après le retour du processus curl.
+      if (options.signal?.aborted) return aborted
 
       if (resp.status === 1 && resp.error !== 'resultXml is nil') {
         const records = formatResults(resp, columns)

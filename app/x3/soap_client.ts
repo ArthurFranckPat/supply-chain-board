@@ -41,9 +41,13 @@ export interface X3SoapConfig {
  * Contrat inchangé : cette fonction ne jette pas. Une file saturée devient une
  * `SoapResponse` en échec, comme une erreur curl.
  */
-export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapResponse> {
+export async function sendSoap(
+  sql: string,
+  config: X3SoapConfig,
+  signal?: AbortSignal
+): Promise<SoapResponse> {
   try {
-    return await withX3Slot(() => spawnSoap(sql, config))
+    return await withX3Slot(() => spawnSoap(sql, config, signal), signal)
   } catch (e) {
     if (e instanceof X3QueueSaturatedError) {
       return { status: null, data: [], count: 0, error: e.message }
@@ -73,7 +77,11 @@ function tablesOf(sql: string): string {
 }
 
 /** Corps réel de l'appel : enveloppe, fichier temporaire, curl, parsing. */
-async function spawnSoap(sql: string, config: X3SoapConfig): Promise<SoapResponse> {
+async function spawnSoap(
+  sql: string,
+  config: X3SoapConfig,
+  signal?: AbortSignal
+): Promise<SoapResponse> {
   const concatSql = buildConcatSql(sql)
   const inputJson = JSON.stringify({
     [config.grpSql]: { W_SQL: concatSql },
@@ -120,36 +128,41 @@ async function spawnSoap(sql: string, config: X3SoapConfig): Promise<SoapRespons
   const concurrency = x3ConcurrencyStats()
 
   return new Promise((resolve) => {
-    execFile('curl', args, { timeout: 125_000 }, (error, stdout, stderr) => {
-      try {
-        unlinkSync(tmpFile)
-      } catch {}
+    execFile(
+      'curl',
+      args,
+      { timeout: 125_000, ...(signal ? { signal } : {}) },
+      (error, stdout, stderr) => {
+        try {
+          unlinkSync(tmpFile)
+        } catch {}
 
-      if (error) {
-        const detail = stderr?.trim() || error.message
-        resolve({ status: null, data: [], count: 0, error: `curl: ${detail}` })
-        return
+        if (error) {
+          const detail = stderr?.trim() || error.message
+          resolve({ status: null, data: [], count: 0, error: `curl: ${detail}` })
+          return
+        }
+
+        const result = parseResponse(stdout, config.grpRes, config.grpCount)
+        // Diagnostic par appel (issue #39, WI-1) : transport mesuré côté app vs breakdown
+        // serveur (technicalInfos). `transport - srv` ≈ réseau + spawn curl ; `load` élevé
+        // = cold init du pool ; `wait` = contention ; `exec` = SQL réel.
+        if (process.env.PERF_TRACE === '1') {
+          const transportMs = Date.now() - startedAt
+          const t = result.tech
+          const breakdown = t
+            ? `srv=${t.total ?? '?'} load=${t.loadWebs ?? '?'} wait=${t.poolWait ?? '?'} distrib=${t.poolDistrib ?? '?'} exec=${t.poolExec ?? '?'} entry=${t.poolEntryIdx ?? '?'}`
+            : 'no-tech'
+
+          console.log(
+            `[x3.soap] ${tablesOf(sql)} transport=${transportMs}ms ${breakdown} ` +
+              `rows=${result.data.length} ` +
+              `slots=${concurrency.inFlight}/${concurrency.max} queued=${concurrency.queued}`
+          )
+        }
+        resolve(result)
       }
-
-      const result = parseResponse(stdout, config.grpRes, config.grpCount)
-      // Diagnostic par appel (issue #39, WI-1) : transport mesuré côté app vs breakdown
-      // serveur (technicalInfos). `transport - srv` ≈ réseau + spawn curl ; `load` élevé
-      // = cold init du pool ; `wait` = contention ; `exec` = SQL réel.
-      if (process.env.PERF_TRACE === '1') {
-        const transportMs = Date.now() - startedAt
-        const t = result.tech
-        const breakdown = t
-          ? `srv=${t.total ?? '?'} load=${t.loadWebs ?? '?'} wait=${t.poolWait ?? '?'} distrib=${t.poolDistrib ?? '?'} exec=${t.poolExec ?? '?'} entry=${t.poolEntryIdx ?? '?'}`
-          : 'no-tech'
-
-        console.log(
-          `[x3.soap] ${tablesOf(sql)} transport=${transportMs}ms ${breakdown} ` +
-            `rows=${result.data.length} ` +
-            `slots=${concurrency.inFlight}/${concurrency.max} queued=${concurrency.queued}`
-        )
-      }
-      resolve(result)
-    })
+    )
   })
 }
 
@@ -157,12 +170,13 @@ async function spawnSoap(sql: string, config: X3SoapConfig): Promise<SoapRespons
 export async function callSoap(
   sql: string,
   config: X3SoapConfig,
-  maxRetries: number = 2
+  maxRetries: number = 2,
+  signal?: AbortSignal
 ): Promise<SoapResponse> {
   let lastResp: SoapResponse | undefined
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const resp = await sendSoap(sql, config)
+    const resp = await sendSoap(sql, config, signal)
     lastResp = resp
 
     if (resp.data.length > 0 || resp.error !== 'resultXml is nil') {

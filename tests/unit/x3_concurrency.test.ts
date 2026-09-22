@@ -145,6 +145,40 @@ test.group('x3_concurrency — borne globale des lectures X3', (group) => {
     assert.equal(x3ConcurrencyStats().inFlight, 0)
   })
 
+  test('une annulation retire un appel en attente sans lancer curl après libération', async ({
+    assert,
+  }) => {
+    process.env.X3_MAX_CONCURRENCY = '1'
+    process.env.X3_QUEUE_WAIT_MS = '500'
+
+    let releaseHolder!: () => void
+    const holder = withX3Slot(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseHolder = resolve
+        })
+    )
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const controller = new AbortController()
+    let ran = false
+    const queued = withX3Slot(async () => {
+      ran = true
+    }, controller.signal)
+
+    assert.equal(x3ConcurrencyStats().queued, 1)
+    controller.abort()
+    await assert.rejects(() => queued)
+    assert.equal(x3ConcurrencyStats().queued, 0)
+    assert.equal(x3ConcurrencyStats().inFlight, 1)
+
+    releaseHolder()
+    await holder
+
+    assert.isFalse(ran)
+    assert.equal(x3ConcurrencyStats().inFlight, 0)
+  })
+
   test('une valeur non numérique ne supprime pas la borne', async ({ assert }) => {
     process.env.X3_MAX_CONCURRENCY = 'beaucoup'
 

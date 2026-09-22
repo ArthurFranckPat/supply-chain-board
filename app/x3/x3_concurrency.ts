@@ -98,10 +98,26 @@ interface Waiter {
   reject: (error: Error) => void
   timer: ReturnType<typeof setTimeout>
   queuedAt: number
+  signal?: AbortSignal
+  onAbort?: () => void
 }
 
 let inFlight = 0
 const queue: Waiter[] = []
+
+function abortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) return signal.reason
+  const error = new Error('X3 query aborted')
+  error.name = 'AbortError'
+  return error
+}
+
+function clearWaiter(waiter: Waiter): void {
+  clearTimeout(waiter.timer)
+  if (waiter.signal && waiter.onAbort) {
+    waiter.signal.removeEventListener('abort', waiter.onAbort)
+  }
+}
 
 /**
  * Une libération est IDEMPOTENTE : `withX3Slot` la joue dans un `finally`, et un
@@ -120,7 +136,7 @@ function makeRelease(): Release {
 
     const next = queue.shift()
     if (next) {
-      clearTimeout(next.timer)
+      clearWaiter(next)
       next.resolve(makeRelease())
       return
     }
@@ -128,7 +144,9 @@ function makeRelease(): Release {
   }
 }
 
-function acquire(): Promise<Release> {
+function acquire(signal?: AbortSignal): Promise<Release> {
+  if (signal?.aborted) return Promise.reject(abortError(signal))
+
   const max = resolveLimit('X3_MAX_CONCURRENCY', DEFAULT_MAX)
 
   if (inFlight < max) {
@@ -145,9 +163,22 @@ function acquire(): Promise<Release> {
       queuedAt: Date.now(),
       timer: setTimeout(() => {
         const index = queue.indexOf(waiter)
-        if (index >= 0) queue.splice(index, 1)
+        if (index < 0) return
+        queue.splice(index, 1)
+        clearWaiter(waiter)
         reject(new X3QueueSaturatedError(Date.now() - waiter.queuedAt, max))
       }, waitMs),
+    }
+    if (signal) {
+      waiter.signal = signal
+      waiter.onAbort = () => {
+        const index = queue.indexOf(waiter)
+        if (index < 0) return
+        queue.splice(index, 1)
+        clearWaiter(waiter)
+        reject(abortError(signal))
+      }
+      signal.addEventListener('abort', waiter.onAbort, { once: true })
     }
     // Ne jamais retenir le process vivant pour une attente (tests, shutdown).
     waiter.timer.unref?.()
@@ -163,9 +194,10 @@ function acquire(): Promise<Release> {
  * code qui déclenche lui-même une lecture X3 — ce serait le seul moyen de créer
  * un cycle d'attente sur cette file.
  */
-export async function withX3Slot<T>(run: () => Promise<T>): Promise<T> {
-  const release = await acquire()
+export async function withX3Slot<T>(run: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  const release = await acquire(signal)
   try {
+    if (signal?.aborted) throw abortError(signal)
     return await run()
   } finally {
     release()
