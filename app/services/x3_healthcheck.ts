@@ -1,7 +1,6 @@
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { X3Connection } from '#app/x3/connection'
 import type { X3SoapConfig } from '#app/x3/soap_client'
-import type { X3QueryResult } from '#app/x3/types'
 import { baseX3Config, type X3EnvName } from '#config/x3'
 
 /**
@@ -21,11 +20,18 @@ import { baseX3Config, type X3EnvName } from '#config/x3'
 /** Requête triviale : une ligne du fichier articles. */
 const HEALTHCHECK_SQL = 'SELECT ITMREF_0 FROM ITMMASTER WHERE ROWNUM <= 1'
 const TIMEOUT_MS = 8_000
+const REFUSED_REASON = 'Identifiants X3 refusés ou accès indisponible.'
 const TIMEOUT_REASON = 'Connexion X3 indisponible (délai dépassé).'
+const UNREACHABLE_REASON = 'Connexion X3 indisponible.'
 
 type HealthcheckConnection = Pick<X3Connection, 'query'>
-type HealthcheckFailure =
-  { _tag: 'X3HealthcheckQueryFailed'; cause: unknown } | { _tag: 'X3HealthcheckTimedOut' }
+
+/** La requête a rejeté : cause interne, jamais affichée. */
+class X3HealthcheckQueryFailed extends Data.TaggedError('X3HealthcheckQueryFailed')<{
+  cause: unknown
+}> {}
+
+class X3HealthcheckTimedOut extends Data.TaggedError('X3HealthcheckTimedOut') {}
 
 export interface X3HealthcheckResult {
   ok: boolean
@@ -48,30 +54,27 @@ export class X3HealthcheckService {
     const config = { ...baseX3Config(env), user, password }
     const connection = this.createConnection(config)
 
-    const query = Effect.tryPromise<X3QueryResult, HealthcheckFailure>({
+    // L'interruption au timeout déclenche `signal` : curl est tué et le slot X3 rendu.
+    const query = Effect.tryPromise({
       try: (signal) => connection.query(HEALTHCHECK_SQL, null, { signal }),
-      catch: (cause) => ({ _tag: 'X3HealthcheckQueryFailed', cause }),
-    })
-    const timedQuery = query.pipe(
+      catch: (cause) => new X3HealthcheckQueryFailed({ cause }),
+    }).pipe(
       Effect.timeoutFail({
         duration: this.timeoutMs,
-        onTimeout: () => ({ _tag: 'X3HealthcheckTimedOut' as const }),
+        onTimeout: () => new X3HealthcheckTimedOut(),
       })
     )
 
-    try {
-      return await Effect.runPromise(
-        Effect.match(timedQuery, {
-          onFailure: () => ({ ok: false, reason: TIMEOUT_REASON }),
-          onSuccess: (result) =>
-            result.success
-              ? { ok: true, reason: '' }
-              : { ok: false, reason: 'Identifiants X3 refusés ou accès indisponible.' },
+    return Effect.runPromise(
+      query.pipe(
+        Effect.map((result): X3HealthcheckResult =>
+          result.success ? { ok: true, reason: '' } : { ok: false, reason: REFUSED_REASON }
+        ),
+        Effect.catchTags({
+          X3HealthcheckTimedOut: () => Effect.succeed({ ok: false, reason: TIMEOUT_REASON }),
+          X3HealthcheckQueryFailed: () => Effect.succeed({ ok: false, reason: UNREACHABLE_REASON }),
         })
       )
-    } catch {
-      // Conserver le contrat historique du healthcheck pour tout rejet inattendu.
-      return { ok: false, reason: TIMEOUT_REASON }
-    }
+    )
   }
 }

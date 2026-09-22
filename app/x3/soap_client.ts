@@ -38,8 +38,8 @@ export interface X3SoapConfig {
  * Le slot est pris AVANT la construction de l'enveloppe et l'écriture du fichier
  * temporaire, pour qu'un abandon de file ne laisse rien derrière lui.
  *
- * Contrat inchangé : cette fonction ne jette pas. Une file saturée devient une
- * `SoapResponse` en échec, comme une erreur curl.
+ * Contrat inchangé : cette fonction ne jette pas. Une file saturée ou un appel
+ * annulé devient une `SoapResponse` en échec, comme une erreur curl.
  */
 export async function sendSoap(
   sql: string,
@@ -51,6 +51,10 @@ export async function sendSoap(
   } catch (e) {
     if (e instanceof X3QueueSaturatedError) {
       return { status: null, data: [], count: 0, error: e.message }
+    }
+    // Annulé pendant l'attente d'un slot : même forme qu'un curl tué par le signal.
+    if (signal?.aborted) {
+      return { status: null, data: [], count: 0, error: 'X3 query aborted' }
     }
     throw e
   }

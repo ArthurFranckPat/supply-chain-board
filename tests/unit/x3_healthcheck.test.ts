@@ -5,6 +5,7 @@ import type { X3QueryResult } from '#app/x3/types'
 
 const TIMEOUT_REASON = 'Connexion X3 indisponible (délai dépassé).'
 const UNAVAILABLE_REASON = 'Identifiants X3 refusés ou accès indisponible.'
+const UNREACHABLE_REASON = 'Connexion X3 indisponible.'
 
 function serviceWithQuery(
   query: Pick<X3Connection, 'query'>['query'],
@@ -38,12 +39,12 @@ test.group('X3HealthcheckService', () => {
     assert.deepEqual(result, { ok: false, reason: UNAVAILABLE_REASON })
   })
 
-  test('conserve le motif historique pour un rejet inattendu', async ({ assert }) => {
+  test('un rejet inattendu ne se fait pas passer pour un timeout', async ({ assert }) => {
     const result = await serviceWithQuery(async () => {
       throw new Error('détail interne qui ne doit pas être affiché')
     }).check('test', 'user', 'password')
 
-    assert.deepEqual(result, { ok: false, reason: TIMEOUT_REASON })
+    assert.deepEqual(result, { ok: false, reason: UNREACHABLE_REASON })
   })
 
   test('le timeout Effect annule la requête sous-jacente', async ({ assert }) => {
