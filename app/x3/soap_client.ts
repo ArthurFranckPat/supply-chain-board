@@ -52,7 +52,11 @@ export interface X3SoapConfig {
 }
 
 /** Send a single SOAP request to Syracuse via curl. */
-export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapResponse> {
+export async function sendSoap(
+  sql: string,
+  config: X3SoapConfig,
+  signal?: AbortSignal
+): Promise<SoapResponse> {
   const concatSql = buildConcatSql(sql)
   const inputJson = JSON.stringify({
     [config.grpSql]: { W_SQL: concatSql },
@@ -103,7 +107,11 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
     execFile(
       'curl',
       args,
-      { timeout: 125_000, maxBuffer: MAX_STDOUT_BYTES },
+      {
+        timeout: 125_000,
+        maxBuffer: MAX_STDOUT_BYTES,
+        ...(signal ? { signal } : {}),
+      },
       (error, stdout, stderr) => {
         try {
           unlinkSync(tmpFile)
@@ -144,12 +152,13 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
 export async function callSoap(
   sql: string,
   config: X3SoapConfig,
-  maxRetries: number = 2
+  maxRetries: number = 2,
+  signal?: AbortSignal
 ): Promise<SoapResponse> {
   let lastResp: SoapResponse | undefined
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const resp = await sendSoap(sql, config)
+    const resp = await sendSoap(sql, config, signal)
     lastResp = resp
 
     if (resp.data.length > 0 || resp.error !== 'resultXml is nil') {

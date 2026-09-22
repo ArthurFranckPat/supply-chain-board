@@ -22,6 +22,8 @@ const TRANSIENT_ERRORS = [
 export interface QueryOptions {
   retries?: number
   timeout?: number
+  /** Interrompt le processus curl associé à cette requête lorsqu'il est annulé. */
+  signal?: AbortSignal
 }
 
 export class X3Connection {
@@ -70,7 +72,31 @@ export class X3Connection {
     let lastError = ''
 
     for (let attempt = 0; attempt <= retries; attempt++) {
-      const resp = await callSoap(boundSql, config, 0)
+      if (options.signal?.aborted) {
+        return {
+          success: false,
+          error: 'X3 query aborted',
+          status: null,
+          sql: boundSql,
+          count: 0,
+          data: [],
+        }
+      }
+
+      const resp = await callSoap(boundSql, config, 0, options.signal)
+
+      // Un timeout Effect interrompt la requête et ne doit pas démarrer une
+      // nouvelle tentative après le retour du processus curl annulé.
+      if (options.signal?.aborted) {
+        return {
+          success: false,
+          error: 'X3 query aborted',
+          status: null,
+          sql: boundSql,
+          count: 0,
+          data: [],
+        }
+      }
 
       if (resp.status === 1 && resp.error !== 'resultXml is nil') {
         const records = formatResults(resp, columns)

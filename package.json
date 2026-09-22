@@ -118,6 +118,7 @@
     "cva": "^1.0.0-beta.4",
     "date-fns": "^4.4.0",
     "edge.js": "^6.5.1",
+    "effect": "^3.22.2",
     "lucide-react": "^1.25.0",
     "luxon": "^3.7.2",
     "patch-package": "^8.0.1",
