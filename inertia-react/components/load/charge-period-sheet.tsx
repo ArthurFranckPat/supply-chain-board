@@ -3,6 +3,7 @@ import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@r/components/ui/tooltip'
 import {
   Combobox,
   ComboboxContent,
@@ -820,8 +821,9 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
         // Même correctif que of-detail-sheet.tsx, qui avait déjà buté dessus.
         className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[78vh] data-[side=bottom]:max-w-none"
       >
-        {loading ? (
-          <LoadingState
+        <TooltipProvider delay={150} closeDelay={50}>
+          {loading ? (
+            <LoadingState
             title="Chargement de la période..."
             description="Récupération du détail de charge par opération"
           />
@@ -1075,6 +1077,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
             )}
           </>
         )}
+        </TooltipProvider>
       </SheetContent>
     </Sheet>
   )
@@ -1245,7 +1248,7 @@ function DayBlock(props: {
 
 const CELL = 'border-b border-rule-soft/60 py-[5px] text-[11px]'
 
-function formatCommandeTooltip(c: {
+interface CommandeTooltipData {
   numCommande: string
   ligne?: string | null
   client?: string | null
@@ -1256,30 +1259,100 @@ function formatCommandeTooltip(c: {
   dateCommandeIso?: string | null
   dateDemandeeIso?: string | null
   dateAccepteeIso?: string | null
-}): string {
-  const isForecast = c.type === 'forecast'
-  const lines: string[] = []
-  if (isForecast) {
-    lines.push(`Prévision : ${c.numCommande}`)
-    if (c.dateLivraisonIso) {
-      lines.push(`Date besoin : ${fmtDateFr(c.dateLivraisonIso)}`)
-    }
-  } else {
-    lines.push(`Commande : ${c.numCommande}${c.ligne ? `/${c.ligne}` : ''}`)
-    if (c.client) {
-      lines.push(`Client : ${c.client}`)
-    }
-    lines.push(`Date commande : ${c.dateCommandeIso ? fmtDateFr(c.dateCommandeIso) : '—'}`)
-    lines.push(`Expéd. demandée : ${c.dateDemandeeIso ? fmtDateFr(c.dateDemandeeIso) : '—'}`)
-    lines.push(`Expéd. acceptée : ${c.dateAccepteeIso ? fmtDateFr(c.dateAccepteeIso) : '—'}`)
-  }
-  if (c.quantite !== undefined) {
-    lines.push(`Quantité allouée : ${fmtQ(c.quantite)} u`)
-  }
-  if (c.raison) {
-    lines.push(`Raison : ${c.raison}`)
-  }
-  return lines.join('\n')
+}
+
+function CommandeTooltipContent({ data }: { data: CommandeTooltipData }) {
+  const isForecast = data.type === 'forecast'
+  return (
+    <div className="flex flex-col gap-2 p-0.5 text-[11px]">
+      <div className="flex items-center justify-between gap-3 border-b border-border/70 pb-1.5">
+        <div className="flex items-center gap-1.5 font-mono font-bold text-foreground">
+          {isForecast && (
+            <span
+              className="rounded-sm px-1 py-px text-[9px] uppercase tracking-wider"
+              style={{
+                color: 'var(--color-suggere)',
+                background: 'color-mix(in srgb, var(--color-suggere) 14%, transparent)',
+              }}
+            >
+              prév.
+            </span>
+          )}
+          <span>
+            {data.numCommande}
+            {data.ligne && <span className="text-muted-foreground">/{data.ligne}</span>}
+          </span>
+        </div>
+        {data.quantite !== undefined && (
+          <span className="font-mono text-[10px] font-semibold text-muted-foreground">
+            {fmtQ(data.quantite)} u
+          </span>
+        )}
+      </div>
+
+      {data.client && (
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-muted-foreground">Client</span>
+          <span className="max-w-[170px] truncate text-right font-medium text-foreground">
+            {data.client}
+          </span>
+        </div>
+      )}
+
+      {isForecast ? (
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-muted-foreground">Date besoin</span>
+          <span className="font-mono font-semibold text-foreground">
+            {fmtDateFr(data.dateLivraisonIso)}
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1 rounded-md bg-secondary/50 p-1.5">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Date commande</span>
+            <span className="font-mono font-semibold text-foreground">
+              {fmtDateFr(data.dateCommandeIso)}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Expéd. demandée</span>
+            <span className="font-mono font-semibold text-foreground">
+              {fmtDateFr(data.dateDemandeeIso)}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Expéd. acceptée</span>
+            <span className="font-mono font-semibold text-foreground">
+              {fmtDateFr(data.dateAccepteeIso)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {data.raison && (
+        <div className="border-t border-border/70 pt-1 text-[10px] italic text-muted-foreground">
+          {data.raison}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CommandeTooltip({
+  data,
+  children,
+}: {
+  data: CommandeTooltipData
+  children: React.ReactElement
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={children} />
+      <TooltipContent side="top" align="start" className="min-w-[230px]">
+        <CommandeTooltipContent data={data} />
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 function OfRow({ row: r, unit }: { row: DetailOfRow; unit: LoadUnit }) {
@@ -1419,27 +1492,28 @@ function CmdRow({
       >
         {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
       </div>
-      <div
-        className={cn(CELL, 'truncate font-mono text-[10px] text-secondary-foreground')}
-        title={
-          r.numCommande
-            ? formatCommandeTooltip({
-                numCommande: r.numCommande,
-                ligne: r.ligne,
-                client: r.client,
-                type: forecast ? 'forecast' : 'order',
-                dateLivraisonIso: r.dateIso,
-                dateCommandeIso: r.dateCommandeIso,
-                dateDemandeeIso: r.dateDemandeeIso,
-                dateAccepteeIso: r.dateAccepteeIso,
-              })
-            : undefined
-        }
-      >
-        <span className={r.numCommande ? 'cursor-help' : undefined}>
-          {r.numCommande ?? '—'}
-          {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
-        </span>
+      <div className={cn(CELL, 'truncate font-mono text-[10px] text-secondary-foreground')}>
+        {r.numCommande ? (
+          <CommandeTooltip
+            data={{
+              numCommande: r.numCommande,
+              ligne: r.ligne,
+              client: r.client,
+              type: forecast ? 'forecast' : 'order',
+              dateLivraisonIso: r.dateIso,
+              dateCommandeIso: r.dateCommandeIso,
+              dateDemandeeIso: r.dateDemandeeIso,
+              dateAccepteeIso: r.dateAccepteeIso,
+            }}
+          >
+            <span className="cursor-help">
+              {r.numCommande}
+              {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
+            </span>
+          </CommandeTooltip>
+        ) : (
+          '—'
+        )}
         {/* Date locale substituée à celle de X3. Le retour en arrière vit ICI,
             et non dans la colonne « Proposé » : une ligne re-datée hier doit
             pouvoir reprendre sa date X3 sans qu'on relance un calcul de plan. */}
@@ -1724,38 +1798,34 @@ function OfCommandesCell({ commandes }: { commandes: DetailOfCommande[] }) {
       {commandes.map((c, i) => {
         const pegue = c.raison.toLowerCase().includes('contremarque')
         const isForecast = c.type === 'forecast'
-        const tooltip = formatCommandeTooltip(c)
         return (
-          <span
-            key={`${c.numCommande}-${c.ligne ?? ''}-${i}`}
-            className="mr-1.5 inline-flex items-baseline gap-1"
-            title={tooltip}
-          >
-            {isForecast && (
-              <span
-                className="rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
-                style={{
-                  color: 'var(--color-suggere)',
-                  background: 'color-mix(in srgb, var(--color-suggere) 14%, transparent)',
-                }}
-              >
-                prév.
-              </span>
-            )}
-            <span
-              className={cn(
-                pegue ? 'font-bold' : 'font-semibold text-secondary-foreground',
-                'cursor-help'
+          <CommandeTooltip key={`${c.numCommande}-${c.ligne ?? ''}-${i}`} data={c}>
+            <span className="mr-1.5 inline-flex cursor-help items-baseline gap-1">
+              {isForecast && (
+                <span
+                  className="rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
+                  style={{
+                    color: 'var(--color-suggere)',
+                    background: 'color-mix(in srgb, var(--color-suggere) 14%, transparent)',
+                  }}
+                >
+                  prév.
+                </span>
               )}
-              style={pegue ? { color: 'var(--color-ferme)' } : undefined}
-            >
-              {c.numCommande}
-              {c.ligne && <span className="text-muted-foreground">/{c.ligne}</span>}
+              <span
+                className={cn(
+                  pegue ? 'font-bold' : 'font-semibold text-secondary-foreground'
+                )}
+                style={pegue ? { color: 'var(--color-ferme)' } : undefined}
+              >
+                {c.numCommande}
+                {c.ligne && <span className="text-muted-foreground">/{c.ligne}</span>}
+              </span>
+              {commandes.length > 1 && (
+                <span className="text-muted-foreground"> {fmtQ(c.quantite)}</span>
+              )}
             </span>
-            {commandes.length > 1 && (
-              <span className="text-muted-foreground"> {fmtQ(c.quantite)}</span>
-            )}
-          </span>
+          </CommandeTooltip>
         )
       })}
     </div>
