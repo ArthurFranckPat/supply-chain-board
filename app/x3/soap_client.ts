@@ -9,10 +9,13 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 
+import { Effect } from 'effect'
+
 import type { SoapResponse } from './types.js'
 import { buildConcatSql } from './sql_builder.js'
 import { parseResponse } from './response_parser.js'
 import { withX3Slot, x3ConcurrencyStats, X3QueueSaturatedError } from './x3_concurrency.js'
+import { X3CurlFailed, X3Fault, X3ResultXmlNil, type X3SoapError } from './x3_errors.js'
 
 export interface X3SoapConfig {
   host: string
@@ -29,35 +32,45 @@ export interface X3SoapConfig {
 /**
  * Envoie une requête SOAP à Syracuse, en tenant un slot de concurrence (#183).
  *
- * `spawnSoap` fait le travail ; ce wrapper ne fait que le placer derrière la
- * borne globale de `x3_concurrency`. C'est le seul étranglement de toutes les
- * lectures SQL X3 — `X3Connection.query` est l'unique appelant de `callSoap`, et
- * tout repository y aboutit, qu'il vienne du pool Lucid ou d'une `X3Database`
- * isolée. Voir l'en-tête de `x3_concurrency.ts` pour le pourquoi.
+ * `spawnSoap` fait le travail ; cet effet le place derrière la borne globale de
+ * `x3_concurrency`. C'est le seul étranglement de toutes les lectures SQL X3 —
+ * `X3Connection` est l'unique appelant, et tout repository y aboutit, qu'il
+ * vienne du pool Lucid ou d'une `X3Database` isolée. Voir l'en-tête de
+ * `x3_concurrency.ts` pour le pourquoi.
  *
  * Le slot est pris AVANT la construction de l'enveloppe et l'écriture du fichier
  * temporaire, pour qu'un abandon de file ne laisse rien derrière lui.
  *
- * Contrat inchangé : cette fonction ne jette pas. Une file saturée ou un appel
- * annulé devient une `SoapResponse` en échec, comme une erreur curl.
+ * Interrompre l'effet (timeout, annulation de l'appelant) retire l'appel de la
+ * file, ou tue curl s'il tourne déjà : le slot est rendu tout de suite.
  */
-export async function sendSoap(
+export function soapQuery(
   sql: string,
-  config: X3SoapConfig,
-  signal?: AbortSignal
-): Promise<SoapResponse> {
-  try {
-    return await withX3Slot(() => spawnSoap(sql, config, signal), signal)
-  } catch (e) {
-    if (e instanceof X3QueueSaturatedError) {
-      return { status: null, data: [], count: 0, error: e.message }
-    }
-    // Annulé pendant l'attente d'un slot : même forme qu'un curl tué par le signal.
-    if (signal?.aborted) {
-      return { status: null, data: [], count: 0, error: 'X3 query aborted' }
-    }
-    throw e
+  config: X3SoapConfig
+): Effect.Effect<SoapResponse, X3SoapError> {
+  return Effect.async<SoapResponse, X3SoapError>((resume, signal) => {
+    withX3Slot(() => spawnSoap(sql, config, signal), signal).then(
+      (resp) => resume(classifyResponse(resp)),
+      (error) => resume(isSoapError(error) ? Effect.fail(error) : Effect.die(error))
+    )
+  })
+}
+
+/** Une réponse Syracuse n'est un succès que si `status = 1` ET `resultXml` est présent. */
+export function classifyResponse(
+  resp: SoapResponse
+): Effect.Effect<SoapResponse, X3ResultXmlNil | X3Fault> {
+  if (resp.error === 'resultXml is nil') {
+    return Effect.fail(new X3ResultXmlNil({ message: resp.error, status: resp.status }))
   }
+  if (resp.status !== 1) {
+    return Effect.fail(new X3Fault({ message: resp.error, status: resp.status }))
+  }
+  return Effect.succeed(resp)
+}
+
+function isSoapError(error: unknown): error is X3CurlFailed | X3QueueSaturatedError {
+  return error instanceof X3CurlFailed || error instanceof X3QueueSaturatedError
 }
 
 /**
@@ -80,7 +93,11 @@ function tablesOf(sql: string): string {
   return uniq.length ? uniq.join('+') : '?'
 }
 
-/** Corps réel de l'appel : enveloppe, fichier temporaire, curl, parsing. */
+/**
+ * Corps réel de l'appel : enveloppe, fichier temporaire, curl, parsing.
+ *
+ * Rejette avec `X3CurlFailed` quand curl échoue — y compris tué par `signal`.
+ */
 async function spawnSoap(
   sql: string,
   config: X3SoapConfig,
@@ -131,7 +148,7 @@ async function spawnSoap(
   // ne dirait plus rien de la contention qu'a subie CET appel.
   const concurrency = x3ConcurrencyStats()
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     execFile(
       'curl',
       args,
@@ -143,7 +160,7 @@ async function spawnSoap(
 
         if (error) {
           const detail = stderr?.trim() || error.message
-          resolve({ status: null, data: [], count: 0, error: `curl: ${detail}` })
+          reject(new X3CurlFailed({ message: `curl: ${detail}` }))
           return
         }
 
@@ -168,25 +185,4 @@ async function spawnSoap(
       }
     )
   })
-}
-
-/** Call SOAP with retry on nil resultXml. */
-export async function callSoap(
-  sql: string,
-  config: X3SoapConfig,
-  maxRetries: number = 2,
-  signal?: AbortSignal
-): Promise<SoapResponse> {
-  let lastResp: SoapResponse | undefined
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const resp = await sendSoap(sql, config, signal)
-    lastResp = resp
-
-    if (resp.data.length > 0 || resp.error !== 'resultXml is nil') {
-      return resp
-    }
-  }
-
-  return lastResp!
 }

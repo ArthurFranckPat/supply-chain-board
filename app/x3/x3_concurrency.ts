@@ -61,13 +61,14 @@ const DEFAULT_QUEUE_WAIT_MS = 120_000
 /**
  * Erreur d'abandon de file.
  *
- * Son message évite délibérément tous les mots-clés de `TRANSIENT_ERRORS`
- * (`connection.ts`) — `curl`, `timeout`, `connection`, `refused`,
- * `resultxml is nil`. Une file saturée n'est PAS un incident transitoire à
- * réessayer : le réessai remettrait le même appelant au bout de la même file,
- * pendant que la file est justement trop longue. On échoue franchement.
+ * Une file saturée n'est PAS un incident transitoire à réessayer : le réessai
+ * remettrait le même appelant au bout de la même file, pendant que la file est
+ * justement trop longue. On échoue franchement — `isTransient` (`x3_errors.ts`)
+ * le décide sur le `_tag`, plus sur le texte du message.
  */
 export class X3QueueSaturatedError extends Error {
+  readonly _tag = 'X3QueueSaturated'
+
   constructor(waitedMs: number, max: number) {
     super(
       `File d'accès X3 saturée : abandon après ${waitedMs} ms d'attente ` +
@@ -127,6 +128,11 @@ function clearWaiter(waiter: Waiter): void {
  * Le slot libéré est passé DIRECTEMENT au premier de la file, sans repasser par
  * `inFlight` : le compteur reste constant, et la file est strictement FIFO — pas
  * de famine du plus ancien appelant sous charge continue.
+ *
+ * C'est pourquoi cette file n'est PAS le `Semaphore` d'Effect : lui réveille les
+ * attentes dans une tâche planifiée, et une fibre qui reprend un permis aussitôt
+ * rendu (boucle de lots ORDERS, MFGMAT) passe devant. Mesuré avec Effect 3.22 :
+ * trente lots enchaînés, l'appelant arrivé en deuxième servi en trentième.
  */
 function makeRelease(): Release {
   let released = false

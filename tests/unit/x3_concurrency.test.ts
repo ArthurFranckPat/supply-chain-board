@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import { withX3Slot, x3ConcurrencyStats, X3QueueSaturatedError } from '#app/x3/x3_concurrency'
+import { isTransient } from '#app/x3/x3_errors'
 
 /**
  * Garde-fou de la borne globale de concurrence X3 (#183).
@@ -12,24 +13,12 @@ import { withX3Slot, x3ConcurrencyStats, X3QueueSaturatedError } from '#app/x3/x
  *    appelant peut ne jamais passer ;
  * 3. un slot est rendu même quand la tâche jette — une fuite ici resserrerait
  *    la borne d'un cran à chaque erreur, jusqu'au blocage total du process ;
- * 4. le message de saturation ne contient AUCUN mot-clé de `TRANSIENT_ERRORS`
- *    (`app/x3/connection.ts`). C'est le point le moins évident et le plus
- *    coûteux à casser : un message qui dirait « timeout » ou « connection »
- *    rendrait l'erreur transitoire aux yeux de `X3Connection.query`, qui
- *    réessaierait — remettant l'appelant au bout de la file, précisément parce
- *    que la file est trop longue. Reformuler ce message sans rejouer ce test,
- *    c'est rouvrir la tempête de réessais que la file existe pour éteindre.
+ * 4. une file saturée n'est PAS transitoire aux yeux de `isTransient`
+ *    (`app/x3/x3_errors.ts`). Sinon `X3Connection` réessaierait — remettant
+ *    l'appelant au bout de la file, précisément parce que la file est trop
+ *    longue. Casser ce point, c'est rouvrir la tempête de réessais que la file
+ *    existe pour éteindre.
  */
-
-/** Copie de la liste de `app/x3/connection.ts` — si elle bouge, ce test doit bouger. */
-const TRANSIENT_ERRORS = [
-  'curl',
-  'timeout',
-  'connection',
-  'refused',
-  'econnrefused',
-  'resultxml is nil',
-]
 
 test.group('x3_concurrency — borne globale des lectures X3', (group) => {
   const saved = {
@@ -130,15 +119,10 @@ test.group('x3_concurrency — borne globale des lectures X3', (group) => {
 
     assert.instanceOf(caught, X3QueueSaturatedError)
 
-    const message = (caught as Error).message.toLowerCase()
-    for (const keyword of TRANSIENT_ERRORS) {
-      assert.notInclude(
-        message,
-        keyword,
-        `le message d'abandon de file ne doit pas contenir « ${keyword} » : ` +
-          `X3Connection le classerait transitoire et réessaierait`
-      )
-    }
+    assert.isFalse(
+      isTransient(caught as X3QueueSaturatedError),
+      'X3Connection ne doit pas réessayer un abandon de file'
+    )
 
     releaseHolder()
     await holder
