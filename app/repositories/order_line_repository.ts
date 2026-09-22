@@ -82,6 +82,12 @@ export interface OfCommandePeg {
   dateExpedition: Date | null
 }
 
+export interface OrderDates {
+  dateCommandeIso: string | null
+  dateDemandeeIso: string | null
+  dateAccepteeIso: string | null
+}
+
 const PEG_SQL = `
 SELECT
   Q.FMINUM_0 AS OF_NUM,
@@ -279,6 +285,90 @@ WHERE O.WIPTYP_0 = 1
         const code = row.BPRNUM_0?.trim()
         const name = row.BPRNAM_0?.trim()
         if (code && name) out.set(code, name)
+      }
+      return out
+    } finally {
+      await db.destroy()
+    }
+  }
+
+  /**
+   * Résout les dates d'un lot de commandes (SORDER / SORDERQ) :
+   * - Date de commande (SORDER.ORDDAT_0)
+   * - Date d'expédition demandée (SORDERQ.X4HSHIDAT_0 avec repli DEMDLVDAT_0)
+   * - Date d'expédition acceptée (SORDERQ.SHIDAT_0)
+   *
+   * Retourne une Map indexée par `${numCommande}#${ligne}` ET par `${numCommande}` (repli).
+   */
+  async resolveOrderDates(orderNumbers: string[]): Promise<Map<string, OrderDates>> {
+    const clean = [...new Set(orderNumbers.map((c) => c.trim()).filter(Boolean))]
+    const out = new Map<string, OrderDates>()
+    if (clean.length === 0) return out
+
+    const earliest = (a: string | null, b: string | null): string | null => {
+      if (!a) return b
+      if (!b) return a
+      return a < b ? a : b
+    }
+
+    const validDate = (d: string | null | undefined): string | null => {
+      if (!d) return null
+      const trimmed = d.trim()
+      return trimmed >= '2000-01-01' && trimmed <= '2100-01-01' ? trimmed : null
+    }
+
+    const db = new X3Database()
+    try {
+      for (let i = 0; i < clean.length; i += 1000) {
+        const chunk = clean.slice(i, i + 1000)
+        const inList = chunk.map((c) => `'${c.replace(/'/g, "''")}'`).join(',')
+        const sql = `
+SELECT
+  Q.SOHNUM_0                                                       AS SOHNUM,
+  Q.SOPLIN_0                                                       AS SOPLIN,
+  TO_CHAR(H.ORDDAT_0, 'YYYY-MM-DD')                                AS DATE_COMMANDE,
+  TO_CHAR(COALESCE(Q.X4HSHIDAT_0, Q.DEMDLVDAT_0), 'YYYY-MM-DD')   AS DATE_DEMANDEE,
+  TO_CHAR(Q.SHIDAT_0, 'YYYY-MM-DD')                                AS DATE_ACCEPTEE
+FROM SORDERQ Q
+INNER JOIN SORDER H ON H.SOHNUM_0 = Q.SOHNUM_0
+WHERE Q.SOHNUM_0 IN (${inList})
+`
+        const rows: RawRow[] = await db.raw(sql)
+        for (const row of rows) {
+          const sohnum = row.SOHNUM?.trim()
+          if (!sohnum) continue
+          const soplin = row.SOPLIN !== null && row.SOPLIN !== undefined ? String(row.SOPLIN).trim() : ''
+          const dates: OrderDates = {
+            dateCommandeIso: validDate(row.DATE_COMMANDE),
+            dateDemandeeIso: validDate(row.DATE_DEMANDEE),
+            dateAccepteeIso: validDate(row.DATE_ACCEPTEE),
+          }
+
+          if (soplin) {
+            const lineKey = `${sohnum}#${soplin}`
+            const existingLine = out.get(lineKey)
+            if (!existingLine) {
+              out.set(lineKey, dates)
+            } else {
+              out.set(lineKey, {
+                dateCommandeIso: dates.dateCommandeIso || existingLine.dateCommandeIso,
+                dateDemandeeIso: earliest(existingLine.dateDemandeeIso, dates.dateDemandeeIso),
+                dateAccepteeIso: earliest(existingLine.dateAccepteeIso, dates.dateAccepteeIso),
+              })
+            }
+          }
+
+          const existingHdr = out.get(sohnum)
+          if (!existingHdr) {
+            out.set(sohnum, dates)
+          } else {
+            out.set(sohnum, {
+              dateCommandeIso: dates.dateCommandeIso || existingHdr.dateCommandeIso,
+              dateDemandeeIso: earliest(existingHdr.dateDemandeeIso, dates.dateDemandeeIso),
+              dateAccepteeIso: earliest(existingHdr.dateAccepteeIso, dates.dateAccepteeIso),
+            })
+          }
+        }
       }
       return out
     } finally {

@@ -54,6 +54,9 @@ interface DetailOfCommande {
   dateLivraisonIso: string | null
   raison: string
   type: 'order' | 'forecast'
+  dateCommandeIso?: string | null
+  dateDemandeeIso?: string | null
+  dateAccepteeIso?: string | null
 }
 
 interface DetailOfRow {
@@ -88,6 +91,9 @@ interface DetailCmdRow {
   dateX3Iso: string | null
   /** Date locale substituée à celle de X3, sinon null — marqueur « re-datée ». */
   dateOverrideIso: string | null
+  dateCommandeIso?: string | null
+  dateDemandeeIso?: string | null
+  dateAccepteeIso?: string | null
   field: SegField
   brutQty: number
   netQty: number
@@ -176,7 +182,8 @@ export interface ChargePeriodSheetProps {
 }
 
 /** ISO YYYY-MM-DD → JJ/MM/AAAA (jamais d'ISO brut à l'écran). */
-const fmtDateFr = (iso: string): string => {
+const fmtDateFr = (iso: string | null | undefined): string => {
+  if (!iso) return '—'
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
 }
@@ -1238,6 +1245,43 @@ function DayBlock(props: {
 
 const CELL = 'border-b border-rule-soft/60 py-[5px] text-[11px]'
 
+function formatCommandeTooltip(c: {
+  numCommande: string
+  ligne?: string | null
+  client?: string | null
+  quantite?: number
+  raison?: string
+  type?: 'order' | 'forecast'
+  dateLivraisonIso?: string | null
+  dateCommandeIso?: string | null
+  dateDemandeeIso?: string | null
+  dateAccepteeIso?: string | null
+}): string {
+  const isForecast = c.type === 'forecast'
+  const lines: string[] = []
+  if (isForecast) {
+    lines.push(`Prévision : ${c.numCommande}`)
+    if (c.dateLivraisonIso) {
+      lines.push(`Date besoin : ${fmtDateFr(c.dateLivraisonIso)}`)
+    }
+  } else {
+    lines.push(`Commande : ${c.numCommande}${c.ligne ? `/${c.ligne}` : ''}`)
+    if (c.client) {
+      lines.push(`Client : ${c.client}`)
+    }
+    lines.push(`Date commande : ${c.dateCommandeIso ? fmtDateFr(c.dateCommandeIso) : '—'}`)
+    lines.push(`Expéd. demandée : ${c.dateDemandeeIso ? fmtDateFr(c.dateDemandeeIso) : '—'}`)
+    lines.push(`Expéd. acceptée : ${c.dateAccepteeIso ? fmtDateFr(c.dateAccepteeIso) : '—'}`)
+  }
+  if (c.quantite !== undefined) {
+    lines.push(`Quantité allouée : ${fmtQ(c.quantite)} u`)
+  }
+  if (c.raison) {
+    lines.push(`Raison : ${c.raison}`)
+  }
+  return lines.join('\n')
+}
+
 function OfRow({ row: r, unit }: { row: DetailOfRow; unit: LoadUnit }) {
   return (
     <>
@@ -1375,9 +1419,27 @@ function CmdRow({
       >
         {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
       </div>
-      <div className={cn(CELL, 'truncate font-mono text-[10px] text-secondary-foreground')}>
-        {r.numCommande ?? '—'}
-        {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
+      <div
+        className={cn(CELL, 'truncate font-mono text-[10px] text-secondary-foreground')}
+        title={
+          r.numCommande
+            ? formatCommandeTooltip({
+                numCommande: r.numCommande,
+                ligne: r.ligne,
+                client: r.client,
+                type: forecast ? 'forecast' : 'order',
+                dateLivraisonIso: r.dateIso,
+                dateCommandeIso: r.dateCommandeIso,
+                dateDemandeeIso: r.dateDemandeeIso,
+                dateAccepteeIso: r.dateAccepteeIso,
+              })
+            : undefined
+        }
+      >
+        <span className={r.numCommande ? 'cursor-help' : undefined}>
+          {r.numCommande ?? '—'}
+          {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
+        </span>
         {/* Date locale substituée à celle de X3. Le retour en arrière vit ICI,
             et non dans la colonne « Proposé » : une ligne re-datée hier doit
             pouvoir reprendre sa date X3 sans qu'on relance un calcul de plan. */}
@@ -1657,26 +1719,18 @@ function OfCommandesCell({ commandes }: { commandes: DetailOfCommande[] }) {
   if (!commandes || commandes.length === 0) {
     return <div className={cn(CELL, 'truncate text-muted-foreground')}>—</div>
   }
-  const title = commandes
-    .map((c) =>
-      [
-        `${c.numCommande}${c.ligne ? `/${c.ligne}` : ''}`,
-        c.client ?? '',
-        `alloué ${fmtQ(c.quantite)} u`,
-        c.dateLivraisonIso ? `livr. ${fmtDateFr(c.dateLivraisonIso)}` : '',
-        c.raison,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    )
-    .join('\n')
   return (
-    <div className={cn(CELL, 'truncate font-mono text-[10px]')} title={title}>
+    <div className={cn(CELL, 'truncate font-mono text-[10px]')}>
       {commandes.map((c, i) => {
         const pegue = c.raison.toLowerCase().includes('contremarque')
         const isForecast = c.type === 'forecast'
+        const tooltip = formatCommandeTooltip(c)
         return (
-          <span key={`${c.numCommande}-${c.ligne ?? ''}-${i}`} className="mr-1.5 inline-flex items-baseline gap-1">
+          <span
+            key={`${c.numCommande}-${c.ligne ?? ''}-${i}`}
+            className="mr-1.5 inline-flex items-baseline gap-1"
+            title={tooltip}
+          >
             {isForecast && (
               <span
                 className="rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
@@ -1689,7 +1743,10 @@ function OfCommandesCell({ commandes }: { commandes: DetailOfCommande[] }) {
               </span>
             )}
             <span
-              className={pegue ? 'font-bold' : 'font-semibold text-secondary-foreground'}
+              className={cn(
+                pegue ? 'font-bold' : 'font-semibold text-secondary-foreground',
+                'cursor-help'
+              )}
               style={pegue ? { color: 'var(--color-ferme)' } : undefined}
             >
               {c.numCommande}

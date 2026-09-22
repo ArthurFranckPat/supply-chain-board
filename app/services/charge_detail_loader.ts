@@ -28,7 +28,7 @@
 
 import { cacheNs } from '#services/cache_ns'
 import { stamped } from '#services/computed_age'
-import { X3OrderLineRepository } from '#repositories/order_line_repository'
+import { X3OrderLineRepository, type OrderDates } from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import type { Article } from '#app/domain/models/article'
 import {
@@ -77,6 +77,9 @@ export interface ChargeDetailOfCommande {
   dateLivraisonIso: string | null
   raison: string
   type: 'order' | 'forecast'
+  dateCommandeIso?: string | null
+  dateDemandeeIso?: string | null
+  dateAccepteeIso?: string | null
 }
 
 /** Ligne de détail en vue OF : un ordre de fabrication. */
@@ -132,6 +135,9 @@ export interface ChargeDetailCmdRow {
    * distinguer une date négociée d'une date d'origine une fois le plan appliqué.
    */
   dateOverrideIso: string | null
+  dateCommandeIso?: string | null
+  dateDemandeeIso?: string | null
+  dateAccepteeIso?: string | null
   field: ChargeSegField
   brutQty: number
   netQty: number
@@ -252,6 +258,7 @@ export interface BuildChargeDetailRowsParams {
   horizonEnd: Date
   /** Stock strict+CQ figé du snapshot — requis en vue commande (repli : recalcul). */
   stock?: Map<string, number>
+  orderLineRepo?: Pick<X3OrderLineRepository, 'resolveClientNames' | 'resolveOrderDates'>
 }
 
 export interface BuildChargeDetailRowsResult {
@@ -482,17 +489,41 @@ export async function buildChargeDetailRows(
       ...[...commandesByOf.values()].flatMap((cmds) => cmds.map((c) => c.clientCode)).filter((c): c is string => !!c),
     ]),
   ]
+  const repo = p.orderLineRepo ?? new X3OrderLineRepository()
   const clientNames = clientCodes.length
-    ? await new X3OrderLineRepository()
+    ? await repo
         .resolveClientNames(clientCodes)
         .catch(() => new Map<string, string>())
     : new Map<string, string>()
 
-  // Résolution des raisons sociales sur les commandes des OF
+  // Dates des commandes : date de commande (ORDDAT), expédition demandée (X4HSHIDAT/DEMDLVDAT), expédition acceptée (SHIDAT)
+  const orderNums = [
+    ...new Set([
+      ...[...commandesByOf.values()].flatMap((cmds) => cmds.map((c) => c.numCommande)).filter(Boolean),
+      ...(p.view === 'commande'
+        ? inputs.orderLines.map((l) => l.numCommande).filter((n): n is string => !!n)
+        : []),
+    ]),
+  ]
+  const orderDates = orderNums.length
+    ? await repo
+        .resolveOrderDates(orderNums)
+        .catch(() => new Map<string, OrderDates>())
+    : new Map<string, OrderDates>()
+
+  // Résolution des raisons sociales et des dates sur les commandes des OF
   for (const list of commandesByOf.values()) {
     for (const c of list) {
       if (c.clientCode) {
         c.client = clientNames.get(c.clientCode) ?? c.clientCode
+      }
+      if (c.numCommande && c.type === 'order') {
+        const d = (c.ligne ? orderDates.get(`${c.numCommande}#${c.ligne}`) : null) ?? orderDates.get(c.numCommande)
+        if (d) {
+          c.dateCommandeIso = d.dateCommandeIso ?? null
+          c.dateDemandeeIso = d.dateDemandeeIso ?? null
+          c.dateAccepteeIso = d.dateAccepteeIso ?? null
+        }
       }
     }
   }
@@ -576,6 +607,10 @@ export async function buildChargeDetailRows(
     // du client de tête, ce qui est exactement ce qu'on veut dire à l'écran —
     // « bougera si on bouge le PF », pas « intouchable ».
     const mob = mobiliteDeLigne(code)
+    const d = n.source?.numCommande
+      ? (n.source.ligne ? orderDates.get(`${n.source.numCommande}#${n.source.ligne}`) : null) ??
+        orderDates.get(n.source.numCommande)
+      : null
     return {
       poste: n.wst,
       article: n.article,
@@ -593,6 +628,9 @@ export async function buildChargeDetailRows(
       dateIso: isoDay(dayOf(n.wst, n.date)),
       dateX3Iso: cleLigne ? (dateX3ParLigne.get(cleLigne) ?? null) : null,
       dateOverrideIso: cleLigne ? (inputs.lineDateOverrides.get(cleLigne) ?? null) : null,
+      dateCommandeIso: d?.dateCommandeIso ?? null,
+      dateDemandeeIso: d?.dateDemandeeIso ?? null,
+      dateAccepteeIso: d?.dateAccepteeIso ?? null,
       field: chargeSegment(n.depth, n.nature),
       brutQty: n.brutQty,
       netQty: n.netQty,
@@ -649,7 +687,7 @@ export async function loadChargeDetailRows(
   // redatent la demande comme la barre — une clé qui ignorerait l'état des
   // overrides servirait le détail d'avant le déplacement.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `rows:charge:s2:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `rows:charge:s3:${isoDay(monthStart)}:${p.version ?? 'live'}:${p.view}:${ofDate}:h${p.applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   if (force) await cacheNs('charge').delete({ key: cacheKey })
 
   return cacheNs('charge').getOrSet({
@@ -715,7 +753,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
   // versionnée, la version fige déjà le jeu d'overrides dans le snapshot ; la
   // porter aussi ne coûte rien et évite d'avoir à se souvenir de la nuance.
   const ovSig = await new OrderLineOverrideStore().signature().catch(() => 'none')
-  const cacheKey = `detail:charge:s3:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
+  const cacheKey = `detail:charge:s4:${isoDay(monthStart)}:${version ?? 'live'}:${params.view}:${poste}:${params.gran}:${params.bucket}:${ofDate}:h${applyDemandHorizon ? 1 : 0}:ov${ovSig}`
   const force = !!params.refresh
   if (force) await cacheNs('charge').delete({ key: cacheKey })
   return cacheNs('charge').getOrSet({

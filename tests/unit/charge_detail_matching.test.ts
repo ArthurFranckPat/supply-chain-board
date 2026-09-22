@@ -82,6 +82,21 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       x3Error: null,
     }
 
+    const mockOrderLineRepo = {
+      resolveClientNames: async () => new Map([['CLI_ALDES', 'Aldes Aéraulique']]),
+      resolveOrderDates: async () =>
+        new Map([
+          [
+            'CMD100#1',
+            {
+              dateCommandeIso: '2026-06-01',
+              dateDemandeeIso: '2026-07-15',
+              dateAccepteeIso: '2026-07-20',
+            },
+          ],
+        ]),
+    }
+
     const res = await buildChargeDetailRows({
       inputs,
       view: 'of',
@@ -91,6 +106,7 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       wstByCode,
       monthStart,
       horizonEnd,
+      orderLineRepo: mockOrderLineRepo,
     })
 
     assert.equal(res.ofRows.length, 1)
@@ -102,6 +118,10 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
     assert.equal(row.commandes[0].ligne, '1')
     assert.equal(row.commandes[0].quantite, 20)
     assert.equal(row.commandes[0].type, 'order')
+    assert.equal(row.commandes[0].client, 'Aldes Aéraulique')
+    assert.equal(row.commandes[0].dateCommandeIso, '2026-06-01')
+    assert.equal(row.commandes[0].dateDemandeeIso, '2026-07-15')
+    assert.equal(row.commandes[0].dateAccepteeIso, '2026-07-20')
   })
 
   test('en vue OF, un OF contremarqué (reservePour) porte la commande même sans matching CBN', async ({
@@ -142,6 +162,11 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       x3Error: null,
     }
 
+    const noIoOrderLineRepo = {
+      resolveClientNames: async () => new Map<string, string>(),
+      resolveOrderDates: async () => new Map(),
+    }
+
     const res = await buildChargeDetailRows({
       inputs,
       view: 'of',
@@ -151,6 +176,7 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       wstByCode,
       monthStart,
       horizonEnd,
+      orderLineRepo: noIoOrderLineRepo,
     })
 
     assert.equal(res.ofRows.length, 1)
@@ -191,6 +217,11 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       x3Error: null,
     }
 
+    const noIoOrderLineRepo = {
+      resolveClientNames: async () => new Map<string, string>(),
+      resolveOrderDates: async () => new Map(),
+    }
+
     const res = await buildChargeDetailRows({
       inputs,
       view: 'of',
@@ -200,6 +231,7 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
       wstByCode,
       monthStart,
       horizonEnd,
+      orderLineRepo: noIoOrderLineRepo,
     })
 
     assert.equal(res.ofRows.length, 1)
