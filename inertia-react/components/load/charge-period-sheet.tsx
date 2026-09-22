@@ -491,15 +491,6 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
       ),
     [groups, view, qtyMode]
   )
-  // Référence de la barre de contribution : le jour le plus chargé (pas le
-  // premier, puisque les groupes sont désormais triés par date et non par poids).
-  const maxGroupValue = useMemo(() => groups.reduce((m, g) => Math.max(m, g.value), 0), [groups])
-
-  /** Capacité du poste par jour — affichée en repère à côté de la charge du jour. */
-  const capByDay = useMemo(
-    () => new Map((data?.capaciteParJour ?? []).map((c) => [c.dateIso, c.capaciteH])),
-    [data]
-  )
 
   // Part de la période tirée par des prévisions plutôt que par des commandes
   // fermes : c'est la charge la moins sûre, elle mérite d'être chiffrée avant
@@ -772,9 +763,6 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                         view={view}
                         qtyMode={qtyMode}
                         unit={unit}
-                        maxValue={maxGroupValue}
-                        totalValue={totalValue}
-                        capaciteH={capByDay.get(g.dateIso) ?? null}
                         busy={busy}
                         onRetablir={retablir}
                       />
@@ -850,24 +838,15 @@ function DayBlock(props: {
   view: LoadView
   qtyMode: LoadQtyMode
   unit: LoadUnit
-  maxValue: number
-  totalValue: number
-  /** Capacité nette (h) du jour ; `null` ou 0 = poste fermé / inconnue. */
-  capaciteH: number | null
   busy: string | null
   onRetablir: (numCommande: string, ligne: string) => void
 }) {
-  const { group: g, view, qtyMode, unit, maxValue, totalValue, capaciteH } = props
+  const { group: g, view, qtyMode, unit } = props
   const rowValue = (r: DetailOfRow | DetailCmdRow): number =>
     view === 'of'
       ? ofRowValue(r as DetailOfRow, unit)
       : cmdRowValue(r as DetailCmdRow, unit, qtyMode)
 
-  // Poids du jour dans la période, barre relative au jour le plus chargé. Pas de
-  // saturation (charge ÷ capacité) : retirée de /charge à la demande métier.
-  const pct = totalValue > 0 ? (g.value / totalValue) * 100 : 0
-  const barPct = maxValue > 0 ? (g.value / maxValue) * 100 : 0
-  const avecCapacite = unit === 'h' && capaciteH !== null && capaciteH > 0
   const dayForecastValue =
     view === 'commande'
       ? g.rows.reduce((a, r) => (isForecastPulled(r.field) ? a + rowValue(r) : a), 0)
@@ -905,36 +884,8 @@ function DayBlock(props: {
             {unitSuffixOf(unit)} prév.
           </span>
         )}
-        <span className="flex-none font-mono text-[10px] text-muted-foreground">
-          {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
-          {g.rows.length > 1 ? 's' : ''}
-        </span>
-        {/* Capacité du jour, en repère. */}
-        {avecCapacite && (
-          <span className="flex-none font-mono text-[10px] text-muted-foreground">
-            cap. {fmtH(capaciteH!)} h
-          </span>
-        )}
-        {/* Poids du jour dans la période. */}
-        <span className="flex flex-none items-center gap-2">
-          <span
-            className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft"
-            title="Part de la période"
-          >
-            <span
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{
-                width: `${Math.max(2, Math.min(100, barPct))}%`,
-                background: 'var(--color-brand)',
-              }}
-            />
-          </span>
-          <span className="w-9 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-            {Math.round(pct)}%
-          </span>
-          <span className="w-14 text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
-            {fmtVal(g.value, unit)}
-          </span>
+        <span className="w-14 flex-none text-right font-mono text-[13px] font-bold tabular-nums text-foreground">
+          {fmtVal(g.value, unit)}
         </span>
       </div>
 
