@@ -1292,6 +1292,8 @@ export default function Load(props: LoadPageProps) {
                   active={props.ofDate === 'start'}
                   onClick={() => {
                     if (props.ofDate === 'start') return
+                    // `?ofDate=` n'est qu'un message au serveur : il le range en
+                    // session et redirige vers l'URL sans lui.
                     const url = new URL(window.location.href)
                     url.searchParams.set('ofDate', 'start')
                     router.visit(`${url.pathname}?${url.searchParams.toString()}`, {

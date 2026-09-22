@@ -1550,10 +1550,10 @@ export async function loadChargePayloadData(params: {
 }
 
 /** GET /charge — payload de la page Inertia de projection de charge long terme. */
-export async function loadChargePayload(ctx: HttpContext) {
+export async function loadChargePayload(ctx: HttpContext, ofDate: OfDateMode) {
   return loadChargePayloadData({
     start: ctx.request.input('start') as string | undefined,
-    ofDate: ctx.request.input('ofDate') === 'end' ? 'end' : 'start',
+    ofDate,
     force: !!ctx.request.input('refresh'),
   })
 }

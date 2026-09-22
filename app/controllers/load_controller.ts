@@ -22,10 +22,30 @@ function csvList(value: unknown): string[] {
     .filter(Boolean)
 }
 
+/** Date de rattachement des OF (début / fin) — mémorisée en session, jamais dans l'URL. */
+const OF_DATE_SESSION_KEY = 'charge.ofDate'
+
 export default class LoadController {
-  /** GET /charge — page Inertia de projection de charge long terme. Cf. loadChargePayload. */
+  /**
+   * GET /charge — page Inertia de projection de charge long terme. Cf. loadChargePayload.
+   *
+   * Le choix Début OF / Fin OF arrive en `?ofDate=` depuis la bascule de la page :
+   * on le range en session et on redirige vers la même URL SANS lui. La barre
+   * d'adresse reste `/charge`, et le choix tient d'une visite à l'autre.
+   */
   async index(ctx: HttpContext) {
-    const props = await loadChargePayload(ctx)
+    const raw = ctx.request.input('ofDate')
+    if (raw !== undefined && raw !== null) {
+      ctx.session.put(OF_DATE_SESSION_KEY, raw === 'end' ? 'end' : 'start')
+      const qs = new URLSearchParams()
+      for (const [k, v] of Object.entries(ctx.request.qs())) {
+        if (k !== 'ofDate' && v !== undefined && v !== null) qs.set(k, String(v))
+      }
+      const q = qs.toString()
+      return ctx.response.redirect(`${ctx.request.url()}${q ? `?${q}` : ''}`)
+    }
+    const ofDate = ctx.session.get(OF_DATE_SESSION_KEY) === 'end' ? 'end' : 'start'
+    const props = await loadChargePayload(ctx, ofDate)
     return ctx.inertia.render('scheduler/load', props)
   }
 
