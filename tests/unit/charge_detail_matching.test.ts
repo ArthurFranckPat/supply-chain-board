@@ -95,6 +95,7 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
             },
           ],
         ]),
+      resolveOrderPegs: async () => new Map(),
     }
 
     const res = await buildChargeDetailRows({
@@ -165,6 +166,7 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
     const noIoOrderLineRepo = {
       resolveClientNames: async () => new Map<string, string>(),
       resolveOrderDates: async () => new Map(),
+      resolveOrderPegs: async () => new Map(),
     }
 
     const res = await buildChargeDetailRows({
@@ -220,6 +222,7 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
     const noIoOrderLineRepo = {
       resolveClientNames: async () => new Map<string, string>(),
       resolveOrderDates: async () => new Map(),
+      resolveOrderPegs: async () => new Map(),
     }
 
     const res = await buildChargeDetailRows({
@@ -236,5 +239,96 @@ test.group('buildChargeDetailRows — matching commande en vue OF', () => {
 
     assert.equal(res.ofRows.length, 1)
     assert.deepEqual(res.ofRows[0].commandes, [])
+  })
+  // Régression : le détail construisait ses demandes avec orderType/contremarque
+  // à null — une commande MTS contremarquée passait en couverture cumulative
+  // NOR/MTO et raflait les OF des autres commandes (AR2604426 ↔ F126-47673…).
+  const mtsInputs = (mos: ManufacturingOrder[]): ChargeInputs => ({
+    mos,
+    deltaMos: [],
+    orderLines: [
+      {
+        article: 'ART_M',
+        designation: 'Article MTS',
+        quantite: 20,
+        dateLivraison: new Date('2026-07-15T00:00:00'),
+        nature: 'COMMANDE',
+        numCommande: 'AR_MTS',
+        ligne: '1000',
+        clientCode: 'CLI_ALDES',
+      },
+    ],
+    gammeMap: new Map([
+      [
+        'ART_M',
+        [
+          {
+            article: 'ART_M',
+            workstation: 'POSTE_1',
+            workstationLabel: 'Poste Assemblage 1',
+            rate: 10,
+          },
+        ],
+      ],
+    ]),
+    workstations: [workstation],
+    wstLabels: new Map([['POSTE_1', 'Poste Assemblage 1']]),
+    bomByParent: new Map(),
+    avancementByOf: new Map(),
+    categoryByArticle: new Map(),
+    descriptions: new Map(),
+    demandHorizonByArticle: new Map(),
+    lineDateOverrides: new Map(),
+    x3Error: null,
+  })
+  const mtsRepo = (contremarque: string) => ({
+    resolveClientNames: async () => new Map<string, string>(),
+    resolveOrderDates: async () => new Map(),
+    resolveOrderPegs: async () =>
+      new Map([['AR_MTS#1000', { orderType: 'MTS' as const, contremarque }]]),
+  })
+  const build = (mos: ManufacturingOrder[], contremarque: string) =>
+    buildChargeDetailRows({
+      inputs: mtsInputs(mos),
+      view: 'of',
+      ofDate: 'start',
+      applyDemandHorizon: true,
+      calendar: null,
+      wstByCode,
+      monthStart,
+      horizonEnd,
+      orderLineRepo: mtsRepo(contremarque),
+    })
+
+  test('commande MTS contremarquée sur un OF clos : aucun autre OF ne la porte', async ({
+    assert,
+  }) => {
+    const res = await build(
+      [
+        baseMo({ numOf: 'OF_M1', article: 'ART_M', quantity: 24 }),
+        baseMo({ numOf: 'OF_M2', article: 'ART_M', quantity: 24 }),
+      ],
+      'OF_CLOS'
+    )
+    assert.lengthOf(res.ofRows, 2)
+    for (const row of res.ofRows) assert.deepEqual(row.commandes, [])
+  })
+
+  test('commande MTS contremarquée : seul SON OF la porte', async ({ assert }) => {
+    const res = await build(
+      [
+        baseMo({ numOf: 'OF_M1', article: 'ART_M', quantity: 24 }),
+        baseMo({
+          numOf: 'OF_M2',
+          article: 'ART_M',
+          quantity: 24,
+          endDate: new Date('2026-07-12T00:00:00'),
+        }),
+      ],
+      'OF_M2'
+    )
+    const byOf = new Map(res.ofRows.map((r) => [r.numOf, r]))
+    assert.deepEqual(byOf.get('OF_M1')!.commandes, [])
+    assert.equal(byOf.get('OF_M2')!.commandes[0]?.numCommande, 'AR_MTS')
   })
 })

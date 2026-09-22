@@ -28,7 +28,11 @@
 
 import { cacheNs } from '#services/cache_ns'
 import { stamped } from '#services/computed_age'
-import { X3OrderLineRepository, type OrderDates } from '#repositories/order_line_repository'
+import {
+  X3OrderLineRepository,
+  type OrderDates,
+  type OrderLinePeg,
+} from '#repositories/order_line_repository'
 import staticSync from '#services/static_sync_service'
 import type { Article } from '#app/domain/models/article'
 import {
@@ -258,7 +262,10 @@ export interface BuildChargeDetailRowsParams {
   horizonEnd: Date
   /** Stock strict+CQ figé du snapshot — requis en vue commande (repli : recalcul). */
   stock?: Map<string, number>
-  orderLineRepo?: Pick<X3OrderLineRepository, 'resolveClientNames' | 'resolveOrderDates'>
+  orderLineRepo?: Pick<
+    X3OrderLineRepository,
+    'resolveClientNames' | 'resolveOrderDates' | 'resolveOrderPegs'
+  >
 }
 
 export interface BuildChargeDetailRowsResult {
@@ -302,6 +309,23 @@ export async function buildChargeDetailRows(
   ): string =>
     `${article}|${numCommande ?? ''}|${ligne ?? ''}|${isoDay(date)}|${prevision ? 'p' : 'f'}`
 
+  // Type de commande + contremarque X3 : sans eux, `matchCommande` route tout
+  // en NOR/MTO et une commande MTS contremarquée rafle les OF des autres
+  // commandes du même article (couverture cumulative) au lieu de n'être servie
+  // que par SON OF. Échec de lecture = matching dégradé, pas de page vide.
+  const repo = p.orderLineRepo ?? new X3OrderLineRepository()
+  const pegOrderNums = [
+    ...new Set(
+      allNeeds
+        .filter((n) => n.depth === 0 && n.nature !== 'prevision')
+        .map((n) => n.source?.numCommande)
+        .filter((c): c is string => !!c)
+    ),
+  ]
+  const pegs = pegOrderNums.length
+    ? await repo.resolveOrderPegs(pegOrderNums).catch(() => new Map<string, OrderLinePeg>())
+    : new Map<string, OrderLinePeg>()
+
   const demandByKey = new Map<string, Flow>()
   for (const n of allNeeds) {
     const numCommande = n.source?.numCommande ?? null
@@ -313,6 +337,12 @@ export async function buildChargeDetailRows(
       n.nature === 'prevision'
     )
     if (demandByKey.has(key)) continue
+    // Niveau 0 seulement : un besoin induit (composant) hérite de la commande
+    // du PF, mais la contremarque désigne l'OF du PF, pas celui du composant.
+    const peg =
+      n.depth === 0 && n.nature !== 'prevision' && numCommande
+        ? pegs.get(`${numCommande}#${n.source?.ligne ?? ''}`)
+        : undefined
     demandByKey.set(key, {
       article: n.article,
       quantity: n.brutQty,
@@ -335,9 +365,9 @@ export async function buildChargeDetailRows(
               id: numCommande ?? n.article,
               customer: n.source?.client ?? '',
               pays: null,
-              orderType: null,
+              orderType: peg?.orderType ?? null,
               nature: 'COMMANDE',
-              contremarque: null,
+              contremarque: peg?.contremarque ?? null,
               qteCommandee: n.brutQty,
               qteAllouee: 0,
               ligne: n.source?.ligne ?? null,
@@ -423,7 +453,7 @@ export async function buildChargeDetailRows(
         const ofId = ofOrigin.id
         const numCommande = o.id ?? ''
         const ligne = isOrder ? (o.ligne ?? null) : null
-        const clientCode = isOrder ? (o.customer || null) : null
+        const clientCode = isOrder ? o.customer || null : null
         const dateLivraisonIso = r.demandFlow.date ? isoDay(r.demandFlow.date) : null
 
         let list = commandesByOf.get(ofId)
@@ -486,29 +516,28 @@ export async function buildChargeDetailRows(
     ...new Set([
       ...needs.map((n) => n.source?.client).filter((c): c is string => !!c),
       ...inputs.orderLines.map((l) => l.clientCode).filter((c): c is string => !!c),
-      ...[...commandesByOf.values()].flatMap((cmds) => cmds.map((c) => c.clientCode)).filter((c): c is string => !!c),
+      ...[...commandesByOf.values()]
+        .flatMap((cmds) => cmds.map((c) => c.clientCode))
+        .filter((c): c is string => !!c),
     ]),
   ]
-  const repo = p.orderLineRepo ?? new X3OrderLineRepository()
   const clientNames = clientCodes.length
-    ? await repo
-        .resolveClientNames(clientCodes)
-        .catch(() => new Map<string, string>())
+    ? await repo.resolveClientNames(clientCodes).catch(() => new Map<string, string>())
     : new Map<string, string>()
 
   // Dates des commandes : date de commande (ORDDAT), expédition demandée (X4HSHIDAT/DEMDLVDAT), expédition acceptée (SHIDAT)
   const orderNums = [
     ...new Set([
-      ...[...commandesByOf.values()].flatMap((cmds) => cmds.map((c) => c.numCommande)).filter(Boolean),
+      ...[...commandesByOf.values()]
+        .flatMap((cmds) => cmds.map((c) => c.numCommande))
+        .filter(Boolean),
       ...(p.view === 'commande'
         ? inputs.orderLines.map((l) => l.numCommande).filter((n): n is string => !!n)
         : []),
     ]),
   ]
   const orderDates = orderNums.length
-    ? await repo
-        .resolveOrderDates(orderNums)
-        .catch(() => new Map<string, OrderDates>())
+    ? await repo.resolveOrderDates(orderNums).catch(() => new Map<string, OrderDates>())
     : new Map<string, OrderDates>()
 
   // Résolution des raisons sociales et des dates sur les commandes des OF
@@ -518,7 +547,9 @@ export async function buildChargeDetailRows(
         c.client = clientNames.get(c.clientCode) ?? c.clientCode
       }
       if (c.numCommande && c.type === 'order') {
-        const d = (c.ligne ? orderDates.get(`${c.numCommande}#${c.ligne}`) : null) ?? orderDates.get(c.numCommande)
+        const d =
+          (c.ligne ? orderDates.get(`${c.numCommande}#${c.ligne}`) : null) ??
+          orderDates.get(c.numCommande)
         if (d) {
           c.dateCommandeIso = d.dateCommandeIso ?? null
           c.dateDemandeeIso = d.dateDemandeeIso ?? null
@@ -608,8 +639,8 @@ export async function buildChargeDetailRows(
     // « bougera si on bouge le PF », pas « intouchable ».
     const mob = mobiliteDeLigne(code)
     const d = n.source?.numCommande
-      ? (n.source.ligne ? orderDates.get(`${n.source.numCommande}#${n.source.ligne}`) : null) ??
-        orderDates.get(n.source.numCommande)
+      ? ((n.source.ligne ? orderDates.get(`${n.source.numCommande}#${n.source.ligne}`) : null) ??
+        orderDates.get(n.source.numCommande))
       : null
     return {
       poste: n.wst,

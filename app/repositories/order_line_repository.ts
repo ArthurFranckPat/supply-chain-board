@@ -82,6 +82,12 @@ export interface OfCommandePeg {
   dateExpedition: Date | null
 }
 
+/** Type de commande et contremarque X3 d'une ligne (SORDER.SOHTYP_0, SORDERQ.FMINUM_0). */
+export interface OrderLinePeg {
+  orderType: OrderType | null
+  contremarque: string | null
+}
+
 export interface OrderDates {
   dateCommandeIso: string | null
   dateDemandeeIso: string | null
@@ -337,7 +343,8 @@ WHERE Q.SOHNUM_0 IN (${inList})
         for (const row of rows) {
           const sohnum = row.SOHNUM?.trim()
           if (!sohnum) continue
-          const soplin = row.SOPLIN !== null && row.SOPLIN !== undefined ? String(row.SOPLIN).trim() : ''
+          const soplin =
+            row.SOPLIN !== null && row.SOPLIN !== undefined ? String(row.SOPLIN).trim() : ''
           const dates: OrderDates = {
             dateCommandeIso: validDate(row.DATE_COMMANDE),
             dateDemandeeIso: validDate(row.DATE_DEMANDEE),
@@ -368,6 +375,52 @@ WHERE Q.SOHNUM_0 IN (${inList})
               dateAccepteeIso: earliest(existingHdr.dateAccepteeIso, dates.dateAccepteeIso),
             })
           }
+        }
+      }
+      return out
+    } finally {
+      await db.destroy()
+    }
+  }
+
+  /**
+   * Type de commande (MTS/MTO/NOR) et contremarque (n° d'OF) par ligne, clé
+   * `numCommande#ligne`. `getOrderLinesForLoad` ne les porte pas (JOIN SORDER +
+   * SORDERQ retirés pour la perf de /charge, #39) : sans eux, le matcher traite
+   * toute commande en NOR/MTO et une commande MTS contremarquée se voit allouer
+   * les OF d'autres commandes. Appelé par le seul détail de charge.
+   */
+  async resolveOrderPegs(orderNumbers: string[]): Promise<Map<string, OrderLinePeg>> {
+    const clean = [...new Set(orderNumbers.map((c) => c.trim()).filter(Boolean))]
+    const out = new Map<string, OrderLinePeg>()
+    if (clean.length === 0) return out
+
+    const db = new X3Database()
+    try {
+      for (let i = 0; i < clean.length; i += 1000) {
+        const chunk = clean.slice(i, i + 1000)
+        const inList = chunk.map((c) => `'${c.replace(/'/g, "''")}'`).join(',')
+        const sql = `
+SELECT
+  Q.SOHNUM_0 AS SOHNUM,
+  Q.SOPLIN_0 AS SOPLIN,
+  Q.FMINUM_0 AS CONTREMARQUE,
+  H.SOHTYP_0 AS SOHTYP
+FROM SORDERQ Q
+INNER JOIN SORDER H ON H.SOHNUM_0 = Q.SOHNUM_0
+WHERE Q.SOHNUM_0 IN (${inList})
+`
+        const rows: RawRow[] = await db.raw(sql)
+        for (const row of rows) {
+          const sohnum = row.SOHNUM?.trim()
+          const soplin =
+            row.SOPLIN !== null && row.SOPLIN !== undefined ? String(row.SOPLIN).trim() : ''
+          if (!sohnum || !soplin) continue
+          const rawType = row.SOHTYP?.trim() ?? ''
+          out.set(`${sohnum}#${soplin}`, {
+            orderType: rawType === '' ? null : (rawType as OrderType),
+            contremarque: row.CONTREMARQUE?.trim() || null,
+          })
         }
       }
       return out
