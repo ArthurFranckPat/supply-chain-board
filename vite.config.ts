@@ -3,15 +3,16 @@ import adonisjs from '@adonisjs/vite/client'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
-// @ts-expect-error — script de dev en .mjs, pas de déclaration de types.
-import { singleDevServer } from './scripts/vite-single-dev-server.mjs'
 
 export default defineConfig({
+  // `@adonisjs/vite` démarre un serveur Vite aussi sous `node ace test`. Le hash
+  // du cache de deps inclut NODE_ENV : un run de test (NODE_ENV=test) juge le
+  // cache du serveur de dev périmé, SUPPRIME `deps/` et meurt avant d'avoir
+  // fini de le reconstruire. Le serveur de dev sert alors des deps disparues →
+  // « 504 (Outdated Optimize Dep) ». Un cache par environnement : chacun garde
+  // le sien.
+  cacheDir: process.env.NODE_ENV === 'test' ? 'node_modules/.vite-test' : 'node_modules/.vite',
   plugins: [
-    // Avant tout le reste : un seul serveur de dev par worktree. Voir le
-    // commentaire du plugin — deux serveurs Vite qui partagent
-    // node_modules/.vite se volent le cache de deps en boucle.
-    singleDevServer(),
     react({
       // On restreint aux fichiers JS/TS : si on laisse 'inertia-react/**', le plugin
       // fait aussi passer les .css par Babel, qui s'étouffe sur ':root {' (vu comme
