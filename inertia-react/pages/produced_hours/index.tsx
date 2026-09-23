@@ -295,7 +295,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                 role="radio"
                 active={dateMode === 'demandee'}
                 onClick={() => handleDateModeChange('demandee')}
-                title="Date d'expédition demandée par le client (X4HSHIDAT_0)"
+                title="Date de livraison demandée par le client (X4HDEMDLVD / DDEMDLVDAT)"
               >
                 Demandée
               </SegmentButton>

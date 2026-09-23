@@ -2,9 +2,11 @@ import { X3Database } from '#app/x3/client/x3_database'
 
 export type OrderDateMode = 'demandee' | 'acceptee'
 
-const DATE_FIELD: Record<OrderDateMode, string> = {
-  demandee: 'X4HSHIDAT_0',
-  acceptee: 'SHIDAT_0',
+const DEMANDEE_DATE_EXPR = `CASE WHEN Q.X4HDEMDLVD_0 IS NOT NULL AND Q.X4HDEMDLVD_0 > TO_DATE('19000101', 'YYYYMMDD') THEN Q.X4HDEMDLVD_0 ELSE Q.DEMDLVDAT_0 END`
+
+const DATE_EXPR: Record<OrderDateMode, string> = {
+  demandee: DEMANDEE_DATE_EXPR,
+  acceptee: 'Q.SHIDAT_0',
 }
 
 export interface RawOrderedQuantityRow {
@@ -44,7 +46,7 @@ export class X3OrderedQuantitiesRepository {
   /**
    * Récupère les quantités commandées par article et par jour sur la période [from, to].
    * Source : SORDERQ joint à SORDER.
-   * Filtrage temporel sur la date demandée (X4HSHIDAT_0) ou acceptée (SHIDAT_0).
+   * Filtrage temporel sur la date demandée (X4HDEMDLVD_0 repli DEMDLVDAT_0) ou acceptée (SHIDAT_0).
    */
   async getOrderedQuantities(
     from: string,
@@ -53,21 +55,21 @@ export class X3OrderedQuantitiesRepository {
   ): Promise<RawOrderedQuantityRow[]> {
     const safeFrom = sanitizeDate(from, '1970-01-01')
     const safeTo = sanitizeDate(to, '2099-12-31')
-    const dateCol = DATE_FIELD[dateMode] || 'X4HSHIDAT_0'
+    const dateExpr = DATE_EXPR[dateMode] || DEMANDEE_DATE_EXPR
 
     const sql = `
       SELECT
         Q.ITMREF_0                               AS ARTICLE,
-        TO_CHAR(Q.${dateCol}, 'YYYY-MM-DD')      AS JOUR,
+        TO_CHAR(${dateExpr}, 'YYYY-MM-DD')       AS JOUR,
         TO_CHAR(SUM(Q.QTY_0))                    AS QTE,
         COUNT(DISTINCT Q.SOHNUM_0)               AS NB_ORDERS
       FROM SORDERQ Q
       INNER JOIN SORDER H ON H.SOHNUM_0 = Q.SOHNUM_0
-      WHERE Q.${dateCol} >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
-        AND Q.${dateCol} <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
+      WHERE ${dateExpr} >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
+        AND ${dateExpr} <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
         AND Q.ITMREF_0 IS NOT NULL
-      GROUP BY Q.ITMREF_0, Q.${dateCol}
-      ORDER BY Q.${dateCol} ASC
+      GROUP BY Q.ITMREF_0, ${dateExpr}
+      ORDER BY ${dateExpr} ASC
     `
 
     const db = new X3Database()
@@ -103,7 +105,7 @@ export class X3OrderedQuantitiesRepository {
 
     const safeFrom = sanitizeDate(from, '1970-01-01')
     const safeTo = sanitizeDate(to, '2099-12-31')
-    const dateCol = DATE_FIELD[dateMode] || 'X4HSHIDAT_0'
+    const dateExpr = DATE_EXPR[dateMode] || DEMANDEE_DATE_EXPR
 
     const db = new X3Database()
     const allLines: RawOrderDetailLine[] = []
@@ -115,21 +117,21 @@ export class X3OrderedQuantitiesRepository {
 
         const sql = `
           SELECT
-            Q.SOHNUM_0                              AS SOHNUM,
-            Q.SOPLIN_0                              AS SOPLIN,
-            Q.SOQSEQ_0                              AS SOQSEQ,
-            H.BPCORD_0                              AS BPCORD,
-            H.BPCNAM_0                              AS BPCNAM,
-            Q.ITMREF_0                              AS ARTICLE,
-            TO_CHAR(Q.QTY_0)                        AS QTE,
-            TO_CHAR(Q.X4HSHIDAT_0, 'YYYY-MM-DD')    AS DATE_DEMANDEE,
-            TO_CHAR(Q.SHIDAT_0, 'YYYY-MM-DD')       AS DATE_ACCEPTEE
+            Q.SOHNUM_0                                   AS SOHNUM,
+            Q.SOPLIN_0                                   AS SOPLIN,
+            Q.SOQSEQ_0                                   AS SOQSEQ,
+            H.BPCORD_0                                   AS BPCORD,
+            H.BPCNAM_0                                   AS BPCNAM,
+            Q.ITMREF_0                                   AS ARTICLE,
+            TO_CHAR(Q.QTY_0)                             AS QTE,
+            TO_CHAR(${DEMANDEE_DATE_EXPR}, 'YYYY-MM-DD') AS DATE_DEMANDEE,
+            TO_CHAR(Q.SHIDAT_0, 'YYYY-MM-DD')            AS DATE_ACCEPTEE
           FROM SORDERQ Q
           INNER JOIN SORDER H ON H.SOHNUM_0 = Q.SOHNUM_0
-          WHERE Q.${dateCol} >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
-            AND Q.${dateCol} <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
+          WHERE ${dateExpr} >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
+            AND ${dateExpr} <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
             AND Q.ITMREF_0 IN (${inList})
-          ORDER BY Q.${dateCol} DESC, Q.SOHNUM_0 DESC, Q.SOPLIN_0 ASC
+          ORDER BY ${dateExpr} DESC, Q.SOHNUM_0 DESC, Q.SOPLIN_0 ASC
         `
 
         const result = await db.raw(sql)
