@@ -23,7 +23,7 @@
  */
 import { create } from 'zustand'
 
-import type { DiffCounts } from '@r/lib/diff-flash'
+import type { DiffCounts, DiffItem, DiffSummary } from '@r/lib/diff-flash'
 
 interface DataStatusState {
   /** Requêtes données en cours (fetch JSON + navigation Inertia). */
@@ -63,7 +63,7 @@ interface DataStatusState {
    * Récap du diff du dernier rechargement, par source (issue #186). Vide tant
    * qu'aucun rechargement explicite n'a produit de changement.
    */
-  diffBySource: Record<string, DiffCounts>
+  diffBySource: Record<string, DiffSummary>
   /** Nonce du rechargement auquel `diffBySource` se rapporte. */
   diffNonce: number
 
@@ -93,7 +93,7 @@ interface DataStatusState {
    * publication portant un nonce plus récent efface les compteurs du
    * rechargement précédent (on ne cumule jamais deux rechargements).
    */
-  publishDiff: (source: string, nonce: number, counts: DiffCounts) => void
+  publishDiff: (source: string, nonce: number, summary: DiffSummary | DiffCounts) => void
   /** Efface le récap — navigation, ou rechargement suivant. */
   clearDiff: () => void
   /**
@@ -177,26 +177,60 @@ export const useDataStatusStore = create<DataStatusState>((set) => ({
 
   seed: (ms) => set((s) => (s.loadedAt === null ? { ms, loadedAt: Date.now() } : {})),
 
-  publishDiff: (source, nonce, counts) =>
+  publishDiff: (source, nonce, summaryOrCounts) => {
+    const summary: DiffSummary =
+      'items' in summaryOrCounts ? summaryOrCounts : { counts: summaryOrCounts, items: [] }
     set((s) => ({
       diffNonce: nonce,
       diffBySource:
-        s.diffNonce === nonce ? { ...s.diffBySource, [source]: counts } : { [source]: counts },
-    })),
+        s.diffNonce === nonce ? { ...s.diffBySource, [source]: summary } : { [source]: summary },
+    }))
+  },
 
   clearDiff: () => set({ diffBySource: {}, diffNonce: 0 }),
   resetDataAge: () => set({ dataAgeMs: null, dataAgePresumed: true }),
 }))
 
-/** Somme des récaps publiés — `null` si aucun changement à annoncer. */
-export function totalDiff(bySource: Record<string, DiffCounts>): DiffCounts | null {
+/** Somme et agrégation des récaps publiés — `null` si aucun changement à annoncer. */
+export function totalDiff(bySource: Record<string, DiffSummary | DiffCounts>): DiffSummary | null {
   let changed = 0
   let entered = 0
   let exited = 0
-  for (const c of Object.values(bySource)) {
-    changed += c.changed
-    entered += c.entered
-    exited += c.exited
+  const itemsMap = new Map<string, DiffItem>()
+
+  for (const entry of Object.values(bySource)) {
+    const counts = 'counts' in entry ? entry.counts : entry
+    changed += counts.changed
+    entered += counts.entered
+    exited += counts.exited
+
+    if ('items' in entry && entry.items) {
+      for (const item of entry.items) {
+        const existing = itemsMap.get(item.id)
+        if (!existing) {
+          itemsMap.set(item.id, {
+            ...item,
+            changes: item.changes ? [...item.changes] : undefined,
+          })
+        } else {
+          // Fusion des changements de champs si la même entité est rapportée par deux fragments
+          if (item.changes && item.changes.length > 0) {
+            const currentChanges = existing.changes ? [...existing.changes] : []
+            for (const ch of item.changes) {
+              if (!currentChanges.some((c) => c.field === ch.field)) {
+                currentChanges.push(ch)
+              }
+            }
+            existing.changes = currentChanges
+          }
+        }
+      }
+    }
   }
-  return changed + entered + exited === 0 ? null : { changed, entered, exited }
+
+  if (changed === 0 && entered === 0 && exited === 0) return null
+  return {
+    counts: { changed, entered, exited },
+    items: Array.from(itemsMap.values()),
+  }
 }

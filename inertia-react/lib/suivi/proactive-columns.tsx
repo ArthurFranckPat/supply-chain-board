@@ -824,3 +824,45 @@ export const PROACTIVE_DIFF_FIELDS: Record<string, (row: ProactiveDisplayRow) =>
       .map((c) => `${c.art}:${c.qty}:${c.qc}:${c.cqSeul}:${c.reception?.eta ?? ''}`)
       .join(','),
 }
+
+export const PROACTIVE_FIELD_LABELS: Record<string, string> = {
+  numCommande: 'Commande / Client',
+  article: 'Article',
+  type: 'Type',
+  poste: 'Poste',
+  qteRestante: 'Qté restante',
+  dateExp: 'Expédition',
+  couverture: 'Couverture OF',
+  verdictKey: 'Verdict',
+  chargeHeures: 'Charge',
+  composants: 'Composants',
+}
+
+export function formatProactiveValue(
+  columnId: string,
+  _val: unknown,
+  row: ProactiveDisplayRow
+): string | undefined {
+  switch (columnId) {
+    case 'dateExp':
+      return row.dateExp
+    case 'qteRestante':
+      return `${row.qteRestante} u`
+    case 'verdictKey':
+      return row.verdictLabel
+    case 'couverture':
+      return row.couverture
+    case 'poste':
+      return row.posteLabel ? `${row.poste} (${row.posteLabel})` : row.poste
+    case 'type':
+      return row.type
+    case 'chargeHeures': {
+      const totalH = row.ofs.reduce((sum, o) => sum + (o.chargeHeures ?? 0), 0)
+      return `${Math.round(totalH * 10) / 10} h`
+    }
+    case 'composants':
+      return row.composants.length > 0 ? `${row.composants.length} composant(s)` : 'Aucun'
+    default:
+      return undefined
+  }
+}

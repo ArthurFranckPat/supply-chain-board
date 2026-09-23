@@ -41,6 +41,31 @@ export const EXIT_MS = 1000
 export interface DiffConfig<TRow> {
   key: (row: TRow) => string
   fields: Record<string, (row: TRow) => unknown>
+  /** Libellé lisible de la ligne (ex: commande · article) */
+  rowLabel?: (row: TRow) => string
+  /** Sous-titre ou complément (ex: client · désignation) */
+  rowSublabel?: (row: TRow) => string
+  /** Libellé lisible de chaque colonne/champ (ex: { dateExp: 'Expé' }) */
+  fieldLabels?: Record<string, string>
+  /** Formateur pour l'affichage lisible des valeurs avant/après dans le tooltip */
+  formatValue?: (columnId: string, value: unknown, row: TRow) => string | undefined
+}
+
+/** Changement d'un champ individuel sur une ligne. */
+export interface DiffItemChange {
+  field: string
+  label: string
+  from?: string
+  to?: string
+}
+
+/** Entrée détaillée d'une ligne ayant bougé (pour le tooltip de récapitulatif). */
+export interface DiffItem {
+  id: string
+  kind: 'changed' | 'entered' | 'exited'
+  label: string
+  sublabel?: string
+  changes?: DiffItemChange[]
 }
 
 /** Ce qui a bougé, exprimé en clés de ligne et identifiants de colonne. */
@@ -53,6 +78,8 @@ export interface DiffResult<TRow> {
   exited: Set<string>
   /** Lignes (ANCIENNES) correspondant à `exited` — à réafficher le temps du flash. */
   exitedRows: TRow[]
+  /** Liste détaillée de tous les changements (pour le tooltip récapitulatif). */
+  items: DiffItem[]
 }
 
 /** Récapitulatif chiffré d'un diff — alimente le compteur de la barre data-status. */
@@ -60,6 +87,12 @@ export interface DiffCounts {
   changed: number
   entered: number
   exited: number
+}
+
+/** Récapitulatif complet d'un diff (comptes globaux + liste des changements). */
+export interface DiffSummary {
+  counts: DiffCounts
+  items: DiffItem[]
 }
 
 /**
@@ -102,6 +135,22 @@ function groupValue<TRow>(group: TRow[], extract: (row: TRow) => unknown): unkno
   return group.length === 1 ? extract(group[0]) : group.map(extract)
 }
 
+function formatFieldVal<TRow>(
+  config: DiffConfig<TRow>,
+  columnId: string,
+  rawVal: unknown,
+  row: TRow
+): string | undefined {
+  if (config.formatValue) {
+    const custom = config.formatValue(columnId, rawVal, row)
+    if (custom !== undefined) return custom
+  }
+  if (typeof rawVal === 'string' || typeof rawVal === 'number' || typeof rawVal === 'boolean') {
+    return String(rawVal)
+  }
+  return undefined
+}
+
 /**
  * Diff entre deux photos du même registre. Aucune allocation superflue quand
  * rien ne bouge : le résultat vide est reconnaissable via `isEmptyDiff`.
@@ -119,29 +168,64 @@ export function diffRows<TRow>(
   const entered = new Set<string>()
   const exited = new Set<string>()
   const exitedRows: TRow[] = []
+  const items: DiffItem[] = []
 
   for (const [k, nextGroup] of nextGroups) {
     const prevGroup = prevGroups.get(k)
     if (!prevGroup) {
       entered.add(k)
+      items.push({
+        id: k,
+        kind: 'entered',
+        label: config.rowLabel ? config.rowLabel(nextGroup[0]) : k,
+        sublabel: config.rowSublabel ? config.rowSublabel(nextGroup[0]) : undefined,
+      })
       continue
     }
     let cols: Set<string> | null = null
+    const fieldChanges: DiffItemChange[] = []
     for (const [columnId, extract] of columns) {
-      if (sameValue(groupValue(prevGroup, extract), groupValue(nextGroup, extract))) continue
+      const prevVal = groupValue(prevGroup, extract)
+      const nextVal = groupValue(nextGroup, extract)
+      if (sameValue(prevVal, nextVal)) continue
       if (cols === null) cols = new Set<string>()
       cols.add(columnId)
+
+      const label = config.fieldLabels?.[columnId] ?? columnId
+      const from = formatFieldVal(config, columnId, prevVal, prevGroup[0])
+      const to = formatFieldVal(config, columnId, nextVal, nextGroup[0])
+      fieldChanges.push({
+        field: columnId,
+        label,
+        ...(from !== undefined ? { from } : {}),
+        ...(to !== undefined ? { to } : {}),
+      })
     }
-    if (cols !== null) changed.set(k, cols)
+    if (cols !== null) {
+      changed.set(k, cols)
+      items.push({
+        id: k,
+        kind: 'changed',
+        label: config.rowLabel ? config.rowLabel(nextGroup[0]) : k,
+        sublabel: config.rowSublabel ? config.rowSublabel(nextGroup[0]) : undefined,
+        changes: fieldChanges,
+      })
+    }
   }
 
   for (const [k, prevGroup] of prevGroups) {
     if (nextGroups.has(k)) continue
     exited.add(k)
     exitedRows.push(...prevGroup)
+    items.push({
+      id: k,
+      kind: 'exited',
+      label: config.rowLabel ? config.rowLabel(prevGroup[0]) : k,
+      sublabel: config.rowSublabel ? config.rowSublabel(prevGroup[0]) : undefined,
+    })
   }
 
-  return { changed, entered, exited, exitedRows }
+  return { changed, entered, exited, exitedRows, items }
 }
 
 /** Vrai si rien n'a bougé — évite d'armer des timers et d'afficher un compteur à zéro. */
@@ -152,6 +236,14 @@ export function isEmptyDiff<TRow>(d: DiffResult<TRow>): boolean {
 /** Compte les lignes touchées (pas les cellules) — unité lisible dans la barre. */
 export function countDiff<TRow>(d: DiffResult<TRow>): DiffCounts {
   return { changed: d.changed.size, entered: d.entered.size, exited: d.exited.size }
+}
+
+/** Produit le récapitulatif DiffSummary complet (counts + items). */
+export function summarizeDiff<TRow>(d: DiffResult<TRow>): DiffSummary {
+  return {
+    counts: countDiff(d),
+    items: d.items,
+  }
 }
 
 /**

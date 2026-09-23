@@ -29,9 +29,9 @@ import { useEffect, useRef, useState } from 'react'
 import {
   EXIT_MS,
   FLASH_MS,
-  countDiff,
   diffRows,
   isEmptyDiff,
+  summarizeDiff,
   type DiffConfig,
   type RowFlash,
 } from '@r/lib/diff-flash'
@@ -100,7 +100,7 @@ export function useDiffFlash<TRow>(
     const d = diffRows(prev, rows, configRef.current)
     if (isEmptyDiff(d)) return
 
-    useDataStatusStore.getState().publishDiff(source, nonce, countDiff(d))
+    useDataStatusStore.getState().publishDiff(source, nonce, summarizeDiff(d))
 
     clearTimers()
     setState({

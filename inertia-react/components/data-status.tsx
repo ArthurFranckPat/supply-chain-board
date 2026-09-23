@@ -31,7 +31,8 @@ import { router, usePage } from '@inertiajs/react'
 import { LoaderCircle, RefreshCw } from 'lucide-react'
 
 import { useDataStatusStore, totalDiff } from '@r/lib/data-status-store'
-import { EXIT_MS, FLASH_MS } from '@r/lib/diff-flash'
+import { EXIT_MS, FLASH_MS, type DiffSummary } from '@r/lib/diff-flash'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@r/components/ui/tooltip'
 import { cn } from '@r/lib/utils'
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -141,6 +142,109 @@ const fmtDiff = (d: { changed: number; entered: number; exited: number }) =>
     .filter(Boolean)
     .join(' · ')
 
+function DiffTooltipContent({ diff }: { diff: DiffSummary }) {
+  const summaryText = fmtDiff(diff.counts)
+  const items = diff.items
+
+  return (
+    <div className="flex flex-col gap-2 p-0.5 text-left font-sans">
+      <div className="flex items-center justify-between gap-3 border-b border-border/70 pb-2">
+        <div className="flex flex-col">
+          <span className="font-semibold text-foreground text-[12px]">Changements détectés</span>
+          <span className="text-[10px] text-muted-foreground">
+            Différences avec le snapshot précédent
+          </span>
+        </div>
+        <span className="rounded-full bg-[color-mix(in_srgb,var(--flash-change)_15%,transparent)] px-2 py-0.5 font-mono text-[10px] font-semibold text-[var(--flash-change)] shrink-0">
+          {summaryText}
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="py-2 text-[11px] text-muted-foreground italic text-center">
+          Aucun détail supplémentaire disponible.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5 max-h-[340px] overflow-y-auto pr-1">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 p-2 text-[11px] transition-colors hover:bg-muted/40"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {item.kind === 'entered' && (
+                    <span className="shrink-0 rounded bg-emerald-500/15 px-1 py-0.5 font-mono text-[9px] font-bold text-emerald-700 dark:text-emerald-400">
+                      NOUVEAU
+                    </span>
+                  )}
+                  {item.kind === 'exited' && (
+                    <span className="shrink-0 rounded bg-rose-500/15 px-1 py-0.5 font-mono text-[9px] font-bold text-rose-700 dark:text-rose-400">
+                      SORTIE
+                    </span>
+                  )}
+                  {item.kind === 'changed' && (
+                    <span className="shrink-0 rounded bg-amber-500/15 px-1 py-0.5 font-mono text-[9px] font-bold text-amber-700 dark:text-amber-400">
+                      MODIFIÉ
+                    </span>
+                  )}
+                  <span className="font-mono font-semibold text-foreground truncate">
+                    {item.label}
+                  </span>
+                </div>
+              </div>
+
+              {item.sublabel && (
+                <div className="text-[10px] text-muted-foreground truncate">{item.sublabel}</div>
+              )}
+
+              {item.kind === 'entered' && (
+                <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                  Nouvelle ligne entrée dans le périmètre
+                </div>
+              )}
+
+              {item.kind === 'exited' && (
+                <div className="text-[10px] text-rose-700 dark:text-rose-400 font-medium">
+                  Ligne sortie du périmètre (expédiée ou non retenue)
+                </div>
+              )}
+
+              {item.kind === 'changed' && item.changes && item.changes.length > 0 && (
+                <div className="flex flex-col gap-0.5 pt-0.5 border-t border-border/30">
+                  {item.changes.map((ch) => (
+                    <div
+                      key={ch.field}
+                      className="flex items-baseline justify-between gap-2 text-[10px]"
+                    >
+                      <span className="text-muted-foreground font-medium shrink-0">
+                        {ch.label} :
+                      </span>
+                      <span className="font-mono truncate text-right">
+                        {ch.from !== undefined && ch.to !== undefined ? (
+                          <>
+                            <span className="line-through text-muted-foreground/75">{ch.from}</span>
+                            <span className="mx-1 text-muted-foreground">→</span>
+                            <span className="font-semibold text-[var(--flash-change)]">
+                              {ch.to}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-medium text-[var(--flash-change)]">Modifié</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function DataStatus({
   variant = 'default',
   className,
@@ -201,7 +305,7 @@ export function DataStatus({
     x3LastSync
       ? `Extraction X3 (tables statiques) : ${fmtComplet(x3LastSync)}`
       : 'Extraction X3 : jamais synchronisée',
-    diff && `Depuis le rechargement : ${fmtDiff(diff)}`,
+    diff && `Depuis le rechargement : ${fmtDiff(diff.counts)}`,
     error && `Erreur : ${error}`,
   ]
     .filter(Boolean)
@@ -252,11 +356,32 @@ export function DataStatus({
           changements HORS écran (autres pages de tri, lignes filtrées), que le
           flash des cellules ne peut par construction pas montrer. Chip ambrée :
           c'est un événement, pas du régime permanent. Disparaît au
-          rechargement suivant (bump) ou au changement de page. */}
+          rechargement suivant (bump) ou au changement de page.
+          Survol : Tooltip du design system listant les changements détaillés. */}
       {!loading && diff && variant === 'default' && (
-        <span className="whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--flash-change)_14%,transparent)] px-2 py-[2px] font-semibold text-[var(--flash-change)]">
-          {fmtDiff(diff)}
-        </span>
+        <TooltipProvider delay={150} closeDelay={150}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  title=""
+                  tabIndex={0}
+                  className="cursor-help whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--flash-change)_14%,transparent)] px-2 py-[2px] font-semibold text-[var(--flash-change)] outline-none ring-offset-background transition-colors hover:bg-[color-mix(in_srgb,var(--flash-change)_22%,transparent)] focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {fmtDiff(diff.counts)}
+                </span>
+              }
+            />
+            <TooltipContent
+              side="bottom"
+              align="end"
+              sideOffset={8}
+              className="w-[340px] max-w-[calc(100vw-2rem)] p-3 text-popover-foreground shadow-lg"
+            >
+              <DiffTooltipContent diff={diff} />
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
       <button
         type="button"

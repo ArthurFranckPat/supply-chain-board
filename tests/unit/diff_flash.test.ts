@@ -143,4 +143,72 @@ test.group('diff-flash — moteur de diff', () => {
     )
     assert.deepEqual([...moved.changed.get('X')!], ['composants'])
   })
+
+  test('les items détaillés capturent labels, sous-titres et changements de champs', ({
+    assert,
+  }) => {
+    interface ExtendedRow {
+      cmd: string
+      art: string
+      client: string
+      designation: string
+      dateExp: string
+      qte: number
+    }
+    const config: DiffConfig<ExtendedRow> = {
+      key: (r) => `${r.cmd}::${r.art}`,
+      rowLabel: (r) => `${r.cmd} · ${r.art}`,
+      rowSublabel: (r) => `${r.client} · ${r.designation}`,
+      fieldLabels: {
+        dateExp: 'Expédition',
+        qte: 'Quantité',
+      },
+      formatValue: (colId, val) => (colId === 'qte' ? `${val} u` : String(val)),
+      fields: {
+        dateExp: (r) => r.dateExp,
+        qte: (r) => r.qte,
+      },
+    }
+
+    const prev: ExtendedRow[] = [
+      { cmd: 'C1', art: 'A1', client: 'Aldes', designation: 'VMC 1', dateExp: '20/09', qte: 10 },
+      { cmd: 'C2', art: 'A2', client: 'Rexel', designation: 'Gaine', dateExp: '21/09', qte: 5 },
+    ]
+    const next: ExtendedRow[] = [
+      // C1 a changé (date + qté)
+      { cmd: 'C1', art: 'A1', client: 'Aldes', designation: 'VMC 1', dateExp: '25/09', qte: 8 },
+      // C2 est sortie
+      // C3 est entrée
+      { cmd: 'C3', art: 'A3', client: 'Sonepar', designation: 'Bouche', dateExp: '22/09', qte: 12 },
+    ]
+
+    const d = diffRows(prev, next, config)
+    assert.equal(d.items.length, 3)
+
+    const entered = d.items.find((i) => i.id === 'C3::A3')
+    assert.deepEqual(entered, {
+      id: 'C3::A3',
+      kind: 'entered',
+      label: 'C3 · A3',
+      sublabel: 'Sonepar · Bouche',
+    })
+
+    const exited = d.items.find((i) => i.id === 'C2::A2')
+    assert.deepEqual(exited, {
+      id: 'C2::A2',
+      kind: 'exited',
+      label: 'C2 · A2',
+      sublabel: 'Rexel · Gaine',
+    })
+
+    const changed = d.items.find((i) => i.id === 'C1::A1')
+    assert.isDefined(changed)
+    assert.equal(changed!.kind, 'changed')
+    assert.equal(changed!.label, 'C1 · A1')
+    assert.equal(changed!.sublabel, 'Aldes · VMC 1')
+    assert.deepEqual(changed!.changes, [
+      { field: 'dateExp', label: 'Expédition', from: '20/09', to: '25/09' },
+      { field: 'qte', label: 'Quantité', from: '10 u', to: '8 u' },
+    ])
+  })
 })

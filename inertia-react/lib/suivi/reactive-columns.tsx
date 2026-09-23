@@ -414,3 +414,40 @@ export const REACTIVE_DIFF_FIELDS: Record<string, (row: SuiviDisplayRow) => unkn
             : '',
         ].join('|'),
 }
+
+export const REACTIVE_FIELD_LABELS: Record<string, string> = {
+  numCommande: 'Commande / Client',
+  article: 'Article',
+  type: 'Type',
+  poste: 'Poste',
+  qteRestante: 'Qté restante',
+  dateExp: 'Expédition',
+  emplacements: 'Emplacements',
+  statusKey: 'Statut',
+  cause: 'Cause',
+}
+
+export function formatReactiveValue(
+  columnId: string,
+  _val: unknown,
+  row: SuiviDisplayRow
+): string | undefined {
+  switch (columnId) {
+    case 'dateExp':
+      return row.dateExp
+    case 'qteRestante':
+      return `${row.qteRestante} u`
+    case 'statusKey':
+      return row.statusLabel
+    case 'poste':
+      return row.posteLabel ? `${row.poste} (${row.posteLabel})` : row.poste
+    case 'type':
+      return row.type
+    case 'emplacements':
+      return row.emplacements.length > 0 ? `${row.emplacements.length} empl.` : 'Aucun'
+    case 'cause':
+      return row.cause ? row.cause.label : 'Aucune'
+    default:
+      return undefined
+  }
+}

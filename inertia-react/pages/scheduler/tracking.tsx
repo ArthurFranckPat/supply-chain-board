@@ -30,8 +30,16 @@ import {
 } from '@r/lib/suivi/tracking-shared'
 import { useDiffFlash } from '@r/lib/use-diff-flash'
 import { useDataStatusStore } from '@r/lib/data-status-store'
-import { REACTIVE_DIFF_FIELDS } from '@r/lib/suivi/reactive-columns'
-import { PROACTIVE_DIFF_FIELDS } from '@r/lib/suivi/proactive-columns'
+import {
+  REACTIVE_DIFF_FIELDS,
+  REACTIVE_FIELD_LABELS,
+  formatReactiveValue,
+} from '@r/lib/suivi/reactive-columns'
+import {
+  PROACTIVE_DIFF_FIELDS,
+  PROACTIVE_FIELD_LABELS,
+  formatProactiveValue,
+} from '@r/lib/suivi/proactive-columns'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
@@ -145,10 +153,20 @@ export default function Tracking(props: SuiviPageProps) {
   const reactiveDiff = useDiffFlash('suivi:reactif', data?.rows ?? null, {
     key: suiviDiffKey,
     fields: REACTIVE_DIFF_FIELDS,
+    rowLabel: (r) => `${r.numCommande} · ${r.article}`,
+    rowSublabel: (r) =>
+      r.client ? `${r.client}${r.designation ? ` · ${r.designation}` : ''}` : r.designation,
+    fieldLabels: REACTIVE_FIELD_LABELS,
+    formatValue: formatReactiveValue,
   })
   const proactiveDiff = useDiffFlash('suivi:proactif', proData?.rows ?? null, {
     key: suiviDiffKey,
     fields: PROACTIVE_DIFF_FIELDS,
+    rowLabel: (r) => `${r.numCommande} · ${r.article}`,
+    rowSublabel: (r) =>
+      r.client ? `${r.client}${r.designation ? ` · ${r.designation}` : ''}` : r.designation,
+    fieldLabels: PROACTIVE_FIELD_LABELS,
+    formatValue: formatProactiveValue,
   })
 
   // Les fantômes rejoignent les lignes SOUMISES AUX FILTRES, jamais les
