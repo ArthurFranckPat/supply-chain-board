@@ -64,7 +64,16 @@ function useEntreesCq(articles: string[]): EntreesCqState | null {
   return state
 }
 
-/** Entrées en stock statut Q d'un composant : depuis quand la matière attend le CQ. */
+function libelleOrigine(e: EntreeCq): string {
+  const o = e.origine
+  if (!o) return e.emplacement
+  if (o.type === 'reception') return `Réception ${o.piece}${o.tiers ? ` · fourn. ${o.tiers}` : ''}`
+  if (o.type === 'production') return `Production ${o.piece}`
+  // Posé en Q à la main, hors circuit réception : rien à attendre du contrôle réception.
+  return `Entrée diverse ${o.piece}${o.operateur ? ` · ${o.operateur}` : ''} · sans demande CQ`
+}
+
+/** Entrées en stock statut Q d'un composant : depuis quand la matière est bloquée. */
 function EntreesCqList({ state, article }: { state: EntreesCqState | null; article: string }) {
   if (!state) return null
   if (state.status === 'loading') {
@@ -82,7 +91,7 @@ function EntreesCqList({ state, article }: { state: EntreesCqState | null; artic
   return (
     <div className="rounded border border-warning/30 bg-warning/5 p-2 space-y-1">
       <div className="text-3xs font-extrabold uppercase tracking-wider text-warning">
-        En attente CQ depuis
+        En statut Q depuis
       </div>
       {entrees.map((e, idx) => (
         <div
@@ -96,13 +105,7 @@ function EntreesCqList({ state, article }: { state: EntreesCqState | null; artic
             {e.ageJours !== null && (
               <span className="font-mono font-bold text-warning">({e.ageJours} j)</span>
             )}
-            <span className="truncate">
-              {e.origine
-                ? e.origine.type === 'reception'
-                  ? `Réception ${e.origine.piece}${e.origine.tiers ? ` · fourn. ${e.origine.tiers}` : ''}`
-                  : `Production ${e.origine.piece}`
-                : e.emplacement}
-            </span>
+            <span className="truncate">{libelleOrigine(e)}</span>
           </span>
           <span className="shrink-0 font-mono font-semibold text-foreground">
             {e.qte} u{e.origine ? ` · ${e.emplacement}` : ''}

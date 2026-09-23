@@ -267,11 +267,17 @@ export interface EntreeCq {
   demandeCq: string | null
   /** Pièce d'entrée retrouvée dans STOJOU via la demande CQ — null si introuvable. */
   origine: {
-    type: 'reception' | 'production'
-    /** N° de réception (REC…) ou de déclaration de production (SVA…). */
+    /**
+     * `entree_diverse` : stock posé en Q hors circuit réception (sans demande CQ) —
+     * pas une attente de contrôle réception mais un blocage manuel à arbitrer.
+     */
+    type: 'reception' | 'production' | 'entree_diverse'
+    /** N° de réception (REC…), de déclaration de production (SVA…) ou d'entrée diverse (MIS…). */
     piece: string
     /** Fournisseur (réception uniquement). */
     tiers: string | null
+    /** Auteur du mouvement (entrée diverse uniquement). */
+    operateur?: string | null
   } | null
 }
 

@@ -71,9 +71,11 @@ export interface EntreeCq {
   /** Jours calendaires depuis l'entrée. */
   ageJours: number | null
   origine: {
-    type: 'reception' | 'production'
+    /** `entree_diverse` : posé en Q à la main, sans demande CQ — pas une attente de réception. */
+    type: 'reception' | 'production' | 'entree_diverse'
     piece: string
     tiers: string | null
+    operateur?: string | null
   } | null
 }
 

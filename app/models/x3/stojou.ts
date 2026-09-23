@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import ItemMaster from '#models/x3/itmmaster'
+import { consumeX3Date } from '#app/x3/utils/parse_date'
 
 export default class StockJournal extends BaseModel {
   static table = 'STOJOU'
@@ -107,7 +108,7 @@ export default class StockJournal extends BaseModel {
   @column({ columnName: 'GTE_0' })
   declare typeDePiece: string | null
 
-  @column.date({ columnName: 'IPTDAT_0' })
+  @column.date({ columnName: 'IPTDAT_0', consume: consumeX3Date })
   declare dateImputation: DateTime | null
 
   @column({ columnName: 'ITMREF_0' })

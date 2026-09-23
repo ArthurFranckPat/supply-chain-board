@@ -180,7 +180,7 @@ export class X3EmplacementRepository {
       }
     }
 
-    return lignes.map((r) => {
+    const entrees: EntreeCq[] = lignes.map((r) => {
       const dem = r.demandeAnalyseQualite?.trim() || null
       return {
         article: r.article?.trim() ?? '',
@@ -192,6 +192,51 @@ export class X3EmplacementRepository {
         origine: dem ? (origineParDemande.get(dem) ?? null) : null,
       }
     })
+
+    // Sans demande CQ sur la ligne de stock (entrée diverse posée à la main en Q, ex.
+    // 11028700 : MIS26APR00211 sur CLC, 12 u bloquées depuis 5 mois ; ou ligne issue d'un
+    // transfert qui a perdu la demande), on retrouve le mouvement d'entrée par article +
+    // statut Q + date d'entrée.
+    const orphelines = entrees.filter((e) => !e.origine && e.dateEntree)
+    if (orphelines.length > 0) {
+      const minIso = orphelines.map((e) => e.dateEntree!.toISOString().slice(0, 10)).sort()[0]!
+      try {
+        const mvts = await StockJournal.query()
+          .select('ITMREF_0', 'LOC_0', 'IPTDAT_0', 'TRSTYP_0', 'VCRNUM_0', 'BPRNUM_0', 'CREUSR_0')
+          .whereIn('ITMREF_0', [...new Set(orphelines.map((e) => e.article))])
+          .where('STA_0', 'Q')
+          .where('QTYSTU_0', '>', 0)
+          .whereIn('TRSTYP_0', [1, 3, 5])
+          // minIso vient d'une Date : littéral sûr, pas d'entrée utilisateur.
+          .whereRaw(`IPTDAT_0 >= TO_DATE('${minIso}', 'YYYY-MM-DD')`)
+        for (const e of orphelines) {
+          const jour = e.dateEntree!.toISOString().slice(0, 10)
+          // Même emplacement d'abord ; sinon même jour ailleurs — la ligne a pu être
+          // transférée depuis (K5325 : reçu en REC le 18/11, rangé en S4P ensuite).
+          const duJour = mvts.filter(
+            (x) => x.article?.trim() === e.article && x.dateImputation?.toISODate() === jour
+          )
+          const m = duJour.find((x) => x.emplacement?.trim() === e.emplacement) ?? duJour[0]
+          const piece = m?.noPieceNoRecNoLivOuNoOf?.trim()
+          if (!m || !piece) continue
+          const trs = String(m.typeTransaction ?? '').trim()
+          e.origine =
+            trs === '3'
+              ? { type: 'reception', piece, tiers: m.numeroTiers?.trim() || null }
+              : trs === '5'
+                ? { type: 'production', piece, tiers: null }
+                : {
+                    type: 'entree_diverse',
+                    piece,
+                    tiers: null,
+                    operateur: m.operateurCreation?.trim() || null,
+                  }
+        }
+      } catch {
+        // origine non-bloquante.
+      }
+    }
+    return entrees
   }
 
   /**
