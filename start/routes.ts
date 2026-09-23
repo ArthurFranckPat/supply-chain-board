@@ -286,6 +286,7 @@ router
         router.post('/retard-charge', '#controllers/suivi_controller.retardCharge')
         router.get('/rows', '#controllers/suivi_controller.rows')
         router.get('/proactive-rows', '#controllers/suivi_controller.proactiveRows')
+        router.get('/entrees-cq', '#controllers/suivi_controller.entreesCq').as('status.entrees_cq')
       })
       .prefix('/api/v1/status')
 

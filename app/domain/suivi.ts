@@ -251,6 +251,30 @@ export interface Emplacement {
   alreadyAllocated?: boolean
 }
 
+/**
+ * Ligne de stock sous contrôle qualité (statut Q) et son entrée d'origine.
+ *
+ * X3 garde une ligne STOCK par réception / déclaration de production en Q (la demande
+ * de contrôle `QLYCTLDEM` les sépare) : `LASRCPDAT` y est la date d'arrivée réelle, et
+ * elle survit aux transferts d'emplacement (CREDAT, elle, est réécrite).
+ */
+export interface EntreeCq {
+  article: string
+  emplacement: string
+  hum: string | null
+  qte: number
+  dateEntree: Date | null
+  demandeCq: string | null
+  /** Pièce d'entrée retrouvée dans STOJOU via la demande CQ — null si introuvable. */
+  origine: {
+    type: 'reception' | 'production'
+    /** N° de réception (REC…) ou de déclaration de production (SVA…). */
+    piece: string
+    /** Fournisseur (réception uniquement). */
+    tiers: string | null
+  } | null
+}
+
 export interface OrderLine {
   numCommande: string
   /** N° de ligne sur la commande (VCRLIN_0) — pour le matching allocations STOALL. */

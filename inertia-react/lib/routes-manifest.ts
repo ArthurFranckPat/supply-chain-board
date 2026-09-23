@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 112 routes nommées.
+ * 113 routes nommées.
  */
 
 export const MANIFEST = {
@@ -139,6 +139,7 @@ export const MANIFEST = {
   'sequenceur.index': { method: 'GET', pattern: '/sequenceur' },
   'static_sync.status': { method: 'GET', pattern: '/api/v1/static/status' },
   'static_sync.sync': { method: 'POST', pattern: '/api/v1/static/sync' },
+  'status.entrees_cq': { method: 'GET', pattern: '/api/v1/status/entrees-cq' },
   'suivi.assign': { method: 'POST', pattern: '/api/v1/status/assign' },
   'suivi.board': { method: 'GET', pattern: '/suivi' },
   'suivi.from_latest_export': { method: 'POST', pattern: '/api/v1/status/from-latest-export' },
@@ -260,6 +261,7 @@ export type RouteParams = {
   'sequenceur.index': void
   'static_sync.status': void
   'static_sync.sync': void
+  'status.entrees_cq': void
   'suivi.assign': void
   'suivi.board': void
   'suivi.from_latest_export': void

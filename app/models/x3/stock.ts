@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import ItemMaster from '#models/x3/itmmaster'
+import { consumeX3Date } from '#app/x3/utils/parse_date'
 
 export default class Stock extends BaseModel {
   static table = 'STOCK'
@@ -62,7 +63,8 @@ export default class Stock extends BaseModel {
   @column.date({ columnName: 'LASISSDAT_0' })
   declare dateDerniereSortie: DateTime | null
 
-  @column.date({ columnName: 'LASRCPDAT_0' })
+  // Format X3 dd-MMM-yy : sans ce consume, la date d'entrée arrivait toujours invalide.
+  @column.date({ columnName: 'LASRCPDAT_0', consume: consumeX3Date })
   declare dateDerniereEntree: DateTime | null
 
   @column({ columnName: 'LOC_0' })

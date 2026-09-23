@@ -12,6 +12,7 @@ import {
   type StatusAssignment,
   type SuiviStatus,
   type CauseType,
+  type EntreeCq,
 } from '#app/domain/suivi'
 import {
   SuiviService,
@@ -20,6 +21,7 @@ import {
   SUIVI_FORWARD_DAYS,
 } from '#services/suivi_service'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import type { OrderImpactResult } from '#app/domain/order_impacts'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
@@ -172,6 +174,47 @@ export default class SuiviController {
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
     const charge = await new SuiviService().retardCharge(refDate)
     return { reference_date: refDate.toISOString().slice(0, 10), charge }
+  }
+
+  /**
+   * GET /api/v1/status/entrees-cq?articles=A,B
+   * Stock statut Q des composants d'une ligne, daté de son entrée (réception fournisseur
+   * ou déclaration de production) — pour challenger le contrôle réception. Chargé à
+   * l'ouverture du détail proactif : quelques articles, une requête STOCK + une STOJOU.
+   */
+  async entreesCq(ctx: HttpContext) {
+    const articles = String(ctx.request.input('articles', ''))
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean)
+      .slice(0, 50)
+    try {
+      const entrees = await new X3EmplacementRepository().getEntreesCq(articles)
+      const today = new Date()
+      const parArticle: Record<string, EntreeCqDisplay[]> = {}
+      for (const e of entrees) {
+        const iso = e.dateEntree ? e.dateEntree.toISOString().slice(0, 10) : null
+        ;(parArticle[e.article] ??= []).push({
+          emplacement: e.emplacement,
+          hum: e.hum,
+          qte: e.qte,
+          dateEntree: fmtFrFull(iso),
+          ageJours: e.dateEntree
+            ? Math.max(0, Math.floor((today.getTime() - e.dateEntree.getTime()) / 86_400_000))
+            : null,
+          origine: e.origine,
+        })
+      }
+      // Plus ancienne d'abord : c'est elle qui attend le plus le contrôle réception.
+      for (const arr of Object.values(parArticle)) {
+        arr.sort((a, b) => (b.ageJours ?? -1) - (a.ageJours ?? -1))
+      }
+      return { articles: parArticle }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error({ err: msg }, '[suivi] entrées CQ indisponibles')
+      return ctx.response.status(502).send({ error: sanitizeX3Error(msg) })
+    }
   }
 
   /**
@@ -372,6 +415,18 @@ function serializeAssignments(assignments: StatusAssignment[]) {
 // ---------------------------------------------------------------------------
 
 export type SuiviStatusKey = 'exp' | 'alc' | 'ret' | 'ras'
+
+/** Ligne de stock statut Q datée, pour le détail proactif (cf. `entreesCq`). */
+export interface EntreeCqDisplay {
+  emplacement: string
+  hum: string | null
+  qte: number
+  /** Date d'entrée (STOCK.LASRCPDAT_0) — JJ/MM/AAAA, null si inconnue. */
+  dateEntree: string | null
+  /** Jours calendaires depuis l'entrée. */
+  ageJours: number | null
+  origine: EntreeCq['origine']
+}
 
 /**
  * Projection d'un Emplacement pour l'affichage (colonne Emplacement du suivi).

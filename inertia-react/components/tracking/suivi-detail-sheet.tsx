@@ -3,7 +3,9 @@
  * centrée sur la traçabilité commande, les ruptures composants / approvisionnements,
  * le statut qualité et les OFs de couverture.
  */
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
+import { route } from '@r/lib/routes'
 import {
   AlertCircle,
   AlertTriangle,
@@ -19,7 +21,7 @@ import {
   MapPin,
 } from 'lucide-react'
 import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
-import type { SuiviDisplayRow, ProactiveDisplayRow } from '@r/lib/suivi/types'
+import type { SuiviDisplayRow, ProactiveDisplayRow, EntreeCq } from '@r/lib/suivi/types'
 
 export interface SuiviDetailSheetProps {
   type: 'reactif' | 'proactif'
@@ -28,10 +30,102 @@ export interface SuiviDetailSheetProps {
   onSelectPoste?: (posteCode: string) => void
 }
 
+type EntreesCqState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ok'; articles: Record<string, EntreeCq[]> }
+
+/**
+ * Stock statut Q des composants, daté de son entrée — chargé à l'ouverture du détail
+ * proactif (quelques articles, requête X3 ciblée). Clé = liste d'articles triée.
+ */
+function useEntreesCq(articles: string[]): EntreesCqState | null {
+  const key = [...articles].sort().join(',')
+  const [state, setState] = useState<EntreesCqState | null>(null)
+  useEffect(() => {
+    if (!key) {
+      setState(null)
+      return
+    }
+    const ctrl = new AbortController()
+    setState({ status: 'loading' })
+    fetch(`${route('status.entrees_cq')}?articles=${encodeURIComponent(key)}`, {
+      signal: ctrl.signal,
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { articles: Record<string, EntreeCq[]> }) =>
+        setState({ status: 'ok', articles: data.articles })
+      )
+      .catch(() => {
+        if (!ctrl.signal.aborted) setState({ status: 'error' })
+      })
+    return () => ctrl.abort()
+  }, [key])
+  return state
+}
+
+/** Entrées en stock statut Q d'un composant : depuis quand la matière attend le CQ. */
+function EntreesCqList({ state, article }: { state: EntreesCqState | null; article: string }) {
+  if (!state) return null
+  if (state.status === 'loading') {
+    return <div className="px-2.5 text-3xs text-muted-foreground">Dates d'entrée en stock…</div>
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="px-2.5 text-3xs text-muted-foreground">
+        Dates d'entrée en stock indisponibles (X3).
+      </div>
+    )
+  }
+  const entrees = state.articles[article] ?? []
+  if (entrees.length === 0) return null
+  return (
+    <div className="rounded border border-warning/30 bg-warning/5 p-2 space-y-1">
+      <div className="text-3xs font-extrabold uppercase tracking-wider text-warning">
+        En attente CQ depuis
+      </div>
+      {entrees.map((e, idx) => (
+        <div
+          key={`${e.emplacement}-${e.hum ?? ''}-${idx}`}
+          className="flex items-center justify-between gap-2 text-2xs"
+        >
+          <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+            <span className="font-mono font-bold text-foreground">
+              {e.dateEntree ?? 'date inconnue'}
+            </span>
+            {e.ageJours !== null && (
+              <span className="font-mono font-bold text-warning">({e.ageJours} j)</span>
+            )}
+            <span className="truncate">
+              {e.origine
+                ? e.origine.type === 'reception'
+                  ? `Réception ${e.origine.piece}${e.origine.tiers ? ` · fourn. ${e.origine.tiers}` : ''}`
+                  : `Production ${e.origine.piece}`
+                : e.emplacement}
+            </span>
+          </span>
+          <span className="shrink-0 font-mono font-semibold text-foreground">
+            {e.qte} u{e.origine ? ` · ${e.emplacement}` : ''}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function SuiviDetailSheet({ type, row, onSelectOf, onSelectPoste }: SuiviDetailSheetProps) {
   const isReactif = type === 'reactif'
   const reactiveRow = row as SuiviDisplayRow
   const proactiveRow = row as ProactiveDisplayRow
+
+  const articlesCq = useMemo(
+    () =>
+      isReactif
+        ? []
+        : proactiveRow.composants.filter((c) => c.qc > 0 || c.cqSeul).map((c) => c.art),
+    [isReactif, proactiveRow.composants]
+  )
+  const entreesCq = useEntreesCq(articlesCq)
 
   const late = isReactif ? reactiveRow.late : proactiveRow.joursRetard > 0
   const lateDays = isReactif ? reactiveRow.lateDays : proactiveRow.joursRetard
@@ -306,6 +400,9 @@ export function SuiviDetailSheet({ type, row, onSelectOf, onSelectPoste }: Suivi
                     </div>
                   )}
 
+                  {/* Date d'entrée du stock statut Q — pour challenger le contrôle réception */}
+                  {(c.qc > 0 || c.cqSeul) && <EntreesCqList state={entreesCq} article={c.art} />}
+
                   {/* Acheminement / Commande d'achat fournisseur */}
                   {c.reception ? (
                     <div className="rounded border border-rule bg-secondary/30 p-2.5 space-y-1.5">
@@ -553,6 +650,18 @@ export function SuiviDetailSheet({ type, row, onSelectOf, onSelectPoste }: Suivi
                       {emp.hum && (
                         <span className="font-mono text-3xs text-muted-foreground">
                           Pal : {emp.hum}
+                        </span>
+                      )}
+                      {emp.dateMiseEnStock && (
+                        <span
+                          className="font-mono text-3xs text-muted-foreground"
+                          title={
+                            emp.hum
+                              ? "Date d'entrée en stock de la palette"
+                              : "Sans HUM, X3 regroupe les entrées successives sur une même ligne : c'est la date de la plus récente"
+                          }
+                        >
+                          {emp.hum ? 'Entrée' : 'Dern. entrée'} : {emp.dateMiseEnStock}
                         </span>
                       )}
                     </div>

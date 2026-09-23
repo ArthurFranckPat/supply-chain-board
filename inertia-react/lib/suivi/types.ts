@@ -58,6 +58,25 @@ export interface SuiviEmplacement {
   dateMiseEnStock?: string | null
 }
 
+/**
+ * Ligne de stock statut Q d'un composant, datée de son entrée (miroir de
+ * EntreeCqDisplay côté serveur, endpoint `status.entrees_cq`).
+ */
+export interface EntreeCq {
+  emplacement: string
+  hum: string | null
+  qte: number
+  /** JJ/MM/AAAA, null si inconnue. */
+  dateEntree: string | null
+  /** Jours calendaires depuis l'entrée. */
+  ageJours: number | null
+  origine: {
+    type: 'reception' | 'production'
+    piece: string
+    tiers: string | null
+  } | null
+}
+
 export interface SuiviDisplayRow {
   numCommande: string
   client: string

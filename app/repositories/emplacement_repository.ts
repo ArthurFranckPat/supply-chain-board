@@ -1,8 +1,9 @@
 import type { DateTime } from 'luxon'
-import type { Emplacement } from '#app/domain/suivi'
+import type { Emplacement, EntreeCq } from '#app/domain/suivi'
 import type { ErpAllocation } from '#app/domain/allocation'
 import StockAlloc from '#models/x3/stoall'
 import Stock from '#models/x3/stock'
+import StockJournal from '#models/x3/stojou'
 
 /**
  * Emplacements de stock par ligne de commande — détection « zone d'expédition ».
@@ -61,13 +62,17 @@ export class X3EmplacementRepository {
         ...new Set(rows.map((r) => r.chronoStock).filter((v): v is string => Boolean(v))),
       ]
       const entreeParStoCou = new Map<string, DateTime | null>()
+      const humParStoCou = new Map<string, string>()
       if (stoCous.length > 0) {
         try {
           const stockRows = await Stock.query()
-            .select('STOCOU_0', 'LASRCPDAT_0')
+            .select('STOCOU_0', 'LASRCPDAT_0', 'PALNUM_0')
             .whereIn('STOCOU_0', stoCous)
           for (const s of stockRows) {
-            if (s.chronoStock) entreeParStoCou.set(s.chronoStock, s.dateDerniereEntree)
+            if (!s.chronoStock) continue
+            entreeParStoCou.set(s.chronoStock, s.dateDerniereEntree)
+            const hum = s.identifiant1?.trim()
+            if (hum) humParStoCou.set(s.chronoStock, hum)
           }
         } catch {
           // date d'entrée non-bloquante — dégrade en absence de date.
@@ -82,6 +87,7 @@ export class X3EmplacementRepository {
         arr.push({
           nom: loc,
           qtePalette: intOrNull(r.quantiteUs),
+          hum: r.chronoStock ? (humParStoCou.get(r.chronoStock) ?? null) : null,
           source: 'STOALL',
           stoCou: String(r.chronoStock ?? '') || null,
           dateMiseEnStock: toValidJsDate(r.chronoStock ? entreeParStoCou.get(r.chronoStock) : null),
@@ -124,6 +130,68 @@ export class X3EmplacementRepository {
       }
     }
     return map
+  }
+
+  /**
+   * Stock sous contrôle qualité des articles donnés, avec la pièce d'entrée d'origine —
+   * pour dater l'attente au contrôle réception (détail /suivi proactif).
+   *
+   * Même critère Q que `getStockLocations` (STA=Q ou demande CQ ouverte). Origine :
+   * STOJOU TRSTYP 3 (réception achat) / 5 (production) portant la même demande CQ,
+   * mouvement positif. Non-bloquante : STOJOU KO → lignes sans origine.
+   */
+  async getEntreesCq(articles: string[]): Promise<EntreeCq[]> {
+    const uniq = [...new Set(articles.filter(Boolean))]
+    if (uniq.length === 0) return []
+    const rows = await Stock.query()
+      .select('ITMREF_0', 'LOC_0', 'PALNUM_0', 'QTYSTUACT_0', 'STA_0', 'QLYCTLDEM_0', 'LASRCPDAT_0')
+      .whereIn('ITMREF_0', uniq)
+      .whereNotNull('LOC_0')
+      .where('QTYSTUACT_0', '>', 0)
+    const lignes = rows.filter(
+      (r) => (r.statut?.trim() ?? '') === 'Q' || Boolean(r.demandeAnalyseQualite?.trim())
+    )
+
+    const demandes = [
+      ...new Set(lignes.map((r) => r.demandeAnalyseQualite?.trim()).filter(Boolean)),
+    ] as string[]
+    const origineParDemande = new Map<string, NonNullable<EntreeCq['origine']>>()
+    if (demandes.length > 0) {
+      try {
+        const mvts = await StockJournal.query()
+          .select('QLYCTLDEM_0', 'TRSTYP_0', 'VCRNUM_0', 'BPRNUM_0')
+          .whereIn('ITMREF_0', uniq)
+          .whereIn('QLYCTLDEM_0', demandes)
+          .whereIn('TRSTYP_0', [3, 5])
+          .where('QTYSTU_0', '>', 0)
+        for (const m of mvts) {
+          const dem = m.demandeAnalyseQualite?.trim()
+          const piece = m.noPieceNoRecNoLivOuNoOf?.trim()
+          if (!dem || !piece || origineParDemande.has(dem)) continue
+          const reception = String(m.typeTransaction ?? '').trim() === '3'
+          origineParDemande.set(dem, {
+            type: reception ? 'reception' : 'production',
+            piece,
+            tiers: reception ? m.numeroTiers?.trim() || null : null,
+          })
+        }
+      } catch {
+        // origine non-bloquante — la date d'entrée suffit à challenger le CQ.
+      }
+    }
+
+    return lignes.map((r) => {
+      const dem = r.demandeAnalyseQualite?.trim() || null
+      return {
+        article: r.article?.trim() ?? '',
+        emplacement: r.emplacement?.trim() ?? '',
+        hum: r.identifiant1?.trim() || null,
+        qte: Number.parseFloat(r.quantiteActiveUs ?? '0') || 0,
+        dateEntree: toValidJsDate(r.dateDerniereEntree),
+        demandeCq: dem,
+        origine: dem ? (origineParDemande.get(dem) ?? null) : null,
+      }
+    })
   }
 
   /**
