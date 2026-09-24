@@ -50,7 +50,7 @@ function CqLine({ qty }: { qty: number }) {
  * en retard n'affichait que « Bloquée » : le retard disparaissait. La cellule
  * dit désormais les deux axes côte à côte, chacun avec sa couleur.
  */
-function feasibilityTone(o: ProactiveDisplayRow): {
+export function feasibilityTone(o: ProactiveDisplayRow): {
   label: string
   dot: string
   tone: string
@@ -98,7 +98,9 @@ function feasibilityTone(o: ProactiveDisplayRow): {
  * quarts des lignes ne serait que du bruit. Le retard projeté n'est plus avalé
  * par « Bloquée » (2 lignes bloquées sont aussi en retard).
  */
-function delayTone(o: ProactiveDisplayRow): { label: string; tone: string; title: string } | null {
+export function delayTone(
+  o: ProactiveDisplayRow
+): { label: string; tone: string; title: string } | null {
   if (o.verdictKey === 'risk')
     return {
       label: 'À risque',
@@ -171,7 +173,6 @@ export function createProactiveColumns({
         </div>
       ),
       meta: {
-        cardFull: true,
         thClass:
           'w-[200px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
@@ -419,7 +420,6 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        cardFull: true,
         thClass:
           'w-[150px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
@@ -764,7 +764,6 @@ export function createProactiveColumns({
         )
       },
       meta: {
-        cardFull: true,
         thClass:
           'w-[300px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',

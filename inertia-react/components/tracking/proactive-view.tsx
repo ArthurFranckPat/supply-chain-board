@@ -13,6 +13,7 @@ import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@r/lib/suivi/types'
 import { sortRows, LATE_TONE, suiviRowKey, suiviDiffKey } from '@r/lib/suivi/tracking-shared'
+import { ProactiveCard } from '@r/components/tracking/suivi-card'
 import { createProactiveColumns, createProactiveIndexCol } from '@r/lib/suivi/proactive-columns'
 
 export interface ProactiveViewProps {
@@ -84,6 +85,13 @@ export function ProactiveView(props: ProactiveViewProps) {
               )
             }}
             mobileCards
+            renderCard={(row: ProactiveDisplayRow) => (
+              <ProactiveCard
+                row={row}
+                referenceDate={props.view.referenceDate}
+                showSubAssemblies={props.showSubAssemblies ?? false}
+              />
+            )}
             getCardClass={(row: ProactiveDisplayRow) => LATE_TONE.bar(row.lateSeverity)}
             tableClass="min-w-[1252px] table-fixed"
             scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"

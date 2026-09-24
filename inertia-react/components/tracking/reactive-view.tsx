@@ -13,6 +13,7 @@ import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { SuiviRowsResponse, SuiviDisplayRow } from '@r/lib/suivi/types'
 import { sortRows, LATE_TONE, suiviRowKey, suiviDiffKey } from '@r/lib/suivi/tracking-shared'
+import { ReactiveCard } from '@r/components/tracking/suivi-card'
 import { createReactiveColumns, createReactiveIndexCol } from '@r/lib/suivi/reactive-columns'
 
 export interface ReactiveViewProps {
@@ -85,6 +86,9 @@ export function ReactiveView(props: ReactiveViewProps) {
               )
             }
             mobileCards
+            renderCard={(row: SuiviDisplayRow) => (
+              <ReactiveCard row={row} referenceDate={props.view.referenceDate} />
+            )}
             getCardClass={(row: SuiviDisplayRow) => LATE_TONE.bar(row.lateSeverity)}
             tableClass="min-w-[1342px] table-fixed"
             scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"

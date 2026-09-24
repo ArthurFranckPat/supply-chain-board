@@ -607,10 +607,10 @@ export default function Tracking(props: SuiviPageProps) {
               les autres pages (la recherche vit dans la toolbar, pas dans
               la barre de navigation globale). Reste toujours visible : pas
               un filtre secondaire, pas de consolidation derrière un clic. */}
-          <div className={cn(PILL, 'shrink-0')}>
+          <div className={cn(PILL, 'shrink-0 max-md:order-first max-md:w-full')}>
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
             <input
-              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+              className="w-full min-w-0 border-0 md:w-[200px] bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
               placeholder="Commande, article, client, composant…"
               type="text"
               autoComplete="off"
@@ -627,13 +627,13 @@ export default function Tracking(props: SuiviPageProps) {
           )}
           {/* Durée de chargement X3 */}
           {loading && (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="font-mono text-xs tabular-nums text-muted-foreground max-md:hidden">
               {fmtMs(liveElapsed)}
             </span>
           )}
           {!loading && lastMs !== null && (
             <span
-              className="font-mono text-xs tabular-nums text-muted-foreground/60"
+              className="font-mono text-xs tabular-nums text-muted-foreground/60 max-md:hidden"
               title="Durée dernier chargement X3"
             >
               {fmtMs(lastMs)}

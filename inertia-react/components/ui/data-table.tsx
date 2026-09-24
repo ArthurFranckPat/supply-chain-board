@@ -98,6 +98,8 @@ export interface DataTableProps<TRow> {
   mobileCards?: boolean
   /** Habillage additionnel d'une carte (ex. barre latérale de retard). */
   getCardClass?: (row: TRow) => string | undefined
+  /** Contenu de carte sur mesure — remplace le rendu générique libellé/valeur. */
+  renderCard?: (row: TRow) => ReactNode
 }
 
 const DEFAULT_SCROLL_CLASS = 'h-full overflow-auto rounded-lg border bg-card shadow-xs'
@@ -122,6 +124,7 @@ export function DataTable<TRow>({
   getFlashKey,
   mobileCards = false,
   getCardClass,
+  renderCard,
 }: DataTableProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
@@ -249,28 +252,34 @@ export function DataTable<TRow>({
                         : undefined
                     }
                     className={cn(
-                      'rounded-lg border border-rule bg-card p-3 text-sm',
+                      'rounded-xl border border-rule bg-card p-4 text-sm',
                       onRowClick && 'cursor-pointer active:bg-muted/50',
                       getCardClass?.(row),
                       isSelected && rowSelectedClass
                     )}
                   >
-                    {titleCol && <div className="min-w-0">{cellContent(row, titleCol)}</div>}
-                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
-                      {restCols.map((col) => (
-                        <div
-                          key={colId(col)}
-                          className={cn('min-w-0', col.meta?.cardFull && 'col-span-2')}
-                        >
-                          <dt className="text-[11px] font-medium text-muted-foreground">
-                            {renderHeader(col)}
-                          </dt>
-                          <dd className="min-w-0 [overflow-wrap:anywhere]">
-                            {cellContent(row, col)}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
+                    {renderCard ? (
+                      renderCard(row)
+                    ) : (
+                      <>
+                        {titleCol && <div className="min-w-0">{cellContent(row, titleCol)}</div>}
+                        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+                          {restCols.map((col) => (
+                            <div
+                              key={colId(col)}
+                              className={cn('min-w-0', col.meta?.cardFull && 'col-span-2')}
+                            >
+                              <dt className="text-[11px] font-medium text-muted-foreground">
+                                {renderHeader(col)}
+                              </dt>
+                              <dd className="min-w-0 [overflow-wrap:anywhere]">
+                                {cellContent(row, col)}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </>
+                    )}
                   </div>
                 </div>
               )

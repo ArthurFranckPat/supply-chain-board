@@ -933,15 +933,3 @@ tr[data-flash='out'] {
     font-size: 16px;
   }
 }
-
-/*
- * Cibles tactiles (écran tactile < md). Les rangées d'outils sont calibrées
- * souris (boutons de 24 à 28 px) : au doigt, un segment sur deux est manqué.
- * Plancher à 40 px de haut dans les toolbars — le reste de la densité est
- * inchangé, et rien ne bouge sous une souris.
- */
-@media (max-width: 767px) and (pointer: coarse) {
-  :is([data-print-toolbar], [data-toolbar]) :is(button, [role='button'], a, select, input) {
-    min-height: 40px;
-  }
-}

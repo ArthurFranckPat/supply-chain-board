@@ -34,9 +34,9 @@ export function ToolbarRow(props: { children: ReactNode; className?: string; noW
       data-print-toolbar
       className={cn(
         'flex flex-none items-center gap-2.5 border-b border-rule px-4 py-2 min-h-[48px] md:px-7',
-        // Sous md, une rangée noWrap défile horizontalement au lieu d'écraser
-        // ou couper ses contrôles.
-        props.noWrap ? 'flex-nowrap max-md:overflow-x-auto max-md:*:shrink-0' : 'flex-wrap',
+        // Sous md, même une rangée noWrap passe à la ligne : un défilement
+        // horizontal couperait les panneaux déroulants (FilterMenu) ancrés dedans.
+        props.noWrap ? 'flex-wrap md:flex-nowrap' : 'flex-wrap',
         props.className
       )}
     >
@@ -320,7 +320,7 @@ export function FilterMenu(props: {
 
       <div
         className={cn(
-          'absolute top-full z-50 mt-1.5 w-[280px] rounded-lg border border-rule bg-popover p-2.5 shadow-lg',
+          'absolute top-full z-50 mt-1.5 w-[280px] max-w-[calc(100vw-2rem)] rounded-lg border border-rule bg-popover p-2.5 shadow-lg',
           align === 'right' ? 'right-0' : 'left-0',
           props.panelClassName
         )}

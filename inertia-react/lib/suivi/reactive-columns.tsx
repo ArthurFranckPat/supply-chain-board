@@ -65,7 +65,6 @@ export function createReactiveColumns({
         </div>
       ),
       meta: {
-        cardFull: true,
         thClass:
           'w-[200px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[5px] align-middle',
@@ -280,7 +279,6 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        cardFull: true,
         thClass:
           'w-[300px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[5px] align-middle',
@@ -366,7 +364,6 @@ export function createReactiveColumns({
         )
       },
       meta: {
-        cardFull: true,
         thClass:
           'w-[280px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[5px] align-middle',
