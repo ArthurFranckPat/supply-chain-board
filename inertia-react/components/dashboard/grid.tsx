@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as React from 'react'
 import { cn } from '@r/lib/utils'
+import { useIsMobile } from '@r/lib/use-media-query'
 
 export interface DashboardGridItem {
   id: string
@@ -141,6 +142,7 @@ export function DashboardGrid({
 }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
+  const isMobile = useIsMobile()
 
   const gestureRef = useRef<Gesture | null>(null)
   const detachRef = useRef<(() => void) | null>(null)
@@ -173,7 +175,8 @@ export function DashboardGrid({
     })
     ro.observe(node)
     return () => ro.disconnect()
-  }, [])
+    // Le conteneur n'existe pas en mode empilé : on se rebranche au retour desktop.
+  }, [isMobile])
 
   // ----- Conversions grille ↔ pixels -----
   const colWidth = width > 0 ? (width - gap * (cols - 1)) / cols : 0
@@ -454,6 +457,31 @@ export function DashboardGrid({
         : null,
     [editMode]
   )
+
+  // Mobile : 24 colonnes sur 375 px donnent des tuiles de quelques dizaines de
+  // pixels. On empile en pleine largeur dans l'ordre de lecture (y puis x),
+  // hauteur conservée ; pas de geste — le layout persisté reste celui du desktop.
+  if (isMobile) {
+    const ordered = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
+    return (
+      <div className={cn('dashboard-grid flex flex-col', className)} style={{ gap }}>
+        {ordered.map((item) => {
+          const child = clonedChildren.get(item.id)
+          if (!child) return null
+          return (
+            <div
+              key={item.id}
+              data-grid-id={item.id}
+              className={cn('dashboard-grid-item', item.id === expandedId && 'is-expanded')}
+              style={{ position: 'relative', height: toBox(item).height }}
+            >
+              {child}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   const tiles: React.ReactNode[] = []
   for (const [id, child] of clonedChildren) {

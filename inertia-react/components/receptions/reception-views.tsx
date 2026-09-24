@@ -95,16 +95,16 @@ export function ReceptionTableau({
         return (
           <section
             key={group.date ?? `nodate-${gi}`}
-            className={cn('flex', gi > 0 && 'border-t border-rule')}
+            className={cn('flex max-md:flex-col', gi > 0 && 'border-t border-rule')}
           >
             {/* ── Rail de date ── */}
-            <aside className="flex w-36 flex-none flex-col border-r border-rule-soft py-5 pl-8 pr-3">
+            <aside className="flex w-36 flex-none flex-col border-r border-rule-soft py-5 pl-8 pr-3 max-md:sticky max-md:top-0 max-md:z-10 max-md:w-full max-md:flex-row max-md:flex-wrap max-md:items-baseline max-md:gap-x-2 max-md:border-r-0 max-md:border-b max-md:bg-background max-md:px-4 max-md:py-2">
               {rail ? (
                 <>
                   <div className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
                     {rail.weekday}
                   </div>
-                  <div className="font-fraunces text-[34px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
+                  <div className="font-fraunces text-[22px] font-extrabold md:text-[34px] leading-none tracking-tight text-foreground tabular-nums">
                     {rail.day}
                   </div>
                   <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
@@ -119,7 +119,7 @@ export function ReceptionTableau({
               {relatif && (
                 <span
                   className={cn(
-                    'mt-2 font-mono text-[10px] font-bold',
+                    'mt-2 font-mono text-[10px] font-bold max-md:mt-0',
                     relatif === 'auj.' ? 'text-brand' : 'text-muted-foreground'
                   )}
                 >
@@ -127,7 +127,7 @@ export function ReceptionTableau({
                 </span>
               )}
               {/* Charge agrégée du jour */}
-              <div className="mt-3.5 space-y-0.5 border-t border-rule-soft pt-2.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <div className="mt-3.5 space-y-0.5 border-t border-rule-soft pt-2.5 font-mono text-[10px] tabular-nums text-muted-foreground max-md:mt-0 max-md:ml-auto max-md:flex max-md:items-baseline max-md:gap-3 max-md:space-y-0 max-md:border-t-0 max-md:pt-0">
                 <div>
                   {group.items.length} ligne{group.items.length > 1 ? 's' : ''}
                 </div>
@@ -136,7 +136,7 @@ export function ReceptionTableau({
                 </div>
                 <div
                   className={cn(
-                    'pt-1 font-fraunces text-[15px] font-bold tabular-nums',
+                    'pt-1 font-fraunces text-[15px] max-md:pt-0 font-bold tabular-nums',
                     chargeText(totalTier)
                   )}
                 >
@@ -158,9 +158,9 @@ export function ReceptionTableau({
                 return (
                   <div
                     key={`${row.noCommande}-${row.article}-${n}`}
-                    className="flex items-baseline gap-5 border-b border-rule-soft py-3.5 pl-6 pr-8 transition-colors hover:bg-foreground/[0.03]"
+                    className="flex items-baseline gap-3 border-b border-rule-soft py-3 pl-4 pr-4 transition-colors md:gap-5 md:py-3.5 md:pl-6 md:pr-8 hover:bg-foreground/[0.03]"
                   >
-                    <span className="w-5 flex-none text-[10px] font-semibold tabular-nums text-muted-foreground/60">
+                    <span className="hidden w-5 flex-none text-[10px] font-semibold tabular-nums text-muted-foreground/60 md:inline">
                       {String(n).padStart(2, '0')}
                     </span>
 
@@ -211,9 +211,7 @@ export function ReceptionTableau({
                       <span
                         className={cn(
                           'font-fraunces text-[19px] font-bold leading-none tabular-nums',
-                          row.coefManquant
-                            ? 'font-medium text-destructive/45'
-                            : chargeText(tier)
+                          row.coefManquant ? 'font-medium text-destructive/45' : chargeText(tier)
                         )}
                       >
                         {row.nbPalettesFmt}
@@ -298,7 +296,7 @@ export function ReceptionCalendrier({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Légende */}
-      <div className="flex flex-none flex-wrap items-center gap-4 border-b border-rule-soft px-7 py-2 font-mono text-[10px] text-muted-foreground">
+      <div className="flex flex-none flex-wrap items-center gap-4 border-b border-rule-soft px-4 md:px-7 py-2 font-mono text-[10px] text-muted-foreground">
         <Legend sw={chargeBg('ok')} label="Léger (&lt; 5)" />
         <Legend sw={chargeBg('mid')} label="Moyen (5–11)" />
         <Legend sw={chargeBg('warn')} label="Fort (12–19)" />
@@ -318,15 +316,14 @@ export function ReceptionCalendrier({
       </div>
 
       {/* Histogramme scrollable */}
-      <div className="flex-1 overflow-auto px-7 py-4">
+      <div className="flex-1 overflow-auto px-4 md:px-7 py-4">
         <div
           className="flex min-h-full items-end gap-1.5"
           style={{ minWidth: `${Math.max(list.length * 56, 100)}px` }}
         >
           {list.map((c) => {
             const tier = chargeTier(c.palettes)
-            const heightPct =
-              maxPalettes > 0 ? Math.max((c.palettes / maxPalettes) * 100, 6) : 6
+            const heightPct = maxPalettes > 0 ? Math.max((c.palettes / maxPalettes) * 100, 6) : 6
             const selected = selectedDay === c.day
             return (
               <button

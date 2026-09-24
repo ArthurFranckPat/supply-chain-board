@@ -40,7 +40,7 @@ export function Composer(props: {
   }
 
   return (
-    <div className="flex justify-center border-t border-border/60 bg-background px-6 py-3.5">
+    <div className="flex justify-center border-t border-border/60 bg-background px-3 py-3 md:px-6 md:py-3.5">
       <div className="w-full max-w-[720px]">
         <div className="mb-2.5 flex flex-wrap gap-2">
           {PROMPT_CHIPS.map((chip) => (
@@ -83,7 +83,9 @@ export function Composer(props: {
               Lecture seule
             </span>
             <span className="ml-auto inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
-              <kbd className="rounded border border-border bg-secondary px-1.5 py-px font-mono text-[10px]">↵</kbd>
+              <kbd className="rounded border border-border bg-secondary px-1.5 py-px font-mono text-[10px]">
+                ↵
+              </kbd>
             </span>
             {props.busy ? (
               <button

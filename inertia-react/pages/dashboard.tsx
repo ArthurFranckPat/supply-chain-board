@@ -1031,7 +1031,7 @@ export default function Dashboard(props: DashboardProps) {
         </div>
 
         {/* Barre d'outils édition */}
-        <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
+        <div className="mb-4 flex items-center justify-between gap-3 max-md:hidden print:hidden">
           {editMode && (
             <span className="font-mono text-xs font-medium text-muted-foreground">
               Personnalisation — glissez les KPI, ajustez la poignée ou choisissez une largeur,

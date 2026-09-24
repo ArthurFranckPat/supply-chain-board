@@ -902,3 +902,46 @@ tr[data-flash='out'] {
   --blur-medium: 3px;
   --blur-large: 8px;
 }
+
+/*
+ * Lisibilité mobile (< md). Le code est dense et calibré pour le desktop :
+ * ~500 textes entre 8 et 11 px, illisibles sur téléphone. Plutôt que de
+ * doubler chaque classe d'un `md:`, on relève ici un plancher de 11 px et on
+ * pousse 11 px à 12 px — le desktop n'est pas touché. Hors `@layer` : gagne
+ * sur les utilitaires Tailwind.
+ *
+ * Champs à 16 px : en dessous, iOS Safari zoome la page au focus.
+ */
+@media (max-width: 767px) {
+  .text-\[8px\],
+  .text-\[8\.5px\],
+  .text-\[9px\],
+  .text-\[9\.5px\],
+  .text-\[10px\],
+  .text-\[10\.5px\],
+  .text-2xs,
+  .text-3xs {
+    font-size: 11px;
+  }
+  .text-\[11px\],
+  .text-\[11\.5px\] {
+    font-size: 12px;
+  }
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Cibles tactiles (écran tactile < md). Les rangées d'outils sont calibrées
+ * souris (boutons de 24 à 28 px) : au doigt, un segment sur deux est manqué.
+ * Plancher à 40 px de haut dans les toolbars — le reste de la densité est
+ * inchangé, et rien ne bouge sous une souris.
+ */
+@media (max-width: 767px) and (pointer: coarse) {
+  :is([data-print-toolbar], [data-toolbar]) :is(button, [role='button'], a, select, input) {
+    min-height: 40px;
+  }
+}

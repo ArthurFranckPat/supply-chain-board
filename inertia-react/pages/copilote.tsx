@@ -38,6 +38,7 @@ import { Composer } from '@r/components/copilote/composer'
 import { ToolTokens } from '@r/components/copilote/tool-tokens'
 import { McpAppParts } from '@r/components/copilote/mcp-app-frame'
 import { CopiloteMarkdown } from '@r/components/copilote/markdown'
+import { useIsMobile } from '@r/lib/use-media-query'
 
 /** Metadata émise par le backend sur le chunk `start` (ex-event `session`). */
 interface AgentMessageMetadata {
@@ -64,8 +65,12 @@ export default function Copilote() {
   const conversationIdRef = useRef(conversationId)
   conversationIdRef.current = conversationId
 
-  const [navCollapsed, setNavCollapsed] = useState(false)
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
+  const isMobile = useIsMobile()
+  // Sur mobile, les panneaux recouvrent le chat : on démarre replié.
+  const startCollapsed = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  const [navCollapsed, setNavCollapsed] = useState(startCollapsed)
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(startCollapsed)
   const [flash, setFlash] = useState<{ tool: string; nonce: number } | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
@@ -208,13 +213,21 @@ export default function Copilote() {
         <AppShell
           navCollapsed={navCollapsed}
           inspectorCollapsed={inspectorCollapsed}
+          overlay={isMobile}
+          onDismiss={() => {
+            setNavCollapsed(true)
+            setInspectorCollapsed(true)
+          }}
           sidebar={
             <CopiloteSidebar
               conversations={conversations}
               currentId={conversationId}
               busy={busy}
               onNewChat={resetConversation}
-              onSelect={(id) => void openConversation(id)}
+              onSelect={(id) => {
+                if (isMobile) setNavCollapsed(true)
+                void openConversation(id)
+              }}
               onDelete={(id) => void deleteConversation(id)}
               username={authUser?.username ?? '—'}
               env={authUser?.env ?? 'prod'}
@@ -222,7 +235,7 @@ export default function Copilote() {
           }
           inspector={<InspectorPanel entries={inspectorEntries} subject={subject} flash={flash} />}
         >
-          <div className="flex items-center gap-2.5 border-b border-border/60 px-5 py-2.5">
+          <div className="flex items-center gap-2.5 border-b border-border/60 px-3 py-2.5 md:px-5">
             <button
               type="button"
               onClick={() => setNavCollapsed((v) => !v)}
@@ -251,7 +264,7 @@ export default function Copilote() {
           </div>
 
           <div className="flex flex-1 justify-center overflow-hidden">
-            <div className="w-full max-w-[720px] overflow-y-auto px-6 py-6">
+            <div className="w-full max-w-[720px] overflow-y-auto px-4 py-4 md:px-6 md:py-6">
               {chat.messages.length === 0 && (
                 <div className="text-[13px] text-secondary-foreground">
                   Exemples :

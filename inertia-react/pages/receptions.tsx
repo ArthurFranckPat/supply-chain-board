@@ -197,7 +197,7 @@ export default function Receptions(props: ReceptionsPageProps) {
             Masquée à l'écran (le Masthead porte déjà le contexte), elle est la
             seule identité de la feuille une fois posée sur une table : sans
             elle, on ne sait ni de quelle période ni de quand date le tirage. */}
-        <div className="hidden flex-none items-baseline justify-between border-b border-rule px-7 pb-3 pt-1 print:flex">
+        <div className="hidden flex-none items-baseline justify-between border-b border-rule px-4 md:px-7 pb-3 pt-1 print:flex">
           <span className="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
             Réceptions <span className="font-medium italic text-brand">fournisseurs</span>
             <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
@@ -350,7 +350,7 @@ export default function Receptions(props: ReceptionsPageProps) {
         </ToolbarRow>
 
         {/* ═══ Bandeau vue (drill-down + compteurs) ═══ */}
-        <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5 print:hidden">
+        <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-4 md:px-7 py-1.5 print:hidden">
           {/* Filtre jour actif (drill-down) */}
           {selectedDay && (
             <span className="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-semibold text-brand">
@@ -393,7 +393,7 @@ export default function Receptions(props: ReceptionsPageProps) {
 
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (
-          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 md:px-7 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement réceptions :</span>
             <span className="font-mono">{x3Error}</span>
@@ -476,7 +476,7 @@ export default function Receptions(props: ReceptionsPageProps) {
             rappel de période évite une feuille orpheline sur la table. */}
         <div
           data-print-footer
-          className="hidden items-baseline justify-between border-t border-rule bg-background px-7 pb-1 pt-1.5 font-mono text-[10px] text-muted-foreground"
+          className="hidden items-baseline justify-between border-t border-rule bg-background px-4 md:px-7 pb-1 pt-1.5 font-mono text-[10px] text-muted-foreground"
         >
           <span>Réceptions fournisseurs · {printRange}</span>
           <span>Édité le {fmtDayFull(new Date())}</span>
