@@ -99,7 +99,7 @@ export function AppLayout({
     <div
       data-app-layout="b"
       className={cn(
-        'flex h-screen flex-col overflow-hidden bg-background text-foreground',
+        'flex h-dvh flex-col overflow-hidden bg-background text-foreground',
         THEME_SCOPE[theme],
         dense && 'print:h-auto print:overflow-visible'
       )}
@@ -120,7 +120,7 @@ export function AppLayout({
           hairline pour séparer de la zone principale. Padding horizontal
           identique à la zone principale (px-4 = 16px). */}
       {toolbar && (
-        <div className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-4 py-2.5 print:hidden">
+        <div className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-4 py-2.5 max-md:flex-wrap print:hidden">
           {toolbar}
         </div>
       )}
@@ -153,7 +153,7 @@ export function AppLayout({
           Pas de footer marketing (inutile en interne). Désactivé en dense
           et sur print. */}
       {!hideFooter && !dense && (
-        <footer className="flex h-8 flex-none items-center justify-between border-t border-border bg-background px-4 text-[11px] text-muted-foreground print:hidden">
+        <footer className="hidden h-8 flex-none items-center md:flex justify-between border-t border-border bg-background px-4 text-[11px] text-muted-foreground print:hidden">
           {footer ?? <DefaultFooter />}
         </footer>
       )}

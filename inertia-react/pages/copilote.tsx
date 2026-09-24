@@ -202,7 +202,7 @@ export default function Copilote() {
   return (
     <>
       <Head title="Copilote" />
-      <div className="theme-airbnb flex h-screen flex-col bg-background text-foreground">
+      <div className="theme-airbnb flex h-dvh flex-col bg-background text-foreground">
         <Masthead subtitle="Copilote supply — lecture seule" active="copilote" variant="airbnb" />
 
         <AppShell

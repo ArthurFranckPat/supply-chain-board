@@ -33,8 +33,10 @@ export function ToolbarRow(props: { children: ReactNode; className?: string; noW
     <div
       data-print-toolbar
       className={cn(
-        'flex flex-none items-center gap-2.5 border-b border-rule px-7 py-2 min-h-[48px]',
-        props.noWrap ? 'flex-nowrap' : 'flex-wrap',
+        'flex flex-none items-center gap-2.5 border-b border-rule px-4 py-2 min-h-[48px] md:px-7',
+        // Sous md, une rangée noWrap défile horizontalement au lieu d'écraser
+        // ou couper ses contrôles.
+        props.noWrap ? 'flex-nowrap max-md:overflow-x-auto max-md:*:shrink-0' : 'flex-wrap',
         props.className
       )}
     >

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, usePage } from '@inertiajs/react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Menu } from 'lucide-react'
 
 import { DataStatus } from '@r/components/data-status'
 import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
+import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import UserMenu from '@r/components/user-menu'
 
 /**
@@ -241,6 +242,69 @@ function MoreMenu({
   )
 }
 
+/**
+ * Navigation mobile (< lg) : la rangée d'onglets ne tient pas sous ~1024 px,
+ * elle passe dans un tiroir latéral. Mêmes groupes que les menus desktop,
+ * à plat, cibles tactiles 44 px.
+ */
+const MOBILE_SECTIONS: TabGroup[] = [
+  { tabs: [TABLEAU_DE_BORD, SUIVI_COMMANDES] },
+  { label: 'Ordonnancement', tabs: ORDONNANCEMENT_GROUPS.flatMap((g) => g.tabs) },
+  { label: 'Planification', tabs: PLANIFICATION_GROUPS.flatMap((g) => g.tabs) },
+  ...LOGISTIQUE_GROUPS,
+  ...PLUS_GROUPS.map((g) => ({ label: g.label ?? 'Plus', tabs: g.tabs })),
+]
+
+function MobileNav({ active }: { active: MastheadTab }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Ouvrir la navigation"
+        className="-ml-2 flex size-10 flex-none items-center justify-center rounded-md text-foreground hover:bg-muted lg:hidden"
+      >
+        <Menu size={20} strokeWidth={2} />
+      </button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="gap-0 overflow-y-auto p-0">
+          <SheetTitle className="border-b border-border px-4 py-4 text-base font-bold">
+            Supply Chain <span className="text-primary">AERECO</span>
+          </SheetTitle>
+          <nav className="flex flex-col py-2">
+            {MOBILE_SECTIONS.map((group, gi) => (
+              <div key={gi} className={cn(gi > 0 && 'mt-1 border-t border-border pt-1')}>
+                {group.label && (
+                  <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    {group.label}
+                  </div>
+                )}
+                {group.tabs.map((t) => (
+                  <Link
+                    key={t.key}
+                    href={t.href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      'flex min-h-11 items-center px-4 text-[15px] font-medium transition-colors',
+                      t.key === active
+                        ? 'bg-muted font-semibold text-foreground'
+                        : 'text-foreground hover:bg-muted/60'
+                    )}
+                  >
+                    {t.label}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
+
 export function Masthead(props: {
   subtitle: string
   active: MastheadTab
@@ -265,7 +329,7 @@ export function Masthead(props: {
     // Layout fusionné : 1 seule rangée 64px (au lieu de 80+48=128 stock).
     // DESIGN.md top-nav : wordmark à gauche, onglets centrés, utilitaires droite.
     return (
-      <header className="relative flex min-h-[64px] flex-none items-center gap-6 border-b border-border bg-background px-7 print:hidden">
+      <header className="relative flex min-h-14 flex-none items-center gap-3 border-b border-border bg-background px-4 md:px-7 lg:min-h-[64px] lg:gap-6 print:hidden">
         {env === 'test' && (
           <div
             className="absolute inset-x-0 top-0 z-10 h-[4px] bg-[var(--color-arches,#fc642d)]"
@@ -273,10 +337,13 @@ export function Masthead(props: {
           />
         )}
 
+        <MobileNav active={props.active} />
+
         {/* Bloc gauche : wordmark + subtitle + env badge. */}
-        <div className="flex items-center gap-3">
-          <div className="text-[20px] font-bold leading-none tracking-tight">
-            Supply Chain <span className="text-primary">AERECO</span>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="truncate text-[17px] font-bold leading-none tracking-tight lg:text-[20px]">
+            <span className="hidden sm:inline">Supply Chain </span>
+            <span className="text-primary">AERECO</span>
             {env === 'test' && (
               <span className="ml-2 align-middle text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-arches,#fc642d)]">
                 [TEST]
@@ -300,7 +367,7 @@ export function Masthead(props: {
         </div>
 
         {/* Nav centrée — DESIGN.md top-nav : onglets au milieu. */}
-        <nav className="flex flex-1 items-center justify-center gap-0">
+        <nav className="hidden flex-1 items-center justify-center gap-0 lg:flex">
           {/* Tableau de bord */}
           <Link
             href={TABLEAU_DE_BORD.href}
@@ -352,9 +419,14 @@ export function Masthead(props: {
         </nav>
 
         {/* Bloc droit : actions + statut données + UserMenu. */}
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex flex-none items-center gap-3 lg:ml-0">
           {props.actions}
-          <DataStatus />
+          <div className="hidden md:block">
+            <DataStatus />
+          </div>
+          <div className="md:hidden">
+            <DataStatus variant="compact" />
+          </div>
           <UserMenu />
         </div>
       </header>
@@ -370,7 +442,7 @@ export function Masthead(props: {
           aria-hidden="true"
         />
       )}
-      <div className="flex min-h-[60px] items-end justify-between gap-5 px-7 pb-2 pt-3.5">
+      <div className="flex min-h-[60px] items-end justify-between gap-5 px-4 pb-2 pt-3.5 md:px-7">
         <div className="flex items-center gap-3.5">
           <div className="text-[24px] font-bold leading-[0.9] tracking-tight">
             Supply Chain <span className="font-medium italic text-primary">AERECO</span>
@@ -397,7 +469,7 @@ export function Masthead(props: {
         </div>
       </div>
 
-      <nav className="flex min-h-[44px] items-center gap-1 border-t px-7">
+      <nav className="flex min-h-[44px] items-center gap-1 border-t px-4 max-lg:overflow-x-auto max-lg:*:shrink-0 md:px-7">
         <Link href={TABLEAU_DE_BORD.href} className={tabCls(TABLEAU_DE_BORD.key === props.active)}>
           {TABLEAU_DE_BORD.label}
         </Link>

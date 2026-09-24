@@ -1056,7 +1056,7 @@ export default function Programme(props: VisionProps) {
   return (
     <>
       <Head title="Programme" />
-      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="theme-airbnb flex h-dvh flex-col overflow-hidden bg-background text-foreground">
         <Masthead subtitle="Programme · Flux OF ↔ commandes" active="programme" variant="airbnb" />
 
         <ProgrammeToolbar
