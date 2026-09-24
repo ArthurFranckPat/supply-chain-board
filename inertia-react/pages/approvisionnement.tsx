@@ -634,6 +634,7 @@ export default function Approvisionnement() {
 
   return (
     <AppLayout
+      desktopOnly
       title="Approvisionnement"
       active="approvisionnement"
       subtitle="Approvisionnement · Besoins matières"

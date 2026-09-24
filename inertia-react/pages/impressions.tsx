@@ -302,7 +302,13 @@ export default function Impressions(props: PageProps) {
   }
 
   return (
-    <AppLayout title="Impressions" active="config" subtitle="Impressions" theme="airbnb">
+    <AppLayout
+      desktopOnly
+      title="Impressions"
+      active="config"
+      subtitle="Impressions"
+      theme="airbnb"
+    >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
         <div>
           <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">

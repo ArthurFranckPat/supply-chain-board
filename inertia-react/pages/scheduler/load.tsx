@@ -1256,6 +1256,7 @@ export default function Load(props: LoadPageProps) {
 
   return (
     <AppLayout
+      desktopOnly
       title="Charge · Projection"
       active="load"
       subtitle="Charge · vision long terme"

@@ -246,6 +246,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
 
   return (
     <AppLayout
+      desktopOnly
       active="heures_produites"
       subtitle={
         view === 'commandes'

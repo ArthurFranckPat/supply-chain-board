@@ -254,6 +254,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
 
   return (
     <AppLayout
+      desktopOnly
       title="Conditionnements"
       active="conditionnements"
       subtitle="Conditionnements · Rattrapage référentiel"

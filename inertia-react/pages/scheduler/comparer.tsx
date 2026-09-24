@@ -5,6 +5,7 @@ import { ArrowLeft, Printer } from 'lucide-react'
 
 import { Button } from '@r/components/ui/button'
 import Masthead from '@r/components/masthead'
+import { DesktopOnlyNotice } from '@r/components/desktop-only-notice'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
 import type { PlanDiff, AllocationStrategy } from '@r/lib/scenarios/types'
@@ -99,6 +100,7 @@ export default function Comparer(props: ComparerPageProps) {
         className="theme-airbnb min-h-screen bg-background px-4 py-3 font-sans print:p-0 print:bg-white"
       >
         <Masthead subtitle="Programme · Scénarios" active="programme" variant="airbnb" />
+        <DesktopOnlyNotice />
 
         {/* Header Band */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-rule pb-4 print:hidden">

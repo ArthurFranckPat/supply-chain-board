@@ -1031,6 +1031,7 @@ export default function Sequenceur(props: SequenceurPageProps) {
     // 1.6 ne l'accepte plus sur chaque tooltip), et le board en compte des centaines.
     <TooltipProvider delay={250} closeDelay={0}>
       <AppLayout
+        desktopOnly
         title="Séquenceur"
         active="sequenceur"
         subtitle="Board tabulaire · OF ferme / planifié / suggéré par poste"

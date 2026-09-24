@@ -646,6 +646,7 @@ export default function ImpressionsConfig(props: PageProps) {
 
   return (
     <AppLayout
+      desktopOnly
       title="Impressions"
       active="config"
       subtitle="Routage des impressions d’OF"

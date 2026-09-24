@@ -450,6 +450,7 @@ export default function Calendrier(props: CalendrierPageProps) {
 
   return (
     <AppLayout
+      desktopOnly
       title="Calendrier usine"
       active="config"
       subtitle="Calendrier usine"

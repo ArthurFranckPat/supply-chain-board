@@ -22,6 +22,7 @@ import { Head, usePage, router } from '@inertiajs/react'
 import { Search, TriangleAlert } from 'lucide-react'
 
 import Masthead from '@r/components/masthead'
+import { DesktopOnlyNotice } from '@r/components/desktop-only-notice'
 import { TextField, TextFieldInput } from '@r/components/ui/text-field'
 import {
   Select,
@@ -1058,6 +1059,7 @@ export default function Programme(props: VisionProps) {
       <Head title="Programme" />
       <div className="theme-airbnb flex h-dvh flex-col overflow-hidden bg-background text-foreground">
         <Masthead subtitle="Programme · Flux OF ↔ commandes" active="programme" variant="airbnb" />
+        <DesktopOnlyNotice />
 
         <ProgrammeToolbar
           mode={mode}

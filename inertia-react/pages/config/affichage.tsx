@@ -62,6 +62,7 @@ export default function Affichage() {
 
   return (
     <AppLayout
+      desktopOnly
       title="Affichage"
       active="config"
       subtitle="Configuration · Affichage"

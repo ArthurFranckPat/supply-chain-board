@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/react'
 
 import { Masthead, type MastheadTab } from '@r/components/masthead'
 import { cn } from '@r/lib/utils'
+import { DesktopOnlyNotice } from '@r/components/desktop-only-notice'
 
 /**
  * AppLayout — shell applicatif Layout B (B2B adapté Airbnb).
@@ -66,6 +67,8 @@ interface AppLayoutProps {
   scrollable?: boolean
   /** Largeur max du contenu. Défaut '7xl' (1280px). */
   maxWidth?: '7xl' | 'full'
+  /** Vue pensée pour grand écran : bandeau d'avertissement sous `md`. */
+  desktopOnly?: boolean
   /** Titre <head> Inertia. */
   title?: string
   /** Contenu de la zone principale. */
@@ -90,6 +93,7 @@ export function AppLayout({
   dense = false,
   scrollable = true,
   maxWidth = '7xl',
+  desktopOnly = false,
   title,
   children,
 }: AppLayoutProps) {
@@ -115,12 +119,17 @@ export function AppLayout({
         />
       )}
 
+      {desktopOnly && <DesktopOnlyNotice />}
+
       {/* Toolbar — 56px, pills de filtrage.
           Pas de border-top (Masthead a déjà un border-bottom), border-bottom
           hairline pour séparer de la zone principale. Padding horizontal
           identique à la zone principale (px-4 = 16px). */}
       {toolbar && (
-        <div className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-4 py-2.5 max-md:flex-wrap print:hidden">
+        <div
+          data-toolbar
+          className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-4 py-2.5 max-md:flex-wrap print:hidden"
+        >
           {toolbar}
         </div>
       )}
