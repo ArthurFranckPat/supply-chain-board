@@ -171,6 +171,7 @@ export function createProactiveColumns({
         </div>
       ),
       meta: {
+        cardFull: true,
         thClass:
           'w-[200px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
@@ -418,6 +419,7 @@ export function createProactiveColumns({
         )
       },
       meta: {
+        cardFull: true,
         thClass:
           'w-[150px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',
@@ -762,6 +764,7 @@ export function createProactiveColumns({
         )
       },
       meta: {
+        cardFull: true,
         thClass:
           'w-[300px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[7px] align-middle',

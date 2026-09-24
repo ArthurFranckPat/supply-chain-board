@@ -51,7 +51,7 @@ export function ProactiveView(props: ProactiveViewProps) {
     <>
       {/* ═══ Proactif : X3 injoignable ═══ */}
       {props.view.x3Error && (
-        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+        <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-[12px] md:px-7 text-foreground">
           <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
           <span className="font-bold">Erreur chargement réalisabilité :</span>
           <span className="font-mono">{props.view.x3Error}</span>
@@ -59,7 +59,7 @@ export function ProactiveView(props: ProactiveViewProps) {
       )}
 
       {props.loading ? (
-        <div className="flex-1 overflow-hidden p-5">
+        <div className="flex-1 overflow-hidden p-2 md:p-5">
           <SkeletonRow count={6} />
         </div>
       ) : props.error ? (
@@ -68,7 +68,7 @@ export function ProactiveView(props: ProactiveViewProps) {
           Échec du calcul de réalisabilité.
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-hidden p-5">
+        <div className="min-h-0 flex-1 overflow-hidden p-2 md:p-5">
           <DataTable
             columns={columns}
             rows={rows}
@@ -83,6 +83,8 @@ export function ProactiveView(props: ProactiveViewProps) {
                 LATE_TONE.bg(s)
               )
             }}
+            mobileCards
+            getCardClass={(row: ProactiveDisplayRow) => LATE_TONE.bar(row.lateSeverity)}
             tableClass="min-w-[1252px] table-fixed"
             scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
             theadRowClass="sticky top-0 z-10 bg-secondary"

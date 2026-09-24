@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
+import { useIsMobile } from '@r/lib/use-media-query'
 import type { RowFlash } from '@r/lib/diff-flash'
 
 /**
@@ -26,6 +27,10 @@ export interface ColumnDef<TRow> {
   meta?: {
     thClass?: string
     tdClass?: string
+    /** Mode cartes : la colonne occupe toute la largeur de la carte (texte long). */
+    cardFull?: boolean
+    /** Mode cartes : colonne omise (redondante ou illisible hors tableau). */
+    cardHidden?: boolean
   }
 }
 
@@ -85,6 +90,14 @@ export interface DataTableProps<TRow> {
    * DOIT être la même fonction que le `key` du DiffConfig de la page.
    */
   getFlashKey?: (row: TRow) => string
+  /**
+   * Sous `md`, rend chaque ligne en carte (1ʳᵉ colonne en titre, les autres en
+   * paires libellé/valeur) au lieu d'un tableau plus large que l'écran. Mêmes
+   * cellules, même virtualisation, même clic de ligne.
+   */
+  mobileCards?: boolean
+  /** Habillage additionnel d'une carte (ex. barre latérale de retard). */
+  getCardClass?: (row: TRow) => string | undefined
 }
 
 const DEFAULT_SCROLL_CLASS = 'h-full overflow-auto rounded-lg border bg-card shadow-xs'
@@ -107,13 +120,17 @@ export function DataTable<TRow>({
   emptyState,
   flash,
   getFlashKey,
+  mobileCards = false,
+  getCardClass,
 }: DataTableProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
+  const cards = mobileCards && isMobile
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 56,
+    estimateSize: () => (cards ? 180 : 56),
     overscan: 12,
   })
 
@@ -187,6 +204,82 @@ export function DataTable<TRow>({
       <ArrowDown size={12} strokeWidth={1.75} className="leading-none text-primary" />
     ) : (
       <ArrowUp size={12} strokeWidth={1.75} className="leading-none text-primary" />
+    )
+  }
+
+  const cellContent = (row: TRow, col: ColumnDef<TRow>): ReactNode => {
+    const val = getValue(row, col)
+    return col.cell
+      ? col.cell({ row: { original: row }, getValue: () => val, column: { columnDef: col } })
+      : (val as ReactNode)
+  }
+
+  if (cards) {
+    const [titleCol, ...restCols] = columns.filter((c) => !c.meta?.cardHidden)
+    return (
+      <div
+        className={cn(DEFAULT_SCROLL_CLASS, scrollContainerClass, 'bg-muted/30 p-2')}
+        ref={scrollRef}
+      >
+        {rows.length > 0 ? (
+          <div style={{ paddingTop: topPad, paddingBottom: bottomPad }}>
+            {virtualItems.map((virtualRow) => {
+              const row = rows[virtualRow.index]
+              if (!row) return null
+              const isSelected = selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
+              return (
+                <div
+                  key={uniqueKeys[virtualRow.index] ?? virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  className="pb-2"
+                >
+                  <div
+                    role={onRowClick ? 'button' : undefined}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              onRowClick(row)
+                            }
+                          }
+                        : undefined
+                    }
+                    className={cn(
+                      'rounded-lg border border-rule bg-card p-3 text-sm',
+                      onRowClick && 'cursor-pointer active:bg-muted/50',
+                      getCardClass?.(row),
+                      isSelected && rowSelectedClass
+                    )}
+                  >
+                    {titleCol && <div className="min-w-0">{cellContent(row, titleCol)}</div>}
+                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+                      {restCols.map((col) => (
+                        <div
+                          key={colId(col)}
+                          className={cn('min-w-0', col.meta?.cardFull && 'col-span-2')}
+                        >
+                          <dt className="text-[11px] font-medium text-muted-foreground">
+                            {renderHeader(col)}
+                          </dt>
+                          <dd className="min-w-0 [overflow-wrap:anywhere]">
+                            {cellContent(row, col)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          emptyState
+        )}
+      </div>
     )
   }
 
