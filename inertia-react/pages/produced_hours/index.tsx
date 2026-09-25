@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Head } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search, X, Loader2 } from 'lucide-react'
@@ -89,6 +89,9 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
   const [selectedOrderPoste, setSelectedOrderPoste] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
+  // Seule la dernière requête « heures » a le droit d'écrire (frappe rapide dans la recherche)
+  const hoursReqId = useRef(0)
+
   // Fetch updated data from API depending on active view
   const fetchData = useCallback(
     async (
@@ -108,11 +111,22 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
           const json: ProducedOrdersPayload = await res.json()
           setOrdersData(json)
         } else {
-          const res = await fetch(
-            `/api/v1/heures-produites/summary?from=${encodeURIComponent(newFrom)}&to=${encodeURIComponent(newTo)}&article=${encodeURIComponent(targetArticle)}`
-          )
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          const json: ProducedHoursPayload = await res.json()
+          const reqId = ++hoursReqId.current
+          const load = async (article: string) => {
+            const res = await fetch(
+              `/api/v1/heures-produites/summary?from=${encodeURIComponent(newFrom)}&to=${encodeURIComponent(newTo)}&article=${encodeURIComponent(article)}`
+            )
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            return (await res.json()) as ProducedHoursPayload | { articleNotFound: true }
+          }
+          let json = await load(targetArticle)
+          // Terme qui n'est pas un article : on retire le filtre article s'il y en avait un
+          if ('articleNotFound' in json) {
+            if (!hoursData?.articleFilter) return
+            json = await load('')
+            if ('articleNotFound' in json) return
+          }
+          if (reqId !== hoursReqId.current) return
           setHoursData(json)
         }
         setFrom(newFrom)
@@ -126,15 +140,23 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
     [view, dateMode, hoursData]
   )
 
-  // Recherche validée (Entrée) en vision heures : si le terme est un code article, le serveur
-  // restreint les pointages à cet article + tous ses composants (tous niveaux de nomenclature).
+  // Recherche en vision heures : si le terme est un code article, le serveur restreint les
+  // pointages à cet article + tous ses composants (tous niveaux de nomenclature).
   const articleFilter = hoursData?.articleFilter ?? null
-  const applySearchAsArticle = (term: string) => {
+  const fetchDataRef = useRef(fetchData)
+  fetchDataRef.current = fetchData
+  const periodRef = useRef({ from, to, dateMode })
+  periodRef.current = { from, to, dateMode }
+  useEffect(() => {
     if (view !== 'heures') return
-    const code = term.trim().toUpperCase()
-    if (code === (articleFilter?.code ?? '')) return
-    fetchData(from, to, 'heures', dateMode, code)
-  }
+    const term = search.trim().toUpperCase()
+    if (term === (articleFilter?.code ?? '')) return
+    const handle = setTimeout(() => {
+      const p = periodRef.current
+      fetchDataRef.current(p.from, p.to, 'heures', p.dateMode, term)
+    }, 400)
+    return () => clearTimeout(handle)
+  }, [search, view, articleFilter?.code])
 
   // Quick date presets
   const applyPreset = (preset: 'current-month' | 'last-month' | 'last-30' | 'current-week') => {
@@ -427,27 +449,21 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
               placeholder={
                 view === 'commandes'
                   ? 'Rechercher ligne, article...'
-                  : 'Rechercher poste, nom, article (Entrée)...'
+                  : 'Rechercher poste, nom, article...'
               }
               title={
                 view === 'heures'
-                  ? 'Code article + Entrée : filtre sur l’article et tous ses composants (tous niveaux de nomenclature)'
+                  ? 'Un code article filtre sur l’article et tous ses composants (tous niveaux de nomenclature)'
                   : undefined
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') applySearchAsArticle(search)
-              }}
               className="h-[30px] w-full rounded-full border border-rule bg-card pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
             />
             {search && (
               <button
                 type="button"
-                onClick={() => {
-                  setSearch('')
-                  applySearchAsArticle('')
-                }}
+                onClick={() => setSearch('')}
                 className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-3" />
@@ -521,10 +537,17 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                   </div>
                 </div>
 
-                <ProducedHoursTable
-                  workstations={filteredHoursWorkstations}
-                  onSelectPoste={setSelectedPoste}
-                />
+                {loading && filteredHoursWorkstations.length === 0 ? (
+                  <div className="flex h-40 items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin text-brand" />
+                    Recherche en cours…
+                  </div>
+                ) : (
+                  <ProducedHoursTable
+                    workstations={filteredHoursWorkstations}
+                    onSelectPoste={setSelectedPoste}
+                  />
+                )}
               </div>
             )}
           </div>

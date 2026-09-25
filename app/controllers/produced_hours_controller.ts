@@ -60,6 +60,11 @@ export default class ProducedHoursController {
         return response.json(payload)
       }
       const article = (request.input('article') as string) || undefined
+      // Terme de recherche qui n'est pas un code article : réponse immédiate, sans requête X3
+      // (la barre de recherche sert aussi à chercher un poste).
+      if (article && !(await producedHoursLoader.resolveArticleFilter(article))) {
+        return response.json({ articleNotFound: true })
+      }
       const payload = await producedHoursLoader.loadPayload(from, to, article)
       return response.json(payload)
     } catch (error) {
