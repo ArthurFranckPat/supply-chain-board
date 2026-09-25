@@ -252,15 +252,28 @@ const STOCK_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
 /**
  * Palette des COURBES par catégorie (vue « Par catégorie »).
  *
- * Même famille Airbnb stricte que ci-dessus, mais réordonnée pour la lecture en
- * traits : on écarte le gris clair (#dddddd), illisible en filet, et on entre
- * par les teintes les plus séparées (Rausch → Babu → Arches → vert → ink →
- * gris). Six teintes = six catégories affichables à la fois : au-delà, deux
- * courbes partageraient une couleur et la légende mentirait. C'est cette limite
- * qui borne la sélection (cf. `stockCatSelection`).
+ * Famille Airbnb stricte, réordonnée pour la lecture en traits (tonalités les
+ * plus séparées d'abord), puis étendue de teintes harmonisées pour que chaque
+ * catégorie sélectionnée garde une couleur distincte. On ne borne PAS le
+ * nombre de catégories : au-delà de la palette, les teintes se répètent — la
+ * légende et le tooltip portent alors la distinction par le NOM.
  */
-const STOCK_SERIES_PALETTE = ['#ff385c', '#00a699', '#fc642d', '#008049', '#222222', '#6a6a6a']
-const STOCK_SERIES_MAX = STOCK_SERIES_PALETTE.length
+const STOCK_SERIES_PALETTE = [
+  '#ff385c',
+  '#00a699',
+  '#fc642d',
+  '#008049',
+  '#222222',
+  '#6a6a6a',
+  '#2778c1',
+  '#8b5cf6',
+  '#d97706',
+  '#0d9488',
+  '#c2410c',
+  '#7c3aed',
+]
+/** Catégories tracées par défaut avant que l'utilisateur ne filtre. */
+const STOCK_SERIES_DEFAUT = 6
 
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
 const WIDTH_CLASS: Record<KpiWidth, string> = {
@@ -996,10 +1009,10 @@ export default function Dashboard(props: DashboardProps) {
   // ── Vue « évolution par catégorie » ──────────────────────────────────────
   // Séries par catégorie alignées sur toutes les périodes (payload v3).
   const stockEvolution = useMemo(() => stock.categoriesEvolution ?? [], [stock.categoriesEvolution])
-  // Défaut = les `STOCK_SERIES_MAX` catégories les plus valorisées aujourd'hui ;
+  // Défaut = les `STOCK_SERIES_DEFAUT` catégories les plus valorisées aujourd'hui ;
   // dès que l'utilisateur touche au filtre, c'est sa sélection qui pilote.
   const defaultStockCats = useMemo(
-    () => stockEvolution.slice(0, STOCK_SERIES_MAX).map((s) => s.categorie),
+    () => stockEvolution.slice(0, STOCK_SERIES_DEFAUT).map((s) => s.categorie),
     [stockEvolution]
   )
   const stockSelectedCats = useMemo(() => {
@@ -1014,7 +1027,9 @@ export default function Dashboard(props: DashboardProps) {
         const serie = stockEvolution.find((s) => s.categorie === cat)
         return {
           categorie: cat,
-          couleur: STOCK_SERIES_PALETTE[i],
+          // La palette se répète au-delà de sa longueur : la légende et le
+          // tooltip distinguent alors par le nom.
+          couleur: STOCK_SERIES_PALETTE[i % STOCK_SERIES_PALETTE.length],
           valeurs: serie?.valeurs ?? [],
         }
       }),
@@ -1023,11 +1038,9 @@ export default function Dashboard(props: DashboardProps) {
   const toggleStockCat = useCallback(
     (cat: string) => {
       const current = stockCatSelection ?? defaultStockCats
-      if (current.includes(cat)) {
-        setStockCatSelection(current.filter((c) => c !== cat))
-      } else if (current.length < STOCK_SERIES_MAX) {
-        setStockCatSelection([...current, cat])
-      }
+      setStockCatSelection(
+        current.includes(cat) ? current.filter((c) => c !== cat) : [...current, cat]
+      )
     },
     [stockCatSelection, defaultStockCats]
   )
@@ -1756,27 +1769,20 @@ export default function Dashboard(props: DashboardProps) {
                             {stockEvolution.map((s) => {
                               const rang = stockSelectedCats.indexOf(s.categorie)
                               const active = rang >= 0
-                              const complet = stockSelectedCats.length >= STOCK_SERIES_MAX
                               return (
                                 <button
                                   key={s.categorie}
                                   type="button"
                                   onClick={() => toggleStockCat(s.categorie)}
-                                  disabled={!active && complet}
                                   aria-pressed={active}
                                   title={
-                                    active
-                                      ? `Masquer ${s.categorie}`
-                                      : complet
-                                        ? `${STOCK_SERIES_MAX} catégories au maximum`
-                                        : `Afficher ${s.categorie}`
+                                    active ? `Masquer ${s.categorie}` : `Afficher ${s.categorie}`
                                   }
                                   className={cn(
                                     'inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 font-mono text-[10.5px] font-semibold transition-colors',
                                     active
                                       ? 'border-foreground/20 bg-secondary text-foreground'
-                                      : 'border-rule bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-                                    !active && complet && 'cursor-not-allowed opacity-40'
+                                      : 'border-rule bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
                                   )}
                                 >
                                   <span
@@ -1784,7 +1790,7 @@ export default function Dashboard(props: DashboardProps) {
                                     style={{
                                       background:
                                         rang >= 0
-                                          ? STOCK_SERIES_PALETTE[rang]
+                                          ? STOCK_SERIES_PALETTE[rang % STOCK_SERIES_PALETTE.length]
                                           : 'var(--color-rule-soft)',
                                     }}
                                   />
