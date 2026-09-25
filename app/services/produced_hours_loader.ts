@@ -71,6 +71,8 @@ export interface WorkstationProducedCard {
   nbOfs: number
   nbTrackings: number
   weeklyCapacity: number
+  /** Articles pointés + leurs parents tous niveaux, séparés par des espaces (recherche client). */
+  articleKeys: string
   timeline: {
     date: string
     hours: number
@@ -95,25 +97,12 @@ export interface ProducedHoursKPIs {
   totalWorkstationsCount: number
 }
 
-/** Filtre article résolu : l'article saisi et tous ses composants, tous niveaux. */
-export interface ArticleFilterInfo {
-  /** Terme saisi (code article complet ou partiel). */
-  code: string
-  /** Désignation quand le terme désigne un seul article, '' sinon. */
-  designation: string
-  /** Nombre d'articles dont le code contient le terme. */
-  nbMatches: number
-  /** Nombre d'articles du périmètre (article + composants, tous niveaux). */
-  nbArticles: number
-}
-
 export interface ProducedHoursPayload {
   from: string
   to: string
   kpis: ProducedHoursKPIs
   workstations: WorkstationProducedCard[]
   ateliers: string[]
-  articleFilter: ArticleFilterInfo | null
 }
 
 export interface EnrichedPosteTracking extends PosteTrackingDetail {
@@ -153,7 +142,6 @@ export interface WorkstationDetailResponse {
   trackings: EnrichedPosteTracking[]
   /** Moyenne des cadences standard gamme des articles pointés sur le poste — null si aucune. */
   lineStandardCadence: number | null
-  articleFilter: ArticleFilterInfo | null
 }
 
 export const ALLOWED_ATELIERS = new Set(['S3P', 'S4P', 'S9P', 'CLP'])
@@ -161,92 +149,62 @@ export const PP_XXX_REGEX = /^PP_\d{3}$/
 
 /** Garde-fou de profondeur d'explosion (la nomenclature ne dépasse pas ~5 niveaux ; cycles gérés par `seen`). */
 const BOM_DEPTH_CAP = 12
-/** Terme minimal pour une recherche article partielle (en deçà, trop d'articles). */
-const MIN_ARTICLE_TERM = 3
-const MAX_ARTICLE_MATCHES = 5000
 
 export class ProducedHoursLoader {
   private repo = new X3ProducedHoursRepository()
 
   /**
-   * Résout le filtre article : les articles dont le code CONTIENT le terme saisi, plus tous
-   * leurs composants, tous niveaux de nomenclature. null si pas de filtre, terme trop court
-   * ou aucun code article correspondant (la barre sert aussi à chercher un poste).
+   * Charge le jeu de données complet des heures produites par poste pour la période [from, to].
+   * Périmètre strict : ateliers S3P, S4P, S9P, CLP et postes PP_XXX.
    */
-  async resolveArticleFilter(
-    article?: string | null
-  ): Promise<{ info: ArticleFilterInfo; articles: string[] } | null> {
-    const code = article?.trim().toUpperCase()
-    if (!code || code.length < MIN_ARTICLE_TERM) return null
+  async loadPayload(from: string, to: string): Promise<ProducedHoursPayload> {
+    const [wstRefList, gammes, summaryRows, dailyPoints, posteArticles, nomenclatures] =
+      await Promise.all([
+        staticSync.readWorkstations().catch(() => []),
+        staticSync.readGammes().catch(() => []),
+        this.repo.getSummary(from, to),
+        this.repo.getDailyTimeline(from, to),
+        this.repo.getPosteArticles(from, to),
+        staticSync.readNomenclatures().catch(() => []),
+      ])
 
-    const [nomenclatures, matches] = await Promise.all([
-      staticSync.readNomenclatures().catch(() => []),
-      StaticArticle.query()
-        .where('code', 'like', `%${code}%`)
-        .select('code', 'description')
-        .limit(MAX_ARTICLE_MATCHES),
-    ])
-    if (matches.length === 0) return null
-    const roots = matches.map((m) => m.code.trim().toUpperCase())
-
-    const childrenByParent = new Map<string, string[]>()
+    // Clés de recherche article par poste : articles pointés + tous leurs parents de
+    // nomenclature (tous niveaux) — la recherche d'un PF remonte les postes de ses composants.
+    const parentsByChild = new Map<string, string[]>()
     for (const row of nomenclatures) {
       const parent = row.parentArticle.trim().toUpperCase()
       const comp = row.componentArticle.trim().toUpperCase()
       if (!parent || !comp) continue
-      const list = childrenByParent.get(parent)
-      if (list) list.push(comp)
-      else childrenByParent.set(parent, [comp])
+      const list = parentsByChild.get(comp)
+      if (list) list.push(parent)
+      else parentsByChild.set(comp, [parent])
     }
-
-    const seen = new Set<string>(roots)
-    const stack = roots.map((art) => ({ art, depth: 0 }))
-    while (stack.length > 0) {
-      const { art, depth } = stack.pop()!
-      if (depth >= BOM_DEPTH_CAP) continue
-      for (const comp of childrenByParent.get(art) ?? []) {
-        if (seen.has(comp)) continue
-        seen.add(comp)
-        stack.push({ art: comp, depth: depth + 1 })
+    const lineageCache = new Map<string, string[]>()
+    const lineage = (article: string): string[] => {
+      const cached = lineageCache.get(article)
+      if (cached) return cached
+      const seen = new Set<string>([article])
+      const stack = [{ art: article, depth: 0 }]
+      while (stack.length > 0) {
+        const { art, depth } = stack.pop()!
+        if (depth >= BOM_DEPTH_CAP) continue
+        for (const parent of parentsByChild.get(art) ?? []) {
+          if (seen.has(parent)) continue
+          seen.add(parent)
+          stack.push({ art: parent, depth: depth + 1 })
+        }
       }
+      const result = [...seen]
+      lineageCache.set(article, result)
+      return result
     }
-
-    const articles = [...seen]
-    return {
-      info: {
-        code,
-        designation: matches.length === 1 ? matches[0].description?.trim() || '' : '',
-        nbMatches: matches.length,
-        nbArticles: articles.length,
-      },
-      articles,
+    const articleKeysByPoste = new Map<string, Set<string>>()
+    for (const { poste, article } of posteArticles) {
+      const pKey = poste.trim().toUpperCase()
+      let keys = articleKeysByPoste.get(pKey)
+      if (!keys) articleKeysByPoste.set(pKey, (keys = new Set()))
+      for (const a of lineage(article.trim().toUpperCase())) keys.add(a)
     }
-  }
-
-  /**
-   * Filtre article restreint aux articles réellement pointés sur la période : un terme
-   * partiel (« BDH ») couvre des milliers d'articles, la clause IN n'en garde que les utiles.
-   */
-  private async scopedArticleFilter(article: string | undefined, from: string, to: string) {
-    const filter = await this.resolveArticleFilter(article)
-    if (!filter) return null
-    const pointedArticles = await this.repo.getPointedArticles(from, to)
-    const pointed = new Set(pointedArticles.map((a) => a.trim().toUpperCase()))
-    return { ...filter, articles: filter.articles.filter((a) => pointed.has(a)) }
-  }
-
-  /**
-   * Charge le jeu de données complet des heures produites par poste pour la période [from, to].
-   * Périmètre strict : ateliers S3P, S4P, S9P, CLP et postes PP_XXX.
-   */
-  async loadPayload(from: string, to: string, article?: string): Promise<ProducedHoursPayload> {
-    const filter = await this.scopedArticleFilter(article, from, to)
-    const [wstRefList, gammes, summaryRows, dailyPoints] = await Promise.all([
-      staticSync.readWorkstations().catch(() => []),
-      staticSync.readGammes().catch(() => []),
-      this.repo.getSummary(from, to, filter?.articles),
-      this.repo.getDailyTimeline(from, to, undefined, filter?.articles),
-    ])
 
     // Dictionnaire des libellés de postes issus des gammes (ATEXTRA / WSTDESAXX en français)
     const wstLabels = new Map<string, string>()
@@ -340,6 +298,7 @@ export class ProducedHoursLoader {
         nbTrackings: row.nbTrackings,
         weeklyCapacity: Math.round(weeklyCap * 10) / 10,
         timeline: dailyByPoste.get(pKey) || [],
+        articleKeys: [...(articleKeysByPoste.get(pKey) ?? [])].join(' '),
       }
     })
 
@@ -392,7 +351,6 @@ export class ProducedHoursLoader {
       kpis,
       workstations,
       ateliers: Array.from(ALLOWED_ATELIERS).sort(),
-      articleFilter: filter?.info ?? null,
     }
   }
 
@@ -402,17 +360,15 @@ export class ProducedHoursLoader {
   async loadWorkstationDetail(
     poste: string,
     from: string,
-    to: string,
-    article?: string
+    to: string
   ): Promise<WorkstationDetailResponse> {
     const cleanPoste = poste.trim()
-    const filter = await this.scopedArticleFilter(article, from, to)
 
     const [wstRefList, gammes, rawTrackings, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
       staticSync.readGammes().catch(() => []),
-      this.repo.getPosteTrackings(cleanPoste, from, to, 500, filter?.articles),
-      this.repo.getDailyTimeline(from, to, cleanPoste, filter?.articles),
+      this.repo.getPosteTrackings(cleanPoste, from, to),
+      this.repo.getDailyTimeline(from, to, cleanPoste),
     ])
 
     const pKey = cleanPoste.toUpperCase()
@@ -508,7 +464,6 @@ export class ProducedHoursLoader {
       timeline,
       trackings,
       lineStandardCadence,
-      articleFilter: filter?.info ?? null,
     }
   }
 

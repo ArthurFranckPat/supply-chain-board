@@ -93,8 +93,6 @@ interface WorkstationDetailSheetProps {
   poste: string | null
   from: string
   to: string
-  /** Article filtré sur la page (article + composants, tous niveaux) — '' si aucun. */
-  article?: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -103,7 +101,6 @@ export function WorkstationDetailSheet({
   poste,
   from,
   to,
-  article = '',
   open,
   onOpenChange,
 }: WorkstationDetailSheetProps) {
@@ -129,7 +126,7 @@ export function WorkstationDetailSheet({
     setError(null)
     setHoveredKey(null)
 
-    const url = `/api/v1/heures-produites/detail?poste=${encodeURIComponent(poste)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&article=${encodeURIComponent(article)}`
+    const url = `/api/v1/heures-produites/detail?poste=${encodeURIComponent(poste)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
 
     fetch(url)
       .then(async (res) => {
@@ -155,7 +152,7 @@ export function WorkstationDetailSheet({
     return () => {
       cancelled = true
     }
-  }, [open, poste, from, to, article])
+  }, [open, poste, from, to])
 
   const periodShifts = useMemo(() => {
     if (!data?.timeline?.length) return { morning: 0, afternoon: 0 }

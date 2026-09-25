@@ -33,8 +33,7 @@ export default class ProducedHoursController {
       })
     }
 
-    const article = (ctx.request.input('article') as string) || undefined
-    const hoursPayload = await producedHoursLoader.loadPayload(from, to, article)
+    const hoursPayload = await producedHoursLoader.loadPayload(from, to)
     return ctx.inertia.render('produced_hours/index', {
       ...hoursPayload,
       initialView: 'heures',
@@ -59,13 +58,7 @@ export default class ProducedHoursController {
         const payload = await producedHoursLoader.loadOrdersPayload(from, to, dateMode)
         return response.json(payload)
       }
-      const article = (request.input('article') as string) || undefined
-      // Terme de recherche qui n'est pas un code article : réponse immédiate, sans requête X3
-      // (la barre de recherche sert aussi à chercher un poste).
-      if (article && !(await producedHoursLoader.resolveArticleFilter(article))) {
-        return response.json({ articleNotFound: true })
-      }
-      const payload = await producedHoursLoader.loadPayload(from, to, article)
+      const payload = await producedHoursLoader.loadPayload(from, to)
       return response.json(payload)
     } catch (error) {
       return response.internalServerError({
@@ -105,10 +98,9 @@ export default class ProducedHoursController {
     const defaultRange = getDefaultDateRange()
     const from = (request.input('from') as string) || defaultRange.from
     const to = (request.input('to') as string) || defaultRange.to
-    const article = (request.input('article') as string) || undefined
 
     try {
-      const detail = await producedHoursLoader.loadWorkstationDetail(poste, from, to, article)
+      const detail = await producedHoursLoader.loadWorkstationDetail(poste, from, to)
       return response.json(detail)
     } catch (error) {
       return response.internalServerError({

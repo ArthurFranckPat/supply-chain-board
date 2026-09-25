@@ -27,6 +27,8 @@ export interface WorkstationProducedCard {
   nbOfs: number
   nbTrackings: number
   weeklyCapacity: number
+  /** Articles pointés + leurs parents tous niveaux, séparés par des espaces. */
+  articleKeys: string
   timeline: DailyPoint[]
 }
 
@@ -44,21 +46,12 @@ export interface ProducedHoursKPIs {
   totalWorkstationsCount: number
 }
 
-/** Filtre article résolu : l'article saisi et tous ses composants, tous niveaux. */
-export interface ArticleFilterInfo {
-  code: string
-  designation: string
-  nbMatches: number
-  nbArticles: number
-}
-
 export interface ProducedHoursPayload {
   from: string
   to: string
   kpis: ProducedHoursKPIs
   workstations: WorkstationProducedCard[]
   ateliers: string[]
-  articleFilter: ArticleFilterInfo | null
 }
 
 export interface EnrichedPosteTracking {
@@ -107,7 +100,6 @@ export interface WorkstationDetailResponse {
   timeline: DailyPoint[]
   trackings: EnrichedPosteTracking[]
   lineStandardCadence: number | null
-  articleFilter: ArticleFilterInfo | null
 }
 
 /** Formate une date ISO AAAA-MM-JJ en JJ/MM/AAAA */

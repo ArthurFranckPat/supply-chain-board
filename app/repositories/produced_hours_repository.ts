@@ -63,35 +63,14 @@ function sanitizeDate(d: string, fallback: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : fallback
 }
 
-/**
- * Clause SQL restreignant `col` à une liste d'articles — '' si pas de filtre.
- * Oracle plafonne une liste IN à 1 000 éléments : on découpe en OR. Liste vide
- * (filtre posé mais aucun article résolu) → clause toujours fausse.
- */
-function articleClause(col: string, articles?: string[]): string {
-  if (!articles) return ''
-  if (articles.length === 0) return 'AND 1 = 0'
-  const quoted = articles.map((a) => `'${a.replace(/'/g, "''")}'`)
-  const chunks: string[] = []
-  for (let i = 0; i < quoted.length; i += 1000) {
-    chunks.push(`${col} IN (${quoted.slice(i, i + 1000).join(', ')})`)
-  }
-  return `AND (${chunks.join(' OR ')})`
-}
-
 export class X3ProducedHoursRepository {
   /**
    * Récupère le résumé agrégé des heures produites par poste de charge sur [from, to].
    * Source : table MFGOPETRK (suivis d'opérations d'OF).
    */
-  async getSummary(
-    from: string,
-    to: string,
-    articles?: string[]
-  ): Promise<WorkstationProducedSummaryRow[]> {
+  async getSummary(from: string, to: string): Promise<WorkstationProducedSummaryRow[]> {
     const safeFrom = sanitizeDate(from, '1970-01-01')
     const safeTo = sanitizeDate(to, '2099-12-31')
-    const itmClause = articleClause('ITMREF_0', articles)
 
     const hoursSql = `
       SELECT
@@ -106,7 +85,6 @@ export class X3ProducedHoursRepository {
       WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
         AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
         AND CPLWST_0 IS NOT NULL
-        ${itmClause}
       GROUP BY CPLWST_0
       ORDER BY CPLWST_0 ASC
     `
@@ -122,7 +100,6 @@ export class X3ProducedHoursRepository {
         WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
           AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
           AND CPLWST_0 IS NOT NULL
-          ${itmClause}
       ) w
       JOIN MFGITM i ON i.MFGNUM_0 = w.MFGNUM_0
       GROUP BY w.CPLWST_0
@@ -179,22 +156,28 @@ export class X3ProducedHoursRepository {
     }
   }
 
-  /** Articles distincts pointés sur [from, to] — borne le filtre article avant la clause IN. */
-  async getPointedArticles(from: string, to: string): Promise<string[]> {
+  /**
+   * Couples (poste, article) pointés sur [from, to] — index de recherche article de la page.
+   * GROUP BY et non DISTINCT : la passerelle SOAP X3 renvoie « resultXml is nil » sur un DISTINCT.
+   */
+  async getPosteArticles(from: string, to: string): Promise<{ poste: string; article: string }[]> {
     const safeFrom = sanitizeDate(from, '1970-01-01')
     const safeTo = sanitizeDate(to, '2099-12-31')
     const sql = `
-      SELECT DISTINCT ITMREF_0 AS ITMREF
+      SELECT CPLWST_0 AS POSTE, ITMREF_0 AS ITMREF, COUNT(*) AS NB
       FROM MFGOPETRK
       WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
         AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
         AND CPLWST_0 IS NOT NULL
+      GROUP BY CPLWST_0, ITMREF_0
     `
     const db = new X3Database()
     try {
       const result = await db.raw(sql)
       const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
-      return rows.map((r) => str(r.ITMREF)).filter(Boolean)
+      return rows
+        .map((r) => ({ poste: str(r.POSTE), article: str(r.ITMREF) }))
+        .filter((r) => r.poste && r.article)
     } finally {
       await db.destroy()
     }
@@ -206,17 +189,14 @@ export class X3ProducedHoursRepository {
   async getDailyTimeline(
     from: string,
     to: string,
-    posteFilter?: string,
-    articles?: string[]
+    posteFilter?: string
   ): Promise<DailyProducedPoint[]> {
     const safeFrom = sanitizeDate(from, '1970-01-01')
     const safeTo = sanitizeDate(to, '2099-12-31')
     const posteClause =
-      (posteFilter && /^[A-Za-z0-9_-]+$/.test(posteFilter)
+      posteFilter && /^[A-Za-z0-9_-]+$/.test(posteFilter)
         ? `AND CPLWST_0 = '${posteFilter.trim()}'`
-        : '') +
-      ' ' +
-      articleClause('ITMREF_0', articles)
+        : ''
 
     const hoursSql = `
       SELECT
@@ -313,8 +293,7 @@ export class X3ProducedHoursRepository {
     poste: string,
     from: string,
     to: string,
-    limit = 500,
-    articles?: string[]
+    limit = 500
   ): Promise<PosteTrackingDetail[]> {
     const cleanPoste = poste.trim()
     if (!/^[A-Za-z0-9_-]+$/.test(cleanPoste)) return []
@@ -343,7 +322,6 @@ export class X3ProducedHoursRepository {
       WHERE CPLWST_0 = '${cleanPoste}'
         AND IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
         AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
-        ${articleClause('ITMREF_0', articles)}
         AND ROWNUM <= ${maxRows}
       ORDER BY IPTDAT_0 DESC, MFGTRKNUM_0 DESC, OPETRKLIN_0 ASC
     `

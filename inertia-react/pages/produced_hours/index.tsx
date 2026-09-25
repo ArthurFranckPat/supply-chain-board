@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Head } from '@inertiajs/react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search, X, Loader2 } from 'lucide-react'
@@ -89,17 +89,13 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
   const [selectedOrderPoste, setSelectedOrderPoste] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Seule la dernière requête « heures » a le droit d'écrire (frappe rapide dans la recherche)
-  const hoursReqId = useRef(0)
-
   // Fetch updated data from API depending on active view
   const fetchData = useCallback(
     async (
       newFrom: string,
       newTo: string,
       targetView: 'heures' | 'commandes' = view,
-      targetDateMode: OrderDateMode = dateMode,
-      targetArticle: string = hoursData?.articleFilter?.code ?? ''
+      targetDateMode: OrderDateMode = dateMode
     ) => {
       setLoading(true)
       try {
@@ -111,22 +107,11 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
           const json: ProducedOrdersPayload = await res.json()
           setOrdersData(json)
         } else {
-          const reqId = ++hoursReqId.current
-          const load = async (article: string) => {
-            const res = await fetch(
-              `/api/v1/heures-produites/summary?from=${encodeURIComponent(newFrom)}&to=${encodeURIComponent(newTo)}&article=${encodeURIComponent(article)}`
-            )
-            if (!res.ok) throw new Error(`HTTP ${res.status}`)
-            return (await res.json()) as ProducedHoursPayload | { articleNotFound: true }
-          }
-          let json = await load(targetArticle)
-          // Terme qui n'est pas un article : on retire le filtre article s'il y en avait un
-          if ('articleNotFound' in json) {
-            if (!hoursData?.articleFilter) return
-            json = await load('')
-            if ('articleNotFound' in json) return
-          }
-          if (reqId !== hoursReqId.current) return
+          const res = await fetch(
+            `/api/v1/heures-produites/summary?from=${encodeURIComponent(newFrom)}&to=${encodeURIComponent(newTo)}`
+          )
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const json: ProducedHoursPayload = await res.json()
           setHoursData(json)
         }
         setFrom(newFrom)
@@ -137,38 +122,8 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         setLoading(false)
       }
     },
-    [view, dateMode, hoursData]
+    [view, dateMode]
   )
-
-  // Recherche en vision heures : si le terme est un code article, le serveur restreint les
-  // pointages à cet article + tous ses composants (tous niveaux de nomenclature).
-  const articleFilter = hoursData?.articleFilter ?? null
-  const fetchDataRef = useRef(fetchData)
-  fetchDataRef.current = fetchData
-  const periodRef = useRef({ from, to, dateMode })
-  periodRef.current = { from, to, dateMode }
-  // Postes de la dernière réponse non filtrée : un terme qui désigne un poste (« 145 »,
-  // « PP_1 », un libellé) reste une recherche de poste, jamais un filtre article.
-  const basePostesRef = useRef(hoursData?.articleFilter ? [] : (hoursData?.workstations ?? []))
-  if (hoursData && !hoursData.articleFilter) basePostesRef.current = hoursData.workstations
-  useEffect(() => {
-    if (view !== 'heures') return
-    const term = search.trim().toUpperCase()
-    const q = term.toLowerCase()
-    const isPoste = basePostesRef.current.some(
-      (w) =>
-        w.poste.toLowerCase().includes(q) ||
-        w.name.toLowerCase().includes(q) ||
-        w.atelier.toLowerCase().includes(q)
-    )
-    const target = term.length >= 3 && !isPoste ? term : ''
-    if (target === (articleFilter?.code ?? '')) return
-    const handle = setTimeout(() => {
-      const p = periodRef.current
-      fetchDataRef.current(p.from, p.to, 'heures', p.dateMode, target)
-    }, 400)
-    return () => clearTimeout(handle)
-  }, [search, view, articleFilter?.code])
 
   // Quick date presets
   const applyPreset = (preset: 'current-month' | 'last-month' | 'last-30' | 'current-week') => {
@@ -230,14 +185,14 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       if (selectedAtelier !== 'ALL' && w.atelier !== selectedAtelier) {
         return false
       }
-      // Terme résolu en article côté serveur : les postes renvoyés sont déjà filtrés
-      const isArticle = hoursData.articleFilter?.code === search.trim().toUpperCase()
-      if (search.trim() && !isArticle) {
+      if (search.trim()) {
         const q = search.trim().toLowerCase()
         const matchCode = w.poste.toLowerCase().includes(q)
         const matchName = w.name.toLowerCase().includes(q)
         const matchAtelier = w.atelier.toLowerCase().includes(q)
-        if (!matchCode && !matchName && !matchAtelier) return false
+        // Article pointé sur le poste, ou l'un de ses parents de nomenclature (tous niveaux)
+        const matchArticle = w.articleKeys?.toLowerCase().includes(q)
+        if (!matchCode && !matchName && !matchAtelier && !matchArticle) return false
       }
       return true
     })
@@ -461,12 +416,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
               placeholder={
                 view === 'commandes'
                   ? 'Rechercher ligne, article...'
-                  : 'Rechercher poste, nom, article (3 car. min)...'
-              }
-              title={
-                view === 'heures'
-                  ? 'Un code article filtre sur l’article et tous ses composants (tous niveaux de nomenclature)'
-                  : undefined
+                  : 'Rechercher poste, nom, article...'
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -530,14 +480,6 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Postes de charge ({filteredHoursWorkstations.length})
-                    {articleFilter && (
-                      <span className="ml-2 font-normal normal-case tracking-normal text-foreground">
-                        · {articleFilter.nbMatches} article{articleFilter.nbMatches > 1 && 's'}{' '}
-                        contenant « <span className="font-mono">{articleFilter.code}</span> »
-                        {articleFilter.designation && ` (${articleFilter.designation})`} + leurs
-                        composants, tous niveaux
-                      </span>
-                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Du{' '}
@@ -551,17 +493,10 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                   </div>
                 </div>
 
-                {loading && filteredHoursWorkstations.length === 0 ? (
-                  <div className="flex h-40 items-center justify-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin text-brand" />
-                    Recherche en cours…
-                  </div>
-                ) : (
-                  <ProducedHoursTable
-                    workstations={filteredHoursWorkstations}
-                    onSelectPoste={setSelectedPoste}
-                  />
-                )}
+                <ProducedHoursTable
+                  workstations={filteredHoursWorkstations}
+                  onSelectPoste={setSelectedPoste}
+                />
               </div>
             )}
           </div>
@@ -573,7 +508,6 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         poste={selectedPoste}
         from={from}
         to={to}
-        article={articleFilter?.code ?? ''}
         open={Boolean(selectedPoste)}
         onOpenChange={(open) => {
           if (!open) setSelectedPoste(null)
