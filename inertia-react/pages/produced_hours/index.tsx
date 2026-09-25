@@ -147,13 +147,25 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
   fetchDataRef.current = fetchData
   const periodRef = useRef({ from, to, dateMode })
   periodRef.current = { from, to, dateMode }
+  // Postes de la dernière réponse non filtrée : un terme qui désigne un poste (« 145 »,
+  // « PP_1 », un libellé) reste une recherche de poste, jamais un filtre article.
+  const basePostesRef = useRef(hoursData?.articleFilter ? [] : (hoursData?.workstations ?? []))
+  if (hoursData && !hoursData.articleFilter) basePostesRef.current = hoursData.workstations
   useEffect(() => {
     if (view !== 'heures') return
     const term = search.trim().toUpperCase()
-    if (term === (articleFilter?.code ?? '')) return
+    const q = term.toLowerCase()
+    const isPoste = basePostesRef.current.some(
+      (w) =>
+        w.poste.toLowerCase().includes(q) ||
+        w.name.toLowerCase().includes(q) ||
+        w.atelier.toLowerCase().includes(q)
+    )
+    const target = term.length >= 3 && !isPoste ? term : ''
+    if (target === (articleFilter?.code ?? '')) return
     const handle = setTimeout(() => {
       const p = periodRef.current
-      fetchDataRef.current(p.from, p.to, 'heures', p.dateMode, term)
+      fetchDataRef.current(p.from, p.to, 'heures', p.dateMode, target)
     }, 400)
     return () => clearTimeout(handle)
   }, [search, view, articleFilter?.code])
@@ -449,7 +461,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
               placeholder={
                 view === 'commandes'
                   ? 'Rechercher ligne, article...'
-                  : 'Rechercher poste, nom, article...'
+                  : 'Rechercher poste, nom, article (3 car. min)...'
               }
               title={
                 view === 'heures'
@@ -520,8 +532,10 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                     Postes de charge ({filteredHoursWorkstations.length})
                     {articleFilter && (
                       <span className="ml-2 font-normal normal-case tracking-normal text-foreground">
-                        · article <span className="font-mono">{articleFilter.code}</span> + ses{' '}
-                        {articleFilter.nbArticles - 1} composants (tous niveaux)
+                        · {articleFilter.nbMatches} article{articleFilter.nbMatches > 1 && 's'}{' '}
+                        contenant « <span className="font-mono">{articleFilter.code}</span> »
+                        {articleFilter.designation && ` (${articleFilter.designation})`} + leurs
+                        composants, tous niveaux
                       </span>
                     )}
                   </div>

@@ -179,6 +179,27 @@ export class X3ProducedHoursRepository {
     }
   }
 
+  /** Articles distincts pointés sur [from, to] — borne le filtre article avant la clause IN. */
+  async getPointedArticles(from: string, to: string): Promise<string[]> {
+    const safeFrom = sanitizeDate(from, '1970-01-01')
+    const safeTo = sanitizeDate(to, '2099-12-31')
+    const sql = `
+      SELECT DISTINCT ITMREF_0 AS ITMREF
+      FROM MFGOPETRK
+      WHERE IPTDAT_0 >= TO_DATE('${safeFrom}', 'YYYY-MM-DD')
+        AND IPTDAT_0 <= TO_DATE('${safeTo}', 'YYYY-MM-DD')
+        AND CPLWST_0 IS NOT NULL
+    `
+    const db = new X3Database()
+    try {
+      const result = await db.raw(sql)
+      const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
+      return rows.map((r) => str(r.ITMREF)).filter(Boolean)
+    } finally {
+      await db.destroy()
+    }
+  }
+
   /**
    * Récupère la chronologie journalière des heures par poste pour sparklines et graphiques.
    */

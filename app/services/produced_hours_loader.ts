@@ -97,8 +97,12 @@ export interface ProducedHoursKPIs {
 
 /** Filtre article résolu : l'article saisi et tous ses composants, tous niveaux. */
 export interface ArticleFilterInfo {
+  /** Terme saisi (code article complet ou partiel). */
   code: string
+  /** Désignation quand le terme désigne un seul article, '' sinon. */
   designation: string
+  /** Nombre d'articles dont le code contient le terme. */
+  nbMatches: number
   /** Nombre d'articles du périmètre (article + composants, tous niveaux). */
   nbArticles: number
 }
@@ -157,26 +161,33 @@ export const PP_XXX_REGEX = /^PP_\d{3}$/
 
 /** Garde-fou de profondeur d'explosion (la nomenclature ne dépasse pas ~5 niveaux ; cycles gérés par `seen`). */
 const BOM_DEPTH_CAP = 12
+/** Terme minimal pour une recherche article partielle (en deçà, trop d'articles). */
+const MIN_ARTICLE_TERM = 3
+const MAX_ARTICLE_MATCHES = 5000
 
 export class ProducedHoursLoader {
   private repo = new X3ProducedHoursRepository()
 
   /**
-   * Résout le filtre article : l'article saisi + tous ses composants, tous niveaux de
-   * nomenclature. null si pas de filtre ou si le terme n'est pas un code article connu
-   * (la barre de recherche sert aussi à chercher un poste : « PP_145 » ne filtre rien ici).
+   * Résout le filtre article : les articles dont le code CONTIENT le terme saisi, plus tous
+   * leurs composants, tous niveaux de nomenclature. null si pas de filtre, terme trop court
+   * ou aucun code article correspondant (la barre sert aussi à chercher un poste).
    */
   async resolveArticleFilter(
     article?: string | null
   ): Promise<{ info: ArticleFilterInfo; articles: string[] } | null> {
     const code = article?.trim().toUpperCase()
-    if (!code) return null
+    if (!code || code.length < MIN_ARTICLE_TERM) return null
 
-    const [nomenclatures, desc] = await Promise.all([
+    const [nomenclatures, matches] = await Promise.all([
       staticSync.readNomenclatures().catch(() => []),
-      StaticArticle.query().where('code', code).select('description').first(),
+      StaticArticle.query()
+        .where('code', 'like', `%${code}%`)
+        .select('code', 'description')
+        .limit(MAX_ARTICLE_MATCHES),
     ])
-    if (!desc) return null
+    if (matches.length === 0) return null
+    const roots = matches.map((m) => m.code.trim().toUpperCase())
 
     const childrenByParent = new Map<string, string[]>()
     for (const row of nomenclatures) {
@@ -188,8 +199,8 @@ export class ProducedHoursLoader {
       else childrenByParent.set(parent, [comp])
     }
 
-    const seen = new Set<string>([code])
-    const stack: { art: string; depth: number }[] = [{ art: code, depth: 0 }]
+    const seen = new Set<string>(roots)
+    const stack = roots.map((art) => ({ art, depth: 0 }))
     while (stack.length > 0) {
       const { art, depth } = stack.pop()!
       if (depth >= BOM_DEPTH_CAP) continue
@@ -202,9 +213,26 @@ export class ProducedHoursLoader {
 
     const articles = [...seen]
     return {
-      info: { code, designation: desc.description?.trim() || '', nbArticles: articles.length },
+      info: {
+        code,
+        designation: matches.length === 1 ? matches[0].description?.trim() || '' : '',
+        nbMatches: matches.length,
+        nbArticles: articles.length,
+      },
       articles,
     }
+  }
+
+  /**
+   * Filtre article restreint aux articles réellement pointés sur la période : un terme
+   * partiel (« BDH ») couvre des milliers d'articles, la clause IN n'en garde que les utiles.
+   */
+  private async scopedArticleFilter(article: string | undefined, from: string, to: string) {
+    const filter = await this.resolveArticleFilter(article)
+    if (!filter) return null
+    const pointedArticles = await this.repo.getPointedArticles(from, to)
+    const pointed = new Set(pointedArticles.map((a) => a.trim().toUpperCase()))
+    return { ...filter, articles: filter.articles.filter((a) => pointed.has(a)) }
   }
 
   /**
@@ -212,7 +240,7 @@ export class ProducedHoursLoader {
    * Périmètre strict : ateliers S3P, S4P, S9P, CLP et postes PP_XXX.
    */
   async loadPayload(from: string, to: string, article?: string): Promise<ProducedHoursPayload> {
-    const filter = await this.resolveArticleFilter(article)
+    const filter = await this.scopedArticleFilter(article, from, to)
     const [wstRefList, gammes, summaryRows, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
       staticSync.readGammes().catch(() => []),
@@ -378,7 +406,7 @@ export class ProducedHoursLoader {
     article?: string
   ): Promise<WorkstationDetailResponse> {
     const cleanPoste = poste.trim()
-    const filter = await this.resolveArticleFilter(article)
+    const filter = await this.scopedArticleFilter(article, from, to)
 
     const [wstRefList, gammes, rawTrackings, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),

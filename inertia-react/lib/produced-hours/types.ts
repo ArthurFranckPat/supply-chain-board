@@ -48,6 +48,7 @@ export interface ProducedHoursKPIs {
 export interface ArticleFilterInfo {
   code: string
   designation: string
+  nbMatches: number
   nbArticles: number
 }
 
