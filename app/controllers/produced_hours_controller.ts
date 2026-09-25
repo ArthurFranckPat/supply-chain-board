@@ -33,7 +33,8 @@ export default class ProducedHoursController {
       })
     }
 
-    const hoursPayload = await producedHoursLoader.loadPayload(from, to)
+    const article = (ctx.request.input('article') as string) || undefined
+    const hoursPayload = await producedHoursLoader.loadPayload(from, to, article)
     return ctx.inertia.render('produced_hours/index', {
       ...hoursPayload,
       initialView: 'heures',
@@ -58,7 +59,8 @@ export default class ProducedHoursController {
         const payload = await producedHoursLoader.loadOrdersPayload(from, to, dateMode)
         return response.json(payload)
       }
-      const payload = await producedHoursLoader.loadPayload(from, to)
+      const article = (request.input('article') as string) || undefined
+      const payload = await producedHoursLoader.loadPayload(from, to, article)
       return response.json(payload)
     } catch (error) {
       return response.internalServerError({
@@ -98,9 +100,10 @@ export default class ProducedHoursController {
     const defaultRange = getDefaultDateRange()
     const from = (request.input('from') as string) || defaultRange.from
     const to = (request.input('to') as string) || defaultRange.to
+    const article = (request.input('article') as string) || undefined
 
     try {
-      const detail = await producedHoursLoader.loadWorkstationDetail(poste, from, to)
+      const detail = await producedHoursLoader.loadWorkstationDetail(poste, from, to, article)
       return response.json(detail)
     } catch (error) {
       return response.internalServerError({

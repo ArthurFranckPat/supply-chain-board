@@ -95,7 +95,8 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       newFrom: string,
       newTo: string,
       targetView: 'heures' | 'commandes' = view,
-      targetDateMode: OrderDateMode = dateMode
+      targetDateMode: OrderDateMode = dateMode,
+      targetArticle: string = hoursData?.articleFilter?.code ?? ''
     ) => {
       setLoading(true)
       try {
@@ -108,7 +109,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
           setOrdersData(json)
         } else {
           const res = await fetch(
-            `/api/v1/heures-produites/summary?from=${encodeURIComponent(newFrom)}&to=${encodeURIComponent(newTo)}`
+            `/api/v1/heures-produites/summary?from=${encodeURIComponent(newFrom)}&to=${encodeURIComponent(newTo)}&article=${encodeURIComponent(targetArticle)}`
           )
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           const json: ProducedHoursPayload = await res.json()
@@ -122,8 +123,18 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         setLoading(false)
       }
     },
-    [view, dateMode]
+    [view, dateMode, hoursData]
   )
+
+  // Recherche validée (Entrée) en vision heures : si le terme est un code article, le serveur
+  // restreint les pointages à cet article + tous ses composants (tous niveaux de nomenclature).
+  const articleFilter = hoursData?.articleFilter ?? null
+  const applySearchAsArticle = (term: string) => {
+    if (view !== 'heures') return
+    const code = term.trim().toUpperCase()
+    if (code === (articleFilter?.code ?? '')) return
+    fetchData(from, to, 'heures', dateMode, code)
+  }
 
   // Quick date presets
   const applyPreset = (preset: 'current-month' | 'last-month' | 'last-30' | 'current-week') => {
@@ -185,7 +196,9 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
       if (selectedAtelier !== 'ALL' && w.atelier !== selectedAtelier) {
         return false
       }
-      if (search.trim()) {
+      // Terme résolu en article côté serveur : les postes renvoyés sont déjà filtrés
+      const isArticle = hoursData.articleFilter?.code === search.trim().toUpperCase()
+      if (search.trim() && !isArticle) {
         const q = search.trim().toLowerCase()
         const matchCode = w.poste.toLowerCase().includes(q)
         const matchName = w.name.toLowerCase().includes(q)
@@ -412,16 +425,29 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
             <input
               type="text"
               placeholder={
-                view === 'commandes' ? 'Rechercher ligne, article...' : 'Rechercher poste, nom...'
+                view === 'commandes'
+                  ? 'Rechercher ligne, article...'
+                  : 'Rechercher poste, nom, article (Entrée)...'
+              }
+              title={
+                view === 'heures'
+                  ? 'Code article + Entrée : filtre sur l’article et tous ses composants (tous niveaux de nomenclature)'
+                  : undefined
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applySearchAsArticle(search)
+              }}
               className="h-[30px] w-full rounded-full border border-rule bg-card pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
             />
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
+                onClick={() => {
+                  setSearch('')
+                  applySearchAsArticle('')
+                }}
                 className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-3" />
@@ -476,6 +502,12 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Postes de charge ({filteredHoursWorkstations.length})
+                    {articleFilter && (
+                      <span className="ml-2 font-normal normal-case tracking-normal text-foreground">
+                        · article <span className="font-mono">{articleFilter.code}</span> + ses{' '}
+                        {articleFilter.nbArticles - 1} composants (tous niveaux)
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Du{' '}
@@ -504,6 +536,7 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         poste={selectedPoste}
         from={from}
         to={to}
+        article={articleFilter?.code ?? ''}
         open={Boolean(selectedPoste)}
         onOpenChange={(open) => {
           if (!open) setSelectedPoste(null)

@@ -95,16 +95,27 @@ export interface ProducedHoursKPIs {
   totalWorkstationsCount: number
 }
 
+/** Filtre article résolu : l'article saisi et tous ses composants, tous niveaux. */
+export interface ArticleFilterInfo {
+  code: string
+  designation: string
+  /** Nombre d'articles du périmètre (article + composants, tous niveaux). */
+  nbArticles: number
+}
+
 export interface ProducedHoursPayload {
   from: string
   to: string
   kpis: ProducedHoursKPIs
   workstations: WorkstationProducedCard[]
   ateliers: string[]
+  articleFilter: ArticleFilterInfo | null
 }
 
 export interface EnrichedPosteTracking extends PosteTrackingDetail {
   designation: string
+  /** Cadence standard de la gamme (unités/h) pour l'article sur ce poste — null si absente. */
+  standardCadence: number | null
 }
 
 export interface WorkstationDetailResponse {
@@ -136,24 +147,77 @@ export interface WorkstationDetailResponse {
     afternoonHours: number
   }[]
   trackings: EnrichedPosteTracking[]
+  /** Moyenne des cadences standard gamme des articles pointés sur le poste — null si aucune. */
+  lineStandardCadence: number | null
+  articleFilter: ArticleFilterInfo | null
 }
 
 export const ALLOWED_ATELIERS = new Set(['S3P', 'S4P', 'S9P', 'CLP'])
 export const PP_XXX_REGEX = /^PP_\d{3}$/
 
+/** Garde-fou de profondeur d'explosion (la nomenclature ne dépasse pas ~5 niveaux ; cycles gérés par `seen`). */
+const BOM_DEPTH_CAP = 12
+
 export class ProducedHoursLoader {
   private repo = new X3ProducedHoursRepository()
+
+  /**
+   * Résout le filtre article : l'article saisi + tous ses composants, tous niveaux de
+   * nomenclature. null si pas de filtre ou si le terme n'est pas un code article connu
+   * (la barre de recherche sert aussi à chercher un poste : « PP_145 » ne filtre rien ici).
+   */
+  async resolveArticleFilter(
+    article?: string | null
+  ): Promise<{ info: ArticleFilterInfo; articles: string[] } | null> {
+    const code = article?.trim().toUpperCase()
+    if (!code) return null
+
+    const [nomenclatures, desc] = await Promise.all([
+      staticSync.readNomenclatures().catch(() => []),
+      StaticArticle.query().where('code', code).select('description').first(),
+    ])
+    if (!desc) return null
+
+    const childrenByParent = new Map<string, string[]>()
+    for (const row of nomenclatures) {
+      const parent = row.parentArticle.trim().toUpperCase()
+      const comp = row.componentArticle.trim().toUpperCase()
+      if (!parent || !comp) continue
+      const list = childrenByParent.get(parent)
+      if (list) list.push(comp)
+      else childrenByParent.set(parent, [comp])
+    }
+
+    const seen = new Set<string>([code])
+    const stack: { art: string; depth: number }[] = [{ art: code, depth: 0 }]
+    while (stack.length > 0) {
+      const { art, depth } = stack.pop()!
+      if (depth >= BOM_DEPTH_CAP) continue
+      for (const comp of childrenByParent.get(art) ?? []) {
+        if (seen.has(comp)) continue
+        seen.add(comp)
+        stack.push({ art: comp, depth: depth + 1 })
+      }
+    }
+
+    const articles = [...seen]
+    return {
+      info: { code, designation: desc.description?.trim() || '', nbArticles: articles.length },
+      articles,
+    }
+  }
 
   /**
    * Charge le jeu de données complet des heures produites par poste pour la période [from, to].
    * Périmètre strict : ateliers S3P, S4P, S9P, CLP et postes PP_XXX.
    */
-  async loadPayload(from: string, to: string): Promise<ProducedHoursPayload> {
+  async loadPayload(from: string, to: string, article?: string): Promise<ProducedHoursPayload> {
+    const filter = await this.resolveArticleFilter(article)
     const [wstRefList, gammes, summaryRows, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
       staticSync.readGammes().catch(() => []),
-      this.repo.getSummary(from, to),
-      this.repo.getDailyTimeline(from, to),
+      this.repo.getSummary(from, to, filter?.articles),
+      this.repo.getDailyTimeline(from, to, undefined, filter?.articles),
     ])
 
     // Dictionnaire des libellés de postes issus des gammes (ATEXTRA / WSTDESAXX en français)
@@ -300,6 +364,7 @@ export class ProducedHoursLoader {
       kpis,
       workstations,
       ateliers: Array.from(ALLOWED_ATELIERS).sort(),
+      articleFilter: filter?.info ?? null,
     }
   }
 
@@ -309,15 +374,17 @@ export class ProducedHoursLoader {
   async loadWorkstationDetail(
     poste: string,
     from: string,
-    to: string
+    to: string,
+    article?: string
   ): Promise<WorkstationDetailResponse> {
     const cleanPoste = poste.trim()
+    const filter = await this.resolveArticleFilter(article)
 
     const [wstRefList, gammes, rawTrackings, dailyPoints] = await Promise.all([
       staticSync.readWorkstations().catch(() => []),
       staticSync.readGammes().catch(() => []),
-      this.repo.getPosteTrackings(cleanPoste, from, to),
-      this.repo.getDailyTimeline(from, to, cleanPoste),
+      this.repo.getPosteTrackings(cleanPoste, from, to, 500, filter?.articles),
+      this.repo.getDailyTimeline(from, to, cleanPoste, filter?.articles),
     ])
 
     const pKey = cleanPoste.toUpperCase()
@@ -334,10 +401,26 @@ export class ProducedHoursLoader {
       : []
     const desMap = new Map(articles.map((a) => [a.code.trim().toUpperCase(), a.description]))
 
+    // Cadence standard gamme (unités/h) par article, pour l'opération sur CE poste
+    const stdRateByArticle = new Map<string, number>()
+    for (const g of gammes) {
+      if (g.workstation?.trim().toUpperCase() !== pKey || !(g.rate > 0)) continue
+      const art = g.article.trim().toUpperCase()
+      if (!stdRateByArticle.has(art)) stdRateByArticle.set(art, g.rate)
+    }
+
     const trackings: EnrichedPosteTracking[] = rawTrackings.map((t) => ({
       ...t,
       designation: desMap.get(t.article.trim().toUpperCase()) || '',
+      standardCadence: stdRateByArticle.get(t.article.trim().toUpperCase()) ?? null,
     }))
+
+    const pointedRates = [
+      ...new Set(rawTrackings.map((t) => t.article.trim().toUpperCase())),
+    ].flatMap((a) => stdRateByArticle.get(a) ?? [])
+    const lineStandardCadence = pointedRates.length
+      ? Math.round((pointedRates.reduce((acc, r) => acc + r, 0) / pointedRates.length) * 10) / 10
+      : null
 
     // Calcul des KPI du poste
     let totalH = 0
@@ -396,6 +479,8 @@ export class ProducedHoursLoader {
       },
       timeline,
       trackings,
+      lineStandardCadence,
+      articleFilter: filter?.info ?? null,
     }
   }
 

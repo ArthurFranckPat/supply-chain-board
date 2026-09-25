@@ -93,6 +93,8 @@ interface WorkstationDetailSheetProps {
   poste: string | null
   from: string
   to: string
+  /** Article filtré sur la page (article + composants, tous niveaux) — '' si aucun. */
+  article?: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -101,6 +103,7 @@ export function WorkstationDetailSheet({
   poste,
   from,
   to,
+  article = '',
   open,
   onOpenChange,
 }: WorkstationDetailSheetProps) {
@@ -126,7 +129,7 @@ export function WorkstationDetailSheet({
     setError(null)
     setHoveredKey(null)
 
-    const url = `/api/v1/heures-produites/detail?poste=${encodeURIComponent(poste)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    const url = `/api/v1/heures-produites/detail?poste=${encodeURIComponent(poste)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&article=${encodeURIComponent(article)}`
 
     fetch(url)
       .then(async (res) => {
@@ -152,7 +155,7 @@ export function WorkstationDetailSheet({
     return () => {
       cancelled = true
     }
-  }, [open, poste, from, to])
+  }, [open, poste, from, to, article])
 
   const periodShifts = useMemo(() => {
     if (!data?.timeline?.length) return { morning: 0, afternoon: 0 }
@@ -399,6 +402,18 @@ export function WorkstationDetailSheet({
                   </span>
                   <span className="text-[11px] text-muted-foreground">
                     ({data.kpis.nbOfs} OFs · {data.kpis.nbTrackings} ptgs)
+                  </span>
+                </div>
+
+                <div
+                  className="flex items-center gap-2 text-xs"
+                  title="Moyenne des cadences standard gamme des articles pointés sur ce poste"
+                >
+                  <span className="text-muted-foreground">Cadence std moy. :</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {data.lineStandardCadence === null
+                      ? '—'
+                      : `${data.lineStandardCadence.toLocaleString('fr-FR')} u/h`}
                   </span>
                 </div>
               </div>
@@ -735,13 +750,19 @@ export function WorkstationDetailSheet({
                           Standard (h)
                         </th>
                         <th className="w-20 px-3 py-2.5 text-right whitespace-nowrap">Écart</th>
+                        <th
+                          className="w-24 px-3 py-2.5 text-right whitespace-nowrap"
+                          title="Cadence standard de la gamme pour l'article sur ce poste (unités/h)"
+                        >
+                          Cadence std
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-rule font-mono text-[11px]">
                       {filteredTrackings.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             className="px-4 py-8 text-center text-xs text-muted-foreground"
                           >
                             Aucun pointage trouvé pour cette sélection.
@@ -827,6 +848,11 @@ export function WorkstationDetailSheet({
                               )}
                             >
                               {trk.deltaHours > 0 ? `+${trk.deltaHours}` : trk.deltaHours}
+                            </td>
+                            <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
+                              {trk.standardCadence === null
+                                ? '—'
+                                : trk.standardCadence.toLocaleString('fr-FR')}
                             </td>
                           </tr>
                         ))
