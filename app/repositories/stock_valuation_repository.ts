@@ -192,6 +192,37 @@ export interface StockCategorieRow {
   part: number // % du total actuel (0-100)
 }
 
+/**
+ * Évolution d'UNE catégorie sur la plage : une valeur (€) de fin de période par
+ * période de `StockValuationKpi.series` — même ordre, même longueur.
+ *
+ * `StockValuationPoint.categories` ne pouvait pas servir à ça : c'est un top 5
+ * recalculé PÉRIODE PAR PÉRIODE (la catégorie 4e en janvier peut être 6e en
+ * février), donc les rangs ne s'alignent pas d'une période à l'autre. Ici la
+ * liste des catégories est stable sur toute la plage, et la valeur de chaque
+ * période est indexée — c'est ce qui rend une courbe par catégorie traçable.
+ */
+export interface StockCategorieSerie {
+  categorie: string
+  valeurs: number[]
+}
+
+/**
+ * Accumulateur (catégorie → valeurs de fin de période) → séries triées par
+ * valeur COURANTE décroissante, puis par nom. Les catégories dont toutes les
+ * périodes sont nulles sont écartées (rien à tracer). Pure, testable sans X3.
+ */
+export function toCategoriesEvolution(acc: Map<string, number[]>): StockCategorieSerie[] {
+  const out: StockCategorieSerie[] = []
+  for (const [categorie, raw] of acc) {
+    const valeurs = raw.map((v) => Math.round(v * 100) / 100)
+    if (valeurs.every((v) => v === 0)) continue
+    out.push({ categorie, valeurs })
+  }
+  const courant = (s: StockCategorieSerie) => s.valeurs[s.valeurs.length - 1] ?? 0
+  return out.sort((a, b) => courant(b) - courant(a) || a.categorie.localeCompare(b.categorie))
+}
+
 export interface StockArticleRow {
   article: string
   designation: string
@@ -208,6 +239,10 @@ export interface StockValuationKpi {
   totalDebut: number // valeur à la première période affichée
   deltaPct: number // (actuel − début) / début
   categories: StockCategorieRow[]
+  /** Une série de valeurs par catégorie, alignée sur `series` — toutes les
+   *  catégories (pas seulement le top 5), pour la vue « évolution par
+   *  catégorie ». Trié par valeur courante décroissante. */
+  categoriesEvolution: StockCategorieSerie[]
   articles: StockArticleRow[] // trié par valeur décroissante
   nbArticles: number
 }
@@ -443,6 +478,9 @@ export class StockValuationRepository {
       categories: new Map<string, number>(),
     }))
     const catValues = new Map<string, number>()
+    // Valeurs par catégorie × période, alignées sur `refPeriods` — la matière des
+    // courbes d'évolution (cf. `StockCategorieSerie`).
+    const catSeriesAcc = new Map<string, number[]>()
     const articleRows: StockArticleRow[] = []
 
     // refDate comme ancrage réel : le stock à refDate = stock actuel (ITMMVT)
@@ -470,6 +508,12 @@ export class StockValuationRepository {
       const stkAnchor = stkNow - postRefQty
       const valeur = stkAnchor * pmp
 
+      let catLine = catSeriesAcc.get(cat)
+      if (!catLine) {
+        catLine = refPeriods.map(() => 0)
+        catSeriesAcc.set(cat, catLine)
+      }
+
       // Rembobinage depuis stkAnchor : du plus récent (i = len-1) au plus ancien.
       // runningSub = Σ des qtés nettes des périodes PLUS RÉCENTES que i.
       let runningQtySub = 0
@@ -477,10 +521,8 @@ export class StockValuationRepository {
         const qtyClose = stkAnchor - runningQtySub
         seriesAcc[i].valeur += qtyClose * pmp
         seriesAcc[i].qte += qtyClose
-        seriesAcc[i].categories.set(
-          cat,
-          (seriesAcc[i].categories.get(cat) ?? 0) + qtyClose * pmp
-        )
+        seriesAcc[i].categories.set(cat, (seriesAcc[i].categories.get(cat) ?? 0) + qtyClose * pmp)
+        catLine[i] += qtyClose * pmp
         const f = flux?.get(refPeriods[i].key)
         if (f) runningQtySub += f
       }
@@ -532,6 +574,7 @@ export class StockValuationRepository {
       totalDebut,
       deltaPct,
       categories,
+      categoriesEvolution: toCategoriesEvolution(catSeriesAcc),
       articles,
       nbArticles: baseRows.length,
     }

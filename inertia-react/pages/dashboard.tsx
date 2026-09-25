@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
+import { StockCategoriesChart } from '@r/components/dashboard/stock-categories-chart'
 import { OtdClientDropdown } from '@r/components/dashboard/otd-client-dropdown'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
 import { Card, CardContent } from '@r/components/ui/card'
@@ -170,6 +171,12 @@ interface StockCategorieRow {
   part: number
 }
 
+/** Une série par catégorie, alignée sur toutes les périodes de `series`. */
+interface StockCategorieSerie {
+  categorie: string
+  valeurs: number[]
+}
+
 interface StockArticleRow {
   article: string
   designation: string
@@ -188,6 +195,7 @@ interface StockValuationKpi {
   totalDebut: number
   deltaPct: number
   categories: StockCategorieRow[]
+  categoriesEvolution: StockCategorieSerie[]
   articles: StockArticleRow[]
   nbArticles: number
 }
@@ -227,6 +235,7 @@ const EMPTY_STOCK: StockValuationKpi = {
   totalDebut: 0,
   deltaPct: 0,
   categories: [],
+  categoriesEvolution: [],
   articles: [],
   nbArticles: 0,
 }
@@ -240,6 +249,18 @@ const EMPTY_STOCK: StockValuationKpi = {
 const BAR_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
 /** Catégories de stock — même famille unique (cohérence Airbnb stricte). */
 const STOCK_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
+/**
+ * Palette des COURBES par catégorie (vue « Par catégorie »).
+ *
+ * Même famille Airbnb stricte que ci-dessus, mais réordonnée pour la lecture en
+ * traits : on écarte le gris clair (#dddddd), illisible en filet, et on entre
+ * par les teintes les plus séparées (Rausch → Babu → Arches → vert → ink →
+ * gris). Six teintes = six catégories affichables à la fois : au-delà, deux
+ * courbes partageraient une couleur et la légende mentirait. C'est cette limite
+ * qui borne la sélection (cf. `stockCatSelection`).
+ */
+const STOCK_SERIES_PALETTE = ['#ff385c', '#00a699', '#fc642d', '#008049', '#222222', '#6a6a6a']
+const STOCK_SERIES_MAX = STOCK_SERIES_PALETTE.length
 
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
 const WIDTH_CLASS: Record<KpiWidth, string> = {
@@ -725,6 +746,11 @@ export default function Dashboard(props: DashboardProps) {
   const [stockSortDir, setStockSortDir] = useState<'asc' | 'desc'>('desc')
   const [stockGrain, setStockGrain] = useState<StockGrain>('mois')
   const [stockSelectedPeriod, setStockSelectedPeriod] = useState<string | null>(null)
+  // Vue de la carte : photo (totaux + top catégories) ou évolution par catégorie.
+  const [stockView, setStockView] = useState<'totaux' | 'categories'>('totaux')
+  // Catégories tracées dans la vue « Par catégorie » — nom → sélection.
+  // `null` = pas encore touché : on retombe sur le top par défaut (cf. mémo).
+  const [stockCatSelection, setStockCatSelection] = useState<string[] | null>(null)
   const [stockRange, setStockRange] = useState<{ start: Date | null; end: Date | null } | null>(
     null
   )
@@ -937,6 +963,45 @@ export default function Dashboard(props: DashboardProps) {
   const displayedStockMaxCat = useMemo(
     () => Math.max(1, ...displayedStockCategories.map((c) => c.valeur)),
     [displayedStockCategories]
+  )
+
+  // ── Vue « évolution par catégorie » ──────────────────────────────────────
+  // Séries par catégorie alignées sur toutes les périodes (payload v3).
+  const stockEvolution = useMemo(() => stock.categoriesEvolution ?? [], [stock.categoriesEvolution])
+  // Défaut = les `STOCK_SERIES_MAX` catégories les plus valorisées aujourd'hui ;
+  // dès que l'utilisateur touche au filtre, c'est sa sélection qui pilote.
+  const defaultStockCats = useMemo(
+    () => stockEvolution.slice(0, STOCK_SERIES_MAX).map((s) => s.categorie),
+    [stockEvolution]
+  )
+  const stockSelectedCats = useMemo(() => {
+    const selection = new Set(stockCatSelection ?? defaultStockCats)
+    // On repasse par l'ordre du classement (valeur décroissante) : les couleurs
+    // se posent sur les rangs affichés, pas sur l'ordre des clics.
+    return stockEvolution.filter((s) => selection.has(s.categorie)).map((s) => s.categorie)
+  }, [stockEvolution, stockCatSelection, defaultStockCats])
+  const stockChartSeries = useMemo(
+    () =>
+      stockSelectedCats.map((cat, i) => {
+        const serie = stockEvolution.find((s) => s.categorie === cat)
+        return {
+          categorie: cat,
+          couleur: STOCK_SERIES_PALETTE[i],
+          valeurs: serie?.valeurs ?? [],
+        }
+      }),
+    [stockSelectedCats, stockEvolution]
+  )
+  const toggleStockCat = useCallback(
+    (cat: string) => {
+      const current = stockCatSelection ?? defaultStockCats
+      if (current.includes(cat)) {
+        setStockCatSelection(current.filter((c) => c !== cat))
+      } else if (current.length < STOCK_SERIES_MAX) {
+        setStockCatSelection([...current, cat])
+      }
+    },
+    [stockCatSelection, defaultStockCats]
   )
 
   // Stock categories
@@ -1592,6 +1657,28 @@ export default function Dashboard(props: DashboardProps) {
                             Sem.
                           </SegmentButton>
                         </Segment>
+                        {/* Toggle vue : photo vs évolution par catégorie */}
+                        <Segment role="radiogroup" ariaLabel="Vue de la valorisation stock">
+                          <SegmentButton
+                            role="radio"
+                            active={stockView === 'totaux'}
+                            onClick={() => setStockView('totaux')}
+                            title="Total et top catégories de la période"
+                          >
+                            Totaux
+                          </SegmentButton>
+                          <SegmentButton
+                            role="radio"
+                            active={stockView === 'categories'}
+                            onClick={() => {
+                              setStockSelectedPeriod(null)
+                              setStockView('categories')
+                            }}
+                            title="Évolution de chaque catégorie dans le temps"
+                          >
+                            Par cat.
+                          </SegmentButton>
+                        </Segment>
                       </>
                     }
                   />
@@ -1634,60 +1721,110 @@ export default function Dashboard(props: DashboardProps) {
                         </div>
                       </div>
 
-                      {/* Mini-graphique */}
-                      <StockSparkline
-                        series={stock.series}
-                        selectedPeriod={stockSelectedPeriod}
-                        onSelect={(point) => setStockSelectedPeriod(point.periode)}
-                      />
-
-                      {/* Top 5 catégories */}
-                      <div className="mt-5">
-                        <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
-                          {hasSelectedStockPoint && selectedStockPoint
-                            ? `Catégories · ${periodDated(selectedStockPoint)}`
-                            : 'Top catégories'}
-                        </div>
-                        <div className="flex flex-col gap-3">
-                          {displayedStockCategories.map((cat, i) => (
-                            <div key={cat.categorie}>
-                              <div className="mb-[5px] flex items-baseline justify-between gap-2">
-                                <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
-                                  {cat.categorie}
-                                </span>
-                                <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
-                                  {fmtEuro.format(cat.valeur)}
-                                  <span className="ml-1 text-[10px] text-muted-foreground/70">
-                                    {cat.part}%
-                                  </span>
-                                </span>
-                              </div>
-                              <div
-                                className="h-2 overflow-hidden rounded-full bg-secondary"
-                                style={
-                                  {
-                                    WebkitPrintColorAdjust: 'exact',
-                                    printColorAdjust: 'exact',
-                                  } as React.CSSProperties
-                                }
-                              >
-                                <div
-                                  className="h-full rounded-full"
-                                  style={
-                                    {
-                                      width: `${Math.max(3, (cat.valeur / displayedStockMaxCat) * 100)}%`,
-                                      background:
-                                        STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
-                                      WebkitPrintColorAdjust: 'exact',
-                                      printColorAdjust: 'exact',
-                                    } as React.CSSProperties
+                      {stockView === 'categories' ? (
+                        <>
+                          {/* Filtres / légende : chaque catégorie est un interrupteur */}
+                          <div className="mt-4 flex flex-wrap gap-1.5">
+                            {stockEvolution.map((s) => {
+                              const rang = stockSelectedCats.indexOf(s.categorie)
+                              const active = rang >= 0
+                              const complet = stockSelectedCats.length >= STOCK_SERIES_MAX
+                              return (
+                                <button
+                                  key={s.categorie}
+                                  type="button"
+                                  onClick={() => toggleStockCat(s.categorie)}
+                                  disabled={!active && complet}
+                                  aria-pressed={active}
+                                  title={
+                                    active
+                                      ? `Masquer ${s.categorie}`
+                                      : complet
+                                        ? `${STOCK_SERIES_MAX} catégories au maximum`
+                                        : `Afficher ${s.categorie}`
                                   }
-                                />
-                              </div>
+                                  className={cn(
+                                    'inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 font-mono text-[10.5px] font-semibold transition-colors',
+                                    active
+                                      ? 'border-foreground/20 bg-secondary text-foreground'
+                                      : 'border-rule bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                                    !active && complet && 'cursor-not-allowed opacity-40'
+                                  )}
+                                >
+                                  <span
+                                    className="size-2 flex-none rounded-[2px]"
+                                    style={{
+                                      background:
+                                        rang >= 0
+                                          ? STOCK_SERIES_PALETTE[rang]
+                                          : 'var(--color-rule-soft)',
+                                    }}
+                                  />
+                                  {s.categorie}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <StockCategoriesChart periods={stock.series} series={stockChartSeries} />
+                        </>
+                      ) : (
+                        <>
+                          {/* Mini-graphique */}
+                          <StockSparkline
+                            series={stock.series}
+                            selectedPeriod={stockSelectedPeriod}
+                            onSelect={(point) => setStockSelectedPeriod(point.periode)}
+                          />
+
+                          {/* Top 5 catégories */}
+                          <div className="mt-5">
+                            <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
+                              {hasSelectedStockPoint && selectedStockPoint
+                                ? `Catégories · ${periodDated(selectedStockPoint)}`
+                                : 'Top catégories'}
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                            <div className="flex flex-col gap-3">
+                              {displayedStockCategories.map((cat, i) => (
+                                <div key={cat.categorie}>
+                                  <div className="mb-[5px] flex items-baseline justify-between gap-2">
+                                    <span className="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+                                      {cat.categorie}
+                                    </span>
+                                    <span className="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                      {fmtEuro.format(cat.valeur)}
+                                      <span className="ml-1 text-[10px] text-muted-foreground/70">
+                                        {cat.part}%
+                                      </span>
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="h-2 overflow-hidden rounded-full bg-secondary"
+                                    style={
+                                      {
+                                        WebkitPrintColorAdjust: 'exact',
+                                        printColorAdjust: 'exact',
+                                      } as React.CSSProperties
+                                    }
+                                  >
+                                    <div
+                                      className="h-full rounded-full"
+                                      style={
+                                        {
+                                          width: `${Math.max(3, (cat.valeur / displayedStockMaxCat) * 100)}%`,
+                                          background:
+                                            STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
+                                          WebkitPrintColorAdjust: 'exact',
+                                          printColorAdjust: 'exact',
+                                        } as React.CSSProperties
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </Card>

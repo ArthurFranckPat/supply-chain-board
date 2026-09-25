@@ -164,6 +164,7 @@ export default class DashboardController {
       totalDebut: 0,
       deltaPct: 0,
       categories: [],
+      categoriesEvolution: [],
       articles: [],
       nbArticles: 0,
     }
