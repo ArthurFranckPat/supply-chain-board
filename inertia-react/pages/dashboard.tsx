@@ -387,34 +387,62 @@ function StockSparkline({
   series,
   selectedPeriod,
   onSelect,
+  remplir = false,
 }: {
   series: StockValuationPoint[]
   selectedPeriod: string | null
   onSelect: (period: StockValuationPoint) => void
+  /** Plein écran : la carte est une colonne flex, le tracé prend la place libre. */
+  remplir?: boolean
 }) {
-  const W = 240
-  const H = 56
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [dims, setDims] = useState({ w: 240, h: 56 })
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      if (width > 0 && height > 0) setDims({ w: Math.round(width), h: Math.round(height) })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const PAD = 4
-  const innerH = H - PAD * 2
+  // La ligne de période en bas occupe ~15 px : le tracé prend le reste du bloc.
+  const labelH = 15
+  const W = dims.w
+  const H = Math.max(8, dims.h - labelH)
+  const innerH = Math.max(1, H - PAD * 2)
   const max = useMemo(() => Math.max(1, ...series.map((s) => Math.abs(s.valeur))), [series])
   const gap = 2
   const barW = useMemo(() => {
     const n = series.length || 1
     return (W - gap * (n - 1) - PAD * 2) / n
-  }, [series.length])
+  }, [series.length, W])
 
   return (
     <div
-      className="mt-5"
+      ref={wrapRef}
+      className={cn('mt-5 flex flex-col', remplir && 'min-h-0 flex-1')}
       style={
-        { 'WebkitPrintColorAdjust': 'exact', 'print-color-adjust': 'exact' } as React.CSSProperties
+        remplir
+          ? undefined
+          : ({
+              height: '72px',
+              WebkitPrintColorAdjust: 'exact',
+              printColorAdjust: 'exact',
+            } as React.CSSProperties)
       }
     >
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
+        className="w-full min-h-0 flex-1"
         preserveAspectRatio="none"
-        style={{ height: '56px' }}
+        style={
+          { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
+        }
       >
         {series.map((pt, i) => {
           const h = Math.max(2, (Math.abs(pt.valeur) / max) * innerH)
@@ -1765,7 +1793,11 @@ export default function Dashboard(props: DashboardProps) {
                               )
                             })}
                           </div>
-                          <StockCategoriesChart periods={stock.series} series={stockChartSeries} />
+                          <StockCategoriesChart
+                            periods={stock.series}
+                            series={stockChartSeries}
+                            remplir={expandedKpi === 'stock'}
+                          />
                         </>
                       ) : (
                         <>
@@ -1774,6 +1806,7 @@ export default function Dashboard(props: DashboardProps) {
                             series={stock.series}
                             selectedPeriod={stockSelectedPeriod}
                             onSelect={(point) => setStockSelectedPeriod(point.periode)}
+                            remplir={expandedKpi === 'stock'}
                           />
 
                           {/* Top 5 catégories */}

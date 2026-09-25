@@ -29,7 +29,10 @@ export interface StockCategoriesSerie {
 interface StockCategoriesChartProps {
   periods: { periode: string; label: string }[]
   series: StockCategoriesSerie[]
+  /** Hauteur de repli (et hauteur fixe hors plein écran). */
   hauteur?: number
+  /** Plein écran : la carte est une colonne flex, le graphe prend la place libre. */
+  remplir?: boolean
 }
 
 const nf0 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
@@ -57,6 +60,7 @@ export function StockCategoriesChart({
   periods,
   series,
   hauteur = 200,
+  remplir = false,
 }: StockCategoriesChartProps) {
   const padL = 52
   const padR = 14
@@ -70,19 +74,19 @@ export function StockCategoriesChart({
     const el = wrapRef.current
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
-      const { width } = entry.contentRect
-      if (width > 0) setDim({ w: Math.round(width), h: hauteur })
+      const { width, height } = entry.contentRect
+      if (width > 0 && height > 0) setDim({ w: Math.round(width), h: Math.round(height) })
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [hauteur])
+  }, [])
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
 
   const geom = useMemo(() => {
     const W = dim.w
-    const H = hauteur
+    const H = dim.h
     const cw = Math.max(1, W - padL - padR)
     const ch = Math.max(1, H - padT - padB)
     const n = periods.length || 1
@@ -116,7 +120,7 @@ export function StockCategoriesChart({
       .filter(({ i }) => i % step === 0 || i === n - 1)
 
     return { W, H, cw, ch, x, y, grid, paths, xLabels, slot }
-  }, [dim.w, hauteur, periods, series])
+  }, [dim.w, dim.h, periods, series])
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = wrapRef.current
@@ -152,8 +156,8 @@ export function StockCategoriesChart({
   return (
     <div
       ref={wrapRef}
-      className="relative mt-4"
-      style={{ height: `${hauteur}px` }}
+      className={cn('relative mt-4', remplir && 'min-h-0 flex-1')}
+      style={remplir ? undefined : { height: `${hauteur}px` }}
       onMouseMove={onMove}
       onMouseLeave={() => setHoverIndex(null)}
     >
