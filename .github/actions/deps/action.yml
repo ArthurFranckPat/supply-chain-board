@@ -1,0 +1,33 @@
+name: Dépendances
+description: >
+  Installe Node puis restaure `node_modules` depuis le cache ; `npm ci` ne
+  tourne que si le lockfile ou les patches ont changé.
+
+inputs:
+  node-version:
+    description: Version majeure de Node
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        # Pas de `cache: npm` : on met en cache `node_modules` lui-même. Le cache
+        # npm n'évitait que le téléchargement — `npm ci` coûtait encore ~27 s par
+        # job (extraction de 785 Mo + postinstall patch-package).
+
+    # La clé couvre tout ce qui détermine le contenu de `node_modules` : l'OS et
+    # la majeure de Node (ABI des modules natifs, sqlite3), le lockfile, et
+    # `patches/` (appliqués par le postinstall). Pas de `restore-keys` : un
+    # `node_modules` d'un autre lockfile ne doit jamais être réutilisé tel quel.
+    - id: cache
+      uses: actions/cache@v6
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-node${{ inputs.node-version }}-${{ hashFiles('package-lock.json', 'patches/**') }}
+
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci

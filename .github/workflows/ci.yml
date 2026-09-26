@@ -3,12 +3,24 @@ name: CI
 # Remplace l'ancienne CI du monorepo Python (supprimée avec `apps/`,
 # `services/` et `packages/` en 1e47671). Le dépôt est désormais une seule
 # application AdonisJS 7 + React 19, sans Python ni workspace.
+#
+# Budget : le run se juge sur son job le plus long. Chaque contrôle vit dans
+# son propre job pour tourner en parallèle, et `node_modules` est restauré
+# depuis le cache (action locale `deps`) au lieu d'un `npm ci` par job.
 
 on:
   pull_request:
+    paths-ignore: &docs-only
+      # Un commit qui ne touche que de la doc n'a rien à valider. Un push qui
+      # mélange doc et code déclenche la CI normalement.
+      - '**/*.md'
+      - 'docs/**'
+      - '.planning/**'
+      - '.impeccable/**'
   push:
     branches:
       - master
+    paths-ignore: *docs-only
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -19,27 +31,60 @@ env:
   NODE_VERSION: '26'
 
 jobs:
-  quality:
-    name: Quality
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - uses: ./.github/actions/deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
 
-      - run: npm ci
+      # Cache ESLint d'un run à l'autre : seuls les fichiers modifiés depuis le
+      # dernier run sont relintés. `content` et non `metadata` : le checkout
+      # donne à chaque fichier une mtime neuve. La config n'utilise pas l'info
+      # de types (pas de `projectService`), donc un cache par fichier est sûr.
+      # La clé change avec le lockfile ou la config : ESLint ne détecte pas
+      # seul une montée de version d'un plugin.
+      - uses: actions/cache@v6
+        with:
+          path: .cache/eslint
+          key: eslint-${{ hashFiles('package-lock.json', 'eslint.config.js') }}-${{ github.sha }}
+          restore-keys: eslint-${{ hashFiles('package-lock.json', 'eslint.config.js') }}-
 
-      - name: Lint
-        run: npm run lint
+      - run: npx eslint . --cache --cache-location .cache/eslint/ --cache-strategy content
 
-      - name: Typecheck
-        # Deux passes : la racine (backend, exclut inertia-react) puis le front.
-        run: npm run typecheck
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/deps
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # tsgo (TypeScript 7 natif), deux passes : la racine (backend, exclut
+      # inertia-react) puis le front. `ace build` du job Build recompile en
+      # plus le backend avec tsc 6.
+      - run: npm run typecheck
+
+  generated:
+    name: Artefacts générés
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/deps
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Env de boot
         uses: ./.github/actions/boot-env
@@ -54,6 +99,17 @@ jobs:
       - name: Apps MCP à jour
         run: npm run mcp:apps:check
 
+  # Porte le nom du check requis par la protection de master (« Quality »,
+  # ancien job monolithique) : sans lui, le check requis resterait en attente
+  # indéfiniment sur les PR. Ne rien y exécuter — il ne fait qu'agréger.
+  quality:
+    name: Quality
+    needs: [lint, typecheck, generated]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "lint, typecheck et artefacts générés verts"
+
   test:
     name: Tests unitaires
     runs-on: ubuntu-latest
@@ -65,12 +121,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - uses: ./.github/actions/deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - run: npm ci
 
       - name: Env de boot
         uses: ./.github/actions/boot-env
@@ -101,12 +154,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - uses: ./.github/actions/deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - run: npm ci
 
       - name: Env de boot
         uses: ./.github/actions/boot-env
