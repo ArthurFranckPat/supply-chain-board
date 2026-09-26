@@ -1,13 +1,43 @@
-import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Download, RefreshCw, Search } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import {
+  CircleX,
+  CloudOff,
+  Download,
+  Inbox,
+  LoaderCircle,
+  Search,
+  TriangleAlert,
+} from 'lucide-react'
+
 import AppLayout from '@r/layouts/app'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
+import {
+  FilterMenu,
+  FilterMenuSectionLabel,
+  PILL,
+  RefreshPill,
+  Segment,
+  SegmentButton,
+  ToolbarRow,
+  ToolbarSpacer,
+} from '@r/components/vision/toolbar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
+import { cn } from '@r/lib/utils'
+
+/**
+ * Page « Analyse logistique » (ZPERFSC2 corrigée).
+ *
+ * Même grammaire que les pages sœurs du groupe Logistique (Réceptions,
+ * Conditionnements) : toolbar `ToolbarRow` (Segment de rubrique, filtres
+ * secondaires derrière un `FilterMenu`, recherche à droite), bandeau de
+ * compteurs en mono/fraunces, puis le `DataTable` maison (tri par en-tête,
+ * virtualisation, cartes sous md). Rien n'est réimplémenté à la main.
+ */
 
 type Abc = 'A' | 'B' | 'C' | null
 type Profile = 'strategique' | 'lancement' | 'fin_de_vie' | 'standard' | 'sans_activite'
 type View = 'stock' | 'flux' | 'pilotage'
-type Sort = 'article' | 'valeur' | 'couverture' | 'besoin' | 'consommation'
 
 interface LogisticsRow {
   article: string
@@ -69,6 +99,7 @@ const fmtPmp = new Intl.NumberFormat('fr-FR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 4,
 })
+
 const profileLabels: Record<Profile, string> = {
   strategique: 'Stratégique',
   lancement: 'Lancement / star',
@@ -76,61 +107,243 @@ const profileLabels: Record<Profile, string> = {
   standard: 'Standard',
   sans_activite: 'Sans activité',
 }
+
+const profileTone: Record<Profile, string> = {
+  strategique: 'bg-brand-soft text-brand',
+  lancement: 'bg-ferme/10 text-ferme',
+  fin_de_vie: 'bg-destructive/10 text-destructive',
+  standard: 'bg-muted text-muted-foreground',
+  sans_activite: 'bg-muted/60 text-muted-foreground/70',
+}
+
 const EMPTY_ROWS: LogisticsRow[] = []
+
 const fold = (value: string) =>
   value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 
-const numberOrDash = (value: number | null, format = fmtQty) =>
-  value === null ? '—' : format.format(value)
+/** jj/mm/aaaa — l'ISO reste côté machine (données X3). */
+const isoToFr = (iso: string) => {
+  if (!iso) return '…'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
 
-const ALL_COLUMNS: Array<[string, (row: LogisticsRow) => string | number | null]> = [
-  ['Article', (row) => row.article],
-  ['Désignation', (row) => row.designation],
-  ['Catégorie', (row) => row.categorie],
-  ['Famille', (row) => row.famille],
-  ['Code fournisseur', (row) => row.fournisseurCode],
-  ['Fournisseur', (row) => row.fournisseurNom],
-  ['Délai réappro (j)', (row) => row.delaiReapproJours],
-  ['Lot technique', (row) => row.lotTechnique],
-  ['Lot économique', (row) => row.lotEconomique],
-  ['Stock A', (row) => row.stockA],
-  ['Stock Q', (row) => row.stockQ],
-  ['Stock A + Q', (row) => row.stockActuel],
-  ['Stock alloué', (row) => row.stockAlloue],
-  ['Stock disponible A', (row) => row.stockDisponible],
-  ['Stock sécurité', (row) => row.stockSecurite],
-  ['Besoins ouverts 12m', (row) => row.besoin12m],
-  ['Dont en retard', (row) => row.besoinEnRetard],
-  ['Besoin moyen / mois', (row) => row.besoinMoyenMensuel],
-  ['Stock moyen estimé', (row) => row.stockMoyen],
-  ['Consommation 12m', (row) => row.consommation12m],
-  ['Jours de mouvement', (row) => row.joursMouvement],
-  ['Opérations nettes', (row) => row.operations],
-  ['CMJ calendaire', (row) => row.cmjCalendaire],
-  ['Moyenne / opération', (row) => row.moyenneParOperation],
-  ['PMP', (row) => row.pmp],
-  ['Valeur stock', (row) => row.valorisationStock],
-  ['Valeur consommation', (row) => row.valorisationConsommation],
-  ['Rotation', (row) => row.rotation],
-  ['Couverture historique (j)', (row) => row.couvertureJours],
-  ['ABC consommation valeur', (row) => row.abcHistoriqueValeur],
-  ['ABC fréquence', (row) => row.abcHistoriqueFrequence],
-  ['ABC besoin valeur', (row) => row.abcPrevisionValeur],
-  ['Profil', (row) => profileLabels[row.profil]],
+const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
+
+/* ─── Champs ────────────────────────────────────────────────────────────────
+   Une seule table de champs alimente la colonne du DataTable ET l'export CSV :
+   les deux ne peuvent pas diverger. */
+
+interface Field {
+  id: keyof LogisticsRow & string
+  label: string
+  value: (row: LogisticsRow) => string | number | null
+  /** Formatage du nombre ; défaut = quantité entière. */
+  fmt?: (value: number) => string
+  render?: (row: LogisticsRow) => ReactNode
+  /** Valeur exportée quand le CSV ne doit pas dire la valeur brute (profil). */
+  csv?: (row: LogisticsRow) => string | number | null
+  left?: boolean
+  /** Largeur max du texte, tronqué (évite qu'une valeur longue casse la ligne). */
+  maxW?: string
+  /** Colonne figée à gauche pendant le défilement horizontal. */
+  sticky?: boolean
+}
+
+const AbcBadge = ({ value }: { value: Abc }) => {
+  if (!value) return <span className="text-muted-foreground/60">—</span>
+  const tone =
+    value === 'A'
+      ? 'bg-ferme/10 text-ferme'
+      : value === 'B'
+        ? 'bg-warning/10 text-warning'
+        : 'bg-muted text-muted-foreground'
+  return (
+    <span className={cn('inline-block rounded px-1.5 py-0.5 font-mono text-2xs font-bold', tone)}>
+      {value}
+    </span>
+  )
+}
+
+const LEAD_FIELDS: Field[] = [
+  {
+    id: 'article',
+    label: 'Article',
+    value: (row) => row.article,
+    left: true,
+    sticky: true,
+    render: (row) => <span className="font-mono text-xs font-semibold">{row.article}</span>,
+  },
+  {
+    id: 'designation',
+    label: 'Désignation',
+    value: (row) => row.designation,
+    left: true,
+    maxW: '20rem',
+  },
 ]
+
+const text = (id: keyof LogisticsRow & string, label: string, maxW?: string): Field => ({
+  id,
+  label,
+  value: (row) => (row[id] as string | null) ?? null,
+  left: true,
+  maxW,
+})
+
+const STOCK_FIELDS: Field[] = [
+  text('categorie', 'Catégorie'),
+  text('famille', 'Famille'),
+  text('fournisseurNom', 'Fournisseur', '14rem'),
+  { id: 'stockA', label: 'Stock A', value: (row) => row.stockA },
+  { id: 'stockQ', label: 'Stock Q', value: (row) => row.stockQ },
+  { id: 'stockDisponible', label: 'Dispo. A', value: (row) => row.stockDisponible },
+  { id: 'stockSecurite', label: 'Sécurité', value: (row) => row.stockSecurite },
+  { id: 'delaiReapproJours', label: 'Délai (j)', value: (row) => row.delaiReapproJours },
+  { id: 'lotTechnique', label: 'Lot tech.', value: (row) => row.lotTechnique },
+  { id: 'lotEconomique', label: 'Lot éco.', value: (row) => row.lotEconomique },
+  { id: 'pmp', label: 'PMP', value: (row) => row.pmp, fmt: (v) => fmtPmp.format(v) },
+  {
+    id: 'valorisationStock',
+    label: 'Valeur stock',
+    value: (row) => row.valorisationStock,
+    fmt: (v) => fmtMoney.format(v),
+    render: (row) => (
+      <span className="font-semibold tabular-nums">{fmtMoney.format(row.valorisationStock)}</span>
+    ),
+  },
+]
+
+const FLUX_FIELDS: Field[] = [
+  { id: 'consommation12m', label: 'Conso 12m', value: (row) => row.consommation12m },
+  { id: 'joursMouvement', label: 'Jours mvt', value: (row) => row.joursMouvement },
+  { id: 'operations', label: 'Opérations', value: (row) => row.operations },
+  {
+    id: 'moyenneParOperation',
+    label: 'Moy. / opération',
+    value: (row) => row.moyenneParOperation,
+    fmt: (v) => fmtDec.format(v),
+  },
+  {
+    id: 'cmjCalendaire',
+    label: 'CMJ / jour',
+    value: (row) => row.cmjCalendaire,
+    fmt: (v) => fmtDec.format(v),
+  },
+  { id: 'stockMoyen', label: 'Stock moyen', value: (row) => row.stockMoyen },
+  {
+    id: 'rotation',
+    label: 'Rotation',
+    value: (row) => row.rotation,
+    fmt: (v) => fmtDec.format(v),
+  },
+  {
+    id: 'couvertureJours',
+    label: 'Couverture (j)',
+    value: (row) => row.couvertureJours,
+    fmt: (v) => fmtDec.format(v),
+  },
+  { id: 'besoin12m', label: 'Besoins 12m', value: (row) => row.besoin12m },
+  { id: 'besoinEnRetard', label: 'Dont retard', value: (row) => row.besoinEnRetard },
+  { id: 'besoinMoyenMensuel', label: 'Moy. / mois', value: (row) => row.besoinMoyenMensuel },
+]
+
+const PILOTAGE_FIELDS: Field[] = [
+  text('categorie', 'Catégorie'),
+  text('fournisseurNom', 'Fournisseur', '14rem'),
+  {
+    id: 'abcHistoriqueValeur',
+    label: 'ABC conso €',
+    value: (row) => row.abcHistoriqueValeur,
+    render: (row) => <AbcBadge value={row.abcHistoriqueValeur} />,
+  },
+  {
+    id: 'abcHistoriqueFrequence',
+    label: 'ABC fréquence',
+    value: (row) => row.abcHistoriqueFrequence,
+    render: (row) => <AbcBadge value={row.abcHistoriqueFrequence} />,
+  },
+  {
+    id: 'abcPrevisionValeur',
+    label: 'ABC besoin €',
+    value: (row) => row.abcPrevisionValeur,
+    render: (row) => <AbcBadge value={row.abcPrevisionValeur} />,
+  },
+  {
+    id: 'profil',
+    label: 'Profil',
+    value: (row) => row.profil,
+    csv: (row) => profileLabels[row.profil],
+    left: true,
+    render: (row) => (
+      <span
+        className={cn(
+          'inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-2xs font-semibold',
+          profileTone[row.profil]
+        )}
+      >
+        {profileLabels[row.profil]}
+      </span>
+    ),
+  },
+  {
+    id: 'valorisationConsommation',
+    label: 'Valeur conso',
+    value: (row) => row.valorisationConsommation,
+    fmt: (v) => fmtMoney.format(v),
+  },
+  {
+    id: 'valorisationBesoin',
+    label: 'Valeur besoins',
+    value: (row) => row.valorisationBesoin,
+    fmt: (v) => fmtMoney.format(v),
+  },
+]
+
+const FIELDS_BY_VIEW: Record<View, Field[]> = {
+  stock: STOCK_FIELDS,
+  flux: FLUX_FIELDS,
+  pilotage: PILOTAGE_FIELDS,
+}
+
+const FIELD_BY_ID = new Map<string, Field>(
+  [LEAD_FIELDS, STOCK_FIELDS, FLUX_FIELDS, PILOTAGE_FIELDS]
+    .flat()
+    .map((field) => [field.id, field] as const)
+)
+
+/** Colonnes de l'export = article, désignation puis toutes les rubriques, sans doublon. */
+const CSV_FIELDS: Field[] = (() => {
+  const seen = new Set<string>()
+  const out: Field[] = []
+  for (const field of [
+    LEAD_FIELDS[0],
+    LEAD_FIELDS[1],
+    ...STOCK_FIELDS,
+    ...FLUX_FIELDS,
+    ...PILOTAGE_FIELDS,
+  ]) {
+    if (seen.has(field.id)) continue
+    seen.add(field.id)
+    out.push(field)
+  }
+  return out
+})()
 
 function downloadCsv(rows: LogisticsRow[]) {
   const escape = (value: string | number | null) => {
     const raw = value === null ? '' : String(value)
-    const text = typeof value === 'string' && /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw
-    return `"${text.replace(/"/g, '""')}"`
+    const guard = typeof value === 'string' && /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw
+    return `"${guard.replace(/"/g, '""')}"`
   }
   const content = [
-    ALL_COLUMNS.map(([label]) => escape(label)).join(';'),
-    ...rows.map((row) => ALL_COLUMNS.map(([, value]) => escape(value(row))).join(';')),
+    CSV_FIELDS.map((field) => escape(field.label)).join(';'),
+    ...rows.map((row) =>
+      CSV_FIELDS.map((field) => escape((field.csv ?? field.value)(row))).join(';')
+    ),
   ].join('\n')
   const url = URL.createObjectURL(new Blob(['\uFEFF', content], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
@@ -140,45 +353,99 @@ function downloadCsv(rows: LogisticsRow[]) {
   URL.revokeObjectURL(url)
 }
 
-function AbcBadge({ value }: { value: Abc }) {
-  if (!value) return <span className="text-muted-foreground">—</span>
-  const color =
-    value === 'A'
-      ? 'bg-emerald-50 text-emerald-700'
-      : value === 'B'
-        ? 'bg-amber-50 text-amber-700'
-        : 'bg-slate-100 text-slate-600'
-  return <span className={`rounded px-2 py-0.5 text-xs font-bold ${color}`}>{value}</span>
+/** Cellule : `—` pour l'inconnu, format français pour les nombres. */
+const display = (field: Field, row: LogisticsRow): ReactNode => {
+  const value = field.value(row)
+  if (value === null || value === '') return <span className="text-muted-foreground/60">—</span>
+  if (typeof value === 'number') return (field.fmt ?? fmtQty.format)(value)
+  if (field.maxW)
+    return (
+      <span className="block truncate" style={{ maxWidth: field.maxW }} title={value}>
+        {value}
+      </span>
+    )
+  return value
 }
 
-function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
+const columnFor = (field: Field): ColumnDef<LogisticsRow> => ({
+  id: field.id,
+  header: field.label,
+  cell: ({ row }) => (field.render ? field.render(row.original) : display(field, row.original)),
+  meta: {
+    // `whitespace-nowrap` sur l'en-tête : sans lui, « Dispo. A » ou « Valeur stock »
+    // passent à la ligne et le libellé se chevauche avec la flèche de tri.
+    thClass: cn(
+      'whitespace-nowrap',
+      field.left ? 'text-left' : 'text-right',
+      field.sticky && 'sticky left-0 z-20 bg-card'
+    ),
+    tdClass: cn(
+      'whitespace-nowrap text-xs',
+      field.left ? 'text-left' : 'text-right font-mono tabular-nums',
+      field.sticky && 'sticky left-0 z-[1] bg-card'
+    ),
+  },
+})
+
+/* ─── Filtre (facette du FilterMenu) ─────────────────────────────────────── */
+
+function Facet({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel,
+  labels,
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (value: string) => void
+  allLabel: string
+  labels?: Record<string, string>
+}) {
+  if (options.length === 0) return null
+  const rowClass = (active: boolean) =>
+    cn(
+      'w-full truncate rounded-md px-2 py-1 text-left text-xs transition-colors',
+      active ? 'bg-brand-soft font-semibold text-brand' : 'text-foreground hover:bg-muted'
+    )
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+    <div className="border-b border-rule-soft px-0.5 pb-2 last:border-b-0 last:pb-0 mb-2 last:mb-0">
+      <FilterMenuSectionLabel>{label}</FilterMenuSectionLabel>
+      <div className="max-h-40 overflow-auto">
+        <button type="button" className={rowClass(value === '')} onClick={() => onChange('')}>
+          {allLabel}
+        </button>
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={rowClass(value === option)}
+            onClick={() => onChange(option)}
+            title={labels?.[option] ?? option}
+          >
+            {labels?.[option] ?? option}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
 
-const cell = 'whitespace-nowrap border-b border-border/70 px-3 py-2 text-right tabular-nums'
-const head =
-  'sticky top-0 z-10 whitespace-nowrap border-b border-border bg-muted/80 px-3 py-2 text-right text-xs font-semibold'
-
 export default function AnalyseLogistique({ rowsHref }: { rowsHref: string }) {
-  const [refresh, setRefresh] = useState(0)
+  const [bust, setBust] = useState(0)
   const [query, setQuery] = useState('')
   const [categorie, setCategorie] = useState('')
   const [famille, setFamille] = useState('')
   const [fournisseur, setFournisseur] = useState('')
   const [profil, setProfil] = useState('')
   const [view, setView] = useState<View>('stock')
-  const [sort, setSort] = useState<Sort>('valeur')
-  const [ascending, setAscending] = useState(false)
-  const [page, setPage] = useState(0)
+  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'valorisationStock', desc: true }])
   const [article, setArticle] = useState<string | null>(null)
-  const url = refresh ? `${rowsHref}?refresh=${refresh}` : rowsHref
-  const { data, loading, error, elapsed } = useTimedFetch<Response>(url)
+
+  const url = bust ? `${rowsHref}?refresh=${bust}` : rowsHref
+  const { data, loading, error, ms, elapsed } = useTimedFetch<Response>(url)
   const rows = data?.rows ?? EMPTY_ROWS
 
   const options = useMemo(() => {
@@ -195,7 +462,7 @@ export default function AnalyseLogistique({ rowsHref }: { rowsHref: string }) {
 
   const filtered = useMemo(() => {
     const needle = fold(query.trim())
-    const matches = rows.filter(
+    return rows.filter(
       (row) =>
         (!needle ||
           fold(`${row.article} ${row.designation} ${row.fournisseurNom ?? ''}`).includes(needle)) &&
@@ -204,23 +471,27 @@ export default function AnalyseLogistique({ rowsHref }: { rowsHref: string }) {
         (!fournisseur || row.fournisseurNom === fournisseur) &&
         (!profil || row.profil === profil)
     )
-    const values: Record<Sort, (row: LogisticsRow) => string | number> = {
-      article: (row) => row.article,
-      valeur: (row) => row.valorisationStock,
-      couverture: (row) => row.couvertureJours ?? -1,
-      besoin: (row) => row.besoin12m,
-      consommation: (row) => row.consommation12m,
-    }
-    return matches.sort((a, b) => {
-      const left = values[sort](a)
-      const right = values[sort](b)
+  }, [rows, query, categorie, famille, fournisseur, profil])
+
+  const sorted = useMemo(() => {
+    const first = sorting[0]
+    const field = first ? FIELD_BY_ID.get(first.id) : undefined
+    if (!first || !field) return filtered
+    const direction = first.desc ? -1 : 1
+    return [...filtered].sort((a, b) => {
+      const left = field.value(a)
+      const right = field.value(b)
+      const byArticle = a.article.localeCompare(b.article, 'fr')
+      if (left === null && right === null) return byArticle
+      if (left === null) return 1
+      if (right === null) return -1
       const order =
         typeof left === 'number' && typeof right === 'number'
           ? left - right
           : String(left).localeCompare(String(right), 'fr')
-      return (ascending ? order : -order) || a.article.localeCompare(b.article)
+      return direction * order || byArticle
     })
-  }, [rows, query, categorie, famille, fournisseur, profil, sort, ascending])
+  }, [filtered, sorting])
 
   const totals = useMemo(
     () => ({
@@ -233,357 +504,250 @@ export default function AnalyseLogistique({ rowsHref }: { rowsHref: string }) {
     }),
     [filtered]
   )
-  const pageSize = 75
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const currentPage = Math.min(page, pageCount - 1)
-  const visibleRows = filtered.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
-  const changeFilter = (update: () => void) => {
-    update()
-    setPage(0)
-  }
 
-  const toolbar = (
-    <div className="flex w-full flex-wrap items-center gap-2">
-      <div className="relative min-w-48 flex-1">
-        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-        <input
-          aria-label="Rechercher un article"
-          placeholder="Article, désignation, fournisseur…"
-          value={query}
-          onChange={(event) => changeFilter(() => setQuery(event.target.value))}
-          className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm"
-        />
-      </div>
-      <select
-        aria-label="Catégorie"
-        value={categorie}
-        onChange={(event) => changeFilter(() => setCategorie(event.target.value))}
-        className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-      >
-        <option value="">Toutes catégories</option>
-        {options.categories.map((value) => (
-          <option key={value}>{value}</option>
-        ))}
-      </select>
-      <select
-        aria-label="Famille"
-        value={famille}
-        onChange={(event) => changeFilter(() => setFamille(event.target.value))}
-        className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-      >
-        <option value="">Toutes familles</option>
-        {options.familles.map((value) => (
-          <option key={value}>{value}</option>
-        ))}
-      </select>
-      <select
-        aria-label="Fournisseur"
-        value={fournisseur}
-        onChange={(event) => changeFilter(() => setFournisseur(event.target.value))}
-        className="h-9 max-w-52 rounded-md border border-border bg-background px-2 text-sm"
-      >
-        <option value="">Tous fournisseurs</option>
-        {options.fournisseurs.map((value) => (
-          <option key={value}>{value}</option>
-        ))}
-      </select>
-      <select
-        aria-label="Profil"
-        value={profil}
-        onChange={(event) => changeFilter(() => setProfil(event.target.value))}
-        className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-      >
-        <option value="">Tous profils</option>
-        {Object.entries(profileLabels).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        onClick={() => setRefresh(Date.now())}
-        className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-sm"
-        title="Recalculer les données"
-      >
-        <RefreshCw size={15} /> Actualiser
-      </button>
-    </div>
+  const activeFilters = [categorie, famille, fournisseur, profil].filter(Boolean).length
+  const columns = useMemo(
+    () => [LEAD_FIELDS[0], LEAD_FIELDS[1], ...FIELDS_BY_VIEW[view]].map(columnFor),
+    [view]
   )
+  const resetFilters = () => {
+    setCategorie('')
+    setFamille('')
+    setFournisseur('')
+    setProfil('')
+  }
 
   return (
     <AppLayout
-      active="logistics_analysis"
-      subtitle="Analyse logistique"
       title="Analyse logistique"
-      toolbar={toolbar}
-      maxWidth="full"
+      active="logistics_analysis"
+      subtitle="Logistique · Analyse ABC"
+      theme="airbnb"
+      dense
+      scrollable={false}
     >
-      <div className="space-y-4 pb-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Analyse logistique</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Site {data?.site ?? 'AE1'} · {data?.from || '…'} au {data?.to || '…'} · 12 mois
-              calendaires, mois en cours inclus.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              aria-label="Trier par"
-              value={sort}
-              onChange={(event) => setSort(event.target.value as Sort)}
-              className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+      <div data-print-page className="flex h-full flex-col overflow-hidden">
+        {/* ═══ Toolbar ═══ */}
+        <ToolbarRow>
+          <Segment role="radiogroup" ariaLabel="Rubrique">
+            <SegmentButton
+              role="radio"
+              active={view === 'stock'}
+              onClick={() => setView('stock')}
+              title="Stock, articles et paramètres d'approvisionnement"
             >
-              <option value="valeur">Valeur du stock</option>
-              <option value="article">Article</option>
-              <option value="couverture">Couverture</option>
-              <option value="besoin">Besoins</option>
-              <option value="consommation">Consommation</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => setAscending((value) => !value)}
-              aria-label={ascending ? 'Tri croissant' : 'Tri décroissant'}
-              className="flex size-9 items-center justify-center rounded-md border border-border"
+              Stock
+            </SegmentButton>
+            <SegmentButton
+              role="radio"
+              active={view === 'flux'}
+              onClick={() => setView('flux')}
+              title="Consommation, rotation et couverture"
             >
-              {ascending ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadCsv(filtered)}
-              disabled={!filtered.length}
-              className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-sm disabled:opacity-50"
+              Flux
+            </SegmentButton>
+            <SegmentButton
+              role="radio"
+              active={view === 'pilotage'}
+              onClick={() => setView('pilotage')}
+              title="Classes ABC et profil de vie"
             >
-              <Download size={15} /> CSV
-            </button>
-          </div>
-        </div>
+              Pilotage
+            </SegmentButton>
+          </Segment>
 
-        {loading && !data && (
-          <p className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-            Chargement des données X3… {Math.round(elapsed / 1000)} s
-          </p>
-        )}
-        {(error || data?.x3Error) && (
-          <p
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          <FilterMenu
+            label="Filtres"
+            indicators={
+              activeFilters > 0 ? (
+                <span className="font-mono text-2xs font-bold text-brand">{activeFilters}</span>
+              ) : undefined
+            }
           >
-            {data?.x3Error ?? error?.message}
-          </p>
-        )}
-
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Articles" value={fmtQty.format(filtered.length)} hint="Après filtres" />
-          <Metric label="Valeur du stock A + Q" value={fmtMoney.format(totals.stock)} />
-          <Metric
-            label="Valeur consommation"
-            value={fmtMoney.format(totals.consommation)}
-            hint="Sorties nettes sur la période"
-          />
-          <Metric
-            label="Sous stock de sécurité"
-            value={fmtQty.format(totals.sousSecurite)}
-            hint="Stock A non alloué"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div
-            role="tablist"
-            aria-label="Rubrique"
-            className="inline-flex rounded-lg border border-border bg-muted/50 p-1"
-          >
-            {(
-              [
-                ['stock', 'Stock'],
-                ['flux', 'Flux'],
-                ['pilotage', 'Pilotage'],
-              ] as const
-            ).map(([value, label]) => (
+            <Facet
+              label="Catégorie"
+              value={categorie}
+              options={options.categories}
+              onChange={setCategorie}
+              allLabel="Toutes catégories"
+            />
+            <Facet
+              label="Famille"
+              value={famille}
+              options={options.familles}
+              onChange={setFamille}
+              allLabel="Toutes familles"
+            />
+            <Facet
+              label="Fournisseur"
+              value={fournisseur}
+              options={options.fournisseurs}
+              onChange={setFournisseur}
+              allLabel="Tous fournisseurs"
+            />
+            <Facet
+              label="Profil"
+              value={profil}
+              options={Object.keys(profileLabels)}
+              labels={profileLabels}
+              onChange={setProfil}
+              allLabel="Tous profils"
+            />
+            {activeFilters > 0 && (
               <button
-                key={value}
                 type="button"
-                role="tab"
-                aria-selected={view === value}
-                onClick={() => setView(value)}
-                className={`rounded-md px-4 py-1.5 text-sm font-medium ${view === value ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
+                className={cn(PILL, 'w-full justify-center')}
+                onClick={resetFilters}
               >
-                {label}
+                Réinitialiser les filtres
               </button>
-            ))}
+            )}
+          </FilterMenu>
+
+          <ToolbarSpacer />
+
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {loading ? fmtMs(elapsed) : ms !== null ? fmtMs(ms) : ''}
+          </span>
+
+          {/* Recherche — systématiquement à droite (convention toolbar). */}
+          <div className={PILL}>
+            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+            <input
+              className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none placeholder:text-muted-foreground"
+              placeholder="Article, désignation, fournisseur…"
+              type="text"
+              autoComplete="off"
+              aria-label="Rechercher un article"
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+            />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Besoins ouverts : {fmtMoney.format(totals.besoin)} · CMJ par jour calendaire ·
-            couverture sur stock A non alloué
-          </p>
+
+          <button
+            type="button"
+            onClick={() => downloadCsv(sorted)}
+            disabled={sorted.length === 0}
+            className={cn(PILL, 'disabled:opacity-40')}
+            title="Exporter la sélection en CSV"
+          >
+            <Download size={14} strokeWidth={1.75} className="text-muted-foreground" />
+            <span className="font-mono text-2xs font-semibold">CSV</span>
+          </button>
+
+          <RefreshPill loading={loading} onClick={() => setBust((value) => value + 1)} />
+        </ToolbarRow>
+
+        {/* ═══ Bandeau compteurs ═══ */}
+        <div className="flex flex-none flex-wrap items-stretch border-b border-rule-soft px-4 md:px-7 print:hidden">
+          {(
+            [
+              ['Articles', fmtQty.format(filtered.length), 'après filtres'],
+              ['Valeur stock A + Q', fmtMoney.format(totals.stock), null],
+              ['Valeur consommation', fmtMoney.format(totals.consommation), 'sorties nettes'],
+              [
+                'Sous stock de sécurité',
+                fmtQty.format(totals.sousSecurite),
+                'sur stock A non alloué',
+              ],
+            ] as const
+          ).map(([label, value, hint]) => (
+            <div
+              key={label}
+              className="flex flex-col justify-center gap-0.5 border-l border-rule-soft px-4 py-1.5 first:border-l-0 first:pl-0"
+            >
+              <span className="font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+                {label}
+              </span>
+              <span className="font-fraunces text-[18px] font-extrabold leading-none tabular-nums text-foreground">
+                {value}
+              </span>
+              {hint && <span className="font-mono text-3xs text-muted-foreground/70">{hint}</span>}
+            </div>
+          ))}
+
+          <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 font-mono text-[11px] text-muted-foreground">
+            <span>
+              Site {data?.site ?? 'AE1'} · {isoToFr(data?.from ?? '')} → {isoToFr(data?.to ?? '')} ·{' '}
+              {data?.calendarDays ?? 0} j
+            </span>
+            <span title="Valeur des besoins ouverts à moins de 12 mois, retards inclus">
+              Besoins {fmtMoney.format(totals.besoin)}
+            </span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-max text-sm">
-            <thead>
-              <tr>
-                <th className={head + ' left-0 text-left'}>Article</th>
-                <th className={head + ' text-left'}>Désignation</th>
-                {view === 'stock' && (
-                  <>
-                    <th className={head + ' text-left'}>Catégorie</th>
-                    <th className={head + ' text-left'}>Famille</th>
-                    <th className={head + ' text-left'}>Fournisseur</th>
-                    <th className={head}>Stock A</th>
-                    <th className={head}>Stock Q</th>
-                    <th className={head}>Disponible A</th>
-                    <th className={head}>Sécurité</th>
-                    <th className={head}>Délai</th>
-                    <th className={head}>Lot tech.</th>
-                    <th className={head}>Lot éco.</th>
-                    <th className={head}>PMP</th>
-                    <th className={head}>Valeur</th>
-                  </>
-                )}
-                {view === 'flux' && (
-                  <>
-                    <th className={head}>Conso 12m</th>
-                    <th className={head}>Jours mvt</th>
-                    <th className={head}>Opérations</th>
-                    <th className={head}>Moy. / opération</th>
-                    <th className={head}>CMJ calendaire</th>
-                    <th className={head}>Stock moyen</th>
-                    <th className={head}>Rotation</th>
-                    <th className={head}>Couverture</th>
-                    <th className={head}>Besoins 12m</th>
-                    <th className={head}>Dont retard</th>
-                    <th className={head}>Moy. / mois</th>
-                  </>
-                )}
-                {view === 'pilotage' && (
-                  <>
-                    <th className={head + ' text-left'}>Catégorie</th>
-                    <th className={head + ' text-left'}>Fournisseur</th>
-                    <th className={head}>ABC conso €</th>
-                    <th className={head}>ABC fréquence</th>
-                    <th className={head}>ABC besoin €</th>
-                    <th className={head + ' text-left'}>Profil</th>
-                    <th className={head}>Valeur conso</th>
-                    <th className={head}>Valeur besoins</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((row) => (
-                <tr key={row.article} className="hover:bg-muted/40">
-                  <td className={cell + ' sticky left-0 bg-card text-left font-medium'}>
-                    <button
-                      type="button"
-                      onClick={() => setArticle(row.article)}
-                      className="text-primary hover:underline"
-                    >
-                      {row.article}
-                    </button>
-                  </td>
-                  <td className={cell + ' max-w-64 truncate text-left'} title={row.designation}>
-                    {row.designation}
-                  </td>
-                  {view === 'stock' && (
-                    <>
-                      <td className={cell + ' text-left'}>{row.categorie}</td>
-                      <td className={cell + ' text-left'}>{row.famille ?? '—'}</td>
-                      <td className={cell + ' text-left'}>{row.fournisseurNom ?? '—'}</td>
-                      <td className={cell}>{fmtQty.format(row.stockA)}</td>
-                      <td className={cell}>{fmtQty.format(row.stockQ)}</td>
-                      <td className={cell}>{fmtQty.format(row.stockDisponible)}</td>
-                      <td className={cell}>{numberOrDash(row.stockSecurite)}</td>
-                      <td className={cell}>{numberOrDash(row.delaiReapproJours)}</td>
-                      <td className={cell}>{numberOrDash(row.lotTechnique)}</td>
-                      <td className={cell}>{numberOrDash(row.lotEconomique)}</td>
-                      <td className={cell}>{fmtPmp.format(row.pmp)}</td>
-                      <td className={cell + ' font-semibold'}>
-                        {fmtMoney.format(row.valorisationStock)}
-                      </td>
-                    </>
-                  )}
-                  {view === 'flux' && (
-                    <>
-                      <td className={cell}>{fmtQty.format(row.consommation12m)}</td>
-                      <td className={cell}>{fmtQty.format(row.joursMouvement)}</td>
-                      <td className={cell}>{fmtQty.format(row.operations)}</td>
-                      <td className={cell}>{numberOrDash(row.moyenneParOperation)}</td>
-                      <td className={cell}>{numberOrDash(row.cmjCalendaire, fmtDec)}</td>
-                      <td className={cell}>{fmtQty.format(row.stockMoyen)}</td>
-                      <td className={cell}>{numberOrDash(row.rotation, fmtDec)}</td>
-                      <td className={cell}>
-                        {row.couvertureJours === null
-                          ? '—'
-                          : `${fmtDec.format(row.couvertureJours)} j`}
-                      </td>
-                      <td className={cell}>{fmtQty.format(row.besoin12m)}</td>
-                      <td className={cell}>{fmtQty.format(row.besoinEnRetard)}</td>
-                      <td className={cell}>{fmtQty.format(row.besoinMoyenMensuel)}</td>
-                    </>
-                  )}
-                  {view === 'pilotage' && (
-                    <>
-                      <td className={cell + ' text-left'}>{row.categorie}</td>
-                      <td className={cell + ' text-left'}>{row.fournisseurNom ?? '—'}</td>
-                      <td className={cell}>
-                        <AbcBadge value={row.abcHistoriqueValeur} />
-                      </td>
-                      <td className={cell}>
-                        <AbcBadge value={row.abcHistoriqueFrequence} />
-                      </td>
-                      <td className={cell}>
-                        <AbcBadge value={row.abcPrevisionValeur} />
-                      </td>
-                      <td className={cell + ' text-left'}>{profileLabels[row.profil]}</td>
-                      <td className={cell}>{fmtMoney.format(row.valorisationConsommation)}</td>
-                      <td className={cell}>{fmtMoney.format(row.valorisationBesoin)}</td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!loading && filtered.length === 0 && !data?.x3Error && (
-            <p className="p-8 text-center text-sm text-muted-foreground">
-              Aucun article ne correspond aux filtres.
-            </p>
-          )}
-        </div>
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {fmtQty.format(filtered.length)} articles · page {currentPage + 1} / {pageCount}
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={currentPage === 0}
-              onClick={() => setPage(currentPage - 1)}
-              className="rounded-md border border-border px-3 py-1.5 disabled:opacity-40"
-            >
-              Précédent
-            </button>
-            <button
-              type="button"
-              disabled={currentPage >= pageCount - 1}
-              onClick={() => setPage(currentPage + 1)}
-              className="rounded-md border border-border px-3 py-1.5 disabled:opacity-40"
-            >
-              Suivant
-            </button>
+        {/* ═══ X3 injoignable ═══ */}
+        {data?.x3Error && (
+          <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 md:px-7 py-2 text-[12px] text-foreground">
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
+            <span className="font-bold">Erreur chargement analyse :</span>
+            <span className="font-mono">{data.x3Error}</span>
           </div>
-        </div>
-        <details className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
-          <summary className="cursor-pointer font-medium">Méthode de calcul</summary>
-          <div className="mt-3 grid gap-2 text-muted-foreground md:grid-cols-2">
+        )}
+
+        {/* ═══ Table ═══ */}
+        {loading && !data ? (
+          <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
+            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
+            <span className="text-[13px] font-medium">
+              Calcul de l'analyse logistique… {fmtMs(elapsed)}
+            </span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+            <CircleX size={20} strokeWidth={1.75} />
+            Échec du chargement de l'analyse logistique.
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'flex min-h-0 flex-1 flex-col transition-opacity duration-150',
+              loading && 'pointer-events-none opacity-50'
+            )}
+          >
+            <DataTable
+              columns={columns}
+              rows={sorted}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              getRowKey={(row) => row.article}
+              selectedRowKey={article}
+              onRowClick={(row) => setArticle(row.article)}
+              columnDividers
+              mobileCards
+              scrollContainerClass="h-full rounded-lg border-rule"
+              emptyState={
+                <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
+                  {data?.x3Error ? (
+                    <CloudOff size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
+                  ) : (
+                    <Inbox size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
+                  )}
+                  <span className="font-fraunces text-[14px] italic text-muted-foreground">
+                    {data?.x3Error
+                      ? 'Données indisponibles (X3 injoignable).'
+                      : 'Aucun article ne correspond aux filtres.'}
+                  </span>
+                </div>
+              }
+            />
+          </div>
+        )}
+
+        {/* ═══ Méthode de calcul ═══ */}
+        <details className="flex-none border-t border-rule-soft px-4 pb-1.5 md:px-7 print:hidden">
+          <summary className="cursor-pointer list-none py-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+            Méthode de calcul
+          </summary>
+          <div className="grid gap-1.5 pb-2 text-[11px] text-muted-foreground md:grid-cols-2">
             <p>
               Stock disponible = stock A moins allocations, borné à zéro. Le stock Q reste visible à
               part et entre dans la valorisation A + Q.
             </p>
             <p>
               Consommation = sorties nettes par document (livraisons des produits concernés et
-              sorties d’OF). La CMJ divise cette quantité par les jours calendaires de la fenêtre.
+              sorties d'OF). La CMJ divise cette quantité par les jours calendaires de la fenêtre.
             </p>
             <p>
               Stock moyen = moyenne des stocks de fin de mois reconstruits depuis le stock courant.
@@ -596,12 +760,13 @@ export default function AnalyseLogistique({ rowsHref }: { rowsHref: string }) {
             </p>
           </div>
         </details>
+
+        <StockArticleSheet
+          article={article}
+          open={article !== null}
+          onOpenChange={(open) => !open && setArticle(null)}
+        />
       </div>
-      <StockArticleSheet
-        article={article}
-        open={article !== null}
-        onOpenChange={(open) => !open && setArticle(null)}
-      />
     </AppLayout>
   )
 }
