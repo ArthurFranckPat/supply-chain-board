@@ -228,6 +228,7 @@ export interface StockArticleRow {
   designation: string
   categorie: string
   stock: number // quantité en stock (PHYSTO + CTLSTO)
+  stockMoyen: number // moyenne des stocks de fin de période sur la plage
   pmp: number
   valeur: number // stock × pmp (€)
 }
@@ -517,8 +518,10 @@ export class StockValuationRepository {
       // Rembobinage depuis stkAnchor : du plus récent (i = len-1) au plus ancien.
       // runningSub = Σ des qtés nettes des périodes PLUS RÉCENTES que i.
       let runningQtySub = 0
+      let stockSum = 0
       for (let i = refPeriods.length - 1; i >= 0; i--) {
         const qtyClose = stkAnchor - runningQtySub
+        stockSum += qtyClose
         seriesAcc[i].valeur += qtyClose * pmp
         seriesAcc[i].qte += qtyClose
         seriesAcc[i].categories.set(cat, (seriesAcc[i].categories.get(cat) ?? 0) + qtyClose * pmp)
@@ -533,6 +536,8 @@ export class StockValuationRepository {
         designation: row.DESIGNATION?.trim() ?? '',
         categorie: cat,
         stock: Math.round(stkAnchor * 100) / 100,
+        stockMoyen:
+          refPeriods.length > 0 ? Math.round((stockSum / refPeriods.length) * 100) / 100 : 0,
         pmp: Math.round(pmp * 1_000_000) / 1_000_000,
         valeur: Math.round(valeur * 100) / 100,
       })

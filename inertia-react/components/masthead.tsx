@@ -36,6 +36,7 @@ export type MastheadTab =
   | 'tracking'
   | 'receptions'
   | 'conditionnements'
+  | 'logistics_analysis'
   | 'promesse'
   | 'copilote'
   | 'config'
@@ -103,6 +104,11 @@ const LOGISTIQUE_GROUPS: TabGroup[] = [
     tabs: [
       { key: 'receptions', label: 'Réceptions', href: route('receptions.index') },
       { key: 'conditionnements', label: 'Conditionnements', href: route('conditionnements.index') },
+      {
+        key: 'logistics_analysis',
+        label: 'Analyse logistique',
+        href: route('logistics_analysis.index'),
+      },
     ],
   },
 ]
